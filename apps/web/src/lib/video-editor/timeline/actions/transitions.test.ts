@@ -11,7 +11,7 @@ import {
 	updateTransition,
 	updateTransitionPresentation
 } from './transitions.svelte';
-import { transitionBlendsAtFrame } from '../../media/render-plan';
+import { prepareTransitionBlends, transitionBlendsAtFrame } from '../../media/render-plan';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 
 function clip(from: number, duration = 60): TimelineItem {
@@ -152,22 +152,17 @@ describe('transitions', () => {
 		const [left, right] = setup();
 		addTransition(left.id, right.id, 'crossfade', 30);
 
-		const before = transitionBlendsAtFrame(transitionsStore.list, timelineStore.itemById, 44).get(
-			left.id
-		);
+		const prepared = prepareTransitionBlends(transitionsStore.list, timelineStore.itemById);
+		const before = transitionBlendsAtFrame(prepared, 44).get(left.id);
 		expect(before).toBeUndefined();
 
-		const mid = transitionBlendsAtFrame(transitionsStore.list, timelineStore.itemById, 60).get(
-			left.id
-		);
+		const mid = transitionBlendsAtFrame(prepared, 60).get(left.id);
 		expect(mid?.progress).toBeCloseTo(15 / 29);
 		expect(outgoingOpacity('crossfade', mid!.progress)).toBeCloseTo(14 / 29);
 		expect(incomingOpacity('crossfade', mid!.progress)).toBeCloseTo(15 / 29);
 
 		// Past the centered window (frames 45..75) there is no blend.
-		const after = transitionBlendsAtFrame(transitionsStore.list, timelineStore.itemById, 90).get(
-			left.id
-		);
+		const after = transitionBlendsAtFrame(prepared, 90).get(left.id);
 		expect(after).toBeUndefined();
 	});
 

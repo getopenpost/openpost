@@ -61,6 +61,7 @@
 	import {
 		paintOrder,
 		planNestedMixdown,
+		prepareTransitionBlends,
 		transitionBlendsAtFrame
 	} from '$lib/video-editor/media/render-plan';
 	import { collectMixEntryDuckWindows } from '$lib/video-editor/audio/audio-ducking';
@@ -240,13 +241,13 @@
 	} | null = null;
 	const sourceProviders = new Map<string, PreviewSourceProvider>();
 	const orderedItems = $derived(paintOrder(timelineStore.items, timelineStore.tracks));
-	const activeTransitions = $derived(
-		transitionBlendsAtFrame(
+	const preparedTransitions = $derived(
+		prepareTransitionBlends(
 			transitionsStore.list,
-			new Map(orderedItems.map((item) => [item.id, item])),
-			displayFrame
+			new Map(orderedItems.map((item) => [item.id, item]))
 		)
 	);
+	const activeTransitions = $derived(transitionBlendsAtFrame(preparedTransitions, displayFrame));
 	const activeItems = $derived.by(() =>
 		orderedItems.filter(
 			(item) =>

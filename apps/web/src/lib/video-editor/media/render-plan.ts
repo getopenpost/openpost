@@ -34,7 +34,8 @@ import { effectiveMediaTracks } from '../timeline/utils/track-groups';
 import {
 	calculateTransitionProgress,
 	nonOverlappingTransitions,
-	resolveTransitionWindow
+	resolveTransitionWindow,
+	type TransitionWindow
 } from '../timeline/transition-planner';
 import {
 	hasLinkedAudioCompanion,
@@ -836,22 +837,35 @@ function volumeGainPoints(
 	return points.length > 0 ? points : [{ whenSeconds: startFrame / fps, value: baseGain }];
 }
 
-/**
- * Transition state at an absolute timeline frame, computed against an explicit
- * item map so export can run without touching live store state.
- */
-export function transitionBlendsAtFrame(
+export interface PreparedTransition {
+	transition: TimelineTransition;
+	window: TransitionWindow;
+}
+
+/** Resolve authored conflicts and cut windows once when the timeline changes. */
+export function prepareTransitionBlends(
 	transitions: TimelineTransition[],
-	itemsById: Map<string, TimelineItem>,
-	frame: number
-): Map<string, TransitionBlend> {
-	const blends = new Map<string, TransitionBlend>();
+	itemsById: Map<string, TimelineItem>
+): PreparedTransition[] {
+	const prepared: PreparedTransition[] = [];
 	for (const transition of nonOverlappingTransitions(transitions, itemsById)) {
 		const from = itemsById.get(transition.fromItemId);
 		const to = itemsById.get(transition.toItemId);
 		if (!from || !to) continue;
 		const window = resolveTransitionWindow(transition, from, to);
-		if (!window || frame < window.startFrame || frame >= window.endFrame) continue;
+		if (window) prepared.push({ transition, window });
+	}
+	return prepared;
+}
+
+/** Per-frame progress over a prepared timeline, shared by preview and export. */
+export function transitionBlendsAtFrame(
+	prepared: readonly PreparedTransition[],
+	frame: number
+): Map<string, TransitionBlend> {
+	const blends = new Map<string, TransitionBlend>();
+	for (const { transition, window } of prepared) {
+		if (frame < window.startFrame || frame >= window.endFrame) continue;
 		const progress = calculateTransitionProgress(
 			frame - window.startFrame,
 			window.durationInFrames,
@@ -859,14 +873,14 @@ export function transitionBlendsAtFrame(
 			transition.bezierPoints
 		);
 		const blend: TransitionBlend = {
-			outgoingId: from.id,
-			incomingId: to.id,
+			outgoingId: transition.fromItemId,
+			incomingId: transition.toItemId,
 			progress,
 			type: transition.type,
 			transition
 		};
-		blends.set(from.id, blend);
-		blends.set(to.id, blend);
+		blends.set(blend.outgoingId, blend);
+		blends.set(blend.incomingId, blend);
 	}
 	return blends;
 }

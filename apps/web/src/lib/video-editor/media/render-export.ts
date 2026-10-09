@@ -35,7 +35,7 @@ import {
 	WavOutputFormat,
 	WebMOutputFormat
 } from 'mediabunny';
-import type { Project, TimelineItem, TimelineTransition } from '../project/types';
+import type { Project, TimelineItem } from '../project/types';
 import { mediaPool } from './pool.svelte';
 import { resolveMediaBlob } from './resolve-media-blob';
 import { resolveAnimatedItemAt } from '../timeline/animated-properties';
@@ -68,6 +68,8 @@ import {
 	planNestedMixdown,
 	sliceMixEntries,
 	transitionBlendsAtFrame,
+	prepareTransitionBlends,
+	type PreparedTransition,
 	type MixEntry
 } from './render-plan';
 import { shapeMasksForTrack } from '../shapes/masks';
@@ -268,7 +270,7 @@ export class TimelineFrameRenderer {
 	private readonly backgroundColor: string | null;
 	private readonly fps: number;
 	private readonly orderedItems: TimelineItem[];
-	private readonly transitions: TimelineTransition[];
+	private readonly transitions: PreparedTransition[];
 	private readonly itemsById: Map<string, TimelineItem>;
 	private readonly burnSubtitles: boolean;
 	private readonly trackOrderById: Map<string, number>;
@@ -333,8 +335,8 @@ export class TimelineFrameRenderer {
 				item.type === 'composition' ||
 				(this.burnSubtitles && item.type === 'subtitle')
 		);
-		this.transitions = project.timeline?.transitions ?? [];
 		this.itemsById = new Map(this.orderedItems.map((item) => [item.id, item]));
+		this.transitions = prepareTransitionBlends(project.timeline?.transitions ?? [], this.itemsById);
 	}
 
 	private async openVideoTrack(mediaId: string): Promise<InputVideoTrack | null> {
@@ -639,7 +641,7 @@ export class TimelineFrameRenderer {
 				)
 			);
 
-		const blends = transitionBlendsAtFrame(this.transitions, this.itemsById, frame);
+		const blends = transitionBlendsAtFrame(this.transitions, frame);
 		const resolveParticipant = async (
 			item: TimelineItem
 		): Promise<StackTransitionParticipant | null> => {

@@ -325,8 +325,8 @@ export class Clock {
 		}
 
 		if (frame !== this.lastEmittedFrame) {
-			this.emit('framechange', frame);
 			this.lastEmittedFrame = frame;
+			this.emit('framechange', frame);
 		}
 		const nowSeconds = this.timeSource.now();
 		if (nowSeconds - this.lastTimeUpdateSeconds >= this.timeUpdateInterval) {

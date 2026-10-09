@@ -121,6 +121,24 @@ describe('Clock', () => {
 		}
 	);
 
+	it('publishes each frame once when its listener pauses playback', () => {
+		const clock = new Clock({ fps: 30, timeSource: time });
+		const frames: number[] = [];
+		clock.on('framechange', (frame) => {
+			frames.push(frame);
+			if (frame === 5) clock.pause();
+		});
+		try {
+			clock.play();
+			time.advance(5 / 30);
+			raf.flush();
+			expect(frames).toEqual([0, 5]);
+			expect(clock.isPlaying).toBe(false);
+		} finally {
+			clock.dispose();
+		}
+	});
+
 	it('updates the displayed frame when pausing between animation ticks', () => {
 		const clock = new Clock({ fps: 30, timeSource: time });
 		let displayedFrame = -1;

@@ -242,6 +242,10 @@ export class Clock {
 			cancelAnimationFrame(this.rafId);
 			this.rafId = null;
 		}
+		if (this.frame !== this.lastEmittedFrame) {
+			this.lastEmittedFrame = this.frame;
+			this.emit('framechange', this.frame);
+		}
 		this.emit('pause', this.frame);
 		this.emit('timeupdate', this.frame);
 	}
@@ -280,6 +284,10 @@ export class Clock {
 		if (this.rafId !== null) {
 			cancelAnimationFrame(this.rafId);
 			this.rafId = null;
+		}
+		if (frame !== this.lastEmittedFrame) {
+			this.lastEmittedFrame = frame;
+			this.emit('framechange', frame);
 		}
 		this.emit('pause', frame);
 		this.emit('timeupdate', frame);

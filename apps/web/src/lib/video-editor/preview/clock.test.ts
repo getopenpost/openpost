@@ -73,17 +73,64 @@ describe('Clock', () => {
 		clock.dispose();
 	});
 
-	it('stops at range end and emits ended', () => {
+	it.each([
+		{
+			name: 'forward range end',
+			rate: 1,
+			start: 10,
+			range: { start: 10, end: 40 },
+			finalFrame: 39,
+			endedFrame: 40
+		},
+		{
+			name: 'reverse range start',
+			rate: -1,
+			start: 39,
+			range: { start: 10, end: 40 },
+			finalFrame: 10,
+			endedFrame: 10
+		},
+		{
+			name: 'reverse timeline start',
+			rate: -1,
+			start: 20,
+			range: undefined,
+			finalFrame: 0,
+			endedFrame: 0
+		}
+	])(
+		'updates the displayed frame when stopping at $name after a delayed tick',
+		({ rate, start, range, finalFrame, endedFrame }) => {
+			const clock = new Clock({ fps: 30, timeSource: time });
+			const ended = vi.fn();
+			let displayedFrame = -1;
+			clock.on('ended', ended);
+			clock.on('framechange', (frame) => {
+				displayedFrame = frame;
+			});
+			clock.seek(start);
+			clock.setRate(rate);
+			clock.play({ range });
+			time.advance(5);
+			raf.flush(2);
+
+			expect(ended).toHaveBeenCalledWith(endedFrame);
+			expect(clock.isPlaying).toBe(false);
+			expect(displayedFrame).toBe(finalFrame);
+			clock.dispose();
+		}
+	);
+
+	it('updates the displayed frame when pausing between animation ticks', () => {
 		const clock = new Clock({ fps: 30, timeSource: time });
-		const ended = vi.fn();
-		clock.on('ended', ended);
-
-		clock.play({ range: { start: 10, end: 40 } });
-		time.advance(5); // would be frame 160 unbounded
-		raf.flush(2);
-
-		expect(ended).toHaveBeenCalledWith(40);
-		expect(clock.isPlaying).toBe(false);
+		let displayedFrame = -1;
+		clock.on('framechange', (frame) => {
+			displayedFrame = frame;
+		});
+		clock.play();
+		time.advance(0.5);
+		clock.pause();
+		expect(displayedFrame).toBe(15);
 		clock.dispose();
 	});
 

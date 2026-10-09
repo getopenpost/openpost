@@ -6,3 +6,4 @@
 ### Fixed
 
 - Changing a color adjustment while viewing Before now shows the edited result immediately, preserving the normal undo history.
+- Page-wide Before and After comparisons keep the artwork visible and reuse loaded media instead of briefly clearing the canvas.

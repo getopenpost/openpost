@@ -686,14 +686,18 @@ export class OpenPostFabricAdapter {
 	}): Promise<void> {
 		if (this.staticMode) return;
 		const nextLayerIDs = new Set(options.layerIDs);
-		if (
-			options.page === this.colorGradeComparisonPage &&
+		const layersUnchanged =
 			nextLayerIDs.size === this.colorGradeComparisonLayerIDs.size &&
-			[...nextLayerIDs].every((id) => this.colorGradeComparisonLayerIDs.has(id))
-		)
-			return;
+			[...nextLayerIDs].every((id) => this.colorGradeComparisonLayerIDs.has(id));
+		if (options.page === this.colorGradeComparisonPage && layersUnchanged) return;
 		this.colorGradeComparisonPage = options.page;
 		this.colorGradeComparisonLayerIDs = nextLayerIDs;
+		if (layersUnchanged) {
+			// Page grading runs after Fabric paints the existing objects. Retain them
+			// so comparison never clears the artwork or reloads its media.
+			this.canvas?.requestRenderAll();
+			return;
+		}
 		await this.render(this.document, this.page);
 	}
 

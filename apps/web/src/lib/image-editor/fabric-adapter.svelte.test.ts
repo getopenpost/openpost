@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import {
+	IMAGE_COLOR_GRADE_VERSION,
+	defaultEditorColorGradeAdjustments
+} from '$lib/editor-color-grade/model';
 import type { Canvas, IText } from 'fabric';
 import { renderImageEditorPage } from './static-renderer';
 import { OpenPostFabricAdapter } from './fabric-adapter';
@@ -127,6 +131,33 @@ function pixelDigest(canvas: HTMLCanvasElement): number {
 	}
 	return hash >>> 0;
 }
+
+it('keeps the artwork visible while switching page color comparison', async () => {
+	const page = pageFixture([renderLayer('orange', 0, 0, 360, 240)]);
+	page.color_grade_version = IMAGE_COLOR_GRADE_VERSION;
+	page.color_grade = { ...defaultEditorColorGradeAdjustments(), saturation: -1 };
+	const mounted = await mountAdapter(documentFixture(page), page);
+	try {
+		await settleCanvas();
+		const graded = pixelAt(mounted.canvas, 180, 120);
+		expect(graded[3]).toBe(255);
+		expect(Math.abs(graded[0] - graded[2])).toBeLessThanOrEqual(1);
+		for (const before of [true, false, true, false]) {
+			const previous = pixelAt(mounted.canvas, 180, 120);
+			const switching = mounted.adapter.setColorGradeComparisonBefore({
+				page: before,
+				layerIDs: []
+			});
+			// Comparison must retain a complete frame even before the next repaint.
+			expect(pixelAt(mounted.canvas, 180, 120)).toEqual(previous);
+			await switching;
+			await settleCanvas();
+			expect(pixelAt(mounted.canvas, 180, 120)).toEqual(before ? [249, 115, 22, 255] : graded);
+		}
+	} finally {
+		mounted.adapter.dispose();
+	}
+});
 
 it.each(['background', 'layer', 'font'] as const)(
 	'retires a pending %s image without reporting it missing',

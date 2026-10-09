@@ -276,7 +276,7 @@ export class TimelineFrameRenderer {
 	private readonly videoTracks = new Map<string, Promise<InputVideoTrack | null>>();
 	private readonly decoders = new Map<string, ResilientVideoFrameDecoder>();
 	private readonly activeDecoders = new Set<string>();
-	private readonly imageCache = new Map<string, ImageBitmap>();
+	private readonly imageCache = new Map<string, Promise<ImageBitmap>>();
 	private readonly animatedFrames = new Map<string, Promise<AnimatedImageFramesResult | null>>();
 	private readonly inputs: Input[] = [];
 	private readonly stackCompositor: CanvasStackCompositor;
@@ -593,13 +593,15 @@ export class TimelineFrameRenderer {
 			const animated = await this.animatedImageSource(originalItem, resolvedItem.mediaId, frame);
 			if (animated) return animated;
 		}
-		let bitmap = this.imageCache.get(resolvedItem.mediaId);
-		if (!bitmap) {
+		let pendingBitmap = this.imageCache.get(resolvedItem.mediaId);
+		if (!pendingBitmap) {
 			const media = mediaPool.get(resolvedItem.mediaId);
 			if (!media) return null;
-			bitmap = await createImageBitmap(await resolveMediaBlob(media));
-			this.imageCache.set(resolvedItem.mediaId, bitmap);
+			// Transition branches can request the same image concurrently.
+			pendingBitmap = resolveMediaBlob(media).then((blob) => createImageBitmap(blob));
+			this.imageCache.set(resolvedItem.mediaId, pendingBitmap);
 		}
+		const bitmap = await pendingBitmap;
 		return { source: bitmap, width: bitmap.width, height: bitmap.height };
 	}
 
@@ -758,7 +760,13 @@ export class TimelineFrameRenderer {
 		for (const input of this.inputs) input.dispose?.();
 		for (const renderer of this.nestedRenderers.values()) renderer.dispose();
 		this.nestedRenderers.clear();
-		for (const bitmap of this.imageCache.values()) bitmap.close();
+		for (const pendingBitmap of this.imageCache.values()) {
+			// Also cover a decode still pending when the other transition branch fails.
+			void pendingBitmap.then(
+				(bitmap) => bitmap.close(),
+				() => undefined
+			);
+		}
 		this.imageCache.clear();
 		this.lottieProvider.destroy();
 		this.lottieBlobs.clear();

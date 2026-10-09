@@ -270,9 +270,14 @@ export async function writeBlob(
 			const { parent, fileName } = await resolveFileParent(root, segments, true);
 			const fh = await parent.getFileHandle(fileName, { create: true });
 			const writable = await fh.createWritable();
-			// SAFETY: the union above is a subset of FileSystemWriteChunkType.
-			await writable.write(data as FileSystemWriteChunkType);
-			await writable.close();
+			try {
+				// SAFETY: the union above is a subset of FileSystemWriteChunkType.
+				await writable.write(data as FileSystemWriteChunkType);
+				await writable.close();
+			} catch (error) {
+				await writable.abort().catch(() => undefined);
+				throw error;
+			}
 		})
 	);
 }

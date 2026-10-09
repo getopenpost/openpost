@@ -180,7 +180,8 @@ async function writeUniqueWorkspaceSequenceZip(
 	root: FileSystemDirectoryHandle,
 	projectId: string,
 	baseName: string,
-	blob: Blob
+	blob: Blob,
+	signal?: AbortSignal
 ): Promise<{ fileName: string; relPath: string }> {
 	return withKeyLock(`sequence-zip:${projectId}:${baseName}`, async () => {
 		const exportSegments = projectExportsDir(projectId);
@@ -188,7 +189,15 @@ async function writeUniqueWorkspaceSequenceZip(
 		while (await exists(root, [...exportSegments, fileName])) {
 			fileName = `${baseName}__${Date.now()}-${crypto.randomUUID().slice(0, 8)}.zip`;
 		}
-		await writeBlob(root, [...exportSegments, fileName], blob);
+		throwIfAborted(signal);
+		const segments = [...exportSegments, fileName];
+		try {
+			await writeBlob(root, segments, blob);
+			throwIfAborted(signal);
+		} catch (error) {
+			await removeEntry(root, segments).catch(() => undefined);
+			throw error;
+		}
 		return {
 			fileName,
 			relPath: `projects/${projectId}/exports/${fileName}`
@@ -222,6 +231,7 @@ export async function* renderImageSequenceFrames(
 	project: Project,
 	options: ImageSequenceExportOptions
 ): AsyncGenerator<ImageSequenceFrame> {
+	throwIfAborted(options.signal);
 	const fps = project.metadata.fps;
 	if (!Number.isFinite(fps) || fps <= 0) throw new Error('Project FPS is invalid.');
 	if (options.format === 'webp' && !(await canEncodeWebP())) {
@@ -252,6 +262,7 @@ export async function* renderImageSequenceFrames(
 			const frameNumber = startFrame + offset;
 			const fileName = formatSequenceFileName(baseName, offset, totalFrames, options.format);
 			const canvas = await renderer.render(frameNumber);
+			throwIfAborted(options.signal);
 			const type =
 				options.format === 'png'
 					? 'image/png'
@@ -263,6 +274,7 @@ export async function* renderImageSequenceFrames(
 					? (options.jpegQuality ?? 0.92)
 					: undefined;
 			const blob = await canvas.convertToBlob(quality !== undefined ? { type, quality } : { type });
+			throwIfAborted(options.signal);
 			if (!blob || blob.size === 0) throw new Error(`Frame ${frameNumber} produced no data.`);
 			const expectedType = type;
 			if (blob.type !== expectedType) {
@@ -274,6 +286,7 @@ export async function* renderImageSequenceFrames(
 			report(options, 'rendering', offset + 1, totalFrames);
 		}
 		report(options, 'finalizing', totalFrames, totalFrames);
+		throwIfAborted(options.signal);
 	} finally {
 		renderer.dispose();
 	}
@@ -284,8 +297,7 @@ export async function renderImageSequenceToWorkspace(
 	project: Project,
 	options: ImageSequenceExportOptions
 ): Promise<ImageSequenceWorkspaceResult> {
-	const width = options.width ?? project.metadata.width;
-	const height = options.height ?? project.metadata.height;
+	throwIfAborted(options.signal);
 	const { totalFrames } = resolveSequenceRange(project, options.range);
 	if (totalFrames === 0) throw new Error('The selected export range is empty.');
 	const baseName = sanitizeSequenceBaseName(project.name);
@@ -302,8 +314,8 @@ export async function renderImageSequenceToWorkspace(
 		for await (const frame of renderImageSequenceFrames(project, options)) {
 			throwIfAborted(options.signal);
 			const segments = [...dirSegments, frame.fileName];
-			await writeBlob(root, segments, frame.blob);
 			writtenFiles.push(frame.fileName);
+			await writeBlob(root, segments, frame.blob);
 			written += 1;
 			totalBytes += frame.blob.size;
 		}
@@ -339,6 +351,7 @@ export async function renderImageSequenceToDirectoryHandle(
 	project: Project,
 	options: ImageSequenceExportOptions
 ): Promise<ImageSequenceDirectoryHandleResult> {
+	throwIfAborted(options.signal);
 	const { totalFrames } = resolveSequenceRange(project, options.range);
 	if (totalFrames === 0) throw new Error('The selected export range is empty.');
 	const allocated = await allocateUniqueSequenceSubdirectory(
@@ -352,6 +365,7 @@ export async function renderImageSequenceToDirectoryHandle(
 	try {
 		for await (const frame of renderImageSequenceFrames(project, options)) {
 			throwIfAborted(options.signal);
+			createdFiles.push(frame.fileName);
 			const fileHandle = await directoryHandle.getFileHandle(frame.fileName, { create: true });
 			const writable = await fileHandle.createWritable();
 			try {
@@ -365,7 +379,6 @@ export async function renderImageSequenceToDirectoryHandle(
 				}
 				throw error;
 			}
-			createdFiles.push(frame.fileName);
 			written += 1;
 			totalBytes += frame.blob.size;
 		}
@@ -397,6 +410,7 @@ export async function renderImageSequenceZip(
 	project: Project,
 	options: ImageSequenceExportOptions
 ): Promise<ImageSequenceZipResult> {
+	throwIfAborted(options.signal);
 	const width = options.width ?? project.metadata.width;
 	const height = options.height ?? project.metadata.height;
 	const { totalFrames } = resolveSequenceRange(project, options.range);
@@ -419,19 +433,28 @@ export async function renderImageSequenceZip(
 	}
 	report(options, 'finalizing', totalFrames, totalFrames);
 	const { zipSync } = await import('fflate');
+	throwIfAborted(options.signal);
 	const zipped = zipSync(entries, { level: 0 });
 	const blob = new Blob([zipped.buffer], { type: 'application/zip' });
 	let fileName = `${baseName}.zip`;
 	let savedToWorkspace = false;
 	let relPath: string | null = null;
 	const root = await exportStorageRoot(project.id).catch(() => null);
+	throwIfAborted(options.signal);
 	if (root) {
 		try {
-			const saved = await writeUniqueWorkspaceSequenceZip(root, project.id, baseName, blob);
+			const saved = await writeUniqueWorkspaceSequenceZip(
+				root,
+				project.id,
+				baseName,
+				blob,
+				options.signal
+			);
 			fileName = saved.fileName;
 			savedToWorkspace = true;
 			relPath = saved.relPath;
 		} catch {
+			throwIfAborted(options.signal);
 			savedToWorkspace = false;
 			relPath = null;
 		}

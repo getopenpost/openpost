@@ -20,7 +20,11 @@ it.each(['auto', 'full'] as const)(
 	async (quality) => {
 		await page.viewport(1000, 650);
 		const previousQuality = previewPlaybackSettings.previewQuality;
+		const previousVolume = previewPlaybackSettings.volume;
+		const previousMuted = previewPlaybackSettings.muted;
 		previewPlaybackSettings.setPreviewQuality(quality);
+		previewPlaybackSettings.setVolume(1);
+		previewPlaybackSettings.setMuted(false);
 		const project = createBlankProject('Cut playback');
 		project.timeline!.items = [
 			{
@@ -67,6 +71,8 @@ it.each(['auto', 'full'] as const)(
 		mediaPool.loadAll([media]);
 		editorSession.project = project;
 		sequenceStore.load(project.timeline!, project.metadata);
+		editorSession.stopPlayback();
+		editorSession.clock.setFps(project.metadata.fps);
 		await prewarmPreviewFrame(media, 2);
 		const screen = await render(PreviewPlayer, { onedit: () => {} });
 		screen.container.style.cssText = 'display:flex;width:960px;height:600px';
@@ -143,6 +149,8 @@ it.each(['auto', 'full'] as const)(
 			sequenceStore.reset();
 			editorSession.project = null;
 			previewPlaybackSettings.setPreviewQuality(previousQuality);
+			previewPlaybackSettings.setVolume(previousVolume);
+			previewPlaybackSettings.setMuted(previousMuted);
 		}
 	},
 	30000

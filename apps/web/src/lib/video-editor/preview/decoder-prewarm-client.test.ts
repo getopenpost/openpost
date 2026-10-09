@@ -1,0 +1,134 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { resolveMediaBlob } from '../media/resolve-media-blob';
+import type { MediaMetadata } from '../media/types';
+import type { DecoderPrewarmWorkerRequest } from './decoder-prewarm.worker';
+import {
+	clearPreviewDecoderPrewarm,
+	clonePrewarmedPreviewFrame,
+	prewarmPreviewFrame
+} from './decoder-prewarm-client';
+
+vi.mock('../media/resolve-media-blob', () => ({ resolveMediaBlob: vi.fn() }));
+
+class ControlledWorker extends EventTarget {
+	static instances: ControlledWorker[] = [];
+	readonly messages: DecoderPrewarmWorkerRequest[] = [];
+	terminated = false;
+	constructor() {
+		super();
+		ControlledWorker.instances.push(this);
+	}
+	postMessage(message: DecoderPrewarmWorkerRequest): void {
+		this.messages.push(message);
+	}
+	terminate(): void {
+		this.terminated = true;
+	}
+}
+
+const media: MediaMetadata = {
+	id: 'video',
+	storageType: 'cloud',
+	fileName: 'video.mp4',
+	fileSize: 5,
+	mimeType: 'video/mp4',
+	width: 64,
+	height: 32,
+	duration: 2,
+	fps: 30,
+	codec: 'avc1',
+	bitrate: 0,
+	tags: []
+};
+const blob = new Blob(['video']);
+
+beforeEach(() => {
+	vi.useFakeTimers();
+	vi.stubGlobal('Worker', ControlledWorker);
+	ControlledWorker.instances = [];
+	vi.mocked(resolveMediaBlob).mockReset().mockResolvedValue(blob);
+});
+afterEach(async () => {
+	clearPreviewDecoderPrewarm();
+	await vi.runAllTimersAsync();
+	clearPreviewDecoderPrewarm();
+	vi.useRealTimers();
+	vi.unstubAllGlobals();
+});
+
+it('settles active and queued prewarm requests when the decoder is cleared', async () => {
+	let settled = false;
+	const first = prewarmPreviewFrame(media, 0, blob);
+	const second = prewarmPreviewFrame(media, 1, blob);
+	void Promise.all([first, second]).then(() => {
+		settled = true;
+	});
+	await vi.advanceTimersByTimeAsync(0);
+	expect(ControlledWorker.instances).toHaveLength(1);
+	clearPreviewDecoderPrewarm();
+	await vi.advanceTimersByTimeAsync(0);
+	expect(settled).toBe(true);
+	expect(ControlledWorker.instances[0]!.terminated).toBe(true);
+	expect(ControlledWorker.instances).toHaveLength(1);
+});
+
+it('does not restart old blob work after clear while a new session prewarms the same source', async () => {
+	const delayed = Promise.withResolvers<Blob>();
+	vi.mocked(resolveMediaBlob).mockReturnValueOnce(delayed.promise);
+	let oldSettled = false;
+	const old = prewarmPreviewFrame(media, 0);
+	void old.then(() => {
+		oldSettled = true;
+	});
+	await vi.advanceTimersByTimeAsync(0);
+	expect(resolveMediaBlob).toHaveBeenCalledTimes(1);
+	clearPreviewDecoderPrewarm();
+	const fresh = prewarmPreviewFrame(media, 0);
+	await vi.advanceTimersByTimeAsync(0);
+	expect(oldSettled).toBe(true);
+	const decoder = ControlledWorker.instances[0]!;
+	expect(decoder.messages).toHaveLength(1);
+	delayed.resolve(blob);
+	await vi.advanceTimersByTimeAsync(0);
+	expect(decoder.messages).toHaveLength(1);
+	const repeat = prewarmPreviewFrame(media, 0);
+	decoder.dispatchEvent(
+		new MessageEvent('message', {
+			data: { type: 'decoded', requestId: decoder.messages[0]!.requestId, entries: [] }
+		})
+	);
+	await vi.advanceTimersByTimeAsync(0);
+	expect(decoder.messages).toHaveLength(1);
+	await Promise.all([old, fresh, repeat]);
+});
+
+it.each(['cached', 'received before publication'])('closes %s frames on clear', async (stage) => {
+	const bitmap: ImageBitmap = { width: 64, height: 32, close: vi.fn() };
+	const pending = prewarmPreviewFrame(media, 0, blob);
+	await vi.advanceTimersByTimeAsync(0);
+	const decoder = ControlledWorker.instances[0]!;
+	decoder.dispatchEvent(
+		new MessageEvent('message', {
+			data: {
+				type: 'decoded',
+				requestId: decoder.messages[0]!.requestId,
+				entries: [{ timestamp: 0, bitmap }]
+			}
+		})
+	);
+	if (stage === 'cached') await pending;
+	clearPreviewDecoderPrewarm();
+	// Reusing the exact source version must not admit a previous session's frames.
+	const fresh = prewarmPreviewFrame(media, 0, blob);
+	await pending;
+	await vi.advanceTimersByTimeAsync(0);
+	expect(bitmap.close).toHaveBeenCalledTimes(1);
+	expect(await clonePrewarmedPreviewFrame(media.id, 0, 0)).toBeNull();
+	const current = ControlledWorker.instances.at(-1)!;
+	current.dispatchEvent(
+		new MessageEvent('message', {
+			data: { type: 'decoded', requestId: current.messages[0]!.requestId, entries: [] }
+		})
+	);
+	await fresh;
+});

@@ -20,6 +20,7 @@ interface CachedFrame {
 }
 
 let worker: Worker | null = null;
+let session = new AbortController();
 let requestSequence = 0;
 let lane = Promise.resolve();
 let cachedPixels = 0;
@@ -112,8 +113,10 @@ function storeFrame(mediaId: string, timestamp: number, bitmap: ImageBitmap): vo
 function decode(
 	media: MediaMetadata,
 	blob: Blob,
-	timestamps: number[]
+	timestamps: number[],
+	signal: AbortSignal
 ): Promise<Array<{ timestamp: number; bitmap: ImageBitmap }>> {
+	if (signal.aborted) return Promise.resolve([]);
 	const requestId = `preview-prewarm-${++requestSequence}`;
 	const decoder = getWorker();
 	return new Promise((resolve, reject) => {
@@ -125,6 +128,7 @@ function decode(
 			clearTimeout(timeout);
 			decoder.removeEventListener('message', onMessage);
 			decoder.removeEventListener('error', onError);
+			signal.removeEventListener('abort', onAbort);
 		};
 		const onMessage = (event: MessageEvent<DecoderPrewarmWorkerResponse>) => {
 			if (event.data.requestId !== requestId) return;
@@ -137,16 +141,26 @@ function decode(
 			cleanup();
 			reject(event.error instanceof Error ? event.error : new Error(event.message));
 		};
+		const onAbort = () => {
+			cleanup();
+			resolve([]);
+		};
+		signal.addEventListener('abort', onAbort, { once: true });
 		decoder.addEventListener('message', onMessage);
 		decoder.addEventListener('error', onError);
-		decoder.postMessage({
-			type: 'decode',
-			requestId,
-			sourceKey: sourceKey(media, blob),
-			blob,
-			timestamps,
-			maxHeight: PREWARM_HEIGHT
-		} satisfies DecoderPrewarmWorkerRequest);
+		try {
+			decoder.postMessage({
+				type: 'decode',
+				requestId,
+				sourceKey: sourceKey(media, blob),
+				blob,
+				timestamps,
+				maxHeight: PREWARM_HEIGHT
+			} satisfies DecoderPrewarmWorkerRequest);
+		} catch (error) {
+			cleanup();
+			reject(error);
+		}
 	});
 }
 
@@ -179,19 +193,29 @@ export function prewarmPreviewFrame(
 	const jobKey = `${key}:${version}`;
 	const pending = inflight.get(jobKey);
 	if (pending) return pending;
-	const task = lane
+	const signal = session.signal;
+	const cancelled = Promise.withResolvers<void>();
+	const onAbort = () => cancelled.resolve();
+	signal.addEventListener('abort', onAbort, { once: true });
+	const work = lane
 		.catch(() => undefined)
 		.then(async () => {
-			const blob = blobOverride ?? (await resolveMediaBlob(media));
-			const entries = await decode(media, blob, [timestamp]);
-			if (sourceVersionByMedia.get(media.id) !== version) {
+			if (signal.aborted) return;
+			const blob = blobOverride ?? (await resolveMediaBlob(media, { signal }));
+			if (signal.aborted) return;
+			const entries = await decode(media, blob, [timestamp], signal);
+			if (signal.aborted || sourceVersionByMedia.get(media.id) !== version) {
 				for (const entry of entries) entry.bitmap.close();
 				return;
 			}
 			for (const entry of entries) storeFrame(media.id, entry.timestamp, entry.bitmap);
-		})
+		});
+	const task = Promise.race([work, cancelled.promise])
 		.catch(() => undefined)
-		.finally(() => inflight.delete(jobKey));
+		.finally(() => {
+			signal.removeEventListener('abort', onAbort);
+			if (inflight.get(jobKey) === task) inflight.delete(jobKey);
+		});
 	lane = task;
 	inflight.set(jobKey, task);
 	return task;
@@ -219,6 +243,8 @@ export async function clonePrewarmedPreviewFrame(
 }
 
 export function clearPreviewDecoderPrewarm(): void {
+	session.abort();
+	session = new AbortController();
 	for (const key of [...cache.keys()]) dropEntry(key);
 	inflight.clear();
 	sourceVersionByMedia.clear();

@@ -73,7 +73,11 @@ it('navigates the visible tree without changing selection and skips collapsed ch
 	await expect.element(group).toHaveAttribute('aria-expanded', 'false');
 	await userEvent.keyboard('{ArrowDown}');
 	await expect.element(other).toHaveFocus();
-	await userEvent.keyboard('{Home}{ArrowRight}{End}');
+	await userEvent.keyboard('{Home}');
+	await expect.element(group).toHaveFocus();
+	await userEvent.keyboard('{ArrowRight}');
+	await expect.element(group).toHaveAttribute('aria-expanded', 'true');
+	await userEvent.keyboard('{End}');
 	await expect.element(other).toHaveFocus();
 	expect(editor.selectedLayerIDs).toEqual(['Child', 'Other']);
 	expect(screen.container.querySelectorAll('[role="treeitem"][tabindex="0"]')).toHaveLength(1);

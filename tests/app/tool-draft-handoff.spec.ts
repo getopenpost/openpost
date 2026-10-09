@@ -12,9 +12,12 @@ async function connectPublicOrigins(
   context: import("@playwright/test").BrowserContext,
   baseURL: string,
 ) {
+  const root = path.resolve("apps/marketing/dist");
+  if (!(await stat(root).catch(() => null))?.isDirectory()) {
+    throw new Error("Tool handoff tests require the marketing build in apps/marketing/dist.");
+  }
   await context.route("https://openpo.st/**", async (route) => {
     const url = new URL(route.request().url());
-    const root = path.resolve("apps/marketing/dist");
     let file = path.join(root, decodeURIComponent(url.pathname));
     if (!file.startsWith(`${root}/`)) return route.abort();
     try {

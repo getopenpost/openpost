@@ -74,8 +74,21 @@ test("n8n recovery dispatch keeps app deployment out of the job graph", () => {
 });
 
 test("tag release candidates schedule the application browser suite", () => {
-  const browserApp = load(ci).jobs["browser-app"];
+  const jobs = load(ci).jobs;
+  const browserApp = jobs["browser-app"];
   assert.equal(browserApp.if, "needs.plan.outputs.application == 'true'");
+  assert.ok(browserApp.needs.includes("marketing-build"));
+  assert.equal(
+    jobs["marketing-build"].if,
+    "needs.plan.outputs.marketing == 'true' || needs.plan.outputs.application == 'true'",
+  );
+  const marketingDownload = browserApp.steps.find(
+    (step) =>
+      step.uses?.startsWith("actions/download-artifact@") &&
+      step.with?.path === "apps/marketing/dist",
+  );
+  assert.ok(marketingDownload, "Tool handoff tests require the canonical marketing build");
+  assert.equal(marketingDownload.with.name, "${{ steps.marketing-artifact.outputs.name }}");
 });
 
 test("tag n8n version checks use the last published release as their base", () => {

@@ -93,8 +93,7 @@
 	let processedDirection: -1 | 1 = 1;
 	let processedPlaying = false;
 	let detachProcessedFromMixer: (() => void) | null = null;
-	let mediaGain: GainNode | null = null;
-	let directEffectGraphState: PreviewClipAudioGraph | null = null;
+	let mediaGain = $state<GainNode | null>(null);
 	let shuttleScheduler: ReturnType<typeof createReverseShuttleScheduler> | null = null;
 	let shuttleGainNode: GainNode | null = null;
 	let detachShuttle: (() => void) | null = null;
@@ -492,53 +491,38 @@
 	$effect(() => {
 		void audioEffectsForPreview;
 		if (processedGraph) setPreviewAudioEffects(processedGraph, audioEffectsForPreview);
-		if (directEffectGraphState)
-			setPreviewAudioEffects(directEffectGraphState, audioEffectsForPreview);
-	});
-
-	$effect(() => {
-		if (directEffectGraphState) rampPreviewClipGain(directEffectGraphState, volume);
 	});
 
 	$effect(() => {
 		const media = audio;
 		if (!media) return;
-		let sourceNode: MediaElementAudioSourceNode | null = null;
-		let gainNode: GainNode | null = null;
-		let detachFromMixer: (() => void) | null = null;
-		let directEffectGraph: PreviewClipAudioGraph | null = null;
+		let source: MediaElementAudioSourceNode;
 		try {
-			const context = previewAudioContext();
-			sourceNode = context.createMediaElementSource(media);
-			gainNode = context.createGain();
-			gainNode.gain.value = needsProcessing ? 0 : volume;
-			media.volume = 1;
-			if (!needsProcessing && audioEffectsForPreview.length > 0) {
-				directEffectGraph = createPreviewClipAudioGraph({
-					eqStageCount: 1,
-					effects: audioEffectsForPreview,
-					outputNode: null
-				});
-				directEffectGraphState = directEffectGraph;
-				if (directEffectGraph) {
-					sourceNode.connect(directEffectGraph.sourceInputNode);
-					directEffectGraph.outputGainNode.gain.value = volume;
-					detachFromMixer = attachAudioSourceToMixer(
-						directEffectGraph.outputGainNode,
-						item.trackId
-					);
-				} else {
-					sourceNode.connect(gainNode);
-					detachFromMixer = attachAudioSourceToMixer(gainNode, item.trackId);
-				}
-			} else {
-				sourceNode.connect(gainNode);
-				detachFromMixer = attachAudioSourceToMixer(gainNode, item.trackId);
-			}
-			mediaGain = gainNode;
+			source = previewAudioContext().createMediaElementSource(media);
 		} catch {
-			media.volume = Math.min(1, needsProcessing ? 0 : fallbackVolume);
+			// The volume effect retains native playback when Web Audio is unavailable.
+			return;
 		}
+		const gain = source.context.createGain();
+		gain.gain.value = 0;
+		media.volume = 1;
+		source.connect(gain);
+		mediaGain = gain;
+		return () => {
+			source.disconnect();
+			gain.disconnect();
+			if (mediaGain === gain) mediaGain = null;
+		};
+	});
+
+	$effect(() => {
+		const gain = mediaGain;
+		if (gain) return attachAudioSourceToMixer(gain, item.trackId);
+	});
+
+	$effect(() => {
+		const media = audio;
+		if (!media) return;
 		const scheduler = new SeekScheduler((target) => {
 			media.currentTime = target;
 		});
@@ -628,12 +612,6 @@
 			offPause();
 			offRate();
 			scheduler.detach();
-			detachFromMixer?.();
-			sourceNode?.disconnect();
-			gainNode?.disconnect();
-			directEffectGraph?.dispose();
-			if (directEffectGraphState === directEffectGraph) directEffectGraphState = null;
-			if (mediaGain === gainNode) mediaGain = null;
 			stopReverseSource();
 			processedNode?.port.postMessage({ type: 'set-playing', playing: false });
 		};

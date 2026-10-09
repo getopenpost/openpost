@@ -76,7 +76,7 @@
 	let processedStartedFrame = 0;
 	let processedPlaying = false;
 	let detachProcessedFromMixer: (() => void) | null = null;
-	let mediaGain: GainNode | null = null;
+	let mediaGain = $state<GainNode | null>(null);
 	let shuttleScheduler: ReturnType<typeof createReverseShuttleScheduler> | null = null;
 	let shuttleGainNode: GainNode | null = null;
 	let detachShuttle: (() => void) | null = null;
@@ -322,23 +322,33 @@
 	$effect(() => {
 		const media = audio;
 		if (!media) return;
-		let sourceNode: MediaElementAudioSourceNode | null = null;
-		let gainNode: GainNode | null = null;
-		let detachFromMixer: (() => void) | null = null;
+		let source: MediaElementAudioSourceNode;
 		try {
-			const context = previewAudioContext();
-			sourceNode = context.createMediaElementSource(media);
-			gainNode = context.createGain();
-			gainNode.gain.value = needsProcessing
-				? 0
-				: gainAt(timelineStore.currentFrame / editorSession.fps);
-			media.volume = 1;
-			sourceNode.connect(gainNode);
-			detachFromMixer = attachAudioSourceToMixer(gainNode, entry.trackId ?? 'nested-audio');
-			mediaGain = gainNode;
+			source = previewAudioContext().createMediaElementSource(media);
 		} catch {
-			media.volume = Math.min(1, needsProcessing ? 0 : gainAt(0, true));
+			// The volume effect retains native playback when Web Audio is unavailable.
+			return;
 		}
+		const gain = source.context.createGain();
+		gain.gain.value = 0;
+		media.volume = 1;
+		source.connect(gain);
+		mediaGain = gain;
+		return () => {
+			source.disconnect();
+			gain.disconnect();
+			if (mediaGain === gain) mediaGain = null;
+		};
+	});
+
+	$effect(() => {
+		const gain = mediaGain;
+		if (gain) return attachAudioSourceToMixer(gain, entry.trackId ?? 'nested-audio');
+	});
+
+	$effect(() => {
+		const media = audio;
+		if (!media) return;
 		const scheduler = new SeekScheduler((target) => (media.currentTime = target));
 		const sync = () => {
 			const time = untrack(() => timelineStore.currentFrame) / editorSession.fps;
@@ -382,7 +392,7 @@
 				const tempo = getShuttleMediaPlaybackRate(entry.playbackRate, Math.abs(transportRate));
 				processedNode?.port.postMessage({ type: 'set-tempo', tempo });
 			}
-			if (!gainNode) media.volume = Math.min(1, gainAt(time, true));
+			if (!mediaGain) media.volume = Math.min(1, gainAt(time, true));
 			if (editorSession.isPlaying && media.paused && !entry.reversed)
 				void media.play().catch(() => undefined);
 			if (entry.reversed && !media.paused) media.pause();
@@ -399,10 +409,6 @@
 			offRate();
 			scheduler.detach();
 			if (syncMedia === sync) syncMedia = null;
-			detachFromMixer?.();
-			sourceNode?.disconnect();
-			gainNode?.disconnect();
-			if (mediaGain === gainNode) mediaGain = null;
 		};
 	});
 

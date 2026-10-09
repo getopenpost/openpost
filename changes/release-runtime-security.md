@@ -1,5 +1,6 @@
 ### Fixed
 
+- Keep unused translations out of startup JavaScript by passing only the shared controls' seven localized messages to their provider.
 - Update the server and CLI to Go 1.26.9 and the server's HTTP networking dependency to include the October security fixes. Production image builds and hosted database checks use digest-pinned Docker Official Images from their public ECR mirror to avoid Docker Hub's anonymous pull quota.
 
 ### Maintenance

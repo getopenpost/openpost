@@ -39,7 +39,15 @@
 	import { ui } from '$lib/stores/ui.svelte';
 
 	let { children } = $props();
-	provideUiMessages(m);
+	provideUiMessages({
+		calendar_next: m.calendar_next,
+		calendar_previous: m.calendar_previous,
+		calendar_label: m.calendar_label,
+		common_close: m.common_close,
+		common_toggle_sidebar: m.common_toggle_sidebar,
+		common_mobile_sidebar_description: m.common_mobile_sidebar_description,
+		common_sidebar: m.common_sidebar
+	});
 	provideApplicationThemePreview();
 	const unsavedChanges = setUnsavedChanges(new UnsavedChangesContext());
 	const publicationQueryInvalidationBridge = createPublicationQueryInvalidationBridge(queryClient);

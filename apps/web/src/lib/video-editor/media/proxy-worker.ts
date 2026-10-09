@@ -45,16 +45,23 @@ self.onmessage = async (event: MessageEvent<ProxyRequest>): Promise<void> => {
 		await ensureProResDecoderForCodec(track.codec);
 		const duration = await track.computeDuration();
 		const size = proxyDimensions(track.displayWidth, track.displayHeight, maxHeight);
+		const preserveAlpha = await track.canBeTransparent();
 		const sink = new CanvasSink(track, {
 			width: size.width,
 			height: size.height,
 			fit: 'fill',
+			alpha: preserveAlpha,
 			poolSize: 1
 		});
-		// AVC can use the browser's native encoder. Keep WebM for browsers without AVC encoding.
-		const codec = (await canEncodeVideo('avc', { ...size, bitrate: AVC_PROXY_BITRATE }))
-			? 'avc'
-			: await getFirstEncodableVideoCodec(['vp9', 'vp8'], { ...size, bitrate: PROXY_BITRATE });
+		// AVC can use the native encoder, but transparent sources require WebM alpha data.
+		const codec =
+			!preserveAlpha && (await canEncodeVideo('avc', { ...size, bitrate: AVC_PROXY_BITRATE }))
+				? 'avc'
+				: await getFirstEncodableVideoCodec(['vp9', 'vp8'], {
+						...size,
+						bitrate: PROXY_BITRATE,
+						alpha: preserveAlpha ? 'keep' : 'discard'
+					});
 		if (!codec) throw new Error('This browser cannot encode a preview proxy.');
 		const format = codec === 'avc' ? new Mp4OutputFormat() : new WebMOutputFormat();
 
@@ -62,6 +69,7 @@ self.onmessage = async (event: MessageEvent<ProxyRequest>): Promise<void> => {
 		output = new Output({ format, target });
 		const source = new VideoSampleSource({
 			codec,
+			alpha: preserveAlpha ? 'keep' : 'discard',
 			bitrate: codec === 'avc' ? AVC_PROXY_BITRATE : PROXY_BITRATE,
 			keyFrameInterval: PROXY_KEYFRAME_SECONDS,
 			latencyMode: 'quality'

@@ -683,6 +683,13 @@
 			const resolved = scaleItemForCanvas(
 				{
 					...baseResolved,
+					effects: effectiveEffects(
+						item,
+						inputs.layers,
+						inputs.orders,
+						frame,
+						beforeColor ? comparisonItemIds : new Set()
+					),
 					cornerPin: directDraft
 						? (draftCornerPin ?? baseResolved.cornerPin)
 						: baseResolved.cornerPin,
@@ -693,13 +700,6 @@
 				},
 				inputs.width / canvasWidth,
 				inputs.height / canvasHeight
-			);
-			resolved.effects = effectiveEffects(
-				item,
-				inputs.layers,
-				inputs.orders,
-				frame,
-				beforeColor ? comparisonItemIds : new Set()
 			);
 			return resolved;
 		};

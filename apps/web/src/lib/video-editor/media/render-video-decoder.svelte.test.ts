@@ -9,6 +9,48 @@ function sampleAt(timestamp: number, size = 2): VideoSample {
 }
 
 describe('ResilientVideoFrameDecoder', () => {
+	it.each([0, 90] as const)(
+		'preserves non-square source pixels with %i degree rotation',
+		async (rotation) => {
+			const canvas = new OffscreenCanvas(40, 40);
+			const context = canvas.getContext('2d')!;
+			context.fillStyle = '#ff0000';
+			context.fillRect(0, 0, 20, 40);
+			context.fillStyle = '#0000ff';
+			context.fillRect(20, 0, 20, 40);
+			const source = new VideoFrame(canvas, {
+				timestamp: 0,
+				duration: 1_000_000,
+				displayWidth: 80,
+				displayHeight: 40
+			});
+			const sample = new VideoSample(source, { rotation });
+			const decoder = new ResilientVideoFrameDecoder(
+				() => ({
+					samplesAtTimestamps: vi.fn(),
+					samples: async function* () {
+						yield sample;
+					}
+				}),
+				{ width: 40, height: 40 }
+			);
+			try {
+				const frame = (await decoder.getFrame(0))!;
+				expect([frame.width, frame.height]).toEqual(rotation === 0 ? [40, 20] : [20, 40]);
+				const output = new OffscreenCanvas(frame.width, frame.height);
+				const pixels = output.getContext('2d')!;
+				pixels.drawImage(frame.source, 0, 0);
+				expect([...pixels.getImageData(5, 5, 1, 1).data]).toEqual([255, 0, 0, 255]);
+				expect([...pixels.getImageData(frame.width - 5, frame.height - 5, 1, 1).data]).toEqual([
+					0, 0, 255, 255
+				]);
+			} finally {
+				decoder.dispose();
+				sample.close();
+				source.close();
+			}
+		}
+	);
 	it('retries WebCodecs decoding failures with software decoding', async () => {
 		const preferences: string[] = [];
 		const sample = sampleAt(0, 1);

@@ -617,21 +617,24 @@ export class TimelineFrameRenderer {
 		const resolveParticipant = async (
 			item: TimelineItem
 		): Promise<StackTransitionParticipant | null> => {
+			const animatedItem = resolveAnimatedItemAt(item, frame, {
+				fps: this.fps,
+				frameWidth: this.project.metadata.width,
+				frameHeight: this.project.metadata.height,
+				items: this.project.timeline?.items ?? []
+			});
 			const resolvedItem = scaleItemForCanvas(
-				resolveAnimatedItemAt(item, frame, {
-					fps: this.fps,
-					frameWidth: this.project.metadata.width,
-					frameHeight: this.project.metadata.height,
-					items: this.project.timeline?.items ?? []
-				}),
+				{
+					...animatedItem,
+					effects: effectsForItemAtFrame(
+						animatedItem,
+						this.trackOrderById.get(item.trackId) ?? 0,
+						this.adjustmentLayers,
+						frame
+					)
+				},
 				this.width / this.project.metadata.width,
 				this.height / this.project.metadata.height
-			);
-			resolvedItem.effects = effectsForItemAtFrame(
-				resolvedItem,
-				this.trackOrderById.get(item.trackId) ?? 0,
-				this.adjustmentLayers,
-				frame
 			);
 			const source = await this.sourceForItem(resolvedItem, item, frame);
 			if (!source && resolvedItem.type !== 'background') return null;

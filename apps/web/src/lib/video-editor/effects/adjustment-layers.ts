@@ -50,10 +50,14 @@ export function effectsForItemAtFrame(
 		)
 		.toSorted((left, right) => left.trackOrder - right.trackOrder)
 		.flatMap(({ layer }) => {
-			const effects = (layer.effects ?? []).filter((effect) => effect.enabled);
+			const effects = (resolveAnimatedEffectsAt(layer, frame) ?? []).filter(
+				(effect) => effect.enabled
+			);
 			return excludedColorGradeItemIds.has(layer.id) ? withoutColorGradeEffects(effects) : effects;
 		});
-	const itemEffects = (item.effects ?? []).filter((effect) => effect.enabled);
+	const itemEffects = (resolveAnimatedEffectsAt(item, frame) ?? []).filter(
+		(effect) => effect.enabled
+	);
 	return [
 		...adjustmentEffects,
 		...(excludedColorGradeItemIds.has(item.id)

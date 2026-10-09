@@ -1,6 +1,7 @@
 /** Geometry shared by preview and export. Ported from FreeCut (MIT). */
 import type { TimelineItem } from '$lib/video-editor/project/types';
 import { calculateMediaCropLayout, type CropInsets, type Rect } from './crop-layout';
+import { TEXT_DEFAULTS } from '../typography/text-style';
 
 export interface MediaDrawGeometry {
 	centerX: number;
@@ -26,8 +27,14 @@ export function scaleItemForCanvas(
 ): TimelineItem {
 	const radiusScale = Math.min(scaleX, scaleY);
 	const transform = item.transform;
+	const fontSize = item.fontSize ?? (item.type === 'text' ? TEXT_DEFAULTS.fontSize : undefined);
+	const paddingX = item.paddingX ?? (item.type === 'text' ? TEXT_DEFAULTS.paddingX : undefined);
+	const paddingY = item.paddingY ?? (item.type === 'text' ? TEXT_DEFAULTS.paddingY : undefined);
 	return {
 		...item,
+		effects: item.effects?.map((effect) =>
+			effect.type === 'blur' ? { ...effect, amount: effect.amount * radiusScale } : effect
+		),
 		textLayoutSize: item.textLayoutSize
 			? { width: item.textLayoutSize.width * scaleX, height: item.textLayoutSize.height * scaleY }
 			: undefined,
@@ -44,7 +51,7 @@ export function scaleItemForCanvas(
 						transform.cornerRadius === undefined ? undefined : transform.cornerRadius * radiusScale
 				}
 			: undefined,
-		fontSize: item.fontSize === undefined ? undefined : item.fontSize * scaleY,
+		fontSize: fontSize === undefined ? undefined : fontSize * scaleY,
 		textSpans: item.textSpans?.map((span) => ({
 			...span,
 			fontSize: span.fontSize === undefined ? undefined : span.fontSize * scaleY,
@@ -55,8 +62,8 @@ export function scaleItemForCanvas(
 		shapeCornerRadius:
 			item.shapeCornerRadius === undefined ? undefined : item.shapeCornerRadius * radiusScale,
 		maskFeather: item.maskFeather === undefined ? undefined : item.maskFeather * radiusScale,
-		paddingX: item.paddingX === undefined ? undefined : item.paddingX * scaleX,
-		paddingY: item.paddingY === undefined ? undefined : item.paddingY * scaleY,
+		paddingX: paddingX === undefined ? undefined : paddingX * scaleX,
+		paddingY: paddingY === undefined ? undefined : paddingY * scaleY,
 		borderRadius: item.borderRadius === undefined ? undefined : item.borderRadius * radiusScale,
 		textShadow: item.textShadow
 			? {

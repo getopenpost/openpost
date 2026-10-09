@@ -45,7 +45,12 @@ export async function extractFreezeFrameFromBlob(
 		await ensureProResDecoderForCodec(track.codec);
 		const width = Math.max(1, Math.round(track.displayWidth));
 		const height = Math.max(1, Math.round(track.displayHeight));
-		const sink = new CanvasSink(track, { width, height, fit: 'fill' });
+		const sink = new CanvasSink(track, {
+			width,
+			height,
+			fit: 'fill',
+			alpha: await track.canBeTransparent()
+		});
 		try {
 			const wrapped = await sink.getCanvas(sourceSeconds);
 			if (!wrapped) throw new Error('The source frame could not be decoded.');

@@ -63,6 +63,38 @@ const clip: TimelineItem = {
 };
 
 describe('sequence color grade scope', () => {
+	it('resolves clip and adjustment keyframes relative to each effect owner', () => {
+		const layer = adjustment(false);
+		layer.from = 20;
+		layer.durationInFrames = 200;
+		layer.keyframes = {
+			'effect:gpu-brightness:effect:amount': { frames: [0, 100], values: [0.2, 0.8] }
+		};
+		const animatedClip: TimelineItem = {
+			...clip,
+			durationInFrames: 100,
+			effects: [
+				{
+					id: 'clip-effect',
+					type: 'gpu',
+					effectId: 'gpu-brightness',
+					enabled: true,
+					params: { amount: 0.2 }
+				}
+			],
+			keyframes: {
+				'effect:gpu-brightness:clip-effect:amount': { frames: [0, 100], values: [0.2, 0.8] }
+			}
+		};
+		const layers = collectAdjustmentLayers([layer, animatedClip], tracks);
+		const effects = effectsForItemAtFrame(animatedClip, 1, layers, 120);
+		expect(effects).toHaveLength(2);
+		expect(effects[0]).toMatchObject({ id: 'effect', params: { amount: 0.8 } });
+		expect(effects[1]).toMatchObject({ id: 'clip-effect', type: 'gpu' });
+		if (effects[1]?.type === 'gpu') expect(effects[1].params.amount).toBeCloseTo(0.32);
+		expect(layer.effects?.[0]).toMatchObject({ params: { amount: 0.2 } });
+		expect(animatedClip.effects?.[0]).toMatchObject({ params: { amount: 0.2 } });
+	});
 	it('keeps visible adjustment layers when an audio track is soloed', () => {
 		const visible = adjustment(false);
 		const hidden = { ...adjustment(false), id: 'hidden-grade', trackId: 'hidden' };

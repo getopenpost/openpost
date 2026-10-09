@@ -169,8 +169,7 @@ export class ResilientVideoFrameDecoder {
 		const transformed = await sample.transform({
 			width,
 			height,
-			fit: 'fill',
-			alpha: 'discard'
+			fit: 'fill'
 		});
 		try {
 			return {

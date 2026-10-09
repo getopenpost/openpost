@@ -60,6 +60,7 @@ async function decoderFor(request: DecoderPrewarmDecodeRequest): Promise<CanvasS
 			width: Math.max(2, Math.round(displayWidth * scale)),
 			height: Math.max(2, Math.round(displayHeight * scale)),
 			fit: 'fill',
+			alpha: await track.canBeTransparent(),
 			poolSize: 2
 		});
 		source = { key: request.sourceKey, input, sink };

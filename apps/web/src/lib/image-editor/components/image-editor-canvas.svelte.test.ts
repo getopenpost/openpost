@@ -7,6 +7,39 @@ import { rectanglePixelMask } from '../selection';
 import Fixture from './image-editor-canvas.fixture.svelte';
 import '../../../routes/layout.css';
 
+it('keeps fit-to-canvas usable after the viewport shrinks during text editing', async () => {
+	await page.viewport(1280, 900);
+	try {
+		const editor = floatingSelection();
+		editor.cancelFloatingPixelSelection();
+		editor.clearPixelSelection();
+		editor.activeTool = 'select';
+		const screen = await render(Fixture, { editor });
+		await expect.poll(() => screen.container.querySelector('.upper-canvas')).not.toBeNull();
+		editor.addText('A thumbnail headline');
+		editor.activeTool = 'text';
+		await expect
+			.poll(() => document.querySelector('textarea[name="fabricTextarea"]'))
+			.not.toBeNull();
+		await page.viewport(320, 900);
+		// Let the real ResizeObserver process the new width before invoking the zoom control's action.
+		await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		editor.fitZoom();
+		await expect
+			.poll(() => screen.getByTestId('image-editor-stage').element().getBoundingClientRect().width)
+			.toBeLessThanOrEqual(320);
+		await page.viewport(1280, 900);
+		await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		editor.fitZoom();
+		await expect
+			.poll(() => screen.getByTestId('image-editor-stage').element().getBoundingClientRect().width)
+			.toBe(400);
+		expect(editor.selectedLayers[0].text?.text).toBe('A thumbnail headline');
+	} finally {
+		await page.viewport(1280, 900);
+	}
+});
+
 function floatingSelection() {
 	const editor = new ImageEditorController();
 	const document = blankImageEditorDocument({

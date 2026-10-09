@@ -222,6 +222,7 @@
 		let mountedAdapter: OpenPostFabricAdapter | null = null;
 		let resize: ResizeObserver | null = null;
 		let resizeFrame = 0;
+		let scheduleViewportResize = () => {};
 		void (async () => {
 			await tick();
 			const viewportElement = viewport;
@@ -256,6 +257,7 @@
 				},
 				onTextEditingChange(editing) {
 					textEditing = editing;
+					if (!editing) scheduleViewportResize();
 				},
 				onImageDimensions(id, width, height) {
 					editor.resolveImageDimensions(id, width, height);
@@ -283,8 +285,8 @@
 				ready = true;
 				let viewportWidth = viewportElement.clientWidth;
 				let viewportHeight = viewportElement.clientHeight;
-				resize = new ResizeObserver(() => {
-					if (textEditing || resizeFrame) return;
+				scheduleViewportResize = () => {
+					if (disposed || resizeFrame) return;
 					// Coalesce bursts into one frame and skip unchanged sizes: writing
 					// viewport state re-renders the canvas, which would otherwise
 					// re-notify the observer in the same frame (ResizeObserver loop).
@@ -292,8 +294,10 @@
 						resizeFrame = 0;
 						const nextWidth = viewportElement.clientWidth;
 						const nextHeight = viewportElement.clientHeight;
-						if (nextWidth === viewportWidth && nextHeight === viewportHeight) return;
 						editor.setViewportSize(nextWidth, nextHeight);
+						if (nextWidth === viewportWidth && nextHeight === viewportHeight) return;
+						// Keep explicit Fit current, but defer automatic zoom until typing ends.
+						if (textEditing) return;
 						if (
 							Math.abs(nextWidth - viewportWidth) > 32 ||
 							Math.abs(nextHeight - viewportHeight) > 32
@@ -305,7 +309,8 @@
 							editor.panY = 0;
 						}
 					});
-				});
+				};
+				resize = new ResizeObserver(scheduleViewportResize);
 				resize.observe(viewportElement);
 				finishMetric();
 			} catch {

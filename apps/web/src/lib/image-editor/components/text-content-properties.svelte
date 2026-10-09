@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ColorPicker from '$lib/components/color-picker.svelte';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import ImageEditorFontPicker from '$lib/components/editor-font-picker.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -21,6 +22,7 @@
 	let selectedStyle = $derived(
 		layer?.text && textRange ? textRunStyleAt(layer.text, textRange.start) : null
 	);
+	let brandColors = $derived(editor.brandKit?.colors ?? []);
 	let brandFonts = $derived(editor.brandKit?.fonts ?? []);
 	let brandTextStyles = $derived(editor.brandKit?.text_styles ?? []);
 	let missingFontAsset = $derived(
@@ -64,6 +66,12 @@
 		}
 		return options;
 	});
+
+	function alignmentLabel(alignment: string): string {
+		if (alignment === 'left') return m.image_editor_align_left();
+		if (alignment === 'center') return m.image_editor_align_center();
+		return m.image_editor_align_right();
+	}
 
 	function numberValue(event: Event, fallback: number): number {
 		const value =
@@ -247,6 +255,36 @@
 					class="h-7 w-full"
 				/>
 			</label>
+		</div>
+		<label class="grid gap-1 text-xs">
+			<span>{m.image_editor_color()}</span>
+			<ColorPicker
+				label={m.image_editor_color()}
+				value={selectedStyle?.color ?? layer.text.color}
+				disabled={!editor.canEdit || layerLocked}
+				{brandColors}
+				recentColors={editor.recentColors}
+				onChange={(value) =>
+					editor.updateTextStyle(layer.id, 'color', value, `text-color:${layer.id}`)}
+				onCommit={(value) => editor.rememberColor(value)}
+			/>
+		</label>
+		<div class="grid grid-cols-3 gap-1">
+			{#each ['left', 'center', 'right'] as alignment (alignment)}
+				<Button
+					variant={layer.text.align === alignment ? 'secondary' : 'outline'}
+					size="sm"
+					aria-pressed={layer.text.align === alignment}
+					disabled={!editor.canEdit || layerLocked}
+					onclick={() =>
+						editor.updateLayer(layer.id, {
+							text: {
+								...layer.text!,
+								align: alignment as 'left' | 'center' | 'right'
+							}
+						})}>{alignmentLabel(alignment)}</Button
+				>
+			{/each}
 		</div>
 		{#if applicationFeedback}
 			<p class="rounded-md border bg-muted/40 px-2.5 py-2 text-xs" role="status">

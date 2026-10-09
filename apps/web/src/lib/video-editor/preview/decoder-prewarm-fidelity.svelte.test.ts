@@ -16,7 +16,8 @@ async function video(color: string): Promise<Blob> {
 	context.fillRect(0, 0, 32, 32);
 	const target = new BufferTarget();
 	const output = new Output({ target, format: new Mp4OutputFormat() });
-	const source = new VideoSampleSource({ codec: 'avc', bitrate: 100_000 });
+	// Avoid the encoder's Level 1b output, which Chromium's Linux decoder rejects.
+	const source = new VideoSampleSource({ codec: 'avc', bitrate: 1_000_000 });
 	output.addVideoTrack(source, { frameRate: 30 });
 	await output.start();
 	const sample = new VideoSample(canvas, { timestamp: 0, duration: 1 / 30 });
@@ -50,7 +51,7 @@ it.each(['proxy replacement', 'source relink'] as const)(
 			duration: 1 / 30,
 			fps: 30,
 			codec: 'avc',
-			bitrate: 100_000,
+			bitrate: 1_000_000,
 			tags: []
 		};
 		const canvas = new OffscreenCanvas(32, 32);

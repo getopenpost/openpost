@@ -114,6 +114,8 @@ export interface GpuProgramDefinition extends GpuEffectDefinition {
 	 */
 	scatterVertexSource?: string;
 	scatterEntryPoint?: string;
+	/** Weighted sampling needs premultiplied pixels; return false for identity settings. */
+	premultipliedInput?: (params: GpuParamValues) => boolean;
 	/**
 	 * Map stored params (+ frame width/height/time in seconds) to uniform
 	 * values. Port of FreeCut's packUniforms, expanded to named uniforms.

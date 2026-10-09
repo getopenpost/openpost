@@ -14,6 +14,7 @@ export const gaussianBlur: GpuShaderDefinition = {
 	label: 'Gaussian Blur',
 	category: 'blur',
 	entryPoint: 'gaussianBlurFragment',
+	premultipliedInput: (params) => readNumber(params, 'radius', 10) >= 0.5,
 	fragmentSource: /* glsl */ `
 uniform float uRadius;
 uniform float uWidth;
@@ -66,6 +67,7 @@ export const boxBlur: GpuShaderDefinition = {
 	label: 'Box Blur',
 	category: 'blur',
 	entryPoint: 'boxBlurFragment',
+	premultipliedInput: (params) => readNumber(params, 'radius', 5) >= 0.5,
 	fragmentSource: /* glsl */ `
 uniform float uRadius;
 uniform float uWidth;
@@ -100,6 +102,15 @@ export const motionBlur: GpuShaderDefinition = {
 	label: 'Motion Blur',
 	category: 'blur',
 	entryPoint: 'motionBlurFragment',
+	premultipliedInput: (params) => {
+		const shutterAngle = readNumber(
+			params,
+			'shutterAngle',
+			Object.keys(params).length > 0 ? 360 : 180
+		);
+		const exposure = Math.min(1, Math.max(0, shutterAngle / 360));
+		return exposure >= 0.001 && readNumber(params, 'amount', 0.05) * exposure >= 0.001;
+	},
 	// Two vec4-aligned rows in FreeCut's std140 layout. The second row carries
 	// the hard radius bound so corrupted/legacy project values cannot turn one
 	// layer into an unbounded full-frame texture walk.
@@ -160,6 +171,7 @@ export const radialBlur: GpuShaderDefinition = {
 	label: 'Radial Blur',
 	category: 'blur',
 	entryPoint: 'radialBlurFragment',
+	premultipliedInput: (params) => readNumber(params, 'amount', 0.5) >= 0.01,
 	fragmentSource: /* glsl */ `
 uniform float uAmount;
 uniform float uCenterX;
@@ -214,6 +226,7 @@ export const zoomBlur: GpuShaderDefinition = {
 	label: 'Zoom Blur',
 	category: 'blur',
 	entryPoint: 'zoomBlurFragment',
+	premultipliedInput: (params) => readNumber(params, 'amount', 0.3) !== 0,
 	fragmentSource: /* glsl */ `
 uniform float uAmount;
 uniform float uCenterX;

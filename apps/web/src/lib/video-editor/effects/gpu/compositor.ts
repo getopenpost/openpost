@@ -66,18 +66,42 @@ function sameDataTextureKey(left: GpuDataTextureKey, right: GpuDataTextureKey): 
 
 const VERTEX_SHADER = FULLSCREEN_VERTEX_GLSL;
 
+const PREMULTIPLY_FRAGMENT_SOURCE = `#version 300 es
+precision highp float;
+uniform sampler2D uInputTex;
+in vec2 vUv;
+out vec4 fragColor;
+vec4 premultipliedTexel(ivec2 coordinate, ivec2 size) {
+  vec4 color = texelFetch(uInputTex, clamp(coordinate, ivec2(0), size - 1), 0);
+  return vec4(color.rgb * color.a, color.a);
+}
+void main() {
+  ivec2 size = textureSize(uInputTex, 0);
+  vec2 position = vUv * vec2(size) - 0.5;
+  ivec2 origin = ivec2(floor(position));
+  vec2 weight = fract(position);
+  fragColor = mix(
+    mix(premultipliedTexel(origin, size), premultipliedTexel(origin + ivec2(1, 0), size), weight.x),
+    mix(premultipliedTexel(origin + ivec2(0, 1), size), premultipliedTexel(origin + ivec2(1, 1), size), weight.x),
+    weight.y
+  );
+}
+`;
+
 function fragmentShaderSource(definition: GpuProgramDefinition): string {
 	return `#version 300 es
 precision highp float;
 precision highp sampler2D;
 precision highp sampler3D;
 uniform sampler2D uInputTex;
+${definition.premultipliedInput ? 'uniform bool uPremultipliedInput;' : ''}
 in vec2 vUv;
 out vec4 fragColor;
 ${EFFECT_COMMON_GLSL}
 ${definition.fragmentSource}
 void main() {
   fragColor = ${definition.entryPoint}(vUv);
+  ${definition.premultipliedInput ? 'if (uPremultipliedInput) fragColor.rgb = fragColor.a > 0.0 ? fragColor.rgb / fragColor.a : vec3(0.0);' : ''}
 }
 `;
 }
@@ -174,6 +198,7 @@ export class GpuCompositor implements EditorColorCompositor {
 	private readonly vertexShader: WebGLShader;
 	private readonly programs = new Map<string, ProgramBundle>();
 	private blendProgram: ProgramBundle | null = null;
+	private premultiplyProgram: ProgramBundle | null = null;
 	private colorBatchProgram: ProgramBundle | null = null;
 	private colorBatchUnavailable = false;
 	private readonly colorBatchUniforms = new ColorBatchUniforms();
@@ -284,6 +309,16 @@ export class GpuCompositor implements EditorColorCompositor {
 		gl.deleteShader(fragment);
 		this.blendProgram = { program, uniformLocations: new Map(), samplerUnits: new Map() };
 		return this.blendProgram;
+	}
+
+	private getPremultiplyProgram(): ProgramBundle {
+		if (this.premultiplyProgram) return this.premultiplyProgram;
+		const gl = this.gl;
+		const fragment = compileShader(gl, gl.FRAGMENT_SHADER, PREMULTIPLY_FRAGMENT_SOURCE);
+		const program = linkProgram(gl, this.vertexShader, fragment);
+		gl.deleteShader(fragment);
+		this.premultiplyProgram = { program, uniformLocations: new Map(), samplerUnits: new Map() };
+		return this.premultiplyProgram;
 	}
 
 	private getColorBatchProgram(): ProgramBundle | null {
@@ -606,6 +641,25 @@ export class GpuCompositor implements EditorColorCompositor {
 			}
 
 			for (const pass of passes) {
+				const definition = pass.kind === 'single' ? getGpuEffect(pass.effect.effectId) : undefined;
+				const premultipliedInput =
+					pass.kind === 'single' &&
+					definition?.paperShader === undefined &&
+					definition?.premultipliedInput?.(pass.effect.params) === true;
+				if (premultipliedInput) {
+					// Premultiply once before the kernel, not four times per sampling tap.
+					// Incrementing the pass keeps preparation and effect in separate targets.
+					const preparation = this.getPremultiplyProgram();
+					gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[passIndex % 2]);
+					gl.viewport(0, 0, width, height);
+					gl.activeTexture(gl.TEXTURE0);
+					gl.bindTexture(gl.TEXTURE_2D, currentTexture);
+					gl.useProgram(preparation.program);
+					gl.uniform1i(this.location(preparation, 'uInputTex'), 0);
+					gl.drawArrays(gl.TRIANGLES, 0, 6);
+					currentTexture = this.pingTextures[passIndex % 2];
+					passIndex++;
+				}
 				const target = this.framebuffers[passIndex % 2];
 				const targetTexture = this.pingTextures[passIndex % 2];
 				if (!target || !targetTexture) return false;
@@ -631,7 +685,6 @@ export class GpuCompositor implements EditorColorCompositor {
 				}
 
 				const entry = pass.effect;
-				const definition = getGpuEffect(entry.effectId);
 				if (!definition) {
 					throw new Error(`GPU effect renderer unavailable: ${entry.effectId}`);
 				}
@@ -660,6 +713,8 @@ export class GpuCompositor implements EditorColorCompositor {
 				}
 				const bundle = this.getProgram(definition);
 				gl.useProgram(bundle.program);
+				if (definition.premultipliedInput)
+					gl.uniform1i(this.location(bundle, 'uPremultipliedInput'), Number(premultipliedInput));
 
 				for (const [name, unit] of bundle.samplerUnits) {
 					if (name === 'uInputTex') continue;
@@ -763,6 +818,7 @@ export class GpuCompositor implements EditorColorCompositor {
 		if (!lost) {
 			for (const bundle of this.programs.values()) gl.deleteProgram(bundle.program);
 			if (this.blendProgram) gl.deleteProgram(this.blendProgram.program);
+			if (this.premultiplyProgram) gl.deleteProgram(this.premultiplyProgram.program);
 			if (this.colorBatchProgram) gl.deleteProgram(this.colorBatchProgram.program);
 			gpuResourcePool.clearForContext(gl);
 			for (const texture of this.pingTextures) if (texture) gl.deleteTexture(texture);

@@ -43,7 +43,7 @@ import { scaleItemForCanvas } from './render-geometry';
 import { ItemRasterizer } from './item-rasterizer';
 import { animatedFrameIndexForItem, isAnimatedImageMedia } from './animated-image-plan';
 import { animatedImageCache } from './animated-image-client';
-import type { AnimatedImageFrames as AnimatedImageFramesResult } from './animated-image-client';
+import type { AnimatedImageLease } from './animated-image-client';
 import {
 	CanvasStackCompositor,
 	itemOpacity,
@@ -279,7 +279,6 @@ export class TimelineFrameRenderer {
 	private readonly decoders = new Map<string, ResilientVideoFrameDecoder>();
 	private readonly activeDecoders = new Set<string>();
 	private readonly imageCache = new Map<string, Promise<ImageBitmap>>();
-	private readonly animatedFrames = new Map<string, Promise<AnimatedImageFramesResult | null>>();
 	private readonly inputs: Input[] = [];
 	private readonly stackCompositor: CanvasStackCompositor;
 	private readonly itemRasterizer: ItemRasterizer;
@@ -289,6 +288,8 @@ export class TimelineFrameRenderer {
 	private readonly lottieBlobs = new Map<string, Blob>();
 	private readonly lottieSpecs = new Map<string, Promise<LottieRenderSpec>>();
 	private readonly disposal = new RenderDisposalGate(() => this.disposeResources());
+	private renderTail: Promise<void> = Promise.resolve();
+	private pendingRenders = 0;
 
 	constructor(
 		private readonly project: Project,
@@ -413,19 +414,20 @@ export class TimelineFrameRenderer {
 	private async animatedImageSource(
 		item: TimelineItem,
 		mediaId: string,
-		frame: number
+		frame: number,
+		animatedFrames: Map<string, Promise<AnimatedImageLease>>
 	): Promise<StackLayerSource | null> {
 		const media = mediaPool.get(mediaId);
 		if (!isAnimatedImageMedia(media)) return null;
-		let framesPromise = this.animatedFrames.get(mediaId);
+		let framesPromise = animatedFrames.get(mediaId);
 		if (!framesPromise) {
 			if (!media) return null;
-			framesPromise = animatedImageCache.getAnimatedImage(media);
-			this.animatedFrames.set(mediaId, framesPromise);
+			framesPromise = animatedImageCache.acquire(media);
+			animatedFrames.set(mediaId, framesPromise);
 		}
-		let resolved: AnimatedImageFramesResult | null;
+		let resolved: AnimatedImageLease['frames'];
 		try {
-			resolved = await framesPromise;
+			resolved = (await framesPromise).frames;
 		} catch (error) {
 			// Known animations must fail clearly so a static poster cannot hide a broken loop.
 			throw new Error(
@@ -462,7 +464,8 @@ export class TimelineFrameRenderer {
 	private async sourceForItem(
 		resolvedItem: TimelineItem,
 		originalItem: TimelineItem,
-		frame: number
+		frame: number,
+		animatedFrames: Map<string, Promise<AnimatedImageLease>>
 	): Promise<StackLayerSource | null> {
 		if (resolvedItem.type === 'background') return null;
 		if (
@@ -594,7 +597,12 @@ export class TimelineFrameRenderer {
 				: null;
 		}
 		if (resolvedItem.mediaId) {
-			const animated = await this.animatedImageSource(originalItem, resolvedItem.mediaId, frame);
+			const animated = await this.animatedImageSource(
+				originalItem,
+				resolvedItem.mediaId,
+				frame,
+				animatedFrames
+			);
 			if (animated) return animated;
 		}
 		let pendingBitmap = this.imageCache.get(resolvedItem.mediaId);
@@ -609,18 +617,52 @@ export class TimelineFrameRenderer {
 		return { source: bitmap, width: bitmap.width, height: bitmap.height };
 	}
 
-	async render(frame: number): Promise<OffscreenCanvas> {
-		const finishProfile = startProfileSpan('Video compose', 'Frame');
+	render(frame: number): Promise<OffscreenCanvas> {
+		this.pendingRenders++;
+		const rendered = this.renderTail.then(async () => {
+			try {
+				const canvas = await this.renderActiveFrame(frame);
+				if (this.pendingRenders === 1) return canvas;
+				// Concurrent callers may consume their result after the next frame starts.
+				// Sequential exports keep the reusable canvas and avoid this extra copy.
+				const snapshot = new OffscreenCanvas(canvas.width, canvas.height);
+				snapshot.getContext('2d')!.drawImage(canvas, 0, 0);
+				return snapshot;
+			} finally {
+				this.pendingRenders--;
+			}
+		});
+		this.renderTail = rendered.then(
+			() => undefined,
+			() => undefined
+		);
+		return rendered;
+	}
+
+	private async renderActiveFrame(frame: number): Promise<OffscreenCanvas> {
+		// Queued work must not open sources after disposal has been requested.
 		this.disposal.enter();
+		const finishProfile = startProfileSpan('Video compose', 'Frame');
+		const animatedFrames = new Map<string, Promise<AnimatedImageLease>>();
 		try {
-			return await this.renderFrame(frame);
+			return await this.renderFrame(frame, animatedFrames);
 		} finally {
+			for (const pendingLease of animatedFrames.values()) {
+				// A failed transition branch may finish before the other source has loaded.
+				void pendingLease.then(
+					(lease) => lease.release(),
+					() => undefined
+				);
+			}
 			this.disposal.leave();
 			finishProfile?.();
 		}
 	}
 
-	private async renderFrame(frame: number): Promise<OffscreenCanvas> {
+	private async renderFrame(
+		frame: number,
+		animatedFrames: Map<string, Promise<AnimatedImageLease>>
+	): Promise<OffscreenCanvas> {
 		this.activeDecoders.clear();
 		this.activeNestedRenderers.clear();
 		this.stackCompositor.beginFrame(this.width, this.height, this.backgroundColor);
@@ -664,7 +706,7 @@ export class TimelineFrameRenderer {
 				this.width / this.project.metadata.width,
 				this.height / this.project.metadata.height
 			);
-			const source = await this.sourceForItem(resolvedItem, item, frame);
+			const source = await this.sourceForItem(resolvedItem, item, frame, animatedFrames);
 			if (!source && resolvedItem.type !== 'background') return null;
 			return {
 				source,

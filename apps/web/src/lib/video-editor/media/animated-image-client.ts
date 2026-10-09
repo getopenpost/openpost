@@ -42,6 +42,11 @@ export interface AnimatedImageFrames {
 	isComplete: boolean;
 }
 
+export interface AnimatedImageLease {
+	frames: AnimatedImageFrames;
+	release: () => void;
+}
+
 interface CacheEntry {
 	sizeBytes: number;
 	lastAccessed: number;
@@ -74,17 +79,10 @@ function finalize(
 }
 
 class AnimatedImageCacheService {
+	private readonly leases = new Map<string, { count: number; retired: ImageBitmap[] }>();
 	private cache = new SizedAccessedMemoryCache<CacheEntry>(MEMORY_SOFT_LIMIT_BYTES, {
-		onEvict: (_key, entry) => {
-			for (const bitmap of entry.frames.frames) {
-				try {
-					bitmap.close();
-				} catch {
-					// Ignore double-close from racing clear paths.
-				}
-			}
-		},
-		isPinned: (key) => this.hasSubscribers(key)
+		onEvict: (key, entry) => this.retireBitmaps(key, entry.frames.frames),
+		isPinned: (key) => this.hasSubscribers(key) || this.leases.has(key)
 	});
 	private loadingPromises = new Map<string, Promise<AnimatedImageFrames>>();
 	private updateCallbacks = new Map<string, Set<UpdateCallback>>();
@@ -154,6 +152,37 @@ class AnimatedImageCacheService {
 		});
 		this.loadingPromises.set(media.id, promise);
 		return promise;
+	}
+
+	/** Keep decoded frames alive until the caller finishes consuming them. */
+	async acquire(media: MediaMetadata): Promise<AnimatedImageLease> {
+		let retained = this.leases.get(media.id);
+		if (!retained) {
+			retained = { count: 0, retired: [] };
+			this.leases.set(media.id, retained);
+		}
+		retained.count++;
+		const owner = retained;
+		let released = false;
+		const release = () => {
+			if (released) return;
+			released = true;
+			if (--owner.count > 0) return;
+			this.leases.delete(media.id);
+			for (const bitmap of owner.retired) bitmap.close();
+		};
+		try {
+			return { frames: await this.getAnimatedImage(media), release };
+		} catch (error) {
+			release();
+			throw error;
+		}
+	}
+
+	private retireBitmaps(mediaId: string, bitmaps: ImageBitmap[]): void {
+		const retained = this.leases.get(mediaId);
+		if (retained) retained.retired.push(...bitmaps);
+		else for (const bitmap of bitmaps) bitmap.close();
 	}
 
 	/** Stop queued or running extraction without dropping completed frames. */
@@ -386,15 +415,10 @@ class AnimatedImageCacheService {
 	private storeAndNotify(frames: AnimatedImageFrames): void {
 		const previous = this.cache.peek(frames.mediaId);
 		if (previous && previous.frames !== frames) {
-			for (const [index, bitmap] of previous.frames.frames.entries()) {
-				if (bitmap !== frames.frames[index] && !frames.frames.includes(bitmap)) {
-					try {
-						bitmap.close();
-					} catch {
-						// Already closed via onEvict race.
-					}
-				}
-			}
+			this.retireBitmaps(
+				frames.mediaId,
+				previous.frames.frames.filter((bitmap) => !frames.frames.includes(bitmap))
+			);
 		}
 		this.cache.add(frames.mediaId, {
 			sizeBytes: estimateBytes(frames),

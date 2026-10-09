@@ -359,7 +359,9 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
       );
       await expect(page.locator("[data-image-color-workspace]:visible")).toBeVisible();
       await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(10);
-      await expect(page.getByRole("button", { name: "Advanced", exact: true })).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Curves", exact: true })).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Color Wheels", exact: true })).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Scopes", exact: true })).toBeVisible();
       if (width === 1440) {
         const scope = page.getByRole("group", { name: "Color", exact: true });
         await page.getByRole("tree", { name: "Layers" }).getByText("color-source.png").click();
@@ -367,8 +369,8 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(11);
         await scope.getByRole("button", { name: "Page", exact: true }).click();
         if (theme.id === "workshop") {
-          await page.getByRole("button", { name: "Advanced", exact: true }).click();
-          await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(14);
+          await page.getByRole("tab", { name: "Color Wheels", exact: true }).click();
+          await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(4);
           const originalPixel = await designCanvasCenterPixel(page);
           const offset = page.getByRole("slider", { name: "Offset color wheel" });
           await offset.press("End");
@@ -376,6 +378,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
           await expect.poll(() => designCanvasCenterPixel(page)).not.toEqual(originalPixel);
           await page.getByRole("button", { name: /^Undo/ }).click();
           await expect.poll(() => designCanvasCenterPixel(page)).toEqual(originalPixel);
+          await page.getByRole("tab", { name: "Curves", exact: true }).click();
           const curve = page.getByRole("group", { name: "Master curve editor", exact: true });
           const points = await curve.locator("[data-curve-point]").count();
           const curveBounds = await curve.boundingBox();
@@ -390,6 +393,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
           await page.getByRole("button", { name: /^Redo/ }).click();
           await expect.poll(() => designCanvasCenterPixel(page)).not.toEqual(originalPixel);
           const curvedPixel = await designCanvasCenterPixel(page);
+          await page.getByRole("tab", { name: "Color Wheels", exact: true }).click();
           await offset.press("End");
           await expect.poll(() => designCanvasCenterPixel(page)).not.toEqual(curvedPixel);
           const advancedPixel = await designCanvasCenterPixel(page);
@@ -403,13 +407,17 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
             timeout: 20_000,
           });
           await page.locator("#image-editor-workspace-tab-color").click();
-          await page.getByRole("button", { name: "Advanced", exact: true }).click();
+          await page.getByRole("tab", { name: "Color Wheels", exact: true }).click();
           await expect(offset).toHaveAttribute("aria-valuetext", "0 degrees, 100 percent");
+          await page.getByRole("tab", { name: "Curves", exact: true }).click();
           await expect(curve.locator("[data-curve-point]")).toHaveCount(points + 1);
           await expect.poll(() => designCanvasCenterPixel(page)).toEqual(advancedPixel);
+          await page.getByRole("tab", { name: "Adjustments", exact: true }).click();
           await page.getByRole("button", { name: "Original", exact: true }).click();
+          await page.getByRole("tab", { name: "Scopes", exact: true }).click();
           await page.getByRole("button", { name: "Show all scopes" }).click();
           await expect(page.locator("[data-color-scope-canvas]:visible")).toHaveCount(4);
+          await page.getByRole("tab", { name: "Adjustments", exact: true }).click();
           await page.getByRole("button", { name: "Warm", exact: true }).click();
           await expect.poll(() => designCanvasCenterPixel(page)).not.toEqual(originalPixel);
           const gradedPixel = await designCanvasCenterPixel(page);

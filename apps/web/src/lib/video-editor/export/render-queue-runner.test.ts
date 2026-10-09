@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { projectForRenderJob } from './render-queue-job';
 import { describe, expect, it, vi } from 'vitest';
-import { RenderQueueRunner } from './render-queue-runner';
+import { RenderQueueRunner, type RenderQueueExecutor } from './render-queue-runner';
 import { createRenderQueueStore, type RenderQueueJob } from './render-queue-store';
 
 async function waitUntil(assertion: () => void): Promise<void> {
@@ -85,26 +85,80 @@ describe('RenderQueueRunner', () => {
 
 	it('cancels the active render and removes every job when the queue is cleared', async () => {
 		const queue = createRenderQueueStore();
-		const execute = vi.fn(
-			async (_next: RenderQueueJob, options: { signal: AbortSignal }): Promise<never> =>
-				new Promise((_resolve, reject) => {
-					options.signal.addEventListener('abort', () =>
-						reject(new DOMException('cancelled', 'AbortError'))
-					);
-				})
-		);
+		let aborted = false;
+		const execute = vi.fn<RenderQueueExecutor>(async (next, { signal }) => {
+			if (next.id === 'a')
+				await new Promise<never>((_resolve, reject) => {
+					signal.addEventListener('abort', () => {
+						aborted = true;
+						reject(new DOMException('cancelled', 'AbortError'));
+					});
+				});
+			return {
+				kind: 'artifact',
+				savedPath: `exports/${next.id}.mp4`,
+				outputLabel: `${next.id}.mp4`,
+				fileSize: 2
+			};
+		});
 		const runner = new RenderQueueRunner(queue, execute);
-		runner.start();
-		queue.enqueue([job('a'), job('b')]);
-		await waitUntil(() => expect(get(queue).activeJobId).toBe('a'));
+		try {
+			runner.start();
+			queue.enqueue([job('a'), job('b')]);
+			await waitUntil(() => expect(get(queue).activeJobId).toBe('a'));
 
-		runner.clearAll();
+			runner.clearAll();
 
-		await waitUntil(() => expect(get(queue)).toMatchObject({ jobs: [], activeJobId: null }));
-		expect(execute).toHaveBeenCalledOnce();
-		runner.stop();
+			await waitUntil(() => expect(get(queue)).toMatchObject({ jobs: [], activeJobId: null }));
+			expect(aborted).toBe(true);
+			queue.enqueue([job('fresh')]);
+			await waitUntil(() => expect(get(queue).jobs[0]?.status).toBe('completed'));
+			expect(execute.mock.calls.map(([next]) => next.id)).toEqual(['a', 'fresh']);
+		} finally {
+			queue.clearAll();
+			runner.stop();
+		}
 	});
 });
+
+it.each([false, true])(
+	'stops draining the queue until restarted (active render: %s)',
+	async (active) => {
+		const queue = createRenderQueueStore();
+		const execute = vi.fn<RenderQueueExecutor>(async (next, { signal }) => {
+			if (active && next.id === 'a')
+				await new Promise<never>((_resolve, reject) => {
+					signal.addEventListener('abort', () =>
+						reject(new DOMException('cancelled', 'AbortError'))
+					);
+				});
+			return {
+				kind: 'artifact',
+				savedPath: `exports/${next.id}.mp4`,
+				outputLabel: `${next.id}.mp4`,
+				fileSize: 2
+			};
+		});
+		const runner = new RenderQueueRunner(queue, execute);
+		try {
+			runner.start();
+			queue.enqueue([job('a'), job('b')]);
+			if (active) await waitUntil(() => expect(get(queue).activeJobId).toBe('a'));
+			runner.stop();
+			if (active) await waitUntil(() => expect(get(queue).jobs[0]?.status).toBe('cancelled'));
+			// Drain queued microtasks as well as the cancelled render's finally block.
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			expect(execute.mock.calls.map(([next]) => next.id)).toEqual(active ? ['a'] : []);
+			expect(get(queue).jobs[1]?.status).toBe('queued');
+			runner.start();
+			await waitUntil(() => expect(get(queue).jobs[1]?.status).toBe('completed'));
+			expect(execute.mock.calls.map(([next]) => next.id)).toEqual(['a', 'b']);
+		} finally {
+			queue.clearAll();
+			runner.stop();
+		}
+	}
+);
 
 it('preserves the absolute end of a queued Motion range after its last layer', () => {
 	const motion = job('motion');

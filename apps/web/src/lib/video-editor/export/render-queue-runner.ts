@@ -159,7 +159,7 @@ export class RenderQueueRunner {
 	}
 
 	#schedule(): void {
-		if (this.#scheduled || this.#running) return;
+		if (!this.#unsubscribe || this.#scheduled || this.#running) return;
 		this.#scheduled = true;
 		queueMicrotask(() => {
 			this.#scheduled = false;
@@ -168,7 +168,7 @@ export class RenderQueueRunner {
 	}
 
 	async #drain(): Promise<void> {
-		if (this.#running) return;
+		if (!this.#unsubscribe || this.#running) return;
 		const job = this.queue.next();
 		if (!job || !this.queue.markRendering(job.id)) return;
 		this.#running = true;

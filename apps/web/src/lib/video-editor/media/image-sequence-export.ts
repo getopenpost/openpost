@@ -237,14 +237,8 @@ export async function* renderImageSequenceFrames(
 
 	report(options, 'preparing', 0, totalFrames);
 	const preserveAlpha = options.format === 'png' || options.format === 'webp';
-	const renderProject: Project = preserveAlpha
-		? {
-				...project,
-				metadata: { ...project.metadata, width, height }
-			}
-		: project;
 
-	const renderer = new TimelineFrameRenderer(renderProject, {
+	const renderer = new TimelineFrameRenderer(project, {
 		width,
 		height,
 		backgroundColor: preserveAlpha ? null : (project.metadata.backgroundColor ?? '#000000'),

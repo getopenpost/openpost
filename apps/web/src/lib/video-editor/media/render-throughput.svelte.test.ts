@@ -25,17 +25,17 @@ import type { GpuParamValues } from '../effects/gpu/types';
 const FPS = 30;
 const FRAME_COUNT = 60;
 
-async function sourceVideo(): Promise<Blob> {
+async function sourceVideo(width = 64, height = 64): Promise<Blob> {
 	const target = new BufferTarget();
 	const output = new Output({ format: new Mp4OutputFormat(), target });
 	const source = new VideoSampleSource({ codec: 'avc', bitrate: 1_000_000, keyFrameInterval: 2 });
 	output.addVideoTrack(source, { frameRate: FPS });
 	await output.start();
-	const canvas = new OffscreenCanvas(64, 64);
+	const canvas = new OffscreenCanvas(width, height);
 	const context = canvas.getContext('2d')!;
 	for (let frame = 0; frame < FRAME_COUNT; frame++) {
 		context.fillStyle = `rgb(${frame * 4}, 40, 80)`;
-		context.fillRect(0, 0, 64, 64);
+		context.fillRect(0, 0, width, height);
 		// Six high-contrast bits survive lossy encoding and identify every source frame.
 		for (let bit = 0; bit < 6; bit++) {
 			context.fillStyle = frame & (1 << bit) ? 'white' : 'black';
@@ -107,6 +107,129 @@ afterEach(() => {
 });
 
 describe('timeline rendering', () => {
+	it.each([
+		{
+			name: 'landscape in square',
+			sourceWidth: 160,
+			sourceHeight: 90,
+			width: 160,
+			height: 160,
+			reverse: false
+		},
+		{
+			name: 'portrait in landscape',
+			sourceWidth: 90,
+			sourceHeight: 160,
+			width: 240,
+			height: 160,
+			reverse: false
+		},
+		{
+			name: 'reverse landscape in square',
+			sourceWidth: 160,
+			sourceHeight: 90,
+			width: 160,
+			height: 160,
+			reverse: true
+		}
+	])(
+		'preserves source pixels without baking bars into $name clips',
+		async ({ sourceWidth, sourceHeight, width, height, reverse }) => {
+			const blob = await sourceVideo(sourceWidth, sourceHeight);
+			const url = URL.createObjectURL(blob);
+			mediaPool.upsert(
+				{
+					id: 'source',
+					storageType: 'cloud',
+					remoteUrl: url,
+					fileName: 'source.mp4',
+					fileSize: blob.size,
+					mimeType: blob.type,
+					duration: 2,
+					width: sourceWidth,
+					height: sourceHeight,
+					fps: FPS,
+					codec: 'avc',
+					bitrate: 1_000_000,
+					tags: ['video']
+				},
+				'ready'
+			);
+			const project = sourceProject(reverse);
+			project.metadata = { width, height, fps: FPS, backgroundColor: '#00ff00' };
+			const clip = project.timeline!.items[0]!;
+			clip.sourceWidth = sourceWidth;
+			clip.sourceHeight = sourceHeight;
+			clip.transform = { width: sourceWidth, height: sourceHeight };
+			const renderer = new TimelineFrameRenderer(project);
+			try {
+				const canvas = await renderer.render(30);
+				const context = canvas.getContext('2d')!;
+				// These points lie inside the source picture, away from its frame-number strip.
+				// A decoder-padded frame squeezes the picture and turns them black.
+				for (const [x, y] of [
+					[(width - sourceWidth) / 2 + 15, (height - sourceHeight) / 2 + 15],
+					[(width + sourceWidth) / 2 - 15, (height + sourceHeight) / 2 - 15]
+				]) {
+					const pixel = context.getImageData(x!, y!, 1, 1).data;
+					expect(pixel[0]).toBeGreaterThan(90);
+					expect(pixel[1]).toBeGreaterThan(25);
+					expect(pixel[2]).toBeGreaterThan(60);
+				}
+				expect([...context.getImageData(0, 0, 1, 1).data]).toEqual([0, 255, 0, 255]);
+			} finally {
+				renderer.dispose();
+				URL.revokeObjectURL(url);
+			}
+		}
+	);
+
+	it('letterboxes the whole composition when exporting a different aspect ratio', async () => {
+		const project = sourceProject();
+		project.timeline!.items = [
+			{
+				id: 'square',
+				type: 'shape',
+				shapeType: 'rectangle',
+				fillColor: '#ff0000',
+				trackId: 'v',
+				from: 0,
+				durationInFrames: 60,
+				label: 'Square',
+				transform: { width: 32, height: 32 }
+			},
+			{
+				id: 'outside',
+				type: 'shape',
+				shapeType: 'rectangle',
+				fillColor: '#00ff00',
+				trackId: 'v',
+				from: 0,
+				durationInFrames: 60,
+				label: 'Outside canvas',
+				transform: { x: 48, width: 16, height: 16 }
+			}
+		];
+		const renderer = new TimelineFrameRenderer(project, { width: 128, height: 64 });
+		try {
+			const canvas = await renderer.render(0);
+			const pixels = canvas.getContext('2d')!.getImageData(0, 0, 128, 64).data;
+			let red = 0;
+			let green = 0;
+			for (let i = 0; i < pixels.length; i += 4) {
+				if (pixels[i]! > 240) red++;
+				if (pixels[i + 1]! > 240) green++;
+			}
+			expect(red).toBe(32 * 32);
+			expect(green).toBe(0);
+			expect([...canvas.getContext('2d')!.getImageData(48, 16, 1, 1).data]).toEqual([
+				255, 0, 0, 255
+			]);
+		} finally {
+			renderer.dispose();
+		}
+	});
+
 	it('keeps visual pixels in the frame and encoded export when an audio track is soloed', async () => {
 		const project = sourceProject();
 		project.duration = 0.1;

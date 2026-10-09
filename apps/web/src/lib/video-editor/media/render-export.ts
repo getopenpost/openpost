@@ -262,6 +262,7 @@ export interface TimelineFrameRenderOptions {
 /** Shared full-resolution compositor used by export and still-frame capture. */
 export class TimelineFrameRenderer {
 	readonly canvas: OffscreenCanvas;
+	private readonly compositionCanvas: OffscreenCanvas;
 	private readonly width: number;
 	private readonly height: number;
 	private readonly backgroundColor: string | null;
@@ -292,10 +293,22 @@ export class TimelineFrameRenderer {
 		options: TimelineFrameRenderOptions = {},
 		private readonly ancestry: ReadonlySet<string> = new Set()
 	) {
-		this.width = options.width ?? project.metadata.width;
-		this.height = options.height ?? project.metadata.height;
-		this.canvas = new OffscreenCanvas(this.width, this.height);
-		this.stackCompositor = new CanvasStackCompositor(this.canvas);
+		const outputWidth = options.width ?? project.metadata.width;
+		const outputHeight = options.height ?? project.metadata.height;
+		const scale = Math.min(
+			outputWidth / project.metadata.width,
+			outputHeight / project.metadata.height
+		);
+		this.width = Math.max(1, Math.round(project.metadata.width * scale));
+		this.height = Math.max(1, Math.round(project.metadata.height * scale));
+		this.canvas = new OffscreenCanvas(outputWidth, outputHeight);
+		// Keep the authored canvas boundary before fitting the complete composition into
+		// another output format. Off-canvas layers must not leak into the letterbox bars.
+		this.compositionCanvas =
+			this.width === outputWidth && this.height === outputHeight
+				? this.canvas
+				: new OffscreenCanvas(this.width, this.height);
+		this.stackCompositor = new CanvasStackCompositor(this.compositionCanvas);
 		this.backgroundColor =
 			options.backgroundColor !== undefined
 				? options.backgroundColor
@@ -688,6 +701,19 @@ export class TimelineFrameRenderer {
 		);
 
 		this.stackCompositor.assertExactRender();
+		if (this.compositionCanvas !== this.canvas) {
+			const context = this.canvas.getContext('2d')!;
+			context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+			if (this.backgroundColor !== null) {
+				context.fillStyle = this.backgroundColor;
+				context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+			}
+			context.drawImage(
+				this.compositionCanvas,
+				(this.canvas.width - this.width) / 2,
+				(this.canvas.height - this.height) / 2
+			);
+		}
 		for (const [id, decoder] of this.decoders) {
 			if (this.activeDecoders.has(id)) continue;
 			decoder.dispose();

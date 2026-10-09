@@ -24,15 +24,14 @@ interface ProxyCacheEntry {
 }
 
 const cache = new SizedAccessedMemoryCache<ProxyCacheEntry>(128 * 1024 * 1024);
-const inflight = new Map<string, Promise<Blob>>();
-interface AutomaticProxyJob {
+interface ProxyJob {
 	controller: AbortController;
 	promise: Promise<Blob>;
 	waiters: Map<symbol, ((progress: number) => void) | undefined>;
 }
 
-const automaticInflight = new Map<string, AutomaticProxyJob>();
-const cacheVersions = new Map<string, number>();
+const inflight = new Map<string, ProxyJob>();
+const automaticInflight = new Map<string, ProxyJob>();
 let automaticQueue: Promise<void> = Promise.resolve();
 
 export interface ProxyDimensions {
@@ -97,11 +96,23 @@ export async function getProxy(
 	if (signal?.aborted) throw new DOMException('Proxy generation aborted', 'AbortError');
 	const existing = cache.get(media.id);
 	if (existing?.blob) return existing.blob;
-	const pending = inflight.get(media.id);
-	if (pending) return pending;
-	const promise = encodeProxy(media, onProgress, signal).finally(() => inflight.delete(media.id));
-	inflight.set(media.id, promise);
-	return promise;
+	let job = inflight.get(media.id);
+	if (!job || job.controller.signal.aborted) {
+		const controller = new AbortController();
+		const waiters: ProxyJob['waiters'] = new Map();
+		const promise = encodeProxy(
+			media,
+			(progress) => {
+				for (const report of waiters.values()) report?.(progress);
+			},
+			controller.signal
+		).finally(() => {
+			if (inflight.get(media.id)?.controller === controller) inflight.delete(media.id);
+		});
+		job = { controller, promise, waiters };
+		inflight.set(media.id, job);
+	}
+	return waitForProxy(job, onProgress, signal);
 }
 
 /** Serialize background proxy work so heavy clips do not compete for decoders. */
@@ -113,11 +124,15 @@ export function getAutomaticProxy(
 	if (signal?.aborted) {
 		return Promise.reject(new DOMException('Proxy generation aborted', 'AbortError'));
 	}
-	const pending = automaticInflight.get(media.id) ?? startAutomaticProxyJob(media);
-	return waitForAutomaticProxy(pending, onProgress, signal);
+	const existing = cache.get(media.id);
+	if (existing?.blob) return Promise.resolve(existing.blob);
+	const pending = automaticInflight.get(media.id);
+	const job =
+		pending && !pending.controller.signal.aborted ? pending : startAutomaticProxyJob(media);
+	return waitForProxy(job, onProgress, signal);
 }
 
-function startAutomaticProxyJob(media: MediaMetadata): AutomaticProxyJob {
+function startAutomaticProxyJob(media: MediaMetadata): ProxyJob {
 	const taskId = mediaTaskId('proxy', media.id);
 	const taskController = new AbortController();
 	const waiters = new Map<symbol, ((progress: number) => void) | undefined>();
@@ -131,6 +146,8 @@ function startAutomaticProxyJob(media: MediaMetadata): AutomaticProxyJob {
 		progress: 0,
 		onCancel: () => taskController.abort()
 	});
+	const onAbort = () => mediaTasks.finish(taskId, taskRevision);
+	taskController.signal.addEventListener('abort', onAbort, { once: true });
 	const request = automaticQueue
 		.catch(() => undefined)
 		.then(() => {
@@ -148,12 +165,13 @@ function startAutomaticProxyJob(media: MediaMetadata): AutomaticProxyJob {
 			);
 		})
 		.finally(() => {
+			taskController.signal.removeEventListener('abort', onAbort);
 			if (automaticInflight.get(media.id)?.promise === request) {
 				automaticInflight.delete(media.id);
 			}
 			mediaTasks.finish(taskId, taskRevision);
 		});
-	const job: AutomaticProxyJob = { controller: taskController, promise: request, waiters };
+	const job: ProxyJob = { controller: taskController, promise: request, waiters };
 	automaticInflight.set(media.id, job);
 	automaticQueue = request.then(
 		() => undefined,
@@ -162,28 +180,31 @@ function startAutomaticProxyJob(media: MediaMetadata): AutomaticProxyJob {
 	return job;
 }
 
-function waitForAutomaticProxy(
-	job: AutomaticProxyJob,
+function waitForProxy(
+	job: ProxyJob,
 	onProgress?: (progress: number) => void,
 	signal?: AbortSignal
 ): Promise<Blob> {
-	const waiter = Symbol('automatic-proxy-waiter');
+	const waiter = Symbol('proxy-waiter');
 	job.waiters.set(waiter, onProgress);
 	return new Promise((resolve, reject) => {
 		const release = () => {
 			job.waiters.delete(waiter);
 			signal?.removeEventListener('abort', abort);
+			job.controller.signal.removeEventListener('abort', onJobAbort);
 		};
-		const abort = () => {
+		const onJobAbort = () => {
 			release();
-			if (job.waiters.size === 0) job.controller.abort();
 			reject(new DOMException('Proxy generation aborted', 'AbortError'));
 		};
+		const abort = () => {
+			onJobAbort();
+			if (job.waiters.size === 0) job.controller.abort();
+		};
 		signal?.addEventListener('abort', abort, { once: true });
-		if (signal?.aborted) {
-			abort();
-			return;
-		}
+		job.controller.signal.addEventListener('abort', onJobAbort, { once: true });
+		if (signal?.aborted) abort();
+		else if (job.controller.signal.aborted) onJobAbort();
 		job.promise.then(
 			(blob) => {
 				release();
@@ -197,62 +218,63 @@ function waitForAutomaticProxy(
 	});
 }
 
-async function encodeProxy(
+function encodeProxy(
 	media: MediaMetadata,
-	onProgress?: (progress: number) => void,
-	signal?: AbortSignal
+	onProgress: (progress: number) => void,
+	signal: AbortSignal
 ): Promise<Blob> {
-	const cacheVersion = cacheVersions.get(media.id) ?? 0;
-	const worker = new Worker(new URL('./proxy-worker.ts', import.meta.url), { type: 'module' });
 	const finishProfile = startProfileSpan('Media', 'Generate proxy');
-	try {
-		const { resolveMediaBlob } = await import('./resolve-media-blob');
-		const file = await resolveMediaBlob(media);
-		return await new Promise<Blob>((resolve, reject) => {
-			const finish = (callback: () => void) => {
-				signal?.removeEventListener('abort', abort);
-				callback();
-			};
-			const abort = () =>
-				finish(() => reject(new DOMException('Proxy generation aborted', 'AbortError')));
-			signal?.addEventListener('abort', abort, { once: true });
-			if (signal?.aborted) {
-				abort();
-				return;
+	return new Promise<Blob>((resolve, reject) => {
+		let worker: Worker | undefined;
+		let settled = false;
+		const finish = (callback: () => void) => {
+			if (settled) return;
+			settled = true;
+			signal.removeEventListener('abort', abort);
+			if (worker) {
+				worker.onmessage = null;
+				worker.onerror = null;
+				worker.onmessageerror = null;
+				worker.terminate();
 			}
+			finishProfile?.();
+			callback();
+		};
+		const abort = () =>
+			finish(() => reject(new DOMException('Proxy generation aborted', 'AbortError')));
+		signal.addEventListener('abort', abort, { once: true });
+		if (signal.aborted) {
+			abort();
+			return;
+		}
+		void (async () => {
+			const { resolveMediaBlob } = await import('./resolve-media-blob');
+			const file = await resolveMediaBlob(media, { signal });
+			// Native file reads may finish after cancellation. Never start their worker.
+			signal.throwIfAborted();
+			worker = new Worker(new URL('./proxy-worker.ts', import.meta.url), { type: 'module' });
 			worker.onmessage = (event: MessageEvent<ProxyWorkerResponse>) => {
 				const message = event.data;
 				if (message.type === 'complete') {
-					if ((cacheVersions.get(media.id) ?? 0) === cacheVersion) {
+					finish(() => {
 						cache.add(media.id, {
 							blob: message.blob,
 							sizeBytes: message.blob.size,
 							lastAccessed: Date.now()
 						});
-					}
-					finish(() => resolve(message.blob));
-					return;
-				}
-				if (message.type === 'progress') {
-					onProgress?.(message.progress);
-					return;
-				}
-				finish(() => reject(new Error(message.message ?? 'Proxy generation failed')));
+						resolve(message.blob);
+					});
+				} else if (message.type === 'progress') {
+					onProgress(message.progress);
+				} else finish(() => reject(new Error(message.message ?? 'Proxy generation failed')));
 			};
 			worker.onerror = (event) =>
 				finish(() => reject(new Error(event.message || 'Proxy worker failed')));
 			worker.onmessageerror = () =>
 				finish(() => reject(new Error('Proxy worker response could not be read')));
-			const request: ProxyRequest = { file, maxHeight: PROXY_MAX_HEIGHT };
-			worker.postMessage(request);
-		});
-	} catch (error) {
-		cache.delete(media.id);
-		throw error;
-	} finally {
-		worker.terminate();
-		finishProfile?.();
-	}
+			worker.postMessage({ file, maxHeight: PROXY_MAX_HEIGHT } satisfies ProxyRequest);
+		})().catch((error) => finish(() => reject(error)));
+	});
 }
 
 /** Total bytes currently held by session proxy blobs. Proxies are session memory only (never persisted), so there is no cache version to migrate. */
@@ -263,7 +285,12 @@ export function proxyCacheBytes(): number {
 /** Drop one session proxy and prevent an older in-flight encode from restoring it. */
 export function clearProxyCache(mediaId: string): boolean {
 	const existed = cachedProxy(mediaId) !== null;
-	cacheVersions.set(mediaId, (cacheVersions.get(mediaId) ?? 0) + 1);
 	cache.delete(mediaId);
+	const automatic = automaticInflight.get(mediaId);
+	automaticInflight.delete(mediaId);
+	automatic?.controller.abort();
+	const encoding = inflight.get(mediaId);
+	inflight.delete(mediaId);
+	encoding?.controller.abort();
 	return existed;
 }

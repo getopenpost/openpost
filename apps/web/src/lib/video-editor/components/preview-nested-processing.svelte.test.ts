@@ -448,7 +448,7 @@ it('keeps authored-reverse audio continuous when forward shuttle speed changes',
 		return source;
 	});
 	const screen = await render(PreviewAudioLayer, {
-		item: { ...clip, isReversed: true },
+		item: { ...clip, isReversed: true, sourceFps: 30, sourceEnd: 270, durationInFrames: 270 },
 		url: fixtureUrl
 	});
 	try {

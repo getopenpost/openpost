@@ -72,6 +72,7 @@ export default defineConfig({
 						ui: runRealMusicModel,
 						provider: playwright({
 							launchOptions: {
+								channel: chromiumExecutablePath ? undefined : 'chromium',
 								executablePath: chromiumExecutablePath,
 								args: browserArgs
 							}

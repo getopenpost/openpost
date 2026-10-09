@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { files, writes, resetFileSystem } from "./test-support/file-system";
 
-const files = new Map<string, string>();
-const writes: string[] = [];
 const posts: string[] = [];
 const secureValues = new Map<string, string>();
 let beginUploadError = false;
 const originalFetch = globalThis.fetch;
-globalThis.fetch = (async (input: RequestInfo | URL) => {
+const captureFetch = (async (input: RequestInfo | URL) => {
   const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
   const path = url.pathname.replace("/api/v1", "");
   posts.push(path);
@@ -20,29 +19,6 @@ globalThis.fetch = (async (input: RequestInfo | URL) => {
 
 const queuePath = "file:///mobile/video-project-captures/queue.json";
 
-mock.module("expo-file-system/legacy", () => ({
-  documentDirectory: "file:///mobile/",
-  FileSystemUploadType: { BINARY_CONTENT: 0 },
-  copyAsync: async ({ from, to }: { from: string; to: string }) => {
-    files.set(to, from);
-  },
-  deleteAsync: async (uri: string) => void files.delete(uri),
-  getInfoAsync: async (uri: string) => ({
-    exists: files.has(uri),
-    size: files.get(uri)?.length ?? 0,
-  }),
-  makeDirectoryAsync: async () => undefined,
-  readAsStringAsync: async (uri: string) => {
-    const value = files.get(uri);
-    if (value === undefined) throw new Error("File does not exist");
-    return value;
-  },
-  uploadAsync: async () => ({ status: 200 }),
-  writeAsStringAsync: async (uri: string, value: string) => {
-    writes.push(value);
-    files.set(uri, value);
-  },
-}));
 mock.module("expo-file-system", () => ({
   File: class {
     constructor(uri: string) {
@@ -96,14 +72,14 @@ function queuedCapture() {
 
 describe("mobile video capture persistence and upload", () => {
   beforeEach(() => {
-    files.clear();
-    writes.length = 0;
+    resetFileSystem();
+    globalThis.fetch = captureFetch;
     posts.length = 0;
     beginUploadError = false;
   });
 
   afterEach(() => {
-    files.clear();
+    resetFileSystem();
     globalThis.fetch = originalFetch;
   });
 

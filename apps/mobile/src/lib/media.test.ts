@@ -1,17 +1,9 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import createClient from "openapi-fetch";
 import type { paths } from "@openpost/api-contract";
+import { files, resetFileSystem, uploads } from "./test-support/file-system";
 
 const actualSize = 64;
-let uploadedSize = 0;
-mock.module("expo-file-system/legacy", () => ({
-  FileSystemUploadType: { BINARY_CONTENT: 0 },
-  getInfoAsync: async () => ({ exists: true, isDirectory: false, size: actualSize }),
-  uploadAsync: async (_url: string, _uri: string, options: { headers: Record<string, string> }) => {
-    uploadedSize = Number(options.headers["Content-Length"]);
-    return { status: uploadedSize === actualSize ? 200 : 403, body: "" };
-  },
-}));
 mock.module("expo-secure-store", () => ({
   getItemAsync: async () => null,
   setItemAsync: async () => undefined,
@@ -19,9 +11,11 @@ mock.module("expo-secure-store", () => ({
 }));
 const { uploadAttachment } = await import("./media");
 
-afterEach(() => {
-  uploadedSize = 0;
+beforeEach(() => {
+  resetFileSystem();
+  files.set("file:///compressed.webp", "x".repeat(actualSize));
 });
+afterEach(resetFileSystem);
 
 for (const reportedSize of [89216, null]) {
   test(`uploads the actual local image size when picker reports ${reportedSize}`, async () => {
@@ -60,7 +54,7 @@ for (const reportedSize of [89216, null]) {
       ),
     ).toBe("image");
     expect(reservedSize).toBe(64);
-    expect(uploadedSize).toBe(64);
+    expect(uploads).toEqual([{ uri: "file:///compressed.webp", size: 64 }]);
     expect(completed).toBe(true);
   });
 }

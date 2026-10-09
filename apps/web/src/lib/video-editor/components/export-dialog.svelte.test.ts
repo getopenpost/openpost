@@ -275,6 +275,10 @@ describe('ExportDialog', () => {
 		const directory = `export-progress-${crypto.randomUUID()}`;
 		setWorkspaceRoot(await opfs.getDirectoryHandle(directory, { create: true }));
 		const project = projectFixture();
+		// Keep real work pending while the test observes progress and cancels it.
+		// A short solid-color clip can finish before the browser assertions run.
+		project.duration = 60;
+		project.timeline!.items[0]!.durationInFrames = 60 * project.metadata.fps;
 		project.metadata.width = 480;
 		project.metadata.height = 270;
 		project.timeline!.compositions = [];

@@ -3175,7 +3175,7 @@
 	"settings_copy_token_now": "Copia este token ahora. No se volverá a mostrar.",
 	"settings_token_secret_label": "Token de API nuevo",
 	"settings_token_copy_success": "Token de API copiado.",
-	"settings_token_copy_failed": "The token could not be copied. Copy it manually before closing this message.",
+	"settings_token_copy_failed": "No se pudo acceder al portapapeles. Selecciona el token de arriba y pulsa Cmd/Ctrl+C, o permite el acceso al portapapeles para este sitio e inténtalo de nuevo.",
 	"settings_token_creation_pending": "Espera a que termine la creación del token de API antes de salir de esta página.",
 	"settings_token_name_required": "Escribe un nombre que identifique este token.",
 	"settings_token_expiry": "Caducidad",

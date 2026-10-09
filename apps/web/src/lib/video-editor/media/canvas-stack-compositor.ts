@@ -12,6 +12,7 @@ import { mediaDrawGeometry, type MediaDrawGeometry } from './render-geometry';
 import { applyCropFeatherMask, hasCropFeather } from './crop-layout';
 import { transitionRegistry } from '../transitions';
 import { TransitionPipeline } from '../transitions/gpu/pipeline';
+import { createCanvasGpuDevice } from './canvas-gpu-device';
 import { ShapeMaskRasterizer } from '../shapes/masks';
 import { drawCornerPinImage, hasCornerPin, resolveCornerPinForSize } from '../preview/corner-pin';
 import { clampBackground } from '../backgrounds/types';
@@ -341,14 +342,9 @@ export class CanvasStackCompositor {
 	}
 
 	private async initializeTransitionPipeline(): Promise<void> {
-		const gpu = globalThis.navigator?.gpu;
-		if (!gpu) return;
 		try {
-			const adapter = await gpu.requestAdapter({
-				powerPreference: 'high-performance'
-			});
-			if (!adapter || this.disposed) return;
-			const device = await adapter.requestDevice();
+			const device = await createCanvasGpuDevice();
+			if (!device) return;
 			if (this.disposed) {
 				device.destroy();
 				return;

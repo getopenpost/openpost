@@ -7,6 +7,7 @@
 import { HistogramScope } from './histogram-scope';
 import { WaveformScope } from './waveform-scope';
 import { VectorscopeScope } from './vectorscope-scope';
+import { createCanvasGpuDevice } from '../../media/canvas-gpu-device';
 
 export type ScopeRendererLostHandler = (message: string) => void;
 
@@ -51,13 +52,12 @@ export class ScopeRenderer {
 	}
 
 	static async create(onLost?: ScopeRendererLostHandler): Promise<ScopeRenderer | null> {
-		if (!globalThis.navigator?.gpu) return null;
+		const device = await createCanvasGpuDevice();
+		if (!device) return null;
 		try {
-			const adapter = await navigator.gpu.requestAdapter();
-			if (!adapter) return null;
-			const device = await adapter.requestDevice();
 			return new ScopeRenderer(device, onLost);
 		} catch {
+			device.destroy();
 			return null;
 		}
 	}

@@ -1,9 +1,56 @@
-import { expect, it, vi } from 'vitest';
+import { expect, it, vi, onTestFinished } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { page } from 'vitest/browser';
 import '../../routes/layout.css';
 import EditorColorScopes from './editor-color-scopes.svelte';
 import ColorScopeOverlay from '$lib/video-editor/components/color-scope-overlay.svelte';
 import { drawCpuScope } from '$lib/video-editor/effects/scope-cpu-renderer';
+import { ScopeRenderer } from '$lib/video-editor/effects/gpu-scopes';
+
+it('shows the sampled channel levels after graphics initialization', async () => {
+	const create = vi.spyOn(ScopeRenderer, 'create');
+	const savedScope = localStorage.getItem('timeline:scopes:stackLayout');
+	localStorage.setItem('timeline:scopes:stackLayout', 'parade');
+	onTestFinished(() => {
+		create.mockRestore();
+		if (savedScope === null) localStorage.removeItem('timeline:scopes:stackLayout');
+		else localStorage.setItem('timeline:scopes:stackLayout', savedScope);
+	});
+	const source = new OffscreenCanvas(384, 216);
+	const input = source.getContext('2d')!;
+	input.fillStyle = '#808080';
+	input.fillRect(0, 0, source.width, source.height);
+	const screen = await render(EditorColorScopes, {
+		itemId: 'gray',
+		sample: { itemId: 'gray', source, image: null }
+	});
+	screen.container.style.width = '342px';
+	await vi.waitFor(() => expect(create).toHaveBeenCalledOnce());
+	await create.mock.results[0]!.value;
+	await vi.waitFor(async () => {
+		const canvas = screen.container.querySelector<HTMLCanvasElement>('[data-color-scope-canvas]')!;
+		// Read presented pixels: WebGPU canvas contents are discarded after presentation.
+		const screenshot = await page.screenshot({ element: canvas, save: false });
+		const bitmap = await createImageBitmap(
+			await (await fetch(`data:image/png;base64,${screenshot}`)).blob()
+		);
+		const snapshot = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d')!;
+		snapshot.drawImage(bitmap, 0, 0);
+		bitmap.close();
+		// A neutral 50% input places the red trace halfway up its lane, not at zero.
+		const pixels = snapshot.getImageData(
+			0,
+			Math.floor(snapshot.canvas.height * 0.4),
+			Math.floor(snapshot.canvas.width / 3),
+			Math.max(1, Math.floor(snapshot.canvas.height * 0.2))
+		).data;
+		let redTrace = false;
+		for (let offset = 0; offset < pixels.length; offset += 4) {
+			if (pixels[offset]! > 100 && pixels[offset]! > pixels[offset + 1]! * 1.5) redTrace = true;
+		}
+		expect(redTrace).toBe(true);
+	});
+});
 
 it('uses one readable shared overlay for CPU scope guides', async () => {
 	const image = new ImageData(new Uint8ClampedArray([32, 64, 96, 255]), 1, 1);

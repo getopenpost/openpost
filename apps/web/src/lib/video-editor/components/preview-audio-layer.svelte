@@ -27,11 +27,8 @@
 		previewAudioEqStagesForTimeline,
 		requiresProcessedPreviewAudioForTimeline
 	} from '$lib/video-editor/audio/preview-processing';
-	import {
-		isNoiseReductionActive,
-		resolveNoiseReductionSettings
-	} from '$lib/video-editor/audio/audio-noise-reduction';
-	import { processPreviewNoiseReduction } from '$lib/video-editor/audio/audio-noise-reduction-preview';
+	import { resolveNoiseReductionSettings } from '$lib/video-editor/audio/audio-noise-reduction';
+	import { prepareNoiseReducedPreviewAudio } from '$lib/video-editor/audio/audio-noise-reduction-preview';
 	import {
 		createPreviewClipAudioGraph,
 		rampPreviewClipGain,
@@ -92,6 +89,7 @@
 	let processedStartedFrame = 0;
 	let processedDirection: -1 | 1 = 1;
 	let processedPlaying = false;
+	let processedPlaybackRate = 1;
 	let detachProcessedFromMixer: (() => void) | null = null;
 	let mediaGain = $state<GainNode | null>(null);
 	let shuttleScheduler: ReturnType<typeof createReverseShuttleScheduler> | null = null;
@@ -263,20 +261,27 @@
 			return;
 		}
 		let stale = false;
+		const abort = new AbortController();
+		void processingSignature;
+		const noiseSettings = untrack(() => noiseReductionSettings);
+		const graph = processedGraph;
 		// Stop authored-reverse and processed forward paths before starting shuttle grains
 		stopReverseSource();
 		processedNode?.port.postMessage({ type: 'set-playing', playing: false });
+		processedPlaying = false;
 		if (mediaGain) mediaGain.gain.value = 0;
 		else if (audio && !audio.paused) audio.pause();
 		void decodedPreviewAudio(sourceUrl, audioCodec)
-			.then((buffer) => {
-				if (stale || !buffer) return;
+			.then(async (decoded) => {
+				if (stale) return;
+				const buffer = await prepareNoiseReducedPreviewAudio(decoded, noiseSettings, abort.signal);
+				if (stale) return;
 				const context = previewAudioContext();
 				// Route through clip graph when processing is required to preserve EQ
 				// Pitch is intentionally bypassed for reverse grains (unity playbackRate)
 				let destination: AudioNode;
-				if (needsProcessing && processedGraph) {
-					destination = processedGraph.sourceInputNode;
+				if (needsProcessing && graph) {
+					destination = graph.sourceInputNode;
 				} else {
 					const gain = context.createGain();
 					gain.gain.value = volume;
@@ -303,6 +308,7 @@
 			.catch(() => undefined);
 		return () => {
 			stale = true;
+			abort.abort();
 			shuttleScheduler?.dispose();
 			shuttleScheduler = null;
 			if (shuttleGainNode) {
@@ -400,34 +406,12 @@
 		])
 			.then(async ([loaded, decoded]) => {
 				if (!loaded || stale || previewAbort.signal.aborted) return;
-				let bufferForPreview = decoded;
-				if (isNoiseReductionActive(settings.noiseReduction)) {
-					try {
-						const channels: Float32Array[] = [];
-						for (let c = 0; c < decoded.numberOfChannels; c++) {
-							channels.push(new Float32Array(decoded.getChannelData(c)));
-						}
-						const processed = await processPreviewNoiseReduction(
-							channels,
-							decoded.sampleRate,
-							settings.noiseReduction,
-							previewAbort.signal
-						);
-						if (stale || previewAbort.signal.aborted) return;
-						const nrBuffer = new AudioBuffer({
-							length: processed[0]?.length ?? decoded.length,
-							numberOfChannels: decoded.numberOfChannels,
-							sampleRate: decoded.sampleRate
-						});
-						for (let c = 0; c < decoded.numberOfChannels; c++) {
-							nrBuffer.copyToChannel(new Float32Array(processed[c] ?? processed[0]!), c);
-						}
-						bufferForPreview = nrBuffer;
-					} catch {
-						if (previewAbort.signal.aborted) return;
-						bufferForPreview = decoded;
-					}
-				}
+				const bufferForPreview = await prepareNoiseReducedPreviewAudio(
+					decoded,
+					settings.noiseReduction,
+					previewAbort.signal
+				);
+				if (stale) return;
 				const prepared = await prepareAudioBufferForSoundTouchPreview(
 					bufferForPreview,
 					context.sampleRate
@@ -545,6 +529,7 @@
 						type: 'set-playing',
 						playing: false
 					});
+					processedPlaying = false;
 				}
 				return;
 			}
@@ -553,9 +538,18 @@
 				const graph = processedGraph;
 				if (!graph || !processedNode || processedSampleRate <= 0) return;
 				const playing = editorSession.isPlaying;
+				const now = graph.context.currentTime;
+				const elapsedFrames = processedPlaying
+					? (now - processedStartedAt) * processedSampleRate * processedPlaybackRate
+					: 0;
+				const actualFrame =
+					processedStartedFrame + (processedDirection < 0 ? -elapsedFrames : elapsedFrames);
+				processedStartedAt = now;
+				processedStartedFrame = actualFrame;
+				processedPlaybackRate = combinedRate;
 				processedNode.port.postMessage({
 					type: 'set-tempo',
-					tempo: getShuttleMediaPlaybackRate(speed, Math.abs(transportRate))
+					tempo: combinedRate
 				});
 				if (!playing) {
 					seekProcessed(frame, false);
@@ -563,12 +557,9 @@
 				}
 				const expectedFrame =
 					frameToSourceSeconds(item, frame, editorSession.fps) * processedSampleRate;
-				const elapsedFrames =
-					(graph.context.currentTime - processedStartedAt) * processedSampleRate * speed;
-				const actualFrame =
-					processedStartedFrame + (processedDirection < 0 ? -elapsedFrames : elapsedFrames);
 				if (
 					!processedPlaying ||
+					processedDirection !== (item.isReversed ? -1 : 1) ||
 					Math.abs(actualFrame - expectedFrame) > processedSampleRate * 0.08
 				) {
 					seekProcessed(frame, true);
@@ -614,7 +605,6 @@
 			offRate();
 			scheduler.detach();
 			stopReverseSource();
-			processedNode?.port.postMessage({ type: 'set-playing', playing: false });
 		};
 	});
 </script>

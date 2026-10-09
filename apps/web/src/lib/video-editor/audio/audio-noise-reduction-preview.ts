@@ -1,5 +1,5 @@
 import type { ResolvedAudioNoiseReductionSettings } from './audio-noise-reduction';
-import { applyNoiseReduction } from './audio-noise-reduction';
+import { applyNoiseReduction, isNoiseReductionActive } from './audio-noise-reduction';
 import type {
 	NoiseReductionAbort,
 	NoiseReductionCompleteResponse,
@@ -145,4 +145,37 @@ export async function processPreviewNoiseReduction(
 			reject(error);
 		}
 	});
+}
+
+/** Prepare decoded audio without mutating the shared source or retaining cancelled work. */
+export async function prepareNoiseReducedPreviewAudio(
+	decoded: AudioBuffer,
+	settings: ResolvedAudioNoiseReductionSettings | undefined,
+	signal: AbortSignal
+): Promise<AudioBuffer> {
+	signal.throwIfAborted();
+	if (!settings || !isNoiseReductionActive(settings)) return decoded;
+	try {
+		const channels = Array.from({ length: decoded.numberOfChannels }, (_, channel) =>
+			decoded.getChannelData(channel)
+		);
+		const processed = await processPreviewNoiseReduction(
+			channels,
+			decoded.sampleRate,
+			settings,
+			signal
+		);
+		signal.throwIfAborted();
+		const result = new AudioBuffer({
+			length: decoded.length,
+			numberOfChannels: decoded.numberOfChannels,
+			sampleRate: decoded.sampleRate
+		});
+		for (let channel = 0; channel < decoded.numberOfChannels; channel++)
+			result.copyToChannel(new Float32Array(processed[channel]!), channel);
+		return result;
+	} catch {
+		signal.throwIfAborted();
+		return decoded;
+	}
 }

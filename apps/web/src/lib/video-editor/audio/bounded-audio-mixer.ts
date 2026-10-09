@@ -1,6 +1,6 @@
 import { timerToneSample } from '../timers/audio';
 /* oxlint-disable anti-slop/no-conditional-empty-object-spread, anti-slop/require-safety-comment-for-type-assertion */
-import type { MixEntry } from '../media/render-plan';
+import { mixEntryPlaybackRateAtTime, type MixEntry } from '../media/render-plan';
 import { collectMixEntryDuckWindows, type MixEntryDuckWindow } from './audio-ducking';
 import { mediaPool } from '../media/pool.svelte';
 import { resolveMediaBlob } from '../media/resolve-media-blob';
@@ -321,22 +321,6 @@ class EntryAutomation {
 	}
 }
 
-function playbackRateAtEntrySecond(entry: MixEntry, seconds: number): number {
-	const curve = entry.playbackRateCurve;
-	if (!curve || curve.length === 0) return entry.playbackRate;
-	if (seconds <= curve[0]!.atSeconds) return curve[0]!.rate;
-	for (let index = 1; index < curve.length; index += 1) {
-		const right = curve[index]!;
-		if (seconds > right.atSeconds) continue;
-		const left = curve[index - 1]!;
-		const duration = right.atSeconds - left.atSeconds;
-		if (duration <= 0) return right.rate;
-		const progress = (seconds - left.atSeconds) / duration;
-		return left.rate + (right.rate - left.rate) * progress;
-	}
-	return curve.at(-1)!.rate;
-}
-
 async function* streamEntryAudio(
 	entry: MixEntry,
 	signal?: AbortSignal,
@@ -390,7 +374,10 @@ async function* streamEntryAudio(
 
 	while (emittedFrames < targetFrames) {
 		throwIfAborted(signal);
-		const currentRate = playbackRateAtEntrySecond(entry, emittedFrames / MIX_SAMPLE_RATE);
+		const currentRate = mixEntryPlaybackRateAtTime(
+			entry,
+			entry.whenSeconds + emittedFrames / MIX_SAMPLE_RATE
+		);
 		const sourceWindowSeconds =
 			(hasVariableSpeed ? 0.12 : SOURCE_WINDOW_SECONDS) * Math.min(1, currentRate);
 		const chunkStart = entry.reversed

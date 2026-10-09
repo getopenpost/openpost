@@ -3,7 +3,11 @@
 	import { timerToneBlob } from '../timers/audio';
 	import { untrack } from 'svelte';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
-	import type { MixEntry } from '$lib/video-editor/media/render-plan';
+	import {
+		mixEntryPlaybackRateAtTime,
+		mixEntrySourceTimeAtTime,
+		type MixEntry
+	} from '$lib/video-editor/media/render-plan';
 	import { previewPlaybackSettings } from '$lib/video-editor/preview/playback-settings.svelte';
 	import { clampMonitorVolume } from '$lib/video-editor/preview/playback-settings';
 	import { SeekScheduler, seekDriftExceeded } from '$lib/video-editor/preview/seek-throttle';
@@ -14,6 +18,8 @@
 		getAudioPitchRatioFromSemitones
 	} from '$lib/video-editor/audio/audio-pitch';
 	import { isAudioEqStageActive } from '$lib/video-editor/audio/audio-eq';
+	import { isNoiseReductionActive } from '$lib/video-editor/audio/audio-noise-reduction';
+	import { prepareNoiseReducedPreviewAudio } from '$lib/video-editor/audio/audio-noise-reduction-preview';
 	import { hasActiveAudioEffects } from '$lib/video-editor/audio/audio-effects';
 	import {
 		decodedPreviewAudio,
@@ -76,6 +82,8 @@
 	let processedStartedAt = 0;
 	let processedStartedFrame = 0;
 	let processedPlaying = false;
+	let processedPlaybackRate = 1;
+	let processedDirection = 1;
 	let detachProcessedFromMixer: (() => void) | null = null;
 	let mediaGain = $state<GainNode | null>(null);
 	let shuttleScheduler: ReturnType<typeof createReverseShuttleScheduler> | null = null;
@@ -85,10 +93,12 @@
 	const unsupportedAudio = $derived(mediaPool.get(entry.mediaId)?.audioCodecSupported === false);
 	const needsProcessing = $derived(
 		entry.reversed ||
+			(entry.playbackRateCurve?.length ?? 0) > 0 ||
 			Math.abs(entry.playbackRate - 1) > 0.0001 ||
 			isAudioPitchShiftActive(entry.pitchShiftSemitones) ||
 			entry.audioEqStages.some(isAudioEqStageActive) ||
 			hasActiveAudioEffects(entry.audioEffects) ||
+			isNoiseReductionActive(entry.noiseReduction) ||
 			isAc3AudioCodec(audioCodec)
 	);
 
@@ -99,6 +109,7 @@
 			pitchShiftSemitones: entry.pitchShiftSemitones,
 			audioEqStages: entry.audioEqStages,
 			audioEffects: entry.audioEffects,
+			noiseReduction: entry.noiseReduction,
 			trackId: entry.trackId
 		})
 	);
@@ -150,14 +161,7 @@
 	});
 
 	function sourceFrameAtTimelineTime(time: number): number {
-		return Math.max(
-			0,
-			Math.round(
-				(entry.sourceOffsetSeconds +
-					(time - entry.whenSeconds) * entry.playbackRate * (entry.reversed ? -1 : 1)) *
-					processedSampleRate
-			)
-		);
+		return Math.max(0, Math.round(mixEntrySourceTimeAtTime(entry, time) * processedSampleRate));
 	}
 
 	function seekProcessed(time: number, playing: boolean): void {
@@ -171,6 +175,7 @@
 		processedNode.port.postMessage({ type: 'set-playing', playing });
 		processedStartedAt = processedGraph.context.currentTime;
 		processedStartedFrame = frame;
+		processedDirection = entry.reversed ? -1 : 1;
 		processedPlaying = playing;
 	}
 
@@ -206,13 +211,19 @@
 			return;
 		}
 		let stale = false;
+		const abort = new AbortController();
+		void processingSignature;
+		const noiseSettings = untrack(() => entry.noiseReduction);
+		const graph = processedGraph;
 		void decodedPreviewAudio(sourceUrl, audioCodec)
-			.then((buffer) => {
-				if (stale || !buffer) return;
+			.then(async (decoded) => {
+				if (stale) return;
+				const buffer = await prepareNoiseReducedPreviewAudio(decoded, noiseSettings, abort.signal);
+				if (stale) return;
 				const context = previewAudioContext();
 				let destination: AudioNode;
-				if (needsProcessing && processedGraph) {
-					destination = processedGraph.sourceInputNode;
+				if (needsProcessing && graph) {
+					destination = graph.sourceInputNode;
 				} else {
 					const gain = context.createGain();
 					gain.gain.value = gainAt(timelineStore.currentFrame / editorSession.fps);
@@ -227,10 +238,7 @@
 					bufferStartSeconds: 0,
 					getSourceCursorSeconds: () => {
 						const time = timelineStore.currentFrame / editorSession.fps;
-						return (
-							entry.sourceOffsetSeconds +
-							(time - entry.whenSeconds) * entry.playbackRate * (entry.reversed ? -1 : 1)
-						);
+						return mixEntrySourceTimeAtTime(entry, time);
 					},
 					authoredPlaybackRate: entry.playbackRate,
 					authoredReversed: !!entry.reversed,
@@ -244,6 +252,7 @@
 			.catch(() => undefined);
 		return () => {
 			stale = true;
+			abort.abort();
 			shuttleScheduler?.dispose();
 			shuttleScheduler = null;
 			if (shuttleGainNode) {
@@ -260,7 +269,12 @@
 		// SAFETY: the signature serializes only these typed MixEntry settings.
 		const settings = JSON.parse(processingSignature) as Pick<
 			MixEntry,
-			'playbackRate' | 'pitchShiftSemitones' | 'audioEqStages' | 'audioEffects' | 'trackId'
+			| 'playbackRate'
+			| 'pitchShiftSemitones'
+			| 'audioEqStages'
+			| 'audioEffects'
+			| 'noiseReduction'
+			| 'trackId'
 		>;
 		if (!sourceUrl || !needsProcessing) return;
 		let stale = false;
@@ -277,13 +291,20 @@
 			settings.trackId ?? 'nested-audio'
 		);
 		setPreviewClipEq(graph, settings.audioEqStages);
+		const previewAbort = new AbortController();
 		void Promise.all([
 			ensureSoundTouchPreviewWorkletLoaded(context),
 			decodedPreviewAudio(sourceUrl, audioCodec)
 		])
 			.then(async ([loaded, decoded]) => {
 				if (!loaded || stale) return;
-				const prepared = await prepareAudioBufferForSoundTouchPreview(decoded, context.sampleRate);
+				const filtered = await prepareNoiseReducedPreviewAudio(
+					decoded,
+					settings.noiseReduction,
+					previewAbort.signal
+				);
+				if (stale) return;
+				const prepared = await prepareAudioBufferForSoundTouchPreview(filtered, context.sampleRate);
 				if (stale) return;
 				const node = new AudioWorkletNode(context, SOUND_TOUCH_PREVIEW_PROCESSOR_NAME, {
 					numberOfInputs: 0,
@@ -327,6 +348,7 @@
 			});
 		return () => {
 			stale = true;
+			previewAbort.abort();
 			processedNode?.port.postMessage({ type: 'set-playing', playing: false });
 			processedNode?.disconnect();
 			detachProcessedFromMixer?.();
@@ -372,37 +394,46 @@
 		const sync = () => {
 			const time = untrack(() => timelineStore.currentFrame) / editorSession.fps;
 			const transportRate = editorSession.playbackRate;
+			const combinedRate = getShuttleMediaPlaybackRate(
+				mixEntryPlaybackRateAtTime(entry, time),
+				Math.abs(transportRate)
+			);
 			const shuttleRev = isReverseShuttleRate(transportRate) && editorSession.isPlaying;
 			if (shuttleRev) {
 				if (!media.paused) media.pause();
 				// Reverse grains scheduled via decoded buffer; keep gain audible
 				if (needsProcessing) {
 					processedNode?.port.postMessage({ type: 'set-playing', playing: false });
+					processedPlaying = false;
 				}
 				return;
 			}
 			if (needsProcessing) {
 				if (!media.paused) media.pause();
 				if (!processedNode || !processedGraph || processedSampleRate <= 0) return;
+				const now = processedGraph.context.currentTime;
+				const elapsedFrames = processedPlaying
+					? (now - processedStartedAt) * processedSampleRate * processedPlaybackRate
+					: 0;
+				const actualFrame = processedStartedFrame + processedDirection * elapsedFrames;
+				processedStartedAt = now;
+				processedStartedFrame = actualFrame;
+				processedPlaybackRate = combinedRate;
+				processedNode.port.postMessage({ type: 'set-tempo', tempo: combinedRate });
 				if (!editorSession.isPlaying) {
 					seekProcessed(time, false);
 					return;
 				}
 				const expectedFrame = sourceFrameAtTimelineTime(time);
-				const elapsedFrames =
-					(processedGraph.context.currentTime - processedStartedAt) *
-					processedSampleRate *
-					entry.playbackRate;
-				const actualFrame =
-					processedStartedFrame + (entry.reversed ? -elapsedFrames : elapsedFrames);
-				if (!processedPlaying || Math.abs(actualFrame - expectedFrame) > processedSampleRate * 0.08)
+				if (
+					!processedPlaying ||
+					processedDirection !== (entry.reversed ? -1 : 1) ||
+					Math.abs(actualFrame - expectedFrame) > processedSampleRate * 0.08
+				)
 					seekProcessed(time, true);
 				return;
 			}
-			const sourceTime =
-				entry.sourceOffsetSeconds +
-				(time - entry.whenSeconds) * entry.playbackRate * (entry.reversed ? -1 : 1);
-			const combinedRate = getShuttleMediaPlaybackRate(entry.playbackRate, Math.abs(transportRate));
+			const sourceTime = mixEntrySourceTimeAtTime(entry, time);
 			if (seekDriftExceeded(media.currentTime, sourceTime, 0.08 / Math.max(0.1, combinedRate))) {
 				scheduler.request(sourceTime);
 			}

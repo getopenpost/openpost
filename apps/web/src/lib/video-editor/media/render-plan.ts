@@ -21,7 +21,10 @@ import type {
 } from '../project/types';
 import type { AudioEqSettings } from '../audio/types';
 import type { ResolvedAudioNoiseReductionSettings } from '../audio/audio-noise-reduction';
-import { resolveNoiseReductionSettings } from '../audio/audio-noise-reduction';
+import {
+	hasNoiseReductionOverride,
+	resolveNoiseReductionSettings
+} from '../audio/audio-noise-reduction';
 import { activeValueAt } from '../timeline/keyframe-interpolation';
 import {
 	hasVariableSpeed,
@@ -555,6 +558,9 @@ export function planNestedMixdown(
 					? Math.max(entry.sourceOffsetSeconds, oppositeSourceOffset)
 					: undefined,
 				pitchShiftSemitones: entry.pitchShiftSemitones + wrapperPitch,
+				noiseReduction: hasNoiseReductionOverride(wrapper)
+					? resolveNoiseReductionSettings(wrapper)
+					: entry.noiseReduction,
 				audioEqStages: prependResolvedAudioEqSources(
 					entry.audioEqStages,
 					busAudioEq,
@@ -683,6 +689,20 @@ function curveSourceDistance(
 		distance += ((startRate + endRate) / 2) * (end - start);
 	}
 	return distance + Math.max(0, endSeconds - Math.max(startSeconds, last.atSeconds)) * last.rate;
+}
+
+export function mixEntryPlaybackRateAtTime(entry: MixEntry, timeSeconds: number): number {
+	return entry.playbackRateCurve?.length
+		? curveRateAt(entry.playbackRateCurve, timeSeconds - entry.whenSeconds)
+		: entry.playbackRate;
+}
+
+export function mixEntrySourceTimeAtTime(entry: MixEntry, timeSeconds: number): number {
+	const elapsed = Math.max(0, timeSeconds - entry.whenSeconds);
+	const distance = entry.playbackRateCurve?.length
+		? curveSourceDistance(entry.playbackRateCurve, 0, elapsed)
+		: elapsed * entry.playbackRate;
+	return entry.sourceOffsetSeconds + (entry.reversed ? -distance : distance);
 }
 
 function slicePlaybackRateCurve(

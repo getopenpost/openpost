@@ -5,7 +5,10 @@ import type { MediaMetadata } from './types';
 const ids = new Set<string>();
 const urls = new Set<string>();
 
-function linkedMedia(getFile: () => Promise<File>, id = crypto.randomUUID()): MediaMetadata {
+function linkedMedia(
+	getFile: () => Promise<File>,
+	id: string = crypto.randomUUID()
+): MediaMetadata {
 	ids.add(id);
 	// SAFETY: resolving linked source bytes only calls getFile on the native handle boundary.
 	const fileHandle = { kind: 'file', name: 'source.txt', getFile } as FileSystemFileHandle;

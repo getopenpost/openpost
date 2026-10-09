@@ -51,7 +51,7 @@ it.each(['directory', 'workspace'] as const)(
 		const createWritable = FileSystemFileHandle.prototype.createWritable;
 		const capture = vi
 			.spyOn(FileSystemFileHandle.prototype, 'createWritable')
-			.mockImplementation(async function (options) {
+			.mockImplementation(async function (this: FileSystemFileHandle, options) {
 				const stream = await createWritable.call(this, options);
 				streams.push(stream);
 				return stream;
@@ -122,7 +122,7 @@ it('does not yield a frame cancelled while encoding its image', async () => {
 	const convert = OffscreenCanvas.prototype.convertToBlob;
 	const encoding = vi
 		.spyOn(OffscreenCanvas.prototype, 'convertToBlob')
-		.mockImplementation(async function (options) {
+		.mockImplementation(async function (this: OffscreenCanvas, options) {
 			const blob = await convert.call(this, options);
 			controller.abort();
 			return blob;
@@ -163,7 +163,7 @@ it.each(['cancel', 'disk-full'] as const)(
 		const createWritable = FileSystemFileHandle.prototype.createWritable;
 		const capture = vi
 			.spyOn(FileSystemFileHandle.prototype, 'createWritable')
-			.mockImplementation(async function (options) {
+			.mockImplementation(async function (this: FileSystemFileHandle, options) {
 				const stream = await createWritable.call(this, options);
 				streams.push(stream);
 				return stream;
@@ -171,7 +171,7 @@ it.each(['cancel', 'disk-full'] as const)(
 		const write = FileSystemWritableFileStream.prototype.write;
 		const failureInjection = vi
 			.spyOn(FileSystemWritableFileStream.prototype, 'write')
-			.mockImplementation(async function (data) {
+			.mockImplementation(async function (this: FileSystemWritableFileStream, data) {
 				if (failure === 'disk-full') throw new DOMException('Disk full', 'QuotaExceededError');
 				await write.call(this, data);
 				controller.abort();

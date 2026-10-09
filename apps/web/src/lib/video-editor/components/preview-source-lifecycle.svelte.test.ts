@@ -24,7 +24,11 @@ it('revokes a pending source read when the preview is unmounted', async () => {
 	const pendingFile = Promise.withResolvers<File>();
 	const getFile = vi.fn(() => pendingFile.promise);
 	// SAFETY: the linked source resolver only calls getFile on this file-handle boundary.
-	const fileHandle = { kind: 'file', name: 'image.png', getFile } as FileSystemFileHandle;
+	const fileHandle = {
+		kind: 'file',
+		name: 'image.png',
+		getFile: () => getFile()
+	} as FileSystemFileHandle;
 	const media: MediaMetadata = {
 		id: 'pending-preview',
 		storageType: 'handle',

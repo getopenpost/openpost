@@ -6,11 +6,12 @@ import {
 	incomingOpacity,
 	outgoingOpacity,
 	removeTransition,
+	pruneInvalidTransitions,
 	transitionsStore,
-	transitionAtFrame,
 	updateTransition,
 	updateTransitionPresentation
 } from './transitions.svelte';
+import { transitionBlendsAtFrame } from '../../media/render-plan';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 
 function clip(from: number, duration = 60): TimelineItem {
@@ -73,6 +74,38 @@ describe('transitions', () => {
 		expect(transitionsStore.outgoingFor(middle.id)?.toItemId).toBe(right.id);
 	});
 
+	it('rejects overlapping incoming and outgoing transitions without changing either cut', () => {
+		const [left, middle, right] = [0, 30, 60].map((from) => ({
+			...clip(from, 30),
+			type: 'image' as const
+		}));
+		timelineStore._setItems([left!, middle!, right!]);
+		const first = addTransition(left!.id, middle!.id, 'crossfade', 29, 0);
+		expect(() => addTransition(middle!.id, right!.id, 'crossfade', 29, 1)).toThrow('overlap');
+		expect(transitionsStore.list.map((transition) => transition.id)).toEqual([first]);
+
+		const second = addTransition(middle!.id, right!.id, 'crossfade', 29, 0);
+		expect(updateTransition(second, { alignment: 1 })).toBe(false);
+		expect(transitionsStore.list.find((transition) => transition.id === second)?.alignment).toBe(0);
+	});
+
+	it('keeps the first stored transition when reconciling legacy overlapping cuts', () => {
+		const [left, middle, right] = [0, 30, 60].map((from) => ({
+			...clip(from, 30),
+			type: 'image' as const
+		}));
+		timelineStore._setItems([left!, middle!, right!]);
+		const first = addTransition(left!.id, middle!.id, 'crossfade', 29, 0);
+		const second = addTransition(middle!.id, right!.id, 'crossfade', 29, 0);
+		transitionsStore.setAll(
+			transitionsStore.list.map((transition) =>
+				transition.id === second ? { ...transition, alignment: 1 } : transition
+			)
+		);
+		pruneInvalidTransitions();
+		expect(transitionsStore.list.map((transition) => transition.id)).toEqual([first]);
+	});
+
 	it('updates renderer controls as one validated undo step', () => {
 		const [left, right] = setup();
 		const id = addTransition(left.id, right.id, 'crossfade', 15);
@@ -119,17 +152,23 @@ describe('transitions', () => {
 		const [left, right] = setup();
 		addTransition(left.id, right.id, 'crossfade', 30);
 
-		const before = transitionAtFrame(transitionsStore.list[0]!, 44, 30);
-		expect(before).toBeNull();
+		const before = transitionBlendsAtFrame(transitionsStore.list, timelineStore.itemById, 44).get(
+			left.id
+		);
+		expect(before).toBeUndefined();
 
-		const mid = transitionAtFrame(transitionsStore.list[0]!, 60, 30);
+		const mid = transitionBlendsAtFrame(transitionsStore.list, timelineStore.itemById, 60).get(
+			left.id
+		);
 		expect(mid?.progress).toBeCloseTo(15 / 29);
 		expect(outgoingOpacity('crossfade', mid!.progress)).toBeCloseTo(14 / 29);
 		expect(incomingOpacity('crossfade', mid!.progress)).toBeCloseTo(15 / 29);
 
 		// Past the centered window (frames 45..75) there is no blend.
-		const after = transitionAtFrame(transitionsStore.list[0]!, 90, 30);
-		expect(after).toBeNull();
+		const after = transitionBlendsAtFrame(transitionsStore.list, timelineStore.itemById, 90).get(
+			left.id
+		);
+		expect(after).toBeUndefined();
 	});
 
 	it('fade-black dips through black in both layers', () => {

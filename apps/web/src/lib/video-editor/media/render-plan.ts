@@ -806,12 +806,13 @@ function volumeGainPoints(
  * Transition state at an absolute timeline frame, computed against an explicit
  * item map so export can run without touching live store state.
  */
-export function transitionBlendAtFrame(
+export function transitionBlendsAtFrame(
 	transitions: TimelineTransition[],
 	itemsById: Map<string, TimelineItem>,
 	frame: number
-): TransitionBlend | null {
-	for (const transition of transitions) {
+): Map<string, TransitionBlend> {
+	const blends = new Map<string, TransitionBlend>();
+	for (const transition of nonOverlappingTransitions(transitions, itemsById)) {
 		const from = itemsById.get(transition.fromItemId);
 		const to = itemsById.get(transition.toItemId);
 		if (!from || !to) continue;
@@ -823,15 +824,17 @@ export function transitionBlendAtFrame(
 			transition.timing,
 			transition.bezierPoints
 		);
-		return {
+		const blend: TransitionBlend = {
 			outgoingId: from.id,
 			incomingId: to.id,
 			progress,
 			type: transition.type,
 			transition
 		};
+		blends.set(from.id, blend);
+		blends.set(to.id, blend);
 	}
-	return null;
+	return blends;
 }
 
 /**

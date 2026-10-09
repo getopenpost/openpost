@@ -19,10 +19,10 @@ import { timelineStore } from '../stores/timeline-store.svelte';
 import { execute } from '../commands/command-store.svelte';
 import { transitionsStore } from './transitions-store.svelte';
 import {
-	calculateTransitionProgress,
 	canPreserveTransition,
 	getMaxTransitionDuration,
-	resolveTransitionWindow
+	hasTransitionOverlap,
+	nonOverlappingTransitions
 } from '../transition-planner';
 import { transitionRegistry } from '../../transitions';
 
@@ -145,6 +145,9 @@ export function addTransition(
 		if (!canPreserveTransition(transition, pair.from, pair.to, timelineStore.fps)) {
 			throw new Error('Clips do not have enough source handle for this transition');
 		}
+		if (hasTransitionOverlap(transition, transitionsStore.list, timelineStore.itemById)) {
+			throw new Error('Transitions on the same track cannot overlap');
+		}
 		transitionsStore.list.push(transition);
 		return transition.id;
 	}) as string;
@@ -166,6 +169,7 @@ export function updateTransition(id: string, updates: TransitionUpdates): boolea
 		};
 		const pair = findEdgePair(current.fromItemId, current.toItemId);
 		if (!pair || !canPreserveTransition(next, pair.from, pair.to, timelineStore.fps)) return false;
+		if (hasTransitionOverlap(next, transitionsStore.list, timelineStore.itemById)) return false;
 		if (transitionValuesEqual(current, next)) return false;
 		transitionsStore.setAll(
 			transitionsStore.list.map((transition) => (transition.id === id ? next : transition))
@@ -238,10 +242,13 @@ export function pruneOrphanedTransitions(): void {
 
 /** Drop transitions whose clips no longer share a valid cut after a structural edit. */
 export function pruneInvalidTransitions(): void {
-	const next = transitionsStore.list.filter((transition) => {
-		const pair = findEdgePair(transition.fromItemId, transition.toItemId);
-		return !!pair && canPreserveTransition(transition, pair.from, pair.to, timelineStore.fps);
-	});
+	const next = nonOverlappingTransitions(
+		transitionsStore.list.filter((transition) => {
+			const pair = findEdgePair(transition.fromItemId, transition.toItemId);
+			return !!pair && canPreserveTransition(transition, pair.from, pair.to, timelineStore.fps);
+		}),
+		timelineStore.itemById
+	);
 	if (next.length !== transitionsStore.list.length) transitionsStore.setAll(next);
 }
 
@@ -257,40 +264,4 @@ export function outgoingOpacity(type: TimelineTransition['type'], progress: numb
 	const p = Math.min(1, Math.max(0, progress));
 	if (type === 'fade-black') return p < 0.5 ? 1 - p * 2 : 0;
 	return 1 - p;
-}
-
-/**
- * Transition state at an absolute timeline frame for a pair of clips.
- * Returns null outside the window; otherwise the pair + blend progress.
- */
-export function transitionAtFrame(
-	transition: TimelineTransition,
-	frame: number,
-	fpsForDuration: number
-): {
-	outgoing: string;
-	incoming: string;
-	progress: number;
-	type: TimelineTransition['type'];
-	transition: TimelineTransition;
-} | null {
-	const from = timelineStore.itemById.get(transition.fromItemId);
-	const to = timelineStore.itemById.get(transition.toItemId);
-	if (!from || !to) return null;
-	const window = resolveTransitionWindow(transition, from, to);
-	if (!window || frame < window.startFrame || frame >= window.endFrame) return null;
-	const progress = calculateTransitionProgress(
-		frame - window.startFrame,
-		window.durationInFrames,
-		transition.timing,
-		transition.bezierPoints
-	);
-	void fpsForDuration;
-	return {
-		outgoing: from.id,
-		incoming: to.id,
-		progress,
-		type: transition.type,
-		transition
-	};
 }

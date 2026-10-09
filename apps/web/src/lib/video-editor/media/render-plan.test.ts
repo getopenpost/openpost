@@ -14,8 +14,7 @@ import {
 	planMixdown,
 	planNestedMixdown,
 	selectCuesAtFrame,
-	sliceMixEntries,
-	transitionBlendAtFrame
+	sliceMixEntries
 } from './render-plan';
 
 function track(
@@ -208,21 +207,7 @@ describe('planMixdown', () => {
 	});
 });
 
-describe('transitionBlendAtFrame', () => {
-	const clips = new Map([
-		['left', item({ id: 'left', from: 0, durationInFrames: 100 })],
-		['right', item({ id: 'right', from: 100, durationInFrames: 100 })]
-	]);
-	const transitions: TimelineTransition[] = [
-		{
-			id: 't',
-			type: 'crossfade',
-			durationInFrames: 20,
-			fromItemId: 'left',
-			toItemId: 'right'
-		}
-	];
-
+describe('visual track visibility', () => {
 	it('omits items on hidden tracks from the visual plan', () => {
 		const tracks = [track('shown', 'video', 0), track('hidden', 'video', 1, { visible: false })];
 		const ordered = paintOrder(

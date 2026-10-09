@@ -67,7 +67,7 @@ import {
 	paintOrder,
 	planNestedMixdown,
 	sliceMixEntries,
-	transitionBlendAtFrame,
+	transitionBlendsAtFrame,
 	type MixEntry
 } from './render-plan';
 import { shapeMasksForTrack } from '../shapes/masks';
@@ -334,7 +334,7 @@ export class TimelineFrameRenderer {
 				(this.burnSubtitles && item.type === 'subtitle')
 		);
 		this.transitions = project.timeline?.transitions ?? [];
-		this.itemsById = new Map(items.map((item) => [item.id, item]));
+		this.itemsById = new Map(this.orderedItems.map((item) => [item.id, item]));
 	}
 
 	private async openVideoTrack(mediaId: string): Promise<InputVideoTrack | null> {
@@ -635,7 +635,7 @@ export class TimelineFrameRenderer {
 				)
 			);
 
-		const blend = transitionBlendAtFrame(this.transitions, this.itemsById, frame);
+		const blends = transitionBlendsAtFrame(this.transitions, this.itemsById, frame);
 		const resolveParticipant = async (
 			item: TimelineItem
 		): Promise<StackTransitionParticipant | null> => {
@@ -672,17 +672,13 @@ export class TimelineFrameRenderer {
 				)
 			};
 		};
-		let transitionRendered = false;
+		const renderedTransitions = new Set<string>();
 		for (const item of this.orderedItems) {
 			if (item.type === 'shape' && item.isMask === true) continue;
-			if (
-				!isVisibleAtFrame(item, frame) &&
-				item.id !== blend?.outgoingId &&
-				item.id !== blend?.incomingId
-			)
-				continue;
-			if (blend && (item.id === blend.outgoingId || item.id === blend.incomingId)) {
-				if (transitionRendered) continue;
+			const blend = blends.get(item.id);
+			if (!isVisibleAtFrame(item, frame) && !blend) continue;
+			if (blend) {
+				if (renderedTransitions.has(blend.transition.id)) continue;
 				const outgoingItem = this.itemsById.get(blend.outgoingId);
 				const incomingItem = this.itemsById.get(blend.incomingId);
 				if (!outgoingItem || !incomingItem) continue;
@@ -702,7 +698,7 @@ export class TimelineFrameRenderer {
 					frame / this.fps
 				);
 				this.itemRasterizer.release();
-				transitionRendered = true;
+				renderedTransitions.add(blend.transition.id);
 				continue;
 			}
 			const participant = await resolveParticipant(item);

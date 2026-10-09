@@ -121,6 +121,56 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		expect(editor.selectedLayers[0].text).toEqual(before);
 	});
 
+	it('replaces pixel selection ownership when selecting a different layer', () => {
+		const editor = new ImageEditorController();
+		const initial = response();
+		initial.document.width_px = 2;
+		initial.document.height_px = 2;
+		editor.load(initial);
+		editor.selectLayer('back');
+		editor.applyPixelSelection(new Uint8Array([1, 0, 0, 0]), editor.selectedLayerIDs);
+		editor.selectLayer('front');
+		editor.applyPixelSelection(new Uint8Array([0, 0, 0, 1]), editor.selectedLayerIDs);
+		expect(editor.pixelSelection?.targetLayerIDs).toEqual(['front']);
+		expect(editor.pixelSelection?.data).toEqual(new Uint8Array([0, 0, 0, 1]));
+	});
+
+	it.each(['image', 'page'] as const)(
+		'undoes an active %s color preview before earlier edits and preserves redo after late gesture callbacks',
+		(target) => {
+			const editor = new ImageEditorController();
+			editor.load(response());
+			editor.addImage({ id: 'image', width: 100, height: 100, name: 'Image' });
+			const imageID = editor.selectedLayers[0].id;
+			const before = structuredClone(editor.document);
+			if (target === 'image') editor.previewImageAdjustment([imageID], 'contrast', 0.4);
+			else editor.previewPageColorGrade(editor.activePageID, 'contrast', 0.4);
+			const preview = structuredClone(editor.document);
+			editor.undo();
+			expect(editor.document).toEqual(before);
+			editor.commitImageAdjustmentGesture();
+			editor.cancelImageAdjustmentGesture();
+			editor.commitPageColorGradeGesture();
+			editor.cancelPageColorGradeGesture();
+			expect(editor.canRedo).toBe(true);
+			editor.redo();
+			expect(editor.document).toEqual(preview);
+			editor.undo();
+			editor.undo();
+			expect(editor.activePage?.layers.some((item) => item.id === imageID)).toBe(false);
+		}
+	);
+
+	it('makes a first page color preview undoable before its gesture ends', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+		editor.previewPageColorGrade(editor.activePageID, 'contrast', 0.4);
+		expect(editor.canUndo).toBe(true);
+		editor.undo();
+		expect(editor.activePage?.color_grade).toBeUndefined();
+		expect(editor.canRedo).toBe(true);
+	});
+
 	it('refines the active pixel selection without mutating the document or target layers', () => {
 		const editor = new ImageEditorController();
 		const initial = response();

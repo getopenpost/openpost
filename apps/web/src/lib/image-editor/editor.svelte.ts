@@ -387,7 +387,9 @@ export class ImageEditorController {
 
 	get canUndo(): boolean {
 		return (
-			Boolean(this.floatingPixelSelection) || (this.historyRevision >= 0 && this.history.canUndo)
+			Boolean(this.floatingPixelSelection) ||
+			this.colorPreviewActive ||
+			(this.historyRevision >= 0 && this.history.canUndo)
 		);
 	}
 
@@ -702,6 +704,9 @@ export class ImageEditorController {
 	}
 
 	undo(): void {
+		if (!this.canEdit) return;
+		this.commitImageAdjustmentGesture();
+		this.commitPageColorGradeGesture();
 		if (this.floatingPixelSelection) {
 			this.cancelFloatingPixelSelection();
 			return;
@@ -717,6 +722,9 @@ export class ImageEditorController {
 	}
 
 	redo(): void {
+		if (!this.canEdit) return;
+		this.commitImageAdjustmentGesture();
+		this.commitPageColorGradeGesture();
 		if (this.floatingPixelSelection) return;
 		if (!this.document || !this.canRedo || !this.canEdit) return;
 		this.document = this.history.redo(this.document);
@@ -785,7 +793,10 @@ export class ImageEditorController {
 					height: this.activePageDimensions.height,
 					data: combined,
 					targetLayerIDs: [
-						...new SvelteSet([...(this.pixelSelection?.targetLayerIDs ?? []), ...targetLayerIDs])
+						...new SvelteSet([
+							...(mode !== 'replace' && current ? (this.pixelSelection?.targetLayerIDs ?? []) : []),
+							...targetLayerIDs
+						])
 					]
 				}
 			: null;

@@ -181,6 +181,8 @@ function clampToMinDuration(
 }
 
 export interface TrimSourceUpdate {
+	lottiePhaseOffset?: number;
+	sourceFps?: number;
 	speedRamp?: TimelineItem['speedRamp'];
 	sourceStart?: number;
 	sourceEnd?: number;
@@ -194,6 +196,18 @@ export function calculateTrimSourceUpdate(
 	newDuration: number,
 	timelineFps: number = 30
 ): TrimSourceUpdate | null {
+	if (item.type === 'lottie' && handle === 'start') {
+		return { lottiePhaseOffset: (item.lottiePhaseOffset ?? 0) + clampedAmount };
+	}
+	// Looping images have no source bounds; retain fractional phase through edits.
+	if (item.type === 'image' && handle === 'start') {
+		const sourceFps = item.sourceFps && item.sourceFps > 0 ? item.sourceFps : timelineFps;
+		const speed = item.speed && item.speed > 0 ? item.speed : 1;
+		return {
+			sourceFps,
+			sourceStart: (item.sourceStart ?? 0) + (clampedAmount / timelineFps) * speed * sourceFps
+		};
+	}
 	if (!hasSourceBoundaries(item)) return null;
 
 	const { sourceStart, sourceEnd, sourceFps, speed, sourceDuration } = getSourceProperties(item);

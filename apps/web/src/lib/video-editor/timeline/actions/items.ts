@@ -1,3 +1,4 @@
+import { calculateTrimSourceUpdate } from '../utils/trim-utils';
 import { sliceClipFades } from '../../media/clip-fades';
 /**
  * Timeline item edit actions. Every public action runs inside `execute`
@@ -739,6 +740,11 @@ export function trimItemStart(id: string, newFrom: number, newSourceStart?: numb
 			from: newFrom,
 			durationInFrames: nextDuration
 		};
+		if (item.type === 'image' || item.type === 'lottie')
+			Object.assign(
+				patch,
+				calculateTrimSourceUpdate(item, 'start', delta, nextDuration, timelineStore.fps)
+			);
 		if ((item.type === 'video' || item.type === 'audio') && newSourceStart !== undefined) {
 			patch.sourceStart = newSourceStart;
 		}

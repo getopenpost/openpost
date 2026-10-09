@@ -436,6 +436,8 @@ export class TimelineFrameRenderer {
 		const index = animatedFrameIndexForItem({
 			frame,
 			fromFrame: item.from,
+			sourceStart: item.sourceStart,
+			sourceFps: item.sourceFps,
 			fps: this.fps,
 			speed: item.speed ?? 1,
 			reversed: item.isReversed === true,

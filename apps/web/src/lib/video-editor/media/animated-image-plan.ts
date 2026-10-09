@@ -104,7 +104,7 @@ export interface AnimatedFrameLookupInput {
 export function animatedFrameIndexAtElapsed(input: AnimatedFrameLookupInput): number {
 	const { cumulativeDelaysMs, totalDurationMs } = input;
 	if (cumulativeDelaysMs.length <= 1 || !(totalDurationMs > 0)) return 0;
-	const looped = Math.max(0, input.elapsedMs) % totalDurationMs;
+	const looped = ((input.elapsedMs % totalDurationMs) + totalDurationMs) % totalDurationMs;
 	if (!input.reversed) return lastIndexAtOrBefore(cumulativeDelaysMs, looped);
 	const mirrored = looped === 0 ? totalDurationMs : totalDurationMs - looped;
 	return lastIndexStrictlyBefore(cumulativeDelaysMs, mirrored);
@@ -117,6 +117,9 @@ export interface AnimatedImageTimingInput {
 	fromFrame: number;
 	/** Project frames per second. */
 	fps: number;
+	/** Elapsed loop-clock source frames retained through splits and trims. */
+	sourceStart?: number;
+	sourceFps?: number;
 	/** Item playback speed multiplier. */
 	speed: number;
 	/** Play the animation loop backward while timeline time moves forward. */
@@ -127,8 +130,11 @@ export interface AnimatedImageTimingInput {
 /** Elapsed animation-clock milliseconds for a timeline frame (forward loop). */
 export function animatedImageElapsedMs(input: AnimatedImageTimingInput): number {
 	if (!(input.totalDurationMs > 0)) return 0;
-	const localSeconds = Math.max(0, input.frame - input.fromFrame) / input.fps;
-	const elapsedMs = localSeconds * (input.speed > 0 ? input.speed : 1) * 1000;
+	const localSeconds = (input.frame - input.fromFrame) / input.fps;
+	const sourceFps = input.sourceFps && input.sourceFps > 0 ? input.sourceFps : input.fps;
+	const elapsedMs =
+		((input.sourceStart ?? 0) / sourceFps + localSeconds * (input.speed > 0 ? input.speed : 1)) *
+		1000;
 	return input.reversed ? elapsedMs : elapsedMs % input.totalDurationMs;
 }
 
@@ -159,6 +165,7 @@ export interface AnimatedTilePlanInput {
 	totalDurationMs: number;
 	/** Timeline seconds the item spans at its own speed (durationInFrames / fps). */
 	clipSpanSeconds: number;
+	sourceOffsetMs?: number;
 	speed: number;
 	reversed: boolean;
 	clipWidthPx: number;
@@ -196,7 +203,9 @@ export function computeAnimatedImageTiles(input: AnimatedTilePlanInput): Animate
 		if (width <= 0) continue;
 		const centerRatio = Math.max(0, Math.min(1, (x + width / 2) / input.clipWidthPx));
 		const index = animatedFrameIndexAtElapsed({
-			elapsedMs: centerRatio * input.clipSpanSeconds * (input.speed > 0 ? input.speed : 1) * 1000,
+			elapsedMs:
+				(input.sourceOffsetMs ?? 0) +
+				centerRatio * input.clipSpanSeconds * (input.speed > 0 ? input.speed : 1) * 1000,
 			reversed: input.reversed,
 			cumulativeDelaysMs,
 			totalDurationMs

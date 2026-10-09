@@ -1103,19 +1103,19 @@
 		if (canvas.height !== frames.height) canvas.height = frames.height;
 		const context = canvas.getContext('2d');
 		if (!context) return;
+		const index = animatedFrameIndexForItem({
+			frame,
+			fromFrame: item.from,
+			sourceStart: item.sourceStart,
+			sourceFps: item.sourceFps,
+			fps: editorSession.fps,
+			speed: item.speed ?? 1,
+			reversed: item.isReversed === true,
+			totalDurationMs: frames.totalDurationMs,
+			cumulativeDelaysMs: frames.cumulativeDelaysMs
+		});
 		const pendingRaf = requestAnimationFrame(() => {
-			const bitmap =
-				frames.frames[
-					animatedFrameIndexForItem({
-						frame,
-						fromFrame: item.from,
-						fps: editorSession.fps,
-						speed: item.speed ?? 1,
-						reversed: item.isReversed === true,
-						totalDurationMs: frames.totalDurationMs,
-						cumulativeDelaysMs: frames.cumulativeDelaysMs
-					})
-				];
+			const bitmap = frames.frames[index];
 			if (!bitmap) return;
 			context.clearRect(0, 0, canvas.width, canvas.height);
 			context.drawImage(bitmap, 0, 0);

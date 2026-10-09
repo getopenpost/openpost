@@ -16,6 +16,7 @@ import { sliceClipFades } from '../../media/clip-fades';
 import type { TimelineItem, TimelineMarker, TimelineTrack } from '$lib/video-editor/project/types';
 import type { AudioEqSettings } from '$lib/video-editor/audio/types';
 import { clampTimelineZoom } from '$lib/video-editor/timeline/zoom';
+import { calculateTrimSourceUpdate } from '../utils/trim-utils';
 import { calculateSplitSourceBoundaries } from '../utils/source-calculations';
 import { hasVariableSpeed, variableSpeedSplitBoundaries } from '../source-time-map';
 import { synchronizeTranscriptCaptionsAfterSplit } from '../../transcript/split-transcript-captions';
@@ -382,6 +383,11 @@ export const timelineStore = {
 					)
 				);
 			}
+		} else if (rightItem.type === 'image') {
+			Object.assign(
+				rightItem,
+				calculateTrimSourceUpdate(item, 'start', relative, rightDuration, state.settings.fps)
+			);
 		} else if (rightItem.type === 'lottie') {
 			rightItem.lottiePhaseOffset = (item.lottiePhaseOffset ?? 0) + relative;
 		}

@@ -435,6 +435,8 @@ export class TimelineMediaTiles {
 	}
 	animatedImageTilesFor(item: {
 		from: number;
+		sourceStart?: number;
+		sourceFps?: number;
 		mediaId?: string;
 		speed?: number;
 		isReversed?: boolean;
@@ -452,6 +454,10 @@ export class TimelineMediaTiles {
 			cumulativeDelaysMs: framesData.cumulativeDelaysMs,
 			totalDurationMs: framesData.totalDurationMs,
 			clipSpanSeconds: item.durationInFrames / this.input.fps(),
+			sourceOffsetMs:
+				((item.sourceStart ?? 0) /
+					(item.sourceFps && item.sourceFps > 0 ? item.sourceFps : this.input.fps())) *
+				1000,
 			speed: item.speed ?? 1,
 			reversed: item.isReversed === true,
 			clipWidthPx: clipWidth,

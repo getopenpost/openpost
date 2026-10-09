@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { resolveMediaBlob } from '../media/resolve-media-blob';
 import type { MediaMetadata } from '../media/types';
 import type { DecoderPrewarmWorkerRequest } from './decoder-prewarm.worker';
 import {
@@ -8,7 +7,11 @@ import {
 	prewarmPreviewFrame
 } from './decoder-prewarm-client';
 
-vi.mock('../media/resolve-media-blob', () => ({ resolveMediaBlob: vi.fn() }));
+const readSource = vi.fn<() => Promise<File>>();
+function fileHandle(): FileSystemFileHandle {
+	// SAFETY: linked source reads use only getFile on this native I/O boundary.
+	return { kind: 'file', name: 'video.mp4', getFile: () => readSource() } as FileSystemFileHandle;
+}
 
 class ControlledWorker extends EventTarget {
 	static instances: ControlledWorker[] = [];
@@ -28,7 +31,8 @@ class ControlledWorker extends EventTarget {
 
 const media: MediaMetadata = {
 	id: 'video',
-	storageType: 'cloud',
+	storageType: 'handle',
+	fileHandle: fileHandle(),
 	fileName: 'video.mp4',
 	fileSize: 5,
 	mimeType: 'video/mp4',
@@ -40,13 +44,13 @@ const media: MediaMetadata = {
 	bitrate: 0,
 	tags: []
 };
-const blob = new Blob(['video']);
+const blob = new File(['video'], 'video.mp4', { type: 'video/mp4' });
 
 beforeEach(() => {
 	vi.useFakeTimers();
 	vi.stubGlobal('Worker', ControlledWorker);
 	ControlledWorker.instances = [];
-	vi.mocked(resolveMediaBlob).mockReset().mockResolvedValue(blob);
+	readSource.mockReset().mockResolvedValue(blob);
 });
 afterEach(async () => {
 	clearPreviewDecoderPrewarm();
@@ -72,35 +76,40 @@ it('settles active and queued prewarm requests when the decoder is cleared', asy
 	expect(ControlledWorker.instances).toHaveLength(1);
 });
 
-it('does not restart old blob work after clear while a new session prewarms the same source', async () => {
-	const delayed = Promise.withResolvers<Blob>();
-	vi.mocked(resolveMediaBlob).mockReturnValueOnce(delayed.promise);
-	let oldSettled = false;
-	const old = prewarmPreviewFrame(media, 0);
-	void old.then(() => {
-		oldSettled = true;
-	});
-	await vi.advanceTimersByTimeAsync(0);
-	expect(resolveMediaBlob).toHaveBeenCalledTimes(1);
-	clearPreviewDecoderPrewarm();
-	const fresh = prewarmPreviewFrame(media, 0);
-	await vi.advanceTimersByTimeAsync(0);
-	expect(oldSettled).toBe(true);
-	const decoder = ControlledWorker.instances[0]!;
-	expect(decoder.messages).toHaveLength(1);
-	delayed.resolve(blob);
-	await vi.advanceTimersByTimeAsync(0);
-	expect(decoder.messages).toHaveLength(1);
-	const repeat = prewarmPreviewFrame(media, 0);
-	decoder.dispatchEvent(
-		new MessageEvent('message', {
-			data: { type: 'decoded', requestId: decoder.messages[0]!.requestId, entries: [] }
-		})
-	);
-	await vi.advanceTimersByTimeAsync(0);
-	expect(decoder.messages).toHaveLength(1);
-	await Promise.all([old, fresh, repeat]);
-});
+it.each(['session clear', 'source replacement'] as const)(
+	'settles obsolete source reads after %s without blocking new frames',
+	async (invalidation) => {
+		const delayed = Promise.withResolvers<File>();
+		readSource.mockReturnValueOnce(delayed.promise);
+		let oldSettled = false;
+		const old = prewarmPreviewFrame(media, 0);
+		void old.then(() => {
+			oldSettled = true;
+		});
+		await vi.advanceTimersByTimeAsync(0);
+		expect(readSource).toHaveBeenCalledTimes(1);
+		if (invalidation === 'session clear') clearPreviewDecoderPrewarm();
+		const replacement =
+			invalidation === 'source replacement' ? { ...media, fileHandle: fileHandle() } : media;
+		const fresh = prewarmPreviewFrame(replacement, 0);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(oldSettled).toBe(true);
+		const decoder = ControlledWorker.instances[0]!;
+		expect(decoder.messages).toHaveLength(1);
+		delayed.resolve(blob);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(decoder.messages).toHaveLength(1);
+		const repeat = prewarmPreviewFrame(replacement, 0);
+		decoder.dispatchEvent(
+			new MessageEvent('message', {
+				data: { type: 'decoded', requestId: decoder.messages[0]!.requestId, entries: [] }
+			})
+		);
+		await vi.advanceTimersByTimeAsync(0);
+		expect(decoder.messages).toHaveLength(1);
+		await Promise.all([old, fresh, repeat]);
+	}
+);
 
 it.each(['cached', 'received before publication'])('closes %s frames on clear', async (stage) => {
 	const bitmap: ImageBitmap = { width: 64, height: 32, close: vi.fn() };
@@ -131,4 +140,56 @@ it.each(['cached', 'received before publication'])('closes %s frames on clear', 
 		})
 	);
 	await fresh;
+});
+
+it.each(['timeout', 'error', 'messageerror'] as const)(
+	'releases a decoder after %s and lets the next request recover',
+	async (failure) => {
+		const pending = prewarmPreviewFrame(media, 0, blob);
+		await vi.advanceTimersByTimeAsync(0);
+		const failed = ControlledWorker.instances[0]!;
+		if (failure === 'timeout') await vi.advanceTimersByTimeAsync(10_000);
+		else {
+			failed.dispatchEvent(new Event(failure));
+			await vi.advanceTimersByTimeAsync(0);
+		}
+		expect(failed.terminated).toBe(true);
+		await pending;
+		const lateBitmap: ImageBitmap = { width: 32, height: 32, close: vi.fn() };
+		failed.dispatchEvent(
+			new MessageEvent('message', {
+				data: {
+					type: 'decoded',
+					requestId: failed.messages[0]!.requestId,
+					entries: [{ timestamp: 0, bitmap: lateBitmap }]
+				}
+			})
+		);
+		expect(lateBitmap.close).toHaveBeenCalledOnce();
+		const fresh = prewarmPreviewFrame(media, 1, blob);
+		await vi.advanceTimersByTimeAsync(0);
+		const recovered = ControlledWorker.instances.at(-1)!;
+		expect(recovered).not.toBe(failed);
+		recovered.dispatchEvent(
+			new MessageEvent('message', {
+				data: { type: 'decoded', requestId: recovered.messages[0]!.requestId, entries: [] }
+			})
+		);
+		await fresh;
+	}
+);
+
+it('reads unchanged source bytes once while prewarming successive frames', async () => {
+	for (const timestamp of [0, 1]) {
+		const pending = prewarmPreviewFrame(media, timestamp);
+		await vi.advanceTimersByTimeAsync(0);
+		const worker = ControlledWorker.instances.at(-1)!;
+		worker.dispatchEvent(
+			new MessageEvent('message', {
+				data: { type: 'decoded', requestId: worker.messages.at(-1)!.requestId, entries: [] }
+			})
+		);
+		await pending;
+	}
+	expect(readSource).toHaveBeenCalledTimes(1);
 });

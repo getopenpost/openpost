@@ -201,6 +201,7 @@
 		previewPlaybackSettings.previewQuality === 'auto' ? adaptivePreviewQuality.scale : 1
 	);
 	let urls = $state<Record<string, string>>({});
+	const requestedMediaIds = new Set<string>();
 	let proxyUrls = $state<Record<string, string>>({});
 	let proxyBlobs = $state<Record<string, Blob>>({});
 	let proxyProgress = $state<Record<string, number>>({});
@@ -410,8 +411,10 @@
 	$effect(() => {
 		for (const media of mediaPool.mediaList) {
 			if (urls[media.id]) continue;
+			requestedMediaIds.add(media.id);
 			void getMediaObjectUrl(media)
 				.then((url) => {
+					if (destroyed) return;
 					urls = { ...urls, [media.id]: url };
 				})
 				.catch(() => undefined);
@@ -496,7 +499,7 @@
 		proxyControllers.clear();
 		if (stackFrameRequest !== null) cancelAnimationFrame(stackFrameRequest);
 		stackFrameRequest = null;
-		for (const id of Object.keys(urls)) revokeMediaObjectUrl(id);
+		for (const id of requestedMediaIds) revokeMediaObjectUrl(id);
 		for (const url of Object.values(proxyUrls)) URL.revokeObjectURL(url);
 		const editingItemId = spatialEffectEditorStore.editingItemId;
 		const editingEffectId = spatialEffectEditorStore.editingEffectId;

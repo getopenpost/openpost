@@ -42,6 +42,9 @@
 	let contextRenameTimer: ReturnType<typeof setTimeout> | undefined;
 	const collapsedGroups = new SvelteSet<string>();
 	let items = $derived(flattenLayers(editor.activePage, collapsedGroups));
+	let reorderLayer = $derived(
+		editor.activePage?.layers.find((layer) => layer.id === editor.selectedLayerIDs.at(-1))
+	);
 
 	$effect(() => {
 		const selectedID = editor.selectedLayerIDs.at(-1);
@@ -314,10 +317,10 @@
 	}
 
 	function commitRename(layer: ImageEditorLayer): void {
+		if (renamingID !== layer.id) return;
 		const name = renameDraft.trim();
-		if (name && name !== layer.name) editor.updateLayer(layer.id, { name });
 		renamingID = '';
-		focusLayer(layer.id);
+		if (name && name !== layer.name) editor.updateLayer(layer.id, { name });
 	}
 
 	function startContextRename(layer: ImageEditorLayer): void {
@@ -395,6 +398,32 @@
 				<span class="mr-1 text-xs text-muted-foreground">
 					{m.image_editor_selected_count({ count: editor.selectedLayerIDs.length })}
 				</span>
+			{/if}
+			{#if reorderLayer}
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					disabled={!editor.canEdit || editor.isLayerLocked(reorderLayer.id)}
+					aria-label={m.image_editor_move_layer_up({ name: reorderLayer.name })}
+					title={m.image_editor_move_layer_up({ name: reorderLayer.name })}
+					onclick={() => {
+						editor.reorderLayer(reorderLayer.id, 'forward');
+					}}
+				>
+					<ThemeIcon role="arrow-up" />
+				</Button>
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					disabled={!editor.canEdit || editor.isLayerLocked(reorderLayer.id)}
+					aria-label={m.image_editor_move_layer_down({ name: reorderLayer.name })}
+					title={m.image_editor_move_layer_down({ name: reorderLayer.name })}
+					onclick={() => {
+						editor.reorderLayer(reorderLayer.id, 'backward');
+					}}
+				>
+					<ThemeIcon role="arrow-down" />
+				</Button>
 			{/if}
 			<Button
 				variant="ghost"
@@ -561,6 +590,7 @@
 												if (event.key === 'Enter') {
 													event.preventDefault();
 													commitRename(layer);
+													focusLayer(layer.id);
 												}
 												if (event.key === 'Escape') {
 													event.preventDefault();
@@ -571,39 +601,7 @@
 											aria-label={m.image_editor_layer_name()}
 										/>
 									{:else}
-										<span class="min-w-0 flex-1 truncate">{layer.name}</span>
-									{/if}
-									{#if editor.selectedLayerIDs.includes(layer.id)}
-										<Button
-											tabindex={-1}
-											variant="ghost"
-											size="icon-xs"
-											class="image-editor-mobile-order-button"
-											disabled={effectivelyLocked}
-											aria-label={m.image_editor_move_layer_up({ name: layer.name })}
-											title={m.image_editor_move_layer_up({ name: layer.name })}
-											onclick={(event) => {
-												event.stopPropagation();
-												editor.reorderLayer(layer.id, 'forward');
-											}}
-										>
-											<ThemeIcon role="arrow-up" />
-										</Button>
-										<Button
-											tabindex={-1}
-											variant="ghost"
-											size="icon-xs"
-											class="image-editor-mobile-order-button"
-											disabled={effectivelyLocked}
-											aria-label={m.image_editor_move_layer_down({ name: layer.name })}
-											title={m.image_editor_move_layer_down({ name: layer.name })}
-											onclick={(event) => {
-												event.stopPropagation();
-												editor.reorderLayer(layer.id, 'backward');
-											}}
-										>
-											<ThemeIcon role="arrow-down" />
-										</Button>
+										<span class="min-w-0 flex-1 truncate" title={layer.name}>{layer.name}</span>
 									{/if}
 									<Button
 										tabindex={-1}
@@ -816,10 +814,6 @@
 		box-shadow: inset 0 0 0 2px var(--primary);
 	}
 
-	.image-editor-mobile-order-button {
-		display: none;
-	}
-
 	@media (pointer: coarse) {
 		.image-editor-layer-row {
 			min-height: 48px;
@@ -829,13 +823,6 @@
 		.image-editor-layer-grip {
 			width: 44px;
 			height: 44px;
-		}
-
-		.image-editor-mobile-order-button {
-			display: inline-flex;
-			width: 36px;
-			height: 36px;
-			flex: none;
 		}
 	}
 

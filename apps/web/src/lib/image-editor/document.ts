@@ -647,3 +647,26 @@ function isDisplayableImageEditorDocument(document: ImageEditorDocumentInput): b
 		typeof document.export_defaults === 'object'
 	);
 }
+
+export function imageEditorLayerRenderOrder(layers: ImageEditorLayer[]): ImageEditorLayer[] {
+	const layerIDs = new Set(layers.map((layer) => layer.id));
+	const childrenByParent = new Map<string, ImageEditorLayer[]>();
+	for (const layer of layers) {
+		const parentID = layer.parent_id && layerIDs.has(layer.parent_id) ? layer.parent_id : '';
+		const children = childrenByParent.get(parentID) ?? [];
+		children.push(layer);
+		childrenByParent.set(parentID, children);
+	}
+
+	const ordered: ImageEditorLayer[] = [];
+	const visited = new Set<string>();
+	const appendLayer = (layer: ImageEditorLayer): void => {
+		if (visited.has(layer.id)) return;
+		visited.add(layer.id);
+		for (const child of childrenByParent.get(layer.id) ?? []) appendLayer(child);
+		ordered.push(layer);
+	};
+	for (const layer of childrenByParent.get('') ?? []) appendLayer(layer);
+	for (const layer of layers) appendLayer(layer);
+	return ordered;
+}

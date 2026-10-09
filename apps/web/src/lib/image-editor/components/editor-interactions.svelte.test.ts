@@ -126,16 +126,58 @@ it('announces page moves made from the phone actions menu', async () => {
 		await page.viewport(1280, 900);
 	}
 });
-it('keeps page controls and long layer names inside a narrow viewport', async () => {
+it('keeps a selected layer name readable beside its actions in a narrow viewport', async () => {
 	await page.viewport(320, 800);
 	try {
 		const editor = setup();
-		await render(Fixture, { editor });
+		editor.updateLayer('Other', { name: 'Launch cover headline' });
+		editor.selectLayer('Other');
+		const screen = await render(Fixture, { editor });
+		const name = screen.getByText('Launch cover headline', { exact: true }).element();
+		expect(name.getBoundingClientRect().width).toBeGreaterThanOrEqual(100);
 		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
 	} finally {
 		await page.viewport(1280, 900);
 	}
 });
+
+it('cancels a layer rename without changing the document or history', async () => {
+	const editor = setup();
+	const screen = await render(Fixture, { editor });
+	const row = screen.getByRole('treeitem', { name: /Other/ });
+	await row.click();
+	await userEvent.keyboard('{F2}');
+	await screen.getByRole('textbox', { name: 'Layer name' }).fill('Discard this');
+	await userEvent.keyboard('{Escape}');
+	expect(editor.activePage?.layers.find((layer) => layer.id === 'Other')?.name).toBe('Other');
+	expect(editor.canUndo).toBe(false);
+	await expect.element(row).toHaveFocus();
+});
+
+it.each(['layer', 'page'])(
+	'leaves focus on the clicked control after committing a %s rename on blur',
+	async (kind) => {
+		const editor = setup();
+		const screen = await render(Fixture, { editor });
+		if (kind === 'layer') {
+			await screen.getByRole('treeitem', { name: /Other/ }).click();
+			await userEvent.keyboard('{F2}');
+		} else {
+			await screen.getByRole('button', { name: 'Rename page' }).click();
+		}
+		await screen
+			.getByRole('textbox', { name: kind === 'layer' ? 'Layer name' : 'Page name' })
+			.fill('Cover headline');
+		const add = screen.getByRole('button', { name: 'Add layer', exact: true });
+		await add.click();
+		await expect.element(add).toHaveFocus();
+		expect(
+			kind === 'layer'
+				? editor.activePage?.layers.find((layer) => layer.id === 'Other')?.name
+				: editor.activePage?.name
+		).toBe('Cover headline');
+	}
+);
 
 it('uses the compact status row until pages are expanded into the ordered strip', async () => {
 	const editor = setup();
@@ -333,6 +375,125 @@ it('keeps a locked ancestor child selectable while rejecting keyboard and pointe
 			['Group', undefined, false]
 		]);
 		expect(await listGuestImageEditorMedia(stored.id)).toEqual([]);
+	} finally {
+		await deleteGuestImageEditorDesign(stored.id);
+	}
+});
+
+it('moves across visible siblings in one step without counting a group child as a sibling', async () => {
+	const editor = setup();
+	const screen = await render(Fixture, { editor });
+	await screen.getByRole('treeitem', { name: /Other/ }).click();
+	await screen.getByRole('button', { name: 'Move Other up' }).click();
+	const visibleOrder = () =>
+		[...screen.container.querySelectorAll<HTMLElement>('[role="treeitem"]')].map(
+			(row) => row.dataset.imageEditorLayerId
+		);
+	await expect.poll(visibleOrder).toEqual(['Other', 'Group', 'Child']);
+	editor.undo();
+	await expect.poll(visibleOrder).toEqual(['Group', 'Child', 'Other']);
+	expect(editor.canUndo).toBe(false);
+	await screen.getByRole('treeitem', { name: /Group, group/ }).click();
+	await screen.getByRole('button', { name: 'Move Group down' }).click();
+	await expect.poll(visibleOrder).toEqual(['Other', 'Group', 'Child']);
+	editor.ungroupSelected();
+	await expect.poll(visibleOrder).toEqual(['Other', 'Child']);
+	editor.undo();
+	await expect.poll(visibleOrder).toEqual(['Other', 'Group', 'Child']);
+	editor.undo();
+	await screen.getByRole('treeitem', { name: /Child/ }).click();
+	await screen.getByRole('button', { name: 'Move Child down' }).click();
+	expect(editor.canUndo).toBe(false);
+	await expect.poll(visibleOrder).toEqual(['Group', 'Child', 'Other']);
+});
+
+it('groups layers below an unselected foreground layer without raising them above it', async () => {
+	const editor = setup();
+	editor.addText('Foreground');
+	const foregroundID = editor.selectedLayerIDs[0];
+	editor.selectLayer('Other');
+	editor.selectLayer('Group', 'toggle');
+	const screen = await render(Fixture, { editor });
+	editor.groupSelected();
+	await expect
+		.poll(
+			() =>
+				screen.container.querySelector<HTMLElement>('[role="treeitem"]')?.dataset.imageEditorLayerId
+		)
+		.toBe(foregroundID);
+	const groupID = editor.selectedLayerIDs[0];
+	expect(editor.activePage?.layers.find((layer) => layer.id === 'Group')?.parent_id).toBe(groupID);
+	editor.ungroupSelected();
+	await expect
+		.poll(() =>
+			[...screen.container.querySelectorAll<HTMLElement>('[role="treeitem"]')].map(
+				(row) => row.dataset.imageEditorLayerId
+			)
+		)
+		.toEqual([foregroundID, 'Group', 'Child', 'Other']);
+});
+
+it('groups across parents at the frontmost selected ancestor stacking position', async () => {
+	const editor = setup();
+	editor.addText('Top child');
+	const topID = editor.selectedLayerIDs[0];
+	editor.moveLayerToGroup(topID, 'Group');
+	editor.selectLayer('Other');
+	editor.selectLayer(topID, 'toggle');
+	const screen = await render(Fixture, { editor });
+	editor.groupSelected();
+	const groupID = editor.selectedLayerIDs[0];
+	await expect
+		.poll(() =>
+			[...screen.container.querySelectorAll<HTMLElement>('[role="treeitem"]')].map(
+				(row) => row.dataset.imageEditorLayerId
+			)
+		)
+		.toEqual([groupID, topID, 'Other', 'Group', 'Child']);
+	expect(editor.activePage?.layers.find((layer) => layer.id === 'Group')?.transform).toMatchObject({
+		x: 0,
+		y: 0,
+		width: 100,
+		height: 100
+	});
+});
+
+it('ungroups selected nested groups into the surviving ancestor and preserves it on reopen', async () => {
+	const editor = setup();
+	editor.mutate('Prepare nested groups', (document) => {
+		const layers = document.pages[0].layers;
+		const group = layers.find((layer) => layer.id === 'Group')!;
+		group.parent_id = 'Outer';
+		layers.find((layer) => layer.id === 'Child')!.transform.x = 120;
+		layers.find((layer) => layer.id === 'Other')!.parent_id = 'Outer';
+		layers.push({ ...group, id: 'Outer', name: 'Outer', parent_id: 'Grandparent' });
+		layers.push({ ...group, id: 'Grandparent', name: 'Grandparent', parent_id: undefined });
+	});
+	const stored = await createGuestImageEditorDesignFromDocument(editor.document!);
+	try {
+		editor.load(stored);
+		editor.selectLayer('Outer');
+		editor.selectLayer('Group', 'toggle');
+		const screen = await render(Fixture, { editor });
+		editor.ungroupSelected();
+		const order = () =>
+			[...screen.container.querySelectorAll<HTMLElement>('[role="treeitem"]')].map(
+				(row) => row.dataset.imageEditorLayerId
+			);
+		await expect.poll(order).toEqual(['Grandparent', 'Child', 'Other']);
+		expect(editor.activePage?.layers.find((layer) => layer.id === 'Child')?.parent_id).toBe(
+			'Grandparent'
+		);
+		expect(new Set(editor.selectedLayerIDs)).toEqual(new Set(['Child', 'Other']));
+		expect(
+			editor.activePage?.layers.find((layer) => layer.id === 'Grandparent')?.transform
+		).toMatchObject({ x: 0, y: 0, width: 220, height: 100 });
+		await saveGuestImageEditorDesign(stored.id, editor.document!);
+		editor.load(await loadGuestImageEditorDesign(stored.id));
+		await expect.poll(order).toEqual(['Grandparent', 'Child', 'Other']);
+		expect(editor.activePage?.layers.find((layer) => layer.id === 'Child')?.parent_id).toBe(
+			'Grandparent'
+		);
 	} finally {
 		await deleteGuestImageEditorDesign(stored.id);
 	}

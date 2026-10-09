@@ -16,7 +16,8 @@ import { textGraphemeOffset, textGraphemes, type ImageEditorTextEdit } from './t
 import {
 	defaultImageAdjustments,
 	isEmptyImageEditorPaintLayer,
-	imageEditorPageBackground
+	imageEditorPageBackground,
+	imageEditorLayerRenderOrder
 } from './document';
 import { imageEditorPageDimensions } from './page-dimensions';
 import { createTextCurvePath, shadowColor, shadowOffset, textCurveStartOffset } from './effects';
@@ -350,29 +351,6 @@ function applyImageEditorRotationConstraint(
 ): void {
 	target.snapAngle = constrain ? ROTATION_SNAP_ANGLE : undefined;
 	target.snapThreshold = constrain ? ROTATION_SNAP_ANGLE / 2 : undefined;
-}
-
-export function imageEditorLayerRenderOrder(layers: ImageEditorLayer[]): ImageEditorLayer[] {
-	const layerIDs = new Set(layers.map((layer) => layer.id));
-	const childrenByParent = new Map<string, ImageEditorLayer[]>();
-	for (const layer of layers) {
-		const parentID = layer.parent_id && layerIDs.has(layer.parent_id) ? layer.parent_id : '';
-		const children = childrenByParent.get(parentID) ?? [];
-		children.push(layer);
-		childrenByParent.set(parentID, children);
-	}
-
-	const ordered: ImageEditorLayer[] = [];
-	const visited = new Set<string>();
-	const appendLayer = (layer: ImageEditorLayer): void => {
-		if (visited.has(layer.id)) return;
-		visited.add(layer.id);
-		for (const child of childrenByParent.get(layer.id) ?? []) appendLayer(child);
-		ordered.push(layer);
-	};
-	for (const layer of childrenByParent.get('') ?? []) appendLayer(layer);
-	for (const layer of layers) appendLayer(layer);
-	return ordered;
 }
 
 function layerIsVisibleIn(layer: ImageEditorLayer, layers: readonly ImageEditorLayer[]): boolean {

@@ -1,3 +1,4 @@
+import { imageEditorLayerRenderOrder } from './document';
 import { describe, expect, it, vi } from 'vitest';
 import {
 	computeImageGeometry,
@@ -6,7 +7,6 @@ import {
 	imageEditorPixelGrid,
 	imageEditorPixelIsOpaque,
 	OpenPostFabricAdapter,
-	imageEditorLayerRenderOrder,
 	snapImageEditorPoint,
 	snapImageEditorResize
 } from './fabric-adapter';

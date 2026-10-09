@@ -10,7 +10,8 @@ import {
 	defaultImageAdjustments,
 	defaultTransform,
 	isEmptyImageEditorPaintLayer,
-	imageEditorID
+	imageEditorID,
+	imageEditorLayerRenderOrder
 } from './document';
 import { defaultLayerEffects, defaultTextCurve, imageEditorMaskRadiusLimit } from './effects';
 import { imageEditorPageDimensions } from './page-dimensions';
@@ -2160,10 +2161,25 @@ export class ImageEditorController {
 		this.mutate('Group layers', (document) => {
 			const page = document.pages.find((item) => item.id === this.activePageID);
 			if (!page) return;
+			page.layers = imageEditorLayerRenderOrder(page.layers);
+			const byID = new Map(page.layers.map((layer) => [layer.id, layer]));
+			const anchors = new Set(
+				roots.map((layer) => {
+					let anchor = layer;
+					while (anchor.parent_id && anchor.parent_id !== commonParentID) {
+						const parent = byID.get(anchor.parent_id);
+						if (!parent) break;
+						anchor = parent;
+					}
+					return anchor.id;
+				})
+			);
+			const position = page.layers.findLastIndex((layer) => anchors.has(layer.id));
 			for (const layer of page.layers) {
 				if (selected.has(layer.id)) layer.parent_id = groupID;
 			}
-			page.layers.push(group);
+			page.layers.splice(position + 1, 0, group);
+			this.recalculateAllGroupBounds(page);
 		});
 		this.selectedLayerIDs = [groupID];
 		this.selectionAnchorID = groupID;
@@ -2176,11 +2192,14 @@ export class ImageEditorController {
 		if (groupIDs.size === 0 || [...groupIDs].some((id) => this.isLayerLocked(id))) return;
 		const childIDs =
 			this.activePage?.layers
-				.filter((layer) => layer.parent_id && groupIDs.has(layer.parent_id))
+				.filter(
+					(layer) => layer.parent_id && groupIDs.has(layer.parent_id) && !groupIDs.has(layer.id)
+				)
 				.map((layer) => layer.id) ?? [];
 		this.mutate('Ungroup layers', (document) => {
 			const page = document.pages.find((item) => item.id === this.activePageID);
 			if (!page) return;
+			page.layers = imageEditorLayerRenderOrder(page.layers);
 			const groupParents = new Map(
 				page.layers
 					.filter((layer) => groupIDs.has(layer.id))
@@ -2188,7 +2207,9 @@ export class ImageEditorController {
 			);
 			for (const layer of page.layers) {
 				if (layer.parent_id && groupIDs.has(layer.parent_id)) {
-					layer.parent_id = groupParents.get(layer.parent_id);
+					let parentID: string | undefined = layer.parent_id;
+					while (parentID && groupParents.has(parentID)) parentID = groupParents.get(parentID);
+					layer.parent_id = parentID;
 				}
 			}
 			page.layers = page.layers.filter((layer) => !groupIDs.has(layer.id));
@@ -2249,23 +2270,23 @@ export class ImageEditorController {
 	}
 
 	reorderLayer(id: string, direction: 'front' | 'forward' | 'backward' | 'back'): void {
-		if (this.isLayerLocked(id)) return;
-		this.mutate('Reorder layer', (document) => {
-			const page = document.pages.find((item) => item.id === this.activePageID);
-			if (!page) return;
-			const index = page.layers.findIndex((layer) => layer.id === id);
-			if (index < 0) return;
-			const [layer] = page.layers.splice(index, 1);
-			const nextIndex =
-				direction === 'front'
-					? page.layers.length
-					: direction === 'back'
-						? 0
-						: direction === 'forward'
-							? Math.min(page.layers.length, index + 1)
-							: Math.max(0, index - 1);
-			page.layers.splice(nextIndex, 0, layer);
-		});
+		const page = this.activePage;
+		const layer = page?.layers.find((candidate) => candidate.id === id);
+		if (!page || !layer || this.isLayerLocked(id)) return;
+		const siblings = page.layers.filter((candidate) => candidate.parent_id === layer.parent_id);
+		const index = siblings.findIndex((candidate) => candidate.id === id);
+		const target =
+			direction === 'front'
+				? siblings.at(-1)
+				: direction === 'back'
+					? siblings[0]
+					: siblings[index + (direction === 'forward' ? 1 : -1)];
+		if (!target || target.id === id) return;
+		this.moveLayerRelative(
+			id,
+			target.id,
+			direction === 'front' || direction === 'forward' ? 'above' : 'below'
+		);
 	}
 
 	moveLayerRelative(id: string, targetID: string, position: 'above' | 'below'): void {
@@ -2719,12 +2740,17 @@ export class ImageEditorController {
 	}
 
 	private recalculateAllGroupBounds(page: ImageEditorPage): void {
-		for (let pass = 0; pass < page.layers.length; pass++) {
-			for (const group of page.layers) {
-				if (group.type !== 'group') continue;
-				const children = page.layers.filter((layer) => layer.parent_id === group.id);
-				if (children.length > 0) Object.assign(group.transform, boundsForLayers(children));
-			}
+		const childrenByParent = new Map<string, ImageEditorLayer[]>();
+		for (const layer of page.layers) {
+			if (!layer.parent_id) continue;
+			const children = childrenByParent.get(layer.parent_id) ?? [];
+			children.push(layer);
+			childrenByParent.set(layer.parent_id, children);
+		}
+		for (const group of imageEditorLayerRenderOrder(page.layers)) {
+			if (group.type !== 'group') continue;
+			const children = childrenByParent.get(group.id);
+			if (children?.length) Object.assign(group.transform, boundsForLayers(children));
 		}
 	}
 }

@@ -120,7 +120,6 @@
 			const target = document.pages.find((candidate) => candidate.id === pageID);
 			if (target) target.name = name;
 		});
-		focusPage(pageID);
 	}
 
 	function commitPageMove(pageID: string, target: number, announcement: 'moved' | 'dropped'): void {
@@ -383,7 +382,11 @@
 					onblur={() => finishRenamePage(true)}
 					onkeydown={(event) => {
 						event.stopPropagation();
-						if (event.key === 'Enter') event.currentTarget.blur();
+						if (event.key === 'Enter') {
+							event.preventDefault();
+							finishRenamePage(true);
+							focusPage(editor.activePageID);
+						}
 						if (event.key === 'Escape') {
 							event.preventDefault();
 							finishRenamePage(false);

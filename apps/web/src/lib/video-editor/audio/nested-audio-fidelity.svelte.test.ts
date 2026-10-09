@@ -2,10 +2,30 @@ import { afterEach, expect, it } from 'vitest';
 import { mixAudioWindows } from './bounded-audio-mixer';
 import { planNestedMixdown, sliceMixEntries } from '../media/render-plan';
 import { mediaPool } from '../media/pool.svelte';
-import { createDefaultTracks } from '../project/defaults';
+import {
+	CURRENT_SCHEMA_VERSION,
+	createBlankProject,
+	createDefaultTracks,
+	createEmptyTimeline,
+	migrateProjectDocument
+} from '../project/defaults';
+import { sequenceStore } from '../sequences/sequence-store.svelte';
+import {
+	createCompoundClip,
+	dissolveCompoundClip,
+	nestSequence
+} from '../sequences/sequence-actions';
+import { timelineStore } from '../timeline/stores/timeline-store.svelte';
+import { commandHistory } from '../timeline/commands/command-store.svelte';
+import { removeItems, unlinkItems, updateItemProperties } from '../timeline/actions/items';
 import type { SubComposition, TimelineItem } from '../project/types';
 
-afterEach(() => mediaPool.clear());
+afterEach(() => {
+	mediaPool.clear();
+	commandHistory.clearHistory();
+	sequenceStore.reset();
+	timelineStore.__resetForTesting();
+});
 
 function twoPartWav(): Blob {
 	const sampleRate = 48_000;
@@ -30,6 +50,31 @@ function twoPartWav(): Blob {
 	for (let i = 0; i < sampleRate; i++)
 		view.setInt16(44 + i * 2, i < sampleRate / 2 ? 8192 : -8192, true);
 	return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function registerAudio(): string {
+	const blob = twoPartWav();
+	const url = URL.createObjectURL(blob);
+	mediaPool.upsert(
+		{
+			id: 'two-part',
+			fileName: 'two-part.wav',
+			fileSize: blob.size,
+			mimeType: 'audio/wav',
+			storageType: 'cloud',
+			remoteUrl: url,
+			duration: 1,
+			width: 0,
+			height: 0,
+			fps: 0,
+			codec: '',
+			bitrate: 768000,
+			audioCodec: 'pcm-s16',
+			tags: ['audio']
+		},
+		'ready'
+	);
+	return url;
 }
 
 const crossfadeRamp: Partial<TimelineItem> = {
@@ -155,27 +200,7 @@ it.each([
 		sliceStart = 0,
 		nestedOnly = false
 	}) => {
-		const blob = twoPartWav();
-		const url = URL.createObjectURL(blob);
-		mediaPool.upsert(
-			{
-				id: 'two-part',
-				fileName: 'two-part.wav',
-				fileSize: blob.size,
-				mimeType: 'audio/wav',
-				storageType: 'cloud',
-				remoteUrl: url,
-				duration: 1,
-				width: 0,
-				height: 0,
-				fps: 0,
-				codec: '',
-				bitrate: 768000,
-				audioCodec: 'pcm-s16',
-				tags: ['audio']
-			},
-			'ready'
-		);
+		const url = registerAudio();
 		const tracks = createDefaultTracks();
 		const clip: TimelineItem = {
 			id: 'clip',
@@ -238,6 +263,244 @@ it.each([
 					nested ? 'nested wrapper' : 'direct clip'
 				).toBeCloseTo(nested ? (nestedExpected ?? expected) : expected, 3);
 			}
+		} finally {
+			URL.revokeObjectURL(url);
+		}
+	}
+);
+
+it.each(
+	[
+		{ source: 'nested sequence', edit: 'move' },
+		{ source: 'nested sequence', edit: 'delete' },
+		{ source: 'compound clip', edit: 'move' },
+		{ source: 'compound clip', edit: 'delete' },
+		{ source: 'legacy project', edit: 'move' },
+		{ source: 'legacy project', edit: 'delete' },
+		{ source: 'legacy nested sequence', edit: 'move' },
+		{ source: 'legacy nested sequence', edit: 'delete' },
+		{ source: 'compound clip', edit: 'move', dissolve: true },
+		{ source: 'compound clip', edit: 'delete', dissolve: true },
+		{ source: 'compound clip', edit: 'delete', dissolve: true, embedded: true },
+		{ source: 'compound clip', edit: 'delete', dissolve: true, timer: true },
+		{ source: 'compound clip', edit: 'move', dissolveAudio: true },
+		{ source: 'compound clip', edit: 'move', dissolveAudio: true, embedded: true },
+		{ source: 'compound clip', edit: 'move', dissolveAudio: true, timer: true },
+		{ source: 'compound clip', edit: 'move', dissolveAudio: true, nested: true }
+	].map((entry) => ({
+		dissolve: false,
+		dissolveAudio: false,
+		embedded: false,
+		timer: false,
+		nested: false,
+		...entry
+	}))
+)(
+	'keeps $source audio independent after unlink and $edit (dissolve: $dissolve, embedded: $embedded, timer: $timer, audio only: $dissolveAudio, nested: $nested)',
+	async ({ source, edit, dissolve, dissolveAudio, embedded, timer, nested }) => {
+		const url = registerAudio();
+		const tracks = createDefaultTracks();
+		const visual: TimelineItem = {
+			id: 'title',
+			type: nested ? 'composition' : embedded ? 'video' : 'text',
+			compositionId: nested ? 'inner' : undefined,
+			mediaId: embedded ? 'two-part' : undefined,
+			timer: timer
+				? { style: 'numbers', direction: 'down', format: 'seconds', warningSound: true }
+				: undefined,
+			trackId: tracks[0]!.id,
+			label: 'Title',
+			from: 0,
+			durationInFrames: 30
+		};
+		const audio: TimelineItem = {
+			id: 'sound',
+			type: 'audio',
+			trackId: tracks[2]!.id,
+			mediaId: 'two-part',
+			label: 'Sound',
+			from: 0,
+			durationInFrames: 30
+		};
+		const composition: SubComposition = {
+			id: 'saved',
+			name: 'Saved',
+			width: 64,
+			height: 64,
+			fps: 30,
+			durationInFrames: 30,
+			tracks,
+			items: embedded || timer ? [visual] : [visual, { ...audio, volume: nested ? 0 : 1 }],
+			transitions: []
+		};
+		const metadata = { width: 64, height: 64, fps: 30 };
+		const compositions = nested
+			? [composition, { ...composition, id: 'inner', items: [audio] }]
+			: [composition];
+		try {
+			if (source.startsWith('legacy')) {
+				const wrapper: TimelineItem = {
+					...visual,
+					type: 'composition',
+					compositionId: 'saved',
+					linkedGroupId: 'pair',
+					sourceStart: 0,
+					sourceEnd: 30,
+					sourceFps: 30
+				};
+				const stored = {
+					...createBlankProject(),
+					schemaVersion: 10,
+					metadata,
+					timeline: {
+						...createEmptyTimeline(),
+						tracks,
+						compositions,
+						items: [
+							wrapper,
+							{ ...wrapper, id: 'audio-wrapper', type: 'audio' as const, trackId: audio.trackId }
+						]
+					}
+				};
+				if (source === 'legacy nested sequence') {
+					stored.timeline.compositions.push({
+						...composition,
+						id: 'outer',
+						items: stored.timeline.items
+					});
+					stored.timeline.items = [];
+				}
+				sequenceStore.load(migrateProjectDocument(stored).project.timeline!, metadata);
+				if (source === 'legacy nested sequence') sequenceStore.switchTo('outer');
+			} else {
+				sequenceStore.load(
+					{
+						...createEmptyTimeline(),
+						tracks,
+						compositions,
+						items: source === 'compound clip' ? composition.items : []
+					},
+					metadata
+				);
+				if (source === 'compound clip')
+					createCompoundClip(composition.items.map((item) => item.id));
+				else nestSequence(composition.id, 0);
+			}
+			const audioWrapper = timelineStore.items.find((item) => item.type === 'audio')!;
+			unlinkItems([audioWrapper.id]);
+			if (edit === 'move') updateItemProperties(audioWrapper.id, { from: 15 });
+			else removeItems([audioWrapper.id]);
+			if (dissolve)
+				dissolveCompoundClip(timelineStore.items.find((item) => item.type === 'composition')!.id);
+			if (dissolveAudio) {
+				const restoredIds = dissolveCompoundClip(audioWrapper.id);
+				const document = migrateProjectDocument({
+					...createBlankProject(),
+					metadata,
+					timeline: JSON.parse(JSON.stringify(sequenceStore.projectTimeline()))
+				}).project;
+				sequenceStore.load(document.timeline!, metadata);
+				const restored = restoredIds.map((id) => timelineStore.itemById.get(id)!);
+				expect(restored.length).toBeGreaterThan(0);
+				expect(restored.every((item) => item.type === 'audio')).toBe(true);
+				expect(
+					restored.every(
+						(item) =>
+							timelineStore.tracks.find((track) => track.id === item.trackId)?.kind === 'audio'
+					)
+				).toBe(true);
+			}
+			const entries = planNestedMixdown(
+				timelineStore.items,
+				timelineStore.tracks,
+				30,
+				[],
+				sequenceStore.compositions
+			);
+			const samples: number[] = [];
+			for await (const window of mixAudioWindows(entries, 1.5))
+				for (const sample of window.samples[0]!) samples.push(sample);
+			if (edit === 'delete') {
+				// A mix without any audio owners produces no audio windows.
+				expect(samples).toHaveLength(0);
+			} else {
+				expect(samples[4800], 'old audio position must be silent').toBeCloseTo(0, 4);
+				if (timer)
+					expect(Math.max(...samples.slice(26400, 27600).map(Math.abs))).toBeGreaterThan(0.1);
+				else expect(samples[28800], 'only the moved audio owns sound').toBeCloseTo(0.25, 4);
+			}
+		} finally {
+			URL.revokeObjectURL(url);
+		}
+	}
+);
+
+it.each([false, true])(
+	'keeps embedded composition sound when an unrelated audio wrapper arrives (legacy: %s)',
+	async (legacy) => {
+		const url = registerAudio();
+		const tracks = createDefaultTracks();
+		const wrapper: TimelineItem = {
+			id: 'visual',
+			type: 'composition',
+			compositionId: 'saved',
+			trackId: tracks[0]!.id,
+			label: 'Embedded sound',
+			from: 0,
+			durationInFrames: 30,
+			audioDetached: legacy ? undefined : false
+		};
+		const project = migrateProjectDocument({
+			...createBlankProject(),
+			schemaVersion: legacy ? 10 : CURRENT_SCHEMA_VERSION,
+			timeline: {
+				...createEmptyTimeline(),
+				tracks,
+				items: [wrapper],
+				compositions: [
+					{
+						id: 'saved',
+						name: 'Saved',
+						width: 64,
+						height: 64,
+						fps: 30,
+						durationInFrames: 30,
+						tracks,
+						transitions: [],
+						items: [
+							{
+								id: 'sound',
+								type: 'audio',
+								trackId: tracks[2]!.id,
+								mediaId: 'two-part',
+								label: 'Sound',
+								from: 0,
+								durationInFrames: 30
+							}
+						]
+					}
+				]
+			}
+		}).project;
+		project.timeline!.items.push({
+			...wrapper,
+			id: 'unrelated-audio',
+			type: 'audio',
+			trackId: tracks[2]!.id,
+			audioDetached: undefined
+		});
+		try {
+			const entries = planNestedMixdown(
+				project.timeline!.items,
+				tracks,
+				30,
+				[],
+				project.timeline!.compositions
+			);
+			const samples: number[] = [];
+			for await (const window of mixAudioWindows(entries, 1))
+				for (const sample of window.samples[0]!) samples.push(sample);
+			expect(samples[4800], 'both independently owned sources remain audible').toBeCloseTo(0.5, 4);
 		} finally {
 			URL.revokeObjectURL(url);
 		}

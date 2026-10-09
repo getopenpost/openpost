@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { portableVideoProjectDocument } from '@openpost/video-project';
-import { createBlankProject } from './defaults';
+import { CURRENT_SCHEMA_VERSION, createBlankProject } from './defaults';
 import type { Project } from './types';
 import { editorSession } from '../editor.svelte';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
@@ -76,7 +76,7 @@ it('keeps a migrated Cloud edit usable through offline save failure and revision
 		});
 	await editorSession.load(stored.id, cloud.workspaceId);
 	expect(editorSession.loadError).toBe('');
-	expect(editorSession.project!.schemaVersion).toBe(10);
+	expect(editorSession.project!.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
 	expect(editorSession.project!.timeline!.compositions![0]!.items[0]!.type).toBe('shape');
 	expect(editorSession.projectDirty).toBe(true);
 	expect(cloud.document.schemaVersion).toBe(9);
@@ -84,7 +84,7 @@ it('keeps a migrated Cloud edit usable through offline save failure and revision
 	await expect(editorSession.flushAutosave()).rejects.toThrow('Offline');
 	expect(editorSession.projectDirty).toBe(true);
 	expect(editorSession.loadError).toBe('');
-	expect(editorSession.project!.schemaVersion).toBe(10);
+	expect(editorSession.project!.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
 	await expect(editorSession.flushAutosave()).rejects.toBeInstanceOf(
 		CloudVideoProjectConflictError
 	);
@@ -94,11 +94,11 @@ it('keeps a migrated Cloud edit usable through offline save failure and revision
 	await editorSession.flushAutosave();
 	expect(editorSession.projectDirty).toBe(false);
 	expect(editorSession.saveConflict).toBe(false);
-	expect(cloud.document.schemaVersion).toBe(10);
+	expect(cloud.document.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
 	expect(cloud.document.timeline!.compositions![0]!.items[0]!.type).toBe('shape');
 	expect(save).toHaveBeenCalledTimes(3);
 	await editorSession.load(stored.id, cloud.workspaceId);
-	expect(editorSession.project!.schemaVersion).toBe(10);
+	expect(editorSession.project!.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
 	expect(editorSession.projectDirty).toBe(false);
 	expect(save).toHaveBeenCalledTimes(3);
 });

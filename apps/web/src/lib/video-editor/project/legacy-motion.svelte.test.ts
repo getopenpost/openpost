@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from 'vitest';
-import { createBlankProject, migrateProjectDocument } from './defaults';
+import { CURRENT_SCHEMA_VERSION, createBlankProject, migrateProjectDocument } from './defaults';
 import type { TimelineItem } from './types';
 import { TimelineFrameRenderer } from '../media/render-export';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
@@ -105,11 +105,14 @@ it('opens legacy generated Motion fills as editable shapes without guessing miss
 	try {
 		await writeJsonAtomic(root, projectJsonPath(stored.id), stored);
 		const opened = (await getProject(stored.id))!;
-		expect(opened.schemaVersion).toBe(10);
+		expect(opened.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
 		expect((await readJson<Project>(root, projectJsonPath(stored.id)))!.timeline).toEqual(
 			opened.timeline
 		);
-		const backup = await readJson<Project>(root, projectJsonPath(`${stored.id}-backup-v9-v10`));
+		const backup = await readJson<Project>(
+			root,
+			projectJsonPath(`${stored.id}-backup-v9-v${CURRENT_SCHEMA_VERSION}`)
+		);
 		expect(backup!.schemaVersion).toBe(9);
 		expect(backup!.timeline).toEqual(stored.timeline);
 		expect((await getProject(stored.id))!.timeline).toEqual(opened.timeline);

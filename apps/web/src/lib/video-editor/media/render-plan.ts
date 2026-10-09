@@ -222,7 +222,7 @@ function planSequenceMixdown(
 	const anySolo = resolvedTracks.some((track) => track.solo);
 	const entries: MixEntry[] = [];
 	for (const item of items) {
-		if (item.timer) {
+		if (item.timer && !item.audioDetached) {
 			const track = trackById.get(item.trackId);
 			if (track && isAudible(track, anySolo)) entries.push(...timerAudioEntries(item, track, fps));
 		}
@@ -375,7 +375,11 @@ export function planNestedMixdown(
 	for (const wrapper of items) {
 		if (!wrapper.compositionId || (wrapper.type !== 'composition' && wrapper.type !== 'audio'))
 			continue;
-		if (wrapper.type === 'composition' && hasCompositionAudioCompanion(wrapper, items)) continue;
+		if (
+			wrapper.type === 'composition' &&
+			(wrapper.audioDetached ?? hasCompositionAudioCompanion(wrapper, items))
+		)
+			continue;
 		if (ancestry.has(wrapper.compositionId)) continue;
 		const composition = compositionById.get(wrapper.compositionId);
 		if (!composition) continue;

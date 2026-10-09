@@ -1,6 +1,6 @@
 import type { Project, ProjectTimeline, TimelineItem, TimelineTrack } from './types';
 
-export const CURRENT_SCHEMA_VERSION = 10;
+export const CURRENT_SCHEMA_VERSION = 11;
 
 export interface ProjectMigration {
 	version: number;
@@ -20,6 +20,23 @@ function renumberTracks(tracks: TimelineTrack[]): TimelineTrack[] {
 
 function backfillOriginIds(items: TimelineItem[]): TimelineItem[] {
 	return items.map((item) => (item.originId ? item : { ...item, originId: item.id }));
+}
+
+// Freeze the legacy pairing rule before clips can be independently moved or removed.
+function persistCompositionAudioOwnership(items: TimelineItem[]): TimelineItem[] {
+	return items.map((item) => {
+		if (item.type !== 'composition' || !item.compositionId || item.audioDetached !== undefined)
+			return item;
+		const companion = items.some(
+			(candidate) =>
+				candidate.type === 'audio' &&
+				candidate.compositionId === item.compositionId &&
+				candidate.from === item.from &&
+				candidate.durationInFrames === item.durationInFrames &&
+				(!item.linkedGroupId || candidate.linkedGroupId === item.linkedGroupId)
+		);
+		return { ...item, audioDetached: companion };
+	});
 }
 
 function migrateTimelineIdentity(timeline: ProjectTimeline): ProjectTimeline {
@@ -245,6 +262,27 @@ const PROJECT_MIGRATIONS: ReadonlyMap<number, ProjectMigration> = new Map([
 								? { ...composition, items: composition.items.map(recoverGeneratedMotionFill) }
 								: composition
 						)
+					}
+				};
+			}
+		}
+	],
+	[
+		11,
+		{
+			version: 11,
+			description: 'Persist separate audio ownership for nested sequence clips',
+			migrate: (project) => {
+				if (!project.timeline) return project;
+				return {
+					...project,
+					timeline: {
+						...project.timeline,
+						items: persistCompositionAudioOwnership(project.timeline.items),
+						compositions: project.timeline.compositions?.map((composition) => ({
+							...composition,
+							items: persistCompositionAudioOwnership(composition.items)
+						}))
 					}
 				};
 			}

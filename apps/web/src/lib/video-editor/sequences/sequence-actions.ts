@@ -76,6 +76,7 @@ function nestedSequenceWrappers(
 			compositionId: composition.id,
 			compositionWidth: composition.width,
 			compositionHeight: composition.height,
+			audioDetached: Boolean(audioTrack && hasAudio(composition.items)),
 			linkedGroupId,
 			transform: { x: 0, y: 0, rotation: 0, opacity: 1 },
 			...wrapperSourceFields(composition)
@@ -448,6 +449,7 @@ export function createCompoundClip(
 				compositionId,
 				compositionWidth: composition.width,
 				compositionHeight: composition.height,
+				audioDetached: Boolean(audioTrack && hasAudio(selected)),
 				linkedGroupId,
 				transform: { x: 0, y: 0, rotation: 0, opacity: 1 },
 				...wrapperSourceFields(composition)
@@ -560,6 +562,25 @@ function itemTrackKind(item: TimelineItem): 'video' | 'audio' {
 	return item.type === 'audio' ? 'audio' : 'video';
 }
 
+/** Restore only the channels owned by the selected wrapper(s). */
+function projectDissolvedItems(items: TimelineItem[], wrappers: TimelineItem[]): TimelineItem[] {
+	const includeVisual = wrappers.some((item) => item.type === 'composition');
+	const includeAudio = wrappers.some((item) => item.type === 'audio' || !item.audioDetached);
+	return items.flatMap((item): TimelineItem[] => {
+		if (!includeVisual) {
+			if (item.type !== 'audio' && item.audioDetached) return [];
+			const hasAudioSource =
+				item.type === 'audio' ||
+				(item.type === 'video' && item.mediaId) ||
+				item.compositionId ||
+				item.timer?.warningSound;
+			return hasAudioSource ? [{ ...item, type: 'audio' }] : [];
+		}
+		if (includeAudio) return [item];
+		return item.type === 'audio' ? [] : [{ ...item, audioDetached: true }];
+	});
+}
+
 interface DissolveTrackMap {
 	trackMap: Map<string, string>;
 	tracks: TimelineTrack[];
@@ -581,9 +602,9 @@ function buildDissolveTrackMap(
 		(left, right) => left.order - right.order
 	)) {
 		const sourceItems = composition.items.filter((item) => item.trackId === sourceTrack.id);
+		if (sourceItems.length === 0) continue;
 		const kind =
-			sourceTrack.kind === 'audio' ||
-			(sourceItems.length > 0 && sourceItems.every((item) => itemTrackKind(item) === 'audio'))
+			sourceTrack.kind === 'audio' || sourceItems.every((item) => itemTrackKind(item) === 'audio')
 				? 'audio'
 				: 'video';
 		const existingTrack = existingIds.has(sourceTrack.id)
@@ -630,16 +651,19 @@ export function dissolveCompoundClip(wrapperId: string): string[] {
 		const windowAnchor =
 			wrapperItems.find((item) => item.type === 'composition') ?? wrapperItems[0];
 		if (!windowAnchor) return [];
+		const idMap = new Map<string, string>();
+		const resolvedItems = projectDissolvedItems(
+			applyCompositionControlOverrides(
+				composition.items,
+				composition.compositionControls,
+				windowAnchor.compositionControlOverrides
+			),
+			wrapperItems
+		);
 		const { trackMap, tracks } = buildDissolveTrackMap(
-			composition,
+			{ ...composition, items: resolvedItems },
 			wrapperItems,
 			timelineStore.tracks
-		);
-		const idMap = new Map<string, string>();
-		const resolvedItems = applyCompositionControlOverrides(
-			composition.items,
-			composition.compositionControls,
-			windowAnchor.compositionControlOverrides
 		);
 		const mappedItems = resolvedItems.flatMap((item) => {
 			const mapped = mapItemThroughWrapper(item, windowAnchor, timelineStore.fps, composition.fps);

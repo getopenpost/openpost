@@ -17,6 +17,14 @@ it.each([
 		expectedCount: 3200
 	},
 	{
+		name: 'trailing silence in selected range',
+		from: 0,
+		range: { startFrame: 0, endFrame: 6 },
+		skip: 0,
+		leading: 0,
+		expectedCount: 9600
+	},
+	{
 		name: 'delayed clip',
 		from: 69,
 		range: undefined,
@@ -55,7 +63,7 @@ it.each([
 			description: '',
 			createdAt: 0,
 			updatedAt: 0,
-			duration: 0.1,
+			duration: 0.2,
 			metadata: { width: 64, height: 64, fps: 30 },
 			timeline: {
 				tracks: [
@@ -100,7 +108,8 @@ it.each([
 					const decoded = buffer.getChannelData(channel);
 					for (let index = 0; index < decoded.length; index++) {
 						const sourceIndex = count + index - leading + skip;
-						const expected = sourceIndex < 0 ? 0 : sourceIndex / 10000;
+						const expected =
+							sourceIndex < 0 || sourceIndex >= samples.length ? 0 : samples[sourceIndex]!;
 						maxError = Math.max(maxError, Math.abs(decoded[index]! - expected));
 					}
 				}

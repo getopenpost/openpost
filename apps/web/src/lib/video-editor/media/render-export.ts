@@ -1083,7 +1083,7 @@ export async function renderTimelineAudioArtifact(
 	if (entries.length === 0) throw new Error('The selected range has no audible clips.');
 	report(options, 'preparing', 0, totalFrames);
 	report(options, 'mixing', 0, totalFrames);
-	const durationSeconds = mixDurationSeconds(entries);
+	const durationSeconds = totalFrames / fps;
 	if (durationSeconds <= 0) throw new Error('The audio mix is empty.');
 	const format = audioOutputFormatFor(options.format);
 	const artifactTarget = await createArtifactTarget(format.mimeType, options.format);

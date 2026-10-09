@@ -1,11 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { MediaMetadata } from './types';
 import type { ProxyRequest, ProxyWorkerResponse } from './proxy-worker';
-import { resolveMediaBlob } from './resolve-media-blob';
 import { mediaTaskId, mediaTasks } from './media-tasks.svelte';
 import { cachedProxy, clearProxyCache, getAutomaticProxy, getProxy } from './proxy-client';
-
-vi.mock('./resolve-media-blob', () => ({ resolveMediaBlob: vi.fn() }));
 
 class ControlledWorker {
 	static instances: ControlledWorker[] = [];
@@ -28,11 +25,19 @@ class ControlledWorker {
 	}
 }
 const ids = new Set<string>();
-function media(id = crypto.randomUUID(), name = 'source.mp4'): MediaMetadata {
+const finishReads: Array<() => void> = [];
+function media(
+	id = crypto.randomUUID(),
+	name = 'source.mp4',
+	getFile: () => Promise<File> = async () => new File([name], name)
+): MediaMetadata {
 	ids.add(id);
+	// SAFETY: linked source resolution only calls getFile on the native handle.
+	const fileHandle = { kind: 'file', name, getFile } as FileSystemFileHandle;
 	return {
 		id,
-		storageType: 'cloud',
+		storageType: 'handle',
+		fileHandle,
 		fileName: name,
 		fileSize: 5,
 		mimeType: 'video/mp4',
@@ -58,14 +63,13 @@ function observe(promise: Promise<Blob>) {
 beforeEach(() => {
 	vi.stubGlobal('Worker', ControlledWorker);
 	ControlledWorker.instances = [];
-	vi.mocked(resolveMediaBlob)
-		.mockReset()
-		.mockImplementation(async (item) => new Blob([item.fileName]));
 });
-afterEach(() => {
+afterEach(async () => {
 	for (const id of ids) clearProxyCache(id);
 	ids.clear();
 	mediaTasks.reset();
+	for (const finish of finishReads.splice(0)) finish();
+	await new Promise((resolve) => setTimeout(resolve, 0));
 	for (const worker of ControlledWorker.instances)
 		worker.reply({ type: 'error', message: 'cleanup' });
 	vi.unstubAllGlobals();
@@ -76,7 +80,7 @@ it('replaces an invalidated source without returning its previous in-flight prox
 	const stale = observe(getAutomaticProxy(source));
 	const first = await decoder(0);
 	clearProxyCache(source.id);
-	const replacement = { ...source, fileName: 'replacement.mp4' };
+	const replacement = media(source.id, 'replacement.mp4');
 	const fresh = observe(getAutomaticProxy(replacement));
 	first.reply({ type: 'complete', blob: new Blob(['old proxy']) });
 	const second = await decoder(1);
@@ -145,15 +149,19 @@ it('cancels queued task waiters promptly while keeping subsequent background enc
 it.each(['resolve', 'reject'])(
 	'cancels a pending source read and preserves the replacement after its late %s',
 	async (outcome) => {
-		const delayed = Promise.withResolvers<Blob>();
-		vi.mocked(resolveMediaBlob).mockReturnValueOnce(delayed.promise);
-		const source = media();
+		const delayed = Promise.withResolvers<File>();
+		finishReads.push(() => delayed.resolve(new File(['cleanup'], 'source.mp4')));
+		const getFile = vi
+			.fn<() => Promise<File>>()
+			.mockReturnValueOnce(delayed.promise)
+			.mockResolvedValue(new File(['fresh source'], 'source.mp4'));
+		const source = media(undefined, 'source.mp4', getFile);
 		let settled = false;
 		const pending = observe(getAutomaticProxy(source)).then((result) => {
 			settled = true;
 			return result;
 		});
-		await vi.waitFor(() => expect(resolveMediaBlob).toHaveBeenCalledTimes(1));
+		await vi.waitFor(() => expect(getFile).toHaveBeenCalledTimes(1));
 		mediaTasks.cancel(mediaTaskId('proxy', source.id));
 		await vi.waitFor(() => expect(settled).toBe(true));
 		expect((await pending).error).toMatchObject({ name: 'AbortError' });
@@ -161,7 +169,7 @@ it.each(['resolve', 'reject'])(
 		const worker = await decoder(0);
 		worker.reply({ type: 'complete', blob: new Blob(['fresh']) });
 		expect(await (await fresh).blob!.text()).toBe('fresh');
-		if (outcome === 'resolve') delayed.resolve(new Blob(['stale source']));
+		if (outcome === 'resolve') delayed.resolve(new File(['stale source'], 'source.mp4'));
 		else delayed.reject(new Error('old source unavailable'));
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(ControlledWorker.instances).toHaveLength(1);

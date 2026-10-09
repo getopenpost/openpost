@@ -369,11 +369,7 @@ function reconnectPreviewClipAudioGraph(graph: PreviewClipAudioGraph): void {
 		connectStageInternals(stageNodes);
 	}
 	for (const fx of graph.effectNodes) {
-		try {
-			fx.input.disconnect();
-		} catch {
-			// best-effort: effect input may already be disconnected
-		}
+		// The effect owns its input's internal wiring. Only detach outgoing rack edges.
 		try {
 			fx.output.disconnect();
 		} catch {
@@ -419,7 +415,12 @@ function getStagePreviousNode(graph: PreviewClipAudioGraph, index: number): Audi
 
 function getStageNextNode(graph: PreviewClipAudioGraph, index: number): AudioNode {
 	if (index >= graph.eqStageNodes.length - 1) {
-		return graph.outputGainNode;
+		const firstEffect = graph.effectNodes[0];
+		return firstEffect
+			? firstEffect.enabled
+				? firstEffect.input
+				: firstEffect.bypass
+			: graph.outputGainNode;
 	}
 
 	return getBand1EntryNode(graph.eqStageNodes[index + 1]!);

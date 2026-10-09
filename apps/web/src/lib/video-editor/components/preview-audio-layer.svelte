@@ -86,7 +86,7 @@
 	let reverseStartedAt = 0;
 	let reverseStartedOffset = 0;
 	let processedNode = $state<AudioWorkletNode | null>(null);
-	let processedGraph = $state<PreviewClipAudioGraph | null>(null);
+	let processedGraph = $state.raw<PreviewClipAudioGraph | null>(null);
 	let processedSampleRate = 0;
 	let processedStartedAt = 0;
 	let processedStartedFrame = 0;
@@ -387,7 +387,12 @@
 		detachProcessedFromMixer = attachAudioSourceToMixer(graph.outputGainNode, item.trackId);
 		setPreviewClipEq(graph, settings.eqStages);
 		setPreviewAudioEffects(graph, settings.effects);
-		rampPreviewClipGain(graph, volume, context.currentTime, 0);
+		rampPreviewClipGain(
+			graph,
+			untrack(() => volume),
+			context.currentTime,
+			0
+		);
 		const previewAbort = new AbortController();
 		void Promise.all([
 			ensureSoundTouchPreviewWorkletLoaded(context),
@@ -596,10 +601,6 @@
 			if (editorSession.isPlaying && media.paused && !shuttleRev)
 				void media.play().catch(() => undefined);
 			if (!editorSession.isPlaying && !media.paused) media.pause();
-			if (needsProcessing && processedNode) {
-				const tempo = getShuttleMediaPlaybackRate(speed, Math.abs(transportRate));
-				processedNode.port.postMessage({ type: 'set-tempo', tempo });
-			}
 		};
 		sync();
 		const offFrame = editorSession.clock.on('framechange', sync);

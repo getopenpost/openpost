@@ -14,6 +14,7 @@
 		getAudioPitchRatioFromSemitones
 	} from '$lib/video-editor/audio/audio-pitch';
 	import { isAudioEqStageActive } from '$lib/video-editor/audio/audio-eq';
+	import { hasActiveAudioEffects } from '$lib/video-editor/audio/audio-effects';
 	import {
 		decodedPreviewAudio,
 		previewAudioContext
@@ -70,7 +71,7 @@
 	let audio = $state<HTMLAudioElement | null>(null);
 	let syncMedia = $state<(() => void) | null>(null);
 	let processedNode = $state<AudioWorkletNode | null>(null);
-	let processedGraph = $state<PreviewClipAudioGraph | null>(null);
+	let processedGraph = $state.raw<PreviewClipAudioGraph | null>(null);
 	let processedSampleRate = 0;
 	let processedStartedAt = 0;
 	let processedStartedFrame = 0;
@@ -87,7 +88,19 @@
 			Math.abs(entry.playbackRate - 1) > 0.0001 ||
 			isAudioPitchShiftActive(entry.pitchShiftSemitones) ||
 			entry.audioEqStages.some(isAudioEqStageActive) ||
+			hasActiveAudioEffects(entry.audioEffects) ||
 			isAc3AudioCodec(audioCodec)
+	);
+
+	// Gain/timing edits update the existing source; only processing choices rebuild it.
+	const processingSignature = $derived(
+		JSON.stringify({
+			playbackRate: entry.playbackRate,
+			pitchShiftSemitones: entry.pitchShiftSemitones,
+			audioEqStages: entry.audioEqStages,
+			audioEffects: entry.audioEffects,
+			trackId: entry.trackId
+		})
 	);
 
 	function gainAt(time: number, includeMixerBuses = false): number {
@@ -244,20 +257,26 @@
 
 	$effect(() => {
 		const sourceUrl = url;
+		// SAFETY: the signature serializes only these typed MixEntry settings.
+		const settings = JSON.parse(processingSignature) as Pick<
+			MixEntry,
+			'playbackRate' | 'pitchShiftSemitones' | 'audioEqStages' | 'audioEffects' | 'trackId'
+		>;
 		if (!sourceUrl || !needsProcessing) return;
 		let stale = false;
 		const context = previewAudioContext();
 		const graph = createPreviewClipAudioGraph({
-			eqStageCount: Math.max(1, entry.audioEqStages.length),
+			eqStageCount: Math.max(1, settings.audioEqStages.length),
+			effects: settings.audioEffects,
 			outputNode: null
 		});
 		if (!graph) return;
 		processedGraph = graph;
 		detachProcessedFromMixer = attachAudioSourceToMixer(
 			graph.outputGainNode,
-			entry.trackId ?? 'nested-audio'
+			settings.trackId ?? 'nested-audio'
 		);
-		setPreviewClipEq(graph, entry.audioEqStages);
+		setPreviewClipEq(graph, settings.audioEqStages);
 		void Promise.all([
 			ensureSoundTouchPreviewWorkletLoaded(context),
 			decodedPreviewAudio(sourceUrl, audioCodec)
@@ -283,10 +302,10 @@
 					},
 					[prepared.leftChannel.buffer, prepared.rightChannel.buffer]
 				);
-				node.port.postMessage({ type: 'set-tempo', tempo: entry.playbackRate });
+				node.port.postMessage({ type: 'set-tempo', tempo: settings.playbackRate });
 				node.port.postMessage({
 					type: 'set-pitch',
-					pitch: getAudioPitchRatioFromSemitones(entry.pitchShiftSemitones)
+					pitch: getAudioPitchRatioFromSemitones(settings.pitchShiftSemitones)
 				});
 				processedNode = node;
 				processedSampleRate = prepared.sampleRate;
@@ -388,10 +407,6 @@
 				scheduler.request(sourceTime);
 			}
 			media.playbackRate = combinedRate;
-			if (needsProcessing) {
-				const tempo = getShuttleMediaPlaybackRate(entry.playbackRate, Math.abs(transportRate));
-				processedNode?.port.postMessage({ type: 'set-tempo', tempo });
-			}
 			if (!mediaGain) media.volume = Math.min(1, gainAt(time, true));
 			if (editorSession.isPlaying && media.paused && !entry.reversed)
 				void media.play().catch(() => undefined);

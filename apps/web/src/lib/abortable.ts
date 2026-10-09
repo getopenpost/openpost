@@ -9,14 +9,12 @@ export function abortable<T>(
 	signal: AbortSignal,
 	createAbortError: () => Error
 ): Promise<T> {
-	if (signal.aborted) return Promise.reject(createAbortError());
 	return new Promise<T>((resolve, reject) => {
 		const onAbort = () => {
 			cleanup();
 			reject(createAbortError());
 		};
 		const cleanup = () => signal.removeEventListener('abort', onAbort);
-		signal.addEventListener('abort', onAbort, { once: true });
 		operation.then(
 			(value) => {
 				cleanup();
@@ -27,5 +25,7 @@ export function abortable<T>(
 				reject(error);
 			}
 		);
+		if (signal.aborted) onAbort();
+		else signal.addEventListener('abort', onAbort, { once: true });
 	});
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { files, writes, resetFileSystem } from "./test-support/file-system";
+import { files, writes, resetFileSystem } from "../../tests/fixtures/file-system";
 
 const posts: string[] = [];
 const secureValues = new Map<string, string>();

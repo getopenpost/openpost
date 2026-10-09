@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import createClient from "openapi-fetch";
 import type { paths } from "@openpost/api-contract";
-import { files, resetFileSystem, uploads } from "./test-support/file-system";
+import { files, resetFileSystem, uploads } from "../../tests/fixtures/file-system";
 
 const actualSize = 64;
 mock.module("expo-secure-store", () => ({

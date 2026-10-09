@@ -76,7 +76,7 @@ it('settles active and queued prewarm requests when the decoder is cleared', asy
 	expect(ControlledWorker.instances).toHaveLength(1);
 });
 
-it.each(['session clear', 'source replacement'] as const)(
+it.each(['session clear', 'source replacement', 'source round trip'] as const)(
 	'settles obsolete source reads after %s without blocking new frames',
 	async (invalidation) => {
 		const delayed = Promise.withResolvers<File>();
@@ -89,11 +89,14 @@ it.each(['session clear', 'source replacement'] as const)(
 		await vi.advanceTimersByTimeAsync(0);
 		expect(readSource).toHaveBeenCalledTimes(1);
 		if (invalidation === 'session clear') clearPreviewDecoderPrewarm();
+		if (invalidation === 'source round trip')
+			void prewarmPreviewFrame({ ...media, fileHandle: fileHandle() }, 0);
 		const replacement =
 			invalidation === 'source replacement' ? { ...media, fileHandle: fileHandle() } : media;
 		const fresh = prewarmPreviewFrame(replacement, 0);
 		await vi.advanceTimersByTimeAsync(0);
 		expect(oldSettled).toBe(true);
+		expect(ControlledWorker.instances).toHaveLength(1);
 		const decoder = ControlledWorker.instances[0]!;
 		expect(decoder.messages).toHaveLength(1);
 		delayed.resolve(blob);

@@ -20,12 +20,12 @@ let session = new AbortController();
 let lane = Promise.resolve();
 let cachedPixels = 0;
 const cache = new Map<string, CachedFrame>();
-const inflight = new Map<string, Promise<void>>();
+const inflight = new Map<string, { signal: AbortSignal; promise: Promise<void> }>();
 const sources = new Map<string, { version: string; controller: AbortController }>();
 type PreviewSource = Blob | FileSystemFileHandle;
 const sourceIds = new WeakMap<PreviewSource, number>();
 let sourceSequence = 0;
-let resolvedSource: { key: string; blob: Promise<Blob> } | null = null;
+let resolvedSource: { key: string; signal: AbortSignal; blob: Promise<Blob> } | null = null;
 
 function quantizedTimestamp(timestamp: number, fps: number): number {
 	const safeFps = Number.isFinite(fps) && fps > 0 ? fps : 30;
@@ -65,9 +65,10 @@ function sourceBlob(
 	signal: AbortSignal,
 	override?: Blob
 ): Promise<Blob> {
-	if (resolvedSource?.key === key) return resolvedSource.blob;
+	if (resolvedSource?.key === key && !resolvedSource.signal.aborted) return resolvedSource.blob;
 	const entry = {
 		key,
+		signal,
 		blob: override ? Promise.resolve(override) : resolveMediaBlob(media, { signal })
 	};
 	resolvedSource = entry;
@@ -137,7 +138,7 @@ export function prewarmPreviewFrame(
 	if (cache.has(key)) return Promise.resolve();
 	const jobKey = `${key}:${version}`;
 	const pending = inflight.get(jobKey);
-	if (pending) return pending;
+	if (pending && !pending.signal.aborted) return pending.promise;
 	const signal = AbortSignal.any([session.signal, source.controller.signal]);
 	const cancelled = Promise.withResolvers<void>();
 	const onAbort = () => cancelled.resolve();
@@ -167,10 +168,10 @@ export function prewarmPreviewFrame(
 		.catch(() => undefined)
 		.finally(() => {
 			signal.removeEventListener('abort', onAbort);
-			if (inflight.get(jobKey) === task) inflight.delete(jobKey);
+			if (inflight.get(jobKey)?.promise === task) inflight.delete(jobKey);
 		});
 	lane = task;
-	inflight.set(jobKey, task);
+	inflight.set(jobKey, { signal, promise: task });
 	return task;
 }
 

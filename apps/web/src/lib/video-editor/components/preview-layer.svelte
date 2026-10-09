@@ -104,6 +104,7 @@
 		decodedPreviewAudio,
 		previewAudioContext
 	} from '$lib/video-editor/audio/reverse-preview-audio';
+	import { timelineOffsetToSourceFrame } from '$lib/video-editor/timeline/source-time-map';
 	import { createReverseShuttleScheduler } from '$lib/video-editor/audio/reverse-shuttle-scheduler';
 	import { attachAudioSourceToMixer, setMixerMaster } from '$lib/video-editor/audio/audio-mixer';
 	import { mixerDbToGain } from '$lib/video-editor/audio/mixer-utils';
@@ -391,10 +392,14 @@
 					context,
 					buffer,
 					bufferStartSeconds: 0,
-					getSourceCursorSeconds: () =>
-						frameToSourceSeconds(item, timelineStore.currentFrame, editorSession.fps),
-					authoredPlaybackRate: item.speed ?? 1,
-					authoredReversed: !!item.isReversed,
+					getSourceTimeAtOffset: (offset) =>
+						timelineOffsetToSourceFrame(
+							item,
+							timelineStore.currentFrame -
+								item.from +
+								offset * editorSession.playbackRate * editorSession.fps,
+							editorSession.fps
+						) / (item.sourceFps && item.sourceFps > 0 ? item.sourceFps : editorSession.fps),
 					getTransportRate: () => editorSession.playbackRate,
 					getGain: () => 1,
 					destination: gain

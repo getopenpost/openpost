@@ -12,40 +12,35 @@ export interface ReverseShuttleGrainPlan {
 
 export function resolveReverseShuttleGrainPlan(params: {
 	sourceCursorSeconds: number;
-	authoredPlaybackRate: number;
-	transportPlaybackRate: number;
-	authoredReversed: boolean;
+	playbackRate: number;
+	reverseSamples: boolean;
 	bufferStartSeconds: number;
 	bufferDurationSeconds: number;
 	outputDurationSeconds?: number;
 }): ReverseShuttleGrainPlan | null {
 	const outputDuration = params.outputDurationSeconds ?? REVERSE_SHUTTLE_GRAIN_OUTPUT_SECONDS;
-	const playbackRate = Math.max(
-		0.0625,
-		Math.min(16, Math.abs(params.authoredPlaybackRate * params.transportPlaybackRate))
-	);
-	const sourceDuration = outputDuration * playbackRate;
+	const playbackRate = Math.max(0.0625, Math.min(16, params.playbackRate));
+	const cursor = params.sourceCursorSeconds;
 	const bufferEnd = params.bufferStartSeconds + params.bufferDurationSeconds;
-	const sourceDirection = params.authoredReversed ? 1 : -1;
-	const sourceStart =
-		sourceDirection < 0 ? params.sourceCursorSeconds - sourceDuration : params.sourceCursorSeconds;
-	const sourceEnd = sourceStart + sourceDuration;
-
-	if (
-		!Number.isFinite(sourceStart) ||
-		sourceStart < params.bufferStartSeconds ||
-		sourceEnd > bufferEnd ||
-		sourceDuration <= 0
-	) {
+	if (!Number.isFinite(cursor) || cursor < params.bufferStartSeconds || cursor > bufferEnd) {
 		return null;
 	}
+	const sourceDirection = params.reverseSamples ? -1 : 1;
+	const sourceStart =
+		sourceDirection < 0
+			? Math.max(params.bufferStartSeconds, cursor - outputDuration * playbackRate)
+			: cursor;
+	const sourceEnd =
+		sourceDirection < 0 ? cursor : Math.min(bufferEnd, cursor + outputDuration * playbackRate);
+	const sourceDuration = sourceEnd - sourceStart;
+	if (!Number.isFinite(sourceDuration) || sourceDuration <= 0) return null;
 
 	return {
 		sourceStartSeconds: sourceStart,
 		sourceDurationSeconds: sourceDuration,
 		playbackRate,
 		reverseSamples: sourceDirection < 0,
-		nextSourceCursorSeconds: params.sourceCursorSeconds + sourceDirection * sourceDuration
+		nextSourceCursorSeconds: sourceDirection < 0 ? sourceStart : sourceEnd
 	};
 }
 

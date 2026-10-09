@@ -236,12 +236,11 @@
 					context,
 					buffer,
 					bufferStartSeconds: 0,
-					getSourceCursorSeconds: () => {
-						const time = timelineStore.currentFrame / editorSession.fps;
-						return mixEntrySourceTimeAtTime(entry, time);
-					},
-					authoredPlaybackRate: entry.playbackRate,
-					authoredReversed: !!entry.reversed,
+					getSourceTimeAtOffset: (offset) =>
+						mixEntrySourceTimeAtTime(
+							entry,
+							timelineStore.currentFrame / editorSession.fps + offset * editorSession.playbackRate
+						),
 					getTransportRate: () => editorSession.playbackRate,
 					getGain: () => 1,
 					destination

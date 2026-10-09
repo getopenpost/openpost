@@ -286,7 +286,9 @@ it.each(['direct', 'nested'] as const)(
 			await expect.poll(() => timelineStore.currentFrame).toBeGreaterThan(30);
 			messages.length = 0;
 			const start = timelineStore.currentFrame;
-			await expect.poll(() => timelineStore.currentFrame).toBeGreaterThan(start + 60);
+			await expect
+				.poll(() => timelineStore.currentFrame, { timeout: 3000 })
+				.toBeGreaterThan(start + 60);
 			// Continuous playback may correct startup drift, but must not repeatedly reset
 			// the processor's source cursor solely because the transport runs faster.
 			expect(messages.filter((message) => message.type === 'seek').length).toBeLessThanOrEqual(2);
@@ -377,3 +379,87 @@ it.each(['direct', 'nested'] as const)(
 		}
 	}
 );
+
+it.each(['direct', 'nested'] as const)(
+	'follows authored speed ramps during reverse shuttle in %s audio',
+	async (mode) => {
+		const messages = captureWorkletMessages();
+		const rates: number[] = [];
+		const context = previewAudioContext();
+		const create = context.createBufferSource.bind(context);
+		vi.spyOn(context, 'createBufferSource').mockImplementation(() => {
+			const source = create();
+			const start = source.start.bind(source);
+			vi.spyOn(source, 'start').mockImplementation((...args) => {
+				rates.push(source.playbackRate.value);
+				start(...args);
+			});
+			return source;
+		});
+		const patch: Partial<TimelineItem> = {
+			sourceStart: 0,
+			sourceEnd: 270,
+			sourceFps: 30,
+			durationInFrames: 150,
+			speedRamp: [
+				{ id: 'normal', sourceFrame: 0, speed: 1, easing: 'hold' },
+				{ id: 'fast', sourceFrame: 30, speed: 2, easing: 'hold' },
+				{ id: 'end', sourceFrame: 270, speed: 2, easing: 'hold' }
+			]
+		};
+		const screen =
+			mode === 'direct'
+				? await render(PreviewAudioLayer, { item: { ...clip, ...patch }, url: fixtureUrl })
+				: await render(PreviewMixEntryLayer, { entry: nestedEntry(patch), url: fixtureUrl });
+		try {
+			await expect
+				.poll(() => messages.some((message) => message.type === 'append-source'))
+				.toBe(true);
+			await startAudiblePlayback();
+			editorSession.clock.seek(90);
+			editorSession.clock.setRate(-1);
+			await expect.poll(() => rates.length).toBeGreaterThan(0);
+			// At timeline 3s the authored source runs at 2x, including when shuttling backwards.
+			expect(rates[0]).toBe(2);
+			await expect.poll(() => timelineStore.currentFrame, { timeout: 5000 }).toBeLessThan(20);
+			expect(rates.at(-1)).toBe(1);
+		} finally {
+			await screen.unmount();
+		}
+	}
+);
+
+it('keeps authored-reverse audio continuous when forward shuttle speed changes', async () => {
+	const sources: AudioBufferSourceNode[] = [];
+	const context = previewAudioContext();
+	const create = context.createBufferSource.bind(context);
+	vi.spyOn(context, 'createBufferSource').mockImplementation(() => {
+		const source = create();
+		const start = source.start.bind(source);
+		vi.spyOn(source, 'start').mockImplementation((...args) => {
+			sources.push(source);
+			start(...args);
+		});
+		return source;
+	});
+	const screen = await render(PreviewAudioLayer, {
+		item: { ...clip, isReversed: true },
+		url: fixtureUrl
+	});
+	try {
+		await startAudiblePlayback();
+		await expect.poll(() => sources.length).toBeGreaterThan(0);
+		editorSession.clock.setRate(2);
+		await tick();
+		expect(sources.at(-1)!.playbackRate.value).toBe(2);
+		const initialSources = sources.length;
+		const start = timelineStore.currentFrame;
+		await expect
+			.poll(() => timelineStore.currentFrame, { timeout: 3000 })
+			.toBeGreaterThan(start + 60);
+		expect(sources.length - initialSources).toBeLessThanOrEqual(2);
+		await expect.poll(() => readMixerMasterLevels().peakLeft).toBeGreaterThan(0.001);
+	} finally {
+		await screen.unmount();
+	}
+});

@@ -16,7 +16,10 @@
 	import { audioCrossfadeGainAtFrame } from '$lib/video-editor/audio/transition-crossfade';
 	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions.svelte';
 	import { frameToSourceSeconds } from '$lib/video-editor/media/render-plan';
-	import { playbackRateAtTimelineOffset } from '$lib/video-editor/timeline/source-time-map';
+	import {
+		playbackRateAtTimelineOffset,
+		timelineOffsetToSourceFrame
+	} from '$lib/video-editor/timeline/source-time-map';
 	import { audioClipFadeGainAtFrame } from '$lib/video-editor/media/clip-fades';
 	import {
 		decodedPreviewAudio,
@@ -82,6 +85,7 @@
 	let detachReverseFromMixer: (() => void) | null = null;
 	let reverseStartedAt = 0;
 	let reverseStartedOffset = 0;
+	let reversePlaybackRate = 1;
 	let processedNode = $state<AudioWorkletNode | null>(null);
 	let processedGraph = $state.raw<PreviewClipAudioGraph | null>(null);
 	let processedSampleRate = 0;
@@ -208,6 +212,8 @@
 		reverseSource = source;
 		reverseGain = gain;
 		reverseStartedOffset = offsetSeconds;
+		reverseStartedAt = context.currentTime;
+		reversePlaybackRate = speed;
 		void context
 			.resume()
 			.then(() => {
@@ -294,10 +300,14 @@
 					context,
 					buffer,
 					bufferStartSeconds: 0,
-					getSourceCursorSeconds: () =>
-						frameToSourceSeconds(item, timelineStore.currentFrame, editorSession.fps),
-					authoredPlaybackRate: item.speed ?? 1,
-					authoredReversed: !!item.isReversed,
+					getSourceTimeAtOffset: (offset) =>
+						timelineOffsetToSourceFrame(
+							item,
+							timelineStore.currentFrame -
+								item.from +
+								offset * editorSession.playbackRate * editorSession.fps,
+							editorSession.fps
+						) / (item.sourceFps && item.sourceFps > 0 ? item.sourceFps : editorSession.fps),
 					getTransportRate: () => editorSession.playbackRate,
 					getGain: () => 1,
 					destination
@@ -574,12 +584,17 @@
 				}
 				const expectedOffset = Math.max(0, ((frame - item.from) / editorSession.fps) * speed);
 				const context = previewAudioContext();
-				if (reverseSource) reverseSource.playbackRate.value = speed;
+				const now = context.currentTime;
 				const actualOffset = reverseSource
-					? reverseStartedOffset + (context.currentTime - reverseStartedAt) * speed
+					? reverseStartedOffset + (now - reverseStartedAt) * reversePlaybackRate
 					: Number.POSITIVE_INFINITY;
 				if (Math.abs(actualOffset - expectedOffset) > 0.08) {
-					startReverseSource(expectedOffset, speed);
+					startReverseSource(expectedOffset, combinedRate);
+				} else if (reverseSource) {
+					reverseStartedOffset = actualOffset;
+					reverseStartedAt = now;
+					reversePlaybackRate = combinedRate;
+					reverseSource.playbackRate.value = combinedRate;
 				}
 				return;
 			}
@@ -604,7 +619,6 @@
 			offPause();
 			offRate();
 			scheduler.detach();
-			stopReverseSource();
 		};
 	});
 </script>

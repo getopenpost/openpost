@@ -298,9 +298,7 @@
 					context,
 					buffer,
 					bufferStartSeconds: 0,
-					getSourceCursorSeconds: () => currentFrame / sourceFps,
-					authoredPlaybackRate: 1,
-					authoredReversed: false,
+					getSourceTimeAtOffset: (offset) => currentFrame / sourceFps + offset * sourcePlaybackRate,
 					getTransportRate: () => sourcePlaybackRate,
 					getGain: () => 1,
 					destination: gain

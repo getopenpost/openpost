@@ -698,10 +698,15 @@ export function mixEntryPlaybackRateAtTime(entry: MixEntry, timeSeconds: number)
 }
 
 export function mixEntrySourceTimeAtTime(entry: MixEntry, timeSeconds: number): number {
-	const elapsed = Math.max(0, timeSeconds - entry.whenSeconds);
-	const distance = entry.playbackRateCurve?.length
-		? curveSourceDistance(entry.playbackRateCurve, 0, elapsed)
-		: elapsed * entry.playbackRate;
+	const elapsed = timeSeconds - entry.whenSeconds;
+	// Shuttle lookahead can cross the clip start. Extrapolate the leading rate
+	// so the scheduler can clip a terminal grain without slowing it down.
+	const distance =
+		elapsed < 0
+			? elapsed * mixEntryPlaybackRateAtTime(entry, entry.whenSeconds)
+			: entry.playbackRateCurve?.length
+				? curveSourceDistance(entry.playbackRateCurve, 0, elapsed)
+				: elapsed * entry.playbackRate;
 	return entry.sourceOffsetSeconds + (entry.reversed ? -distance : distance);
 }
 

@@ -13,9 +13,8 @@ export interface ReverseShuttleSchedulerOptions {
 	context: AudioContext;
 	buffer: AudioBuffer;
 	bufferStartSeconds: number;
-	getSourceCursorSeconds: () => number;
-	authoredPlaybackRate: number;
-	authoredReversed: boolean;
+	/** Map an output-time offset from the playhead to source time, without clamping. */
+	getSourceTimeAtOffset: (offsetSeconds: number) => number;
 	getTransportRate: () => number;
 	getGain: () => number;
 	destination: AudioNode;
@@ -26,9 +25,7 @@ export function createReverseShuttleScheduler(options: ReverseShuttleSchedulerOp
 		context,
 		buffer,
 		bufferStartSeconds,
-		getSourceCursorSeconds,
-		authoredPlaybackRate,
-		authoredReversed,
+		getSourceTimeAtOffset,
 		getTransportRate,
 		getGain,
 		destination
@@ -37,6 +34,7 @@ export function createReverseShuttleScheduler(options: ReverseShuttleSchedulerOp
 	const scheduled = new Set<AudioBufferSourceNode>();
 	let nextContextTime = context.currentTime + START_SAFETY_SECONDS;
 	let sourceCursor: number | null = null;
+	let scheduledReversed: boolean | null = null;
 	let intervalId: ReturnType<typeof setInterval> | null = null;
 	let disposed = false;
 
@@ -55,10 +53,8 @@ export function createReverseShuttleScheduler(options: ReverseShuttleSchedulerOp
 	function createGrainBuffer(plan: ReturnType<typeof resolveReverseShuttleGrainPlan>) {
 		if (!plan) return null;
 		const sourceStartInBuffer = plan.sourceStartSeconds - bufferStartSeconds;
-		const sourceFrameCount = Math.max(
-			1,
-			Math.round(plan.sourceDurationSeconds * buffer.sampleRate)
-		);
+		const sourceFrameCount = Math.round(plan.sourceDurationSeconds * buffer.sampleRate);
+		if (sourceFrameCount < 1) return null;
 		const sourceStartSample = Math.max(
 			0,
 			Math.min(
@@ -92,26 +88,38 @@ export function createReverseShuttleScheduler(options: ReverseShuttleSchedulerOp
 			return;
 		}
 		const now = context.currentTime;
-		const clockCursor = getSourceCursorSeconds();
-		const sourceRate = Math.max(
-			0.0625,
-			Math.min(16, Math.abs(authoredPlaybackRate * transportRate))
-		);
+		const clockCursor = getSourceTimeAtOffset(0);
+		const clockNextCursor = getSourceTimeAtOffset(REVERSE_SHUTTLE_GRAIN_OUTPUT_SECONDS);
+		const authoredReversed = clockNextCursor > clockCursor;
+		const sourceRate =
+			Math.abs(clockNextCursor - clockCursor) / REVERSE_SHUTTLE_GRAIN_OUTPUT_SECONDS;
 		const maxDrift =
 			REVERSE_SHUTTLE_LOOKAHEAD_SECONDS * sourceRate +
 			REVERSE_SHUTTLE_GRAIN_OUTPUT_SECONDS * sourceRate * 2;
-		if (sourceCursor === null || Math.abs(sourceCursor - clockCursor) > maxDrift) {
+		if (
+			sourceCursor === null ||
+			scheduledReversed !== authoredReversed ||
+			nextContextTime < now ||
+			Math.abs(sourceCursor - clockCursor) > maxDrift
+		) {
 			stopScheduled();
 			sourceCursor = clockCursor;
+			scheduledReversed = authoredReversed;
 			nextContextTime = now + START_SAFETY_SECONDS;
 		}
 		while (nextContextTime < now + REVERSE_SHUTTLE_LOOKAHEAD_SECONDS) {
 			if (sourceCursor === null) break;
+			// Resolve each queued interval through the authored map. Accumulating the
+			// current rate would carry that rate across future ramp boundaries.
+			const offset = Math.max(0, nextContextTime - now - START_SAFETY_SECONDS);
+			const startCursor = getSourceTimeAtOffset(offset);
+			const endCursor = getSourceTimeAtOffset(offset + REVERSE_SHUTTLE_GRAIN_OUTPUT_SECONDS);
 			const plan = resolveReverseShuttleGrainPlan({
+				// Keep adjacent grains contiguous. The playhead is frame-rounded,
+				// so only its mapped interval length updates between scheduler ticks.
 				sourceCursorSeconds: sourceCursor,
-				authoredPlaybackRate,
-				transportPlaybackRate: transportRate,
-				authoredReversed,
+				playbackRate: Math.abs(endCursor - startCursor) / REVERSE_SHUTTLE_GRAIN_OUTPUT_SECONDS,
+				reverseSamples: endCursor < startCursor,
 				bufferStartSeconds,
 				bufferDurationSeconds: buffer.duration
 			});
@@ -126,12 +134,10 @@ export function createReverseShuttleScheduler(options: ReverseShuttleSchedulerOp
 			const outputDuration = plan.sourceDurationSeconds / plan.playbackRate;
 			const endAt = startAt + outputDuration;
 			const gain = getGain();
+			const fadeSeconds = Math.min(REVERSE_SHUTTLE_GRAIN_FADE_SECONDS, outputDuration / 2);
 			envelope.gain.setValueAtTime(0, startAt);
-			envelope.gain.linearRampToValueAtTime(gain, startAt + REVERSE_SHUTTLE_GRAIN_FADE_SECONDS);
-			envelope.gain.setValueAtTime(
-				gain,
-				Math.max(startAt, endAt - REVERSE_SHUTTLE_GRAIN_FADE_SECONDS)
-			);
+			envelope.gain.linearRampToValueAtTime(gain, startAt + fadeSeconds);
+			envelope.gain.setValueAtTime(gain, endAt - fadeSeconds);
 			envelope.gain.linearRampToValueAtTime(0, endAt);
 			source.connect(envelope);
 			envelope.connect(destination);

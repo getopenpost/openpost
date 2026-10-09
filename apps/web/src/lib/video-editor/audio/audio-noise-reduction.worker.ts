@@ -62,6 +62,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 		const total = channels[0]?.length ?? 0;
 		const windowSize = 120_000;
 		let offset = 0;
+		let outputOffset = 0;
 		const outChannels = channels.map(() => new Float32Array(total));
 		while (offset < total) {
 			if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -70,8 +71,9 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 			const isLast = offset + len >= total;
 			const out = proc.process(chunk, isLast, controller.signal);
 			for (let c = 0; c < channels.length; c++) {
-				outChannels[c]!.set(out[c]!, offset);
+				outChannels[c]!.set(out[c]!, outputOffset);
 			}
+			outputOffset += out[0]?.length ?? 0;
 			offset += len;
 			const progress = total ? Math.round((offset / total) * 100) : 100;
 			self.postMessage({
@@ -79,6 +81,8 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 				requestId,
 				progress
 			} satisfies NoiseReductionProgressResponse);
+			// Let queued cancellation messages run before processing another chunk.
+			if (offset < total) await new Promise<void>((resolve) => setTimeout(resolve, 0));
 		}
 		const finalBuffers = outChannels.map((ch) => ch.buffer.slice(0));
 		const lengths = outChannels.map((ch) => ch.length);

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { tick } from 'svelte';
 import { updateItemProperties } from '../timeline/actions/items';
+import { addTrack, toggleTrackMute } from '../timeline/actions/tracks';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { userEvent } from 'vitest/browser';
-import { readMixerMasterLevels } from '../audio/audio-mixer';
+import { readMixerMasterLevels, readMixerTrackLevels } from '../audio/audio-mixer';
 import { previewAudioContext } from '../audio/reverse-preview-audio';
 import { render } from 'vitest-browser-svelte';
 import PreviewMixEntryLayer from './preview-mix-entry-layer.svelte';
@@ -32,7 +33,7 @@ function nestedEntry(patch: Partial<TimelineItem>, wrapperPatch: Partial<Timelin
 		[
 			{ ...clip, ...wrapperPatch, type: 'composition', compositionId: 'nested', mediaId: undefined }
 		],
-		tracks,
+		timelineStore.tracks,
 		30,
 		[],
 		[
@@ -51,9 +52,10 @@ function nestedEntry(patch: Partial<TimelineItem>, wrapperPatch: Partial<Timelin
 	)[0]!;
 }
 
-function noisyTone(): Blob {
+function noisyTone(duration = 1): Blob {
 	const sampleRate = 48000;
-	const buffer = new ArrayBuffer(44 + sampleRate * 2);
+	const samples = sampleRate * duration;
+	const buffer = new ArrayBuffer(44 + samples * 2);
 	const view = new DataView(buffer);
 	const text = (offset: number, value: string) => {
 		for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
@@ -70,9 +72,9 @@ function noisyTone(): Blob {
 	view.setUint16(32, 2, true);
 	view.setUint16(34, 16, true);
 	text(36, 'data');
-	view.setUint32(40, sampleRate * 2, true);
+	view.setUint32(40, samples * 2, true);
 	let seed = 42;
-	for (let i = 0; i < sampleRate; i++) {
+	for (let i = 0; i < samples; i++) {
 		seed = (seed * 1664525 + 1013904223) >>> 0;
 		const sample =
 			0.4 * Math.sin((2 * Math.PI * 1000 * i) / sampleRate) + ((seed / 4294967296) * 2 - 1) * 0.18;
@@ -113,10 +115,13 @@ function captureWorkletMessages(): WorkletMessage[] {
 	return messages;
 }
 
-async function startAudiblePlayback(): Promise<void> {
+async function startAudiblePlayback(rate = 1): Promise<void> {
 	const play = document.createElement('button');
 	play.textContent = 'Start audio';
-	play.onclick = () => editorSession.startPlayback({ start: 0, end: 300 });
+	play.onclick = () => {
+		editorSession.startPlayback({ start: 0, end: 300 });
+		editorSession.clock.setRate(rate);
+	};
 	document.body.append(play);
 	try {
 		await userEvent.click(play);
@@ -461,5 +466,251 @@ it('keeps authored-reverse audio continuous when forward shuttle speed changes',
 		await expect.poll(() => readMixerMasterLevels().peakLeft).toBeGreaterThan(0.001);
 	} finally {
 		await screen.unmount();
+	}
+});
+
+it.each([
+	'native',
+	'authored reverse',
+	'processed',
+	'reverse shuttle',
+	'processed reverse shuttle'
+] as const)('routes playing %s audio to the destination track after a move', async (mode) => {
+	const messages = captureWorkletMessages();
+	const destination = addTrack('audio', 'Muted destination');
+	toggleTrackMute(destination);
+	const patch: Partial<TimelineItem> =
+		mode === 'authored reverse'
+			? { isReversed: true }
+			: mode.startsWith('processed')
+				? { audioEffects: [{ id: 'pan', type: 'pan', enabled: true, pan: 0.5 }] }
+				: {};
+	timelineStore.setAll({ items: [{ ...clip, ...patch }] });
+	const screen = await render(PreviewAudioLayer, {
+		item: timelineStore.itemById.get(clip.id)!,
+		url: fixtureUrl
+	});
+	try {
+		await startAudiblePlayback();
+		if (mode.includes('shuttle')) {
+			editorSession.clock.seek(150);
+			editorSession.clock.setRate(-1);
+		}
+		await expect
+			.poll(() => readMixerTrackLevels(clip.trackId).peakLeft, { timeout: 3000 })
+			.toBeGreaterThan(0.001);
+		updateItemProperties(clip.id, { trackId: destination });
+		await expect.poll(() => readMixerMasterLevels().peakLeft).toBeLessThan(0.00001);
+		toggleTrackMute(destination);
+		await expect
+			.poll(() => readMixerTrackLevels(destination).peakLeft, { timeout: 3000 })
+			.toBeGreaterThan(0.001);
+		expect(readMixerTrackLevels(clip.trackId).peakLeft).toBeLessThan(0.00001);
+		if (mode.startsWith('processed'))
+			expect(messages.filter((message) => message.type === 'append-source')).toHaveLength(1);
+	} finally {
+		await screen.unmount();
+	}
+});
+
+it.each([false, true])(
+	'moves nested processed audio without preparing it again (reverse shuttle: %s)',
+	async (reverse) => {
+		const messages = captureWorkletMessages();
+		const destination = addTrack('audio', 'Destination');
+		const patch: Partial<TimelineItem> = {
+			audioEffects: [{ id: 'pan', type: 'pan', enabled: true, pan: 0.5 }]
+		};
+		const screen = await render(PreviewMixEntryLayer, {
+			entry: nestedEntry(patch),
+			url: fixtureUrl
+		});
+		try {
+			await startAudiblePlayback();
+			if (reverse) {
+				editorSession.clock.seek(150);
+				editorSession.clock.setRate(-1);
+			}
+			await expect
+				.poll(() => readMixerMasterLevels().peakLeft, { timeout: 3000 })
+				.toBeGreaterThan(0.001);
+			await screen.rerender({ entry: nestedEntry(patch, { trackId: destination }) });
+			await expect
+				.poll(() => readMixerTrackLevels(destination).peakLeft, { timeout: 3000 })
+				.toBeGreaterThan(0.001);
+			expect(readMixerTrackLevels(clip.trackId).peakLeft).toBeLessThan(0.00001);
+			expect(messages.filter((message) => message.type === 'append-source')).toHaveLength(1);
+		} finally {
+			await screen.unmount();
+		}
+	}
+);
+
+it.each(['inside', 'partly beyond', 'entirely beyond'] as const)(
+	'keeps reversed audio at its authored time when the window is %s the file',
+	async (window) => {
+		const sourceStart = window === 'inside' ? 0 : window === 'partly beyond' ? 15 : 30;
+		const url = URL.createObjectURL(noisyTone());
+		const screen = await render(PreviewAudioLayer, {
+			item: {
+				...clip,
+				isReversed: true,
+				durationInFrames: 30,
+				sourceFps: 30,
+				sourceStart,
+				sourceEnd: sourceStart + 30
+			},
+			url
+		});
+		try {
+			await startAudiblePlayback();
+			await expect.poll(() => timelineStore.currentFrame).toBeGreaterThan(6);
+			if (window === 'inside') expect(readMixerMasterLevels().peakLeft).toBeGreaterThan(0.001);
+			else expect(readMixerMasterLevels().peakLeft).toBeLessThan(0.00001);
+			// At 0.6s the partial window reaches the real source. A window entirely
+			// past EOF must remain silent instead of pulling in pre-trim audio.
+			editorSession.clock.seek(18);
+			if (window === 'entirely beyond') {
+				await expect.poll(() => timelineStore.currentFrame).toBeGreaterThan(21);
+				expect(readMixerMasterLevels().peakLeft).toBeLessThan(0.00001);
+			} else await expect.poll(() => readMixerMasterLevels().peakLeft).toBeGreaterThan(0.001);
+		} finally {
+			await screen.unmount();
+			URL.revokeObjectURL(url);
+		}
+	}
+);
+
+it('reuses reversed samples across live trim edits', async () => {
+	const buffers: AudioBuffer[] = [];
+	const context = previewAudioContext();
+	const create = context.createBufferSource.bind(context);
+	vi.spyOn(context, 'createBufferSource').mockImplementation(() => {
+		const source = create();
+		const start = source.start.bind(source);
+		vi.spyOn(source, 'start').mockImplementation((...args) => {
+			if (source.buffer) buffers.push(source.buffer);
+			start(...args);
+		});
+		return source;
+	});
+	const url = URL.createObjectURL(noisyTone());
+	timelineStore.setAll({
+		items: [
+			{
+				...clip,
+				isReversed: true,
+				sourceStart: 0,
+				sourceEnd: 30,
+				sourceFps: 30,
+				durationInFrames: 30
+			}
+		]
+	});
+	const screen = await render(PreviewAudioLayer, {
+		item: timelineStore.itemById.get(clip.id)!,
+		url
+	});
+	try {
+		await startAudiblePlayback();
+		editorSession.clock.setRate(0.1);
+		await expect.poll(() => buffers.length).toBeGreaterThan(0);
+		await expect.poll(() => readMixerMasterLevels().peakLeft).toBeGreaterThan(0.001);
+		const before = buffers.length;
+		updateItemProperties(clip.id, { sourceStart: 3, sourceEnd: 27, durationInFrames: 24 });
+		await expect.poll(() => buffers.length).toBeGreaterThan(before);
+		expect(new Set(buffers).size).toBe(1);
+		await expect.poll(() => readMixerMasterLevels().peakLeft).toBeGreaterThan(0.001);
+	} finally {
+		await screen.unmount();
+		URL.revokeObjectURL(url);
+	}
+});
+
+it('stops reversed audio at the selected trim boundary', async () => {
+	const url = URL.createObjectURL(noisyTone());
+	const screen = await render(PreviewAudioLayer, {
+		item: {
+			...clip,
+			isReversed: true,
+			sourceStart: 15,
+			sourceEnd: 30,
+			sourceFps: 30,
+			durationInFrames: 15
+		},
+		url
+	});
+	try {
+		await startAudiblePlayback();
+		await expect.poll(() => readMixerMasterLevels().peakLeft).toBeGreaterThan(0.001);
+		// Keep the transport running beyond the clip. The source must stop at the
+		// trim boundary even when component removal waits for a later render.
+		await expect.poll(() => timelineStore.currentFrame, { timeout: 3000 }).toBeGreaterThan(18);
+		expect(readMixerMasterLevels().peakLeft).toBeLessThan(0.00001);
+	} finally {
+		await screen.unmount();
+		URL.revokeObjectURL(url);
+	}
+});
+
+it('allocates only the selected reversed window from a longer recording', async () => {
+	const buffers: AudioBuffer[] = [];
+	const context = previewAudioContext();
+	const create = context.createBufferSource.bind(context);
+	vi.spyOn(context, 'createBufferSource').mockImplementation(() => {
+		const source = create();
+		const start = source.start.bind(source);
+		vi.spyOn(source, 'start').mockImplementation((...args) => {
+			if (source.buffer) buffers.push(source.buffer);
+			start(...args);
+		});
+		return source;
+	});
+	const url = URL.createObjectURL(noisyTone(10));
+	const screen = await render(PreviewAudioLayer, {
+		item: {
+			...clip,
+			isReversed: true,
+			sourceStart: 90,
+			sourceEnd: 120,
+			sourceFps: 30,
+			durationInFrames: 30
+		},
+		url
+	});
+	try {
+		await startAudiblePlayback();
+		await expect.poll(() => buffers.length).toBeGreaterThan(0);
+		expect(buffers[0]!.duration).toBeLessThanOrEqual(1.001);
+		await expect.poll(() => readMixerMasterLevels().peakLeft).toBeGreaterThan(0.001);
+	} finally {
+		await screen.unmount();
+		URL.revokeObjectURL(url);
+	}
+});
+
+it('starts reversed playback on frame zero at a fractional sample boundary', async () => {
+	const context = previewAudioContext();
+	const create = vi.spyOn(context, 'createBufferSource');
+	const url = URL.createObjectURL(noisyTone());
+	const screen = await render(PreviewAudioLayer, {
+		item: {
+			...clip,
+			isReversed: true,
+			sourceStart: 0,
+			sourceEnd: 28,
+			sourceFps: 29,
+			durationInFrames: 29
+		},
+		url
+	});
+	try {
+		// Hold the first timeline frame long enough to inspect native source creation.
+		await startAudiblePlayback(0.001);
+		await expect.poll(() => create.mock.calls.length).toBeGreaterThan(0);
+		expect(timelineStore.currentFrame).toBe(0);
+	} finally {
+		await screen.unmount();
+		URL.revokeObjectURL(url);
 	}
 });

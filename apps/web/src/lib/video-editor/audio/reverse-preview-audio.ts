@@ -1,10 +1,28 @@
-import { reverseAudioWindow } from './reverse-audio';
 import { getSharedPreviewAudioContext } from './preview-audio-graph';
 import { ALL_FORMATS, AudioSampleSink, BlobSource, Input } from 'mediabunny';
 import { ensureAc3DecoderForCodec, isAc3AudioCodec } from '$lib/video-editor/media/ac3-decoder';
 
 const decodedByUrl = new Map<string, Promise<AudioBuffer>>();
-const reversedByWindow = new Map<string, Promise<AudioBuffer>>();
+interface ReversedAudioWindow {
+	buffer: AudioBuffer;
+	startFrame: number;
+	endFrame: number;
+}
+
+const reversedByUrl = new Map<string, ReversedAudioWindow>();
+const reversedCacheByteLimit = 32 * 1024 * 1024;
+let reversedCacheBytes = 0;
+
+function reversedWindowBytes(window: ReversedAudioWindow): number {
+	return window.buffer.length * window.buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+}
+
+function removeReversedWindow(key: string): void {
+	const window = reversedByUrl.get(key);
+	if (!window) return;
+	reversedCacheBytes -= reversedWindowBytes(window);
+	reversedByUrl.delete(key);
+}
 
 export function previewAudioContext(): AudioContext {
 	const context = getSharedPreviewAudioContext();
@@ -80,31 +98,53 @@ export async function decodedPreviewAudio(url: string, audioCodec?: string): Pro
 	return pending;
 }
 
-/** Decode one source only once, then cache each exact reversed clip window. */
+/** Reuse a covering trim window, retaining at most 32 MiB of reversed samples. */
 export async function reversedPreviewAudio(
 	url: string,
 	startSeconds: number,
 	endSeconds: number,
 	audioCodec?: string
-): Promise<AudioBuffer> {
-	const key = `${audioCodec ?? ''}\u0000${url}\u0000${startSeconds.toFixed(6)}\u0000${endSeconds.toFixed(6)}`;
-	let pending = reversedByWindow.get(key);
-	if (!pending) {
-		pending = decodedPreviewAudio(url, audioCodec).then((decoded) => {
-			const window = reverseAudioWindow(decoded, endSeconds, endSeconds - startSeconds);
-			const audioContext = previewAudioContext();
-			const buffer = audioContext.createBuffer(
-				window.channels.length,
-				Math.max(1, window.channels[0]?.length ?? 0),
-				window.sampleRate
-			);
-			for (let channel = 0; channel < window.channels.length; channel++) {
-				buffer.getChannelData(channel).set(window.channels[channel]!);
-			}
-			return buffer;
-		});
-		reversedByWindow.set(key, pending);
-		pending.catch(() => reversedByWindow.delete(key));
+): Promise<ReversedAudioWindow> {
+	const key = `${audioCodec ?? ''}\u0000${url}`;
+	const decoded = await decodedPreviewAudio(url, audioCodec);
+	const startFrame = Math.max(
+		0,
+		Math.min(decoded.length, Math.floor(startSeconds * decoded.sampleRate))
+	);
+	const endFrame = Math.max(
+		startFrame,
+		Math.min(decoded.length, Math.ceil(endSeconds * decoded.sampleRate))
+	);
+	const cached = reversedByUrl.get(key);
+	if (cached && cached.startFrame <= startFrame && cached.endFrame >= endFrame) {
+		// Refresh insertion order so eviction removes the least recently used source.
+		reversedByUrl.delete(key);
+		reversedByUrl.set(key, cached);
+		return cached;
 	}
-	return pending;
+	removeReversedWindow(key);
+	const buffer = previewAudioContext().createBuffer(
+		decoded.numberOfChannels,
+		Math.max(1, endFrame - startFrame),
+		decoded.sampleRate
+	);
+	for (let channel = 0; channel < decoded.numberOfChannels; channel++) {
+		const source = decoded.getChannelData(channel);
+		const target = buffer.getChannelData(channel);
+		for (let frame = 0; frame < endFrame - startFrame; frame++) {
+			target[frame] = source[endFrame - frame - 1]!;
+		}
+	}
+	const window = { buffer, startFrame, endFrame };
+	const bytes = reversedWindowBytes(window);
+	if (bytes <= reversedCacheByteLimit) {
+		while (reversedCacheBytes + bytes > reversedCacheByteLimit) {
+			const oldest = reversedByUrl.keys().next().value;
+			if (oldest === undefined) break;
+			removeReversedWindow(oldest);
+		}
+		reversedByUrl.set(key, window);
+		reversedCacheBytes += bytes;
+	}
+	return window;
 }

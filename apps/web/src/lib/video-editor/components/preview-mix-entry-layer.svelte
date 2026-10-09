@@ -84,11 +84,9 @@
 	let processedPlaying = false;
 	let processedPlaybackRate = 1;
 	let processedDirection = 1;
-	let detachProcessedFromMixer: (() => void) | null = null;
 	let mediaGain = $state<GainNode | null>(null);
 	let shuttleScheduler: ReturnType<typeof createReverseShuttleScheduler> | null = null;
-	let shuttleGainNode: GainNode | null = null;
-	let detachShuttle: (() => void) | null = null;
+	let shuttleGainNode = $state.raw<GainNode | null>(null);
 	const audioCodec = $derived(mediaPool.get(entry.mediaId)?.audioCodec);
 	const unsupportedAudio = $derived(mediaPool.get(entry.mediaId)?.audioCodecSupported === false);
 	const needsProcessing = $derived(
@@ -109,8 +107,7 @@
 			pitchShiftSemitones: entry.pitchShiftSemitones,
 			audioEqStages: entry.audioEqStages,
 			audioEffects: entry.audioEffects,
-			noiseReduction: entry.noiseReduction,
-			trackId: entry.trackId
+			noiseReduction: entry.noiseReduction
 		})
 	);
 
@@ -204,9 +201,7 @@
 			shuttleScheduler = null;
 			if (shuttleGainNode) {
 				shuttleGainNode.disconnect();
-				detachShuttle?.();
 				shuttleGainNode = null;
-				detachShuttle = null;
 			}
 			return;
 		}
@@ -227,9 +222,7 @@
 				} else {
 					const gain = context.createGain();
 					gain.gain.value = gainAt(timelineStore.currentFrame / editorSession.fps);
-					const detach = attachAudioSourceToMixer(gain, entry.trackId ?? 'nested-audio');
 					shuttleGainNode = gain;
-					detachShuttle = detach;
 					destination = gain;
 				}
 				const scheduler = createReverseShuttleScheduler({
@@ -256,9 +249,7 @@
 			shuttleScheduler = null;
 			if (shuttleGainNode) {
 				shuttleGainNode.disconnect();
-				detachShuttle?.();
 				shuttleGainNode = null;
-				detachShuttle = null;
 			}
 		};
 	});
@@ -268,12 +259,7 @@
 		// SAFETY: the signature serializes only these typed MixEntry settings.
 		const settings = JSON.parse(processingSignature) as Pick<
 			MixEntry,
-			| 'playbackRate'
-			| 'pitchShiftSemitones'
-			| 'audioEqStages'
-			| 'audioEffects'
-			| 'noiseReduction'
-			| 'trackId'
+			'playbackRate' | 'pitchShiftSemitones' | 'audioEqStages' | 'audioEffects' | 'noiseReduction'
 		>;
 		if (!sourceUrl || !needsProcessing) return;
 		let stale = false;
@@ -285,10 +271,6 @@
 		});
 		if (!graph) return;
 		processedGraph = graph;
-		detachProcessedFromMixer = attachAudioSourceToMixer(
-			graph.outputGainNode,
-			settings.trackId ?? 'nested-audio'
-		);
 		setPreviewClipEq(graph, settings.audioEqStages);
 		const previewAbort = new AbortController();
 		void Promise.all([
@@ -337,8 +319,6 @@
 				if (stale) return;
 				processedNode?.port.postMessage({ type: 'set-playing', playing: false });
 				processedNode?.disconnect();
-				detachProcessedFromMixer?.();
-				detachProcessedFromMixer = null;
 				graph.dispose();
 				processedNode = null;
 				processedGraph = null;
@@ -350,8 +330,6 @@
 			previewAbort.abort();
 			processedNode?.port.postMessage({ type: 'set-playing', playing: false });
 			processedNode?.disconnect();
-			detachProcessedFromMixer?.();
-			detachProcessedFromMixer = null;
 			graph.dispose();
 			processedNode = null;
 			processedGraph = null;
@@ -382,8 +360,12 @@
 	});
 
 	$effect(() => {
-		const gain = mediaGain;
-		if (gain) return attachAudioSourceToMixer(gain, entry.trackId ?? 'nested-audio');
+		const trackId = entry.trackId ?? 'nested-audio';
+		const sources = [mediaGain, shuttleGainNode, processedGraph?.outputGainNode];
+		const detach = sources.flatMap((source) =>
+			source ? [attachAudioSourceToMixer(source, trackId)] : []
+		);
+		return () => detach.forEach((release) => release());
 	});
 
 	$effect(() => {

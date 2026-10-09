@@ -80,11 +80,12 @@
 	} = $props();
 	let audio = $state<HTMLAudioElement | null>(null);
 	let reverseBuffer = $state<AudioBuffer | null>(null);
+	let reverseBufferEnd = $state(0);
 	let reverseSource: AudioBufferSourceNode | null = null;
-	let reverseGain: GainNode | null = null;
-	let detachReverseFromMixer: (() => void) | null = null;
+	let reverseGain = $state.raw<GainNode | null>(null);
 	let reverseStartedAt = 0;
 	let reverseStartedOffset = 0;
+	let reverseEndOffset = 0;
 	let reversePlaybackRate = 1;
 	let processedNode = $state<AudioWorkletNode | null>(null);
 	let processedGraph = $state.raw<PreviewClipAudioGraph | null>(null);
@@ -94,11 +95,9 @@
 	let processedDirection: -1 | 1 = 1;
 	let processedPlaying = false;
 	let processedPlaybackRate = 1;
-	let detachProcessedFromMixer: (() => void) | null = null;
 	let mediaGain = $state<GainNode | null>(null);
 	let shuttleScheduler: ReturnType<typeof createReverseShuttleScheduler> | null = null;
-	let shuttleGainNode: GainNode | null = null;
-	let detachShuttle: (() => void) | null = null;
+	let shuttleGainNode = $state.raw<GainNode | null>(null);
 
 	const resolved = $derived(resolveAnimatedItemAt(item, timelineStore.currentFrame));
 	const audioCodec = $derived(item.mediaId ? mediaPool.get(item.mediaId)?.audioCodec : undefined);
@@ -177,16 +176,14 @@
 			// A source can finish between the guard and stop call.
 		}
 		reverseSource.disconnect();
-		detachReverseFromMixer?.();
-		detachReverseFromMixer = null;
 		reverseGain?.disconnect();
 		reverseSource = null;
 		reverseGain = null;
 	}
 
-	function startReverseSource(offsetSeconds: number, speed: number): void {
+	function startReverseSource(offsetSeconds: number, speed: number, durationSeconds: number): void {
 		const buffer = reverseBuffer;
-		if (!buffer || offsetSeconds >= buffer.duration) {
+		if (!buffer || offsetSeconds < 0 || offsetSeconds >= buffer.duration || durationSeconds <= 0) {
 			stopReverseSource();
 			return;
 		}
@@ -198,20 +195,17 @@
 		source.playbackRate.value = speed;
 		gain.gain.value = volume;
 		source.connect(gain);
-		const detach = attachAudioSourceToMixer(gain, item.trackId);
-		detachReverseFromMixer = detach;
 		source.onended = () => {
 			if (reverseSource !== source) return;
 			source.disconnect();
 			gain.disconnect();
-			detach();
-			if (detachReverseFromMixer === detach) detachReverseFromMixer = null;
 			reverseSource = null;
 			reverseGain = null;
 		};
 		reverseSource = source;
 		reverseGain = gain;
 		reverseStartedOffset = offsetSeconds;
+		reverseEndOffset = offsetSeconds + durationSeconds;
 		reverseStartedAt = context.currentTime;
 		reversePlaybackRate = speed;
 		void context
@@ -219,7 +213,7 @@
 			.then(() => {
 				if (reverseSource !== source) return;
 				reverseStartedAt = context.currentTime;
-				source.start(0, offsetSeconds);
+				source.start(0, offsetSeconds, durationSeconds);
 			})
 			.catch(() => {
 				if (reverseSource === source) stopReverseSource();
@@ -260,9 +254,7 @@
 			shuttleScheduler = null;
 			if (shuttleGainNode) {
 				shuttleGainNode.disconnect();
-				detachShuttle?.();
 				shuttleGainNode = null;
-				detachShuttle = null;
 			}
 			return;
 		}
@@ -291,9 +283,7 @@
 				} else {
 					const gain = context.createGain();
 					gain.gain.value = volume;
-					const detach = attachAudioSourceToMixer(gain, item.trackId);
 					shuttleGainNode = gain;
-					detachShuttle = detach;
 					destination = gain;
 				}
 				const scheduler = createReverseShuttleScheduler({
@@ -323,9 +313,7 @@
 			shuttleScheduler = null;
 			if (shuttleGainNode) {
 				shuttleGainNode.disconnect();
-				detachShuttle?.();
 				shuttleGainNode = null;
-				detachShuttle = null;
 			}
 		};
 	});
@@ -354,8 +342,10 @@
 		let stale = false;
 		reverseBuffer = null;
 		void reversedPreviewAudio(sourceUrl, startSeconds, endSeconds, audioCodec)
-			.then((buffer) => {
-				if (!stale) reverseBuffer = buffer;
+			.then((window) => {
+				if (stale) return;
+				reverseBufferEnd = window.endFrame / window.buffer.sampleRate;
+				reverseBuffer = window.buffer;
 			})
 			.catch((error) => {
 				if (stale) return;
@@ -384,8 +374,6 @@
 			processedNode?.port.postMessage({ type: 'set-playing', playing: false });
 			processedNode?.disconnect();
 			processedGraph?.dispose();
-			detachProcessedFromMixer?.();
-			detachProcessedFromMixer = null;
 			processedNode = null;
 			processedGraph = null;
 			processedPlaying = false;
@@ -400,7 +388,6 @@
 		});
 		if (!graph) return;
 		processedGraph = graph;
-		detachProcessedFromMixer = attachAudioSourceToMixer(graph.outputGainNode, item.trackId);
 		setPreviewClipEq(graph, settings.eqStages);
 		setPreviewAudioEffects(graph, settings.effects);
 		rampPreviewClipGain(
@@ -465,8 +452,6 @@
 				if (stale) return;
 				processedNode?.port.postMessage({ type: 'set-playing', playing: false });
 				processedNode?.disconnect();
-				detachProcessedFromMixer?.();
-				detachProcessedFromMixer = null;
 				graph.dispose();
 				processedNode = null;
 				processedGraph = null;
@@ -478,8 +463,6 @@
 			previewAbort.abort();
 			processedNode?.port.postMessage({ type: 'set-playing', playing: false });
 			processedNode?.disconnect();
-			detachProcessedFromMixer?.();
-			detachProcessedFromMixer = null;
 			graph.dispose();
 			if (processedGraph === graph) processedGraph = null;
 			processedNode = null;
@@ -515,8 +498,12 @@
 	});
 
 	$effect(() => {
-		const gain = mediaGain;
-		if (gain) return attachAudioSourceToMixer(gain, item.trackId);
+		const trackId = item.trackId;
+		const sources = [mediaGain, reverseGain, shuttleGainNode, processedGraph?.outputGainNode];
+		const detach = sources.flatMap((source) =>
+			source ? [attachAudioSourceToMixer(source, trackId)] : []
+		);
+		return () => detach.forEach((release) => release());
 	});
 
 	$effect(() => {
@@ -582,14 +569,28 @@
 					stopReverseSource();
 					return;
 				}
-				const expectedOffset = Math.max(0, ((frame - item.from) / editorSession.fps) * speed);
+				const sourceFps = item.sourceFps && item.sourceFps > 0 ? item.sourceFps : editorSession.fps;
+				const sourceEnd =
+					(item.sourceEnd ??
+						(item.sourceStart ?? 0) +
+							(item.durationInFrames / editorSession.fps) * speed * sourceFps) / sourceFps;
+				const expectedOffset =
+					reverseBufferEnd - sourceEnd + ((frame - item.from) / editorSession.fps) * speed;
+				const remaining = Math.max(
+					0,
+					((item.from + item.durationInFrames - frame) / editorSession.fps) * speed
+				);
 				const context = previewAudioContext();
 				const now = context.currentTime;
 				const actualOffset = reverseSource
 					? reverseStartedOffset + (now - reverseStartedAt) * reversePlaybackRate
 					: Number.POSITIVE_INFINITY;
-				if (Math.abs(actualOffset - expectedOffset) > 0.08) {
-					startReverseSource(expectedOffset, combinedRate);
+				if (
+					Math.abs(actualOffset - expectedOffset) > 0.08 ||
+					Math.abs(reverseEndOffset - (expectedOffset + remaining)) > 1 / context.sampleRate ||
+					remaining === 0
+				) {
+					startReverseSource(expectedOffset, combinedRate, remaining);
 				} else if (reverseSource) {
 					reverseStartedOffset = actualOffset;
 					reverseStartedAt = now;

@@ -3,23 +3,42 @@
  */
 
 import type { MediaMetadata } from './types';
-import { resolveMediaBlob } from './import.svelte';
+import { resolveMediaBlob } from './resolve-media-blob';
 
-const urlCache = new Map<string, string>();
+interface MediaUrlEntry {
+	controller: AbortController;
+	promise: Promise<string>;
+	url?: string;
+}
+
+const urlCache = new Map<string, MediaUrlEntry>();
 
 export async function getMediaObjectUrl(media: MediaMetadata): Promise<string> {
 	const cached = urlCache.get(media.id);
-	if (cached) return cached;
-	const blob = await resolveMediaBlob(media);
-	const url = URL.createObjectURL(blob);
-	urlCache.set(media.id, url);
-	return url;
+	if (cached) return cached.promise;
+	const controller = new AbortController();
+	const entry: MediaUrlEntry = {
+		controller,
+		promise: resolveMediaBlob(media, { signal: controller.signal })
+			.then((blob) => {
+				// Native file reads cannot abort, so fence their completion before creating a URL.
+				controller.signal.throwIfAborted();
+				entry.url = URL.createObjectURL(blob);
+				return entry.url;
+			})
+			.catch((error) => {
+				if (urlCache.get(media.id) === entry) urlCache.delete(media.id);
+				throw error;
+			})
+	};
+	urlCache.set(media.id, entry);
+	return entry.promise;
 }
 
 export function revokeMediaObjectUrl(mediaId: string): void {
-	const url = urlCache.get(mediaId);
-	if (url) {
-		URL.revokeObjectURL(url);
-		urlCache.delete(mediaId);
-	}
+	const entry = urlCache.get(mediaId);
+	if (!entry) return;
+	urlCache.delete(mediaId);
+	entry.controller.abort();
+	if (entry.url) URL.revokeObjectURL(entry.url);
 }

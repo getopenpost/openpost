@@ -342,6 +342,7 @@ func TestXMediaProcessingCompletesAfterOmittedCheckAfterSecs(t *testing.T) {
 
 func TestXResumableMediaKeepsAcceptedIDAfterProcessingInterruption(t *testing.T) {
 	starts, appends, finalizes, polls := 0, 0, 0, 0
+	finalized := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = r.ParseMultipartForm(8 * 1024 * 1024)
@@ -354,6 +355,9 @@ func TestXResumableMediaKeepsAcceptedIDAfterProcessingInterruption(t *testing.T)
 			w.WriteHeader(204)
 		case "FINALIZE":
 			finalizes++
+			if finalizes == 1 {
+				close(finalized)
+			}
 			_, _ = w.Write([]byte(`{"processing_info":{"state":"pending","check_after_secs":1}}`))
 		case "STATUS":
 			polls++
@@ -373,11 +377,20 @@ func TestXResumableMediaKeepsAcceptedIDAfterProcessingInterruption(t *testing.T)
 	}
 	request := UploadMediaRequest{MimeType: "video/mp4", Size: 3, Reader: strings.NewReader("abc"), OpenReaderAt: func(offset int64) (io.ReadCloser, error) { return io.NopCloser(strings.NewReader("abc"[offset:])), nil }}
 	var state ResumableMediaUploadState
-	checkpoint := func(next ResumableMediaUploadState) error { state = next; return nil }
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Millisecond)
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
+	checkpoint := func(next ResumableMediaUploadState) error {
+		state = next
+		select {
+		case <-finalized:
+			// Interrupt after the accepted FINALIZE response is checkpointed.
+			cancel()
+		default:
+		}
+		return nil
+	}
 	_, err := uploader.UploadMediaResumable(ctx, "access|secret", "account", request, state, checkpoint)
-	if err == nil || state.ProviderMediaID != "media-1" || state.UploadedBytes != 3 {
+	if !errors.Is(err, context.Canceled) || state.ProviderMediaID != "media-1" || state.UploadedBytes != 3 {
 		t.Fatalf("lost media receipt: state=%+v err=%v", state, err)
 	}
 	id, err := uploader.UploadMediaResumable(t.Context(), "access|secret", "account", request, state, checkpoint)

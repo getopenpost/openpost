@@ -6,4 +6,6 @@
 - Resume X media processing from its saved media ID and explain depleted X developer credits. Check Bluesky email verification before video uploads while keeping text and image posting available.
 - Exclude provider-confirmed Facebook and TikTok identity aliases from native imports. Defer ambiguous import pages within a bounded 30-day identity window.
 
-Schema migration 153 preserves existing delivery receipts while adding the user-action state for TikTok inbox drafts. Older binaries do not understand that state; a downgrade requires the pre-upgrade database backup.
+### Changed
+
+- Schema migration 153 preserves existing delivery receipts while adding the user-action state for TikTok inbox drafts. Older binaries do not understand that state; a downgrade requires the pre-upgrade database backup.

@@ -48,7 +48,9 @@ export function accountHandle(
   username: string | null | undefined,
   fallback: string,
   platform = "",
+  alias = "",
 ): string {
+  if (alias.trim()) return alias.trim();
   const value = username?.trim();
   if (!value) return fallback;
   if (

@@ -106,8 +106,10 @@ const HANDLE_FIRST_PLATFORMS = new Set([
 
 export function formatSocialAccountName(
 	username: string | null | undefined,
-	platform: string
+	platform: string,
+	alias = ''
 ): string {
+	if (alias.trim()) return alias.trim();
 	const normalizedUsername = username?.trim();
 	if (!normalizedUsername) return '';
 	const platformKey = getPlatformKey(platform.trim());

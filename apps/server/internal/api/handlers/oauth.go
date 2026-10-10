@@ -357,6 +357,7 @@ type ListAccountsInput struct {
 type AccountResponse struct {
 	ID                     string     `json:"id" doc:"Account ID"`
 	ProviderInstallationID string     `json:"provider_installation_id,omitempty" doc:"Operator connector installation used by this account"`
+	Alias                  string     `json:"alias,omitempty" doc:"Internal account label. Does not change the provider identity."`
 	Slug                   string     `json:"slug" doc:"User-editable account slug for CLI selectors"`
 	Platform               string     `json:"platform" doc:"Platform name"`
 	AccountID              string     `json:"account_id" doc:"Platform-specific account ID"`
@@ -417,8 +418,9 @@ type AccountSelectionCompletionResponse struct {
 type UpdateAccountInput struct {
 	AccountID string `path:"account_id"`
 	Body      struct {
-		Slug            string `json:"slug" doc:"New account slug. Use lowercase letters, numbers, and hyphens."`
-		MessagesEnabled *bool  `json:"messages_enabled,omitempty" deprecated:"true" doc:"Deprecated shim. Use POST /account-features to change messaging preference."`
+		Alias           *string `json:"alias,omitempty" maxLength:"100" doc:"Internal account label. An empty value clears it; omission preserves it."`
+		Slug            string  `json:"slug" doc:"New account slug. Use lowercase letters, numbers, and hyphens."`
+		MessagesEnabled *bool   `json:"messages_enabled,omitempty" deprecated:"true" doc:"Deprecated shim. Use POST /account-features to change messaging preference."`
 	}
 }
 
@@ -2628,7 +2630,7 @@ func (h *OAuthHandler) UpdateAccount(api huma.API) {
 		if err := h.ensureSlugAvailable(ctx, account.WorkspaceID, account.ID, slug); err != nil {
 			return nil, err
 		}
-		if err := h.updateAccountSlug(ctx, account.ID, slug); err != nil {
+		if err := h.updateAccountIdentity(ctx, account.ID, slug, input.Body.Alias); err != nil {
 			return nil, err
 		}
 		updated, err := h.fetchUpdatedAccount(ctx, account.ID)
@@ -2841,8 +2843,12 @@ func (h *OAuthHandler) ensureSlugAvailable(ctx context.Context, workspaceID, acc
 	return nil
 }
 
-func (h *OAuthHandler) updateAccountSlug(ctx context.Context, accountID, slug string) error {
-	if _, err := h.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("slug = ?", slug).Where("id = ?", accountID).Exec(ctx); err != nil {
+func (h *OAuthHandler) updateAccountIdentity(ctx context.Context, accountID, slug string, alias *string) error {
+	query := h.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("slug = ?", slug).Where("id = ?", accountID)
+	if alias != nil {
+		query.Set("alias = ?", strings.TrimSpace(*alias))
+	}
+	if _, err := query.Exec(ctx); err != nil {
 		return huma.Error500InternalServerError("failed to update account")
 	}
 	return nil
@@ -3130,6 +3136,7 @@ func accountResponse(acc models.SocialAccount, disableLinkedInThreadReplies bool
 	return AccountResponse{
 		ID:                     acc.ID,
 		Slug:                   acc.Slug,
+		Alias:                  acc.Alias,
 		Platform:               acc.Platform,
 		AccountID:              acc.AccountID,
 		AccountUsername:        acc.AccountUsername,

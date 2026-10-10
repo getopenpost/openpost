@@ -224,6 +224,7 @@
 	let editingWorkspaceID = '';
 	let editRequestSequence = 0;
 	let editAccountSlug = $state('');
+	let editAccountAlias = $state('');
 	let editFeatureSelections = $state<Record<string, boolean>>({});
 	let editFeatures = $state<components['schemas']['FeatureStateResponse'][]>([]);
 	let editFeaturesReady = $state(false);
@@ -235,6 +236,7 @@
 		Boolean(
 			editingAccount &&
 			(editAccountSlug !== accountSlug(editingAccount) ||
+				editAccountAlias !== (editingAccount.alias ?? '') ||
 				JSON.stringify(editFeatureSelections) !== JSON.stringify(editFeaturesInitial))
 		)
 	);
@@ -518,6 +520,7 @@
 		editingAccount = account;
 		editingWorkspaceID = workspaceID;
 		editAccountSlug = account.slug ?? '';
+		editAccountAlias = account.alias ?? '';
 		editAccountError = '';
 		accountMetadataRefreshError = '';
 		editFeatures = [];
@@ -648,7 +651,8 @@
 			const { error: err } = await client.PATCH('/accounts/{account_id}', {
 				params: { path: { account_id: account.id } },
 				body: {
-					slug
+					slug,
+					alias: editAccountAlias.trim()
 				}
 			});
 			if (err) throw new Error(err.detail || m.accounts_update_slug_failed());
@@ -1993,7 +1997,12 @@
 								platform={editingAccount.platform}
 								platformLabel={accountPlatformName(editingAccount, providerEntries)}
 								avatarUrl={editingAccount.account_avatar_url}
-								detail={accountKindLabel(editingAccount)}
+								detail={editingAccount.alias?.trim()
+									? formatSocialAccountName(
+											editingAccount.account_username,
+											editingAccount.platform
+										)
+									: accountKindLabel(editingAccount)}
 								size="lg"
 							/>
 							{#if accountServer(editingAccount)}
@@ -2026,6 +2035,16 @@
 								{/if}
 							</Button>
 						{/if}
+					</div>
+					<div class="space-y-2">
+						<Label for="account-alias">{m.accounts_internal_label()}</Label>
+						<Input
+							id="account-alias"
+							class="min-h-11"
+							maxlength={100}
+							bind:value={editAccountAlias}
+						/>
+						<p class="text-xs text-muted-foreground">{m.accounts_internal_label_hint()}</p>
 					</div>
 					{#if accountMetadataRefreshError}
 						<InlineNotice
@@ -2125,6 +2144,7 @@
 							</div>
 						</div>
 					</details>
+
 					{#if editAccountError}
 						<InlineNotice
 							tone="error"

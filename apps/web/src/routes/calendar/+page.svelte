@@ -116,6 +116,7 @@
 	let selectedStatus = $state<CalendarStatus>('all');
 	let selectedWorkspaceIds = $state<string[]>([]);
 	let selectedPlatform = $state('all');
+	let selectedAccountIds = $state<string[] | null>(null);
 	let publications = $state<Publication[]>([]);
 	let accountsByWorkspace = $state<Record<string, SocialAccount[]>>({});
 	let loading = $state(true);
@@ -208,6 +209,25 @@
 		}
 		return Array.from(platforms).sort((a, b) => platformLabel(a).localeCompare(platformLabel(b)));
 	});
+	const availableAccounts = $derived.by(() => {
+		const accounts = new Map<string, AccountBadge>();
+		for (const workspaceId of activeWorkspaceIds)
+			for (const account of accountsByWorkspace[workspaceId] ?? [])
+				accounts.set(account.id, accountBadge(account));
+		for (const item of allItems)
+			for (const account of item.accounts)
+				if (!accounts.has(account.id)) accounts.set(account.id, account);
+		return Array.from(accounts.values()).sort((a, b) => a.label.localeCompare(b.label));
+	});
+	function toggleAccount(id: string) {
+		if (selectedAccountIds === null)
+			selectedAccountIds = availableAccounts
+				.map((account) => account.id)
+				.filter((candidate) => candidate !== id);
+		else if (selectedAccountIds.includes(id))
+			selectedAccountIds = selectedAccountIds.filter((candidate) => candidate !== id);
+		else selectedAccountIds = [...selectedAccountIds, id];
+	}
 	const visibleItems = $derived.by(() =>
 		allItems.filter((item) => {
 			const scheduledDay = workspaceDateKeyFromISO(item.occursAt, viewerTimeZone);
@@ -215,11 +235,15 @@
 			const platformMatches =
 				selectedPlatform === 'all' || item.platforms.includes(selectedPlatform);
 			const statusMatches = selectedStatus === 'all' || item.status === selectedStatus;
-			return inVisibleMonth && platformMatches && statusMatches;
+			const accountMatches =
+				selectedAccountIds === null ||
+				item.accounts.some((account) => selectedAccountIds?.includes(account.id));
+			return inVisibleMonth && platformMatches && statusMatches && accountMatches;
 		})
 	);
 	const hasSelectedFilters = $derived(
 		selectedStatus !== 'all' ||
+			selectedAccountIds !== null ||
 			selectedPlatform !== 'all' ||
 			(selectedWorkspaceIds.length > 0 &&
 				workspaces.some((workspace) => !selectedWorkspaceIds.includes(workspace.id)))
@@ -231,6 +255,7 @@
 	function clearFilters() {
 		selectedStatus = 'all';
 		selectedPlatform = 'all';
+		selectedAccountIds = null;
 		selectedWorkspaceIds = [];
 	}
 
@@ -262,7 +287,8 @@
 			: selectedCompactDay.key
 	);
 	const activeFilterCount = $derived(
-		Number(selectedStatus !== 'all') +
+		Number(selectedAccountIds !== null) +
+			Number(selectedStatus !== 'all') +
 			Number(selectedPlatform !== 'all') +
 			Number(selectedWorkspaceIds.length > 0 && selectedWorkspaceIds.length !== workspaces.length)
 	);
@@ -524,7 +550,7 @@
 			id: account.id,
 			platform: account.platform,
 			label:
-				formatSocialAccountName(account.account_username, account.platform) ||
+				formatSocialAccountName(account.account_username, account.platform, account.alias) ||
 				account.slug ||
 				platformLabel(account.platform)
 		};
@@ -1334,6 +1360,39 @@
 										</DropdownMenu.Content>
 									</DropdownMenu.Root>
 
+									<DropdownMenu.Root>
+										<DropdownMenu.Trigger>
+											{#snippet child({ props })}<Button
+													{...props}
+													variant="outline"
+													class="w-full justify-between"
+													><span
+														>{m.sidebar_accounts()}{selectedAccountIds !== null
+															? ` (${selectedAccountIds?.length ?? 0})`
+															: ''}</span
+													></Button
+												>{/snippet}
+										</DropdownMenu.Trigger>
+										<DropdownMenu.Content class="max-h-72 w-64 overflow-y-auto" align="end">
+											<DropdownMenu.Label>{m.sidebar_accounts()}</DropdownMenu.Label>
+											<DropdownMenu.Item onclick={() => (selectedAccountIds = null)}
+												>{m.analytics_all_accounts()}</DropdownMenu.Item
+											>
+											<DropdownMenu.Separator />
+											{#each availableAccounts as account (account.id)}
+												<DropdownMenu.CheckboxItem
+													checked={selectedAccountIds === null ||
+														selectedAccountIds.includes(account.id)}
+													onCheckedChange={() => toggleAccount(account.id)}
+													class="min-h-11 gap-2"
+												>
+													<PlatformIcon platform={account.platform} class="size-4 shrink-0" /><span
+														class="truncate">{account.label}</span
+													>
+												</DropdownMenu.CheckboxItem>
+											{/each}
+										</DropdownMenu.Content>
+									</DropdownMenu.Root>
 									{#if hasSelectedFilters}
 										<Button variant="ghost" size="sm" class="w-full" onclick={clearFilters}
 											>{m.messages_clear_filters()}</Button

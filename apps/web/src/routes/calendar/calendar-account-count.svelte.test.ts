@@ -115,3 +115,79 @@ it('announces the day-drawer account count as text instead of an ignored label',
 	// toHaveTextContent is used because screen-reader-only text is not visible.
 	await expect.element(screen.getByTestId('calendar-day-drawer')).toHaveTextContent('2 accounts');
 });
+
+it('filters by connected account identity within one platform', async () => {
+	queryClient.clear();
+	seedWorkspace();
+	const first = scheduledPublication();
+	first.title = 'Launch account post';
+	first.renditions = [first.renditions[0]];
+	const second = scheduledPublication();
+	second.id = 'publication-calendar-2';
+	second.title = 'Lessons account post';
+	second.renditions = [
+		{ ...second.renditions[0], id: 'rendition-other', social_account_id: 'account-2' }
+	];
+	vi.spyOn(client, 'GET').mockImplementation(async (path) => {
+		if (path === '/publications') {
+			// SAFETY: The overloaded GET signature cannot express this publication fixture; it contains only calendar inventory fields.
+			return {
+				data: [first, second],
+				response: new Response(null, { headers: { 'X-Total-Count': '2' } })
+			} as never;
+		}
+		if (path === '/accounts') {
+			// SAFETY: Connected account identity and label are the only fields this calendar read uses.
+			return {
+				data: [
+					{
+						id: 'account-1',
+						platform: 'x',
+						alias: 'Launch account',
+						account_username: 'founder',
+						is_active: true
+					},
+					{
+						id: 'account-2',
+						platform: 'x',
+						alias: 'Lessons account',
+						account_username: 'founder',
+						is_active: true
+					}
+				]
+			} as never;
+		}
+		// SAFETY: Other calendar discovery endpoints return empty lists in this fixture.
+		return { data: [] } as never;
+	});
+	const screen = await render(
+		CalendarPage,
+		{},
+		{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
+	);
+	await expect
+		.element(screen.getByRole('button', { name: 'Launch account post · 1 account' }))
+		.toBeVisible();
+	await screen.getByRole('button', { name: 'Filters', exact: true }).click();
+	await screen.getByRole('button', { name: 'Accounts', exact: true }).click();
+	await screen.getByRole('menuitemcheckbox', { name: 'Lessons account', exact: true }).click();
+	await expect
+		.element(screen.getByRole('button', { name: 'Launch account post · 1 account' }))
+		.toBeVisible();
+	await expect
+		.element(screen.getByRole('button', { name: 'Lessons account post · 1 account' }))
+		.not.toBeInTheDocument();
+	await screen.getByRole('button', { name: /^Accounts/ }).click();
+	await screen.getByRole('menuitemcheckbox', { name: 'Launch account', exact: true }).click();
+	await expect
+		.element(screen.getByRole('button', { name: 'Launch account post · 1 account' }))
+		.not.toBeInTheDocument();
+	await screen.getByRole('button', { name: /^Accounts/ }).click();
+	await screen.getByRole('menuitem', { name: 'All accounts', exact: true }).click();
+	await expect
+		.element(screen.getByRole('button', { name: 'Launch account post · 1 account' }))
+		.toBeVisible();
+	await expect
+		.element(screen.getByRole('button', { name: 'Lessons account post · 1 account' }))
+		.toBeVisible();
+});

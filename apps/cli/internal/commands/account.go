@@ -72,11 +72,12 @@ func newAccountListCmd() *cobra.Command {
 					emptyDash(acc.Slug),
 					acc.Platform,
 					emptyDash(acc.AccountUsername),
+					emptyDash(acc.Alias),
 					emptyDash(acc.InstanceURL),
 					yesNo(acc.IsActive),
 				})
 			}
-			p.Table([]string{"ID", "SLUG", "PLATFORM", "USERNAME", "INSTANCE", "ACTIVE"}, rows)
+			p.Table([]string{"ID", "SLUG", "PLATFORM", "USERNAME", "LABEL", "INSTANCE", "ACTIVE"}, rows)
 			return nil
 		},
 	}

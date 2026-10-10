@@ -937,6 +937,10 @@
 						"description": "Account username",
 						"type": "string"
 					},
+					"alias": {
+						"description": "Internal account label. Does not change the provider identity.",
+						"type": "string"
+					},
 					"capability_checked_at": {
 						"description": "When account-specific publishing limits were last verified",
 						"format": "date-time",
@@ -1049,6 +1053,10 @@
 					},
 					"account_username": {
 						"description": "Account username",
+						"type": "string"
+					},
+					"alias": {
+						"description": "Internal account label. Does not change the provider identity.",
 						"type": "string"
 					},
 					"capability_checked_at": {
@@ -22687,6 +22695,11 @@
 						"examples": ["https://example.com/api/v1/schemas/UpdateAccountInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
+						"type": "string"
+					},
+					"alias": {
+						"description": "Internal account label. An empty value clears it; omission preserves it.",
+						"maxLength": 100,
 						"type": "string"
 					},
 					"messages_enabled": {

@@ -648,7 +648,7 @@
 
 	function accountLabel(account: SocialAccount) {
 		return (
-			formatSocialAccountName(account.account_username, account.platform) ||
+			formatSocialAccountName(account.account_username, account.platform, account.alias) ||
 			account.slug ||
 			account.account_id ||
 			getPlatformName(account.platform)

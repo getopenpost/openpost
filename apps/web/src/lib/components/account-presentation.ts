@@ -13,7 +13,11 @@ export function isConnectorProvider(provider: ProviderEntry): boolean {
 }
 
 export function accountDisplayName(account: SocialAccount): string {
-	const displayName = formatSocialAccountName(account.account_username, account.platform);
+	const displayName = formatSocialAccountName(
+		account.account_username,
+		account.platform,
+		account.alias
+	);
 	if (displayName) return displayName;
 	if (account.instance_url) return account.instance_url.replace('https://', '');
 	return account.account_id || account.platform;

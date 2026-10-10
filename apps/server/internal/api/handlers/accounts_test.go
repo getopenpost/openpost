@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -291,4 +292,22 @@ func (s *accountsTestServer) request(t *testing.T) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
 	s.echo.ServeHTTP(rec, req)
 	return rec
+}
+
+func TestAccountAliasPreservesProviderIdentity(t *testing.T) {
+	srv := newAccountMetadataTestServer(t, nil)
+	for _, body := range []string{`{"slug":"team-x","alias":"Launch account"}`, `{"slug":"team-x"}`} {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/accounts/acc-1", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer web-token")
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		var response map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		require.Equal(t, "Launch account", response["alias"])
+		var stored models.SocialAccount
+		require.NoError(t, srv.db.NewSelect().Model(&stored).Where("id = ?", "acc-1").Scan(t.Context()))
+		require.Equal(t, "stored-name", stored.AccountUsername)
+	}
 }

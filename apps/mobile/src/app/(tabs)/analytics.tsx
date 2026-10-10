@@ -76,7 +76,7 @@ function AnalyticsDashboard() {
         <Button
           title={
             selectedAccount
-              ? `${platformLabel(selectedAccount.platform)} · ${accountHandle(selectedAccount.account_username, platformLabel(selectedAccount.platform), selectedAccount.platform)}`
+              ? `${platformLabel(selectedAccount.platform)} · ${accountHandle(selectedAccount.account_username, platformLabel(selectedAccount.platform), selectedAccount.platform, selectedAccount.alias)}`
               : "All accounts"
           }
           intent="quiet"
@@ -328,7 +328,7 @@ function AnalyticsDashboard() {
           {accounts.data?.map((account) => (
             <Button
               key={account.id}
-              title={`${platformLabel(account.platform)} · ${accountHandle(account.account_username, platformLabel(account.platform), account.platform)}`}
+              title={`${platformLabel(account.platform)} · ${accountHandle(account.account_username, platformLabel(account.platform), account.platform, account.alias)}`}
               intent={accountId === account.id ? "primary" : "ordinary"}
               accessibilityState={{ selected: accountId === account.id }}
               onPress={() => {

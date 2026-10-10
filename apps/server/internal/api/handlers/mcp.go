@@ -3686,6 +3686,7 @@ func (h *MCPHandler) listProviderCatalog(ctx context.Context) any {
 }
 
 type mcpAccount struct {
+	Alias           string `json:"alias,omitempty"`
 	ID              string `json:"id"`
 	Platform        string `json:"platform"`
 	Slug            string `json:"slug"`
@@ -3723,6 +3724,7 @@ func (h *MCPHandler) listAccounts(ctx context.Context, userID string, args map[s
 			ID:              row.ID,
 			Platform:        row.Platform,
 			Slug:            row.Slug,
+			Alias:           row.Alias,
 			AccountID:       row.AccountID,
 			AccountUsername: row.AccountUsername,
 			InstanceURL:     row.InstanceURL,

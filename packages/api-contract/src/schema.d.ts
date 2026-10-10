@@ -6535,6 +6535,8 @@ export interface components {
             account_kind?: string;
             /** @description Account username */
             account_username: string;
+            /** @description Internal account label. Does not change the provider identity. */
+            alias?: string;
             /**
              * Format: date-time
              * @description When account-specific publishing limits were last verified
@@ -6596,6 +6598,8 @@ export interface components {
             account_kind?: string;
             /** @description Account username */
             account_username: string;
+            /** @description Internal account label. Does not change the provider identity. */
+            alias?: string;
             /**
              * Format: date-time
              * @description When account-specific publishing limits were last verified
@@ -15499,6 +15503,8 @@ export interface components {
              * @example https://example.com/api/v1/schemas/UpdateAccountInputBody.json
              */
             readonly $schema?: string;
+            /** @description Internal account label. An empty value clears it; omission preserves it. */
+            alias?: string;
             /**
              * @deprecated
              * @description Deprecated shim. Use POST /account-features to change messaging preference.

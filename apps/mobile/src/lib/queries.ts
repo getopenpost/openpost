@@ -92,6 +92,7 @@ export function accountsOptions(workspaceId: string) {
           platform: account.platform,
           slug: account.slug,
           account_username: account.account_username,
+          alias: account.alias,
           is_active: true,
         })),
   });

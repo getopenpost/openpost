@@ -426,6 +426,7 @@ type SocialAccount struct {
 	Slug                   string `json:"slug"`
 	Platform               string `json:"platform"`
 	AccountID              string `json:"account_id"`
+	Alias                  string `json:"alias,omitempty"`
 	AccountUsername        string `json:"account_username"`
 	InstanceURL            string `json:"instance_url"`
 	IsActive               bool   `json:"is_active"`
@@ -537,7 +538,8 @@ type CapabilityCatalog struct {
 }
 
 type UpdateAccountInput struct {
-	Slug string `json:"slug"`
+	Alias *string `json:"alias,omitempty"`
+	Slug  string  `json:"slug"`
 }
 
 func (c *Client) ListAccountProviders(ctx context.Context) ([]ProviderInfo, error) {

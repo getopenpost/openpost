@@ -837,6 +837,9 @@ export class GpuCompositor implements EditorColorCompositor {
 		this.pingTextures = [null, null];
 		this.framebuffers = [null, null];
 		this.programs.clear();
+		// Deleting resources alone retains the browser's limited native context slot.
+		// This compositor is terminally disposed and its canvas is no longer rendered.
+		if (!lost) gl.getExtension('WEBGL_lose_context')?.loseContext();
 	}
 }
 

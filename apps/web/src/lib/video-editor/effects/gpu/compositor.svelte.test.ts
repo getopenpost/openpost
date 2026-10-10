@@ -183,3 +183,23 @@ describe('deliberate empty effect outcomes', () => {
 		}
 	});
 });
+
+it('keeps an active compositor usable after other compositors are disposed', () => {
+	const active = fixture();
+	const retired: OffscreenCanvas[] = [];
+	try {
+		expect(active.render(solidLut(255, 0, 0))).toEqual([255, 0, 0, 255]);
+		for (let index = 0; index < 32; index++) {
+			const canvas = new OffscreenCanvas(1, 1);
+			retired.push(canvas);
+			const transient = GpuCompositor.create(canvas);
+			expect(transient).not.toBeNull();
+			transient!.dispose();
+		}
+		expect(active.render(solidLut(0, 0, 255))).toEqual([0, 0, 255, 255]);
+	} finally {
+		active.compositor.dispose();
+		for (const canvas of retired)
+			canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext();
+	}
+});

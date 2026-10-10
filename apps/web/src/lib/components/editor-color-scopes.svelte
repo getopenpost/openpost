@@ -179,7 +179,9 @@
 		void cpuRenderRevision;
 		if (!active) {
 			clearCpuCanvas(cpuCanvas);
-			for (const canvas of gridCanvases) clearCpuCanvas(canvas);
+			if (!gpuReady) {
+				for (const canvas of gridCanvases) clearCpuCanvas(canvas);
+			}
 			clearCpuRenderTimer();
 			return;
 		}
@@ -449,17 +451,19 @@
 
 	{#if layout === 'grid'}
 		<div class="grid min-h-0 flex-1 grid-cols-2 gap-1" data-editor-protected="scopes">
-			{#each SCOPE_OPTIONS as gridScope, index (gridScope)}
-				<div class="relative min-h-24 overflow-hidden rounded border border-white/10 bg-black/80">
-					<canvas
-						use:registerGridCanvas={index}
-						data-color-scope-canvas={gridScope}
-						class="size-full object-contain"
-						aria-label={`${m.video_editor_scope_live()}: ${scopeLabel(gridScope)}`}
-					></canvas>
-					<ColorScopeOverlay scope={gridScope} />
-				</div>
-			{/each}
+			{#key gpuReady}
+				{#each SCOPE_OPTIONS as gridScope, index (gridScope)}
+					<div class="relative min-h-24 overflow-hidden rounded border border-white/10 bg-black/80">
+						<canvas
+							use:registerGridCanvas={index}
+							data-color-scope-canvas={gridScope}
+							class="size-full object-contain"
+							aria-label={`${m.video_editor_scope_live()}: ${scopeLabel(gridScope)}`}
+						></canvas>
+						<ColorScopeOverlay scope={gridScope} />
+					</div>
+				{/each}
+			{/key}
 		</div>
 	{:else}
 		<div

@@ -7,6 +7,79 @@ import ColorScopeOverlay from '$lib/video-editor/components/color-scope-overlay.
 import { drawCpuScope } from '$lib/video-editor/effects/scope-cpu-renderer';
 import { ScopeRenderer } from '$lib/video-editor/effects/gpu-scopes';
 
+it.for([true, false])(
+	'keeps grid scopes visible across graphics recovery (initial sample: %s)',
+	async (initialSample, { skip }) => {
+		const renderer = await ScopeRenderer.create();
+		if (!renderer) return skip('This recovery path requires an available GPU renderer');
+		const configure = vi.spyOn(renderer, 'configureCanvas');
+		let activate!: (renderer: ScopeRenderer) => void;
+		const pending = new Promise<ScopeRenderer>((resolve) => {
+			activate = resolve;
+		});
+		const create = vi.spyOn(ScopeRenderer, 'create').mockReturnValue(pending);
+		const savedLayout = localStorage.getItem('timeline:scopes:layout');
+		localStorage.setItem('timeline:scopes:layout', 'grid');
+		onTestFinished(() => {
+			create.mockRestore();
+			configure.mockRestore();
+			renderer.destroy();
+			if (savedLayout === null) localStorage.removeItem('timeline:scopes:layout');
+			else localStorage.setItem('timeline:scopes:layout', savedLayout);
+		});
+		const source = new OffscreenCanvas(384, 216);
+		const input = source.getContext('2d')!;
+		input.fillStyle = '#808080';
+		input.fillRect(0, 0, source.width, source.height);
+		const screen = await render(EditorColorScopes, {
+			itemId: 'gray',
+			sample: initialSample ? { itemId: 'gray', source, image: null } : null
+		});
+		screen.container.style.width = '342px';
+		const expectCpuTrace = () => {
+			const canvas = screen.container.querySelector<HTMLCanvasElement>(
+				'[data-color-scope-canvas="parade"]'
+			)!;
+			const context = canvas.getContext('2d');
+			expect(context).not.toBeNull();
+			const pixels = context!.getImageData(
+				0,
+				Math.floor(canvas.height * 0.4),
+				Math.floor(canvas.width / 3),
+				Math.max(1, Math.floor(canvas.height * 0.2))
+			).data;
+			expect(
+				Array.from(pixels).some(
+					(red, offset) => offset % 4 === 0 && red > 100 && red > pixels[offset + 1]! * 1.5
+				)
+			).toBe(true);
+		};
+		if (initialSample) await vi.waitFor(expectCpuTrace);
+		activate(renderer);
+		if (!initialSample) {
+			await vi.waitFor(() =>
+				expect(screen.container.querySelector('[data-scope-backend="webgpu"]')).not.toBeNull()
+			);
+			await screen.rerender({ itemId: 'gray', sample: { itemId: 'gray', source, image: null } });
+		}
+		await vi.waitFor(() =>
+			expect(
+				configure.mock.results.filter((result) => result.type === 'return' && result.value).length
+			).toBeGreaterThanOrEqual(4)
+		);
+		await vi.waitFor(() =>
+			expect(screen.container.querySelector('[data-scope-backend="webgpu"]')).not.toBeNull()
+		);
+		// Retire the real renderer, then request another frame through the component.
+		renderer.destroy();
+		await screen.rerender({ itemId: 'gray', sample: { itemId: 'gray', source, image: null } });
+		await vi.waitFor(() =>
+			expect(screen.container.querySelector('[data-scope-backend="cpu"]')).not.toBeNull()
+		);
+		await vi.waitFor(expectCpuTrace);
+	}
+);
+
 it('shows the sampled channel levels after graphics initialization', async () => {
 	const create = vi.spyOn(ScopeRenderer, 'create');
 	const savedScope = localStorage.getItem('timeline:scopes:stackLayout');

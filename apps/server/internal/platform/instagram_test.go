@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestInstagramReportsNoPageLinkedProfessionalAccount(t *testing.T) {
@@ -340,5 +341,64 @@ func TestInstagramPublishRejectsNonHTTPSMediaURL(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "publicly-accessible HTTPS") {
 		t.Fatalf("expected HTTPS URL error, got %v", err)
+	}
+}
+
+func TestInstagramMissingStatusDoesNotPublish(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	original := httpClient
+	defer func() { httpClient = original }()
+	published := false
+	httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch r.URL.Path {
+		case "/v25.0/ig/media":
+			return jsonResponse(r, `{"id":"container"}`), nil
+		case "/v25.0/container":
+			return jsonResponse(r, `{}`), nil
+		case "/v25.0/ig/media_publish":
+			published = true
+			return jsonResponse(r, `{"id":"post"}`), nil
+		default:
+			t.Fatalf("unexpected request %s", r.URL.Path)
+			return nil, nil
+		}
+	})}
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+	_, err := NewInstagramAdapter("", "", "").Publish(ctx, "token", "ig", &PublishRequest{PlatformMediaIDs: []string{"https://media.example/image.jpg"}, Media: []MediaItem{{MimeType: "image/jpeg"}}})
+	if published || err == nil {
+		t.Fatalf("unknown container status advanced to publication: published=%v err=%v", published, err)
+	}
+}
+
+func TestInstagramReadinessRejectionResumesSameContainer(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	original := httpClient
+	defer func() { httpClient = original }()
+	calls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet {
+			return jsonResponse(r, `{"status_code":"FINISHED"}`), nil
+		}
+		calls++
+		if calls <= 5 {
+			resp := jsonResponse(r, `{"error":{"code":9007,"error_subcode":2207027}}`)
+			resp.StatusCode = 400
+			return resp, nil
+		}
+		return jsonResponse(r, `{"id":"published"}`), nil
+	})}
+	req := &PublishRequest{}
+	var stored PublishResult
+	req.SetWriteFence(nil, func(r PublishResult) error { stored = r; return nil })
+	adapter := NewInstagramAdapter("", "", "")
+	result, err := adapter.ResumePublish(t.Context(), "token", "ig", req, "ig1:f:container")
+	if result.SubmissionState != PublishSubmissionPending || result.ProviderReference != "ig1:f:container" || stored.ProviderReference != "ig1:f:container" {
+		t.Fatalf("readiness rejection must retain reusable container: result=%+v stored=%+v err=%v", result, stored, err)
+	}
+	calls = 5
+	result, err = adapter.ResumePublish(t.Context(), "token", "ig", req, result.ProviderReference)
+	if err != nil || result.ExternalID != "published" {
+		t.Fatalf("resuming confirmed readiness rejection: result=%+v err=%v", result, err)
 	}
 }

@@ -3,6 +3,7 @@ package platform
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 )
@@ -15,7 +16,7 @@ import (
 func exchangeGoogleOAuthToken(ctx context.Context, values map[string]string, label string) (*TokenResult, error) {
 	respBody, err := DoFormURLEncoded(ctx, http.MethodPost, googleTokenURL, values, nil)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", label, err)
+		return nil, fmt.Errorf("%s: %w", label, normalizeGoogleOAuthError(err))
 	}
 
 	var tokenResp struct {
@@ -26,12 +27,13 @@ func exchangeGoogleOAuthToken(ctx context.Context, values map[string]string, lab
 		Scope        string `json:"scope"`
 		Error        string `json:"error"`
 		Description  string `json:"error_description"`
+		Subtype      string `json:"error_subtype"`
 	}
 	if err := json.Unmarshal(respBody, &tokenResp); err != nil {
 		return nil, fmt.Errorf("decoding %s: %w", label, err)
 	}
 	if tokenResp.Error != "" {
-		return nil, fmt.Errorf("%s: %s", label, firstNonEmptyString(tokenResp.Description, tokenResp.Error))
+		return nil, fmt.Errorf("%s: %w", label, normalizeGoogleOAuthError(&HTTPError{StatusCode: http.StatusBadRequest, Code: firstSafeProviderCode([]any{tokenResp.Error}), Subcode: firstSafeProviderCode([]any{tokenResp.Subtype})}))
 	}
 	if tokenResp.AccessToken == "" {
 		return nil, fmt.Errorf("%s: missing access token", label)
@@ -77,4 +79,15 @@ func fetchGoogleUserProfile(ctx context.Context, accessToken, label string) (*Us
 		DisplayName: firstNonEmptyString(profile.Name, profile.Email, profile.ID),
 		AvatarURL:   profile.Picture,
 	}, nil
+}
+
+func normalizeGoogleOAuthError(err error) error {
+	var providerErr *HTTPError
+	if errors.As(err, &providerErr) && providerErr.Code == "invalid_grant" && providerErr.Subcode == "invalid_rapt" {
+		normalized := *providerErr
+		normalized.Code = "google:invalid_rapt"
+		normalized.StatusCode = http.StatusUnauthorized
+		return &normalized
+	}
+	return err
 }

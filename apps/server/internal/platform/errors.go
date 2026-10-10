@@ -59,7 +59,7 @@ func providerErrorMetadata(body []byte) (string, string, string) {
 		return "", "", ""
 	}
 	candidates := []any{payload["code"], payload["error_code"], payload["type"], payload["error"]}
-	var subcodeCandidates []any
+	subcodeCandidates := []any{payload["error_subtype"]}
 	traceCandidates := []any{payload["fbtrace_id"], payload["trace_id"]}
 	if nested, ok := payload["error"].(map[string]any); ok {
 		candidates = append(candidates, nested["code"], nested["type"])
@@ -159,7 +159,9 @@ func applyMetaMapping(providerErr *HTTPError, mapping metaMapping) {
 // metaExactMappings classifies {code, subcode} pairs where the subcode
 // changes the recovery action (Postiz #2127).
 var metaExactMappings = map[metaCodeKey]metaMapping{
-	{code: "368", subcode: "1390008"}: {status: http.StatusTooManyRequests, code: "meta:rate_limit:368:1390008"},
+	{code: "9007", subcode: "2207027"}: {status: http.StatusServiceUnavailable, code: "meta:media_not_ready:9007:2207027"},
+	{code: "9", subcode: "2207078"}:    {status: http.StatusTooManyRequests, code: "meta:trial_reel_limit:2207078"},
+	{code: "368", subcode: "1390008"}:  {status: http.StatusTooManyRequests, code: "meta:rate_limit:368:1390008"},
 	// Meta put the account behind a security checkpoint. The token is still
 	// valid, so a refresh cannot help; the user must log in at facebook.com,
 	// complete the check, then reconnect.
@@ -176,6 +178,7 @@ var metaExactMappings = map[metaCodeKey]metaMapping{
 // Postiz #2137/#2152: silent-audio processing failures may succeed on
 // retry, while format failures need new media.
 var metaCodeMappings = map[string]metaMapping{
+	"2207078": {status: http.StatusTooManyRequests, code: "meta:trial_reel_limit:2207078"},
 	"190":     {status: http.StatusUnauthorized, code: "meta:token_expired:190"},
 	"2207082": {code: "meta:media_silent_audio:2207082"},
 	"2207085": {status: http.StatusBadRequest, code: "meta:media_format:2207085"},
@@ -219,6 +222,7 @@ func MetaFailureMessage(code string) string {
 }
 
 var metaFailureMessages = map[string]string{
+	"meta:trial_reel_limit:2207078":   "Instagram has temporarily limited Trial Reels for this account. Wait for the limit to reset or turn off Trial Reel before publishing again.",
 	"meta:rate_limit:368:1390008":     "Facebook temporarily limited posting for this account. OpenPost will retry later.",
 	"meta:checkpoint:190:459":         "Facebook asked for a security check. Log in at facebook.com, complete it, then reconnect this account and try again.",
 	"meta:checkpoint:instagram":       "Instagram asked for a login check. Log in at instagram.com, follow its instructions, then reconnect this account.",

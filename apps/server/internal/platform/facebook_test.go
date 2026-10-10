@@ -178,6 +178,9 @@ func TestFacebookPublishPhotoFromPublicURL(t *testing.T) {
 }
 
 func TestFacebookPublishesHostedVideoThroughRuploadBeforeFinish(t *testing.T) {
+	originalDelay := facebookVideoUploadPollDelay
+	facebookVideoUploadPollDelay = 0
+	defer func() { facebookVideoUploadPollDelay = originalDelay }()
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
@@ -195,6 +198,7 @@ func TestFacebookPublishesHostedVideoThroughRuploadBeforeFinish(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var calls []string
+			statusCalls := 0
 			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 				calls = append(calls, req.Method+" "+req.URL.Host+req.URL.Path)
 				switch {
@@ -229,7 +233,11 @@ func TestFacebookPublishesHostedVideoThroughRuploadBeforeFinish(t *testing.T) {
 					if req.URL.Query().Get("fields") != "status" || req.URL.Query().Get(oauthParamAccessToken) != "page-token" {
 						t.Fatalf("unexpected status query: %s", req.URL.RawQuery)
 					}
-					return jsonResponse(req, `{"status":{"uploading_phase":{"status":"complete"}}}`), nil
+					statusCalls++
+					if statusCalls == 1 {
+						return jsonResponse(req, `{"status":{"video_status":"upload_complete","uploading_phase":{"status":"complete"},"processing_phase":{"status":"in_progress"}}}`), nil
+					}
+					return jsonResponse(req, `{"status":{"video_status":"ready","uploading_phase":{"status":"complete"},"processing_phase":{"status":"complete"}}}`), nil
 				default:
 					t.Fatalf("unexpected request %s", req.URL.String())
 					return nil, nil
@@ -246,12 +254,13 @@ func TestFacebookPublishesHostedVideoThroughRuploadBeforeFinish(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Publish returned error: %v", err)
 			}
-			if result.ExternalID != test.finishID {
+			if result.SubmissionState != PublishSubmissionPending || result.ExternalID != "" || !strings.HasSuffix(result.ProviderReference, test.finishID) {
 				t.Fatalf("expected %q, got %#v", test.finishID, result)
 			}
 			wantCalls := []string{
 				"POST graph.facebook.com/v25.0/page-1/" + test.edge,
 				"POST rupload.facebook.com/video-upload/v25.0/video-1",
+				"GET graph.facebook.com/v25.0/video-1",
 				"GET graph.facebook.com/v25.0/video-1",
 				"POST graph.facebook.com/v25.0/page-1/" + test.edge,
 			}
@@ -312,7 +321,7 @@ func TestFacebookVideoPollKeepsExistingUploadAfterTransientFailure(t *testing.T)
 			if statusCalls == 1 {
 				return &http.Response{StatusCode: http.StatusServiceUnavailable, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"error":{"code":2}}`)), Request: req}, nil
 			}
-			return jsonResponse(req, `{"status":{"uploading_phase":{"status":"complete"}}}`), nil
+			return jsonResponse(req, `{"status":{"video_status":"ready","processing_phase":{"status":"complete"}}}`), nil
 		default:
 			t.Fatalf("unexpected request %s", req.URL.String())
 			return nil, nil
@@ -411,5 +420,94 @@ func TestFacebookPublishedIDParsesID(t *testing.T) {
 	}
 	if got != "post-1" {
 		t.Fatalf("expected post-1, got %q", got)
+	}
+}
+
+func TestFacebookHostedVideoResumesAfterLostTransferResponse(t *testing.T) {
+	original := httpClient
+	defer func() { httpClient = original }()
+	starts, transfers, finishes := 0, 0, 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host == "rupload.facebook.com" {
+			transfers++
+			return nil, context.DeadlineExceeded
+		}
+		if r.Method == http.MethodGet {
+			return jsonResponse(r, `{"status":{"video_status":"ready","uploading_phase":{"status":"complete"},"processing_phase":{"status":"complete"}}}`), nil
+		}
+		body, _ := io.ReadAll(r.Body)
+		form, _ := url.ParseQuery(string(body))
+		if form.Get("upload_phase") == "start" {
+			starts++
+			return jsonResponse(r, `{"video_id":"video-1","upload_url":"https://rupload.facebook.com/video-1"}`), nil
+		}
+		finishes++
+		return jsonResponse(r, `{"id":"reel-1"}`), nil
+	})}
+	req := &PublishRequest{Profile: "short_video", OutputProfile: "facebook.reel", PlatformMediaIDs: []string{"https://media.example/video.mp4"}, Media: []MediaItem{{MimeType: "video/mp4"}}}
+	var stored PublishResult
+	req.SetWriteFence(nil, func(next PublishResult) error { stored = next; return nil })
+	adapter := NewFacebookAdapter("", "", "")
+	_, err := adapter.Publish(t.Context(), "token", "page", req)
+	if err == nil || stored.ProviderReference == "" {
+		t.Fatalf("lost transfer must retain video receipt: %+v err=%v", stored, err)
+	}
+	resumer, ok := any(adapter).(PublishResumer)
+	if !ok {
+		t.Fatal("Facebook cannot resume its existing hosted upload")
+	}
+	result, err := resumer.ResumePublish(t.Context(), "token", "page", req, stored.ProviderReference)
+	if err != nil || result.SubmissionState != PublishSubmissionPending || starts != 1 || transfers != 1 || finishes != 1 {
+		t.Fatalf("resumed upload duplicated or failed: %+v err=%v starts=%d transfers=%d finishes=%d", result, err, starts, transfers, finishes)
+	}
+}
+
+func TestFacebookFinishAcknowledgementWaitsForPublication(t *testing.T) {
+	original := httpClient
+	defer func() { httpClient = original }()
+	finishes := 0
+	published := false
+	httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodPost {
+			finishes++
+			return jsonResponse(r, `{"success":true}`), nil
+		}
+		phase := "in_progress"
+		if published {
+			phase = "complete"
+		}
+		return jsonResponse(r, `{"status":{"video_status":"ready","processing_phase":{"status":"complete"},"publishing_phase":{"status":"`+phase+`"}}}`), nil
+	})}
+	adapter := NewFacebookAdapter("", "", "")
+	req := &PublishRequest{OutputProfile: "facebook.reel"}
+	result, err := adapter.ResumePublish(t.Context(), "token", "page", req, "fb1:processing:video-1")
+	if err != nil || result.SubmissionState != PublishSubmissionPending || result.ExternalID != "" {
+		t.Fatalf("finish acknowledgement must remain pending: %+v %v", result, err)
+	}
+	published = true
+	result, err = adapter.ResumePublish(t.Context(), "token", "page", req, result.ProviderReference)
+	if err != nil || result.ExternalID != "video-1" || finishes != 1 {
+		t.Fatalf("publication did not reconcile safely: %+v %v finishes=%d", result, err, finishes)
+	}
+}
+
+func TestFacebookVideoResumeSurfacesConfirmedProviderRejection(t *testing.T) {
+	original := httpClient
+	defer func() { httpClient = original }()
+	for _, stage := range []string{"status", "finish"} {
+		t.Run(stage, func(t *testing.T) {
+			httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				if stage == "finish" && r.Method == http.MethodGet {
+					return jsonResponse(r, `{"status":{"video_status":"ready","processing_phase":{"status":"complete"}}}`), nil
+				}
+				response := jsonResponse(r, `{"error":{"code":10}}`)
+				response.StatusCode = http.StatusForbidden
+				return response, nil
+			})}
+			result, err := NewFacebookAdapter("", "", "").ResumePublish(t.Context(), "token", "page", &PublishRequest{OutputProfile: "facebook.reel"}, "fb1:processing:video-1")
+			if err == nil || result.SubmissionState != PublishSubmissionRejected || result.ProviderReference == "" {
+				t.Fatalf("confirmed %s rejection must retain identity and stop reconciliation: %+v %v", stage, result, err)
+			}
+		})
 	}
 }

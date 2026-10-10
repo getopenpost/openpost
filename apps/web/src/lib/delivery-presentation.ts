@@ -12,6 +12,7 @@ export type DeliveryPresentation = {
 export function deliveryStateLabel(state: string) {
 	if (state === 'queued') return m.publication_delivery_queued();
 	if (state === 'submitted') return m.publication_delivery_submitted();
+	if (state === 'awaiting_user') return m.publication_delivery_awaiting_user();
 	if (state === 'processing') return m.publication_delivery_processing();
 	if (state === 'provider_scheduled') return m.publication_delivery_provider_scheduled();
 	if (state === 'live') return m.publication_delivery_live();
@@ -46,7 +47,12 @@ export function deliveryStatusClass(state: string) {
 	if (state === 'rejected' || state === 'failed' || state === 'manual_resolution') {
 		return 'text-destructive';
 	}
-	if (state === 'queued' || state === 'submitted' || state === 'processing') {
+	if (
+		state === 'queued' ||
+		state === 'submitted' ||
+		state === 'processing' ||
+		state === 'awaiting_user'
+	) {
 		return 'text-blue-700 dark:text-blue-300';
 	}
 	return 'text-muted-foreground';

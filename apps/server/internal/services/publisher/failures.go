@@ -76,21 +76,13 @@ func ClassifyFailure(err error) Failure {
 		return Failure{Kind: FailureUnknown, Code: "publication_finalization_pending", Retryable: true, Action: FailureActionRetry, Message: "The provider accepted this post. OpenPost will retry saving its result without sending it again."}
 	}
 	if retryAfter, pending := providerwrite.IsPending(err); pending {
-		failure := failureForKind(FailureProviderProcessing, "provider_submission_pending", 0, retryAfter)
-		failure.Message = "The provider is still processing this publish. OpenPost will check its status without sending it again."
-		return failure
+		return pendingProviderFailure(err, retryAfter)
 	}
 	if providerwrite.IsAmbiguous(err) {
 		return classifyAmbiguousWrite(err)
 	}
 	if retryClass, ok := platform.MediaRetryClassificationForError(err); ok {
-		failure := failureForKind(FailureProviderProcessing, "", 0, 0)
-		if retryClass == platform.MediaRetryTerminal {
-			failure.Message = "The provider rejected or could not process this media. Replace the media before publishing again."
-			failure.Retryable = false
-			failure.Action = FailureActionEdit
-		}
-		return failure
+		return classifyMediaUploadFailure(err, retryClass)
 	}
 	lower := strings.ToLower(err.Error())
 	if strings.Contains(lower, "processing") &&
@@ -139,6 +131,18 @@ func classifyProviderHTTPFailure(err error) (Failure, bool) {
 		return Failure{}, false
 	}
 	failure := failureForKind(kind, providerErr.Code, providerErr.StatusCode, providerErr.RetryAfter)
+	if code == "x:credits_depleted" {
+		failure.Message = "The X developer account has run out of API credits. Add credits in the X developer console, then try again."
+		failure.Action = FailureActionProvider
+	}
+	if code == "bluesky:unconfirmed_email" {
+		failure.Message = "Verify your email in Bluesky before publishing videos. Text and image posts remain available."
+		failure.Action = FailureActionProvider
+	}
+	if code == "google:invalid_rapt" {
+		failure.Message = "Google requires a new sign-in or approval from your Workspace administrator. Ask the administrator to trust OpenPost, then reconnect this account."
+		failure.Action = FailureActionReconnect
+	}
 	if code == "pinterest:board_permission:29" {
 		failure.Message = "This Pinterest account cannot publish to the selected board. Choose another board or reconnect the account if its access changed."
 		failure.Action = FailureActionEdit
@@ -188,7 +192,7 @@ func classifyMetaFailure(providerErr *platform.HTTPError) (Failure, bool) {
 		kind = FailurePermission
 	case code == "meta:nonexistent:100:33":
 		kind = FailureValidation
-	case code == "meta:rate_limit:368:1390008":
+	case code == "meta:rate_limit:368:1390008" || code == "meta:trial_reel_limit:2207078":
 		kind = FailureRateLimited
 		retryable = true
 	case code == "meta:media_silent_audio:2207082":
@@ -300,4 +304,31 @@ func RetryDelay(attempt int, retryAfter time.Duration, jitterFraction float64) t
 	}
 	jitterFraction = max(-0.2, min(0.2, jitterFraction))
 	return time.Duration(float64(base) * (1 + jitterFraction))
+}
+
+func pendingProviderFailure(err error, retryAfter time.Duration) Failure {
+	failure := failureForKind(FailureProviderProcessing, "provider_submission_pending", 0, retryAfter)
+	failure.Message = "The provider is still processing this publish. OpenPost will check its status without sending it again."
+	var outcome *providerwrite.OutcomeError
+	if errors.As(err, &outcome) && outcome.ProviderState == "inbox_delivered" {
+		failure.Code = "tiktok_inbox_delivered"
+		failure.Action = FailureActionProvider
+		failure.Message = "Delivered to your TikTok inbox. Open TikTok to finish publishing. OpenPost will check for the published post."
+	}
+	return failure
+}
+
+func classifyMediaUploadFailure(err error, retryClass platform.MediaRetryClassification) Failure {
+	if retryClass != platform.MediaRetryTerminal {
+		if failure, ok := classifyProviderHTTPFailure(err); ok {
+			return failure
+		}
+	}
+	failure := failureForKind(FailureProviderProcessing, "", 0, 0)
+	if retryClass == platform.MediaRetryTerminal {
+		failure.Message = "The provider rejected or could not process this media. Replace the media before publishing again."
+		failure.Retryable = false
+		failure.Action = FailureActionEdit
+	}
+	return failure
 }

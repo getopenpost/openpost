@@ -660,6 +660,9 @@ func deliveryState(attempt models.ProviderWriteAttempt) string {
 			if providerScheduled {
 				return DeliveryProviderScheduled
 			}
+			if providerState == "inbox_delivered" {
+				return DeliveryAwaitingUser
+			}
 			return DeliveryProcessing
 		}
 		return DeliverySubmitted
@@ -828,7 +831,7 @@ func pendingError(result platform.PublishResult) error {
 	if delay <= 0 {
 		delay = time.Minute
 	}
-	return &OutcomeError{Kind: string(platform.PublishSubmissionPending), RetryAfter: delay, Err: ErrOutcomePending}
+	return &OutcomeError{Kind: string(platform.PublishSubmissionPending), ProviderState: result.ProviderState, RetryAfter: delay, Err: ErrOutcomePending}
 }
 
 func definitelyRejected(err error) bool {

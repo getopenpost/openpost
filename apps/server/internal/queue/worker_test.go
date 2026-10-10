@@ -432,3 +432,17 @@ func TestTerminalFailureCarriesPublicationBuildWorkspaceID(t *testing.T) {
 	require.Equal(t, "workspace-10", recorder.Exceptions[1].WorkspaceID)
 	require.Empty(t, recorder.Exceptions[2].WorkspaceID)
 }
+
+func TestWorkerPendingPublicationDoesNotExhaustRetries(t *testing.T) {
+	db := createTestDB(t)
+	now := time.Now().UTC()
+	job := &models.Job{ID: "inbox-continuation", Type: jobregistry.TypePublishPublication, Payload: `{}`, Status: jobStatusProcessing, RunAt: now, MaxAttempts: 1, LockedAt: now, LockedBy: "worker"}
+	_, err := db.NewInsert().Model(job).Exec(t.Context())
+	require.NoError(t, err)
+	worker := NewWorker(db, "worker", time.Second, nil, nil, stubStorage{})
+	worker.finishFailedJob(t.Context(), job, &publisher.RetryableError{Failure: publisher.Failure{Code: "tiktok_inbox_delivered", Retryable: true, RetryAfter: 15 * time.Minute, Message: "Finish publishing in TikTok"}})
+	require.NoError(t, db.NewSelect().Model(job).WherePK().Scan(t.Context()))
+	require.Equal(t, jobStatusPending, job.Status)
+	require.Zero(t, job.Attempts)
+	require.True(t, job.RunAt.After(now.Add(14*time.Minute)))
+}

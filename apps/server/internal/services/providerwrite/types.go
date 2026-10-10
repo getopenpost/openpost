@@ -24,6 +24,7 @@ const (
 	DeliveryQueued            = "queued"
 	DeliverySubmitted         = "submitted"
 	DeliveryProcessing        = "processing"
+	DeliveryAwaitingUser      = "awaiting_user"
 	DeliveryProviderScheduled = "provider_scheduled"
 	DeliveryLive              = "live"
 	DeliveryRejected          = "rejected"
@@ -43,7 +44,7 @@ func DeliveryRecoveryAction(delivery models.ProviderDelivery) string {
 			delivery.RetrySafety == string(platform.PublishRetryIdempotent) {
 			return RecoveryRetry
 		}
-	case DeliveryProcessing, DeliveryAmbiguous:
+	case DeliveryProcessing, DeliveryAwaitingUser, DeliveryAmbiguous:
 		if delivery.RetrySafety == string(platform.PublishRetryReconcileOnly) {
 			return RecoveryReconcile
 		}
@@ -80,10 +81,11 @@ type ReconcileFunc func(context.Context, string) (platform.PublishResult, error)
 type ResumeFunc func(context.Context, *Control, string) (platform.PublishResult, error)
 
 type OutcomeError struct {
-	Kind       string
-	RetryAfter time.Duration
-	Retryable  bool
-	Err        error
+	ProviderState string
+	Kind          string
+	RetryAfter    time.Duration
+	Retryable     bool
+	Err           error
 }
 
 func (e *OutcomeError) Error() string {

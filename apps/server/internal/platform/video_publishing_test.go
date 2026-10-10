@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -189,4 +190,36 @@ func linkedInPayloadMedia(t *testing.T, payload map[string]interface{}) map[stri
 		t.Fatalf("payload media missing or invalid: %#v", content["media"])
 	}
 	return media
+}
+
+func TestBlueskyUnconfirmedEmailBlocksOnlyVideo(t *testing.T) {
+	original := httpClient
+	defer func() { httpClient = original }()
+	uploads := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch r.URL.Path {
+		case "/xrpc/com.atproto.server.getSession":
+			return jsonResponse(r, `{"did":"did:plc:owner","handle":"owner.test","emailConfirmed":false}`), nil
+		case "/xrpc/app.bsky.actor.getProfile":
+			return jsonResponse(r, `{"did":"did:plc:owner","handle":"owner.test"}`), nil
+		case "/xrpc/com.atproto.server.getServiceAuth":
+			return jsonResponse(r, `{"token":"service"}`), nil
+		case "/xrpc/app.bsky.video.uploadVideo":
+			uploads++
+			return jsonResponse(r, `{"state":"JOB_STATE_COMPLETED","blob":{"$type":"blob"}}`), nil
+		default:
+			t.Fatalf("unexpected request %s", r.URL.Path)
+			return nil, nil
+		}
+	})}
+	adapter := NewBlueskyAdapter(BlueskyDefaultPDSURL)
+	profile, err := adapter.GetProfile(t.Context(), "access")
+	if err != nil || profile.ID != "did:plc:owner" {
+		t.Fatalf("unconfirmed email must not block connection: %+v err=%v", profile, err)
+	}
+	_, err = adapter.UploadMedia(t.Context(), "access", "did:plc:owner", "video/mp4", strings.NewReader("video"))
+	var providerErr *HTTPError
+	if !errors.As(err, &providerErr) || providerErr.Code != "bluesky:unconfirmed_email" || uploads != 0 {
+		t.Fatalf("video should require email confirmation before upload: err=%v uploads=%d", err, uploads)
+	}
 }

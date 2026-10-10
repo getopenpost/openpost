@@ -317,3 +317,43 @@ func TestPublisherPersistsEncryptedRenditionUploadStateAndResumesAfterInterrupti
 		Scan(context.Background()))
 	require.Equal(t, thumbnail.ID, relation.RelatedMediaID)
 }
+
+type expiringXMediaAdapter struct {
+	fakePublisherAdapter
+	uploads int
+}
+
+func (f *expiringXMediaAdapter) UploadMediaResumable(_ context.Context, _, _ string, req platform.UploadMediaRequest, _ platform.ResumableMediaUploadState, checkpoint platform.MediaUploadCheckpoint) (string, error) {
+	f.uploads++
+	id := fmt.Sprintf("x-media-%d", f.uploads)
+	state := platform.ResumableMediaUploadState{ProviderMediaID: id, TotalBytes: req.Size, UploadedBytes: req.Size, Status: platform.MediaUploadReady, RetryClassification: platform.MediaRetryNone, SessionExpiresAt: time.Now().UTC().Add(time.Hour)}
+	return id, checkpoint(state)
+}
+func TestPublisherRefreshesExpiredReadyXMedia(t *testing.T) {
+	adapter := &expiringXMediaAdapter{}
+	srv := newPublisherMediaStateTestServer(t, "x", adapter)
+	media := models.MediaAttachment{ID: "x-expiring", WorkspaceID: "ws-1", FilePath: "uploads/x-expiring.png", MimeType: "image/png", Size: int64(len(srv.storage.body)), ProcessingStatus: "ready"}
+	publication, rendition, account := srv.seedRenditionWithMedia(t, "pub-x-expiring", "rend-x-expiring", media)
+	account.Platform = "x"
+	account.AccountID = "x-account"
+	rendition.Platform = "x"
+	rendition.Profile = "image"
+	rendition.SettingsJSON = "{}"
+	_, updateErr := srv.db.NewUpdate().Model(&rendition).WherePK().Exec(t.Context())
+	require.NoError(t, updateErr)
+	upload := func() string {
+		id, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
+		require.NoError(t, err)
+		return id
+	}
+	require.Equal(t, "x-media-1", upload())
+	var delivery models.RenditionMediaDelivery
+	require.NoError(t, srv.db.NewSelect().Model(&delivery).Where("rendition_id = ? AND media_id = ?", rendition.ID, media.ID).Scan(t.Context()))
+	require.False(t, delivery.SessionExpiresAt.IsZero(), "X media expiry must survive readiness")
+	require.Equal(t, "x-media-1", upload())
+	require.Equal(t, 1, adapter.uploads)
+	_, err := srv.db.NewUpdate().Model((*models.RenditionMediaDelivery)(nil)).Set("session_expires_at = ?", time.Now().UTC().Add(-time.Second)).Where("rendition_id = ? AND media_id = ?", rendition.ID, media.ID).Exec(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, "x-media-2", upload())
+	require.Equal(t, 2, adapter.uploads)
+}

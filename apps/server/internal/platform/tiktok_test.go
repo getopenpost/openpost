@@ -178,7 +178,7 @@ func TestTikTokGetProfileStillFailsForDeadToken(t *testing.T) {
 	}
 }
 
-func TestTikTokPublishAcceptsCompletedVideoWithoutVideoListGrant(t *testing.T) {
+func TestTikTokPublishRetainsReceiptWithoutGuessingPublicID(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
 
@@ -208,8 +208,8 @@ func TestTikTokPublishAcceptsCompletedVideoWithoutVideoListGrant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("completed publish without video.list grant returned error: %v", err)
 	}
-	if result.ExternalID != "publish-1" {
-		t.Fatalf("expected provider publish id fallback, got %#v", result)
+	if result.ExternalID != "" || result.ProviderReference != "publish-1" || result.SubmissionState != PublishSubmissionPending {
+		t.Fatalf("expected pending public identity receipt, got %#v", result)
 	}
 }
 
@@ -359,7 +359,7 @@ func TestTikTokPublishDirectVideoFromPublicURL(t *testing.T) {
 	}
 }
 
-func TestTikTokPublishReconcilesCompletedVideoWithoutPublicID(t *testing.T) {
+func TestTikTokPublishDoesNotGuessPublicIdentityFromCaption(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
 	createdAt := time.Now().UTC().Add(-time.Minute).Unix()
@@ -388,8 +388,8 @@ func TestTikTokPublishReconcilesCompletedVideoWithoutPublicID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Publish returned error: %v", err)
 	}
-	if result.ExternalID != "7511111111111111111" {
-		t.Fatalf("expected reconciled video id, got %#v", result)
+	if result.ExternalID != "" || result.SubmissionState != PublishSubmissionPending {
+		t.Fatalf("unconfirmed public identity must stay pending, got %#v", result)
 	}
 }
 
@@ -422,9 +422,9 @@ func TestTikTokPublishKeepsAmbiguousCompletedVideoPending(t *testing.T) {
 		checkpoints = append(checkpoints, result)
 		return nil
 	})
-	_, err := NewTikTokAdapter("key", "secret", "https://app.example/callback").Publish(t.Context(), "access", "open-1", request)
-	if err == nil || !strings.Contains(err.Error(), "expected one recent exact match, found 2") {
-		t.Fatalf("expected ambiguous reconciliation error, got %v", err)
+	result, err := NewTikTokAdapter("key", "secret", "https://app.example/callback").Publish(t.Context(), "access", "open-1", request)
+	if err != nil || result.SubmissionState != PublishSubmissionPending {
+		t.Fatalf("expected pending reconciliation, got %+v %v", result, err)
 	}
 	if len(checkpoints) != 2 || checkpoints[1].ProviderState != "published_unresolved" || checkpoints[1].RetrySafety != PublishRetryReconcileOnly {
 		t.Fatalf("expected durable unresolved checkpoint, got %#v", checkpoints)
@@ -600,7 +600,7 @@ func TestTikTokReconcilePreservesPublicPostIDs(t *testing.T) {
 		{"alternate numeric", `"publicly_available_post_id":[7529123456789012345]`, "7529123456789012345"},
 		{"documented string", `"publicaly_available_post_id":["7529123456789012345"]`, "7529123456789012345"}, //nolint:misspell
 		{"alternate string", `"publicly_available_post_id":["7529123456789012345"]`, "7529123456789012345"},
-		{"no public ID", `"publicaly_available_post_id":[]`, publishID}, //nolint:misspell
+		{"no public ID", `"publicaly_available_post_id":[]`, ""}, //nolint:misspell
 	} {
 		t.Run(fixture.name, func(t *testing.T) {
 			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -620,7 +620,7 @@ func TestTikTokReconcilePreservesPublicPostIDs(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if result.ExternalID != fixture.want || result.ProviderReference != publishID || result.SubmissionState != PublishSubmissionAccepted {
+			if result.ExternalID != fixture.want || result.ProviderReference != publishID || (fixture.want != "" && result.SubmissionState != PublishSubmissionAccepted) || (fixture.want == "" && result.SubmissionState != PublishSubmissionPending) {
 				t.Fatalf("wrong reconciled result: %#v", result)
 			}
 		})
@@ -683,4 +683,64 @@ func TestTikTokCoverTimestampPresence(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTikTokInboxWaitsForPublicPublication(t *testing.T) {
+	original := httpClient
+	defer func() { httpClient = original }()
+	complete := false
+	httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if complete {
+			return jsonResponse(r, `{"data":{"status":"PUBLISH_COMPLETE","publicly_available_post_id":["741234"]},"error":{"code":"ok"}}`), nil
+		}
+		return jsonResponse(r, `{"data":{"status":"SEND_TO_USER_INBOX"},"error":{"code":"ok"}}`), nil
+	})}
+	adapter := NewTikTokAdapter("", "", "")
+	result, err := adapter.ReconcilePublishRequest(t.Context(), "token", "account", &PublishRequest{Settings: map[string]interface{}{"content_posting_method": "MEDIA_UPLOAD"}}, "publish-1")
+	require.NoError(t, err)
+	require.Equal(t, PublishSubmissionPending, result.SubmissionState)
+	require.Equal(t, "inbox_delivered", result.ProviderState)
+	require.Empty(t, result.ExternalID)
+	require.Equal(t, "publish-1", result.ProviderReference)
+	complete = true
+	result, err = adapter.ReconcilePublish(t.Context(), "token", "account", result.ProviderReference)
+	require.NoError(t, err)
+	require.Equal(t, PublishSubmissionAccepted, result.SubmissionState)
+	require.Equal(t, "741234", result.ExternalID)
+}
+
+func TestTikTokRefreshReturnsStructuredProviderFailure(t *testing.T) {
+	original := httpClient
+	defer func() { httpClient = original }()
+	for _, test := range []struct {
+		code   string
+		status int
+	}{{"server_error", 503}, {"temporarily_unavailable", 503}, {"invalid_grant", 401}, {"rate_limit_exceeded", 429}} {
+		t.Run(test.code, func(t *testing.T) {
+			httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				return jsonResponse(r, `{"error":"`+test.code+`","error_description":"private provider response"}`), nil
+			})}
+			_, err := NewTikTokAdapter("", "", "").RefreshToken(t.Context(), RefreshTokenInput{RefreshToken: "refresh"})
+			var providerErr *HTTPError
+			require.ErrorAs(t, err, &providerErr)
+			require.Equal(t, test.status, providerErr.StatusCode)
+			require.Equal(t, test.code, providerErr.Code)
+			require.NotContains(t, err.Error(), "private provider response")
+		})
+	}
+}
+
+func TestTikTokPublicPhotoWaitsForProviderPostIdentity(t *testing.T) {
+	original := httpClient
+	defer func() { httpClient = original }()
+	httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		require.Equal(t, tiktokPublishStatusURL, r.URL.String())
+		return jsonResponse(r, `{"data":{"status":"PUBLISH_COMPLETE"},"error":{"code":"ok"}}`), nil
+	})}
+	req := &PublishRequest{OutputProfile: "tiktok.photo", Media: []MediaItem{{MimeType: "image/jpeg"}}, Settings: map[string]any{"privacy_level": "PUBLIC_TO_EVERYONE"}}
+	result, err := NewTikTokAdapter("", "", "").ReconcilePublishRequest(t.Context(), "token", "account", req, "publish-1")
+	require.NoError(t, err)
+	require.Equal(t, PublishSubmissionPending, result.SubmissionState)
+	require.Empty(t, result.ExternalID)
+	require.Equal(t, "publish-1", result.ProviderReference)
 }

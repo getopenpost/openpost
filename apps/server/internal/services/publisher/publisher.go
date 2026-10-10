@@ -1350,6 +1350,9 @@ func (s *Service) resumablePlatformMediaIDForRendition(
 	if err != nil {
 		return "", err
 	}
+	if expiredReadyMedia(account.Platform, state) {
+		state = platform.ResumableMediaUploadState{TotalBytes: media.Size}
+	}
 	if state.Status == platform.MediaUploadReady && state.ProviderMediaID != "" && storedRelations.equal(relations) {
 		return state.ProviderMediaID, nil
 	}
@@ -1379,7 +1382,9 @@ func (s *Service) resumablePlatformMediaIDForRendition(
 	state.RetryClassification = platform.MediaRetryNone
 	state.UploadedBytes = state.TotalBytes
 	state.OpaqueState = ""
-	state.SessionExpiresAt = time.Time{}
+	if account.Platform != "x" {
+		state.SessionExpiresAt = time.Time{}
+	}
 	state.LastCheckedAt = time.Now().UTC()
 	if err := checkpoint(state); err != nil {
 		return "", fmt.Errorf("persisting completed rendition media delivery: %w", err)
@@ -2659,4 +2664,8 @@ func (s *Service) completeRendition(ctx context.Context, publication *models.Pub
 		return &renditionCompletionError{cause: err}
 	}
 	return nil
+}
+
+func expiredReadyMedia(provider string, state platform.ResumableMediaUploadState) bool {
+	return provider == "x" && state.Status == platform.MediaUploadReady && !state.SessionExpiresAt.IsZero() && !time.Now().UTC().Before(state.SessionExpiresAt)
 }

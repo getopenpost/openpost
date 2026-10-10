@@ -8,7 +8,19 @@ import (
 	"strings"
 )
 
+type nativeGraphAttachment struct {
+	Target struct {
+		ID string `json:"id"`
+	} `json:"target"`
+	Subattachments struct {
+		Data []nativeGraphAttachment `json:"data"`
+	} `json:"subattachments"`
+}
+
 type nativeGraphPost struct {
+	Attachments struct {
+		Data []nativeGraphAttachment `json:"data"`
+	} `json:"attachments"`
 	ID           string `json:"id"`
 	Caption      string `json:"caption"`
 	Text         string `json:"text"`
@@ -58,7 +70,7 @@ func (i *InstagramAdapter) ListNativePosts(ctx context.Context, token string, in
 func (f *FacebookAdapter) ListNativePosts(ctx context.Context, token string, input NativePostRequest) (NativePostPage, error) {
 	// The Page's posts edge excludes visitor posts. Also verify returned authors
 	// so a provider-side feed change cannot import somebody else's content.
-	return listNativeGraphPosts(ctx, token, input, f.graphURL(url.PathEscape(input.AccountID)+"/posts"), "id,message,created_time,permalink_url,from", providerFacebook)
+	return listNativeGraphPosts(ctx, token, input, f.graphURL(url.PathEscape(input.AccountID)+"/posts"), "id,message,created_time,permalink_url,from,attachments{target,subattachments{target}}", providerFacebook)
 }
 func listNativeGraphPosts(ctx context.Context, token string, input NativePostRequest, endpoint, fields, provider string) (NativePostPage, error) {
 	if strings.TrimSpace(input.AccountID) == "" {
@@ -93,7 +105,7 @@ func listNativeGraphPosts(ctx context.Context, token string, input NativePostReq
 		if !nativeGraphOriginal(post, input.AccountID, provider) {
 			continue
 		}
-		appendNativePost(&page, input, NativePostItem{ProviderPostID: post.ID, Text: firstNonEmptyString(post.Text, post.Caption, post.Message), ExternalURL: firstNonEmptyString(post.Permalink, post.PermalinkURL), PublishedAt: nativePostTime(firstNonEmptyString(post.Timestamp, post.CreatedTime))})
+		appendNativePost(&page, input, NativePostItem{ProviderPostID: post.ID, IdentityAliases: nativeGraphIdentityAliases(provider, post), Text: firstNonEmptyString(post.Text, post.Caption, post.Message), ExternalURL: firstNonEmptyString(post.Permalink, post.PermalinkURL), PublishedAt: nativePostTime(firstNonEmptyString(post.Timestamp, post.CreatedTime))})
 	}
 	return page, nil
 }
@@ -106,4 +118,25 @@ func nativeGraphOriginal(post nativeGraphPost, accountID, provider string) bool 
 		return post.From.ID == accountID
 	}
 	return post.Owner.ID == "" || post.Owner.ID == accountID
+}
+
+func nativeGraphIdentityAliases(provider string, post nativeGraphPost) []string {
+	if provider != providerFacebook {
+		return nil
+	}
+	ids := make([]string, 0, len(post.Attachments.Data))
+	for _, attachment := range post.Attachments.Data {
+		if id := strings.TrimSpace(attachment.Target.ID); id != "" {
+			ids = append(ids, id)
+		}
+		for _, child := range attachment.Subattachments.Data {
+			if id := strings.TrimSpace(child.Target.ID); id != "" {
+				ids = append(ids, id)
+			}
+		}
+		if len(ids) >= NativePostMaxPageSize {
+			return ids[:NativePostMaxPageSize]
+		}
+	}
+	return ids
 }

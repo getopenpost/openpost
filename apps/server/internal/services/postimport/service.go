@@ -437,10 +437,14 @@ func (s *Service) SyncAccount(ctx context.Context, workspaceID, accountID string
 		})
 		if err != nil {
 			// The reserved budget stays spent: the provider was called.
-			if persistErr := s.persistBudget(ctx, prepared.state, now); persistErr != nil {
-				return persistErr
-			}
 			return s.recordReadFailure(ctx, prepared.state, err, now)
+		}
+		unresolved, identityErr := s.unresolvedPublicationOverlap(ctx, prepared.account, page.Items, now)
+		if identityErr != nil {
+			return identityErr
+		}
+		if unresolved {
+			return s.recordOutcome(ctx, prepared.state, platform.NativePostPartial, "published_identity_pending", "An OpenPost publication is still resolving its provider identity. Import will retry without guessing authorship.", now.Add(15*time.Minute), now)
 		}
 		committed, err := s.commitPage(ctx, prepared.account, prepared.state, filterOwnPosts(page.Items, prepared.ownPostIDs), page.NextCursor, now)
 		if err != nil {
@@ -588,7 +592,14 @@ func filterOwnPosts(items []platform.NativePostItem, own map[string]struct{}) []
 	}
 	kept := items[:0]
 	for _, item := range items {
-		if _, isOwn := own[strings.TrimSpace(item.ProviderPostID)]; isOwn {
+		isOwn := false
+		for _, identity := range append([]string{strings.TrimSpace(item.ProviderPostID)}, item.IdentityAliases...) {
+			if _, exists := own[strings.TrimSpace(identity)]; exists {
+				isOwn = true
+				break
+			}
+		}
+		if isOwn {
 			continue
 		}
 		kept = append(kept, item)
@@ -731,7 +742,7 @@ func (s *Service) recordOutcome(ctx context.Context, state *models.PostImportSta
 	state.LastAttemptedAt = now
 	state.NextEligibleAt = eligibleAt
 	state.UpdatedAt = now
-	if status == platform.NativePostComplete || status == platform.NativePostPartial {
+	if status == platform.NativePostComplete || (status == platform.NativePostPartial && code == "") {
 		state.FailureCode = ""
 		state.FailureMessage = ""
 	}
@@ -841,4 +852,48 @@ func coalesceTime(primary, fallback time.Time) time.Time {
 		return primary
 	}
 	return fallback
+}
+
+// Hold the page when a provider could expose a public object whose durable
+// OpenPost receipt has not resolved its identity. Never infer authorship from text.
+func (s *Service) unresolvedPublicationOverlap(ctx context.Context, account models.SocialAccount, items []platform.NativePostItem, now time.Time) (bool, error) {
+	if len(items) == 0 || (account.Platform != "instagram" && account.Platform != "tiktok") {
+		return false, nil
+	}
+	var receipts []models.ProviderDelivery
+	err := s.db.NewSelect().Model(&receipts).Where("social_account_id = ?", account.ID).Where("external_id = '' OR provider = ?", "tiktok").Where("state IN (?)", bun.List([]string{"processing", "ambiguous", "manual_resolution", "awaiting_user", "live"})).Where("current_attempt_created_at >= ?", now.AddDate(0, 0, -30)).Scan(ctx)
+	if err != nil {
+		return false, fmt.Errorf("load unresolved publication identities: %w", err)
+	}
+	for _, receipt := range receipts {
+		if receipt.ExternalID != "" && isTikTokPublicPostID(receipt.ExternalID) {
+			continue
+		}
+		start := receipt.CurrentAttemptCreatedAt
+		if start.IsZero() {
+			start = receipt.CreatedAt
+		}
+		end := receipt.UpdatedAt
+		if receipt.State == "processing" || receipt.State == "awaiting_user" {
+			end = now
+		}
+		for _, item := range items {
+			if !item.PublishedAt.IsZero() && !item.PublishedAt.Before(start.Add(-time.Minute)) && !item.PublishedAt.After(end.Add(time.Minute)) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func isTikTokPublicPostID(value string) bool {
+	if len(value) == 0 || len(value) > 32 {
+		return false
+	}
+	for _, char := range value {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+	return true
 }

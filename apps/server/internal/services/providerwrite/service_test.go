@@ -227,3 +227,31 @@ func latestProviderWriteAttempt(t *testing.T, db *bun.DB, operationID string) mo
 		Order("attempt_number DESC").Limit(1).Scan(t.Context()))
 	return attempt
 }
+
+func TestTikTokInboxReceiptRetainsUserActionAcrossReconciliation(t *testing.T) {
+	service := New(newProviderWriteTestDB(t))
+	input := providerWriteTestInput(t, "tiktok-inbox")
+	input.Provider = "tiktok"
+	pending := platform.PublishResult{SubmissionState: platform.PublishSubmissionPending, ProviderState: "inbox_delivered", ProviderReference: "receipt-1", RetrySafety: platform.PublishRetryReconcileOnly, ReconcileAfter: 15 * time.Minute}
+	_, err := service.Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		require.NoError(t, control.Begin(pending))
+		return pending, nil
+	}, nil)
+	var outcome *OutcomeError
+	require.ErrorAs(t, err, &outcome)
+	require.Equal(t, "inbox_delivered", outcome.ProviderState)
+	attempt := latestProviderWriteAttempt(t, service.db, input.OperationID)
+	require.Equal(t, DeliveryAwaitingUser, deliveryState(attempt))
+	_, updateErr := service.db.NewUpdate().Model((*models.ProviderWriteAttempt)(nil)).Set("reconcile_after = ?", time.Now().UTC().Add(-time.Minute)).Where("operation_id = ?", input.OperationID).Exec(t.Context())
+	require.NoError(t, updateErr)
+	result, err := service.Execute(t.Context(), input, func(context.Context, *Control) (platform.PublishResult, error) {
+		t.Fatal("inbox upload must not be repeated")
+		return platform.PublishResult{}, nil
+	}, func(_ context.Context, reference string) (platform.PublishResult, error) {
+		require.Equal(t, "receipt-1", reference)
+		return platform.AcceptedPublishResult("741234"), nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, "741234", result.ExternalID)
+	require.Equal(t, DeliveryLive, deliveryState(latestProviderWriteAttempt(t, service.db, input.OperationID)))
+}

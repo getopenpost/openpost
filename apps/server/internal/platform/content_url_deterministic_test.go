@@ -45,3 +45,8 @@ func TestDeterministicContentURLRejectsUnsafeValues(t *testing.T) {
 	require.Empty(t, DeterministicContentURL("pinterest", "", "", "", "123/../../settings"))
 	require.False(t, IsSafeContentURL("https://user:secret@example.com/post"))
 }
+
+func TestTikTokPhotoContentURL(t *testing.T) {
+	require.Equal(t, "https://www.tiktok.com/@rgo/photo/741234", DeterministicContentURL("tiktok", "", "rgo", "", "741234", "tiktok.photo"))
+	require.Empty(t, DeterministicContentURL("tiktok", "", "rgo", "", "p_pub_reference", "tiktok.photo"))
+}

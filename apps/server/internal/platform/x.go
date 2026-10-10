@@ -475,112 +475,84 @@ func (x *XAdapter) UploadMediaWithMetadata(ctx context.Context, accessToken, _ s
 	return x.uploadMediaChunked(ctx, accessToken, mimeType, mediaCategory, req.Reader, req.Size)
 }
 
-func (x *XAdapter) uploadMediaSimple(ctx context.Context, accessToken string, data []byte, mediaCategory string) (string, error) {
+func (x *XAdapter) uploadMediaSimple(ctx context.Context, token string, data []byte, category string) (string, error) {
+	state, err := x.uploadMediaSimpleResult(ctx, token, data, category)
+	return state.ProviderMediaID, err
+}
+
+func (x *XAdapter) uploadMediaSimpleResult(ctx context.Context, accessToken string, data []byte, mediaCategory string) (ResumableMediaUploadState, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	if err := writer.WriteField("media_category", mediaCategory); err != nil {
-		return "", fmt.Errorf("writing media_category: %w", err)
+		return ResumableMediaUploadState{}, fmt.Errorf("writing media_category: %w", err)
 	}
 	part, err := writer.CreateFormFile("media", "upload.bin")
 	if err != nil {
-		return "", fmt.Errorf("creating media form file: %w", err)
+		return ResumableMediaUploadState{}, fmt.Errorf("creating media form file: %w", err)
 	}
 	if _, writeErr := part.Write(data); writeErr != nil {
-		return "", fmt.Errorf("writing media content: %w", writeErr)
+		return ResumableMediaUploadState{}, fmt.Errorf("writing media content: %w", writeErr)
 	}
 	if closeErr := writer.Close(); closeErr != nil {
-		return "", fmt.Errorf("closing multipart writer: %w", closeErr)
+		return ResumableMediaUploadState{}, fmt.Errorf("closing multipart writer: %w", closeErr)
 	}
 
 	respBody, err := x.doSignedRequest(ctx, accessToken, "POST", x.uploadURL("/1.1/media/upload.json"), &body, map[string]string{
 		headerContentType: writer.FormDataContentType(),
 	})
 	if err != nil {
-		return "", err
+		return ResumableMediaUploadState{}, err
 	}
 
 	var result struct {
-		MediaIDString string `json:"media_id_string"`
+		MediaIDString    string `json:"media_id_string"`
+		ExpiresAfterSecs int64  `json:"expires_after_secs"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
-		return "", fmt.Errorf("decoding X media response: %w", err)
+		return ResumableMediaUploadState{}, fmt.Errorf("decoding X media response: %w", err)
 	}
 	if result.MediaIDString == "" {
-		return "", fmt.Errorf("missing media_id_string in X response")
+		return ResumableMediaUploadState{}, fmt.Errorf("missing media_id_string in X response")
 	}
-	return result.MediaIDString, nil
+	state := ResumableMediaUploadState{ProviderMediaID: result.MediaIDString, TotalBytes: int64(len(data)), UploadedBytes: int64(len(data)), Status: MediaUploadReady, RetryClassification: MediaRetryNone}
+	if result.ExpiresAfterSecs > 0 {
+		state.SessionExpiresAt = time.Now().UTC().Add(time.Duration(result.ExpiresAfterSecs) * time.Second)
+	}
+	return state, nil
 }
 
 func (x *XAdapter) uploadMediaChunked(ctx context.Context, accessToken, mimeType, mediaCategory string, reader io.Reader, totalBytes int64) (string, error) {
-	initValues := url.Values{}
-	initValues.Set("command", "INIT")
-	initValues.Set("total_bytes", strconv.FormatInt(totalBytes, 10))
-	initValues.Set("media_type", mimeType)
-	initValues.Set("media_category", mediaCategory)
+	return x.uploadMediaChunkedResumable(ctx, accessToken, mimeType, mediaCategory, reader, totalBytes, ResumableMediaUploadState{}, func(ResumableMediaUploadState) error { return nil })
+}
 
-	respBody, err := x.doSignedRequest(ctx, accessToken, "POST", x.uploadURL("/1.1/media/upload.json"), strings.NewReader(initValues.Encode()), map[string]string{
-		headerContentType: contentTypeForm,
-	})
-	if err != nil {
-		return "", fmt.Errorf("x INIT failed: %w", err)
+func (x *XAdapter) uploadMediaChunkedResumable(ctx context.Context, accessToken, mimeType, mediaCategory string, reader io.Reader, totalBytes int64, state ResumableMediaUploadState, checkpoint MediaUploadCheckpoint) (string, error) {
+	switch state.OpaqueState {
+	case "finalizing", "processing", "append_started":
+		return x.resumeMediaProcessing(ctx, accessToken, state)
 	}
-
-	var initResp struct {
-		MediaIDString  string                `json:"media_id_string"`
-		ProcessingInfo *xMediaProcessingInfo `json:"processing_info"`
-	}
-	if unmarshalErr := json.Unmarshal(respBody, &initResp); unmarshalErr != nil {
-		return "", fmt.Errorf("decoding X INIT: %w", unmarshalErr)
-	}
-	if initResp.MediaIDString == "" {
-		return "", fmt.Errorf("missing media_id_string in X INIT")
-	}
-	mediaID := initResp.MediaIDString
-
-	segmentIndex := 0
-	remaining := totalBytes
-	chunk := make([]byte, xMediaUploadChunkSize)
-	for remaining > 0 {
-		chunkBytes := int64(len(chunk))
-		if remaining < chunkBytes {
-			chunkBytes = remaining
-		}
-		n, readErr := io.ReadFull(reader, chunk[:chunkBytes])
-		if readErr != nil {
-			return "", fmt.Errorf("reading X media segment %d: %w", segmentIndex, readErr)
-		}
-
-		var body bytes.Buffer
-		writer := multipart.NewWriter(&body)
-		_ = writer.WriteField("command", "APPEND")
-		_ = writer.WriteField("media_id", mediaID)
-		_ = writer.WriteField("segment_index", strconv.Itoa(segmentIndex))
-		part, createErr := writer.CreateFormFile("media", "chunk.bin")
-		if createErr != nil {
-			return "", fmt.Errorf("x APPEND create form file: %w", createErr)
-		}
-		if _, writeErr := part.Write(chunk[:n]); writeErr != nil {
-			return "", fmt.Errorf("x APPEND write segment %d: %w", segmentIndex, writeErr)
-		}
-		if closeErr := writer.Close(); closeErr != nil {
-			return "", fmt.Errorf("x APPEND close writer: %w", closeErr)
-		}
-
-		_, err = x.doSignedRequest(ctx, accessToken, "POST", x.uploadURL("/1.1/media/upload.json"), &body, map[string]string{
-			headerContentType: writer.FormDataContentType(),
-		})
+	var err error
+	if state.ProviderMediaID == "" {
+		state, err = x.initChunkedMedia(ctx, accessToken, mimeType, mediaCategory, totalBytes, checkpoint)
 		if err != nil {
-			return "", fmt.Errorf("x APPEND segment %d: %w", segmentIndex, err)
+			return "", err
 		}
-		segmentIndex++
-		remaining -= int64(n)
 	}
-
+	state, err = x.appendMediaChunks(ctx, accessToken, reader, state, checkpoint)
+	if err != nil {
+		return "", err
+	}
+	mediaID := state.ProviderMediaID
 	finalizeValues := url.Values{}
 	finalizeValues.Set("command", "FINALIZE")
 	finalizeValues.Set("media_id", mediaID)
 
-	respBody, err = x.doSignedRequest(ctx, accessToken, "POST", x.uploadURL("/1.1/media/upload.json"), strings.NewReader(finalizeValues.Encode()), map[string]string{
+	state.OpaqueState = "finalizing"
+	state.Status = MediaUploadUploaded
+	state.RetryClassification = MediaRetryReconcile
+	if err := checkpoint(state); err != nil {
+		return "", err
+	}
+	respBody, err := x.doSignedRequest(ctx, accessToken, "POST", x.uploadURL("/1.1/media/upload.json"), strings.NewReader(finalizeValues.Encode()), map[string]string{
 		headerContentType: contentTypeForm,
 	})
 	if err != nil {
@@ -594,6 +566,10 @@ func (x *XAdapter) uploadMediaChunked(ctx context.Context, accessToken, mimeType
 		return "", fmt.Errorf("decoding X FINALIZE: %w", err)
 	}
 
+	state.OpaqueState = "processing"
+	if err := checkpoint(state); err != nil {
+		return "", err
+	}
 	if finalizeResp.ProcessingInfo != nil {
 		if err := x.waitForMediaProcessing(ctx, accessToken, mediaID, finalizeResp.ProcessingInfo); err != nil {
 			return "", err
@@ -639,7 +615,7 @@ func (x *XAdapter) waitForMediaProcessing(ctx context.Context, accessToken, medi
 		}
 
 		if statusResp.ProcessingInfo == nil {
-			return nil
+			return &MediaUploadError{RetryClassification: MediaRetryReconcile, Err: fmt.Errorf("x media processing status is missing")}
 		}
 		*info = *statusResp.ProcessingInfo
 
@@ -979,7 +955,14 @@ func (x *XAdapter) doSignedRequest(ctx context.Context, combinedAccessToken, met
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, NewHTTPError(resp.StatusCode, resp.Header, respBody)
+		providerErr := NewHTTPError(resp.StatusCode, resp.Header, respBody)
+		if resp.StatusCode == http.StatusPaymentRequired {
+			var typed *HTTPError
+			if errors.As(providerErr, &typed) {
+				typed.Code = "x:credits_depleted"
+			}
+		}
+		return nil, providerErr
 	}
 
 	return respBody, nil

@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -28,9 +27,7 @@ const (
 	tiktokPublishStatusURL  = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
 	tiktokTitleMaxUnits     = 2200
 	tiktokVideoListURL      = "https://open.tiktokapis.com/v2/video/list/?fields=id,create_time,title,video_description,share_url,like_count,comment_count,share_count,view_count"
-	tiktokReconcileListSize = 20
 	tiktokMaxChunkSize      = 64 * 1024 * 1024
-	tiktokReconcileWindow   = 2 * time.Hour
 )
 
 type TikTokAdapter struct {
@@ -158,7 +155,7 @@ func (t *TikTokAdapter) exchangeToken(ctx context.Context, values map[string]str
 		return nil, fmt.Errorf("decoding %s: %w", label, err)
 	}
 	if tokenResp.Error != "" {
-		return nil, fmt.Errorf("%s: %s", label, firstNonEmptyString(tokenResp.Description, tokenResp.Error))
+		return nil, tiktokAPIError{Code: tokenResp.Error}.err(label)
 	}
 	if tokenResp.AccessToken == "" {
 		return nil, fmt.Errorf("%s: missing access token", label)
@@ -263,9 +260,14 @@ func (t *TikTokAdapter) UploadMediaWithMetadata(ctx context.Context, accessToken
 }
 
 func (t *TikTokAdapter) Publish(ctx context.Context, accessToken, _ string, req *PublishRequest) (PublishResult, error) {
-	return executePublishWrite(req, "submit_post", func() (string, error) {
+	result, err := executePublishWrite(req, "submit_post", func() (string, error) {
 		return t.publish(ctx, accessToken, req)
 	})
+	var pending *tiktokPendingError
+	if errors.As(err, &pending) {
+		return pending.result, nil
+	}
+	return result, err
 }
 
 func (t *TikTokAdapter) publish(ctx context.Context, accessToken string, req *PublishRequest) (string, error) {
@@ -406,7 +408,12 @@ func (t *TikTokAdapter) uploadVideoFileToInbox(ctx context.Context, accessToken,
 			return "", fmt.Errorf("tiktok video chunk upload: %w", err)
 		}
 	}
-	return t.waitForPublishID(ctx, accessToken, publishID, nil)
+	id, err := t.waitForPublishID(ctx, accessToken, publishID, nil)
+	var pending *tiktokPendingError
+	if errors.As(err, &pending) && pending.result.ProviderState == "inbox_delivered" {
+		return publishID, nil
+	}
+	return id, err
 }
 
 // tiktokUploadChunks splits a FILE_UPLOAD the way TikTok's Media Transfer
@@ -540,52 +547,54 @@ func checkpointTikTokSubmission(req *PublishRequest, publishID string) error {
 	})
 }
 
-func (t *TikTokAdapter) ReconcilePublish(ctx context.Context, accessToken, _ string, providerReference string) (PublishResult, error) {
-	providerReference = strings.TrimSpace(providerReference)
-	if providerReference == "" {
+func (t *TikTokAdapter) ReconcilePublish(ctx context.Context, accessToken, accountID, reference string) (PublishResult, error) {
+	return t.ReconcilePublishRequest(ctx, accessToken, accountID, nil, reference)
+}
+
+func (t *TikTokAdapter) ReconcilePublishRequest(ctx context.Context, accessToken, _ string, req *PublishRequest, reference string) (PublishResult, error) {
+	reference = strings.TrimSpace(reference)
+	if reference == "" {
 		return PublishResult{}, fmt.Errorf("tiktok publish reconciliation requires a publish id")
 	}
-	externalID, err := t.waitForPublishID(ctx, accessToken, providerReference, nil)
-	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "publish failed") {
-			return PublishResult{
-				SubmissionState: PublishSubmissionRejected,
-				ProviderState:   "failed", ProviderReference: providerReference,
-				RetrySafety: PublishRetryNever,
-			}, err
-		}
-		return PublishResult{
-			SubmissionState: PublishSubmissionPending,
-			ProviderState:   "processing", ProviderReference: providerReference,
-			RetrySafety: PublishRetryReconcileOnly, ReconcileAfter: time.Minute,
-		}, err
+	id, err := t.waitForPublishID(ctx, accessToken, reference, req)
+	var pending *tiktokPendingError
+	if errors.As(err, &pending) {
+		return pending.result, nil
 	}
-	result := AcceptedPublishResult(externalID)
+	if err != nil {
+		result := pendingTikTokResult(reference, "processing")
+		var providerErr *HTTPError
+		if errors.As(err, &providerErr) && strings.HasPrefix(providerErr.Code, "tiktok_publish_failed:") {
+			result.SubmissionState = PublishSubmissionRejected
+			result.RetrySafety = PublishRetryNever
+			result.ProviderState = "failed"
+		}
+		return result, err
+	}
+	result := AcceptedPublishResult(id)
 	result.ProviderState = "complete"
-	result.ProviderReference = providerReference
+	result.ProviderReference = reference
 	return result, nil
 }
 
-func (t *TikTokAdapter) ReconcilePublishRequest(ctx context.Context, accessToken, _ string, req *PublishRequest, providerReference string) (PublishResult, error) {
-	providerReference = strings.TrimSpace(providerReference)
-	if providerReference == "" {
-		return PublishResult{}, fmt.Errorf("tiktok publish reconciliation requires a publish id")
+type tiktokPendingError struct{ result PublishResult }
+
+func (e *tiktokPendingError) Error() string {
+	return "TikTok publication awaits " + e.result.ProviderState
+}
+func pendingTikTokResult(reference, state string) PublishResult {
+	delay := time.Minute
+	if state == "inbox_delivered" {
+		delay = 15 * time.Minute
 	}
-	externalID, err := t.waitForPublishID(ctx, accessToken, providerReference, req)
-	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "publish failed") {
-			return PublishResult{SubmissionState: PublishSubmissionRejected, ProviderState: "failed", ProviderReference: providerReference, RetrySafety: PublishRetryNever}, err
-		}
-		providerState := "processing"
-		if strings.Contains(strings.ToLower(err.Error()), "public id is unresolved") {
-			providerState = "published_unresolved"
-		}
-		return PublishResult{SubmissionState: PublishSubmissionPending, ProviderState: providerState, ProviderReference: providerReference, RetrySafety: PublishRetryReconcileOnly, ReconcileAfter: time.Minute}, err
+	return PublishResult{SubmissionState: PublishSubmissionPending, ProviderState: state, ProviderReference: reference, RetrySafety: PublishRetryReconcileOnly, ReconcileAfter: delay}
+}
+func pendingTikTokPublication(req *PublishRequest, reference, state string) (string, error) {
+	result := pendingTikTokResult(reference, state)
+	if err := req.Checkpoint(result); err != nil {
+		return "", err
 	}
-	result := AcceptedPublishResult(externalID)
-	result.ProviderState = "complete"
-	result.ProviderReference = providerReference
-	return result, nil
+	return "", &tiktokPendingError{result: result}
 }
 
 func (t *TikTokAdapter) privacyLevel(ctx context.Context, accessToken string, settings map[string]interface{}) (string, error) {
@@ -678,44 +687,31 @@ func allTikTokMediaImages(media []MediaItem) bool {
 }
 
 func (t *TikTokAdapter) waitForPublishID(ctx context.Context, accessToken, publishID string, req *PublishRequest) (string, error) {
-	const maxAttempts = 6
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		respBody, err := DoJSON(ctx, "POST", tiktokPublishStatusURL, map[string]any{
-			"publish_id": publishID,
-		}, map[string]string{
-			headerAuthorization: bearerPrefix + accessToken,
-		})
-		if err != nil {
-			return "", fmt.Errorf("tiktok publish status: %w", err)
-		}
-
-		var statusResp tiktokPublishStatusResponse
-		if err := json.Unmarshal(respBody, &statusResp); err != nil {
-			return "", fmt.Errorf("decoding tiktok publish status: %w", err)
-		}
-		if err := statusResp.Error.err("tiktok publish status"); err != nil {
-			return "", err
-		}
-
-		switch statusResp.Data.Status {
-		case "PUBLISH_COMPLETE":
-			return t.completedPublishID(ctx, accessToken, publishID, req, statusResp)
-		case "SEND_TO_USER_INBOX":
-			return publishID, nil
-		case platformStatusFailed:
-			return "", fmt.Errorf("tiktok publish failed: %s", firstNonEmptyString(statusResp.Data.FailReason, "unknown reason"))
-		}
-
-		if attempt < maxAttempts {
-			select {
-			case <-ctx.Done():
-				return "", ctx.Err()
-			case <-time.After(10 * time.Second):
-			}
-		}
+	body, err := DoJSON(ctx, http.MethodPost, tiktokPublishStatusURL, map[string]any{"publish_id": publishID}, map[string]string{headerAuthorization: bearerPrefix + accessToken})
+	if err != nil {
+		return "", fmt.Errorf("tiktok publish status: %w", err)
 	}
-
-	return publishID, nil
+	var response tiktokPublishStatusResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return "", fmt.Errorf("decoding tiktok publish status: %w", err)
+	}
+	if err := response.Error.err("tiktok publish status"); err != nil {
+		return "", err
+	}
+	switch response.Data.Status {
+	case "PUBLISH_COMPLETE":
+		return t.completedPublishID(publishID, req, response)
+	case "SEND_TO_USER_INBOX":
+		return pendingTikTokPublication(req, publishID, "inbox_delivered")
+	case platformStatusFailed:
+		code := firstSafeProviderCode([]any{response.Data.FailReason})
+		if code == "" {
+			code = "unknown"
+		}
+		return "", &HTTPError{StatusCode: http.StatusBadRequest, Code: "tiktok_publish_failed:" + code}
+	default:
+		return pendingTikTokPublication(req, publishID, "processing")
+	}
 }
 
 // TikTok documents numeric int64 IDs but also returns string IDs. Decode each
@@ -760,95 +756,16 @@ type tiktokPublishStatusResponse struct {
 	Error tiktokAPIError `json:"error"`
 }
 
-// completedPublishID maps a PUBLISH_COMPLETE status to the durable external
-// ID. A completed post without a public ID reconciles through video.list;
-// without that Display API grant the provider publish ID is the receipt.
-func (t *TikTokAdapter) completedPublishID(ctx context.Context, accessToken, publishID string, req *PublishRequest, statusResp tiktokPublishStatusResponse) (string, error) {
+// Public identities must come from TikTok's publish-status receipt. Captions
+// and nearby timestamps cannot prove which public post belongs to this upload.
+func (t *TikTokAdapter) completedPublishID(publishID string, req *PublishRequest, statusResp tiktokPublishStatusResponse) (string, error) {
 	if ids := firstNonEmptyStringSlice(statusResp.Data.PubliclyAvailablePostID, statusResp.Data.PublicalyAvailablePostID); len(ids) > 0 {
 		return ids[0], nil
 	}
-	if !tiktokCanResolvePublishedVideo(req) {
+	if req != nil && settingString(req.Settings, "privacy_level") == "SELF_ONLY" {
 		return publishID, nil
 	}
-	resolvedID, resolveErr := t.resolvePublishedVideoID(ctx, accessToken, req, time.Now().UTC())
-	if resolveErr == nil {
-		return resolvedID, nil
-	}
-	var scopeErr *TikTokScopeError
-	if errors.As(resolveErr, &scopeErr) {
-		return publishID, nil
-	}
-	if checkpointErr := req.Checkpoint(PublishResult{
-		SubmissionState: PublishSubmissionPending,
-		ProviderState:   "published_unresolved", ProviderReference: publishID,
-		RetrySafety: PublishRetryReconcileOnly, ReconcileAfter: time.Minute,
-	}); checkpointErr != nil {
-		return "", checkpointErr
-	}
-	return "", resolveErr
-}
-
-func tiktokCanResolvePublishedVideo(req *PublishRequest) bool {
-	if req == nil || req.Profile == "carousel" || allTikTokMediaImages(req.Media) {
-		return false
-	}
-	postingMethod, err := tiktokPostingMethod(req.Settings)
-	return err == nil && postingMethod != "UPLOAD" && settingString(req.Settings, "privacy_level") == "PUBLIC_TO_EVERYONE"
-}
-
-type tiktokReconcileVideo struct {
-	ID               string `json:"id"`
-	CreateTime       int64  `json:"create_time"`
-	Title            string `json:"title"`
-	VideoDescription string `json:"video_description"`
-}
-
-var tiktokVideoIDPattern = regexp.MustCompile(`^[0-9]{1,32}$`)
-
-func (t *TikTokAdapter) resolvePublishedVideoID(ctx context.Context, accessToken string, req *PublishRequest, now time.Time) (string, error) {
-	body, err := DoJSON(ctx, http.MethodPost, tiktokVideoListURL, map[string]any{"max_count": tiktokReconcileListSize}, map[string]string{
-		headerAuthorization: bearerPrefix + accessToken,
-	})
-	if err != nil {
-		return "", fmt.Errorf("tiktok completed publish lookup: %w", err)
-	}
-	var response struct {
-		Data struct {
-			Videos []tiktokReconcileVideo `json:"videos"`
-		} `json:"data"`
-		Error tiktokAPIError `json:"error"`
-	}
-	if err := json.Unmarshal(body, &response); err != nil {
-		return "", fmt.Errorf("decoding tiktok completed publish lookup: %w", err)
-	}
-	if isTikTokScopeDeniedCode(response.Error.Code) {
-		return "", &TikTokScopeError{Code: strings.TrimSpace(response.Error.Code), Operation: "completed publish lookup"}
-	}
-	if err := response.Error.err("tiktok completed publish lookup"); err != nil {
-		return "", err
-	}
-	expectedCaption := normalizeTikTokReconcileText(tiktokTitle(req.Content))
-	windowStart := now.Add(-tiktokReconcileWindow)
-	windowEnd := now.Add(5 * time.Minute)
-	matches := make([]string, 0, 1)
-	for _, video := range response.Data.Videos {
-		publishedAt := time.Unix(video.CreateTime, 0).UTC()
-		if !tiktokVideoIDPattern.MatchString(strings.TrimSpace(video.ID)) || publishedAt.Before(windowStart) || publishedAt.After(windowEnd) {
-			continue
-		}
-		caption := normalizeTikTokReconcileText(firstNonEmptyString(video.VideoDescription, video.Title))
-		if caption == expectedCaption {
-			matches = append(matches, strings.TrimSpace(video.ID))
-		}
-	}
-	if len(matches) != 1 {
-		return "", fmt.Errorf("tiktok publish completed but public id is unresolved: expected one recent exact match, found %d", len(matches))
-	}
-	return matches[0], nil
-}
-
-func normalizeTikTokReconcileText(value string) string {
-	return strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
+	return pendingTikTokPublication(req, publishID, "published_unresolved")
 }
 
 func validateTikTokMedia(media []MediaItem) []MediaValidationIssue {
@@ -1043,11 +960,22 @@ func (e tiktokAPIError) err(label string) error {
 	if e.Code == "" || e.Code == "ok" {
 		return nil
 	}
-	message := firstNonEmptyString(e.Message, e.Code)
-	if e.LogID != "" {
-		return fmt.Errorf("%s: %s (log_id=%s)", label, message, e.LogID)
+	status := http.StatusBadRequest
+	switch e.Code {
+	case "server_error", "temporarily_unavailable", "internal_error":
+		status = http.StatusServiceUnavailable
+	case "rate_limit_exceeded":
+		status = http.StatusTooManyRequests
+	case "invalid_grant", "access_token_invalid", "invalid_token":
+		status = http.StatusUnauthorized
+	case "scope_not_authorized", "scope_permission_missed", "invalid_client":
+		status = http.StatusForbidden
 	}
-	return fmt.Errorf("%s: %s", label, message)
+	code := firstSafeProviderCode([]any{e.Code})
+	if code == "" {
+		code = "tiktok_error"
+	}
+	return fmt.Errorf("%s: %w", label, &HTTPError{StatusCode: status, Code: code, TraceID: firstSafeProviderCode([]any{e.LogID})})
 }
 
 // tiktokCapabilityStateDisplayProfile marks a connected account whose TikTok

@@ -560,3 +560,74 @@ func TestDisableDuringProviderReadStopsTheInFlightImport(t *testing.T) {
 	require.False(t, loadImportState(t, db, account.ID).Enabled)
 	require.Zero(t, countImported(t, db, account.ID))
 }
+
+type aliasNativeAdapter struct {
+	platform.Adapter
+	items []platform.NativePostItem
+}
+
+func (a aliasNativeAdapter) NativePostSupport() platform.NativePostSupport {
+	return platform.NativePostSupport{Supported: true}
+}
+func (a aliasNativeAdapter) ListNativePosts(context.Context, string, platform.NativePostRequest) (platform.NativePostPage, error) {
+	return platform.NativePostPage{Items: a.items, Coverage: platform.NativePostComplete}, nil
+}
+
+func TestNativeImportsExcludeConfirmedFacebookPhotoAlias(t *testing.T) {
+	db := newPostImportTestDB(t)
+	account := seedPostImportAccount(t, db, "facebook", "page", "")
+	now := time.Date(2026, 10, 10, 9, 0, 0, 0, time.UTC)
+	publication := &models.Publication{ID: "pub", WorkspaceID: account.WorkspaceID, Status: models.PublicationStatusPublished, CreatedAt: now, UpdatedAt: now}
+	_, err := db.NewInsert().Model(publication).Exec(t.Context())
+	require.NoError(t, err)
+	rendition := &models.Rendition{ID: "rend", PublicationID: publication.ID, SocialAccountID: account.ID, Platform: "facebook", Status: models.RenditionStatusPublished, ExternalID: "photo-1"}
+	_, err = db.NewInsert().Model(rendition).Exec(t.Context())
+	require.NoError(t, err)
+	service := NewService(db, &stubTokenSource{token: "token"})
+	service.now = func() time.Time { return now }
+	service.SetProvider("facebook", aliasNativeAdapter{items: []platform.NativePostItem{
+		{ProviderPostID: "page_feed-1", IdentityAliases: []string{"photo-1"}, Origin: platform.ImportedPostOriginExternal, Text: "same caption", PublishedAt: now.Add(time.Minute)},
+		{ProviderPostID: "page_feed-2", IdentityAliases: []string{"other-photo"}, Origin: platform.ImportedPostOriginExternal, Text: "same caption", PublishedAt: now.Add(2 * time.Minute)},
+	}})
+	_, err = service.Enable(t.Context(), account.WorkspaceID, account.ID)
+	require.NoError(t, err)
+	service.now = func() time.Time { return now.Add(time.Minute) }
+	require.NoError(t, service.SyncAccount(t.Context(), account.WorkspaceID, account.ID))
+	posts, err := service.ListImported(t.Context(), account.WorkspaceID, account.ID, 10)
+	require.NoError(t, err)
+	require.Len(t, posts, 1)
+	require.Equal(t, "page_feed-2", posts[0].ProviderPostID)
+}
+
+func TestNativeImportDefersUnresolvedInstagramPublication(t *testing.T) {
+	db := newPostImportTestDB(t)
+	account := seedPostImportAccount(t, db, "instagram", "ig", "")
+	now := time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC)
+	service := NewService(db, &stubTokenSource{token: "token"})
+	service.now = func() time.Time { return now }
+	service.SetProvider("instagram", aliasNativeAdapter{items: []platform.NativePostItem{{ProviderPostID: "ambiguous-id", Origin: platform.ImportedPostOriginExternal, Text: "caption", PublishedAt: now.Add(30 * time.Second)}}})
+	_, err := db.NewInsert().Model(&models.Publication{ID: "pub-pending", WorkspaceID: account.WorkspaceID, Status: models.PublicationStatusScheduled}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Rendition{ID: "rend-pending", PublicationID: "pub-pending", SocialAccountID: account.ID, TargetKey: "rendition", Platform: "instagram", Status: models.RenditionStatusScheduled}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.PublicationAuthorization{ID: "auth", BatchID: "batch", WorkspaceID: account.WorkspaceID, PublicationID: "pub-pending", RenditionID: "rend-pending", SocialAccountID: account.ID, TargetKey: "rendition", Action: "publish", ActorOrigin: "legacy", ActorUserID: "user-1", PublicationRevision: 1, ContentHash: "sha256:content", MediaHash: "sha256:media", SettingsHash: "sha256:settings", PolicyMode: "immediate", ConfirmedAt: now, ScheduledAt: now}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.ProviderWriteAttempt{ID: "attempt", AuthorizationID: "auth", OperationID: "op", AttemptNumber: 1, WorkspaceID: account.WorkspaceID, PublicationID: "pub-pending", RenditionID: "rend-pending", SocialAccountID: account.ID, TargetKey: "rendition", Provider: "instagram", Operation: "publish", PayloadFingerprint: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", Status: "sending", SubmissionState: "pending", RetrySafety: "reconcile_only"}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.ProviderDelivery{ID: "delivery", PublicationID: "pub-pending", RenditionID: "rend-pending", CurrentAttemptNumber: 1, TargetKey: "rendition", CurrentAttemptID: "attempt", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Provider: "instagram", CurrentAttemptCreatedAt: now.Add(-2 * time.Minute), State: "processing", CreatedAt: now.Add(-2 * time.Minute), UpdatedAt: now}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = service.Enable(t.Context(), account.WorkspaceID, account.ID)
+	require.NoError(t, err)
+	service.now = func() time.Time { return now.Add(time.Minute) }
+	require.NoError(t, service.SyncAccount(t.Context(), account.WorkspaceID, account.ID))
+	require.Zero(t, countImported(t, db, account.ID))
+	state := loadImportState(t, db, account.ID)
+	require.Equal(t, "published_identity_pending", state.FailureCode)
+	require.True(t, state.InitialFinishedAt.IsZero())
+	// Repeated provider reconciliation must not renew the identity ambiguity window.
+	_, err = db.NewUpdate().Model((*models.ProviderDelivery)(nil)).Set("current_attempt_created_at = ?", now.AddDate(0, 0, -31)).Where("id = ?", "delivery").Exec(t.Context())
+	require.NoError(t, err)
+	service.now = func() time.Time { return now.Add(20 * time.Minute) }
+	require.NoError(t, service.SyncAccount(t.Context(), account.WorkspaceID, account.ID))
+	require.Equal(t, 1, countImported(t, db, account.ID))
+}

@@ -80,6 +80,8 @@ type NativePostRequest struct {
 // NativePostItem is the bounded provider-neutral projection returned by a
 // native reader. Origin is always external; there is no raw response field.
 type NativePostItem struct {
+	// IdentityAliases contains provider-confirmed alternate IDs, never caption matches.
+	IdentityAliases  []string
 	ProviderPostID   string
 	ProviderParentID string
 	Title            string
@@ -292,6 +294,11 @@ func nativePostEndpoint(base, path string, params url.Values) string {
 func NativePostPublishedIdentity(provider, externalID string) string {
 	if strings.EqualFold(provider, providerBluesky) {
 		return blueskyExternalURI(externalID)
+	}
+	if strings.EqualFold(provider, providerTikTok) {
+		if aliases := tiktokShareIdentity(externalID); len(aliases) > 0 {
+			return aliases[0]
+		}
 	}
 	return strings.TrimSpace(externalID)
 }

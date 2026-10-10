@@ -59,6 +59,7 @@ func TestNormalizeMetaPublishErrorClassifiesSubcodes(t *testing.T) {
 			code:       "meta:nonexistent:100:33",
 			subcode:    "33",
 		},
+		{name: "trial reel limit", body: `{"error":{"code":9,"error_subcode":2207078}}`, statusCode: http.StatusTooManyRequests, code: "meta:trial_reel_limit:2207078", subcode: "2207078"},
 		{name: "temporary posting block", body: `{"error":{"code":368,"error_subcode":1390008}}`, statusCode: http.StatusTooManyRequests, code: "meta:rate_limit:368:1390008", subcode: "1390008"},
 		{name: "other policy block stays terminal", body: `{"error":{"code":368,"error_subcode":1390009}}`, statusCode: http.StatusBadRequest, code: "meta:368", subcode: "1390009"},
 		{name: "policy block without subcode stays terminal", body: `{"error":{"code":368}}`, statusCode: http.StatusBadRequest, code: "meta:368"},
@@ -159,6 +160,9 @@ func TestClassifyInstagramContainerFailureUsesSameClassifier(t *testing.T) {
 			detail:     "Permissions error (#200) on secret-container",
 			statusCode: http.StatusForbidden,
 			code:       "meta:permission:200",
+		},
+		{
+			name: "Trial Reel processing limit", detail: "Trial Reel limit (2207078)", statusCode: http.StatusTooManyRequests, code: "meta:trial_reel_limit:2207078",
 		},
 		{
 			name:       "unrecognized detail stays a generic processing failure",

@@ -673,6 +673,7 @@ func repostSourceURL(source models.SocialAccount, rendition models.Rendition) st
 		source.AccountUsername,
 		source.InstanceURL,
 		rendition.ExternalID,
+		rendition.OutputProfile,
 	)
 }
 

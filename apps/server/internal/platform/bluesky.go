@@ -232,11 +232,6 @@ func blueskyJWTExpiresIn(token string) (int, error) {
 }
 
 func (b *BlueskyAdapter) GetProfile(ctx context.Context, accessToken string) (*UserProfile, error) {
-	type blueskySession struct {
-		Did    string `json:"did"`
-		Handle string `json:"handle"`
-	}
-
 	session, err := blueskyDoBearerJSON[blueskySession](ctx, b, "GET", b.pdsURL+"/xrpc/com.atproto.server.getSession", accessToken, nil, "bluesky session")
 	if err != nil {
 		return nil, err
@@ -262,10 +257,11 @@ func (b *BlueskyAdapter) GetProfile(ctx context.Context, accessToken string) (*U
 	}
 
 	return &UserProfile{
-		ID:          firstNonEmptyString(profile.Did, session.Did),
-		Username:    firstNonEmptyString(profile.Handle, session.Handle),
-		DisplayName: profile.DisplayName,
-		AvatarURL:   profile.Avatar,
+		ID:              firstNonEmptyString(profile.Did, session.Did),
+		Username:        firstNonEmptyString(profile.Handle, session.Handle),
+		DisplayName:     profile.DisplayName,
+		AvatarURL:       profile.Avatar,
+		CapabilityState: blueskyEmailCapabilityState(session.EmailConfirmed),
 	}, nil
 }
 
@@ -305,6 +301,9 @@ func (b *BlueskyAdapter) UploadMedia(ctx context.Context, accessToken, accountID
 }
 
 func (b *BlueskyAdapter) uploadVideo(ctx context.Context, accessToken, did, mimeType string, reader io.Reader) (string, error) {
+	if err := b.checkVideoEmail(ctx, accessToken); err != nil {
+		return "", err
+	}
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return "", fmt.Errorf("reading video data: %w", err)
@@ -332,7 +331,7 @@ func (b *BlueskyAdapter) uploadVideo(ctx context.Context, accessToken, did, mime
 		"Content-Length":    strconv.Itoa(len(data)),
 	})
 	if err != nil {
-		return "", fmt.Errorf("bluesky video upload: %w", err)
+		return "", fmt.Errorf("bluesky video upload: %w", normalizeBlueskyVideoError(err))
 	}
 
 	jobStatus, err := decodeBlueskyVideoJobStatus(jobResp)
@@ -340,6 +339,9 @@ func (b *BlueskyAdapter) uploadVideo(ctx context.Context, accessToken, did, mime
 		return "", fmt.Errorf("decoding bluesky video job: %w", err)
 	}
 	if jobStatus.State == "JOB_STATE_FAILED" {
+		if jobStatus.Error == "unconfirmed_email" {
+			return "", blueskyUnconfirmedEmailError()
+		}
 		return "", fmt.Errorf("bluesky video processing failed: %s", jobStatus.failureMessage())
 	}
 
@@ -690,6 +692,9 @@ func (b *BlueskyAdapter) pollVideoJob(ctx context.Context, serviceToken, jobID s
 				return jobStatus.Blob, nil
 			}
 		case "JOB_STATE_FAILED":
+			if jobStatus.Error == "unconfirmed_email" {
+				return nil, blueskyUnconfirmedEmailError()
+			}
 			return nil, fmt.Errorf("bluesky video processing failed: %s", jobStatus.failureMessage())
 		}
 
@@ -1391,4 +1396,57 @@ func getParentRoot(replyToID string) interface{} {
 		return parent["_root"]
 	}
 	return parent
+}
+
+type blueskySession struct {
+	Did            string `json:"did"`
+	Handle         string `json:"handle"`
+	EmailConfirmed *bool  `json:"emailConfirmed"`
+}
+
+func blueskyEmailCapabilityState(confirmed *bool) map[string]string {
+	if confirmed == nil {
+		return map[string]string{"bluesky_email_confirmation": "unknown"}
+	}
+	state := "unconfirmed"
+	if *confirmed {
+		state = "confirmed"
+	}
+	return map[string]string{"bluesky_email_confirmation": state}
+}
+func blueskyUnconfirmedEmailError() error {
+	return &HTTPError{StatusCode: http.StatusForbidden, Code: "bluesky:unconfirmed_email"}
+}
+func normalizeBlueskyVideoError(err error) error {
+	var providerErr *HTTPError
+	if errors.As(err, &providerErr) && providerErr.Code == "unconfirmed_email" {
+		return blueskyUnconfirmedEmailError()
+	}
+	return err
+}
+func (b *BlueskyAdapter) ResolveAccountPublishingCapabilities(ctx context.Context, token string, input AccountCapabilityInput) (AccountCapabilityResult, error) {
+	result := AccountCapabilityResult{Revision: "bluesky-video-email-v1"}
+	if !strings.Contains(input.MediaShape, "video") && input.Intent != "short_video" && input.OutputProfile != "bluesky.video" {
+		return result, nil
+	}
+	session, err := blueskyDoBearerJSON[blueskySession](ctx, b, http.MethodGet, b.pdsURL+"/xrpc/com.atproto.server.getSession", token, nil, "bluesky session")
+	if err != nil {
+		return result, err
+	}
+	result.State = blueskyEmailCapabilityState(session.EmailConfirmed)
+	if session.EmailConfirmed != nil && !*session.EmailConfirmed {
+		result.UnavailableReason = "Verify your email in Bluesky before publishing videos. Text and image posts remain available."
+	}
+	return result, nil
+}
+
+func (b *BlueskyAdapter) checkVideoEmail(ctx context.Context, accessToken string) error {
+	session, err := blueskyDoBearerJSON[blueskySession](ctx, b, http.MethodGet, b.pdsURL+"/xrpc/com.atproto.server.getSession", accessToken, nil, "bluesky session")
+	if err != nil {
+		return err
+	}
+	if session.EmailConfirmed != nil && !*session.EmailConfirmed {
+		return blueskyUnconfirmedEmailError()
+	}
+	return nil
 }

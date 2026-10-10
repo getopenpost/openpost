@@ -339,3 +339,100 @@ func TestXMediaProcessingCompletesAfterOmittedCheckAfterSecs(t *testing.T) {
 		t.Fatalf("expected one STATUS poll after the minimum wait, got %d", statusCalls)
 	}
 }
+
+func TestXResumableMediaKeepsAcceptedIDAfterProcessingInterruption(t *testing.T) {
+	starts, appends, finalizes, polls := 0, 0, 0, 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = r.ParseMultipartForm(8 * 1024 * 1024)
+		switch r.FormValue("command") {
+		case "INIT":
+			starts++
+			_, _ = w.Write([]byte(`{"media_id_string":"media-1","expires_after_secs":86400}`))
+		case "APPEND":
+			appends++
+			w.WriteHeader(204)
+		case "FINALIZE":
+			finalizes++
+			_, _ = w.Write([]byte(`{"processing_info":{"state":"pending","check_after_secs":1}}`))
+		case "STATUS":
+			polls++
+			_, _ = w.Write([]byte(`{"processing_info":{"state":"succeeded"}}`))
+		default:
+			t.Errorf("unexpected command %s", r.FormValue("command"))
+			w.WriteHeader(400)
+		}
+	}))
+	defer server.Close()
+	adapter := NewXAdapter("", "", "")
+	defer close(adapter.cleanupDone)
+	adapter.uploadBaseURL = server.URL
+	uploader, ok := any(adapter).(ResumableMetadataMediaUploader)
+	if !ok {
+		t.Fatal("X cannot checkpoint an accepted media upload")
+	}
+	request := UploadMediaRequest{MimeType: "video/mp4", Size: 3, Reader: strings.NewReader("abc"), OpenReaderAt: func(offset int64) (io.ReadCloser, error) { return io.NopCloser(strings.NewReader("abc"[offset:])), nil }}
+	var state ResumableMediaUploadState
+	checkpoint := func(next ResumableMediaUploadState) error { state = next; return nil }
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Millisecond)
+	defer cancel()
+	_, err := uploader.UploadMediaResumable(ctx, "access|secret", "account", request, state, checkpoint)
+	if err == nil || state.ProviderMediaID != "media-1" || state.UploadedBytes != 3 {
+		t.Fatalf("lost media receipt: state=%+v err=%v", state, err)
+	}
+	id, err := uploader.UploadMediaResumable(t.Context(), "access|secret", "account", request, state, checkpoint)
+	if err != nil || id != "media-1" || starts != 1 || appends != 1 || finalizes != 1 || polls != 1 {
+		t.Fatalf("media processing retry repeated upload: id=%s err=%v init=%d append=%d finalize=%d polls=%d", id, err, starts, appends, finalizes, polls)
+	}
+}
+
+func TestXPublicationMapsDeveloperCredits(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(402)
+		_, _ = w.Write([]byte(`{"title":"CreditsDepleted","detail":"private account"}`))
+	}))
+	defer server.Close()
+	adapter := NewXAdapter("", "", "")
+	defer close(adapter.cleanupDone)
+	adapter.apiBaseURL = server.URL
+	_, err := adapter.Publish(t.Context(), "access|secret", "account", &PublishRequest{Content: "Hello"})
+	var providerErr *HTTPError
+	if !errors.As(err, &providerErr) || providerErr.Code != "x:credits_depleted" {
+		t.Fatalf("X billing should identify developer credits: %v", err)
+	}
+}
+
+func TestXResumableImageRecoversFromReadinessBudgetRejection(t *testing.T) {
+	for _, status := range []int{402, 429, 503} {
+		t.Run(strconv.Itoa(status), func(t *testing.T) {
+			calls := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				calls++
+				w.Header().Set("Content-Type", "application/json")
+				if calls == 1 {
+					w.WriteHeader(status)
+					_, _ = w.Write([]byte(`{"error":"unavailable"}`))
+					return
+				}
+				_, _ = w.Write([]byte(`{"media_id_string":"image-1","expires_after_secs":3600}`))
+			}))
+			defer server.Close()
+			adapter := NewXAdapter("", "", "")
+			defer close(adapter.cleanupDone)
+			adapter.uploadBaseURL = server.URL
+			request := UploadMediaRequest{MimeType: "image/png", Size: 3, Reader: strings.NewReader("abc")}
+			var saved ResumableMediaUploadState
+			checkpoint := func(next ResumableMediaUploadState) error { saved = next; return nil }
+			_, err := adapter.UploadMediaResumable(t.Context(), "access|secret", "account", request, saved, checkpoint)
+			classification, ok := MediaRetryClassificationForError(err)
+			if !ok || classification != MediaRetrySafeResume {
+				t.Fatalf("recoverable %d response stranded media: %v", status, err)
+			}
+			request.Reader = strings.NewReader("abc")
+			id, err := adapter.UploadMediaResumable(t.Context(), "access|secret", "account", request, saved, checkpoint)
+			if err != nil || id != "image-1" || saved.SessionExpiresAt.IsZero() || calls != 2 {
+				t.Fatalf("image retry failed or lost expiry: %s %+v %v calls=%d", id, saved, err, calls)
+			}
+		})
+	}
+}

@@ -245,3 +245,15 @@ func TestMastodonReaderCompletesOnShortPage(t *testing.T) {
 	require.Empty(t, page.NextCursor)
 	require.Equal(t, NativePostComplete, page.Coverage)
 }
+
+func TestFacebookNativeReadsCarryPhotoIdentityAliases(t *testing.T) {
+	original := httpClient
+	defer func() { httpClient = original }()
+	httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		return jsonResponse(r, `{"data":[{"id":"page_feed","from":{"id":"page"},"created_time":"2026-10-10T10:00:00Z","attachments":{"data":[{"target":{"id":"photo"}}]}}]}`), nil
+	})}
+	page, err := NewFacebookAdapter("", "", "").ListNativePosts(t.Context(), "token", NativePostRequest{AccountID: "page"})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1)
+	require.Contains(t, page.Items[0].IdentityAliases, "photo")
+}

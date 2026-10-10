@@ -1025,6 +1025,10 @@ func classifyRepurposeFailure(err error) classifiedJobFailure {
 }
 
 func classifyJobContinuation(processErr error) (classifiedJobFailure, bool) {
+	var directed *publisher.RetryableError
+	if errors.As(processErr, &directed) && (directed.Failure.Code == "provider_submission_pending" || directed.Failure.Code == "tiktok_inbox_delivered") {
+		return classifiedJobFailure{retryable: true, retryAfter: directed.Failure.RetryAfter, message: directed.Failure.Message, preserveAttempts: true}, true
+	}
 	if retryAfter, continuation := repostservice.IsExecutionContinuation(processErr); continuation {
 		return classifiedJobFailure{
 			retryable: true, retryAfter: retryAfter,

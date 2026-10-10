@@ -115,3 +115,16 @@ func TestPinterestBoardFailureIsTerminalAndNamesBoard(t *testing.T) {
 	require.Equal(t, FailureActionEdit, failure.Action)
 	require.Contains(t, failure.Message, "selected board")
 }
+
+func TestProviderPrerequisiteFailuresGiveProviderGuidance(t *testing.T) {
+	for _, test := range []struct {
+		code    string
+		status  int
+		message string
+	}{{"x:credits_depleted", 402, "X developer account"}, {"bluesky:unconfirmed_email", 403, "Verify your email"}, {"google:invalid_rapt", 401, "Workspace administrator"}} {
+		failure := ClassifyFailure(&platform.HTTPError{StatusCode: test.status, Code: test.code})
+		require.Contains(t, failure.Message, test.message)
+		require.False(t, failure.Retryable)
+		require.NotEqual(t, FailureActionBilling, failure.Action)
+	}
+}

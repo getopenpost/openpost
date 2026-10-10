@@ -3,7 +3,9 @@ package platform
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -74,7 +76,19 @@ func (t *TikTokAdapter) ListNativePosts(ctx context.Context, token string, input
 			page.Coverage = NativePostComplete
 			continue
 		}
-		appendNativePost(&page, input, NativePostItem{ProviderPostID: video.ID, Title: video.Title, Text: video.Description, PublishedAt: published, ExternalURL: video.ShareURL})
+		appendNativePost(&page, input, NativePostItem{ProviderPostID: video.ID, IdentityAliases: tiktokShareIdentity(video.ShareURL), Title: video.Title, Text: video.Description, PublishedAt: published, ExternalURL: video.ShareURL})
 	}
 	return page, nil
+}
+
+func tiktokShareIdentity(rawURL string) []string {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || parsed.Scheme != "https" || (parsed.Host != "www.tiktok.com" && parsed.Host != "tiktok.com") || parsed.User != nil {
+		return nil
+	}
+	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	if len(parts) != 3 || !strings.HasPrefix(parts[0], "@") || (parts[1] != "photo" && parts[1] != "video") || !numericContent.MatchString(parts[2]) {
+		return nil
+	}
+	return []string{parts[2]}
 }

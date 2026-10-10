@@ -15,7 +15,7 @@ var (
 // DeterministicContentURL returns a public post URL when a provider's stored
 // publish result contains everything needed to build one without another API
 // request. Providers with opaque IDs use ContentURLResolver instead.
-func DeterministicContentURL(provider, _ string, username, instanceURL, externalID string) string {
+func DeterministicContentURL(provider, _ string, username, instanceURL, externalID string, outputProfile ...string) string {
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	username = strings.TrimPrefix(strings.TrimSpace(username), "@")
 	externalID = strings.TrimSpace(externalID)
@@ -38,7 +38,11 @@ func DeterministicContentURL(provider, _ string, username, instanceURL, external
 	case "pinterest":
 		return pinterestPinURL(externalID)
 	case "tiktok":
-		return tiktokContentURL(username, externalID)
+		profile := ""
+		if len(outputProfile) > 0 {
+			profile = outputProfile[0]
+		}
+		return tiktokContentURL(username, externalID, profile)
 	case "youtube":
 		return youtubeContentURL(externalID)
 	}
@@ -84,11 +88,15 @@ func linkedinContentURL(externalID string) string {
 	return "https://www.linkedin.com/feed/update/" + externalID
 }
 
-func tiktokContentURL(username, externalID string) string {
+func tiktokContentURL(username, externalID, outputProfile string) string {
 	if username == "" || !numericContent.MatchString(externalID) {
 		return ""
 	}
-	return "https://www.tiktok.com/@" + username + "/video/" + externalID
+	kind := "video"
+	if outputProfile == "tiktok.photo" || outputProfile == "carousel" {
+		kind = "photo"
+	}
+	return "https://www.tiktok.com/@" + username + "/" + kind + "/" + externalID
 }
 
 func youtubeContentURL(externalID string) string {

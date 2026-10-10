@@ -37,3 +37,7 @@ Verified on 2026-10-04. These references define wire behavior, not live account 
 Shoutrrr at `85a789ddb98d0fcf0ad8d162f7653f010024ff1c` uses account opt-in time, queued account reads and provider authorship filters. Its Apache-2.0 source was reviewed as a behavioral reference. OpenPost retains its own cursor checkpoints, scopes, request budgets and independent read-only inventory.
 
 Postiz at `374fb202334a4b6db183f2e44c52c83a9db58a8b` supplies publishing and authorization examples, not a complete native-import flow. Its AGPL-3.0 source was used for behavioral comparison only. No reference source was ported.
+
+Provider-confirmed identity aliases exclude OpenPost-authored posts even when discovery returns a different object ID. Facebook feed attachments supply photo/video target IDs; TikTok share URLs supply public photo/video IDs. Imports never infer authorship from captions. A page overlapping an unresolved Instagram or TikTok publication receipt remains at its current cursor with `published_identity_pending` and retries after 15 minutes. This conservative deferral preserves the activation watermark and does not refund provider reads already made.
+
+Identity deferral is bounded to 30 days from the original provider attempt, not the last reconciliation. Repeated inbox checks cannot extend that window indefinitely. A public post completed later can enter native history until its provider-confirmed identity is resolved.

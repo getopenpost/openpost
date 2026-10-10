@@ -25,7 +25,6 @@ func TestMetaPublishPropagation(t *testing.T) {
 	}{
 		{"threads carousel", "graph.threads.net", "/v1.0/user-1/threads", "/v1.0/user-1/threads_publish", 100, 4279004, true, NewThreadsAdapter("", "", "")},
 		{"threads publish", "graph.threads.net", "/v1.0/user-1/threads", "/v1.0/user-1/threads_publish", 24, 4279009, false, NewThreadsAdapter("", "", "")},
-		{"instagram publish", "graph.facebook.com", "/v25.0/user-1/media", "/v25.0/user-1/media_publish", 9007, 2207027, false, NewInstagramAdapter("", "", "")},
 	} {
 		t.Run(target.name, func(t *testing.T) {
 			t.Setenv("META_GRAPH_API_VERSION", "v25.0")

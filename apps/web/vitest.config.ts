@@ -4,7 +4,9 @@ import { defineConfig } from 'vitest/config';
 
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 const runRealMusicModel = process.env.VITE_OPENPOST_REAL_MUSIC_TEST === '1';
-const browserArgs = ['--enable-unsafe-webgpu'];
+// Use Chromium's supported GPU backends. Forcing experimental WebGPU on a
+// software-only runner can lose unrelated Canvas2D and WebGL contexts.
+const browserArgs: string[] = [];
 const browserTestFiles = ['src/**/*.svelte.{test,spec}.{js,ts}'];
 if (runRealMusicModel) browserArgs.push('--unlimited-storage');
 

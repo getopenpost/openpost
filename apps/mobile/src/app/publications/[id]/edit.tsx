@@ -1237,7 +1237,7 @@ function Composer({
                             account.account_username,
                             platformLabel(account.platform),
                             account.platform,
- account.alias,
+                            account.alias,
                           )}
                         </Text>
                         <BodyText>{platformLabel(account.platform)}</BodyText>

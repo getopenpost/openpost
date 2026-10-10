@@ -268,7 +268,12 @@ export default function PostScreen() {
               (account) => account.id === rendition.social_account_id,
             );
             const platform = platformLabel(rendition.platform);
-            const label = accountHandle(account?.account_username, platform, rendition.platform, account?.alias);
+            const label = accountHandle(
+              account?.account_username,
+              platform,
+              rendition.platform,
+              account?.alias,
+            );
             const expanded = expandedDestination === rendition.id;
             return (
               <View

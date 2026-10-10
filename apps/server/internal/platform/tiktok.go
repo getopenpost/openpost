@@ -983,18 +983,6 @@ func (e tiktokAPIError) err(label string) error {
 // connect, publish, and preflight continue on the Login Kit identity scope.
 const tiktokCapabilityStateDisplayProfile = "tiktok_display_profile"
 
-// TikTokScopeError reports a TikTok request rejected for a missing grant,
-// such as the Display API video.list scope on an app without approval.
-// Callers degrade the dependent feature instead of failing the operation.
-type TikTokScopeError struct {
-	Code      string
-	Operation string
-}
-
-func (e *TikTokScopeError) Error() string {
-	return fmt.Sprintf("tiktok %s: missing authorized scope (%s)", e.Operation, e.Code)
-}
-
 // isTikTokScopeDeniedCode reports the TikTok Content Posting API codes for a
 // missing grant. A publish-time 401 with these codes is a scope gap, not a
 // dead token, and must stay a degradable failure.

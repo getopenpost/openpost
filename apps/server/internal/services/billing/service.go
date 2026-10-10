@@ -1130,6 +1130,10 @@ func applySubscriptionReconciliation(ctx context.Context, tx bun.Tx, model *mode
 	if canceled {
 		return errCanceledCheckoutReconciliation
 	}
+	allowed, err := subscriptionReconciliationOwnsCheckout(ctx, tx, attempt, status, providerSubscriptionID)
+	if err != nil || !allowed {
+		return err
+	}
 	applied, err := upsertSubscription(ctx, tx, model)
 	if err != nil {
 		return err
@@ -1321,4 +1325,30 @@ func parseRequiredPaddleTime(field, value string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("%s must be a valid RFC3339 timestamp", field)
 	}
 	return parsed.UTC(), nil
+}
+
+func subscriptionReconciliationOwnsCheckout(ctx context.Context, tx bun.Tx, attempt models.BillingCheckoutAttempt, status, providerSubscriptionID string) (bool, error) {
+	// Provider timestamps order events within a subscription, not across checkouts.
+	// A superseded checkout cannot regain ownership through a later cancellation
+	// or activation event. The organization lock fences this comparison and write.
+	var current models.BillingSubscription
+	currentErr := tx.NewSelect().Model(&current).Where("organization_id = ?", attempt.OrganizationID).Scan(ctx)
+	if currentErr != nil && !errors.Is(currentErr, sql.ErrNoRows) {
+		return false, currentErr
+	}
+	if currentErr == nil && current.ProviderSubscriptionID != providerSubscriptionID {
+		if status != "active" && status != "trialing" {
+			return false, nil
+		}
+		var previous models.BillingCheckoutAttempt
+		previousErr := tx.NewSelect().Model(&previous).Where("provider_subscription_id = ? AND organization_id = ?", current.ProviderSubscriptionID, attempt.OrganizationID).OrderExpr("created_at DESC").Limit(1).Scan(ctx)
+		if previousErr != nil && !errors.Is(previousErr, sql.ErrNoRows) {
+			return false, previousErr
+		}
+		if previousErr == nil && !attempt.CreatedAt.After(previous.CreatedAt) {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }

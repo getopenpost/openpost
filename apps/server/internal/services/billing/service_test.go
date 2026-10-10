@@ -217,3 +217,29 @@ func recoverySubscription(status paddle.SubscriptionStatus, updatedAt time.Time)
 		}},
 	}
 }
+
+func TestOldSubscriptionEventsCannotReplaceNewCheckout(t *testing.T) {
+	db := newBillingTestDB(t)
+	now := time.Now().UTC()
+	service := NewService(db, "", PaddleConfig{Plans: testCatalog()})
+	service.api = &fakePaddleAPI{customer: &paddle.Customer{ID: "ctm_1", Email: "owner@example.com"}}
+	for i, id := range []string{"chkat_recovery", "chkat_new"} {
+		_, err := db.NewInsert().Model(&models.BillingCheckoutAttempt{CheckoutAttemptID: id, OrganizationID: "org-1", WorkspaceID: "ws-1", UserID: "user-1", Provider: ProviderPaddle, ProviderPriceID: "pri_founder_month", PlanID: "founder", BillingPeriod: "monthly", Status: "created", CreatedAt: now.Add(time.Duration(i) * time.Hour), UpdatedAt: now}).Exec(t.Context())
+		require.NoError(t, err)
+	}
+	old := recoverySubscription(paddle.SubscriptionStatusActive, now)
+	require.NoError(t, service.reconcileSubscription(t.Context(), old, nil))
+	newer := recoverySubscription(paddle.SubscriptionStatusActive, now.Add(time.Hour))
+	newer.ID = "sub_new"
+	newer.CustomData = paddle.CustomData{"checkout_id": "chkat_new"}
+	require.NoError(t, service.reconcileSubscription(t.Context(), newer, nil))
+	for _, status := range []paddle.SubscriptionStatus{paddle.SubscriptionStatusCanceled, paddle.SubscriptionStatusActive} {
+		old.Status = status
+		old.UpdatedAt = now.Add(2 * time.Hour).Format(time.RFC3339Nano)
+		require.NoError(t, service.reconcileSubscription(t.Context(), old, nil))
+		var stored models.BillingSubscription
+		require.NoError(t, db.NewSelect().Model(&stored).Where("organization_id = ?", "org-1").Scan(t.Context()))
+		require.Equal(t, "sub_new", stored.ProviderSubscriptionID)
+		require.Equal(t, "active", stored.Status)
+	}
+}

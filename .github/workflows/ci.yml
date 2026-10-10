@@ -362,7 +362,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.frontend == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -387,15 +387,14 @@ jobs:
       - if: matrix.shard != 'packages'
         working-directory: apps/web
         env:
-          # Keep Chromium process diagnostics visible, as in the application suite.
-          # The pinned browser runner can stall loading large editor graphs without it.
+          # Retain process diagnostics for browser and module-loader failures.
           DEBUG: pw:browser
         run: |
           bun run sync
           if [[ "${{ matrix.shard }}" == server ]]; then
             bunx vitest run --project server
           else
-            bunx vitest run --project client --shard=${{ matrix.shard }}
+            bun run test:browser ${{ matrix.shard }}
           fi
       - if: matrix.shard == 'packages'
         run: bunx turbo run test --filter @openpost/query-catalog --filter @openpost/telemetry --filter @openpost/social-preview

@@ -687,7 +687,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				<div class="space-y-3">
 					{#if showAnalyticsDisabledNotice}
 						<div data-testid="analytics-disabled-notice">
-							<InlineNotice tone="warning" message={m.analytics_feature_disabled_notice()}>
+							<InlineNotice
+								tone="warning"
+								class="flex-col items-start"
+								message={m.analytics_feature_disabled_notice()}
+							>
 								{#snippet actions()}
 									<Button
 										href="/settings?tab=accounts"
@@ -708,6 +712,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 					{#each accountsNeedingReconnect as account (account.id)}
 						<InlineNotice
 							tone="warning"
+							class="flex-col items-start"
 							message={`${accountLabel(account)}: ${account.error_message || m.analytics_permission_required()}`}
 						>
 							{#snippet actions()}

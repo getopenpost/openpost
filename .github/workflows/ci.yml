@@ -362,6 +362,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -385,6 +386,10 @@ jobs:
       - run: bunx playwright install --with-deps chromium
       - if: matrix.shard != 'packages'
         working-directory: apps/web
+        env:
+          # Keep Chromium process diagnostics visible, as in the application suite.
+          # The pinned browser runner can stall loading large editor graphs without it.
+          DEBUG: pw:browser
         run: |
           bun run sync
           if [[ "${{ matrix.shard }}" == server ]]; then

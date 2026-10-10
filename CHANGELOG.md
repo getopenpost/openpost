@@ -4,6 +4,96 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.15.7] - 2026-10-10
+
+### Fixed
+
+- Preserve video proportions in exports, frame captures, and nested compositions when clips and project canvases have different aspect ratios. Prevent extra black bars from being baked into decoded clips, including reversed clips.
+- Fit the complete project into a differently proportioned export resolution without stretching video, text, or shapes, while keeping off-canvas content clipped.
+- Preserve layer scaling, canvas clipping, and transparency when exporting resized PNG and WebP image sequences.
+- Retain video transparency during export, preview proxy generation, cached seeking, and freeze-frame extraction.
+- Scale clip and adjustment-layer blur, default text size, and text padding with the project when rendering at a different resolution.
+- Apply animated clip effects in preview and animated adjustment-layer effects in both preview and export.
+- Render simultaneous transitions on separate visible tracks, and prevent conflicting transition windows on the same track from hiding each other.
+- Preserve nested audio reversal, fades, volume keyframes, speed ramps, and the frame rate retained by existing composition clips.
+- Keep pixel-based GPU effects consistent across export resolutions and preview quality levels, including full-picture pixel sorting at reduced quality.
+- Remove incomplete image-sequence files after failed writes and honor cancellation during encoding, finalization, and ZIP saving.
+- Keep nested audio crossfades aligned through speed ramps, reverse playback, and trimmed exports.
+- Preserve translucent edge colors through GPU blurs and effect chains without dark halos.
+- Reuse one image decode across transition participants and release every decoded bitmap after export.
+- Preserve GIF and Lottie animation timing through splits and start trims, including reversed clips and transition handles.
+- Prepare transition windows once per timeline change to reduce playback and export work on long timelines.
+- Publish the final playhead frame when pausing or reaching playback boundaries after delayed animation frames.
+- Share pending media reads and cancel revoked reads before they can create stale preview URLs.
+- Cancel queued decoder prewarming on teardown and release frames that arrive from an earlier preview session.
+- Release pending media sources when closing the preview, including file reads that finish after teardown.
+- Isolate proxy subscribers so cancellation, retry, and source relinking cannot return an older encode or cancel another caller.
+- Refresh preview frames when a source or proxy changes, cancel obsolete source reads, and replace failed decoder workers. Reuse unchanged source bytes while prewarming successive frames.
+- Preserve nested clip audio ownership through unlinking, movement, deletion, and dissolution. Upgrade existing projects without changing their current sound ownership.
+- Keep trailing silence in audio exports so the output spans the complete selected range.
+- Retain active animated-image frames during cache eviction so transitions and later exports cannot use closed bitmaps.
+- Serialize overlapping frame renders and coalesce nested-preview requests to the latest frame. Refresh paused source timing edits and recover the latest preview after an obsolete source fails.
+- Keep ordinary and nested audio preview connections alive through playback and volume edits, without recreating browser media sources.
+- Preserve audio-effect connections when setting up the rack or changing EQ filters, apply effects in nested previews, and reuse audio-processing workers when only gain changes.
+- Preserve every filtered sample across noise-reduction chunks, stop cancelled processing between chunks, and recover pending previews after worker failure or disposal.
+- Apply noise reduction consistently to nested clips, composition overrides, and reverse shuttle playback, cancelling obsolete filtering work.
+- Follow nested speed ramps and shuttle rates in preview audio. Preserve continuous processed playback across rate changes and update reversal direction even when the source position stays near the same point.
+- Follow authored speed ramps during reverse shuttle, replace queued audio after direction changes, and recover at the current source position after scheduling delays. Play short source-boundary tails instead of dropping them.
+- Keep authored-reverse audio synchronized during faster forward shuttle without repeatedly restarting its native source.
+- Move playing audio onto its destination mixer track immediately, including authored-reverse and reverse-shuttle playback. Reuse prepared direct and nested audio when only the track changes.
+- Keep reversed audio within the authored trim and preserve silence outside the file. Reuse covering reversed samples across trim edits, copy only the selected window, and cap the reversed sample cache at 32 MiB.
+- Bound retained decoded preview audio to 64 MiB while sharing pending decodes and cached reversed windows. Oversized active audio is released when its callers finish.
+- Stop queued exports from starting after the render runner shuts down, including jobs waiting on an active render to cancel.
+- Handle late loading failures after cancellation, including work cancelled before the caller starts waiting.
+- Video transitions and image or video color scopes fall back to CPU rendering when a graphics driver exposes WebGPU but cannot upload canvas images. Transitions also verify rendered pixels before enabling acceleration and recover from a lost GPU device, preventing blank output.
+- Grid scopes keep drawing when graphics acceleration starts or falls back to CPU, including when the first image sample arrives after initialization.
+- Disposed effect renderers release their native graphics contexts so repeated editing sessions cannot exhaust the browser's context limit and interrupt an active preview.
+- Keep Image Editor chat drafts and history when closing the assistant or resizing the window.
+- Keep chat shortcuts from changing canvas layers, and close nested menus before chat with Escape.
+- Avoid sending assistant requests while confirming composed text.
+- Ignore replies from a previous project, and keep the composer available while assistant preferences refresh.
+- Make Image Editor curve controls readable with full channel names and editing instructions. Compact curve controls now expose full names to assistive technology, and selected labels use the theme's readable text color.
+- Preserve minimum control widths in the Image Editor inspector, including touch targets.
+- Changing a color adjustment while viewing Before now shows the edited result immediately, preserving the normal undo history.
+- Page-wide Before and After comparisons keep the artwork visible and reuse loaded media instead of briefly clearing the canvas.
+- Cancel layer renaming with Escape without saving the discarded name. Keep focus on the next control when a layer or page rename saves on blur.
+- Keep layer names readable on phones and touch screens by placing reorder controls in the Layers header.
+- Move layers past sibling groups in one step, without counting their children as neighboring layers.
+- Preserve stacking when grouping or ungrouping layers, including selections across groups. Keep children inside their surviving ancestor when ungrouping nested selections.
+- Keep Image Editor text color and alignment beside font and size controls, including on phones.
+- Keep Fit to canvas accurate when the window changes size during text editing.
+- Replace the previous layer targets when drawing a new pixel selection.
+- Undo in-progress image and page color adjustments without removing earlier edits or losing redo.
+- Cancel pending image and custom-font downloads when an export is cancelled or a render is replaced. Ignore late media responses after closing the editor instead of reporting missing files.
+- Keep unused translations out of startup JavaScript by passing only the shared controls' seven localized messages to their provider.
+- Update the server and CLI to Go 1.26.9 and the server's HTTP networking dependency to include the October security fixes. Production image builds and hosted database checks use digest-pinned Docker Official Images from their public ECR mirror to avoid Docker Hub's anonymous pull quota.
+
+### Marketing
+
+- Continue formatted posts, previews and thread parts into an editable OpenPost draft. Selected local files upload after sign-in; failed uploads can resume. Publishing remains a separate action.
+- Clarify the free-tools directory and thread splitter, improve the ZimaOS setup snippet, and recover known documentation URLs missing the `/docs` prefix. Keep Markdown copies available to readers and agents while excluding them from search results.
+
+### Improvements
+
+- Extract shared Svelte controls, themes, icons and styles into a portable `@openpost/ui` package. OpenPost and marketing share its implementation; docs use its palette tokens and mobile derives native theme manifests from its catalogue.
+- Keep YouTube Localizer as a standalone repository and migrate its interface to Svelte with the fixed orange Dither theme.
+
+### Added
+
+- Add YouTube Localizer and X Timeline Blocker to the free-tools directory, with extension pages, installation links and screenshot previews.
+- Edit signed-in Image Editor designs through the in-app assistant. Hosted access requires an active paid plan; configured self-hosted assistants retain their existing access.
+
+### Improved
+
+- Image Editor color tools now open directly from Adjustments, Curves, Color Wheels, and Scopes. Before and After remain available while scrolling through controls.
+- Color editing remembers the selected tool, layer or page scope, and curve channel when moving between editing workspaces or screen sizes. Short landscape screens place color controls beside the canvas.
+- Only the visible color panel runs its scopes. Resizing keeps the selected scope layout and Before/After comparison without duplicate graphics work in a hidden panel.
+- Recalculate nested group bounds in one children-first pass instead of repeatedly scanning every layer.
+
+### Maintenance
+
+- Browser component tests now use full Chromium by default, matching application browser tests. Mobile upload tests share one filesystem fixture so their results do not depend on test discovery order. The reverse-audio continuity fixture now uses its recording's actual nine-second duration.
+
 ## [7.14.4] - 2026-10-07
 
 ### Documentation

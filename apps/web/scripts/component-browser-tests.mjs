@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import ts from 'typescript';
 import { BaseSequencer } from 'vitest/node';
+import { z } from 'zod';
 
 // Module-mocked files have intermittently stalled imports in reused browser sessions.
 // Give them fresh processes while retaining the canonical Vitest shard selection.
@@ -45,13 +46,10 @@ const directory = mkdtempSync(join(tmpdir(), 'openpost-component-tests-'));
 try {
 	const inventoryPath = join(directory, 'files.json');
 	run(['list', '--project', 'client', '--filesOnly', '--json', inventoryPath]);
-	const inventory = JSON.parse(readFileSync(inventoryPath, 'utf8'));
-	if (
-		!Array.isArray(inventory) ||
-		!inventory.length ||
-		inventory.some((item) => typeof item.file !== 'string')
-	)
-		throw new Error('Invalid Vitest browser file inventory');
+	const inventory = z
+		.array(z.object({ file: z.string().min(1) }))
+		.min(1)
+		.parse(JSON.parse(readFileSync(inventoryPath, 'utf8')));
 	const specs = inventory.map(({ file }) => ({ moduleId: file }));
 	if (new Set(specs.map((spec) => spec.moduleId)).size !== specs.length)
 		throw new Error('Duplicate Vitest browser file inventory');

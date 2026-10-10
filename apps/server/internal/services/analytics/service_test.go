@@ -336,7 +336,8 @@ func TestXAnalyticsUsesDailyCadenceAndDoesNotRepeatForcedReads(t *testing.T) {
 	account.Platform = "x"
 	_, err := db.NewUpdate().Model(&account).Column("platform").WherePK().Exec(t.Context())
 	require.NoError(t, err)
-	now := time.Now().UTC()
+	// Match the microsecond precision preserved by the database.
+	now := time.Date(2026, time.October, 10, 9, 30, 0, 123456000, time.UTC)
 	publication := seedAnalyticsPublication(t, db, account.WorkspaceID, "x-publication", now)
 	rendition := &models.Rendition{ID: "x-rendition", PublicationID: publication.ID, SocialAccountID: account.ID, Platform: "x", TargetKey: "x", Status: models.RenditionStatusPublished, ExternalID: "123", CreatedAt: now, UpdatedAt: now}
 	_, err = db.NewInsert().Model(rendition).Exec(t.Context())
@@ -349,7 +350,7 @@ func TestXAnalyticsUsesDailyCadenceAndDoesNotRepeatForcedReads(t *testing.T) {
 	require.NoError(t, service.syncRendition(t.Context(), rendition.ID))
 	state, err := service.loadState(t.Context(), subjectRendition, rendition.ID)
 	require.NoError(t, err)
-	require.True(t, now.Add(24*time.Hour).Equal(state.NextSyncAt))
+	require.True(t, now.Add(24*time.Hour).Equal(state.NextSyncAt), "stored next sync %s, expected %s", state.NextSyncAt.Format(time.RFC3339Nano), now.Add(24*time.Hour).Format(time.RFC3339Nano))
 	require.NoError(t, service.syncRendition(t.Context(), rendition.ID))
 	require.Equal(t, 1, adapter.contentCalls)
 }

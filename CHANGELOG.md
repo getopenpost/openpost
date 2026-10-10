@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.16.4] - 2026-10-10
+
+### Added
+
+- Add internal account labels and calendar filtering by individual connected accounts.
+
+### Changed
+
+- Schema migration 154 adds an optional internal label to connected accounts. Existing accounts keep their provider names and selectors.
+- Collect X post analytics daily and account for estimated user and post read costs before provider calls, including unresolved exposure in the Hosted X budget.
+- Schema migration 153 preserves existing delivery receipts while adding the user-action state for TikTok inbox drafts. Older binaries do not understand that state; a downgrade requires the pre-upgrade database backup.
+
+### Fixed
+
+- Prevent later events for an old billing subscription from replacing a newer checkout.
+- Keep Instagram containers pending when Meta is still preparing them, and treat missing processing status as unknown. Explain Trial Reel limits.
+- Preserve Facebook video upload IDs through interrupted transfers and processing. Confirm video publication after the finish acknowledgement.
+- Keep TikTok inbox delivery separate from publication, retain its receipt for reconciliation, and use photo URLs for photo posts. Resolve public identities from provider receipts instead of captions. Preserve structured OAuth errors.
+- Resume X media processing from its saved media ID and explain depleted X developer credits. Check Bluesky email verification before video uploads while keeping text and image posting available.
+- Exclude provider-confirmed Facebook and TikTok identity aliases from native imports. Defer ambiguous import pages within a bounded 30-day identity window.
+- MCP post validation and scheduling now use the configured public-media verifier, allowing reachable signed HTTPS media to pass validation while still rejecting inaccessible media.
+- Simplified Analytics with one warnings and data-notes disclosure, compact insights, quieter chart controls, and table-style post results on smaller desktop windows.
+- Check JSX and TSX formatting before commits and pushes, including mobile screens and documentation components.
+
 ## [7.15.7] - 2026-10-10
 
 ### Fixed

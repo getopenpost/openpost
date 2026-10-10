@@ -8,7 +8,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 <script lang="ts">
 	import AnalyticsNumber from '$lib/components/analytics-number.svelte';
 	import AsyncActionButton from '$lib/components/async-action-button.svelte';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import {
 		accountFeaturesQueryOptions,
 		analyticsOverviewQueryOptions,
@@ -33,6 +33,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
+	import * as Popover from '$lib/components/ui/popover';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -69,6 +70,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	let sortMode = $state<AnalyticsSortMode>('engagement');
 	let expandedContentID = $state('');
 	let refreshing = $state(false);
+	let warningsOpen = $state(false);
 	let refreshSequence = 0;
 	let repurposingReferenceKey = $state('');
 	let toastMessage = $state('');
@@ -130,13 +132,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				? m.analytics_daily_engagement()
 				: m.analytics_daily_views()
 	);
-	const chartDescription = $derived(
-		chartMetric === 'followers'
-			? m.analytics_daily_followers_description()
-			: chartMetric === 'engagement'
-				? m.analytics_daily_engagement_description()
-				: m.analytics_daily_views_description()
-	);
 	const accountsNeedingReconnect = $derived(
 		accounts.filter(
 			(account) =>
@@ -168,6 +163,12 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		analyticsAllDisabled && !hasMeasurements && !initialLoading && !error
 	);
 	const showAnalyticsDisabledNotice = $derived(analyticsAllDisabled && hasMeasurements);
+	const warningCount = $derived(
+		accountsNeedingReconnect.length +
+			Number(showAnalyticsDisabledNotice) +
+			Number(Boolean(selectedAccount?.stale)) +
+			Number(!hasMeasurements)
+	);
 	const summaryMetrics = $derived.by(() => {
 		const summary = displayedSummary;
 		if (!summary) return [];
@@ -227,6 +228,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			selectedAccountWorkspaceID = currentWorkspaceID;
 			selectedAccountID = 'all';
 			expandedContentID = '';
+			warningsOpen = false;
 		}
 		if (
 			selectedAccountID !== 'all' &&
@@ -515,7 +517,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		return `openpost:${item.reference.rendition_id ?? ''}`;
 	}
 
-	function contentLabel(item: AnalyticsContent) {
+	function contentLabel(item: Pick<AnalyticsContent, 'title' | 'excerpt'>) {
 		return item.title || item.excerpt || m.analytics_untitled_publication();
 	}
 
@@ -639,7 +641,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				<button
 					type="button"
 					class={[
-						'min-h-9 rounded-sm px-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-7',
+						'min-h-9 rounded-sm px-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-7 [@media(pointer:coarse)]:min-h-11',
 						rangeDays === days
 							? 'bg-secondary text-secondary-foreground'
 							: 'text-muted-foreground hover:text-foreground'
@@ -651,6 +653,112 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				</button>
 			{/each}
 		</div>
+		<Popover.Root bind:open={warningsOpen}>
+			<Popover.Trigger>
+				{#snippet child({ props })}
+					<Button
+						{...props}
+						variant="outline"
+						size="sm"
+						disabled={!overview || accounts.length === 0}
+						data-testid="analytics-warnings"
+					>
+						<ProtectedIcon icon={warningCount ? 'warning' : 'info'} class="size-4" />
+						{warningCount ? m.analytics_warnings() : m.analytics_data_notes()}
+						{#if warningCount}<span class="text-xs tabular-nums">{warningCount}</span>{/if}
+					</Button>
+				{/snippet}
+			</Popover.Trigger>
+			<Popover.Content
+				align="end"
+				collisionPadding={8}
+				class="max-h-[min(32rem,var(--bits-popover-content-available-height))] w-[min(28rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain"
+				aria-label={m.analytics_data_notes()}
+			>
+				<div class="mb-3 flex items-center justify-between gap-2">
+					<h2 class="text-sm font-semibold">{m.analytics_data_notes()}</h2>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						aria-label={m.common_close()}
+						onclick={() => (warningsOpen = false)}><ThemeIcon role="close" class="size-4" /></Button
+					>
+				</div>
+				<div class="space-y-3">
+					{#if showAnalyticsDisabledNotice}
+						<div data-testid="analytics-disabled-notice">
+							<InlineNotice tone="warning" message={m.analytics_feature_disabled_notice()}>
+								{#snippet actions()}
+									<Button
+										href="/settings?tab=accounts"
+										variant="outline"
+										size="sm"
+										data-testid="analytics-disabled-recovery"
+										>{m.feature_disabled_open_details()}</Button
+									>
+								{/snippet}
+								{#if analyticsReason}
+									<p class="mt-1 text-xs leading-5" data-testid="analytics-disabled-reason">
+										{analyticsReason}
+									</p>
+								{/if}
+							</InlineNotice>
+						</div>
+					{/if}
+					{#each accountsNeedingReconnect as account (account.id)}
+						<InlineNotice
+							tone="warning"
+							message={`${accountLabel(account)}: ${account.error_message || m.analytics_permission_required()}`}
+						>
+							{#snippet actions()}
+								<Button href="/settings?tab=accounts" variant="outline" size="sm"
+									>{m.analytics_reconnect()}</Button
+								>
+							{/snippet}
+						</InlineNotice>
+					{/each}
+					{#if selectedAccount?.stale}
+						<InlineNotice
+							tone="info"
+							message={selectedAccount.next_sync_at
+								? m.analytics_stale_retry({ date: formatDateTime(selectedAccount.next_sync_at) })
+								: m.analytics_stale()}
+						/>
+					{/if}
+
+					{#if !hasMeasurements}<InlineNotice
+							tone="info"
+							message={m.analytics_waiting_description()}
+						/>{/if}
+				</div>
+				<div
+					class="mt-3 space-y-3 border-t border-border pt-3 text-xs leading-5 text-muted-foreground"
+				>
+					{#if unavailableSummaryMetrics.length}
+						<p>
+							{m.analytics_unavailable_metrics({
+								metrics: unavailableSummaryMetrics.map((item) => item.label).join(', ')
+							})}
+						</p>
+					{/if}
+					<p>{m.analytics_metric_definitions()}</p>
+					<p>
+						{chartMetric === 'followers'
+							? m.analytics_daily_followers_description()
+							: chartMetric === 'engagement'
+								? m.analytics_daily_engagement_description()
+								: m.analytics_daily_views_description()}
+					</p>
+					<p>
+						{chartMetric === 'followers'
+							? m.analytics_follower_chart_legend()
+							: m.analytics_content_chart_legend()}
+					</p>
+					<p>{m.analytics_insights_description()}</p>
+				</div>
+			</Popover.Content>
+		</Popover.Root>
+
 		<AsyncActionButton
 			variant="outline"
 			size="sm"
@@ -677,7 +785,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 <PageContainer
 	title={m.analytics_title()}
 	themeIconRole="analytics"
-	description={m.analytics_description()}
 	{actions}
 	loading={initialLoading}
 	loadingMessage={m.common_loading()}
@@ -719,7 +826,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			size="lg"
 		/>
 	{:else}
-		<div class="space-y-8 transition-opacity" class:opacity-70={loading} aria-busy={loading}>
+		<div class="space-y-6 transition-opacity" class:opacity-70={loading} aria-busy={loading}>
 			{#if backgroundError}
 				<InlineNotice tone="error" message={backgroundError}>
 					{#snippet actions()}
@@ -727,49 +834,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 					{/snippet}
 				</InlineNotice>
 			{/if}
-			{#if showAnalyticsDisabledNotice}
-				<div data-testid="analytics-disabled-notice">
-					<InlineNotice tone="warning" message={m.analytics_feature_disabled_notice()}>
-						{#snippet actions()}
-							<Button
-								href="/settings?tab=accounts"
-								variant="outline"
-								size="sm"
-								data-testid="analytics-disabled-recovery"
-								>{m.feature_disabled_open_details()}</Button
-							>
-						{/snippet}
-						{#if analyticsReason}
-							<p class="mt-1 text-xs leading-5" data-testid="analytics-disabled-reason">
-								{analyticsReason}
-							</p>
-						{/if}
-					</InlineNotice>
-				</div>
-			{/if}
-			{#each accountsNeedingReconnect as account (account.id)}
-				<InlineNotice
-					tone="warning"
-					message={`${accountLabel(account)}: ${account.error_message || m.analytics_permission_required()}`}
-				>
-					{#snippet actions()}
-						<Button href="/settings?tab=accounts" variant="outline" size="sm"
-							>{m.analytics_reconnect()}</Button
-						>
-					{/snippet}
-				</InlineNotice>
-			{/each}
-			{#if selectedAccount?.stale}
-				<InlineNotice
-					tone="info"
-					message={selectedAccount.next_sync_at
-						? m.analytics_stale_retry({ date: formatDateTime(selectedAccount.next_sync_at) })
-						: m.analytics_stale()}
-				/>
-			{/if}
 
 			<section aria-label={m.analytics_title()}>
-				<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+				<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 					{#each featuredSummaryMetrics as item (item.key)}
 						<div class="min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground">
 							<div class="flex items-start justify-between gap-3">
@@ -817,61 +884,28 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 						</p>
 					</div>
 				</div>
-				<div
-					class="mt-3 rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-xs leading-5 text-muted-foreground"
-				>
-					{#if secondarySummaryMetrics.length}
-						<span class="me-3">
-							{#each secondarySummaryMetrics as item, index (item.key)}
-								{#if index > 0}<span aria-hidden="true"> · </span>{/if}
-								<span
-									>{item.label}
-									<strong class="font-medium text-foreground">{metricValue(item.metric)}</strong
-									></span
-								>
-							{/each}
-						</span>
-					{/if}
-					{#if unavailableSummaryMetrics.length}
-						<span>
-							{m.analytics_unavailable_metrics({
-								metrics: unavailableSummaryMetrics.map((item) => item.label).join(', ')
-							})}
-						</span>
-					{/if}
-					<span class="block sm:inline sm:before:mx-2 sm:before:content-['·']">
-						{m.analytics_metric_definitions()}
-					</span>
-				</div>
+				{#if secondarySummaryMetrics.length}
+					<p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+						{#each secondarySummaryMetrics as item (item.key)}
+							<span
+								>{item.label}
+								<strong class="font-medium text-foreground tabular-nums"
+									>{metricValue(item.metric)}</strong
+								></span
+							>
+						{/each}
+					</p>
+				{/if}
 			</section>
-
-			{#if !hasMeasurements}
-				<InlineNotice tone="info" message={m.analytics_waiting_description()} />
-			{/if}
 
 			<section
 				class="min-w-0 rounded-xl border border-border bg-card text-card-foreground"
-				aria-labelledby="analytics-trend-heading"
+				aria-label={chartTitle}
 			>
-				<div
-					class="flex flex-col gap-4 border-b border-border p-4 lg:flex-row lg:items-end lg:justify-between"
-				>
-					<div class="min-w-0">
-						<h2 id="analytics-trend-heading" class="text-base font-semibold">{chartTitle}</h2>
-						<p class="mt-1 max-w-2xl text-sm text-muted-foreground">
-							{chartDescription}
-							{#if selectedAccount}
-								<span>
-									{m.analytics_filtered_to_account({
-										account: accountLabel(selectedAccount)
-									})}</span
-								>
-							{/if}
-						</p>
-					</div>
-					<div class="flex flex-col gap-2 sm:flex-row">
+				<div class="flex flex-wrap items-center justify-between gap-2 border-b border-border p-3">
+					<div class="contents">
 						<div
-							class="flex min-h-11 flex-wrap items-center gap-1 rounded-md border border-border p-1 sm:min-h-9"
+							class="flex min-h-11 items-center gap-1 rounded-md border border-border p-1 sm:min-h-9"
 							role="group"
 							aria-label={m.analytics_chart_metric_label()}
 						>
@@ -955,24 +989,16 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 						formatDate={formatShortDate}
 					/>
 				</div>
-				<p class="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
-					{chartMetric === 'followers'
-						? m.analytics_follower_chart_legend()
-						: m.analytics_content_chart_legend()}
-				</p>
 			</section>
 
 			<section
 				class="rounded-xl border bg-card p-4 sm:p-5"
 				aria-labelledby="analytics-composition-heading"
 			>
-				<div class="mb-5">
+				<div class="mb-3">
 					<h2 id="analytics-composition-heading" class="text-base font-semibold">
 						{m.analytics_audience_title()}
 					</h2>
-					<p class="mt-1 max-w-2xl text-sm text-muted-foreground">
-						{m.analytics_audience_description()}
-					</p>
 				</div>
 				<AnalyticsAccountComposition {accounts} formatValue={formatNumber} {accountLabel} />
 			</section>
@@ -986,11 +1012,8 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 						<h2 id="analytics-insights-heading" class="text-sm font-semibold">
 							{m.analytics_insights_title()}
 						</h2>
-						<p class="mt-1 text-xs leading-5 text-muted-foreground">
-							{m.analytics_insights_description()}
-						</p>
 					</div>
-					<div class="grid gap-px bg-border sm:grid-cols-2 md:grid-cols-4">
+					<div class="analytics-insights-grid grid gap-px overflow-hidden rounded-b-xl bg-border">
 						{#each analyticsInsights as insight (insight.kind)}
 							{@const identity = insightIdentity(insight)}
 							<article
@@ -1006,8 +1029,25 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 										avatarUrl={identity.avatarUrl}
 										detail={insightBody(insight)}
 									/>
+								{:else if insightHasRanking(insight) && insight.content}
+									<p class="mt-2 text-xl font-semibold tabular-nums">
+										{formatNumber(insight.value)}
+									</p>
+									{#if insight.content.reference.publication_id}
+										<a
+											href={resolve('/publications/[id]', {
+												id: insight.content.reference.publication_id
+											})}
+											class="mt-1 line-clamp-2 text-sm leading-5 text-muted-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+											>{contentLabel(insight.content)}</a
+										>
+									{:else}<p class="mt-1 line-clamp-2 text-sm leading-5 text-muted-foreground">
+											{contentLabel(insight.content)}
+										</p>{/if}
 								{:else}
-									<p class="mt-1 text-sm leading-5 text-muted-foreground">{insightBody(insight)}</p>
+									<p class="mt-2 line-clamp-3 text-sm leading-5 text-muted-foreground">
+										{insightBody(insight)}
+									</p>
 								{/if}
 								<details class="group mt-2 border-t border-border pt-1">
 									<summary
@@ -1019,6 +1059,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											class="size-4 transition-transform group-open:rotate-180"
 										/>
 									</summary>
+									<p class="pb-2 text-xs leading-5 text-muted-foreground">{insightBody(insight)}</p>
 									<dl class="space-y-1 pb-2 text-xs leading-5 text-muted-foreground">
 										<div class="flex flex-wrap gap-x-1">
 											<dt>{m.analytics_evidence_availability()}:</dt>
@@ -1085,16 +1126,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			{/if}
 
 			<section aria-labelledby="analytics-content-heading">
-				<div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+				<div class="mb-3 flex flex-wrap items-center justify-between gap-3">
 					<div class="min-w-0">
 						<h2 id="analytics-content-heading" class="text-base font-semibold">
 							{m.analytics_content_title()}
 						</h2>
-						<p class="mt-1 text-sm text-muted-foreground">
-							{selectedAccount
-								? m.analytics_content_for_account({ account: accountLabel(selectedAccount) })
-								: m.analytics_content_description()}
-						</p>
 					</div>
 					<div class="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
 						<Select.Root
@@ -1131,12 +1167,12 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 							class="analytics-content-grid analytics-content-table-header hidden gap-4 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground"
 							aria-hidden="true"
 						>
-							<span>{m.analytics_table_post()}</span>
-							<span>{m.analytics_table_platforms()}</span>
-							<span class="text-end">{m.analytics_summary_engagement()}</span>
-							<span class="text-end">{m.analytics_views()}</span>
-							<span>{m.analytics_table_published()}</span>
-							<span class="sr-only">{m.analytics_table_actions()}</span>
+							<span class="analytics-post">{m.analytics_table_post()}</span>
+							<span class="analytics-destination">{m.analytics_table_platforms()}</span>
+							<span class="analytics-engagement text-end">{m.analytics_summary_engagement()}</span>
+							<span class="analytics-views text-end">{m.analytics_views()}</span>
+							<span class="analytics-published hidden">{m.analytics_table_published()}</span>
+							<span class="analytics-actions sr-only">{m.analytics_table_actions()}</span>
 						</div>
 						<div class="divide-y divide-border">
 							{#each contentItems as item (contentIdentity(item))}
@@ -1144,8 +1180,8 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 								{@const expanded = expandedContentID === id}
 								{@const itemEvidence = metricEvidence(item)}
 								<article data-testid="analytics-content-row">
-									<div class="analytics-content-grid grid min-w-0 gap-4 px-4 py-4">
-										<div class="min-w-0">
+									<div class="analytics-content-grid grid min-w-0 gap-x-3 gap-y-2 px-3 py-3">
+										<div class="analytics-post min-w-0 text-sm">
 											{#if item.reference.publication_id}
 												<a
 													href={resolve('/publications/[id]', {
@@ -1162,7 +1198,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											</p>
 										</div>
 										<div
-											class="flex min-w-0 items-center gap-2 text-sm"
+											class="analytics-destination flex min-w-0 items-center gap-2 text-sm"
 											data-testid="analytics-row-destinations"
 										>
 											<span
@@ -1174,7 +1210,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 												<span class="block truncate text-xs">{renditionName(item)}</span>
 											</span>
 										</div>
-										<div class="analytics-metric flex items-baseline justify-between gap-3 text-sm">
+										<div
+											class="analytics-metric analytics-engagement flex items-baseline justify-between gap-2 text-sm"
+										>
 											<span class="analytics-row-label text-xs text-muted-foreground"
 												>{m.analytics_summary_engagement()}</span
 											>
@@ -1184,7 +1222,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 													: '—'}</span
 											>
 										</div>
-										<div class="analytics-metric flex items-baseline justify-between gap-3 text-sm">
+										<div
+											class="analytics-metric analytics-views flex items-baseline justify-between gap-2 text-sm"
+										>
 											<span class="analytics-row-label text-xs text-muted-foreground"
 												>{m.analytics_views()}</span
 											>
@@ -1198,7 +1238,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											<span class="analytics-row-label">{m.analytics_table_published()}: </span>
 											{formatDate(item.published_at)}
 										</div>
-										<div class="analytics-actions flex w-full flex-wrap items-center gap-1">
+										<div class="analytics-actions flex w-full items-center justify-end gap-1">
 											<Button
 												variant="ghost"
 												size="sm"
@@ -1343,29 +1383,46 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 </PageContainer>
 
 <style>
-	@container (min-width: 58rem) {
-		.analytics-content-grid {
-			grid-template-columns: minmax(0, 2fr) minmax(7rem, 1fr) 5.5rem 4rem 7rem 9rem;
-			align-items: center;
-		}
+	.analytics-insights-grid {
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	}
 
+	.analytics-content-grid {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		grid-template-areas: 'post post' 'destination actions' 'engagement views';
+		align-items: center;
+	}
+	.analytics-post {
+		grid-area: post;
+	}
+	.analytics-destination {
+		grid-area: destination;
+	}
+	.analytics-engagement {
+		grid-area: engagement;
+	}
+	.analytics-views {
+		grid-area: views;
+	}
+	.analytics-published {
+		grid-area: published;
+	}
+	.analytics-actions {
+		grid-area: actions;
+	}
+
+	@container (min-width: 40rem) {
+		.analytics-content-grid {
+			grid-template-columns: minmax(0, 1fr) 7rem 5.5rem 4rem 9rem;
+			grid-template-areas: 'post destination engagement views actions';
+		}
 		.analytics-content-table-header {
 			display: grid;
 		}
-
-		.analytics-mobile-date {
-			display: none;
-		}
-
 		.analytics-metric {
 			display: block;
 			text-align: end;
 		}
-
-		.analytics-published {
-			display: block;
-		}
-
 		.analytics-row-label {
 			position: absolute;
 			width: 1px;
@@ -1377,9 +1434,17 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			white-space: nowrap;
 			border: 0;
 		}
-
-		.analytics-actions {
-			justify-content: flex-end;
+	}
+	@container (min-width: 58rem) {
+		.analytics-content-grid {
+			grid-template-columns: minmax(0, 2fr) minmax(7rem, 1fr) 5.5rem 4rem 7rem 9rem;
+			grid-template-areas: 'post destination engagement views published actions';
+		}
+		.analytics-mobile-date {
+			display: none;
+		}
+		.analytics-published {
+			display: block;
 		}
 	}
 </style>

@@ -15,7 +15,7 @@ const content = platforms.map((platform, index) => ({
   account_id: `account-${index}`,
   username: "@rodrgds",
   title: [
-    "Just started using a US VPN for normal day-to-day work",
+    "A long post with enough detail to wrap across many lines. ".repeat(12),
     "This felt SOOOO good.",
     "Approval prompts FEEL safe because they ask a human.",
     "Looking clean ay?",
@@ -193,14 +193,49 @@ for (const [themeID, scheme] of [
                 id: `account-${index}`,
                 platform,
                 username: "@rodrgds",
-                status: "ok",
+                status: index === 4 ? "permission_required" : "ok",
+                error_message: index === 4 ? "Reconnect LinkedIn to collect analytics." : undefined,
+                last_synced_at: "2026-09-04T12:00:00Z",
                 account_supported: true,
                 content_supported: true,
                 metrics: { followers: 20 },
               })),
               content,
               trends: { views: trend, engagement: trend, followers: trend },
-              insights: [],
+              insights: [
+                {
+                  kind: "most_engagement_actions",
+                  status: "available",
+                  value: 1500,
+                  metric: "engagement",
+                  content: content[0],
+                },
+                {
+                  kind: "strongest_measured_destination",
+                  status: "available",
+                  value: 1600,
+                  metric: "engagement",
+                  account_id: "account-1",
+                  platform: "threads",
+                  username: "rodrgds",
+                },
+                {
+                  kind: "follower_decline",
+                  status: "insufficient_data",
+                  reason: "incompatible_semantics",
+                  value: 0,
+                  metric: "followers",
+                },
+              ].map((insight) => ({
+                ...insight,
+                measured_count: 5,
+                comparison_sample: 5,
+                period: {
+                  filter_start: "2026-09-01T00:00:00Z",
+                  filter_end: "2026-09-30T00:00:00Z",
+                  aggregation: "lifetime_total",
+                },
+              })),
             },
           }),
         );
@@ -230,6 +265,30 @@ for (const [themeID, scheme] of [
         const section = page.locator('section[aria-labelledby="analytics-content-heading"]');
         const row = page.getByTestId("analytics-content-row").first();
         await expect(row).toBeVisible();
+        if (width >= 1200) {
+          await expect(page.getByTestId("analytics-content-table-header")).toBeVisible();
+        }
+        expect((await row.boundingBox())!.height).toBeLessThanOrEqual(width < 768 ? 180 : 100);
+        const insights = page.locator('section[aria-labelledby="analytics-insights-heading"]');
+        expect((await insights.boundingBox())!.height).toBeLessThanOrEqual(width < 768 ? 650 : 330);
+        await insights.screenshot({ path: testInfo.outputPath("insights.png") });
+        const warning = page.getByText("Reconnect LinkedIn to collect analytics.", {
+          exact: false,
+        });
+        await expect(warning).not.toBeVisible();
+        const warnings = page.getByRole("button", { name: /Warnings/ });
+        await warnings.focus();
+        await warnings.press("Enter");
+        await expect(warning).toBeVisible();
+        await expect(
+          page.getByText("Views are plays or opens reported by the platform.", { exact: false }),
+        ).toBeVisible();
+        await page
+          .locator('[data-slot="popover-content"][aria-label="Data notes"]')
+          .screenshot({ path: testInfo.outputPath("warnings.png") });
+        await page.keyboard.press("Escape");
+        await expect(warnings).toBeFocused();
+        await expect(warning).not.toBeVisible();
         await expect(page.getByRole("img", { name: "100", exact: true })).toBeVisible();
         await page.getByRole("button", { name: "7 days", exact: true }).click();
         await expect(page.getByRole("img", { name: "200", exact: true })).toBeVisible();

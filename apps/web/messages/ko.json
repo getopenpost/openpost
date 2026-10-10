@@ -190,6 +190,8 @@
 	"analytics_table_date": "날짜",
 	"analytics_table_value": "값",
 	"analytics_title": "분석",
+	"analytics_warnings": "경고",
+	"analytics_data_notes": "데이터 참고 사항",
 	"analytics_daily_followers": "일별 팔로워 변동",
 	"analytics_daily_engagement": "일별 참여",
 	"analytics_daily_views": "일별 조회수",

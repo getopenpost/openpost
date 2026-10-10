@@ -190,6 +190,8 @@
 	"analytics_table_date": "日付",
 	"analytics_table_value": "値",
 	"analytics_title": "分析",
+	"analytics_warnings": "警告",
+	"analytics_data_notes": "データに関する注記",
 	"analytics_daily_followers": "日次フォロワー増減",
 	"analytics_daily_engagement": "日次エンゲージメント",
 	"analytics_daily_views": "日次視聴回数",

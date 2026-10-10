@@ -190,6 +190,8 @@
 	"analytics_table_date": "日期",
 	"analytics_table_value": "值",
 	"analytics_title": "分析",
+	"analytics_warnings": "警告",
+	"analytics_data_notes": "数据说明",
 	"analytics_daily_followers": "每日粉丝变化",
 	"analytics_daily_engagement": "每日互动",
 	"analytics_daily_views": "每日观看量",

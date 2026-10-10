@@ -190,6 +190,8 @@
 	"analytics_table_date": "Datum",
 	"analytics_table_value": "Wert",
 	"analytics_title": "Analysen",
+	"analytics_warnings": "Warnungen",
+	"analytics_data_notes": "Datenhinweise",
 	"analytics_daily_followers": "Tägliche Follower­änderung",
 	"analytics_daily_engagement": "Tägliche Interaktionen",
 	"analytics_daily_views": "Tägliche Aufrufe",

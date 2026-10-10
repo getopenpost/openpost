@@ -826,6 +826,7 @@ func main() {
 	mcpHandler.SetServerVersion(version)
 	mcpHandler.SetMediaStorage(storage)
 	mcpHandler.SetMediaHandler(mediaHandler)
+	mcpHandler.SetPublicMediaVerifier(publicMediaVerifier)
 	mcpHandler.SetPublicURL(cfg.PublicURL)
 	mcpHandler.SetAllowedOrigins(cfg.CORSOrigins)
 	mcpHandler.SetProviderCatalog(providers, mastodonAppService != nil)

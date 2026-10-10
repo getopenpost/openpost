@@ -291,6 +291,7 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         await scope.getByRole("button", { name: "Sequence", exact: true }).click();
         await expect(page.getByRole("slider", { name: "Lift color wheel" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Show all scopes" })).toBeVisible();
+        await expect(page.locator("[data-scope-backend]")).toHaveCount(1);
         await page.getByRole("button", { name: "Show all scopes" }).click();
         await expect(page.locator("[data-color-scope-canvas]")).toHaveCount(4);
         await page.getByRole("banner").getByRole("button", { name: "More actions" }).click();
@@ -415,8 +416,18 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
           await page.getByRole("tab", { name: "Adjustments", exact: true }).click();
           await page.getByRole("button", { name: "Original", exact: true }).click();
           await page.getByRole("tab", { name: "Scopes", exact: true }).click();
+          await expect(page.locator("[data-scope-backend]")).toHaveCount(1);
           await page.getByRole("button", { name: "Show all scopes" }).click();
-          await expect(page.locator("[data-color-scope-canvas]:visible")).toHaveCount(4);
+          await expect(page.locator("[data-color-scope-canvas]")).toHaveCount(4);
+          await page.setViewportSize({ width: 390, height: 844 });
+          await page.getByRole("banner").getByRole("button", { name: "More actions" }).click();
+          await page.getByRole("menuitem", { name: "Properties", exact: true }).click();
+          await expect(page.getByRole("dialog")).toHaveCount(0);
+          await expect(page.getByRole("tab", { name: "Scopes", exact: true })).toBeFocused();
+          await expect(page.locator("[data-scope-backend]")).toHaveCount(1);
+          await expect(page.locator("[data-color-scope-canvas]")).toHaveCount(4);
+          await page.setViewportSize({ width, height: 900 });
+          await expect(page.locator("[data-color-scope-canvas]")).toHaveCount(4);
           await page.getByRole("tab", { name: "Adjustments", exact: true }).click();
           await page.getByRole("button", { name: "Warm", exact: true }).click();
           await expect.poll(() => designCanvasCenterPixel(page)).not.toEqual(originalPixel);
@@ -442,6 +453,21 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         const gradedPixel = await designCanvasCenterPixel(page);
         await page.getByRole("button", { name: "Before", exact: true }).click();
         await expect.poll(() => designCanvasCenterPixel(page)).not.toEqual(gradedPixel);
+        if (width === 1440) {
+          const beforePixel = await designCanvasCenterPixel(page);
+          await page.setViewportSize({ width: 390, height: 844 });
+          await expect(page.getByRole("button", { name: "Before", exact: true })).toHaveAttribute(
+            "aria-pressed",
+            "true",
+          );
+          await expect.poll(() => designCanvasCenterPixel(page)).toEqual(beforePixel);
+          await page.setViewportSize({ width, height: 900 });
+          await expect(page.getByRole("button", { name: "Before", exact: true })).toHaveAttribute(
+            "aria-pressed",
+            "true",
+          );
+          await expect.poll(() => designCanvasCenterPixel(page)).toEqual(beforePixel);
+        }
       }
       await expectNoHorizontalOverflow(page);
       await page.screenshot({

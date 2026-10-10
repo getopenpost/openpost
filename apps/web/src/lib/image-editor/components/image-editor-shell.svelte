@@ -438,10 +438,22 @@
 		assetOverlayTrigger?.focus();
 	}
 	let activeEditorWorkspace = $state<'edit' | 'color'>('edit');
+	const desktopViewport = new MediaQuery('(min-width: 1024px)');
 	const shortViewport = new MediaQuery('(max-width: 1023px) and (max-height: 520px)');
 	const compactPages = $derived(activeEditorWorkspace === 'color' && shortViewport.current);
 	const pagesExpanded = $derived(editor.pagesExpanded && !compactPages);
 	let focusedCanvas = $state(false);
+	$effect(() => {
+		if (
+			activeEditorWorkspace === 'color' &&
+			!focusedCanvas &&
+			(!desktopViewport.current || editor.rightPanelVisible)
+		)
+			return;
+		editor.colorComparisonBefore = false;
+		editor.colorComparisonPage = false;
+		editor.colorComparisonLayerIDs = [];
+	});
 	let copiedLayers = $state.raw<ImageEditorLayer[]>([]);
 	let pixelSelectionActions = $state.raw<PixelSelectionActions | null>(null);
 	let statusAnnouncement = $state('');
@@ -1032,6 +1044,22 @@
 	function openFirstEditProperties(): void {
 		if (window.innerWidth < 1024) mobileSheet = 'properties';
 		dismissFirstEditHint();
+	}
+
+	function openProperties(): void {
+		if (activeEditorWorkspace !== 'color') {
+			mobileSheet = 'properties';
+			return;
+		}
+		editor.rightPanelVisible = true;
+		focusedCanvas = false;
+		requestAnimationFrame(() => {
+			document
+				.querySelector<HTMLElement>(
+					'[data-image-color-workspace] [role="tab"][aria-selected="true"]'
+				)
+				?.focus();
+		});
 	}
 
 	function toggleInspectorPanel(): void {
@@ -3379,9 +3407,7 @@
 								onSelect={() => (mobileSheet = 'layers')}
 								>{m.image_editor_layers()}</DropdownMenu.Item
 							>
-							<DropdownMenu.Item
-								class="[@media(pointer:coarse)]:min-h-11"
-								onSelect={() => (mobileSheet = 'properties')}
+							<DropdownMenu.Item class="[@media(pointer:coarse)]:min-h-11" onSelect={openProperties}
 								>{m.image_editor_properties()}</DropdownMenu.Item
 							>
 							{#if !guestMode}
@@ -4039,7 +4065,7 @@
 				</div>
 			{/if}
 		</main>
-		{#if editor.rightPanelVisible && !focusedCanvas}
+		{#if desktopViewport.current && editor.rightPanelVisible && !focusedCanvas}
 			<aside
 				bind:this={inspectorElement}
 				class="image-editor-inspector relative hidden min-h-0 min-w-0 border-l bg-card lg:grid"
@@ -4092,7 +4118,7 @@
 				</div>
 			</aside>
 		{/if}
-		{#if activeEditorWorkspace === 'color' && !focusedCanvas}
+		{#if !desktopViewport.current && activeEditorWorkspace === 'color' && !focusedCanvas}
 			<aside
 				class="image-editor-mobile-color min-h-0 min-w-0 overflow-hidden border-t bg-card lg:hidden"
 			>

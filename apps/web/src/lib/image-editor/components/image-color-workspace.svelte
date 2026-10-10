@@ -188,7 +188,6 @@
 	onDestroy(() => {
 		editor.cancelImageAdjustmentGesture();
 		editor.cancelPageColorGradeGesture();
-		setComparison('after');
 	});
 
 	function adjustmentValue(

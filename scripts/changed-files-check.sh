@@ -149,19 +149,19 @@ for file in "${files[@]}"; do
   case "$file" in
     apps/web/*)
       case "$file" in
-        *.js | *.mjs | *.cjs | *.ts | *.svelte | *.json | *.jsonc | *.css | *.md | *.yml | *.yaml)
+        *.js | *.mjs | *.cjs | *.ts | *.tsx | *.jsx | *.svelte | *.json | *.jsonc | *.css | *.md | *.yml | *.yaml)
           frontend_format+=("${file#apps/web/}")
           ;;
       esac
       ;;
     apps/marketing/*)
       case "$file" in
-        *.js | *.mjs | *.cjs | *.ts | *.svelte | *.json | *.css | *.md | *.yml | *.yaml)
+        *.js | *.mjs | *.cjs | *.ts | *.tsx | *.jsx | *.svelte | *.json | *.css | *.md | *.yml | *.yaml)
           marketing_format+=("$file")
           ;;
       esac
       ;;
-    *.js | *.mjs | *.cjs | *.ts | *.svelte | *.json | *.jsonc | *.css | *.md | *.yml | *.yaml)
+    *.js | *.mjs | *.cjs | *.ts | *.tsx | *.jsx | *.svelte | *.json | *.jsonc | *.css | *.md | *.yml | *.yaml)
       root_format+=("$file")
       ;;
   esac

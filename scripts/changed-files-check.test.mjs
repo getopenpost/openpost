@@ -217,6 +217,27 @@ describe("changed-files-check", () => {
     expect(svelteResult.stderr).toContain("CompileError: Unexpected block closing tag");
   });
 
+  test.each(["apps/mobile/src/app/publications/[id].tsx", "apps/docs/components/unformatted.jsx"])(
+    "checks React formatting before committing %s",
+    (file) => {
+      const cwd = fixture();
+      const env = formatterEnv(cwd);
+      mkdirSync(dirname(join(cwd, file)), { recursive: true });
+      writeFileSync(join(cwd, file), "const Example=()=> <div>Example</div>;\n");
+      git(cwd, "add", file);
+
+      const rejected = run("bash", [script, "--staged"], cwd, { env });
+      expect(rejected.status, rejected.stdout + rejected.stderr).not.toBe(0);
+      expect(rejected.stdout + rejected.stderr).toContain(file);
+
+      const formatted = run("bunx", ["oxfmt", file], cwd, { env });
+      expect(formatted.status, formatted.stderr).toBe(0);
+      git(cwd, "add", file);
+      const accepted = run("bash", [script, "--staged"], cwd, { env });
+      expect(accepted.status, accepted.stdout + accepted.stderr).toBe(0);
+    },
+  );
+
   test("accepts a staged generated file excluded from formatting", () => {
     const cwd = fixture();
     mkdirSync(join(cwd, "packages/api-contract/src"), { recursive: true });

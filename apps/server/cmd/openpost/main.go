@@ -550,6 +550,7 @@ func main() {
 
 	analyticsService := analyticsservice.NewService(db, tokenManager)
 	analyticsService.SetCursorSigningKey(cfg.JWTSecret)
+	analyticsService.SetUsage(usageService)
 	analyticsService.SetProviderReadiness(providerReadinessService)
 	if telegramConnectionService != nil {
 		analyticsService.SetExternalSource(capabilities.ProviderTelegram, telegramConnectionService)

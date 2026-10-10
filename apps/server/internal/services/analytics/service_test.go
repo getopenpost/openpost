@@ -11,6 +11,7 @@ import (
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/usage"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -327,4 +328,58 @@ func seedAnalyticsAccount(t *testing.T, db *bun.DB, scopes string) models.Social
 	_, err := db.NewInsert().Model(&account).Exec(context.Background())
 	require.NoError(t, err)
 	return account
+}
+
+func TestXAnalyticsUsesDailyCadenceAndDoesNotRepeatForcedReads(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	account := seedAnalyticsAccount(t, db, "")
+	account.Platform = "x"
+	_, err := db.NewUpdate().Model(&account).Column("platform").WherePK().Exec(t.Context())
+	require.NoError(t, err)
+	now := time.Now().UTC()
+	publication := seedAnalyticsPublication(t, db, account.WorkspaceID, "x-publication", now)
+	rendition := &models.Rendition{ID: "x-rendition", PublicationID: publication.ID, SocialAccountID: account.ID, Platform: "x", TargetKey: "x", Status: models.RenditionStatusPublished, ExternalID: "123", CreatedAt: now, UpdatedAt: now}
+	_, err = db.NewInsert().Model(rendition).Exec(t.Context())
+	require.NoError(t, err)
+	adapter := &fakeAnalyticsAdapter{support: platform.AnalyticsSupport{Account: true, Content: true}, content: platform.AnalyticsValues{platform.MetricLikes: 3}}
+	service := NewService(db, staticTokenSource{})
+	service.SetProvider("x", adapter)
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.now = func() time.Time { return now }
+	require.NoError(t, service.syncRendition(t.Context(), rendition.ID))
+	state, err := service.loadState(t.Context(), subjectRendition, rendition.ID)
+	require.NoError(t, err)
+	require.True(t, now.Add(24*time.Hour).Equal(state.NextSyncAt))
+	require.NoError(t, service.syncRendition(t.Context(), rendition.ID))
+	require.Equal(t, 1, adapter.contentCalls)
+}
+
+func TestXAnalyticsReservesReadBudgetBeforeProviderRequest(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	account := seedAnalyticsAccount(t, db, "")
+	account.Platform = "x"
+	_, err := db.NewUpdate().Model(&account).Column("platform").WherePK().Exec(t.Context())
+	require.NoError(t, err)
+	meter := usage.NewService(db)
+	require.NoError(t, meter.SetProviderCostPolicy(usage.NewXProviderCostPolicy(10_000, 15_000, 200_000)))
+	adapter := &fakeAnalyticsAdapter{support: platform.AnalyticsSupport{Account: true}, account: platform.AnalyticsValues{platform.MetricFollowers: 5}}
+	service := NewService(db, staticTokenSource{})
+	service.SetProvider("x", adapter)
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.SetUsage(meter)
+	now := time.Now().UTC()
+	service.now = func() time.Time { return now }
+	require.NoError(t, service.syncAccount(t.Context(), account.ID))
+	require.Equal(t, 1, adapter.accountCalls)
+	var events []models.ProviderUsageEvent
+	require.NoError(t, db.NewSelect().Model(&events).Scan(t.Context()))
+	require.Len(t, events, 1)
+	require.Equal(t, "user_read", events[0].Operation)
+	require.EqualValues(t, 10_000, events[0].CostMicrousd)
+	now = now.Add(25 * time.Hour)
+	require.NoError(t, service.syncAccount(t.Context(), account.ID))
+	require.Equal(t, 1, adapter.accountCalls, "budget exhaustion must prevent I/O")
+	state, err := service.loadState(t.Context(), subjectAccount, account.ID)
+	require.NoError(t, err)
+	require.Equal(t, "provider_budget_exceeded", state.ErrorCode)
 }

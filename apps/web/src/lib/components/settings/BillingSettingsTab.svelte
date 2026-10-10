@@ -145,6 +145,8 @@
 	}
 
 	function providerCostOperationLabel(operation: string) {
+		if (operation === 'post_read') return m.analytics_content_title();
+		if (operation === 'user_read') return m.analytics_accounts_title();
 		if (operation === 'post_create') return m.settings_provider_cost_post_create();
 		if (operation === 'post_create_with_url') {
 			return m.settings_provider_cost_post_create_with_url();

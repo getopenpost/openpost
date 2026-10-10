@@ -17,6 +17,8 @@ import (
 
 const (
 	ProviderX                      = "x"
+	XOperationPostRead             = "post_read"
+	XOperationUserRead             = "user_read"
 	XOperationPostCreate           = "post_create"
 	XOperationPostCreateWithURL    = "post_create_with_url"
 	XPricingSourceURL              = "https://docs.x.com/x-api/getting-started/pricing"
@@ -111,6 +113,8 @@ func NewXProviderCostPolicy(monthlyBudgetMicrousd, postCreateMicrousd, postCreat
 			MonthlyBudgetMicrousd: monthlyBudgetMicrousd,
 			PricingSourceURL:      XPricingSourceURL,
 			OperationCostMicrousd: map[string]int64{
+				XOperationPostRead:          5_000,
+				XOperationUserRead:          10_000,
 				XOperationPostCreate:        postCreateMicrousd,
 				XOperationPostCreateWithURL: postCreateWithURLMicrousd,
 			},

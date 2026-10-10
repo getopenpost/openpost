@@ -54,13 +54,15 @@ The X guardrail is active only when both conditions are true:
 1. `OPENPOST_EDITION=cloud`
 2. An X adapter is configured
 
-Each reservation and confirmed event uses a hashed idempotency key derived from the workspace, durable job execution, subject, and request phase. Both store the provider, priced operation, units, unit price, estimated cost, and UTC occurrence time. They do not store post text, provider tokens, or provider response bodies.
+Publication reservations use a hashed key derived from the workspace, durable job execution, subject, and request phase. Analytics reservations use a fresh request key after checking the stored daily cadence. Both store the provider, priced operation, units, unit price, estimated cost, and UTC occurrence time. They do not store post text, provider tokens, or provider response bodies.
 
-The default per-workspace budget is $5.00 per UTC month. A request that would make confirmed cost plus reservations exceed the budget is rejected before the provider call. `0` blocks all hosted X publishing. Prices and budgets use millionths of a US dollar so calculations stay integer-only:
+The default per-workspace budget is $5.00 per UTC month. A request that would make confirmed cost plus reservations exceed the budget is rejected before the provider call. `0` blocks all hosted X publishing and analytics reads. Prices and budgets use millionths of a US dollar so calculations stay integer-only:
 
 - `OPENPOST_X_MONTHLY_BUDGET_MICROUSD=5000000`
 - `OPENPOST_X_POST_CREATE_COST_MICROUSD=15000`
 - `OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD=200000`
+
+Analytics estimates use $0.005 per requested post and $0.010 per requested user, reviewed against the [X pricing catalogue](https://docs.x.com/x-api/getting-started/pricing) on October 10, 2026. The estimate does not assume the app-owner discount or best-effort UTC-day deduplication. Account and post reads use a daily cadence, including manual refresh. Posts stop routine collection after seven days. Partial responses and transport failures retain the full reservation as unresolved exposure. Permission, readiness and feature gates run before reservation and provider I/O.
 
 Review these prices when X changes its pay-per-use catalog. OpenPost exposes confirmed cost estimates and unresolved reserved exposure under **Settings → Organization → Plan & usage**. Reserved exposure protects the safety limit after an ambiguous result, but it is not presented as billed cost. X pricing and the X Developer Console remain authoritative.
 

@@ -21,6 +21,7 @@ import (
 	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/providerwrite"
+	"github.com/openpost/backend/internal/services/usage"
 	"github.com/uptrace/bun"
 )
 
@@ -53,6 +54,7 @@ type Service struct {
 	now              func() time.Time
 	featureGate      FeatureGate
 	readiness        *providerreadiness.Service
+	usage            *usage.Service
 	cursorSigningKey []byte
 }
 
@@ -71,6 +73,8 @@ func NewService(db *bun.DB, tokenSource TokenSource) *Service {
 		cursorSigningKey: cursorSigningKey,
 	}
 }
+
+func (s *Service) SetUsage(service *usage.Service) { s.usage = service }
 
 func (s *Service) SetCursorSigningKey(secret string) {
 	if s == nil || strings.TrimSpace(secret) == "" {
@@ -356,7 +360,7 @@ func (s *Service) enqueueRenditionJob(
 		if err != nil {
 			return false, err
 		}
-		if contentCadence(now.Sub(publishedAt)) == 0 {
+		if providerContentCadence(rendition.Platform, now.Sub(publishedAt)) == 0 {
 			return false, nil
 		}
 	}
@@ -383,6 +387,15 @@ func (s *Service) syncAccount(ctx context.Context, accountID string) error {
 	if !s.isProviderOperationEnabled(ctx, account) {
 		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
 	}
+	if account.Platform == "x" {
+		due, dueErr := s.subjectDue(ctx, subjectAccount, account.ID, s.now())
+		if dueErr != nil {
+			return dueErr
+		}
+		if !due {
+			return nil
+		}
+	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {
 		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusUnsupported, "analytics_not_supported", "")
@@ -406,7 +419,12 @@ func (s *Service) syncAccount(ctx context.Context, accountID string) error {
 		ReportingPeriodStart: now.AddDate(0, 0, -30),
 		ReportingPeriodEnd:   now,
 	}
+	settle, costErr := s.reserveAnalyticsReadCost(ctx, account, usage.XOperationUserRead, 1)
+	if costErr != nil {
+		return s.recordFailure(ctx, subjectAccount, account.ID, account, adapter, costErr)
+	}
 	values, metadata, err := fetchAccountMeasurements(ctx, adapter, token, request, account.Platform)
+	settle(err)
 	if err != nil {
 		return s.recordFailure(ctx, subjectAccount, account.ID, account, adapter, err)
 	}
@@ -434,6 +452,15 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 	}
 	if !s.isProviderOperationEnabled(ctx, account) {
 		return s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
+	}
+	if account.Platform == "x" {
+		due, dueErr := s.subjectDue(ctx, subjectRendition, rendition.ID, s.now())
+		if dueErr != nil {
+			return dueErr
+		}
+		if !due {
+			return nil
+		}
 	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {
@@ -483,11 +510,16 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 		GrantedScopes:        strings.Fields(account.GrantedScopes),
 		OwnReplyCount:        max(0, len(externalIDs)-1),
 	}
+	settle, costErr := s.reserveAnalyticsReadCost(ctx, account, usage.XOperationPostRead, int64(len(externalIDs)))
+	if costErr != nil {
+		return s.recordFailure(ctx, subjectRendition, rendition.ID, account, adapter, costErr)
+	}
 	values, metadata, err := fetchContentMeasurements(ctx, adapter, token, request, account.Platform)
+	settle(err)
 	if err != nil {
 		return s.recordFailure(ctx, subjectRendition, rendition.ID, account, adapter, err)
 	}
-	return s.recordSuccess(ctx, subjectRendition, rendition.ID, account, rendition.PublicationID, rendition.ID, values, metadata, contentCadence(s.now().Sub(publishedAt)))
+	return s.recordSuccess(ctx, subjectRendition, rendition.ID, account, rendition.PublicationID, rendition.ID, values, metadata, providerContentCadence(account.Platform, s.now().Sub(publishedAt)))
 }
 
 func (s *Service) resolveAndStoreContentURL(
@@ -506,6 +538,7 @@ func (s *Service) resolveAndStoreContentURL(
 		account.AccountUsername,
 		account.InstanceURL,
 		rendition.ExternalID,
+		rendition.OutputProfile,
 	)
 	if resolved == "" {
 		resolver, ok := adapter.(platform.ContentURLResolver)
@@ -1069,4 +1102,12 @@ func analyticsAdapterUsesProviderToken(adapter platform.AnalyticsAdapter) bool {
 
 func missingScopeMessage(scopes []string) string {
 	return "Reconnect this account to grant: " + strings.Join(scopes, ", ") + "."
+}
+
+func providerContentCadence(provider string, age time.Duration) time.Duration {
+	cadence := contentCadence(age)
+	if provider == "x" && cadence > 0 {
+		return accountCadence
+	}
+	return cadence
 }

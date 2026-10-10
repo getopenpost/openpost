@@ -342,17 +342,55 @@ export class CanvasStackCompositor {
 	}
 
 	private async initializeTransitionPipeline(): Promise<void> {
+		const device = await createCanvasGpuDevice();
+		if (!device) return;
+		let pipeline: TransitionPipeline | null = null;
 		try {
-			const device = await createCanvasGpuDevice();
-			if (!device) return;
-			if (this.disposed) {
-				device.destroy();
+			if (this.disposed) return;
+			pipeline = TransitionPipeline.create(device);
+			if (!pipeline) return;
+			// An accepted upload does not prove that a driver can render and return
+			// canvas pixels. Exercise the same round trip before replacing Canvas2D.
+			const left = new OffscreenCanvas(16, 16);
+			const right = new OffscreenCanvas(16, 16);
+			const leftContext = left.getContext('2d');
+			const rightContext = right.getContext('2d');
+			const result = new OffscreenCanvas(16, 16).getContext('2d');
+			if (!leftContext || !rightContext || !result) return;
+			leftContext.fillStyle = '#ff0000';
+			leftContext.fillRect(0, 0, 16, 16);
+			rightContext.fillStyle = '#0000ff';
+			rightContext.fillRect(0, 0, 16, 16);
+			const output = pipeline.render('fade', left, right, 0.5, 16, 16);
+			if (!output) return;
+			result.drawImage(output, 0, 0);
+			const pixel = result.getImageData(8, 8, 1, 1).data;
+			await device.queue.onSubmittedWorkDone();
+			if (
+				this.disposed ||
+				pixel[0] < 127 ||
+				pixel[0] > 128 ||
+				pixel[1] !== 0 ||
+				pixel[2] < 127 ||
+				pixel[2] > 128 ||
+				pixel[3] !== 255
+			)
 				return;
-			}
 			this.transitionDevice = device;
-			this.transitionPipeline = TransitionPipeline.create(device);
+			this.transitionPipeline = pipeline;
+			void device.lost.then(() => {
+				if (this.transitionDevice !== device) return;
+				this.transitionPipeline?.destroy();
+				this.transitionPipeline = null;
+				this.transitionDevice = null;
+			});
 		} catch {
 			// Canvas2D remains the exact fallback when WebGPU is unavailable or blocked.
+		} finally {
+			if (this.transitionDevice !== device) {
+				pipeline?.destroy();
+				device.destroy();
+			}
 		}
 	}
 

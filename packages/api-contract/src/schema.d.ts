@@ -14713,6 +14713,8 @@ export interface components {
         };
         SettingConstraint: {
             accept?: string[] | null;
+            /** @description Value must be an RFC 3339 timestamp with a timezone */
+            date_time?: boolean;
             local_date_time?: boolean;
             /** Format: int64 */
             max_items?: number;
@@ -14748,6 +14750,8 @@ export interface components {
             options?: string[] | null;
             options_source?: string;
             output_profiles?: string[] | null;
+            /** @description Choose this setting on each post, never in reusable Social Set defaults */
+            post_only?: boolean;
             required: boolean;
             /** @enum {string} */
             required_policy?: "never" | "always" | "when_available";

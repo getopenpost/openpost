@@ -64,6 +64,35 @@ function setting(
 }
 
 describe('DestinationSettingsDialog', () => {
+	it('authors explicit disclosure answers and can restore the channel default', async () => {
+		const onChange = vi.fn();
+		const screen = await render(DestinationSettingsDialog, {
+			props: {
+				open: true,
+				account: youtubeAccount,
+				settings: [
+					setting('self_declared_made_for_kids', 'Made for kids', {
+						control: 'optional_boolean',
+						type: 'boolean'
+					})
+				],
+				values: {},
+				onChange
+			}
+		});
+		const choice = screen.getByRole('button', { name: 'Made for kids', exact: true });
+		await expect.element(choice).toHaveTextContent('Not specified');
+		await choice.click();
+		await screen.getByRole('option', { name: 'No', exact: true }).click();
+		expect(onChange).toHaveBeenLastCalledWith('self_declared_made_for_kids', false);
+		await choice.click();
+		await screen.getByRole('option', { name: 'Yes', exact: true }).click();
+		expect(onChange).toHaveBeenLastCalledWith('self_declared_made_for_kids', true);
+		await choice.click();
+		await screen.getByRole('option', { name: 'Not specified', exact: true }).click();
+		expect(onChange).toHaveBeenLastCalledWith('self_declared_made_for_kids', null);
+	});
+
 	afterEach(async () => {
 		const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
 		const doneButton = Array.from(dialog?.querySelectorAll('button') ?? []).find(

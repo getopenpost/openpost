@@ -540,6 +540,23 @@
 											{valueAsString(setting.key)}
 										</code>
 									{/if}
+								{:else if control === 'optional_boolean'}
+									<label class="text-sm font-medium" for="destination-setting-{setting.key}">
+										{settingLabel(setting)}
+									</label>
+									<AppSelect
+										id="destination-setting-{setting.key}"
+										ariaLabel={settingLabel(setting)}
+										class="mt-1 h-11 w-full"
+										value={valueAsString(setting.key) || 'inherit'}
+										options={[
+											{ value: 'inherit', label: m.compose_setting_unset() },
+											{ value: 'true', label: m.compose_setting_yes() },
+											{ value: 'false', label: m.compose_setting_no() }
+										]}
+										onValueChange={(value) =>
+											onChange(setting.key, value === 'inherit' ? null : value === 'true')}
+									/>
 								{:else if setting.type === 'boolean'}
 									<label class="flex min-h-11 items-center gap-3 text-sm">
 										<Checkbox

@@ -113,6 +113,36 @@ test("YouTube settings explain required video before fields are resolved", async
   });
   await expect(populated.getByText(hint, { exact: true })).toHaveCount(0);
   await expect(populated.getByRole("textbox", { name: /^Title/ })).toBeVisible();
+  const kids = populated.getByRole("button", { name: "Made for kids", exact: true });
+  const synthetic = populated.getByRole("button", {
+    name: "Contains synthetic media",
+    exact: true,
+  });
+  await expect(kids).toHaveText("Not specified");
+  await expect(synthetic).toHaveText("Not specified");
+  await kids.click();
+  await page.getByRole("option", { name: "No", exact: true }).click();
+  await synthetic.click();
+  await page.getByRole("option", { name: "Yes", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect
+    .poll(async () => {
+      const saved = await (await request.get(path, { headers })).json();
+      return [
+        saved.renditions[0].settings?.self_declared_made_for_kids,
+        saved.renditions[0].settings?.contains_synthetic_media,
+      ];
+    })
+    .toEqual([false, true]);
+  await page.reload();
+  await page.locator(`#composer-destination-${accountID}`).click();
+  await openComposerPlatformSettings(page);
+  await expect(kids).toHaveText("No");
+  await expect(synthetic).toHaveText("Yes");
+  for (const choice of [kids, synthetic]) {
+    await choice.click();
+    await page.getByRole("option", { name: "Not specified", exact: true }).click();
+  }
   await page.screenshot({
     path: info.outputPath("youtube-video-fields-320-dark.png"),
   });
@@ -175,6 +205,8 @@ test("YouTube settings explain required video before fields are resolved", async
     })
     .toBe("é".repeat(2500));
   const saved = await (await request.get(path, { headers })).json();
+  expect(saved.renditions[0].settings?.self_declared_made_for_kids ?? null).toBeNull();
+  expect(saved.renditions[0].settings?.contains_synthetic_media ?? null).toBeNull();
   expect(saved.status).toBe("draft");
   expect(saved.scheduled_at).toBeFalsy();
   expect(pageErrors).toEqual([]);

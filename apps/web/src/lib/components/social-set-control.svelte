@@ -374,6 +374,7 @@
 	}
 
 	function reusableDefaultField(field: SettingDefinition): boolean {
+		if (field.post_only) return false;
 		if (field.scope === 'media_item' || field.type === 'media') return false;
 		if (field.key.endsWith('_media_id')) return false;
 		if (

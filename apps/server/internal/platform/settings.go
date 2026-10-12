@@ -36,10 +36,10 @@ func settingBool(settings map[string]interface{}, key string) bool {
 	}
 }
 
-// settingBoolPtr keeps an explicit false: nil only when the key is absent, so
+// settingBoolPtr keeps an explicit false: nil when the key is absent or null, so
 // providers can tell "not set" (use the account default) from "set to false".
 func settingBoolPtr(settings map[string]interface{}, key string) *bool {
-	if _, ok := settings[key]; !ok {
+	if raw, ok := settings[key]; !ok || raw == nil {
 		return nil
 	}
 	value := settingBool(settings, key)

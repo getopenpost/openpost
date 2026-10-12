@@ -1368,6 +1368,7 @@
 		for (const field of visibleSettings(account)) {
 			if (field.scope !== scope || next[field.key] !== undefined) continue;
 			if (field.default !== undefined) next[field.key] = parseComposerSettingValue(field.default);
+			else if (field.control === 'optional_boolean') continue;
 			else if (field.type === 'boolean') next[field.key] = false;
 			else next[field.key] = '';
 		}

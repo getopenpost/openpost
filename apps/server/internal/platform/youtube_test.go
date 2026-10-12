@@ -703,6 +703,19 @@ func TestYouTubeUploadRejectsMissingRequiredChoicesBeforeNetwork(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "privacy") {
 		t.Fatalf("expected explicit privacy error, got %v", err)
 	}
+	for _, scenario := range []struct{ privacy, publishAt, wantError string }{
+		{"public", "2030-10-12T12:00:00Z", "private"},
+		{"unlisted", "2030-10-12T12:00:00Z", "private"},
+		{"private", "tomorrow", "RFC 3339"},
+	} {
+		_, err := adapter.UploadMediaWithMetadata(context.Background(), "access-token", "channel-1", UploadMediaRequest{
+			MimeType: "video/mp4", Size: 5, Title: "Launch", Reader: strings.NewReader("video"),
+			Settings: map[string]interface{}{"privacy": scenario.privacy, "category_id": "22", "publish_at": scenario.publishAt},
+		})
+		if err == nil || !strings.Contains(err.Error(), scenario.wantError) {
+			t.Fatalf("expected %s error before network, got %v", scenario.wantError, err)
+		}
+	}
 }
 
 func TestPrepareYouTubeUploadRejectsProviderInvalidFields(t *testing.T) {
@@ -745,41 +758,63 @@ func TestPrepareYouTubeUploadRejectsProviderInvalidFields(t *testing.T) {
 	}
 }
 
-func TestPrepareYouTubeUploadSendsExplicitFalseAndPublishAt(t *testing.T) {
-	req := UploadMediaRequest{
-		MimeType: "video/mp4",
-		Size:     11,
-		Title:    "Launch",
-		Settings: map[string]interface{}{
-			"privacy": "private", "category_id": "22",
-			"self_declared_made_for_kids": false, "publish_at": "2026-10-12T20:00:00+08:00",
-		},
-		OpenReaderAt: func(offset int64) (io.ReadCloser, error) {
-			return io.NopCloser(strings.NewReader("video-bytes"[offset:])), nil
-		},
-	}
-	got, err := prepareYouTubeUpload(req)
-	if err != nil {
-		t.Fatalf("prepare: %v", err)
-	}
-	body, _ := json.Marshal(got.Status)
-	for _, want := range []string{`"selfDeclaredMadeForKids":false`, `"publishAt":"2026-10-12T12:00:00Z"`} {
-		if !strings.Contains(string(body), want) {
-			t.Fatalf("status %s missing %s", body, want)
-		}
-	}
-	if strings.Contains(string(body), "containsSyntheticMedia") {
-		t.Fatalf("unset synthetic-media flag must stay omitted so YouTube keeps its default: %s", body)
-	}
-
-	req.Settings["privacy"] = "public"
-	if _, err := prepareYouTubeUpload(req); err == nil || !strings.Contains(err.Error(), "private") {
-		t.Fatalf("expected publish_at to require private, got %v", err)
-	}
-	req.Settings["privacy"] = "private"
-	req.Settings["publish_at"] = "tomorrow 8pm"
-	if _, err := prepareYouTubeUpload(req); err == nil || !strings.Contains(err.Error(), "RFC 3339") {
-		t.Fatalf("expected RFC 3339 error, got %v", err)
+func TestYouTubeUploadDisclosureMetadata(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+	for _, scenario := range []struct {
+		name                    string
+		disclosures             map[string]interface{}
+		wantKids, wantSynthetic string
+	}{
+		{name: "absent"},
+		{name: "null", disclosures: map[string]interface{}{"self_declared_made_for_kids": nil, "contains_synthetic_media": nil}},
+		{name: "false", disclosures: map[string]interface{}{"self_declared_made_for_kids": false, "contains_synthetic_media": false}, wantKids: "false", wantSynthetic: "false"},
+		{name: "true", disclosures: map[string]interface{}{"self_declared_made_for_kids": true, "contains_synthetic_media": true}, wantKids: "true", wantSynthetic: "true"},
+		{name: "independent choices", disclosures: map[string]interface{}{"self_declared_made_for_kids": false, "contains_synthetic_media": true}, wantKids: "false", wantSynthetic: "true"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			var status map[string]json.RawMessage
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				switch {
+				case req.Method == http.MethodPost && req.URL.Path == "/upload/youtube/v3/videos":
+					var metadata struct {
+						Status map[string]json.RawMessage `json:"status"`
+					}
+					if err := json.NewDecoder(req.Body).Decode(&metadata); err != nil {
+						t.Fatal(err)
+					}
+					status = metadata.Status
+					resp := jsonResponse(req, `{}`)
+					resp.Header.Set("Location", "https://www.googleapis.com/upload/youtube/v3/videos/session")
+					return resp, nil
+				case req.Method == http.MethodPut && req.URL.Path == "/upload/youtube/v3/videos/session":
+					return jsonResponseWithStatus(req, http.StatusCreated, `{"id":"scheduled-video"}`), nil
+				case req.Method == http.MethodGet && req.URL.Path == "/youtube/v3/videos":
+					return jsonResponse(req, `{"items":[{"id":"scheduled-video","processingDetails":{"processingStatus":"succeeded"},"status":{"uploadStatus":"processed"}}]}`), nil
+				default:
+					t.Fatalf("unexpected request %s %s", req.Method, req.URL)
+					return nil, nil
+				}
+			})}
+			settings := map[string]interface{}{"privacy": "private", "category_id": "22", "publish_at": "2030-10-12T20:00:00.125+08:00"}
+			for key, value := range scenario.disclosures {
+				settings[key] = value
+			}
+			id, err := NewYouTubeAdapter("", "", "").UploadMediaWithMetadata(context.Background(), "token", "channel", UploadMediaRequest{
+				MimeType: "video/mp4", Size: 11, Title: "Launch", Settings: settings, Reader: strings.NewReader("video-bytes"),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if id != "scheduled-video" {
+				t.Fatalf("unexpected video ID %q", id)
+			}
+			for key, want := range map[string]string{"selfDeclaredMadeForKids": scenario.wantKids, "containsSyntheticMedia": scenario.wantSynthetic, "publishAt": `"2030-10-12T12:00:00.125Z"`, "privacyStatus": `"private"`} {
+				if string(status[key]) != want {
+					t.Errorf("%s = %s, want %s", key, status[key], want)
+				}
+			}
+		})
 	}
 }
 

@@ -1,4 +1,8 @@
 {
+	"publishing_setting_publish_at": "YouTube yayınlanma zamanı",
+	"compose_setting_unset": "Belirtilmedi",
+	"compose_setting_yes": "Evet",
+	"compose_setting_no": "Hayır",
 	"waitlist_title": "Bekleme listesi - OpenPost",
 	"waitlist_heading": "OpenPost Cloud neredeyse hazır",
 	"waitlist_description": "Sosyal platformların son onaylarını tamamlıyor ve son ayrıntıları düzeltiyoruz.",

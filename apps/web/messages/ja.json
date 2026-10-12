@@ -1,4 +1,8 @@
 {
+	"publishing_setting_publish_at": "YouTubeでの公開日時",
+	"compose_setting_unset": "未指定",
+	"compose_setting_yes": "はい",
+	"compose_setting_no": "いいえ",
 	"waitlist_title": "ウェイティングリスト - OpenPost",
 	"waitlist_heading": "OpenPost Cloudはまもなく準備完了です",
 	"waitlist_description": "ソーシャルプラットフォームの最終承認と、仕上げの調整を進めています。",

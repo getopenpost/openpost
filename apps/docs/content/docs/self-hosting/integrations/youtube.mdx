@@ -61,7 +61,11 @@ Google documents [YouTube OAuth](https://developers.google.com/youtube/v3/guides
 
 1. In **Settings → Workspace → Social accounts**, select **YouTube**. Sign in with the Google account that owns the target channel, grant consent, and choose the channel returned by Google.
 2. Create a post with one video and select the connected channel. Start with a **private** upload and confirm that OpenPost reports the result and the video appears in YouTube Studio.
-3. Set title, description, privacy, and other YouTube options on the variant as needed. To let YouTube publish at a set time, choose **Private** and fill **Scheduled publish time** (`publish_at`, an RFC 3339 time): the video uploads now and YouTube makes it public at that time. Test public visibility separately: Google can keep API uploads private even when OpenPost requests another privacy level.
+3. Set title, description, privacy, and other YouTube options on the variant as needed. Choose **No** for **Made for kids** to send an explicit negative audience declaration. **Not specified** leaves that choice to YouTube's channel settings. **Contains synthetic media** also accepts an explicit **Yes** or **No**; **Not specified** omits the disclosure.
+
+To let YouTube publish a video at a set time, choose **Private** and fill **YouTube publish time** (`publish_at`) with an RFC 3339 timestamp including a timezone, such as `2030-10-12T12:00:00Z`. This is a setting for an individual post, not a reusable Social Set default. OpenPost uploads when you publish the post or when its OpenPost schedule runs. YouTube then makes the video public at its publish time. A time in the past makes it public immediately, as described in the [YouTube API reference](https://developers.google.com/youtube/v3/docs/videos#status.publishAt).
+
+OpenPost reports the post as published once the upload completes, even if YouTube's public release is later. First comments and repost automation follow that upload completion, not YouTube's publish time. Test public visibility separately: Google can keep API uploads private even when OpenPost requests another privacy level.
 
 Optional Comments and replies and Analytics start disabled per channel. Enable them only with the required permissions.
 

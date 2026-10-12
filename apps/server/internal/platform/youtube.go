@@ -451,7 +451,7 @@ func prepareYouTubeUpload(req UploadMediaRequest) (youtubeVideoInsertRequest, er
 		if privacy != "private" {
 			return youtubeVideoInsertRequest{}, fmt.Errorf("youtube publish_at requires private privacy")
 		}
-		publishAt = at.UTC().Format(time.RFC3339)
+		publishAt = at.UTC().Format(time.RFC3339Nano)
 	}
 	categoryID := settingString(req.Settings, "category_id")
 	if categoryID == "" {

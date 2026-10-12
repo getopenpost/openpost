@@ -20131,6 +20131,10 @@
 						},
 						"type": ["array", "null"]
 					},
+					"date_time": {
+						"description": "Value must be an RFC 3339 timestamp with a timezone",
+						"type": "boolean"
+					},
 					"local_date_time": {
 						"type": "boolean"
 					},
@@ -20246,6 +20250,10 @@
 							"type": "string"
 						},
 						"type": ["array", "null"]
+					},
+					"post_only": {
+						"description": "Choose this setting on each post, never in reusable Social Set defaults",
+						"type": "boolean"
 					},
 					"required": {
 						"type": "boolean"

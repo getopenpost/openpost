@@ -1,4 +1,8 @@
 {
+	"publishing_setting_publish_at": "YouTube-Veröffentlichungszeit",
+	"compose_setting_unset": "Nicht angegeben",
+	"compose_setting_yes": "Ja",
+	"compose_setting_no": "Nein",
 	"waitlist_title": "Warteliste - OpenPost",
 	"waitlist_heading": "OpenPost Cloud ist fast bereit",
 	"waitlist_description": "Wir warten auf die letzten Freigaben der sozialen Netzwerke und arbeiten an den letzten Details.",

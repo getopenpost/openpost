@@ -1,4 +1,8 @@
 {
+	"publishing_setting_publish_at": "YouTube 发布时间",
+	"compose_setting_unset": "未指定",
+	"compose_setting_yes": "是",
+	"compose_setting_no": "否",
 	"waitlist_title": "等候名单 - OpenPost",
 	"waitlist_heading": "OpenPost Cloud 即将准备就绪",
 	"waitlist_description": "我们正在完成社交平台的最后审批，并完善最终细节。",

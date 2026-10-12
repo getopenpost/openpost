@@ -1,4 +1,8 @@
 {
+	"publishing_setting_publish_at": "YouTube 공개 시간",
+	"compose_setting_unset": "지정하지 않음",
+	"compose_setting_yes": "예",
+	"compose_setting_no": "아니요",
 	"waitlist_title": "대기 목록 - OpenPost",
 	"waitlist_heading": "OpenPost Cloud가 곧 준비됩니다",
 	"waitlist_description": "소셜 플랫폼의 마지막 승인을 받고 최종 세부 사항을 다듬고 있습니다.",

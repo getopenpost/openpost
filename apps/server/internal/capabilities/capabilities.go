@@ -675,7 +675,7 @@ func settingGroup(key string) string {
 	case "thumbnail_media_id", "cover_media_id", "thumbnail_timestamp_ms", "cover_timestamp_ms",
 		"caption_media_id", "collaborators", "user_tags", "product_tags", "location_id":
 		return "media_accessibility"
-	case "privacy", "privacy_level", "playlist_id", "category_id", "notify_subscribers",
+	case "privacy", "privacy_level", "playlist_id", "category_id", "notify_subscribers", "publish_at",
 		"content_posting_method", "community_id", "topic_tag", "text_format_preset_id":
 		return "distribution"
 	default:
@@ -2642,6 +2642,7 @@ func youtubeSettings() []SettingField {
 		{Key: "thumbnail_media_id", Label: "Thumbnail", Type: "media", Control: "media_picker"},
 		{Key: "caption_media_id", Label: "Caption file", Type: "media", Control: "captions_file"},
 		{Key: "caption_language", Label: "Caption language", Type: "text", Control: "language", Dependencies: []SettingCondition{{Key: "caption_media_id", Operator: "present"}}},
+		{Key: "publish_at", Label: "Scheduled publish time", Type: "text", Help: "RFC 3339 time. Uploads now as private and YouTube publishes it at this time. Requires Private."},
 		{Key: "license", Label: "License", Type: "select", Default: "youtube", Options: []string{"youtube", "creativeCommon"}},
 		{Key: "embeddable", Label: "Allow embedding", Type: "boolean", Default: true},
 		{Key: "self_declared_made_for_kids", Label: "Made for kids", Type: "boolean"},

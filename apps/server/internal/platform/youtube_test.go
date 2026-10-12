@@ -307,7 +307,7 @@ func TestYouTubeUploadMediaWithMetadata(t *testing.T) {
 	if metadata.Snippet.Title != "Launch Short" || metadata.Status.PrivacyStatus != "private" {
 		t.Fatalf("unexpected metadata: %#v", metadata)
 	}
-	if !metadata.Status.ContainsSyntheticMedia {
+	if metadata.Status.ContainsSyntheticMedia == nil || !*metadata.Status.ContainsSyntheticMedia {
 		t.Fatal("expected synthetic media disclosure in upload metadata")
 	}
 	if uploadedBody != "video-bytes" {
@@ -742,6 +742,44 @@ func TestPrepareYouTubeUploadRejectsProviderInvalidFields(t *testing.T) {
 	settingTitle.Settings = map[string]interface{}{"privacy": "public", "category_id": "22", "title": "Setting <title>"}
 	if _, err := prepareYouTubeUpload(settingTitle); err == nil || !strings.Contains(err.Error(), "<>") {
 		t.Fatalf("expected settings-title charset error, got %v", err)
+	}
+}
+
+func TestPrepareYouTubeUploadSendsExplicitFalseAndPublishAt(t *testing.T) {
+	req := UploadMediaRequest{
+		MimeType: "video/mp4",
+		Size:     11,
+		Title:    "Launch",
+		Settings: map[string]interface{}{
+			"privacy": "private", "category_id": "22",
+			"self_declared_made_for_kids": false, "publish_at": "2026-10-12T20:00:00+08:00",
+		},
+		OpenReaderAt: func(offset int64) (io.ReadCloser, error) {
+			return io.NopCloser(strings.NewReader("video-bytes"[offset:])), nil
+		},
+	}
+	got, err := prepareYouTubeUpload(req)
+	if err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	body, _ := json.Marshal(got.Status)
+	for _, want := range []string{`"selfDeclaredMadeForKids":false`, `"publishAt":"2026-10-12T12:00:00Z"`} {
+		if !strings.Contains(string(body), want) {
+			t.Fatalf("status %s missing %s", body, want)
+		}
+	}
+	if strings.Contains(string(body), "containsSyntheticMedia") {
+		t.Fatalf("unset synthetic-media flag must stay omitted so YouTube keeps its default: %s", body)
+	}
+
+	req.Settings["privacy"] = "public"
+	if _, err := prepareYouTubeUpload(req); err == nil || !strings.Contains(err.Error(), "private") {
+		t.Fatalf("expected publish_at to require private, got %v", err)
+	}
+	req.Settings["privacy"] = "private"
+	req.Settings["publish_at"] = "tomorrow 8pm"
+	if _, err := prepareYouTubeUpload(req); err == nil || !strings.Contains(err.Error(), "RFC 3339") {
+		t.Fatalf("expected RFC 3339 error, got %v", err)
 	}
 }
 

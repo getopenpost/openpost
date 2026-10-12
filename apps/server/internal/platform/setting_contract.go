@@ -50,7 +50,7 @@ func PublishingSettingsContract(provider string) PublishingSettingContract {
 			AdapterKeys: []string{"url", "poll_options", "text_attachment_plaintext", "text_attachment_link_url", "gif_id", "reply_control", "topic_tag", "location_id", "spoiler", "ghost_post", "reply_approvals", "alt_text"},
 		},
 		providerYouTube: {
-			AdapterKeys:  []string{"privacy", "title", "description", "tags", "category_id", "playlist_id", "thumbnail_media_id", "caption_media_id", "caption_language", "license", "embeddable", "self_declared_made_for_kids", "contains_synthetic_media", "paid_placement", "notify_subscribers"},
+			AdapterKeys:  []string{"privacy", "title", "description", "tags", "category_id", "playlist_id", "thumbnail_media_id", "caption_media_id", "caption_language", "publish_at", "license", "embeddable", "self_declared_made_for_kids", "contains_synthetic_media", "paid_placement", "notify_subscribers"},
 			PipelineKeys: []string{"first_comment"},
 		},
 		providerTikTok: {

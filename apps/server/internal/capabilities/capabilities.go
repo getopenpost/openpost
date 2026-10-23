@@ -1568,7 +1568,7 @@ func ValidateOutput(provider, outputProfile, fallbackProfile, body, title, descr
 			return []ValidationIssue{validationIssue("text_card_invalid", err.Error(), provider, fallbackProfile, "text_card")}
 		}
 	}
-	shape := resolveMediaShape([]ResolveSegment{{Media: media}}, "")
+	shape := resolveMediaShape([]ResolveSegment{{Media: media}}, settingsValue(settings, "url"))
 	settings = NormalizeMediaTextLinkSettings(provider, len(media), settings)
 	if capability, ok := findOutputForValidation(provider, outputProfile, fallbackProfile, shape); ok {
 		intent := ""

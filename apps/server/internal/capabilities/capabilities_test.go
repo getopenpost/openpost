@@ -274,6 +274,19 @@ func TestValidateInstagramStoryWarnsWhenCollaboratorsWillBeOmitted(t *testing.T)
 	}
 }
 
+func TestValidateOutputAcceptsResolvedLinkURL(t *testing.T) {
+	// The composer projects the first URL in the text into "url" on link posts.
+	for _, provider := range []string{ProviderThreads, ProviderMastodon} {
+		t.Run(provider, func(t *testing.T) {
+			issues := ValidateOutput(provider, provider+".post", models.ContentProfileLinkShare, "Read this: https://example.com/post", "", "", nil,
+				map[string]any{"url": "https://example.com/post", "link_url": ""})
+			for _, issue := range issues {
+				require.NotEqual(t, "error", issue.Severity, issue.Message)
+			}
+		})
+	}
+}
+
 func TestResolveRequiresFormatOnlyForGenuinelyAmbiguousDestinations(t *testing.T) {
 	image := MediaItem{ID: "image-1", MimeType: "image/jpeg", Size: 1024, Width: 1080, Height: 1080, PublicURLReady: true, PublicURLStatus: 200}
 	video := MediaItem{ID: "video-1", MimeType: "video/mp4", Size: 1024, Width: 1080, Height: 1920, DurationMS: 20_000, AnalysisStatus: "ready", PublicURLReady: true, PublicURLStatus: 200}

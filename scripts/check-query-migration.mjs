@@ -55,6 +55,12 @@ const imperativeReadAllowlist = [
     reason: "bounded post-upload processing poll with caller-owned cancellation",
   },
   {
+    file: "apps/web/src/lib/instance-backup.ts",
+    endpoint: "/ready",
+    count: 1,
+    reason: "bounded post-restore restart poll with caller-owned cancellation",
+  },
+  {
     file: "apps/web/src/lib/post-builder/client.ts",
     endpoint: "/publication-builds/{id}",
     count: 1,

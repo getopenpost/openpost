@@ -38,6 +38,28 @@ func RunMigrations(db *bun.DB) error {
 	return runMigrations(db, migrationFiles)
 }
 
+// LatestVersion returns the highest migration version shipped in this binary.
+func LatestVersion() (int64, error) {
+	entries, err := fs.ReadDir(migrationFiles, ".")
+	if err != nil {
+		return 0, fmt.Errorf("failed to read migration files: %w", err)
+	}
+	var latest int64
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+			continue
+		}
+		version, err := parseVersion(entry.Name())
+		if err != nil {
+			return 0, fmt.Errorf("invalid migration filename %q: %w", entry.Name(), err)
+		}
+		if version > latest {
+			latest = version
+		}
+	}
+	return latest, nil
+}
+
 // RequireCurrent verifies that every migration shipped in this binary has
 // already been applied. Long-lived process roles use this read-only check and
 // leave schema changes to the explicit migrate release phase.

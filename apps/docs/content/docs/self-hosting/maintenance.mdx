@@ -6,6 +6,17 @@ icon: ArchiveRestore
 
 The database holds accounts, schedules, and post state. The media directory holds uploaded files. Back up both with the Compose file and `.env`; the latter contains the JWT and encryption secrets needed to read saved credentials. Keep backups private and off the server, and test a restore before relying on them.
 
+## Back up from the web app
+
+Instance administrators can create and restore a backup without using a terminal. Open **Settings → Instance → Backup and restore**.
+
+- **Download a backup** creates one ZIP file with a consistent snapshot of the database and every uploaded media file. The server keeps running.
+- **Restore from a backup** checks the uploaded file first and changes nothing until you type `restore` to confirm. The server then restarts and replaces its data. The data it replaced stays in a `pre-restore-*` folder next to the database, listed on the same page, so you can go back. Delete these copies when you no longer need them.
+
+The backup does not contain `OPENPOST_ENCRYPTION_KEY`. A restore is refused when the key differs, because saved provider credentials would be unreadable. Keep `.env` with your backups.
+
+This feature needs the default SQLite database, local media storage, and a server that runs as a single process. It also needs a container restart policy such as the `unless-stopped` policy in the Compose file. Other setups keep using the manual steps below.
+
 ## Back up the SQLite setup
 
 For the [Compose guide's](/self-hosting) `./data` bind mount, run these commands from the directory containing `docker-compose.yml`. Stop OpenPost so the SQLite copy is consistent. Record the image tag and create an archive:

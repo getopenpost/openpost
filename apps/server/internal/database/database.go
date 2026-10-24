@@ -122,6 +122,19 @@ func initSQLiteDB(dsn string) (*bun.DB, error) {
 // when the DSN does not reference a file outside the working directory
 // (memory databases, bare filenames).
 func sqliteFileDir(dsn string) string {
+	path := SQLiteFilePath(dsn)
+	if path == "" {
+		return ""
+	}
+	if dir := filepath.Dir(path); dir != "." && dir != string(filepath.Separator) {
+		return dir
+	}
+	return ""
+}
+
+// SQLiteFilePath returns the database file referenced by a SQLite DSN, or ""
+// for memory databases and remote hosts.
+func SQLiteFilePath(dsn string) string {
 	path := dsn
 	if strings.HasPrefix(dsn, "file:") {
 		parsed, err := url.Parse(dsn)
@@ -142,13 +155,10 @@ func sqliteFileDir(dsn string) string {
 			}
 		}
 	}
-	if path == "" || path == ":memory:" {
+	if path == ":memory:" {
 		return ""
 	}
-	if dir := filepath.Dir(path); dir != "." && dir != string(filepath.Separator) {
-		return dir
-	}
-	return ""
+	return path
 }
 
 func initPostgresDB(dsn string, pool poolConfig) (*bun.DB, error) {

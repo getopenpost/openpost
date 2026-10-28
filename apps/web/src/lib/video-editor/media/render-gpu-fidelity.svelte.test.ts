@@ -90,12 +90,12 @@ it('keeps GPU box blur proportional when reducing a video export resolution', as
 		expect(nativeFrame.getImageData(54, 32, 1, 1).data[2]).toBeLessThan(15);
 		expect(smallFrame.getImageData(27, 16, 1, 1).data[2]).toBeLessThan(15);
 		// Two authored pixels inside the boundary at native size, and the matching
-		// two output pixels at half size: the clean control is fully clear there while
-		// the blurred render mixes in blue.
+		// two output pixels at half size: the clean control has only AVC color-conversion
+		// rounding there while the blurred render mixes in blue.
 		expect(nativeFrame.getImageData(62, 32, 1, 1).data[2]).toBeGreaterThan(30);
-		expect(cleanNativeFrame.getImageData(62, 32, 1, 1).data[2]).toBe(0);
+		expect(cleanNativeFrame.getImageData(62, 32, 1, 1).data[2]).toBeLessThan(3);
 		expect(smallFrame.getImageData(30, 16, 1, 1).data[2]).toBeGreaterThan(30);
-		expect(cleanSmallFrame.getImageData(30, 16, 1, 1).data[2]).toBe(0);
+		expect(cleanSmallFrame.getImageData(30, 16, 1, 1).data[2]).toBeLessThan(3);
 	} finally {
 		normal.dispose();
 		small.dispose();

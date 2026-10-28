@@ -9,7 +9,7 @@ for (const storage of ["guest", "cloud"] as const) {
   }, testInfo) => {
     test.setTimeout(60_000);
     const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("pageerror", (error) => errors.push(error.stack ?? error.message));
     await page.setViewportSize({ width: 1369, height: 800 });
     if (storage === "cloud") {
       const auth = await registerUser(request, `compositing-${randomUUID()}@example.com`);

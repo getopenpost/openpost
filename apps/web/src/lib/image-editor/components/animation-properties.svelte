@@ -38,6 +38,8 @@
 	let thumbnails = $state.raw<string[]>([]);
 	let request: AbortController | undefined;
 	const pageID = editor.activePageID;
+	// The keyed layer can disappear before this instance is destroyed.
+	const instanceLayerID = untrack(() => layer.id);
 	function select(index: number) {
 		playing = false;
 		editor.animationFrameOverrides = { ...editor.animationFrameOverrides, [layer.id]: index };
@@ -150,7 +152,7 @@
 	});
 	onDestroy(() => {
 		request?.abort();
-		const { [layer.id]: _removed, ...rest } = editor.animationFrameOverrides;
+		const { [instanceLayerID]: _removed, ...rest } = editor.animationFrameOverrides;
 		editor.animationFrameOverrides = rest;
 	});
 </script>

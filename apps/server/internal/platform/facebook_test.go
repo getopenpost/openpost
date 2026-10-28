@@ -48,6 +48,41 @@ func TestFacebookGenerateAuthURL(t *testing.T) {
 	}
 }
 
+func TestFacebookVideoCaptionPreservesExplicitEmpty(t *testing.T) {
+	originalClient := httpClient
+	t.Cleanup(func() { httpClient = originalClient })
+	for _, tc := range []struct {
+		name     string
+		settings map[string]any
+		want     string
+	}{
+		{"authored empty", map[string]any{"video_description": "", "caption_mentions": map[string]any{"field": "video_description", "body": ""}}, ""},
+		{"legacy empty inherits", map[string]any{"video_description": ""}, "Shared source text"},
+		{"custom caption", map[string]any{"video_description": "Custom caption"}, "Custom caption"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := &PublishRequest{Content: "Shared source text", Settings: tc.settings}
+			httpClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+				if err := request.ParseForm(); err != nil {
+					t.Fatal(err)
+				}
+				if actual := request.PostForm.Get("description"); actual != tc.want {
+					t.Errorf("video caption = %q, want %q", actual, tc.want)
+				}
+				return jsonResponse(request, `{"id":"video-1"}`), nil
+			})}
+			_, err := NewFacebookAdapter("", "", "").publishVideo(t.Context(), "token", "page-1", req, "https://media.example/video.mp4")
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _, finish := facebookVideoFinishRequest(req)
+			if finish["description"] != tc.want {
+				t.Errorf("reel caption = %q, want %q", finish["description"], tc.want)
+			}
+		})
+	}
+}
+
 func TestFacebookExchangeAndSelectPage(t *testing.T) {
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient

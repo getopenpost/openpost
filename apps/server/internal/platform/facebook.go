@@ -590,7 +590,7 @@ func (f *FacebookAdapter) publishPhoto(ctx context.Context, accessToken, pageID,
 func (f *FacebookAdapter) publishVideo(ctx context.Context, accessToken, pageID string, req *PublishRequest, mediaURL string) (string, error) {
 	values := map[string]string{
 		"file_url":            mediaURL,
-		"description":         strings.TrimSpace(firstNonEmptyString(settingString(req.Settings, "video_description"), req.Description, req.Content)),
+		"description":         facebookVideoDescription(req),
 		oauthParamAccessToken: accessToken,
 	}
 	if title := firstNonEmptyString(settingString(req.Settings, "video_title"), req.Title); title != "" {
@@ -601,6 +601,16 @@ func (f *FacebookAdapter) publishVideo(ctx context.Context, accessToken, pageID 
 		return "", fmt.Errorf("facebook video publish: %w", err)
 	}
 	return facebookPublishedID("facebook video publish", respBody)
+}
+
+func facebookVideoDescription(req *PublishRequest) string {
+	// Caption annotations distinguish an authored empty caption from legacy inheritance.
+	if req.Settings["caption_mentions"] != nil {
+		if caption, ok := req.Settings["video_description"].(string); ok {
+			return strings.TrimSpace(caption)
+		}
+	}
+	return strings.TrimSpace(firstNonEmptyString(settingString(req.Settings, "video_description"), req.Description, req.Content))
 }
 
 func (f *FacebookAdapter) publishMultiPhoto(ctx context.Context, accessToken, pageID, message string, mediaURLs []string) (string, error) {
@@ -1049,7 +1059,7 @@ func facebookVideoFinishRequest(req *PublishRequest) (string, string, map[string
 	}
 	finishValues := map[string]string{
 		"video_state": "PUBLISHED",
-		"description": strings.TrimSpace(firstNonEmptyString(settingString(req.Settings, "video_description"), req.Description, req.Content)),
+		"description": facebookVideoDescription(req),
 	}
 	if title := firstNonEmptyString(settingString(req.Settings, "video_title"), req.Title); title != "" {
 		finishValues["title"] = title

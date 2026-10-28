@@ -286,3 +286,28 @@ func TestPublicationMentionValidationSeparatesMetadataFromProviderSettings(t *te
 		})
 	}
 }
+
+func TestNativeCaptionLegacyClearAndProjectionEcho(t *testing.T) {
+	caption := &publicationsource.CaptionMentions{Field: "description", Body: "Hi @alice", Mentions: &posttext.Mentions{Version: 1, Spans: []posttext.MentionSpan{{Start: 3, End: 9, Text: "@alice", Target: posttext.MentionTarget{Provider: "workspace", Kind: "profile", ID: "caption-person", Profiles: []posttext.MentionProfile{{Provider: "youtube", Text: "@alice_video"}}}}}}}
+	data, err := json.Marshal(map[string]any{publicationsource.CaptionMentionsKey: caption})
+	require.NoError(t, err)
+	old := models.RenditionSegment{SettingsJSON: string(data)}
+	account := models.SocialAccount{Platform: "youtube"}
+	for _, actual := range []string{"", "Hi @alice_video"} {
+		input := &RenditionInput{Settings: map[string]any{"description": actual}}
+		next := &RenditionSegmentInput{Description: actual}
+		require.NoError(t, preserveCaptionMentionInput(input, next, old, account))
+		kept, err := publicationsource.ReadCaptionMentions(next.Settings)
+		require.NoError(t, err)
+		if actual == "" {
+			require.Empty(t, kept.Body)
+			require.Empty(t, kept.Mentions.Spans)
+			require.Equal(t, "", input.Settings["description"])
+		} else {
+			require.Equal(t, "Hi @alice", kept.Body)
+			require.Equal(t, "caption-person", kept.Mentions.Spans[0].Target.ID)
+			require.Equal(t, 3, kept.Mentions.Spans[0].Start)
+			require.Equal(t, "Hi @alice", input.Settings["description"])
+		}
+	}
+}

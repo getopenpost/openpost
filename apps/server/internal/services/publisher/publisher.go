@@ -792,6 +792,14 @@ func (s *Service) publishRenditionSegments(
 				destinationSettings[key] = posttext.ProjectEquivalentText(value, segment.Body, body)
 			}
 		}
+		if field, caption, err := publicationsource.DeliveryCaption(settings, rendition.Platform, account.InstanceURL); err != nil {
+			return fmt.Errorf("caption mention validation: %w", err)
+		} else if field != "" {
+			segment.Description = caption
+			rendition.Description = caption
+			settings[field] = caption
+			destinationSettings[field] = caption
+		}
 		segment.Body = body
 		if settings == nil {
 			settings = map[string]any{}

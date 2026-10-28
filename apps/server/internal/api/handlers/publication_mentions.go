@@ -32,6 +32,9 @@ func preparePublicationMentions(inputs []PublicationSegmentInput, previous []mod
 }
 
 func prepareDestinationMentions(input RenditionSegmentInput, authored string, body *string) (RenditionSegmentInput, *string, error) {
+	if _, err := publicationsource.ReadCaptionMentions(input.Settings); err != nil {
+		return input, body, huma.Error400BadRequest(err.Error())
+	}
 	if _, reserved := input.Settings[posttext.NativeSettingsKey]; reserved {
 		return input, body, huma.Error400BadRequest("provider mention projections cannot be authored")
 	}
@@ -56,6 +59,9 @@ func prepareDestinationMentions(input RenditionSegmentInput, authored string, bo
 func validatePublicationMentions(rendition models.Rendition, account models.SocialAccount, segment RenditionSegmentResponse, canonical []models.PublicationSegment, outputCount int) []capabilities.ValidationIssue {
 	_, err := publicationsource.DeliveryMentions(canonical, segment.PublicationSegmentID, mustJSON(segment.SourceOverrides), segment.BodyOverride, segment.Settings, outputCount == 1 && len(canonical) > 1, segment.Body, rendition.Platform, account.InstanceURL)
 	if err == nil {
+		_, _, err = publicationsource.DeliveryCaption(segment.Settings, rendition.Platform, account.InstanceURL)
+	}
+	if err == nil {
 		return nil
 	}
 	return []capabilities.ValidationIssue{{Code: "mention_choice_invalid", Message: err.Error(), Severity: "error", Provider: rendition.Platform, Field: "mentions", SegmentID: segment.ID, Scope: capabilities.SettingScopeSegment, ScopeID: segment.ID}}
@@ -74,6 +80,11 @@ func projectSegmentMentionText(segment RenditionSegmentResponse, rendition model
 			}
 		}
 		segment.Body = body
+	}
+	if field, caption, err := publicationsource.DeliveryCaption(segment.Settings, rendition.Platform, account.InstanceURL); err == nil && field != "" {
+		segment.Description = caption
+		segment.Settings = maps.Clone(segment.Settings)
+		segment.Settings[field] = caption
 	}
 	return segment
 }
@@ -125,7 +136,7 @@ func normalizeMentionProjectionEcho(input RenditionSegmentInput, old models.Rend
 func projectRenditionMentionText(output RenditionResponse, rendition models.Rendition, account models.SocialAccount, canonical []models.PublicationSegment) RenditionResponse {
 	for i, segment := range output.Segments {
 		output.Segments[i] = projectSegmentMentionText(segment, rendition, account, canonical, len(output.Segments))
-		if i == 0 && output.Description == segment.Description {
+		if i == 0 && (output.Description == segment.Description || segment.Settings[publicationsource.CaptionMentionsKey] != nil) {
 			output.Description = output.Segments[i].Description
 		}
 	}

@@ -60,6 +60,9 @@ func preserveRenditionSegmentMentions(input *RenditionInput, previous []models.R
 			if !sameMentionSource(*next, old, index, i) {
 				continue
 			}
+			if err := preserveCaptionMentionInput(input, next, old, account); err != nil {
+				return err
+			}
 			*next = normalizeMentionProjectionEcho(*next, old, canonical, account.Platform, account.InstanceURL, len(previous) == 1 && len(canonical) > 1)
 			if len(next.SourceOverrides) == 0 {
 				if err := preserveRenditionTextMentions(next, old, canonical, len(previous) == 1 && len(canonical) > 1); err != nil {
@@ -153,4 +156,48 @@ func priorJoinedMentionText(id string, previous []publicationsource.RenditionSou
 		return posttext.Value{Body: source.Body, Mentions: metadata}, err
 	}
 	return posttext.Value{}, nil // Same-request client source references resolve during insertion.
+}
+
+func preserveCaptionMentionInput(input *RenditionInput, next *RenditionSegmentInput, old models.RenditionSegment, account models.SocialAccount) error {
+	if _, explicit := next.Settings[publicationsource.CaptionMentionsKey]; explicit {
+		return nil
+	}
+	var settings map[string]any
+	_ = json.Unmarshal([]byte(old.SettingsJSON), &settings)
+	caption, err := publicationsource.ReadCaptionMentions(settings)
+	if err != nil || caption == nil {
+		return err
+	}
+	body := caption.Body
+	if actual, present := input.Settings[caption.Field]; present {
+		var ok bool
+		body, ok = actual.(string)
+		if !ok {
+			return posttext.ErrInvalid
+		}
+	} else if next.Description != "" {
+		body = next.Description
+	}
+	_, projected, err := publicationsource.DeliveryCaption(settings, account.Platform, account.InstanceURL)
+	if err != nil {
+		return err
+	}
+	if body == projected {
+		body = caption.Body
+	}
+	caption.Mentions, err = posttext.Remap(caption.Body, body, caption.Mentions)
+	if err != nil {
+		return err
+	}
+	caption.Body = body
+	if input.Settings == nil {
+		input.Settings = map[string]any{}
+	}
+	input.Settings[caption.Field] = body
+	next.Description = body
+	if next.Settings == nil {
+		next.Settings = map[string]any{}
+	}
+	next.Settings[publicationsource.CaptionMentionsKey] = caption
+	return nil
 }

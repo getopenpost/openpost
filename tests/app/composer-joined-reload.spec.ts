@@ -200,11 +200,15 @@ test("a joined Facebook caption edits the delivered description without flatteni
       return {
         description: saved.renditions[0].settings?.video_description,
         sources: saved.segments.map((source: any) => source.body),
+        sourceOverrides: saved.renditions[0].segments[0].source_overrides.map(
+          (source: any) => source.body_override,
+        ),
       };
     })
     .toEqual({
       description: "Caption first\n\nContinuation edited",
       sources: ["Shared first", "Continuation once"],
+      sourceOverrides: ["Authored first", undefined],
     });
   await page.reload();
   await page.locator(`#composer-destination-${accountID}`).click();

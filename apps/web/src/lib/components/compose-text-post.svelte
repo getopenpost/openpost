@@ -602,6 +602,9 @@
 	let editingAltMediaId = $state<string | null>(null);
 	let previewMediaOpen = $state(false);
 	let settingsByAccount = $state<Record<string, ComposerSettings>>({});
+	let captionMentionsByAccount = $state<
+		Record<string, { field: string; body: string; mentions: MentionMetadata } | null>
+	>({});
 	const textCardResults = new SvelteMap<string, TextCardResult>();
 	let textCardNoticeDismissed = $state(false);
 	let savedCardPreviews = $state<Record<string, TextCardResult>>({});
@@ -1835,6 +1838,21 @@
 	});
 
 	function updateAccountSetting(account: SocialAccount, key: string, value: ProviderSettingValue) {
+		const caption = captionMentionsByAccount[account.id];
+		if (caption?.field === key && caption.body !== String(value ?? '')) {
+			const body = String(value ?? '');
+			captionMentionsByAccount = {
+				...captionMentionsByAccount,
+				[account.id]: {
+					...caption,
+					body,
+					mentions: remapMentionMetadata(caption.body, body, caption.mentions) ?? {
+						version: 1,
+						spans: []
+					}
+				}
+			};
+		}
 		const definition = visibleSettings(account).find((field) => field.key === key);
 		if (key === 'url' || key === 'link_url') {
 			const uri = String(value ?? '').trim();
@@ -2366,13 +2384,21 @@
 				: posts[0]
 					? (getVariantContent(account.id, posts[0].key) ?? posts[0].content)
 					: '';
-			const description = explicit || body;
+			const description =
+				explicit !== undefined && (explicit || captionMentionsByAccount[account.id])
+					? explicit
+					: body;
 			rendition.description = description;
 			if (rendition.segments[0]) rendition.segments[0].description = description;
 		}
 
 		for (const rendition of payload.renditions) {
 			const first = rendition.segments?.[0];
+			if (first)
+				first.settings = {
+					...first.settings,
+					caption_mentions: captionMentionsByAccount[rendition.social_account_id] ?? null
+				};
 			if (!first) continue;
 			const settings = { ...first.settings };
 			delete settings.attachment_requirement;
@@ -2424,6 +2450,21 @@
 				.map((rendition) => [rendition.social_account_id, rendition.schedule_override!])
 		);
 		linkUrl = firstComposerURL(posts[0]?.content ?? '') || publication.source_url || '';
+		captionMentionsByAccount = Object.fromEntries(
+			(publication.renditions ?? []).map((rendition) => {
+				const raw = rendition.segments?.[0]?.settings?.caption_mentions as
+					| { field?: string; body?: string; mentions?: unknown }
+					| undefined;
+				const metadata =
+					typeof raw?.body === 'string' ? readMentionMetadata(raw.body, raw.mentions) : undefined;
+				return [
+					rendition.social_account_id,
+					raw?.field && typeof raw.body === 'string' && metadata
+						? { field: raw.field, body: raw.body, mentions: metadata }
+						: null
+				];
+			})
+		);
 		settingsByAccount = Object.fromEntries(
 			(publication.renditions ?? []).map((rendition) => {
 				const settings = parseComposerSettingsRecord(rendition.settings ?? {});
@@ -3430,6 +3471,7 @@
 		mediaSizes = new Map();
 		linkUrl = '';
 		settingsByAccount = {};
+		captionMentionsByAccount = {};
 		segmentSettingsByPost = {};
 		mediaSettingsByAccount = {};
 		resolvedCapabilities = {};
@@ -4136,6 +4178,7 @@
 		mediaSizes = new Map();
 		linkUrl = '';
 		settingsByAccount = {};
+		captionMentionsByAccount = {};
 		segmentSettingsByPost = {};
 		mediaSettingsByAccount = {};
 		resolvedCapabilities = {};
@@ -6522,7 +6565,10 @@
 
 	function restoreSharedContent(account: SocialAccount) {
 		const key = nativeDescriptionKey(account);
-		if (key) updateAccountSetting(account, key, '');
+		if (key) {
+			captionMentionsByAccount = { ...captionMentionsByAccount, [account.id]: null };
+			updateAccountSetting(account, key, '');
+		}
 		resyncAccount(account.id);
 	}
 
@@ -6846,7 +6892,8 @@
 			const value = key
 				? parseComposerSettingOptionalString(settingsByAccount[activeVariantAccount.id]?.[key])
 				: undefined;
-			if (value) return value;
+			if (value !== undefined && (value || captionMentionsByAccount[activeVariantAccount.id]))
+				return value;
 		}
 		if (activeVariantAccount && joinedDescriptionKey(activeVariantAccount))
 			return authoredJoinedBody(activeVariantAccount);
@@ -6856,12 +6903,11 @@
 		if (field === 'content') {
 			const key = nativeDescriptionKey(account);
 			const hasCaptionOverride = Boolean(key && settingsByAccount[account.id]?.[key]);
-			const resetCaptionOnly = Boolean(
-				joinedDescriptionKey(account) &&
-				hasCaptionOverride &&
-				!variantHasContentOverride(account.id)
-			);
-			if (key && hasCaptionOverride) updateAccountSetting(account, key, '');
+			const resetCaptionOnly = Boolean(joinedDescriptionKey(account) && hasCaptionOverride);
+			if (key && hasCaptionOverride) {
+				captionMentionsByAccount = { ...captionMentionsByAccount, [account.id]: null };
+				updateAccountSetting(account, key, '');
+			}
 			if (resetCaptionOnly) return;
 		}
 		resetVariantField(account.id, field);
@@ -6938,17 +6984,13 @@
 			);
 		const account = activeVariantAccount;
 		if (account && joinedDescriptionKey(account)) {
-			// The caption replaces joined text. Keep media decisions on their sources.
-			unsyncAccount(id);
-			posts.forEach((_source, sourceIndex) =>
-				handleVariantChange(
-					id,
-					sourceIndex,
-					sourceIndex === 0 ? value : '',
-					sourceIndex === 0 ? mentions : { version: 1, spans: [] }
-				)
-			);
-			updateAccountSetting(account, joinedDescriptionKey(account)!, value);
+			// A native caption replaces the delivered description, not authored source text.
+			const field = joinedDescriptionKey(account)!;
+			captionMentionsByAccount = {
+				...captionMentionsByAccount,
+				[id]: { field, body: value, mentions: mentions ?? { version: 1, spans: [] } }
+			};
+			updateAccountSetting(account, field, value);
 			return;
 		}
 		if (account) {
@@ -7044,7 +7086,12 @@
 		const description = descriptionKey
 			? parseComposerSettingOptionalString(destinationSettings[descriptionKey])
 			: undefined;
-		if (descriptionKey && description !== undefined && posts[0]) {
+		if (
+			descriptionKey &&
+			description !== undefined &&
+			posts[0] &&
+			!captionMentionsByAccount[account.id]
+		) {
 			destinationSettings[descriptionKey] = postTextForDestination(
 				accountEditorValue(posts[0], account, description, true),
 				account.platform,
@@ -7059,6 +7106,8 @@
 		body: string,
 		native: boolean
 	): PostTextValue {
+		const caption = native && account ? captionMentionsByAccount[account.id] : undefined;
+		if (caption && caption.body === body) return { body, mentions: caption.mentions.spans };
 		const variant = account ? variants.get(account.id)?.[post.key] : undefined;
 		const metadata = variant && !variant.contentInherited ? variant.mentions : post.mentions;
 		if (
@@ -7187,6 +7236,7 @@
 		activeVariantAccountId = null;
 		linkUrl = '';
 		settingsByAccount = {};
+		captionMentionsByAccount = {};
 		segmentSettingsByPost = {};
 		mediaSettingsByAccount = {};
 		resolvedCapabilities = {};

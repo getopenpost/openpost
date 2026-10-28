@@ -2076,6 +2076,16 @@ func (h *PublicationHandler) insertRenditionSegments(
 		}
 		var linkDestinationSettings map[string]any
 		_ = json.Unmarshal([]byte(rendition.SettingsJSON), &linkDestinationSettings)
+		if caption, err := publicationsource.ReadCaptionMentions(input.Settings); err != nil {
+			return huma.Error400BadRequest(err.Error())
+		} else if caption != nil {
+			if _, _, err := publicationsource.DeliveryCaption(input.Settings, rendition.Platform, ""); err != nil {
+				return huma.Error400BadRequest(err.Error())
+			}
+			if actual, ok := linkDestinationSettings[caption.Field].(string); !ok || actual != caption.Body {
+				return huma.Error400BadRequest("caption annotations must match the authored native caption setting")
+			}
+		}
 		effectiveSettings, _ = publicationlink.ResolveEffective(sourceSettings, rendition.SocialAccountID, rendition.Platform, linkBody, linkDestinationSettings, effectiveSettings, linkMediaCount)
 
 		if position == 0 {

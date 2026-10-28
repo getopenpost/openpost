@@ -126,6 +126,67 @@ for (const joined of [false, true])
       await page.reload();
       await page.locator(`#composer-destination-${accountID}`).click();
       await expect(description.locator("[data-mention]")).toHaveText("@alice");
+      const before = await (
+        await request.get(`/api/v1/publications/${publication.id}`, { headers })
+      ).json();
+      const clipboardType = "application/x-openpost-post-text+json";
+      const independent = JSON.parse(copied[clipboardType]);
+      independent.mentions[0].target.id = "independent-caption-person";
+      independent.mentions[0].target.profiles[0].text = "@caption_youtube";
+      const captionCopy = {
+        ...copied,
+        [clipboardType]: JSON.stringify(independent),
+      };
+      await description.click();
+      await description.press("ControlOrMeta+a");
+      await description.evaluate((element, values) => {
+        const data = new DataTransfer();
+        for (const [type, value] of Object.entries(values)) data.setData(type, value);
+        element.dispatchEvent(
+          new ClipboardEvent("paste", {
+            bubbles: true,
+            cancelable: true,
+            clipboardData: data,
+          }),
+        );
+      }, captionCopy);
+      await expect
+        .poll(async () => {
+          const saved = await (
+            await request.get(`/api/v1/publications/${publication.id}`, {
+              headers,
+            })
+          ).json();
+          return {
+            description: saved.renditions[0].description,
+            sourceIdentity: saved.segments[0].settings.mentions.spans[0].target.id,
+            captionIdentity:
+              saved.renditions[0].segments[0].settings.caption_mentions.mentions.spans[0].target.id,
+            sourceBodies: saved.segments.map((segment: any) => segment.body),
+            advanced: saved.revision > before.revision,
+          };
+        })
+        .toEqual({
+          description: "Hello @caption_youtube",
+          sourceIdentity: before.segments[0].settings.mentions.spans[0].target.id,
+          captionIdentity: "independent-caption-person",
+          sourceBodies: ["Hello @alice", "Later"],
+          advanced: true,
+        });
+      await description.fill("Hello @alice");
+      await expect
+        .poll(async () => {
+          const saved = await (
+            await request.get(`/api/v1/publications/${publication.id}`, {
+              headers,
+            })
+          ).json();
+          return [
+            saved.renditions[0].description,
+            saved.renditions[0].segments[0].settings.caption_mentions.mentions.spans,
+          ];
+        })
+        .toEqual(["Hello @alice", []]);
     }
     expect(errors).toEqual([]);
   });

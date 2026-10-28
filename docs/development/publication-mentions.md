@@ -4,7 +4,7 @@ Mention selections are authored text plus stable provider identities. Editors ar
 
 ## Stored contract
 
-Canonical segment `settings.mentions` and independent rendition segment `settings.mentions` contain version 1 metadata. Joined rendition `source_overrides[].mentions` belongs beside that source's `body_override`.
+Canonical segment `settings.mentions` and independent rendition segment `settings.mentions` contain version 1 metadata. Joined rendition `source_overrides[].mentions` belongs beside that source's `body_override`. Native joined captions use the first rendition segment's `settings.caption_mentions`: `{ "field": "description", "body": "Hi @alice", "mentions": { "version": 1, "spans": [] } }` (`video_description` for Facebook). This whole-caption text and metadata are independent of source overrides. Reads, readiness and provider dispatch project its selected Workspace mappings through the shared publication source owner. Empty spans explicitly remove tagging; `caption_mentions: null` resets the caption to the joined sources without changing their edits or selections.
 
 ```json
 {

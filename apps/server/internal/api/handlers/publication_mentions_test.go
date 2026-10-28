@@ -293,6 +293,9 @@ func TestNativeCaptionLegacyClearAndProjectionEcho(t *testing.T) {
 	require.NoError(t, err)
 	old := models.RenditionSegment{SettingsJSON: string(data)}
 	account := models.SocialAccount{Platform: "youtube"}
+	t.Run("replacement cannot silently discard selected caption identities", func(t *testing.T) {
+		require.ErrorIs(t, preserveRenditionSegmentMentions(&RenditionInput{}, []models.RenditionSegment{old}, nil, account), posttext.ErrMetadataRequired)
+	})
 	for _, actual := range []string{"", "Hi @alice_video"} {
 		input := &RenditionInput{Settings: map[string]any{"description": actual}}
 		next := &RenditionSegmentInput{Description: actual}

@@ -1069,6 +1069,7 @@
 				link: post.link
 			})),
 			settingsByAccount,
+			captionMentionsByAccount,
 			segmentSettingsByPost,
 			mediaSettingsByAccount,
 			attachmentRequirements: aiAttachmentRequirements

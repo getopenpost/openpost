@@ -90,6 +90,13 @@ func requireRetainedMentionSegments(old models.RenditionSegment) error {
 	if err != nil {
 		return err
 	}
+	caption, err := publicationsource.ReadCaptionMentions(settings)
+	if err != nil {
+		return err
+	}
+	if caption != nil && hasSelectedMentions(caption.Mentions) {
+		return posttext.ErrMetadataRequired
+	}
 	if old.BodyOverride != nil && len(sources) == 0 && hasSelectedMentions(metadata) {
 		return posttext.ErrMetadataRequired
 	}

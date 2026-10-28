@@ -446,6 +446,7 @@ export class OpenPostFabricAdapter {
 	};
 	private altDuplicatePending = false;
 	private altOriginGhost: FabricObject | null = null;
+	private altOriginGhostLayerIDs: string[] = [];
 	private activeTextInput: {
 		target: EditableFabricText;
 		textarea: HTMLTextAreaElement;
@@ -533,6 +534,8 @@ export class OpenPostFabricAdapter {
 		this.interactiveCanvas()?.discardActiveObject();
 		for (const object of this.objectByLayerID.values()) this.releaseObjectURL(object);
 		this.canvas.clear();
+		this.altOriginGhost = null;
+		this.altOriginGhostLayerIDs = [];
 		this.revokeObjectURLs();
 		this.objectByLayerID.clear();
 		this.decorationsByLayerID.clear();
@@ -1434,6 +1437,9 @@ export class OpenPostFabricAdapter {
 		const canvas = this.interactiveCanvas();
 		if (!canvas) return;
 		this.clearAltOriginGhost();
+		const layerIDs = this.altOriginLayerIDs(target);
+		const targetIndex = this.altOriginAnchorIndex(layerIDs);
+		if (targetIndex === null) return;
 		const bounds = target.getBoundingRect();
 		const snapshot = target.toCanvasElement({
 			withoutShadow: false,
@@ -1449,16 +1455,35 @@ export class OpenPostFabricAdapter {
 			opacity: target.opacity,
 			excludeFromExport: true
 		});
-		const targetIndex = Math.max(0, canvas.getObjects().indexOf(target));
 		canvas.insertAt(targetIndex, ghost);
 		this.altOriginGhost = ghost;
+		this.altOriginGhostLayerIDs = layerIDs;
 		canvas.requestRenderAll();
 	}
 
+	private altOriginLayerIDs(target: FabricObject): string[] {
+		if (!target.__imageEditorLayerID && isFabricObjectCollection(target)) {
+			return imageEditorFabricObjects(target.getObjects())
+				.map((object) => object.__imageEditorLayerID)
+				.filter((id): id is string => Boolean(id));
+		}
+		return target.__imageEditorLayerID ? [target.__imageEditorLayerID] : [];
+	}
+
+	private altOriginAnchorIndex(layerIDs: readonly string[]): number | null {
+		if (!this.canvas) return null;
+		const objects = this.canvas.getObjects();
+		const indices = layerIDs
+			.map((id) => this.objectByLayerID.get(id))
+			.map((object) => (object ? objects.indexOf(object) : -1))
+			.filter((index) => index >= 0);
+		return indices.length > 0 ? Math.min(...indices) : null;
+	}
+
 	private clearAltOriginGhost(): void {
-		if (!this.altOriginGhost) return;
-		this.canvas?.remove(this.altOriginGhost);
+		if (this.altOriginGhost) this.canvas?.remove(this.altOriginGhost);
 		this.altOriginGhost = null;
+		this.altOriginGhostLayerIDs = [];
 	}
 
 	private flushPendingTextEditing(): void {
@@ -2687,6 +2712,16 @@ export class OpenPostFabricAdapter {
 			if (object) this.canvas.moveObjectTo(object, index++);
 			for (const decoration of this.decorationsByLayerID.get(layer.id) ?? []) {
 				this.canvas.moveObjectTo(decoration, index++);
+			}
+		}
+		if (this.altOriginGhost && this.canvas.getObjects().includes(this.altOriginGhost)) {
+			this.canvas.remove(this.altOriginGhost);
+			const anchorIndex = this.altOriginAnchorIndex(this.altOriginGhostLayerIDs);
+			if (anchorIndex === null) {
+				this.altOriginGhost = null;
+				this.altOriginGhostLayerIDs = [];
+			} else {
+				this.canvas.insertAt(anchorIndex, this.altOriginGhost);
 			}
 		}
 	}

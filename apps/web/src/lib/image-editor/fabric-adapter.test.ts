@@ -350,6 +350,108 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 		expect(canvas.objects).toEqual([internals.backgroundObject, bottomObject, topObject]);
 	});
 
+	it('keeps an alt-drag origin ghost above the page background for a multi-selection', () => {
+		interface GhostObjectFixture {
+			__imageEditorLayerID?: string;
+		}
+		interface GhostSelectionFixture {
+			opacity: number;
+			getObjects(): GhostObjectFixture[];
+			getBoundingRect(): { left: number; top: number; width: number; height: number };
+			toCanvasElement(options: { withoutShadow: boolean; enableRetinaScaling: boolean }): object;
+		}
+		interface GhostCanvasFixture {
+			objects: GhostObjectFixture[];
+			getObjects(): GhostObjectFixture[];
+			add(object: GhostObjectFixture): void;
+			remove(object: GhostObjectFixture): void;
+			insertAt(index: number, object: GhostObjectFixture): void;
+			moveObjectTo(object: GhostObjectFixture, index: number): void;
+			sendObjectToBack(object: GhostObjectFixture): void;
+			requestRenderAll(): void;
+		}
+		class FabricImageFixture {
+			constructor(..._options: unknown[]) {}
+		}
+		const lower = imageLayer(400, 300);
+		const upper: ImageEditorLayer = { ...imageLayer(240, 320), id: 'upper-layer' };
+		const page = pageFixture([lower, upper]);
+		const document = documentFixture(page);
+		const adapter = new OpenPostFabricAdapter({
+			canvas: TEST_CANVAS,
+			document,
+			page,
+			readOnly: false,
+			onSelection: () => undefined,
+			onTransform: () => undefined,
+			onTextChange: () => undefined
+		});
+		const background: GhostObjectFixture = {};
+		const lowerObject: GhostObjectFixture = { __imageEditorLayerID: lower.id };
+		const upperObject: GhostObjectFixture = { __imageEditorLayerID: upper.id };
+		const objects: GhostObjectFixture[] = [background, lowerObject, upperObject];
+		const canvas: GhostCanvasFixture = {
+			objects,
+			getObjects: () => objects,
+			add(object) {
+				objects.push(object);
+			},
+			remove(object) {
+				const index = objects.indexOf(object);
+				if (index >= 0) objects.splice(index, 1);
+			},
+			insertAt(index, object) {
+				objects.splice(index, 0, object);
+			},
+			moveObjectTo(object, index) {
+				const current = objects.indexOf(object);
+				if (current < 0 || current === index) return;
+				objects.splice(current, 1);
+				objects.splice(index, 0, object);
+			},
+			sendObjectToBack(object) {
+				const current = objects.indexOf(object);
+				if (current <= 0) return;
+				objects.splice(current, 1);
+				objects.unshift(object);
+			},
+			requestRenderAll() {}
+		};
+		const selection: GhostSelectionFixture = {
+			opacity: 1,
+			getObjects: () => [lowerObject, upperObject],
+			getBoundingRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+			toCanvasElement: () => ({})
+		};
+		const internals = adapterInternals<{
+			fabric: { FabricImage: typeof FabricImageFixture };
+			canvas: GhostCanvasFixture;
+			interactiveCanvas(): GhostCanvasFixture | undefined;
+			objectByLayerID: Map<string, GhostObjectFixture>;
+			backgroundObject: GhostObjectFixture | null;
+			altOriginGhost: GhostObjectFixture | null;
+			createAltOriginGhost(target: GhostSelectionFixture): void;
+			syncObjectOrder(): void;
+		}>(adapter);
+		internals.fabric = { FabricImage: FabricImageFixture };
+		internals.canvas = canvas;
+		internals.interactiveCanvas = () => canvas;
+		internals.objectByLayerID = new Map([
+			[lower.id, lowerObject],
+			[upper.id, upperObject]
+		]);
+		internals.backgroundObject = background;
+
+		internals.createAltOriginGhost(selection);
+
+		expect(internals.altOriginGhost).not.toBeNull();
+		expect(objects.indexOf(internals.altOriginGhost!)).toBe(1);
+
+		internals.syncObjectOrder();
+
+		expect(objects.indexOf(internals.altOriginGhost!)).toBe(1);
+	});
+
 	it('detaches an active selection before applying document coordinates to its children', async () => {
 		interface SelectionLayerObjectFixture {
 			left: number;

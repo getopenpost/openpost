@@ -41,6 +41,8 @@ it('previews the rendered color on hover and selects that same color on click', 
 	await expect
 		.poll(
 			async () => {
+				// Hovering the same coordinates again does not emit another pointer move.
+				await picker.unhover();
 				await userEvent.hover(picker);
 				return screen.container.querySelector('[data-testid="video-editor-eyedropper-magnifier"]')
 					?.textContent;

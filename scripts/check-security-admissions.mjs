@@ -12,10 +12,14 @@ import path from "node:path";
 // GHSA-pfhg-q3qv-9q6r and GHSA-27mw-82g8-phjj: the static SvelteKit
 // consumers do not use enhanced form actions or prerender setHeaders. Inspect
 // all first-party app/package modules, including imported module extensions.
+// GHSA-gcqx-w48m-w2h4 has no patched deepmerge release. Its current parents
+// are Svelte/Vite/Workbox configuration and n8n development tooling. The locked
+// graph pins those consumers; reject first-party imports so it cannot become
+// a runtime helper without re-review. The Go image carries no Node packages.
 const reviewedArtifacts = {
-  // Re-reviewed after GIF/Floating UI additions and workspace version bumps;
-  // legacy Zod consumers, their dependency scopes and the editor boundary are unchanged.
-  "bun.lock": "564377ec6aef7bcd0c8f59f784653972d367ca6dc90a3259fa5bd3b54f47342d",
+  // Re-reviewed after the qs 6.16.1 patch: all other package versions and scopes
+  // are unchanged. deepmerge remains confined to the reviewed development graph.
+  "bun.lock": "38923e9892899f7d3fe1ec623a1d6a4999b3929cd3c974f8e7d6b4f3f4f5911d",
   "apps/web/src/lib/image-editor/background-removal.worker.ts":
     "06f3aaf6c78d574c1d2538903e8bf34cf70032801824d8988a9ba2d2435749d5",
 };
@@ -41,6 +45,9 @@ function inspectSources(directory) {
     const source = readFileSync(sourcePath, "utf8");
     if (/\$app\/forms|\bsetHeaders\b|use:enhance\b/.test(source)) {
       throw new Error(`Re-review SvelteKit advisory admissions: ${sourcePath}`);
+    }
+    if (/(?:from\s*|import\s*\(|require\s*\()\s*["']deepmerge(?:["'/])/.test(source)) {
+      throw new Error(`Re-review deepmerge development-only admission: ${sourcePath}`);
     }
     if (
       !sourcePath.startsWith(`packages${path.sep}n8n-nodes-openpost${path.sep}`) &&

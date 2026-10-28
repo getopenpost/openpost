@@ -31,6 +31,8 @@ test("security admission rejects changed dependencies, editor configuration and 
       "setHeaders({})",
       "use:enhance",
       "import { schema } from '@n8n/config'",
+      "import deepmerge from 'deepmerge'",
+      "const merge = require('deepmerge/dist/cjs.js')",
     ]) {
       writeFileSync(helper, api);
       expect(run()).toBe(1);

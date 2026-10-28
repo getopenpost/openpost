@@ -24,6 +24,8 @@ set -euo pipefail
 # CommonJS Assembler API with an incompatible ESM export. The published node
 # carries no runtime dependencies, so that parser never ships to customers.
 # Remove these exceptions when compatible upstream tools adopt patched releases.
+# GHSA-gcqx-w48m-w2h4 is limited to the pinned build/n8n development graph.
+# check-security-admissions.mjs rejects dependency drift or first-party imports.
 bun "$(dirname "${BASH_SOURCE[0]}")/check-braces-security-patch.mjs"
 # These admissions fail closed when the reviewed dependency/source boundaries
 # change. See the linked advisory conditions in check-security-admissions.mjs.
@@ -50,7 +52,8 @@ while [ "$attempt" -le 3 ]; do
   --ignore GHSA-mjw6-4jj6-33hc \
   --ignore GHSA-mrhx-c7xc-m3w5 \
   --ignore GHSA-pfhg-q3qv-9q6r \
-  --ignore GHSA-27mw-82g8-phjj
+  --ignore GHSA-27mw-82g8-phjj \
+  --ignore GHSA-gcqx-w48m-w2h4
   then
     break
   fi

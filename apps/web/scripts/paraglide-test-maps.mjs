@@ -14,6 +14,9 @@ export function paraglideTestMaps(root) {
 
 	return {
 		reporter: {
+			onTestModuleQueued(module) {
+				if (process.env.CI) console.info(`[component] Loading ${module.moduleId}`);
+			},
 			onInit(vitest) {
 				eligible =
 					'run' in vitest.config &&

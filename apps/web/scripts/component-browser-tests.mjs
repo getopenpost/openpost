@@ -16,14 +16,12 @@ const require = createRequire(import.meta.url);
 const vitest = join(dirname(require.resolve('vitest/package.json')), 'vitest.mjs');
 
 function run(executable, args, suite) {
+	const env = { ...process.env, OPENPOST_PARAGLIDE_PRECOMPILED: '1' };
+	if (suite) env.OPENPOST_COMPONENT_TEST_SUITE = suite;
 	const result = spawnSync(executable, args, {
 		stdio: 'inherit',
 		timeout: 600_000,
-		env: {
-			...process.env,
-			OPENPOST_PARAGLIDE_PRECOMPILED: '1',
-			...(suite ? { OPENPOST_COMPONENT_TEST_SUITE: suite } : {})
-		}
+		env
 	});
 	if (result.error) throw result.error;
 	if (result.signal) throw new Error(`${executable} exited with signal ${result.signal}`);

@@ -15,27 +15,31 @@ const shards = shard === undefined ? ['1/4', '2/4', '3/4', '4/4'] : [shard];
 const require = createRequire(import.meta.url);
 const vitest = join(dirname(require.resolve('vitest/package.json')), 'vitest.mjs');
 
-function run(executable, args) {
+function run(executable, args, suite) {
 	const result = spawnSync(executable, args, {
 		stdio: 'inherit',
-		env: { ...process.env, OPENPOST_PARAGLIDE_PRECOMPILED: '1' }
+		timeout: 600_000,
+		env: {
+			...process.env,
+			OPENPOST_PARAGLIDE_PRECOMPILED: '1',
+			...(suite ? { OPENPOST_COMPONENT_TEST_SUITE: suite } : {})
+		}
 	});
 	if (result.error) throw result.error;
 	if (result.signal) throw new Error(`${executable} exited with signal ${result.signal}`);
 	if (result.status !== 0) throw new Error(`${executable} exited with status ${result.status}`);
 }
 
-// Prepare once for standalone CI shards and the local four-session workflow.
+// Keep route initialization separate from worker- and GPU-backed editor tests.
+// Their browser module runners must not inherit each other's pending resources.
 run('bun', ['run', 'generate:i18n']);
 for (const shard of shards) {
-	console.log('Component browser shard:', shard);
-	run(process.execPath, [
-		vitest,
-		'run',
-		'--project',
-		'client',
-		`--shard=${shard}`,
-		'--isolate',
-		'--maxWorkers=1'
-	]);
+	for (const suite of ['components', 'routes']) {
+		console.log(`Component browser shard: ${shard} (${suite})`);
+		run(
+			process.execPath,
+			[vitest, 'run', '--project', 'client', `--shard=${shard}`, '--isolate', '--maxWorkers=1'],
+			suite
+		);
+	}
 }

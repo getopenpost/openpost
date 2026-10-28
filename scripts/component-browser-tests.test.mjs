@@ -21,7 +21,7 @@ function runBrowser(args = [], failure = null) {
        const failure = ${JSON.stringify(failure)};
        let calls = 0;
        childProcess.spawnSync = (executable, args, options) => {
-         appendFileSync("calls.jsonl", JSON.stringify({ executable, args, precompiled: options.env?.OPENPOST_PARAGLIDE_PRECOMPILED }) + "\\n");
+         appendFileSync("calls.jsonl", JSON.stringify({ executable, args, precompiled: options.env?.OPENPOST_PARAGLIDE_PRECOMPILED, suite: options.env?.OPENPOST_COMPONENT_TEST_SUITE }) + "\\n");
          if (++calls === failure?.call) {
            if (failure.kind === "spawn") return { error: new Error("fixture spawn refused"), status: null };
            if (failure.kind === "signal") return { signal: "SIGTERM", status: null };
@@ -51,7 +51,7 @@ function runBrowser(args = [], failure = null) {
   }
 }
 
-function assertBrowserCall(call, shard) {
+function assertBrowserCall(call, shard, routes = false) {
   assert.equal(call.executable, nodeExecutable);
   assert.equal(path.basename(call.args[0]), "vitest.mjs");
   assert.deepEqual(call.args.slice(1), [
@@ -63,26 +63,29 @@ function assertBrowserCall(call, shard) {
     "--maxWorkers=1",
   ]);
   assert.equal(call.precompiled, "1");
+  assert.equal(call.suite, routes ? "routes" : "components");
 }
 
-test("default browser checks prepare translations once and run four native shards sequentially", () => {
+test("default browser checks prepare translations once and run four native shards with separate component and route sessions", () => {
   const result = runBrowser();
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.calls.length, 5);
+  assert.equal(result.calls.length, 9);
   assert.equal(result.calls[0].executable, "bun");
   assert.deepEqual(result.calls[0].args, ["run", "generate:i18n"]);
   for (const [index, shard] of ["1/4", "2/4", "3/4", "4/4"].entries()) {
-    assertBrowserCall(result.calls[index + 1], shard);
+    assertBrowserCall(result.calls[index * 2 + 1], shard);
+    assertBrowserCall(result.calls[index * 2 + 2], shard, true);
   }
 });
 
 test("an explicit CI shard is propagated exactly after one preparation", () => {
   const result = runBrowser(["3/7"]);
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.calls.length, 2);
+  assert.equal(result.calls.length, 3);
   assert.equal(result.calls[0].executable, "bun");
   assert.deepEqual(result.calls[0].args, ["run", "generate:i18n"]);
   assertBrowserCall(result.calls[1], "3/7");
+  assertBrowserCall(result.calls[2], "3/7", true);
 });
 
 test("failed translation preparation stops before any browser shard", () => {
@@ -103,7 +106,7 @@ for (const [kind, diagnostic] of [
     assert.notEqual(result.status, 0, result.stderr);
     assert.equal(result.calls.length, 3);
     assertBrowserCall(result.calls[1], "1/4");
-    assertBrowserCall(result.calls[2], "2/4");
+    assertBrowserCall(result.calls[2], "1/4", true);
     assert.match(result.stderr, diagnostic);
   });
 }

@@ -8,6 +8,65 @@ All notable changes to this project are documented in this file.
 
 - Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
 
+## [7.32.2] - 2026-10-28
+
+### Fixed
+
+- The native Ideate flow now chooses destinations through the same shared destination chooser as the post composer: the same `Social Set` drawer title, checkbox rows with account avatars and platform labels, default-first set chips, shared loading, offline and error states, a `Done` action that stays disabled until a destination is selected, and one summary label format. Set members whose account is gone stay visible as explicit, removable rows instead of being silently dropped, and the build request still sends only publishable ids in the order chosen.
+- Image Editor tool shortcuts work on non-Latin keyboard layouts while preserving Latin layout mappings, text entry, IME composition and browser shortcuts.
+- Prepare translations once per component-browser shard instead of repeating compilation in every isolated test process.
+- Run local type, policy, lint and test checks before release pushes, keep the candidate revision fixed, and resume existing tags after main advances. Report local preparation separately from remote CI and deployment.
+- Bound CI browser/media setup and report canceled job steps and timeout annotations with recovery on the same revision.
+- Reuse public-site build-test results with their declared inputs, run the suite once per check, and keep documentation builds on their committed external-source snapshot.
+- Keep shared UI builds ahead of both web and marketing type checks in one dependency graph.
+- Keep valid sessions signed in when a save requires reauthentication; clear the session only when the server explicitly rejects its credential.
+- Prevent disabled editor knobs from committing keyboard edits while they retain focus.
+- Handle Quick Cut cancellation after output starts without leaking an unhandled rejection.
+- Facebook and Instagram direct messages keep their sent time. Graph returns `created_time` and `updated_time` with an offset without a colon (`+0000`), which the messaging adapters rejected, so collected messages were stored in the year 1: conversations showed year 1 as their last activity and no reply window was recorded.
+- Instagram and Facebook direct messages that share a post or reel, reply to a story, mention the account in a story, or attach an image without a declared type no longer appear empty in the Inbox. The Meta messaging adapters did not request the `shares` and `story` message fields, read image attachments from `image_data.src`, and ignored the story on a story reply delivered by webhook. These messages now show a link to the shared content.
+- Posts and threads no longer reject authored mention metadata as an unsupported provider setting, including after clearing selected mentions. This fixes Bluesky, Mastodon, LinkedIn, and other destinations carrying empty mention metadata. Selected mentions still require a matching network and account authority.
+- Bound local task steps and CI jobs so a hung build or a missing binary fails in minutes instead of blocking a run for hours.
+- Stop every process in a timed-out task step, not only the direct command, and keep a changelog entry beside a documentation change from enabling the complete CI matrix.
+- Facebook comments keep an attached photo, video, or link, and Threads replies keep their own image, video, or audio, so the Inbox shows the attachment instead of text only.
+- Preserve composer appearance, text and editing behavior after the mention editor migration. Pointer editing stays free of outlines while keyboard focus remains visible. Mention suggestions stay within phone viewports. Empty or failed searches allow caret movement, Mac editing shortcuts work, single-post saves retain annotations and whitespace, description edits clear removed identities, and native readiness reflects later thread edits.
+- Direct messages the social network cannot describe show a short explanation instead of an empty bubble.
+- Collected direct messages that were stored without content keep their text and attachments once the provider describes them again, instead of staying blank because the remote message already existed. Only blank, not deleted messages change, and a repair does not notify.
+- Threads mentions keep their activity time. Graph and Threads return offsets without a colon (`2026-10-24T10:00:00+0000`), and provider timestamps now share one parser that accepts every layout the providers send.
+- Keep the Image Editor stable when merging or flattening animated layers.
+- Preserve source text and selected mentions when editing or resetting joined video captions.
+- Update Go HTML and JOSE dependencies to address reported security vulnerabilities.
+- Include required model assets in public-site CI checks and isolate the file-watcher regression probe from dependency scanning.
+- Retain hidden discovery files when reusing public-site CI artifacts, and update the patched query-string dependency. Keep the unpatched deepmerge advisory confined to the reviewed development graph, with checks against dependency drift and runtime imports.
+- Prebundle GIF encoding before component tests so dependency discovery cannot reload an active test runner.
+- Isolate route tests from media component tests in bounded browser sessions.
+- Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
+
+### Added
+
+- Image Editor can import animated GIF layers, preview playback, select, duplicate and delete frames, edit timing and looping, and export the composed design as GIF. Editable projects retain the original GIF and frame decisions. Decoding and encoding run in bounded, cancellable browser workers.
+- Image Editor offers reversible anamorphic flare, starburst, mist, prism and shaped bokeh effects derived from image highlights, with strength, threshold, size and direction controls and matching canvas/export rendering.
+- Build comment campaigns in Workflows with post or Reel targeting, included and excluded keywords, reply priority, and daily run limits.
+- Send a saved Instagram private reply when someone requests a resource, then optionally acknowledge it publicly after Instagram accepts the message. Saved responses work without AI.
+- Prepare or automatically send AI replies from approved product information, review and edit replies in Inbox, and hand off questions that need a person.
+- Inspect reply delivery and stop pending automatic replies from Inbox or the workflow. Repeated events and matching rules do not duplicate sends, and private campaigns send once per person per post.
+- Save reusable Workspace mentions and insert them with @ from the shared composer. Each saved mention has its own network text or supported native identity. Each insertion keeps its mappings, so editing or deleting the library entry leaves existing posts unchanged.
+
+### Changed
+
+- Reduce component-test loading overhead while preserving real translations, file isolation and coverage runs.
+- Remove verified duplicate test execution and unused test-only code, strengthen weak assertions, and document checks that future tests must protect.
+- Add local checks for affected owners with explicit omitted gates and a full-preflight fallback for shared or uncertain changes.
+- Check formatting before costly preflight generation and builds.
+- Avoid package version increases for excluded test-only edits while rejecting compiled tests in npm payloads.
+- Instagram comment webhooks can collect comments on media published outside OpenPost, using the receiving account's current authorization.
+- Run the public artifact contract in a dedicated CI job, reuse the docs and marketing artifacts that job needs, persist the local Turbo cache across jobs, and keep changelog-only pull requests out of the full matrix.
+- The composer keeps image restore out of the main flow: "Use original image" now lives in each destination's three-dots menu instead of floating under the post editor, and restoring a shared image from a destination tab still replaces that attachment for every account while keeping per-account settings, alt text, and captions intact.
+
+### Operator notes
+
+- Comment campaigns require account comment permissions and collection. Instagram private replies require a professional account and provider-approved access. External Instagram media require the comments webhook. This release does not provision Meta app approval or subscriptions.
+- Apply migration 175 before running new web and worker binaries. Pause comment workflows and stop pending automatic replies before downgrading; retain the added receipts and opt-out records.
+
 ## [7.31.1] - 2026-10-26
 
 ### Added

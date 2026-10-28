@@ -11,17 +11,6 @@ import { pendingInboxChanges } from '$lib/test-fixtures/inbox';
 import MessagesPage from './+page.svelte';
 import '../../layout.css';
 
-// Component tests do not populate the SvelteKit page store, so provide its public readable contract.
-// oxlint-disable-next-line anti-slop/no-module-mocking
-vi.mock('$app/stores', () => ({
-	page: {
-		subscribe(run: (value: { url: URL }) => void) {
-			run({ url: new URL('http://localhost/inbox/messages') });
-			return () => {};
-		}
-	}
-}));
-
 const getMock = vi.spyOn(client, 'GET');
 const postMock = vi.spyOn(client, 'POST');
 const putMock = vi.spyOn(client, 'PUT');

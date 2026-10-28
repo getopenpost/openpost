@@ -218,16 +218,18 @@ test("failed tags do not hide distribution changes from the next candidate", () 
   assert.match(releaseScript, /checkReleaseMobileIdentity\(publishedStableReleaseTag\(\)\)/u);
 });
 
-test("the marketing build checks out its canonical immutable frontend assets", () => {
-  const checkout = load(ci).jobs["marketing-build"].steps.find((step) =>
-    step.uses?.startsWith("actions/checkout@"),
-  );
-  assert.ok(checkout);
-  assert.doesNotMatch(
-    checkout.with?.["sparse-checkout"] ?? "",
-    /!\/apps\/web\/static\/image-editor-models\//u,
-  );
-});
+for (const jobName of ["marketing-build", "public-build"]) {
+  test(`the ${jobName} job checks out its canonical immutable frontend assets`, () => {
+    const checkout = load(ci).jobs[jobName].steps.find((step) =>
+      step.uses?.startsWith("actions/checkout@"),
+    );
+    assert.ok(checkout);
+    assert.doesNotMatch(
+      checkout.with?.["sparse-checkout"] ?? "",
+      /!\/apps\/web\/static\/image-editor-models\//u,
+    );
+  });
+}
 
 test("the screenshot refresh checks out its canonical immutable frontend assets", () => {
   const checkout = load(screenshotRefresh).jobs.refresh.steps.find((step) =>

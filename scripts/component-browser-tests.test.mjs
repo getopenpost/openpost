@@ -131,12 +131,15 @@ import { loadConfigFromFile } from 'vite';
 import { createVitest } from 'vitest/node';
 const root=path.resolve('../..');
 const base=await loadConfigFromFile({command:'serve',mode:'test'},path.join(root,'apps/web/vitest.config.ts'));
-// Exercise the real project watcher lifecycle without opening browser modules.
-// Browser dependency optimization is unrelated to watching this fixture file.
+// Use the actual app plugin in a real Vitest project without starting unrelated
+// SvelteKit and media dependency optimizers against an external fixture root.
+const app=await loadConfigFromFile({command:'serve',mode:'test'},path.join(root,'apps/web/vite.config.ts'));
+const plugins=app.config.plugins.flat(Infinity).filter(plugin=>plugin?.name==='openpost-vitest-project-watcher');
+if(plugins.length!==1) throw new Error('The app must install its project watcher plugin');
 const results=[];
 for(const watch of [false,true]) {
  const fixture=await mkdtemp(path.join(os.tmpdir(),'openpost-vitest-watcher-'));
- const projects=base.config.test.projects.map(project=>({...project,cacheDir:path.join(fixture,'cache'),test:{...project.test,browser:{enabled:false}},extends:path.join(root,'apps/web/vite.config.ts')}));
+ const projects=base.config.test.projects.map(project=>({plugins,cacheDir:path.join(fixture,'cache'),test:{name:project.test.name,browser:{enabled:false}}}));
  const file=path.join(fixture,'watched.txt');await writeFile(file,'before');
  let ctx;
  try {

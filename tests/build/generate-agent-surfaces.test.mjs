@@ -217,7 +217,9 @@ function deterministicSemanticHTML(node) {
     const body = (node.childNodes ?? []).map((child) => child.value ?? "").join("");
     if (
       /\/(?:_app\/immutable|_next\/|assets\/app\.)/u.test(source) ||
-      /(?:__sveltekit_|__VP_HASH_MAP__|self\.__next_f|\/_app\/immutable\/)/u.test(body)
+      /(?:__sveltekit_|__VP_HASH_MAP__|self\.__next_f|globalThis\["TURBOPACK"\]|\/_app\/immutable\/)/u.test(
+        body,
+      )
     )
       return undefined;
   }
@@ -296,6 +298,7 @@ test("semantic HTML determinism retains maintained documents and ignores only fr
     <link rel="stylesheet" href="/_next/static/chunks/A.css">
     <script src="/_next/static/chunks/A.js"></script>
     <script>self.__next_f.push([1,"A"])</script>
+    <script>(globalThis["TURBOPACK"] || (globalThis["TURBOPACK"] = [])).push({"otherChunks":["static/chunks/A.js"],"runtimeModuleIds":[494553]});</script>
     <script src="/assets/app.A.js"></script>
     <script>window.__VP_HASH_MAP__={"index.md":"A"}</script>`;
   const frameworkBuildB = `${maintained}<link rel="stylesheet" href="/_app/immutable/assets/0.B.css">
@@ -306,6 +309,7 @@ test("semantic HTML determinism retains maintained documents and ignores only fr
     <link rel="stylesheet" href="/_next/static/chunks/B.css">
     <script src="/_next/static/chunks/B.js"></script>
     <script>self.__next_f.push([1,"B"])</script>
+    <script>(globalThis["TURBOPACK"] || (globalThis["TURBOPACK"] = [])).push({"otherChunks":["static/chunks/B.js"],"runtimeModuleIds":[494553]});</script>
     <script src="/assets/app.B.js"></script>
     <script>window.__VP_HASH_MAP__={"index.md":"B"}</script>`;
   assert.deepEqual(normalize(frameworkBuildB), normalize(frameworkBuildA));

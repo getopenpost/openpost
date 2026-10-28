@@ -13,7 +13,7 @@ const moduleSourceUrl =
 const localModulePath = process.env.OPENPOST_NIX_MODULE_PATH;
 const publicImage = "ghcr.io/getopenpost/openpost:latest";
 
-export function normalizeModuleForDocs(moduleSource) {
+function normalizeModuleForDocs(moduleSource) {
   return moduleSource.replace(
     /(^\s*default\s*=\s*")ghcr\.io\/(?:getopenpost|rodrgds)\/openpost(?:@sha256:[a-f0-9]{64}|:[^"]+)(";\s*$)/mu,
     `$1${publicImage}$2`,

@@ -380,7 +380,7 @@ func safeProcessorError(err error) *SafeError {
 	if errors.As(err, &coded) {
 		code := strings.TrimSpace(coded.SafeCode())
 		if validSafeCode(code) && code != "" {
-			return &SafeError{code: ErrorCode(code), httpStatus: http.StatusInternalServerError}
+			return &SafeError{code: ErrorCode(code)}
 		}
 	}
 	return ErrProcessingFailed

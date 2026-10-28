@@ -38,7 +38,7 @@ else
     base_revision="$(git merge-base "$head_revision" origin/main 2>/dev/null || true)"
   fi
   if [ -z "$base_revision" ]; then
-    base_revision="$(git rev-parse "$head_revision^" 2>/dev/null || true)"
+    base_revision="$(git rev-parse --verify --quiet "$head_revision^" 2>/dev/null || true)"
   fi
   if [ -n "$base_revision" ]; then
     log_options="--full-history --diff-filter=tuxdb $base_revision..$head_revision"

@@ -64,6 +64,7 @@ describe('ComposerSession validation', () => {
 
 		session.edit(draft('Read https://example.com'));
 		expect(await session.validate()).toEqual([issue]);
+		expect(session.snapshot.validationIssues).toEqual([issue]);
 		session.edit(draft('Corrected post without the URL'));
 
 		expect(session.snapshot.validationIssues).toEqual([]);

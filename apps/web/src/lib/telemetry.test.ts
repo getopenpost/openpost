@@ -29,6 +29,7 @@ it('recovers configuration after a temporary HTTP failure without duplicate init
 	const { initializeAppTelemetry } = await import('./telemetry');
 	const first = initializeAppTelemetry();
 	const concurrent = initializeAppTelemetry();
+	expect(fetch).toHaveBeenCalledTimes(1);
 	await vi.runAllTimersAsync();
 	await Promise.all([first, concurrent]);
 	expect(fetch).toHaveBeenCalledTimes(2);

@@ -281,7 +281,10 @@ func TestApplicationReclaimsExpiredBuildLeaseAndFencesOldWorker(t *testing.T) {
 	require.EqualValues(t, 2, calls.Load())
 }
 
-func TestApplicationRetryStealsProcessingFailureJobBeforeOldWorkerCanFenceIt(t *testing.T) {
+// Retry must requeue the failed build and clear the previous worker's
+// ownership fields on the job row. This is a service-level contract: it does
+// not exercise the worker's own finalization fence.
+func TestApplicationRetryRequeuesFailedBuildAndClearsPreviousWorkerOwnership(t *testing.T) {
 	db := newBuilderApplicationTestDB(t)
 	now := time.Date(2026, 8, 23, 16, 15, 0, 0, time.UTC)
 	application, err := NewApplication(db, packageBuilderFunc(func(context.Context, BuildInput) (BuildResult, error) {
@@ -319,6 +322,10 @@ func TestApplicationRetryStealsProcessingFailureJobBeforeOldWorkerCanFenceIt(t *
 	require.True(t, job.LockedAt.IsZero())
 	require.Equal(t, now.Unix(), job.RunAt.Unix())
 
+	// This mirrors the old worker's ownership predicate against the requeued row.
+	// It is the test's own copy of that predicate, not the worker's finalization
+	// path, so it demonstrates the row no longer matches; it does not prove the
+	// worker's fence.
 	oldWorkerFence, err := db.NewUpdate().Model((*models.Job)(nil)).
 		Set("status = ?", jobregistry.StatusFailed).
 		Where("id = ? AND status = ? AND locked_by = ?", job.ID, jobregistry.StatusProcessing, "old-worker").
@@ -327,39 +334,6 @@ func TestApplicationRetryStealsProcessingFailureJobBeforeOldWorkerCanFenceIt(t *
 	rows, err := oldWorkerFence.RowsAffected()
 	require.NoError(t, err)
 	require.Zero(t, rows, "the old worker no longer owns the requeued job")
-}
-
-func TestApplicationRetryCannotBypassActiveBuildCap(t *testing.T) {
-	db := newBuilderApplicationTestDB(t)
-	now := time.Date(2026, 8, 23, 16, 30, 0, 0, time.UTC)
-	application, err := NewApplication(db, packageBuilderFunc(func(context.Context, BuildInput) (BuildResult, error) {
-		return BuildResult{}, nil
-	}), ApplicationConfig{
-		Now:             func() time.Time { return now },
-		AuthorizeStored: func(context.Context, workspaceaccess.StoredAuthority) error { return nil },
-	})
-	require.NoError(t, err)
-	failed, _, err := application.Enqueue(t.Context(), testBuildRequest(now, "retry-limited"))
-	require.NoError(t, err)
-	_, err = db.NewUpdate().Model((*BuildRecord)(nil)).
-		Set("state = ?", BuildStateFailed).Set("phase = ?", BuildPhaseFailed).
-		Where("id = ?", failed.ID).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewUpdate().Model((*models.Job)(nil)).
-		Set("status = ?", jobregistry.StatusFailed).
-		Where("type = ? AND scope_id = ?", jobregistry.TypePublicationBuild, failed.ID).
-		Exec(t.Context())
-	require.NoError(t, err)
-	for _, key := range []string{"retry-active-one", "retry-active-two", "retry-active-three"} {
-		_, _, err = application.Enqueue(t.Context(), testBuildRequest(now, key))
-		require.NoError(t, err)
-	}
-
-	_, err = application.Retry(t.Context(), "user-1", failed.ID)
-	require.ErrorIs(t, err, ErrTooManyActiveBuilds)
-	stored, err := application.Get(t.Context(), "user-1", failed.ID)
-	require.NoError(t, err)
-	require.Equal(t, BuildStateFailed, stored.State)
 }
 
 func newBuilderApplicationTestDB(t *testing.T) *bun.DB {

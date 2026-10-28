@@ -44,29 +44,52 @@ describe('copy feedback', () => {
 			.toBeVisible();
 	});
 	it('ignores a clipboard result after its workspace or value changes', async () => {
-		let finish!: () => void;
-		vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(
-			() =>
-				new Promise<void>((resolve) => {
-					finish = resolve;
-				})
-		);
+		const writes: Array<{ promise: Promise<void>; settle: () => void }> = [];
+		const write = vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(() => {
+			let settle!: () => void;
+			const promise = new Promise<void>((resolve) => {
+				settle = resolve;
+			});
+			writes.push({ promise, settle });
+			return promise;
+		});
 		const props = {
 			value: 'first link',
 			scopeKey: 'workspace-1',
 			errorMessage: 'Copy manually.'
 		};
-		const screen = await render(CopyButton, props);
-		await screen.getByRole('button', { name: 'Copy', exact: true }).click();
-		await screen.rerender({
-			...props,
-			value: 'second link',
-			scopeKey: 'workspace-2'
-		});
-		finish();
-		await expect
-			.element(screen.getByRole('button', { name: 'Copy', exact: true }))
-			.toHaveAttribute('aria-busy', 'false');
-		await expect.element(screen.getByRole('status')).toHaveTextContent('');
+
+		async function expectLateWriteIgnored(change: { value: string; scopeKey: string }) {
+			const screen = await render(CopyButton, props);
+			await screen.getByRole('button', { name: 'Copy', exact: true }).click();
+			await expect
+				.element(screen.getByRole('button', { name: 'Copy', exact: true }))
+				.toHaveAttribute('aria-busy', 'true');
+			const pending = writes[writes.length - 1];
+			expect(pending).toBeDefined();
+			await screen.rerender({ ...props, ...change });
+			pending!.settle();
+			// Rerender alone resets the keyed control to idle, so settlement is the
+			// pending write promise plus a macrotask, not the busy attribute.
+			await pending!.promise;
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			// Retrying matchers can poll a transient late success away after the
+			// change effect resets the control; assert the settled instant instead.
+			expect(screen.container.querySelector('[role=status]')?.textContent).toBe('');
+			await expect
+				.element(screen.getByRole('button', { name: 'Copy', exact: true }))
+				.toHaveAttribute('aria-busy', 'false');
+			await screen.unmount();
+		}
+
+		// The original combined change first, then each invalidation input on its own
+		// so removing one dependency stays detectable.
+		await expectLateWriteIgnored({ value: 'second link', scopeKey: 'workspace-2' });
+		await expectLateWriteIgnored({ value: 'second link', scopeKey: 'workspace-1' });
+		await expectLateWriteIgnored({ value: 'first link', scopeKey: 'workspace-2' });
+		expect(write).toHaveBeenCalledTimes(3);
+		expect(write).toHaveBeenNthCalledWith(1, 'first link');
+		expect(write).toHaveBeenNthCalledWith(2, 'first link');
+		expect(write).toHaveBeenNthCalledWith(3, 'first link');
 	});
 });

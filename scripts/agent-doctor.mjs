@@ -4,16 +4,12 @@ import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
 
-export const REQUIRED_ARTIFACTS = [
+const REQUIRED_ARTIFACTS = [
   "AGENTS.md",
   "docs/agents/repository-map.md",
   "docs/agents/triage-labels.md",
   ".agents/skills/agent-workflow/SKILL.md",
 ];
-
-export function findMissingArtifacts(root, required = REQUIRED_ARTIFACTS) {
-  return required.filter((path) => !existsSync(resolve(root, path)));
-}
 
 export function parseTriageLabels(markdown) {
   const labels = [];
@@ -60,7 +56,7 @@ export async function main({
   output = console,
   checkLiveLabels = false,
 } = {}) {
-  const missingArtifacts = findMissingArtifacts(root);
+  const missingArtifacts = REQUIRED_ARTIFACTS.filter((path) => !existsSync(resolve(root, path)));
   if (missingArtifacts.length > 0) {
     output.error("Agent doctor: missing required local artifacts:");
     for (const path of missingArtifacts) output.error(`  - ${path}`);

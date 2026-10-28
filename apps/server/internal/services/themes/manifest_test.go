@@ -88,4 +88,16 @@ func TestDecodeStoredManifestRejectsClientSuppliedNativeDerivative(t *testing.T)
 	_, err = DecodeManifest([]byte(withDerivative))
 	require.ErrorIs(t, err, ErrInvalidManifest)
 	require.ErrorContains(t, err, "unknown field")
+
+	// The stored decode is the path that reads persisted manifests, so it must
+	// reject the same server-owned data under its own error while still
+	// accepting a valid stored manifest.
+	stored, err := decodeStoredManifest(string(raw))
+	require.NoError(t, err)
+	require.Len(t, stored.Fonts, 1)
+	require.Equal(t, "font-1", stored.Fonts[0].ID)
+
+	_, err = decodeStoredManifest(withDerivative)
+	require.ErrorIs(t, err, errStoredManifest)
+	require.ErrorContains(t, err, "unknown field")
 }

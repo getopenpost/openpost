@@ -84,8 +84,6 @@ export function editorColorGradeAdjustmentsToEffects(
 	return effects;
 }
 
-export const imageAdjustmentsToGradeEffects = editorColorGradeAdjustmentsToEffects;
-
 export type ImageGradeBackend = 'gpu' | 'cpu';
 
 export interface ImageGradeRenderResult {

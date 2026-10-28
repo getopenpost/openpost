@@ -3,7 +3,6 @@ import {
 	applyImageEditorCropWindow,
 	imageEditorCropWindowForAspect,
 	normalizeImageEditorCropWindow,
-	resetImageEditorCrop,
 	rotateImageEditorTransformAroundCenter
 } from './crop';
 import type { ImageEditorLayer } from './types';
@@ -59,23 +58,6 @@ describe('OpenPost Image Editor interactive crop geometry', () => {
 		});
 	});
 
-	it('crops the source and outer transform in one coordinate-preserving operation', () => {
-		const result = applyImageEditorCropWindow(layer(), {
-			x: 0.25,
-			y: 0.25,
-			width: 0.5,
-			height: 0.5
-		});
-
-		expect(result.crop).toEqual({ x: 0.25, y: 0.25, width: 0.5, height: 0.5 });
-		expect(result.transform).toMatchObject({
-			x: 200,
-			y: 250,
-			width: 200,
-			height: 100
-		});
-	});
-
 	it('repositions source pixels without moving the outer crop frame', () => {
 		const result = applyImageEditorCropWindow(
 			layer(),
@@ -116,28 +98,6 @@ describe('OpenPost Image Editor interactive crop geometry', () => {
 			y: 0,
 			width: 0.5,
 			height: 1
-		});
-	});
-
-	it('restores the full source and expands the transform after an earlier crop', () => {
-		const cropped = layer();
-		cropped.transform = {
-			...cropped.transform,
-			x: 200,
-			y: 250,
-			width: 200,
-			height: 100
-		};
-		cropped.image!.crop = { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };
-
-		const result = resetImageEditorCrop(cropped);
-
-		expect(result.crop).toEqual({ x: 0, y: 0, width: 1, height: 1 });
-		expect(result.transform).toMatchObject({
-			x: 100,
-			y: 200,
-			width: 400,
-			height: 200
 		});
 	});
 

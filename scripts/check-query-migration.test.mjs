@@ -381,6 +381,7 @@ test("requires Query adapters to cross the central transport boundary", () => {
 		}
       `,
       "apps/web/src/lib/query/bypass.ts": "transport.GET('/query-bypass');",
+      "apps/web/src/lib/query/accounts.test.ts": "transport.GET('/fixture-only');",
       "apps/web/src/lib/image-editor/api.ts": "client.GET('/image-editor/designs');",
       "apps/web/src/lib/image-editor/other.ts": "client.GET('/must-still-be-seen');",
     },

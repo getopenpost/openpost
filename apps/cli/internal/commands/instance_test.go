@@ -24,6 +24,9 @@ func TestInstanceHealthChecksLivenessAndReadiness(t *testing.T) {
 		case "/api/v1/health":
 			_, _ = w.Write([]byte(`{"status":"ok"}`))
 		case "/api/v1/ready":
+			if got := r.Header.Get("User-Agent"); got != "openpost-cli/test" {
+				t.Fatalf("user-agent = %q, want openpost-cli/test", got)
+			}
 			_, _ = w.Write([]byte(`{"status":"ready","database":"ok"}`))
 		default:
 			http.NotFound(w, r)

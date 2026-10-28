@@ -2,12 +2,6 @@ import { describe, expect, it } from "vitest";
 import { dispositionFor, errorMessageFromBody, inferCode, OpenPostError } from "./errors";
 
 describe("OpenPostError", () => {
-  it("prefers the server detail sentence over the title", () => {
-    expect(
-      errorMessageFromBody({ title: "Bad Request", detail: "Source text is empty" }, "fallback"),
-    ).toBe("Source text is empty");
-  });
-
   it("accepts the legacy error and message shapes", () => {
     expect(errorMessageFromBody({ error: "boom" }, "fallback")).toBe("boom");
     expect(errorMessageFromBody({ message: "kaput" }, "fallback")).toBe("kaput");

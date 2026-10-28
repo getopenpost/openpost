@@ -41,6 +41,12 @@ describe('workflow branch duplication', () => {
 		const [draft, review, code] = copy.then!;
 		expect(new Set([copy.id, draft.id, review.id, code.id]).size).toBe(4);
 		expect([copy.id, draft.id, review.id, code.id]).not.toContain('draft');
+		// Every authored ID must be reallocated; set uniqueness alone would still
+		// pass if one old ID survived alongside three new ones.
+		expect(copy.id).not.toBe(original.id);
+		expect(draft.id).not.toBe(original.then![0].id);
+		expect(review.id).not.toBe(original.then![1].id);
+		expect(code.id).not.toBe(original.then![2].id);
 		expect(copy.inputs!.left.reference).toBe('source.body');
 		expect(draft.inputs!.text.literal).toBe(
 			`{{source.body}} {{${copy.id}.matched}} {{${copy.id}["matched.value"]}}`

@@ -48,7 +48,9 @@ it('keeps mixed destination outcomes and canonical recovery actions visible', as
 				status: 'failed',
 				delivery: delivery('failed', 'rejected', 'retry', {
 					error_kind: 'provider_http',
-					error_code: 'rate_limited'
+					error_code: 'rate_limited',
+					error_http_status: 429,
+					current_attempt_number: 2
 				})
 			}),
 			rendition({
@@ -73,8 +75,11 @@ it('keeps mixed destination outcomes and canonical recovery actions visible', as
 		.element(screen.getByText('1 succeeded · 1 pending · 1 failed · 1 need review'))
 		.toBeVisible();
 	await expect.element(screen.getByText('@failed')).toBeVisible();
+	const failedCard = screen.getByRole('article').filter({ hasText: '@failed' });
+	await expect.element(failedCard.getByText('Rejected', { exact: true })).toBeVisible();
+	await expect.element(failedCard.getByText(/Provider attempt 2/)).toBeVisible();
 	await expect.element(screen.getByText('provider_http · rate_limited')).toBeVisible();
-	await screen.getByRole('button', { name: 'Retry destination' }).click();
+	await failedCard.getByRole('button', { name: 'Retry destination' }).click();
 	expect(onRetry).toHaveBeenCalledWith('failed');
 	await expect
 		.element(screen.getByRole('link', { name: 'View post' }))
@@ -84,24 +89,9 @@ it('keeps mixed destination outcomes and canonical recovery actions visible', as
 	await expect
 		.element(screen.getByText('OpenPost is checking the provider before another send.'))
 		.toBeVisible();
-});
-
-it('does not offer recovery from an older attempt after a destination is queued', async () => {
-	const screen = await render(ComposerDeliveryFeedback, {
-		publicationID: 'publication-1',
-		renditions: [
-			rendition({
-				id: 'queued-again',
-				status: 'scheduled',
-				delivery: delivery('queued-again', 'rejected', 'retry')
-			})
-		],
-		onRetry: vi.fn(),
-		onManualResolution: vi.fn(),
-		onCreateAnother: vi.fn()
-	});
-
+	const ambiguousCard = screen.getByRole('article').filter({ hasText: '@ambiguous' });
+	await expect.element(ambiguousCard).toBeVisible();
 	await expect
-		.element(screen.getByRole('button', { name: 'Retry destination' }))
+		.element(ambiguousCard.getByRole('button', { name: 'Retry destination' }))
 		.not.toBeInTheDocument();
 });

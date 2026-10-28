@@ -41,11 +41,24 @@ func TestValidateTokenRejectsUnexpectedAlgorithmAndIssuer(t *testing.T) {
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
 		},
 	}
+	validToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
+	if err != nil {
+		t.Fatalf("sign valid token: %v", err)
+	}
+	verified, err := service.ValidateToken(validToken)
+	if err != nil {
+		t.Fatalf("expected the same fixture signed with HS256 and the OpenPost issuer to validate: %v", err)
+	}
+	if verified.UserID != "user-123" || verified.Email != "user@example.com" {
+		t.Fatalf("valid token resolved the wrong identity: %#v", verified)
+	}
+
 	wrongAlgorithm := jwt.NewWithClaims(jwt.SigningMethodHS384, claims)
 	wrongAlgorithmToken, err := wrongAlgorithm.SignedString([]byte(secret))
 	if err != nil {
 		t.Fatalf("sign HS384 token: %v", err)
 	}
+
 	if _, err := service.ValidateToken(wrongAlgorithmToken); err == nil {
 		t.Fatal("expected HS384 token to be rejected")
 	}

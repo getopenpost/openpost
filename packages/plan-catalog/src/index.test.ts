@@ -9,6 +9,7 @@ describe("plan catalogue", () => {
 
   it("keeps purchase terms and prices complete", () => {
     expect(planCatalog.purchase_terms.trial_days).toBeGreaterThan(0);
+    expect(planCatalog.plans.length).toBeGreaterThan(0);
     for (const plan of planCatalog.plans) {
       expect(plan.monthly_price_usd).toBeGreaterThan(0);
       expect(plan.annual_price_usd).toBeGreaterThan(plan.monthly_price_usd);

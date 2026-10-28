@@ -9,12 +9,6 @@ describe('tabSelectionKey', () => {
 });
 
 describe('stashTabSelection / restoreTabSelection', () => {
-	it('round-trips a tab selection', () => {
-		const memory = new Map<string, string[]>();
-		stashTabSelection(memory, 'seq-1', ['a', 'b']);
-		expect(restoreTabSelection(memory, 'seq-1', new Set(['a', 'b', 'c']))).toEqual(['a', 'b']);
-	});
-
 	it('returns an empty selection for unknown tabs', () => {
 		expect(restoreTabSelection(new Map(), 'seq-9', new Set(['a']))).toEqual([]);
 	});

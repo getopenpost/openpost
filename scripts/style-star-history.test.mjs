@@ -66,15 +66,54 @@ test("the action renderer refreshes both themes and a transparent 2x PNG", async
     for (const scheme of ["light", "dark"]) {
       await writeFile(join(directory, `star-history-${scheme}.svg`), source);
     }
-    execFileSync("bun", [
+    execFileSync(process.execPath, [
       fileURLToPath(new URL("./style-star-history.mjs", import.meta.url)),
       directory,
     ]);
     for (const scheme of ["light", "dark"]) {
       const svg = await readFile(join(directory, `star-history-${scheme}.svg`), "utf8");
       assert.match(svg, /d="M0 80L50 40L100 0"/);
-      assert.doesNotMatch(svg, /feTurbulence/);
+      assert.match(svg, />Jan<\/text>/);
+      assert.doesNotMatch(svg, /(?:^|[;"\s])background(?:-color)?\s*:/u);
+      assert.doesNotMatch(svg, /feTurbulence|filter="url/);
+      assert.doesNotMatch(svg, /Star History|getopenpost\/openpost|clip-circle-title/);
+      const { data, info } = await sharp(Buffer.from(svg))
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const alpha = (x, y) => data[(y * info.width + x) * info.channels + 3];
+      assert.equal(alpha(2, 2), 0, "the image background is transparent");
+      assert.equal(alpha(40, 40), 0, "the fill does not cross above the measured curve");
+      const middle = [];
+      const bottom = [];
+      for (let x = 100; x < 112; x++) {
+        middle.push(alpha(x, 60));
+        bottom.push(alpha(x, 96));
+      }
+      assert.ok(
+        Math.max(...middle) - Math.min(...middle) > 45,
+        "the fill contains visible pixel contrast",
+      );
+      assert.ok(Math.min(...bottom) > 200, "the base of the area is nearly solid");
     }
+    const firstSVGs = await Promise.all(
+      ["light", "dark"].map((scheme) =>
+        readFile(join(directory, `star-history-${scheme}.svg`), "utf8"),
+      ),
+    );
+    execFileSync(process.execPath, [
+      fileURLToPath(new URL("./style-star-history.mjs", import.meta.url)),
+      directory,
+    ]);
+    assert.deepEqual(
+      await Promise.all(
+        ["light", "dark"].map((scheme) =>
+          readFile(join(directory, `star-history-${scheme}.svg`), "utf8"),
+        ),
+      ),
+      firstSVGs,
+      "a refresh does not stack decorative layers",
+    );
     const { data, info } = await sharp(join(directory, "star-history.png"))
       .ensureAlpha()
       .raw()

@@ -24,12 +24,6 @@ func firstCommentSettingsForSegments(destination map[string]interface{}, segment
 	return mergePublisherSettings(destination, root)
 }
 
-// firstCommentMessageForPublish resolves the configured follow-up comment for
-// one published rendition. Empty means no child operation is required.
-func firstCommentMessageForPublish(provider string, settings map[string]interface{}) string {
-	return platform.FirstCommentMessage(provider, settings)
-}
-
 // publishFirstCommentBestEffort posts the configured first comment as a
 // post-success child operation. The parent rendition is already persisted as
 // published; a comment failure records its own outcome and never fails or
@@ -51,7 +45,7 @@ func (s *Service) publishFirstCommentBestEffort(
 		platformName = rendition.Platform
 		providerKey = rendition.Platform
 	}
-	message := firstCommentMessageForPublish(platformName, settings)
+	message := platform.FirstCommentMessage(platformName, settings)
 	if strings.TrimSpace(message) == "" || strings.TrimSpace(externalID) == "" {
 		return
 	}

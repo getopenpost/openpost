@@ -76,6 +76,43 @@ func TestStoreSavesConnectorAccountsAndBindingsAtomically(t *testing.T) {
 	var completed models.ConnectorConnectionSession
 	require.NoError(t, db.NewSelect().Model(&completed).Where("id = ?", session.ID).Scan(ctx))
 	require.Equal(t, "complete", completed.State)
+
+	// A failed binding write must roll back the account rows saved earlier in
+	// the same transaction instead of leaving a partial connector connection.
+	failingSession, err := store.BeginConnection(ctx, "workspace-1", "directus-main", time.Hour)
+	require.NoError(t, err)
+	_, err = db.NewRaw(`CREATE TRIGGER reject_provider_account_binding
+		BEFORE INSERT ON provider_account_bindings
+		BEGIN SELECT RAISE(FAIL, 'binding insert blocked'); END`).Exec(ctx)
+	require.NoError(t, err)
+
+	_, err = store.SaveConnectionAccounts(ctx, failingSession.ID, ConnectionResponse{
+		State: "complete", ConnectionRef: "directus/posts",
+		Accounts: []ConnectionAccount{
+			{ID: "pages", Username: "Editorial Pages"},
+			{ID: "reels", Username: "Editorial Reels"},
+		},
+	})
+	require.ErrorContains(t, err, "binding insert blocked")
+
+	rolledBackAccounts, err := db.NewSelect().Model((*models.SocialAccount)(nil)).
+		Where("workspace_id = ? AND account_id IN (?)", "workspace-1", bun.List([]string{"pages", "reels"})).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, rolledBackAccounts, "a failed binding write must not leave connector accounts")
+	rolledBackBindings, err := db.NewSelect().Model((*models.ProviderAccountBinding)(nil)).
+		Where("workspace_id = ? AND external_account_id IN (?)", "workspace-1", bun.List([]string{"pages", "reels"})).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, rolledBackBindings, "a failed binding write must not leave bindings")
+	remainingAccounts, err := db.NewSelect().Model((*models.SocialAccount)(nil)).
+		Where("workspace_id = ?", "workspace-1").
+		Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, remainingAccounts, "the earlier committed connection must survive the rollback")
+	var pending models.ConnectorConnectionSession
+	require.NoError(t, db.NewSelect().Model(&pending).Where("id = ?", failingSession.ID).Scan(ctx))
+	require.Equal(t, "pending", pending.State, "a failed transaction must not complete the connection session")
 }
 
 func newConnectorStoreDB(t *testing.T) *bun.DB {

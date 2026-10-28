@@ -27,7 +27,7 @@ describe("publication detail cache ordering", () => {
     await setServer("https://publication-cache.example.com");
   });
 
-  test("lets an in-flight list replace a later initialData-only detail", () => {
+  test("replaces initial-only detail from a list and clears it when switching Workspaces", () => {
     const client = new QueryClient();
     const workspaceId = "workspace-1";
     const publicationId = "publication-1";
@@ -56,6 +56,11 @@ describe("publication detail cache ordering", () => {
     );
 
     expect(client.getQueryData<Publication>(detailKey)).toEqual(published);
+    observer.setOptions({
+      ...publicationOptions(client, "workspace-2", publicationId),
+      enabled: false,
+    });
+    expect(observer.getCurrentResult().data).toBeUndefined();
     observer.destroy();
     client.clear();
   });

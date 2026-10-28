@@ -20,7 +20,6 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/entitlements"
-	"github.com/openpost/backend/internal/services/lifecycle"
 	"github.com/openpost/backend/internal/services/mediastore"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/stretchr/testify/require"
@@ -489,6 +488,15 @@ func TestMCPReadOnlyScopeHidesAndRejectsMutations(t *testing.T) {
 	}
 	require.Contains(t, names, mcpToolWorkspaces)
 	require.Contains(t, names, mcpToolRenderWidget)
+	require.Contains(t, names, mcpToolRenderUpload)
+	require.NotContains(t, names, mcpToolCreateTicket)
+	require.NotContains(t, names, mcpToolDeletePub)
+	require.NotContains(t, names, mcpToolDeleteMedia)
+
+	rendered := mcpStructuredContent(t, mcpCallOperation(t, srv, "read-token", "read-render", mcpToolRenderUpload, map[string]any{
+		"workspace_id": "ws-1",
+	}))
+	require.Equal(t, "ws-1", rendered["workspace_id"])
 	require.NotContains(t, names, mcpToolCreatePub)
 	require.NotContains(t, names, mcpToolExecute)
 	require.NotContains(t, names, mcpToolSearch)
@@ -1211,71 +1219,15 @@ func TestMCPWorkspaceScopedTokenFiltersAndRejectsOtherWorkspaces(t *testing.T) {
 	require.Equal(t, "workspace outside token scope", createOut["error"].(map[string]any)["message"])
 
 	count, err := srv.db.NewSelect().
-		Model((*models.Post)(nil)).
+		Model((*models.Publication)(nil)).
 		Where("workspace_id = ?", "ws-2").
-		Where("content = ?", "This should not cross the token boundary").
+		Where("source_text = ?", "This should not cross the token boundary").
 		Count(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, 0, count)
-}
-
-func TestMCPCallListPublicationEvents(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	ctx := context.Background()
-	_, err := srv.db.NewInsert().Model(&models.Publication{
-		ID:              "publication-events",
-		WorkspaceID:     "ws-1",
-		CreatedByID:     "user-1",
-		Title:           "Launch",
-		ContentProfile:  models.ContentProfileShortText,
-		SourceText:      "Launch",
-		SourceContent:   "Launch",
-		Status:          models.PublicationStatusPublished,
-		MetadataJSON:    "{}",
-		ReleasePlanJSON: "{}",
-		CreatedAt:       time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC),
-		UpdatedAt:       time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC),
-	}).Exec(ctx)
+	jobs, err := srv.db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	_, err = lifecycle.NewService(srv.db).Record(ctx, lifecycle.EventInput{
-		WorkspaceID:   "ws-1",
-		PublicationID: "publication-events",
-		Type:          lifecycle.EventPublished,
-		Status:        lifecycle.StatusSucceeded,
-		Message:       "rendition published",
-		Metadata:      map[string]any{"provider": "x"},
-	})
-	require.NoError(t, err)
-
-	resp := srv.request(t, "web-token", map[string]any{
-		"jsonrpc": "2.0",
-		"id":      "call-publication-events",
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name": "list_post_events",
-			"arguments": map[string]any{
-				"post_id": "publication-events",
-			},
-		},
-	})
-
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	result := out["result"].(map[string]any)
-	structured := result["structuredContent"].(map[string]any)
-	events := structured["events"].([]any)
-	require.Len(t, events, 2)
-	event := events[0].(map[string]any)
-	require.Equal(t, "published", event["type"])
-	require.Equal(t, "succeeded", event["status"])
-	require.Equal(t, "Published to provider", event["summary"])
-	require.Equal(t, "x", event["platform"])
-	require.NotContains(t, event, "message")
-	require.NotContains(t, event, "metadata")
-	require.Equal(t, "created", events[1].(map[string]any)["type"])
+	require.Zero(t, jobs)
 }
 
 func TestMCPCallValidatePublication(t *testing.T) {
@@ -1524,6 +1476,27 @@ func TestMCPCommentMutationRejectsCredentialBoundToAnotherWorkspace(t *testing.T
 	var out map[string]any
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	require.NotNil(t, out["error"])
+	rpcError := out["error"].(map[string]any)
+	require.Equal(t, float64(-32602), rpcError["code"])
+	require.Equal(t, "workspace outside token scope", rpcError["message"])
+	jobs, err := srv.db.NewSelect().Model((*models.Job)(nil)).Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, jobs)
+
+	allowed := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "allowed-comment", mcpToolExecute, map[string]any{
+		"operation": mcpToolHideComment,
+		"arguments": map[string]any{"comment_id": commentID},
+	}))
+	jobID, ok := allowed["job_id"].(string)
+	require.True(t, ok)
+	require.NotEmpty(t, jobID)
+	var job models.Job
+	require.NoError(t, srv.db.NewSelect().Model(&job).Where("id = ?", jobID).Scan(ctx))
+	require.Equal(t, "engagement_action", job.Type)
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal([]byte(job.Payload), &payload))
+	require.Equal(t, "hide", payload["action"])
+	require.Equal(t, "provider-comment-1", payload["provider_comment_id"])
 }
 
 func TestMCPRequiredSSOTokenBinding(t *testing.T) {

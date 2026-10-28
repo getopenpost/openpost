@@ -22,7 +22,7 @@ func Validate(def Definition, complete bool) error {
 	if err != nil || len(raw) > 256*1024 {
 		return invalid("workflow is too large")
 	}
-	if !slices.Contains([]string{"manual", "github_release", "rss", "rendition_published", "interval", "publication_created", "rendition_failed"}, def.Source.Kind) {
+	if !slices.Contains([]string{"manual", "github_release", "rss", "rendition_published", "interval", "publication_created", "rendition_failed", "comment_received"}, def.Source.Kind) {
 		return invalid("choose a supported source")
 	}
 	if complete {
@@ -38,6 +38,8 @@ func Validate(def Definition, complete bool) error {
 }
 func validateSource(source Source) error {
 	switch source.Kind {
+	case "comment_received":
+		return validateCommentSource(source)
 	case "interval":
 		if source.IntervalMinutes < 5 || source.IntervalMinutes > 43200 {
 			return invalid("choose an interval between 5 minutes and 30 days")
@@ -95,7 +97,7 @@ func (v *definitionValidator) walk(steps []Step, available map[string]bool, dept
 	return nil
 }
 func validateStep(step Step, available map[string]bool, complete bool) error {
-	if !slices.Contains([]string{KindDraft, KindBuild, KindApproval, KindSchedule, KindReply, KindWait, KindCondition, KindMetrics, KindHTTP, KindCode, KindAIText, KindAIDecision, KindFields, KindText, KindJSON, KindFilter, KindSort, KindLimit, KindMerge, KindDate, KindURL, KindFeed}, step.Kind) {
+	if !slices.Contains([]string{KindDraft, KindBuild, KindApproval, KindSchedule, KindReply, KindCommentReply, KindPrivateReply, KindCommentHandoff, KindWait, KindCondition, KindMetrics, KindHTTP, KindCode, KindAIText, KindAIDecision, KindFields, KindText, KindJSON, KindFilter, KindSort, KindLimit, KindMerge, KindDate, KindURL, KindFeed}, step.Kind) {
 		return invalid("unsupported step kind")
 	}
 	if len(step.Name) > 100 || len(step.Inputs) > 20 {
@@ -109,6 +111,11 @@ func validateStep(step Step, available map[string]bool, complete bool) error {
 			return fmt.Errorf("%s: %s: %w", step.Name, name, err)
 		}
 	}
+	if isCommentAction(step.Kind) {
+		if err := validateCommentStep(step); err != nil {
+			return err
+		}
+	}
 	if err := validateHTTPAuthentication(step); err != nil {
 		return err
 	}
@@ -116,9 +123,6 @@ func validateStep(step Step, available map[string]bool, complete bool) error {
 		return nil
 	}
 	if err := validateJSONInputs(step); err != nil {
-		return err
-	}
-	if err := validateHTTPAuthentication(step); err != nil {
 		return err
 	}
 	return validateRequiredInputs(step)
@@ -239,7 +243,7 @@ func validateTextBinding(text string, available map[string]bool, complete bool) 
 var requiredInputs = map[string][]string{
 	KindDraft: {"text"}, KindBuild: {"text"}, KindApproval: {"publication_id"}, KindSchedule: {"publication_id", "revision", "minutes"},
 	KindHTTP: {"url", "method"}, KindCode: {"code"}, KindAIText: {"text"}, KindAIDecision: {"text", "instructions"}, KindFields: {"fields"}, KindText: {"text", "operation"}, KindJSON: {"text"}, KindFilter: {"items", "field", "operator", "right"}, KindSort: {"items", "field"}, KindLimit: {"items", "limit"}, KindMerge: {"first", "second"}, KindDate: {"date", "format"}, KindURL: {"url", "campaign", "source", "medium"}, KindFeed: {"url"},
-	KindReply: {"rendition_id", "text"}, KindWait: {"minutes"}, KindCondition: {"left", "operator", "right"}, KindMetrics: {"rendition_id"},
+	KindPrivateReply: {"engagement_id", "text", "delivery"}, KindCommentHandoff: {"engagement_id"}, KindCommentReply: {"engagement_id", "text", "delivery"}, KindReply: {"rendition_id", "text"}, KindWait: {"minutes"}, KindCondition: {"left", "operator", "right"}, KindMetrics: {"rendition_id"},
 }
 
 func validateRequiredInputs(step Step) error {
@@ -361,27 +365,28 @@ func resolveLiteral(value any, values map[string]any) (any, error) {
 }
 
 var stepOutputFields = map[string][]string{
-	KindDraft:      {"id", "revision", "text", "title", "status", "usage.*"},
-	KindBuild:      {"id", "revision", "text", "title", "status", "usage.*"},
-	KindApproval:   {"publication_id", "revision", "text", "title", "approved"},
-	KindMetrics:    {"likes", "comments", "impressions", "observed_at"},
-	KindCondition:  {"matched"},
-	KindAIText:     {"text", "usage.*"},
-	KindAIDecision: {"matched", "probability", "reason", "usage.*"},
-	KindHTTP:       {"status", "body.*", "headers.*"},
-	KindCode:       {"data.*"},
-	KindJSON:       {"data.*"},
-	KindMerge:      {"data.*"},
-	KindFilter:     {"items.*", "count"},
-	KindSort:       {"items.*", "count"},
-	KindLimit:      {"items.*", "count"},
-	KindFeed:       {"items.*", "count"},
-	KindText:       {"text", "length"},
-	KindDate:       {"text", "timestamp"},
-	KindURL:        {"url"},
-	KindSchedule:   {"publication_id", "job_id", "scheduled_at", "status", "renditions.*"},
-	KindReply:      {"rendition_id", "job_id", "status"},
-	KindWait:       {"until"},
+	KindDraft:        {"id", "revision", "text", "title", "status", "usage.*"},
+	KindBuild:        {"id", "revision", "text", "title", "status", "usage.*"},
+	KindApproval:     {"publication_id", "revision", "text", "title", "approved"},
+	KindMetrics:      {"likes", "comments", "impressions", "observed_at"},
+	KindCondition:    {"matched"},
+	KindAIText:       {"text", "usage.*"},
+	KindAIDecision:   {"matched", "probability", "reason", "usage.*"},
+	KindHTTP:         {"status", "body.*", "headers.*"},
+	KindCode:         {"data.*"},
+	KindJSON:         {"data.*"},
+	KindMerge:        {"data.*"},
+	KindFilter:       {"items.*", "count"},
+	KindSort:         {"items.*", "count"},
+	KindLimit:        {"items.*", "count"},
+	KindFeed:         {"items.*", "count"},
+	KindText:         {"text", "length"},
+	KindDate:         {"text", "timestamp"},
+	KindURL:          {"url"},
+	KindSchedule:     {"publication_id", "job_id", "scheduled_at", "status", "renditions.*"},
+	KindPrivateReply: {"engagement_id", "job_id", "status", "text", "channel"}, KindCommentHandoff: {"engagement_id", "status"}, KindCommentReply: {"engagement_id", "job_id", "status", "text", "channel"},
+	KindReply: {"rendition_id", "job_id", "status"},
+	KindWait:  {"until"},
 }
 
 func outputFields(step Step) []string {
@@ -436,4 +441,65 @@ func isEmptyText(value any) bool {
 
 func jsonInput(kind, field string) bool {
 	return kind == KindFields && field == "fields" || kind == KindHTTP && (field == "headers" || field == "query") || kind == KindCode && field == "data" || slices.Contains([]string{KindFilter, KindSort, KindLimit}, kind) && field == "items" || kind == KindMerge && (field == "first" || field == "second")
+}
+
+func validateCommentSource(source Source) error {
+	if source.Priority < 0 || source.Priority > 100 {
+		return invalid("reply priority must be between 1 and 100")
+	}
+	if source.PostScope != "" && source.PostScope != "all" && source.PostScope != "selected" {
+		return invalid("choose a supported post scope")
+	}
+	if source.PostScope == "selected" && len(source.RenditionIDs) == 0 && len(source.PostIDs) == 0 {
+		return invalid("choose the post or Reel for this campaign")
+	}
+	if err := validateCommentKeywords(source); err != nil {
+		return err
+	}
+	if len(source.AccountIDs) == 0 {
+		return invalid("choose at least one comment account")
+	}
+	if source.DailyLimit < 1 || source.DailyLimit > 1000 {
+		return invalid("set a daily comment run limit between 1 and 1000")
+	}
+	if source.MatchMode != "" && !slices.Contains([]string{"word", "exact", "contains"}, source.MatchMode) {
+		return invalid("choose a supported keyword match")
+	}
+	return nil
+}
+
+func validateCommentKeywords(source Source) error {
+	if len(source.AccountIDs) > 50 || len(source.RenditionIDs) > 50 || len(source.PostIDs) > 50 || len(source.Keywords) > 20 || len(source.ExcludedKeywords) > 20 {
+		return invalid("comment trigger configuration is too large")
+	}
+	for _, keyword := range source.ExcludedKeywords {
+		if strings.TrimSpace(keyword) == "" || len(keyword) > 100 {
+			return invalid("excluded keywords must contain 1 to 100 bytes")
+		}
+	}
+	for _, keyword := range source.Keywords {
+		if strings.TrimSpace(keyword) == "" || len(keyword) > 100 {
+			return invalid("keywords must contain 1 to 100 bytes")
+		}
+	}
+	return nil
+}
+
+func validateCommentStep(step Step) error {
+	for name := range step.Inputs {
+		if !slices.Contains([]string{"engagement_id", "text", "channel", "delivery"}, name) {
+			return invalid("unsupported comment reply field: " + name)
+		}
+	}
+	for name, choices := range map[string][]string{"channel": {"public", "private"}, "delivery": {"review", "automatic", "handoff"}} {
+		binding := step.Inputs[name]
+		if binding.Reference != "" {
+			return invalid("choose reply delivery directly")
+		}
+		if binding.Literal != nil && !slices.Contains(choices, fmt.Sprint(binding.Literal)) {
+			return invalid("choose a supported reply " + name)
+		}
+	}
+
+	return nil
 }

@@ -35,6 +35,12 @@ type metaWebhookMessage struct {
 			URL string `json:"url"`
 		} `json:"payload"`
 	} `json:"attachments"`
+	// A story reply carries the story in reply_to instead of an attachment.
+	ReplyTo struct {
+		Story struct {
+			URL string `json:"url"`
+		} `json:"story"`
+	} `json:"reply_to"`
 }
 
 type metaWebhookEvent struct {
@@ -171,6 +177,9 @@ func (event metaWebhookEvent) applyMessage(conversation *ProviderConversation, a
 		if attachment.Payload.URL != "" {
 			message.Attachments = append(message.Attachments, MessageAttachment{Type: attachment.Type, URL: attachment.Payload.URL})
 		}
+	}
+	if story := event.Message.ReplyTo.Story.URL; story != "" {
+		message.Attachments = append(message.Attachments, MessageAttachment{Type: "story_reply", URL: story})
 	}
 	conversation.Messages = []ProviderMessage{message}
 	conversation.LastMessageAt = at

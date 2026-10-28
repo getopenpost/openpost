@@ -23,6 +23,15 @@ describe('DestructiveConfirmDialog', () => {
 				returnFocus
 			});
 
+			const deleteButton = screen.getByRole('button', { name: 'Delete' });
+			deleteButton.element().focus();
+			await new Promise<void>((resolve) =>
+				requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+			);
+			await expect.element(deleteButton).toHaveFocus();
+			await expect.element(screen.getByRole('dialog')).toBeVisible();
+			await expect.element(screen.getByText('This cannot be undone.')).toBeVisible();
+			expect(onConfirm).not.toHaveBeenCalled();
 			await screen.getByRole('button', { name: 'Delete' }).click();
 
 			expect(onConfirm).toHaveBeenCalledOnce();

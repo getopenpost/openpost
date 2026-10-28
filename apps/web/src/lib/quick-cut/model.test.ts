@@ -9,7 +9,6 @@ import {
 	formatTimecode,
 	parseTimecode,
 	hasOverlap,
-	assessExport,
 	requiresCloseConfirmation,
 	segmentsOutsideMarkedRanges
 } from './model';
@@ -100,23 +99,6 @@ describe('quick-cut model', () => {
 		expect(findNearestKeyframe(2.0005, kfs).aligned).toBe(true);
 		expect(findSnapKeyframe(2.1, kfs).direction).toBe('before');
 		expect(findSnapKeyframe(3.9, kfs).direction).toBe('after');
-	});
-
-	it('assesses exact and lossless segment overrides independently', () => {
-		const exact = createSegment(2, 3, {
-			id: 'exact',
-			sourceId: SRC_A,
-			cutMode: 'exact'
-		});
-		const lossless = createSegment(3.5, 5, {
-			id: 'lossless',
-			sourceId: SRC_A,
-			cutMode: 'nearestKeyframe'
-		});
-
-		const assessment = assessExport([exact, lossless], [0, 2, 4], 'exact', false);
-		expect(assessment.wasLossless).toBe(true);
-		expect(assessment.reason).toMatch(/start 3\.50s snaps/iu);
 	});
 
 	it('formats and parses timecodes', () => {

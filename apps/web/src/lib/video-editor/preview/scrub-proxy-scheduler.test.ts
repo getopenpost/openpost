@@ -1,13 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	disposeScrubProxyScheduler,
-	invalidateScrubFallbacks,
-	requestScrubFallback,
-	resetScrubFallbackSchedulerDeps,
-	setScrubFallbackSchedulerDeps,
-	warmScrubProxyFallback
-} from './scrub-proxy-scheduler';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FilmstripFrame } from '../media/filmstrip-client';
+const io = { lookupCachedFilmstrip: vi.fn(), cloneFrame: vi.fn(), prewarmFilmstrips: vi.fn() };
+let scheduler: typeof import('./scrub-proxy-scheduler');
 
 function fakeBitmap(): ImageBitmap {
 	return { width: 1, height: 1, close: vi.fn() };
@@ -15,25 +9,32 @@ function fakeBitmap(): ImageBitmap {
 
 function frame(index: number): FilmstripFrame {
 	// SAFETY: fallback selection only reads index/bitmap/url; the blob URL never resolves in tests.
-	return { index, bitmap: undefined, url: `blob:frame-${index}` } as FilmstripFrame;
+	return { index, bitmap: fakeBitmap(), url: `blob:frame-${index}` } as FilmstripFrame;
 }
 
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
+});
+
 describe('scrub-proxy-scheduler', () => {
-	beforeEach(() => {
-		disposeScrubProxyScheduler();
-		resetScrubFallbackSchedulerDeps();
+	beforeEach(async () => {
+		vi.resetModules();
+		vi.resetAllMocks();
+		const { filmstripCache } = await import('../media/filmstrip-client');
+		vi.spyOn(filmstripCache, 'cachedFilmstrip').mockImplementation(io.lookupCachedFilmstrip);
+		vi.spyOn(filmstripCache, 'prewarm').mockImplementation(io.prewarmFilmstrips);
+		vi.stubGlobal('createImageBitmap', io.cloneFrame);
+		scheduler = await import('./scrub-proxy-scheduler');
 	});
 
 	it('shares one clone across concurrent requests for the same frame', async () => {
-		const cloneFrame = vi.fn(async () => fakeBitmap());
-		setScrubFallbackSchedulerDeps({
-			lookupCachedFilmstrip: () => ({ frames: [frame(0), frame(1)] }),
-			cloneFrame
-		});
+		const cloneFrame = io.cloneFrame.mockImplementation(async () => fakeBitmap());
+		io.lookupCachedFilmstrip.mockReturnValue({ frames: [frame(0), frame(1)] });
 		// fps plan: FILMSTRIP_FRAME_RATE frames; timestamp near frame 1.
 		const [first, second] = await Promise.all([
-			requestScrubFallback('media-a', 1, 60),
-			requestScrubFallback('media-a', 1, 60)
+			scheduler.requestScrubFallback('media-a', 1, 60),
+			scheduler.requestScrubFallback('media-a', 1, 60)
 		]);
 		expect(cloneFrame).toHaveBeenCalledTimes(1);
 		expect(first).not.toBeNull();
@@ -41,12 +42,9 @@ describe('scrub-proxy-scheduler', () => {
 	});
 
 	it('returns null when the nearest frame drifts too far', async () => {
-		const cloneFrame = vi.fn(async () => fakeBitmap());
-		setScrubFallbackSchedulerDeps({
-			lookupCachedFilmstrip: () => ({ frames: [frame(0)] }),
-			cloneFrame
-		});
-		await expect(requestScrubFallback('media-a', 10, 0.75)).resolves.toBeNull();
+		const cloneFrame = io.cloneFrame.mockImplementation(async () => fakeBitmap());
+		io.lookupCachedFilmstrip.mockReturnValue({ frames: [frame(0)] });
+		await expect(scheduler.requestScrubFallback('media-a', 10, 0.75)).resolves.toBeNull();
 		expect(cloneFrame).not.toHaveBeenCalled();
 	});
 
@@ -56,30 +54,24 @@ describe('scrub-proxy-scheduler', () => {
 			release = resolve;
 		});
 		const bitmap = fakeBitmap();
-		setScrubFallbackSchedulerDeps({
-			lookupCachedFilmstrip: () => ({ frames: [frame(0)] }),
-			cloneFrame: async () => {
-				await gate;
-				return bitmap;
-			}
+		io.lookupCachedFilmstrip.mockReturnValue({ frames: [frame(0)] });
+		io.cloneFrame.mockImplementation(async () => {
+			await gate;
+			return bitmap;
 		});
-		const pending = requestScrubFallback('media-a', 0, 60);
-		invalidateScrubFallbacks('media-a');
+		const pending = scheduler.requestScrubFallback('media-a', 0, 60);
+		scheduler.invalidateScrubFallbacks('media-a');
 		release();
 		await expect(pending).resolves.toBeNull();
 		expect(bitmap.close).toHaveBeenCalledTimes(1);
 	});
 
-	it('prewarms filmstrips through the hook and tolerates failures', () => {
-		const prewarmFilmstrips = vi.fn();
-		setScrubFallbackSchedulerDeps({ prewarmFilmstrips });
-		warmScrubProxyFallback();
-		expect(prewarmFilmstrips).toHaveBeenCalledTimes(1);
-		setScrubFallbackSchedulerDeps({
-			prewarmFilmstrips: () => {
-				throw new Error('boom');
-			}
+	it('prewarms filmstrips and tolerates cache failures', () => {
+		scheduler.warmScrubProxyFallback();
+		expect(io.prewarmFilmstrips).toHaveBeenCalledTimes(1);
+		io.prewarmFilmstrips.mockImplementation(() => {
+			throw new Error('boom');
 		});
-		expect(() => warmScrubProxyFallback()).not.toThrow();
+		expect(() => scheduler.warmScrubProxyFallback()).not.toThrow();
 	});
 });

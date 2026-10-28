@@ -11,8 +11,7 @@ import {
 describe('upscaledSize', () => {
 	it('produces even dimensions even from an odd source', () => {
 		const { width, height } = upscaledSize(1919, 1079);
-		expect(width % 2).toBe(0);
-		expect(height % 2).toBe(0);
+		expect({ width, height }).toEqual({ width: 3838, height: 2158 });
 	});
 
 	it.each([

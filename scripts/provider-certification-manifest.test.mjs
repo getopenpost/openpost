@@ -3,7 +3,6 @@ import test from "node:test";
 
 import {
   assertNoUnprojectedPublicClaims,
-  readPublicClaimManifest,
   renderPublicClaimProjection,
   subjectDigest,
   subjectKey,

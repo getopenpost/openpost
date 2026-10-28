@@ -44,7 +44,7 @@ func (g *GoogleBusinessAdapter) ListNativePosts(ctx context.Context, token strin
 		if post.State != "LIVE" || !strings.HasPrefix(post.Name, input.AccountID+"/localPosts/") || !googleBusinessPostNamePattern.MatchString(post.Name) {
 			continue
 		}
-		appendNativePost(&page, input, NativePostItem{ProviderPostID: post.Name, Title: post.Event.Title, Text: post.Summary, PublishedAt: nativePostTime(firstNonEmptyString(post.ScheduledTime, post.CreateTime)), ExternalURL: googleBusinessSearchURL(post.SearchURL)})
+		appendNativePost(&page, input, NativePostItem{ProviderPostID: post.Name, Title: post.Event.Title, Text: post.Summary, PublishedAt: ProviderTime(firstNonEmptyString(post.ScheduledTime, post.CreateTime)), ExternalURL: googleBusinessSearchURL(post.SearchURL)})
 	}
 	return page, nil
 }

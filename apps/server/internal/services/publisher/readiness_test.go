@@ -106,7 +106,11 @@ func TestPublisherWriteFailsClosedWithoutReadinessService(t *testing.T) {
 		&platform.PublishRequest{Content: "Readiness", Profile: models.ContentProfileShortText, OutputProfile: "x.post"},
 		nil,
 	)
-	require.Error(t, err)
+	var notReady *providerreadiness.NotReadyError
+	require.ErrorAs(t, err, &notReady)
+	require.Equal(t, providerreadiness.EffectiveStateDegraded, notReady.Decision.State)
+	require.False(t, notReady.Decision.Publishable)
+	require.Contains(t, notReady.Decision.Blockers, providerreadiness.Blocker{Code: providerreadiness.BlockerReadinessUnavailable})
 	require.Zero(t, adapter.publishCalls)
 }
 
@@ -123,6 +127,10 @@ func TestPublisherWriteFailsClosedWhenReadinessRepositoryFails(t *testing.T) {
 		&platform.PublishRequest{Content: "Readiness", Profile: models.ContentProfileShortText, OutputProfile: "x.post"},
 		nil,
 	)
-	require.Error(t, err)
+	var notReady *providerreadiness.NotReadyError
+	require.ErrorAs(t, err, &notReady)
+	require.Equal(t, providerreadiness.EffectiveStateDegraded, notReady.Decision.State)
+	require.False(t, notReady.Decision.Publishable)
+	require.Contains(t, notReady.Decision.Blockers, providerreadiness.Blocker{Code: providerreadiness.BlockerReadinessUnavailable})
 	require.Zero(t, adapter.publishCalls)
 }

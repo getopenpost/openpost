@@ -284,7 +284,8 @@ export async function exportSmartCut(options: SmartCutOptions): Promise<QuickCut
 		}
 
 		const abort = (): void => {
-			if (finalOutput.state === 'started') void finalOutput.cancel();
+			// Closing the target can reject with the same abort handled by the export.
+			if (finalOutput.state === 'started') void finalOutput.cancel().catch(() => undefined);
 		};
 		options.signal?.addEventListener('abort', abort, { once: true });
 		try {

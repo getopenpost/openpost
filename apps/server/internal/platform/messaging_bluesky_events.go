@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"slices"
 	"strings"
-	"time"
 )
 
 var ErrMessageBootstrapCursorRequired = errors.New("provider log did not supply a bootstrap cursor")
@@ -45,7 +44,7 @@ type blueskyChatConversation struct {
 }
 
 func (c blueskyChatConversation) provider(accountID string) ProviderConversation {
-	at, _ := time.Parse(time.RFC3339Nano, c.LastMessage.SentAt)
+	at := ProviderTime(c.LastMessage.SentAt)
 	result := ProviderConversation{ID: c.ID, LastMessageAt: at, LastRemoteMessageID: c.LastMessage.ID, UnreadCount: c.UnreadCount, UnreadCountKnown: true}
 	if c.LastMessage.Type == "" || c.LastMessage.Type == blueskyChatMessageView {
 		result.LastMessagePreview = c.LastMessage.Text
@@ -63,7 +62,7 @@ func (c blueskyChatConversation) provider(accountID string) ProviderConversation
 }
 
 func (m blueskyChatMessage) provider(accountID string) ProviderMessage {
-	at, _ := time.Parse(time.RFC3339Nano, m.SentAt)
+	at := ProviderTime(m.SentAt)
 	direction := "inbound"
 	if m.Sender.DID == accountID {
 		direction = "outbound"

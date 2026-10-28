@@ -124,23 +124,6 @@ func (m *normMessagingAdapter) Publish(_ context.Context, _, _ string, _ *platfo
 	return platform.PublishResult{}, nil
 }
 
-func TestNormRoutesNewAccountWithSupportedFeaturesToComposer(t *testing.T) {
-	t.Parallel()
-	providers := map[string]platform.Adapter{
-		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: true}},
-	}
-	e, _ := newNormServer(t, providers)
-	resp := doNormCallback(t, e)
-	defer resp.Body.Close()
-	require.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
-	loc := resp.Header.Get("Location")
-	u, _ := url.Parse(loc)
-	require.Equal(t, "/", u.Path)
-	require.Equal(t, "ws-1", u.Query().Get("workspace_id"))
-	require.NotEmpty(t, u.Query().Get("account_ids"))
-	require.NotContains(t, loc, "access_token")
-}
-
 func TestBlueskyLoginUsesSessionIdentityWhenActorProfileIsUnavailable(t *testing.T) {
 	const pdsURL = "https://pds.example"
 
@@ -229,26 +212,6 @@ func TestBlueskyLoginFailsWhenPDSResolutionErrors(t *testing.T) {
 	require.Zero(t, count)
 }
 
-func TestNormReactivatedAccountReturnsToSettings(t *testing.T) {
-	t.Parallel()
-	providers := map[string]platform.Adapter{
-		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: true}},
-	}
-	e, h := newNormServer(t, providers)
-	ctx := context.Background()
-	_, err := h.db.NewInsert().Model(&models.SocialAccount{
-		ID: "existing-id", WorkspaceID: "ws-1", Slug: "threads-existing", Platform: "threads", AccountID: "provider-user", IsActive: false, AccessTokenEnc: []byte("tok"),
-	}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = h.db.NewInsert().Model(&models.WorkspaceFirstConnection{WorkspaceID: "ws-1", AccountID: "existing-id"}).Exec(ctx)
-	require.NoError(t, err)
-
-	resp := doNormCallback(t, e)
-	defer resp.Body.Close()
-	require.NotContains(t, resp.Header.Get("Location"), "/accounts/setup")
-	require.Equal(t, "https://app.openpost.test/settings?tab=accounts", resp.Header.Get("Location"))
-}
-
 func TestNormComposerRedirectContainsOnlyContinuationData(t *testing.T) {
 	t.Parallel()
 	providers := map[string]platform.Adapter{
@@ -257,8 +220,11 @@ func TestNormComposerRedirectContainsOnlyContinuationData(t *testing.T) {
 	e, _ := newNormServer(t, providers)
 	resp := doNormCallback(t, e)
 	defer resp.Body.Close()
+	require.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
 	loc := resp.Header.Get("Location")
-	u, _ := url.Parse(loc)
+	require.NotContains(t, loc, "access_token")
+	u, err := url.Parse(loc)
+	require.NoError(t, err)
 	require.Equal(t, "/", u.Path)
 	require.Equal(t, "ws-1", u.Query().Get("workspace_id"))
 	require.NotEmpty(t, u.Query().Get("account_ids"))

@@ -2,10 +2,15 @@
  * Ported from FreeCut (MIT) - shared/utils/easing.test.ts.
  */
 import { describe, expect, it } from 'vitest';
+import { buildEasingConfig } from './easing-presets';
 import { applyEasingConfig, cubicBezier, easeIn, easeInOut, easeOut } from './easing';
 
 describe('timeline easing', () => {
 	it('keeps the named curves stable', () => {
+		expect(buildEasingConfig('ease-in')).toEqual({
+			type: 'cubic-bezier',
+			bezier: { x1: 0.42, y1: 0, x2: 1, y2: 1 }
+		});
 		expect(easeIn(0.5)).toBe(0.25);
 		expect(easeOut(0.5)).toBe(0.75);
 		expect(easeInOut(0.25)).toBe(0.125);
@@ -13,6 +18,12 @@ describe('timeline easing', () => {
 	});
 
 	it('solves cubic bezier curves by their x coordinate', () => {
+		expect(
+			buildEasingConfig('cubic-bezier', {
+				type: 'cubic-bezier',
+				bezier: { x1: 0.16, y1: 1, x2: 0.3, y2: 1 }
+			})
+		).toEqual({ type: 'cubic-bezier', bezier: { x1: 0.16, y1: 1, x2: 0.3, y2: 1 } });
 		expect(cubicBezier(0, { x1: 0.16, y1: 1, x2: 0.3, y2: 1 })).toBe(0);
 		expect(cubicBezier(1, { x1: 0.16, y1: 1, x2: 0.3, y2: 1 })).toBe(1);
 		expect(cubicBezier(0.5, { x1: 0.42, y1: 0, x2: 0.58, y2: 1 })).toBeCloseTo(0.5, 6);
@@ -23,7 +34,8 @@ describe('timeline easing', () => {
 			type: 'spring' as const,
 			spring: { tension: 220, friction: 18, mass: 0.9 }
 		};
-		expect(applyEasingConfig(0, config)).toBe(0);
+		expect(buildEasingConfig('spring', config)).toEqual(config);
+		expect(applyEasingConfig(0, buildEasingConfig('spring', config)!)).toBe(0);
 		expect(applyEasingConfig(1, config)).toBe(1);
 		for (const progress of [0.1, 0.25, 0.5, 0.75, 0.9]) {
 			const value = applyEasingConfig(progress, config);

@@ -1216,6 +1216,7 @@
 									</div>
 								{/if}
 								{#each messages as message (message.id)}
+									{@const messageAttachments = attachments(message)}
 									<div
 										data-message-id={message.id}
 										class={[
@@ -1237,8 +1238,10 @@
 													{m.engagement_deleted_item()}
 												</p>{:else if message.body}<p class="leading-5 whitespace-pre-wrap">
 													{message.body}
+												</p>{:else if messageAttachments.length === 0}<p class="text-sm italic">
+													{m.messages_no_content()}
 												</p>{/if}
-											{#each attachments(message) as attachment (attachment.url)}
+											{#each messageAttachments as attachment (attachment.url)}
 												<a
 													class="mt-2 block break-all underline"
 													href={attachment.url}

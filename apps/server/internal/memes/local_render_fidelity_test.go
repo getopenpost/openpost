@@ -2,7 +2,6 @@ package memes
 
 import (
 	"bytes"
-	"context"
 	"image"
 	"image/color"
 	"testing"
@@ -285,18 +284,4 @@ func TestBuiltinStrokeForField(t *testing.T) {
 
 	w, _ = builtinStrokeForField("white", 12)
 	require.Equal(t, 1, w)
-}
-
-func TestWatermarkRemainsAbsent(t *testing.T) {
-	t.Parallel()
-
-	provider, err := NewBuiltinProvider()
-	require.NoError(t, err)
-	rendered, err := provider.Render(context.Background(), RenderRequest{
-		TemplateID: "drake",
-		Text:       []string{"hello", "world"},
-		Extension:  "png",
-	})
-	require.NoError(t, err)
-	require.NotEmpty(t, rendered.Data)
 }

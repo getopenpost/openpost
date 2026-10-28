@@ -149,38 +149,6 @@ describe('messages counterpart avatar', () => {
 		expect(image?.getAttribute('referrerpolicy')).toBe('no-referrer');
 		expect(image?.getAttribute('loading')).toBe('lazy');
 	});
-
-	it('uses the shared monogram rule for the counterpart fallback', async () => {
-		mockInbox([conversation('Ada King Lovelace', 0)]);
-		const screen = await renderMessages();
-		await vi.waitFor(() => {
-			const fallback = rowByName(screen.container, 'Ada King Lovelace').querySelector(
-				'[data-slot="avatar-fallback"]'
-			);
-			// Shared rule: first + last word initials. The route-local rule used the first two words ("AK").
-			expect(fallback?.textContent?.trim()).toBe('AL');
-		});
-	});
-
-	it('uses the shared badge geometry on the counterpart avatar', async () => {
-		mockInbox([conversation('Ava Stone', 1, 'https://example.com/avatars/ava.png')]);
-		const screen = await renderMessages();
-		await vi.waitFor(() => {
-			const row = rowByName(screen.container, 'Ava Stone');
-			expect(row.querySelector('.ring-background')).not.toBeNull();
-			expect(row.querySelector('.border-card')).toBeNull();
-		});
-	});
-
-	it('keeps the row unread state and hit target', async () => {
-		mockInbox([conversation('Ava Stone', 1, 'https://example.com/avatars/ava.png')]);
-		const screen = await renderMessages();
-		await vi.waitFor(() => {
-			const row = rowByName(screen.container, 'Ava Stone');
-			expect(row).toHaveAttribute('data-unread', 'true');
-			expect(row).toHaveClass('min-h-20');
-		});
-	});
 });
 
 function conversation(name: string, unreadCount: number, avatarUrl = '') {

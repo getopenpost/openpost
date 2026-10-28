@@ -161,24 +161,6 @@ func TestCLIAuthApprovalBindsChosenWorkspaceAndRejectsInaccessibleWorkspace(t *t
 	require.Equal(t, http.StatusForbidden, rejected.Code, rejected.Body.String())
 }
 
-func TestCLIAuthApprovalWithoutWorkspaceCreatesAllWorkspaceToken(t *testing.T) {
-	t.Parallel()
-
-	srv := newCLIAuthTestServer(t)
-	start := srv.startCLIAuth(t)
-	approve := srv.request(t, http.MethodPost, "/api/v1/cli/auth/approve", map[string]string{
-		"user_code": start.UserCode,
-	}, "web-token")
-	require.Equal(t, http.StatusOK, approve.Code, approve.Body.String())
-	poll := srv.pollCLIAuth(t, start.DeviceCode)
-	require.NotEmpty(t, poll.Token)
-
-	var token models.APIToken
-	require.NoError(t, srv.db.NewSelect().Model(&token).Where("user_id = ?", "user-1").Scan(t.Context()))
-	require.Empty(t, token.WorkspaceID)
-	require.Empty(t, token.OrganizationID)
-}
-
 func TestCLIAuthRechecksWorkspaceAccessBeforeMintingToken(t *testing.T) {
 	t.Parallel()
 
@@ -342,6 +324,12 @@ func TestCLIAuthHappyPathReturnsTokenOnFirstApprovedPollOnly(t *testing.T) {
 	require.Regexp(t, `^[A-Z2-9]{4}-[A-Z2-9]{4}$`, start.UserCode)
 	require.Equal(t, "https://openpost.test/cli/authorize?user_code="+start.UserCode, start.VerificationURL)
 	require.NotContains(t, start.VerificationURL, start.DeviceCode)
+	var storedSession models.CLIAuthSession
+	require.NoError(t, srv.db.NewSelect().Model(&storedSession).Scan(t.Context()))
+	require.NotEqual(t, start.DeviceCode, storedSession.DeviceCodeHash)
+	require.NotEqual(t, start.UserCode, storedSession.UserCodeHash)
+	require.Len(t, storedSession.DeviceCodeHash, 64)
+	require.Len(t, storedSession.UserCodeHash, 64)
 
 	session := srv.getSession(t, start.UserCode)
 	require.Equal(t, "OpenPost CLI", session.ClientName)
@@ -367,6 +355,8 @@ func TestCLIAuthHappyPathReturnsTokenOnFirstApprovedPollOnly(t *testing.T) {
 	var storedToken models.APIToken
 	require.NoError(t, srv.db.NewSelect().Model(&storedToken).Where("user_id = ?", "user-1").Scan(context.Background()))
 	require.Equal(t, cliauth.ClientID, storedToken.ClientID)
+	require.Empty(t, storedToken.WorkspaceID)
+	require.Empty(t, storedToken.OrganizationID)
 
 	srv.allowImmediatePoll(t)
 	secondPollResp := srv.request(t, http.MethodPost, "/api/v1/cli/auth/poll", map[string]string{
@@ -475,21 +465,6 @@ func TestCLIAuthStartRateLimit(t *testing.T) {
 		resp = srv.request(t, http.MethodPost, "/api/v1/cli/auth/start", startRequest(), "")
 	}
 	require.Equal(t, http.StatusTooManyRequests, resp.Code)
-}
-
-func TestCLIAuthStartStoresOnlyHashes(t *testing.T) {
-	t.Parallel()
-
-	srv := newCLIAuthTestServer(t)
-	start := srv.startCLIAuth(t)
-
-	var session models.CLIAuthSession
-	require.NoError(t, srv.db.NewSelect().Model(&session).Scan(context.Background()))
-	require.NotEqual(t, start.DeviceCode, session.DeviceCodeHash)
-	require.NotEqual(t, start.UserCode, session.UserCodeHash)
-	require.Len(t, session.DeviceCodeHash, 64)
-	require.Len(t, session.UserCodeHash, 64)
-	require.NotContains(t, start.VerificationURL, start.DeviceCode)
 }
 
 func TestCLIAuthStartExpiresOlderPendingSessions(t *testing.T) {

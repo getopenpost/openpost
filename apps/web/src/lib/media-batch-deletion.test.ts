@@ -30,15 +30,17 @@ describe('remainingMediaDeletionIDs', () => {
 		expect(remainingMediaDeletionIDs(['media-1'], { deleted: 1, failed_ids: null })).toEqual([]);
 	});
 
-	it('replays an idempotent request when the first response is lost after commit', async () => {
-		let calls = 0;
-		const result = await requestRecoverableMediaBatchDeletion(['media-1'], async () => {
-			calls += 1;
-			if (calls === 1) throw new Error('response lost');
+	it('replays the same request when the first response is lost', async () => {
+		const requested: string[][] = [];
+		const result = await requestRecoverableMediaBatchDeletion(['media-1'], async (ids) => {
+			requested.push([...ids]);
+			if (requested.length === 1) throw new Error('response lost');
 			return { deleted: 1, failed_ids: [] };
 		});
 
-		expect(calls).toBe(2);
+		// Transport replay proof only: endpoint idempotency belongs to the
+		// server and browser suites.
+		expect(requested).toEqual([['media-1'], ['media-1']]);
 		expect(result).toEqual({ deleted: 1, failed_ids: [] });
 	});
 

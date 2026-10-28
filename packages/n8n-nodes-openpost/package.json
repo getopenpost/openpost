@@ -1,6 +1,6 @@
 {
   "name": "@getopenpost/n8n-nodes-openpost",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Official n8n community node for OpenPost publishing automation.",
   "keywords": [
     "n8n",

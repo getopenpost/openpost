@@ -550,25 +550,6 @@ describe('workspace settings state', () => {
 		expect(localStorage.getItem('openpost_current_workspace')).toBeNull();
 	});
 
-	it('resets all account-scoped workspace state after account deletion', async () => {
-		mocks.get.mockResolvedValueOnce({
-			data: settings('Europe/Lisbon'),
-			error: null
-		});
-		const context = new WorkspaceContext();
-		context.workspaces = [workspaceA];
-		await context.setWorkspace(workspaceA);
-
-		context.reset();
-
-		expect(context.workspaces).toEqual([]);
-		expect(context.currentWorkspace).toBeNull();
-		expect(context.settings.timezone).toBe('UTC');
-		expect(context.settingsReady).toBe(false);
-		expect(context.loading).toBe(false);
-		expect(localStorage.getItem('openpost_current_workspace')).toBeNull();
-	});
-
 	it('does not project saved settings after account state resets', async () => {
 		const save = deferred<{
 			data: null;
@@ -586,9 +567,16 @@ describe('workspace settings state', () => {
 			timezone: 'Europe/Lisbon'
 		};
 		context.savedSettings = { ...context.settings };
+		localStorage.setItem('openpost_current_workspace', JSON.stringify(workspaceA));
 
 		const pendingSave = context.saveSettings({ name: 'First actor edit' });
 		context.reset();
+		expect(context.workspaces).toEqual([]);
+		expect(context.currentWorkspace).toBeNull();
+		expect(context.settings.timezone).toBe('UTC');
+		expect(context.settingsReady).toBe(false);
+		expect(context.loading).toBe(false);
+		expect(localStorage.getItem('openpost_current_workspace')).toBeNull();
 		queryClient.clear();
 		const nextActorWorkspace = { ...workspaceA, name: 'Next actor workspace' };
 		context.currentWorkspace = nextActorWorkspace;

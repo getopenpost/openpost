@@ -128,6 +128,7 @@ test("check reports stale output without overwriting authored changes", async ()
       [],
     );
     await generator.writeSelectedContract(contract);
+    expect(await generator.checkGeneratedContract(contract)).toEqual([]);
     const output = path.join(
       fixtureRoot,
       "packages/n8n-nodes-openpost/generated/selectedContract.ts",
@@ -135,7 +136,7 @@ test("check reports stale output without overwriting authored changes", async ()
     const authored = (await readFile(output, "utf8")) + "\n// Concurrent authored change\n";
     await writeFile(output, authored);
     const stale = await generator.checkGeneratedContract(contract);
-    expect(stale).toContain("packages/n8n-nodes-openpost/generated/selectedContract.ts");
+    expect(stale).toEqual(["packages/n8n-nodes-openpost/generated/selectedContract.ts"]);
     expect(await readFile(output, "utf8")).toBe(authored);
   } finally {
     await rm(fixtureRoot, { recursive: true, force: true });

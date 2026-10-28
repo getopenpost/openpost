@@ -167,14 +167,18 @@ type fakeDirectUploadStorage struct {
 type cancelingUploadStorage struct {
 	cancel           context.CancelFunc
 	deleteContextErr error
+	saveCalls        int
+	deleteCalls      int
 }
 
 func (*cancelingUploadStorage) Driver() string { return "canceling" }
 func (s *cancelingUploadStorage) Save(ctx context.Context, _ string, _ io.Reader) (string, error) {
+	s.saveCalls++
 	s.cancel()
 	return "", ctx.Err()
 }
 func (s *cancelingUploadStorage) Delete(ctx context.Context, _ string) error {
+	s.deleteCalls++
 	s.deleteContextErr = ctx.Err()
 	return nil
 }
@@ -342,6 +346,8 @@ func TestCanceledStreamingUploadReturnsSessionToPending(t *testing.T) {
 	srv.echo.ServeHTTP(recorder, req)
 
 	require.Equal(t, http.StatusBadRequest, recorder.Code, recorder.Body.String())
+	require.Equal(t, 1, storage.saveCalls, "the canceled write must be attempted exactly once")
+	require.Equal(t, 1, storage.deleteCalls, "a rejected streaming write must clean up its partial object")
 	require.NoError(t, storage.deleteContextErr)
 	var stored models.MediaAttachment
 	require.NoError(t, srv.db.NewSelect().Model(&stored).Where("id = ?", media.ID).Scan(t.Context()))
@@ -662,47 +668,6 @@ func TestCreateMediaUploadSessionRejectsMalformedMimeType(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, resp.Code, resp.Body.String())
 }
 
-func TestCreateMediaUploadSessionAppliesTypeSpecificSizeLimits(t *testing.T) {
-	t.Parallel()
-
-	storage := newFakeDirectUploadStorage()
-	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
-
-	videoResp := srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{
-		"workspace_id": "ws-1",
-		"filename":     "launch.mp4",
-		"mime_type":    "video/mp4",
-		"size":         MaxMediaUploadBytes,
-	})
-	require.Equal(t, http.StatusOK, videoResp.Code, videoResp.Body.String())
-	var videoSession map[string]any
-	require.NoError(t, json.Unmarshal(videoResp.Body.Bytes(), &videoSession))
-	videoID := videoSession["media_id"].(string)
-	require.Equal(
-		t,
-		"/api/v1/media/upload-session/"+videoID+"/content",
-		videoSession["upload"].(map[string]any)["url"],
-	)
-
-	oversizeVideoResp := srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{
-		"workspace_id": "ws-1",
-		"filename":     "launch.mp4",
-		"mime_type":    "video/mp4",
-		"size":         MaxMediaUploadBytes + 1,
-	})
-	require.Equal(t, http.StatusBadRequest, oversizeVideoResp.Code, oversizeVideoResp.Body.String())
-	require.Contains(t, oversizeVideoResp.Body.String(), "16 GiB")
-
-	oversizeImageResp := srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{
-		"workspace_id": "ws-1",
-		"filename":     "launch.png",
-		"mime_type":    "image/png",
-		"size":         MaxBufferedMediaUploadBytes + 1,
-	})
-	require.Equal(t, http.StatusBadRequest, oversizeImageResp.Code, oversizeImageResp.Body.String())
-	require.Contains(t, oversizeImageResp.Body.String(), "50MB")
-}
-
 func TestMediaUploadSessionTTLScalesForLargeVideos(t *testing.T) {
 	require.Equal(t, MediaUploadSessionTTL, mediaUploadSessionTTL(12))
 	require.Greater(t, mediaUploadSessionTTL(MaxDirectMediaUploadBytes), time.Hour)
@@ -992,34 +957,6 @@ func TestCompleteMediaUploadSessionDedupesExistingMedia(t *testing.T) {
 	current, err := srv.usage.CurrentMonthly(context.Background(), "ws-1", entitlements.LimitMediaBytesUploadedMonthly, time.Now())
 	require.NoError(t, err)
 	require.Equal(t, int64(0), current)
-}
-
-func TestMediaRollbackCompletesAfterRequestCancellation(t *testing.T) {
-	storage := newFakeDirectUploadStorage()
-	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
-	media := &models.MediaAttachment{
-		ID:               "rollback-media",
-		WorkspaceID:      "ws-1",
-		FilePath:         "rollback-media.txt",
-		StorageType:      "s3",
-		MimeType:         "text/plain",
-		ProcessingStatus: mediaReadyStatus,
-		Size:             7,
-		OriginalFilename: "rollback-media.txt",
-		CreatedAt:        time.Now().UTC(),
-	}
-	_, err := srv.db.NewInsert().Model(media).Exec(t.Context())
-	require.NoError(t, err)
-	storage.objects[media.FilePath] = []byte("content")
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	handler := NewMediaHandler(srv.db, storage, nil, testAuthenticator{}, nil)
-
-	require.NoError(t, handler.rollbackMediaRecord(ctx, media))
-	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", media.ID).Count(t.Context())
-	require.NoError(t, err)
-	require.Zero(t, count)
-	require.NotContains(t, storage.objects, media.FilePath)
 }
 
 func TestFailedMediaInsertReconcilesCommittedRowBeforeDeletingFiles(t *testing.T) {

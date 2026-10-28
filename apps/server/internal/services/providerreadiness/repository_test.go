@@ -2,6 +2,7 @@ package providerreadiness
 
 import (
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -30,9 +31,21 @@ func TestRepositoryAuthorizationRequiresTheAccountsExactGrantOwner(t *testing.T)
 		t.Fatal(err)
 	}
 	account := models.SocialAccount{
-		ID: "account-1", WorkspaceID: "workspace-b", Platform: "x",
+		ID: "account-1", WorkspaceID: "workspace-a", Platform: "x",
 		OAuthGrantID: grant.ID, IsActive: true,
 	}
+	valid, err := repository.AuthorizationForAccount(t.Context(), account, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if valid.State != AuthorizationStateValid {
+		t.Fatalf("owning-workspace grant did not authorize account: %#v", valid)
+	}
+	if !slices.Contains(valid.GrantedScopes, "tweet.write") {
+		t.Fatalf("authorization evidence lost the grant scopes: %#v", valid.GrantedScopes)
+	}
+
+	account.WorkspaceID = "workspace-b"
 	evidence, err := repository.AuthorizationForAccount(t.Context(), account, now)
 	if err != nil {
 		t.Fatal(err)

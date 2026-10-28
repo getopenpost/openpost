@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -168,7 +168,21 @@ test("writes all light and dark badge variants", async () => {
       { downloads: 22, downloadsGithub: 12, downloadsNpm: 10, release: "v1.2.3", stars: 9 },
       outputDir,
     );
-    assert.equal(files.length, 8);
+    const expected = [
+      "downloads-dark.svg",
+      "downloads-light.svg",
+      "follow-dev-dark.svg",
+      "follow-dev-light.svg",
+      "release-dark.svg",
+      "release-light.svg",
+      "stars-dark.svg",
+      "stars-light.svg",
+    ];
+    assert.deepEqual(
+      files.sort(),
+      expected.map((name) => join(outputDir, name)),
+    );
+    assert.deepEqual((await readdir(outputDir)).sort(), expected);
     assert.match(await readFile(join(outputDir, "release-dark.svg"), "utf8"), /v1\.2\.3/u);
     assert.match(await readFile(join(outputDir, "follow-dev-dark.svg"), "utf8"), /follow: X/u);
     assert.match(

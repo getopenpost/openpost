@@ -173,32 +173,36 @@ describe('WebThemeRuntime', () => {
 		expect(runtimeLoaders.loadAssets).toHaveBeenCalledWith([]);
 	});
 
-	it('accepts only scoped opaque raster asset routes for previews', async () => {
+	it('rejects unsafe raster MIME and paths independently of resource scope', async () => {
 		const runtime = new WebThemeRuntime(loaders());
-		const selected: WebResolvedTheme = resolveBuiltInTheme('notebook', 'light');
+		const selected = organizationTheme('notebook');
 		selected.assets.push({
-			id: 'unsafe-vector',
+			id: 'preview-paper',
 			slot: 'header-decoration',
-			sourceUrl: '/api/v1/theme-assets/unsafe-vector/content?organization_id=organization-id',
+			sourceUrl:
+				'/api/v1/theme-assets/preview-paper/content?workspace_id=workspace-id&theme_id=theme-id&revision=2',
 			mimeType: 'image/png'
 		});
-		Reflect.set(selected.assets[0]!, 'mimeType', 'image/svg+xml');
-		const scope = fakeScope();
-
-		expect(await runtime.apply(selected, scope)).toBe(true);
-		expect(scope.getAttribute('data-theme-fallback')).toBe('unsafe-resource');
-
-		selected.assets[0] = {
-			...selected.assets[0],
-			sourceUrl: '/uploads/unsafe-vector.png',
-			mimeType: 'image/png'
-		};
-		const secondScope = fakeScope();
-		expect(await runtime.apply(selected, secondScope)).toBe(true);
-		expect(secondScope.getAttribute('data-theme-fallback')).toBe('unsafe-resource');
+		const valid = fakeScope();
+		expect(await runtime.apply(selected, valid)).toBe(true);
+		expect(valid.getAttribute('data-theme-fallback'), 'valid scoped PNG control').toBeNull();
+		const vector = structuredClone(selected);
+		Reflect.set(vector.assets[0]!, 'mimeType', 'image/svg+xml');
+		const vectorScope = fakeScope();
+		expect(await runtime.apply(vector, vectorScope)).toBe(true);
+		expect(vectorScope.getAttribute('data-theme-fallback'), 'SVG MIME rejection').toBe(
+			'unsafe-resource'
+		);
+		const unscoped = structuredClone(selected);
+		unscoped.assets[0]!.sourceUrl = '/uploads/preview-paper.png';
+		const pathScope = fakeScope();
+		expect(await runtime.apply(unscoped, pathScope)).toBe(true);
+		expect(pathScope.getAttribute('data-theme-fallback'), 'nonopaque path rejection').toBe(
+			'unsafe-resource'
+		);
 	});
 
-	it('accepts only discrete uploaded font weights from 100 through 900', async () => {
+	it('rejects an off-grid weight even on an unused uploaded face', async () => {
 		const scope = fakeScope();
 		const runtime = new WebThemeRuntime(loaders());
 		const selected = organizationTheme('notebook');
@@ -208,11 +212,15 @@ describe('WebThemeRuntime', () => {
 			sourceUrl:
 				'/api/v1/theme-assets/opaque-id/content?workspace_id=workspace-id&theme_id=theme-id&revision=2',
 			format: 'woff2',
-			weight: 450,
+			weight: 400,
 			style: 'normal',
 			display: 'swap'
 		});
 
+		const validScope = fakeScope();
+		expect(await runtime.apply(selected, validScope)).toBe(true);
+		expect(validScope.getAttribute('data-theme-fallback'), 'valid unused 400 face').toBeNull();
+		selected.fonts[0]!.weight = 450;
 		expect(await runtime.apply(selected, scope)).toBe(true);
 		expect(scope.getAttribute('data-theme-fallback')).toBe('unsafe-resource');
 	});
@@ -358,24 +366,6 @@ describe('WebThemeRuntime', () => {
 		expect(scope.properties.get('--background')).toBe('oklch(0.99 0.004 250)');
 	});
 
-	it('prevents a stale preparation from replacing the latest workspace theme', async () => {
-		const firstPack = deferred();
-		const scope = fakeScope();
-		const runtime = new WebThemeRuntime(
-			loaders({
-				loadIconPack: (pack) => (pack === 'lucide' ? firstPack.promise : Promise.resolve())
-			})
-		);
-
-		const first = runtime.apply(resolveBuiltInTheme('workshop', 'light'), scope);
-		const second = runtime.apply(resolveBuiltInTheme('notebook', 'light'), scope);
-
-		expect(await second).toBe(true);
-		firstPack.resolve();
-		expect(await first).toBe(false);
-		expect(scope.getAttribute('data-theme-id')).toBe('notebook');
-	});
-
 	it('releases staged fonts after stale preparation, replacement, and clear', async () => {
 		const firstPack = deferred();
 		const releases = [vi.fn(), vi.fn(), vi.fn()];
@@ -396,6 +386,10 @@ describe('WebThemeRuntime', () => {
 		expect(await runtime.apply(resolveBuiltInTheme('notebook', 'light'), scope)).toBe(true);
 		firstPack.resolve();
 		expect(await stale).toBe(false);
+		expect(
+			scope.getAttribute('data-theme-id'),
+			'stale preparation must preserve latest notebook'
+		).toBe('notebook');
 		expect(releases[0]).toHaveBeenCalledOnce();
 		expect(releases[1]).not.toHaveBeenCalled();
 
@@ -554,18 +548,25 @@ describe('WebThemeRuntime', () => {
 		}
 	});
 
-	it('rejects an incomplete component or motion recipe', async () => {
+	it('rejects each incomplete component or motion recipe independently', async () => {
 		const runtime = new WebThemeRuntime(loaders());
-		const selected = resolveBuiltInTheme('studio', 'light');
-		// SAFETY: this test deliberately removes required wire fields to verify runtime fallback.
-		delete (selected.manifest.components as Partial<typeof selected.manifest.components>).toast;
-		// SAFETY: this test deliberately removes required wire fields to verify runtime fallback.
-		delete (selected.manifest.motion.entry as Partial<typeof selected.manifest.motion.entry>)
-			.opacity;
-		const scope = fakeScope();
-
-		expect(await runtime.apply(selected, scope)).toBe(true);
-		expect(scope.getAttribute('data-theme-id')).toBe('workshop');
-		expect(scope.getAttribute('data-theme-fallback')).toBe('invalid-manifest');
+		const control = fakeScope();
+		expect(await runtime.apply(resolveBuiltInTheme('studio', 'light'), control)).toBe(true);
+		expect(control.getAttribute('data-theme-fallback'), 'complete recipe control').toBeNull();
+		for (const missing of ['components.toast', 'motion.entry.opacity'] as const) {
+			const selected = resolveBuiltInTheme('studio', 'light');
+			if (missing === 'components.toast') {
+				// SAFETY: deliberately remove one required wire field.
+				delete (selected.manifest.components as Partial<typeof selected.manifest.components>).toast;
+			} else {
+				// SAFETY: deliberately remove one required wire field.
+				delete (selected.manifest.motion.entry as Partial<typeof selected.manifest.motion.entry>)
+					.opacity;
+			}
+			const scope = fakeScope();
+			expect(await runtime.apply(selected, scope), missing).toBe(true);
+			expect(scope.getAttribute('data-theme-id'), missing).toBe('workshop');
+			expect(scope.getAttribute('data-theme-fallback'), missing).toBe('invalid-manifest');
+		}
 	});
 });

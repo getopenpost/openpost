@@ -2,6 +2,7 @@ import { defineBrowserCommand, playwright } from '@vitest/browser-playwright';
 import { fileURLToPath } from 'node:url';
 import type { CDPSession, Page } from 'playwright';
 import { defineConfig } from 'vitest/config';
+import { paraglideTestMaps } from './scripts/paraglide-test-maps.mjs';
 
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 const runRealMusicModel = process.env.VITE_OPENPOST_REAL_MUSIC_TEST === '1';
@@ -10,14 +11,17 @@ const runRealMusicModel = process.env.VITE_OPENPOST_REAL_MUSIC_TEST === '1';
 const browserArgs: string[] = [];
 const deviceScaleSessions = new WeakMap<Page, CDPSession>();
 const browserTestFiles = ['src/**/*.svelte.{test,spec}.{js,ts}'];
+const generatedTestMaps = paraglideTestMaps(fileURLToPath(new URL('../..', import.meta.url)));
 if (runRealMusicModel) browserArgs.push('--unlimited-storage');
 
 export default defineConfig({
 	test: {
 		expect: { requireAssertions: true },
+		reporters: ['default', generatedTestMaps.reporter],
 		projects: [
 			{
 				extends: './vite.config.ts',
+				plugins: [generatedTestMaps.plugin],
 				optimizeDeps: {
 					// Scan the linked UI output before mounting tests, avoiding optimizer reloads.
 					entries: [...browserTestFiles, '../../packages/ui/dist/**/*.{js,svelte}'],
@@ -112,6 +116,9 @@ export default defineConfig({
 				test: {
 					name: 'server',
 					environment: 'node',
+					// Local app imports are large. More forks can exhaust laptop memory
+					// and spend more time swapping than running assertions.
+					maxWorkers: process.env.CI ? undefined : 2,
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
 				}

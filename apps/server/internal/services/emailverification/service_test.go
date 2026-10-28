@@ -23,11 +23,12 @@ func TestVerificationCodesAreHashedAttemptLimitedAndSingleUse(t *testing.T) {
 	require.Regexp(t, `^[0-9]{6}$`, pending.Code)
 	require.NotEqual(t, pending.Code, pending.Challenge.CodeHash)
 
+	wrongCode := "999999"
+	if pending.Code == wrongCode {
+		wrongCode = "000000"
+	}
 	for attempt := 1; attempt <= MaxAttempts; attempt++ {
-		_, err = service.Verify(context.Background(), pending.Challenge.ID, "999999")
-		if pending.Code == "999999" {
-			t.Skip("generated code matched the intentionally wrong test code")
-		}
+		_, err = service.Verify(context.Background(), pending.Challenge.ID, wrongCode)
 		if attempt == MaxAttempts {
 			require.ErrorIs(t, err, ErrTooManyAttempts)
 		} else {

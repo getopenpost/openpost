@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { getBuiltInTheme } from '$lib/themes';
 import {
 	THEME_EDITOR_SECTIONS,
-	duplicateThemeManifest,
 	isThemeFontInUse,
 	parseThemeManifest,
 	randomizeThemeManifest,
@@ -34,16 +33,6 @@ describe('theme editor model', () => {
 
 		expect(reset.schemes.light!.shape).toEqual(source.schemes.light!.shape);
 		expect(reset.schemes.light!.colors.actionFocal).toBe('#155EEF');
-	});
-
-	it('duplicates a complete snapshot without linking it to the source', () => {
-		const source = getBuiltInTheme('notebook');
-		const duplicate = duplicateThemeManifest(source, 'northstar-notebook', 'Northstar Notebook');
-
-		expect(duplicate.id).toBe('northstar-notebook');
-		expect(duplicate.revision).toBe('draft');
-		expect(duplicate.schemes.light).toEqual(source.schemes.light);
-		expect(duplicate.schemes.light).not.toBe(source.schemes.light);
 	});
 
 	it('round trips complete manifests and rejects missing supported schemes', () => {
@@ -83,11 +72,13 @@ describe('theme editor model', () => {
 			{
 				id: 'empty-art',
 				slot: 'empty-state-illustration',
-				sourceUrl: 'https://tracker.example/empty.png',
+				sourceUrl: 'asset:empty-art',
 				mimeType: 'image/png',
-				alt: ''
+				alt: 'A decorative landscape'
 			}
 		];
+		expect(parseThemeManifest(JSON.stringify(withUnsafeAsset))).toEqual(withUnsafeAsset);
+		withUnsafeAsset.assets[0]!.sourceUrl = 'https://tracker.example/empty.png';
 		expect(() => parseThemeManifest(JSON.stringify(withUnsafeAsset))).toThrow(
 			'invalid decorative asset'
 		);

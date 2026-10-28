@@ -16,47 +16,40 @@ import {
 
 test("selects an active production deployment for the exact reviewed revision", () => {
   const revision = "abcdef1234567890abcdef1234567890abcdef12";
-  const deployments = [
-    {
-      id: "wrong-branch",
-      environment: "preview",
-      url: "https://wrong.example",
-      deployment_trigger: {
-        metadata: {
-          branch: "feature",
-          commit_hash: revision,
-          commit_dirty: false,
-        },
-      },
-      latest_stage: { status: "success" },
+  const reviewed = {
+    id: "reviewed",
+    environment: "production",
+    url: "https://reviewed.example",
+    deployment_trigger: {
+      metadata: { branch: "main", commit_hash: revision, commit_dirty: false },
     },
-    {
-      id: "reviewed",
-      environment: "production",
-      url: "https://reviewed.example",
-      deployment_trigger: {
-        metadata: {
-          branch: "main",
-          commit_hash: revision,
-          commit_dirty: false,
-        },
-      },
-      latest_stage: { status: "success" },
-    },
-  ];
-
-  assert.deepEqual(deploymentForRevision(deployments, revision), {
+    latest_stage: { status: "success" },
+  };
+  assert.deepEqual(deploymentForRevision([reviewed], revision), {
     Id: "reviewed",
     Branch: "main",
     SourceRevision: revision,
     Deployment: "https://reviewed.example",
     Status: "success",
   });
-  assert.throws(
-    () => deploymentForRevision(deployments, "fedcba9876543210fedcba9876543210fedcba98"),
-    /successful clean main production deployment.*fedcba/u,
-  );
-  assert.throws(() => deploymentForRevision(deployments, "abcdef1"), /full lowercase commit SHA/u);
+  for (const [field, value] of [
+    ["environment", "preview"],
+    ["branch", "feature"],
+    ["commit_dirty", true],
+    ["commit_hash", "fedcba9876543210fedcba9876543210fedcba98"],
+    ["status", "failure"],
+  ]) {
+    const candidate = structuredClone(reviewed);
+    if (field === "environment") candidate.environment = value;
+    else if (field === "status") candidate.latest_stage.status = value;
+    else candidate.deployment_trigger.metadata[field] = value;
+    assert.throws(
+      () => deploymentForRevision([candidate], revision),
+      /no successful clean main production deployment matches/u,
+      field,
+    );
+  }
+  assert.throws(() => deploymentForRevision([reviewed], "abcdef1"), /full lowercase commit SHA/u);
 });
 
 test("binds proof to the exact clean local revision", () => {
@@ -198,155 +191,167 @@ test("rejects HTML and external links from indexes and the full corpus", () => {
 });
 
 test("asset samples belong to the surface that deploys them", () => {
-  for (const [, url] of publicSurfaceSamples().native) {
-    const { pathname } = new URL(url);
-    const surface = pathname.startsWith("/docs/assets/") ? "docs" : "marketing";
-    const assetPrefix = surface === "docs" ? "/docs/assets/" : "/assets/";
-    if (!pathname.startsWith(assetPrefix)) continue;
-    assert.ok(
-      assetSurfaceManifest[surface].includes(pathname.slice(assetPrefix.length)),
-      `${url} is not published by ${surface}`,
-    );
+  const paths = publicSurfaceSamples().native.map(([, url]) => new URL(url).pathname);
+  for (const [surface, prefix] of [
+    ["docs", "/docs/assets/"],
+    ["marketing", "/assets/"],
+  ]) {
+    const assets = paths.filter((pathname) => pathname.startsWith(prefix));
+    assert.ok(assets.length > 0, `${surface} must have an asset proof sample`);
+    for (const pathname of assets) {
+      assert.ok(
+        assetSurfaceManifest[surface].includes(pathname.slice(prefix.length)),
+        `${pathname} is not published by ${surface}`,
+      );
+    }
   }
 });
 
 test("the live sample plan covers every required public category and machine boundary", () => {
   const samples = publicSurfaceSamples();
-  assert.deepEqual(
-    samples.marketing.map(({ category, route }) => [category, route]),
-    [
-      ["core", "/pricing"],
-      ["legal", "/privacy"],
-      ["platform", "/platforms/x"],
-      ["guide", "/guides"],
-      ["tool", "/tools/multi-platform-character-counter"],
-    ],
-  );
-  assert.deepEqual(
-    samples.documentation.map(({ category, route }) => [category, route]),
-    [
-      ["root", "/"],
-      ["guide", "/guides/quickstart"],
-      ["self-hosting", "/self-hosting"],
-      ["API reference", "/api-reference"],
-    ],
-  );
-  assert.deepEqual(samples.native, [
-    ["OpenAPI", "https://openpo.st/docs/openapi.json", "application/json"],
-    ["app OpenAPI", "https://app.openpo.st/openapi.json", "application/json"],
-    [
-      "marketing API catalog",
-      "https://openpo.st/.well-known/api-catalog",
+  for (const [surface, categories] of [
+    ["marketing", ["core", "legal", "platform", "guide", "tool"]],
+    ["documentation", ["root", "guide", "self-hosting", "API reference"]],
+  ]) {
+    assert.deepEqual(samples[surface].map(({ category }) => category).sort(), categories.sort());
+    const routes = samples[surface].map(({ route }) => route);
+    assert.equal(new Set(routes).size, routes.length);
+    for (const route of routes) assert.match(route, /^\/(?:[^?#]*)$/u);
+  }
+  const native = new Map(samples.native.map(([, url, type]) => [url, type]));
+  assert.equal(native.size, samples.native.length, "native boundaries are unique");
+  // Protocol endpoints are stable contracts; display labels and representative page routes are not.
+  for (const host of ["https://openpo.st/docs", "https://app.openpo.st"]) {
+    assert.equal(native.get(`${host}/openapi.json`)?.split(";")[0], "application/json");
+  }
+  for (const host of ["https://openpo.st", "https://app.openpo.st"]) {
+    assert.equal(
+      native.get(`${host}/.well-known/api-catalog`),
       'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"',
-    ],
-    [
-      "app API catalog",
-      "https://app.openpo.st/.well-known/api-catalog",
-      'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"',
-    ],
-    [
-      "MCP authorization metadata",
-      "https://app.openpo.st/.well-known/oauth-protected-resource",
+    );
+    assert.equal(
+      native.get(`${host}/.well-known/mcp/server-card.json`)?.split(";")[0],
       "application/json",
-    ],
-    [
-      "MCP deterministic authorization metadata",
-      "https://app.openpo.st/.well-known/oauth-protected-resource/mcp",
+    );
+  }
+  for (const suffix of ["", "/mcp"]) {
+    assert.equal(
+      native.get(`https://app.openpo.st/.well-known/oauth-protected-resource${suffix}`),
       "application/json",
-    ],
-    [
-      "marketing MCP card",
-      "https://openpo.st/.well-known/mcp/server-card.json",
-      "application/json; charset=utf-8",
-    ],
-    ["app MCP card", "https://app.openpo.st/.well-known/mcp/server-card.json", "application/json"],
-    ["ARD", "https://openpo.st/.well-known/ard.json", "application/json; charset=utf-8"],
-    [
-      "Agent Skills index",
-      "https://openpo.st/.well-known/agent-skills/index.json",
-      "application/json; charset=utf-8",
-    ],
-    [
-      "Agent Skill",
-      "https://openpo.st/.well-known/agent-skills/openpost-cli.tar.gz",
-      "application/gzip",
-    ],
-    ["marketing robots", "https://openpo.st/robots.txt", "text/plain; charset=utf-8"],
-    ["documentation robots", "https://openpo.st/docs/robots.txt", "text/plain; charset=utf-8"],
-    ["app robots", "https://app.openpo.st/robots.txt", "text/plain; charset=UTF-8"],
-    ["marketing favicon", "https://openpo.st/favicon.ico", "image/x-icon"],
-    ["MCP", "https://app.openpo.st/mcp", "application/json"],
-    ["marketing asset", "https://openpo.st/assets/brand/logo.svg", "image/svg+xml"],
-    ["marketing social image", "https://openpo.st/og/home.png", "image/png"],
-    ["documentation social image", "https://openpo.st/docs/og/home.png", "image/png"],
-    [
-      "documentation asset",
-      "https://openpo.st/docs/assets/screenshots/image-export-detail-light.webp",
-      "image/webp",
-    ],
-  ]);
+    );
+  }
+  for (const endpoint of ["ard.json", "agent-skills/index.json"]) {
+    assert.equal(
+      native.get(`https://openpo.st/.well-known/${endpoint}`)?.split(";")[0],
+      "application/json",
+    );
+  }
+  assert.equal(
+    native.get("https://openpo.st/.well-known/agent-skills/openpost-cli.tar.gz"),
+    "application/gzip",
+  );
+  for (const host of ["https://openpo.st", "https://openpo.st/docs", "https://app.openpo.st"]) {
+    assert.equal(native.get(`${host}/robots.txt`)?.split(";")[0], "text/plain");
+  }
+  assert.equal(native.get("https://openpo.st/favicon.ico"), "image/x-icon");
+  assert.equal(native.get("https://app.openpo.st/mcp"), "application/json");
+  for (const host of ["https://openpo.st", "https://openpo.st/docs"]) {
+    assert.equal(native.get(`${host}/og/home.png`), "image/png");
+  }
+  for (const [prefix, type] of [
+    ["https://openpo.st/assets/", "image/svg+xml"],
+    ["https://openpo.st/docs/assets/", "image/webp"],
+  ]) {
+    assert.ok(
+      [...native].some(([url, mediaType]) => url.startsWith(prefix) && mediaType === type),
+      `${prefix} needs a representative ${type} boundary`,
+    );
+  }
 });
 
 test("proves status, media type, exact content, query isolation, and redirect behavior", async () => {
-  const responses = new Map([
-    [
-      "https://openpo.st/pricing.md",
+  const canonical = "https://openpo.st/pricing.md";
+  const deployment = "https://deployment.example/pricing.md";
+  const query = `${canonical}?openpost_proof=query-isolation`;
+  const redirect = "https://openpo.st/pricing/?openpost_proof=redirect";
+  const location = "https://openpo.st/pricing?openpost_proof=redirect";
+  const checks = [
+    {
+      kind: "artifact",
+      name: "marketing core",
+      canonicalURL: canonical,
+      deploymentURL: deployment,
+      contentType: "text/markdown; charset=utf-8",
+      expectedBody: "# Features\n",
+      responseHeaders: { "x-openpost-discovery": "current" },
+      queryIsolation: true,
+    },
+    {
+      kind: "redirect",
+      name: "marketing canonical redirect",
+      url: redirect,
+      status: 308,
+      location: "/pricing?openpost_proof=redirect",
+    },
+  ];
+  const responses = new Map(
+    [canonical, deployment, query].map((url) => [
+      url,
       response(200, "text/markdown; charset=utf-8", "# Features\n", {
         "x-openpost-discovery": "current",
       }),
-    ],
-    [
-      "https://deployment.example/pricing.md",
-      response(200, "text/markdown; charset=utf-8", "# Features\n", {
-        "x-openpost-discovery": "current",
-      }),
-    ],
-    [
-      "https://openpo.st/pricing.md?openpost_proof=query-isolation",
-      response(200, "text/markdown; charset=utf-8", "# Features\n", {
-        "x-openpost-discovery": "current",
-      }),
-    ],
-    [
-      "https://openpo.st/pricing/?openpost_proof=redirect",
-      response(308, "text/html; charset=UTF-8", "", {
-        location: "https://openpo.st/pricing?openpost_proof=redirect",
-      }),
-    ],
-  ]);
-  const fetchImpl = async (url) => {
+    ]),
+  );
+  responses.set(redirect, response(308, "text/html; charset=UTF-8", "", { location }));
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    requests.push([String(url), options.redirect]);
     const found = responses.get(String(url));
     assert.ok(found, `unexpected request ${url}`);
     return found.clone();
   };
-
-  const result = await proveHTTPContract({
-    fetchImpl,
-    checks: [
-      {
-        kind: "artifact",
-        name: "marketing core",
-        canonicalURL: "https://openpo.st/pricing.md",
-        deploymentURL: "https://deployment.example/pricing.md",
-        contentType: "text/markdown; charset=utf-8",
-        expectedBody: "# Features\n",
-        responseHeaders: { "x-openpost-discovery": "current" },
-        queryIsolation: true,
-      },
-      {
-        kind: "redirect",
-        name: "marketing canonical redirect",
-        url: "https://openpo.st/pricing/?openpost_proof=redirect",
-        status: 308,
-        location: "/pricing?openpost_proof=redirect",
-      },
-    ],
-  });
-
+  const result = await proveHTTPContract({ fetchImpl, checks });
+  assert.deepEqual(requests, [
+    [canonical, "follow"],
+    [deployment, "follow"],
+    [query, "follow"],
+    [redirect, "manual"],
+  ]);
   assert.equal(result.length, 2);
   assert.equal(result[0].sha256.length, 64);
   assert.equal(result[0].query_isolated, true);
-  assert.equal(result[1].location, "https://openpo.st/pricing?openpost_proof=redirect");
+  assert.equal(result[1].location, location);
+
+  for (const url of [canonical, deployment, query]) {
+    for (const [badResponse, error] of [
+      [response(503, "text/markdown; charset=utf-8", "# Features\n"), /status/u],
+      [response(200, "text/html", "# Features\n"), /content type/u],
+      [
+        response(200, "text/markdown; charset=utf-8", "changed", {
+          "x-openpost-discovery": "current",
+        }),
+        /body|differs/u,
+      ],
+      ...(url === query
+        ? []
+        : [[response(200, "text/markdown; charset=utf-8", "# Features\n"), /header/u]]),
+    ]) {
+      const good = responses.get(url);
+      responses.set(url, badResponse);
+      try {
+        await assert.rejects(proveHTTPContract({ fetchImpl, checks }), error, url);
+      } finally {
+        responses.set(url, good);
+      }
+    }
+  }
+  for (const [badResponse, error] of [
+    [response(302, "text/html", "", { location }), /status/u],
+    [response(308, "text/html", "", { location: "/wrong" }), /location/u],
+  ]) {
+    responses.set(redirect, badResponse);
+    await assert.rejects(proveHTTPContract({ fetchImpl, checks }), error);
+  }
 });
 
 test("fails when a query changes generated content", async () => {
@@ -375,28 +380,42 @@ test("fails when a query changes generated content", async () => {
 
 test("proves binary discovery artifacts byte for byte", async () => {
   const expectedBody = Buffer.from([0, 255, 1, 254]);
-  const responses = new Map([
-    ["https://openpo.st/skill.tar.gz", response(200, "application/gzip", expectedBody)],
-    ["https://deployment.example/skill.tar.gz", response(200, "application/gzip", expectedBody)],
-  ]);
-  const [result] = await proveHTTPContract({
-    fetchImpl: async (url) => responses.get(String(url)).clone(),
-    checks: [
-      {
-        kind: "artifact",
-        name: "binary Agent Skill",
-        canonicalURL: "https://openpo.st/skill.tar.gz",
-        deploymentURL: "https://deployment.example/skill.tar.gz",
-        contentType: "application/gzip",
-        expectedBody,
-        binary: true,
-      },
-    ],
-  });
-
+  const canonical = "https://openpo.st/skill.tar.gz";
+  const deployment = "https://deployment.example/skill.tar.gz";
+  const responses = new Map(
+    [canonical, deployment].map((url) => [url, response(200, "application/gzip", expectedBody)]),
+  );
+  const checks = [
+    {
+      kind: "artifact",
+      name: "binary Agent Skill",
+      canonicalURL: canonical,
+      deploymentURL: deployment,
+      contentType: "application/gzip",
+      expectedBody,
+      binary: true,
+    },
+  ];
+  const fetchImpl = async (url) => responses.get(String(url)).clone();
+  const results = await proveHTTPContract({ fetchImpl, checks });
+  assert.equal(results.length, 1);
+  const [result] = results;
   assert.equal(result.local_matches, true);
   assert.equal(result.deployment_matches, true);
-  assert.equal(result.bytes, expectedBody.length);
+  assert.equal(result.bytes, 4);
+  assert.equal(result.sha256, "5d8d910591d272938aef5f966e0816e374beaf7b5adf02cca5f8f770596c2ce3");
+  for (const url of [canonical, deployment]) {
+    const good = responses.get(url);
+    responses.set(url, response(200, "application/gzip", Buffer.from([0, 255, 1, 253])));
+    try {
+      await assert.rejects(
+        proveHTTPContract({ fetchImpl, checks }),
+        /body differs from local build|canonical host differs from deployment/u,
+      );
+    } finally {
+      responses.set(url, good);
+    }
+  }
 });
 
 function response(status, contentType, body, headers = {}) {

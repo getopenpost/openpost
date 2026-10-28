@@ -12,6 +12,8 @@ The real package must come from CI. Do not publish version `0.1.0` or later from
 
 Every publishable change under `packages/n8n-nodes-openpost/` must increase its stable package version. Pull-request CI enforces this rule.
 
+Version admission ignores only the compiler-excluded `test/**` files, so test-only edits do not require a new version. Every other path under the package still requires an increase, including build configuration, `README.md`, and the production side of a rename. The payload check rejects `dist/test/**`, so a compiled test cannot ship even when an import or stale output produces it.
+
 The app's `v*` release workflow publishes n8n independently alongside deployment. The workflow packs the n8n package and checks npm:
 
 1. An absent version publishes once through npm trusted publishing.

@@ -14,7 +14,8 @@ function requestUrl(request: RequestInfo | URL): string {
 class MemoryCache implements Cache {
 	constructor(
 		private readonly responses: Map<string, Response>,
-		private readonly failedDeletes = new Set<string>()
+		private readonly failedDeletes = new Set<string>(),
+		private readonly beforeDelete?: () => void
 	) {}
 
 	async add(): Promise<void> {}
@@ -33,6 +34,7 @@ class MemoryCache implements Cache {
 		return Array.from(this.responses.values(), (response) => response.clone());
 	}
 	async delete(request: RequestInfo | URL): Promise<boolean> {
+		this.beforeDelete?.();
 		const url = requestUrl(request);
 		if (this.failedDeletes.has(url)) throw new Error(`Could not delete ${url}`);
 		return this.responses.delete(url);
@@ -55,16 +57,18 @@ class MemoryCacheStorage implements CacheStorage {
 		return this.cache.match(request);
 	}
 	async keys(): Promise<string[]> {
-		return ['transformers-cache', 'openpost-onnx-models-v1'];
+		return ['transformers-cache'];
 	}
-	async open(): Promise<Cache> {
+	async open(name: string): Promise<Cache> {
+		if (name !== 'transformers-cache') throw new Error('Unknown cache');
 		return this.cache;
 	}
 }
 
 function createCacheStorage(
 	entries: Array<{ url: string; bytes?: number }>,
-	failedDeletes = new Set<string>()
+	failedDeletes = new Set<string>(),
+	beforeDelete?: () => void
 ): CacheStorage {
 	const responses = new Map(
 		entries.map((entry) => [
@@ -74,7 +78,7 @@ function createCacheStorage(
 			})
 		])
 	);
-	return new MemoryCacheStorage(new MemoryCache(responses, failedDeletes));
+	return new MemoryCacheStorage(new MemoryCache(responses, failedDeletes, beforeDelete));
 }
 
 const originalCaches = Object.getOwnPropertyDescriptor(globalThis, 'caches');
@@ -95,6 +99,11 @@ describe('local model cache', () => {
 		setCaches(createCacheStorage([]));
 		const parakeet = LOCAL_MODEL_CACHE_DEFINITIONS.find((entry) => entry.id === 'parakeet')!;
 		await expect(inspectLocalModelCache(parakeet)).resolves.toMatchObject({
+			downloaded: false,
+			entryCount: 0
+		});
+		const whisper = LOCAL_MODEL_CACHE_DEFINITIONS.find((entry) => entry.id === 'whisper')!;
+		await expect(inspectLocalModelCache(whisper)).resolves.toMatchObject({
 			downloaded: false,
 			entryCount: 0
 		});
@@ -127,9 +136,11 @@ describe('local model cache', () => {
 			})
 		);
 		setCaches(
-			createCacheStorage([
-				{ url: 'https://huggingface.co/openpost/test-runtime/model.onnx', bytes: 64 }
-			])
+			createCacheStorage(
+				[{ url: 'https://huggingface.co/openpost/test-runtime/model.onnx', bytes: 64 }],
+				new Set(),
+				() => expect(unloads).toBe(1)
+			)
 		);
 		const definition = {
 			id: 'test-runtime',

@@ -16,6 +16,7 @@
     "render:launch-film": "bun apps/marketing/launch-film/render.mjs",
     "capture:product-screenshots": "OPENPOST_UPDATE_PRODUCT_SCREENSHOTS=1 OPENPOST_APP_E2E_PORT=${OPENPOST_APP_E2E_PORT:-19181} playwright test --config tests/app/playwright.config.ts tests/app/product-screenshots.spec.ts --workers=1 && bun scripts/optimize-readme-images.mjs && bun scripts/sync-assets.mjs",
     "check": "bun scripts/tasks.mjs check",
+    "check:affected": "bun scripts/tasks.mjs check:affected",
     "check:changed": "bash scripts/changed-files-check.sh",
     "check:frontend:i18n": "bun run --filter @openpost/web generate:i18n",
     "check:frontend:types": "bun run check:frontend:i18n && OPENPOST_CHECK_PREPARED=1 bunx turbo run check --filter @openpost/web",

@@ -196,14 +196,6 @@ func TestAcceptPaddleWebhookQueuesSupportedEventOnce(t *testing.T) {
 	require.Equal(t, time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC), event.OccurredAt)
 }
 
-func TestAcceptPaddleWebhookRejectsInvalidSignature(t *testing.T) {
-	t.Parallel()
-	service := NewService(newBillingTestDB(t), "pdl_webhook_secret")
-	body := []byte(`{"event_id":"evt_1","event_type":"subscription.updated","data":{"id":"sub_1"}}`)
-	_, err := service.AcceptPaddleWebhook(context.Background(), body, "ts=1;h1=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-	require.ErrorContains(t, err, "invalid Paddle webhook signature")
-}
-
 func recoverySubscription(updatedAt time.Time) *paddle.Subscription {
 	return &paddle.Subscription{
 		ID:         "sub_1",

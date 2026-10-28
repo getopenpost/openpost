@@ -10,24 +10,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, test } from "bun:test";
-import { normalizeModuleForDocs } from "./sync-docs-external.mjs";
-
-describe("external Nix module documentation", () => {
-  test("keeps the public image example on the moving latest tag", () => {
-    const source = `
-    image = lib.mkOption {
-      type = lib.types.str;
-      default = "ghcr.io/getopenpost/openpost@sha256:${"a".repeat(64)}";
-    };
-`;
-
-    const normalized = normalizeModuleForDocs(source);
-
-    expect(normalized).toContain('default = "ghcr.io/getopenpost/openpost:latest";');
-    expect(normalized).not.toContain("@sha256:");
-  });
-});
+import { expect, test } from "bun:test";
 
 test("the CLI preserves the committed snapshot offline and refreshes only on request", () => {
   const fixture = mkdtempSync(path.join(os.tmpdir(), "openpost-external-docs-"));
@@ -60,15 +43,18 @@ test("the CLI preserves the committed snapshot offline and refreshes only on req
     expect(failed.status).not.toBe(0);
     expect(existsSync(attempted)).toBe(true);
     expect(readFileSync(output, "utf8")).toBe("Committed snapshot\n");
-    writeFileSync(
-      preload,
-      `globalThis.fetch = async () => new Response('default = "ghcr.io/getopenpost/openpost:verified";\\n');`,
-    );
-    const refreshed = run("--refresh");
-    expect(refreshed.status).toBe(0);
-    expect(readFileSync(output, "utf8")).toContain(
-      'default = "ghcr.io/getopenpost/openpost:latest";',
-    );
+    for (const reference of [":verified", `@sha256:${"a".repeat(64)}`]) {
+      writeFileSync(
+        preload,
+        `globalThis.fetch = async () => new Response('default = "ghcr.io/getopenpost/openpost${reference}";\\n');`,
+      );
+      const refreshed = run("--refresh");
+      expect(refreshed.status).toBe(0);
+      expect(readFileSync(output, "utf8")).toContain(
+        'default = "ghcr.io/getopenpost/openpost:latest";',
+      );
+      expect(readFileSync(output, "utf8")).not.toContain("@sha256:");
+    }
     const local = path.join(fixture, "module.nix");
     writeFileSync(local, "# Local module\n");
     const localResult = spawnSync("bun", ["scripts/sync-docs-external.mjs"], {

@@ -81,10 +81,20 @@ describe('editor handoff recovery', () => {
 	it('expires and clears the current key for a token', () => {
 		const storage = new MemoryStorage();
 		storeEditorHandoff('expired', snapshot('image'), storage);
+		storeEditorHandoff('kept', snapshot('image'), storage);
+		expect(storage.length).toBe(2);
+
 		expect(
 			loadEditorHandoff('expired', 'image', storage, Date.parse('2099-08-09T12:00:00Z'))
 		).toBeNull();
-		clearEditorHandoff('expired', storage);
+		// Expiry removes its own key on load; an explicit clear afterwards would
+		// otherwise mask a missing auto-removal.
+		expect([...storage.values.keys()]).toEqual(['openpost:editor-handoff:return:kept']);
+		expect(
+			loadEditorHandoff('kept', 'image', storage, Date.parse('2099-08-09T11:00:00Z'))
+		).not.toBeNull();
+
+		clearEditorHandoff('kept', storage);
 		expect(storage.length).toBe(0);
 	});
 });

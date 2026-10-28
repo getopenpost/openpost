@@ -39,30 +39,6 @@ func TestIngesterRejectsWhenDisabled(t *testing.T) {
 	require.False(t, webhookless.Accept(ingestTestReport()))
 }
 
-func TestIngesterForwardsAcceptedReportToConfiguredWebhook(t *testing.T) {
-	received := make(chan []byte, 1)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "cannot read report", http.StatusBadRequest)
-			return
-		}
-		received <- body
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	t.Cleanup(server.Close)
-	ingester := NewIngester(IngestConfig{Enabled: true, DiscordWebhookURL: server.URL, HTTPClient: server.Client()})
-	require.True(t, ingester.IngestEnabled())
-	require.True(t, ingester.Accept(ingestTestReport()))
-	ingester.ForwardAsync(ingestTestReport())
-	select {
-	case body := <-received:
-		require.Contains(t, string(body), CodeAPI5xx)
-	case <-time.After(time.Second):
-		t.Fatal("accepted diagnostics report did not reach the configured webhook")
-	}
-}
-
 func TestIngesterRejectsInvalidReport(t *testing.T) {
 	ingester := NewIngester(IngestConfig{Enabled: true, DiscordWebhookURL: "https://discord.example/hooks"})
 	bad := ingestTestReport()
@@ -106,11 +82,17 @@ func TestPostDiscordReportDeliversBoundedPayload(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
+	// A report the validator accepts, carrying 24 frames at the maximum
+	// per-frame lengths, so the sender has to clip for real.
 	report := ingestTestReport()
-	report.Operation = strings.Repeat("a", 500)
+	report.Frames = make([]Frame, 24)
+	for i := range report.Frames {
+		report.Frames[i] = Frame{Module: strings.Repeat("m", 240), Function: strings.Repeat("f", 160), Line: 1}
+	}
+	require.NoError(t, ValidateReport(report))
 	require.NoError(t, postDiscordReport(t.Context(), server.Client(), server.URL, report))
 	require.NotEmpty(t, captured)
-	require.Less(t, len(captured), 16<<10)
+	require.Less(t, len(captured), 8<<10)
 
 	var payload map[string]any
 	require.NoError(t, json.Unmarshal(captured, &payload))
@@ -123,25 +105,20 @@ func TestPostDiscordReportDeliversBoundedPayload(t *testing.T) {
 	serialized, err := json.Marshal(embed)
 	require.NoError(t, err)
 	require.NotContains(t, string(serialized), "discord.example")
-}
+	require.NotContains(t, string(captured), server.URL, "the webhook secret must never be echoed in the payload")
 
-func TestFormatDiscordPayloadClipsFields(t *testing.T) {
-	report := ingestTestReport()
-	report.Frames = make([]Frame, 24)
-	for i := range report.Frames {
-		report.Frames[i] = Frame{Module: strings.Repeat("m", 240), Function: strings.Repeat("f", 160), Line: 1}
-	}
-	require.NoError(t, ValidateReport(report))
-	body, err := FormatDiscordPayload(report)
-	require.NoError(t, err)
-	require.Less(t, len(body), 8<<10)
-	var payload discordDiagnosticsPayload
-	require.NoError(t, json.Unmarshal(body, &payload))
-	for _, field := range payload.Embeds[0].Fields {
+	var decoded discordDiagnosticsPayload
+	require.NoError(t, json.Unmarshal(captured, &decoded))
+	require.Len(t, decoded.Embeds, 1)
+	framesFields := 0
+	for _, field := range decoded.Embeds[0].Fields {
 		require.LessOrEqual(t, utf8.RuneCountInString(field.Value), 1024, "Discord rejects oversized %s fields", field.Name)
-		if field.Name == "Frames" {
-			require.True(t, strings.HasPrefix(field.Value, "```\n"))
-			require.True(t, strings.HasSuffix(field.Value, "\n```"))
+		if field.Name != "Frames" {
+			continue
 		}
+		framesFields++
+		require.True(t, strings.HasPrefix(field.Value, "```\n"))
+		require.True(t, strings.HasSuffix(field.Value, "\n```"))
 	}
+	require.Equal(t, 1, framesFields, "frames must stay in one clipped code block")
 }

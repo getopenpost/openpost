@@ -9,47 +9,12 @@ import {
 } from './platform-limits';
 
 describe('platform-limits', () => {
-	it('uses X weighted text counting', () => {
-		expect(platformTextLength('x', 'Hello, world! 👋')).toBe(16);
-		expect(platformTextLength('x', '👨‍👩‍👧‍👦')).toBe(2);
-		expect(platformTextLength('x', '日本語')).toBe(6);
-		expect(platformTextLength('x', 'See https://example.com/this/is/a/long/path')).toBe(27);
-		expect(platformTextLength('x', 'See https://en.wikipedia.org/wiki/Foo_(bar)')).toBe(27);
-		expect(platformTextLength('x', 'See https://en.wikipedia.org/wiki/Foo_(bar).')).toBe(28);
-		expect(platformTextLength('x', '(https://example.com/path)')).toBe(25);
-		expect(platformTextLength('x', 'cafe\u0301')).toBe(4);
-		expect(platformTextLength('mastodon', '日本語')).toBe(3);
-	});
-
-	it('counts Mastodon links as 23 characters and remote mentions by username', () => {
-		const longURL = `https://example.com/${'a'.repeat(80)}`;
-		expect(platformTextLength('mastodon', 'Hello, world!')).toBe(13);
-		expect(platformTextLength('mastodon', `Read ${longURL}`)).toBe(28);
-		expect(platformTextLength('mastodon', `See ${longURL}.`)).toBe(28);
-		expect(platformTextLength('mastodon', 'www.example.com')).toBe(15);
-		expect(platformTextLength('mastodon', 'https://en.wikipedia.org/wiki/Foo_(bar)')).toBe(23);
-		expect(platformTextLength('mastodon', '(https://example.com/path)')).toBe(25);
-		expect(platformTextLength('mastodon', 'https://intranet/page')).toBe(21);
-		expect(platformTextLength('mastodon', '@alice@example.social hi')).toBe(9);
-		expect(platformTextLength('mastodon', '@alice hi')).toBe(9);
-		expect(platformTextLength('mastodon', `${'a'.repeat(450)} ${longURL}`)).toBe(474);
-	});
-
-	it('uses grapheme clusters for Bluesky', () => {
-		expect(platformTextLength('bluesky', 'Hello, world!')).toBe(13);
-		expect(platformTextLength('bluesky', '日本語')).toBe(3);
-		expect(platformTextLength('bluesky', 'café')).toBe(4);
-		expect(platformTextLength('bluesky', '👍🏽')).toBe(1);
-		expect(platformTextLength('bluesky', '🇵🇹')).toBe(1);
-		expect(platformTextLength('bluesky', '👨‍👩‍👧‍👦')).toBe(1);
-	});
-
-	it.each(['threads', 'youtube'])('uses UTF-8 bytes for %s', (platform) => {
-		expect(platformTextLength(platform, 'OpenPost')).toBe(8);
-		expect(platformTextLength(platform, 'é')).toBe(2);
-		expect(platformTextLength(platform, '’')).toBe(3);
-		expect(platformTextLength(platform, '👋')).toBe(4);
-		expect(platformTextLength(platform, '👨‍👩‍👧‍👦')).toBe(25);
+	it('routes normalized platform names to the shared text counter', () => {
+		expect(platformTextLength(' Twitter:account ', 'https://example.com/long/path')).toBe(23);
+		expect(platformTextLength(' MASTODON:example.social ', '@alice@example.social hi')).toBe(9);
+		expect(platformTextLength(' Bluesky ', '👨‍👩‍👧‍👦')).toBe(1);
+		expect(platformTextLength(' THREADS ', '👨‍👩‍👧‍👦')).toBe(25);
+		expect(platformTextLength(' YouTube ', '  é  ')).toBe(2);
 	});
 
 	it('does not invent a limit when no destination uses the shared text', () => {

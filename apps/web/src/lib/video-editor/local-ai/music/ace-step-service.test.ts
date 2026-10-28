@@ -56,6 +56,7 @@ function wavFixture(durationSeconds: number): Blob {
 	view.setUint32(28, sampleRate * blockAlign, true);
 	view.setUint16(32, blockAlign, true);
 	view.setUint16(34, bytesPerSample * 8, true);
+	for (let i = 44; i < bytes.length; i++) bytes[i] = (i * 37 + 11) % 256;
 	writeId(36, 'data');
 	view.setUint32(40, dataSize, true);
 	return new Blob([bytes], { type: 'audio/wav' });
@@ -129,6 +130,8 @@ describe('AceStepMusicService', () => {
 		const view = new DataView(bytes.buffer);
 		expect(view.getUint32(40, true)).toBe(2 * 48_000 * 2);
 		expect(view.getUint32(4, true)).toBe(bytes.length - 8);
+		const original = new Uint8Array(await wavFixture(10).arrayBuffer());
+		expect(bytes.subarray(44).every((byte, index) => byte === original[44 + index])).toBe(true);
 	});
 
 	it('waits behind other GPU media work and cancels without loading the model', async () => {

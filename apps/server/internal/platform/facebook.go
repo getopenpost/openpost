@@ -690,7 +690,49 @@ type facebookGraphComment struct {
 	Parent struct {
 		ID string `json:"id"`
 	} `json:"parent"`
+	Attachment struct {
+		Type   string `json:"type"`
+		Title  string `json:"title"`
+		URL    string `json:"url"`
+		Target struct {
+			URL string `json:"url"`
+		} `json:"target"`
+		Media struct {
+			Image struct {
+				Src string `json:"src"`
+			} `json:"image"`
+			Source string `json:"source"`
+		} `json:"media"`
+	} `json:"attachment"`
 	Comments metaGraphCollection[facebookGraphComment] `json:"comments"`
+}
+
+// facebookCommentAttachments keeps the media a comment carries. Graph returns
+// an image under attachment.media.image, while attachment.url is the stable
+// photo or video page that outlives the signed CDN image.
+func facebookCommentAttachments(item facebookGraphComment) []CommentAttachment {
+	attachment := item.Attachment
+	image := strings.TrimSpace(attachment.Media.Image.Src)
+	permalink := firstNonEmptyString(attachment.URL, attachment.Target.URL)
+	link := firstNonEmptyString(permalink, image, strings.TrimSpace(attachment.Media.Source))
+	if link == "" {
+		return nil
+	}
+	kind := strings.ToLower(strings.TrimSpace(attachment.Type))
+	switch kind {
+	case "photo":
+		kind = "image"
+	case "animated_image":
+		kind = "video"
+	case "", "share":
+		kind = "link"
+	}
+	return []CommentAttachment{{
+		Type:      kind,
+		URL:       link,
+		Name:      strings.TrimSpace(attachment.Title),
+		Thumbnail: image,
+	}}
 }
 
 func facebookCommentFromGraph(item facebookGraphComment, pageID, parentID string) Comment {
@@ -698,17 +740,18 @@ func facebookCommentFromGraph(item facebookGraphComment, pageID, parentID string
 		parentID = item.Parent.ID
 	}
 	return Comment{
-		ID:         item.ID,
-		ParentID:   parentID,
-		AuthorID:   item.From.ID,
-		AuthorName: item.From.Name,
-		Text:       item.Message,
-		CreatedAt:  item.CreatedTime,
-		Hidden:     item.IsHidden,
-		IsOurs:     pageID != "" && item.From.ID == pageID,
-		CanReply:   item.CanComment,
-		CanHide:    item.CanHide,
-		CanDelete:  true,
+		ID:          item.ID,
+		ParentID:    parentID,
+		AuthorID:    item.From.ID,
+		AuthorName:  item.From.Name,
+		Text:        item.Message,
+		CreatedAt:   item.CreatedTime,
+		Hidden:      item.IsHidden,
+		IsOurs:      pageID != "" && item.From.ID == pageID,
+		CanReply:    item.CanComment,
+		CanHide:     item.CanHide,
+		CanDelete:   true,
+		Attachments: facebookCommentAttachments(item),
 	}
 }
 
@@ -733,8 +776,12 @@ func collectFacebookComments(ctx context.Context, origin string, items []faceboo
 	return comments, nil
 }
 
+// Comments can carry their own attachment. The current Comment reference
+// omits the field, but Graph still returns it for photo, video, and link
+// comments.
+const facebookCommentFields = "id,from,message,created_time,is_hidden,can_hide,can_comment,attachment"
+
 func (f *FacebookAdapter) ListComments(ctx context.Context, accessToken, pageID string, externalID string) ([]Comment, error) {
-	const facebookCommentFields = "id,from,message,created_time,is_hidden,can_hide,can_comment"
 	// The comments edge lists top-level comments only. Replies live on each
 	// comment's comments edge; nest that expansion two levels so one poll
 	// also requests a reply-to-a-reply. Keep reverse_chronological so a busy

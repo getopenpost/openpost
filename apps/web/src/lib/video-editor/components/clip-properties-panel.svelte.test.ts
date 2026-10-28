@@ -276,29 +276,6 @@ it('does not apply a rail style when the selected text track is locked', async (
 	expect(onapplied).not.toHaveBeenCalled();
 });
 
-it('exposes clip properties as a named group', async () => {
-	// SAFETY: the literal supplies the TimelineItem fields the panel reads for a video clip.
-	const item: TimelineItem = {
-		id: 'clip-1',
-		trackId: 'track-video-main',
-		from: 0,
-		durationInFrames: 90,
-		label: 'Clip',
-		type: 'video'
-	} as TimelineItem;
-	timelineStore._setItems([item]);
-
-	const screen = await render(ClipPropertiesPanel, {
-		itemId: item.id,
-		itemIds: [item.id],
-		onedit: vi.fn()
-	});
-
-	const group = screen.getByRole('group', { name: m.video_editor_clip_properties() });
-	await expect.element(group).toBeVisible();
-	await expect.element(group.getByTestId('clip-crop-section')).toBeVisible();
-});
-
 it('keeps everyday video controls visible and discloses detailed playback and crop settings', async () => {
 	const item: TimelineItem = {
 		id: 'footage',

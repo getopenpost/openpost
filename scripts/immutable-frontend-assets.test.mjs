@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -9,6 +9,7 @@ import {
   copyFrontendWithoutImmutableAssets,
   frontendAssetOutputDirectories,
   materializeImmutableFrontendAssets,
+  validateImmutableFrontendAssets,
 } from "./immutable-frontend-assets.mjs";
 
 const imageResources = [
@@ -143,10 +144,22 @@ test("same-size asset corruption fails digest validation", async (t) => {
   const source = path.join(root, "static");
   const output = path.join(root, "build");
   await writeValidAssetFixture(source);
-  await writeFile(path.join(source, "image-editor-models/chunk.bin"), "wrong\n");
+  await validateImmutableFrontendAssets(source);
+  await mkdir(path.join(output, "image-editor-models"), { recursive: true });
+  const sentinel = path.join(output, "image-editor-models/stale.onnx");
+  await writeFile(sentinel, "previous output\n");
+  const chunk = path.join(source, "image-editor-models/chunk.bin");
+  const before = await stat(chunk);
+  await writeFile(chunk, "wrong\n");
+  const modified = new Date(before.mtimeMs + 2_000);
+  await utimes(chunk, modified, modified);
+  const after = await stat(chunk);
+  assert.equal(after.ino, before.ino);
+  assert.equal(after.size, before.size);
 
   await assert.rejects(
     materializeImmutableFrontendAssets({ sourceDirectory: source, outputDirectory: output }),
     /Invalid canonical immutable frontend asset digest/u,
   );
+  assert.equal(await readFile(sentinel, "utf8"), "previous output\n");
 });

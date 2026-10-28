@@ -17,6 +17,9 @@
 	import { runStateLabel } from './catalog';
 	import { Button } from '$lib/components/ui/button';
 	import ApprovalContent from './approval-content.svelte';
+	import EngagementAutomation from '$lib/components/engagement-automation.svelte';
+	import { engagementDetailQueryOptions } from '@openpost/query-catalog';
+	import { inboxQueryAPI } from '$lib/query/inbox';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -60,6 +63,13 @@
 	const approval = $derived(
 		run?.steps?.find((step) => step.step_id === run.current_step_id && step.kind === 'approval')
 	);
+	const commentID = $derived(
+		run?.definition.source.kind === 'comment_received' ? String(run.source.engagement_id ?? '') : ''
+	);
+	const comment = createQuery(() => ({
+		...engagementDetailQueryOptions(inboxQueryAPI, workspaceID, commentID),
+		enabled: Boolean(commentID)
+	}));
 	const publicationID = $derived(
 		run?.state === 'awaiting_approval' ? String(approval?.inputs?.publication_id ?? '') : ''
 	);
@@ -150,6 +160,7 @@
 		{#if run.wake_at}<p class="text-sm text-muted-foreground">
 				{m.workflows_waiting()}: {new Date(run.wake_at).toLocaleString()}
 			</p>{/if}
+		{#if comment.data}<EngagementAutomation item={comment.data.item} />{/if}
 		{#if publicationID}
 			<section class="space-y-3 rounded-lg border bg-card p-4">
 				<h3 class="text-sm font-medium">{m.workflows_approval()}</h3>

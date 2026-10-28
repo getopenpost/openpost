@@ -613,10 +613,6 @@ func (h *OAuthHandler) getProvider(platform, serverName string) (platform.Adapte
 	return adapter, nil
 }
 
-func (h *OAuthHandler) getMastodonProvider(ctx context.Context, serverName, instanceURL string) (platform.Adapter, string, error) {
-	return h.getCompatProvider(ctx, mastodonProvider, serverName, instanceURL)
-}
-
 func (h *OAuthHandler) getCompatProvider(ctx context.Context, provider, serverName, instanceURL string) (platform.Adapter, string, error) {
 	if strings.TrimSpace(instanceURL) != "" {
 		return h.getDynamicCompatProvider(ctx, provider, instanceURL)

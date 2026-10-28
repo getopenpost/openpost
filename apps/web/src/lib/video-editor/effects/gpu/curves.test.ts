@@ -24,6 +24,7 @@ describe('curvePointInsertIndex', () => {
 	});
 
 	it('refuses inserts once the lane is full', () => {
+		expect(CURVE_MAX_POINTS).toBe(16);
 		const points = Array.from({ length: CURVE_MAX_POINTS }, (_, index) =>
 			point(index / (CURVE_MAX_POINTS - 1))
 		);

@@ -39,12 +39,19 @@ describe('lottie drag payload', () => {
 	it('round-trips a lottie payload', () => {
 		const seen: SeenTransfer = { format: '', data: '' };
 		writeLottieDragData(transferWriter(seen), animation);
+		expect(seen.format).toBe('application/x-openpost-lottie-v1');
+		clearLottieDragData();
 		const reader: LottieDataTransfer = {
 			effectAllowed: 'uninitialized',
 			setData: () => {},
 			getData: () => seen.data
 		};
-		expect(getLottieDragData(reader)).toMatchObject({ id: 'abc123' });
+		expect(getLottieDragData(reader)).toEqual({
+			version: 1,
+			id: 'abc123',
+			label: 'Confetti',
+			url: 'https://assets-v2.lottiefiles.com/abc.json'
+		});
 		expect(parseLottieDragData('')).toBeNull();
 	});
 

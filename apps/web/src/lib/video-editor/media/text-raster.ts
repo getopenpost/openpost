@@ -165,10 +165,6 @@ function getCachedSubtitleLayout(
 	return layout;
 }
 
-export function clearSubtitleLayoutCacheForTests(): void {
-	subtitleLayoutCache.clear();
-}
-
 export interface KaraokeHighlightPiece {
 	x: number;
 	width: number;

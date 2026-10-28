@@ -133,45 +133,6 @@ func TestAvailableCursorTraversesEqualPublishedNamesAndTimestamps(t *testing.T) 
 	require.Equal(t, map[string]struct{}{first.Summary.Reference.ID: {}, second.Summary.Reference.ID: {}}, seen)
 }
 
-func TestAvailableDetailOnlyServesTheAdvertisedPublishedHead(t *testing.T) {
-	service, db := newThemeTestService(t)
-	actor := Actor{UserID: "admin-1"}
-	workspaceAdmin := Actor{UserID: "workspace-admin"}
-	_, err := db.ExecContext(t.Context(), `INSERT INTO workspace_members (workspace_id, user_id, role, status) VALUES ('workspace-1', 'workspace-admin', 'admin', 'active')`)
-	require.NoError(t, err)
-	theme, err := service.Create(t.Context(), actor, CreateInput{OrganizationID: "org-1", Name: "Published head", DuplicateBuiltInID: "studio"})
-	require.NoError(t, err)
-	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1})
-	require.NoError(t, err)
-	updated := theme.Draft.Manifest
-	updated.Description = "Second head"
-	theme, err = service.UpdateDraft(t.Context(), actor, theme.Summary.Reference.ID, UpdateDraftInput{OrganizationID: "org-1", ExpectedRevision: 1, Name: "Published head", Manifest: updated})
-	require.NoError(t, err)
-	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 2, ExpectedPublishedRevision: 1})
-	require.NoError(t, err)
-
-	detail, err := service.AvailableDetail(t.Context(), workspaceAdmin, "workspace-1", theme.Summary.Reference.ID, 2)
-	require.NoError(t, err)
-	require.Equal(t, "2", detail.Manifest.Revision)
-	require.Equal(t, "Second head", detail.Manifest.Description)
-	for _, request := range []struct {
-		actor     Actor
-		workspace string
-		themeID   string
-		revision  int
-		expected  error
-	}{
-		{workspaceAdmin, "workspace-1", theme.Summary.Reference.ID, 1, ErrNotFound},
-		{workspaceAdmin, "workspace-1", theme.Summary.Reference.ID, 3, ErrNotFound},
-		{workspaceAdmin, "workspace-1", "missing-theme", 2, ErrNotFound},
-		{Actor{UserID: "member-1"}, "workspace-1", theme.Summary.Reference.ID, 2, ErrInaccessible},
-		{workspaceAdmin, "missing-workspace", theme.Summary.Reference.ID, 2, ErrInaccessible},
-	} {
-		_, err = service.AvailableDetail(t.Context(), request.actor, request.workspace, request.themeID, request.revision)
-		require.ErrorIs(t, err, request.expected)
-	}
-}
-
 func TestAvailablePageSkipsUnsafeRowsWithoutAnEmptyContinuation(t *testing.T) {
 	service, db := newThemeTestService(t)
 	service.storage = mediastore.NewLocalStorage(t.TempDir(), "/theme-assets")

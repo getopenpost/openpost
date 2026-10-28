@@ -502,13 +502,16 @@ func TestBlueskyUnrepostOnlyIgnoresMissingRecord(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			requests := 0
 			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				requests++
 				return &http.Response{StatusCode: test.status, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(test.body)), Request: req}, nil
 			})}
 			adapter := NewBlueskyAdapter(BlueskyDefaultPDSURL)
 			err := adapter.Unrepost(t.Context(), "token", "did:plc:target", UnrepostRequest{
 				RepostExternalID: `{"uri":"at://did:plc:target/app.bsky.feed.repost/record-key","cid":"cid"}`,
 			})
+			require.Equal(t, 1, requests)
 			if test.wantErr {
 				require.Error(t, err)
 			} else {

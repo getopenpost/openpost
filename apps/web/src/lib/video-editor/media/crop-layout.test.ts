@@ -2,19 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { calculateMediaCropLayout, hasCropFeather } from './crop-layout';
 
 describe('calculateMediaCropLayout', () => {
-	it('keeps the cropped source in place instead of stretching it back to the item bounds', () => {
-		const layout = calculateMediaCropLayout(
-			1000,
-			500,
-			1000,
-			500,
-			{ left: 0.1, right: 0.2, top: 0.25, bottom: 0.25 },
-			'fill'
-		);
-		expect(layout.mediaRect).toEqual({ x: 0, y: 0, width: 1000, height: 500 });
-		expect(layout.cropViewportRect).toEqual({ x: 100, y: 125, width: 700, height: 250 });
-	});
-
 	it('uses the smaller rendered dimension for signed softness', () => {
 		const inner = calculateMediaCropLayout(
 			1920,

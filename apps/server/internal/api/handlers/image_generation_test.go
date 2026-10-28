@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,11 +21,24 @@ func TestImageGenerationRequiresSignInEvenWhenProviderIsUnconfigured(t *testing.
 	e := echo.New()
 	api := humaecho.New(e, huma.DefaultConfig("test", "1"))
 	NewImageGenerationHandler(nil, publicationBuildTestAuthenticator{}).RegisterRoutes(api)
-	for _, path := range []string{"/image-generations/config", "/image-generations?workspace_id=ws&project_id=project", "/image-generations/run"} {
-		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
+	for _, request := range []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{method: http.MethodGet, path: "/image-generations/config"},
+		{method: http.MethodGet, path: "/image-generations?workspace_id=ws&project_id=project"},
+		{method: http.MethodGet, path: "/image-generations/run"},
+		{method: http.MethodPost, path: "/image-generations", body: `{"workspace_id":"ws","project_id":"project","operation":"generate","prompt":"launch image"}`},
+	} {
+		req := httptest.NewRequestWithContext(t.Context(), request.method, request.path, strings.NewReader(request.body))
+		if request.body != "" {
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Idempotency-Key", "unauthenticated-create")
+		}
 		response := httptest.NewRecorder()
 		e.ServeHTTP(response, req)
-		require.Equal(t, http.StatusUnauthorized, response.Code, path)
+		require.Equal(t, http.StatusUnauthorized, response.Code, request.method+" "+request.path)
 	}
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/image-generations/config", nil)
 	req.Header.Set("Authorization", "Bearer web-token")
@@ -62,4 +76,11 @@ func TestGeneratedImageImportRecoversAfterRecipeFailureWithoutAnotherUpload(t *t
 	uploaded, err := srv.usage.CurrentMonthly(t.Context(), "ws-1", entitlements.LimitMediaBytesUploadedMonthly, time.Now())
 	require.NoError(t, err)
 	require.Equal(t, int64(len(input.Content)), uploaded)
+	// The retry must also finish the recipe the first attempt could not store.
+	var stored models.MediaGenerationRecipe
+	require.NoError(t, srv.db.NewSelect().Model(&stored).Where("media_id = ?", result.ID).Scan(t.Context()))
+	require.Equal(t, input.Recipe, stored.RecipeJSON)
+	recipeCount, err := srv.db.NewSelect().Model((*models.MediaGenerationRecipe)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, recipeCount)
 }

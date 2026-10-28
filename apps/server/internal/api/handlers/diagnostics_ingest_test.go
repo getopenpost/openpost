@@ -114,6 +114,7 @@ func TestIngestHandlerForwardsDiagnosticContext(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	select {
 	case payload := <-received:
+		require.Contains(t, payload, `"title":"api_5xx"`)
 		require.Contains(t, payload, "deadline_exceeded")
 		require.Contains(t, payload, `"value":"GET"`)
 		require.Contains(t, payload, "_app/immutable/nodes/editor.js:120:8")

@@ -5,7 +5,7 @@ import type { components } from '$lib/api/types';
 import { queryClient } from '$lib/query/client';
 import { registerQueryAuthorizationBoundary } from '$lib/query/authorization-boundary';
 import { createComposerPublicationClient } from './publication-client';
-import { ComposerClientError, type PublicationDraft } from './session';
+import { ComposerClientError } from './session';
 
 type Publication = components['schemas']['PublicationResponse'];
 
@@ -22,28 +22,6 @@ afterEach(() => {
 });
 
 describe('composer publication query cache', () => {
-	it('seeds a created publication and invalidates every Workspace list', async () => {
-		const publication = publicationFixture();
-		const listKey = schedulingQueryKeys.publications('workspace-1', { status: 'draft' });
-		queryClient.setQueryData(listKey, []);
-		mocks.post.mockResolvedValue({
-			data: publication,
-			response: new Response(null, { status: 201 })
-		});
-
-		const draft: PublicationDraft = {
-			title: 'Launch update',
-			content_profile: '',
-			source_text: 'We shipped it.'
-		};
-		await createComposerPublicationClient('workspace-1').create('workspace-1', draft);
-
-		expect(
-			queryClient.getQueryData(openPostQueryKeys.publications.detail('workspace-1', publication.id))
-		).toBe(publication);
-		expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
-	});
-
 	it('invalidates the exact detail and every list after a publication action', async () => {
 		const publication = publicationFixture();
 		const detailKey = openPostQueryKeys.publications.detail('workspace-1', publication.id);

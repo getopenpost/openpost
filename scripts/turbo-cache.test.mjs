@@ -7,7 +7,6 @@ import test from "node:test";
 
 import * as turboCache from "./turbo-cache.mjs";
 import {
-  formatPruneResult,
   pruneTurboCache,
   removeLegacyTurboCache,
   tryTurboCacheMaintenance,
@@ -138,6 +137,9 @@ test("Turbo cache pruning removes an entry that cannot fit under the hard limit"
 
   assert.equal(result.afterBytes, directoryBytes);
   assert.equal(result.removedEntries, 1);
+  for (const suffix of [".tar.zst", "-manifest.json", "-meta.json"]) {
+    await assert.rejects(stat(path.join(directory, `aaaaaaaaaaaaaaaa${suffix}`)), /ENOENT/u);
+  }
 });
 
 test("Turbo cache pruning preserves unknown files and accounts for their size", async (t) => {
@@ -303,12 +305,26 @@ test("automatic Turbo cache maintenance does not wait for another maintenance lo
   });
   await locked;
 
-  const startedAt = performance.now();
-  assert.equal(await tryTurboCacheMaintenance({ directory: cacheDirectory }, () => {}), false);
-  assert.ok(performance.now() - startedAt < 100);
-
-  releaseLock();
-  await maintenance;
+  let maintenanceRuns = 0;
+  const attempt = tryTurboCacheMaintenance({ directory: cacheDirectory }, () => {
+    maintenanceRuns += 1;
+  });
+  let timer;
+  try {
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error("Automatic maintenance waited for the held lock")),
+        2_000,
+      );
+    });
+    assert.equal(await Promise.race([attempt, deadline]), false);
+    assert.equal(maintenanceRuns, 0);
+  } finally {
+    clearTimeout(timer);
+    releaseLock();
+    await maintenance;
+    await attempt;
+  }
 });
 
 test("shell-entry prune exits while a Turbo task holds a cache lease", async (t) => {

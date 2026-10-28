@@ -145,7 +145,7 @@ func (m *MastodonAdapter) hydrateMessageConversations(ctx context.Context, acces
 			if status.ID == "" || status.Visibility != "direct" {
 				continue
 			}
-			createdAt, _ := time.Parse(time.RFC3339, status.CreatedAt)
+			createdAt := ProviderTime(status.CreatedAt)
 			direction := "inbound"
 			if status.Account.ID == accountID {
 				direction = "outbound"
@@ -163,7 +163,7 @@ func (m *MastodonAdapter) hydrateMessageConversations(ctx context.Context, acces
 			})
 		}
 		sort.Slice(messages, func(a, b int) bool { return messages[a].RemoteCreatedAt.Before(messages[b].RemoteCreatedAt) })
-		lastAt, _ := time.Parse(time.RFC3339, conversation.LastStatus.CreatedAt)
+		lastAt := ProviderTime(conversation.LastStatus.CreatedAt)
 		result.Conversations = append(result.Conversations, ProviderConversation{
 			ID: conversation.ID, CounterpartRemoteID: counterpartID,
 			CounterpartHandle: counterpartHandle, CounterpartName: counterpartName,

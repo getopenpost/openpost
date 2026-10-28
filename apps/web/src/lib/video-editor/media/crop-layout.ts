@@ -17,7 +17,6 @@ export interface CropInsets {
 
 export interface MediaCropLayout {
 	mediaRect: Rect;
-	cropViewportRect: Rect;
 	viewportRect: Rect;
 	featherPixels: CropInsets;
 }
@@ -96,7 +95,6 @@ export function calculateMediaCropLayout(
 	);
 	return {
 		mediaRect,
-		cropViewportRect,
 		viewportRect,
 		featherPixels: { left, right, top, bottom }
 	};

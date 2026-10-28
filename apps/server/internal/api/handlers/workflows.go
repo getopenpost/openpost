@@ -40,8 +40,9 @@ type WorkflowRevisionInput struct {
 	WorkspaceID string `query:"workspace_id" required:"true"`
 	ID          string `path:"id"`
 	Body        struct {
-		ExpectedRevision    int `json:"expected_revision" minimum:"1"`
-		PublicationRevision int `json:"publication_revision,omitempty" minimum:"0"`
+		ExpectedRevision    int     `json:"expected_revision" minimum:"1"`
+		ReplyText           *string `json:"reply_text,omitempty" maxLength:"20000"`
+		PublicationRevision int     `json:"publication_revision,omitempty" minimum:"0"`
 	}
 }
 type WorkflowStartInput struct {
@@ -106,6 +107,10 @@ func (h *WorkflowHandler) RegisterRoutes(api huma.API) {
 		items, err := h.service.List(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), in.WorkspaceID)
 		return &WorkflowListOutput{Body: items}, workflowHTTPError(err)
 	})
+	huma.Register(api, operation("stop-workflow-replies", http.MethodPost, "/workflows/{id}/stop-replies", "Stop new runs and pending automatic replies"), func(ctx context.Context, in *WorkflowRevisionInput) (*WorkflowOutput, error) {
+		item, err := h.service.StopReplies(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), in.WorkspaceID, in.ID, in.Body.ExpectedRevision)
+		return &WorkflowOutput{Body: item}, workflowHTTPError(err)
+	})
 	huma.Register(api, operation("create-workflow", http.MethodPost, "/workflows", "Create a workflow draft"), func(ctx context.Context, in *WorkflowSaveInput) (*WorkflowOutput, error) {
 		item, err := h.service.Save(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), in.WorkspaceID, "", in.Body)
 		return &WorkflowOutput{Body: item}, workflowHTTPError(err)
@@ -153,7 +158,11 @@ func (h *WorkflowHandler) RegisterRoutes(api huma.API) {
 		return &WorkflowRunOutput{Body: item}, workflowHTTPError(err)
 	})
 	huma.Register(api, operation("approve-workflow-run", http.MethodPost, "/workflow-runs/{id}/approve", "Approve the exact reviewed post revision and continue"), func(ctx context.Context, in *WorkflowRevisionInput) (*WorkflowRunOutput, error) {
-		item, err := h.service.Approve(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), in.WorkspaceID, in.ID, in.Body.ExpectedRevision, in.Body.PublicationRevision)
+		var replyText []string
+		if in.Body.ReplyText != nil {
+			replyText = []string{*in.Body.ReplyText}
+		}
+		item, err := h.service.Approve(ctx, workspaceActor(ctx, middleware.GetUserID(ctx)), in.WorkspaceID, in.ID, in.Body.ExpectedRevision, in.Body.PublicationRevision, replyText...)
 		return &WorkflowRunOutput{Body: item}, workflowHTTPError(err)
 	})
 	huma.Register(api, operation("sample-workflow-source", http.MethodPost, "/workflow-sources/sample", "Read source examples without advancing a production cursor"), func(ctx context.Context, in *WorkflowSampleInput) (*WorkflowSampleOutput, error) {

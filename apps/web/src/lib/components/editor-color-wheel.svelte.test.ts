@@ -51,8 +51,12 @@ describe('Color wheel slider keyboard', () => {
 	});
 
 	it('ignores PageUp and PageDown while disabled', async () => {
-		// A disabled native button cannot take focus, so keys go to the body instead.
-		const { oncommit } = await renderWheel({ disabled: true }, false);
+		const { slider, oncommit } = await renderWheel({ disabled: true }, false);
+		await expect.element(slider).toBeDisabled();
+		const button = slider.element();
+		if (!(button instanceof HTMLButtonElement)) throw new Error('expected a native button');
+		button.focus();
+		await expect.element(slider).not.toHaveFocus();
 		await userEvent.keyboard('{PageUp}{PageDown}');
 		expect(oncommit).not.toHaveBeenCalled();
 	});

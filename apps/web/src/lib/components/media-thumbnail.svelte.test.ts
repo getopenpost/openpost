@@ -155,26 +155,9 @@ describe('media thumbnail', () => {
 		});
 
 		await expect.element(screen.getByRole('img', { name: 'clip.mp4' })).toBeVisible();
-		expect(fallbackRenders).toBe(0);
-	});
-
-	it('prefers the poster still for video', async () => {
-		const screen = await render(MediaThumbnail, {
-			props: {
-				item: {
-					mime_type: 'video/mp4',
-					thumbnail_url: null,
-					poster_thumbnail_url: ORIGINAL_SRC,
-					url: THUMB_SRC,
-					alt_text: null,
-					original_filename: 'clip.mp4'
-				},
-				fallbackAlt: 'Media'
-			}
-		});
-
-		await expect.element(screen.getByRole('img', { name: 'clip.mp4' })).toBeVisible();
+		// The poster still wins over the item's raw video URL.
 		const element = imageElement(screen, 'clip.mp4');
 		expect(element.src).toContain(ORIGINAL_SRC);
+		expect(fallbackRenders).toBe(0);
 	});
 });

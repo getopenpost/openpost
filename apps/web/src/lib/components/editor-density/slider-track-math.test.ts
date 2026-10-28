@@ -31,6 +31,11 @@ describe('sliderValueFromPointer', () => {
 		expect(sliderValueFromPointer({ ...GEOMETRY, clientX: 150.5, thumbWidthPx: 100 }, bounds)).toBe(
 			0
 		);
+		// Off-grid press: ratio 43.5/86, raw 43.5, quantized to the nearest
+		// even step. The samples above already sit on the step grid, so only
+		// this one fails when quantization is removed.
+		const evenSteps = { min: 0, max: 86, step: 2 };
+		expect(sliderValueFromPointer({ ...GEOMETRY, clientX: 150.5 }, evenSteps)).toBe(44);
 		// Degenerate track widths cannot divide by zero and pin to an end.
 		expect(sliderValueFromPointer({ ...GEOMETRY, trackWidth: 10, clientX: 105 }, bounds)).toBe(
 			-180

@@ -39,6 +39,7 @@ type SavePostImportsInput struct {
 }
 
 type ImportedPostResponse struct {
+	ExternalID  string    `json:"external_id"`
 	ID          string    `json:"id"`
 	Title       string    `json:"title"`
 	Text        string    `json:"text"`
@@ -154,7 +155,7 @@ func (h *PostImportHandler) read(ctx context.Context, workspaceID, accountID, cu
 		}
 	}
 	for _, post := range overview.Posts {
-		response.Posts = append(response.Posts, ImportedPostResponse{
+		response.Posts = append(response.Posts, ImportedPostResponse{ExternalID: post.ProviderPostID,
 			ID: post.ID, Title: post.Title, Text: post.Text,
 			ExternalURL: post.ExternalURL, PublishedAt: post.PublishedAt,
 		})

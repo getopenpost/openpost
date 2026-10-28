@@ -167,6 +167,14 @@ func TestScreenshotTemplateImageFieldsRoundTrip(t *testing.T) {
 	require.Equal(t, 200, result.Code, result.Body.String())
 	require.Contains(t, result.Body.String(), `"avatar_media_id":"photo"`)
 	require.Contains(t, result.Body.String(), `"image_media_id":"photo"`)
+	var design ScreenshotTemplateDesignResponse
+	require.NoError(t, json.Unmarshal(result.Body.Bytes(), &design))
+	reloaded := srv.request(t, http.MethodGet, "/screenshot-templates/designs/"+design.ID, nil)
+	require.Equal(t, http.StatusOK, reloaded.Code, reloaded.Body.String())
+	var stored ScreenshotTemplateDesignResponse
+	require.NoError(t, json.Unmarshal(reloaded.Body.Bytes(), &stored))
+	require.Equal(t, "photo", stored.Document.Conversation.People[0].AvatarMediaID, "avatar media must survive the round trip")
+	require.Equal(t, "photo", stored.Document.Conversation.Messages[0].ImageMediaID, "message media must survive the round trip")
 }
 
 func TestScreenshotTemplateRejectsUnavailableImages(t *testing.T) {
@@ -221,9 +229,24 @@ func TestMemeTemplateDraftAndLegacyRecipe(t *testing.T) {
 	loaded := srv.request(t, http.MethodGet, "/screenshot-templates/designs/"+design.ID, nil)
 	require.NoError(t, json.Unmarshal(loaded.Body.Bytes(), &design))
 	require.Equal(t, []string{"Before launch", "Still fixing bugs"}, design.Document.Meme.Captions)
+	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{ID: "meme-overlay", WorkspaceID: "workspace-1", MimeType: "image/png", ProcessingStatus: mediaReadyStatus, AssetKind: "library"}).Exec(t.Context())
+	require.NoError(t, err)
+	// The retained shape guard: an otherwise valid owner overlay without a
+	// declared slot must be rejected before any media lookup.
+	doc.Meme.OverlaySlots = 0
+	doc.Meme.OverlayMediaIDs = []string{"meme-overlay"}
+	shape := srv.request(t, http.MethodPut, "/screenshot-templates/designs/"+design.ID, map[string]any{"revision": 2, "document": doc})
+	require.Equal(t, 400, shape.Code, shape.Body.String())
+	require.Contains(t, shape.Body.String(), "a meme requires a template and valid image slots")
+	// Declaring the slot makes the same owner overlay acceptable.
+	doc.Meme.OverlaySlots = 1
+	overlay := srv.request(t, http.MethodPut, "/screenshot-templates/designs/"+design.ID, map[string]any{"revision": 2, "document": doc})
+	require.Equal(t, 200, overlay.Code, overlay.Body.String())
+	// A foreign image still reaches the workspace ownership guard.
 	doc.Meme.OverlayMediaIDs = []string{"foreign-image"}
-	invalid := srv.request(t, http.MethodPut, "/screenshot-templates/designs/"+design.ID, map[string]any{"revision": 2, "document": doc})
+	invalid := srv.request(t, http.MethodPut, "/screenshot-templates/designs/"+design.ID, map[string]any{"revision": 3, "document": doc})
 	require.Equal(t, 400, invalid.Code, invalid.Body.String())
+	require.Contains(t, invalid.Body.String(), "must belong to this workspace")
 	legacy := MemeRecipeDocument{SchemaVersion: 1, Template: MemeRecipeTemplateSnapshot{ID: "fry", Name: "Fry", Lines: 2}, Captions: []string{"Old", "Joke"}, Format: "gif"}
 	encoded, err := json.Marshal(legacy)
 	require.NoError(t, err)

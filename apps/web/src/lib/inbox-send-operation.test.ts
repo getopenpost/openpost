@@ -19,12 +19,27 @@ describe('web inbox send identity', () => {
 			first.id
 		);
 	});
-	it('isolates changed drafts, conversations and actors', async () => {
+	it('isolates changed drafts, conversations, actors and workspaces', async () => {
 		const first = await inboxSendOperation('actor', 'workspace', 'one', 'hello');
 		const changed = await inboxSendOperation('actor', 'workspace', 'one', 'changed');
 		const otherConversation = await inboxSendOperation('actor', 'workspace', 'two', 'hello');
 		const otherActor = await inboxSendOperation('other', 'workspace', 'one', 'hello');
-		expect(new Set([first.id, changed.id, otherConversation.id, otherActor.id]).size).toBe(4);
-		expect((await inboxSendOperation('actor', 'workspace', 'one', 'hello')).id).toBe(first.id);
+		const otherWorkspace = await inboxSendOperation('actor', 'other-workspace', 'one', 'hello');
+		expect(
+			new Set([first.id, changed.id, otherConversation.id, otherActor.id, otherWorkspace.id]).size
+		).toBe(5);
+		const unchanged = await inboxSendOperation('actor', 'workspace', 'one', 'hello');
+		expect(unchanged.id).toBe(first.id);
+		// Retire every receipt so later declarations start from a clean map.
+		for (const operation of [
+			first,
+			changed,
+			otherConversation,
+			otherActor,
+			otherWorkspace,
+			unchanged
+		]) {
+			operation.complete();
+		}
 	});
 });

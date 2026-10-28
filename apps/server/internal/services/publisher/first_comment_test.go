@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/platform"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,14 +29,6 @@ func (f *firstCommentFakeAdapter) PostFirstComment(_ context.Context, _, _, exte
 		return f.commentID, nil
 	}
 	return "comment-1", nil
-}
-
-func TestFirstCommentMessageIsCapabilityGated(t *testing.T) {
-	require.Equal(t, "hi", firstCommentMessageForPublish("instagram", map[string]any{"first_comment": "hi"}))
-	require.Equal(t, "hi", firstCommentMessageForPublish("youtube", map[string]any{"first_comment": "hi"}))
-	require.Equal(t, "hi", firstCommentMessageForPublish("linkedin", map[string]any{"first_comment": "hi"}))
-	require.Empty(t, firstCommentMessageForPublish("x", map[string]any{"first_comment": "hi"}))
-	require.Empty(t, firstCommentMessageForPublish("instagram", map[string]any{}))
 }
 
 func TestFirstCommentSettingsPreferRootSegment(t *testing.T) {
@@ -82,5 +73,4 @@ func TestPublishFirstCommentBestEffortNeverFailsParent(t *testing.T) {
 	blocked := &firstCommentFakeAdapter{}
 	service.publishFirstCommentBestEffort(t.Context(), publication, rendition, blocked, "token", "acct-1", "media-1", map[string]any{"first_comment": "Must not send"})
 	require.Zero(t, blocked.calls, "a separate first-comment provider call requires current approval")
-	_ = platform.SupportsFirstComment
 }

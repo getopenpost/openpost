@@ -239,18 +239,6 @@ func discordFilename(filename string, index int) string {
 	return name
 }
 
-func (d *DiscordAdapter) DeletePublished(ctx context.Context, webhookURL, messageID string) error {
-	parsed, _, err := validateDiscordWebhookURL(webhookURL)
-	if err != nil {
-		return err
-	}
-	parsed.Path += "/messages/" + url.PathEscape(strings.TrimSpace(messageID))
-	if _, err := DoRequestNoRedirect(ctx, http.MethodDelete, parsed.String(), nil, nil); err != nil {
-		return fmt.Errorf("deleting discord webhook message: %w", err)
-	}
-	return nil
-}
-
 func validateDiscordWebhookURL(raw string) (*url.URL, string, error) {
 	if strings.ContainsAny(raw, "\r\n\t") {
 		return nil, "", fmt.Errorf("discord webhook URL contains invalid control characters")

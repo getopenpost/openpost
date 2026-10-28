@@ -54,20 +54,6 @@ func TestDecodeBlueskyVideoJobStatusHandlesWrappedResponse(t *testing.T) {
 	}
 }
 
-func TestBlueskyServiceAuthAudienceUsesAccessTokenAudience(t *testing.T) {
-	token := testJWT(t, map[string]interface{}{
-		"aud": "did:web:polypore.us-west.host.bsky.network",
-	})
-
-	audience, err := blueskyServiceAuthAudience(token, "https://bsky.social")
-	if err != nil {
-		t.Fatalf("blueskyServiceAuthAudience returned error: %v", err)
-	}
-	if audience != "did:web:polypore.us-west.host.bsky.network" {
-		t.Fatalf("expected token audience, got %q", audience)
-	}
-}
-
 func TestBlueskyVideoServiceAuthRequestsTokenAudience(t *testing.T) {
 	token := testJWT(t, map[string]interface{}{
 		"aud": "did:web:polypore.us-west.host.bsky.network",
@@ -104,7 +90,9 @@ func TestLinkedInVideoStatusEncodesURNPathVariable(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
 
+	requests := 0
 	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests++
 		if req.Method != "GET" {
 			t.Fatalf("unexpected request method %s", req.Method)
 		}
@@ -121,6 +109,9 @@ func TestLinkedInVideoStatusEncodesURNPathVariable(t *testing.T) {
 	adapter := NewLinkedInAdapter("", "", "", false)
 	if err := adapter.waitForVideoAvailable(context.Background(), "token", "202601", "urn:li:video:D4D10AQHRV0XIfe6hDw"); err != nil {
 		t.Fatalf("waitForVideoAvailable returned error: %v", err)
+	}
+	if requests != 1 {
+		t.Fatalf("expected one native request, got %d", requests)
 	}
 }
 

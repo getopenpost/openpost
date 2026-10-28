@@ -96,21 +96,30 @@ func newHumaOptionallyAuthed(authenticator Authenticator, called *bool) *echo.Ec
 
 func TestBearerMiddleware_Success_AttachesPrincipal(t *testing.T) {
 	want := &Principal{UserID: "u_42", Email: "rodrigo@example.com"}
-	auth := &fakeAuthenticator{principal: want}
+	authenticator := &fakeAuthenticator{principal: want}
+	var echoUserID, echoEmail, contextUserID, contextEmail string
 
-	e := newEchoAuthed(auth)
+	e := echo.New()
+	e.GET("/x", func(c echo.Context) error {
+		echoUserID, _ = c.Get(string(UserIDKey)).(string)
+		echoEmail, _ = c.Get(string(EmailKey)).(string)
+		contextUserID = GetUserID(c.Request().Context())
+		contextEmail, _ = c.Request().Context().Value(EmailKey).(string)
+		return c.NoContent(http.StatusOK)
+	}, BearerMiddleware(authenticator))
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/x", nil)
 	req.Header.Set("Authorization", "Bearer op_cli_abc_secret")
 	rec := httptest.NewRecorder()
 
 	e.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d (body=%q)", rec.Code, rec.Body.String())
-	}
-	if auth.gotToken != "op_cli_abc_secret" {
-		t.Errorf("middleware did not pass raw token to authenticator, got %q", auth.gotToken)
-	}
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "u_42", echoUserID, "Echo handler must see the authenticated user")
+	require.Equal(t, "rodrigo@example.com", echoEmail, "Echo handler must see the authenticated email")
+	require.Equal(t, "u_42", contextUserID, "request context must carry the authenticated user")
+	require.Equal(t, "rodrigo@example.com", contextEmail, "request context must carry the authenticated email")
+	require.Equal(t, "op_cli_abc_secret", authenticator.gotToken,
+		"middleware must pass the raw token to the authenticator")
 }
 
 func TestBearerMiddleware_MissingHeader(t *testing.T) {
@@ -162,7 +171,12 @@ func TestBearerMiddleware_InvalidToken_Returns401(t *testing.T) {
 }
 
 func TestBearerMiddlewareCanceledRequestDoesNotReturnInvalidToken(t *testing.T) {
-	e := newEchoAuthed(requestContextAuthenticator{})
+	called := false
+	e := echo.New()
+	e.GET("/x", func(c echo.Context) error {
+		called = true
+		return c.NoContent(http.StatusOK)
+	}, BearerMiddleware(requestContextAuthenticator{}))
 	requestContext, cancel := context.WithCancel(context.Background())
 	cancel()
 	req := httptest.NewRequestWithContext(requestContext, http.MethodGet, "/x", nil)
@@ -171,6 +185,9 @@ func TestBearerMiddlewareCanceledRequestDoesNotReturnInvalidToken(t *testing.T) 
 
 	e.ServeHTTP(rec, req)
 
+	require.False(t, called, "a canceled request must not reach the handler")
+	require.Empty(t, rec.Header().Get("WWW-Authenticate"),
+		"a canceled request must not carry an invalid-token challenge")
 	require.Empty(t, rec.Body.String())
 	require.NotContains(t, rec.Body.String(), "invalid or expired token")
 }
@@ -255,20 +272,6 @@ func TestOptionalAuthMiddlewareAuthenticationTimeoutReturns503(t *testing.T) {
 	require.False(t, called)
 	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 	require.Contains(t, rec.Body.String(), "authentication is temporarily unavailable")
-}
-
-func TestOptionalAuthMiddlewareInvalidTokenContinuesAnonymously(t *testing.T) {
-	called := false
-	e := newHumaOptionallyAuthed(&fakeAuthenticator{err: errors.New("invalid token")}, &called)
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/optional-auth-test", nil)
-	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "invalid-token"})
-	rec := httptest.NewRecorder()
-
-	e.ServeHTTP(rec, req)
-
-	require.True(t, called)
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.NotContains(t, rec.Body.String(), "authentication is temporarily unavailable")
 }
 
 func TestBearerMiddlewareRejectsMCPResourceToken(t *testing.T) {
@@ -540,9 +543,11 @@ func TestTrustedProxyNetworkAssertions(t *testing.T) {
 		{"mapped peer", "[::ffff:10.0.0.2]:5000", "203.0.113.4", "203.0.113.4", "https", "https", "::ffff:10.0.0.0/120"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			called := false
 			e := echo.New()
 			e.Pre(TrustedProxyMiddleware([]string{tc.prefix}))
 			e.GET("/", func(c echo.Context) error {
+				called = true
 				require.Equal(t, tc.wantIP, c.RealIP())
 				require.Equal(t, tc.wantProto, c.Request().Header.Get("X-Forwarded-Proto"))
 				expectedScheme := tc.wantProto
@@ -556,20 +561,31 @@ func TestTrustedProxyNetworkAssertions(t *testing.T) {
 			req.RemoteAddr = tc.peer
 			req.Header.Set("X-Forwarded-For", tc.forwarded)
 			req.Header.Set("X-Forwarded-Proto", tc.proto)
-			e.ServeHTTP(httptest.NewRecorder(), req)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			require.True(t, called, "trusted proxy middleware must forward the request")
+			require.Equal(t, http.StatusOK, rec.Code)
 		})
 	}
 	for header, value := range map[string]string{"X-Forwarded-Protocol": "https", "X-Forwarded-Ssl": "on", "X-Url-Scheme": "https"} {
 		for _, peer := range []string{"203.0.113.4:5000", "10.0.0.2:5000"} {
 			t.Run(header+"/"+peer, func(t *testing.T) {
+				called := false
 				e := echo.New()
 				e.Pre(TrustedProxyMiddleware([]string{"10.0.0.0/24"}))
-				e.GET("/", func(c echo.Context) error { require.Equal(t, "http", c.Scheme()); return c.NoContent(http.StatusOK) })
+				e.GET("/", func(c echo.Context) error {
+					called = true
+					require.Equal(t, "http", c.Scheme())
+					return c.NoContent(http.StatusOK)
+				})
 				req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://app.openpost.test/", nil)
 				req.RemoteAddr = peer
 				req.Header.Set(header, value)
 				req.Header.Set("X-Forwarded-Proto", "malicious-proto")
-				e.ServeHTTP(httptest.NewRecorder(), req)
+				rec := httptest.NewRecorder()
+				e.ServeHTTP(rec, req)
+				require.True(t, called, "trusted proxy middleware must forward the request")
+				require.Equal(t, http.StatusOK, rec.Code)
 			})
 		}
 	}

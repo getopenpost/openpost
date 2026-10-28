@@ -52,9 +52,16 @@ func TestOverviewCursorCannotCrossWorkspaceAccountSortRevisionOrSignature(t *tes
 	service := NewService(nil, nil)
 	options := normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Sort: "newest", Limit: 1})
 	cursor := service.encodeOverviewNextCursor("workspace-a", 0, 1, 2, options, 30, "revision-a", time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC))
+
+	// Control: an unchanged subject still decodes to its encoded offset.
+	unchanged := normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Sort: "newest", Limit: 1, Cursor: cursor})
+	offset, err := service.decodeOverviewOffset("workspace-a", unchanged, 30, 2, "revision-a")
+	require.NoError(t, err)
+	require.Equal(t, 1, offset)
+
 	options.AccountID = "account-b"
 	options.Cursor = cursor
-	_, err := service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-a")
+	_, err = service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-a")
 	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
 
 	options = normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Sort: "newest", Limit: 1, Cursor: cursor})
@@ -63,6 +70,13 @@ func TestOverviewCursorCannotCrossWorkspaceAccountSortRevisionOrSignature(t *tes
 
 	_, err = service.decodeOverviewOffset("workspace-b", options, 30, 2, "revision-a")
 	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+
+	// Sort is part of the bound subject too: the same page must not be replayed
+	// against a different ordering.
+	resorted := normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Sort: "views", Limit: 1, Cursor: cursor})
+	_, err = service.decodeOverviewOffset("workspace-a", resorted, 30, 2, "revision-a")
+	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+
 	options.Cursor = cursor[:len(cursor)-1] + "x"
 	_, err = service.decodeOverviewOffset("workspace-a", options, 30, 2, "revision-a")
 	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
@@ -76,13 +90,14 @@ func (staticTokenSource) GetValidAccessToken(context.Context, string) (string, e
 
 type fakeAnalyticsAdapter struct {
 	platform.Adapter
-	support      platform.AnalyticsSupport
-	account      platform.AnalyticsValues
-	content      platform.AnalyticsValues
-	accountErr   error
-	contentErr   error
-	accountCalls int
-	contentCalls int
+	support        platform.AnalyticsSupport
+	account        platform.AnalyticsValues
+	content        platform.AnalyticsValues
+	accountErr     error
+	contentErr     error
+	accountCalls   int
+	contentCalls   int
+	onAccountFetch func()
 }
 
 type fakeSemanticAnalyticsAdapter struct {
@@ -105,6 +120,9 @@ func (f *fakeAnalyticsAdapter) AnalyticsSupport() platform.AnalyticsSupport {
 
 func (f *fakeAnalyticsAdapter) FetchAccountAnalytics(context.Context, string, platform.AccountAnalyticsRequest) (platform.AnalyticsValues, error) {
 	f.accountCalls++
+	if f.onAccountFetch != nil {
+		f.onAccountFetch()
+	}
 	return f.account, f.accountErr
 }
 
@@ -364,6 +382,21 @@ func TestXAnalyticsReservesReadBudgetBeforeProviderRequest(t *testing.T) {
 	meter := usage.NewService(db)
 	require.NoError(t, meter.SetProviderCostPolicy(usage.NewXProviderCostPolicy(10_000, 15_000, 200_000)))
 	adapter := &fakeAnalyticsAdapter{support: platform.AnalyticsSupport{Account: true}, account: platform.AnalyticsValues{platform.MetricFollowers: 5}}
+	// The reservation must already be durable when the provider request starts,
+	// so an accepted read can never be unbilled.
+	reservedBeforeFetch := false
+	adapter.onAccountFetch = func() {
+		var reservations []models.ProviderUsageReservation
+		require.NoError(t, db.NewSelect().Model(&reservations).Where("workspace_id = ?", account.WorkspaceID).Scan(t.Context()))
+		require.Len(t, reservations, 1, "read exposure must be reserved before the provider request")
+		require.Equal(t, usage.ProviderX, reservations[0].Provider)
+		require.Equal(t, usage.XOperationUserRead, reservations[0].Operation)
+		require.EqualValues(t, 1, reservations[0].Units)
+		require.EqualValues(t, 10_000, reservations[0].CostMicrousd)
+		require.Equal(t, "pending", reservations[0].State, "the exposure must still be reserved, not yet confirmed")
+		require.NotEmpty(t, reservations[0].OperationKey)
+		reservedBeforeFetch = true
+	}
 	service := NewService(db, staticTokenSource{})
 	service.SetProvider("x", adapter)
 	service.SetFeatureGate(alwaysEnabledGate{})
@@ -371,6 +404,7 @@ func TestXAnalyticsReservesReadBudgetBeforeProviderRequest(t *testing.T) {
 	now := time.Now().UTC()
 	service.now = func() time.Time { return now }
 	require.NoError(t, service.syncAccount(t.Context(), account.ID))
+	require.True(t, reservedBeforeFetch, "the provider request must observe the reservation")
 	require.Equal(t, 1, adapter.accountCalls)
 	var events []models.ProviderUsageEvent
 	require.NoError(t, db.NewSelect().Model(&events).Scan(t.Context()))

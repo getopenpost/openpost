@@ -120,6 +120,7 @@ func TestThreadsReplyAndHideComment(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
 
+	hideCalls := 0
 	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		switch {
 		case req.Method == http.MethodPost && req.URL.String() == "https://graph.threads.net/v1.0/user-1/threads":
@@ -154,6 +155,7 @@ func TestThreadsReplyAndHideComment(t *testing.T) {
 			}
 			return jsonResponse(req, `{"id":"reply-post-1"}`), nil
 		case req.Method == http.MethodPost && req.URL.String() == "https://graph.threads.net/v1.0/reply-1/manage_reply":
+			hideCalls++
 			body, err := io.ReadAll(req.Body)
 			if err != nil {
 				t.Fatalf("reading hide body: %v", err)
@@ -182,6 +184,9 @@ func TestThreadsReplyAndHideComment(t *testing.T) {
 	}
 	if err := adapter.HideComment(context.Background(), "threads-token", "user-1", "reply-1"); err != nil {
 		t.Fatalf("HideComment returned error: %v", err)
+	}
+	if hideCalls != 1 {
+		t.Fatalf("expected one native hide operation, got %d", hideCalls)
 	}
 }
 

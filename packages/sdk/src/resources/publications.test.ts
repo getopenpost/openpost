@@ -69,6 +69,13 @@ describe("Publications", () => {
     expect(JSON.parse(String(publishInit.body))).toEqual({ expected_revision: 4 });
   });
 
+  it("sends target_key when a rendition needs a subdestination", async () => {
+    const { client, fetch } = clientWith([jsonResponse({ message: "retried" })]);
+    await client.publications.retryRendition("pub_1", "acc_1", "profile_main");
+    const [url] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain("target_key=profile_main");
+  });
+
   it("throws a validation error when throwOnInvalid is set", async () => {
     const { client } = clientWith([
       jsonResponse({

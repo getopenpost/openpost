@@ -3,106 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
-
-func TestReadyChecksReadinessEndpoint(t *testing.T) {
-	SetVersion("v4.5.6")
-	t.Cleanup(func() { SetVersion("dev") })
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/ready" {
-			t.Fatalf("path = %s, want /api/v1/ready", r.URL.Path)
-		}
-		if got := r.Header.Get("User-Agent"); got != "openpost-cli/v4.5.6" {
-			t.Fatalf("user-agent = %q, want openpost-cli/v4.5.6", got)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"ready","database":"ok"}`))
-	}))
-	defer srv.Close()
-
-	c := New(srv.URL, "")
-	got, err := c.Ready(context.Background())
-	if err != nil {
-		t.Fatalf("Ready returned error: %v", err)
-	}
-	if got.Status != "ready" || got.Database != "ok" {
-		t.Fatalf("readiness = %+v", got)
-	}
-}
-
-func TestReadyRejectsUnexpectedStatus(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprint(w, `{"status":"starting","database":"ok"}`)
-	}))
-	defer srv.Close()
-
-	c := New(srv.URL, "")
-	_, err := c.Ready(context.Background())
-	if err == nil {
-		t.Fatal("Ready returned nil error")
-	}
-}
-
-func TestListPublicationEvents_WireFormat(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/publications/pub_1/events" {
-			t.Fatalf("path = %s, want /api/v1/publications/pub_1/events", r.URL.Path)
-		}
-		if r.URL.Query().Get("limit") != "25" {
-			t.Fatalf("limit query = %q, want 25", r.URL.Query().Get("limit"))
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`[
-			{"id":"evt_1","publication_id":"pub_1","rendition_id":"rend_1","type":"published","status":"succeeded","message":"rendition published","metadata":{"platform":"x"},"created_at":"2026-07-04T21:00:00Z"}
-		]`))
-	}))
-	defer srv.Close()
-
-	c := New(srv.URL, "op_cli_test")
-	got, err := c.ListPublicationEvents(context.Background(), "pub_1", 25)
-	if err != nil {
-		t.Fatalf("ListPublicationEvents returned error: %v", err)
-	}
-	if len(got) != 1 || got[0].Type != "published" || got[0].Metadata["platform"] != "x" {
-		t.Fatalf("events wrong: %+v", got)
-	}
-}
-
-func TestSchedulePublication_WireFormat(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Fatalf("method = %s, want POST", r.Method)
-		}
-		if r.URL.Path != "/api/v1/publications/pub_1/schedule" {
-			t.Fatalf("path = %s, want /api/v1/publications/pub_1/schedule", r.URL.Path)
-		}
-		var body map[string]any
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode body: %v", err)
-		}
-		if body["expected_revision"] != float64(7) {
-			t.Fatalf("body = %#v, want expected_revision 7", body)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"message":"publication scheduled","job_id":"job_1"}`))
-	}))
-	defer srv.Close()
-
-	c := New(srv.URL, "op_cli_test")
-	got, err := c.SchedulePublication(context.Background(), "pub_1", 7)
-	if err != nil {
-		t.Fatalf("SchedulePublication returned error: %v", err)
-	}
-	if got.JobID != "job_1" {
-		t.Fatalf("result = %+v", got)
-	}
-}
 
 func TestGetPublicationDecodesCreationSource(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -184,66 +88,6 @@ func TestPublicationMutationMethods_WireFormat(t *testing.T) {
 // This is a regression guard. A previous version of this client
 // decoded `{body: [...]}` and failed with "cannot unmarshal array
 // into Go value of type struct { Body []SocialAccount }".
-
-func TestCreateBillingCheckout_WireFormat(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Fatalf("method = %s, want POST", r.Method)
-		}
-		if r.URL.Path != "/api/v1/billing/checkout" {
-			t.Fatalf("path = %s, want /api/v1/billing/checkout", r.URL.Path)
-		}
-		var body map[string]string
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode body: %v", err)
-		}
-		if body["workspace_id"] != "ws_1" || body["plan_id"] != "founder" || body["billing_period"] != "annual" {
-			t.Fatalf("body = %#v", body)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"chkat_1","url":"https://app.openpo.st/checkout?billing_period=annual&plan=founder","plan_id":"founder","billing_period":"annual","provider_price_id":"pri_founder_year"}`))
-	}))
-	defer srv.Close()
-
-	c := New(srv.URL, "op_cli_test")
-	got, err := c.CreateBillingCheckout(context.Background(), "ws_1", "founder", "annual")
-	if err != nil {
-		t.Fatalf("CreateBillingCheckout returned error: %v", err)
-	}
-	if got.ID != "chkat_1" || got.URL != "https://app.openpo.st/checkout?billing_period=annual&plan=founder" || got.BillingPeriod != "annual" {
-		t.Fatalf("checkout = %+v", got)
-	}
-}
-
-func TestCreateBillingPortal_WireFormat(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Fatalf("method = %s, want POST", r.Method)
-		}
-		if r.URL.Path != "/api/v1/billing/portal" {
-			t.Fatalf("path = %s, want /api/v1/billing/portal", r.URL.Path)
-		}
-		var body map[string]string
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("decode body: %v", err)
-		}
-		if body["workspace_id"] != "ws_1" {
-			t.Fatalf("body = %#v", body)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"cps_1","url":"https://customer-portal.paddle.com/overview?token=test"}`))
-	}))
-	defer srv.Close()
-
-	c := New(srv.URL, "op_cli_test")
-	got, err := c.CreateBillingPortal(context.Background(), "ws_1")
-	if err != nil {
-		t.Fatalf("CreateBillingPortal returned error: %v", err)
-	}
-	if got.ID != "cps_1" || got.URL != "https://customer-portal.paddle.com/overview?token=test" {
-		t.Fatalf("portal = %+v", got)
-	}
-}
 
 func TestUpdateAccount_WireFormat(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -72,7 +72,7 @@ func (x *XAdapter) FetchMessages(ctx context.Context, accessToken string, input 
 		if event.EventType != "" && event.EventType != "MessageCreate" {
 			continue
 		}
-		createdAt, _ := time.Parse(time.RFC3339, event.CreatedAt)
+		createdAt := ProviderTime(event.CreatedAt)
 		direction := "inbound"
 		if event.SenderID == input.AccountID {
 			direction = "outbound"

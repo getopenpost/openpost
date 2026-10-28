@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -54,6 +55,7 @@ func TestScheduleCreateUsesWorkspaceLocalFields(t *testing.T) {
 
 func TestScheduleSuggestRequiresExplicitConfirmationInAutomation(t *testing.T) {
 	t.Setenv("OPENPOST_CONFIG_DIR", t.TempDir())
+	mutations := 0
 	var body map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -61,6 +63,7 @@ func TestScheduleSuggestRequiresExplicitConfirmationInAutomation(t *testing.T) {
 		case "/api/v1/workspaces":
 			_, _ = w.Write([]byte(`[{"id":"ws-1","name":"Production"}]`))
 		case "/api/v1/posting-schedules/suggest":
+			mutations++
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				t.Fatalf("decode body: %v", err)
 			}
@@ -71,7 +74,14 @@ func TestScheduleSuggestRequiresExplicitConfirmationInAutomation(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := executeRootCaptureStdout(
+	_, err := executeRootCaptureStdout(t, "--instance", srv.URL, "--token", "op_cli_test", "--workspace", "Production", "--json", "schedule", "suggest", "--posts-per-day", "2")
+	if err == nil || !strings.Contains(err.Error(), "--yes is required for this action when using --json") {
+		t.Fatalf("expected confirmation error, got %v", err)
+	}
+	if mutations != 0 {
+		t.Fatalf("unconfirmed suggestion made %d mutation calls", mutations)
+	}
+	_, err = executeRootCaptureStdout(
 		t,
 		"--instance", srv.URL,
 		"--token", "op_cli_test",

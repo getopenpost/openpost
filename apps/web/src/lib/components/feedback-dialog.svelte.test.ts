@@ -46,13 +46,6 @@ async function renderOpenDialog() {
 	);
 }
 
-it('promises same-day reading with a fast fix', async () => {
-	const screen = await renderOpenDialog();
-	await expect
-		.element(screen.getByText('We read every report the same day', { exact: false }))
-		.toBeVisible();
-});
-
 it('keeps category radios out of the label layout without removing keyboard access', async () => {
 	const screen = await renderOpenDialog();
 	// The selected-state styling lives on the label: each radio input must

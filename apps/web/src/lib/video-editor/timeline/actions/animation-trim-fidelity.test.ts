@@ -3,14 +3,13 @@ import { mapTimelineFrameToLottieFrame } from '../../lottie/frame-provider';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import { commandHistory } from '../commands/command-store.svelte';
 import { planTrimGesture } from '../edit-gesture';
-import { trimItemStart } from './items';
 
 afterEach(() => {
 	timelineStore.__resetForTesting();
 	commandHistory.clearHistory();
 });
 
-it.each(['action', 'gesture'])('preserves Lottie source phase through a start trim %s', (kind) => {
+it('preserves reversed Lottie source phase through a start trim gesture', () => {
 	timelineStore._setItems([
 		{
 			id: 'animation',
@@ -23,8 +22,7 @@ it.each(['action', 'gesture'])('preserves Lottie source phase through a start tr
 			lottiePhaseOffset: 5
 		}
 	]);
-	if (kind === 'action') trimItemStart('animation', 20);
-	else {
+	{
 		const plan = planTrimGesture(
 			timelineStore.items[0]!,
 			'start',
@@ -44,8 +42,8 @@ it.each(['action', 'gesture'])('preserves Lottie source phase through a start tr
 		totalFrames: 120,
 		frameRate: 60,
 		loop: true,
-		reversed: kind === 'gesture'
+		reversed: true
 	});
 	// 25 authored frames at 1.5x and 60/30 source/project FPS advance 75 source frames.
-	expect(frame).toBe(kind === 'gesture' ? 44 : 75);
+	expect(frame).toBe(44);
 });

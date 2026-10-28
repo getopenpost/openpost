@@ -37,6 +37,10 @@ describe('KeyboardShortcutEditor', () => {
 		const screen = await render(KeyboardShortcutEditor);
 
 		await expect.element(screen.getByRole('group', { name: 'Shortcut keyboard' })).toBeVisible();
+		// The filter bar is one named group holding the All control.
+		const filterGroup = screen.getByRole('group', { name: 'Filter shortcuts' });
+		await expect.element(filterGroup).toBeVisible();
+		await expect.element(filterGroup.getByRole('button', { name: /^All/ })).toBeVisible();
 		await screen.getByRole('button', { name: /B:.*Split at playhead, alternate/ }).click();
 		await expect.element(screen.getByRole('group', { name: 'Split at playhead' })).toBeVisible();
 		// The B key is shared with the layout-dock sidebar toggles, so the keyboard
@@ -105,13 +109,6 @@ describe('KeyboardShortcutEditor', () => {
 		await expect.element(screen.getByRole('alert')).toHaveTextContent('Save project');
 		await expect.element(screen.getByRole('alert')).toHaveTextContent('Play or pause');
 		await expect.element(screen.getByRole('button', { name: 'Apply import' })).toBeDisabled();
-	});
-
-	it('exposes the shortcut filter bar as a named group', async () => {
-		const screen = await render(KeyboardShortcutEditor);
-		const group = screen.getByRole('group', { name: 'Filter shortcuts' });
-		await expect.element(group).toBeVisible();
-		await expect.element(group.getByRole('button', { name: /^All/ })).toBeVisible();
 	});
 });
 

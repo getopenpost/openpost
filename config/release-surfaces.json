@@ -58,7 +58,8 @@
         "patches/",
         "scripts/",
         "tests/helpers/",
-        "tests/build/"
+        "tests/build/",
+        "tests/browser-tooling/"
       ],
       "paths": [
         ".dockerignore",

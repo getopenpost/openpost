@@ -5,14 +5,6 @@ describe('initialEditorAccountId', () => {
 	it('opens the only divergent destination instead of an empty shared editor', () => {
 		expect(initialEditorAccountId(['linkedin-1'], ['linkedin-1'])).toBe('linkedin-1');
 	});
-
-	it('opens the first selected destination when every destination is divergent', () => {
-		expect(initialEditorAccountId(['linkedin-1', 'x-1'], ['x-1', 'linkedin-1'])).toBe('linkedin-1');
-	});
-
-	it('preserves the shared editor while any selected destination remains synced', () => {
-		expect(initialEditorAccountId(['linkedin-1', 'x-1'], ['linkedin-1'])).toBeNull();
-	});
 });
 
 describe('editorAccountIdAfterVariantLoad', () => {

@@ -1221,9 +1221,3 @@ export const generatedActionRequestMappers = [
     synthetic: false,
   },
 ] as const;
-
-export function findGeneratedAction(resource: string, operation: string) {
-  return generatedActionRequestMappers.find(
-    (action) => action.actionKey === resource + "." + operation,
-  );
-}

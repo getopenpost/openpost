@@ -52,6 +52,15 @@ const svelteKitPlugins = await sveltekit();
 const appFrameworkPlugins = isVitest
 	? svelteKitPlugins.filter((plugin) => plugin.name !== 'vite-plugin-sveltekit-compile')
 	: svelteKitPlugins;
+// Vite drops null values during config merges. Set this after merging so Vitest
+// never starts a project watcher that can reopen while its initial scan settles.
+const testProjectWatcherPlugin: Plugin = {
+	name: 'openpost-vitest-project-watcher',
+	enforce: 'post',
+	configResolved(config) {
+		config.server.watch = null;
+	}
+};
 const testMediaStubPlugin: Plugin = {
 	name: 'openpost-vitest-media-stub',
 	configureServer(server) {
@@ -79,7 +88,7 @@ export default defineConfig({
 	plugins: [
 		pdfPreviewAssets(),
 		phonemizerRuntimePlugin(),
-		...(isVitest ? [testMediaStubPlugin] : []),
+		...(isVitest ? [testMediaStubPlugin, testProjectWatcherPlugin] : []),
 		tailwindcss(),
 		...appFrameworkPlugins,
 		...(!usesPrecompiledParaglide ? [paraglidePlugin, paraglideDeclarationsPlugin] : []),

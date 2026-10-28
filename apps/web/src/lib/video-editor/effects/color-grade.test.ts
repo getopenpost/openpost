@@ -96,7 +96,7 @@ describe('color grade stacks', () => {
 		expect(applied.enabled).toBe(true);
 	});
 
-	it('leaves the stack untouched when the preset carries no grade entries', () => {
+	it('removes the old grade when the preset carries no grade entries', () => {
 		const current: ItemEffect[] = [grade('old-wheels')];
 		const next = applyColorGradePresetToStack(
 			current,

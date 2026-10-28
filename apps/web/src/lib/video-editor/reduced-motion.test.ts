@@ -21,15 +21,6 @@ const TARGET_ANIMATIONS = [
 	'animate-bounce'
 ] as const;
 
-// If an animation is truly essential and must remain motionful even under
-// reduced motion, add its file+line with a clear reason and a settled fallback
-// description. Example: 'src/lib/video-editor/components/recording-dialog.svelte:645': 'essential: live recording indicator pulse; reduced-motion shows static dot via motion-reduce:animate-none'
-const ESSENTIAL_ALLOWLIST = new Map<string, string>([
-	// No essential unguarded animation remains; every current pulse/spin is nonessential
-	// and carries motion-reduce:animate-none. Keep this map as the explicit allowlist
-	// for future essential cases.
-]);
-
 function walk(dir: string, out: string[]): void {
 	let entries: string[];
 	try {
@@ -81,8 +72,6 @@ describe('reduced-motion policy', () => {
 					if (line.includes(token)) {
 						// motion-reduce guard must be on same line (class string) or an explicit essential marker
 						if (isGuardedLine(line, token)) continue;
-						const key = `${rel}:${idx + 1}`;
-						if (ESSENTIAL_ALLOWLIST.has(key)) continue;
 						violations.push({
 							file: rel,
 							line: idx + 1,
@@ -100,12 +89,5 @@ describe('reduced-motion policy', () => {
 				? `Unguarded animation found. Add motion-reduce:animate-none or mark essential with "motion-essential: <reason>" on the same line.\n${violations.map((v) => `${v.file}:${v.line} (${v.token}) => ${v.snippet}`).join('\n')}`
 				: undefined
 		).toEqual([]);
-	});
-
-	it('requires a reason for every allowed essential animation', () => {
-		const invalidEntries = [...ESSENTIAL_ALLOWLIST].filter(
-			([, reason]) => reason.trim().length <= 15 || !reason.toLowerCase().includes('essential')
-		);
-		expect(invalidEntries).toEqual([]);
 	});
 });

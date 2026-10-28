@@ -153,29 +153,81 @@ func seedPreflightCandidate(t *testing.T, db *bun.DB, runAt time.Time) {
 }
 
 func TestProviderMatchesTheAccountSpecificAdapter(t *testing.T) {
+	db := preflightTestDB(t)
+	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
+	runAt := now.Add(30 * time.Minute)
+
+	accounts := []models.SocialAccount{
+		{ID: "account-bluesky-default", WorkspaceID: "workspace-1", Slug: "bluesky-default", Platform: "bluesky",
+			AccountID: "provider-bluesky-default", AccountUsername: "Founder", InstanceURL: "https://bsky.social",
+			CapabilityState: "{}", AccessTokenEnc: []byte("test-token"), IsActive: true, CreatedAt: now},
+		{ID: "account-bluesky-selfhosted", WorkspaceID: "workspace-1", Slug: "bluesky-selfhosted", Platform: "bluesky",
+			AccountID: "provider-bluesky-selfhosted", AccountUsername: "Founder", InstanceURL: "https://PDS.example.com/",
+			CapabilityState: "{}", AccessTokenEnc: []byte("test-token"), IsActive: true, CreatedAt: now},
+		{ID: "account-discord-webhook", WorkspaceID: "workspace-1", Slug: "discord-webhook", Platform: "discord",
+			AccountID: "provider-discord-webhook", AccountUsername: "Founder",
+			CapabilityState: "{}", AccessTokenEnc: []byte("test-token"), IsActive: true, CreatedAt: now},
+		{ID: "account-discord-bot", WorkspaceID: "workspace-1", Slug: "discord-bot", Platform: "discord",
+			AccountID: "provider-discord-bot", AccountUsername: "Founder",
+			CapabilityState: `{"connection_type":"bot"}`, AccessTokenEnc: []byte("test-token"), IsActive: true, CreatedAt: now},
+	}
+	_, err := db.NewInsert().Model(&accounts).Exec(t.Context())
+	require.NoError(t, err)
+	for _, account := range accounts {
+		publicationID := "publication-" + account.ID
+		_, err := db.NewInsert().Model(&models.Publication{
+			ID: publicationID, WorkspaceID: "workspace-1", CreatedByID: "user-1", Title: "Launch",
+			SourceContent: "Launch", Status: models.PublicationStatusScheduled, ScheduledAt: runAt,
+			ActualRunAt: runAt, MetadataJSON: "{}", ReleasePlanJSON: "{}", CreatedAt: now, UpdatedAt: now,
+		}).Exec(t.Context())
+		require.NoError(t, err)
+		_, err = db.NewInsert().Model(&models.Rendition{
+			ID: "rendition-" + account.ID, PublicationID: publicationID, SocialAccountID: account.ID,
+			TargetKey: account.Platform, Platform: account.Platform, Profile: "post",
+			Status: models.RenditionStatusScheduled, SettingsJSON: "{}", CreatedAt: now, UpdatedAt: now,
+		}).Exec(t.Context())
+		require.NoError(t, err)
+	}
+
+	// Each adapter answers for its own provider key with a distinguishable
+	// outcome, so the stored per-account result identifies the adapter that ran.
 	defaultBluesky := &preflightAdapter{}
-	selfHostedBluesky := &preflightAdapter{}
-	discordWebhook := &preflightAdapter{}
-	discordBot := &preflightAdapter{}
-	service := NewService(nil, preflightTokens{}, &preflightNotifications{})
+	selfHostedBluesky := &preflightAdapter{err: &platform.HTTPError{StatusCode: 401, Code: "invalid_token"}}
+	discordWebhook := &preflightAdapter{err: &platform.HTTPError{StatusCode: 429, Code: "rate_limit"}}
+	discordBot := &preflightAdapter{err: &platform.HTTPError{StatusCode: 403, Code: "permission_denied"}}
+	recorder := &preflightNotifications{}
+	service := NewService(db, preflightTokens{}, recorder)
+	service.now = func() time.Time { return now }
 	service.SetProvider("bluesky", defaultBluesky)
 	service.SetProvider("bluesky:https://pds.example.com", selfHostedBluesky)
 	service.SetProvider("discord", discordWebhook)
 	service.SetProvider("discord:bot", discordBot)
 
-	tests := []struct {
-		name      string
-		candidate upcomingCandidate
-		want      platform.Adapter
-	}{
-		{name: "default Bluesky PDS", candidate: upcomingCandidate{Platform: "bluesky", InstanceURL: "https://bsky.social"}, want: defaultBluesky},
-		{name: "self-hosted Bluesky PDS", candidate: upcomingCandidate{Platform: "bluesky", InstanceURL: "https://PDS.example.com/"}, want: selfHostedBluesky},
-		{name: "Discord webhook", candidate: upcomingCandidate{Platform: "discord", CapabilityState: "{}"}, want: discordWebhook},
-		{name: "Discord bot", candidate: upcomingCandidate{Platform: "discord", CapabilityState: `{"connection_type":"bot"}`}, want: discordBot},
+	require.NoError(t, service.HandleJob(t.Context(), JobType))
+
+	require.Equal(t, 1, defaultBluesky.calls)
+	require.Equal(t, 1, selfHostedBluesky.calls)
+	require.Equal(t, 1, discordWebhook.calls)
+	require.Equal(t, 1, discordBot.calls)
+
+	// Four different stored outcomes: healthy, authentication, unclassified
+	// (rate limited), permission. Swapping any two adapters changes a stored
+	// result even when both would have been called once.
+	wantFailures := map[string]string{
+		"account-bluesky-default":    "",
+		"account-bluesky-selfhosted": "authentication",
+		"account-discord-webhook":    "unknown",
+		"account-discord-bot":        "permission",
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			require.Same(t, test.want, service.provider(test.candidate))
-		})
+	for accountID, wantFailure := range wantFailures {
+		var account models.SocialAccount
+		require.NoError(t, db.NewSelect().Model(&account).Where("id = ?", accountID).Scan(t.Context()))
+		require.Equal(t, wantFailure, account.PreflightFailure, "preflight failure stored for %s", accountID)
+		require.Equal(t, now, account.PreflightCheckedAt, "preflight check time stored for %s", accountID)
+		if wantFailure == "" {
+			require.Equal(t, now, account.PreflightSuccessAt, "preflight success stored for %s", accountID)
+		} else {
+			require.True(t, account.PreflightSuccessAt.IsZero(), "a failed preflight must not store a success for %s", accountID)
+		}
 	}
 }

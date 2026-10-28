@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SubComposition, TimelineItem, TimelineTrack } from '../project/types';
 import { planMixdown, planNestedMixdown, sliceMixEntries } from '../media/render-plan';
-import { collectMixEntryDuckWindows, mixEntryDuckGainAtTime, dbToGain } from './audio-ducking';
+import { collectMixEntryDuckWindows, mixEntryDuckGainAtTime } from './audio-ducking';
 
 function track(id: string, order = 0, extra: Partial<TimelineTrack> = {}): TimelineTrack {
 	return {
@@ -118,8 +118,26 @@ describe('MixEntry duck window is authored, not transition-extended', () => {
 		const all = [...fastEntries, ...targetEntries];
 		const allWindows = collectMixEntryDuckWindows(all);
 		const targetEntry = all.find((x) => x.itemId === 'target')!;
-		expect(mixEntryDuckGainAtTime(0.25, targetEntry, allWindows)).toBeCloseTo(dbToGain(-12));
+		expect(mixEntryDuckGainAtTime(0.25, targetEntry, allWindows)).toBeCloseTo(10 ** (-12 / 20));
 		expect(mixEntryDuckGainAtTime(0.6, targetEntry, allWindows)).toBeCloseTo(1);
+		const normalized = planMixdown(
+			[
+				item({ id: 'clamped', audioDucking: { duckOthersDb: -80 } }),
+				item({ id: 'default', audioDucking: { duckOthersDb: -9 } }),
+				item({ id: 'ramps', audioDucking: { duckOthersDb: -9, attackSec: 0.5, releaseSec: 0.4 } })
+			],
+			[track('track-a')],
+			fps
+		);
+		expect(collectMixEntryDuckWindows(normalized)[1]).toMatchObject({
+			attackSeconds: 0.08,
+			releaseSeconds: 0.25
+		});
+		expect(normalized.map((entry) => entry.ducking)).toEqual([
+			{ duckOthersDb: -60 },
+			{ duckOthersDb: -9 },
+			{ duckOthersDb: -9, attackSec: 0.5, releaseSec: 0.4 }
+		]);
 	});
 });
 
@@ -181,8 +199,8 @@ describe('root-to-nested and nested-to-root preview parity via MixEntry plan', (
 		const nestedEntry = plan.find((e) => e.itemId === 'wrapper/nested-voice')!;
 		const rootMusicEntry = plan.find((e) => e.itemId === 'root-music')!;
 		const rootDuckerEntry = plan.find((e) => e.itemId === 'root-ducker')!;
-		expect(mixEntryDuckGainAtTime(0.5, rootMusicEntry, windows)).toBeCloseTo(dbToGain(-12));
-		expect(mixEntryDuckGainAtTime(0.5, nestedEntry, windows)).toBeCloseTo(dbToGain(-12));
+		expect(mixEntryDuckGainAtTime(0.5, rootMusicEntry, windows)).toBeCloseTo(10 ** (-12 / 20));
+		expect(mixEntryDuckGainAtTime(0.5, nestedEntry, windows)).toBeCloseTo(10 ** (-12 / 20));
 		// Self-exclusion: nested does not duck itself, root ducker does not duck itself
 		expect(
 			mixEntryDuckGainAtTime(
@@ -198,6 +216,27 @@ describe('root-to-nested and nested-to-root preview parity via MixEntry plan', (
 				windows.filter((w) => w.itemId === rootDuckerEntry.itemId)
 			)
 		).toBe(1);
+		const audibleItems = [
+			item({ id: 'voice', trackId: 'solo', audioDucking: { duckOthersDb: -9 } }),
+			item({ id: 'sfx', trackId: 'other', audioDucking: { duckOthersDb: -12 } }),
+			item({ id: 'muted', trackId: 'muted', audioDucking: { duckOthersDb: -9 } }),
+			item({ id: 'zero', trackId: 'solo', audioDucking: { duckOthersDb: 0 } })
+		];
+		const audibleTracks = [track('solo'), track('other'), track('muted', 2, { muted: true })];
+		expect(
+			collectMixEntryDuckWindows(planMixdown(audibleItems, audibleTracks, fps)).map(
+				(window) => window.itemId
+			)
+		).toEqual(['voice', 'sfx']);
+		expect(
+			collectMixEntryDuckWindows(
+				planMixdown(
+					audibleItems,
+					audibleTracks.map((t) => ({ ...t, solo: t.id === 'solo' })),
+					fps
+				)
+			).map((window) => window.itemId)
+		).toEqual(['voice']);
 	});
 });
 
@@ -238,7 +277,34 @@ describe('slice preserves original envelope phase', () => {
 			ducking: undefined
 		} as unknown as import('../media/render-plan').MixEntry;
 		// At slice local 0 (original 1.3), gain should be attack phase -7.2dB
-		expect(mixEntryDuckGainAtTime(0, target, windows)).toBeCloseTo(dbToGain(-7.2), 2);
+		expect(mixEntryDuckGainAtTime(0, target, windows)).toBeCloseTo(10 ** (-7.2 / 20), 2);
+
+		const envelopeEntries = planMixdown(
+			[
+				item({
+					id: 'voice',
+					trackId: 'voice',
+					durationInFrames: 30,
+					audioDucking: { duckOthersDb: -12, attackSec: 0.2, releaseSec: 0.2 }
+				}),
+				item({
+					id: 'soft',
+					trackId: 'voice',
+					durationInFrames: 30,
+					audioDucking: { duckOthersDb: -6, attackSec: 0, releaseSec: 0 }
+				}),
+				item({ id: 'music', trackId: 'music', durationInFrames: 60 })
+			],
+			[track('voice'), track('music')],
+			fps
+		);
+		const music = envelopeEntries.find((entry) => entry.itemId === 'music')!;
+		const envelopes = collectMixEntryDuckWindows(envelopeEntries);
+		expect(mixEntryDuckGainAtTime(-0.1, music, envelopes)).toBe(1);
+		expect(mixEntryDuckGainAtTime(0.1, music, envelopes)).toBeCloseTo(10 ** (-6 / 20));
+		expect(mixEntryDuckGainAtTime(0.5, music, envelopes)).toBeCloseTo(10 ** (-12 / 20));
+		expect(mixEntryDuckGainAtTime(1.1, music, envelopes)).toBeCloseTo(10 ** (-6 / 20));
+		expect(mixEntryDuckGainAtTime(1.3, music, envelopes)).toBe(1);
 		// Original gain at 1.3 should match sliced gain at 0
 		const origEntry = {
 			...entry,
@@ -295,7 +361,7 @@ describe('slice preserves original envelope phase', () => {
 		const target = plan.find((e) => e.itemId === 'wrapper/sibling-target')!;
 		const windows = collectMixEntryDuckWindows(plan);
 		// Sibling ducker targets sub-a via namespaced wrapper/sub-a, so it should duck target
-		expect(mixEntryDuckGainAtTime(0.5, target, windows)).toBeCloseTo(dbToGain(-12));
+		expect(mixEntryDuckGainAtTime(0.5, target, windows)).toBeCloseTo(10 ** (-12 / 20));
 		// Non-ducking target has alias, so it can be matched
 		expect(target.duckTrackAliases).toContain('wrapper/sub-a');
 		// Ducker itself has alias for its own track

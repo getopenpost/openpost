@@ -1,14 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { CalendarDate } from '@internationalized/date';
-import { buildRollingCalendarWeeks, startOfCalendarWeek } from './sidebar-rolling-calendar';
+import { buildRollingCalendarWeeks } from './sidebar-rolling-calendar';
 
 describe('sidebar rolling calendar', () => {
 	const today = new CalendarDate(2026, 7, 28);
-
-	it('starts with the week containing today', () => {
-		expect(startOfCalendarWeek(today, 0).toString()).toBe('2026-07-26');
-		expect(startOfCalendarWeek(today, 1).toString()).toBe('2026-07-27');
-	});
 
 	it('keeps earlier days in the current week visible but disabled', () => {
 		const weeks = buildRollingCalendarWeeks(today, 1, 5);
@@ -29,6 +24,9 @@ describe('sidebar rolling calendar', () => {
 
 	it('only generates forward weeks after the current week', () => {
 		const weeks = buildRollingCalendarWeeks(today, 0, 5);
+		// Sunday-first build starts on the Sunday of the current week...
+		expect(weeks[0][0].key).toBe('2026-07-26');
+		// ...and only rolls forward from there.
 		expect(weeks[4][0].key).toBe('2026-08-23');
 		expect(weeks.flat().filter((day) => day.today)).toHaveLength(1);
 	});

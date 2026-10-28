@@ -1,19 +1,18 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { selectParakeetBackend } from './parakeet-model';
 afterEach(() => vi.unstubAllGlobals());
-it.each([true, false])('selects fp16 only when shader-f16 is available (%s)', async (supported) => {
-	vi.stubGlobal('navigator', {
-		gpu: { requestAdapter: async () => ({ features: new Set(supported ? ['shader-f16'] : []) }) }
-	});
-	expect(await selectParakeetBackend()).toBe(supported ? 'webgpu' : 'wasm');
-});
-it('falls back when an adapter cannot be acquired', async () => {
+it.each([
+	{ name: 'fp16 available', features: ['shader-f16'], expected: 'webgpu' },
+	{ name: 'fp16 absent', features: [], expected: 'wasm' },
+	{ name: 'adapter failure', features: null, expected: 'wasm' }
+])('selects a usable backend: $name', async ({ features, expected }) => {
 	vi.stubGlobal('navigator', {
 		gpu: {
 			requestAdapter: async () => {
-				throw new Error('Unavailable');
+				if (features === null) throw new Error('Unavailable');
+				return { features: new Set(features) };
 			}
 		}
 	});
-	expect(await selectParakeetBackend()).toBe('wasm');
+	expect(await selectParakeetBackend()).toBe(expected);
 });

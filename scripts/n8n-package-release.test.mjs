@@ -1,56 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  assessPackageVersionChange,
-  assessRegistryVersion,
-  compareVersions,
-} from "./n8n-package-release.mjs";
-import { parseNpmPackResult } from "./npm-pack-result.mjs";
-import { parseNpmViewResult } from "./npm-view-result.mjs";
+import { assessPackageVersionChange, assessRegistryVersion } from "./n8n-package-release.mjs";
 
 const packageFile = "packages/n8n-nodes-openpost/package.json";
-
-test("npm pack metadata accepts npm 11 and npm 12 output", () => {
-  const pack = { filename: "openpost.tgz", integrity: "sha512-local" };
-  assert.deepEqual(
-    parseNpmPackResult(JSON.stringify([pack]), "@getopenpost/n8n-nodes-openpost"),
-    pack,
-  );
-  assert.deepEqual(
-    parseNpmPackResult(
-      JSON.stringify({ "@getopenpost/n8n-nodes-openpost": pack }),
-      "@getopenpost/n8n-nodes-openpost",
-    ),
-    pack,
-  );
-  assert.throws(
-    () => parseNpmPackResult("{}", "@getopenpost/n8n-nodes-openpost"),
-    /did not return metadata/u,
-  );
-});
-
-test("npm view metadata accepts npm 11 and npm 12 output", () => {
-  const metadata = {
-    name: "@getopenpost/n8n-nodes-openpost",
-    version: "0.1.0",
-    "dist.integrity": "sha512-local",
-  };
-  assert.deepEqual(parseNpmViewResult(JSON.stringify(metadata), metadata.name), metadata);
-  assert.deepEqual(parseNpmViewResult(JSON.stringify([metadata]), metadata.name), metadata);
-  assert.throws(() => parseNpmViewResult("[]", metadata.name), /did not return metadata/u);
-});
-
-test("npm view scalar fields accept npm 11 and npm 12 output", () => {
-  assert.equal(
-    parseNpmViewResult(JSON.stringify("sha512-local"), "package integrity"),
-    "sha512-local",
-  );
-  assert.equal(
-    parseNpmViewResult(JSON.stringify(["sha512-local"]), "package integrity"),
-    "sha512-local",
-  );
-});
 
 test("the first package version can be added", () => {
   assert.deepEqual(
@@ -102,6 +55,72 @@ test("a higher package version permits publishable changes", () => {
     }),
     { changed: true, initial: false, version: "0.2.0" },
   );
+});
+
+test("compiler-excluded test files do not require a package version increase", () => {
+  for (const testFile of [
+    "packages/n8n-nodes-openpost/test/OpenPost.node.test.ts",
+    "packages/n8n-nodes-openpost/test/unit/helper.ts",
+    "packages/n8n-nodes-openpost/test/package-contract.test.ts",
+  ]) {
+    assert.deepEqual(
+      assessPackageVersionChange({
+        changedFiles: [testFile],
+        currentVersion: "0.1.0",
+        previousVersion: "0.1.0",
+      }),
+      { changed: false, initial: false, version: "0.1.0" },
+      testFile,
+    );
+  }
+});
+
+test("production, build configuration, README, and non-excluded test-looking files stay publishable", () => {
+  for (const changedFile of [
+    "packages/n8n-nodes-openpost/nodes/OpenPost/OpenPost.node.ts",
+    "packages/n8n-nodes-openpost/credentials/OpenPostApi.credentials.ts",
+    "packages/n8n-nodes-openpost/tsconfig.json",
+    "packages/n8n-nodes-openpost/README.md",
+    "packages/n8n-nodes-openpost/tests/helper.ts",
+    "packages/n8n-nodes-openpost/test-helper.ts",
+  ]) {
+    assert.throws(
+      () =>
+        assessPackageVersionChange({
+          changedFiles: [changedFile],
+          currentVersion: "0.1.0",
+          previousVersion: "0.1.0",
+        }),
+      /must increase the package version/u,
+      changedFile,
+    );
+  }
+});
+
+test("mixed test-only and publishable changes still require a higher version", () => {
+  for (const changedFiles of [
+    [
+      "packages/n8n-nodes-openpost/test/unit/helper.ts",
+      "packages/n8n-nodes-openpost/tsconfig.json",
+    ],
+    ["packages/n8n-nodes-openpost/test/unit/helper.ts", "packages/n8n-nodes-openpost/README.md"],
+    // `--no-renames` reports both sides of a rename; the production side remains publishable.
+    [
+      "packages/n8n-nodes-openpost/test/legacy.test.ts",
+      "packages/n8n-nodes-openpost/nodes/OpenPost/OpenPost.node.ts",
+    ],
+  ]) {
+    assert.throws(
+      () =>
+        assessPackageVersionChange({
+          changedFiles,
+          currentVersion: "0.1.0",
+          previousVersion: "0.1.0",
+        }),
+      /must increase the package version/u,
+      changedFiles.join(", "),
+    );
+  }
 });
 
 test("unrelated changes do not require a package version increase", () => {

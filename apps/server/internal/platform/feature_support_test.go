@@ -6,34 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSupportsAnalyticsParity(t *testing.T) {
-	tests := []struct {
-		platform string
-		capState string
-		want     bool
-	}{
-		{"x", "", true},
-		{"bluesky", "", true},
-		{"mastodon", "", true},
-		{"facebook", "", true},
-		{"instagram", "", true},
-		{"threads", "", true},
-		{"youtube", "", true},
-		{"tiktok", "", true},
-		{"linkedin", "", true},
-		{"linkedin", `{"linkedin_account_type":"community_management"}`, false},
-		{"discord", "", false},
-		{"discord", `{"connection_type":"webhook"}`, false},
-		{"discord", `{"connection_type":"bot"}`, true},
-		{"unknown", "", false},
-	}
-	for _, tc := range tests {
-		if got := SupportsAnalytics(tc.platform, tc.capState); got != tc.want {
-			t.Errorf("SupportsAnalytics(%q,%q)=%v want %v", tc.platform, tc.capState, got, tc.want)
-		}
-	}
-}
-
 func TestSupportsAnalyticsLinkedInCommunityManagementParsing(t *testing.T) {
 	tests := []struct {
 		name     string

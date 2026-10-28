@@ -17,12 +17,19 @@ describe('Quick Cut keyframe indexing', () => {
 			.mockResolvedValueOnce(keyThree)
 			.mockResolvedValueOnce(null);
 
+		const getFirstPacket = vi.fn(async () => first);
 		const timestamps = await collectKeyframeTimestamps({
-			getFirstPacket: vi.fn(async () => first),
+			getFirstPacket,
 			getNextKeyPacket
 		});
 
 		expect(timestamps).toEqual([1, 3]);
+		expect(getFirstPacket).toHaveBeenCalledExactlyOnceWith({ verifyKeyPackets: true });
+		expect(getNextKeyPacket.mock.calls).toEqual([
+			[first, { verifyKeyPackets: true }],
+			[keyOne, { verifyKeyPackets: true }],
+			[keyThree, { verifyKeyPackets: true }]
+		]);
 	});
 
 	it('stops between key packets when indexing is cancelled', async () => {

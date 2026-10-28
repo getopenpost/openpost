@@ -65,7 +65,17 @@ describe('account OAuth callback selection flow', () => {
 		});
 	});
 
-	it('does not claim success or redirect while account selection is required', async () => {
+	it('posts the chosen selection and only then transitions to success', async () => {
+		const post = deferred<{
+			data: {
+				id: string;
+				workspace_id: string;
+				account_ids: string[];
+				open_fresh_composer: boolean;
+			};
+			error: null;
+		}>();
+		mocks.post.mockReturnValue(post.promise);
 		setCallbackUrl('status=selection_required&platform=facebook&connection_id=conn_123');
 
 		const screen = await renderCallbackPage();
@@ -89,23 +99,6 @@ describe('account OAuth callback selection flow', () => {
 		expect(mocks.get).toHaveBeenCalledWith('/accounts/selections/{connection_id}', {
 			params: { path: { connection_id: 'conn_123' } }
 		});
-	});
-
-	it('posts the chosen selection and only then transitions to success', async () => {
-		const post = deferred<{
-			data: {
-				id: string;
-				workspace_id: string;
-				account_ids: string[];
-				open_fresh_composer: boolean;
-			};
-			error: null;
-		}>();
-		mocks.post.mockReturnValue(post.promise);
-		setCallbackUrl('status=selection_required&platform=facebook&connection_id=conn_123');
-
-		const screen = await renderCallbackPage();
-
 		await screen.getByRole('radio', { name: /OpenPost Page/ }).click();
 		await screen.getByRole('button', { name: 'Connect selected account' }).click();
 

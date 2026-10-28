@@ -95,6 +95,7 @@ describe('auth recovery-code verification', () => {
 	});
 
 	it('keeps the pending login unauthenticated when the code is rejected', async () => {
+		auth.clearLocal();
 		apiMocks.post.mockResolvedValue({
 			error: { detail: 'invalid recovery code' }
 		});
@@ -102,6 +103,12 @@ describe('auth recovery-code verification', () => {
 		const result = await auth.verifyRecoveryCode('mfa-challenge', 'USED-CODE');
 
 		expect(result).toEqual({ success: false, error: 'invalid recovery code' });
+		let current: { isAuthenticated: boolean; user: User | null } | undefined;
+		const unsubscribe = auth.subscribe((state) => {
+			current = state;
+		});
+		unsubscribe();
+		expect(current).toMatchObject({ isAuthenticated: false, user: null });
 	});
 
 	it('clears authentication when the projected user becomes null', () => {
@@ -356,9 +363,9 @@ describe('auth recovery-code verification', () => {
 	});
 
 	it('clears anonymous query data before accepting a new account', async () => {
-		const clear = vi.fn();
-		const resetWorkspaceState = vi.fn();
 		const cache = new QueryClient();
+		const clear = vi.fn(() => cache.clear());
+		const resetWorkspaceState = vi.fn();
 		const setQueriesData = vi.fn();
 		const user = {
 			...userProfileDefaults,
@@ -394,11 +401,21 @@ describe('auth recovery-code verification', () => {
 			resetWorkspaceState
 		});
 		isolatedAuth.clearLocal();
+		const anonymousKey = ['openpost', 'v1', 'public-profile', 'anonymous'];
+		cache.setQueryData(anonymousKey, { username: 'anonymous' });
+		expect(cache.getQueryData(anonymousKey)).toBeDefined();
+		const authenticatedSnapshots: unknown[] = [];
+		const stopObserving = isolatedAuth.subscribe((state) => {
+			if (state.isAuthenticated) authenticatedSnapshots.push(cache.getQueryData(anonymousKey));
+		});
 
 		await expect(isolatedAuth.login('next@example.com', 'password')).resolves.toEqual({
 			success: true
 		});
 
+		stopObserving();
+		expect(authenticatedSnapshots).toEqual([undefined]);
+		expect(cache.getQueryData(anonymousKey)).toBeUndefined();
 		expect(clear).toHaveBeenCalledTimes(1);
 		expect(resetWorkspaceState).toHaveBeenCalledTimes(1);
 
@@ -525,6 +542,7 @@ describe('auth recovery-code verification', () => {
 		isolatedAuth.setUser(firstUser);
 		const firstIdentity = isolatedAuth.captureIdentity();
 		const logout = isolatedAuth.logout();
+		await vi.waitFor(() => expect(post).toHaveBeenCalledWith('/auth/logout'));
 		isolatedAuth.setUser(secondUser);
 
 		resolveLogout();

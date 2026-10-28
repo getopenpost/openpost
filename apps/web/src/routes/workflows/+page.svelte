@@ -16,10 +16,11 @@
 	import { readQueryErrorMessage } from '$lib/query/error-message';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { saveWorkflow, deleteWorkflow, type Workflow, type Definition } from '$lib/workflows/api';
-	import { templates, sourceLabel, runStateLabel } from '$lib/workflows/catalog';
+	import { templates, commentTemplates, sourceLabel, runStateLabel } from '$lib/workflows/catalog';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import RepostHistory from '$lib/workflows/repost-history.svelte';
 	import GraphPreview from '$lib/workflows/graph-preview.svelte';
+	import CommentCampaignSetup from '$lib/workflows/comment-campaign-setup.svelte';
 	import RunInspector from '$lib/workflows/run-inspector.svelte';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
@@ -34,6 +35,13 @@
 	// page is already open is a same-route navigation, and a value captured at
 	// mount would leave the reader on the run they first opened.
 	const requestedRun = $derived(page.url.searchParams.get('run') ?? '');
+	let replyTemplate = $state<{
+		id: string;
+		name: string;
+		description: string;
+		definition: Definition;
+	} | null>(null);
+	let handledTemplate = '';
 	let deleting = $state<Workflow | null>(null),
 		deleteOpen = $state(false);
 	const requestedWorkspaceID = $derived(page.url.searchParams.get('workspace_id') ?? '');
@@ -82,9 +90,32 @@
 				});
 		});
 	});
+	$effect(() => {
+		const requested = page.url.searchParams.get('template') ?? '';
+		if (!requested || handledTemplate === page.url.href) return;
+		const template = commentTemplates().find((item) => item.id === requested);
+		if (!template) return;
+		handledTemplate = page.url.href;
+		const source = template.definition.source;
+		const account = page.url.searchParams.get('account_id');
+		const rendition = page.url.searchParams.get('rendition_id');
+		const post = page.url.searchParams.get('post_id');
+		if (account) source.account_ids = [account];
+		if (rendition) {
+			source.rendition_ids = [rendition];
+			source.post_scope = 'selected';
+		} else if (post) {
+			source.post_ids = [post];
+			source.post_scope = 'selected';
+		}
+		replyTemplate = template;
+		tab = 'templates';
+	});
 	const accountsQuery = createQuery(() => ({
 		...workspaceAccountsQueryOptions(queryAPI, workspaceID),
-		enabled: Boolean(workspaceID && tab === 'runs' && selectedRun)
+		enabled: Boolean(
+			workspaceID && ((tab === 'runs' && selectedRun) || (tab === 'templates' && replyTemplate))
+		)
 	}));
 	const workflowsQuery = createQuery(() => ({
 		...workflowsQueryOptions(workflowQueryAPI, workspaceID),
@@ -132,7 +163,9 @@
 		tab === 'workflows'
 			? [workflowsQuery, repostsQuery]
 			: tab === 'templates'
-				? []
+				? replyTemplate
+					? [accountsQuery]
+					: []
 				: selectedRun
 					? [accountsQuery, ...(selectedRunQuery.data ? [] : [selectedRunQuery])]
 					: [runsQuery]
@@ -274,37 +307,49 @@
 				/>{/if}
 			<Button variant="ghost" href="/workflows/reposts">{m.repost_heading()}</Button>
 		{:else if tab === 'templates'}
-			<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-				{#each templates() as template (template.id)}<div
-						class="flex flex-col items-start gap-4 rounded-lg border bg-card p-4"
-					>
-						<GraphPreview definition={template.definition} />
-						<div class="min-w-0 flex-1">
-							<h2 class="font-medium">{template.name}</h2>
-							<p class="mt-2 text-sm leading-6 text-muted-foreground">{template.description}</p>
-						</div>
-						<Button
-							variant="outline"
-							disabled={busy || workspaceCtx.currentWorkspace?.role === 'viewer'}
-							onclick={() => create(template.name, template.definition)}
-							>{m.workflows_use_template()}</Button
+			{#if replyTemplate}{#key replyTemplate}<CommentCampaignSetup
+						template={replyTemplate}
+						accounts={accountsQuery.data ?? []}
+						{workspaceID}
+						{busy}
+						onsubmit={create}
+						onclose={() => (replyTemplate = null)}
+					/>{/key}{:else}
+				<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+					{#each templates() as template (template.id)}<div
+							class="flex flex-col items-start gap-4 rounded-lg border bg-card p-4"
 						>
-					</div>{/each}
-				{#each [{ id: 'repost', name: m.repost_new_rule(), description: m.repost_delay_days( { count: 1 } ) }, { id: 'cycle', name: m.workflows_repost_cycle(), description: `${m.repost_delay_days({ count: 1 })} · ${m.repost_delay_days({ count: 3 })}` }, { id: 'popular', name: m.workflows_repost_popular(), description: m.repost_engagement_gates_body() }] as template (template.id)}
-					<div class="flex flex-col items-start gap-4 rounded-lg border bg-card p-4">
-						<div class="min-w-0 flex-1">
-							<h2 class="font-medium">{template.name}</h2>
-							<p class="mt-2 text-sm leading-6 text-muted-foreground">{template.description}</p>
+							<GraphPreview definition={template.definition} />
+							<div class="min-w-0 flex-1">
+								<h2 class="font-medium">{template.name}</h2>
+								<p class="mt-2 text-sm leading-6 text-muted-foreground">{template.description}</p>
+							</div>
+							<Button
+								variant="outline"
+								disabled={busy || workspaceCtx.currentWorkspace?.role === 'viewer'}
+								onclick={() => {
+									if (template.definition.source.kind === 'comment_received')
+										replyTemplate = template;
+									else void create(template.name, template.definition);
+								}}>{m.workflows_use_template()}</Button
+							>
+						</div>{/each}
+					{#each [{ id: 'repost', name: m.repost_new_rule(), description: m.repost_delay_days( { count: 1 } ) }, { id: 'cycle', name: m.workflows_repost_cycle(), description: `${m.repost_delay_days({ count: 1 })} · ${m.repost_delay_days({ count: 3 })}` }, { id: 'popular', name: m.workflows_repost_popular(), description: m.repost_engagement_gates_body() }] as template (template.id)}
+						<div class="flex flex-col items-start gap-4 rounded-lg border bg-card p-4">
+							<div class="min-w-0 flex-1">
+								<h2 class="font-medium">{template.name}</h2>
+								<p class="mt-2 text-sm leading-6 text-muted-foreground">{template.description}</p>
+							</div>
+							<Button
+								href={`/workflows/reposts?template=${template.id}`}
+								variant="outline"
+								disabled={workspaceCtx.currentWorkspace?.role !== 'admin'}
+								>{m.workflows_use_template()}</Button
+							>
 						</div>
-						<Button
-							href={`/workflows/reposts?template=${template.id}`}
-							variant="outline"
-							disabled={workspaceCtx.currentWorkspace?.role !== 'admin'}
-							>{m.workflows_use_template()}</Button
-						>
-					</div>
-				{/each}
-			</div>
+					{/each}
+				</div>
+			{/if}
 		{:else if selectedRun}<Button variant="ghost" onclick={returnToRuns}
 				><ThemeIcon role="arrow-left" class="size-4" />{m.workflows_runs()}</Button
 			>

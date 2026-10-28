@@ -1,9 +1,8 @@
 import { constants } from "node:fs";
-import { access, readFile, realpath, writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { load as parseYaml } from "js-yaml";
 import { parse, parseFragment } from "parse5";
 import {
   docsSiteUrl,
@@ -415,15 +414,6 @@ function marketingRepresentation(source, page) {
   };
 }
 
-function parseFrontmatter(source) {
-  const match = source.match(/^---\n([\s\S]*?)\n---\n?/u);
-  if (!match) return { data: {}, body: source };
-  return {
-    data: parseYaml(match[1]) ?? {},
-    body: source.slice(match[0].length),
-  };
-}
-
 function mapFenceAwareLines(source, transform) {
   let fenced = false;
   return source
@@ -474,37 +464,6 @@ function rewriteMarkdownLinks(source, canonical) {
       return `${label}(${resolved}${suffix})`;
     }),
   );
-}
-
-function normalizeContainers(source, sourcePath) {
-  const defaultLabels = {
-    danger: "Danger",
-    details: "Details",
-    info: "Info",
-    tip: "Tip",
-    warning: "Warning",
-  };
-  return transformOutsideFencedBlocks(source, (plainSource) => {
-    const normalized = plainSource.replace(
-      /^:::[ \t]*(info|tip|warning|danger|details)(?:[ \t]+([^\n]*?))?[ \t]*\r?\n([\s\S]*?)^:::[ \t]*$/gimu,
-      (_all, type, label, body) => {
-        const lines = body.trim().split("\n");
-        const title = label?.trim() || defaultLabels[type.toLowerCase()];
-        return [`> **${title}**`, ">", ...lines.map((line) => `> ${line}`)].join("\n");
-      },
-    );
-    const unsupported = normalized.match(/^:::[ \t]*([^\s\n]+)?[^\n]*$/mu);
-    if (unsupported) {
-      throw new Error(
-        `${sourcePath}: unsupported VitePress container ::: ${unsupported[1] ?? "(unclosed directive)"}`,
-      );
-    }
-    return normalized;
-  });
-}
-
-function normalizeMaintainedClientOnly(source) {
-  return source.replace(/<ClientOnly>\s*<OASpec\s+hideBranding\s*\/>\s*<\/ClientOnly>/gu, "");
 }
 
 function transformOutsideFencedBlocks(source, transform) {
@@ -584,84 +543,23 @@ function normalizeRawHtml(source, canonical, sourcePath) {
   });
 }
 
-async function expandControlledIncludes(source, sourcePath, sourceRoot, stack = []) {
-  const includePattern = /<!--@include:\s+([^\s{}]+)\s*-->/gu;
-  let expanded = "";
-  let cursor = 0;
-  for (const match of source.matchAll(includePattern)) {
-    expanded += source.slice(cursor, match.index);
-    const includeReference = match[1];
-    const includePath = path.resolve(path.dirname(sourcePath), includeReference);
-    const resolvedRoot = await realpath(sourceRoot);
-    const resolvedInclude = await realpath(includePath).catch(() => includePath);
-    if (
-      resolvedInclude !== resolvedRoot &&
-      !resolvedInclude.startsWith(`${resolvedRoot}${path.sep}`)
-    ) {
-      throw new Error(
-        `${sourcePath}: controlled include escapes the documentation root: ${includeReference}`,
-      );
-    }
-    if (stack.includes(resolvedInclude)) {
-      throw new Error(`${sourcePath}: controlled include cycle: ${includeReference}`);
-    }
-    await requireSource(resolvedInclude);
-    const included = await readFile(resolvedInclude, "utf8");
-    expanded += await expandControlledIncludes(included, resolvedInclude, sourceRoot, [
-      ...stack,
-      resolvedInclude,
-    ]);
-    cursor = match.index + match[0].length;
-  }
-  expanded += source.slice(cursor);
-  if (/<!--@include:/u.test(expanded)) {
-    throw new Error(`${sourcePath}: unsupported controlled include directive`);
-  }
-  return expanded;
-}
-
-async function documentationRepresentation(source, page, sourceRoot) {
-  source = await expandControlledIncludes(source, page.sourcePath, sourceRoot);
-  const { data, body: maintainedBody } = parseFrontmatter(source);
-  const hero = data.hero ?? {};
-  const sections = [`# ${hero.name ?? page.title}`];
-  if (hero.text) sections.push(String(hero.text));
-  if (hero.tagline) sections.push(String(hero.tagline));
-  if (Array.isArray(hero.actions)) {
-    sections.push(
-      hero.actions
-        .filter(
-          (action) =>
-            action?.text &&
-            action?.link &&
-            !privateApplicationOrigins.has(new URL(action.link, page.canonical).origin),
-        )
-        .map((action) => `- [${action.text}](${absoluteUrl(action.link, page.canonical)})`)
-        .join("\n"),
-    );
-  }
-  if (Array.isArray(data.features)) {
-    for (const feature of data.features) {
-      if (feature?.title) sections.push(`## ${feature.title}\n\n${feature.details ?? ""}`);
-    }
+function documentationRepresentation(source, page) {
+  const maintainedBody = source.replace(/^---\n[\s\S]*?\n---\n?/u, "");
+  if (/<!--@include:|^:::[ \t]/mu.test(withoutFencedContent(maintainedBody))) {
+    throw new Error(`${page.sourcePath}: unsupported legacy documentation directive`);
   }
   const bodyWithoutSourceHeading = maintainedBody.replace(/^\s*#\s+.+(?:\n+|$)/u, "");
   const normalizedBody = rewriteMarkdownLinks(
-    normalizeRawHtml(
-      normalizeContainers(normalizeMaintainedClientOnly(bodyWithoutSourceHeading), page.sourcePath),
-      page.canonical,
-      page.sourcePath,
-    ),
+    normalizeRawHtml(bodyWithoutSourceHeading, page.canonical, page.sourcePath),
     page.canonical,
   );
-  sections.push(normalizedBody);
   return {
     title: page.title,
     description: page.description,
     canonical: page.canonical,
     markdown: representation({
       ...page,
-      body: sections.filter(Boolean).join("\n\n"),
+      body: [`# ${page.title}`, normalizedBody].filter(Boolean).join("\n\n"),
     }),
   };
 }
@@ -998,11 +896,7 @@ export async function generateAgentSurface(projection) {
     const rendered =
       projection.surface === "marketing"
         ? marketingRepresentation(source, page)
-        : await documentationRepresentation(
-            source,
-            page,
-            projection.sourceRoot ?? path.dirname(page.sourcePath),
-          );
+        : documentationRepresentation(source, page);
     const generated = { ...page, ...rendered };
     if (privateRoutePattern.test(new URL(generated.canonical).pathname)) {
       throw new Error(`generated page exposes a private application route: ${generated.canonical}`);
@@ -1214,7 +1108,6 @@ export const productionProjections = {
   documentation: {
     surface: "documentation",
     originHeadersRequired: true,
-    sourceRoot: path.join(repositoryRoot, "apps/docs/content/docs"),
     corpus: { title: "OpenPost Documentation Full Corpus" },
     outputDirectory: path.join(repositoryRoot, "apps/docs/out"),
     pages: docsSocialEntries

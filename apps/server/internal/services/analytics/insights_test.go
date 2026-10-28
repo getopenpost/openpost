@@ -23,7 +23,10 @@ func TestContentInsightsRejectMixedProviderReportingPeriods(t *testing.T) {
 		insightTestContent("second", "account-b", "provider-b", now.Add(-2*time.Hour), 10, secondMetadata),
 	}
 
-	for _, insight := range buildContentInsights(content, now.Add(-30*24*time.Hour), now) {
+	insights := buildContentInsights(content, now.Add(-30*24*time.Hour), now)
+	require.Len(t, insights, 2)
+	require.ElementsMatch(t, []string{InsightKindMostEngagementActions, InsightKindStrongestMeasuredDestination}, []string{insights[0].Kind, insights[1].Kind})
+	for _, insight := range insights {
 		require.Equal(t, InsightStatusInsufficientData, insight.Status)
 		require.Equal(t, InsightReasonIncompatibleSemantics, insight.Reason)
 		require.Equal(t, 2, insight.MeasuredCount)

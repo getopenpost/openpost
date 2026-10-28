@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	billingPeriodFromSearchParams,
 	checkoutPathForPlan,
-	hostedPlanByID,
 	hostedPlans,
 	normalizeBillingPeriod,
 	normalizeHostedPlanID,
@@ -26,7 +25,6 @@ describe('hosted billing catalog', () => {
 		expect(normalizeHostedPlanID('enterprise')).toBe('');
 		expect(normalizeHostedPlanID('starter')).toBe('');
 		expect(normalizeHostedPlanID('pro')).toBe('');
-		expect(hostedPlanByID('enterprise')).toBeUndefined();
 	});
 
 	it('accepts only canonical monthly and annual billing periods', () => {

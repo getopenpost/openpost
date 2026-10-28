@@ -139,14 +139,6 @@ func TestAPITokenHandlerAlignsOmittedNullAndCustomExpiry(t *testing.T) {
 	}
 }
 
-func TestAPITokenResponseDistinguishesExpiredAndRevoked(t *testing.T) {
-	now := time.Now().UTC()
-	expired := apiTokenResponse(models.APIToken{ExpiresAt: now.Add(-time.Minute)})
-	require.Equal(t, "expired", expired.Status)
-	revoked := apiTokenResponse(models.APIToken{ExpiresAt: now.Add(time.Hour), RevokedAt: now})
-	require.Equal(t, "revoked", revoked.Status)
-}
-
 func TestAPITokenHandlerRejectsInaccessibleWorkspaceScope(t *testing.T) {
 	t.Parallel()
 
@@ -245,9 +237,16 @@ func TestWorkspaceBoundCLITokenRetainsAccountLevelTokenManagement(t *testing.T) 
 		},
 	}, db).RegisterRoutes(api)
 
+	_, err = db.NewUpdate().Model((*models.APIToken)(nil)).
+		Set("expires_at = ?", time.Now().UTC().Add(-time.Minute)).Where("id = ?", "target-token").Exec(t.Context())
+	require.NoError(t, err)
 	list := apiTokenMethodRequest(t, e, http.MethodGet, "/api/v1/api-tokens", "bound-cli-token")
 	require.Equal(t, http.StatusOK, list.Code, list.Body.String())
-	require.Contains(t, list.Body.String(), "target-token")
+	var listed []APITokenResponse
+	require.NoError(t, json.Unmarshal(list.Body.Bytes(), &listed))
+	require.Len(t, listed, 1)
+	require.Equal(t, "target-token", listed[0].ID)
+	require.Equal(t, "expired", listed[0].Status)
 
 	revoke := apiTokenMethodRequest(
 		t, e, http.MethodDelete, "/api/v1/api-tokens/target-token", "bound-cli-token",
@@ -257,6 +256,12 @@ func TestWorkspaceBoundCLITokenRetainsAccountLevelTokenManagement(t *testing.T) 
 	var stored models.APIToken
 	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", "target-token").Scan(t.Context()))
 	require.False(t, stored.RevokedAt.IsZero())
+	list = apiTokenMethodRequest(t, e, http.MethodGet, "/api/v1/api-tokens", "bound-cli-token")
+	require.Equal(t, http.StatusOK, list.Code, list.Body.String())
+	require.NoError(t, json.Unmarshal(list.Body.Bytes(), &listed))
+	require.Len(t, listed, 1)
+	require.Equal(t, "target-token", listed[0].ID)
+	require.Equal(t, "revoked", listed[0].Status)
 }
 
 func apiTokenRequest(t *testing.T, e *echo.Echo, body map[string]any) *httptest.ResponseRecorder {

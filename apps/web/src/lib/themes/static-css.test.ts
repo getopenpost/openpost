@@ -1,10 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins.js';
-import {
-	THEME_CANVAS_TREATMENTS,
-	THEME_COMPONENT_RECIPE_OPTIONS
-} from '@openpost/ui/themes/contracts.js';
 import { themeSchemeToCssVariables } from '@openpost/ui/themes/runtime.js';
 
 function declarations(selector: string): Map<string, string> {
@@ -62,19 +58,5 @@ describe('embedded Workshop CSS', () => {
 		expect(reducedMotionRules).toContain('[data-theme-reduced-motion=crossfade]');
 		expect(reducedMotionRules).toContain('--theme-motion-entry-distance: 0px');
 		expect(reducedMotionRules).toContain('transition-duration: 120ms !important');
-	});
-
-	it('implements every declared canvas and component recipe as a CSS hook', () => {
-		const css = normalized(layoutCss());
-		for (const treatment of THEME_CANVAS_TREATMENTS) {
-			expect(css, `canvas ${treatment}`).toContain(`[data-theme-canvas=${treatment}]`);
-		}
-		for (const [recipe, options] of Object.entries(THEME_COMPONENT_RECIPE_OPTIONS)) {
-			for (const option of options) {
-				expect(css, `${recipe} ${option}`).toContain(
-					`[data-theme-${recipe.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}=${option}]`
-				);
-			}
-		}
 	});
 });

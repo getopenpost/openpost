@@ -71,6 +71,7 @@ func TestCollectionFailureBackoffSurvivesForegroundAndPeriodicWakeups(t *testing
 				states, err := s.ListSyncStates(t.Context(), actor, "workspace")
 				require.NoError(t, err)
 				require.Len(t, states, 1)
+				require.Equal(t, "failed", states[0].Status)
 				require.True(t, deadline.Equal(states[0].NextSyncAt))
 				now = now.Add(61 * time.Second)
 				require.NoError(t, s.Heartbeat(t.Context(), actor, Activity{WorkspaceID: "workspace", ClientID: "new-device", View: "conversation", ConversationID: "conversation"}))

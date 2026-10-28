@@ -2,7 +2,6 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -366,10 +365,11 @@ func TestFacebookPublishNormalizesMetaFailures(t *testing.T) {
 	defer func() { httpClient = originalClient }()
 
 	tests := []struct {
-		name       string
-		body       string
-		statusCode int
-		code       string
+		name           string
+		body           string
+		statusCode     int
+		responseStatus int
+		code           string
 	}{
 		{name: "expired token", body: `{"error":{"code":190}}`, statusCode: http.StatusUnauthorized, code: "meta:token_expired:190"},
 		{name: "security checkpoint", body: `{"error":{"code":190,"error_subcode":459}}`, statusCode: http.StatusUnauthorized, code: "meta:checkpoint:190:459"},
@@ -379,13 +379,18 @@ func TestFacebookPublishNormalizesMetaFailures(t *testing.T) {
 		{name: "rate limit", body: `{"error":{"code":4}}`, statusCode: http.StatusTooManyRequests, code: "meta:rate_limit:4"},
 		{name: "generic rejection", body: `{"error":{"code":1}}`, statusCode: http.StatusBadRequest, code: "meta:rejected:1"},
 		{name: "transient", body: `{"error":{"code":2}}`, statusCode: http.StatusServiceUnavailable, code: "meta:transient:2"},
+		{name: "message only", responseStatus: http.StatusOK, body: `{"error":{"message":"missing permission"}}`, statusCode: http.StatusBadRequest, code: "facebook_publish_error"},
 		{name: "other", body: `{"error":{"code":100}}`, statusCode: http.StatusBadRequest, code: "meta:100"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				status := test.responseStatus
+				if status == 0 {
+					status = http.StatusBadRequest
+				}
 				return &http.Response{
-					StatusCode: http.StatusBadRequest,
+					StatusCode: status,
 					Header:     make(http.Header),
 					Body:       io.NopCloser(strings.NewReader(test.body)),
 					Request:    req,
@@ -397,35 +402,13 @@ func TestFacebookPublishNormalizesMetaFailures(t *testing.T) {
 			if !errors.As(err, &providerErr) {
 				t.Fatalf("expected typed provider error, got %v", err)
 			}
+			if strings.Contains(err.Error(), "missing permission") {
+				t.Fatalf("provider message leaked: %v", err)
+			}
 			if providerErr.StatusCode != test.statusCode || providerErr.Code != test.code {
 				t.Fatalf("unexpected normalized error: %#v", providerErr)
 			}
 		})
-	}
-}
-
-func TestFacebookPublishedIDRejectsGraphError(t *testing.T) {
-	_, err := facebookPublishedID("facebook publish", []byte(`{"error":{"message":"missing permission"}}`))
-	var providerErr *HTTPError
-	if !errors.As(err, &providerErr) || providerErr.Code != "facebook_publish_error" {
-		t.Fatalf("expected graph error, got %v", err)
-	}
-	if strings.Contains(err.Error(), "missing permission") {
-		t.Fatalf("provider response message leaked: %v", err)
-	}
-}
-
-func TestFacebookPublishedIDParsesID(t *testing.T) {
-	body, err := json.Marshal(map[string]string{"id": "post-1"})
-	if err != nil {
-		t.Fatalf("marshal response: %v", err)
-	}
-	got, err := facebookPublishedID("facebook publish", body)
-	if err != nil {
-		t.Fatalf("facebookPublishedID returned error: %v", err)
-	}
-	if got != "post-1" {
-		t.Fatalf("expected post-1, got %q", got)
 	}
 }
 

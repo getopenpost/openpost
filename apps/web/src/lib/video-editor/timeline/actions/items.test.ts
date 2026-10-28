@@ -27,7 +27,6 @@ import {
 	setItemsReversed,
 	splitItemsAtFrame,
 	trimItemEnd,
-	trimItemStart,
 	updateItemsSpeedPoint,
 	updateItemProperties,
 	updateMarker,
@@ -35,6 +34,7 @@ import {
 } from './items';
 import { audioClipFadeGainAtFrame, visualClipFadeOpacityAtFrame } from '../../media/clip-fades';
 import { transitionsStore } from './transitions-store.svelte';
+import { trimItemToFrame } from './trim-playhead';
 
 function clip(overrides: Partial<TimelineItem>): TimelineItem {
 	return {
@@ -590,7 +590,7 @@ it('exports a continuous envelope at a split and retains the far fade after an e
 	expect(entries[1]!.gainPoints[0]!.value).toBe(1);
 	updateItemProperties(right.id, { audioFadeIn: 1 });
 	expect(audioClipFadeGainAtFrame(timelineStore.itemById.get(right.id)!, 270, 30)).toBeCloseTo(0.5);
-	trimItemStart(right.id, 165);
+	expect(trimItemToFrame(right.id, 'start', 165)).toBe(true);
 	expect(audioClipFadeGainAtFrame(timelineStore.itemById.get(right.id)!, 165, 30)).toBeCloseTo(0.5);
 });
 

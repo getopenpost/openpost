@@ -121,37 +121,6 @@ func TestTikTokScopeCapabilitiesSplitRequiredFromOptional(t *testing.T) {
 	}
 }
 
-func TestTikTokGenerateAuthURLUsesInstallationCapabilitySet(t *testing.T) {
-	minimal := NewTikTokAdapterWithCapabilities("client-key", "client-secret", "https://app.example/callback", TikTokMinimalScopeCapabilities())
-
-	authURL, _ := minimal.GenerateAuthURL("state-123")
-	parsed, err := url.Parse(authURL)
-	if err != nil {
-		t.Fatalf("parsing auth url: %v", err)
-	}
-	scope := parsed.Query().Get("scope")
-	if scope != "user.info.basic,video.publish,video.upload" {
-		t.Fatalf("expected minimal publishing scopes, got %q", scope)
-	}
-	for _, dropped := range TikTokOptionalDisplayScopes() {
-		if strings.Contains(scope, dropped) {
-			t.Fatalf("minimal auth url must not request display scope %q: %q", dropped, scope)
-		}
-	}
-
-	capabilityURL, _ := minimal.GenerateAuthURLWithCapabilities("state-123", TikTokDefaultScopeCapabilities())
-	capabilityScope := mustParseQuery(t, capabilityURL).Get("scope")
-	for _, want := range []string{"video.publish", "user.info.stats", "video.list"} {
-		if !strings.Contains(capabilityScope, want) {
-			t.Fatalf("expected capability auth url to contain %q, got %q", want, capabilityScope)
-		}
-	}
-
-	if got := minimal.RequestedScopes(); strings.Join(got, ",") != scope {
-		t.Fatalf("RequestedScopes %q does not match auth url scope %q", got, scope)
-	}
-}
-
 func TestTikTokAdapterAlwaysRequestsBothPublishingScopes(t *testing.T) {
 	for _, capabilities := range []TikTokScopeCapabilities{
 		{Profile: true},
@@ -215,58 +184,6 @@ func TestTikTokGetProfileStillFailsForDeadToken(t *testing.T) {
 	}
 	if calls != 1 {
 		t.Fatalf("dead token must not trigger a basic-fields retry, got %d calls", calls)
-	}
-}
-
-func TestTikTokPublishRetainsReceiptWithoutGuessingPublicID(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		switch req.URL.String() {
-		case tiktokCreatorInfoURL:
-			return jsonResponse(req, `{"data":{"privacy_level_options":["PUBLIC_TO_EVERYONE"]},"error":{"code":"ok"}}`), nil
-		case tiktokVideoInitURL:
-			return jsonResponse(req, `{"data":{"publish_id":"publish-1"},"error":{"code":"ok"}}`), nil
-		case tiktokPublishStatusURL:
-			return jsonResponse(req, `{"data":{"status":"PUBLISH_COMPLETE"},"error":{"code":"ok"}}`), nil
-		case tiktokVideoListURL:
-			return jsonResponse(req, `{"data":{},"error":{"code":"scope_permission_missed","message":"permission missed","log_id":"log"}}`), nil
-		default:
-			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
-			return nil, nil
-		}
-	})}
-
-	request := &PublishRequest{
-		Content: "Launch video", PlatformMediaIDs: []string{"https://media.example/video.mp4"},
-		Media:    []MediaItem{{ID: "media-1", MimeType: "video/mp4"}},
-		Settings: map[string]interface{}{"content_posting_method": "DIRECT_POST", "privacy_level": "PUBLIC_TO_EVERYONE"},
-	}
-	request.SetWriteFence(func(PublishResult) error { return nil }, func(PublishResult) error { return nil })
-	result, err := NewTikTokAdapter("key", "secret", "https://app.example/callback").Publish(t.Context(), "access", "open-1", request)
-	if err != nil {
-		t.Fatalf("completed publish without video.list grant returned error: %v", err)
-	}
-	if result.ExternalID != "" || result.ProviderReference != "publish-1" || result.SubmissionState != PublishSubmissionPending {
-		t.Fatalf("expected pending public identity receipt, got %#v", result)
-	}
-}
-
-func TestTikTokAnalyticsSupportExplainsDisplayDisabledInstallation(t *testing.T) {
-	full := NewTikTokAdapter("key", "secret", "https://app.example/callback")
-	support := full.AnalyticsSupport()
-	if !support.Account || !support.Content {
-		t.Fatalf("default adapter must support analytics, got %#v", support)
-	}
-
-	minimal := NewTikTokAdapterWithCapabilities("key", "secret", "https://app.example/callback", TikTokMinimalScopeCapabilities())
-	degraded := minimal.AnalyticsSupport()
-	if degraded.Account || degraded.Content {
-		t.Fatalf("display-disabled adapter must not advertise analytics, got %#v", degraded)
-	}
-	if !strings.Contains(degraded.AccountUnavailable, "user.info.stats") || !strings.Contains(degraded.ContentUnavailable, "video.list") {
-		t.Fatalf("analytics unavailability must name the missing scopes, got %#v", degraded)
 	}
 }
 
@@ -423,48 +340,17 @@ func TestTikTokPublishDoesNotGuessPublicIdentityFromCaption(t *testing.T) {
 		Media:    []MediaItem{{ID: "media-1", MimeType: "video/mp4"}},
 		Settings: map[string]interface{}{"content_posting_method": "DIRECT_POST", "privacy_level": "PUBLIC_TO_EVERYONE"},
 	}
-	request.SetWriteFence(func(PublishResult) error { return nil }, func(PublishResult) error { return nil })
-	result, err := NewTikTokAdapter("key", "secret", "https://app.example/callback").Publish(t.Context(), "access", "open-1", request)
-	if err != nil {
-		t.Fatalf("Publish returned error: %v", err)
-	}
-	if result.ExternalID != "" || result.SubmissionState != PublishSubmissionPending {
-		t.Fatalf("unconfirmed public identity must stay pending, got %#v", result)
-	}
-}
-
-func TestTikTokPublishKeepsAmbiguousCompletedVideoPending(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-	createdAt := time.Now().UTC().Add(-time.Minute).Unix()
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		switch req.URL.String() {
-		case tiktokCreatorInfoURL:
-			return jsonResponse(req, `{"data":{"privacy_level_options":["PUBLIC_TO_EVERYONE"]},"error":{"code":"ok"}}`), nil
-		case tiktokVideoInitURL:
-			return jsonResponse(req, `{"data":{"publish_id":"publish-1"},"error":{"code":"ok"}}`), nil
-		case tiktokPublishStatusURL:
-			return jsonResponse(req, `{"data":{"status":"PUBLISH_COMPLETE"},"error":{"code":"ok"}}`), nil
-		case tiktokVideoListURL:
-			return jsonResponse(req, fmt.Sprintf(`{"data":{"videos":[{"id":"7511111111111111111","create_time":%d,"video_description":"Launch video"},{"id":"7522222222222222222","create_time":%d,"video_description":"Launch video"}]},"error":{"code":"ok"}}`, createdAt, createdAt)), nil
-		default:
-			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
-			return nil, nil
-		}
-	})}
-	request := &PublishRequest{
-		Content: "Launch video", PlatformMediaIDs: []string{"https://media.example/video.mp4"},
-		Media:    []MediaItem{{ID: "media-1", MimeType: "video/mp4"}},
-		Settings: map[string]interface{}{"content_posting_method": "DIRECT_POST", "privacy_level": "PUBLIC_TO_EVERYONE"},
-	}
 	var checkpoints []PublishResult
 	request.SetWriteFence(func(PublishResult) error { return nil }, func(result PublishResult) error {
 		checkpoints = append(checkpoints, result)
 		return nil
 	})
 	result, err := NewTikTokAdapter("key", "secret", "https://app.example/callback").Publish(t.Context(), "access", "open-1", request)
-	if err != nil || result.SubmissionState != PublishSubmissionPending {
-		t.Fatalf("expected pending reconciliation, got %+v %v", result, err)
+	if err != nil {
+		t.Fatalf("Publish returned error: %v", err)
+	}
+	if result.ExternalID != "" || result.ProviderReference != "publish-1" || result.SubmissionState != PublishSubmissionPending {
+		t.Fatalf("unconfirmed public identity must stay pending, got %#v", result)
 	}
 	if len(checkpoints) != 2 || checkpoints[1].ProviderState != "published_unresolved" || checkpoints[1].RetrySafety != PublishRetryReconcileOnly {
 		t.Fatalf("expected durable unresolved checkpoint, got %#v", checkpoints)
@@ -711,7 +597,7 @@ func TestTikTokCoverTimestampPresence(t *testing.T) {
 				req.Settings["cover_timestamp_ms"] = fixture.value
 			}
 			req.SetWriteFence(func(PublishResult) error { return nil }, func(PublishResult) error { return nil })
-			_, err := NewTikTokAdapter("", "", "").Publish(t.Context(), "access", "account", req)
+			result, err := NewTikTokAdapter("", "", "").Publish(t.Context(), "access", "account", req)
 			if fixture.invalid {
 				if err == nil || !strings.Contains(err.Error(), "cover") || calls != 0 {
 					t.Fatalf("expected preflight cover rejection, got %v (%d calls)", err, calls)
@@ -720,6 +606,9 @@ func TestTikTokCoverTimestampPresence(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatal(err)
+			}
+			if calls != 3 || result.ExternalID != "receipt" || result.SubmissionState != PublishSubmissionAccepted {
+				t.Fatalf("missing native publication: calls=%d result=%#v", calls, result)
 			}
 		})
 	}

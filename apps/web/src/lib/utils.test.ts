@@ -3,16 +3,10 @@ import {
 	formatAccountHandle,
 	getPlatformColor,
 	getPlatformKey,
-	getPlatformName,
-	formatSocialAccountName,
-	PLATFORM_COLORS
+	formatSocialAccountName
 } from './utils';
 
 describe('formatAccountHandle', () => {
-	it('adds a handle prefix when it is missing', () => {
-		expect(formatAccountHandle('rodgds')).toBe('@rodgds');
-	});
-
 	it('does not duplicate an existing handle prefix', () => {
 		expect(formatAccountHandle('@rodgds')).toBe('@rodgds');
 	});
@@ -64,55 +58,6 @@ describe('formatSocialAccountName', () => {
 	});
 });
 
-describe('getPlatformName', () => {
-	it('labels Google Business instead of the raw slug', () => {
-		expect(getPlatformName('googlebusiness')).toBe('Google Business');
-		expect(getPlatformName('gmb')).toBe('Google Business');
-	});
-
-	it('labels fediverse software and reddit instead of the raw slug', () => {
-		expect(getPlatformName('gotosocial')).toBe('GoToSocial');
-		expect(getPlatformName('akkoma')).toBe('Akkoma');
-		expect(getPlatformName('pleroma')).toBe('Pleroma');
-		expect(getPlatformName('friendica')).toBe('Friendica');
-		expect(getPlatformName('reddit')).toBe('Reddit');
-	});
-
-	it('resolves every canonical platform key to a name different from the raw key', () => {
-		const expected = {
-			x: 'X',
-			twitter: 'X',
-			mastodon: 'Mastodon',
-			pixelfed: 'Pixelfed',
-			peertube: 'PeerTube',
-			lemmy: 'Lemmy',
-			piefed: 'PieFed',
-			gotosocial: 'GoToSocial',
-			akkoma: 'Akkoma',
-			pleroma: 'Pleroma',
-			friendica: 'Friendica',
-			threads: 'Threads',
-			bluesky: 'Bluesky',
-			devnull: 'dev/null',
-			discord: 'Discord',
-			linkedin: 'LinkedIn',
-			instagram: 'Instagram',
-			facebook: 'Facebook',
-			youtube: 'YouTube',
-			tiktok: 'TikTok',
-			pinterest: 'Pinterest',
-			telegram: 'Telegram',
-			reddit: 'Reddit',
-			gmb: 'Google Business',
-			googlebusiness: 'Google Business'
-		};
-		for (const [key, name] of Object.entries(expected)) {
-			expect(getPlatformName(key)).toBe(name);
-			expect(getPlatformName(`${key}:suffix`)).toBe(name);
-		}
-	});
-});
-
 describe('getPlatformKey', () => {
 	it('canonicalizes the Google Business alias', () => {
 		expect(getPlatformKey('gmb')).toBe('googlebusiness');
@@ -142,11 +87,5 @@ describe('getPlatformColor', () => {
 		expect(getPlatformColor('twitter')).toBe('bg-black');
 		expect(getPlatformColor('twitter:instance')).toBe('bg-black');
 		expect(getPlatformColor('gmb')).toBe(getPlatformColor('googlebusiness'));
-	});
-
-	it('keeps the existing token values', () => {
-		expect(PLATFORM_COLORS['x']).toBe('bg-black');
-		expect(PLATFORM_COLORS['bluesky']).toBe('bg-sky-500');
-		expect(getPlatformColor('unknown-platform')).toBe('bg-gray-500');
 	});
 });

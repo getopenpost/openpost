@@ -380,21 +380,30 @@ func TestOIDCRejectsBrowserBindingAndNonceFailures(t *testing.T) {
 
 func TestOIDCRejectsIssuerAudienceAndUserInfoSubject(t *testing.T) {
 	tests := []struct {
-		name      string
-		configure func(*fakeOIDCIssuer, *bun.DB)
-		want      error
+		name         string
+		configure    func(*fakeOIDCIssuer, *bun.DB)
+		want         error
+		wantVerifier bool
+		wantValid    bool
 	}{
+		{
+			name:      "valid control",
+			configure: func(*fakeOIDCIssuer, *bun.DB) {},
+			wantValid: true,
+		},
 		{
 			name: "issuer",
 			configure: func(fake *fakeOIDCIssuer, _ *bun.DB) {
 				fake.issuerClaim = "https://different-issuer.example"
 			},
+			wantVerifier: true,
 		},
 		{
 			name: "audience",
 			configure: func(fake *fakeOIDCIssuer, _ *bun.DB) {
 				fake.audience = "different-client"
 			},
+			wantVerifier: true,
 		},
 		{
 			name: "userinfo subject",
@@ -416,13 +425,31 @@ func TestOIDCRejectsIssuerAudienceAndUserInfoSubject(t *testing.T) {
 			result, state := beginTestLogin(t, service, fake)
 			test.configure(fake, db)
 			service.invalidateRuntime(EnvironmentProviderID)
-			_, err := service.Complete(
+			completion, err := service.Complete(
 				context.Background(), EnvironmentProviderID, state, "authorization-code", result.BrowserBinding,
 			)
+			if test.wantValid {
+				require.NoError(t, err)
+				require.NotNil(t, completion)
+				require.Equal(t, fake.subject, completion.Identity.Subject)
+				return
+			}
 			require.Error(t, err)
+			require.Nil(t, completion)
+			if test.wantVerifier {
+				// The wrong issuer and audience must be caught by signed ID-token
+				// verification, not by an earlier discovery or exchange failure.
+				require.ErrorContains(t, err, "oidc id token verification failed")
+			}
 			if test.want != nil {
 				require.ErrorIs(t, err, test.want)
 			}
+			users, countErr := db.NewSelect().Model((*models.User)(nil)).Count(context.Background())
+			require.NoError(t, countErr)
+			require.Zero(t, users, "a rejected login must not provision a user")
+			identities, countErr := db.NewSelect().Model((*models.UserIdentity)(nil)).Count(context.Background())
+			require.NoError(t, countErr)
+			require.Zero(t, identities, "a rejected login must not link an identity")
 		})
 	}
 }

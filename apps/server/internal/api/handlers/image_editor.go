@@ -2709,10 +2709,7 @@ func validateImageEditorImageLayer(layer ImageEditorLayer) error {
 	if err := validateImageEditorLensEffect(layer.Image.LensEffect); err != nil {
 		return err
 	}
-	if err := validateImageEditorAnimation(layer.Image.Animation); err != nil {
-		return err
-	}
-	return nil
+	return validateImageEditorAnimation(layer.Image.Animation)
 }
 
 func validateImageEditorLensEffect(effect *ImageEditorLensEffect) error {

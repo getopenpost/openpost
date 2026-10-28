@@ -18,12 +18,19 @@ describe('SliderRow track gestures', () => {
 		});
 		const group = screen.getByRole('group', { name: 'Opacity' });
 		await expect.element(group).toBeVisible();
-		const box = group.element().getBoundingClientRect();
-		// Press well right of the thumb (value 20 sits near the left end).
-		await group.click({ position: { x: box.width * 0.8, y: box.height / 2 } });
-		expect(Number.isFinite(landed)).toBe(true);
-		expect(landed).toBeGreaterThan(20);
-		expect(landed).toBeLessThanOrEqual(100);
+		const track = group.element().querySelector('[data-slot="slider-track"]');
+		if (!(track instanceof HTMLElement)) throw new Error('expected a rendered slider track');
+		const groupBounds = group.element().getBoundingClientRect();
+		const trackBounds = track.getBoundingClientRect();
+		// The thumb centre rides under the pointer, so the rendered track centre is
+		// 50% of the 0-100 range at any thumb width.
+		await group.click({
+			position: {
+				x: trackBounds.left - groupBounds.left + trackBounds.width / 2,
+				y: trackBounds.top - groupBounds.top + trackBounds.height / 2
+			}
+		});
+		expect(landed).toBe(50);
 	});
 
 	it('ignores track presses while disabled', async () => {

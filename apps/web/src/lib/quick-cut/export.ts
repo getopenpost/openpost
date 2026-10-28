@@ -1024,7 +1024,8 @@ async function exportMergedStreamCopy(
 		}
 	}
 	const onAbort = () => {
-		if (output.state === 'started') void output.cancel();
+		// Closing the target can reject with the same abort handled by the export.
+		if (output.state === 'started') void output.cancel().catch(() => undefined);
 	};
 	signal?.addEventListener('abort', onAbort, { once: true });
 	let muxedTime = 0;
@@ -1561,7 +1562,8 @@ async function exportMergedTranscode(
 	let videoSeq = 0;
 	const audioSeqs: number[] = Array.from({ length: outputAudioTrackCount }, () => 0);
 	const onAbort = () => {
-		if (finalOutput.state === 'started') void finalOutput.cancel();
+		// Closing the target can reject with the same abort handled by the export.
+		if (finalOutput.state === 'started') void finalOutput.cancel().catch(() => undefined);
 	};
 	signal?.addEventListener('abort', onAbort, { once: true });
 	const tempScratches: Array<{

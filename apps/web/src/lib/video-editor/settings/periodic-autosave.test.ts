@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { PeriodicAutosaveController, type PeriodicAutosaveScheduler } from './periodic-autosave';
 
-it('stops periodic retries after a missing project while keeping the edit dirty', async () => {
+it('stops periodic retries after a missing project', async () => {
 	let tick: (() => void) | undefined;
 	let idle: (() => void) | undefined;
 	const dirty = true;
@@ -40,5 +40,4 @@ it('stops periodic retries after a missing project while keeping the edit dirty'
 	tick?.();
 	expect(idle).toBeUndefined();
 	expect(save).toHaveBeenCalledOnce();
-	expect(dirty).toBe(true);
 });

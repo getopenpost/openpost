@@ -6,6 +6,8 @@ The npm package is `@getopenpost/sdk`. Its SemVer is independent from the OpenPo
 
 Every publishable change under `packages/sdk/` must increase its stable package version. Pull-request CI compares the package with its base commit; main and tag CI compare it with the previous published release, so a main push that changed the package without a version increase cannot prove a release. All of them fail when package sources changed without a version increase.
 
+Version admission ignores only the compiler-excluded `src/**/*.test.ts` files, so test-only edits do not require a new version. Every other path under `packages/sdk/` still requires an increase, including build configuration, `README.md`, and the production side of a rename. The payload check rejects compiled `*.test.*` files in `dist`, so a test pulled in by a production import or stale output cannot ship.
+
 The app's `v*` release workflow publishes the SDK independently, beside the Hosted deployment:
 
 1. An absent version publishes once through npm trusted publishing.

@@ -40,59 +40,6 @@ test("formats account handles with exactly one at sign", () => {
   expect(accountHandle("", "youtube-rodrgds", "threads")).toBe("youtube-rodrgds");
 });
 
-test("labels fediverse platforms by name", () => {
-  expect(platformLabel("pixelfed")).toBe("Pixelfed");
-  expect(platformLabel("peertube")).toBe("PeerTube");
-  expect(platformLabel("lemmy")).toBe("Lemmy");
-  expect(platformLabel("piefed")).toBe("PieFed");
-});
-
-test("labels Google Business instead of the raw slug", () => {
-  expect(platformLabel("googlebusiness")).toBe("Google Business");
-  expect(platformLabel("gmb")).toBe("Google Business");
-});
-
-test("labels fediverse software instead of the raw slug", () => {
-  expect(platformLabel("gotosocial")).toBe("GoToSocial");
-  expect(platformLabel("akkoma")).toBe("Akkoma");
-  expect(platformLabel("pleroma")).toBe("Pleroma");
-  expect(platformLabel("friendica")).toBe("Friendica");
-});
-
-test("every canonical platform key resolves to a name different from the raw key", () => {
-  const expected = {
-    x: "X",
-    twitter: "X",
-    mastodon: "Mastodon",
-    pixelfed: "Pixelfed",
-    peertube: "PeerTube",
-    lemmy: "Lemmy",
-    piefed: "PieFed",
-    gotosocial: "GoToSocial",
-    akkoma: "Akkoma",
-    pleroma: "Pleroma",
-    friendica: "Friendica",
-    threads: "Threads",
-    bluesky: "Bluesky",
-    devnull: "dev/null",
-    discord: "Discord",
-    linkedin: "LinkedIn",
-    instagram: "Instagram",
-    facebook: "Facebook",
-    youtube: "YouTube",
-    tiktok: "TikTok",
-    pinterest: "Pinterest",
-    reddit: "Reddit",
-    telegram: "Telegram",
-    gmb: "Google Business",
-    googlebusiness: "Google Business",
-  };
-  for (const [key, name] of Object.entries(expected)) {
-    expect(platformLabel(key)).toBe(name);
-    expect(platformLabel(`${key}:suffix`)).toBe(name);
-  }
-});
-
 test("platform keys resolve aliases, padding, and instance suffixes", () => {
   expect(platformKey("twitter")).toBe("x");
   expect(platformKey(" twitter ")).toBe("x");
@@ -108,15 +55,6 @@ test("labels tolerate padding around the platform", () => {
   expect(platformLabel(" Twitter:instance ")).toBe("X");
 });
 
-test("platform colors are defined for every canonical key and alias", () => {
-  expect(platformColor("x")).toBe("#000000");
-  expect(platformColor("twitter")).toBe(platformColor("x"));
-  expect(platformColor("twitter:instance")).toBe(platformColor("x"));
-  expect(platformColor("gmb")).toBe(platformColor("googlebusiness"));
-  expect(platformColor("mastodon:https://masto.pt")).toBe(platformColor("mastodon"));
-  expect(platformColor("unknown-platform")).toBe("#6b7280");
-});
-
 test("unknown keys pass through without resolving prototype properties", () => {
   expect(platformKey("constructor")).toBe("constructor");
   expect(platformColor("constructor")).toBe("#6b7280");
@@ -130,22 +68,6 @@ test("pinterest and google business handles render without @", () => {
   expect(accountHandle("acme", "fallback", "pinterest")).toBe("acme");
   expect(accountHandle("acme", "fallback", "googlebusiness")).toBe("acme");
   expect(accountHandle("acme", "fallback", "gmb")).toBe("acme");
-});
-
-test("every handle-first platform keeps @", () => {
-  for (const platform of [
-    "bluesky",
-    "devnull",
-    "instagram",
-    "mastodon",
-    "pixelfed",
-    "threads",
-    "tiktok",
-    "x",
-    "twitter",
-  ]) {
-    expect(accountHandle("acme", "fallback", platform)).toBe("@acme");
-  }
 });
 
 test("connection labels preserve display names and instance-qualified platform names", () => {

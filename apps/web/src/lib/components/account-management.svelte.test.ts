@@ -331,25 +331,31 @@ describe('account management modes', () => {
 		await screen.getByRole('button', { name: /Actions for/ }).click();
 		await screen.getByRole('menuitem', { name: 'Account details' }).click();
 		await screen.getByRole('button', { name: 'Refresh profile' }).click();
+		await expect
+			.element(screen.getByRole('button', { name: /Refresh profile for/ }))
+			.toBeDisabled();
+		expect(postMock).toHaveBeenCalledWith('/accounts/{account_id}/refresh-metadata', {
+			params: { path: { account_id: 'account-1' } }
+		});
 
-		const identityCheck = vi.spyOn(auth, 'isIdentityCurrent');
 		auth.clearLocal();
 		auth.setUser(user);
 		const currentSessionAccount = { ...account, account_username: 'current-session' };
 		queryClient.setQueryData(openPostQueryKeys.accounts(workspace.id), [currentSessionAccount]);
-		identityCheck.mockClear();
 		refresh.resolve({
 			data: { ...account, account_username: 'stale-session' },
 			error: null,
 			response: new Response(null, { status: 200 })
 		});
-		await vi.waitFor(() => expect(identityCheck).toHaveBeenCalledOnce());
+		// The settled mutation owns the barrier: the late response is consumed only
+		// once the refresh control returns to idle, so the cache and callback
+		// assertions below cannot pass while it is still in flight.
+		await expect.element(screen.getByRole('button', { name: /Refresh profile for/ })).toBeEnabled();
 
 		expect(queryClient.getQueryData(openPostQueryKeys.accounts(workspace.id))).toEqual([
 			currentSessionAccount
 		]);
 		expect(onAccountsChanged).not.toHaveBeenCalled();
-		identityCheck.mockRestore();
 	});
 
 	it('explains the provider-specific next step before OAuth redirect', async () => {

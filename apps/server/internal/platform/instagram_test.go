@@ -28,11 +28,14 @@ func TestInstagramContainerSettingsStayWithinProviderRules(t *testing.T) {
 			}
 			return jsonResponse(req, `{"id":"container-1"}`), nil
 		})}
-		_, err := adapter.createMediaContainer(t.Context(), "token", "ig-1", "Story", "https://media.example/story.jpg", false, false, &PublishRequest{
+		id, err := adapter.createMediaContainer(t.Context(), "token", "ig-1", "Story", "https://media.example/story.jpg", false, false, &PublishRequest{
 			OutputProfile: "instagram.story", Settings: map[string]interface{}{"collaborators": "one,two"},
 		}, nil, "")
 		if err != nil {
 			t.Fatal(err)
+		}
+		if id != "container-1" {
+			t.Fatalf("unexpected native container ID %q", id)
 		}
 	})
 

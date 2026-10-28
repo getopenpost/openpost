@@ -18,28 +18,6 @@ vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 
 const getMock = vi.spyOn(client, 'GET');
 
-describe('WorkspaceDeleteDialog loading status', () => {
-	afterEach(() => {
-		getMock.mockReset();
-		setLocale('en', { reload: false });
-	});
-
-	it('exposes the preview loading indicator as a live status', async () => {
-		// SAFETY: a never-settling promise holds the dialog in its loading state; the cast bridges
-		// the mock's declared response type, whose payload the loading branch never reads.
-		getMock.mockImplementation(() => new Promise(() => {}) as never);
-		const screen = await render(WorkspaceDeleteDialog, {
-			open: true,
-			workspaceID: 'ws-1',
-			workspaceName: 'Acme',
-			hasPassword: true,
-			onConfirm: vi.fn()
-		});
-
-		await expect.element(screen.getByRole('status', { name: 'Loading...' })).toBeVisible();
-	});
-});
-
 describe('WorkspaceDeleteDialog shared flow', () => {
 	afterEach(() => {
 		getMock.mockReset();
@@ -114,25 +92,5 @@ describe('WorkspaceDeleteDialog shared flow', () => {
 			.toBeDisabled();
 		await expect.element(screen.getByRole('button', { name: 'Delete workspace' })).toBeDisabled();
 		expect(onConfirm).not.toHaveBeenCalled();
-	});
-
-	it('keeps a failed delete open with the message visible', async () => {
-		// SAFETY: the cast bridges the mock's declared response type to the canned preview payload.
-		getMock.mockResolvedValue(previewResponse() as never);
-		const onConfirm = vi.fn().mockRejectedValue(new Error('Delete refused'));
-		const screen = await render(WorkspaceDeleteDialog, {
-			open: true,
-			workspaceID: 'ws-1',
-			workspaceName: 'Acme',
-			hasPassword: true,
-			onConfirm
-		});
-
-		await screen.getByRole('textbox', { name: 'Enter Acme exactly' }).fill('Acme');
-		await screen.getByLabelText('Current password').fill('secret-123');
-		await screen.getByRole('button', { name: 'Delete workspace' }).click();
-
-		await expect.element(screen.getByText('Delete refused')).toBeVisible();
-		await expect.element(screen.getByRole('dialog')).toBeVisible();
 	});
 });

@@ -521,7 +521,9 @@ func TestLinkedInHideCommentUnsupported(t *testing.T) {
 func TestLinkedInUnrepostDeletesReshareURN(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
+	requests := 0
 	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests++
 		if req.Method != http.MethodDelete || req.URL.RequestURI() != "/rest/posts/urn%3Ali%3Ashare%3A12345" {
 			t.Fatalf("unexpected request %s %s", req.Method, req.URL.RequestURI())
 		}
@@ -531,6 +533,9 @@ func TestLinkedInUnrepostDeletesReshareURN(t *testing.T) {
 	adapter := NewLinkedInAdapter("", "", "", false)
 	if err := adapter.Unrepost(t.Context(), "token", "target", UnrepostRequest{RepostExternalID: "urn:li:share:12345"}); err != nil {
 		t.Fatalf("unrepost failed: %v", err)
+	}
+	if requests != 1 {
+		t.Fatalf("expected one native request, got %d", requests)
 	}
 }
 
@@ -568,9 +573,12 @@ func TestLinkedInPollSeparatesQuestionAndMapsLegacyDurations(t *testing.T) {
 				return resp, nil
 			})}
 			adapter := NewLinkedInAdapter("", "", "", false, true)
-			_, err := adapter.createPost(t.Context(), "token", "urn:li:person:member-1", linkedInAPIVersion(), &PublishRequest{Content: "Help us plan.", Settings: map[string]interface{}{"poll_question": "Would you use this?", "poll_options": "Yes, sometimes\nNo", "poll_duration": duration.saved}})
+			id, err := adapter.createPost(t.Context(), "token", "urn:li:person:member-1", linkedInAPIVersion(), &PublishRequest{Content: "Help us plan.", Settings: map[string]interface{}{"poll_question": "Would you use this?", "poll_options": "Yes, sometimes\nNo", "poll_duration": duration.saved}})
 			if err != nil {
 				t.Fatal(err)
+			}
+			if id != "urn:li:share:123456" {
+				t.Fatalf("unexpected native poll ID %q", id)
 			}
 		})
 	}

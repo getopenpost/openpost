@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"testing"
 
@@ -16,8 +15,11 @@ func TestMastodonGrowthRelationshipFilteringFollowsViewer(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
 
-	instanceURL := "https://mastodon.example"
+	instanceURL := "https://unique.instance.example"
+	requests := 0
 	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests++
+		require.Equal(t, "unique.instance.example", req.URL.Host)
 		if strings.Contains(req.URL.Path, "/api/v2/suggestions") {
 			body := `[
 				{"account":{"id":"300","username":"foo","acct":"foo","display_name":"Foo","note":"<p>hi</p>","avatar":"https://cdn.test/foo.jpg","url":"https://mastodon.example/@foo","followers_count":1,"following_count":1},"sources":["friends_of_friends"]},
@@ -50,6 +52,7 @@ func TestMastodonGrowthRelationshipFilteringFollowsViewer(t *testing.T) {
 	candidates, err := adapter.DiscoverGrowthCandidates(context.Background(), GrowthDiscoveryInput{AccessToken: "t", ViewerID: "1", Limit: 5})
 	require.NoError(t, err)
 	// 300 should be present with followedBy true, 301 muted excluded
+	require.Equal(t, 3, requests)
 	require.Len(t, candidates, 1)
 	require.Equal(t, "300", candidates[0].RemoteID)
 	require.True(t, candidates[0].FollowedBy)
@@ -100,30 +103,4 @@ func TestMastodonGrowthFollowRequestedVsFollowingAndInstanceURL(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "following", result.ProviderState)
 	require.Equal(t, "888", result.ProviderReference)
-}
-
-func TestMastodonGrowthInstanceRelativeRequestURLs(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	instanceURL := "https://unique.instance.example"
-	var seenURLs []string
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		seenURLs = append(seenURLs, req.URL.String())
-		if strings.Contains(req.URL.Path, "/api/v2/suggestions") {
-			return jsonResponse(req, `[]`), nil
-		}
-		// Should not reach familiar/relationships if no suggestions
-		return jsonResponse(req, `[]`), nil
-	})}
-
-	adapter := NewMastodonAdapter("cid", "secret", "https://app.test/callback", instanceURL)
-	_, err := adapter.DiscoverGrowthCandidates(context.Background(), GrowthDiscoveryInput{AccessToken: "t", ViewerID: "1", Limit: 5})
-	require.NoError(t, err)
-	require.NotEmpty(t, seenURLs)
-	for _, u := range seenURLs {
-		require.True(t, strings.HasPrefix(u, instanceURL), "expected instance-relative URL got %q", u)
-		parsed, _ := url.Parse(u)
-		require.NotEmpty(t, parsed.Host)
-	}
 }

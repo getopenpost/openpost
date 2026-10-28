@@ -32,8 +32,5 @@ export function lineAt(source, index) {
 }
 
 export function isQueryAdapter(repoPath) {
-  const isTest = /\.test\.[jt]sx?$/u.test(repoPath);
-  return (
-    !isTest && (repoPath.startsWith(webQueryAdapterPrefix) || mobileQueryAdapters.has(repoPath))
-  );
+  return repoPath.startsWith(webQueryAdapterPrefix) || mobileQueryAdapters.has(repoPath);
 }

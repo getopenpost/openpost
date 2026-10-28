@@ -62,14 +62,17 @@ func TestInstagramLoginCallbackKeepsChosenMethodAndCanonicalAccount(t *testing.T
 	require.Equal(t, http.StatusOK, providers.Code, providers.Body.String())
 	var catalog []ProviderInfo
 	require.NoError(t, json.Unmarshal(providers.Body.Bytes(), &catalog))
+	foundInstagram := false
 	for _, provider := range catalog {
 		if provider.Platform == "instagram" {
+			foundInstagram = true
 			require.True(t, provider.Configured)
 			require.Equal(t, []string{"instagram_login"}, provider.ConfiguredConnectionModes)
 			require.True(t, provider.ConnectionReadiness["instagram_login"].Connectable)
 			require.False(t, provider.ConnectionReadiness["oauth"].Connectable)
 		}
 	}
+	require.True(t, foundInstagram, "Instagram must be present in the provider catalogue")
 	response := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/instagram/auth-url?workspace_id=ws-1&connection_mode=instagram_login", nil, true)
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	var authorization struct {

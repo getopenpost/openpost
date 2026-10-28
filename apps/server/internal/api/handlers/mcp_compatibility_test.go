@@ -61,7 +61,13 @@ func TestMCPBase64UploadThroughHTTP(t *testing.T) {
 		require.NotContains(t, out, "error", resp.Body.String())
 		return out["result"].(map[string]any)["structuredContent"].(map[string]any)["media"].(map[string]any)
 	}
-	first := call("/mcp", "upload_media_base64", compatibilityPNG)
+	png, err := base64.StdEncoding.DecodeString(compatibilityPNG)
+	require.NoError(t, err)
+	expectedBytes := make([]byte, 8*1024*1024)
+	copy(expectedBytes, png)
+	content := base64.StdEncoding.EncodeToString(expectedBytes)
+	first := call("/mcp", "upload_media_base64", content)
+	require.Equal(t, float64(8*1024*1024), first["size"])
 	require.Equal(t, "image/png", first["mime_type"])
 	require.Equal(t, "launch.png", first["original_filename"])
 	require.Equal(t, "Launch image", first["alt_text"])
@@ -73,10 +79,9 @@ func TestMCPBase64UploadThroughHTTP(t *testing.T) {
 	storedBytes, err := io.ReadAll(file)
 	require.NoError(t, err)
 	require.NoError(t, file.Close())
-	expectedBytes, err := base64.StdEncoding.DecodeString(compatibilityPNG)
-	require.NoError(t, err)
 	require.Equal(t, expectedBytes, storedBytes)
-	second := call("/mcp/code", "execute_operation", "data:image/png;base64,"+compatibilityPNG)
+	second := call("/mcp/code", "execute_operation", "data:image/png;base64,"+content)
+	require.Equal(t, float64(8*1024*1024), second["size"])
 	require.Equal(t, first["id"], second["id"])
 	require.Equal(t, true, second["deduped"])
 	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Count(t.Context())
@@ -124,28 +129,4 @@ func TestMCPBase64UploadRejectsInvalidOrUnauthorizedFiles(t *testing.T) {
 			require.Zero(t, count)
 		})
 	}
-}
-
-func TestMCPBase64UploadAcceptsEightMiBFile(t *testing.T) {
-	t.Parallel()
-	srv := newMCPTestServer(t)
-	png, err := base64.StdEncoding.DecodeString(compatibilityPNG)
-	require.NoError(t, err)
-	content := make([]byte, 8*1024*1024)
-	copy(content, png)
-	response := srv.requestPath(t, "/mcp/code", "web-token", map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": "execute_operation", "arguments": map[string]any{"operation": "upload_media_base64", "arguments": map[string]any{"workspace_id": "ws-1", "filename": "launch.png", "content_base64": base64.StdEncoding.EncodeToString(content)}}}})
-	require.Equal(t, http.StatusOK, response.Code)
-	var result struct {
-		Error  *json.RawMessage `json:"error"`
-		Result struct {
-			Structured struct {
-				Media struct {
-					Size int64 `json:"size"`
-				} `json:"media"`
-			} `json:"structuredContent"`
-		} `json:"result"`
-	}
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
-	require.Nil(t, result.Error, response.Body.String())
-	require.Equal(t, int64(8*1024*1024), result.Result.Structured.Media.Size)
 }

@@ -69,6 +69,7 @@ test("policy acceptance flags, register reviews, and change history stay current
 });
 
 test("managed-service providers disclose purpose, data, and transfer with safe sources", () => {
+  assert.ok(managedService.providers.length > 0, "managed service needs disclosed providers");
   assert.match(managedService.contact, /^[^@]+@[^@]+$/u);
   assert.equal(
     new Set(managedService.stores.map(({ id }) => id)).size,
@@ -114,6 +115,7 @@ test("managed-service providers disclose purpose, data, and transfer with safe s
 });
 
 test("managed data has an owned purpose, retention rule, and deletion trigger", () => {
+  assert.ok(privacyInventory.managed_retention.length > 0, "managed data needs retention rules");
   const ids = new Set();
   for (const entry of privacyInventory.managed_retention) {
     assert.ok(!ids.has(entry.id), `duplicate managed category ${entry.id}`);
@@ -173,6 +175,7 @@ test("analytics disclosures match the rendered privacy page and stay consent-gat
 });
 
 test("security assurance states its boundary and the security page claims nothing more", () => {
+  assert.ok(securityAssurance.control_matrix.length > 0, "security needs disclosed controls");
   assert.deepEqual(securityAssurance.assurance_boundary.published_certifications, []);
   assert.deepEqual(securityAssurance.assurance_boundary.published_independent_reports, []);
   assert.match(securityAssurance.assurance_boundary.statement, /does not claim SOC 2/u);

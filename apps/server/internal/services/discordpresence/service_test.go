@@ -102,7 +102,7 @@ func TestRunSessionKeepsBotOnlineAndRotatesWatchingActivity(t *testing.T) {
 }
 
 func TestStreamingPresenceRequiresAndUsesTwitchOrYouTubeURL(t *testing.T) {
-	service, err := NewService("bot-token", Options{StreamURL: "https://www.youtube.com/watch?v=openpost"})
+	service, err := NewService("bot-token", Options{StreamURL: " https://www.youtube.com/watch?v=openpost "})
 	require.NoError(t, err)
 
 	session := &fakeGatewaySession{updated: make(chan struct{}, 1)}

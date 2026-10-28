@@ -43,6 +43,7 @@ describe("HttpClient", () => {
     expect((error as OpenPostError).code).toBe("not_found");
     expect((error as OpenPostError).status).toBe(404);
     expect((error as OpenPostError).message).toBe("Gone");
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it("retries once on a 500 and then returns the recovery", async () => {
@@ -60,13 +61,6 @@ describe("HttpClient", () => {
     const fetch = vi.fn(async () => jsonResponse({ title: "boom" }, 500));
     const http = new HttpClient({ baseUrl: "https://example.test", token: "tok", fetch });
     await expect(http.post("/api/v1/publications", {})).rejects.toBeInstanceOf(OpenPostError);
-    expect(fetch).toHaveBeenCalledOnce();
-  });
-
-  it("does not retry on a 404", async () => {
-    const fetch = vi.fn(async () => jsonResponse({ detail: "missing" }, 404));
-    const http = new HttpClient({ baseUrl: "https://example.test", token: "tok", fetch });
-    await expect(http.get("/api/v1/workspaces")).rejects.toBeInstanceOf(OpenPostError);
     expect(fetch).toHaveBeenCalledOnce();
   });
 

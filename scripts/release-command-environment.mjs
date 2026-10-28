@@ -1,4 +1,4 @@
-export const releaseGitHubRepository = "getopenpost/openpost";
+const releaseGitHubRepository = "getopenpost/openpost";
 
 export function releaseCommandEnvironment(baseEnvironment = process.env, extraEnvironment = {}) {
   return {

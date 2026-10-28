@@ -25,7 +25,7 @@ function jsonDocument(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-export function renderMCPServerCard(version) {
+function renderMCPServerCard(version) {
   return {
     ...mcpServerCardBase,
     version,
@@ -36,7 +36,7 @@ export function renderMCPServerCard(version) {
   };
 }
 
-export function renderARDManifest() {
+function renderARDManifest() {
   return {
     entries: [
       {

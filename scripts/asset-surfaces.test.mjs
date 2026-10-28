@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { promisify } from "node:util";
 
 import { assetSurfaceManifest } from "./asset-surfaces.ts";
 import {
@@ -16,32 +14,6 @@ import {
   validateAssetTarget,
 } from "./asset-surfaces.mjs";
 import { moveAssetDirectory } from "./sync-assets.mjs";
-
-const execFileAsync = promisify(execFile);
-
-const trackedTextExtensions = new Set([
-  ".css",
-  ".html",
-  ".js",
-  ".json",
-  ".md",
-  ".mjs",
-  ".svelte",
-  ".svg",
-  ".ts",
-  ".tsx",
-  ".xml",
-  ".yaml",
-  ".yml",
-]);
-
-const legacyPencilLogoFingerprints = [
-  { name: "pencil nib mask", pattern: /id=["']nib-cutout["']/u },
-  {
-    name: "pencil body path",
-    pattern: /M\s*-30\s*-170[\s\S]{0,300}L\s*22\s*-10[\s\S]{0,120}L\s*-22\s*-10/u,
-  },
-];
 
 test("finds deployed asset URLs without treating source imports as copies", () => {
   const source = [

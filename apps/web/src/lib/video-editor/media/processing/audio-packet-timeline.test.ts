@@ -39,6 +39,7 @@ describe('clampPacketToTimeline', () => {
 		for (const p of inputs) {
 			const result = clampPacketToTimeline(p);
 			if (result !== null) expect(result.timestamp).toBeGreaterThanOrEqual(0);
+			if (p.timestamp >= 0) expect(result).toBe(p);
 		}
 	});
 });

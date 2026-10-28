@@ -29,9 +29,17 @@ describe('Lottie metadata', () => {
 				{ name: 'Hold', start: 40, duration: 0 }
 			]
 		});
-		expect(parseLottieFileBytes(strToU8(JSON.stringify(animation)))).toEqual(
-			parseLottieMetadata(animation)
-		);
+		expect(parseLottieFileBytes(strToU8(JSON.stringify(animation)))).toEqual({
+			width: 320,
+			height: 180,
+			frameRate: 24,
+			totalFrames: 48,
+			durationSeconds: 2,
+			markers: [
+				{ name: 'Intro', start: 12, duration: 8 },
+				{ name: 'Hold', start: 40, duration: 0 }
+			]
+		});
 	});
 
 	it('rejects arbitrary JSON and corrupt archives', () => {

@@ -148,7 +148,7 @@ describe('OpenPost Image Editor document contracts', () => {
 		expect(imageEditorPageHasTransparency(document.pages[0])).toBe(true);
 	});
 
-	it('enforces page, pixel, and layer limits', () => {
+	it('enforces document dimension and page-count limits', () => {
 		const document = blankImageEditorDocument(preset);
 		document.width_px = IMAGE_EDITOR_LIMITS.maxDimension + 1;
 		document.height_px = 4096;

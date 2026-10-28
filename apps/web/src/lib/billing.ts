@@ -1,6 +1,5 @@
 import {
 	billingPeriods,
-	hostedPlanDefinition,
 	hostedPlanIDs,
 	planCatalog,
 	type BillingPeriod,
@@ -69,12 +68,6 @@ export function billingPeriodFromSearchParams(searchParams: URLSearchParams): Bi
 export function paddleTransactionIDFromSearchParams(searchParams: URLSearchParams): string {
 	const transactionID = searchParams.get('_ptxn')?.trim() ?? '';
 	return paddleTransactionIDPattern.test(transactionID) ? transactionID : '';
-}
-
-export function hostedPlanByID(planID: string | null | undefined): HostedPlan | undefined {
-	const normalized = normalizeHostedPlanID(planID);
-	if (!normalized || !hostedPlanDefinition(normalized)) return undefined;
-	return hostedPlans.find((plan) => plan.id === normalized);
 }
 
 export function planPriceUSD(plan: HostedPlan, period: BillingPeriod): number {

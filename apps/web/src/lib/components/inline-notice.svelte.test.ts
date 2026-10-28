@@ -12,6 +12,9 @@ describe('inline notice live-region contract', () => {
 		const notice = screen.getByRole('alert');
 		expect(notice.element()).toHaveAttribute('aria-live', 'assertive');
 		expect(notice.element()).toHaveTextContent('Export failed');
+		expect(notice.element()).toHaveClass('bg-action-destructive');
+		expect(notice.element()).toHaveClass('text-action-destructive-foreground');
+		expect(notice.element()).toHaveClass('border-action-destructive-foreground/20');
 	});
 
 	it.each(['warning', 'info', 'success'] as const)(
@@ -19,12 +22,26 @@ describe('inline notice live-region contract', () => {
 		async (tone) => {
 			const screen = await render(InlineNotice, {
 				tone,
-				message: 'Take note'
+				message: 'Take note',
+				onDismiss: tone === 'warning' ? vi.fn() : undefined,
+				dismissLabel: 'Dismiss notice'
 			});
 
 			const notice = screen.getByRole('status');
 			expect(notice.element()).toHaveAttribute('aria-live', 'polite');
 			expect(notice.element()).toHaveTextContent('Take note');
+			if (tone === 'warning') {
+				expect(screen.container.querySelector('[data-protected-icon]')).toHaveAttribute(
+					'data-protected-icon',
+					'warning'
+				);
+				expect(
+					screen
+						.getByRole('button', { name: 'Dismiss notice' })
+						.element()
+						.querySelector('[data-theme-icon]')
+				).toHaveAttribute('data-theme-icon', 'close');
+			}
 		}
 	);
 

@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { editorSession } from '../editor.svelte';
 import { createBlankProject } from '../project/defaults';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
@@ -14,6 +14,7 @@ afterEach(() => {
 });
 
 it('previews the rendered color on hover and selects that same color on click', async () => {
+	await page.viewport(1280, 900);
 	const project = createBlankProject('Picker');
 	project.timeline!.items = [
 		{

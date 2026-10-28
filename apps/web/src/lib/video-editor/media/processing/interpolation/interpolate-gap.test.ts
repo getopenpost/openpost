@@ -21,25 +21,16 @@ describe('interpolateGap', () => {
 	it('places each frame at its nominal fraction of the gap', async () => {
 		const [a, b] = ramp(0, 1);
 		for (const factor of SUPPORTED_INTERPOLATION_FACTORS) {
-			const positions = (await interpolateGap(a, b, factor, lerp)).map((f) => f[0]!);
+			let calls = 0;
+			const counted = async (left: Float32Array, right: Float32Array, t: number) => {
+				calls += 1;
+				return lerp(left, right, t);
+			};
+			const positions = (await interpolateGap(a, b, factor, counted)).map((f) => f[0]!);
+			expect(positions).toHaveLength(factor - 1);
+			expect(calls).toBe(factor - 1);
 			positions.forEach((value, i) => expect(value).toBeCloseTo((i + 1) / factor, 6));
 		}
-	});
-
-	it('handles factors that are not powers of two', async () => {
-		const positions = (await interpolateGap(...ramp(0, 3), 3, lerp)).map((f) => f[0]!);
-		expect(positions[0]).toBeCloseTo(1, 6);
-		expect(positions[1]).toBeCloseTo(2, 6);
-	});
-
-	it('runs exactly factor-1 inferences', async () => {
-		let calls = 0;
-		const counted = async (l: Float32Array, r: Float32Array, t: number): Promise<Float32Array> => {
-			calls++;
-			return lerp(l, r, t);
-		};
-		await interpolateGap(...ramp(0, 1), 8, counted);
-		expect(calls).toBe(7);
 	});
 
 	it('propagates interpolator failures', async () => {

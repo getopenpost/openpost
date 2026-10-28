@@ -136,9 +136,24 @@ func TestMCPOperationAliasResolution(t *testing.T) {
 	t.Parallel()
 
 	require.Len(t, mcpOperationAliases, len(mcpPostVariantRetiredNames))
-	for _, retired := range mcpPostVariantRetiredNames {
-		canonical, ok := mcpOperationAliases[retired]
+	for _, pair := range []struct{ retired, canonical string }{
+		{"create_publication", "create_post"},
+		{"list_publications", "list_posts"},
+		{"get_publication", "get_post"},
+		{"update_publication", "update_post"},
+		{"set_publication_renditions", "set_post_variants"},
+		{"reply_to_rendition", "reply_to_variant"},
+		{"validate_publication", "validate_post"},
+		{"schedule_publication", "schedule_post"},
+		{"cancel_publication", "cancel_post"},
+		{"publish_publication_now", "publish_post_now"},
+		{"list_publication_events", "list_post_events"},
+		{"list_rendition_comments", "list_variant_comments"},
+	} {
+		retired, canonical := pair.retired, pair.canonical
+		actual, ok := mcpOperationAliases[retired]
 		require.True(t, ok, "retired operation %q must have an alias entry", retired)
+		require.Equal(t, canonical, actual, retired)
 		require.Contains(t, mcpPostVariantCanonicalNames, canonical)
 		require.Equal(t, canonical, normalizeMCPOperationName(retired))
 		require.Equal(t, canonical, normalizeMCPOperationName("  "+retired+"  "))
@@ -253,6 +268,9 @@ func TestMCPPostVariantAliasEndToEnd(t *testing.T) {
 		"publication_id": postID,
 	})
 	require.Equal(t, postID, publicationOf(loaded)["id"])
+	require.Contains(t, publicationOf(loaded), "revision")
+	require.NotContains(t, publicationOf(loaded), "renditions")
+	require.Equal(t, "", structured(loaded)["job_id"])
 
 	updated := mcpRequireToolSuccess(t, srv, "alias-update", "update_publication", map[string]any{
 		"publication_id": postID, "expected_revision": float64(1),
@@ -308,6 +326,15 @@ func TestMCPPostVariantAliasEndToEnd(t *testing.T) {
 	})
 	require.Equal(t, "variant not found", comments["error"].(map[string]any)["message"])
 
+	legacyReply := mcpCallToolResult(t, srv, "alias-legacy-reply", "reply_to_rendition", map[string]any{
+		"rendition_id": "missing-variant", "body": "hello",
+	})
+	require.Equal(t, "variant not found", legacyReply["error"].(map[string]any)["message"])
+	legacyComments := mcpCallToolResult(t, srv, "alias-legacy-comments", "list_rendition_comments", map[string]any{
+		"rendition_id": "missing-variant",
+	})
+	require.Equal(t, "variant not found", legacyComments["error"].(map[string]any)["message"])
+
 	// The delegated path accepts retired operation names and argument keys.
 	delegatedCreate := mcpRequireToolSuccess(t, srv, "alias-delegated-create", mcpToolExecute, map[string]any{
 		"operation": "create_publication",
@@ -352,30 +379,6 @@ func TestMCPPostVariantAliasEndToEnd(t *testing.T) {
 	require.Equal(t, "variants", structured(rendered)["view"])
 }
 
-func TestMCPPostVariantAnnotations(t *testing.T) {
-	t.Parallel()
-
-	for _, operation := range mcpOperationCatalog() {
-		name, _ := operation.Descriptor["name"].(string)
-		annotations, ok := operation.Descriptor["annotations"].(map[string]any)
-		require.True(t, ok, "operation %s must carry annotations", name)
-		idempotent, ok := annotations["idempotentHint"].(bool)
-		require.True(t, ok, "operation %s must carry idempotentHint", name)
-		if operation.Mode == mcpOperationQuery {
-			require.True(t, idempotent, "read-only operation %s must be idempotent", name)
-		} else {
-			require.False(t, idempotent, "mutation operation %s must not be idempotent", name)
-		}
-	}
-	for _, tool := range mcpAdvertisedTools() {
-		name, _ := tool["name"].(string)
-		annotations, ok := tool["annotations"].(map[string]any)
-		require.True(t, ok, "tool %s must carry annotations", name)
-		_, ok = annotations["idempotentHint"].(bool)
-		require.True(t, ok, "tool %s must carry idempotentHint", name)
-	}
-}
-
 func TestMCPExplicitVariantFormatRoundTrip(t *testing.T) {
 	t.Parallel()
 	srv := newMCPTestServer(t)
@@ -388,6 +391,7 @@ func TestMCPExplicitVariantFormatRoundTrip(t *testing.T) {
 	post := created["structuredContent"].(map[string]any)["publication"].(map[string]any)
 	loaded := mcpRequireToolSuccess(t, srv, "locked-get", "get_post", map[string]any{"post_id": post["id"], "detail": "full"})
 	post = loaded["structuredContent"].(map[string]any)["publication"].(map[string]any)
+	require.Contains(t, post, "renditions")
 	variants := post["renditions"].([]any)
 	require.Equal(t, true, variants[0].(map[string]any)["format_locked"])
 	updated := mcpRequireToolSuccess(t, srv, "locked-update", "set_post_variants", map[string]any{

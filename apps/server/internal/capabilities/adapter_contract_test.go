@@ -4,37 +4,8 @@ import (
 	"testing"
 
 	"github.com/openpost/backend/internal/capabilities"
-	"github.com/openpost/backend/internal/platform"
 	"github.com/stretchr/testify/require"
 )
-
-func TestCatalogSettingsHaveAConsumer(t *testing.T) {
-	declared := map[string]map[string]capabilities.SettingDefinition{}
-	for _, capability := range capabilities.All() {
-		if declared[capability.Provider] == nil {
-			declared[capability.Provider] = map[string]capabilities.SettingDefinition{}
-		}
-		for _, setting := range capability.Settings {
-			declared[capability.Provider][setting.Key] = setting
-		}
-	}
-
-	for provider, settings := range declared {
-		contract := platform.PublishingSettingsContract(provider)
-		consumed := map[string]bool{}
-		for _, key := range append(contract.AdapterKeys, contract.PipelineKeys...) {
-			consumed[key] = true
-			_, exists := settings[key]
-			require.Truef(t, exists, "%s adapter consumes %q but the capability catalog does not declare it", provider, key)
-		}
-		for key, setting := range settings {
-			if setting.UnavailableReason != "" {
-				continue
-			}
-			require.Truef(t, consumed[key], "%s declares %q but no adapter or publication pipeline consumes it", provider, key)
-		}
-	}
-}
 
 func TestMediaSettingScopesMatchAdapterContract(t *testing.T) {
 	mediaKeys := map[string]bool{

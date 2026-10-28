@@ -3,7 +3,7 @@ import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 import { addGeneratedSubtitleItem } from '../transcript/transcribe-action';
 import { addSubtitleItemFromSrt } from '../transcript/captions';
-import { trimItemStart } from '../timeline/actions/items';
+import { planTrimGesture } from '../timeline/edit-gesture';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { createBlankProject, createDefaultTracks } from '../project/defaults';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
@@ -218,7 +218,10 @@ it('extends selection while dragging below the sticky actions and scrolling', as
 	try {
 		const screen = await render(TranscriptPanel, { target: host, props: { onedit: vi.fn() } });
 		const first = screen.getByRole('button', { name: 'word0', exact: true }).element();
+		const panel = host.querySelector<HTMLElement>('[data-testid="transcript-panel"]');
+		if (!panel) throw new Error('Transcript panel is missing.');
 		first.scrollIntoView({ block: 'center' });
+		const initialScrollTop = panel.scrollTop;
 		const rect = first.getBoundingClientRect();
 		first.dispatchEvent(
 			new PointerEvent('pointerdown', {
@@ -238,10 +241,35 @@ it('extends selection while dragging below the sticky actions and scrolling', as
 				clientY: bottom + 30
 			})
 		);
+		// Dragging past the edge must autoscroll the pane, not only grow a count.
+		await expect.poll(() => panel.scrollTop).toBeGreaterThan(initialScrollTop);
 		await expect
 			.poll(() => host.querySelectorAll('[data-selected="true"]').length)
 			.toBeGreaterThan(20);
 		window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 11, bubbles: true }));
+
+		const selected = [...panel.querySelectorAll<HTMLElement>('[data-selected="true"]')];
+		expect(selected.length).toBeGreaterThan(20);
+		expect(selected[0]).toBe(first);
+		const indices = selected.map((word) => Number(word.dataset.transcriptWord));
+		for (let index = 1; index < indices.length; index += 1) {
+			expect(indices[index]).toBe(indices[index - 1]! + 1);
+		}
+		expect(indices.at(-1)).toBeLessThan(119);
+		// The pointer is clamped just above the sticky selection toolbar, so the
+		// selection must end on that visible boundary line (`leading-8` is 32px),
+		// not earlier and not on the whole document.
+		const toolbar = panel.querySelector('[role="toolbar"]');
+		if (!toolbar) throw new Error('Selection toolbar is missing.');
+		const clampY = Math.min(
+			panel.getBoundingClientRect().bottom,
+			toolbar.getBoundingClientRect().top
+		);
+		const endWord = panel.querySelector<HTMLElement>(`[data-transcript-word="${indices.at(-1)}"]`);
+		if (!endWord) throw new Error('Last selected word is missing.');
+		const endBounds = endWord.getBoundingClientRect();
+		expect(endBounds.bottom).toBeGreaterThan(clampY - 32);
+		expect(endBounds.top).toBeLessThan(clampY + 2);
 	} finally {
 		host.remove();
 	}
@@ -447,7 +475,10 @@ it('rejects an inverted caption end without compressing words and still admits a
 it('uses sequence frames for imported captions after a timeline start trim', async () => {
 	timelineStore.setAll({ fps: 30, tracks: createDefaultTracks(), items: [] });
 	const id = addSubtitleItemFromSrt('1\n00:00:10,200 --> 00:00:15,000\nImported line');
-	expect(trimItemStart(id, 300)).toBe(true);
+	const item = timelineStore.itemById.get(id)!;
+	const trim = planTrimGesture(item, 'start', 300 - item.from, timelineStore.items, 30, [], 0);
+	timelineStore._updateItems([{ id, patch: trim.patch }]);
+	expect(timelineStore.itemById.get(id)?.from).toBe(300);
 	commandHistory.clearHistory();
 	const screen = await render(TranscriptPanel, { onedit: vi.fn() });
 	await screen.getByRole('button', { name: 'Imported line', exact: true }).click();

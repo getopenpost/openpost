@@ -97,7 +97,7 @@ async function sha256File(pathname) {
   return hash.digest("hex");
 }
 
-export function shouldCopyFrontendPath(sourceDirectory, pathname) {
+function shouldCopyFrontendPath(sourceDirectory, pathname) {
   const relative = path.relative(path.resolve(sourceDirectory), path.resolve(pathname));
   if (!relative || relative.startsWith(`..${path.sep}`) || relative === "..") return true;
   const [topLevelDirectory] = relative.split(path.sep);

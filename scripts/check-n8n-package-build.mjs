@@ -47,6 +47,7 @@ const pack = parseNpmPackResult(
 const allowedFiles = ["LICENSE", "README.md", "package.json"];
 const allowedPrefixes = ["dist/", "docs/", "examples/", "icons/"];
 for (const file of pack.files) {
+  assert.ok(!file.path.startsWith("dist/test/"), `Compiled test file in npm payload: ${file.path}`);
   assert.ok(
     allowedFiles.includes(file.path) ||
       allowedPrefixes.some((prefix) => file.path.startsWith(prefix)),

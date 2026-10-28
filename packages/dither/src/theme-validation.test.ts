@@ -44,11 +44,12 @@ describe("shared contrast math", () => {
 
   test("composites one translucent layer over another without a shortcut", () => {
     const composited = compositeValidationColor(HALF_BLACK, WHITE);
-    expect(composited.alpha).toBe(1);
-    expect(contrastRatio(composited, WHITE)).toBeCloseTo(
-      compositedContrastRatio(HALF_BLACK, WHITE, WHITE),
-      12,
-    );
+    expect(composited).toEqual({ red: 0.5, green: 0.5, blue: 0.5, alpha: 1 });
+    const translucent = compositeValidationColor(HALF_BLACK, rgba([1, 1, 1, 0.5]));
+    expect(translucent.alpha).toBe(0.75);
+    expect(translucent.red).toBeCloseTo(1 / 3, 12);
+    expect(translucent.green).toBeCloseTo(1 / 3, 12);
+    expect(translucent.blue).toBeCloseTo(1 / 3, 12);
   });
 });
 

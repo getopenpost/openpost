@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,6 +40,7 @@ func TestMCPListMediaCursorPagination(t *testing.T) {
 	items := first["media"].([]any)
 	require.Len(t, items, 2)
 	require.Equal(t, "media-page-3", items[0].(map[string]any)["id"])
+	require.Equal(t, "media-page-2", items[1].(map[string]any)["id"])
 
 	second := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "media-page-second", mcpToolListMedia, map[string]any{
 		"workspace_id": "ws-1", "limit": 2, "cursor": cursor,
@@ -48,6 +50,7 @@ func TestMCPListMediaCursorPagination(t *testing.T) {
 	rest := second["media"].([]any)
 	require.Len(t, rest, 1)
 	require.Equal(t, "media-page-1", rest[0].(map[string]any)["id"])
+	require.Equal(t, "", second["next_cursor"])
 
 	invalid := mcpCallOperation(t, srv, "web-token", "media-page-bad", mcpToolListMedia, map[string]any{
 		"workspace_id": "ws-1", "cursor": "not-a-cursor",
@@ -70,11 +73,18 @@ func TestMCPListPostEventsCursorPagination(t *testing.T) {
 	}).Exec(ctx)
 	require.NoError(t, err)
 	for index, id := range []string{"event-page-1", "event-page-2"} {
-		_, err = srv.db.NewInsert().Model(&models.PublicationLifecycleEvent{
+		event := models.PublicationLifecycleEvent{
 			ID: id, WorkspaceID: "ws-1", PublicationID: "publication-events-page",
 			Type: "note", Status: "info", Message: "note",
 			MetadataJSON: "{}", CreatedAt: base.Add(time.Duration(index) * time.Minute),
-		}).Exec(ctx)
+		}
+		if id == "event-page-2" {
+			event.Type = "published"
+			event.Status = "succeeded"
+			event.Message = "rendition published"
+			event.MetadataJSON = `{"provider":"x"}`
+		}
+		_, err = srv.db.NewInsert().Model(&event).Exec(ctx)
 		require.NoError(t, err)
 	}
 
@@ -86,6 +96,16 @@ func TestMCPListPostEventsCursorPagination(t *testing.T) {
 	cursor, _ := first["next_cursor"].(string)
 	require.NotEmpty(t, cursor)
 	require.Len(t, first["events"].([]any), 2)
+	firstEvents := first["events"].([]any)
+	published := firstEvents[0].(map[string]any)
+	require.Equal(t, "event-page-2", published["id"])
+	require.Equal(t, "event-page-1", firstEvents[1].(map[string]any)["id"])
+	require.Equal(t, "published", published["type"])
+	require.Equal(t, "succeeded", published["status"])
+	require.Equal(t, "Published to provider", published["summary"])
+	require.Equal(t, "x", published["platform"])
+	require.NotContains(t, published, "message")
+	require.NotContains(t, published, "metadata")
 
 	second := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "events-page-second", mcpToolPubEvents, map[string]any{
 		"post_id": "publication-events-page", "limit": 2, "cursor": cursor,
@@ -93,6 +113,12 @@ func TestMCPListPostEventsCursorPagination(t *testing.T) {
 	require.Equal(t, float64(3), second["total_count"])
 	require.Equal(t, false, second["has_more"])
 	require.Len(t, second["events"].([]any), 1)
+	created := second["events"].([]any)[0].(map[string]any)
+	require.Equal(t, "created:publication-events-page", created["id"])
+	require.Equal(t, "created", created["type"])
+	require.Equal(t, "", second["next_cursor"])
+	ids := []any{published["id"], firstEvents[1].(map[string]any)["id"], created["id"]}
+	require.Equal(t, []any{"event-page-2", "event-page-1", "created:publication-events-page"}, ids)
 }
 
 func TestMCPGetPostMetricsReadsStoredSnapshots(t *testing.T) {
@@ -214,6 +240,17 @@ func TestMCPSearchDocsFindsGuides(t *testing.T) {
 	require.NotEmpty(t, first["title"])
 	require.NotEmpty(t, first["path"])
 	require.NotEmpty(t, first["snippet"])
+	foundAccounts := false
+	for _, result := range results {
+		entry := result.(map[string]any)
+		require.True(t, strings.HasPrefix(entry["path"].(string), "/docs/"))
+		if entry["path"] == "/docs/guides/accounts" {
+			foundAccounts = true
+			require.Contains(t, entry["title"], "Accounts")
+			require.Contains(t, entry["snippet"], "social accounts")
+		}
+	}
+	require.True(t, foundAccounts, "account-connection search must include the Accounts guide")
 
 	empty := mcpCallOperation(t, srv, "web-token", "docs-empty", mcpToolSearchDocs, map[string]any{
 		"query": "   ",
@@ -284,6 +321,11 @@ func TestMCPListVariantCommentsLimitTruncates(t *testing.T) {
 	result := out["result"].(map[string]any)
 	comments := result["structuredContent"].(map[string]any)["comments"].([]any)
 	require.Len(t, comments, 2)
+	for index, expected := range []struct{ id, text string }{{"c1", "one"}, {"c2", "two"}} {
+		comment := comments[index].(map[string]any)
+		require.Equal(t, expected.id, comment["provider_comment_id"])
+		require.Equal(t, expected.text, comment["text"])
+	}
 	text := result["content"].([]any)[0].(map[string]any)["text"].(string)
 	require.Contains(t, text, "showing the first 2")
 
@@ -291,6 +333,11 @@ func TestMCPListVariantCommentsLimitTruncates(t *testing.T) {
 		"variant_id": "rendition-comments-limit",
 	}))
 	require.Len(t, full["comments"].([]any), 3)
+	for index, expected := range []struct{ id, text string }{{"c1", "one"}, {"c2", "two"}, {"c3", "three"}} {
+		comment := full["comments"].([]any)[index].(map[string]any)
+		require.Equal(t, expected.id, comment["provider_comment_id"])
+		require.Equal(t, expected.text, comment["text"])
+	}
 
 	invalid := mcpCallOperation(t, srv, "web-token", "comments-bad-limit", mcpToolComments, map[string]any{
 		"variant_id": "rendition-comments-limit", "limit": 101,

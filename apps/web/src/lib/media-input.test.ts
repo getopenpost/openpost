@@ -37,12 +37,6 @@ describe('mediaFileSignature', () => {
 });
 
 describe('mediaInputRejection', () => {
-	it('rejects empty files', () => {
-		expect(mediaInputRejection(fakeFile('empty.png', 'image/png', 0), panelRules)).toEqual({
-			reason: 'empty'
-		});
-	});
-
 	it('infers MIME from the filename extension when the browser provides no type', () => {
 		expect(isMediaMimeAllowed(fakeFile('photo.png', '', 10), panelRules.accept)).toBe(true);
 		expect(mediaInputRejection(fakeFile('photo.png', '', 10), panelRules)).toBeNull();

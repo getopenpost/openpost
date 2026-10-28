@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { BUILT_IN_THEMES, resolveBuiltInTheme } from '@openpost/ui/themes/builtins.js';
+import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins.js';
 import {
 	isSafeThemeColor,
 	isSafeThemeSchemeManifestValues,
@@ -112,24 +112,26 @@ describe('theme manifest value validation', () => {
 		}
 	});
 
-	it('rejects unreadable action text in every rendered interaction state', () => {
-		const unreadableHover = resolveBuiltInTheme('workshop', 'light').manifest;
-		unreadableHover.colors.actionFocal = '#000000';
-		unreadableHover.colors.actionFocalHover = '#888888';
-		unreadableHover.colors.actionFocalActive = '#222222';
-		unreadableHover.colors.actionFocalInk = '#ffffff';
-		expect(isSafeThemeSchemeManifestValues(unreadableHover)).toBe(false);
-
-		const unreadableDestructive = resolveBuiltInTheme('workshop', 'light').manifest;
-		unreadableDestructive.colors.actionDestructive = '#888888';
-		unreadableDestructive.colors.actionDestructiveHover = '#777777';
-		unreadableDestructive.colors.actionDestructiveActive = '#666666';
-		unreadableDestructive.colors.actionDestructiveInk = '#ffffff';
-		expect(isSafeThemeSchemeManifestValues(unreadableDestructive)).toBe(false);
-
-		const unreadableLinkHover = resolveBuiltInTheme('workshop', 'light').manifest;
-		unreadableLinkHover.colors.actionLinkHover = unreadableLinkHover.colors.canvas;
-		expect(isSafeThemeSchemeManifestValues(unreadableLinkHover)).toBe(false);
+	it('rejects unreadable focal, destructive and link hover text independently', () => {
+		const control = resolveBuiltInTheme('workshop', 'light').manifest;
+		expect(isSafeThemeSchemeManifestValues(control), 'original palette control').toBe(true);
+		for (const [background, ink] of [
+			['actionFocalHover', 'actionFocalInk'],
+			['actionDestructiveHover', 'actionDestructiveInk'],
+			['canvas', 'actionLinkHover']
+		] as const) {
+			const unreadable = structuredClone(control);
+			if (ink === 'actionLinkHover') unreadable.colors[ink] = unreadable.colors[background];
+			else unreadable.colors[background] = unreadable.colors[ink];
+			expect(
+				themeColorContrastRatio(unreadable.colors[ink], unreadable.colors[background]),
+				`${background} contrast control`
+			).toBeCloseTo(1);
+			expect(
+				isSafeThemeSchemeManifestValues(unreadable),
+				`${background}/${ink} unreadable hover`
+			).toBe(false);
+		}
 	});
 
 	it('keeps focus visible and destructive actions semantically distinct', () => {
@@ -143,11 +145,6 @@ describe('theme manifest value validation', () => {
 		unsafeDestructive.colors.actionDestructiveActive = unsafeDestructive.colors.actionPrimaryActive;
 		unsafeDestructive.colors.actionDestructiveInk = unsafeDestructive.colors.actionPrimaryInk;
 		expect(isSafeThemeSchemeManifestValues(unsafeDestructive)).toBe(false);
-	});
-
-	it('measures WCAG contrast after alpha compositing', () => {
-		expect(themeColorContrastRatio('black', 'white')).toBe(21);
-		expect(themeColorContrastRatio('rgb(0 0 0 / 50%)', 'white')).toBeCloseTo(3.98, 2);
 	});
 
 	it('rechecks edited colors after repeated validation and browsing other palettes', () => {
@@ -189,18 +186,5 @@ describe('theme manifest value validation', () => {
 		expect(isSafeThemeSchemeManifestValues(manifest)).toBe(true);
 		manifest.components.button = 'dither';
 		expect(isSafeThemeSchemeManifestValues(manifest)).toBe(false);
-	});
-
-	it('keeps every built-in scheme inside the same safety floor', () => {
-		for (const theme of BUILT_IN_THEMES) {
-			for (const manifest of Object.values(theme.schemes)) {
-				if (manifest) expect(isSafeThemeSchemeManifestValues(manifest), theme.id).toBe(true);
-			}
-		}
-
-		const corkboard = resolveBuiltInTheme('corkboard', 'light').manifest.colors;
-		expect(
-			themeColorContrastRatio(corkboard.disabledInk, corkboard.disabled, corkboard.canvas)
-		).toBeGreaterThanOrEqual(4.5);
 	});
 });

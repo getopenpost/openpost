@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -114,4 +115,17 @@ func TestThreadsMentionPagePersistsOnlyOpaqueContinuation(t *testing.T) {
 	require.Equal(t, "next-page", page.NextCursor)
 	require.Len(t, page.Items, 1)
 	require.Equal(t, "mention-1", page.Items[0].ID)
+}
+
+// Threads returns mention timestamps with a colonless offset, which a strict
+// RFC 3339 parse rejects and stores as the zero time.
+func TestThreadsMentionKeepsGraphTimestamp(t *testing.T) {
+	stubGoogleBusinessClient(t, func(request *http.Request) (*http.Response, error) {
+		require.Equal(t, "/v1.0/me/mentions", request.URL.Path)
+		return jsonResponse(request, `{"data":[{"id":"mention-1","text":"Hello","username":"alice","timestamp":"2026-10-24T10:00:00+0000","permalink":"https://www.threads.net/@alice/post/9"}]}`), nil
+	})
+	page, err := NewThreadsAdapter("", "", "").ListAccountActivity(t.Context(), "credential", "founder", AccountActivityRequest{Feed: "mentions"})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1)
+	require.True(t, page.Items[0].ObservedAt.Equal(time.Date(2026, 10, 24, 10, 0, 0, 0, time.UTC)))
 }

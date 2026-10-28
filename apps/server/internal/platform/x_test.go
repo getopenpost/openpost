@@ -10,12 +10,15 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 func TestXUnrepostUsesSourcePostID(t *testing.T) {
+	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		requests.Add(1)
 		if req.Method != http.MethodDelete || req.URL.Path != "/2/users/target-user/retweets/source-post" {
 			t.Fatalf("unexpected request %s %s", req.Method, req.URL.Path)
 		}
@@ -30,6 +33,9 @@ func TestXUnrepostUsesSourcePostID(t *testing.T) {
 		SourceExternalID: "source-post", RepostExternalID: "ignored-repost-id",
 	}); err != nil {
 		t.Fatalf("unrepost failed: %v", err)
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("expected one native delete, got %d", got)
 	}
 }
 

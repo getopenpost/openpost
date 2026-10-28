@@ -13,6 +13,7 @@ import {
 	VideoSampleSource
 } from 'mediabunny';
 import { renderMultiTrackVideoArtifact, TimelineFrameRenderer } from './render-export';
+import { ResilientVideoFrameDecoder } from './render-video-decoder';
 import { mediaPool } from './pool.svelte';
 import type { Project } from '../project/types';
 import { getProxy, clearProxyCache } from './proxy-client';
@@ -696,6 +697,7 @@ describe('timeline rendering', () => {
 		});
 		const configure = vi.spyOn(VideoDecoder.prototype, 'configure');
 		const close = vi.spyOn(VideoDecoder.prototype, 'close');
+		const dispose = vi.spyOn(ResilientVideoFrameDecoder.prototype, 'dispose');
 		const fetchSource = vi.spyOn(globalThis, 'fetch');
 		const renderer = new TimelineFrameRenderer(project);
 		try {
@@ -709,11 +711,23 @@ describe('timeline rendering', () => {
 			}
 			expect(configure.mock.calls.length).toBeLessThanOrEqual(4);
 			expect(fetchSource.mock.calls.filter(([request]) => request === url)).toHaveLength(1);
+			// Frame 32 is past the second clip's 30-frame range but still inside the
+			// first clip. The renderer must release the inactive decoder before its own
+			// dispose, while the still-active source keeps rendering real frames.
+			const disposesBeforeRelease = dispose.mock.calls.length;
+			const closesBeforeRelease = close.mock.calls.length;
 			await renderer.render(32);
+			await vi.waitFor(() =>
+				expect(dispose.mock.calls.length).toBeGreaterThan(disposesBeforeRelease)
+			);
+			await vi.waitFor(() => expect(close.mock.calls.length).toBeGreaterThan(closesBeforeRelease));
+			const activeFrame = (await renderer.render(33)).getContext('2d')!;
+			expect(Math.abs(activeFrame.getImageData(8, 32, 1, 1).data[0]! - 33 * 4)).toBeLessThan(5);
 			renderer.dispose();
 			await vi.waitFor(() => expect(close.mock.calls.length).toBe(configure.mock.calls.length));
 		} finally {
 			renderer.dispose();
+			dispose.mockRestore();
 			URL.revokeObjectURL(url);
 		}
 	});

@@ -16,6 +16,9 @@ func TestGrantInstanceAdminPromotesExistingAccount(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	require.NoError(t, database.CreateSchema(db))
 
+	_, err = grantInstanceAdmin(ctx, db, "   ")
+	require.ErrorContains(t, err, "requires --email")
+
 	insertUser := func(t *testing.T, email string, isAdmin bool) {
 		t.Helper()
 		user := models.User{
@@ -46,14 +49,4 @@ func TestGrantInstanceAdminPromotesExistingAccount(t *testing.T) {
 
 	_, err = grantInstanceAdmin(ctx, db, "missing@example.test")
 	require.ErrorContains(t, err, "no account found")
-}
-
-func TestGrantInstanceAdminRequiresAnEmail(t *testing.T) {
-	db, err := database.InitDBWithDriver("sqlite", "file:"+t.Name()+"?mode=memory&cache=private")
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
-
-	_, err = grantInstanceAdmin(context.Background(), db, "   ")
-	require.ErrorContains(t, err, "requires --email")
 }

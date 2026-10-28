@@ -46,11 +46,16 @@ describe('on-canvas text blur after the item disappears', () => {
 		const screen = await render(TextToolsHarness, { props: { item, hooks: seen } });
 		const editor = await startTextSession(screen);
 		editor.focus();
+		// A dirty draft makes the teardown commit decision observable: without it
+		// "no oncommittext" would also hold for a session that never changed.
+		editor.textContent = 'Unsaved draft';
+		editor.dispatchEvent(new InputEvent('input', { bubbles: true }));
 
 		// The item is deleted mid-edit: the parent destroys the tools block
 		// while the editor still holds focus, exactly like preview-player when
 		// selectedResolved becomes undefined. Collect window errors from here:
-		// the removal blur fires during the rerender flush below.
+		// the removal blur fires during the rerender flush below, and the late
+		// blur after teardown must stay inside the same collection window.
 		const windowErrors: unknown[] = [];
 		const onWindowError = (event: ErrorEvent) => {
 			windowErrors.push(event.error ?? event.message);
@@ -60,21 +65,22 @@ describe('on-canvas text blur after the item disappears', () => {
 			await screen.rerender({ item: undefined, hooks: seen });
 			expect(screen.container.querySelector('[role="textbox"]')).toBe(null);
 			await new Promise((resolve) => setTimeout(resolve, 100));
+
+			// The browser fires blur as the focused node leaves the document. The
+			// delegated listener still routes to the destroyed instance; Svelte
+			// reports a handler failure asynchronously, so collect window errors
+			// instead of relying on dispatchEvent to throw. Unguarded, this is
+			// the production TypeError reading 'text'.
+			// A second blur after teardown is a no-op: the session already ended.
+			editor.dispatchEvent(new FocusEvent('blur'));
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			expect(seen.oncommittext).not.toHaveBeenCalled();
+			expect(seen.onedit).not.toHaveBeenCalled();
 			expect(windowErrors).toEqual([]);
+			expect(seen.ontextediting).toHaveBeenCalledWith(false);
 		} finally {
 			window.removeEventListener('error', onWindowError);
 		}
-
-		// The browser fires blur as the focused node leaves the document. The
-		// delegated listener still routes to the destroyed instance; Svelte
-		// reports a handler failure asynchronously, so collect window errors
-		// instead of relying on dispatchEvent to throw. Unguarded, this is
-		// the production TypeError reading 'text'.
-		// A second blur after teardown is a no-op: the session already ended.
-		editor.dispatchEvent(new FocusEvent('blur'));
-		await new Promise((resolve) => setTimeout(resolve, 100));
-		expect(seen.onedit).not.toHaveBeenCalled();
-		expect(seen.ontextediting).toHaveBeenCalledWith(false);
 	});
 
 	it('still commits an edited value on blur while the item exists', async () => {

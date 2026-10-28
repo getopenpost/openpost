@@ -94,7 +94,12 @@ describe('CLI authorization request identity', () => {
 		await expect.element(screen.getByText('Client B')).toBeVisible();
 
 		codeA.resolve({ data: { client_name: 'Client A' }, error: null });
-		await vi.waitFor(() => expect(screen.container.textContent).not.toContain('Client A'));
+		// The late response must be consumed before the absence check; awaiting the
+		// request and then a macrotask gives its continuation its turn.
+		await codeA.promise;
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		await expect.element(screen.getByText('Client B')).toBeVisible();
+		expect(screen.container.textContent).not.toContain('Client A');
 
 		await screen.getByRole('button', { name: 'Approve' }).click();
 		expect(mocks.post).toHaveBeenCalledWith('/cli/auth/approve', {

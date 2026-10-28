@@ -16,7 +16,7 @@ import (
 )
 
 func TestValidatePublicationListInputAcceptsStableCursorAndRejectsMixedPagination(t *testing.T) {
-	timestamp := time.Date(2026, time.August, 9, 12, 0, 0, 0, time.UTC)
+	timestamp := time.Date(2026, time.August, 9, 12, 0, 0, 789, time.UTC)
 	input := &ListPublicationsInput{Cursor: encodeTimestampIDCursor(timestamp, "publication-1")}
 	_, cursor, _, err := validatePublicationListInput(input)
 	require.NoError(t, err)

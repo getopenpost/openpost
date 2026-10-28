@@ -16,7 +16,7 @@ import {
 const sdkFile = "packages/sdk/package.json";
 const cliFile = "packages/cli/package.json";
 
-test("stable versions compare numerically with prerelease awareness", () => {
+test("stable versions compare numerically and reject invalid input", () => {
   assert.equal(compareVersions("0.1.0", "0.1.0"), 0);
   assert.equal(compareVersions("0.2.0", "0.1.9"), 1);
   assert.equal(compareVersions("0.1.0", "0.1.1"), -1);
@@ -55,6 +55,79 @@ test("publishable CLI changes require a version increase", () => {
     }),
     { changed: true, initial: false, version: "0.1.1" },
   );
+});
+
+test("compiler-excluded test files do not force a version increase", () => {
+  for (const [packageDirectory, testFile] of [
+    ["packages/sdk", "packages/sdk/src/client.test.ts"],
+    ["packages/sdk", "packages/sdk/src/resources/accounts.test.ts"],
+    ["packages/cli", "packages/cli/src/run.test.ts"],
+    ["packages/cli", "packages/cli/src/commands/schedule.test.ts"],
+  ]) {
+    assert.deepEqual(
+      assessPackageVersionChange({
+        packageDirectory,
+        changedFiles: [testFile],
+        currentVersion: "0.1.0",
+        previousVersion: "0.1.0",
+      }),
+      { changed: false, initial: false, version: "0.1.0" },
+      testFile,
+    );
+  }
+});
+
+test("production, build configuration, README, and non-excluded test-looking files stay publishable", () => {
+  for (const changedFile of [
+    "packages/sdk/src/client.ts",
+    "packages/sdk/src/testing/mock.ts",
+    "packages/sdk/tsconfig.build.json",
+    "packages/sdk/README.md",
+    "packages/sdk/test/client.test.ts",
+    "packages/cli/src/run.ts",
+    "packages/cli/package.json",
+    "packages/cli/README.md",
+  ]) {
+    const packageDirectory = changedFile.startsWith("packages/sdk/")
+      ? "packages/sdk"
+      : "packages/cli";
+    assert.throws(
+      () =>
+        assessPackageVersionChange({
+          packageDirectory,
+          changedFiles: [changedFile],
+          currentVersion: "0.1.0",
+          previousVersion: "0.1.0",
+        }),
+      /must increase the package version/u,
+      changedFile,
+    );
+  }
+});
+
+test("mixed test-only and publishable changes still force a version increase", () => {
+  for (const changedFiles of [
+    ["packages/sdk/src/client.test.ts", "packages/sdk/src/client.ts"],
+    ["packages/sdk/src/client.test.ts", "packages/sdk/tsconfig.build.json"],
+    ["packages/sdk/src/client.test.ts", "packages/sdk/README.md"],
+    ["packages/cli/src/run.test.ts", "packages/cli/package.json"],
+    // `--no-renames` reports both sides of a rename; the production side remains publishable.
+    ["packages/sdk/src/removed.ts", "packages/sdk/src/removed.test.ts"],
+  ]) {
+    assert.throws(
+      () =>
+        assessPackageVersionChange({
+          packageDirectory: changedFiles[0].startsWith("packages/sdk/")
+            ? "packages/sdk"
+            : "packages/cli",
+          changedFiles,
+          currentVersion: "0.1.0",
+          previousVersion: "0.1.0",
+        }),
+      /must increase the package version/u,
+      changedFiles.join(", "),
+    );
+  }
 });
 
 test("unrelated changes do not force a version increase", () => {

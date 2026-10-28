@@ -81,7 +81,7 @@ describe('buildScaleRetimePreview', () => {
 			totalFrames: 100,
 			blockedRanges: [{ start: 20, end: 30 }]
 		});
-		expect(preview.frames.get('b')).not.toBe(20);
+		expect(preview.frames.get('b')).toBe(19);
 	});
 
 	it('returns an empty preview for identity scales and invalid input', () => {

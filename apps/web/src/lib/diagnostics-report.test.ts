@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-	MAX_BROWSER_DIAGNOSTICS_PER_SESSION,
 	maintainerDiagnosticsAllowed,
 	maybeReportBrowserFailure,
 	normalizeBrowserFailure,
@@ -200,13 +199,14 @@ describe('maybeReportBrowserFailure', () => {
 	it('caps the session instead of flooding on loops', async () => {
 		resetBrowserDiagnosticsForTests();
 		const { calls, sender } = transport();
-		for (let i = 0; i < MAX_BROWSER_DIAGNOSTICS_PER_SESSION + 5; i++) {
-			await maybeReportBrowserFailure(
+		for (let i = 0; i < 15; i++) {
+			const sent = await maybeReportBrowserFailure(
 				{ code: 'browser_uncaught', location: `/loop/${i}.js:1` },
 				sender
 			);
+			expect(sent).toBe(i < 10);
 		}
-		expect(calls).toHaveLength(MAX_BROWSER_DIAGNOSTICS_PER_SESSION);
+		expect(calls).toHaveLength(10);
 	});
 
 	it('treats transport failures as silent drops', async () => {

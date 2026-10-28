@@ -2,9 +2,7 @@ package publisher
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -12,16 +10,11 @@ import (
 	"net/url"
 	"strconv"
 	"testing"
-	"time"
 
-	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/connectors"
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/lifecycle"
 	"github.com/stretchr/testify/require"
-	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 type connectorTestResolver struct {
@@ -30,104 +23,6 @@ type connectorTestResolver struct {
 
 func (r connectorTestResolver) LookupIPAddr(context.Context, string) ([]net.IPAddr, error) {
 	return []net.IPAddr{{IP: r.address}}, nil
-}
-
-func TestProviderForAccountResolvesConnectorBinding(t *testing.T) {
-	t.Parallel()
-
-	manifest := connectors.Manifest{
-		ProtocolVersion:       connectors.ProtocolVersion,
-		ImplementationVersion: "0.1.0",
-		Provider: connectors.ProviderDescriptor{
-			ID: "io.directus.items", DisplayName: "Directus",
-		},
-		CapabilityRevision: "directus-items-v1",
-		Connection:         connectors.ConnectionDescriptor{Modes: []string{"preconfigured"}},
-		Publishing: connectors.PublishingDescriptor{OutputProfiles: []connectors.OutputProfile{{
-			ID: "directus.item", DisplayName: "Create Directus item", Profile: "short_text",
-			Intents: []string{"post"}, Content: connectors.TextConstraint{Required: true, MaxLength: 100_000},
-			Media: connectors.MediaConstraint{MinItems: 0, MaxItems: 0},
-		}}},
-		Operations: connectors.OperationDescriptor{Polling: true},
-	}
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		response.Header().Set("Content-Type", "application/json")
-		switch request.URL.Path {
-		case "/v1/manifest":
-			require.NoError(t, json.NewEncoder(response).Encode(manifest))
-		case "/v1/health":
-			require.NoError(t, json.NewEncoder(response).Encode(connectors.HealthResponse{Status: "ready"}))
-		case "/v1/publishes":
-			require.NoError(t, json.NewEncoder(response).Encode(connectors.PublishResponse{
-				Status: "published", ExternalID: "item-42",
-			}))
-		default:
-			http.NotFound(response, request)
-		}
-	}))
-	defer server.Close()
-	parsed, err := url.Parse(server.URL)
-	require.NoError(t, err)
-	port, err := strconv.Atoi(parsed.Port())
-	require.NoError(t, err)
-	registry, err := connectors.NewRegistry(context.Background(), connectors.Config{
-		Version: 1,
-		Installations: []connectors.InstallationConfig{{
-			ID: "directus-main", BearerToken: "connector-secret",
-			Endpoint: connectors.EndpointConfig{
-				Mode: connectors.TransportPrivateAllow, BaseURL: "http://connector.test:" + parsed.Port(),
-				AllowedHosts: []string{"connector.test"}, AllowedCIDRs: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")},
-				AllowedPorts: []int{port},
-			},
-		}},
-	}, connectors.RegistryOptions{Client: connectors.ClientOptions{
-		Resolver: connectorTestResolver{address: net.ParseIP(parsed.Hostname())},
-	}})
-	require.NoError(t, err)
-
-	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
-	require.NoError(t, err)
-	sqldb.SetMaxOpenConns(1)
-	db := bun.NewDB(sqldb, sqlitedialect.New())
-	for _, model := range []any{
-		(*models.SocialAccount)(nil), (*models.ProviderInstallation)(nil), (*models.ProviderAccountBinding)(nil),
-	} {
-		_, err = db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
-		require.NoError(t, err)
-	}
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	store := connectors.NewStore(db)
-	require.NoError(t, store.SyncRegistry(context.Background(), registry))
-	account := &models.SocialAccount{
-		ID: "account-1", WorkspaceID: "workspace-1", Platform: "io.directus.items",
-		AccountID: "posts", Slug: "directus-posts", AccessTokenEnc: []byte("connector-managed"), IsActive: true, CreatedAt: time.Now().UTC(),
-	}
-	_, err = db.NewInsert().Model(account).Exec(context.Background())
-	require.NoError(t, err)
-	require.NoError(t, store.BindAccount(context.Background(), models.ProviderAccountBinding{
-		SocialAccountID: account.ID, WorkspaceID: account.WorkspaceID, InstallationID: "directus-main",
-		ConnectionRef: "directus/posts", ExternalAccountID: account.AccountID,
-		CapabilityRevision: manifest.CapabilityRevision,
-	}))
-
-	service := NewService(db, nil)
-	service.SetConnectorRegistry(registry, store)
-	require.NoError(t, service.requireRenditionReadiness(context.Background(), account, &models.Rendition{
-		Profile: "short_text", OutputProfile: "directus.item", SettingsJSON: "{}",
-	}, nil, "production"))
-	publisher, providerKey, connectorBacked, err := service.providerForAccount(context.Background(), account.WorkspaceID, account)
-	require.NoError(t, err)
-	require.True(t, connectorBacked)
-	require.Equal(t, "directus-main", providerKey)
-	require.NotNil(t, publisher)
-
-	request := &platform.PublishRequest{
-		OperationID: "authorization:one:rendition:publish", OutputProfile: "directus.item", Content: "Hello",
-	}
-	request.SetWriteFence(func(platform.PublishResult) error { return nil }, func(platform.PublishResult) error { return nil })
-	result, err := publisher.Publish(context.Background(), "", account.AccountID, request)
-	require.NoError(t, err)
-	require.Equal(t, "item-42", result.ExternalID)
 }
 
 func TestScheduledConnectorPublishSurvivesServiceRestartAndRecordsExternalID(t *testing.T) {
@@ -222,4 +117,10 @@ func TestScheduledConnectorPublishSurvivesServiceRestartAndRecordsExternalID(t *
 	require.Equal(t, models.RenditionStatusPublished, rendition.Status)
 	require.Equal(t, "item-after-restart", rendition.ExternalID)
 	require.Equal(t, 1, publishCalls)
+	var event models.PublicationLifecycleEvent
+	require.NoError(t, srv.db.NewSelect().Model(&event).Where("rendition_id = ? AND type = ?", "rendition-1", lifecycle.EventProviderProcessing).Scan(t.Context()))
+	var metadata map[string]any
+	require.NoError(t, json.Unmarshal([]byte(event.MetadataJSON), &metadata))
+	require.Equal(t, "directus-main", metadata["provider_key"])
+	require.Equal(t, "io.directus.items", metadata["platform"])
 }

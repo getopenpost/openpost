@@ -127,7 +127,9 @@ describe('readinessStateMessage', () => {
 	it('maps states to copy and blanks healthy', () => {
 		expect(readinessStateMessage('healthy', 'X')).toBe('');
 		expect(readinessStateMessage('unknown-state', 'X')).toBe('');
-		expect(readinessStateMessage('unsupported', 'X')).toContain('X');
-		expect(readinessStateMessage('disabled', 'X')).toContain('X');
+		expect(readinessStateMessage('unsupported', 'X')).toBe(
+			'This OpenPost build does not implement this X operation.'
+		);
+		expect(readinessStateMessage('disabled', 'X')).toBe('An instance administrator disabled X.');
 	});
 });

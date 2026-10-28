@@ -116,6 +116,11 @@ function captureWorkletMessages(): WorkletMessage[] {
 }
 
 async function startAudiblePlayback(rate = 1): Promise<void> {
+	// Playback must resume a suspended shared context; an already-running context
+	// would satisfy the running assertion without exercising the mixer resume path.
+	const context = previewAudioContext();
+	if (context.state !== 'suspended') await context.suspend();
+	expect(context.state).toBe('suspended');
 	const play = document.createElement('button');
 	play.textContent = 'Start audio';
 	play.onclick = () => {
@@ -690,8 +695,24 @@ it('allocates only the selected reversed window from a longer recording', async 
 });
 
 it('starts reversed playback on frame zero at a fractional sample boundary', async () => {
+	const buffers: AudioBuffer[] = [];
+	const starts: Array<[number, number, number]> = [];
 	const context = previewAudioContext();
-	const create = vi.spyOn(context, 'createBufferSource');
+	const nativeCreate = context.createBufferSource.bind(context);
+	const create = vi.spyOn(context, 'createBufferSource').mockImplementation(() => {
+		const source = nativeCreate();
+		const start = source.start.bind(source);
+		vi.spyOn(source, 'start').mockImplementation(
+			(when?: number, offset?: number, duration?: number) => {
+				if (source.buffer) {
+					buffers.push(source.buffer);
+					starts.push([when ?? 0, offset ?? 0, duration ?? Number.NaN]);
+				}
+				start(when, offset, duration);
+			}
+		);
+		return source;
+	});
 	const url = URL.createObjectURL(noisyTone());
 	const screen = await render(PreviewAudioLayer, {
 		item: {
@@ -708,7 +729,26 @@ it('starts reversed playback on frame zero at a fractional sample boundary', asy
 		// Hold the first timeline frame long enough to inspect native source creation.
 		await startAudiblePlayback(0.001);
 		await expect.poll(() => create.mock.calls.length).toBeGreaterThan(0);
+		await expect.poll(() => starts.length).toBeGreaterThan(0);
 		expect(timelineStore.currentFrame).toBe(0);
+
+		// 28 frames at 29 fps is 0.9655s, which is not a whole sample count: the
+		// decoder rounds the window end up to the next sample. The reversed buffer
+		// must cover exactly that window and the source must start at the positive
+		// remainder, less than a quarter sample away from the authored boundary.
+		const buffer = buffers[0]!;
+		const [when, offset, duration] = starts[0]!;
+		const sampleRate = buffer.sampleRate;
+		const windowFrames = Math.ceil((28 / 29) * sampleRate);
+		const expectedOffset = windowFrames / sampleRate - 28 / 29;
+		expect(buffer.length).toBe(windowFrames);
+		expect(expectedOffset).toBeGreaterThan(0);
+		expect(expectedOffset).toBeLessThan(1 / sampleRate);
+		expect(when).toBe(0);
+		expect(offset).toBeGreaterThan(0);
+		expect(Math.abs(offset - expectedOffset)).toBeLessThan(1 / (4 * sampleRate));
+		expect(duration).toBeGreaterThan(0);
+		expect(duration).toBeCloseTo(29 / 30, 2);
 	} finally {
 		await screen.unmount();
 		URL.revokeObjectURL(url);

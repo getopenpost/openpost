@@ -9,8 +9,6 @@ import { fileURLToPath } from "node:url";
 import { parseNpmPackResult } from "./npm-pack-result.mjs";
 import { parseNpmViewResult } from "./npm-view-result.mjs";
 
-export { parseNpmViewResult } from "./npm-view-result.mjs";
-
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packageDirectory = "packages/n8n-nodes-openpost";
 const packageManifestPath = `${packageDirectory}/package.json`;
@@ -18,7 +16,7 @@ const stableVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
 const versionPattern =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/u;
 
-export function compareVersions(left, right) {
+function compareVersions(left, right) {
   const leftVersion = parseVersion(left);
   const rightVersion = parseVersion(right);
   for (let index = 0; index < leftVersion.parts.length; index += 1) {
@@ -33,9 +31,18 @@ export function compareVersions(left, right) {
   return 0;
 }
 
+// The package compiler excludes test/, so test-only edits do not require a new
+// package version. A test that an import or stale output emits is still rejected
+// by the built-payload check.
+function isPublishableChange(file) {
+  if (!file.startsWith(`${packageDirectory}/`)) return false;
+  const relativePath = file.slice(packageDirectory.length + 1);
+  return !relativePath.startsWith("test/");
+}
+
 export function assessPackageVersionChange({ changedFiles, currentVersion, previousVersion }) {
   parseStableVersion(currentVersion);
-  const changed = changedFiles.some((file) => file.startsWith(`${packageDirectory}/`));
+  const changed = changedFiles.some(isPublishableChange);
   if (previousVersion === null) {
     return { changed, initial: true, version: currentVersion };
   }

@@ -124,8 +124,8 @@ export function parseGoTextFacts({ capabilities, textLength, youtube, devnull })
       xStandard: standard,
       xPremium: byProvider.get("x")?.[0]?.limit,
       youtubeDescriptionMaxBytes: providerConstants.YouTubeDescriptionMaxBytes,
-      xTransformedURLLength: urlLength(textLength, "xTransformedURLLength"),
-      mastodonURLLength: urlLength(textLength, "mastodonURLLength"),
+      xTransformedURLLength: urlLength(textLength, "XTransformedURLLength"),
+      mastodonURLLength: urlLength(textLength, "MastodonCountedURLLength"),
     },
     limits,
   };
@@ -166,7 +166,7 @@ export async function validatePlatformTextConformance(root = repositoryRoot) {
     [
       "packages/platform-text/src/index.ts",
       "apps/server/internal/capabilities/capabilities.go",
-      "apps/server/internal/capabilities/text_length.go",
+      "apps/server/internal/providerlimits/text.go",
       "apps/server/internal/providerlimits/youtube.go",
     ].map((file) => readFile(path.join(root, file), "utf8")),
   );

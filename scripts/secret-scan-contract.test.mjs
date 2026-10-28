@@ -27,12 +27,7 @@ test("policy CI verifies the pinned scanner before a candidate-history scan", ()
   assert.match(policyJob, /bun run check -- policy/u);
 });
 
-test("local and CI scans cover history without printing candidates", () => {
-  assert.match(scanner, /gitleaks git/u);
-  assert.match(scanner, /--full-history --all --diff-filter=tuxdb/u);
-  assert.match(scanner, /base_revision\.\.\$head_revision/u);
-  assert.equal(scanner.match(/--redact=100/gu)?.length, 1);
-  assert.match(scanner, /--verbose/u);
+test("scan policy retains scoped allowlists and local tool admission", () => {
   assert.match(scanner, /--is-shallow-repository/u);
   assert.match(config, /targetRules = \["generic-api-key"\]/u);
   assert.match(config, /condition = "AND"/u);
@@ -41,10 +36,11 @@ test("local and CI scans cover history without printing candidates", () => {
   assert.match(tasks, /"secret-scan"/u);
 });
 
-test("current-file scan includes tracked edits and excludes ignored files", async () => {
+test("scans candidate history and current tracked bytes with redacted diagnostics", async () => {
   const repository = await mkdtemp(path.join(tmpdir(), "openpost-secret-scan-test-"));
   const fakeBin = path.join(repository, "fake-bin");
   const logPath = path.join(repository, "gitleaks.log");
+  const argsPath = path.join(repository, "gitleaks-args.log");
 
   try {
     await mkdir(path.join(repository, "scripts"));
@@ -65,9 +61,17 @@ case "\${1:-}" in
     printf '8.30.1\\n'
     ;;
   git)
+    printf '%s\\0' "$@" >> "$OPENPOST_TEST_GITLEAKS_ARGS"
+    for argument in "$@"; do
+      if [[ "$argument" == --log-opts=* ]]; then
+        read -r -a log_options <<< "\${argument#--log-opts=}"
+        git log --format=%H "\${log_options[@]}" >/dev/null
+      fi
+    done
     printf 'git\\n' >> "$OPENPOST_TEST_GITLEAKS_LOG"
     ;;
   dir)
+    printf '%s\\0' "$@" >> "$OPENPOST_TEST_GITLEAKS_ARGS"
     target="\${@: -1}"
 	sleep 0.1
     test "$(cat "$target/tracked.txt")" = "working tree content"
@@ -109,17 +113,69 @@ esac
     await mkdir(path.join(repository, ".ignored"));
     await writeFile(path.join(repository, ".ignored", "secret.txt"), "ignored secret\n");
 
-    execFileSync("bash", ["scripts/scan-secrets.sh"], {
+    const firstCommit = execFileSync("git", ["rev-parse", "HEAD"], {
       cwd: repository,
-      env: {
-        ...process.env,
-        OPENPOST_TEST_GITLEAKS_LOG: logPath,
-        PATH: `${fakeBin}:${process.env.PATH ?? ""}`,
-      },
-      stdio: "ignore",
-    });
-
-    assert.equal(await readFile(logPath, "utf8"), "git\ndir\n");
+      encoding: "utf8",
+    }).trim();
+    for (const [mode, options, base, expectedHistory] of [
+      ["first commit", [], "", "--max-count=1 --diff-filter=tuxdb HEAD"],
+      [
+        "candidate range",
+        [],
+        firstCommit,
+        `--full-history --diff-filter=tuxdb ${firstCommit}..HEAD`,
+      ],
+      ["all history", ["--all-history"], "", "--full-history --all --diff-filter=tuxdb"],
+    ]) {
+      if (mode === "candidate range") {
+        execFileSync(
+          "git",
+          [
+            "-c",
+            "user.name=OpenPost Test",
+            "-c",
+            "user.email=test@openpost.local",
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            "candidate",
+          ],
+          { cwd: repository },
+        );
+      }
+      await writeFile(logPath, "");
+      await writeFile(argsPath, "");
+      execFileSync("bash", ["scripts/scan-secrets.sh", ...options], {
+        cwd: repository,
+        env: {
+          ...process.env,
+          OPENPOST_SECRET_SCAN_HEAD: "HEAD",
+          OPENPOST_SECRET_SCAN_BASE: base,
+          OPENPOST_TEST_GITLEAKS_LOG: logPath,
+          OPENPOST_TEST_GITLEAKS_ARGS: argsPath,
+          PATH: `${fakeBin}:${process.env.PATH ?? ""}`,
+        },
+        stdio: "pipe",
+      });
+      assert.equal(await readFile(logPath, "utf8"), "git\ndir\n", mode);
+      const args = (await readFile(argsPath, "utf8")).split("\0").filter(Boolean);
+      assert.equal(args[0], "git", mode);
+      const boundary = args.indexOf("dir");
+      assert.ok(boundary > 0, mode);
+      for (const invocation of [args.slice(0, boundary), args.slice(boundary)]) {
+        for (const flag of [
+          "--redact=100",
+          "--verbose",
+          "--no-banner",
+          "--no-color",
+          "--timeout=300",
+        ]) {
+          assert.ok(invocation.includes(flag), `${mode}: ${invocation[0]} requires ${flag}`);
+        }
+      }
+      assert.ok(args.includes(`--log-opts=${expectedHistory}`), mode);
+    }
   } finally {
     await rm(repository, { recursive: true, force: true });
   }

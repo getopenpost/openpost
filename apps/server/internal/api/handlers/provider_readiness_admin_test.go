@@ -145,7 +145,8 @@ func TestProviderReadinessAdminAppendsSanitizedEvidenceForCurrentContract(t *tes
 	var stored models.ProviderCertificationRun
 	require.NoError(t, srv.db.NewSelect().Model(&stored).Limit(1).Scan(t.Context()))
 	require.NotEqual(t, "user-1", stored.OperatorRef)
-	require.Equal(t, operatorReference("user-1"), stored.OperatorRef)
+	// Fixed SHA-256 vector keeps the assertion independent of operatorReference.
+	require.Equal(t, "operator:sha256:c6c289e49e9c05b2145860387b73bcb18df43fb09a1e4a4a9713c76c88bb541b", stored.OperatorRef)
 	require.Equal(t, srv.appFingerprint, stored.AppFingerprint)
 
 	stale := providerCertificationRequest(t, srv, reviewResult.Body.ID)
@@ -220,7 +221,8 @@ func TestProviderReadinessAdminAppendsRuntimeControlWithHashedOperator(t *testin
 	var stored models.ProviderRuntimeControlEvent
 	require.NoError(t, srv.db.NewSelect().Model(&stored).Limit(1).Scan(t.Context()))
 	require.Equal(t, "disabled", stored.State)
-	require.Equal(t, operatorReference("user-1"), stored.OperatorRef)
+	require.NotContains(t, stored.OperatorRef, "user-1")
+	require.Regexp(t, `^operator:sha256:[0-9a-f]{64}$`, stored.OperatorRef)
 }
 
 func TestProviderReadinessAdminAuthorization(t *testing.T) {

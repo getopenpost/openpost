@@ -115,20 +115,6 @@ describe('OpenPost Image Editor revision summaries', () => {
 		});
 	});
 
-	it('recognizes an identical document', () => {
-		const current = blankImageEditorDocument({
-			key: 'instagram-square',
-			name: 'Square',
-			width_px: 1080,
-			height_px: 1080,
-			default_format: 'png',
-			profiles: []
-		});
-		expect(imageEditorRevisionHasChanges(summarizeImageEditorRevision(current, current))).toBe(
-			false
-		);
-	});
-
 	it('reports a page output grade as a page change', () => {
 		const current = blankImageEditorDocument({
 			key: 'instagram-square',

@@ -1,11 +1,10 @@
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { assetName, assetTarget } from "./platform";
 import {
-  defaultReleaseTag,
   downloadUrl,
   explicitBinaryPath,
   parseChecksum,
@@ -29,10 +28,6 @@ describe("resolve", () => {
     vi.unstubAllEnvs();
   });
 
-  it("pins a release tag in package.json", () => {
-    expect(defaultReleaseTag()).toMatch(/^v\d+\.\d+\.\d+$/);
-  });
-
   it("prefers the OPENPOST_CLI_TAG override", () => {
     vi.stubEnv("OPENPOST_CLI_TAG", "v9.9.9");
     expect(releaseTag()).toBe("v9.9.9");
@@ -48,28 +43,40 @@ describe("resolve", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("downloads and verifies the release binary into the cache dir", async () => {
+  it("downloads the pinned release, verifies it and reuses the cached binary", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));
     try {
-      const tag = "v0.0.9";
-      const asset = assetName("openpost-cli", assetTarget());
+      const { openpost } = JSON.parse(
+        readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+      );
+      const tag = openpost.releaseTag;
+      expect(tag).toMatch(/^v\d+\.\d+\.\d+$/);
+      const releaseAssets: Record<string, string> = {
+        "linux-x64": "openpost-cli-linux-amd64",
+        "linux-arm64": "openpost-cli-linux-arm64",
+        "darwin-arm64": "openpost-cli-darwin-arm64",
+        "win32-x64": "openpost-cli-windows-amd64.exe",
+      };
+      const asset = releaseAssets[`${process.platform}-${process.arch}`];
+      if (!asset)
+        throw new Error(`No release asset fixture for ${process.platform}-${process.arch}`);
+      const url = `https://github.com/getopenpost/openpost/releases/download/${tag}/${asset}`;
       const fetch = mockFetch({
-        [downloadUrl(tag, asset)]: new Response(BINARY, { status: 200 }),
-        [downloadUrl(tag, `${asset}.sha256`)]: new Response(`${BINARY_HEX}  ${asset}\n`, {
+        [url]: new Response(BINARY, { status: 200 }),
+        [`${url}.sha256`]: new Response(`${BINARY_HEX}  ${asset}\n`, {
           status: 200,
         }),
       });
       const resolved = await resolveBinaryPath({
         binary: "openpost-cli",
-        releaseTag: tag,
         cacheDir: dir,
         fetch,
       });
       expect(resolved).toBe(path.join(dir, tag, asset));
+      expect([...readFileSync(resolved)]).toEqual([...BINARY]);
       // A cached binary short-circuits the network entirely.
       const cached = await resolveBinaryPath({
         binary: "openpost-cli",
-        releaseTag: tag,
         cacheDir: dir,
         fetch: mockFetch({}),
       });
@@ -132,34 +139,40 @@ describe("resolve", () => {
     }
   });
 
-  it("replaces a tampered cached binary instead of executing it", async () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));
-    const { writeFileSync } = await import("node:fs");
-    try {
-      const tag = "v0.0.9";
-      const asset = assetName("openpost-cli", assetTarget());
-      const cached = path.join(dir, tag, asset);
-      const { mkdirSync } = await import("node:fs");
-      mkdirSync(path.dirname(cached), { recursive: true });
-      writeFileSync(cached, new Uint8Array([9, 9, 9]));
-      const fetch = mockFetch({
-        [downloadUrl(tag, asset)]: new Response(BINARY, { status: 200 }),
-        [downloadUrl(tag, `${asset}.sha256`)]: new Response(`${BINARY_HEX}  ${asset}\n`, {
-          status: 200,
-        }),
-      });
-      const resolved = await resolveBinaryPath({
-        binary: "openpost-cli",
-        releaseTag: tag,
-        cacheDir: dir,
-        fetch,
-      });
-      expect(resolved).toBe(cached);
-      expect(fetch).toHaveBeenCalledTimes(2);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
+  it.each(["missing", "mismatched"])(
+    "replaces a cached binary with a %s checksum",
+    async (checksum) => {
+      const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));
+      const { writeFileSync } = await import("node:fs");
+      try {
+        const tag = "v0.0.9";
+        const asset = assetName("openpost-cli", assetTarget());
+        const cached = path.join(dir, tag, asset);
+        const { mkdirSync } = await import("node:fs");
+        mkdirSync(path.dirname(cached), { recursive: true });
+        writeFileSync(cached, new Uint8Array([9, 9, 9]));
+        if (checksum === "mismatched") writeFileSync(`${cached}.hex`, `${BINARY_HEX}\n`);
+        const fetch = mockFetch({
+          [downloadUrl(tag, asset)]: new Response(BINARY, { status: 200 }),
+          [downloadUrl(tag, `${asset}.sha256`)]: new Response(`${BINARY_HEX}  ${asset}\n`, {
+            status: 200,
+          }),
+        });
+        const resolved = await resolveBinaryPath({
+          binary: "openpost-cli",
+          releaseTag: tag,
+          cacheDir: dir,
+          fetch,
+        });
+        expect(resolved).toBe(cached);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        expect([...readFileSync(resolved)]).toEqual([...BINARY]);
+        expect(readFileSync(`${resolved}.hex`, "utf8").trim()).toBe(BINARY_HEX);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("refuses oversized downloads", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "openpost-cli-test-"));

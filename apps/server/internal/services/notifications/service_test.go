@@ -182,21 +182,6 @@ func TestListHidesAccountWideRowsForWorkspaceBoundCredentials(t *testing.T) {
 	require.Equal(t, 1, bound.UnreadCount)
 }
 
-func TestNotificationDedupKeyIsIdempotent(t *testing.T) {
-	db := notificationsTestDB(t)
-	service := NewService(db)
-	ctx := context.Background()
-	input := createInput{
-		UserID: "user-1", Type: TypePostPublished, Title: "Published",
-		DedupKey: "publication:one:published",
-	}
-	require.NoError(t, service.create(ctx, input))
-	require.NoError(t, service.create(ctx, input))
-	count, err := db.NewSelect().Model((*models.UserNotification)(nil)).Count(ctx)
-	require.NoError(t, err)
-	require.Equal(t, 1, count)
-}
-
 func TestEngagementOutcomesRetainMissingOptionalContext(t *testing.T) {
 	db := notificationsTestDB(t)
 	service := NewService(db)

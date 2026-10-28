@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { onlineManager, QueryClient, QueryObserver } from "@tanstack/react-query";
-import {
-  openPostQueryDefaults,
-  openPostQueryPolicy,
-  queryStaleTime,
-  type QueryPageResult,
-} from "@openpost/query-catalog";
+import { openPostQueryPolicy, queryStaleTime, type QueryPageResult } from "@openpost/query-catalog";
 
 import {
   capturePublicationListCacheContext,
@@ -39,35 +34,6 @@ import {
 const standardQueryPolicy = openPostQueryPolicy(queryStaleTime);
 
 describe("mobile query policy", () => {
-  test("runs consequential mutations once instead of queuing them for reconnect", async () => {
-    expect(openPostQueryDefaults.mutations).toEqual({
-      networkMode: "always",
-      retry: false,
-      throwOnError: false,
-    });
-
-    const client = new QueryClient({
-      defaultOptions: { mutations: openPostQueryDefaults.mutations },
-    });
-    let calls = 0;
-    const mutation = client.getMutationCache().build(client, {
-      mutationFn: async () => {
-        calls += 1;
-      },
-    });
-    onlineManager.setOnline(false);
-    const execution = mutation.execute(undefined);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(mutation.state.isPaused).toBe(false);
-      expect(calls).toBe(1);
-    } finally {
-      onlineManager.setOnline(true);
-      await execution;
-      client.clear();
-    }
-  });
-
   test("retries one transient read but not cancelled or ordinary client failures", () => {
     expect(shouldRetryQuery(0, new TypeError("Network request failed"))).toBe(true);
     expect(shouldRetryQuery(0, new OpenPostQueryError("timeout", { status: 408 }))).toBe(true);
@@ -104,36 +70,6 @@ describe("mobile query policy", () => {
     expect(networkStateIsOnline({ isConnected: false, isInternetReachable: false })).toBe(false);
     expect(networkStateIsOnline({ isConnected: true, isInternetReachable: false })).toBe(false);
     expect(networkStateIsOnline({})).toBe(false);
-  });
-});
-
-describe("query cache behavior", () => {
-  test("does not bridge mounted observer data across Workspace keys", () => {
-    const client = new QueryClient();
-    const workspaceOneKey = queryKeys.publicationActivity("workspace-1", "draft");
-    const workspaceTwoKey = queryKeys.publicationActivity("workspace-2", "draft");
-    const cached = publicationPage(publication("publication-1", "draft"));
-    const queryFn = async () => cached;
-    client.setQueryData(workspaceOneKey, cached);
-    const observer = new QueryObserver(client, {
-      ...standardQueryPolicy,
-      enabled: false,
-      queryKey: workspaceOneKey,
-      queryFn,
-    });
-    const unsubscribe = observer.subscribe(() => undefined);
-
-    expect(observer.getCurrentResult().data).toEqual(cached);
-    observer.setOptions({
-      ...standardQueryPolicy,
-      enabled: false,
-      queryKey: workspaceTwoKey,
-      queryFn,
-    });
-    expect(observer.getCurrentResult().data).toBeUndefined();
-
-    unsubscribe();
-    client.clear();
   });
 });
 

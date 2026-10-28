@@ -15,13 +15,33 @@ import {
   validateReleaseSurfaceManifest,
 } from "./release-surfaces.mjs";
 
-test("every tracked path has explicit release ownership", () => {
-  const manifest = readReleaseSurfaceManifest();
-  assert.deepEqual(validateReleaseSurfaceManifest(manifest, trackedReleasePaths()), []);
-});
-
 test("untracked maintained paths participate in the ownership gate", () => {
-  assert.ok(maintainedReleasePaths().includes("config/release-surfaces.json"));
+  const root = mkdtempSync(path.join(tmpdir(), "openpost-maintained-paths-"));
+  const git = (...args) => execFileSync("git", args, { cwd: root, stdio: "ignore" });
+  try {
+    git("init", "--quiet");
+    writeFileSync(path.join(root, ".gitignore"), "ignored.txt\n");
+    writeFileSync(path.join(root, "tracked.txt"), "tracked");
+    git("add", ".gitignore", "tracked.txt");
+    writeFileSync(path.join(root, "new.txt"), "untracked");
+    writeFileSync(path.join(root, "ignored.txt"), "ignored");
+    const maintained = maintainedReleasePaths(root);
+    assert.deepEqual(maintained, [".gitignore", "new.txt", "tracked.txt"]);
+    const manifest = {
+      schema_version: 1,
+      surfaces: {
+        delivery: {
+          description: "Tracked inputs",
+          paths: [".gitignore", "tracked.txt"],
+        },
+      },
+    };
+    assert.deepEqual(validateReleaseSurfaceManifest(manifest, maintained, root), [
+      "unowned tracked path: new.txt",
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("root build, Compose, registry, skills, launch, and scripts are classified", () => {

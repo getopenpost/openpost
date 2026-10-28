@@ -5299,10 +5299,35 @@
 		};
 	}
 
+	const restorableImages = $derived.by(() => {
+		const ids = [...new Set(posts.flatMap((post) => getEditorMediaIdsForPost(post)))];
+		return ids
+			.filter((id) => imagePreparationSources.has(id))
+			.map((id) => ({ id, number: ids.indexOf(id) + 1 }));
+	});
+
 	async function restoreOriginalImage(mediaId: string) {
 		const original = imagePreparationSources.get(mediaId);
 		if (!original || fittingImageId) return;
 		const accountId = activeVariantAccountId;
+		// A prepared media id without a per-account variant override belongs to the shared
+		// segments; restoring it replaces that attachment for every account, like the
+		// shared view does, while preserving per-account settings and captions.
+		const overrideAccount = (() => {
+			if (!accountId) return null;
+			const overridden = posts.some((post) => {
+				const variantIds = getVariantMediaIds(accountId, post.key);
+				// Settings-only media decisions keep the shared id list; restoring those
+				// attachments still replaces the shared segments for every account.
+				return (
+					variantIds !== null &&
+					(variantIds.length !== post.mediaIds.length ||
+						variantIds.some((id, index) => id !== post.mediaIds[index])) &&
+					variantIds.includes(mediaId)
+				);
+			});
+			return overridden ? accountId : null;
+		})();
 		const context = imagePreparationContext,
 			workspaceId = selectedWorkspaceId,
 			generation = saveGeneration;
@@ -5310,15 +5335,15 @@
 		await hydrateMediaMetadata(workspaceId, [original]);
 		if (
 			!saveMutationViewIsCurrent(session, generation, workspaceId) ||
-			accountId !== activeVariantAccountId ||
+			(overrideAccount && overrideAccount !== activeVariantAccountId) ||
 			context !== imagePreparationContext
 		)
 			return;
-		const alt = accountId
-			? mediaAltTextForAccount(mediaId, accountId)
+		const alt = overrideAccount
+			? mediaAltTextForAccount(mediaId, overrideAccount)
 			: (mediaAltTexts.get(mediaId) ?? '');
-		if (accountId) {
-			transferPreparedImageSettings(mediaId, original, accountId, undefined, undefined, true);
+		if (overrideAccount) {
+			transferPreparedImageSettings(mediaId, original, overrideAccount, undefined, undefined, true);
 		} else {
 			for (const id of selectedAccountIds) {
 				if (
@@ -5332,15 +5357,31 @@
 			}
 			mediaAltTexts = new SvelteMap(mediaAltTexts).set(original, alt);
 		}
-		followPreparedImageCaption(mediaId, original, accountId);
+		followPreparedImageCaption(mediaId, original, overrideAccount);
+		let swappedSharedMedia = false;
 		for (let index = 0; index < posts.length; index++) {
-			const ids = getEditorMediaIdsForPost(posts[index]);
-			if (ids.includes(mediaId))
-				setEditorMediaIds(
-					index,
-					ids.map((id) => (id === mediaId ? original : id))
+			if (overrideAccount) {
+				const ids = getEditorMediaIdsForPost(posts[index]);
+				if (ids.includes(mediaId))
+					setEditorMediaIds(
+						index,
+						ids.map((id) => (id === mediaId ? original : id))
+					);
+			} else if (posts[index].mediaIds.includes(mediaId)) {
+				// Shared restores keep detached per-account media decisions intact; write
+				// through the post owner instead of the active destination variant.
+				posts = posts.map((item, postIndex) =>
+					postIndex === index
+						? {
+								...item,
+								mediaIds: item.mediaIds.map((id) => (id === mediaId ? original : id))
+							}
+						: item
 				);
+				swappedSharedMedia = true;
+			}
 		}
+		if (swappedSharedMedia) scheduleAutoSave();
 		imagePreparationNotice = '';
 	}
 
@@ -7811,10 +7852,13 @@
 								hasMediaOverride={variantHasMediaOverride(activeVariantAccount.id)}
 								isUnsynced={activeVariantIsUnsynced}
 								uploadsPending={hasPendingPasteMediaUploads}
+								{restorableImages}
+								restorablePending={!!fittingImageId}
 								multiAccount={selectedAccounts.length > 1}
 								segmentStrategy={resolvedCapabilities[activeVariantAccount.id]?.segment_strategy}
 								postCount={posts.length}
 								onPreview={() => openAccountPreview(activeVariantAccount!)}
+								onUseOriginalImage={restoreOriginalImage}
 								onSettings={() => openDestinationSettings(activeVariantAccount!)}
 								onResetField={(field) => resetNativeField(activeVariantAccount!, field)}
 								onToggleSync={() => {
@@ -7919,19 +7963,6 @@
 				{#if imagePreparationNotice}<p class="py-2 text-sm text-muted-foreground" role="status">
 						{imagePreparationNotice}
 					</p>{/if}
-				{#each [...new Set(posts.flatMap( (post) => getEditorMediaIdsForPost(post) ))].filter( (id) => imagePreparationSources.has(id) ) as id, index (id)}
-					<Button
-						variant="ghost"
-						size="sm"
-						disabled={!!fittingImageId}
-						onclick={() => restoreOriginalImage(id)}
-						>{m.compose_image_original({
-							number:
-								[...new Set(posts.flatMap((post) => getEditorMediaIdsForPost(post)))].indexOf(id) +
-								1
-						})}</Button
-					>
-				{/each}
 				{#if activeVariantAccount}
 					{@const accountPreview = previewForAccount(activeVariantAccount)}
 					{@const post = activePost}

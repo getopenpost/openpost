@@ -7,12 +7,10 @@ import {
 	ellipsePixelMask,
 	expandPixelMask,
 	invertPixelMask,
-	magicPixelMask,
 	mergeSelectionIDs,
 	normalizeSelectionBounds,
 	pixelMaskBounds,
 	pixelMaskContainsPoint,
-	pixelSpansToMask,
 	pixelMaskToSpans,
 	pointInPolygon,
 	polygonIntersectsBounds,
@@ -20,7 +18,6 @@ import {
 	strokePixelMask,
 	strokePixelMaskRegion,
 	smoothSelectionPoints,
-	subtractPixelMasks,
 	subtractPixelMaskRegionFromSpans,
 	translatePixelMask,
 	translatePixelMaskRegion,
@@ -106,23 +103,6 @@ describe('OpenPost Image Editor selection composition', () => {
 			0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0
 		]);
 		expect([...invertPixelMask(point)]).toEqual([...point].map((value) => (value ? 0 : 1)));
-	});
-
-	it('flood-selects contiguous pixels using 0-255 tolerance', () => {
-		const pixels = new Uint8ClampedArray([
-			10, 10, 10, 255, 12, 12, 12, 255, 220, 220, 220, 255, 10, 10, 10, 255, 200, 200, 200, 255, 10,
-			10, 10, 255
-		]);
-		const contiguous = magicPixelMask(
-			{ width: 3, height: 2, data: pixels },
-			{ x: 0, y: 0 },
-			4,
-			true
-		);
-		const global = magicPixelMask({ width: 3, height: 2, data: pixels }, { x: 0, y: 0 }, 4, false);
-
-		expect([...contiguous]).toEqual([1, 1, 0, 1, 0, 0]);
-		expect([...global]).toEqual([1, 1, 0, 1, 0, 1]);
 	});
 
 	it('rasterizes hard pencil strokes into compact scanline spans', () => {
@@ -290,17 +270,6 @@ describe('OpenPost Image Editor selection composition', () => {
 			width: 2,
 			height: 4
 		});
-	});
-
-	it('subtracts an erase mask from compact paint spans', () => {
-		const paint = pixelSpansToMask([{ x: 0, y: 1, width: 6 }], 6, 3);
-		const erase = rectanglePixelMask(6, 3, { x: 2, y: 0, width: 2, height: 3 });
-		const result = subtractPixelMasks(paint, erase);
-
-		expect(pixelMaskToSpans(result, 6, 3)).toEqual([
-			{ x: 0, y: 1, width: 2 },
-			{ x: 4, y: 1, width: 2 }
-		]);
 	});
 
 	it('matches flat colors using a normalized tolerance', () => {

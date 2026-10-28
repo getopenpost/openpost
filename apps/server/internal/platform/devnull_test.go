@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/ed25519"
@@ -124,48 +125,6 @@ func devNullSignatureParts(t *testing.T, armored string) (namespace, hashAlg, ke
 	return namespace, hashAlg, keyType, pubBlob, sigBytes
 }
 
-// TestDevNullSignatureMatchesServerVerification replays SshSignature::parse
-// plus SshPublicKey::verify field-for-field: magic, version, public key,
-// namespace, reserved, hash algorithm, and the signed payload. A mismatch
-// here is a 401 from dev-null.sh.
-func TestDevNullSignatureMatchesServerVerification(t *testing.T) {
-	signer, _ := devNullTestSigner(t)
-	payload := devNullPayload("", "Hello from OpenPost", nil)
-	armored, err := signDevNullPayload(signer, devNullNamespace, []byte(payload))
-	if err != nil {
-		t.Fatal(err)
-	}
-	namespace, hashAlg, keyType, pubBlob, sigBytes := devNullSignatureParts(t, armored)
-	if namespace != devNullNamespace {
-		t.Fatalf("namespace = %q", namespace)
-	}
-	if hashAlg != "sha512" {
-		t.Fatalf("hash algorithm = %q", hashAlg)
-	}
-	pub, err := ssh.ParsePublicKey(pubBlob)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if pub.Type() != "ssh-ed25519" {
-		t.Fatalf("key type = %q", pub.Type())
-	}
-	if keyType != "ssh-ed25519" {
-		t.Fatalf("signature algorithm = %q", keyType)
-	}
-	sum := sha512.Sum512([]byte(payload))
-	var signedData []byte
-	signedData = append(signedData, "SSHSIG"...)
-	for _, part := range [][]byte{[]byte(devNullNamespace), {}, []byte("sha512"), sum[:]} {
-		var length [4]byte
-		binary.BigEndian.PutUint32(length[:], uint32(len(part)))
-		signedData = append(signedData, length[:]...)
-		signedData = append(signedData, part...)
-	}
-	if err := pub.Verify(signedData, &ssh.Signature{Format: keyType, Blob: sigBytes}); err != nil {
-		t.Fatalf("server-shaped verification failed: %v", err)
-	}
-}
-
 // TestDevNullSignatureVerifiesWithSSHKeygen proves interop with the real
 // verifier the server shells out to semantically. Skipped where ssh-keygen
 // is unavailable.
@@ -252,6 +211,8 @@ func TestDevNullPayloadFormat(t *testing.T) {
 	}
 }
 
+// Verify the actual outbound SSHSIG envelope and signed commit bytes against
+// the same public key used to log in, independently of the production encoder.
 func TestDevNullLoginAndTextPublish(t *testing.T) {
 	var gotSignature, gotContentType, gotBody string
 	server := devNullTestServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -264,7 +225,7 @@ func TestDevNullLoginAndTextPublish(t *testing.T) {
 		fmt.Fprintln(w, "Committed: https://dev-null.sh/@testuser/commits/01a14c0f-6e52-4b1c-9a1d-2f4b5c6d7e8f")
 	})
 	adapter := NewDevNullAdapter(server.URL)
-	_, pemKey := devNullTestSigner(t)
+	signer, pemKey := devNullTestSigner(t)
 	token, profile, err := adapter.Login(context.Background(), "testuser", pemKey)
 	if err != nil {
 		t.Fatal(err)
@@ -291,6 +252,38 @@ func TestDevNullLoginAndTextPublish(t *testing.T) {
 	}
 	if !strings.HasSuffix(gotBody, "\nHello from OpenPost") {
 		t.Fatalf("payload body = %q", gotBody)
+	}
+	namespace, hashAlg, keyType, pubBlob, sigBytes := devNullSignatureParts(t, gotSignature)
+	if namespace != devNullNamespace {
+		t.Fatalf("namespace = %q", namespace)
+	}
+	if hashAlg != "sha512" {
+		t.Fatalf("hash algorithm = %q", hashAlg)
+	}
+	pub, err := ssh.ParsePublicKey(pubBlob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(pub.Marshal(), signer.PublicKey().Marshal()) {
+		t.Fatal("commit signature uses a different public key than the login credential")
+	}
+	if pub.Type() != "ssh-ed25519" {
+		t.Fatalf("key type = %q", pub.Type())
+	}
+	if keyType != "ssh-ed25519" {
+		t.Fatalf("signature algorithm = %q", keyType)
+	}
+	sum := sha512.Sum512([]byte(gotBody))
+	var signedData []byte
+	signedData = append(signedData, "SSHSIG"...)
+	for _, part := range [][]byte{[]byte(devNullNamespace), {}, []byte("sha512"), sum[:]} {
+		var length [4]byte
+		binary.BigEndian.PutUint32(length[:], uint32(len(part)))
+		signedData = append(signedData, length[:]...)
+		signedData = append(signedData, part...)
+	}
+	if err := pub.Verify(signedData, &ssh.Signature{Format: keyType, Blob: sigBytes}); err != nil {
+		t.Fatalf("server-shaped verification failed: %v", err)
 	}
 }
 

@@ -170,4 +170,5 @@ func TestMastodonRepostKeepsTargetLocalSourceIDForUnrepost(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "target-local-source", result.ExternalID)
 	require.NoError(t, adapter.Unrepost(t.Context(), "token", "target", UnrepostRequest{RepostExternalID: result.ExternalID}))
+	require.Equal(t, 3, requests)
 }

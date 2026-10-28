@@ -51,18 +51,8 @@ export async function collectAppRoutes(routesDirectory = defaultRoutesDirectory)
   return routes;
 }
 
-export function serializeAppRouteManifest(routes) {
+function serializeAppRouteManifest(routes) {
   return `${JSON.stringify({ schema_version: 1, routes }, null, 2)}\n`;
-}
-
-export async function writeAppRouteManifest({
-  routesDirectory = defaultRoutesDirectory,
-  manifestPath = defaultManifestPath,
-} = {}) {
-  const routes = await collectAppRoutes(routesDirectory);
-  await mkdir(path.dirname(manifestPath), { recursive: true });
-  await writeFile(manifestPath, serializeAppRouteManifest(routes));
-  return routes;
 }
 
 async function run() {

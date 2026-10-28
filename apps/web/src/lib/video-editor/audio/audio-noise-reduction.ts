@@ -144,14 +144,6 @@ function throwIfAborted(signal?: AbortSignal): void {
 	if (signal?.aborted) throw new DOMException('Noise reduction cancelled.', 'AbortError');
 }
 
-export interface QueueInvariants {
-	inPending: number;
-	outPending: number;
-	overlap: number;
-	totalInput: number;
-	totalEmitted: number;
-}
-
 function quantile(sorted: Float64Array, q: number): number {
 	if (sorted.length === 0) return 0;
 	const pos = q * (sorted.length - 1);
@@ -182,24 +174,16 @@ export class StreamingNoiseReduction {
 	constructor(
 		channelCount: number,
 		sampleRate: number,
-		settings: ResolvedAudioNoiseReductionSettings,
-		options?: { unityGain?: boolean }
+		settings: ResolvedAudioNoiseReductionSettings
 	) {
 		this.channelCount = Math.max(1, channelCount);
 		this.sampleRate = sampleRate;
 		this.amount = settings.amount;
-		if (options?.unityGain) {
-			this.overSubtraction = 0;
-			this.floorGain = 1;
-			this.prevGain = new Float64Array(BIN_COUNT);
-			this.prevGain.fill(1);
-		} else {
-			const normalized = settings.amount / 100;
-			this.overSubtraction = 1 + normalized * 2;
-			this.floorGain = 0.02 + (1 - normalized) * 0.12;
-			this.prevGain = new Float64Array(BIN_COUNT);
-			this.prevGain.fill(1);
-		}
+		const normalized = settings.amount / 100;
+		this.overSubtraction = 1 + normalized * 2;
+		this.floorGain = 0.02 + (1 - normalized) * 0.12;
+		this.prevGain = new Float64Array(BIN_COUNT);
+		this.prevGain.fill(1);
 		this.inChunks = Array.from({ length: this.channelCount }, () => []);
 		this.inOffsets = Array.from({ length: this.channelCount }, () => 0);
 		this.inLengths = Array.from({ length: this.channelCount }, () => 0);
@@ -211,16 +195,6 @@ export class StreamingNoiseReduction {
 		);
 	}
 
-	getQueueInvariants(): QueueInvariants {
-		return {
-			inPending: this.inLengths[0] ?? 0,
-			outPending: this.outLengths[0] ?? 0,
-			overlap: this.overlap[0]?.length ?? 0,
-			totalInput: this.totalInput,
-			totalEmitted: this.totalEmitted
-		};
-	}
-
 	private appendInput(channels: Float32Array[]): void {
 		for (let c = 0; c < this.channelCount; c++) {
 			const chunk = channels[c] ?? channels[0] ?? new Float32Array(0);
@@ -229,29 +203,6 @@ export class StreamingNoiseReduction {
 			this.inLengths[c]! += chunk.length;
 		}
 		this.totalInput += channels[0]?.length ?? 0;
-	}
-
-	private peekInputFrame(c: number, out: Float64Array): boolean {
-		if ((this.inLengths[c] ?? 0) < FRAME_SIZE) return false;
-		let pos = 0;
-		let chunkIdx = 0;
-		// oxlint-disable-next-line eslint/prefer-const -- off advances per chunk
-		let off = this.inOffsets[c] ?? 0;
-		while (pos < FRAME_SIZE) {
-			const chunk = this.inChunks[c]![chunkIdx];
-			if (!chunk) break;
-			const avail = chunk.length - off;
-			const take = Math.min(avail, FRAME_SIZE - pos);
-			for (let i = 0; i < take; i++) out[pos + i] = chunk[off + i] ?? 0;
-			pos += take;
-			if (take === avail) {
-				chunkIdx++;
-				off = 0;
-			} else {
-				off += take;
-			}
-		}
-		return pos === FRAME_SIZE;
 	}
 
 	private consumeInput(hop: number): void {
@@ -278,35 +229,6 @@ export class StreamingNoiseReduction {
 	private pushOutput(c: number, hopChunk: Float32Array): void {
 		this.outChunks[c]!.push(hopChunk);
 		this.outLengths[c]! += hopChunk.length;
-	}
-
-	private drainOutput(want: number): Float32Array[] {
-		const result: Float32Array[] = [];
-		for (let c = 0; c < this.channelCount; c++) {
-			const out: Float32Array = new Float32Array(want);
-			let pos = 0;
-			while (pos < want && this.outChunks[c]!.length > 0) {
-				const first = this.outChunks[c]![0]!;
-				const take = Math.min(first.length - 0, want - pos);
-				if (first.length === take) {
-					out.set(first, pos);
-					this.outChunks[c]!.shift();
-				} else {
-					out.set(first.subarray(0, take), pos);
-					this.outChunks[c]![0] = first.subarray(take);
-				}
-				pos += take;
-			}
-			this.outLengths[c]! -= pos;
-			result.push(out.slice(0, pos));
-			if (pos < want) {
-				const padded = new Float32Array(want);
-				padded.set(result[c]!, 0);
-				result[c] = padded;
-			}
-		}
-		this.totalEmitted += want;
-		return result;
 	}
 
 	private processFrames(signal?: AbortSignal): void {
@@ -583,57 +505,6 @@ export async function applyNoiseReduction(
 			await new Promise<void>((r) => setTimeout(r, 0));
 			throwIfAborted(signal);
 		}
-	}
-	const result: Float32Array[] = Array.from(
-		{ length: channels.length },
-		() => new Float32Array(total)
-	);
-	for (let c = 0; c < channels.length; c++) {
-		let pos = 0;
-		for (const part of outParts) {
-			const p = part[c]!;
-			result[c]!.set(p, pos);
-			pos += p.length;
-		}
-		if (pos !== total) {
-			const trimmed = result[c]!.slice(0, pos);
-			const padded = new Float32Array(total);
-			padded.set(trimmed, 0);
-			result[c] = padded;
-		}
-	}
-	return result;
-}
-
-export function applyNoiseReductionSync(
-	channels: Float32Array[],
-	sampleRate: number,
-	settings: ResolvedAudioNoiseReductionSettings,
-	signal?: AbortSignal
-): Float32Array[] {
-	if (!isNoiseReductionActive(settings)) return channels.map((c) => c.slice());
-	if (sampleRate <= 0 || channels.length === 0 || (channels[0]?.length ?? 0) === 0)
-		return channels.map((c) => c.slice());
-	const total = channels[0]!.length;
-	if (total > MAX_TOTAL_FRAMES) throw new Error('Noise reduction input too long');
-	if (total < FRAME_SIZE) return channels.map((c) => c.slice());
-	if (total > 48000 * 60 * 2) {
-		throw new Error(
-			'Synchronous noise reduction fallback limit exceeded for long clip; use worker'
-		);
-	}
-	const proc = new StreamingNoiseReduction(channels.length, sampleRate, settings);
-	const chunkSize = 24000;
-	const outParts: Float32Array[][] = [];
-	let offset = 0;
-	while (offset < total) {
-		throwIfAborted(signal);
-		const len = Math.min(chunkSize, total - offset);
-		const chunk = channels.map((ch) => ch.slice(offset, offset + len));
-		const isLast = offset + len >= total;
-		const out = proc.process(chunk, isLast, signal);
-		if (out[0]?.length) outParts.push(out);
-		offset += len;
 	}
 	const result: Float32Array[] = Array.from(
 		{ length: channels.length },

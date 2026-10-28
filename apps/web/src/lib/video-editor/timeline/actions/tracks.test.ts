@@ -92,6 +92,14 @@ describe('timeline track actions', () => {
 		expect(removeEmptyTracks('track-audio')).toEqual(['track-video-overlay', 'track-video-main']);
 		expect(timelineStore.tracks.map((track) => track.id)).toEqual(['track-audio']);
 		expect(commandHistory.undoStack).toHaveLength(1);
+		commandHistory.undo();
+		const groupId = createTrackGroup(['track-video-overlay'], 'Empty group')!;
+		commandHistory.clearHistory();
+		expect(removeEmptyTracks(groupId)).toEqual(['track-video-main', 'track-audio']);
+		expect(timelineStore.tracks.map((track) => track.id)).toEqual([groupId, 'track-video-overlay']);
+		expect(removeEmptyTracks(groupId)).toEqual([]);
+		commandHistory.undo();
+		expect(timelineStore.tracks).toHaveLength(4);
 	});
 
 	it('toggles lock, sync lock, visibility, mute, and solo independently', () => {

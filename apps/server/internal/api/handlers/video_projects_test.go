@@ -384,6 +384,7 @@ func TestCloudVideoProjectRebasesDisjointEditsAndPreservesOverlappingConflict(t 
 	require.Equal(t, http.StatusOK, revisions.Code, revisions.Body.String())
 	var history []VideoProjectRevisionResponse
 	require.NoError(t, json.Unmarshal(revisions.Body.Bytes(), &history))
+	require.Len(t, history, 4, "authoring must record one revision per applied and resolved mutation")
 	require.Equal(t, []int64{4, 3, 2, 1}, []int64{history[0].Revision, history[1].Revision, history[2].Revision, history[3].Revision})
 	require.Equal(t, "conflict_resolution", history[0].Kind)
 	require.Equal(t, []string{"user-editor", "user-editor", "user-editor", "user-editor"}, []string{history[0].AuthorUserID, history[1].AuthorUserID, history[2].AuthorUserID, history[3].AuthorUserID})
@@ -410,6 +411,8 @@ func TestCloudVideoProjectCanDismissConflictWithoutChangingHead(t *testing.T) {
 	require.Equal(t, http.StatusOK, second.Code, second.Body.String())
 	var conflict VideoProjectMutationResponse
 	require.NoError(t, json.Unmarshal(second.Body.Bytes(), &conflict))
+	require.Equal(t, "conflict", conflict.Outcome)
+	require.NotEmpty(t, conflict.ConflictID, "the stale edit must be stored as a resolvable conflict")
 
 	dismissed := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects/"+project.ID+"/conflicts/"+conflict.ConflictID+"/resolve", map[string]any{
 		"workspace_id": "ws-1", "resolution": "keep_current",
@@ -419,6 +422,12 @@ func TestCloudVideoProjectCanDismissConflictWithoutChangingHead(t *testing.T) {
 	require.NoError(t, json.Unmarshal(dismissed.Body.Bytes(), &dismissedProject))
 	require.Equal(t, int64(2), dismissedProject.HeadRevision)
 	require.Equal(t, "Desktop", projectDocument(t, dismissedProject.Document)["title"])
+
+	remaining := server.request(t, "editor-token", http.MethodGet, "/api/v1/video-projects/"+project.ID+"/conflicts?workspace_id=ws-1", nil)
+	require.Equal(t, http.StatusOK, remaining.Code, remaining.Body.String())
+	var branches []VideoProjectConflictResponse
+	require.NoError(t, json.Unmarshal(remaining.Body.Bytes(), &branches))
+	require.Empty(t, branches, "keeping the current head must dismiss the stored conflict")
 }
 
 func TestCloudVideoProjectTreatsTimelineMembershipAsOverlappingEntityEdits(t *testing.T) {

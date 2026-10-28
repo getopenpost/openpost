@@ -6,7 +6,7 @@ import { reportProblems } from "./report-problems.mjs";
 
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-export const requiredCompatibilityEntryIDs = [
+const requiredCompatibilityEntryIDs = [
   "hostname.public-redirects",
   "rest.accounts.destination-options",
   "rest.accounts.mastodon-servers",

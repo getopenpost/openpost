@@ -14,20 +14,21 @@ describe('resolveAppErrorState', () => {
 	});
 
 	it.each([
-		[403, 'forbidden', false, false, true],
-		[404, 'not-found', false, true, false],
-		[400, 'request-error', false, false, false],
-		[429, 'request-error', true, false, false],
-		[500, 'server-error', true, false, true],
-		[503, 'server-error', true, false, true]
+		[403, 'forbidden', false, false, true, true],
+		[404, 'not-found', false, true, false, true],
+		[400, 'request-error', false, false, false, true],
+		[429, 'request-error', true, false, false, true],
+		[500, 'server-error', true, false, true, false],
+		[503, 'server-error', true, false, true, false]
 	] as const)(
 		'resolves HTTP %i as %s with accurate recovery actions',
-		(status, kind, canRetry, showDocumentation, showSupport) => {
+		(status, kind, canRetry, showDocumentation, showSupport, showDestinations) => {
 			expect(resolveAppErrorState(status, true)).toMatchObject({
 				kind,
 				canRetry,
 				showDocumentation,
-				showSupport
+				showSupport,
+				showDestinations
 			});
 		}
 	);
@@ -38,7 +39,7 @@ describe('resolveAppErrorState', () => {
 		expect(error.recovery.kind).toBe('offline');
 		expect(error.presentation).toMatchObject({
 			title: 'You are offline',
-			icon: error.recovery.kind
+			icon: 'offline'
 		});
 	});
 });

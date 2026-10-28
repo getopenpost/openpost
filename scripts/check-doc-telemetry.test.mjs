@@ -17,16 +17,27 @@ describe("documentation telemetry", () => {
   });
 
   test("requires the managed PostHog proxy and EU interface for canonical production builds", () => {
-    const error = productionConfigurationError({
+    const environment = {
       CF_PAGES: "",
       CF_PAGES_BRANCH: "",
       VITE_OPENPOST_ENVIRONMENT: "production",
       VITE_POSTHOG_PROJECT_TOKEN: "phc_test",
-      VITE_POSTHOG_API_HOST: "https://example.com",
-      VITE_POSTHOG_UI_HOST: "https://us.posthog.com",
-    });
-
-    expect(error).toContain("https://cool.openpo.st");
+      VITE_POSTHOG_API_HOST: "https://cool.openpo.st",
+      VITE_POSTHOG_UI_HOST: "https://eu.posthog.com",
+    };
+    expect(productionConfigurationError(environment)).toBeNull();
+    expect(
+      productionConfigurationError({
+        ...environment,
+        VITE_POSTHOG_API_HOST: "https://example.com",
+      }),
+    ).toContain("VITE_POSTHOG_API_HOST must be https://cool.openpo.st");
+    expect(
+      productionConfigurationError({
+        ...environment,
+        VITE_POSTHOG_UI_HOST: "https://us.posthog.com",
+      }),
+    ).toContain("VITE_POSTHOG_UI_HOST must be https://eu.posthog.com");
   });
 
   test("allows local development without public telemetry configuration", () => {

@@ -53,13 +53,16 @@ func TestBoolPtrDistinguishesUnsetFromFalse(t *testing.T) {
 	if got := BoolPtr(map[string]any{"flag": nil}, "flag"); got != nil {
 		t.Fatalf("BoolPtr(null) = %v, want nil", *got)
 	}
-	for _, value := range []any{false, "false", "yes", true} {
-		got := BoolPtr(map[string]any{"flag": value}, "flag")
+	for _, tc := range []struct {
+		value any
+		want  bool
+	}{{false, false}, {"false", false}, {"yes", true}, {true, true}} {
+		got := BoolPtr(map[string]any{"flag": tc.value}, "flag")
 		if got == nil {
-			t.Fatalf("BoolPtr(%v) = nil, want non-nil", value)
+			t.Fatalf("BoolPtr(%v) = nil, want non-nil", tc.value)
 		}
-		if *got != Bool(map[string]any{"flag": value}, "flag") {
-			t.Fatalf("BoolPtr(%v) = %v, want Bool agreement", value, *got)
+		if *got != tc.want {
+			t.Fatalf("BoolPtr(%v) = %v, want %v", tc.value, *got, tc.want)
 		}
 	}
 }

@@ -35,7 +35,14 @@ describe('parseDraftConflict', () => {
 		expect(
 			parseDraftConflict({
 				code: 'draft_revision_conflict',
-				conflict: { aggregate_id: 'publication-1', current_revision: '5' }
+				conflict: {
+					aggregate_type: 'publication',
+					aggregate_id: 'publication-1',
+					expected_revision: 3,
+					current_revision: '5',
+					status: 'draft',
+					changed_domains: ['content', 'media']
+				}
 			})
 		).toBeNull();
 	});

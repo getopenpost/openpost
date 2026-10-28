@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-	duplicateImageEditorShortcuts,
 	imageEditorCommandForKeyboardEvent,
 	imageEditorCommandsForCompactMenu,
 	imageEditorCommandsForRail,
@@ -27,7 +26,21 @@ function key(
 
 describe('OpenPost Image Editor command registry', () => {
 	it('has no shortcut collisions', () => {
-		expect(duplicateImageEditorShortcuts()).toEqual([]);
+		const shortcuts = IMAGE_EDITOR_COMMANDS.flatMap((command) =>
+			command.shortcuts.map((shortcut) => ({ command: command.id, shortcut }))
+		);
+		expect(shortcuts.length).toBeGreaterThan(0);
+		for (const { command, shortcut } of shortcuts) {
+			expect(
+				imageEditorCommandForKeyboardEvent(
+					key(shortcut.key, {
+						ctrlKey: Boolean(shortcut.primary),
+						shiftKey: Boolean(shortcut.shift),
+						altKey: Boolean(shortcut.alt)
+					})
+				)
+			).toBe(command);
+		}
 	});
 
 	it('distinguishes primary and shifted tool commands', () => {

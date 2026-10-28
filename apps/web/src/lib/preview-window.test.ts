@@ -65,8 +65,14 @@ describe('preview window session', () => {
 
 		const session = openPreviewWindow('account-1', model);
 		const channel = FakeBroadcastChannel.instances[0];
-		channel?.onmessage?.(new MessageEvent('message', { data: { type: 'ready' } }));
 
+		// Nothing may cross the channel before the preview's ready handshake,
+		// including updates that arrive while the popup is still loading.
+		expect(channel?.messages).toEqual([]);
+		session?.update(model);
+		expect(channel?.messages).toEqual([]);
+
+		channel?.onmessage?.(new MessageEvent('message', { data: { type: 'ready' } }));
 		expect(channel?.messages).toEqual([{ type: 'snapshot', model }]);
 
 		session?.close();

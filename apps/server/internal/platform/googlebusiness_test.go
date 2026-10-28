@@ -2,7 +2,6 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
@@ -317,7 +316,7 @@ func TestGoogleBusinessCreateIsPendingUntilReconciled(t *testing.T) {
 	require.Equal(t, PublishSubmissionPending, result.SubmissionState, "create acceptance is not publication, even when Google echoes LIVE")
 	require.Equal(t, PublishRetryReconcileOnly, result.RetrySafety)
 	require.Equal(t, "gbplocalpost1:accounts/111/locations/aaa/localPosts/post-1", result.ProviderReference)
-	require.Equal(t, googleBusinessReconcileDelay, result.ReconcileAfter)
+	require.Equal(t, time.Minute, result.ReconcileAfter)
 	require.NotEmpty(t, checkpoints)
 }
 
@@ -407,19 +406,8 @@ func TestGoogleBusinessRegistered(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, adapters, providerGoogleBusiness)
 
-	settings := PublishingSettingsContract(providerGoogleBusiness)
-	require.Contains(t, settings.AdapterKeys, "topic_type")
-
 	RegisterAllMediaValidators()
 	require.Nil(t, ValidateMedia(providerGoogleBusiness, []MediaItem{{MimeType: "image/jpeg"}}))
 	issues := ValidateMedia(providerGoogleBusiness, []MediaItem{{MimeType: "video/mp4"}})
 	require.NotEmpty(t, issues)
-}
-
-func TestGoogleBusinessFixturesDecode(t *testing.T) {
-	var post googleBusinessLocalPost
-	require.NoError(t, json.Unmarshal([]byte(`{"name": "accounts/111/locations/aaa/localPosts/post-1", "state": "LIVE", "searchUrl": "https://www.google.com/maps/post/1"}`), &post))
-	require.Equal(t, "LIVE", post.State)
-	require.Equal(t, "https://www.google.com/maps/post/1", googleBusinessSearchURL(post.SearchURL))
-	require.Equal(t, time.Minute, googleBusinessReconcileDelay)
 }

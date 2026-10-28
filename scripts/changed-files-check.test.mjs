@@ -57,6 +57,27 @@ function formatterEnv(cwd) {
 }
 
 describe("changed-files-check", () => {
+  test("files0 checks committed paths and rejects incomplete path records", () => {
+    const cwd = fixture();
+    const file = "committed script\nname.sh";
+    writeFileSync(join(cwd, file), "if true; then\n");
+    git(cwd, "add", file);
+    git(cwd, "commit", "-m", "committed shell failure");
+
+    const failed = run("bash", [script, "--files0"], cwd, { input: `deleted.sh\0${file}\0` });
+    expect(failed.status).not.toBe(0);
+    expect(failed.stderr).toContain("syntax error");
+
+    writeFileSync(join(cwd, file), "if true; then true; fi\n");
+    const repaired = run("bash", [script, "--files0"], cwd, { input: `${file}\0` });
+    expect(repaired.status, repaired.stderr).toBe(0);
+    expect(repaired.stdout).toContain("OK (1 changed files)");
+
+    const incomplete = run("bash", [script, "--files0"], cwd, { input: file });
+    expect(incomplete.status).not.toBe(0);
+    expect(incomplete.stderr).toContain("terminating NUL");
+  });
+
   test("checks unstaged, staged, and untracked files in worktree mode", () => {
     const cwd = fixture();
     writeFileSync(join(cwd, "tracked.txt"), "changed\n");

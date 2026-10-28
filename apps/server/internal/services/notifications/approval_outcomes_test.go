@@ -131,17 +131,6 @@ func TestWorkflowApprovalCopyFollowsStateAndAudience(t *testing.T) {
 	require.Contains(t, expiredAuthorInput.Href, "/publications/publication-1")
 }
 
-// The link has to carry the workspace: the run inspector resolves a run against
-// the workspace the reader is currently in, so an approver arriving from another
-// workspace would otherwise land on an empty inspector.
-func TestWorkflowApprovalLinksCarryTheWorkspace(t *testing.T) {
-	input := materialize(t, WorkflowApprovalFacts{
-		RecipientUserID: "user-1", WorkspaceID: "workspace-1", RunID: "run-1",
-		StepID: "step-1", State: ApprovalStateWaiting, Audience: ApprovalAudienceApprover,
-	})
-	require.Contains(t, input.Href, "workspace_id=workspace-1")
-}
-
 // A workspace where nobody holds the approving level cannot end in an approval,
 // so telling the author to "review" the post would hand them a button that
 // fails. They get copy that names the real problem.
@@ -183,22 +172,9 @@ func TestWorkflowApprovalReminderReportsTheTimeLeft(t *testing.T) {
 	require.Contains(t, oneDayInput.Body, "One day")
 	require.Contains(t, threeDaysInput.Body, "3 days")
 	require.NotEqual(t, oneDayInput.Body, threeDaysInput.Body)
+	require.Contains(t, lastDayInput.Body, "expires today", "the final day must say the approval expires today")
+	require.NotContains(t, lastDayInput.Body, "1 day")
 	require.NotEqual(t, lastDayInput.Body, oneDayInput.Body)
-}
-
-// A missing descriptive detail must never fail the transition reporting it: an
-// unnamed workflow or an approval step without a publication is still a real
-// wait, and dropping the notification would recreate the silent queue.
-func TestWorkflowApprovalToleratesMissingDescriptiveFacts(t *testing.T) {
-	outcome := mustOutcome(t, WorkflowApprovalFacts{
-		RecipientUserID: "user-1", WorkspaceID: "workspace-1", RunID: "run-1",
-		StepID: "step-1", State: ApprovalStateWaiting, Audience: ApprovalAudienceApprover,
-	})
-	value := outcome.notificationOutcome()
-	require.NotContains(t, value.payload, "publication_id")
-	require.NotContains(t, value.payload, "workflow_name")
-	_, err := materializeWorkflowApproval(value)
-	require.NoError(t, err)
 }
 
 // One topic joins the publishing group, so the whole mechanism inherits the
@@ -240,6 +216,7 @@ func TestWorkflowApprovalReachesTheInboxByDefault(t *testing.T) {
 		Where("user_id = ? AND workspace_id = ?", "user-1", "workspace-1").Scan(ctx))
 	require.Equal(t, TypeWorkflowApproval, stored.Type)
 	require.Contains(t, stored.Href, "/workflows?run=run-1")
+	require.Contains(t, stored.Href, "workspace_id=workspace-1")
 
 	// Recording the same park twice must not duplicate the notification.
 	require.NoError(t, service.Record(ctx, outcome))
@@ -261,6 +238,8 @@ func TestResolveByDedupKeysRewritesAndMarksRead(t *testing.T) {
 		RecipientUserID: "user-1", WorkspaceID: "workspace-1", RunID: "run-1",
 		StepID: "step-1", State: ApprovalStateWaiting, Audience: ApprovalAudienceApprover,
 	})
+	require.NotContains(t, outcome.notificationOutcome().payload, "publication_id")
+	require.NotContains(t, outcome.notificationOutcome().payload, "workflow_name")
 	require.NoError(t, service.Record(ctx, outcome))
 
 	require.NoError(t, service.ResolveByDedupKeys(ctx, db, []string{"user-1"},

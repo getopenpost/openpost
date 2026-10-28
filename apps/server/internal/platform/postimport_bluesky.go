@@ -135,8 +135,8 @@ func parseNativePostTime(primary, fallback string) time.Time {
 		if candidate == "" {
 			continue
 		}
-		if parsed, err := time.Parse(time.RFC3339, candidate); err == nil {
-			return parsed.UTC()
+		if parsed := ProviderTime(candidate); !parsed.IsZero() {
+			return parsed
 		}
 	}
 	return time.Time{}

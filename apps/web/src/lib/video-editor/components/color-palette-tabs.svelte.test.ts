@@ -9,20 +9,6 @@ const palettes = [
 	{ id: 'keyframes', label: 'Keyframes' }
 ] as const;
 
-it('reports palette selection through its view-only callback', async () => {
-	const onselect = vi.fn();
-	const screen = await render(ColorPaletteTabs, {
-		palettes,
-		active: 'primaries',
-		label: 'Color palettes',
-		onselect
-	});
-
-	await screen.getByRole('tab', { name: 'Curves' }).click();
-
-	expect(onselect).toHaveBeenCalledExactlyOnceWith('curves');
-});
-
 it('moves and selects with the tablist arrow keys', async () => {
 	const onselect = vi.fn();
 	const screen = await render(ColorPaletteTabs, {

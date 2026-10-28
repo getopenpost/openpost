@@ -221,10 +221,10 @@ func TestMediaBearerQueryAuthorizationAndCachePolicy(t *testing.T) {
 func TestDeniedMediaRequestsDoNotReturnOriginalsOrPreviews(t *testing.T) {
 	storage := newFakeDirectUploadStorage()
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
-	for _, key := range []string{"original.bin", "small.jpg", "medium.jpg", "poster.jpg"} {
+	for _, key := range []string{"original.bin", "small.PNG", "medium.jpg", "poster.jpg"} {
 		storage.objects[key] = []byte("private media bytes")
 	}
-	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{ID: "protected", WorkspaceID: "ws-1", FilePath: "original.bin", MimeType: "application/octet-stream", ThumbnailsJSON: `{"sm":"small.jpg","md":"medium.jpg"}`, ThumbnailObjectKey: "poster.jpg"}).Exec(t.Context())
+	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{ID: "protected", WorkspaceID: "ws-1", FilePath: "original.bin", MimeType: "application/octet-stream", ThumbnailsJSON: `{"sm":"small.PNG","md":"medium.jpg"}`, ThumbnailObjectKey: "poster.jpg"}).Exec(t.Context())
 	require.NoError(t, err)
 	for _, suffix := range []string{"", "/thumb/sm", "/thumb/md", "/poster"} {
 		for _, query := range []string{"", "?sig=invalid&exp=9999999999", "?token=invalid"} {
@@ -240,5 +240,15 @@ func TestDeniedMediaRequestsDoNotReturnOriginalsOrPreviews(t *testing.T) {
 		srv.echo.ServeHTTP(response, req)
 		require.Equal(t, http.StatusOK, response.Code, suffix)
 		require.Equal(t, "private media bytes", response.Body.String(), suffix)
+		// Both thumbnail objects hold the same bytes, so only the thumbnail
+		// filename stored on the media row can explain the served type. The SM
+		// key is upper-case, so its type also covers case-insensitive extension
+		// matching on the way to the served header.
+		switch suffix {
+		case "/thumb/sm":
+			require.Equal(t, "image/png", response.Header().Get("Content-Type"), suffix)
+		case "/thumb/md":
+			require.Equal(t, "image/jpeg", response.Header().Get("Content-Type"), suffix)
+		}
 	}
 }

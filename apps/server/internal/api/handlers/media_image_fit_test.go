@@ -28,6 +28,12 @@ func TestPrepareImageUsesDestinationAndPreservesOriginalAcrossRESTAndMCP(t *test
 	account := &models.SocialAccount{ID: "destination", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "remote", Slug: "destination", AccessTokenEnc: []byte("test"), IsActive: true}
 	_, err = srv.db.NewInsert().Model(account).Exec(t.Context())
 	require.NoError(t, err)
+	// A real active account in another Workspace proves the ownership check, not
+	// merely that an unknown account ID is missing.
+	_, err = srv.db.NewInsert().Model(&models.Workspace{ID: "ws-2", Name: "Other"}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.SocialAccount{ID: "other-workspace", WorkspaceID: "ws-2", Platform: "bluesky", AccountID: "remote-other", Slug: "other-workspace", AccessTokenEnc: []byte("test"), IsActive: true}).Exec(t.Context())
+	require.NoError(t, err)
 	var content bytes.Buffer
 	require.NoError(t, png.Encode(&content, image.NewNRGBA(image.Rect(0, 0, 128, 64))))
 	var original models.MediaAttachment
@@ -83,7 +89,9 @@ func TestPrepareImageUsesDestinationAndPreservesOriginalAcrossRESTAndMCP(t *test
 		}
 		derivativeID = output.Body.Media.ID
 	}
-	require.Equal(t, http.StatusNotFound, prepare(`{"account_id":"other-workspace","output_profile":"bluesky.post"}`).Code)
+	foreign := prepare(`{"account_id":"other-workspace","output_profile":"bluesky.post"}`)
+	require.Equal(t, http.StatusNotFound, foreign.Code, foreign.Body.String())
+	require.Contains(t, foreign.Body.String(), "not available in this Workspace")
 	require.Equal(t, http.StatusUnprocessableEntity, prepare(`{"account_id":"destination","output_profile":"bluesky.video"}`).Code)
 	require.Equal(t, http.StatusUnprocessableEntity, prepare(`{"account_id":"destination","output_profile":"invented"}`).Code)
 	file, err := storage.Open(t.Context(), filepath.Base(original.FilePath))
@@ -97,6 +105,21 @@ func TestPrepareImageUsesDestinationAndPreservesOriginalAcrossRESTAndMCP(t *test
 	result, rpcErr := mcp.callMCPOperation(ctx, "user-1", mcpToolPrepareImage, map[string]any{"media_id": original.ID, "account_id": "destination", "output_profile": "bluesky.post"})
 	require.Nil(t, rpcErr)
 	require.NotNil(t, result)
+	structured, ok := result.(map[string]any)
+	require.True(t, ok, "prepare_media_image must return structured content")
+	structuredJSON, err := json.Marshal(structured["structuredContent"])
+	require.NoError(t, err)
+	// The MCP structured body is the flattened response body, not the Huma
+	// envelope, so decode the body fields directly.
+	var mcpOutput struct {
+		Media  MediaUploadResult `json:"media"`
+		Status string            `json:"status"`
+	}
+	require.NoError(t, json.Unmarshal(structuredJSON, &mcpOutput))
+	require.Equal(t, "ready", mcpOutput.Status)
+	require.Equal(t, derivativeID, mcpOutput.Media.ID, "MCP must return the reusable fitted derivative")
+	require.Equal(t, original.ID, mcpOutput.Media.ParentMediaID)
+	require.Equal(t, "image_fit", mcpOutput.Media.Source)
 	_, rpcErr = mcp.callMCPOperation(contextWithMCPWorkspaceScope(ctx, "different"), "user-1", mcpToolPrepareImage, map[string]any{"media_id": original.ID, "account_id": "destination", "output_profile": "bluesky.post"})
 	require.NotNil(t, rpcErr)
 	_, err = srv.db.NewUpdate().Model((*models.WorkspaceMember)(nil)).Set("role = ?", models.WorkspaceRoleViewer).Where("workspace_id = ?", "ws-1").Exec(t.Context())

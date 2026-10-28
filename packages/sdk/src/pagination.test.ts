@@ -46,12 +46,16 @@ describe("iterateOffsetPages", () => {
   });
 
   it("fails fast when maxPages is exceeded", async () => {
+    const offsets: number[] = [];
     const error = await (async () => {
       try {
-        for await (const _ of iterateOffsetPages(async () => [1, 2], {
-          limit: 2,
-          maxPages: 2,
-        })) {
+        for await (const _ of iterateOffsetPages(
+          async (offset) => {
+            offsets.push(offset);
+            return [1, 2];
+          },
+          { limit: 2, maxPages: 2 },
+        )) {
           // drain: every page is full, so the walk never terminates alone
         }
       } catch (error: unknown) {
@@ -59,7 +63,10 @@ describe("iterateOffsetPages", () => {
       }
       return null;
     })();
+    expect(offsets).toEqual([0, 2]);
     expect(error).toBeInstanceOf(OpenPostError);
+    expect((error as OpenPostError).code).toBe("validation");
+    expect((error as OpenPostError).message).toContain("Stopped after 2 pages");
   });
 
   it("rejects non-finite bounds before the first request", async () => {

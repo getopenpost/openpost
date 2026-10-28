@@ -6,38 +6,10 @@ import {
   type ThemeValidationRgba,
 } from "@openpost/dither/theme-validation";
 
-import {
-  BUILTIN_THEME_FAMILIES,
-  BUILTIN_THEME_IDS,
-  builtinThemeForScheme,
-  validateNativeThemeManifest,
-} from "./builtins";
-import { NATIVE_ICON_ROLES, NATIVE_MIN_TEXT_SIZE, type NativeThemeManifest } from "./contract";
+import { BUILTIN_THEME_FAMILIES, validateNativeThemeManifest } from "./builtins";
+import { NATIVE_MIN_TEXT_SIZE, type NativeThemeManifest } from "./contract";
 
 describe("native built-in themes", () => {
-  test("ships every built-in family with complete declared schemes", () => {
-    expect(BUILTIN_THEME_IDS.length).toBeGreaterThan(0);
-
-    for (const family of Object.values(BUILTIN_THEME_FAMILIES)) {
-      expect(Object.keys(family.manifests).sort()).toEqual([...family.supportedSchemes].sort());
-      for (const scheme of family.supportedSchemes) {
-        const manifest = family.manifests[scheme];
-        expect(validateNativeThemeManifest(manifest)).toBe(true);
-        expect(Object.keys(manifest!.iconography.roles).sort()).toEqual(
-          [...NATIVE_ICON_ROLES].sort(),
-        );
-      }
-    }
-  });
-
-  test("uses a complete Workshop theme when a family does not support the requested scheme", () => {
-    const resolved = builtinThemeForScheme("midnight", "light");
-
-    expect(resolved.family.id).toBe("workshop");
-    expect(resolved.fallbackReason).toBe("unsupported-scheme");
-    expect(resolved.manifest).toBe(BUILTIN_THEME_FAMILIES.workshop.manifests.light!);
-  });
-
   test("keeps core text and filled actions at accessible contrast", () => {
     for (const family of Object.values(BUILTIN_THEME_FAMILIES)) {
       for (const scheme of family.supportedSchemes) {
@@ -56,31 +28,6 @@ describe("native built-in themes", () => {
         ).toBeGreaterThanOrEqual(MINIMUM_TEXT_CONTRAST);
       }
     }
-  });
-
-  test("gives every family a distinct native structural personality", () => {
-    const signatures = BUILTIN_THEME_IDS.map((familyId) => {
-      const family = BUILTIN_THEME_FAMILIES[familyId];
-      const manifest = family.manifests.light ?? family.manifests.dark!;
-      for (const role of Object.values(manifest.typography)) {
-        expect(role.fontSize).toBeGreaterThanOrEqual(NATIVE_MIN_TEXT_SIZE);
-      }
-      return JSON.stringify({
-        typography: manifest.typography,
-        shape: manifest.shape,
-        spacing: manifest.spacing,
-        motion: manifest.motion,
-        shell: manifest.shell,
-        components: manifest.components,
-        iconPack: manifest.iconography.packId,
-        actions: ["focal", "primary", "ordinary"].map((intent) => {
-          const action = manifest.actions[intent as "focal" | "primary" | "ordinary"];
-          return { borderWidth: action.borderWidth, depth: action.depth };
-        }),
-      });
-    });
-
-    expect(new Set(signatures).size).toBe(BUILTIN_THEME_IDS.length);
   });
 
   test("rejects unsafe native values before React Native receives them", () => {

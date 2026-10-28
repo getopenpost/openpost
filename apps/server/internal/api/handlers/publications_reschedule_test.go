@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/publicationauth"
 	"github.com/stretchr/testify/require"
@@ -105,6 +107,9 @@ func TestUpdateScheduledPublicationReschedulesPublishJob(t *testing.T) {
 	var out PublicationResponse
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	require.Equal(t, newRunAt.Format(time.RFC3339), out.ScheduledAt)
+	require.Equal(t, models.PublicationStatusScheduled, out.Status)
+	require.Len(t, out.Renditions, 1)
+	require.Equal(t, models.RenditionStatusScheduled, out.Renditions[0].Status)
 
 	var remaining []models.Job
 	err = db.NewSelect().Model(&remaining).Order("id ASC").Scan(ctx)
@@ -124,6 +129,7 @@ func TestUpdateScheduledPublicationReschedulesPublishJob(t *testing.T) {
 	}
 	require.NotNil(t, rescheduled)
 	require.Equal(t, jobTypePublishPublication, rescheduled.Type)
+	require.Equal(t, jobStatusPending, rescheduled.Status)
 	require.True(t, rescheduled.RunAt.Equal(newRunAt), "expected run_at %s, got %s", newRunAt, rescheduled.RunAt)
 	require.Contains(t, jobIDs(remaining), "other-publication-job")
 	var storedOld models.PublicationAuthorization
@@ -830,6 +836,8 @@ func TestPublicationActionsRejectProcessingPrimaryJobAcrossRESTAndMCP(t *testing
 		UpdatedAt:       now,
 	}).Exec(ctx)
 	require.NoError(t, err)
+	seedHandlerAccount(t, db, "account-1", "x")
+	seedHandlerRendition(t, db, "rendition-1", "publication-1", "account-1", "x", "Do not queue twice", models.RenditionStatusScheduled)
 	_, err = db.NewInsert().Model(&models.Job{
 		ID:          "processing-job",
 		Type:        jobTypePublishPublication,
@@ -840,30 +848,47 @@ func TestPublicationActionsRejectProcessingPrimaryJobAcrossRESTAndMCP(t *testing
 		MaxAttempts: 3,
 	}).Exec(ctx)
 	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Job{
+		ID: "pending-job", Type: jobTypePublishPublication, ScopeID: "publication-1",
+		Payload: `{"publication_id":"publication-1"}`, Status: jobStatusPending,
+		RunAt: runAt, MaxAttempts: 3,
+	}).Exec(ctx)
+	require.NoError(t, err)
 
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	newReadyPublicationHandler(t, db, testAuthenticator{}).RegisterRoutes(api)
-	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/publications/publication-1/schedule", bytes.NewBufferString(`{"expected_revision":1}`))
-	req.Header.Set("Authorization", "Bearer web-token")
-	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	e.ServeHTTP(resp, req)
-
-	require.Equal(t, http.StatusConflict, resp.Code, resp.Body.String())
-	require.Contains(t, resp.Body.String(), errPublicationAlreadyProcessing.Error())
-
-	result, rpcErr := (&MCPHandler{db: db}).schedulePublication(ctx, "user-1", map[string]any{"publication_id": "publication-1", "expected_revision": 1})
-	require.Nil(t, result)
-	require.NotNil(t, rpcErr)
-	require.Equal(t, -32602, rpcErr.Code)
-	require.Equal(t, errPublicationAlreadyProcessing.Error(), rpcErr.Message)
+	for _, action := range []string{"schedule", "publish-now"} {
+		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/publications/publication-1/"+action, bytes.NewBufferString(`{"expected_revision":1}`))
+		req.Header.Set("Authorization", "Bearer web-token")
+		req.Header.Set("Content-Type", "application/json")
+		resp := httptest.NewRecorder()
+		e.ServeHTTP(resp, req)
+		require.Equal(t, http.StatusConflict, resp.Code, resp.Body.String())
+		require.Contains(t, resp.Body.String(), errPublicationAlreadyProcessing.Error())
+	}
+	mcp := &MCPHandler{db: db}
+	arguments := map[string]any{"publication_id": "publication-1", "expected_revision": 1, "confirm": true}
+	for _, call := range []func(context.Context, string, map[string]any) (any, *mcpError){mcp.schedulePublication, mcp.publishPublicationNow} {
+		result, rpcErr := call(ctx, "user-1", arguments)
+		require.Nil(t, result)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, -32602, rpcErr.Code)
+		require.Equal(t, errPublicationAlreadyProcessing.Error(), rpcErr.Message)
+	}
 
 	var jobs []models.Job
-	require.NoError(t, db.NewSelect().Model(&jobs).Scan(ctx))
-	require.Len(t, jobs, 1)
-	require.Equal(t, "processing-job", jobs[0].ID)
-	require.Equal(t, jobStatusProcessing, jobs[0].Status)
+	require.NoError(t, db.NewSelect().Model(&jobs).Order("id ASC").Scan(ctx))
+	require.Equal(t, []string{"pending-job", "processing-job"}, jobIDs(jobs))
+	require.Equal(t, jobStatusPending, jobs[0].Status)
+	require.Equal(t, jobStatusProcessing, jobs[1].Status)
+	var publication models.Publication
+	require.NoError(t, db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(ctx))
+	require.Equal(t, models.PublicationStatusScheduled, publication.Status)
+	require.True(t, publication.ScheduledAt.Equal(runAt))
+	var rendition models.Rendition
+	require.NoError(t, db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(ctx))
+	require.Equal(t, models.RenditionStatusScheduled, rendition.Status)
 }
 
 func TestPrimaryPublicationQueueUsesCurrentScheduleAtTransactionBoundary(t *testing.T) {
@@ -912,10 +937,14 @@ func TestPrimaryPublicationQueueUsesCurrentScheduleAtTransactionBoundary(t *test
 	require.NoError(t, err)
 
 	handler := newReadyPublicationHandler(t, db, testAuthenticator{})
-	jobID, err := handler.queueScheduledPublication(ctx, "publication-1")
-	require.NoError(t, err)
+	var queued publicationEnqueueResult
+	require.NoError(t, db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		var queueErr error
+		queued, queueErr = handler.queueScheduledPublicationTx(txCtx, tx, "publication-1", 0, providerreadiness.ExecutionIntentProduction)
+		return queueErr
+	}))
 	var job models.Job
-	require.NoError(t, db.NewSelect().Model(&job).Where("id = ?", jobID).Scan(ctx))
+	require.NoError(t, db.NewSelect().Model(&job).Where("id = ?", queued.JobID).Scan(ctx))
 	require.True(t, job.RunAt.Equal(currentRunAt), "expected current run_at %s, got %s", currentRunAt, job.RunAt)
 	require.False(t, job.RunAt.Equal(staleRunAt))
 
@@ -925,10 +954,13 @@ func TestPrimaryPublicationQueueUsesCurrentScheduleAtTransactionBoundary(t *test
 		Where("id = ?", "publication-1").
 		Exec(ctx)
 	require.NoError(t, err)
-	_, err = db.NewDelete().Model((*models.Job)(nil)).Where("id = ?", jobID).Exec(ctx)
+	_, err = db.NewDelete().Model((*models.Job)(nil)).Where("id = ?", queued.JobID).Exec(ctx)
 	require.NoError(t, err)
 
-	_, err = handler.queueScheduledPublication(ctx, "publication-1")
+	err = db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		_, queueErr := handler.queueScheduledPublicationTx(txCtx, tx, "publication-1", 0, providerreadiness.ExecutionIntentProduction)
+		return queueErr
+	})
 	require.ErrorIs(t, err, errPublicationScheduleRequired)
 	jobCount, err := db.NewSelect().Model((*models.Job)(nil)).Count(ctx)
 	require.NoError(t, err)
@@ -968,7 +1000,7 @@ func TestPrimaryPublicationQueueRevalidatesLifecycleAtTransactionBoundary(t *tes
 		Exec(ctx)
 	require.NoError(t, err)
 
-	err = (&PublicationHandler{db: db}).queuePublicationNow(ctx, stalePublication.ID)
+	_, err = (&PublicationHandler{db: db}).queuePublicationNowExpected(ctx, stalePublication.ID, 0)
 	require.ErrorIs(t, err, errPublicationNotEditable)
 	jobCount, err := db.NewSelect().Model((*models.Job)(nil)).Count(ctx)
 	require.NoError(t, err)
@@ -976,155 +1008,6 @@ func TestPrimaryPublicationQueueRevalidatesLifecycleAtTransactionBoundary(t *tes
 	var currentPublication models.Publication
 	require.NoError(t, db.NewSelect().Model(&currentPublication).Where("id = ?", "publication-1").Scan(ctx))
 	require.Equal(t, models.PublicationStatusPublished, currentPublication.Status)
-}
-
-func TestPrimaryPublicationQueueRejectsProcessingJobWithoutMutation(t *testing.T) {
-	db := createHandlerTestDB(t,
-		(*models.Publication)(nil),
-		(*models.Rendition)(nil),
-		(*models.MediaAttachment)(nil),
-		(*models.RenditionMedia)(nil),
-		(*models.Job)(nil),
-	)
-	ctx := context.Background()
-	now := time.Now().UTC().Truncate(time.Second)
-	runAt := now.Add(time.Hour)
-	_, err := db.NewInsert().Model(&models.Publication{
-		ID:              "publication-1",
-		WorkspaceID:     "workspace-1",
-		CreatedByID:     "user-1",
-		Title:           "Processing publication",
-		ContentProfile:  models.ContentProfileShortText,
-		SourceText:      "Do not queue twice",
-		SourceContent:   "Do not queue twice",
-		Status:          models.PublicationStatusScheduled,
-		ScheduledAt:     runAt,
-		MetadataJSON:    "{}",
-		ReleasePlanJSON: "{}",
-		CreatedAt:       now,
-		UpdatedAt:       now,
-	}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Rendition{
-		ID:            "rendition-1",
-		PublicationID: "publication-1",
-		Platform:      "x",
-		Profile:       models.ContentProfileShortText,
-		Body:          "Do not queue twice",
-		Title:         "Processing publication",
-		SettingsJSON:  "{}",
-		Status:        models.RenditionStatusScheduled,
-		CreatedAt:     now,
-		UpdatedAt:     now,
-	}).Exec(ctx)
-	require.NoError(t, err)
-	jobs := []models.Job{
-		{
-			ID:          "pending-job",
-			Type:        jobTypePublishPublication,
-			ScopeID:     "publication-1",
-			Payload:     `{"publication_id":"publication-1"}`,
-			Status:      jobStatusPending,
-			RunAt:       runAt,
-			MaxAttempts: 3,
-		},
-		{
-			ID:          "processing-job",
-			Type:        jobTypePublishPublication,
-			ScopeID:     "publication-1",
-			Payload:     `{"publication_id":"publication-1"}`,
-			Status:      jobStatusProcessing,
-			RunAt:       now,
-			MaxAttempts: 3,
-		},
-	}
-	_, err = db.NewInsert().Model(&jobs).Exec(ctx)
-	require.NoError(t, err)
-
-	err = (&PublicationHandler{db: db}).queuePublicationNow(ctx, "publication-1")
-	require.ErrorIs(t, err, errPublicationAlreadyProcessing)
-
-	var storedJobs []models.Job
-	require.NoError(t, db.NewSelect().Model(&storedJobs).Order("id ASC").Scan(ctx))
-	require.Equal(t, []string{"pending-job", "processing-job"}, jobIDs(storedJobs))
-	require.Equal(t, jobStatusPending, storedJobs[0].Status)
-	require.Equal(t, jobStatusProcessing, storedJobs[1].Status)
-	var publication models.Publication
-	require.NoError(t, db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(ctx))
-	require.Equal(t, models.PublicationStatusScheduled, publication.Status)
-	require.True(t, publication.ScheduledAt.Equal(runAt))
-	var rendition models.Rendition
-	require.NoError(t, db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(ctx))
-	require.Equal(t, models.RenditionStatusScheduled, rendition.Status)
-}
-
-func TestPrimaryPublicationQueueReplacementKeepsOnePendingJob(t *testing.T) {
-	db := createHandlerTestDB(t,
-		(*models.Publication)(nil),
-		(*models.Rendition)(nil),
-		(*models.MediaAttachment)(nil),
-		(*models.RenditionMedia)(nil),
-		(*models.Job)(nil),
-	)
-	ctx := context.Background()
-	now := time.Now().UTC().Truncate(time.Second)
-	firstRunAt := now.Add(time.Hour)
-	secondRunAt := now.Add(2 * time.Hour)
-	_, err := db.NewInsert().Model(&models.Publication{
-		ID:              "publication-1",
-		WorkspaceID:     "workspace-1",
-		CreatedByID:     "user-1",
-		Title:           "Queued publication",
-		ContentProfile:  models.ContentProfileShortText,
-		SourceText:      "Queue once",
-		SourceContent:   "Queue once",
-		Status:          models.PublicationStatusDraft,
-		MetadataJSON:    "{}",
-		ReleasePlanJSON: "{}",
-		CreatedAt:       now,
-		UpdatedAt:       now,
-	}).Exec(ctx)
-	require.NoError(t, err)
-	seedHandlerAccount(t, db, "account-queue", "x")
-	_, err = db.NewInsert().Model(&models.Rendition{
-		ID:              "rendition-1",
-		PublicationID:   "publication-1",
-		SocialAccountID: "account-queue",
-		Platform:        "x",
-		Profile:         models.ContentProfileShortText,
-		Body:            "Queue once",
-		Title:           "Queued publication",
-		SettingsJSON:    "{}",
-		Status:          models.RenditionStatusDraft,
-		CreatedAt:       now,
-		UpdatedAt:       now,
-	}).Exec(ctx)
-	require.NoError(t, err)
-
-	handler := newReadyPublicationHandler(t, db, testAuthenticator{})
-	firstJobID, err := handler.queuePublication(ctx, "publication-1", firstRunAt)
-	require.NoError(t, err)
-	secondJobID, err := handler.queuePublication(ctx, "publication-1", secondRunAt)
-	require.NoError(t, err)
-	require.NotEqual(t, firstJobID, secondJobID)
-
-	var jobs []models.Job
-	require.NoError(t, db.NewSelect().Model(&jobs).Scan(ctx))
-	require.Len(t, jobs, 1)
-	require.Equal(t, secondJobID, jobs[0].ID)
-	require.Equal(t, jobStatusPending, jobs[0].Status)
-	payload := publicationJobPayload(t, jobs[0].Payload)
-	require.Equal(t, "publication-1", payload["publication_id"])
-	require.NotEmpty(t, payload["authorization_batch_id"])
-	require.Equal(t, secondRunAt.Format(time.RFC3339), payload["authorization_scheduled_at"])
-	require.True(t, jobs[0].RunAt.Equal(secondRunAt), "expected run_at %s, got %s", secondRunAt, jobs[0].RunAt)
-
-	var publication models.Publication
-	require.NoError(t, db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(ctx))
-	require.Equal(t, models.PublicationStatusScheduled, publication.Status)
-	var rendition models.Rendition
-	require.NoError(t, db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(ctx))
-	require.Equal(t, models.RenditionStatusScheduled, rendition.Status)
 }
 
 func jobIDs(jobs []models.Job) []string {

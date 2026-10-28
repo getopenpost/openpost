@@ -241,10 +241,6 @@ export function parseThemeEditorValidationMessage(
 			);
 		case 'scheme_not_shared':
 			return m.theme_validation_scheme_not_shared({ scheme: scheme() }, options);
-		case 'theme_id':
-			return m.theme_validation_theme_id({}, options);
-		case 'theme_name':
-			return m.theme_validation_theme_name({}, options);
 		case 'manifest_size':
 			return m.theme_validation_manifest_size({}, options);
 		case 'invalid_json':

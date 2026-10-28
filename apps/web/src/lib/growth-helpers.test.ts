@@ -1,4 +1,4 @@
-/* eslint-disable anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-unsafe-dictionary-type, anti-slop/no-known-value-widening, anti-slop/no-runtime-typeof */
+/* eslint-disable anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-unsafe-dictionary-type, anti-slop/no-known-value-widening */
 import { describe, expect, it } from 'vitest';
 import {
 	compatibleAccounts,
@@ -9,12 +9,10 @@ import {
 	shouldPollSync,
 	isSyncBusy,
 	isSyncOk,
-	canonicalSyncStatuses,
 	syncErrorKind,
 	applyGrowthControls,
 	growthRankBucket,
-	growthMutualBucket,
-	StaleGuard
+	growthMutualBucket
 } from './growth-helpers';
 import type { components } from './api/types';
 
@@ -253,10 +251,6 @@ describe('growth-helpers', () => {
 		expect(isSyncBusy({ status: 'idle' } as never)).toBe(false);
 		expect(isSyncOk({ status: 'ok' } as never)).toBe(true);
 		expect(isSyncOk({ status: 'queued' } as never)).toBe(false);
-		// all canonical statuses are known
-		for (const s of canonicalSyncStatuses) {
-			expect(typeof s).toBe('string');
-		}
 	});
 
 	it('maps syncErrorKind for canonical failure statuses', () => {
@@ -282,13 +276,5 @@ describe('growth-helpers', () => {
 		expect(growthMutualBucket(2)).toBe('2-3');
 		expect(growthMutualBucket(4)).toBe('4-6');
 		expect(growthMutualBucket(7)).toBe('7+');
-	});
-
-	it('StaleGuard ignores out-of-order responses', () => {
-		const g = new StaleGuard();
-		const a = g.next();
-		const b = g.next();
-		expect(g.isStale(a)).toBe(true);
-		expect(g.isStale(b)).toBe(false);
 	});
 });

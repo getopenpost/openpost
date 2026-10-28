@@ -1707,6 +1707,22 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "workflows/examples/comment-playbook.mdx",
+    "title": "Send a playbook from Reel comments",
+    "description": "Send a saved Instagram message when someone requests a resource on a selected post or Reel.",
+    "route": "/workflows/examples/comment-playbook",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "workflows"
+    }
+  },
+  {
     "page": "workflows/examples/feed-digest.mdx",
     "title": "Prepare a weekly feed digest",
     "description": "Collect several feed articles into one draft for review.",

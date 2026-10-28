@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	AUDIO_EQ_PRESETS,
-	applyAudioEqStages,
+	StreamingAudioEq,
 	findAudioEqPresetId,
 	getAudioEqResponseGainDb,
 	prependResolvedAudioEqSources,
@@ -35,7 +35,7 @@ describe('audio EQ', () => {
 		});
 		expect(getAudioEqResponseGainDb(stage, 40)).toBeLessThan(-20);
 		const source = sine(40);
-		const output = applyAudioEqStages([source], 48_000, [stage])[0]!;
+		const output = new StreamingAudioEq(1, 48_000, [stage]).process([source])[0]!;
 		expect(rms(output)).toBeLessThan(rms(source) * 0.2);
 	});
 });

@@ -53,10 +53,17 @@
       "dependsOn": ["@openpost/docs#build", "@openpost/site#build"],
       "inputs": [
         "tests/build/generate-agent-surfaces.test.mjs",
-        "scripts/**",
+        "scripts/tasks.mjs",
+        "scripts/turbo-cache.mjs",
+        "scripts/go-test-shards.mjs",
+        "scripts/sync-docs-external.mjs",
+        "scripts/sync-docs-openapi.mjs",
+        "scripts/social-images/catalog.mjs",
         "docs/**",
         "apps/server/**",
+        "!apps/server/**/*_test.go",
         "apps/cli/**",
+        "!apps/cli/**/*_test.go",
         ".oxfmtrc.json",
         "apps/web/.oxfmtrc.json"
       ],
@@ -76,7 +83,8 @@
         "VITE_OPENPOST_VERSION",
         "VITE_POSTHOG_API_HOST",
         "VITE_POSTHOG_PROJECT_TOKEN",
-        "VITE_POSTHOG_UI_HOST"
+        "VITE_POSTHOG_UI_HOST",
+        "GITHUB_REF_NAME"
       ],
       "passThroughEnv": ["POSTHOG_PERSONAL_API_KEY"]
     }

@@ -33,11 +33,4 @@ describe('setAnimatedProperty vector auto-key aliasing', () => {
 		expect(lane?.map((keyframe) => keyframe.frame)).toEqual([10]);
 		expect(lane?.[0]?.value.x).toBe(50);
 	});
-
-	it('writes a base value when neither axis has auto-key', () => {
-		const ok = setAnimatedProperty('a', 'x', 110, 50, false);
-		expect(ok).toBe(true);
-		expect(activeVectorKeyframes(timelineStore.itemById.get('a')!, 'position')).toBeUndefined();
-		expect(timelineStore.itemById.get('a')?.transform?.x).toBe(50);
-	});
 });

@@ -90,10 +90,24 @@ describe('ComposerSession', () => {
 
 	it('flushes saves before allowing a Workspace switch and invalidates the old session', async () => {
 		const order: string[] = [];
+		let finishCreate!: () => void;
+		let markCreateStarted!: () => void;
+		const createStarted = new Promise<void>((resolve) => (markCreateStarted = resolve));
+		const createResult = new Promise<void>((resolve) => (finishCreate = resolve));
 		const session = new ComposerSession({
 			workspaceId: 'workspace-1',
-			client: clientWith({})
+			client: clientWith({
+				async create(workspaceId) {
+					order.push('create');
+					markCreateStarted();
+					await createResult;
+					return { id: 'publication-1', workspace_id: workspaceId, revision: 1, status: 'draft' };
+				}
+			})
 		});
+		session.edit(draft('Save before switching'));
+		const saving = session.save();
+		await createStarted;
 		const decision = session.requestWorkspaceSwitch({
 			fromWorkspaceId: 'workspace-1',
 			toWorkspaceId: 'workspace-2',
@@ -110,10 +124,14 @@ describe('ComposerSession', () => {
 			}
 		});
 
-		await session.decideWorkspaceSwitch('save');
+		const switching = session.decideWorkspaceSwitch('save');
+		await Promise.resolve();
+		expect(order).toEqual(['create']);
+		finishCreate();
+		await Promise.all([saving, switching]);
 
 		await expect(decision).resolves.toBe(true);
-		expect(order).toEqual(['save', 'invalidate']);
+		expect(order).toEqual(['create', 'save', 'invalidate']);
 		expect(session.snapshot.workspaceId).toBe('workspace-1');
 		expect(() => session.edit(draft('Wrong Workspace'))).toThrow('session_inactive');
 	});
@@ -202,8 +220,19 @@ describe('ComposerSession', () => {
 		await pendingLoad;
 		expect(loading.snapshot.publicationId).toBeNull();
 
-		let finishValidation!: (value: { issues: [] }) => void;
-		const validationResult = new Promise<{ issues: [] }>((resolve) => (finishValidation = resolve));
+		type ValidationResult = Awaited<ReturnType<ComposerPublicationClient['validate']>>;
+		const lateIssue = {
+			code: 'text_too_long',
+			fallback_message: 'Late validation must not appear',
+			message: 'Late validation must not appear',
+			severity: 'error'
+		} satisfies ValidationResult['issues'][number];
+		let finishValidation!: (value: ValidationResult) => void;
+		let markValidationStarted!: () => void;
+		const validationStarted = new Promise<void>((resolve) => (markValidationStarted = resolve));
+		const validationResult = new Promise<ValidationResult>(
+			(resolve) => (finishValidation = resolve)
+		);
 		const validating = new ComposerSession({
 			workspaceId: 'workspace-1',
 			client: clientWith({
@@ -213,13 +242,16 @@ describe('ComposerSession', () => {
 					revision: 1,
 					status: 'draft'
 				}),
-				validate: async () => validationResult
+				validate: async () => {
+					markValidationStarted();
+					return validationResult;
+				}
 			})
 		});
 		validating.edit(draft('Validate later'));
 		await validating.save();
 		const pendingValidation = validating.validate();
-		await Promise.resolve();
+		await validationStarted;
 		await validating.requestWorkspaceSwitch({
 			fromWorkspaceId: 'workspace-1',
 			toWorkspaceId: 'workspace-2',
@@ -227,9 +259,10 @@ describe('ComposerSession', () => {
 			dirty: false,
 			adapters: quietSwitchAdapters()
 		});
-		finishValidation({ issues: [] });
+		finishValidation({ issues: [lateIssue] });
 		await pendingValidation;
 		expect(validating.snapshot.phase).toBe('validating');
+		expect(validating.snapshot.validationIssues).toEqual([]);
 	});
 
 	it.each(['schedule', 'publish', 'retry', 'cancel', 'delete'] as const)(
@@ -522,30 +555,6 @@ describe('ComposerSession', () => {
 		expect(serverRevision).toBe(2);
 		await second.overwriteConflict();
 		expect(second.snapshot).toMatchObject({ revision: 3, conflict: null, dirty: false });
-	});
-
-	it('keeps destination validation issues in observable session state', async () => {
-		const issue = {
-			code: 'text_too_long',
-			fallback_message: 'Text is too long',
-			message: 'Text is too long',
-			severity: 'error',
-			scope: 'rendition',
-			scope_id: 'account-1'
-		};
-		const client = clientWith({
-			async create(workspaceId) {
-				return { id: 'publication-1', workspace_id: workspaceId, revision: 1, status: 'draft' };
-			},
-			async validate() {
-				return { issues: [issue] };
-			}
-		});
-		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
-		session.edit(draft('Needs validation'));
-
-		expect(await session.validate()).toEqual([issue]);
-		expect(session.snapshot.validationIssues).toEqual([issue]);
 	});
 
 	it('publishes now only after saving and validation', async () => {

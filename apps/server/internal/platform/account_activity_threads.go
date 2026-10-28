@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/openpost/backend/internal/inboxactivity"
 )
@@ -53,7 +52,7 @@ func (t *ThreadsAdapter) ListAccountActivity(ctx context.Context, token, _ strin
 		if post.ID == "" {
 			return AccountActivityPage{}, fmt.Errorf("threads mention identity is missing")
 		}
-		observed, _ := time.Parse(time.RFC3339, post.Timestamp)
+		observed := ProviderTime(post.Timestamp)
 		page.Items = append(page.Items, AccountActivityItem{Kind: "mention", ObservedAt: observed,
 			Comment: Comment{ID: post.ID, ConversationID: post.ID, AuthorHandle: prefixHandle(post.Username), Text: post.Text, CreatedAt: post.Timestamp, CanReply: true},
 			Subject: inboxactivity.EngagementSubject{Kind: "post", RemoteID: post.ID, URL: post.Permalink}})

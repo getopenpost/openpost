@@ -32,8 +32,6 @@ export type ThemeEditorSection = (typeof THEME_EDITOR_SECTIONS)[number];
 export type ThemeEditorValidationCode =
 	| 'scheme_unsupported'
 	| 'scheme_not_shared'
-	| 'theme_id'
-	| 'theme_name'
 	| 'manifest_size'
 	| 'invalid_json'
 	| 'manifest_object'
@@ -146,27 +144,6 @@ export function resetThemeSection(
 			break;
 	}
 	return next;
-}
-
-export function duplicateThemeManifest(
-	manifest: ThemeManifest,
-	id: string,
-	name: string
-): ThemeManifest {
-	const normalizedID = id.trim();
-	const normalizedName = name.trim();
-	if (!/^[a-z0-9][a-z0-9-]{1,79}$/.test(normalizedID)) {
-		throw validationError('theme_id', 'Theme ID must use lowercase letters, numbers, and hyphens');
-	}
-	if (normalizedName.length === 0 || themeCodePointLength(normalizedName) > 80) {
-		throw validationError('theme_name', 'Theme name must contain 1 to 80 characters');
-	}
-	return {
-		...structuredClone(manifest),
-		id: normalizedID,
-		revision: 'draft',
-		name: normalizedName
-	};
 }
 
 export function serializeThemeManifest(manifest: ThemeManifest): string {

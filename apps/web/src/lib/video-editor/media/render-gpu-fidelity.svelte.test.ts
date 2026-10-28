@@ -75,16 +75,32 @@ it('keeps GPU box blur proportional when reducing a video export resolution', as
 	];
 	const normal = new TimelineFrameRenderer(project);
 	const small = new TimelineFrameRenderer(project, { width: 64, height: 32 });
+	const cleanProject = structuredClone(project);
+	cleanProject.timeline!.items[0]!.effects = [];
+	const cleanNative = new TimelineFrameRenderer(cleanProject);
+	const cleanSmall = new TimelineFrameRenderer(cleanProject, { width: 64, height: 32 });
 	try {
-		const nativePixel = (await normal.render(0)).getContext('2d')!.getImageData(54, 32, 1, 1).data;
-		const smallPixel = (await small.render(0)).getContext('2d')!.getImageData(27, 16, 1, 1).data;
-		// This location lies ten authored pixels before the color boundary, outside
-		// an eight-pixel blur. A lower output resolution must not expand its reach.
-		expect(nativePixel[2]).toBeLessThan(15);
-		expect(smallPixel[2]).toBeLessThan(15);
+		const nativeFrame = (await normal.render(0)).getContext('2d')!;
+		const smallFrame = (await small.render(0)).getContext('2d')!;
+		const cleanNativeFrame = (await cleanNative.render(0)).getContext('2d')!;
+		const cleanSmallFrame = (await cleanSmall.render(0)).getContext('2d')!;
+		// Ten authored pixels before the color boundary sits outside an eight-pixel
+		// blur. Two authored pixels before it must mix in blue, so an effect that is
+		// missing altogether cannot satisfy the far-edge checks alone.
+		expect(nativeFrame.getImageData(54, 32, 1, 1).data[2]).toBeLessThan(15);
+		expect(smallFrame.getImageData(27, 16, 1, 1).data[2]).toBeLessThan(15);
+		// Two authored pixels inside the boundary at native size, and the matching
+		// two output pixels at half size: the clean control is fully clear there while
+		// the blurred render mixes in blue.
+		expect(nativeFrame.getImageData(62, 32, 1, 1).data[2]).toBeGreaterThan(30);
+		expect(cleanNativeFrame.getImageData(62, 32, 1, 1).data[2]).toBe(0);
+		expect(smallFrame.getImageData(30, 16, 1, 1).data[2]).toBeGreaterThan(30);
+		expect(cleanSmallFrame.getImageData(30, 16, 1, 1).data[2]).toBe(0);
 	} finally {
 		normal.dispose();
 		small.dispose();
+		cleanNative.dispose();
+		cleanSmall.dispose();
 		URL.revokeObjectURL(url);
 	}
 });
@@ -122,10 +138,12 @@ it.each(['shape', 'text'] as const)(
 		const normal = new TimelineFrameRenderer(project);
 		const small = new TimelineFrameRenderer(project, { width: 64, height: 64 });
 		try {
+			const nativeContext = (await normal.render(0)).getContext('2d')!;
 			const expectedCanvas = new OffscreenCanvas(64, 64);
 			const expectedContext = expectedCanvas.getContext('2d')!;
-			expectedContext.drawImage(await normal.render(0), 0, 0, 64, 64);
+			expectedContext.drawImage(nativeContext.canvas, 0, 0, 64, 64);
 			const expected = expectedContext.getImageData(0, 0, 64, 64).data;
+			const nativePixels = nativeContext.getImageData(0, 0, 128, 128).data;
 			const actual = (await small.render(0)).getContext('2d')!.getImageData(0, 0, 64, 64).data;
 			let error = 0;
 			let visiblePixels = 0;
@@ -136,6 +154,43 @@ it.each(['shape', 'text'] as const)(
 			if (type === 'shape') {
 				expect(visiblePixels).toBeGreaterThan(100);
 				expect(error / (64 * 64)).toBeLessThan(3);
+				// The authored ellipse edge sits at x=14 (x=7 at the reduced size). The blur
+				// runs inside the layer raster, so its partial coverage shows one pixel
+				// inside the clean edge: the clean control is fully opaque while the blurred
+				// render is partly covered. A bypassed effect leaves both fully opaque.
+				const cleanProject = structuredClone(project);
+				cleanProject.timeline!.items[0]!.effects = [];
+				const cleanNative = new TimelineFrameRenderer(cleanProject);
+				const cleanSmall = new TimelineFrameRenderer(cleanProject, { width: 64, height: 64 });
+				try {
+					const cleanNativeRow = (await cleanNative.render(0))
+						.getContext('2d')!
+						.getImageData(0, 64, 128, 1).data;
+					const cleanSmallRow = (await cleanSmall.render(0))
+						.getContext('2d')!
+						.getImageData(0, 32, 64, 1).data;
+					const firstOpaque = (row: Uint8ClampedArray) => {
+						for (let x = 0; x < row.length / 4; x += 1) if (row[x * 4]! > 128) return x;
+						return -1;
+					};
+					const nativeEdge = firstOpaque(cleanNativeRow);
+					const smallEdge = firstOpaque(cleanSmallRow);
+					expect(nativeEdge).toBe(14);
+					expect(smallEdge).toBe(7);
+					const nativeRow = nativeContext.getImageData(0, 64, 128, 1).data;
+					const smallRow = (await small.render(0))
+						.getContext('2d')!
+						.getImageData(0, 32, 64, 1).data;
+					expect(nativeRow[(nativeEdge + 1) * 4]).toBeGreaterThan(180);
+					expect(nativeRow[(nativeEdge + 1) * 4]).toBeLessThan(235);
+					expect(cleanNativeRow[(nativeEdge + 1) * 4]).toBe(255);
+					expect(smallRow[(smallEdge + 1) * 4]).toBeGreaterThan(180);
+					expect(smallRow[(smallEdge + 1) * 4]).toBeLessThan(245);
+					expect(cleanSmallRow[(smallEdge + 1) * 4]).toBe(255);
+				} finally {
+					cleanNative.dispose();
+					cleanSmall.dispose();
+				}
 			} else {
 				// Font hinting can change individual glyph pixels at a new size. Locate
 				// the clean glyph edge, then check the authored eight-pixel blur reach.

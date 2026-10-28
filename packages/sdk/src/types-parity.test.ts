@@ -93,9 +93,6 @@ function loadSchemas(): Map<string, SchemaInfo> {
   const schemas = spec.components?.schemas;
   if (!schemas) throw new Error("openapi.json has no components.schemas");
   const out = new Map<string, SchemaInfo>();
-  for (const entry of Object.values(schemas)) {
-    void entry;
-  }
   for (const [name, schema] of Object.entries(schemas)) {
     const typed = schema as { properties?: Record<string, unknown>; required?: unknown };
     out.set(name, {
@@ -133,6 +130,24 @@ function loadDeclared(): Map<string, DeclaredProp[]> {
     out.set(name, props);
   }
   return out;
+}
+
+// Ask TypeScript for the public module names so re-exports and inline types
+// have the same contract. Package typechecking validates their definitions.
+function loadExportedNames(): Set<string> {
+  const entry = path.join(HERE, "index.ts");
+  const program = ts.createProgram([entry], {
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    noEmit: true,
+    noLib: true,
+    types: [],
+  });
+  const checker = program.getTypeChecker();
+  const source = program.getSourceFile(entry);
+  const symbol = source && checker.getSymbolAtLocation(source);
+  if (!symbol) throw new Error("SDK index.ts must be a module");
+  return new Set(checker.getExportsOfModule(symbol).map((entry) => entry.name));
 }
 
 // Phantom tombstones: a key the wire format never sends may stay declared only
@@ -183,8 +198,8 @@ describe("SDK wire-format parity", () => {
   });
 
   it("keeps response type names exported and the published manifest dependency-free", () => {
-    const indexText = fs.readFileSync(path.join(HERE, "index.ts"), "utf8");
-    const absent = SDK_TYPES.map((t) => t.sdk).filter((name) => !indexText.includes(name));
+    const exported = loadExportedNames();
+    const absent = SDK_TYPES.map((t) => t.sdk).filter((name) => !exported.has(name));
     expect(absent, `index.ts no longer exports: ${absent.join("; ")}`).toEqual([]);
     const manifest = JSON.parse(fs.readFileSync(path.join(HERE, "..", "package.json"), "utf8")) as {
       dependencies?: Record<string, string>;

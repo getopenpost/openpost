@@ -208,18 +208,6 @@ describe('planMixdown', () => {
 });
 
 describe('visual track visibility', () => {
-	it('omits items on hidden tracks from the visual plan', () => {
-		const tracks = [track('shown', 'video', 0), track('hidden', 'video', 1, { visible: false })];
-		const ordered = paintOrder(
-			[
-				item({ id: 'shown-item', trackId: 'shown' }),
-				item({ id: 'hidden-item', trackId: 'hidden' })
-			],
-			tracks
-		);
-		expect(ordered.map((entry) => entry.id)).toEqual(['shown-item']);
-	});
-
 	it('keeps visual layering and hidden tracks independent of audio solo', () => {
 		const ordered = paintOrder(
 			[

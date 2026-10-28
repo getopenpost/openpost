@@ -107,6 +107,7 @@ it('leaves locked captions unchanged when their source is cut', () => {
 	const before = structuredClone(timelineStore.itemById.get('caption'));
 	applyTranscriptTargetRangeRemoval(buildTranscriptSelectionRanges(words));
 	expect(timelineStore.itemById.get('caption')).toEqual(before);
+	expect(timelineStore.items.find((item) => item.type === 'audio')?.durationInFrames).toBe(84);
 });
 
 it.each(['This', 'works'])(

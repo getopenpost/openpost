@@ -21,7 +21,7 @@ function readProxyEntries(source) {
 // is a path prefix. The proxy applies to every method, so GET and HEAD share it.
 function matchesProxyKey(key, url) {
   if (key.startsWith("^")) return new RegExp(key).test(url);
-  return url === key || url.startsWith(`${key}/`);
+  return url.startsWith(key);
 }
 
 function isProxied(entries, url) {

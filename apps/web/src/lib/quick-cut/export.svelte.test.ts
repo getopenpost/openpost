@@ -168,6 +168,8 @@ describe('Quick Cut smart export', () => {
 			cutMode: 'exact'
 		});
 		const sourceTailDigests = await packetDigests(file, 1, 1.75);
+		// An empty tail on both sides would satisfy equality without copying.
+		expect(sourceTailDigests.length).toBeGreaterThan(0);
 
 		const [artifact] = await exportSegments({
 			sources: [source],
@@ -181,7 +183,9 @@ describe('Quick Cut smart export', () => {
 		expect(artifact.wasLossless).toBe(false);
 		expect(artifact.reason).toMatch(/leading boundary.*stream-copied/iu);
 		expectOrange(await centerPixel(artifact.scratchFile, 0));
-		expect(await packetDigests(artifact.scratchFile, 0.75, 1.5)).toEqual(sourceTailDigests);
+		const copiedTailDigests = await packetDigests(artifact.scratchFile, 0.75, 1.5);
+		expect(copiedTailDigests.length).toBeGreaterThan(0);
+		expect(copiedTailDigests).toEqual(sourceTailDigests);
 		expect(await decodedAudioDuration(artifact.scratchFile)).toBeCloseTo(1.5, 1);
 	});
 
@@ -194,6 +198,7 @@ describe('Quick Cut smart export', () => {
 			cutMode: 'exact'
 		});
 		const sourceTailDigests = await packetDigests(file, 1, 1.75);
+		expect(sourceTailDigests.length).toBeGreaterThan(0);
 
 		const [artifact] = await exportSegments({
 			sources: [source],
@@ -205,7 +210,9 @@ describe('Quick Cut smart export', () => {
 		scratchPaths.push(artifact.scratchPath);
 
 		expect(artifact.reason).toMatch(/leading boundary.*stream-copied/iu);
-		expect(await packetDigests(artifact.scratchFile, 0.75, 1.5)).toEqual(sourceTailDigests);
+		const copiedTailDigests = await packetDigests(artifact.scratchFile, 0.75, 1.5);
+		expect(copiedTailDigests.length).toBeGreaterThan(0);
+		expect(copiedTailDigests).toEqual(sourceTailDigests);
 		expectOrange(await centerPixel(artifact.scratchFile, 0));
 	});
 
@@ -225,6 +232,7 @@ describe('Quick Cut smart export', () => {
 			})
 		];
 		const sourceTailDigests = await packetDigests(file, 1, 1.25);
+		expect(sourceTailDigests.length).toBeGreaterThan(0);
 
 		const [artifact] = await exportSegments({
 			sources: [source],
@@ -236,7 +244,9 @@ describe('Quick Cut smart export', () => {
 		scratchPaths.push(artifact.scratchPath);
 
 		expect(artifact.reason).toMatch(/merged with smart cut/iu);
-		expect(await packetDigests(artifact.scratchFile, 0.75, 1)).toEqual(sourceTailDigests);
+		const copiedTailDigests = await packetDigests(artifact.scratchFile, 0.75, 1);
+		expect(copiedTailDigests.length).toBeGreaterThan(0);
+		expect(copiedTailDigests).toEqual(sourceTailDigests);
 		expectOrange(await centerPixel(artifact.scratchFile, 0));
 		expect(await decodedAudioDuration(artifact.scratchFile)).toBeCloseTo(1.75, 1);
 	});

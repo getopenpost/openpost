@@ -1449,10 +1449,6 @@ func optionalString(value string) *string {
 	return &value
 }
 
-func hashWorkspaceInvitationToken(token string) string {
-	return workspaceteam.HashInvitationToken(token)
-}
-
 func workspaceTeamHTTPError(err error, fallback string) error {
 	message := strings.TrimSpace(err.Error())
 	if message == "" {

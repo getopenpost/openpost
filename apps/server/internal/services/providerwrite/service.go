@@ -51,7 +51,11 @@ func (c *Control) BindPublishRequest(req *platform.PublishRequest) {
 	req.SetWriteFence(c.Begin, c.Checkpoint)
 }
 
-func (c *Control) Begin(result platform.PublishResult) error {
+func (c *Control) Begin(result platform.PublishResult) error { return c.BeginGuarded(result, nil) }
+
+// BeginGuarded commits owner authorization and write admission under one fence.
+// The guard must not perform provider I/O; the transaction ends before sending.
+func (c *Control) BeginGuarded(result platform.PublishResult, guard func(context.Context, bun.Tx) error) error {
 	if c == nil || c.service == nil || c.attempt == nil {
 		return errors.New("provider write control is unavailable")
 	}
@@ -76,6 +80,11 @@ func (c *Control) Begin(result platform.PublishResult) error {
 	durableCtx, cancel := durableContext(c.ctx)
 	defer cancel()
 	err := c.service.db.RunInTx(durableCtx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if guard != nil {
+			if err := guard(txCtx, tx); err != nil {
+				return err
+			}
+		}
 		if err := RequireCurrentJobExecution(txCtx, tx, c.attempt.JobID); err != nil {
 			return err
 		}

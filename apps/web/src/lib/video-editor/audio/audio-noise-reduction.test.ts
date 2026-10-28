@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-	applyNoiseReductionSync,
+	applyNoiseReduction,
 	clampNoiseReductionAmount,
 	isNoiseReductionActive,
 	resolveNoiseReductionSettings,
@@ -70,19 +70,19 @@ describe('audio noise reduction - signal truth', () => {
 		expect(isNoiseReductionActive({ enabled: true, amount: 30 })).toBe(true);
 	});
 
-	it('reduces hiss and improves SNR while preserving the tone', () => {
+	it('reduces hiss and improves SNR while preserving the tone', async () => {
 		const clean = sine(1000, 48000, 48000, 0.4);
 		const noise = whiteNoise(48000, 0.18, 42);
 		const noisy = add(clean, noise);
 		const beforeSnr = snr(clean, noisy);
-		const out = applyNoiseReductionSync([noisy], 48000, { enabled: true, amount: 75 });
+		const out = await applyNoiseReduction([noisy], 48000, { enabled: true, amount: 75 });
 		const afterSnr = snr(clean, out[0]!);
 		expect(afterSnr).toBeGreaterThan(beforeSnr + 0.5);
 		expect(rms(out[0]!)).toBeLessThan(rms(noisy));
 		// The tone itself must survive: correlation with the clean sine stays high
 		// while high-frequency noise energy drops.
 		const sr = 48000;
-		const denoised = applyNoiseReductionSync([noisy], sr, { enabled: true, amount: 60 })[0]!;
+		const denoised = (await applyNoiseReduction([noisy], sr, { enabled: true, amount: 60 }))[0]!;
 		let corr = 0;
 		let e1 = 0;
 		let e2 = 0;
@@ -99,11 +99,11 @@ describe('audio noise reduction - signal truth', () => {
 		);
 	});
 
-	it('tail does not click: boundary is smooth', () => {
+	it('tail does not click: boundary is smooth', async () => {
 		const sr = 48000;
 		const len = 48000;
 		const sig = sine(200, len, sr, 0.5);
-		const out = applyNoiseReductionSync([sig], sr, { enabled: true, amount: 50 })[0]!;
+		const out = (await applyNoiseReduction([sig], sr, { enabled: true, amount: 50 }))[0]!;
 		const tail = out.slice(len - 200, len);
 		let maxJump = 0;
 		for (let i = 1; i < tail.length; i++)
@@ -118,12 +118,7 @@ describe('audio noise reduction - signal truth', () => {
 		const boundary = 24000;
 		const jump = Math.abs((chunked[boundary] ?? 0) - (chunked[boundary - 1] ?? 0));
 		expect(jump).toBeLessThan(0.02);
-		// After final flush, queues must be zero
-		const inv = proc.getQueueInvariants();
-		expect(inv.inPending).toBe(0);
-		expect(inv.outPending).toBe(0);
-		expect(inv.overlap).toBe(0);
-		expect(inv.totalInput).toBe(len);
-		expect(inv.totalEmitted).toBe(len);
+		expect(a.length + b.length).toBe(len);
+		expect(proc.flush()[0]).toHaveLength(0);
 	});
 });

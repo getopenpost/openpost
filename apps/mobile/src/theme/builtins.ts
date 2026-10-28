@@ -2,8 +2,6 @@ import {
   NATIVE_THEME_CONTRACT_VERSION,
   type NativeResolvedThemeContract,
   type NativeThemeFamily,
-  type NativeThemeManifest,
-  type NativeThemeScheme,
 } from "./contract";
 import {
   GENERATED_BUILTIN_THEME_FAMILIES,
@@ -18,26 +16,6 @@ export type BuiltinThemeId = (typeof BUILTIN_THEME_IDS)[number];
 
 export const BUILTIN_THEME_FAMILIES: Readonly<Record<BuiltinThemeId, NativeThemeFamily>> =
   deepFreeze(GENERATED_BUILTIN_THEME_FAMILIES);
-
-export function builtinThemeForScheme(
-  familyId: BuiltinThemeId,
-  scheme: NativeThemeScheme,
-): {
-  family: NativeThemeFamily;
-  manifest: NativeThemeManifest;
-  fallbackReason: "unsupported-scheme" | null;
-} {
-  const family = BUILTIN_THEME_FAMILIES[familyId];
-  const candidate = family.manifests[scheme];
-  if (candidate) return { family, manifest: candidate, fallbackReason: null };
-
-  const workshop = BUILTIN_THEME_FAMILIES.workshop;
-  return {
-    family: workshop,
-    manifest: workshop.manifests[scheme]!,
-    fallbackReason: "unsupported-scheme",
-  };
-}
 
 export function createBuiltinThemeContract({
   familyId,

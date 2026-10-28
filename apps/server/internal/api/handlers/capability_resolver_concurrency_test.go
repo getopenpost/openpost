@@ -115,7 +115,55 @@ func TestResolveCapabilitiesTreatsOmittedSegmentsLikeIdenticalOverrides(t *testi
 		`"x":[{"id":"segment","content":"A normal update"}],` +
 		`"threads":[{"id":"segment","content":"A normal update"}],` +
 		`"instagram":[{"id":"segment","content":"A normal update"}]}}`
-	require.Equal(t, run(omitted), run(explicit), "omitted overrides must match identical explicit ones")
+
+	// Literal expectations for this fixture: plain text fits both text-first
+	// destinations, while Instagram has no text format and needs media.
+	expected := []struct {
+		account       string
+		profile       string
+		outputProfile string
+		compatible    bool
+		mediaRequired bool
+	}{
+		{account: "x", profile: models.ContentProfileShortText, outputProfile: "x.post", compatible: true},
+		{account: "threads", profile: models.ContentProfileShortText, outputProfile: "threads.post", compatible: true},
+		{account: "instagram", profile: models.ContentProfileImagePost, outputProfile: "instagram.feed", mediaRequired: true},
+	}
+	assertProjection := func(t *testing.T, body string) {
+		t.Helper()
+		var payload struct {
+			Accounts []ResolvedAccountCapability `json:"accounts"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(body), &payload))
+		require.Len(t, payload.Accounts, len(expected))
+		for index, want := range expected {
+			account := payload.Accounts[index]
+			require.Equal(t, want.account, account.AccountID, "response order must follow the request")
+			require.Equal(t, want.profile, account.Profile, account.AccountID)
+			require.Equal(t, want.outputProfile, account.OutputProfile, account.AccountID)
+			require.Equal(t, want.compatible, account.Compatible, account.AccountID)
+			if want.mediaRequired {
+				require.True(t, hasCapabilityIssue(account.Issues, "media_required", "media"), account.AccountID)
+				continue
+			}
+			require.False(t, hasCapabilityIssueCode(account.Issues, "media_required"), account.AccountID)
+		}
+	}
+
+	omittedBody := run(omitted)
+	explicitBody := run(explicit)
+	assertProjection(t, omittedBody)
+	assertProjection(t, explicitBody)
+	require.Equal(t, omittedBody, explicitBody, "omitted overrides must match identical explicit ones")
+}
+
+func hasCapabilityIssueCode(issues []capabilities.ValidationIssue, code string) bool {
+	for _, issue := range issues {
+		if issue.Code == code {
+			return true
+		}
+	}
+	return false
 }
 
 func TestResolveCapabilitiesMatchesSequentialResponse(t *testing.T) {
@@ -148,16 +196,44 @@ func TestResolveCapabilitiesMatchesSequentialResponse(t *testing.T) {
 		return rec.Body.Bytes()
 	}
 
+	// Literal expectations for this fixture, independent of either run: plain
+	// text fits the three text-first destinations and Instagram needs media.
+	expected := []struct {
+		account       string
+		profile       string
+		outputProfile string
+		compatible    bool
+		mediaRequired bool
+	}{
+		{account: "x", profile: models.ContentProfileShortText, outputProfile: "x.post", compatible: true},
+		{account: "threads", profile: models.ContentProfileShortText, outputProfile: "threads.post", compatible: true},
+		{account: "instagram", profile: models.ContentProfileImagePost, outputProfile: "instagram.feed", mediaRequired: true},
+		{account: "linkedin", profile: models.ContentProfileShortText, outputProfile: "linkedin.post", compatible: true},
+	}
+	assertProjection := func(t *testing.T, body []byte) {
+		t.Helper()
+		var payload struct {
+			Accounts []ResolvedAccountCapability `json:"accounts"`
+		}
+		require.NoError(t, json.Unmarshal(body, &payload))
+		require.Len(t, payload.Accounts, len(expected))
+		for index, want := range expected {
+			account := payload.Accounts[index]
+			require.Equal(t, want.account, account.AccountID, "response order must follow the request")
+			require.Equal(t, want.profile, account.Profile, account.AccountID)
+			require.Equal(t, want.outputProfile, account.OutputProfile, account.AccountID)
+			require.Equal(t, want.compatible, account.Compatible, account.AccountID)
+			if want.mediaRequired {
+				require.True(t, hasCapabilityIssue(account.Issues, "media_required", "media"), account.AccountID)
+				continue
+			}
+			require.False(t, hasCapabilityIssueCode(account.Issues, "media_required"), account.AccountID)
+		}
+	}
+
 	sequential := run(1)
 	concurrent := run(4)
 	require.Equal(t, string(sequential), string(concurrent), "concurrent resolution must preserve order and content")
-
-	var payload struct {
-		Accounts []ResolvedAccountCapability `json:"accounts"`
-	}
-	require.NoError(t, json.Unmarshal(concurrent, &payload))
-	require.Len(t, payload.Accounts, len(providers))
-	for index, provider := range providers {
-		require.Equal(t, provider, payload.Accounts[index].AccountID)
-	}
+	assertProjection(t, sequential)
+	assertProjection(t, concurrent)
 }

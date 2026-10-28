@@ -16,7 +16,10 @@ describe('parseSrt', () => {
 			'WEBVTT\n\n00:00.000 --> 00:02.000 position:50%\nFirst\n\n00:05.000 --> 00:07.000\nSecond'
 		);
 		expect(cues.length).toBe(2);
-		expect(cues[0]!.text).toBe('First');
+		expect(cues).toEqual([
+			{ startSeconds: 0, endSeconds: 2, text: 'First' },
+			{ startSeconds: 5, endSeconds: 7, text: 'Second' }
+		]);
 	});
 
 	it('sorts out-of-order cues and drops empty text', () => {
@@ -33,6 +36,9 @@ describe('formatSrt', () => {
 			{ startSeconds: 0.5, endSeconds: 2, text: 'Alpha\nBeta' },
 			{ startSeconds: 61.25, endSeconds: 63, text: 'Gamma' }
 		]);
+		expect(srt).toBe(
+			'1\n00:00:00,500 --> 00:00:02,000\nAlpha\nBeta\n\n2\n00:01:01,250 --> 00:01:03,000\nGamma'
+		);
 		const cues = parseSrt(srt);
 		expect(cues.length).toBe(2);
 		expect(cues[0]!.startSeconds).toBeCloseTo(0.5);

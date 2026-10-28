@@ -41,7 +41,7 @@ describe('project bundle utilities', () => {
 		expect(completed).toBe(16);
 	});
 
-	it('rejects traversal, repeated ids, conflicting paths, and changed manifests', () => {
+	it('rejects traversal, repeated ids, and changed manifests', () => {
 		expect(isSafeBundlePath('../project.json')).toBe(false);
 		expect(isSafeBundlePath('/project.json')).toBe(false);
 		expect(isSafeBundlePath('media/hash/video.mp4')).toBe(true);

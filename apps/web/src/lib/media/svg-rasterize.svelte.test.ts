@@ -5,7 +5,7 @@ describe('SVG upload rasterization', () => {
 	it('converts an SVG into a transparent PNG with a raster filename', async () => {
 		const svg = new File(
 			[
-				'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="18"><rect width="32" height="18" fill="#f97316"/></svg>'
+				'<svg xmlns="http://www.w3.org/2000/svg" width="32" height="18"><rect width="16" height="18" fill="#f97316"/></svg>'
 			],
 			'launch-card.svg',
 			{ type: 'image/svg+xml', lastModified: 123 }
@@ -19,5 +19,25 @@ describe('SVG upload rasterization', () => {
 		expect(png.size).toBeGreaterThan(0);
 		const signature = new Uint8Array(await png.slice(0, 8).arrayBuffer());
 		expect(Array.from(signature)).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+
+		// The source leaves its right half empty, so the PNG must keep the orange
+		// fill opaque and the untouched pixels fully transparent.
+		const bitmap = await createImageBitmap(png);
+		const canvas = document.createElement('canvas');
+		canvas.width = bitmap.width;
+		canvas.height = bitmap.height;
+		const context = canvas.getContext('2d', { willReadFrequently: true });
+		if (!context) throw new Error('PNG canvas is unavailable.');
+		context.drawImage(bitmap, 0, 0);
+		try {
+			expect([bitmap.width, bitmap.height]).toEqual([32, 18]);
+			const filled = [...context.getImageData(8, 9, 1, 1).data];
+			const empty = [...context.getImageData(24, 9, 1, 1).data];
+			expect(filled.slice(0, 3)).toEqual([249, 115, 22]);
+			expect(filled[3]).toBe(255);
+			expect(empty[3]).toBe(0);
+		} finally {
+			bitmap.close();
+		}
 	});
 });

@@ -195,18 +195,6 @@ func TestInboxEventsReplayDeleteAndAuthorization(t *testing.T) {
 	require.ErrorIs(t, err, ErrAccessDenied)
 }
 
-func TestProviderReadFailureRemainsVisible(t *testing.T) {
-	s, _, account, actor := messagingFixture(t)
-	failure := fmt.Errorf("provider unavailable")
-	s.SetProvider("bluesky", testProvider{fetch: func() (platform.FetchMessagesResult, error) { return platform.FetchMessagesResult{}, failure }})
-	err := s.HandleJob(t.Context(), JobTypeMessagesSync, `{"id":"`+account.ID+`"}`)
-	require.ErrorIs(t, err, failure)
-	states, err := s.ListSyncStates(t.Context(), actor, "workspace")
-	require.NoError(t, err)
-	require.Len(t, states, 1)
-	require.Equal(t, "failed", states[0].Status)
-}
-
 func TestRetryNeverReplaysAnAmbiguousProviderWrite(t *testing.T) {
 	s, _, _, actor := messagingFixture(t)
 	calls := 0

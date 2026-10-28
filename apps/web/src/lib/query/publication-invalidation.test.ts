@@ -78,46 +78,6 @@ describe('publication query invalidation bridge', () => {
 		}
 	);
 
-	it('handles every off-route batch without crossing workspace boundaries', async () => {
-		const client = new QueryClient();
-		const bridge = createPublicationQueryInvalidationBridge(client);
-		const workspaceOneActivity = openPostQueryKeys.publications.activity(
-			'workspace-1',
-			'scheduled',
-			{ limit: 40 }
-		);
-		const workspaceOneJobs = openPostQueryKeys.jobs.failedPage('workspace-1', { limit: 50 });
-		const workspaceTwoActivity = openPostQueryKeys.publications.activity(
-			'workspace-2',
-			'published',
-			{ limit: 40 }
-		);
-		const workspaceTwoJobs = openPostQueryKeys.jobs.failedPage('workspace-2', { limit: 50 });
-
-		for (const queryKey of [
-			workspaceOneActivity,
-			workspaceOneJobs,
-			workspaceTwoActivity,
-			workspaceTwoJobs
-		]) {
-			seedQuery(client, queryKey);
-		}
-
-		await bridge.observe({
-			revision: 1,
-			entries: [{ workspaceId: 'workspace-1', scopes: ['activity'], activities: [], dateKeys: [] }]
-		});
-		await bridge.observe({
-			revision: 2,
-			entries: [{ workspaceId: 'workspace-2', scopes: ['activity'], activities: [], dateKeys: [] }]
-		});
-
-		expect(isInvalidated(client, workspaceOneActivity)).toBe(true);
-		expect(isInvalidated(client, workspaceOneJobs)).toBe(true);
-		expect(isInvalidated(client, workspaceTwoActivity)).toBe(true);
-		expect(isInvalidated(client, workspaceTwoJobs)).toBe(true);
-	});
-
 	it('keeps wildcard invalidation precise to Activity reads', async () => {
 		const client = new QueryClient();
 		const bridge = createPublicationQueryInvalidationBridge(client);

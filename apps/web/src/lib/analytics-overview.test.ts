@@ -116,7 +116,7 @@ describe('analytics overview helpers', () => {
 
 		const merged = appendAnalyticsContentPage(current, nextPage);
 
-		expect(merged.content).toHaveLength(2);
+		expect((merged.content ?? []).map((item) => item.rendition_id)).toEqual(['first', 'second']);
 		expect(merged.content_next_cursor).toBeUndefined();
 		expect(merged.insights).toEqual([engagementInsight(12)]);
 		expect(merged.summary.published).toBe(2);

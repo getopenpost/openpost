@@ -231,11 +231,40 @@ describe('NotificationPreferences', () => {
 		expect(mocks.showToast).toHaveBeenCalledTimes(1);
 	});
 
-	it('settles an unauthorized preference save before touching cached or visible state', async () => {
+	it('keeps the signed-in user and cached preferences for an action-level 401', async () => {
+		const initial = notificationSettings([]);
+		mocks.get.mockResolvedValue({ data: initial });
+		mocks.put.mockResolvedValue({
+			error: { status: 401, detail: 'Recent reauthentication is required' },
+			response: new Response(null, { status: 401 })
+		});
+		let authenticated = true;
+		const unsubscribe = auth.subscribe((state) => (authenticated = state.isAuthenticated));
+
+		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
+		await screen.getByLabelText('Timezone').fill('Europe/Lisbon');
+		await screen.getByRole('button', { name: 'Save preferences' }).click();
+
+		await vi.waitFor(() =>
+			expect(mocks.showToast).toHaveBeenCalledWith(
+				'OpenPost could not save your notification preferences.',
+				'error'
+			)
+		);
+		expect(authenticated).toBe(true);
+		expect(queryClient.getQueryData(notificationQueryKeys.preferences())).toEqual(initial);
+		expect(mocks.showToast).toHaveBeenCalledTimes(1);
+		unsubscribe();
+	});
+
+	it('settles a challenged unauthorized preference save before touching cached or visible state', async () => {
 		mocks.get.mockResolvedValue({ data: notificationSettings([]) });
 		mocks.put.mockResolvedValue({
 			error: { status: 401, detail: 'Signed out' },
-			response: new Response(null, { status: 401 })
+			response: new Response(null, {
+				status: 401,
+				headers: { 'WWW-Authenticate': 'Bearer error="invalid_token"' }
+			})
 		});
 		let authenticated = true;
 		const unsubscribe = auth.subscribe((state) => (authenticated = state.isAuthenticated));

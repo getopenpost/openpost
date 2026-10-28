@@ -383,7 +383,7 @@ export async function writeSelectedContract(contract, outputRoot = root) {
   await Bun.write(
     path.join(actionsDirectory, "requestMappers.ts"),
     generatedFile(
-      `export const generatedActionRequestMappers = ${stableJson(buildRequestMappers(contract))} as const;\n\nexport function findGeneratedAction(resource: string, operation: string) {\n\treturn generatedActionRequestMappers.find((action) => action.actionKey === resource + "." + operation);\n}\n`,
+      `export const generatedActionRequestMappers = ${stableJson(buildRequestMappers(contract))} as const;\n`,
     ),
   );
 

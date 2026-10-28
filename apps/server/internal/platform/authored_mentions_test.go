@@ -12,7 +12,9 @@ import (
 func TestSelectedBlueskyMentionPublishesStableDIDWithoutResolvingItsLabel(t *testing.T) {
 	original := httpClient
 	t.Cleanup(func() { httpClient = original })
+	requests := 0
 	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests++
 		require.Equal(t, "/xrpc/com.atproto.repo.createRecord", req.URL.Path, "selected identities require no mutable-handle lookup")
 		require.Equal(t, "Bearer secret", req.Header.Get("Authorization"))
 		var payload struct {
@@ -31,8 +33,10 @@ func TestSelectedBlueskyMentionPublishesStableDIDWithoutResolvingItsLabel(t *tes
 		return jsonResponse(req, `{"uri":"at://did:plc:author/app.bsky.feed.post/123","cid":"bafypost"}`), nil
 	})}
 	projection := &posttext.Projection{Mentions: posttext.Mentions{Version: 1, Spans: []posttext.MentionSpan{{Start: 5, End: 16, Text: "@old.handle", Target: posttext.MentionTarget{Provider: "bluesky", Kind: "person", ID: "did:plc:ewvi7nxzyoun6zhxrhs64oiz", Handle: "new.handle"}}}}}
-	_, err := NewBlueskyAdapter("").Publish(t.Context(), "secret", "did:plc:author", &PublishRequest{Content: "🚀 @old.handle and @unselected.example", Settings: map[string]any{posttext.NativeSettingsKey: projection, "mention_dids": "old.handle=did:plc:wrong"}})
+	result, err := NewBlueskyAdapter("").Publish(t.Context(), "secret", "did:plc:author", &PublishRequest{Content: "🚀 @old.handle and @unselected.example", Settings: map[string]any{posttext.NativeSettingsKey: projection, "mention_dids": "old.handle=did:plc:wrong"}})
 	require.NoError(t, err)
+	require.Equal(t, 1, requests)
+	require.NotEmpty(t, result.ExternalID)
 }
 
 func TestLinkedInSelectedPageMentionsEscapeLabelsAndSurroundingMarkup(t *testing.T) {

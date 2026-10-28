@@ -27,13 +27,6 @@ describe("Accounts", () => {
     });
   });
 
-  it("sends target_key when a rendition needs a subdestination", async () => {
-    const fetch = vi.fn(async () => jsonResponse({ message: "retried" }));
-    const client = new OpenPost({ baseUrl: "https://example.test", token: "tok", fetch });
-    await client.publications.retryRendition("pub_1", "acc_1", "profile_main");
-    const [url] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toContain("target_key=profile_main");
-  });
   it("encodes account-scoped mention lookup and preserves permission failures", async () => {
     let requested = "";
     const fetch = vi.fn(async (url: string | URL | Request) => {

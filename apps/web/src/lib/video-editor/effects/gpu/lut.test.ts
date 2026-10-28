@@ -17,6 +17,10 @@ describe('LUT project storage', () => {
 		const stored = packCubeLutForStorage(imported);
 
 		expect(stored.size).toBe(33);
-		expect(decodeLutData(stored.data)).toHaveLength(33 * 33 * 33 * 4);
+		const decoded = decodeLutData(stored.data);
+		expect(decoded).toHaveLength(33 * 33 * 33 * 4);
+		expect([...decoded.slice(0, 4)]).toEqual([0, 0, 0, 255]);
+		expect([...decoded.slice(32 * 4, 33 * 4)]).toEqual([255, 0, 0, 255]);
+		expect([...decoded.slice(-4)]).toEqual([255, 255, 255, 255]);
 	});
 });

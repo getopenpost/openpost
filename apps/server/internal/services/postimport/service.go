@@ -135,18 +135,6 @@ func (s *Service) support(account models.SocialAccount) platform.NativePostSuppo
 	return support
 }
 
-func (s *Service) SetPolicy(provider string, policy Policy) {
-	provider = strings.ToLower(strings.TrimSpace(provider))
-	if provider == "" {
-		return
-	}
-	policy.ReadRequestsPerDay = max(0, policy.ReadRequestsPerDay)
-	policy.PageSize = min(max(1, policy.PageSize), platform.NativePostMaxPageSize)
-	s.policiesMu.Lock()
-	s.policies[provider] = policy
-	s.policiesMu.Unlock()
-}
-
 func (s *Service) policy(provider string) Policy {
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	s.policiesMu.RLock()

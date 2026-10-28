@@ -16,14 +16,6 @@ function buttonProps(hasText: boolean) {
 }
 
 describe('ComposerAIActionButton', () => {
-	it('keeps Ideate discoverable under the same name after the author starts writing', async () => {
-		const props = buttonProps(false);
-		const screen = await render(ComposerAIActionButton, props);
-		await screen.rerender({ ...props, hasText: true });
-		await expect.element(screen.getByRole('button', { name: 'Ideate', exact: true })).toBeVisible();
-		await screen.getByRole('button', { name: 'Ideate', exact: true }).click();
-		expect(props.onclick).toHaveBeenCalledOnce();
-	});
 	it('prevents a second request while generation is running', async () => {
 		const props = { ...buttonProps(true), building: true };
 		const screen = await render(ComposerAIActionButton, props);

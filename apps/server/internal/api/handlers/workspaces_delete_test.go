@@ -133,6 +133,12 @@ func TestDeleteWorkspaceRemovesWorkspaceContent(t *testing.T) {
 	require.Zero(t, countRows[models.Job](t, server.db, "id = ?", "publication-build-workspace-1"))
 	require.Equal(t, 1, countRows[models.Job](t, server.db, "id = ?", "cleanup-workspace-2"))
 	require.Equal(t, 1, countRows[models.Workspace](t, server.db, ""))
+	var event models.WorkspaceLifecycleAuditEvent
+	require.NoError(t, server.db.NewSelect().Model(&event).Where("workspace_id = ?", "workspace-1").Scan(t.Context()))
+	require.Equal(t, "org-1", event.OrganizationID)
+	require.Equal(t, "user-1", event.ActorUserID)
+	require.Equal(t, "workspace.deleted", event.Action)
+	require.Equal(t, "One", event.WorkspaceName)
 }
 
 func TestDeleteWorkspaceRejectsLastWorkspace(t *testing.T) {
@@ -267,22 +273,4 @@ func TestWorkspaceDeletionBlockersAreActionableAndLeaveDataIntact(t *testing.T) 
 	require.Equal(t, http.StatusConflict, deleted.Code, deleted.Body.String())
 	require.Contains(t, deleted.Body.String(), "Wait for publishing and provider actions")
 	require.Equal(t, 1, countRows[models.Workspace](t, server.db, "id = ?", "workspace-1"))
-}
-
-func TestDeleteWorkspaceRetainsOrganizationAuditEvidence(t *testing.T) {
-	t.Parallel()
-	server := newDeleteWorkspaceTestServer(t)
-	insertDeleteFixture(t, server.db)
-
-	rec := jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/workspaces/workspace-1", map[string]any{
-		"confirm_name": "One", "current_password": "current-password-123",
-	}, "web-token")
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-
-	var event models.WorkspaceLifecycleAuditEvent
-	require.NoError(t, server.db.NewSelect().Model(&event).Where("workspace_id = ?", "workspace-1").Scan(t.Context()))
-	require.Equal(t, "org-1", event.OrganizationID)
-	require.Equal(t, "user-1", event.ActorUserID)
-	require.Equal(t, "workspace.deleted", event.Action)
-	require.Equal(t, "One", event.WorkspaceName)
 }

@@ -5,7 +5,7 @@ import { commandHistory } from '$lib/video-editor/timeline/commands/command-stor
 import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 import type { MediaMetadata } from '$lib/video-editor/media/types';
-import { createBeatDetectionService } from './beat-detection-service.svelte';
+import { BeatDetectionService } from './beat-detection-service.svelte';
 import { BeatAnalyzer } from './analyzer';
 
 const media: MediaMetadata = {
@@ -104,7 +104,7 @@ describe('beat detection service - worker fallback and cancellation', () => {
 			duration: 1,
 			downbeats: [0]
 		});
-		const service = createBeatDetectionService({
+		const service = new BeatDetectionService({
 			resolveMediaBlob: async () => new Blob([new Uint8Array(10)]),
 			createWorker: () => {
 				throw new Error('Blocked by content security policy');
@@ -117,19 +117,26 @@ describe('beat detection service - worker fallback and cancellation', () => {
 	});
 
 	it('preserves AbortError and does not fallback on cancellation', async () => {
-		const service = createBeatDetectionService({
+		let started!: () => void;
+		const analyzing = new Promise<void>((resolve) => (started = resolve));
+		const fallback = vi.spyOn(BeatAnalyzer.prototype, 'analyzeBlob');
+		const service = new BeatDetectionService({
 			resolveMediaBlob: async () => new Blob([new Uint8Array(10)]),
 			analyzeBlob: (_blob: Blob, signal?: AbortSignal) =>
 				new Promise((_resolve, reject) => {
+					started();
 					signal?.addEventListener('abort', () =>
 						reject(new DOMException('Cancelled', 'AbortError'))
 					);
 				})
 		});
 		const promise = service.analyzeSelectedClip('clip-1');
+		await analyzing;
 		service.cancel();
 		const result = await promise;
 		expect(result.status).toBe('cancelled');
 		expect(service.status).toBe('cancelled');
+		expect(fallback).not.toHaveBeenCalled();
+		expect(timelineStore.markers).toEqual([]);
 	});
 });

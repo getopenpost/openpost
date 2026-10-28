@@ -8,7 +8,6 @@ import {
   docsRouteFromPage,
   docsSocialImageKey,
   docsSocialImageUrlForRoute,
-  counterPlatforms,
   marketingPrerenderEntries,
   marketingSocialEntries,
   previewTools,
@@ -97,22 +96,6 @@ test("every social entry is unique and uses its published static image", () => {
     "/docs/guides/quickstart",
   );
   assert.equal(documentationTelemetryPath("/private/customer@example.com"), "/docs/unknown");
-});
-
-test("character-counter description counts the counter's own platform list", () => {
-  const entry = marketingSocialEntries.find(
-    (route) => route.path === "/tools/multi-platform-character-counter",
-  );
-  assert.ok(entry, "character-counter tool entry is missing");
-  const keys = counterPlatforms.map((platform) => platform.key);
-  assert.equal(new Set(keys).size, keys.length, "counter platform list contains duplicates");
-  const match = entry.description.match(/\b(\d+) social networks\b/u);
-  assert.ok(match, "character-counter description must state its platform count");
-  assert.equal(Number(match[1]), counterPlatforms.length);
-  assert.equal(
-    entry.description,
-    `Check one draft against the limits and counting rules for ${counterPlatforms.length} social networks.`,
-  );
 });
 
 test("documentation corpus policy is complete canonical metadata", () => {

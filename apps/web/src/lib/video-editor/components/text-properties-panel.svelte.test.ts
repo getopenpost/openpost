@@ -3,7 +3,6 @@ import { userEvent } from 'vitest/browser';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { resolveAnimatedItemLocalAt } from '../timeline/animated-properties';
 import { render } from 'vitest-browser-svelte';
-import { m } from '$lib/paraglide/messages';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 import TextPropertiesPanel from './text-properties-panel.svelte';
@@ -26,29 +25,6 @@ function textItem(): TimelineItem {
 
 afterEach(() => {
 	timelineStore.__resetForTesting();
-});
-
-it('exposes the text style presets as a named group', async () => {
-	const item = textItem();
-	timelineStore._setItems([item]);
-	const screen = await render(TextPropertiesPanel, { item, onedit: vi.fn() });
-
-	await screen.getByRole('button', { name: m.video_editor_text_browse_styles() }).click();
-	const group = screen.getByRole('group', { name: m.video_editor_text_templates() });
-	await expect.element(group).toBeVisible();
-});
-
-it('exposes the text effects as a named group', async () => {
-	const item = textItem();
-	timelineStore._setItems([item]);
-	const screen = await render(TextPropertiesPanel, { item, onedit: vi.fn() });
-
-	await screen.getByRole('button', { name: m.video_editor_effects() }).click();
-	const group = screen.getByRole('group', { name: m.video_editor_effects() });
-	await expect.element(group).toBeVisible();
-	await expect
-		.element(group.getByRole('button', { name: m.video_editor_text_effect_shadow() }))
-		.toBeVisible();
 });
 
 it('shows and edits animated font size at the playhead without changing the starting size', async () => {

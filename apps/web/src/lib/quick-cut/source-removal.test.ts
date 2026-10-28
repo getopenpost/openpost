@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createNewProject } from './project';
-import { prepareSourceRemoval } from './source-removal';
+import { prepareSourceRemoval, type SourceRemovalPlan } from './source-removal';
 import type { QuickCutSegment, QuickCutSource } from './types';
 
 function source(id: string): QuickCutSource {
@@ -46,9 +46,13 @@ describe('Quick Cut source removal', () => {
 		const segments = [segment('keep-a', 'a'), segment('remove-b', 'b')];
 		const project = createNewProject(sources);
 		project.segments = segments;
-		const persist = vi.fn(async () => undefined);
+		let finishPersistence!: () => void;
+		const persisted = new Promise<void>((resolve) => {
+			finishPersistence = resolve;
+		});
+		const persist = vi.fn((_plan: SourceRemovalPlan) => persisted);
 
-		const plan = await prepareSourceRemoval(
+		const pending = prepareSourceRemoval(
 			{
 				sources,
 				segments,
@@ -62,7 +66,22 @@ describe('Quick Cut source removal', () => {
 			persist
 		);
 
+		let returned = false;
+		void pending.then(() => {
+			returned = true;
+		});
+		await Promise.resolve();
 		expect(persist).toHaveBeenCalledOnce();
+		expect(returned, 'removal must await persistence').toBe(false);
+		expect(persist.mock.calls[0]![0].sources.map((item) => item.id)).toEqual(['a', 'c']);
+		expect(persist.mock.calls[0]![0].segments.map((item) => item.id)).toEqual(['keep-a']);
+		expect(
+			sources.map((item) => item.id),
+			'live state before persistence'
+		).toEqual(['a', 'b', 'c']);
+		finishPersistence();
+		const plan = await pending;
+		expect(plan, 'return exactly the persisted plan').toBe(persist.mock.calls[0]![0]);
 		expect(plan).toMatchObject({
 			activeSourceId: 'c',
 			selectedSegmentId: null,

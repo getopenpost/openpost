@@ -1,12 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
-
-const semanticSurfaces = [
-	new URL('../components/app-error-state.svelte', import.meta.url),
-	new URL('../quick-cut/components/SegmentList.svelte', import.meta.url)
-];
 
 // Approved exceptions: public and pre-workspace screens are out of the theme
 // scope by product decision (no workspace is known, so no theme applies), and
@@ -36,13 +30,6 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('remaining app icon boundary', () => {
-	it('keeps functional app icons behind semantic registries', async () => {
-		for (const surface of semanticSurfaces) {
-			const source = await readFile(surface, 'utf8');
-			expect(source, surface.pathname).not.toContain('@lucide/svelte');
-		}
-	});
-
 	it('allows direct library icons only on documented public exceptions', () => {
 		const root = new URL('../../', import.meta.url);
 		const allowed = new Set(

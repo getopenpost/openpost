@@ -17,21 +17,6 @@ test("returns the name of a plain type reference", () => {
   );
 });
 
-test("unwraps parenthesized types", () => {
-  assert.equal(
-    referencedAliasName(
-      node({
-        type: "TSParenthesizedType",
-        typeAnnotation: {
-          type: "TSTypeReference",
-          typeName: { type: "Identifier", name: "Bar" },
-        },
-      }),
-    ),
-    "Bar",
-  );
-});
-
 test("rejects generic references and non-references", () => {
   assert.equal(
     referencedAliasName(

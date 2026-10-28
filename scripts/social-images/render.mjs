@@ -242,7 +242,7 @@ async function drawBrand(context, { docs = false, y = 56 } = {}) {
   context.fillText("OpenPost", 120, y + 31);
 }
 
-export async function renderSocialCard(entry) {
+async function renderSocialCard(entry) {
   loadFonts();
   const canvas = createCanvas(SOCIAL_IMAGE_WIDTH, SOCIAL_IMAGE_HEIGHT);
   const context = canvas.getContext("2d");

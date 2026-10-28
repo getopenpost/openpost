@@ -113,17 +113,6 @@ func (s *Service) IssueNonce(ctx context.Context, input IssueNonceInput) (Issued
 	return IssuedNonce{ID: row.ID, Credential: credential, ExpiresAt: expiresAt}, nil
 }
 
-func (s *Service) ConsumeNonce(ctx context.Context, credential string) (*models.BotConnectionNonce, error) {
-	if s.db == nil || len(s.signingKey) == 0 {
-		return nil, ErrIngressUnavailable
-	}
-	claims, err := s.decodeCredential(credential, s.now().UTC())
-	if err != nil {
-		return nil, err
-	}
-	return s.consumeClaims(ctx, s.db, claims, s.now().UTC(), "")
-}
-
 func (s *Service) consumeClaims(ctx context.Context, db bun.IDB, claims credentialClaims, now time.Time, subjectReference string) (*models.BotConnectionNonce, error) {
 	subjectReference = strings.TrimSpace(subjectReference)
 	result, err := db.NewUpdate().Model((*models.BotConnectionNonce)(nil)).

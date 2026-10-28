@@ -112,6 +112,7 @@ func TestAIUsageSurvivesInvalidOutputAndProviderFailureWithoutReplay(t *testing.
 				require.Equal(t, "Is this relevant?", request.Criteria)
 				result := ai.DecisionResult{Probability: math.NaN(), Model: "model", RequestID: "request-1", Usage: ai.Usage{InputTokens: 100, OutputTokens: 20, TotalTokens: 120, CostUSD: &cost}}
 				if providerFailure {
+					result.Probability = 0.9
 					return result, errors.New("provider private error")
 				}
 				return result, nil

@@ -87,6 +87,8 @@ it('explains replaced group names before merging and restores structure through 
 		expect(timelineStore.tracks.filter((track) => track.parentTrackId === titles)).toHaveLength(2);
 		expect(timelineStore.tracks.filter((track) => track.parentTrackId === sound)).toHaveLength(2);
 		commandHistory.redo();
+		const mergedGroup = timelineStore.tracks.find((track) => track.isGroup)!;
+		expect(mergedGroup.id).not.toBe('');
 		const previous = getWorkspaceRoot();
 		const opfs = await navigator.storage.getDirectory();
 		const name = `group-merge-${crypto.randomUUID()}`;
@@ -97,6 +99,15 @@ it('explains replaced group names before merging and restores structure through 
 			sequenceStore.reset();
 			sequenceStore.load(loaded.timeline!, loaded.metadata);
 			expect(timelineStore.tracks.filter((track) => track.isGroup)).toHaveLength(1);
+			expect(timelineStore.tracks.filter((track) => track.isGroup)[0]!.id).toBe(mergedGroup.id);
+			const children = timelineStore.tracks.filter((track) => !track.isGroup);
+			expect(children.map((track) => track.id).toSorted()).toEqual([
+				'audio-second',
+				'track-audio',
+				'track-video-main',
+				'track-video-overlay'
+			]);
+			expect(children.every((track) => track.parentTrackId === mergedGroup.id)).toBe(true);
 			expect(
 				new Set(
 					timelineStore.tracks.filter((track) => !track.isGroup).map((track) => track.parentTrackId)

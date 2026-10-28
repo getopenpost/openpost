@@ -28,8 +28,8 @@ func TestGetMastodonProviderReturnsConfiguredInstanceURL(t *testing.T) {
 		),
 	}}
 
-	adapter, readinessInstanceURL, err := handler.getMastodonProvider(
-		context.Background(), "OpenPost E2E", "",
+	adapter, readinessInstanceURL, err := handler.getCompatProvider(
+		context.Background(), mastodonProvider, "OpenPost E2E", "",
 	)
 
 	require.NoError(t, err)
@@ -46,8 +46,8 @@ func TestGetMastodonProviderResolvesConfiguredInstanceURLAlias(t *testing.T) {
 		"mastodon:OpenPost E2E": adapter,
 	}}
 
-	resolved, readinessInstanceURL, err := handler.getMastodonProvider(
-		context.Background(), instanceURL, "",
+	resolved, readinessInstanceURL, err := handler.getCompatProvider(
+		context.Background(), mastodonProvider, instanceURL, "",
 	)
 
 	require.NoError(t, err)
@@ -150,7 +150,7 @@ func TestGetAuthURLRegistersDynamicMastodonInstance(t *testing.T) {
 		restartedRegistrations[key] = adapter
 	})
 	restartedHandler.SetMastodonAppService(mastodonAppService)
-	adapter, canonicalURL, err := restartedHandler.getMastodonProvider(ctx, instanceServer.URL, "")
+	adapter, canonicalURL, err := restartedHandler.getCompatProvider(ctx, mastodonProvider, instanceServer.URL, "")
 	require.NoError(t, err)
 	require.NotNil(t, adapter)
 	require.Equal(t, instanceServer.URL, canonicalURL)

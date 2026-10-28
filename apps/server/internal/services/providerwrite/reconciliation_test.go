@@ -167,16 +167,23 @@ func TestProviderScheduledDeliveryOutlivesProcessingWindow(t *testing.T) {
 	service.now = func() time.Time { return now }
 	input := providerWriteTestInput(t, "provider-scheduled")
 	pending := platform.PublishResult{SubmissionState: platform.PublishSubmissionPending, ProviderState: "scheduled", ProviderReference: "scheduled-post", RetrySafety: platform.PublishRetryReconcileOnly, ReconcileAfter: time.Hour}
+	sends := 0
 	send := func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		sends++
 		return pending, control.Begin(pending)
 	}
 	_, err := service.Execute(t.Context(), input, send, nil)
 	require.Error(t, err)
+	require.Equal(t, 1, sends)
 	now = now.Add(40 * 24 * time.Hour)
+	reconciliations := 0
 	result, err := service.Execute(t.Context(), input, send, func(_ context.Context, reference string) (platform.PublishResult, error) {
+		reconciliations++
 		require.Equal(t, "scheduled-post", reference)
 		return platform.AcceptedPublishResult("live-post"), nil
 	})
 	require.NoError(t, err)
 	require.Equal(t, "live-post", result.ExternalID)
+	require.Equal(t, 1, sends, "a reconcile-only receipt must never send the write again")
+	require.Equal(t, 1, reconciliations, "the expired receipt is reconciled exactly once")
 }

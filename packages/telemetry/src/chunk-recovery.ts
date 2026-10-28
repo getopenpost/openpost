@@ -408,8 +408,3 @@ export function createChunkRecovery(options: ChunkRecoveryOptions = {}): ChunkRe
 
   return { recover, markHealthyNavigation, install };
 }
-
-/** Convenience for surfaces that only need the listeners with default behavior. */
-export function installChunkRecovery(options: ChunkRecoveryOptions = {}): () => void {
-  return createChunkRecovery(options).install();
-}

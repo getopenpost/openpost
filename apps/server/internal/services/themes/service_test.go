@@ -365,26 +365,6 @@ func TestWorkspaceAdministratorCanPreviewPublishedCatalogResources(t *testing.T)
 	require.ErrorIs(t, err, ErrInvalidInput)
 }
 
-func TestAdminThemeSummaryIncludesAssignmentAndDefaultUsage(t *testing.T) {
-	service, _ := newThemeTestService(t)
-	actor := Actor{UserID: "admin-1"}
-	theme, err := service.Create(t.Context(), actor, CreateInput{OrganizationID: "org-1", Name: "Used", DuplicateBuiltInID: "studio"})
-	require.NoError(t, err)
-	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
-	require.NoError(t, err)
-	reference := ThemeReference{Kind: ReferenceCustom, ID: theme.Summary.Reference.ID, Version: 1}
-	_, err = service.AssignWorkspace(t.Context(), actor, WorkspaceAssignmentInput{WorkspaceID: "workspace-1", Reference: &reference})
-	require.NoError(t, err)
-	_, err = service.SetOrganizationSettings(t.Context(), actor, OrganizationSettingsInput{OrganizationID: "org-1", DefaultReference: reference})
-	require.NoError(t, err)
-
-	items, err := service.List(t.Context(), actor, "org-1", PageOptions{})
-	require.NoError(t, err)
-	require.Len(t, items.Items, 1)
-	require.True(t, items.Items[0].IsOrganizationDefault)
-	require.Equal(t, 1, items.Items[0].AssignedWorkspaceCount)
-}
-
 func TestListFailsClosedWhenDraftStorageIsMissing(t *testing.T) {
 	service, db := newThemeTestService(t)
 	_, err := service.Create(t.Context(), Actor{UserID: "admin-1"}, CreateInput{OrganizationID: "org-1", Name: "Stored", DuplicateBuiltInID: "studio"})

@@ -95,7 +95,7 @@ const stableVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
 // non-version labels ("Unreleased") unordered so they are never carried.
 const versionCollator = new Intl.Collator("en", { numeric: true });
 
-export function compareStableVersions(left, right) {
+function compareStableVersions(left, right) {
   if (!stableVersionPattern.test(String(left).trim())) return null;
   if (!stableVersionPattern.test(String(right).trim())) return null;
   return versionCollator.compare(String(left).trim(), String(right).trim());

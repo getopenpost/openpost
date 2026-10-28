@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -188,8 +189,22 @@ func TestMCPOAuthAuthorizationCodeFlowIssuesUsableMCPToken(t *testing.T) {
 				"jsonrpc": "2.0",
 				"id":      "init",
 				"method":  "initialize",
+				"params": map[string]any{
+					"protocolVersion": "2025-06-18",
+					"capabilities":    map[string]any{},
+					"clientInfo":      map[string]any{"name": "oauth-test", "version": "1"},
+				},
 			}, token.AccessToken)
 			require.Equal(t, http.StatusOK, initializeResp.Code, initializeResp.Body.String())
+			var initialized map[string]any
+			require.NoError(t, json.Unmarshal(initializeResp.Body.Bytes(), &initialized))
+			require.Equal(t, "2.0", initialized["jsonrpc"])
+			require.Equal(t, "init", initialized["id"])
+			require.NotContains(t, initialized, "error")
+			initializedResult := initialized["result"].(map[string]any)
+			require.Equal(t, "2025-06-18", initializedResult["protocolVersion"])
+			require.Equal(t, "openpost", initializedResult["serverInfo"].(map[string]any)["name"])
+			require.Contains(t, initializedResult["capabilities"].(map[string]any), "tools")
 
 			var stored models.APIToken
 			require.NoError(t, srv.db.NewSelect().Model(&stored).Where("token_prefix = ?", tokenPrefix(t, token.AccessToken)).Scan(context.Background()))
@@ -231,6 +246,10 @@ func TestOAuthDynamicClientRegistrationIsPolicyControlled(t *testing.T) {
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	require.Contains(t, response["client_id"], "op_app_")
 	require.Equal(t, "none", response["token_endpoint_auth_method"])
+
+	var createdBy sql.NullString
+	require.NoError(t, db.NewRaw("SELECT created_by_user_id FROM external_applications WHERE client_id = ?", response["client_id"]).Scan(t.Context(), &createdBy))
+	require.False(t, createdBy.Valid)
 
 	for attempt := 1; attempt < dynamicClientRegistrationsPerHour; attempt++ {
 		request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/oauth/register", strings.NewReader(body))

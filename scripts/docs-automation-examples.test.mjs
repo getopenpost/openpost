@@ -17,9 +17,11 @@ curl() {
   joined="$(printf '%s ' "$@")"
   case "$joined" in
     *"/complete"*)
+      printf 'complete\n' >&2
       printf '{"id":"media_complete"}'
       ;;
     *"/api/v1/media/upload-session "*)
+      printf 'session\n' >&2
       if [ "$TEST_UPLOAD_KIND" = "relative" ]; then
         printf '{"media_id":"media_pending","deduped":false,"upload":{"method":"PUT","url":"/api/v1/media/upload-session/media_pending/content","headers":{"Content-Type":"image/png","X-Test":"required"}},"complete_url":"/api/v1/media/upload-session/media_pending/complete"}'
       else
@@ -27,6 +29,7 @@ curl() {
       fi
       ;;
     *)
+      printf 'upload\n' >&2
       case "$joined" in
         *"Content-Type: image/png"*"X-Test: required"*) ;;
         *) printf 'missing returned upload headers: %s\n' "$joined" >&2; return 1 ;;
@@ -53,24 +56,23 @@ OPENPOST_TOKEN=test-token
 `;
 
 function runExample(kind) {
-  return spawnSync("bash", ["-c", `${harness}\n${mediaUploadExample}`], {
-    encoding: "utf8",
-    env: { ...process.env, TEST_UPLOAD_KIND: kind },
-  });
+  return spawnSync(
+    "bash",
+    ["-c", `${harness}\n${mediaUploadExample}\nprintf '%s\\n' "$MEDIA_ID"`],
+    {
+      encoding: "utf8",
+      env: { ...process.env, TEST_UPLOAD_KIND: kind },
+    },
+  );
 }
 
 describe("Automate HTTP media example", () => {
-  test("parses as Bash", () => {
-    const result = spawnSync("bash", ["-n"], { input: mediaUploadExample, encoding: "utf8" });
-    expect(result.stderr).toBe("");
-    expect(result.status).toBe(0);
-  });
-
   for (const kind of ["relative", "external"]) {
     test(`handles the ${kind} upload target`, () => {
       const result = runExample(kind);
-      expect(result.stderr).toBe("");
       expect(result.status).toBe(0);
+      expect(result.stderr).toBe("session\nupload\ncomplete\n");
+      expect(result.stdout).toBe("media_complete\n");
     });
   }
 });

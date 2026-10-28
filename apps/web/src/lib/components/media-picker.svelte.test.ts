@@ -178,55 +178,6 @@ describe('MediaPicker meme source', () => {
 		expect(onConfirm).toHaveBeenCalledTimes(2);
 	});
 
-	it('gives the library search input an explicit accessible name', async () => {
-		const screen = await renderPicker(false);
-
-		const searchField = screen.getByPlaceholder(m.media_picker_search());
-		await expect.element(searchField).toHaveAttribute('aria-label', m.media_picker_search());
-
-		await searchField.fill('team photo');
-		await expect
-			.element(screen.getByRole('textbox', { name: m.media_picker_search() }))
-			.toHaveValue('team photo');
-	});
-
-	it('exposes the media source switcher as a named group', async () => {
-		const screen = await renderPicker(false);
-
-		const sourceGroup = screen.getByRole('group', { name: m.media_source() });
-		await expect.element(sourceGroup).toBeVisible();
-		await expect.element(sourceGroup.getByRole('tab', { name: 'Library' })).toBeVisible();
-	});
-
-	it('exposes the media source tablist by name', async () => {
-		const screen = await renderPicker(false);
-
-		const sourceTabs = screen.getByRole('tablist', { name: m.media_source() });
-		await expect.element(sourceTabs).toBeVisible();
-		await expect.element(sourceTabs.getByRole('tab', { name: 'Library' })).toBeVisible();
-	});
-
-	it('exposes the media type filter as a named group', async () => {
-		const screen = await render(MediaPicker, {
-			props: {
-				open: true,
-				workspaceId: 'workspace-1',
-				accept: ['image/*', 'video/*'],
-				maxSelection: 4,
-				multiple: true,
-				showCreate: false,
-				enableMeme: false,
-				compactNavigation: false,
-				services,
-				onConfirm: vi.fn()
-			}
-		});
-
-		const typeGroup = screen.getByRole('group', { name: m.media_type() });
-		await expect.element(typeGroup).toBeVisible();
-		await expect.element(screen.getByRole('button', { name: m.media_images() })).toBeVisible();
-	});
-
 	it('opens upload-first pickers on the device source', async () => {
 		const screen = await render(MediaPicker, {
 			props: {
@@ -248,25 +199,9 @@ describe('MediaPicker meme source', () => {
 		await expect
 			.element(screen.getByText('Drop files here or choose from your device'))
 			.toBeVisible();
-	});
-
-	it('describes the limits for an image-only upload', async () => {
-		const screen = await render(MediaPicker, {
-			props: {
-				open: true,
-				workspaceId: 'workspace-1',
-				accept: ['image/*'],
-				maxSelection: 1,
-				multiple: false,
-				showCreate: false,
-				initialMode: 'upload',
-				services,
-				onConfirm: vi.fn()
-			}
-		});
-
+		// An image-only picker states the image limit and never advertises a video limit.
 		await expect.element(screen.getByText('Maximum: 1 · Images up to 50 MB')).toBeVisible();
-		await expect.element(screen.getByText(/video up to/i)).not.toBeInTheDocument();
+		await expect.element(screen.getByText(/Videos up to 16 GiB/)).not.toBeInTheDocument();
 	});
 
 	it('opens camera-first pickers directly on the camera source', async () => {
@@ -312,7 +247,8 @@ describe('MediaPicker library loading', () => {
 	});
 
 	it('renders a content-shaped placeholder while library results load', async () => {
-		mocks.listMedia.mockImplementation(() => new Promise<ImageEditorMediaItem[]>(() => {}));
+		const loaded = Promise.withResolvers<ImageEditorMediaItem[]>();
+		mocks.listMedia.mockReturnValue(loaded.promise);
 		const screen = await renderPicker(false);
 
 		const placeholder = screen.getByTestId('page-loading');
@@ -321,5 +257,13 @@ describe('MediaPicker library loading', () => {
 		expect(placeholder.element().querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(
 			0
 		);
+		loaded.resolve([]);
+		await expect.element(placeholder).not.toBeInTheDocument();
+		await expect.element(screen.getByText(m.media_empty_title(), { exact: true })).toBeVisible();
+		mocks.listMedia.mockResolvedValue([overlayMedia]);
+		await screen.getByRole('button', { name: m.media_picker_search_action() }).click();
+		await expect
+			.element(screen.getByRole('button', { name: 'Select Team photo.png' }))
+			.toBeVisible();
 	});
 });

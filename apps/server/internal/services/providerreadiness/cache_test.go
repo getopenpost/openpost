@@ -74,6 +74,8 @@ func TestRequestScopedServiceFreezesFactsForTheRequest(t *testing.T) {
 		Now: func() time.Time { return input.Now },
 	}).RequestScoped()
 	first := service.Decide(t.Context(), decisionRequest(input))
+	require.Equal(t, EffectiveStateHealthy, first.State, "the configured fixture must be executable before the control changes")
+	require.True(t, first.Executable)
 
 	ledger.control = RuntimeControl{State: RuntimeControlStateDisabled}
 	second := service.Decide(t.Context(), decisionRequest(input))
@@ -81,6 +83,8 @@ func TestRequestScopedServiceFreezesFactsForTheRequest(t *testing.T) {
 
 	fresh := NewService(ledger, ServiceOptions{Now: func() time.Time { return input.Now }}).
 		Decide(t.Context(), decisionRequest(input))
+	require.Equal(t, EffectiveStateDisabled, fresh.State, "the next request observes the operator change")
+	require.False(t, fresh.Executable, "a disabled runtime control must not stay executable")
 	require.NotEqual(t, first, fresh, "the next request observes the operator change")
 }
 

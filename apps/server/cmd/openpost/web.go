@@ -52,10 +52,6 @@ func registerSpaRoutesFromFS(
 	registerSpaRoutesWithProfileMetadataAndMatcher(e, webFS, db, publicURL, managedEdition, publicProfilesEnabled, routes)
 }
 
-func registerSpaRoutes(e *echo.Echo, webFS fs.FS) {
-	registerSpaRoutesWithProfileMetadata(e, webFS, nil, "", false, true)
-}
-
 const spaRouteManifestPath = "app-routes.json"
 
 var spaRouteParameterPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(?:=[A-Za-z_][A-Za-z0-9_]*)?$`)
@@ -257,18 +253,6 @@ func compressHTML(data []byte, acceptEncoding string) ([]byte, string, error) {
 		return nil, "", err
 	}
 	return compressed.Bytes(), encoding, nil
-}
-
-func registerSpaRoutesWithProfileMetadata(
-	e *echo.Echo,
-	webFS fs.FS,
-	db *bun.DB,
-	publicURL string,
-	managedEdition bool,
-	publicProfilesEnabled bool,
-) {
-	routes, _ := loadSpaRouteManifest(webFS)
-	registerSpaRoutesWithProfileMetadataAndMatcher(e, webFS, db, publicURL, managedEdition, publicProfilesEnabled, routes)
 }
 
 func registerSpaRoutesWithProfileMetadataAndMatcher(

@@ -45,8 +45,47 @@ describe('Knob slider keyboard', () => {
 
 	it('ignores extended keys while disabled', async () => {
 		const onValueChange = vi.fn();
-		await renderKnob({ disabled: true, onValueChange });
+		const onValueCommit = vi.fn();
+		const { screen, slider } = await renderKnob({ onValueChange, onValueCommit });
+		await screen.rerender({
+			ariaLabel: 'Opacity',
+			value: 50,
+			min: 0,
+			max: 100,
+			step: 1,
+			disabled: true,
+			onValueChange,
+			onValueCommit
+		});
+		await expect.element(slider).toHaveFocus();
+		await expect.element(slider).toHaveAttribute('aria-disabled', 'true');
 		await userEvent.keyboard('{Home}{End}{PageUp}{PageDown}');
 		expect(onValueChange).not.toHaveBeenCalled();
+		expect(onValueCommit).not.toHaveBeenCalled();
+
+		await screen.rerender({
+			ariaLabel: 'Opacity',
+			value: 50,
+			min: 0,
+			max: 100,
+			step: 1,
+			disabled: false,
+			onValueChange,
+			onValueCommit
+		});
+		await userEvent.keyboard('{End>}');
+		expect(onValueChange).toHaveBeenCalledExactlyOnceWith(100);
+		await screen.rerender({
+			ariaLabel: 'Opacity',
+			value: 100,
+			min: 0,
+			max: 100,
+			step: 1,
+			disabled: false,
+			onValueChange,
+			onValueCommit
+		});
+		await userEvent.keyboard('{/End}');
+		expect(onValueCommit).toHaveBeenCalledExactlyOnceWith(100);
 	});
 });

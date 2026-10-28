@@ -6,7 +6,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   copyFrontendWithoutImmutableAssets,
   materializeImmutableFrontendAssets,
-  shouldCopyFrontendPath,
 } from "./immutable-frontend-assets.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -24,8 +23,6 @@ export const defaultClientOutputDirectory = path.join(
 
 const transactionSchemaVersion = 1;
 const transactionPhases = new Set(["claimed", "prepared", "staged", "swapping", "installed"]);
-
-export { shouldCopyFrontendPath };
 
 function isInside(parent, candidate) {
   const relative = path.relative(parent, candidate);

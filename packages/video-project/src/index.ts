@@ -505,20 +505,6 @@ function stripDeviceState(value: unknown): unknown {
   );
 }
 
-export function touchedTargets(batch: VideoProjectMutationBatch): string[] {
-  return [
-    ...new Set(batch.operations.map((operation) => operation.target.trim()).filter(Boolean)),
-  ].sort();
-}
-
-export function overlappingTargets(
-  local: VideoProjectMutationBatch,
-  remoteTargets: readonly string[],
-): string[] {
-  const remote = new Set(remoteTargets);
-  return touchedTargets(local).filter((target) => remote.has(target));
-}
-
 export class VideoProjectMutationOutbox {
   private draining: Promise<MutationDeliveryResult[]> | null = null;
 

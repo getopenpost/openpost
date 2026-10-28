@@ -4,13 +4,6 @@ import { savedMentionQueryKey, type SavedMention } from '@openpost/query-catalog
 import { queryClient } from './client';
 import { deleteSavedMention, saveSavedMention } from './saved-mentions';
 
-vi.mock('$lib/paraglide/messages', () => ({
-	m: {
-		saved_mentions_save_failed: () => 'Could not save mention.',
-		saved_mentions_load_failed: () => 'Could not load mentions.'
-	}
-}));
-
 const guest: SavedMention = {
 	id: 'guest',
 	name: '@guest',

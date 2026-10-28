@@ -40,6 +40,15 @@ export function compareVersions(left, right) {
   return 0;
 }
 
+// `tsconfig.build.json` excludes src/**/*.test.ts, so test-only edits do not
+// require a new package version. A test that an import or stale output emits is
+// still rejected by the built-payload check.
+function isPublishableChange(packageDirectory, file) {
+  if (!file.startsWith(`${packageDirectory}/`)) return false;
+  const relativePath = file.slice(packageDirectory.length + 1);
+  return !(relativePath.startsWith("src/") && relativePath.endsWith(".test.ts"));
+}
+
 export function assessPackageVersionChange({
   packageDirectory,
   changedFiles,
@@ -47,7 +56,7 @@ export function assessPackageVersionChange({
   previousVersion,
 }) {
   parseStableVersion(currentVersion, packageDirectory);
-  const changed = changedFiles.some((file) => file.startsWith(`${packageDirectory}/`));
+  const changed = changedFiles.some((file) => isPublishableChange(packageDirectory, file));
   if (previousVersion === null) {
     return { changed, initial: true, version: currentVersion };
   }

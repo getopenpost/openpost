@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { clampPanelResize, panelSizeFromArrowKey, panelSizeFromPointerDelta } from './panel-resize';
+import { panelSizeFromArrowKey, panelSizeFromPointerDelta } from './panel-resize';
 
 describe('panel resizing', () => {
 	it('moves each panel edge in the physical pointer direction', () => {
-		expect(panelSizeFromPointerDelta(300, 'right', 24, 0, 200, 500)).toBe(324);
+		// 300.6 + 24 = 324.6 rounds to 325, so fractional sizes normalize
+		// through the same pointer adapter the panels use.
+		expect(panelSizeFromPointerDelta(300.6, 'right', 24, 0, 200, 500)).toBe(325);
 		expect(panelSizeFromPointerDelta(300, 'left', 24, 0, 200, 500)).toBe(276);
 		expect(panelSizeFromPointerDelta(300, 'bottom', 0, 24, 200, 500)).toBe(324);
 		expect(panelSizeFromPointerDelta(300, 'top', 0, 24, 200, 500)).toBe(276);
@@ -19,9 +21,5 @@ describe('panel resizing', () => {
 		expect(panelSizeFromArrowKey(300, 'right', 'Enter', 220, 420)).toBeNull();
 		expect(panelSizeFromArrowKey(300, 'right', 'ArrowUp', 220, 420)).toBeNull();
 		expect(panelSizeFromArrowKey(300, 'top', 'ArrowRight', 220, 420)).toBeNull();
-	});
-
-	it('normalizes fractional sizes', () => {
-		expect(clampPanelResize(280.6, 200, 400)).toBe(281);
 	});
 });

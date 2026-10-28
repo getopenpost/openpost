@@ -3,7 +3,6 @@ import test from "node:test";
 
 import {
   classifyCommitMessages,
-  compareVersions,
   incrementVersion,
   includePendingCommitMessage,
   parseStableVersion,

@@ -7,7 +7,7 @@
 // lands in exactly one shard. A name shared by two packages runs in both
 // packages on the same shard, so nothing is skipped or duplicated.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dir, "..");
@@ -30,15 +30,30 @@ export function testNamesInSource(source) {
 }
 
 export function discoverGoTests(moduleDirectory, repositoryRoot = root) {
-  const listing = Bun.spawnSync(["git", "ls-files", "-z", "--", `${moduleDirectory}/*_test.go`], {
-    cwd: repositoryRoot,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const listing = Bun.spawnSync(
+    [
+      "git",
+      "ls-files",
+      "--cached",
+      "--others",
+      "--exclude-standard",
+      "-z",
+      "--",
+      `${moduleDirectory}/*_test.go`,
+    ],
+    {
+      cwd: repositoryRoot,
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  );
   if (listing.exitCode !== 0) {
     throw new Error(`could not list Go tests: ${listing.stderr.toString().trim()}`);
   }
-  const files = listing.stdout.toString().split("\0").filter(Boolean);
+  const files = listing.stdout
+    .toString()
+    .split("\0")
+    .filter((file) => file && existsSync(path.join(repositoryRoot, file)));
   const names = new Set(
     files.flatMap((file) =>
       testNamesInSource(readFileSync(path.join(repositoryRoot, file), "utf8")),

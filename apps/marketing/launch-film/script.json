@@ -1,6 +1,15 @@
 {
-	"hero": "Just shipped Workflows.",
-	"body": "Turn a GitHub release into a post for every channel.",
-	"short": "Workflows: GitHub release in, posts out.",
-	"reply": "Thanks! The docs are live."
+	"product": "Lumen",
+	"repository": "lumen-app/lumen",
+	"tag": "v2.0.0",
+	"release": "Offline sync is here",
+	"draft": "Lumen 2.0 is live. Offline sync, a faster editor and dark mode: everything you asked for, shipped.",
+	"short": "Lumen 2.0 is live: offline sync, a faster editor, dark mode.",
+	"comments": [
+		["Bluesky", "Marta Silva", "Offline sync, finally!"],
+		["Threads", "Alex Chen", "Does it work on iPad too?"],
+		["Linkedin", "Priya Nair", "Congrats on the launch!"],
+		["Mastodon", "Sam Taylor", "The new editor feels so fast."]
+	],
+	"reply": "Thanks! iPad support ships next week."
 }

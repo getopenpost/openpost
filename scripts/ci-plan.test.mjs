@@ -110,6 +110,41 @@ test("changed files route to their CI paths", () => {
       on: ["npm"],
       off: [],
     },
+    {
+      name: "changelog entries do not force the complete matrix",
+      files: ["changes/476.md"],
+      on: [],
+      off: [
+        "application",
+        "backend",
+        "frontend",
+        "marketing",
+        "documentation",
+        "cli",
+        "n8n",
+        "npm",
+        "security",
+        "image",
+        "android",
+      ],
+    },
+    {
+      name: "a changelog entry beside a documentation change stays on the documentation path",
+      files: ["apps/docs/content/docs/guides/publishing.mdx", "changes/476.md"],
+      on: ["documentation"],
+      off: [
+        "application",
+        "backend",
+        "frontend",
+        "marketing",
+        "cli",
+        "n8n",
+        "npm",
+        "security",
+        "image",
+        "android",
+      ],
+    },
   ];
   for (const { name, files, on, off } of cases) {
     const plan = planCI(files, manifest);
@@ -120,11 +155,20 @@ test("changed files route to their CI paths", () => {
 
 test("delivery changes fail closed to the complete matrix", () => {
   const plan = planCI([".github/workflows/ci.yml"], manifest);
-  assert.ok(
-    Object.entries(plan)
-      .filter(([name]) => name !== "cache_contract")
-      .every(([, enabled]) => enabled),
-  );
+  assert.deepEqual(plan, {
+    application: true,
+    backend: true,
+    frontend: true,
+    marketing: true,
+    documentation: true,
+    cli: true,
+    n8n: true,
+    npm: true,
+    security: true,
+    image: true,
+    android: true,
+    cache_contract: false,
+  });
 });
 
 test("main candidates always run the complete matrix", () => {

@@ -45,8 +45,3 @@ export async function withKeyLock<T>(key: string, fn: () => Promise<T>): Promise
 		}
 	}
 }
-
-/** Test-only: drop all chains so tests start from a clean slate. */
-export function __resetKeyLocksForTesting(): void {
-	chains.clear();
-}

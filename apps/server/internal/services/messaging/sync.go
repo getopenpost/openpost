@@ -328,12 +328,16 @@ func insertProviderMessage(ctx context.Context, db bun.IDB, account models.Socia
 	if err != nil || suppressed {
 		return false, err
 	}
-	exists, err := db.NewSelect().Model((*models.DirectMessage)(nil)).
-		Where("conversation_id = ? AND remote_message_id = ?", conversationID, remote.ID).Exists(ctx)
-	if err != nil || exists {
+	stored, exists, err := findStoredMessage(ctx, db, conversationID, remote.ID)
+	if err != nil {
 		return false, err
 	}
 	attachments, _ := json.Marshal(remote.Attachments)
+	if exists {
+		// An adapter that could not read a provider field stored the message
+		// without content. Fill it once the provider describes it.
+		return false, repairProviderMessage(ctx, db, stored, remote, string(attachments), now)
+	}
 	status := "received"
 	if remote.Direction == "outbound" {
 		status = "sent"
@@ -365,6 +369,65 @@ func insertProviderMessage(ctx context.Context, db bun.IDB, account models.Socia
 		}
 	}
 	return rows == 1, nil
+}
+
+// findStoredMessage returns the locally stored copy of a provider message.
+func findStoredMessage(ctx context.Context, db bun.IDB, conversationID, remoteID string) (models.DirectMessage, bool, error) {
+	var stored models.DirectMessage
+	err := db.NewSelect().Model(&stored).
+		Column("id", "body", "attachments_json", "deleted_at", "remote_created_at").
+		Where("conversation_id = ? AND remote_message_id = ?", conversationID, remoteID).
+		Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.DirectMessage{}, false, nil
+	}
+	if err != nil {
+		return models.DirectMessage{}, false, err
+	}
+	return stored, true, nil
+}
+
+// repairProviderMessage fills a stored message that the provider now describes
+// with content or a time it did not return when the message was first
+// collected. Only blank or untimed, not deleted rows change, so tombstones and
+// authored sends are never rewritten and a repair does not notify.
+func repairProviderMessage(ctx context.Context, db bun.IDB, stored models.DirectMessage, remote platform.ProviderMessage, attachments string, now time.Time) error {
+	if !stored.DeletedAt.IsZero() {
+		return nil
+	}
+	restoreContent := storedMessageBlank(stored) && providerMessageHasContent(remote)
+	restoreTime := stored.RemoteCreatedAt.IsZero() && !remote.RemoteCreatedAt.IsZero()
+	if !restoreContent && !restoreTime {
+		return nil
+	}
+	update := db.NewUpdate().Model((*models.DirectMessage)(nil)).
+		Set("updated_at = ?", now).
+		Where("id = ? AND deleted_at IS NULL", stored.ID)
+	if restoreContent {
+		update = update.Set("body = ?", remote.Body).
+			Set("attachments_json = ?", attachments).
+			Where("body = '' AND attachments_json IN ('', '[]', 'null')")
+	}
+	if restoreTime {
+		update = update.Set("remote_created_at = ?", remote.RemoteCreatedAt)
+	}
+	_, err := update.Exec(ctx)
+	return err
+}
+
+func storedMessageBlank(message models.DirectMessage) bool {
+	if strings.TrimSpace(message.Body) != "" {
+		return false
+	}
+	switch strings.TrimSpace(message.AttachmentsJSON) {
+	case "", "[]", "null":
+		return true
+	}
+	return false
+}
+
+func providerMessageHasContent(message platform.ProviderMessage) bool {
+	return strings.TrimSpace(message.Body) != "" || len(message.Attachments) > 0
 }
 
 func (s *Service) notifyReceivedMessages(ctx context.Context, account models.SocialAccount, received []receivedMessage) {

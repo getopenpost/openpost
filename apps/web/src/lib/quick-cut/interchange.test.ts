@@ -28,6 +28,9 @@ describe('Quick Cut segment interchange', () => {
 			createSegment(3661.25, 3662.75, { sourceId: 'source-1', name: 'After an hour' })
 		];
 		const text = formatSegmentInterchange(original, 'tsv-timecode');
+		expect(text, 'external TSV wire format').toBe(
+			'Start\tEnd\tName\r\n00:00:00.125\t00:01:05.500\tOpening\r\n01:01:01.250\t01:01:02.750\tAfter an hour\r\n'
+		);
 		const parsed = parseSegmentInterchange(text, 'tsv-timecode', {
 			...context,
 			duration: 4000

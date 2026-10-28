@@ -183,38 +183,6 @@ test("unrecognized generated shapes fail instead of emitting stubs", () => {
   ).toThrow(/multiline @typedef/);
 });
 
-test("companion plugin reconverges after the compiler drops declarations", async () => {
-  const project = await createFixtureProject();
-  const outdir = path.join(project, "output");
-  const originalFetch = globalThis.fetch;
-  try {
-    globalThis.fetch = async () => {
-      throw new Error("Network access is disabled for this build");
-    };
-    await compile({
-      project,
-      outdir,
-      strategy: STRATEGY,
-      outputStructure: "locale-modules",
-      isServer: IS_SERVER,
-    });
-    const plugin = paraglideFastDeclarationsPlugin({ outdir });
-    await plugin.buildStart.handler();
-    const messageDir = path.join(outdir, "messages");
-    const before = (await readdir(messageDir)).filter((entry) => entry.endsWith(".d.ts"));
-    expect(before.length).toBeGreaterThan(0);
-    // Simulate the upstream compiler deleting files it did not emit, then
-    // prove the end-of-run hook restores the complete set.
-    for (const entry of before) await rm(path.join(messageDir, entry));
-    await plugin.buildEnd();
-    const after = (await readdir(messageDir)).filter((entry) => entry.endsWith(".d.ts"));
-    expect(new Set(after)).toEqual(new Set(before));
-  } finally {
-    globalThis.fetch = originalFetch;
-    await rm(project, { recursive: true, force: true });
-  }
-}, 120_000);
-
 test("companion declarations survive a slow upstream compile in the dev container", async () => {
   // The dev server dispatches `buildStart` across plugins concurrently. The
   // upstream plugin compiles asynchronously and its output writer deletes
@@ -274,20 +242,30 @@ test("companion declarations survive a slow upstream compile in the dev containe
     // explicit call below is a backstop. Read the declarations BEFORE
     // `server.close()`: close fires `closeBundle`, which reconverges and
     // would mask a race lost during the session.
-    /** @type {string[]} */
-    let after = [];
     try {
       await server.pluginContainer.buildStart({});
-      after = (await readdir(messageDir)).filter((entry) => entry.endsWith(".d.ts"));
+      const after = (await readdir(messageDir)).filter((entry) => entry.endsWith(".d.ts"));
+      expect(new Set(after)).toEqual(new Set(before));
+      const declarations = new Map();
+      for (const entry of after) {
+        const contents = await readFile(path.join(messageDir, entry), "utf8");
+        declarations.set(entry, contents);
+        expect(contents).toContain("Inputs");
+        expect(contents).not.toMatch(/\bany\b/);
+      }
+
+      // One-shot builds also need buildEnd to repair siblings removed by an upstream writer.
+      for (const entry of before) await rm(path.join(messageDir, entry));
+      expect((await readdir(messageDir)).filter((entry) => entry.endsWith(".d.ts"))).toEqual([]);
+      await plugin.buildEnd();
+      const restored = (await readdir(messageDir)).filter((entry) => entry.endsWith(".d.ts"));
+      expect(new Set(restored)).toEqual(new Set(before));
+      for (const entry of restored) {
+        expect(await readFile(path.join(messageDir, entry), "utf8")).toBe(declarations.get(entry));
+      }
     } finally {
       await server.close();
     }
-
-    expect(new Set(after)).toEqual(new Set(before));
-    // The survivors are real typed declarations, not stubs.
-    const en = await readFile(path.join(messageDir, "en.d.ts"), "utf8");
-    expect(en).toContain("Inputs");
-    expect(en).not.toMatch(/\bany\b/);
   } finally {
     globalThis.fetch = originalFetch;
     await rm(project, { recursive: true, force: true });

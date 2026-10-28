@@ -3,17 +3,9 @@ import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { createDefaultTracks } from '../project/defaults';
 import type { TimelineItem } from '../project/types';
-import { addSubtitleItemFromSrt, srtToCues } from './captions';
+import { addSubtitleItemFromSrt } from './captions';
 
 const SRT = '1\n00:00:00,500 --> 00:00:02,000\nHello\n\n2\n00:00:02,500 --> 00:00:04,000\nWorld';
-
-describe('srtToCues', () => {
-	it('converts seconds to frames and guarantees nonzero span', () => {
-		const cues = srtToCues([{ startSeconds: 0.5, endSeconds: 0.5, text: 'x' }], 30);
-		expect(cues[0]!.startFrame).toBe(15);
-		expect(cues[0]!.endFrame).toBe(16);
-	});
-});
 
 describe('addSubtitleItemFromSrt', () => {
 	beforeEach(() => {
@@ -42,6 +34,13 @@ describe('addSubtitleItemFromSrt', () => {
 		expect(subtitle?.trackId).not.toBe('track-video-overlay');
 		expect(subtitle?.trackId).not.toBe('track-video-main');
 		expect(timelineStore.tracks).toHaveLength(4);
+
+		{
+			const shortId = addSubtitleItemFromSrt('1\n00:00:00,500 --> 00:00:00,500\nx');
+			const cues = timelineStore.itemById.get(shortId)!.cues!;
+			expect(cues[0]!.startFrame).toBe(15);
+			expect(cues[0]!.endFrame).toBe(16);
+		}
 	});
 
 	it('rejects caption files without cues', () => {

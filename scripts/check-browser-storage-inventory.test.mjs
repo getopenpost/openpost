@@ -7,7 +7,6 @@ import path from "node:path";
 
 import {
   checkBrowserStorageInventory,
-  collectGlobalBindings,
   extractBrowserStorageIdentifiers,
   findUndocumentedIdentifiers,
 } from "./check-browser-storage-inventory.mjs";
@@ -48,7 +47,12 @@ test("the CLI checks the current source layout without an obsolete Pages functio
       path.join(root, "apps/marketing/src/storage.ts"),
       'localStorage.setItem("unlisted-key", "value");',
     );
-    assert.equal(run().status, 1, "undocumented storage must still fail the check");
+    const dirty = run();
+    assert.equal(dirty.status, 1, "undocumented storage must still fail the check");
+    assert.match(
+      dirty.stderr,
+      /apps\/marketing\/src\/storage\.ts:1 localStorage exact "unlisted-key"/u,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -112,14 +116,11 @@ test("resolves a unique imported constant but not an ambiguous shared name", () 
     { file: "a.ts", source: `export const DB_NAME = "openpost-db";` },
     {
       file: "b.ts",
-      source: `import { DB_NAME as DATABASE } from "./a"; indexedDB.open(DATABASE, 1);`,
+      source: `import { DB_NAME as DATABASE } from "./a"; import { STORAGE_KEY } from "./c"; indexedDB.open(DATABASE, 1); localStorage.getItem(STORAGE_KEY);`,
     },
     { file: "c.ts", source: `export const STORAGE_KEY = "one";` },
     { file: "d.ts", source: `export const STORAGE_KEY = "two";` },
   ];
-  const globals = collectGlobalBindings(sources);
-  assert.equal(globals.get("DB_NAME").identifier, "openpost-db");
-  assert.equal(globals.has("STORAGE_KEY"), false);
   assert.deepEqual(
     checkBrowserStorageInventory(sources, []).discoveries.map(
       ({ technology, identifier }) => `${technology}:${identifier}`,
@@ -171,6 +172,22 @@ test("an exact or matching prefix inventory row covers only its technology", () 
       identifier: "openpost:unknown",
     },
   ];
+  discoveries.push(
+    {
+      file: "a.ts",
+      line: 4,
+      technology: "sessionStorage",
+      identifier_kind: "exact",
+      identifier: "openpost:known",
+    },
+    {
+      file: "a.ts",
+      line: 5,
+      technology: "localStorage",
+      identifier_kind: "exact",
+      identifier: "openpost:handoff:token",
+    },
+  );
   const undocumented = findUndocumentedIdentifiers(discoveries, [
     {
       technology: "localStorage",
@@ -184,21 +201,11 @@ test("an exact or matching prefix inventory row covers only its technology", () 
     },
   ]);
   assert.deepEqual(
-    undocumented.map(({ identifier }) => identifier),
-    ["openpost:unknown"],
-  );
-});
-
-test("repository check reports a newly introduced undocumented key", () => {
-  const { undocumented } = checkBrowserStorageInventory(
+    undocumented.map(({ technology, identifier }) => [technology, identifier]),
     [
-      {
-        file: "feature.ts",
-        source: `localStorage.setItem("openpost:new-feature", "on");`,
-      },
+      ["localStorage", "openpost:unknown"],
+      ["sessionStorage", "openpost:known"],
+      ["localStorage", "openpost:handoff:token"],
     ],
-    [],
   );
-  assert.equal(undocumented.length, 1);
-  assert.equal(undocumented[0].identifier, "openpost:new-feature");
 });

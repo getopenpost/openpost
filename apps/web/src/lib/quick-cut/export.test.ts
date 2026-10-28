@@ -315,13 +315,24 @@ describe('quick-cut preflight', () => {
 		expect(preflight.reason).toMatch(/video and audio-only/i);
 	});
 
-	it('cancels while a source handle is still resolving', async () => {
+	it('rejects cancellation after a pending source handle resolves', async () => {
 		let resolveFile!: (file: File) => void;
 		const pendingFile = new Promise<File>((resolve) => {
 			resolveFile = resolve;
 		});
-		// SAFETY: export only calls getFile on this focused FileSystemFileHandle test double.
-		const handle = { getFile: () => pendingFile } as FileSystemFileHandle;
+		const getFile = vi.fn(() => pendingFile);
+		const handle: FileSystemFileHandle = {
+			kind: 'file',
+			name: 'slow.mp4',
+			getFile,
+			async createWritable() {
+				throw new Error('Unexpected write to export source');
+			},
+			async createSyncAccessHandle() {
+				throw new Error('Unexpected synchronous access to export source');
+			},
+			isSameEntry: async (other) => other === handle
+		};
 		const source = makeSource('slow', { handle });
 		const controller = new AbortController();
 		const exported = exportSegments({
@@ -332,6 +343,7 @@ describe('quick-cut preflight', () => {
 			signal: controller.signal
 		});
 
+		await vi.waitFor(() => expect(getFile).toHaveBeenCalledOnce());
 		controller.abort(new DOMException('Export cancelled.', 'AbortError'));
 		resolveFile(new File(['not decoded'], 'slow.mp4', { type: 'video/mp4' }));
 		await expect(exported).rejects.toMatchObject({ name: 'AbortError' });

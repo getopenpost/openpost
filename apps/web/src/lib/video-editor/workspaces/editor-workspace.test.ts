@@ -23,15 +23,16 @@ describe('editor workspace state', () => {
 		expect(
 			createEditorWorkspaceStore({ getItem: () => 'compose', setItem: () => undefined }).current
 		).toBe('edit');
-		expect(
-			createEditorWorkspaceStore({
-				getItem: () => {
-					throw new Error('blocked');
-				},
-				setItem: () => {
-					throw new Error('blocked');
-				}
-			}).set('color')
-		).toBe(true);
+		const blocked = createEditorWorkspaceStore({
+			getItem: () => {
+				throw new Error('blocked');
+			},
+			setItem: () => {
+				throw new Error('blocked');
+			}
+		});
+		expect(blocked.current).toBe('edit');
+		expect(blocked.set('color')).toBe(true);
+		expect(blocked.current).toBe('color');
 	});
 });

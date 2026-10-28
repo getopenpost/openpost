@@ -654,6 +654,7 @@ describe('setAnimatedProperty', () => {
 		expect(setAnimatedProperty('animated', 'x', 15, 0.25, false)).toBe(true);
 		expect(getItem('animated').transform?.x).toBe(0.25);
 		expect(getItem('animated').keyframes?.x).toBeUndefined();
+		expect(getItem('animated').vectorKeyframes?.position).toBeUndefined();
 	});
 
 	it('starts a lane when auto-key is on', () => {

@@ -673,21 +673,3 @@ export function imageEditorShortcutLabel(
 		.filter(Boolean)
 		.join(' ');
 }
-
-export function duplicateImageEditorShortcuts(): string[] {
-	const seen = new Set<string>();
-	const duplicates = new Set<string>();
-	for (const command of IMAGE_EDITOR_COMMANDS) {
-		for (const shortcut of command.shortcuts) {
-			const key = [
-				shortcut.primary ? 'primary' : '',
-				shortcut.shift ? 'shift' : '',
-				shortcut.alt ? 'alt' : '',
-				shortcut.key
-			].join('+');
-			if (seen.has(key)) duplicates.add(key);
-			else seen.add(key);
-		}
-	}
-	return [...duplicates];
-}

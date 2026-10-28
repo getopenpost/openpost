@@ -1,48 +1,22 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import {
-  docsSocialEntries,
-  marketingSocialEntries,
-} from "../../packages/social-images/src/index.js";
+import { docsSocialEntries } from "../../packages/social-images/src/index.js";
 import {
   appEditorSocialEntries,
   generateAppEditorImages,
   generateSocialImages,
   readDocsSocialEntries,
   renderAppEditorCard,
-  renderSocialCard,
-  SOCIAL_IMAGE_HEIGHT,
-  SOCIAL_IMAGE_WIDTH,
 } from "./render.mjs";
 
 function dimensions(png) {
   assert.equal(png.subarray(1, 4).toString(), "PNG");
   return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
 }
-
-test("renders distinct 1200 x 630 cards for representative page types", async () => {
-  const entries = [
-    marketingSocialEntries.find((entry) => entry.path === "/"),
-    marketingSocialEntries.find((entry) => entry.path === "/platforms/bluesky"),
-    marketingSocialEntries.find((entry) => entry.path === "/tools/social-media-video-editor"),
-    docsSocialEntries.find((entry) => entry.path === "/guides/quickstart"),
-    docsSocialEntries.find((entry) => entry.path === "/self-hosting/integrations/mastodon"),
-  ];
-  assert.ok(entries.every(Boolean));
-
-  const cards = await Promise.all(entries.map(renderSocialCard));
-  for (const card of cards) {
-    assert.deepEqual(dimensions(card), {
-      width: SOCIAL_IMAGE_WIDTH,
-      height: SOCIAL_IMAGE_HEIGHT,
-    });
-  }
-  assert.equal(new Set(cards.map((card) => card.toString("base64"))).size, entries.length);
-});
 
 test("docs generation input covers every maintained docs route", async () => {
   const generatedEntries = await readDocsSocialEntries();
@@ -58,22 +32,37 @@ test("docs generation input covers every maintained docs route", async () => {
 
 test("selected generation writes stable page-key filenames", async () => {
   const directory = await mkdtemp(join(tmpdir(), "openpost-social-images-"));
+  const marketingDirectory = join(directory, "marketing");
+  const docsDirectory = join(directory, "docs");
   try {
-    await writeFile(join(directory, "stale.png"), "stale");
+    await mkdir(marketingDirectory);
+    await writeFile(join(marketingDirectory, "stale.png"), "stale");
     await generateSocialImages({
       surface: "marketing",
-      outputDirectory: directory,
-      keys: ["home", "platform-bluesky"],
+      outputDirectory: marketingDirectory,
+      keys: ["home", "platform-bluesky", "tool-social-media-video-editor"],
     });
-    assert.deepEqual(dimensions(await readFile(join(directory, "home.png"))), {
-      width: SOCIAL_IMAGE_WIDTH,
-      height: SOCIAL_IMAGE_HEIGHT,
+    await generateSocialImages({
+      surface: "docs",
+      outputDirectory: docsDirectory,
+      keys: ["guides--quickstart", "self-hosting--integrations--mastodon"],
     });
-    assert.deepEqual(dimensions(await readFile(join(directory, "platform-bluesky.png"))), {
-      width: SOCIAL_IMAGE_WIDTH,
-      height: SOCIAL_IMAGE_HEIGHT,
+    const cards = await Promise.all(
+      [
+        join(marketingDirectory, "home.png"),
+        join(marketingDirectory, "platform-bluesky.png"),
+        join(marketingDirectory, "tool-social-media-video-editor.png"),
+        join(docsDirectory, "guides--quickstart.png"),
+        join(docsDirectory, "self-hosting--integrations--mastodon.png"),
+      ].map((file) => readFile(file)),
+    );
+    for (const card of cards) {
+      assert.deepEqual(dimensions(card), { width: 1200, height: 630 });
+    }
+    assert.equal(new Set(cards.map((card) => card.toString("base64"))).size, 5);
+    await assert.rejects(readFile(join(marketingDirectory, "stale.png")), {
+      code: "ENOENT",
     });
-    await assert.rejects(readFile(join(directory, "stale.png")), { code: "ENOENT" });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -94,8 +83,8 @@ test("renders distinct 1200 x 630 cards for app editor start pages", async () =>
   const cards = await Promise.all(appEditorSocialEntries.map(renderAppEditorCard));
   for (const card of cards) {
     assert.deepEqual(dimensions(card), {
-      width: SOCIAL_IMAGE_WIDTH,
-      height: SOCIAL_IMAGE_HEIGHT,
+      width: 1200,
+      height: 630,
     });
   }
   assert.equal(new Set(cards.map((card) => card.toString("base64"))).size, cards.length);
@@ -109,8 +98,8 @@ test("renders distinct 1200 x 630 cards for app editor start pages", async () =>
     });
     assert.equal(result.entries.length, 1);
     assert.deepEqual(dimensions(await readFile(join(directory, "app-quick-cut.png"))), {
-      width: SOCIAL_IMAGE_WIDTH,
-      height: SOCIAL_IMAGE_HEIGHT,
+      width: 1200,
+      height: 630,
     });
   } finally {
     await rm(directory, { recursive: true, force: true });

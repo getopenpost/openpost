@@ -13,40 +13,10 @@ import {
 	MAX_FILMSTRIP_FALLBACK_DRIFT_SECONDS,
 	nearestFilmstripFallback
 } from './scrub-proxy-fallback';
-import type { FilmstripFrame } from '../media/filmstrip-client';
 import { filmstripCache } from '../media/filmstrip-client';
 
-export interface ScrubFallbackSource {
-	frames: readonly FilmstripFrame[];
-}
-
-export interface ScrubFallbackSchedulerDeps {
-	lookupCachedFilmstrip: (mediaId: string) => ScrubFallbackSource | null;
-	cloneFrame: (frame: FilmstripFrame) => Promise<ImageBitmap>;
-	prewarmFilmstrips: () => void;
-}
-
-const defaultDeps: ScrubFallbackSchedulerDeps = {
-	lookupCachedFilmstrip: (mediaId) => filmstripCache.cachedFilmstrip(mediaId),
-	cloneFrame: (frame) => cloneFilmstripFallback(frame),
-	prewarmFilmstrips: () => {
-		filmstripCache.prewarm();
-	}
-};
-
-let deps: ScrubFallbackSchedulerDeps = defaultDeps;
 const fallbackGenerationByMedia = new Map<string, number>();
 const fallbackInflight = new Map<string, Promise<ImageBitmap | null>>();
-
-/** Test seam: swap the browser-backed filmstrip/clone/prewarm hooks. */
-export function setScrubFallbackSchedulerDeps(next: Partial<ScrubFallbackSchedulerDeps>): void {
-	deps = { ...defaultDeps, ...next };
-}
-
-/** Test seam: restore the production hooks. */
-export function resetScrubFallbackSchedulerDeps(): void {
-	deps = defaultDeps;
-}
 
 /**
  * Start decoding filmstrip tiles before the first scrub seek needs them.
@@ -54,7 +24,7 @@ export function resetScrubFallbackSchedulerDeps(): void {
  */
 export function warmScrubProxyFallback(): void {
 	try {
-		deps.prewarmFilmstrips();
+		filmstripCache.prewarm();
 	} catch {
 		// Prewarming is optional; the regular seek path remains authoritative.
 	}
@@ -95,12 +65,12 @@ export function requestScrubFallback(
 	const generation = fallbackGenerationByMedia.get(mediaId) ?? 0;
 
 	const request = (async (): Promise<ImageBitmap | null> => {
-		const filmstrip = deps.lookupCachedFilmstrip(mediaId);
+		const filmstrip = filmstripCache.cachedFilmstrip(mediaId);
 		const frame = filmstrip
 			? nearestFilmstripFallback(filmstrip.frames, timestampSeconds, maxDriftSeconds)
 			: null;
 		if (!frame) return null;
-		const bitmap = await deps.cloneFrame(frame);
+		const bitmap = await cloneFilmstripFallback(frame);
 		if ((fallbackGenerationByMedia.get(mediaId) ?? 0) !== generation) {
 			bitmap.close();
 			return null;
@@ -113,10 +83,4 @@ export function requestScrubFallback(
 		});
 	fallbackInflight.set(key, request);
 	return request;
-}
-
-/** Drop all scheduler state (project switch / teardown / tests). */
-export function disposeScrubProxyScheduler(): void {
-	fallbackGenerationByMedia.clear();
-	fallbackInflight.clear();
 }

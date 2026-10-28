@@ -286,16 +286,17 @@ describe("bounded chunk recovery", () => {
     expect(reload.kind).toBe("reloaded");
     expect(mismatched.state.reloads).toHaveLength(1);
 
+    const fetchCurrentBuild = vi.fn(async () => "build-b");
     const dirty = fakeRuntime({
+      runningBuild: "build-a",
       canAutoReload: () => false,
-      fetchCurrentBuild: async () => {
-        throw new Error("must not probe when manual");
-      },
+      fetchCurrentBuild,
     });
     dirty.state.statusByPath.set("/_app/immutable/chunks/old.js", 404);
     const gated = await createChunkRecovery(dirty.runtime).recover(new TypeError(staleMessage));
     expect(gated).toMatchObject({ kind: "manual", reason: "manual-policy" });
     expect(dirty.state.reloads).toHaveLength(0);
+    expect(fetchCurrentBuild).not.toHaveBeenCalled();
   });
 
   it("treats a missing asset as deployment skew and an unprobed failure as unknown", async () => {

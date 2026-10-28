@@ -40,7 +40,7 @@ function parseFakeWorker(worker: Worker): FakeWorker {
 
 describe('transcription worker pool unload', () => {
 	it('notifies the active bridge before terminating its resident model worker', () => {
-		const onUnload = vi.fn();
+		const onUnload = vi.fn(() => expect(worker.terminated).toBe(false));
 		onTranscriptionWorkerUnload('whisper', onUnload);
 		const worker = parseFakeWorker(acquireTranscriptionWorker('whisper'));
 		expect(hasTranscriptionWorker('whisper')).toBe(true);

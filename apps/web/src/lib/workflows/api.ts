@@ -22,6 +22,8 @@ async function mutation<T>(
 	ws: string,
 	request: () => Promise<{ data?: T; error?: { detail?: string }; response: Response }>
 ): Promise<T> {
+	if (workspaceCtx.currentWorkspace?.id !== ws)
+		throw new DOMException('Workspace changed', 'AbortError');
 	const session = captureQueryMutationSession();
 	const result = await request();
 	if (
@@ -82,11 +84,16 @@ export function cancelRun(ws: string, run: Run) {
 		})
 	);
 }
-export function approveRun(ws: string, run: Run, revision: number) {
+export function approveRun(ws: string, run: Run, revision: number, replyText?: string) {
+	const body: components['schemas']['WorkflowRevisionInputBody'] = {
+		expected_revision: run.revision,
+		publication_revision: revision
+	};
+	if (replyText !== undefined) body.reply_text = replyText;
 	return mutation(ws, () =>
 		client.POST('/workflow-runs/{id}/approve', {
 			params: { query: { workspace_id: ws }, path: { id: run.id } },
-			body: { expected_revision: run.revision, publication_revision: revision }
+			body
 		})
 	);
 }
@@ -145,6 +152,22 @@ export function testNode(
 		client.POST('/workflows/{id}/test-node', {
 			params: { query: { workspace_id: ws }, path: { id } },
 			body: { expected_revision: revision, step_id: stepID, data }
+		})
+	);
+}
+
+export function stopWorkflowReplies(ws: string, id: string, revision: number) {
+	return mutation(ws, () =>
+		client.POST('/workflows/{id}/stop-replies', {
+			params: { query: { workspace_id: ws }, path: { id } },
+			body: { expected_revision: revision }
+		})
+	);
+}
+export function takeOverComment(ws: string, id: string) {
+	return mutation(ws, () =>
+		client.POST('/engagement/{id}/automation/stop', {
+			params: { query: { workspace_id: ws }, path: { id } }
 		})
 	);
 }

@@ -38,10 +38,30 @@ describe('X messaging browser authorization', () => {
 			'workspace-a',
 			'account-a'
 		);
+		expect(takeXMessagingAuthorization('nonce', 'actor-a')).toEqual({
+			workspaceId: 'workspace-a',
+			accountId: 'account-a'
+		});
+		rememberXMessagingAuthorization(
+			'https://x.com/authorize?state=nonce',
+			'actor-a',
+			'workspace-a',
+			'account-a'
+		);
 		expect(takeXMessagingAuthorization('nonce', 'actor-b')).toBeUndefined();
 		expect(takeXMessagingAuthorization('nonce', 'actor-a')).toBeUndefined();
 	});
 	it('requires the same state and expires the browser binding after ten minutes', () => {
+		rememberXMessagingAuthorization(
+			'https://x.com/authorize?state=nonce',
+			'actor-a',
+			'workspace-a',
+			'account-a'
+		);
+		expect(takeXMessagingAuthorization('nonce', 'actor-a')).toEqual({
+			workspaceId: 'workspace-a',
+			accountId: 'account-a'
+		});
 		rememberXMessagingAuthorization(
 			'https://x.com/authorize?state=nonce',
 			'actor-a',

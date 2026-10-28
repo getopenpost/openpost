@@ -6,7 +6,6 @@ import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { m } from '$lib/paraglide/messages';
 import { createDefaultTracks } from '$lib/video-editor/project/defaults';
-import { COMPOSITION_CONTROLS_VERSION } from '$lib/video-editor/project/types';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
 import CompositionTimeline from './composition-timeline.svelte';
@@ -30,6 +29,13 @@ it('seeks between Motion ruler labels using the same scale as the labels', async
 	sequenceStore.switchTo(id);
 	try {
 		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+		const rangeGroup = screen.getByRole('group', {
+			name: m.video_editor_composition_timeline_range()
+		});
+		await expect.element(rangeGroup).toBeVisible();
+		await expect
+			.element(rangeGroup.getByText(m.video_editor_composition_timeline_full_range()))
+			.toBeVisible();
 		const ruler = screen.getByTestId('composition-ruler').element();
 		const ticks = Array.from(ruler.querySelectorAll<HTMLButtonElement>('button'));
 		const first = ticks[0]!;
@@ -60,51 +66,6 @@ it('seeks between Motion ruler labels using the same scale as the labels', async
 	}
 });
 
-it('duplicates a Motion layer at the same time and selects the copy', async () => {
-	const id = 'duplicate-motion';
-	sequenceStore.addComposition({
-		id,
-		name: 'Duplicate',
-		editorKind: 'composite-2d',
-		items: [
-			{
-				id: 'title',
-				type: 'text',
-				text: 'Title',
-				label: 'Title',
-				trackId: 'track-video-main',
-				from: 0,
-				durationInFrames: 300
-			}
-		],
-		tracks: createDefaultTracks(),
-		transitions: [],
-		fps: 30,
-		width: 1920,
-		height: 1080,
-		durationInFrames: 300
-	});
-	sequenceStore.switchTo(id);
-	const onselectitem = vi.fn();
-	try {
-		const screen = await render(CompositionTimeline, {
-			onedit: vi.fn(),
-			onselectitem,
-			selectedItemId: 'title'
-		});
-		await screen.getByTestId('composition-duplicate').click();
-		expect(timelineStore.items).toHaveLength(2);
-		const copy = timelineStore.items.find((item) => item.id !== 'title')!;
-		expect(copy.from).toBe(0);
-		expect(copy.durationInFrames).toBe(300);
-		expect(copy.trackId).not.toBe('track-video-main');
-		expect(onselectitem).toHaveBeenLastCalledWith(copy.id);
-	} finally {
-		timelineStore.__resetForTesting();
-		sequenceStore.deleteCompositionAndReferences(id);
-	}
-});
-
 it('keeps all duplicated layers selected when the inspector receives the primary selection', async () => {
 	const id = 'duplicate-selection';
 	sequenceStore.addComposition({
@@ -128,16 +89,35 @@ it('keeps all duplicated layers selected when the inspector receives the primary
 		durationInFrames: 300
 	});
 	sequenceStore.switchTo(id);
+	const onselectitem = vi.fn();
 	try {
-		const screen = await render(SelectionFixture);
+		const screen = await render(SelectionFixture, { onselectitem });
 		await screen.getByTestId('composition-layer-first').click();
 		await userEvent.keyboard('{Shift>}');
 		await screen.getByTestId('composition-layer-second').click();
 		await userEvent.keyboard('{/Shift}');
 		await screen.getByTestId('composition-duplicate').click();
-		await screen.getByTestId('ruler-tick-0').click();
+		// Duplicating above keeps the authored window on a new track for every source layer.
+		expect(timelineStore.items).toHaveLength(4);
 		const copies = timelineStore.items.filter((item) => !['first', 'second'].includes(item.id));
 		expect(copies).toHaveLength(2);
+		for (const original of timelineStore.items.filter((item) =>
+			['first', 'second'].includes(item.id)
+		)) {
+			const copy = copies.find((item) => item.text === original.text);
+			expect(copy).toBeDefined();
+			expect(copy!.from).toBe(0);
+			expect(copy!.durationInFrames).toBe(300);
+			expect(copy!.trackId).not.toBe(original.trackId);
+		}
+		await screen.getByTestId('ruler-tick-0').click();
+		// The inspector primary callback still names one copy, and the local
+		// multi-selection survives the echoed primary prop.
+		const primaryId = onselectitem.mock.lastCall?.[0];
+		expect(copies.map((copy) => copy.id)).toContain(primaryId);
+		await expect
+			.element(screen.getByTestId(`composition-layer-${primaryId}`))
+			.toHaveAttribute('aria-pressed', 'true');
 		for (const copy of copies) {
 			await expect
 				.element(screen.getByTestId(`composition-layer-${copy.id}`))
@@ -157,6 +137,7 @@ it('keeps all duplicated layers selected when the inspector receives the primary
 
 it('changes composition zoom through the accessible scalar slider', async () => {
 	const previousZoom = timelineStore.zoomLevel;
+	timelineStore._setZoomLevel(1.01);
 	const compositionId = 'composition-zoom-test';
 	sequenceStore.addComposition({
 		id: compositionId,
@@ -176,274 +157,19 @@ it('changes composition zoom through the accessible scalar slider', async () => 
 		const slider = screen.getByRole('slider', {
 			name: m.video_editor_composition_timeline_zoom()
 		});
+		// Seed the shared slider's own grid point (0.01 + n*0.05) so a high prior
+		// zoom cannot satisfy the keypress and the expected values stay literal.
+		await expect.element(slider).toHaveAttribute('aria-valuenow', '1.01');
 		slider.element().focus();
 		await userEvent.keyboard('{ArrowRight}');
-
-		await vi.waitFor(() => expect(timelineStore.zoomLevel).toBeGreaterThan(1));
+		await expect.element(slider).toHaveAttribute('aria-valuenow', '1.06');
+		expect(timelineStore.zoomLevel).toBe(1.06);
 	} finally {
 		sequenceStore.deleteCompositionAndReferences(compositionId);
 		timelineStore._setZoomLevel(previousZoom);
 	}
 });
 
-it('keeps an explicit accessible name on composition control override fields while typing', async () => {
-	const nestedId = 'composition-nested-control-label';
-	const parentId = 'composition-parent-control-label';
-	const instanceId = 'composition-instance-control-label';
-	sequenceStore.addComposition({
-		id: nestedId,
-		name: 'Nested promo',
-		editorKind: 'composite-2d',
-		items: [
-			{
-				id: 'nested-text-control-label',
-				trackId: 'track-video-main',
-				from: 0,
-				durationInFrames: 60,
-				label: 'Nested title',
-				type: 'text',
-				text: 'Hello',
-				fontFamily: 'Inter',
-				fontSize: 64,
-				fontWeight: 700,
-				color: '#ffffff',
-				transform: { x: 0, y: 0, width: 960, height: 240 }
-			}
-		],
-		tracks: createDefaultTracks(),
-		transitions: [],
-		fps: 30,
-		width: 1920,
-		height: 1080,
-		durationInFrames: 60,
-		compositionControls: {
-			version: COMPOSITION_CONTROLS_VERSION,
-			controls: [
-				{
-					id: 'ctrl-headline-label',
-					name: 'Headline',
-					targetItemId: 'nested-text-control-label',
-					property: 'text.text',
-					kind: 'text',
-					defaultValue: 'Hello'
-				}
-			]
-		}
-	});
-	sequenceStore.addComposition({
-		id: parentId,
-		name: 'Parent promo',
-		editorKind: 'composite-2d',
-		items: [],
-		tracks: [],
-		transitions: [],
-		fps: 30,
-		width: 1920,
-		height: 1080,
-		durationInFrames: 60
-	});
-	sequenceStore.switchTo(parentId);
-	timelineStore._setTracks(createDefaultTracks());
-	timelineStore._setItems([
-		{
-			id: instanceId,
-			trackId: 'track-video-main',
-			from: 0,
-			durationInFrames: 60,
-			label: 'Promo block',
-			type: 'composition',
-			compositionId: nestedId
-		}
-	]);
-	try {
-		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
-		screen.container
-			.querySelector<HTMLButtonElement>(`[data-testid="layer-expand-${instanceId}"]`)!
-			.click();
-		const field = screen.getByRole('textbox', { name: 'Headline' });
-		await expect.element(field).toHaveAttribute('aria-label', 'Headline');
-		await field.fill('New headline');
-		await expect.element(field).toHaveValue('New headline');
-		await expect.element(field).toHaveAttribute('aria-label', 'Headline');
-	} finally {
-		timelineStore.__resetForTesting();
-		sequenceStore.deleteCompositionAndReferences(parentId);
-		sequenceStore.deleteCompositionAndReferences(nestedId);
-	}
-});
-
-it('exposes the composition dimensions strip as a named group', async () => {
-	const compositionId = 'composition-meta-group';
-	sequenceStore.addComposition({
-		id: compositionId,
-		name: 'Meta group',
-		editorKind: 'composite-2d',
-		items: [],
-		tracks: [],
-		transitions: [],
-		fps: 30,
-		width: 1920,
-		height: 1080,
-		durationInFrames: 60
-	});
-	sequenceStore.switchTo(compositionId);
-	try {
-		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
-		const group = screen.getByRole('group', {
-			name: m.video_editor_composition_timeline_meta()
-		});
-		await expect.element(group).toBeVisible();
-		await expect.element(group.getByTestId('composition-fps')).toBeVisible();
-	} finally {
-		timelineStore.__resetForTesting();
-		sequenceStore.deleteCompositionAndReferences(compositionId);
-	}
-});
-
-it('exposes the layer tools toolbar with its accessible name', async () => {
-	const compositionId = 'composition-toolbar-label';
-	sequenceStore.addComposition({
-		id: compositionId,
-		name: 'Toolbar label',
-		editorKind: 'composite-2d',
-		items: [],
-		tracks: [],
-		transitions: [],
-		fps: 30,
-		width: 1920,
-		height: 1080,
-		durationInFrames: 60
-	});
-	sequenceStore.switchTo(compositionId);
-	try {
-		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
-		const toolbar = screen.getByRole('toolbar', {
-			name: m.video_editor_composition_timeline_toolbar()
-		});
-		await expect.element(toolbar).toBeVisible();
-		await expect.element(toolbar.getByTestId('add-layer-text')).toBeVisible();
-	} finally {
-		timelineStore.__resetForTesting();
-		sequenceStore.deleteCompositionAndReferences(compositionId);
-	}
-});
-
-it('exposes the layer type badge as an image with the full type name', async () => {
-	const compositionId = 'composition-layer-badge';
-	sequenceStore.addComposition({
-		id: compositionId,
-		name: 'Badge label',
-		editorKind: 'composite-2d',
-		items: [],
-		tracks: [],
-		transitions: [],
-		fps: 30,
-		width: 1920,
-		height: 1080,
-		durationInFrames: 60
-	});
-	sequenceStore.switchTo(compositionId);
-	timelineStore._setTracks(createDefaultTracks());
-	timelineStore._setItems([
-		{
-			id: 'badge-text-item',
-			trackId: 'track-video-main',
-			from: 0,
-			durationInFrames: 60,
-			label: 'Badge title',
-			type: 'text',
-			text: 'Hello',
-			fontFamily: 'Inter',
-			fontSize: 64,
-			fontWeight: 700,
-			color: '#ffffff',
-			transform: { x: 0, y: 0, width: 960, height: 240 }
-		}
-	]);
-	try {
-		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
-		const badge = screen.getByRole('img', { name: 'text' });
-		await expect.element(badge).toBeVisible();
-	} finally {
-		timelineStore.__resetForTesting();
-		sequenceStore.deleteCompositionAndReferences(compositionId);
-	}
-});
-
-it('exposes the composition work-area lane as a named group', async () => {
-	const compositionId = 'composition-io-lane-group';
-	sequenceStore.addComposition({
-		id: compositionId,
-		name: 'Work area group',
-		editorKind: 'composite-2d',
-		items: [],
-		tracks: [],
-		transitions: [],
-		fps: 30,
-		width: 1920,
-		height: 1080,
-		durationInFrames: 120
-	});
-	sequenceStore.switchTo(compositionId);
-	try {
-		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
-		const group = screen.getByRole('group', {
-			name: m.video_editor_composition_timeline_range()
-		});
-		await expect.element(group).toBeVisible();
-		await expect
-			.element(group.getByText(m.video_editor_composition_timeline_full_range()))
-			.toBeVisible();
-	} finally {
-		timelineStore.__resetForTesting();
-		sequenceStore.deleteCompositionAndReferences(compositionId);
-	}
-});
-
-it('exposes the layer sidebar as a named group', async () => {
-	const compositionId = 'composition-layer-sidebar-group';
-	sequenceStore.addComposition({
-		id: compositionId,
-		name: 'Sidebar group',
-		editorKind: 'composite-2d',
-		items: [],
-		tracks: [],
-		transitions: [],
-		fps: 30,
-		width: 1920,
-		height: 1080,
-		durationInFrames: 60
-	});
-	sequenceStore.switchTo(compositionId);
-	timelineStore._setTracks(createDefaultTracks());
-	timelineStore._setItems([
-		{
-			id: 'sidebar-text-item',
-			trackId: 'track-video-main',
-			from: 0,
-			durationInFrames: 60,
-			label: 'Sidebar title',
-			type: 'text',
-			text: 'Hello',
-			fontFamily: 'Inter',
-			fontSize: 64,
-			fontWeight: 700,
-			color: '#ffffff',
-			transform: { x: 0, y: 0, width: 960, height: 240 }
-		}
-	]);
-	try {
-		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
-		const group = screen.getByRole('group', {
-			name: m.video_editor_composition_timeline_layers()
-		});
-		await expect.element(group).toBeVisible();
-		await expect.element(group.getByTestId('layer-expand-sidebar-text-item')).toBeVisible();
-	} finally {
-		timelineStore.__resetForTesting();
-		sequenceStore.deleteCompositionAndReferences(compositionId);
-	}
-});
 it('toggles a motion layer once per modifier click and preserves a group for dragging', async () => {
 	const id = 'motion-selection-test';
 	const tracks = ['a', 'b'].map((id, order) => ({
@@ -584,10 +310,15 @@ it.each(['start', 'end'])(
 			await new Promise(requestAnimationFrame);
 			pointer('pointermove', window, 10);
 			pointer('pointerup', window, 10);
-			for (const item of timelineStore.items) {
-				expect(item.sourceStart).toBe(edge === 'start' ? 40 : 30);
-				expect(item.sourceEnd).toBe(edge === 'end' ? 130 : 120);
-				expect(item.durationInFrames).toBe(edge === 'start' ? 80 : 100);
+			// Both linked source items keep their authored identity, so a dropped
+			// companion cannot pass through a shorter loop.
+			expect(timelineStore.items.map((item) => item.id).toSorted()).toEqual(['a', 'b']);
+			for (const itemId of ['a', 'b']) {
+				const item = timelineStore.itemById.get(itemId);
+				expect(item).toBeDefined();
+				expect(item!.sourceStart).toBe(edge === 'start' ? 40 : 30);
+				expect(item!.sourceEnd).toBe(edge === 'end' ? 130 : 120);
+				expect(item!.durationInFrames).toBe(edge === 'start' ? 80 : 100);
 			}
 		} finally {
 			sequenceStore.deleteCompositionAndReferences(id);
@@ -621,6 +352,15 @@ it('aligns layer bars with measured sidebar rows after expanding and filtering',
 	sequenceStore.switchTo(id);
 	try {
 		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+		const layers = screen.getByRole('group', {
+			name: m.video_editor_composition_timeline_layers()
+		});
+		await expect.element(layers).toBeVisible();
+		const expandFirst = layers.getByTestId('layer-expand-first');
+		await expect.element(expandFirst).toBeVisible();
+		await expect
+			.element(screen.getByTestId('composition-layer-second').getByRole('img', { name: 'text' }))
+			.toBeVisible();
 		const alignment = (itemId: string) => {
 			const label = screen
 				.getByTestId(`composition-layer-${itemId}`)
@@ -630,7 +370,7 @@ it('aligns layer bars with measured sidebar rows after expanding and filtering',
 			return Math.abs(label.top + label.height / 2 - bar.top - bar.height / 2);
 		};
 		await expect.poll(() => alignment('second')).toBeLessThan(2);
-		await screen.getByTestId('layer-expand-first').click();
+		await expandFirst.click();
 		await expect.poll(() => alignment('second')).toBeLessThan(2);
 		await screen.getByRole('textbox', { name: 'Filter layers' }).fill('second');
 		await expect.element(screen.getByTestId('composition-bar-first')).not.toBeInTheDocument();
@@ -727,6 +467,11 @@ it.each(['solid', 'gradient'] as const)(
 		let renderer: TimelineFrameRenderer | undefined;
 		try {
 			const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+			const toolbar = screen.getByRole('toolbar', {
+				name: m.video_editor_composition_timeline_toolbar()
+			});
+			await expect.element(toolbar).toBeVisible();
+			await expect.element(toolbar.getByTestId('add-layer-text')).toBeVisible();
 			await screen.getByTestId(`add-layer-${kind}`).click();
 			const project: Project = {
 				id: 'generated-layer',

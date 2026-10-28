@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyImageGradePixels, imageAdjustmentsToGradeEffects } from './image-grade';
+import { applyImageGradePixels, editorColorGradeAdjustmentsToEffects } from './image-grade';
 
 const neutralGrade = {
 	brightness: 0,
@@ -29,7 +29,7 @@ describe('versioned still-image color grade', () => {
 			shadows: 0.15,
 			blur: 0.6
 		};
-		expect(imageAdjustmentsToGradeEffects(adjustments)).toEqual([
+		expect(editorColorGradeAdjustmentsToEffects(adjustments)).toEqual([
 			{ effectId: 'gpu-brightness', params: { amount: 0.1 } },
 			{
 				effectId: 'gpu-exposure',
@@ -55,7 +55,11 @@ describe('versioned still-image color grade', () => {
 	});
 
 	it('omits neutral color operations and the Fabric-owned blur control', () => {
-		expect(imageAdjustmentsToGradeEffects(neutralGrade)).toEqual([]);
+		expect(editorColorGradeAdjustmentsToEffects(neutralGrade)).toEqual([]);
+		// Fabric owns blur for still images, so a non-zero blur must not reach
+		// the shared color pipeline.
+		const imageAdjustments = { ...neutralGrade, blur: 0.6 };
+		expect(editorColorGradeAdjustmentsToEffects(imageAdjustments)).toEqual([]);
 	});
 
 	it('keeps alpha unchanged in the deterministic CPU fallback', () => {

@@ -13,7 +13,9 @@ import path from "node:path";
 // consumers do not use enhanced form actions or prerender setHeaders. Inspect
 // all first-party app/package modules, including imported module extensions.
 const reviewedArtifacts = {
-  "bun.lock": "77bfb260d570dd6721a26cef6bd503f229cea3ade029cc0c0f27d6e667c99e44",
+  // Re-reviewed after GIF/Floating UI additions and workspace version bumps;
+  // legacy Zod consumers, their dependency scopes and the editor boundary are unchanged.
+  "bun.lock": "564377ec6aef7bcd0c8f59f784653972d367ca6dc90a3259fa5bd3b54f47342d",
   "apps/web/src/lib/image-editor/background-removal.worker.ts":
     "06f3aaf6c78d574c1d2538903e8bf34cf70032801824d8988a9ba2d2435749d5",
 };

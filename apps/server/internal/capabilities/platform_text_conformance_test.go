@@ -80,8 +80,8 @@ func TestPlatformTextLimitsMatchSharedFixture(t *testing.T) {
 	})
 
 	t.Run("URL shortening lengths", func(t *testing.T) {
-		require.Equal(t, fixture.Constants.XTransformedURLLength, xTransformedURLLength)
-		require.Equal(t, fixture.Constants.MastodonURLLength, mastodonURLLength)
+		require.Equal(t, fixture.Constants.XTransformedURLLength, providerlimits.XTransformedURLLength)
+		require.Equal(t, fixture.Constants.MastodonURLLength, providerlimits.MastodonCountedURLLength)
 	})
 }
 

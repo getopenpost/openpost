@@ -305,7 +305,7 @@ describe("BrowserTelemetry", () => {
     }
   });
 
-  it("bounds SDK download retries and stops them when consent is declined", async () => {
+  it.each(["retained", "declined"])("bounds SDK retries with %s consent", async (consent) => {
     vi.useFakeTimers();
     try {
       let loads = 0;
@@ -318,11 +318,16 @@ describe("BrowserTelemetry", () => {
         new FakePreferenceStore(),
       );
       subject.configure(configuredApp);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(loads).toBe(1);
+      if (consent === "declined") subject.setPreference("off");
       await vi.advanceTimersByTimeAsync(60000);
-      expect(loads).toBeGreaterThan(1);
-      expect(loads).toBeLessThanOrEqual(4);
+      if (consent === "declined") expect(loads).toBe(1);
+      else {
+        expect(loads).toBeGreaterThan(1);
+        expect(loads).toBeLessThanOrEqual(4);
+      }
       const stoppedAt = loads;
-      subject.setPreference("off");
       await vi.advanceTimersByTimeAsync(60000);
       expect(loads).toBe(stoppedAt);
     } finally {
@@ -438,18 +443,6 @@ describe("BrowserTelemetry", () => {
     expect(sdk.resetCount).toBe(1);
     expect(store.clearedTokens).toEqual(["phc_test"]);
     expect(store.reloadCount).toBe(1);
-  });
-
-  it("resets before switching identified users and on logout", () => {
-    const sdk = new FakeSDK();
-    const subject = configuredTelemetry(sdk);
-    subject.configure(configuredApp);
-    subject.identify("user-1");
-    subject.identify("user-2");
-    subject.resetIdentity();
-
-    expect(sdk.identified).toEqual(["user-1", "user-2"]);
-    expect(sdk.resetCount).toBe(2);
   });
 
   it("uses the originating route template for SDK-owned lifecycle and Web Vitals URLs", () => {
@@ -589,21 +582,104 @@ describe("BrowserTelemetry", () => {
     const sdk = new FakeSDK();
     const subject = configuredTelemetry(sdk);
     subject.configure(configuredApp);
-
-    subject.capture("billing checkout opened", {
-      billing_period: "monthly",
-      plan_id: "https://example.com/checkout?token=secret",
-    });
+    for (const platform of [
+      "https://bsky.app/profile/jane",
+      "person@example.com",
+      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature",
+      "token=private-token",
+    ]) {
+      subject.capture("growth recommendation shown", {
+        platform,
+        rank_bucket: "1-3",
+        mutual_count_bucket: "2-3",
+        follows_viewer: true,
+      });
+    }
     subject.capture("billing checkout opened", {
       billing_period: "monthly",
       plan_id: "private draft",
     });
-    subject.capture("billing checkout opened", {
-      billing_period: "monthly",
-      plan_id: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature",
+    expect(sdk.events).toEqual([]);
+    subject.capture("growth recommendation shown", {
+      platform: "bluesky",
+      rank_bucket: "1-3",
+      mutual_count_bucket: "2-3",
+      follows_viewer: true,
     });
+    expect(sdk.events).toEqual([
+      {
+        event: "growth recommendation shown",
+        properties: {
+          platform: "bluesky",
+          rank_bucket: "1-3",
+          mutual_count_bucket: "2-3",
+          follows_viewer: true,
+        },
+      },
+    ]);
+  });
 
-    expect(sdk.events).toHaveLength(0);
+  it("allows only privacy-safe growth properties and drops IDs/handles", () => {
+    const sdk = new FakeSDK();
+    const subject = configuredTelemetry(sdk);
+    subject.configure(configuredApp);
+    subject.capture("growth opened", { platform_count: 2 });
+    subject.capture("growth recommendation shown", {
+      platform: "bluesky",
+      rank_bucket: "1-3",
+      mutual_count_bucket: "2-3",
+      follows_viewer: true,
+    });
+    subject.capture("growth profile opened", {
+      platform: "mastodon",
+      rank_bucket: "4-6",
+      mutual_count_bucket: "0",
+      follows_viewer: false,
+    });
+    expect(sdk.events).toEqual([
+      { event: "growth opened", properties: { platform_count: 2 } },
+      {
+        event: "growth recommendation shown",
+        properties: {
+          platform: "bluesky",
+          rank_bucket: "1-3",
+          mutual_count_bucket: "2-3",
+          follows_viewer: true,
+        },
+      },
+      {
+        event: "growth profile opened",
+        properties: {
+          platform: "mastodon",
+          rank_bucket: "4-6",
+          mutual_count_bucket: "0",
+          follows_viewer: false,
+        },
+      },
+    ]);
+    // SAFETY: Exercise the runtime boundary with independently forbidden properties.
+    const captureUnchecked = subject.capture.bind(subject) as (
+      name: string,
+      properties: Record<string, unknown>,
+    ) => void;
+    for (const [key, value] of Object.entries({
+      handle: "@jane",
+      account_id: "acc-123",
+      recommendation_id: "rec-1",
+      bio: "secret bio",
+      workspace_id: "ws-1",
+    })) {
+      captureUnchecked("growth recommendation shown", {
+        platform: "bluesky",
+        rank_bucket: "1-3",
+        mutual_count_bucket: "2-3",
+        follows_viewer: true,
+        [key]: value,
+      });
+      expect(sdk.events).toHaveLength(3);
+    }
+    captureUnchecked("growth opened", { platform_count: 2, workspace_id: "ws-1" });
+    expect(sdk.events).toHaveLength(3);
   });
 
   it("scrubs common secrets and captures the same error object once", () => {
@@ -915,25 +991,42 @@ describe("installGlobalErrorCapture", () => {
     }
   });
 
-  it("does not report an error already handled by an earlier listener", () => {
+  it("does not report an error already handled by an earlier listener", async () => {
     const runtime = new EventTarget();
     vi.stubGlobal("window", runtime);
+    vi.stubGlobal("document", { cookie: "openpost_analytics=v1:persistent" });
+    vi.stubGlobal("navigator", {});
+    globalSDK.captureException.mockClear();
+    globalSDK.init.mockClear();
+    let removeCapture = () => {};
+    const prevent = (event: Event) => event.preventDefault();
     try {
       configureTelemetry(configuredApp);
-      runtime.addEventListener("error", (event) => event.preventDefault());
-      const removeCapture = installGlobalErrorCapture();
-      const event = new Event("error", { cancelable: true }) as Event & {
-        error: Error;
-        message: string;
-      };
-      event.error = new Error("Importing a module script failed.");
-      event.message = event.error.message;
-
-      runtime.dispatchEvent(event);
-
+      await vi.waitFor(() => expect(globalSDK.init).toHaveBeenCalledOnce());
+      runtime.addEventListener("error", prevent);
+      removeCapture = installGlobalErrorCapture();
+      const handled = Object.assign(new Event("error", { cancelable: true }), {
+        error: new Error("Importing a module script failed."),
+        message: "Importing a module script failed.",
+      });
+      runtime.dispatchEvent(handled);
+      expect(handled.defaultPrevented).toBe(true);
       expect(globalSDK.captureException).not.toHaveBeenCalled();
-      removeCapture();
+      runtime.removeEventListener("error", prevent);
+      runtime.dispatchEvent(
+        Object.assign(new Event("error"), {
+          error: new Error("Unhandled canvas failure"),
+          message: "Unhandled canvas failure",
+        }),
+      );
+      expect(globalSDK.captureException).toHaveBeenCalledOnce();
+      expect(globalSDK.captureException.mock.calls[0]?.[0].message).toBe(
+        "Unhandled canvas failure",
+      );
     } finally {
+      removeCapture();
+      runtime.removeEventListener("error", prevent);
+      globalSDK.captureException.mockClear();
       vi.unstubAllGlobals();
     }
   });
@@ -952,6 +1045,7 @@ describe("deployment context", () => {
 
     expect(sdk.resetCount).toBe(2);
     // One restore per identify plus one per explicit reset.
+    expect(sdk.identified).toEqual(["user-1", "user-2"]);
     expect(sdk.registered.length).toBe(initialRegisters + 3);
     expect(sdk.registered.at(-1)).toMatchObject({
       surface: "app",

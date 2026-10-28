@@ -237,6 +237,14 @@ func TestWorkerQuiesceFinishesCurrentJobWithoutClaimingAnother(t *testing.T) {
 	t.Cleanup(cancelWait)
 	require.NoError(t, worker.Wait(waitCtx))
 
+	// Quiesce must let the in-flight job reach its durable terminal state, not
+	// merely return once the executor function returned.
+	var current models.Job
+	require.NoError(t, db.NewSelect().Model(&current).Where("id = ?", "job-current").Scan(t.Context()))
+	require.Equal(t, jobStatusCompleted, current.Status)
+	require.Empty(t, current.LockedBy)
+	require.True(t, current.LockedAt.IsZero())
+
 	var next models.Job
 	require.NoError(t, db.NewSelect().Model(&next).Where("id = ?", "job-next").Scan(t.Context()))
 	require.Equal(t, jobStatusPending, next.Status)

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -24,6 +25,22 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
+
+func registerSpaRoutes(e *echo.Echo, webFS fs.FS) {
+	registerSpaRoutesWithProfileMetadata(e, webFS, nil, "", false, true)
+}
+
+func registerSpaRoutesWithProfileMetadata(
+	e *echo.Echo,
+	webFS fs.FS,
+	db *bun.DB,
+	publicURL string,
+	managedEdition bool,
+	publicProfilesEnabled bool,
+) {
+	routes, _ := loadSpaRouteManifest(webFS)
+	registerSpaRoutesWithProfileMetadataAndMatcher(e, webFS, db, publicURL, managedEdition, publicProfilesEnabled, routes)
+}
 
 func withAppRoutes(webFS fstest.MapFS, routes ...string) fstest.MapFS {
 	type routeManifest struct {

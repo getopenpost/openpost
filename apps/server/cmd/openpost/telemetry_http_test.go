@@ -14,6 +14,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/openpost/backend/internal/diagnostics"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
 )
@@ -261,6 +262,14 @@ func TestTelemetryObserverCapturesHuma500(t *testing.T) {
 	e.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/audit/failure", nil))
 	require.Equal(t, http.StatusInternalServerError, response.Code)
 	reporter.Flush()
-	require.Len(t, harness.all(), 1, "maintainer diagnostics receives the API failure")
+	reports := harness.all()
+	require.Len(t, reports, 1, "maintainer diagnostics receives the API failure")
+	require.Equal(t, diagnostics.CodeAPI5xx, reports[0].ErrorCode)
+	require.Equal(t, diagnostics.SurfaceBackend, reports[0].Surface)
+	require.Equal(t, http.StatusInternalServerError, reports[0].HTTPStatus)
+	require.Equal(t, "/audit/failure", reports[0].Operation)
+	payload, err := json.Marshal(reports[0])
+	require.NoError(t, err)
+	require.Contains(t, string(payload), `"http_method":"GET"`)
 	require.Len(t, recorder.Exceptions, 1, "PostHog must also observe unexpected API 500 responses")
 }

@@ -154,6 +154,7 @@ func TestBlueskyGrowthDiscoveryBoundedAndFilters(t *testing.T) {
 	require.Equal(t, 1, getSuggestionsCalls)
 
 	// getProfiles batch bound 25
+	require.NotEmpty(t, getProfilesBatches)
 	for _, batch := range getProfilesBatches {
 		require.LessOrEqual(t, len(batch), 25)
 	}
@@ -184,7 +185,7 @@ func TestBlueskyGrowthDiscoveryBoundedAndFilters(t *testing.T) {
 		require.NotEqual(t, "", c.RemoteID)
 		require.NotEqual(t, "did:plc:deactivated", c.RemoteID)
 	}
-	_ = followURIRequests
+	require.Zero(t, followURIRequests, "discovery must not create follow records")
 }
 
 func TestBlueskyGrowthFollowPayload(t *testing.T) {

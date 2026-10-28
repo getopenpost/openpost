@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-	applyAudioEffectStages,
 	applyPanOffline,
 	createDefaultAudioEffect,
 	normalizeAudioEffects,
@@ -84,7 +83,10 @@ describe('audio effects rack offline', () => {
 			})()
 		];
 		for (const eff of cases) {
-			const out = applyAudioEffectStages([left.slice(), right.slice()], 48000, [eff]);
+			const out = new StreamingAudioEffectChain([eff], 48000, 2).process([
+				left.slice(),
+				right.slice()
+			]);
 			expect(peak(out[1]!)).toBeLessThan(1e-5);
 			expect(peak(out[0]!)).toBeGreaterThan(0.01);
 		}
@@ -95,13 +97,19 @@ describe('audio effects rack offline', () => {
 		const chorus = createDefaultAudioEffect('chorus');
 		chorus.rateHz = 1.5;
 		chorus.depthMs = 6;
-		const a = applyAudioEffectStages([src.slice(), src.slice()], 48000, [chorus]);
-		const b = applyAudioEffectStages([src.slice(), src.slice()], 48000, [chorus]);
+		const a = new StreamingAudioEffectChain([chorus], 48000, 2).process([src.slice(), src.slice()]);
+		const b = new StreamingAudioEffectChain([chorus], 48000, 2).process([src.slice(), src.slice()]);
 		expect(a[0]![1000]).toBeCloseTo(b[0]![1000], 6);
 		const flanger = createDefaultAudioEffect('flanger');
 		flanger.rateHz = 0.9;
-		const fa = applyAudioEffectStages([src.slice(), src.slice()], 48000, [flanger]);
-		const fb = applyAudioEffectStages([src.slice(), src.slice()], 48000, [flanger]);
+		const fa = new StreamingAudioEffectChain([flanger], 48000, 2).process([
+			src.slice(),
+			src.slice()
+		]);
+		const fb = new StreamingAudioEffectChain([flanger], 48000, 2).process([
+			src.slice(),
+			src.slice()
+		]);
 		expect(fa[0]![2000]).toBeCloseTo(fb[0]![2000], 6);
 	});
 

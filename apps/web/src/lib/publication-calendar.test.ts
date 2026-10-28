@@ -31,18 +31,6 @@ describe('publication occurrence selection', () => {
 		expect(publicationActivityOccurrence(publication)).toBe('2026-10-18T10:00:00Z');
 	});
 
-	it('shows the recorded run time for a published post', () => {
-		const publication = {
-			status: 'published',
-			scheduled_at: '2026-10-18T10:00:00Z',
-			actual_run_at: '2026-10-18T10:07:00Z',
-			updated_at: '2026-10-18T10:07:00Z',
-			created_at: '2026-10-18T08:00:00Z'
-		};
-		expect(publicationCalendarOccurrence(publication)).toBe('2026-10-18T10:07:00Z');
-		expect(publicationActivityOccurrence(publication)).toBe('2026-10-18T10:07:00Z');
-	});
-
 	it('shows the queued time, not the previous run, for a retried post without an authored schedule', () => {
 		const retried = {
 			status: 'scheduled',

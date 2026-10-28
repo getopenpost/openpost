@@ -5,15 +5,6 @@ import { setLocale } from '$lib/paraglide/runtime';
 import { acquireReauthGrant } from '$lib/auth/reauth';
 import ReauthDeleteDialog from './reauth-delete-dialog.svelte';
 
-// The shared loading status is mid-migration to ActivityIndicator in a concurrent
-// change (packages/ui does not export it yet), so tests stand in this stub with the
-// same role and accessible name. Drop this mock once the export lands.
-// oxlint-disable-next-line anti-slop/no-module-mocking
-vi.mock('$lib/components/dialog-loading-status.svelte', async () => {
-	const stub = await import('./dialog-loading-status.fixture.svelte');
-	return { default: stub.default };
-});
-
 // oxlint-disable-next-line anti-slop/no-module-mocking
 vi.mock('$lib/auth/reauth', () => ({ acquireReauthGrant: vi.fn() }));
 
@@ -141,12 +132,20 @@ describe('ReauthDeleteDialog shared delete flow', () => {
 	});
 
 	it('shows a preview failure with a working retry', async () => {
+		let rejectPreview!: (cause: Error) => void;
 		const previewLoader = vi
 			.fn()
-			.mockRejectedValueOnce(new Error('Preview unavailable'))
+			.mockImplementationOnce(
+				() =>
+					new Promise((_resolve, reject) => {
+						rejectPreview = reject;
+					})
+			)
 			.mockResolvedValue({ blockers: [], expectedConfirm: 'Acme' });
 		const screen = await render(ReauthDeleteDialog, baseProps({ previewLoader }));
-
+		await expect.element(screen.getByRole('status', { name: 'Loading...' })).toBeVisible();
+		await expect.element(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
+		rejectPreview(new Error('Preview unavailable'));
 		await expect.element(screen.getByText('Preview unavailable')).toBeVisible();
 		await screen.getByRole('button', { name: 'Try again' }).click();
 

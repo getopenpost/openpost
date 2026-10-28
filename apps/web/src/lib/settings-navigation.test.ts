@@ -1,15 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import {
-	getSettingsDestinations,
-	normalizeSettingsTab,
-	settingsTabIDs
-} from './settings-navigation';
+import { getSettingsDestinations, normalizeSettingsTab } from './settings-navigation';
 
 describe('settings destination registry', () => {
-	it('does not register duplicate settings destinations', () => {
-		expect(new Set(settingsTabIDs).size).toBe(settingsTabIDs.length);
-	});
-
 	it('keeps instance destinations restricted and legacy aliases stable', () => {
 		expect(
 			getSettingsDestinations(false).some((destination) => destination.group === 'instance')

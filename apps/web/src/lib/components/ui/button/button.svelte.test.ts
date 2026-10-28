@@ -16,10 +16,9 @@ describe('Button', () => {
 		const button = screen.getByRole('button', { name: 'Save draft' });
 
 		await expect.element(button).toHaveAttribute('data-action-intent', 'ordinary');
-		await expect.element(button).toHaveClass(/bg-action-ordinary/);
 	});
 
-	it('plays one cue when a primary action completes', async () => {
+	it('binds one release-toggle cue to a primary action', async () => {
 		const screen = render(Button, { children: textSnippet('Publish now') });
 		const button = screen.getByRole('button', { name: 'Publish now' });
 

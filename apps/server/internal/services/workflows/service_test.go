@@ -151,6 +151,7 @@ func TestDurableWaitCancelAndRevokedAuthority(t *testing.T) {
 	var stored runRecord
 	require.NoError(t, s.db.NewSelect().Model(&stored).Where("id = ?", revoked.ID).Scan(t.Context()))
 	require.Equal(t, StateFailed, stored.State)
+	require.Equal(t, ErrAccess.Error(), stored.Error)
 	require.Equal(t, 0, calls)
 }
 
@@ -198,7 +199,6 @@ func TestSourceBaselineDeduplicationAndSampleDoNotAdmitOldItems(t *testing.T) {
 	workflow, err = s.Publish(t.Context(), actor, "ws", workflow.ID, workflow.Revision)
 	require.NoError(t, err)
 	payload := fmt.Sprintf(`{"workflow_id":%q}`, workflow.ID)
-	require.NoError(t, s.HandleJob(t.Context(), jobregistry.TypeWorkflowPoll, payload))
 	rss = strings.Replace(rss, "</channel>", `<item><guid>new</guid><title>New</title><description><![CDATA[<p>Hello <strong>world</strong></p>]]></description></item></channel>`, 1)
 	_, err = s.Sample(t.Context(), actor, "ws", workflow.Definition.Source)
 	require.NoError(t, err)
@@ -225,7 +225,7 @@ func TestDraftConflictScopeAndConnectionSecrecy(t *testing.T) {
 	scoped.CredentialWorkspaceID = "other"
 	_, err = s.List(t.Context(), scoped, "ws")
 	require.ErrorIs(t, err, ErrAccess)
-	connection, err := s.SaveConnection(t.Context(), actor, "ws", "GitHub", "github-secret-token")
+	connection, err := s.SaveCredential(t.Context(), actor, "ws", WorkflowCredentialRequest{Name: "GitHub", Kind: "github", Token: "github-secret-token"})
 	require.NoError(t, err)
 	list, err := s.Connections(t.Context(), actor, "ws")
 	require.NoError(t, err)
@@ -238,26 +238,6 @@ func TestDraftConflictScopeAndConnectionSecrecy(t *testing.T) {
 	var count int
 	require.NoError(t, s.db.NewSelect().Model((*models.Publication)(nil)).ColumnExpr("COUNT(*)").Scan(t.Context(), &count))
 	require.Zero(t, count)
-}
-
-func TestSourceActivationIncludesItemsBeforeFirstWorkerPoll(t *testing.T) {
-	s, actor := workflowTestService(t, nil)
-	rss := `<rss version="2.0"><channel><title>Feed</title><item><guid>old</guid><title>Old</title></item></channel></rss>`
-	s.client = &http.Client{Transport: responseTransport(func(*http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(rss)), Header: make(http.Header)}, nil
-	})}
-	workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "wait", Kind: KindWait, Inputs: map[string]Value{"minutes": literal(1)}}})
-	workflow.Definition.Source = Source{Kind: "rss", URL: "https://8.8.8.8/feed"}
-	workflow, err := s.Save(t.Context(), actor, "ws", workflow.ID, SaveRequest{Name: workflow.Name, ExpectedRevision: workflow.Revision, Definition: workflow.Definition})
-	require.NoError(t, err)
-	workflow, err = s.Publish(t.Context(), actor, "ws", workflow.ID, workflow.Revision)
-	require.NoError(t, err)
-	rss = strings.Replace(rss, "</channel>", `<item><guid>after-activation</guid><title>New</title></item></channel>`, 1)
-	require.NoError(t, s.HandleJob(t.Context(), jobregistry.TypeWorkflowPoll, fmt.Sprintf(`{"workflow_id":%q}`, workflow.ID)))
-	runs, err := s.Runs(t.Context(), actor, "ws", workflow.ID)
-	require.NoError(t, err)
-	require.Len(t, runs, 1)
-	require.Equal(t, "after-activation", runs[0].Source["id"])
 }
 
 func TestPublishedSourceDrainsBacklogBeyondOnePage(t *testing.T) {
@@ -373,17 +353,27 @@ func TestGitHubPollReconcilesPagesWithoutReplayingKnownReleases(t *testing.T) {
 	workflow, err = s.Publish(t.Context(), actor, "ws", workflow.ID, workflow.Revision)
 	require.NoError(t, err)
 	expanded = true
-	for range 3 {
+	for index, wantPage := range []int{3, 2, 3} {
 		require.NoError(t, s.HandleJob(t.Context(), jobregistry.TypeWorkflowPoll, fmt.Sprintf(`{"workflow_id":%q}`, workflow.ID)))
+		stored, err := s.loadWorkflow(t.Context(), "ws", workflow.ID)
+		require.NoError(t, err)
+		require.Equal(t, wantPage, stored.SourcePage, "poll %d", index+1)
 	}
 	count, err := s.db.NewSelect().Model((*runRecord)(nil)).Where("workflow_id = ?", workflow.ID).Count(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, 11, count)
+	runs, err := s.Runs(t.Context(), actor, "ws", workflow.ID)
+	require.NoError(t, err)
+	ids := make([]string, 0, len(runs))
+	for _, run := range runs {
+		ids = append(ids, run.Source["id"].(string))
+	}
+	require.ElementsMatch(t, []string{"101", "102", "103", "104", "105", "106", "107", "108", "109", "110", "201"}, ids)
 }
 
 func TestDeletedConnectionCannotBeSavedFromStaleEditor(t *testing.T) {
 	s, actor := workflowTestService(t, nil)
-	connection, err := s.SaveConnection(t.Context(), actor, "ws", "Private releases", "github-secret-token")
+	connection, err := s.SaveCredential(t.Context(), actor, "ws", WorkflowCredentialRequest{Name: "Private releases", Kind: "github", Token: "github-secret-token"})
 	require.NoError(t, err)
 	workflow := saveTestWorkflow(t, s, actor, nil)
 	require.NoError(t, s.DeleteConnection(t.Context(), actor, "ws", connection.ID))
@@ -441,8 +431,32 @@ func TestSourceAdmitsAvailableCapacityAndKeepsRemainingEvents(t *testing.T) {
 	count, err := s.db.NewSelect().Model((*runRecord)(nil)).Count(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, 1000, count)
+	var first []runRecord
+	require.NoError(t, s.db.NewSelect().Model(&first).Where("workflow_id = ? AND id NOT LIKE ?", workflow.ID, "existing-%").Scan(t.Context()))
+	require.Len(t, first, 1)
+	var firstSource map[string]any
+	require.NoError(t, json.Unmarshal([]byte(first[0].SourceJSON), &firstSource))
+	require.Equal(t, "two", firstSource["id"], "admission traverses this feed oldest first")
+	var events []eventRecord
+	require.NoError(t, s.db.NewSelect().Model(&events).Where("workflow_id = ?", workflow.ID).Scan(t.Context()))
+	require.Len(t, events, 1)
+	// SHA-256 of the canonical source identity ["rss","two"], independent of sourceEventKey.
+	require.Equal(t, "5af4521e150129048ebce2907a9eead3ee415b95b68d02c654339ae23a6e0e21", events[0].EventKey)
 	_, err = s.db.NewUpdate().Model((*runRecord)(nil)).Set("state = ?", StateCancelled).Where("id = ?", "existing-0").Exec(t.Context())
 	require.NoError(t, err)
+	poll()
+	count, err = s.db.NewSelect().Model((*runRecord)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1001, count)
+	var admitted []runRecord
+	require.NoError(t, s.db.NewSelect().Model(&admitted).Where("workflow_id = ? AND id NOT LIKE ?", workflow.ID, "existing-%").Scan(t.Context()))
+	ids := make([]string, 0, len(admitted))
+	for _, run := range admitted {
+		var source map[string]any
+		require.NoError(t, json.Unmarshal([]byte(run.SourceJSON), &source))
+		ids = append(ids, source["id"].(string))
+	}
+	require.ElementsMatch(t, []string{"one", "two"}, ids)
 	poll()
 	count, err = s.db.NewSelect().Model((*runRecord)(nil)).Count(t.Context())
 	require.NoError(t, err)
@@ -485,6 +499,8 @@ func TestExpiredWaitResumesOnceAfterRestart(t *testing.T) {
 	_, err = s.db.NewUpdate().Model((*runRecord)(nil)).Set("results_json = ?, wake_at = ?", string(results), time.Now().UTC().Add(-time.Minute)).Where("id = ?", run.ID).Exec(t.Context())
 	require.NoError(t, err)
 	restarted := NewService(s.db, s.actions, s.encryptor)
+	// A restarted worker can sweep due timers with the optional notification service unset.
+	require.NoError(t, restarted.HandleJob(t.Context(), jobregistry.TypeWorkflowSweep, "{}"))
 	for range 4 {
 		runJob(t, restarted, run.ID)
 	}
@@ -650,23 +666,4 @@ func TestFilterDistinguishesNullFromMissingThroughSavedExecution(t *testing.T) {
 		require.Equal(t, StateSucceeded, result.State, result.Error)
 		require.Equal(t, true, result.Steps[0].Output["matched"])
 	})
-}
-
-func TestExpiredApprovalHasOneCommittedFailureOutcome(t *testing.T) {
-	s, actor := workflowTestService(t, nil)
-	recorder := &telemetry.MemoryRecorder{}
-	s.SetTelemetry(recorder)
-	workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "review", Kind: KindApproval, Inputs: map[string]Value{"publication_id": literal("post-1")}}})
-	run, err := s.Start(t.Context(), actor, "ws", workflow.ID, ModeLive, map[string]any{}, workflow.Revision)
-	require.NoError(t, err)
-	_, err = s.db.NewUpdate().Model((*runRecord)(nil)).Set("state = ?, created_at = ?", StateApproval, time.Now().Add(-MaxRunAge-time.Hour)).Where("id = ?", run.ID).Exec(t.Context())
-	require.NoError(t, err)
-	require.NoError(t, s.HandleJob(t.Context(), jobregistry.TypeWorkflowSweep, "{}"))
-	require.NoError(t, s.HandleJob(t.Context(), jobregistry.TypeWorkflowSweep, "{}"))
-	final, err := s.GetRun(t.Context(), actor, "ws", run.ID)
-	require.NoError(t, err)
-	require.Equal(t, StateFailed, final.State)
-	require.Len(t, recorder.Events, 1)
-	require.Equal(t, telemetry.EventWorkflowRunFinished, recorder.Events[0].Name)
-	require.Equal(t, StateFailed, recorder.Events[0].Properties["outcome"])
 }

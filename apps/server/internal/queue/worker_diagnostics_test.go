@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -176,7 +178,11 @@ func TestWorkerPanicGuardReportsOriginalStack(t *testing.T) {
 	reporter := sink.reporter(t)
 	worker := NewWorker(db, "worker-diag-panic", time.Hour, nil, nil, stubStorage{})
 	worker.SetDiagnosticsReporter(reporter)
+	// The fake executor records the call site of its own panic statement. The
+	// worker calls it synchronously, so the capture is local and race-free.
+	panicFile, panicLine := "", 0
 	worker.executors[jobregistry.ExecuteRefreshToken] = func(context.Context, *models.Job) error {
+		_, panicFile, panicLine, _ = runtime.Caller(0)
 		panic("simulated executor panic")
 	}
 
@@ -193,4 +199,18 @@ func TestWorkerPanicGuardReportsOriginalStack(t *testing.T) {
 	require.Equal(t, diagnostics.CodeWorkerPanic, reports[0].ErrorCode)
 	require.NotEmpty(t, reports[0].Frames, "panics must preserve the original failure location")
 	require.NotContains(t, reports[0].Frames[0].Module, "simulated")
+
+	// The reported stack must locate the panicking executor itself, not a stack
+	// taken later at the failure handler, which also contains this test.
+	require.NotZero(t, panicLine, "the fake executor must capture its panic call site")
+	require.NotEmpty(t, panicFile)
+	panickingFrame := false
+	for _, frame := range reports[0].Frames {
+		if frame.Line == panicLine+1 && strings.HasSuffix(frame.Module, filepath.Base(panicFile)) &&
+			strings.Contains(frame.Function, "TestWorkerPanicGuardReportsOriginalStack") {
+			panickingFrame = true
+			break
+		}
+	}
+	require.True(t, panickingFrame, "expected a frame at the panicking executor's source line %d in %s, got %+v", panicLine+1, filepath.Base(panicFile), reports[0].Frames)
 }

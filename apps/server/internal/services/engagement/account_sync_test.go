@@ -196,6 +196,27 @@ func TestRuntimeEngagementRegistrationAlsoCollectsMentions(t *testing.T) {
 	count, err := s.db.NewSelect().Model((*models.Job)(nil)).Where("type=?", jobregistry.TypeEngagementAccountSync).Count(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, 1, count, "the OAuth runtime registration seam must enable activity without a restart")
+
+	// Registration must actually collect activity, not only queue it: execute
+	// the queued account sync under its durable lease generation and read the
+	// mention back.
+	var job models.Job
+	require.NoError(t, s.db.NewSelect().Model(&job).Where("type=? AND status='pending'", jobregistry.TypeEngagementAccountSync).Scan(t.Context()))
+	job.Status, job.Attempts, job.LeaseGeneration, job.LockedAt = "processing", 1, 1, time.Now().UTC()
+	_, err = s.db.NewUpdate().Model(&job).
+		Column("status", "attempts", "lease_generation", "locked_at").WherePK().Exec(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, s.HandleJob(
+		providerwrite.WithJobExecution(t.Context(), job.ID, job.Attempts, job.LockedAt, job.LeaseGeneration),
+		job.Type, job.Payload,
+	))
+
+	page, err := s.ListEngagement(t.Context(), Actor{UserID: "u"}, Query{WorkspaceID: "w", Kind: "mention"})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1)
+	require.NotNil(t, page.Items[0].Subject)
+	require.Equal(t, "runtime", page.Items[0].Subject.RemoteID)
+	require.Equal(t, "New instance mention", page.Items[0].Body)
 }
 
 func TestMentionUnderNonRootPostRetainsExistingCommentIdentity(t *testing.T) {

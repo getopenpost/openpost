@@ -172,7 +172,7 @@ describe('command history', () => {
 				timelineStore._addItem(videoItem({ id: crypto.randomUUID(), from: i * 1000 }));
 			});
 		}
-		expect(commandHistory.undoStack.length).toBeLessThanOrEqual(100);
+		expect(commandHistory.undoStack).toHaveLength(100);
 	});
 });
 

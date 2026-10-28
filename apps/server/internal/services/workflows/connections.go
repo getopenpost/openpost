@@ -29,9 +29,6 @@ func (s *Service) Connections(ctx context.Context, actor workspaceaccess.ActorFa
 	}
 	return result, nil
 }
-func (s *Service) SaveConnection(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, name, token string) (Connection, error) {
-	return s.SaveCredential(ctx, actor, workspaceID, WorkflowCredentialRequest{Name: name, Kind: "github", Token: token})
-}
 func (s *Service) SaveCredential(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID string, input WorkflowCredentialRequest) (Connection, error) {
 	if _, err := s.authorize(ctx, actor, workspaceID, workspaceaccess.LevelAdminister); err != nil {
 		return Connection{}, err

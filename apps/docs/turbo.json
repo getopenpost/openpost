@@ -19,7 +19,12 @@
         "$TURBO_ROOT$/scripts/generate-social-images.mjs",
         "$TURBO_ROOT$/scripts/social-images/render.mjs",
         "$TURBO_ROOT$/scripts/sync-assets.mjs",
-        "$TURBO_ROOT$/scripts/posthog-source-maps.ts"
+        "$TURBO_ROOT$/scripts/posthog-source-maps.ts",
+        "$TURBO_ROOT$/scripts/cli-option.mjs",
+        "$TURBO_ROOT$/scripts/report-problems.mjs",
+        "$TURBO_ROOT$/scripts/public-agent-discovery.mjs",
+        "$TURBO_ROOT$/config/public-brand.json",
+        "$TURBO_ROOT$/apps/server/internal/api/handlers/mcp_server_card_base.json"
       ],
       "passThroughEnv": ["POSTHOG_PERSONAL_API_KEY"],
       "outputs": ["out/**"],
@@ -38,7 +43,8 @@
         "OPENPOST_RELEASE_VERSION",
         "GITHUB_SHA",
         "GITHUB_RUN_ID",
-        "CF_PAGES_COMMIT_SHA"
+        "CF_PAGES_COMMIT_SHA",
+        "GITHUB_REF_NAME"
       ]
     }
   }

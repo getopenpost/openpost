@@ -72,6 +72,10 @@ describe('parseNumeric', () => {
 		expect(parseNumeric('   ')).toBeNull();
 		expect(parseNumeric('abc')).toBeNull();
 		expect(parseNumeric('12px')).toBeNull();
+		// Number() accepts these spellings, so the finite guard must reject them.
+		expect(parseNumeric('Infinity')).toBeNull();
+		expect(parseNumeric('-Infinity')).toBeNull();
+		expect(parseNumeric('NaN')).toBeNull();
 		expect(parseNumeric('3.5')).toBe(3.5);
 		expect(parseNumeric('-12')).toBe(-12);
 	});

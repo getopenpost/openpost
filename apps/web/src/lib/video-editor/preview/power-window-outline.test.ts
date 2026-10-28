@@ -24,9 +24,14 @@ describe('powerWindowBoundaryPoints', () => {
 	});
 
 	it('compensates the shader aspect scaling on X', () => {
-		const { outer } = powerWindowBoundaryPoints(DEFAULTS, 2);
-		expect(outer[0]!.x).toBeCloseTo(0.75, 6);
-		expect(outer[0]!.y).toBeCloseTo(0.5, 6);
+		const { outer } = powerWindowBoundaryPoints(
+			{ ...DEFAULTS, sizeX: 0.8, sizeY: 0.2, rotation: 90 },
+			2
+		);
+		expect(outer[0]!.x).toBeCloseTo(0.5, 6);
+		expect(outer[0]!.y).toBeCloseTo(1.3, 6);
+		expect(outer[12]!.x).toBeCloseTo(0.45, 6);
+		expect(outer[12]!.y).toBeCloseTo(0.5, 6);
 	});
 
 	it('rotates the boundary with the window rotation', () => {

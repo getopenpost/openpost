@@ -50,6 +50,7 @@ func TestScheduleRequiresMatchingReviewedPublication(t *testing.T) {
 			r, err = s.GetRun(t.Context(), actor, "ws", r.ID)
 			require.NoError(t, err)
 			require.Equal(t, StateFailed, r.State)
+			require.Equal(t, "schedule requires approval of this publication and revision in this run", r.Error)
 			require.Zero(t, calls)
 		})
 	}
@@ -87,8 +88,24 @@ func TestHTTPRejectsInlineCredentialsBeforeSavingAndResolvedDispatch(t *testing.
 			}
 			_, err := s.Save(t.Context(), actor, "ws", "", SaveRequest{Name: "Secret", Definition: Definition{Schema: 1, Source: Source{Kind: "manual"}, Steps: []Step{{ID: "http", Kind: KindHTTP, Inputs: bindings}}}})
 			assert.ErrorContains(t, err, "Connections")
-			_, err = prepareHTTPRequest(t.Context(), "key", inputs)
-			assert.ErrorContains(t, err, "Connections")
+			resolved := map[string]Value{}
+			for k := range inputs {
+				resolved[k] = reference("source." + k)
+			}
+			workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "http", Kind: KindHTTP, Inputs: resolved}})
+			calls := 0
+			s.client = &http.Client{Transport: responseTransport(func(*http.Request) (*http.Response, error) {
+				calls++
+				return nil, errors.New("inline credential request must not dispatch")
+			})}
+			run, err := s.Start(t.Context(), actor, "ws", workflow.ID, ModeLive, inputs, workflow.Revision)
+			require.NoError(t, err)
+			runJob(t, s, run.ID)
+			final, err := s.GetRun(t.Context(), actor, "ws", run.ID)
+			require.NoError(t, err)
+			require.Equal(t, StateFailed, final.State)
+			require.Contains(t, final.Error, "Connections")
+			require.Zero(t, calls)
 		})
 	}
 }

@@ -43,7 +43,7 @@ const callbacks = () => ({
 });
 
 describe('growth profile card groups', () => {
-	it('exposes the reason chips as a named group', async () => {
+	it('exposes the reason chips and follower counts as named groups', async () => {
 		const screen = await render(GrowthProfileCard, {
 			recommendation: rec(),
 			...callbacks()
@@ -52,15 +52,8 @@ describe('growth profile card groups', () => {
 		const group = screen.getByRole('group', { name: 'Reasons' });
 		await expect.element(group).toBeVisible();
 		await expect.element(group.getByText('Follows you')).toBeVisible();
-	});
 
-	it('exposes the follower counts as a named group', async () => {
-		const screen = await render(GrowthProfileCard, {
-			recommendation: rec(),
-			...callbacks()
-		});
-
-		const group = screen.getByRole('group', { name: /100 followers, 50 following/ });
-		await expect.element(group).toBeVisible();
+		const counts = screen.getByRole('group', { name: /100 followers, 50 following/ });
+		await expect.element(counts).toBeVisible();
 	});
 });

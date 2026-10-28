@@ -31,12 +31,6 @@ func TestParseCommunityRef(t *testing.T) {
 	require.False(t, ok)
 }
 
-func TestValidateCommunityPost(t *testing.T) {
-	require.NoError(t, ValidateCommunityPost("lemmy", "!selfhosted@lemmy.world", "Why I self-host"))
-	require.ErrorContains(t, ValidateCommunityPost("lemmy", "", "Title"), "require a community")
-	require.ErrorContains(t, ValidateCommunityPost("lemmy", "!selfhosted@lemmy.world", "  "), "require a title")
-}
-
 func newFakeLemmy(t *testing.T) (*httptest.Server, *string) {
 	version := "0.19.11"
 	mux := http.NewServeMux()

@@ -17,12 +17,15 @@ describe("platform-text cross-language conformance", () => {
   });
 
   it("keeps every shared platform limit aligned with the shared fixture", () => {
+    expect(Object.keys(fixtures.limits).length).toBeGreaterThan(0);
+    const limits = new Map(Object.entries(PLATFORM_LIMITS));
     for (const [platform, charLimit] of Object.entries(fixtures.limits)) {
-      expect(PLATFORM_LIMITS[platform as keyof typeof PLATFORM_LIMITS].charLimit).toBe(charLimit);
+      expect(limits.get(platform)?.charLimit).toBe(charLimit);
     }
   });
 
   it("counts the shared fixture inputs as the Go implementation must", () => {
+    expect(fixtures.counts.length).toBeGreaterThan(0);
     for (const { platform, text, expected } of fixtures.counts) {
       expect(countPlatformText(platform, text)).toBe(expected);
     }

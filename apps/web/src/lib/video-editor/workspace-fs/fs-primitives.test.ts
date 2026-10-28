@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { openBlobWriter, writeJsonAtomic } from './fs-primitives';
-import { __resetKeyLocksForTesting } from './with-key-lock';
 
 describe('workspace blob writer', () => {
 	it('keeps one streaming writer per path until close or abort', async () => {
-		__resetKeyLocksForTesting();
 		const write = vi.fn(async () => undefined);
 		const close = vi.fn(async () => undefined);
 		const abort = vi.fn(async () => undefined);

@@ -29,7 +29,9 @@ function runtime() {
 	const removedSources: Array<{ mediaId: string; fileName: string }> = [];
 	const invalidated: string[] = [];
 	const published: MediaMetadata[] = [];
+	const events: string[] = [];
 	const calls = {
+		events,
 		writtenSources,
 		writtenThumbnails,
 		updates,
@@ -84,9 +86,13 @@ function runtime() {
 			calls.removedSources.push({ mediaId, fileName });
 		},
 		invalidate: async (mediaId) => {
+			calls.events.push('invalidate');
 			calls.invalidated.push(mediaId);
 		},
-		publish: (restored) => calls.published.push(restored)
+		publish: (restored) => {
+			calls.events.push('publish');
+			calls.published.push(restored);
+		}
 	};
 	return {
 		calls,
@@ -186,6 +192,7 @@ describe('media source recovery', () => {
 		expect(testRuntime.calls.writtenThumbnails).toHaveLength(1);
 		expect(testRuntime.calls.invalidated).toEqual(['media']);
 		expect(testRuntime.calls.published).toEqual([restored]);
+		expect(testRuntime.calls.events).toEqual(['invalidate', 'publish']);
 	});
 
 	it('rejects a replacement with a different media kind before persistence', async () => {

@@ -2,13 +2,9 @@ import {
 	MEDIA_IMAGE_MAX_BYTES,
 	MEDIA_VIDEO_MAX_BYTES,
 	inferredMediaMime,
-	mediaFileSignature,
 	selectMediaInputFiles,
 	type MediaInputRejectionReason
 } from '$lib/media-input';
-
-/** @deprecated Use MEDIA_IMAGE_MAX_BYTES from '$lib/media-input'. */
-export const MAX_PASTED_IMAGE_BYTES = MEDIA_IMAGE_MAX_BYTES;
 
 export interface PasteMediaUploadTarget {
 	workspaceId: string;
@@ -71,9 +67,6 @@ export function pasteMediaTargetKey(target: PasteMediaUploadTarget): string {
 	return `${target.workspaceId}\u0000${target.postKey}\u0000${target.variantAccountId ?? ''}`;
 }
 
-/** @deprecated Use mediaFileSignature from '$lib/media-input'. */
-export const pastedImageFileSignature = mediaFileSignature;
-
 export function availablePasteMediaSlots(
 	persistedCount: number,
 	pendingCount: number,
@@ -96,14 +89,6 @@ export function firstFailedPasteMediaUpload(
 	items: Iterable<PasteMediaUploadItem>
 ): PasteMediaUploadItem | undefined {
 	return [...items].find((item) => item.status === 'failed');
-}
-
-export function acceptedPastedImageFiles(
-	items: Iterable<ClipboardFileItem>,
-	capacity: number,
-	existingSignatures: Iterable<string> = []
-): File[] {
-	return selectPastedImageFiles(items, capacity, existingSignatures).accepted;
 }
 
 export function selectPastedImageFiles(

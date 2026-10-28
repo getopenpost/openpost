@@ -39,10 +39,21 @@ test("public crawler policy explicitly permits search, AI input, and model train
       /use=reference/u,
       `${surface} must use supported Content Signals fields only`,
     );
-    assert.match(
-      headers,
-      /\/robots\.txt[\s\S]*ai-train=yes/u,
-      `${surface} must emit the response header`,
+    const headerBlocks = new Map();
+    let currentPath;
+    for (const line of headers.split("\n")) {
+      if (line.startsWith("/")) {
+        currentPath = line.trim();
+        headerBlocks.set(currentPath, []);
+      } else if (currentPath && /^\s+\S/u.test(line)) {
+        headerBlocks.get(currentPath).push(line.trim());
+      }
+    }
+    assert.ok(
+      headerBlocks
+        .get("/robots.txt")
+        ?.includes("Content-Signal: search=yes, ai-input=yes, ai-train=yes"),
+      `${surface} /robots.txt must emit its own response header`,
     );
   }
 });

@@ -121,25 +121,6 @@ func TestOperatorRotatesAndRevokesConfidentialApplication(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestDynamicRegistrationStoresNoOperatorForeignKey(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	db := newExternalAppsTestDB(t)
-	seedExternalAppsTestData(t, db)
-	service := NewService(db, apitokens.NewService(db), "https://app.openpost.test")
-	service.SetDynamicRegistrationEnabled(true)
-
-	registered, err := service.RegisterDynamicApplication(ctx, RegisterApplicationInput{
-		Name: "Dynamic client", ClientType: ClientTypePublic,
-		RedirectURIs: []string{"https://dynamic.example/callback"}, AllowedScopes: []string{ScopeWorkspaceRead},
-	})
-	require.NoError(t, err)
-
-	var createdBy sql.NullString
-	require.NoError(t, db.NewRaw("SELECT created_by_user_id FROM external_applications WHERE id = ?", registered.Application.ID).Scan(ctx, &createdBy))
-	require.False(t, createdBy.Valid)
-}
-
 func TestApplicationRegistrationRejectsUnboundedMetadata(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

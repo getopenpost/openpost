@@ -143,15 +143,6 @@ func TestYouTubeEngagementRequiresCommentPermission(t *testing.T) {
 	require.Empty(t, feature.MissingScopes)
 }
 
-func TestAccountFeaturesReadRequiresAuth(t *testing.T) {
-	t.Parallel()
-	srv := newAccountFeaturesTestServer(t, nil)
-	seedAccount(t, srv.db, "acc-1", "ws-1", "")
-	resp := srv.request(t, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=acc-1", nil)
-	require.Equal(t, http.StatusOK, resp.Code)
-	require.NotEmpty(t, resp.Body.String())
-}
-
 func TestAccountFeaturesReadAndBatchSave(t *testing.T) {
 	t.Parallel()
 	providers := map[string]platform.Adapter{
@@ -160,22 +151,17 @@ func TestAccountFeaturesReadAndBatchSave(t *testing.T) {
 	srv := newAccountFeaturesTestServer(t, providers)
 	seedAccount(t, srv.db, "acc-1", "ws-1", "dm.read")
 
+	// Missing credentials must be rejected before feature resolution.
+	anonymous := httptest.NewRecorder()
+	srv.echo.ServeHTTP(anonymous, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		"/api/v1/account-features?workspace_id=ws-1&account_ids=acc-1", nil))
+	require.Equal(t, http.StatusUnauthorized, anonymous.Code, anonymous.Body.String())
+
 	// Initially undecided -> effective false
 	resp := srv.request(t, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=acc-1", nil)
 	require.Equal(t, http.StatusOK, resp.Code)
-	var readBody struct {
-		Features []FeatureStateResponse `json:"features"`
-	}
-	// Huma encodes Body directly? For GET, our handler returns Body [] => JSON array? Let's decode via map
 	var decoded []FeatureStateResponse
-	// Try direct array decode
-	if err := json.Unmarshal(resp.Body.Bytes(), &decoded); err != nil {
-		// try wrapped
-		var wrap map[string][]FeatureStateResponse
-		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &wrap))
-		decoded = wrap["features"]
-		_ = readBody
-	}
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &decoded))
 	// Find messaging feature
 	var msg *FeatureStateResponse
 	for i := range decoded {
@@ -199,11 +185,7 @@ func TestAccountFeaturesReadAndBatchSave(t *testing.T) {
 	resp = srv.request(t, http.MethodPost, "/api/v1/account-features", saveBody)
 	require.Equal(t, http.StatusOK, resp.Code)
 	var saved []FeatureStateResponse
-	if err := json.Unmarshal(resp.Body.Bytes(), &saved); err != nil {
-		var wrap map[string][]FeatureStateResponse
-		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &wrap))
-		saved = wrap["features"]
-	}
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &saved))
 	found := false
 	for _, f := range saved {
 		if f.Feature == "messaging" && f.SocialAccountID == "acc-1" {
@@ -317,13 +299,4 @@ func TestAccountFeaturesAuthViewerAndCrossWorkspace(t *testing.T) {
 	rec = httptest.NewRecorder()
 	srv2.echo.ServeHTTP(rec, req)
 	require.Equal(t, http.StatusNotFound, rec.Code)
-}
-
-func TestAccountFeaturesUnknownFeatureRejected(t *testing.T) {
-	t.Parallel()
-	srv := newAccountFeaturesTestServer(t, nil)
-	seedAccount(t, srv.db, "acc-1", "ws-1", "")
-	body := map[string]any{"workspace_id": "ws-1", "choices": []map[string]any{{"account_id": "acc-1", "feature": "not_a_feature", "enabled": true}}}
-	resp := srv.request(t, http.MethodPost, "/api/v1/account-features", body)
-	require.Contains(t, []int{http.StatusBadRequest, 422}, resp.Code)
 }

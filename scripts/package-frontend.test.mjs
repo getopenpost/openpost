@@ -8,7 +8,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { artifactManifest, packageFrontend, shouldCopyFrontendPath } from "./package-frontend.mjs";
+import { artifactManifest, packageFrontend } from "./package-frontend.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const imageResources = [
@@ -146,12 +146,37 @@ test("atomically mirrors the complete artifact and removes stale files", async (
     destinationDirectory: destination,
   });
 
+  const paths = [
+    "app-routes.json",
+    "assets/app.js",
+    "image-editor-models/bundle-manifest.json",
+    "image-editor-models/chunk.bin",
+    "image-editor-models/fixture.onnx",
+    "image-editor-models/resources.json",
+    "index.html",
+  ];
+  const files = (await readdir(destination, { recursive: true, withFileTypes: true }))
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.relative(destination, path.join(entry.parentPath, entry.name)))
+    .sort();
+  assert.deepEqual(files, paths);
+  for (const file of paths) {
+    assert.deepEqual(
+      await readFile(path.join(destination, file)),
+      await readFile(path.join(source, file)),
+    );
+  }
+  assert.equal(
+    await readFile(path.join(destination, "index.html"), "utf8"),
+    "<!doctype html><h1>OpenPost</h1>\n",
+  );
+  assert.equal(
+    await readFile(path.join(destination, "assets/app.js"), "utf8"),
+    "console.log('openpost');\n",
+  );
+  assert.equal((await stat(path.join(destination, "assets/app.js"))).mode & 0o777, 0o755);
   assert.deepEqual(await artifactManifest(destination), await artifactManifest(source));
   await assert.rejects(readFile(path.join(destination, "stale.js")), /ENOENT/);
-  const executable = (await artifactManifest(destination)).find(
-    (entry) => entry.path === "assets/app.js",
-  );
-  assert.equal(executable?.mode, 0o755);
   const [sourceModel, packagedModel] = await Promise.all([
     stat(path.join(source, "image-editor-models", "fixture.onnx")),
     stat(path.join(destination, "image-editor-models", "fixture.onnx")),
@@ -206,17 +231,6 @@ test("materializes immutable assets omitted from a cached frontend build", async
   assert.equal(clientModel.ino, canonicalModel.ino);
   assert.equal(buildModel.ino, canonicalModel.ino);
   assert.equal(packagedModel.ino, canonicalModel.ino);
-});
-
-test("staging copy omits immutable assets before they are linked", () => {
-  const source = "/work/openpost/frontend/build";
-  assert.equal(shouldCopyFrontendPath(source, source), true);
-  assert.equal(shouldCopyFrontendPath(source, path.join(source, "assets", "app.js")), true);
-  assert.equal(shouldCopyFrontendPath(source, path.join(source, "image-editor-models")), false);
-  assert.equal(
-    shouldCopyFrontendPath(source, path.join(source, "image-editor-models", "model.onnx")),
-    false,
-  );
 });
 
 test("rejects overlapping source and destination paths", async (t) => {

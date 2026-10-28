@@ -77,34 +77,68 @@ func issueTestNonce(t *testing.T, service *Service) IssuedNonce {
 	return issued
 }
 
-func TestConnectionNonceExpiryReplayBadSecretAndCrossRoleConsumption(t *testing.T) {
+// acceptCredential delivers a signed connection request that carries the
+// credential through the production ingress path with a distinct provider event
+// identity.
+func acceptCredential(t *testing.T, service *Service, credential, providerEventID string, occurredAt time.Time) (AcceptResult, error) {
+	t.Helper()
+	normalizer := NormalizeFunc(func([]byte) (NormalizedEvent, error) {
+		return NormalizedEvent{
+			ProviderEventID: providerEventID, Kind: "connection.requested",
+			WorkspaceID: "workspace-1", SubjectReference: "chat-42", OccurredAt: occurredAt,
+			ConnectionCredential: credential,
+		}, nil
+	})
+	return service.Accept(t.Context(), AcceptRequest{
+		Provider: "telegram", Body: []byte(`{"update_id":"` + providerEventID + `"}`),
+		Normalizer: normalizer,
+		Verifier:   SecretHeaderVerifier{HeaderName: "X-Bot-Secret", Secret: testWebhookSecret},
+		Headers:    http.Header{"X-Bot-Secret": []string{testWebhookSecret}},
+	})
+}
+
+func TestAcceptRejectsExpiredReplayedAndForeignSignedConnectionCredentials(t *testing.T) {
 	web, worker, now := newBotIngressServices(t)
 	ctx := t.Context()
 
+	// Control: a fresh credential is accepted exactly once through the real
+	// ingress path, consuming it on the other database handle.
 	issued := issueTestNonce(t, web)
-	consumed, err := worker.ConsumeNonce(ctx, issued.Credential)
+	first, err := acceptCredential(t, worker, issued.Credential, "provider-connect-1", now)
 	require.NoError(t, err)
+	require.False(t, first.Duplicate)
+	var consumed models.BotConnectionNonce
+	require.NoError(t, web.db.NewSelect().Model(&consumed).Where("id = ?", issued.ID).Scan(ctx))
 	require.Equal(t, "workspace-1", consumed.WorkspaceID)
-	_, err = web.ConsumeNonce(ctx, issued.Credential)
-	require.ErrorIs(t, err, ErrNonceConsumed)
+	require.False(t, consumed.ConsumedAt.IsZero())
 
+	// Replay: a different provider event carrying the consumed credential is
+	// rejected and persists nothing, so event dedupe cannot mask the rejection.
+	_, err = acceptCredential(t, web, issued.Credential, "provider-connect-2", now)
+	require.ErrorIs(t, err, ErrNonceConsumed)
+	replayed, err := web.db.NewSelect().Model((*models.BotIngressEvent)(nil)).
+		Where("provider = ? AND provider_event_id = ?", "telegram", "provider-connect-2").Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, replayed)
+
+	// Expiry: the same credential is rejected once its signed lifetime ends.
 	expired := issueTestNonce(t, web)
 	worker.SetNowForTest(func() time.Time { return now.Add(ConnectionNonceTTL + time.Second) })
-	_, err = worker.ConsumeNonce(ctx, expired.Credential)
+	_, err = acceptCredential(t, worker, expired.Credential, "provider-connect-3", now.Add(ConnectionNonceTTL+time.Second))
 	require.ErrorIs(t, err, ErrNonceExpired)
 
-	badSecret := New(worker.db, []byte("different-private-key"))
-	badSecret.SetNowForTest(func() time.Time { return now })
-	_, err = badSecret.ConsumeNonce(ctx, expired.Credential)
+	// Foreign signing key: the credential is not authenticatable and neither the
+	// error nor the stored row may echo signing or credential material.
+	foreign := New(worker.db, []byte("different-private-key"))
+	foreign.SetNowForTest(func() time.Time { return now })
+	_, err = acceptCredential(t, foreign, expired.Credential, "provider-connect-4", now)
 	require.ErrorIs(t, err, ErrInvalidNonce)
 	require.NotContains(t, err.Error(), testSigningKey)
 	require.NotContains(t, err.Error(), expired.Credential)
 
-	var stored models.BotConnectionNonce
-	require.NoError(t, web.db.NewSelect().Model(&stored).Where("id = ?", issued.ID).Scan(ctx))
-	require.Len(t, stored.NonceHash, 64)
-	require.NotContains(t, fmt.Sprintf("%+v", stored), issued.Credential)
-	require.NotContains(t, fmt.Sprintf("%+v", stored), testSigningKey)
+	require.Len(t, consumed.NonceHash, 64)
+	require.NotContains(t, fmt.Sprintf("%+v", consumed), issued.Credential)
+	require.NotContains(t, fmt.Sprintf("%+v", consumed), testSigningKey)
 }
 
 func TestAcceptResultReportsBodyAuthenticationHonestly(t *testing.T) {
@@ -190,8 +224,9 @@ func TestSignedIngressVerifiesBeforeNormalizationAndQueuesOneSafeReference(t *te
 	_, err = web.Accept(t.Context(), badRequest)
 	require.ErrorIs(t, err, ErrInvalidSignature)
 	require.Equal(t, int32(2), normalizeCalls.Load(), "a bad signature must be rejected before normalization")
-	require.Equal(t, CodeInvalidSignature, CodeOf(err))
-	require.Equal(t, http.StatusUnauthorized, HTTPStatusOf(err))
+	var safe *SafeError
+	require.ErrorAs(t, err, &safe)
+	require.Equal(t, CodeInvalidSignature, safe.Code())
 	require.NotContains(t, err.Error(), "wrong-secret")
 	require.NotContains(t, err.Error(), testWebhookSecret)
 

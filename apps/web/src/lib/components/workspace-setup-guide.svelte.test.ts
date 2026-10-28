@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { workspaceSettingsQueryKeys } from '@openpost/query-catalog';
 import { render } from 'vitest-browser-svelte';
 import { client } from '$lib/api/client';
 import { queryClient } from '$lib/query/client';
@@ -15,7 +15,7 @@ describe('WorkspaceSetupGuide', () => {
 		queryClient.clear();
 	});
 
-	it('shows server-projected progress and only its authorized next action', async () => {
+	it('shows the server-projected progress and action while reusing cached reads', async () => {
 		mocks.get.mockResolvedValue({
 			data: {
 				visible: true,
@@ -58,6 +58,8 @@ describe('WorkspaceSetupGuide', () => {
 			data: {
 				visible: false,
 				activated: true,
+				next_action: 'create_publication',
+				action_href: '/',
 				completed_steps: 3,
 				total_steps: 3,
 				steps: []
@@ -67,6 +69,11 @@ describe('WorkspaceSetupGuide', () => {
 		const screen = await render(WorkspaceSetupGuide, {
 			workspaceID: 'workspace-1'
 		});
+		await expect
+			.poll(
+				() => queryClient.getQueryState(workspaceSettingsQueryKeys.setup('workspace-1'))?.status
+			)
+			.toBe('success');
 		await expect.element(screen.getByTestId('workspace-setup-guide-home')).not.toBeInTheDocument();
 	});
 
@@ -87,6 +94,8 @@ describe('WorkspaceSetupGuide', () => {
 				data: {
 					visible: false,
 					activated: true,
+					next_action: 'create_publication',
+					action_href: '/',
 					completed_steps: 3,
 					total_steps: 3,
 					steps: []
@@ -98,6 +107,14 @@ describe('WorkspaceSetupGuide', () => {
 		});
 		await expect.element(screen.getByTestId('workspace-setup-guide-home')).toBeVisible();
 		ui.refreshWorkspaceSetup();
+		await expect.poll(() => mocks.get).toHaveBeenCalledTimes(2);
+		expect(mocks.get).toHaveBeenNthCalledWith(2, '/workspaces/{id}/setup', {
+			params: { path: { id: 'workspace-1' } },
+			signal: expect.any(AbortSignal)
+		});
+		await expect
+			.poll(() => queryClient.getQueryData(workspaceSettingsQueryKeys.setup('workspace-1')))
+			.toMatchObject({ visible: false, action_href: '/' });
 		await expect.element(screen.getByTestId('workspace-setup-guide-home')).not.toBeInTheDocument();
 	});
 });

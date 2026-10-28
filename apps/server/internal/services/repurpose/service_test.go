@@ -262,6 +262,7 @@ func TestRepurposeAdmissionAndMediaAccess(t *testing.T) {
 	current, err := service.Get(t.Context(), actor, first.ID)
 	require.NoError(t, err)
 	require.Equal(t, StateFailed, current.State)
+	require.Contains(t, current.ErrorMessage, "Workspace access no longer allows", "the failure must name the revoked authority, not an unrelated worker error")
 }
 
 func TestRepurposeTerminalJobFailureCannotOverwriteNewGeneration(t *testing.T) {

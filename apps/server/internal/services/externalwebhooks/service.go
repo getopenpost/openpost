@@ -70,12 +70,6 @@ func NewService(db *bun.DB, encryptor *servicecrypto.TokenEncryptor) *Service {
 	}}
 }
 
-func (s *Service) SetURLValidator(validate func(context.Context, *url.URL) error) {
-	if validate != nil {
-		s.validateURL = validate
-	}
-}
-
 func (s *Service) SetHTTPClient(client *http.Client) {
 	if client != nil {
 		s.httpClient = client

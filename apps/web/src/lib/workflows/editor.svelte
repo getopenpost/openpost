@@ -16,6 +16,7 @@
 		saveWorkflow,
 		publishWorkflow,
 		pauseWorkflow,
+		stopWorkflowReplies,
 		startRun,
 		testNode,
 		sampleSource,
@@ -481,7 +482,7 @@
 			busy = false;
 		}
 	}
-	async function action(kind: 'publish' | 'pause' | 'preview' | 'live' | 'sample') {
+	async function action(kind: 'publish' | 'pause' | 'stop' | 'preview' | 'live' | 'sample') {
 		const parsed = z
 			.instanceof(Object)
 			.refine((value) => !Array.isArray(value))
@@ -506,6 +507,8 @@
 				record = await publishWorkflow(initial.workspace_id, initial.id, record.revision);
 			else if (kind === 'pause')
 				record = await pauseWorkflow(initial.workspace_id, initial.id, record.revision);
+			else if (kind === 'stop')
+				record = await stopWorkflowReplies(initial.workspace_id, initial.id, record.revision);
 			else if (kind === 'sample') {
 				const items = await sampleSource(initial.workspace_id, doc.definition.source);
 				if (items?.length) sample = JSON.stringify(items[0], null, 2);
@@ -613,6 +616,13 @@
 				</DropdownMenu.Root>
 			</div>
 			<div class="flex items-center gap-2">
+				{#if sourceKind === 'comment_received' || record.has_comment_replies}<Button
+						size="sm"
+						variant="outline"
+						disabled={!canAdmin || busy}
+						title={m.workflows_comment_stop_help()}
+						onclick={() => action('stop')}>{m.workflows_comment_stop_all()}</Button
+					>{/if}
 				{#if record.enabled}<Button
 						size="sm"
 						variant="outline"

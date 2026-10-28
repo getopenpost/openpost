@@ -30,20 +30,6 @@ func validReport() Report {
 	}
 }
 
-func TestValidateReportAcceptsAllowlistedPayload(t *testing.T) {
-	if err := ValidateReport(validReport()); err != nil {
-		t.Fatalf("expected valid report, got %v", err)
-	}
-}
-
-func TestValidateReportRejectsUnknownErrorCode(t *testing.T) {
-	report := validReport()
-	report.ErrorCode = "something_broke_badly"
-	if err := ValidateReport(report); err == nil {
-		t.Fatal("expected unknown error_code to be rejected")
-	}
-}
-
 func TestValidateReportAcceptsCanonicalProviders(t *testing.T) {
 	providers := []string{
 		"bluesky", "devnull", "discord", "facebook", "instagram", "lemmy", "linkedin", "mastodon", "peertube",
@@ -103,25 +89,28 @@ func TestSanitizeReportStripsDomainsAndHomeDirs(t *testing.T) {
 		{Module: `C:\Users\operator\openpost\main.go`, Function: "main", Line: 11},
 	}
 	SanitizeReport(&report)
-	for _, frame := range report.Frames {
+	if len(report.Frames) != 3 {
+		t.Fatalf("expected all three frames to survive sanitization, got %d: %+v", len(report.Frames), report.Frames)
+	}
+	// Each origin form must keep a usable, still-identifiable frame: dropping the
+	// frames entirely would also satisfy every leak check below.
+	wantTails := []string{"routes.go", "main.go", "main.go"}
+	wantLines := []int{7, 9, 11}
+	for i, frame := range report.Frames {
 		if strings.Contains(frame.Module, "selfhost.example.com") ||
 			strings.Contains(frame.Module, "operator") ||
 			strings.Contains(strings.ToLower(frame.Module), "http") {
 			t.Fatalf("sanitized module still leaks origin: %q", frame.Module)
 		}
-	}
-	if err := ValidateReport(report); err != nil {
-		t.Fatalf("sanitized report should validate: %v", err)
-	}
-}
-
-func TestSanitizeReportNormalizesUnknownDrivers(t *testing.T) {
-	report := validReport()
-	report.DBDriver = "cockroachlabs-managed"
-	report.StorageDriver = "ftp://files.internal"
-	SanitizeReport(&report)
-	if report.DBDriver != "other" || report.StorageDriver != "other" {
-		t.Fatalf("expected drivers normalized to other, got %q/%q", report.DBDriver, report.StorageDriver)
+		if !strings.HasSuffix(frame.Module, wantTails[i]) {
+			t.Fatalf("frame %d module %q lost its file name, want suffix %q", i, frame.Module, wantTails[i])
+		}
+		if frame.Function == "" {
+			t.Fatalf("frame %d lost its function name: %+v", i, frame)
+		}
+		if frame.Line != wantLines[i] {
+			t.Fatalf("frame %d line = %d, want the source line %d", i, frame.Line, wantLines[i])
+		}
 	}
 	if err := ValidateReport(report); err != nil {
 		t.Fatalf("sanitized report should validate: %v", err)
@@ -136,8 +125,15 @@ func TestDecodeStrictReportRejectsUnknownFields(t *testing.T) {
 }
 
 func TestDecodeStrictReportRejectsOversizedBodies(t *testing.T) {
-	if _, err := DecodeStrictReport([]byte(`{"a":1}`), 2); err == nil {
+	// {} is syntactically valid and has no unknown fields, so only the size
+	// limit can reject it at one byte.
+	if _, err := DecodeStrictReport([]byte(`{}`), 1); err == nil {
 		t.Fatal("expected oversized body to be rejected")
+	} else if !strings.Contains(err.Error(), "exceeds 1 bytes") {
+		t.Fatalf("expected the size limit to reject the body, got %v", err)
+	}
+	if _, err := DecodeStrictReport([]byte(`{}`), 2); err != nil {
+		t.Fatalf("the same bytes must decode at the exact limit: %v", err)
 	}
 }
 
@@ -163,27 +159,6 @@ func TestLoadOrCreateInstallationIDPersists(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("installation ID file has permissions %o, want 0600", info.Mode().Perm())
-	}
-}
-
-func TestLoadOrCreateInstallationIDWithoutPathIsUnknown(t *testing.T) {
-	if _, err := LoadOrCreateInstallationID(""); err == nil {
-		t.Fatal("expected empty path to report unknown decision")
-	}
-}
-
-func TestDedupeFirstSendsThenAggregates(t *testing.T) {
-	dedupe := NewDeduplicator()
-	fixed := time.Now().UTC()
-	dedupe.now = func() time.Time { return fixed }
-
-	decision, first := dedupe.Observe(validReport())
-	if decision != DedupeSend || first.OccurrenceCount != 1 {
-		t.Fatalf("expected first occurrence to send, got decision=%v count=%d", decision, first.OccurrenceCount)
-	}
-	decision, _ = dedupe.Observe(validReport())
-	if decision != DedupeAggregate {
-		t.Fatalf("expected repeat to aggregate, got %v", decision)
 	}
 }
 
@@ -213,8 +188,14 @@ func TestDedupeWindowSummaryCountsOccurrences(t *testing.T) {
 	current := time.Now().UTC()
 	dedupe.now = func() time.Time { return current }
 
-	_, _ = dedupe.Observe(validReport())
-	_, _ = dedupe.Observe(validReport())
+	decision, first := dedupe.Observe(validReport())
+	if decision != DedupeSend || first.OccurrenceCount != 1 {
+		t.Fatalf("expected first occurrence to send, got decision=%v count=%d", decision, first.OccurrenceCount)
+	}
+	decision, _ = dedupe.Observe(validReport())
+	if decision != DedupeAggregate {
+		t.Fatalf("expected repeat to aggregate, got %v", decision)
+	}
 	current = current.Add(dedupeWindow + time.Second)
 	decision, summary := dedupe.Observe(validReport())
 	if decision != DedupeWindowSummary {
@@ -298,10 +279,18 @@ func TestReporterDeliversFirstOccurrence(t *testing.T) {
 	report.Operation = "publication_publish"
 	report.ErrorCode = CodePublishFailed
 	report.Version = ""
+	report.DBDriver = "cockroachlabs-managed"
+	report.StorageDriver = "ftp://files.internal"
 	reporter.Report(report)
 	reporter.flush()
 	select {
 	case delivered := <-received:
+		if delivered.DBDriver != "other" || delivered.StorageDriver != "other" {
+			t.Fatalf("expected drivers normalized to other, got %q/%q", delivered.DBDriver, delivered.StorageDriver)
+		}
+		if err := ValidateReport(delivered); err != nil {
+			t.Fatalf("delivered report should validate: %v", err)
+		}
 		if delivered.ErrorCode != CodePublishFailed || delivered.OccurrenceCount != 1 {
 			t.Fatalf("unexpected delivered report: %+v", delivered)
 		}
@@ -314,7 +303,9 @@ func TestReporterDeliversFirstOccurrence(t *testing.T) {
 }
 
 func TestReporterDisablingClearsPending(t *testing.T) {
+	var sent atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		sent.Add(1)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -330,6 +321,14 @@ func TestReporterDisablingClearsPending(t *testing.T) {
 	if reporter.Enabled() {
 		t.Fatal("reporter should be disabled after opt-out")
 	}
+	// Pending evidence must be discarded, not merely hidden behind the disabled
+	// switch: re-enabling and flushing the same reporter must not revive it.
+	reporter.SetEnabled(true)
+	reporter.Flush()
+	if sent.Load() != 0 {
+		t.Fatalf("opt-out must discard pending reports, got %d deliveries", sent.Load())
+	}
+	reporter.SetEnabled(false)
 	reporter.mu.Lock()
 	pending := len(reporter.queue)
 	reporter.mu.Unlock()

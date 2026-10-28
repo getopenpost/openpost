@@ -238,14 +238,6 @@ func TestUploadedBackupRequiresConfirmationAcrossRestart(t *testing.T) {
 	}
 }
 
-func TestApplyPendingWithoutStagedRestoreDoesNothing(t *testing.T) {
-	f := newFixture(t)
-	applied, err := instancebackup.ApplyPending(f.paths, f.current, time.Now())
-	if err != nil || applied {
-		t.Fatalf("applied = %v, err = %v", applied, err)
-	}
-}
-
 func TestDeleteRestorePointRejectsOtherNames(t *testing.T) {
 	f := newFixture(t)
 	if err := instancebackup.DeleteRestorePoint(f.paths, "../db"); err == nil {

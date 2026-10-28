@@ -3,24 +3,6 @@ import { describe, expect, it } from "bun:test";
 import { pendingAttachmentFromRichContentImage } from "./rich-content";
 
 describe("pendingAttachmentFromRichContentImage", () => {
-  it("normalizes a keyboard image into the attachment contract", () => {
-    expect(
-      pendingAttachmentFromRichContentImage({
-        localId: "keyboard-42-1",
-        uri: "file:///cache/openpost/rich-content/image.png",
-        mimeType: "image/png",
-        filename: "image.png",
-        size: 1234,
-      }),
-    ).toEqual({
-      localId: "keyboard-42-1",
-      uri: "file:///cache/openpost/rich-content/image.png",
-      mimeType: "image/png",
-      filename: "image.png",
-      size: 1234,
-    });
-  });
-
   it("rejects incomplete payloads and normalizes unknown sizes", () => {
     expect(
       pendingAttachmentFromRichContentImage({

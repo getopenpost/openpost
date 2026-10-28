@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { requestDestructiveAction, runDestructiveSequence } from './destructive-action';
+import { requestDestructiveAction } from './destructive-action';
 
 describe('requestDestructiveAction', () => {
 	it('requests confirmation for a normal activation', () => {
@@ -27,32 +27,14 @@ describe('requestDestructiveAction', () => {
 		expect(notify).toHaveBeenCalledWith('Post deleted.', 'success');
 	});
 
-	it('announces a Shift-bypassed failure once without running successful completion', async () => {
+	it('announces a Shift-bypassed failure exactly once and returns its outcome', async () => {
 		const notify = vi.fn();
 		const execute = vi.fn().mockResolvedValue({ ok: false, message: 'Could not delete post.' });
 
-		await requestDestructiveAction({ shiftKey: true }, vi.fn(), execute, notify);
+		const outcome = await requestDestructiveAction({ shiftKey: true }, vi.fn(), execute, notify);
 
 		expect(notify).toHaveBeenCalledWith('Could not delete post.', 'error');
-	});
-});
-
-describe('runDestructiveSequence', () => {
-	it('retries only unfinished targets after a partial failure', async () => {
-		const completed: string[] = [];
-		let failSecondTarget = true;
-		const execute = async (target: string) => {
-			if (target === 'schedule-2' && failSecondTarget) throw new Error('not deleted');
-			completed.push(target);
-		};
-
-		const first = await runDestructiveSequence(['schedule-1', 'schedule-2', 'schedule-3'], execute);
-		expect(first.remaining).toEqual(['schedule-2', 'schedule-3']);
-		expect(completed).toEqual(['schedule-1']);
-
-		failSecondTarget = false;
-		const retry = await runDestructiveSequence(first.remaining, execute);
-		expect(retry).toEqual({ remaining: [] });
-		expect(completed).toEqual(['schedule-1', 'schedule-2', 'schedule-3']);
+		expect(notify).toHaveBeenCalledOnce();
+		expect(outcome).toEqual({ ok: false, message: 'Could not delete post.' });
 	});
 });

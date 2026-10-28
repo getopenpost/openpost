@@ -40,20 +40,12 @@ var _ = []Capability{
 }
 `,
   textLength: `const (
-  xTransformedURLLength = 23
-  mastodonURLLength     = 23
+  XTransformedURLLength = 23
+  MastodonCountedURLLength = 23
 )`,
   youtube: `const YouTubeDescriptionMaxBytes = 5000`,
   devnull: ``,
 };
-
-test("matching sources produce no conformance problems", () => {
-  const problems = platformTextConformanceProblems(
-    parseTypeScriptTextFacts(tsSource),
-    parseGoTextFacts(goSources),
-  );
-  assert.deepEqual(problems, []);
-});
 
 test("a drifted TypeScript limit is reported", () => {
   const ts = parseTypeScriptTextFacts(tsSource.replace("charLimit: 500", "charLimit: 501"));
@@ -63,12 +55,38 @@ test("a drifted TypeScript limit is reported", () => {
 });
 
 test("a drifted Go constant is reported", () => {
-  const go = parseGoTextFacts({
-    ...goSources,
-    youtube: `const YouTubeDescriptionMaxBytes = 4999`,
-  });
-  const problems = platformTextConformanceProblems(parseTypeScriptTextFacts(tsSource), go);
-  assert.ok(problems.some((problem) => problem.includes("YouTube description max bytes")));
+  for (const [file, original, replacement, problems] of [
+    [
+      "youtube",
+      "YouTubeDescriptionMaxBytes = 5000",
+      "YouTubeDescriptionMaxBytes = 4999",
+      [
+        "YouTube description max bytes disagrees: TypeScript 5000 vs Go 4999",
+        "Platform youtube limit disagrees: TypeScript 5000 vs Go 4999",
+      ],
+    ],
+    [
+      "textLength",
+      "XTransformedURLLength = 23",
+      "XTransformedURLLength = 24",
+      ["X transformed URL length disagrees: TypeScript 23 vs Go 24"],
+    ],
+    [
+      "textLength",
+      "MastodonCountedURLLength = 23",
+      "MastodonCountedURLLength = 24",
+      ["Mastodon URL length disagrees: TypeScript 23 vs Go 24"],
+    ],
+  ]) {
+    const go = parseGoTextFacts({
+      ...goSources,
+      [file]: goSources[file].replace(original, replacement),
+    });
+    assert.deepEqual(
+      platformTextConformanceProblems(parseTypeScriptTextFacts(tsSource), go),
+      problems,
+    );
+  }
 });
 
 test("the repository sources currently agree", async () => {

@@ -189,10 +189,6 @@ export const sceneBrowser = {
 		state.referencePalette = null;
 	},
 
-	__setAnalysisForTesting(analysis: SceneAnalysis): void {
-		state.analyses[analysis.mediaId] = analysis;
-	},
-
 	async load(mediaId: string): Promise<void> {
 		if (state.analyses[mediaId] || loadPromises.has(mediaId)) {
 			return loadPromises.get(mediaId);

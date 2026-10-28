@@ -1,4 +1,3 @@
-import { calculateTrimSourceUpdate } from '../utils/trim-utils';
 import { sliceClipFades } from '../../media/clip-fades';
 /**
  * Timeline item edit actions. Every public action runs inside `execute`
@@ -54,11 +53,7 @@ import {
 	buildTextStylePresetTemplate,
 	type TextStylePresetCopy
 } from '../../typography/text-style-presets';
-import {
-	shiftSpeedRampSourceFrames,
-	timelineOffsetToSourceFrame,
-	variableSpeedDurationInFrames
-} from '../source-time-map';
+import { timelineOffsetToSourceFrame, variableSpeedDurationInFrames } from '../source-time-map';
 
 export function addItems(newItems: TimelineItem[]): void {
 	execute('ADD_ITEMS', () => {
@@ -728,31 +723,6 @@ export function splitAtScenes(id: string, frames: number[]): number {
 	});
 }
 
-export function trimItemStart(id: string, newFrom: number, newSourceStart?: number): boolean {
-	return execute('TRIM_ITEM_START', () => {
-		const item = timelineStore.itemById.get(id);
-		if (!item) return false;
-		const delta = newFrom - item.from;
-		const nextDuration = item.durationInFrames - delta;
-		if (nextDuration <= 0 || delta < 0) return false;
-		const patch: Partial<TimelineItem> = {
-			...sliceClipFades(item, delta, item.durationInFrames, timelineStore.fps),
-			from: newFrom,
-			durationInFrames: nextDuration
-		};
-		if (item.type === 'image' || item.type === 'lottie')
-			Object.assign(
-				patch,
-				calculateTrimSourceUpdate(item, 'start', delta, nextDuration, timelineStore.fps)
-			);
-		if ((item.type === 'video' || item.type === 'audio') && newSourceStart !== undefined) {
-			patch.sourceStart = newSourceStart;
-		}
-		timelineStore._updateItems([{ id, patch }]);
-		return true;
-	});
-}
-
 export function trimItemEnd(id: string, newEnd: number, newSourceEnd?: number): boolean {
 	const item = timelineStore.itemById.get(id);
 	if (!item) return false;
@@ -1005,35 +975,6 @@ export function toggleMarkerAtPlayhead(): void {
 	const existing = timelineStore.markers.find((marker) => Math.abs(marker.frame - frame) <= 1);
 	if (existing) removeMarker(existing.id);
 	else addMarker(frame);
-}
-
-/**
- * Slip: shift an item's source window without moving it on the timeline.
- * Delta is clamped so the window stays inside the source material.
- */
-export function slipItem(id: string, deltaSourceFrames: number): void {
-	execute('SLIP_ITEM', () => {
-		const item = timelineStore.itemById.get(id);
-		if (!item || (item.type !== 'video' && item.type !== 'audio')) return;
-		const start = item.sourceStart ?? 0;
-		const end = item.sourceEnd ?? start + item.durationInFrames;
-		const limit = (item.sourceDuration ?? end) - (end - start);
-		const next = Math.min(Math.max(start + deltaSourceFrames, 0), Math.max(limit, 0));
-		const sourceDelta = next - start;
-		const patch: Partial<TimelineItem> = {
-			sourceStart: next,
-			sourceEnd: next + (end - start)
-		};
-		if (item.speedRamp?.length) {
-			patch.speedRamp = shiftSpeedRampSourceFrames(item.speedRamp, sourceDelta);
-		}
-		timelineStore._updateItems([
-			{
-				id,
-				patch
-			}
-		]);
-	});
 }
 
 function buildRateStretchUpdates(targets: readonly TimelineItem[], speed: number) {

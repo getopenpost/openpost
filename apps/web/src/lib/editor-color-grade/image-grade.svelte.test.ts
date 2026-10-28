@@ -134,11 +134,17 @@ describe('shared still and video color rendering', () => {
 		expect(rendered?.backend).toBe('gpu');
 		if (!rendered) throw new Error('GPU color grade did not render.');
 		const gpuPixels = pixels(rendered.canvas);
-		// Both paths start from the canvas after its alpha premultiplication round trip.
-		const cpuPixels = pixels(source);
-		applyImageGradePixels(cpuPixels, grade);
+		// A renderer without a compositor factory owns the Canvas2D fallback shown
+		// to browsers without WebGL, so compare those rendered pixels instead of
+		// replaying the CPU effect loop by hand.
+		const fallback = new ImageGradeRenderer().render(source, 2, 1, grade);
+		expect(fallback?.backend).toBe('cpu');
+		if (!fallback) throw new Error('CPU color grade did not render.');
+		const cpuPixels = pixels(fallback.canvas);
 		renderer.dispose();
 
+		expect(gpuPixels).toHaveLength(8);
+		expect(cpuPixels).toHaveLength(8);
 		for (let index = 0; index < gpuPixels.length; index += 1) {
 			expect(Math.abs((gpuPixels[index] ?? 0) - (cpuPixels[index] ?? 0))).toBeLessThanOrEqual(2);
 		}

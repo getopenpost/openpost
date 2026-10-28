@@ -11,6 +11,7 @@ import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
 import { createProject, getProject } from '../workspace-fs/projects';
 import { WebThemeRuntime } from '$lib/themes/runtime';
 import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins';
+import { m } from '$lib/paraglide/messages';
 import '../../../routes/layout.css';
 import CompositionTimeline from './composition-timeline.svelte';
 
@@ -56,7 +57,12 @@ it('explains source FPS edits and preserves existing and fresh instance clocks t
 	const screen = await render(CompositionTimeline, { onedit: vi.fn() });
 	const theme = new WebThemeRuntime();
 	try {
-		const fps = screen.getByTestId('composition-fps');
+		const meta = screen.getByRole('group', {
+			name: m.video_editor_composition_timeline_meta()
+		});
+		await expect.element(meta).toBeVisible();
+		const fps = meta.getByTestId('composition-fps');
+		await expect.element(fps).toBeVisible();
 		await expect
 			.element(fps)
 			.toHaveAccessibleDescription(

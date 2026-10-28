@@ -196,15 +196,6 @@ func appendNativePost(page *NativePostPage, input NativePostRequest, item Native
 	page.Items = append(page.Items, normalized)
 }
 
-func nativePostTime(value string) time.Time {
-	for _, layout := range []string{time.RFC3339Nano, "2006-01-02T15:04:05-0700", "2006-01-02T15:04:05.999999999"} {
-		if parsed, err := time.Parse(layout, strings.TrimSpace(value)); err == nil {
-			return parsed.UTC()
-		}
-	}
-	return time.Time{}
-}
-
 func nativePostContinuation(cursor, previous string) (NativePostPage, error) {
 	page := NativePostPage{Coverage: NativePostComplete}
 	if cursor == "" {

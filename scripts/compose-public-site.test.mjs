@@ -4,25 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { composePublicSite, scopeDocsHeaders, scopeDocsRedirects } from "./compose-public-site.mjs";
-
-test("scopes documentation redirects without changing external targets", () => {
-  assert.equal(
-    scopeDocsRedirects(
-      "/guides/old /guides/new 301\n/development https://github.com/getopenpost/openpost 301\n",
-    ),
-    "/docs/guides/old /docs/guides/new 301\n/docs/development https://github.com/getopenpost/openpost 301\n",
-  );
-});
-
-test("scopes documentation header paths exactly once", () => {
-  assert.equal(
-    scopeDocsHeaders(
-      "/*.md\n  Content-Type: text/markdown\n/docs/guides/quickstart\n  Vary: Accept\n",
-    ),
-    "/docs/*.md\n  Content-Type: text/markdown\n/docs/guides/quickstart\n  Vary: Accept\n",
-  );
-});
+import { composePublicSite } from "./compose-public-site.mjs";
 
 test("composes both builds and keeps control files at the deployment root", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "openpost-public-site-"));
@@ -45,9 +27,12 @@ test("composes both builds and keeps control files at the deployment root", asyn
     writeFile(path.join(docs, "index.html"), "documentation"),
     writeFile(
       path.join(docs, "_headers"),
-      "/*.md\n  Content-Type: text/markdown; charset=utf-8\n  Vary: Accept\n  Cache-Control: public, max-age=60\n/api/search\n  Content-Type: application/json\n/docs/*\n  Vary: Accept\n",
+      "/*.md\n  Content-Type: text/markdown; charset=utf-8\n  Vary: Accept\n  Cache-Control: public, max-age=60\n/docs/guides/quickstart\n  X-Already-Mounted: yes\n/api/search\n  Content-Type: application/json\n/docs/*\n  Vary: Accept\n",
     ),
-    writeFile(path.join(docs, "_redirects"), "/usage /guides/quickstart 301\n"),
+    writeFile(
+      path.join(docs, "_redirects"),
+      "/usage /guides/quickstart 301\n/development https://github.com/getopenpost/openpost 301\n",
+    ),
   ]);
 
   await composePublicSite({
@@ -60,6 +45,8 @@ test("composes both builds and keeps control files at the deployment root", asyn
   assert.equal(await readFile(path.join(output, "docs/index.html"), "utf8"), "documentation");
   const headers = await readFile(path.join(output, "_headers"), "utf8");
   assert.match(headers, /\/docs\/api\/search/u);
+  assert.match(headers, /^\/docs\/guides\/quickstart\n  X-Already-Mounted: yes$/mu);
+  assert.doesNotMatch(headers, /\/docs\/docs\//u);
   assert.doesNotMatch(headers, /^\/\*\.md$/mu);
   assert.match(headers, /^\/:name\.md\n  Content-Type: text\/markdown; charset=utf-8$/mu);
   assert.match(headers, /^\/tools\/\*\.md\n  Content-Type: text\/markdown; charset=utf-8$/mu);
@@ -73,6 +60,10 @@ test("composes both builds and keeps control files at the deployment root", asyn
     /\/docs\/usage \/docs\/guides\/quickstart 301/u,
   );
   const redirects = await readFile(path.join(output, "_redirects"), "utf8");
+  assert.match(
+    redirects,
+    /^\/docs\/development https:\/\/github\.com\/getopenpost\/openpost 301$/mu,
+  );
   assert.ok(
     redirects.indexOf("/docs/usage ") < redirects.indexOf("/self-hosting/* "),
     "Static documentation redirects must precede wildcards to avoid Cloudflare's dynamic rule limit",

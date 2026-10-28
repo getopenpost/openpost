@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
 	"github.com/stretchr/testify/require"
 )
 
@@ -157,6 +158,7 @@ func TestMCPDeleteCommentRequiresConfirm(t *testing.T) {
 		ExternalID: "external-1",
 	}).Exec(ctx)
 	require.NoError(t, err)
+	srv.handler.SetProviderCatalog(map[string]platform.Adapter{"x": fakeCommentAdapter{}}, false)
 	commentID, err := encodeCommentReference(commentReference{
 		RenditionID: "rendition-comment-gate", ProviderCommentID: "provider-comment-1",
 	})
@@ -164,7 +166,30 @@ func TestMCPDeleteCommentRequiresConfirm(t *testing.T) {
 	gated := mcpCallOperation(t, srv, "web-token", "delete-comment-gated", mcpToolDeleteComment, map[string]any{
 		"comment_id": commentID,
 	})
+	// Missing confirm remains a schema-required-field negative.
 	require.Contains(t, mcpErrorMessage(t, gated), "confirm")
+	denied := mcpCallOperation(t, srv, "web-token", "delete-comment-false", mcpToolDeleteComment, map[string]any{
+		"comment_id": commentID, "confirm": false,
+	})
+	require.Equal(t, "delete_comment is irreversible; repeat the call with confirm=true to proceed", mcpErrorMessage(t, denied))
+	jobs, err := srv.db.NewSelect().Model((*models.Job)(nil)).Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, jobs)
+
+	deleted := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "delete-comment-confirmed", mcpToolDeleteComment, map[string]any{
+		"comment_id": commentID, "confirm": true,
+	}))
+	jobID, ok := deleted["job_id"].(string)
+	require.True(t, ok)
+	require.NotEmpty(t, jobID)
+	var job models.Job
+	require.NoError(t, srv.db.NewSelect().Model(&job).Where("id = ?", jobID).Scan(ctx))
+	require.Equal(t, "engagement_action", job.Type)
+	require.Equal(t, 1, job.MaxAttempts)
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal([]byte(job.Payload), &payload))
+	require.Equal(t, "delete", payload["action"])
+	require.Equal(t, "provider-comment-1", payload["provider_comment_id"])
 }
 
 func TestMCPListPostsRejectsUnknownEnumFilters(t *testing.T) {
@@ -217,9 +242,8 @@ func TestMCPMediaLifecycle(t *testing.T) {
 	}))
 	item := loaded["media"].(map[string]any)
 	require.Equal(t, "media-lifecycle-1", item["id"])
-	if usageCount, ok := item["usage_count"]; ok {
-		require.Equal(t, float64(0), usageCount)
-	}
+	// Zero usage is omitted by the public MCP media projection.
+	require.NotContains(t, item, "usage_count")
 	require.Equal(t, true, item["can_delete"])
 
 	missing := mcpCallOperation(t, srv, "web-token", "media-missing", mcpToolGetMedia, map[string]any{
@@ -239,10 +263,27 @@ func TestMCPMediaLifecycle(t *testing.T) {
 	})
 	require.Contains(t, mcpErrorMessage(t, gated), "confirm")
 
+	denied := mcpCallOperation(t, srv, "web-token", "media-delete-false", mcpToolDeleteMedia, map[string]any{
+		"media_id": "media-lifecycle-1", "confirm": false,
+	})
+	require.Equal(t, "delete_media is irreversible; repeat the call with confirm=true to proceed", mcpErrorMessage(t, denied))
+	var beforeDelete models.MediaAttachment
+	require.NoError(t, srv.db.NewSelect().Model(&beforeDelete).Where("id = ?", "media-lifecycle-1").Scan(ctx))
+	require.True(t, beforeDelete.TrashedAt.IsZero())
+	require.True(t, beforeDelete.PurgeAfter.IsZero())
+
 	deleted := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "media-delete", mcpToolDeleteMedia, map[string]any{
 		"media_id": "media-lifecycle-1", "confirm": true,
 	}))
 	require.Equal(t, "media-lifecycle-1", deleted["media_id"])
+	var stored models.MediaAttachment
+	require.NoError(t, srv.db.NewSelect().Model(&stored).Where("id = ?", "media-lifecycle-1").Scan(ctx))
+	require.False(t, stored.TrashedAt.IsZero())
+	require.False(t, stored.PurgeAfter.IsZero())
+	require.Equal(t, "manual", stored.TrashReason)
+	remaining, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", "media-lifecycle-1").Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, remaining)
 }
 
 func TestMCPRetryOpsValidateBeforeDispatch(t *testing.T) {
@@ -318,26 +359,6 @@ func TestMCPScheduleDryRunEnqueuesNothing(t *testing.T) {
 	require.Equal(t, "scheduled", scheduled["publication"].(map[string]any)["status"])
 }
 
-func TestMCPPostDetailFullReturnsVariants(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	postID, _ := mcpCreateDraftPost(t, srv, "detail-setup", "Detail shape draft", nil)
-
-	summary := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "detail-summary", mcpToolGetPub, map[string]any{
-		"post_id": postID,
-	}))
-	summaryPost := summary["publication"].(map[string]any)
-	require.Contains(t, summaryPost, "revision")
-	require.NotContains(t, summaryPost, "renditions")
-	require.Equal(t, "", summary["job_id"])
-
-	full := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "detail-full", mcpToolGetPub, map[string]any{
-		"post_id": postID, "detail": "full",
-	}))
-	require.Contains(t, full["publication"].(map[string]any), "renditions")
-}
-
 func TestMCPAnnotationsSafetySplit(t *testing.T) {
 	t.Parallel()
 
@@ -358,7 +379,10 @@ func TestMCPAnnotationsSafetySplit(t *testing.T) {
 	}
 	for _, operation := range mcpOperationCatalog() {
 		name, _ := operation.Descriptor["name"].(string)
-		annotations := operation.Descriptor["annotations"].(map[string]any)
+		annotations, ok := operation.Descriptor["annotations"].(map[string]any)
+		require.True(t, ok, "operation %s must carry annotations", name)
+		_, ok = annotations["idempotentHint"].(bool)
+		require.True(t, ok, "operation %s must carry idempotentHint", name)
 		if operation.Mode == mcpOperationExecute {
 			require.Equal(t, true, annotations["destructiveHint"], "mutation %s must be destructive", name)
 			require.Equal(t, false, annotations["readOnlyHint"], "mutation %s must not be read-only", name)
@@ -370,33 +394,11 @@ func TestMCPAnnotationsSafetySplit(t *testing.T) {
 			require.Equal(t, false, annotations["destructiveHint"], "read %s must not be destructive", name)
 		}
 	}
-}
-
-func TestMCPReadScopeSeesRenderUpload(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	srv.handler.auth = mcpScopeAuthenticator{
-		"read-token": {UserID: "user-1", Email: "user@example.com", Scope: "mcp:read", WorkspaceID: "ws-1"},
+	for _, tool := range mcpAdvertisedTools() {
+		name, _ := tool["name"].(string)
+		annotations, ok := tool["annotations"].(map[string]any)
+		require.True(t, ok, "tool %s must carry annotations", name)
+		_, ok = annotations["idempotentHint"].(bool)
+		require.True(t, ok, "tool %s must carry idempotentHint", name)
 	}
-	resp := srv.request(t, "read-token", map[string]any{
-		"jsonrpc": "2.0", "id": "read-scope-tools", "method": "tools/list",
-	})
-	require.Equal(t, http.StatusOK, resp.Code)
-	var out map[string]any
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	tools := out["result"].(map[string]any)["tools"].([]any)
-	names := make([]string, 0, len(tools))
-	for _, item := range tools {
-		names = append(names, item.(map[string]any)["name"].(string))
-	}
-	require.Contains(t, names, mcpToolRenderUpload)
-	require.NotContains(t, names, mcpToolCreateTicket)
-	require.NotContains(t, names, mcpToolDeletePub)
-	require.NotContains(t, names, mcpToolDeleteMedia)
-
-	rendered := mcpStructuredContent(t, mcpCallOperation(t, srv, "read-token", "read-render", mcpToolRenderUpload, map[string]any{
-		"workspace_id": "ws-1",
-	}))
-	require.Equal(t, "ws-1", rendered["workspace_id"])
 }

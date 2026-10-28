@@ -41,11 +41,13 @@ async function twoTrackAudioFixture(): Promise<File> {
 	return new File([target.buffer], 'two-track-audio.webm', { type: 'audio/webm' });
 }
 
-test('decodes and draws the selected audio stream progressively', async () => {
+test('draws the selected second audio track waveform and seeks from its timeline', async () => {
 	const source = await probeSourceFile(await twoTrackAudioFixture());
 	source.selectedAudioTrackIndices = [1];
 	const onSeek = vi.fn();
 
+	// Decoding the selected track directly keeps the second-track choice honest:
+	// the silent first track would peak at zero.
 	const waveform = await getQuickCutWaveform(source);
 	expect(waveform.isComplete).toBe(true);
 	expect(Math.max(...waveform.peaks)).toBeGreaterThan(0.5);
@@ -65,6 +67,28 @@ test('decodes and draws the selected audio stream progressively', async () => {
 	await vi.waitFor(() => expect(screen.container.querySelector('canvas')).not.toBeNull());
 	const canvas = screen.container.querySelector('canvas')!;
 	await vi.waitFor(() => expect(canvas.width).toBeGreaterThan(1));
+
+	// The canvas width only proves the draw ran once. Require painted pixels with the
+	// vertical extent above a quarter of the canvas before seeking; this claims a
+	// painted waveform at the current viewport, not progressive loading.
+	await vi.waitFor(() => {
+		const context = canvas.getContext('2d');
+		if (!context) throw new Error('Waveform canvas has no 2D context.');
+		const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+		let paintedPixels = 0;
+		let top = canvas.height;
+		let bottom = -1;
+		for (let y = 0; y < canvas.height; y += 1) {
+			for (let x = 0; x < canvas.width; x += 1) {
+				if (data[(y * canvas.width + x) * 4 + 3] === 0) continue;
+				paintedPixels += 1;
+				if (y < top) top = y;
+				if (y > bottom) bottom = y;
+			}
+		}
+		expect(paintedPixels).toBeGreaterThan(0);
+		expect((bottom - top + 1) / canvas.height).toBeGreaterThan(0.25);
+	});
 
 	await screen.getByRole('button', { name: 'Seek in timeline' }).click();
 	expect(onSeek).toHaveBeenCalledOnce();

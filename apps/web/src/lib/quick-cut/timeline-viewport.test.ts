@@ -26,6 +26,10 @@ describe('Quick Cut timeline viewport', () => {
 			start: 75,
 			zoom: 4
 		});
+		expect(panTimelineViewport({ start: 10, zoom: 4 }, 100, -1000, 1000)).toEqual({
+			start: 0,
+			zoom: 4
+		});
 	});
 
 	it('reveals playback outside the window while keeping a leading edge margin', () => {

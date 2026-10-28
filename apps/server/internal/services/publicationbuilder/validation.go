@@ -147,7 +147,6 @@ func validateDirector(
 	plan DirectorPlan,
 	destinations []Destination,
 	sources sourceReferenceCatalog,
-	locked DirectionInput,
 	policy DestinationPolicy,
 ) error {
 	if strings.TrimSpace(plan.CanonicalText) == "" || utf8.RuneCountInString(plan.CanonicalText) > maxCanonicalCharacters {
@@ -179,20 +178,6 @@ func validateDirector(
 	}
 	if !slices.Contains(allowedDirectorRoutes, plan.Route) {
 		return fmt.Errorf("director selected unsupported route %q", plan.Route)
-	}
-	lockedFields := []struct {
-		name     string
-		expected string
-		actual   string
-	}{
-		{name: "outcome", expected: locked.Outcome, actual: plan.Outcome},
-		{name: "audience", expected: locked.Audience, actual: plan.Audience},
-		{name: "angle", expected: locked.Angle, actual: plan.Angle},
-	}
-	for _, field := range lockedFields {
-		if strings.TrimSpace(field.expected) != "" && strings.TrimSpace(field.actual) != strings.TrimSpace(field.expected) {
-			return fmt.Errorf("director changed locked %s", field.name)
-		}
 	}
 	if len(plan.Claims) > maxClaims {
 		return errors.New("director returned too many claims")

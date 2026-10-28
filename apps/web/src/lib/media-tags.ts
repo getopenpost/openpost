@@ -36,7 +36,7 @@ function requireMediaTagWorkspace(tag: MediaTag, workspaceId: string): MediaTag 
 
 function settleMediaTagMutation(
 	session: QueryMutationSession,
-	response: Pick<Response, 'status'>
+	response: Pick<Response, 'status' | 'headers'>
 ): void {
 	settleQueryMutationSession(session, response);
 }

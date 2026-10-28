@@ -531,7 +531,9 @@ func TestYouTubeCaptionDuplicateResponseIsReconciled(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
 
+	requests := 0
 	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests++
 		if req.Method != http.MethodPost || req.URL.Path != "/upload/youtube/v3/captions" {
 			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
 		}
@@ -547,6 +549,9 @@ func TestYouTubeCaptionDuplicateResponseIsReconciled(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("stable captionExists response must reconcile, got %v", err)
+	}
+	if requests != 1 {
+		t.Fatalf("expected one native request, got %d", requests)
 	}
 }
 

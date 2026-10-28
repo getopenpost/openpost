@@ -42,7 +42,6 @@ describe("PreviewAvatar", () => {
     const screen = await render(PreviewAvatar, { identity, ring: true });
     expect(screen.container.querySelector(".preview-avatar-ring")).not.toBeNull();
     expect(screen.container.querySelector(".preview-avatar")).not.toBeNull();
-    expect(screen.container.querySelector(".with-ring")).toBeNull();
   });
   it("lets a visible primary avatar opt into eager loading", async () => {
     const screen = await render(PreviewAvatar, { identity, loading: "eager" });

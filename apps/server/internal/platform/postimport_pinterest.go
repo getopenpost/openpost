@@ -37,7 +37,7 @@ func (p *PinterestAdapter) ListNativePosts(ctx context.Context, token string, in
 		if !pin.IsOwner || pin.ParentPinID != "" {
 			continue
 		}
-		appendNativePost(&page, input, NativePostItem{ProviderPostID: pin.ID, Title: pin.Title, Text: pin.Description, PublishedAt: nativePostTime(pin.CreatedAt), ExternalURL: "https://www.pinterest.com/pin/" + url.PathEscape(pin.ID) + "/"})
+		appendNativePost(&page, input, NativePostItem{ProviderPostID: pin.ID, Title: pin.Title, Text: pin.Description, PublishedAt: ProviderTime(pin.CreatedAt), ExternalURL: "https://www.pinterest.com/pin/" + url.PathEscape(pin.ID) + "/"})
 	}
 	return page, nil
 }

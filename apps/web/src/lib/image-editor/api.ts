@@ -149,7 +149,7 @@ function requireImageEditorTemplateWorkspace(
 
 function settleImageEditorMutation(
 	session: QueryMutationSession,
-	response: Pick<Response, 'status'>
+	response: Pick<Response, 'status' | 'headers'>
 ): void {
 	settleQueryMutationSession(session, response);
 }

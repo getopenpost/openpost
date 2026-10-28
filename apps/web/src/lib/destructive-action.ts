@@ -19,22 +19,3 @@ export function requestDestructiveAction(
 	}
 	confirm();
 }
-
-export interface DestructiveSequenceOutcome<T> {
-	remaining: T[];
-	error?: unknown;
-}
-
-export async function runDestructiveSequence<T>(
-	targets: T[],
-	execute: (target: T) => Promise<void>
-): Promise<DestructiveSequenceOutcome<T>> {
-	for (let index = 0; index < targets.length; index += 1) {
-		try {
-			await execute(targets[index]);
-		} catch (error) {
-			return { remaining: targets.slice(index), error };
-		}
-	}
-	return { remaining: [] };
-}

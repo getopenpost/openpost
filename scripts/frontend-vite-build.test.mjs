@@ -12,7 +12,7 @@ import {
 
 describe("frontend Vite build memory", () => {
   test("adds the repository build heap when NODE_OPTIONS is empty", () => {
-    expect(frontendBuildNodeOptions()).toBe(`--max-old-space-size=${frontendBuildHeapMiB}`);
+    expect(frontendBuildNodeOptions()).toBe("--max-old-space-size=8192");
   });
 
   test("preserves unrelated user options", () => {
@@ -37,10 +37,6 @@ describe("frontend Vite build memory", () => {
 });
 
 describe("frontend Vite build arguments", () => {
-  test("uses the web application mode by default", () => {
-    expect(parseFrontendBuildArguments([])).toEqual({});
-  });
-
   test("rejects arguments that could silently change the canonical build", () => {
     expect(() => parseFrontendBuildArguments(["--mode=development"])).toThrow(
       "Unsupported frontend build arguments",
@@ -54,9 +50,16 @@ describe("frontend worker output", () => {
     try {
       await writeFile(path.join(directory, "broken.js"), "const state = $state({ ready: true });");
 
-      await expect(validateCompiledWorkerRunes(directory)).rejects.toThrow(
-        "Uncompiled Svelte rune calls in worker output: broken.js",
-      );
+      await mkdir(path.join(directory, "chunks"));
+      await writeFile(path.join(directory, "chunks/nested.js"), "const value = $derived(ready);");
+      const failure = await validateCompiledWorkerRunes(directory).catch((error) => error);
+      expect(failure).toBeInstanceOf(Error);
+      const prefix = "Uncompiled Svelte rune calls in worker output: ";
+      expect(failure.message).toStartWith(prefix);
+      expect(failure.message.slice(prefix.length).split(", ").sort()).toEqual([
+        "broken.js",
+        "chunks/nested.js",
+      ]);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

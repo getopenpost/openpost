@@ -64,13 +64,20 @@ function setup(t, mode) {
   return { ...result, log: readFileSync(log, "utf8") };
 }
 
-test("reuses media tools only after encoding and probing real fixture formats", (t) => {
+test("checks every fixture format before reusing media tools", (t) => {
   const result = setup(t, "ready");
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.log, /encode .*libx264/u);
   assert.match(result.log, /encode .*libvpx /u);
   assert.match(result.log, /encode .*libvpx-vp9/u);
-  assert.match(result.log, /probe .*mp4/u);
+  for (const extension of ["mp4", "webm", "vp9.webm"]) {
+    assert.ok(
+      result.log
+        .split("\n")
+        .some((line) => line.startsWith("probe ") && line.endsWith(`/fixture.${extension}`)),
+      extension,
+    );
+  }
   assert.doesNotMatch(result.log, /apt /u);
 });
 

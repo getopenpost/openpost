@@ -3,36 +3,27 @@ import { render } from 'vitest-browser-svelte';
 import AccountPickerRow from './row.svelte';
 
 describe('account-picker row', () => {
-	it('exposes the avatar, name, platform and detail contract', async () => {
+	it('names the checkbox for the account, independent of issues or custom state', async () => {
+		const onToggle = vi.fn();
 		const screen = await render(AccountPickerRow, {
 			name: 'Demo Account',
 			platform: 'x',
 			avatarUrl: 'https://example.com/avatar-demo.png',
 			detail: 'Needs attention',
 			selected: false,
-			onToggle: vi.fn()
-		});
-
-		const avatar = screen.container.querySelector('img[src="https://example.com/avatar-demo.png"]');
-		expect(avatar?.getAttribute('src')).toBe('https://example.com/avatar-demo.png');
-		await expect.element(screen.getByText('Demo Account')).toBeVisible();
-		// Platform and detail render through the shared identity contract.
-		const platform = screen.container.querySelector('[data-slot="social-account-platform"]');
-		expect(platform?.textContent).toContain('X');
-		expect(platform?.textContent).toContain('Needs attention');
-	});
-
-	it('names the checkbox for the account, independent of issues or custom state', async () => {
-		const onToggle = vi.fn();
-		const screen = await render(AccountPickerRow, {
-			name: 'Demo Account',
-			platform: 'x',
-			selected: false,
 			issues: ['Reconnect required'],
 			custom: true,
 			customLabel: 'Customized for this post',
 			onToggle
 		});
+
+		// The row passes the avatar, name, platform, and detail through to the shared identity.
+		const avatar = screen.container.querySelector('img[src="https://example.com/avatar-demo.png"]');
+		expect(avatar?.getAttribute('src')).toBe('https://example.com/avatar-demo.png');
+		await expect.element(screen.getByText('Demo Account')).toBeVisible();
+		const platform = screen.container.querySelector('[data-slot="social-account-platform"]');
+		expect(platform?.textContent).toContain('X');
+		expect(platform?.textContent).toContain('Needs attention');
 
 		const checkbox = screen.getByRole('checkbox', { name: 'Demo Account, X' });
 		await expect.element(checkbox).not.toBeChecked();

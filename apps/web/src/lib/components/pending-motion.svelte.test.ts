@@ -3,7 +3,6 @@ import { cdp } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import AsyncActionButton from './async-action-button.svelte';
 import DialogLoadingStatus from './dialog-loading-status.svelte';
-import SettingsFormFooter from './settings-form-footer.svelte';
 import '../../routes/layout.css';
 
 async function emulateReducedMotion(value: 'reduce' | 'no-preference'): Promise<void> {
@@ -34,22 +33,6 @@ describe('pending spinners under reduced motion', () => {
 		expect(getComputedStyle(indicator).animationName).not.toBe('none');
 	});
 
-	it('settings save keeps a busy cue without spinning', async () => {
-		await emulateReducedMotion('reduce');
-		expect(matchMedia('(prefers-reduced-motion: reduce)').matches).toBe(true);
-
-		const screen = await render(SettingsFormFooter, {
-			label: 'Save',
-			savingLabel: 'Saving',
-			saving: true
-		});
-		await expect.element(screen.getByRole('button')).toHaveAttribute('aria-busy', 'true');
-
-		const spinner = screen.container.querySelector('.animate-spin');
-		if (!(spinner instanceof Element)) throw new Error('Expected a spinner element.');
-		expect(getComputedStyle(spinner).animationName).toBe('none');
-	});
-
 	it('async pending button keeps its busy announcement without spinning', async () => {
 		await emulateReducedMotion('reduce');
 		expect(matchMedia('(prefers-reduced-motion: reduce)').matches).toBe(true);
@@ -66,5 +49,8 @@ describe('pending spinners under reduced motion', () => {
 		const spinner = screen.container.querySelector('.animate-spin');
 		if (!(spinner instanceof Element)) throw new Error('Expected a spinner element.');
 		expect(getComputedStyle(spinner).animationName).toBe('none');
+		await emulateReducedMotion('no-preference');
+		expect(matchMedia('(prefers-reduced-motion: reduce)').matches).toBe(false);
+		expect(getComputedStyle(spinner).animationName).not.toBe('none');
 	});
 });

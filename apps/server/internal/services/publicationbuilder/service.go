@@ -160,7 +160,7 @@ func (service *Service) direct(ctx context.Context, input BuildInput, supported 
 		if angle := strings.TrimSpace(input.Direction.Angle); angle != "" {
 			plan.Angle = angle
 		}
-		return validateDirector(*plan, supported, sourceReferenceCatalogFor(input), input.Direction, input.DestinationPolicy)
+		return validateDirector(*plan, supported, sourceReferenceCatalogFor(input), input.DestinationPolicy)
 	})
 }
 

@@ -136,7 +136,7 @@ function collectFunctionReturns(source, bindings) {
   return returns;
 }
 
-export function collectGlobalBindings(sources) {
+function collectGlobalBindings(sources) {
   const candidates = new Map();
   for (const { source } of sources) {
     const exportedNames = new Set(

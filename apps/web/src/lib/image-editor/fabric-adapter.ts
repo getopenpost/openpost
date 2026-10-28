@@ -222,17 +222,6 @@ export function imageEditorScreenZoom(
 	return Math.max(0.01, internalZoom * (renderedWidth / logicalWidth));
 }
 
-export function imageEditorPixelIsOpaque(
-	image: Pick<ImageData, 'data' | 'width' | 'height'>,
-	point: SelectionPoint,
-	minimumAlpha = 8
-): boolean {
-	const x = Math.floor(point.x);
-	const y = Math.floor(point.y);
-	if (x < 0 || y < 0 || x >= image.width || y >= image.height) return false;
-	return (image.data[(y * image.width + x) * 4 + 3] ?? 0) >= minimumAlpha;
-}
-
 export function imageEditorPixelGrid(
 	image: Pick<ImageData, 'data' | 'width' | 'height'>,
 	point: SelectionPoint,

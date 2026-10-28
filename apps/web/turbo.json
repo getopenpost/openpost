@@ -12,6 +12,7 @@
 		"test": {
 			"inputs": [
 				"$TURBO_DEFAULT$",
+				"$TURBO_ROOT$/tests/browser-tooling/**",
 				"$TURBO_ROOT$/scripts/posthog-source-maps.ts",
 				"$TURBO_ROOT$/scripts/paraglide-declarations.mjs"
 			]

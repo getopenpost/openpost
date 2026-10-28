@@ -633,8 +633,13 @@ func TestImageEditorReturnTokenEnforcesComposerMIMEConstraints(t *testing.T) {
 
 func TestPublicImageEditorTemplatesExposeOnlyBuiltins(t *testing.T) {
 	t.Parallel()
-	handler, _ := newImageEditorHandlerTest(t)
+	handler, ctx := newImageEditorHandlerTest(t)
 	handler.enabled = false
+	_, err := handler.db.NewInsert().Model(&models.DesignTemplate{
+		ID: "private-template", WorkspaceID: "workspace-1", CreatedByID: "user-1",
+		Name: "Private launch template", SnapshotJSON: `{}`,
+	}).Exec(ctx)
+	require.NoError(t, err)
 
 	response, err := handler.listPublicTemplates(context.Background(), &struct{}{})
 
@@ -643,6 +648,7 @@ func TestPublicImageEditorTemplatesExposeOnlyBuiltins(t *testing.T) {
 	for _, template := range response.Body.Templates {
 		require.True(t, template.BuiltIn)
 		require.Empty(t, template.WorkspaceID)
+		require.NotEqual(t, "private-template", template.ID, "public discovery must not expose workspace templates")
 	}
 }
 
@@ -743,6 +749,10 @@ func TestImageEditorRevisionPreviewAndRestorePointRoundTripExactHead(t *testing.
 	targetUpdate.Body.Document.Pages[0].ColorGrade = &ImageEditorColorGrade{
 		Contrast: 0.14,
 		Vibrance: 0.12,
+		Wheels: &ImageEditorColorWheels{
+			OffsetHue: 120, OffsetAmount: 0.5, Gamma: 1, Gain: 1,
+		},
+		Curves: &ImageEditorColorCurves{MasterPoints: "[[0,0],[1,0.5]]"},
 	}
 	targetUpdate.Body.Document.Pages[0].Background = &ImageEditorPageBackground{
 		Type:    "image",
@@ -757,6 +767,14 @@ func TestImageEditorRevisionPreviewAndRestorePointRoundTripExactHead(t *testing.
 	require.NoError(t, err)
 	require.Equal(t, targetUpdate.Body.Document.Pages[0].Guides, target.Body.Document.Pages[0].Guides)
 	require.Equal(t, targetUpdate.Body.Document.Pages[0].ColorGrade, target.Body.Document.Pages[0].ColorGrade)
+	// updateDesign reloads persisted pages through the same documentResponse as getDesign.
+	grade := target.Body.Document.Pages[0].ColorGrade
+	require.NotNil(t, grade)
+	require.NotNil(t, grade.Wheels)
+	require.Equal(t, 120.0, grade.Wheels.OffsetHue)
+	require.Equal(t, 0.5, grade.Wheels.OffsetAmount)
+	require.NotNil(t, grade.Curves)
+	require.Equal(t, "[[0,0],[1,0.5]]", grade.Curves.MasterPoints)
 
 	checkpointInput := &CreateImageEditorCheckpointInput{PathID: created.Body.ID}
 	checkpointInput.Body.Name = "Approved target"
@@ -930,34 +948,6 @@ func TestImageEditorLegacyPageAndRevisionSnapshotsRemainReadable(t *testing.T) {
 	require.Nil(t, colorGrade)
 	require.Nil(t, width)
 	require.Nil(t, height)
-}
-
-func TestImageEditorSavesWheelsAndCurves(t *testing.T) {
-	t.Parallel()
-	handler, ctx := newImageEditorHandlerTest(t)
-	create := &CreateImageEditorDesignInput{}
-	create.Body.WorkspaceID = "workspace-1"
-	create.Body.Title = "Color tools"
-	create.Body.PresetKey = "instagram-square"
-	created, err := handler.createDesign(ctx, create)
-	require.NoError(t, err)
-	update := &UpdateImageEditorDesignInput{PathID: created.Body.ID}
-	update.Body.ExpectedRevision = created.Body.Revision
-	update.Body.Document = created.Body.Document
-	page := &update.Body.Document.Pages[0]
-	page.ColorGradeVersion = 1
-	require.NoError(t, json.Unmarshal([]byte(`{"wheels":{"offsetHue":120,"offsetAmount":0.5,"gamma":1,"gain":1},"curves":{"masterPoints":"[[0,0],[1,0.5]]"}}`), &page.ColorGrade))
-	saved, err := handler.updateDesign(ctx, update)
-	require.NoError(t, err)
-	reloaded, err := handler.getDesign(ctx, &GetImageEditorDesignInput{PathID: saved.Body.ID})
-	require.NoError(t, err)
-	grade := reloaded.Body.Document.Pages[0].ColorGrade
-	require.NotNil(t, grade)
-	require.NotNil(t, grade.Wheels)
-	require.Equal(t, 120.0, grade.Wheels.OffsetHue)
-	require.Equal(t, 0.5, grade.Wheels.OffsetAmount)
-	require.NotNil(t, grade.Curves)
-	require.Equal(t, "[[0,0],[1,0.5]]", grade.Curves.MasterPoints)
 }
 
 func TestImageEditorRemoveCheckpointPreservesDesignAndOtherVersions(t *testing.T) {

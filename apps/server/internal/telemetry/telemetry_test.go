@@ -88,17 +88,20 @@ func TestFirstCompositionEventRejectsContentAndIdentity(t *testing.T) {
 }
 
 func TestTelemetryRejectsUnknownProvidersAndSensitiveValues(t *testing.T) {
-	t.Parallel()
+	// The rejection count is process-global. Keep this test serial so another
+	// test's rejection cannot satisfy the counter assertion.
 	recorder := &MemoryRecorder{}
 	for _, provider := range []string{
 		"reddit", "https://instance.example/users/alice", "person@example.com",
 	} {
+		before := RejectedEventCount()
 		require.Error(t, recorder.Capture(context.Background(), Event{
 			Name: EventDestinationConnected,
 			Properties: map[string]any{
 				"platform": provider, "account_count": 1,
 			},
 		}))
+		require.GreaterOrEqual(t, RejectedEventCount(), before+1)
 	}
 	require.Error(t, recorder.Capture(context.Background(), Event{
 		Name: EventDestinationConnected,
@@ -114,18 +117,6 @@ func TestTelemetryRejectsUnknownProvidersAndSensitiveValues(t *testing.T) {
 		},
 	}))
 	require.Empty(t, recorder.Events)
-}
-
-func TestValidationRejectionsAreCountedWithoutPayloadContent(t *testing.T) {
-	before := RejectedEventCount()
-	recorder := &MemoryRecorder{}
-	require.Error(t, recorder.Capture(context.Background(), Event{
-		Name: EventDestinationConnected,
-		Properties: map[string]any{
-			"platform": "reddit", "account_count": 1,
-		},
-	}))
-	require.GreaterOrEqual(t, RejectedEventCount(), before+1)
 }
 
 func TestDisabledTelemetryExposesNoBrowserCredentials(t *testing.T) {

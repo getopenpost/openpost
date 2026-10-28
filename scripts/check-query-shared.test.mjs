@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { isQueryAdapter, sourceFiles } from "./check-query-shared.mjs";
+import { sourceFiles } from "./check-query-shared.mjs";
 
 async function fixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), "check-query-shared-"));
@@ -36,11 +36,4 @@ test("sourceFiles honors extension and directory overrides", async () => {
     .map((file) => path.relative(root, file))
     .sort();
   assert.deepEqual(svelteOnly, ["b.svelte"]);
-});
-
-test("isQueryAdapter matches adapter paths and skips tests", () => {
-  assert.equal(isQueryAdapter("apps/web/src/lib/query/accounts.ts"), true);
-  assert.equal(isQueryAdapter("apps/mobile/src/lib/query-api.ts"), true);
-  assert.equal(isQueryAdapter("apps/web/src/lib/query/accounts.test.ts"), false);
-  assert.equal(isQueryAdapter("apps/web/src/lib/stores/auth.ts"), false);
 });

@@ -14,6 +14,7 @@ import (
 	"github.com/openpost/backend/internal/services/accountfeatures"
 	growthservice "github.com/openpost/backend/internal/services/growth"
 	messagingservice "github.com/openpost/backend/internal/services/messaging"
+	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -53,7 +54,7 @@ func (f *countingGrowthProvider) DiscoverGrowthCandidates(_ context.Context, _ p
 }
 func (f *countingGrowthProvider) FollowGrowthCandidate(_ context.Context, _, _, _ string) (platform.GrowthFollowResult, error) {
 	atomic.AddInt32(&f.followCount, 1)
-	return platform.GrowthFollowResult{ProviderState: "following"}, nil
+	return platform.GrowthFollowResult{ProviderState: "following", ProviderReference: "following:remote-1"}, nil
 }
 
 func newFeatureEnforcementDB(t *testing.T) *bun.DB {
@@ -158,8 +159,19 @@ func TestFeatureGateMessagingEnforcement(t *testing.T) {
 			queued, err = noGate.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
 			require.NoError(t, err)
 			require.Zero(t, queued, "a missing canonical feature gate must remain fail closed")
-			require.NoError(t, noGate.HandleJob(ctx, messagingservice.JobTypeMessagesSync, jobs[0].Payload))
-			require.Equal(t, 1, msgFake.FetchCount())
+			// The enabled control must collect from the same due, unleased checkpoint,
+			// otherwise the disabled runs below could pass on a stored deadline alone.
+			makeMessagingCollectionDue(t, db, "acc-msg")
+			msgFake.fetchCount = 0
+			require.NoError(t, msgSvc.HandleJob(ctx, messagingservice.JobTypeMessagesSync, `{"id":"acc-msg"}`))
+			require.Equal(t, 1, msgFake.FetchCount(), "enabled control must collect from a due checkpoint")
+			// A service without the canonical gate must reach the execution gate and
+			// record the disabled reason instead of collecting.
+			makeMessagingCollectionDue(t, db, "acc-msg")
+			msgFake.fetchCount = 0
+			require.NoError(t, noGate.HandleJob(ctx, messagingservice.JobTypeMessagesSync, `{"id":"acc-msg"}`))
+			require.Zero(t, msgFake.FetchCount())
+			requireMessagingSyncState(t, db, "acc-msg", "disabled", "feature_disabled")
 			_, err = noGate.QueueMessage(ctx, workspaceAccessActor(), "conv-1", "missing feature gate")
 			require.ErrorContains(t, err, "messaging is disabled")
 			// Disable before execution
@@ -168,11 +180,12 @@ func TestFeatureGateMessagingEnforcement(t *testing.T) {
 			queued, err = msgSvc.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
 			require.NoError(t, err)
 			require.Zero(t, queued)
-			// Execute job while disabled -> should not call provider
+			// Execute a fresh sync from an identical due checkpoint while disabled.
+			makeMessagingCollectionDue(t, db, "acc-msg")
 			msgFake.fetchCount = 0
-			err = msgSvc.HandleJob(ctx, "messages_sync", jobs[0].Payload)
-			require.NoError(t, err)
-			require.Equal(t, 0, msgFake.FetchCount(), "job queued while enabled then disabled before execution must not contact provider")
+			require.NoError(t, msgSvc.HandleJob(ctx, messagingservice.JobTypeMessagesSync, `{"id":"acc-msg"}`))
+			require.Zero(t, msgFake.FetchCount(), "job queued while enabled then disabled before execution must not contact provider")
+			requireMessagingSyncState(t, db, "acc-msg", "disabled", "feature_disabled")
 
 			// User send enqueue while disabled should fail
 			_, err = msgSvc.QueueMessage(ctx, workspaceAccessActor(), "conv-1", "hello")
@@ -257,45 +270,65 @@ func TestFeatureGateGrowEnforcement(t *testing.T) {
 	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", "growth_discovery").Scan(ctx))
 	// Activation already queued one, second queue should dedupe via index so still 1
 	require.Len(t, jobs, 1)
-	// Disable before execution
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-grow", Feature: "grow", Enabled: false}})
-	require.NoError(t, err)
-	growFake.discoverCount = 0
-	err = growSvc.HandleJob(ctx, "growth_discovery", jobs[0].Payload)
-	require.Error(t, err)
-	require.Equal(t, 0, int(atomic.LoadInt32(&growFake.discoverCount)))
 
-	// Follow gate: need a recommendation
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-grow", Feature: "grow", Enabled: true}})
+	// Enabled control: discovery must reach the provider, succeed, and persist the
+	// discovered candidate, so the later no-provider negatives are meaningful.
+	require.NoError(t, executeGrowthJob(t, db, growSvc, jobs[0].ID))
+	require.Equal(t, 1, int(atomic.LoadInt32(&growFake.discoverCount)), "enabled discovery must reach the provider")
+	var discovered models.GrowthRecommendation
+	require.NoError(t, db.NewSelect().Model(&discovered).Where("social_account_id = ? AND remote_account_id = ?", "acc-grow", "remote-1").Scan(ctx))
+	require.Equal(t, "handle1", discovered.Handle)
+
+	// The feature fixture builds the base schema, which predates provider writes.
+	_, err = db.NewCreateTable().Model((*models.ProviderWriteAttempt)(nil)).IfNotExists().Exec(ctx)
 	require.NoError(t, err)
-	// Create recommendation manually
-	_, err = db.NewInsert().Model(&models.GrowthRecommendation{ID: "rec-1", WorkspaceID: "ws-1", SocialAccountID: "acc-grow", Platform: "bluesky", RemoteAccountID: "remote-1", Handle: "h1", GenerationID: "gen-1", FollowState: "idle", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), LastSeenAt: time.Now().UTC()}).Exec(ctx)
+
+	// Enabled control: a queued follow reaches the provider exactly once.
+	followJobID, err := growSvc.QueueFollow(ctx, workspaceAccessActor(), "ws-1", discovered.ID)
 	require.NoError(t, err)
-	// Disable and try follow enqueue should fail
+	followJobs, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", "growth_follow").Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, followJobs)
+	require.NoError(t, executeGrowthJob(t, db, growSvc, followJobID))
+	require.Equal(t, 1, int(atomic.LoadInt32(&growFake.followCount)), "enabled follow must reach the provider")
+	require.NoError(t, db.NewSelect().Model(&discovered).Where("id = ?", discovered.ID).Scan(ctx))
+	require.Equal(t, models.GrowthRecommendationFollowFollowing, discovered.FollowState)
+
+	// Disabled follow enqueue must still be rejected.
+	_, err = db.NewUpdate().Model((*models.GrowthRecommendation)(nil)).Set("follow_state = ?", models.GrowthRecommendationFollowIdle).Set("follow_error_code = ?", "").Where("id = ?", discovered.ID).Exec(ctx)
+	require.NoError(t, err)
 	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-grow", Feature: "grow", Enabled: false}})
 	require.NoError(t, err)
-	_, err = growSvc.QueueFollow(ctx, workspaceAccessActor(), "ws-1", "rec-1")
+	_, err = growSvc.QueueFollow(ctx, workspaceAccessActor(), "ws-1", discovered.ID)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "grow is disabled")
-	// Enable and queue follow
+
+	// Queue another follow while enabled, then disable before it executes.
 	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-grow", Feature: "grow", Enabled: true}})
 	require.NoError(t, err)
-	// Need to reset follow state to idle
-	_, err = db.NewUpdate().Model((*models.GrowthRecommendation)(nil)).Set("follow_state = ?", "idle").Where("id = ?", "rec-1").Exec(ctx)
+	pendingFollowID, err := growSvc.QueueFollow(ctx, workspaceAccessActor(), "ws-1", discovered.ID)
 	require.NoError(t, err)
-	jobID, err = growSvc.QueueFollow(ctx, workspaceAccessActor(), "ws-1", "rec-1")
-	require.NoError(t, err)
-	require.NotEmpty(t, jobID)
-	var followJobs []models.Job
-	require.NoError(t, db.NewSelect().Model(&followJobs).Where("type = ?", "growth_follow").Scan(ctx))
-	require.NotEmpty(t, followJobs)
-	// Disable before execution
+	require.NotEmpty(t, pendingFollowID)
 	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-grow", Feature: "grow", Enabled: false}})
 	require.NoError(t, err)
-	growFake.followCount = 0
-	err = growSvc.HandleJob(ctx, "growth_follow", followJobs[0].Payload)
+
+	// Disabled before execution: the durable follow reaches the feature guard.
+	err = executeGrowthJob(t, db, growSvc, pendingFollowID)
 	require.Error(t, err)
-	require.Equal(t, 0, int(atomic.LoadInt32(&growFake.followCount)))
+	require.Contains(t, err.Error(), "Grow is disabled for this account.")
+	require.Equal(t, 1, int(atomic.LoadInt32(&growFake.followCount)), "disabled follow must not contact the provider")
+	require.NoError(t, db.NewSelect().Model(&discovered).Where("id = ?", discovered.ID).Scan(ctx))
+	require.Equal(t, models.GrowthRecommendationFollowFailed, discovered.FollowState)
+	require.Equal(t, "feature_disabled", discovered.FollowErrorCode)
+
+	// Disabled discovery execution also reaches the gate, not an early rejection.
+	err = executeGrowthJob(t, db, growSvc, jobs[0].ID)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "grow is disabled")
+	require.Equal(t, 1, int(atomic.LoadInt32(&growFake.discoverCount)), "disabled discovery must not contact the provider")
+	var growState models.GrowthSyncState
+	require.NoError(t, db.NewSelect().Model(&growState).Where("social_account_id = ?", "acc-grow").Scan(ctx))
+	require.Equal(t, "feature_disabled", growState.ErrorCode)
 }
 
 func TestFeatureGateUnknownMissingFailClosed(t *testing.T) {
@@ -347,10 +380,20 @@ func TestFeatureGateUnknownMissingFailClosed(t *testing.T) {
 	var jobs []models.Job
 	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", messagingservice.JobTypeMessagesSync).Scan(ctx))
 	require.NotEmpty(t, jobs)
+	// Granted-scope control from the same due, unleased checkpoint must collect,
+	// so the revoked-scope negative cannot pass on a cached backoff deadline.
+	makeMessagingCollectionDue(t, db, "acc-unk")
+	msgProvider.fetchCount = 0
+	require.NoError(t, msgSvc2.HandleJob(ctx, messagingservice.JobTypeMessagesSync, jobs[0].Payload))
+	require.Equal(t, 1, msgProvider.FetchCount(), "granted scope control must collect")
+	// Revoke the scope, then execute a fresh sync from an identical due checkpoint.
 	_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("granted_scopes = ?", "").Where("id = ?", "acc-unk").Exec(ctx)
 	require.NoError(t, err)
+	makeMessagingCollectionDue(t, db, "acc-unk")
+	msgProvider.fetchCount = 0
 	require.NoError(t, msgSvc2.HandleJob(ctx, messagingservice.JobTypeMessagesSync, jobs[0].Payload))
-	require.Zero(t, msgProvider.FetchCount())
+	require.Zero(t, msgProvider.FetchCount(), "revoked scope before execution must not contact provider")
+	requireMessagingSyncState(t, db, "acc-unk", "disabled", "feature_disabled")
 	_, err = msgSvc2.QueueMessage(ctx, workspaceAccessActor(), "conv-unk", "missing scope")
 	require.ErrorContains(t, err, "messaging is disabled")
 	require.Zero(t, msgProvider.SendCount())
@@ -482,44 +525,16 @@ func TestFeatureGateGrowNeverQueuesAutomaticFollow(t *testing.T) {
 	growSvc := growthservice.NewService(db, staticTokenSourceFeature{}, nil)
 	growSvc.SetProvider("bluesky", growFake)
 	growSvc.SetFeatureGate(af)
-	// Discovery execution should not create follow jobs
-	_ = growSvc.HandleJob(ctx, "growth_discovery", discoveryJobs[0].Payload)
-	// May error due to missing sync state but should not create follow job
+	// Discovery execution must succeed, reach the provider, and persist the
+	// discovered candidate before the "never follows" assertions mean anything.
+	require.NoError(t, executeGrowthJob(t, db, growSvc, discoveryJobs[0].ID))
+	require.Equal(t, 1, int(atomic.LoadInt32(&growFake.discoverCount)), "discovery must reach the provider")
+	var discovered models.GrowthRecommendation
+	require.NoError(t, db.NewSelect().Model(&discovered).Where("social_account_id = ? AND remote_account_id = ?", "acc-grow-follow", "remote-1").Scan(ctx))
+	require.Equal(t, "handle1", discovered.Handle)
 	require.NoError(t, db.NewSelect().Model(&followJobs).Where("type = ?", "growth_follow").Scan(ctx))
 	require.Len(t, followJobs, 0)
 	require.Equal(t, 0, int(atomic.LoadInt32(&growFake.followCount)), "discovery must not trigger automatic follow")
-}
-
-func TestFeatureGateStaleCallerCannotBypass(t *testing.T) {
-	t.Parallel()
-	db := newFeatureEnforcementDB(t)
-	seedFeatureUserWorkspace(t, db)
-	ctx := context.Background()
-	_, err := db.NewInsert().Model(&models.SocialAccount{ID: "acc-stale", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "did:plc:stale", Slug: "acc-stale", AccessTokenEnc: []byte("tok"), IsActive: true, CreatedAt: time.Now().UTC()}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.GrowthRecommendation{ID: "rec-stale", WorkspaceID: "ws-1", SocialAccountID: "acc-stale", Platform: "bluesky", RemoteAccountID: "remote-stale", Handle: "h", GenerationID: "gen-stale", FollowState: "idle", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), LastSeenAt: time.Now().UTC()}).Exec(ctx)
-	require.NoError(t, err)
-	growFake := &countingGrowthProvider{}
-	af := accountfeatures.NewService(db, map[string]platform.Adapter{"bluesky": growFake}, nil)
-	growSvc := growthservice.NewService(db, staticTokenSourceFeature{}, nil)
-	growSvc.SetProvider("bluesky", growFake)
-	growSvc.SetFeatureGate(af)
-
-	// Enable then queue follow
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-stale", Feature: "grow", Enabled: true}})
-	require.NoError(t, err)
-	_, err = growSvc.QueueFollow(ctx, workspaceAccessActor(), "ws-1", "rec-stale")
-	require.NoError(t, err)
-	var jobs []models.Job
-	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", "growth_follow").Scan(ctx))
-	require.Len(t, jobs, 1)
-	// Disable before job execution (stale page would have already queued)
-	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-stale", Feature: "grow", Enabled: false}})
-	require.NoError(t, err)
-	growFake.followCount = 0
-	err = growSvc.HandleJob(ctx, "growth_follow", jobs[0].Payload)
-	require.Error(t, err)
-	require.Equal(t, 0, int(atomic.LoadInt32(&growFake.followCount)), "stale follow job must not bypass current disabled state")
 }
 
 type staticTokenSourceFeature struct{}
@@ -530,4 +545,44 @@ func (staticTokenSourceFeature) GetValidAccessToken(context.Context, string) (st
 
 func workspaceAccessActor() workspaceaccess.ActorFacts {
 	return workspaceaccess.ActorFacts{UserID: "user-1"}
+}
+
+// makeMessagingCollectionDue clears the collection lease and stores a due,
+// healthy sync state. The disabled-before-execution negatives must fail at the
+// feature guard, not at a stale collection deadline.
+func makeMessagingCollectionDue(t *testing.T, db *bun.DB, accountID string) {
+	t.Helper()
+	_, err := db.NewRaw(`UPDATE message_event_checkpoints SET lease_owner='', lease_until=NULL WHERE social_account_id=?`, accountID).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewRaw(`UPDATE messaging_sync_states SET status='ok', next_sync_at=? WHERE social_account_id=?`, time.Now().UTC().Add(-time.Minute), accountID).Exec(t.Context())
+	require.NoError(t, err)
+}
+
+func requireMessagingSyncState(t *testing.T, db *bun.DB, accountID, status, errorCode string) {
+	t.Helper()
+	var state models.MessagingSyncState
+	require.NoError(t, db.NewSelect().Model(&state).Where("social_account_id = ?", accountID).Scan(t.Context()))
+	require.Equal(t, status, state.Status)
+	require.Equal(t, errorCode, state.ErrorCode)
+}
+
+// executeGrowthJob runs a queued growth job the way the worker does: the job
+// row carries a real lease generation and the execution context supplies it, so
+// provider-write fences validate the durable lease instead of the legacy
+// attempts/locked_at fallback.
+func executeGrowthJob(t *testing.T, db *bun.DB, svc *growthservice.Service, jobID string) error {
+	t.Helper()
+	var job models.Job
+	require.NoError(t, db.NewSelect().Model(&job).Where("id = ?", jobID).Scan(t.Context()))
+	job.Status = "processing"
+	job.Attempts = 1
+	job.LockedAt = time.Now().UTC()
+	job.LeaseGeneration = 1
+	_, err := db.NewUpdate().Model(&job).Column("status", "attempts", "locked_at", "lease_generation").WherePK().Exec(t.Context())
+	require.NoError(t, err)
+	return svc.HandleJob(
+		providerwrite.WithJobExecution(t.Context(), job.ID, job.Attempts, job.LockedAt, job.LeaseGeneration),
+		job.Type,
+		job.Payload,
+	)
 }

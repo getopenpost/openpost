@@ -216,6 +216,7 @@
 		}
 	}}
 	onkeyup={(event) => {
+		if (disabled) return;
 		if (
 			event.key.startsWith('Arrow') ||
 			event.key === 'PageUp' ||

@@ -22,8 +22,10 @@ function sourceAccount(id: string, username: string): SocialAccount {
 	};
 }
 
+const AVATAR_URL = 'https://example.com/avatar-alice.png';
+
 const accounts: SocialAccount[] = [
-	sourceAccount('account-a', 'alice'),
+	{ ...sourceAccount('account-a', 'alice'), account_avatar_url: AVATAR_URL },
 	sourceAccount('account-b', 'bob')
 ];
 
@@ -43,6 +45,9 @@ describe('workflow repost source picker', () => {
 
 		const anySource = screen.getByRole('checkbox', { name: 'Any compatible source account' });
 		await expect.element(anySource).toBeChecked();
+		// The picker passes each account's photo through to the shared row.
+		const image = screen.container.querySelector(`img[src="${AVATAR_URL}"]`);
+		expect(image?.getAttribute('src')).toBe(AVATAR_URL);
 
 		await anySource.click();
 		expect(onchange).toHaveBeenLastCalledWith(
@@ -59,22 +64,5 @@ describe('workflow repost source picker', () => {
 
 		await anySource.click();
 		expect(onchange).toHaveBeenLastCalledWith(expect.objectContaining({ account_ids: [] }));
-	});
-
-	it('shows the account photo in the source picker when an avatar URL is set', async () => {
-		const avatarUrl = 'https://example.com/avatar-alice.png';
-		const avatarAccounts: SocialAccount[] = [
-			{ ...sourceAccount('account-a', 'alice'), account_avatar_url: avatarUrl },
-			sourceAccount('account-b', 'bob')
-		];
-		const screen = await render(SourceFields, {
-			source: publishedSource([]),
-			connections: [],
-			accounts: avatarAccounts,
-			onchange: vi.fn()
-		});
-
-		const image = screen.container.querySelector(`img[src="${avatarUrl}"]`);
-		expect(image?.getAttribute('src')).toBe(avatarUrl);
 	});
 });

@@ -35,6 +35,9 @@ func TestContentProfileFlagsDoNotShadowCLIProfile(t *testing.T) {
 
 func TestPublicationEventsCommandPrintsLifecycleEvents(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("limit") != "25" {
+			t.Fatalf("limit query = %q, want 25", r.URL.Query().Get("limit"))
+		}
 		if r.URL.Path != "/api/v1/publications/pub_1/events" {
 			t.Fatalf("path = %s, want /api/v1/publications/pub_1/events", r.URL.Path)
 		}
@@ -45,10 +48,21 @@ func TestPublicationEventsCommandPrintsLifecycleEvents(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	out, err := executeRootCaptureStdout(t, "--instance", srv.URL, "--token", "op_cli_test", "publication", "events", "pub_1")
+	out, err := executeRootCaptureStdout(t, "--instance", srv.URL, "--token", "op_cli_test", "publication", "events", "pub_1", "--limit", "25")
 
 	if err != nil {
 		t.Fatalf("publication events returned error: %v", err)
+	}
+	jsonOut, err := executeRootCaptureStdout(t, "--instance", srv.URL, "--token", "op_cli_test", "--json", "publication", "events", "pub_1", "--limit", "25")
+	if err != nil {
+		t.Fatalf("publication events JSON returned error: %v", err)
+	}
+	var events []api.PublicationLifecycleEvent
+	if err := json.Unmarshal([]byte(jsonOut), &events); err != nil {
+		t.Fatalf("decode events: %v", err)
+	}
+	if len(events) != 1 || events[0].Metadata["platform"] != "x" {
+		t.Fatalf("events = %+v", events)
 	}
 	for _, want := range []string{"published", "succeeded", "rendition published", "rend_1"} {
 		if !strings.Contains(out, want) {
@@ -126,29 +140,44 @@ func TestPublicationScheduleCommandUpdatesAndEnqueues(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	out, err := executeRootCaptureStdout(
-		t,
-		"--instance", srv.URL,
-		"--token", "op_cli_test",
-		"--workspace", "Production",
-		"publication", "schedule", "pub_1",
-		"--at", scheduleAt,
-	)
+	for _, asJSON := range []bool{false, true} {
+		scheduled = false
+		updateBody = nil
+		out, err := executeRootCaptureStdout(
+			t,
+			"--instance", srv.URL,
+			"--token", "op_cli_test",
+			"--workspace", "Production",
+			fmt.Sprintf("--json=%t", asJSON),
+			"publication", "schedule", "pub_1",
+			"--at", scheduleAt,
+		)
 
-	if err != nil {
-		t.Fatalf("publication schedule returned error: %v", err)
-	}
-	if updateBody["scheduled_at"] != scheduleAt {
-		t.Fatalf("scheduled_at body = %#v", updateBody)
-	}
-	if updateBody["expected_revision"] != float64(4) {
-		t.Fatalf("expected_revision body = %#v", updateBody)
-	}
-	if !scheduled {
-		t.Fatalf("schedule endpoint was not called")
-	}
-	if !strings.Contains(out, "publication scheduled") || !strings.Contains(out, "job_1") {
-		t.Fatalf("output %q missing schedule result", out)
+		if err != nil {
+			t.Fatalf("publication schedule returned error: %v", err)
+		}
+		if updateBody["scheduled_at"] != scheduleAt {
+			t.Fatalf("scheduled_at body = %#v", updateBody)
+		}
+		if updateBody["expected_revision"] != float64(4) {
+			t.Fatalf("expected_revision body = %#v", updateBody)
+		}
+		if !scheduled {
+			t.Fatalf("schedule endpoint was not called")
+		}
+		if !asJSON {
+			if !strings.Contains(out, "publication scheduled") || !strings.Contains(out, "job_1") {
+				t.Fatalf("output %q missing schedule result", out)
+			}
+			continue
+		}
+		var receipt map[string]any
+		if err := json.Unmarshal([]byte(out), &receipt); err != nil {
+			t.Fatalf("decode schedule receipt: %v", err)
+		}
+		if receipt["message"] != "publication scheduled" || receipt["job_id"] != "job_1" {
+			t.Fatalf("output %q missing schedule result", out)
+		}
 	}
 }
 

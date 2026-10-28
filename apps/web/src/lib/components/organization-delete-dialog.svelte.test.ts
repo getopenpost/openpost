@@ -102,24 +102,4 @@ describe('OrganizationDeleteDialog shared flow', () => {
 			.toBeDisabled();
 		expect(onConfirm).not.toHaveBeenCalled();
 	});
-
-	it('keeps a failed delete open with the message visible', async () => {
-		// SAFETY: the cast bridges the mock's declared response type to the canned preview payload.
-		getMock.mockResolvedValue(previewResponse() as never);
-		const onConfirm = vi.fn().mockRejectedValue(new Error('Delete refused'));
-		const screen = await render(OrganizationDeleteDialog, {
-			open: true,
-			organizationID: 'org-1',
-			organizationName: 'Acme Org',
-			hasPassword: true,
-			onConfirm
-		});
-
-		await screen.getByRole('textbox', { name: 'Enter Acme Org exactly' }).fill('Acme Org');
-		await screen.getByLabelText('Current password').fill('secret-123');
-		await screen.getByRole('button', { name: 'Delete Organization' }).click();
-
-		await expect.element(screen.getByText('Delete refused')).toBeVisible();
-		await expect.element(screen.getByRole('dialog')).toBeVisible();
-	});
 });

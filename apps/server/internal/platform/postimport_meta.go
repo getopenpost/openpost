@@ -105,7 +105,7 @@ func listNativeGraphPosts(ctx context.Context, token string, input NativePostReq
 		if !nativeGraphOriginal(post, input.AccountID, provider) {
 			continue
 		}
-		appendNativePost(&page, input, NativePostItem{ProviderPostID: post.ID, IdentityAliases: nativeGraphIdentityAliases(provider, post), Text: firstNonEmptyString(post.Text, post.Caption, post.Message), ExternalURL: firstNonEmptyString(post.Permalink, post.PermalinkURL), PublishedAt: nativePostTime(firstNonEmptyString(post.Timestamp, post.CreatedTime))})
+		appendNativePost(&page, input, NativePostItem{ProviderPostID: post.ID, IdentityAliases: nativeGraphIdentityAliases(provider, post), Text: firstNonEmptyString(post.Text, post.Caption, post.Message), ExternalURL: firstNonEmptyString(post.Permalink, post.PermalinkURL), PublishedAt: ProviderTime(firstNonEmptyString(post.Timestamp, post.CreatedTime))})
 	}
 	return page, nil
 }

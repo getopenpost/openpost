@@ -127,5 +127,23 @@ func TestGrowthListAuthBoundary(t *testing.T) {
 func TestGrowthRefreshSuccessAndFollowConflict(t *testing.T) {
 	srv := newGrowthTestServer(t)
 	refresh := srv.request(t, http.MethodPost, "/api/v1/growth/refresh", map[string]string{"workspace_id": "ws-1", "account_id": "acc-bluesky"}, "web-token")
-	require.Equal(t, http.StatusOK, refresh.Code)
+	require.Equal(t, http.StatusOK, refresh.Code, refresh.Body.String())
+	var queued struct {
+		JobID  string `json:"job_id"`
+		Status string `json:"status"`
+	}
+	require.NoError(t, json.Unmarshal(refresh.Body.Bytes(), &queued))
+	require.NotEmpty(t, queued.JobID)
+	require.Equal(t, "queued", queued.Status)
+
+	// A recommendation already waiting on a provider follow cannot be followed twice.
+	now := time.Now().UTC()
+	_, err := srv.db.NewInsert().Model(&models.GrowthRecommendation{
+		ID: "rec-pending", WorkspaceID: "ws-1", SocialAccountID: "acc-bluesky", Platform: "bluesky",
+		RemoteAccountID: "remote-pending", Handle: "pending", GenerationID: "gen-pending",
+		FollowState: models.GrowthRecommendationFollowPending, CreatedAt: now, UpdatedAt: now, LastSeenAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	follow := srv.request(t, http.MethodPost, "/api/v1/growth/rec-pending/follow", map[string]string{"workspace_id": "ws-1"}, "web-token")
+	require.Equal(t, http.StatusConflict, follow.Code, follow.Body.String())
 }

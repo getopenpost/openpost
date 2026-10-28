@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	BlobSource,
 	CanvasSource,
@@ -197,6 +197,21 @@ async function decodedMono(blob: Blob): Promise<{ samples: Float32Array; sampleR
 	} finally {
 		input.dispose?.();
 	}
+}
+
+async function streamingScratchEntries(): Promise<string[]> {
+	const root = await navigator.storage.getDirectory();
+	let directory: FileSystemDirectoryHandle;
+	try {
+		directory = await root.getDirectoryHandle('openpost-video-streams', { create: false });
+	} catch (error) {
+		// A scratch directory that has never been created holds no temporary entries.
+		if (error instanceof DOMException && error.name === 'NotFoundError') return [];
+		throw error;
+	}
+	const names: string[] = [];
+	for await (const [name] of directory.entries()) names.push(name);
+	return names.sort();
 }
 
 function tonePowerAt(
@@ -510,6 +525,17 @@ describe('quick-cut mediabunny fixture', () => {
 		expectToneAt(decoded.samples, decoded.sampleRate, 0.25, 220);
 		expectToneAt(decoded.samples, decoded.sampleRate, 0.75, 440);
 		expectToneAt(decoded.samples, decoded.sampleRate, 1.25, 220);
+		// The title also promises no invented video track: inspect the same encoded
+		// result rather than trusting the audio-only fixture or a second export.
+		const videoTracks = new Input({
+			formats: ALL_FORMATS,
+			source: new BlobSource(artifact!.scratchFile)
+		});
+		try {
+			expect(await videoTracks.getVideoTracks()).toHaveLength(0);
+		} finally {
+			videoTracks.dispose?.();
+		}
 		await discardScratchFile(artifact!.scratchPath);
 	}, 30_000);
 
@@ -571,10 +597,10 @@ describe('quick-cut mediabunny fixture', () => {
 		}
 	}, 30_000);
 
-	it('exact non-keyframe A/B/A proves bounded transcode merge', async () => {
+	it('merges exact single-source multi-range cuts into one summed-duration output', async () => {
 		const fileA = await createColorMp4('green', 2, 128, 72);
 		const srcA = await probeSourceFile(fileA);
-		// Choose 0.5s which is likely not on keyframe (keyframe interval is 2s for our encoding)
+		// Three non-keyframe ranges from ONE source: 0.5s, 1.2s and 0.2s starts.
 		const segs = [
 			createSegment(0.5, 1, { sourceId: srcA.id }),
 			createSegment(1.2, 1.7, { sourceId: srcA.id }),
@@ -635,22 +661,97 @@ describe('quick-cut mediabunny fixture', () => {
 		}
 	}, 30_000);
 
-	it('cancels export and cleans up scratch', async () => {
+	it('cancels export and removes its temporary scratch entry', async () => {
 		const fileA = await createColorMp4('yellow', 2);
 		const srcA = await probeSourceFile(fileA);
 		const segs = [
 			createSegment(0, 1, { sourceId: srcA.id }),
 			createSegment(1, 2, { sourceId: srcA.id })
 		];
-		const ac = new AbortController();
-		const promise = exportSegments({
+
+		// Arm 1 (retained): an abort before any render step must reject, not resolve.
+		const immediate = new AbortController();
+		const immediateExport = exportSegments({
 			sources: [srcA],
 			segments: segs,
 			cutMode: 'nearestKeyframe',
 			merge: true,
-			signal: ac.signal
+			signal: immediate.signal
 		});
-		ac.abort();
-		await expect(promise).rejects.toThrow(/cancelled|abort/i);
-	}, 15000);
+		immediate.abort();
+		const [immediateSettled] = await Promise.allSettled([immediateExport]);
+		expect(immediateSettled.status).toBe('rejected');
+		if (immediateSettled.status !== 'rejected') throw new Error('Immediate abort resolved.');
+		expect(immediateSettled.reason).toMatchObject({ name: 'AbortError' });
+
+		// Arm 2: this is a second export by design. `exportMergedStreamCopy` allocates
+		// its OPFS target and starts the output before reporting copying progress, and
+		// checks the signal immediately after that report, so aborting from the report
+		// observes real allocation and lands while the export is still in flight.
+		const before = await streamingScratchEntries();
+		const created: string[] = [];
+		const instrumented = new WeakSet<object>();
+		const instrumentedSpies: Array<{ mockRestore: () => void }> = [];
+		const storage = navigator.storage;
+		const originalGetDirectory = storage.getDirectory.bind(storage);
+		const observeStorage = vi.spyOn(storage, 'getDirectory').mockImplementation(async () => {
+			const root = await originalGetDirectory();
+			if (instrumented.has(root)) return root;
+			instrumented.add(root);
+			const originalGetDirectoryHandle = root.getDirectoryHandle.bind(root);
+			instrumentedSpies.push(
+				vi.spyOn(root, 'getDirectoryHandle').mockImplementation(async (name, options) => {
+					const handle = await originalGetDirectoryHandle(name, options);
+					if (name !== 'openpost-video-streams' || instrumented.has(handle)) return handle;
+					instrumented.add(handle);
+					const originalGetFileHandle = handle.getFileHandle.bind(handle);
+					instrumentedSpies.push(
+						vi.spyOn(handle, 'getFileHandle').mockImplementation(async (fileName, fileOptions) => {
+							const fileHandle = await originalGetFileHandle(fileName, fileOptions);
+							// Only target creation uses create:true; stale-entry scans do not.
+							if (fileOptions?.create) created.push(fileName);
+							return fileHandle;
+						})
+					);
+					return handle;
+				})
+			);
+			return root;
+		});
+		const ac = new AbortController();
+		let copyingObserved = false;
+		const exportPromise = exportSegments({
+			sources: [srcA],
+			segments: segs,
+			cutMode: 'nearestKeyframe',
+			merge: true,
+			signal: ac.signal,
+			onProgress: (progress) => {
+				if (progress.phase !== 'copying' || ac.signal.aborted) return;
+				copyingObserved = true;
+				ac.abort();
+			}
+		});
+		// Attach settlement immediately: awaiting the export result is the only
+		// side signal, so a setup failure reports through that result instead of
+		// hanging on a never-settling progress promise.
+		const settlement = Promise.allSettled([exportPromise]);
+		try {
+			const [outcome] = await settlement;
+			expect(copyingObserved).toBe(true);
+			// The call-through OPFS handle recorded the entry the writer allocated.
+			expect(created).toHaveLength(1);
+			expect(before).not.toContain(created[0]);
+			expect(outcome.status).toBe('rejected');
+			if (outcome.status !== 'rejected') throw new Error('Cancelled export resolved.');
+			expect(outcome.reason).toMatchObject({ name: 'AbortError' });
+			// The merged stream-copy discard removes the allocated entry exactly.
+			await expect.poll(() => streamingScratchEntries(), { timeout: 15_000 }).toEqual(before);
+		} finally {
+			ac.abort();
+			await settlement;
+			for (const spy of instrumentedSpies) spy.mockRestore();
+			observeStorage.mockRestore();
+		}
+	}, 30_000);
 });

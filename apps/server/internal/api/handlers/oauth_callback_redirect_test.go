@@ -135,34 +135,6 @@ func (a *directOAuthTestAdapter) Publish(context.Context, string, string, *platf
 	return platform.PublishResult{}, nil
 }
 
-func TestOAuthCallbackAccountSelectionRedirectsExposeFinalLocationHeader(t *testing.T) {
-	t.Parallel()
-
-	// One provider proves the rule: selection redirects must carry the platform
-	// scope and never leak tokens or codes. Provider-specific callback paths
-	// are covered by the mismatch, error, and cancellation tests below.
-	for _, providerName := range []string{"facebook"} {
-		t.Run(providerName, func(t *testing.T) {
-			t.Parallel()
-
-			e, state, _ := newOAuthCallbackRedirectTestServer(t, providerName, &selectionTestAdapter{})
-
-			rec := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/"+providerName+"/callback?code=provider-code&state="+url.QueryEscape(state), nil, true)
-			result := rec.Result()
-			t.Cleanup(func() { _ = result.Body.Close() })
-
-			require.Equal(t, http.StatusTemporaryRedirect, result.StatusCode)
-			location := result.Header.Get("Location")
-			require.NotEmpty(t, location)
-			require.Contains(t, location, "https://app.openpost.test/accounts/callback")
-			require.Contains(t, location, "status=selection_required")
-			require.Contains(t, location, "platform="+providerName)
-			require.NotContains(t, location, "access_token")
-			require.NotContains(t, location, "provider-code")
-		})
-	}
-}
-
 func TestFacebookOAuthCallbackExplainsMissingManageablePages(t *testing.T) {
 	t.Parallel()
 

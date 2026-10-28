@@ -656,14 +656,21 @@ func TestApplyAccountConstraintsRefreshesVideoMIMEsAndSize(t *testing.T) {
 		Segments: segments,
 	})
 	require.Contains(t, issueCodes(resolved.Issues), "media_size")
-	require.NotContains(t, issueCodes(resolved.Issues), "media_type")
+	require.NotContains(t, issueCodes(resolved.Issues), "media_mime")
+
+	ApplyAccountConstraints(&resolved, AccountConstraintInput{Segments: segments, Constraints: map[string]any{
+		"max_video_size_bytes": int64(200 * 1024 * 1024),
+		"allowed_mimes":        []any{"video/mp4"},
+	}})
+	require.NotContains(t, issueCodes(resolved.Issues), "media_size")
+	require.Contains(t, issueCodes(resolved.Issues), "media_mime")
 
 	ApplyAccountConstraints(&resolved, AccountConstraintInput{Segments: segments, Constraints: map[string]any{
 		"max_video_size_bytes": int64(200 * 1024 * 1024),
 		"allowed_mimes":        []any{"video/mp4", "video/webm"},
 	}})
 	require.NotContains(t, issueCodes(resolved.Issues), "media_size")
-	require.NotContains(t, issueCodes(resolved.Issues), "media_type")
+	require.NotContains(t, issueCodes(resolved.Issues), "media_mime")
 	require.Contains(t, resolved.Media.AllowedMIMEs, "video/webm")
 }
 
@@ -830,7 +837,7 @@ func TestValidateRequiresExplicitConsentWithoutGenericQuotaWarnings(t *testing.T
 		URL:             "https://cdn.example/video.mp4",
 	}}, map[string]any{"content_posting_method": "DIRECT_POST", "privacy_level": "SELF_ONLY"})
 
-	requireIssueCode(t, tiktokIssues, "setting_required")
+	requireIssueForField(t, tiktokIssues, "setting_required", "music_usage_confirmed")
 
 	youtubeIssues := Validate(ProviderYouTube, models.ContentProfileLongVideo, "caption", "Title", "", []MediaItem{{
 		ID:             "video-1",

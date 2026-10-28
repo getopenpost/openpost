@@ -9,11 +9,11 @@ describe('fitKeyframeSpanToViewport', () => {
 			fallbackFrom: 0,
 			fallbackTo: 199,
 			fps: 30,
-			availableWidth: 1000,
+			availableWidth: 600,
 			scrollBase: 0
 		});
-		expect(Number.isFinite(level)).toBe(true);
-		expect(targetScrollLeft).toBeGreaterThanOrEqual(0);
+		expect(level).toBeCloseTo(600 / (101 * 4));
+		expect(targetScrollLeft).toBe(0);
 	});
 
 	it('falls back to the full item range without frames', () => {
@@ -33,7 +33,8 @@ describe('fitKeyframeSpanToViewport', () => {
 		};
 		const without = fitKeyframeSpanToViewport({ ...base, scrollBase: 0 });
 		const withBase = fitKeyframeSpanToViewport({ ...base, scrollBase: 120 });
-		expect(withBase.targetScrollLeft).toBeGreaterThanOrEqual(without.targetScrollLeft);
+		expect(without.targetScrollLeft).toBe(0);
+		expect(withBase.targetScrollLeft).toBe(96);
 		expect(withBase.level).toBe(without.level);
 	});
 });

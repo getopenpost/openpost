@@ -1,19 +1,16 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
-import ts from 'typescript';
-import { BaseSequencer } from 'vitest/node';
-import { z } from 'zod';
 
-// Module-mocked files have intermittently stalled imports in reused browser sessions.
-// Give them fresh processes while retaining the canonical Vitest shard selection.
-// CI owns the job deadline and cleanup of Vitest and browser descendants.
 const shard = process.argv[2];
-if (!/^\d+\/\d+$/.test(shard ?? '')) throw new Error('Pass a Vitest shard, such as 2/4');
-const [index, count] = shard.split('/').map(Number);
-if (index < 1 || index > count) throw new Error('Invalid Vitest shard');
+if (process.argv.length > 3 || (shard !== undefined && !/^\d+\/\d+$/.test(shard)))
+	throw new Error('Pass at most one Vitest shard, such as 2/4');
+if (shard !== undefined) {
+	const [index, count] = shard.split('/').map(Number);
+	if (!Number.isSafeInteger(index) || !Number.isSafeInteger(count) || index < 1 || index > count)
+		throw new Error('Invalid Vitest shard');
+}
+const shards = shard === undefined ? ['1/4', '2/4', '3/4', '4/4'] : [shard];
 
 const require = createRequire(import.meta.url);
 const vitest = join(dirname(require.resolve('vitest/package.json')), 'vitest.mjs');
@@ -24,61 +21,21 @@ function run(executable, args) {
 		env: { ...process.env, OPENPOST_PARAGLIDE_PRECOMPILED: '1' }
 	});
 	if (result.error) throw result.error;
+	if (result.signal) throw new Error(`${executable} exited with signal ${result.signal}`);
 	if (result.status !== 0) throw new Error(`${executable} exited with status ${result.status}`);
 }
 
-function usesModuleMocks(file) {
-	const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest);
-	function visit(node) {
-		if (
-			ts.isCallExpression(node) &&
-			ts.isPropertyAccessExpression(node.expression) &&
-			ts.isIdentifier(node.expression.expression) &&
-			node.expression.expression.text === 'vi' &&
-			['mock', 'doMock'].includes(node.expression.name.text)
-		)
-			return true;
-		return ts.forEachChild(node, visit);
-	}
-	return Boolean(visit(source));
-}
-
-const directory = mkdtempSync(join(tmpdir(), 'openpost-component-tests-'));
-try {
-	// Each isolated Vite process otherwise compiles the same catalog again.
-	// Generate fresh output once, including for standalone CI shard invocations.
-	run('bun', ['run', 'generate:i18n']);
-	const inventoryPath = join(directory, 'files.json');
+// Prepare once for standalone CI shards and the local four-session workflow.
+run('bun', ['run', 'generate:i18n']);
+for (const shard of shards) {
+	console.log('Component browser shard:', shard);
 	run(process.execPath, [
 		vitest,
-		'list',
+		'run',
 		'--project',
 		'client',
-		'--filesOnly',
-		'--json',
-		inventoryPath
+		`--shard=${shard}`,
+		'--isolate',
+		'--maxWorkers=1'
 	]);
-	const inventory = z
-		.array(z.object({ file: z.string().min(1) }))
-		.min(1)
-		.parse(JSON.parse(readFileSync(inventoryPath, 'utf8')));
-	const specs = inventory.map(({ file }) => ({ moduleId: file }));
-	if (new Set(specs.map((spec) => spec.moduleId)).size !== specs.length)
-		throw new Error('Duplicate Vitest browser file inventory');
-	const sequencer = new BaseSequencer({
-		config: { root: process.cwd(), shard: { index, count } }
-	});
-	const files = (await sequencer.shard(specs)).map(({ moduleId }) => moduleId);
-	if (!files.length) throw new Error('Empty Vitest browser shard');
-	const mocked = files.filter(usesModuleMocks);
-	const plain = files.filter((file) => !mocked.includes(file));
-	console.log(
-		`Component shard ${shard}: ${files.length} files, ${mocked.length} isolated module-mock files`
-	);
-	for (const group of [...mocked.map((file) => [file]), ...(plain.length ? [plain] : [])]) {
-		console.log('Component browser process:', group);
-		run(process.execPath, [vitest, 'run', '--project', 'client', ...group]);
-	}
-} finally {
-	rmSync(directory, { recursive: true, force: true });
 }

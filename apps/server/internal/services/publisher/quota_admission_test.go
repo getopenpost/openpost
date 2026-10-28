@@ -3,6 +3,7 @@ package publisher
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -10,9 +11,28 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/entitlements"
+	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/usage"
 	"github.com/stretchr/testify/require"
 )
+
+//nolint:unparam // workspaceID is part of the legacy write-scope signature; tests pass a static workspace while canonical callers use publicationWriteScope.
+func legacyWriteScope(
+	ctx context.Context,
+	workspaceID, socialAccountID, targetKey, subject string,
+) providerWriteScope {
+	execution, _ := providerwrite.JobExecutionFromContext(ctx)
+	owner := execution.ID
+	if owner == "" {
+		owner = workspaceID
+	}
+	return providerWriteScope{
+		operationID:     strings.Join([]string{"legacy", owner, subject, "publish"}, ":"),
+		socialAccountID: socialAccountID,
+		targetKey:       targetKey,
+		operation:       "publish",
+	}
+}
 
 type delayedQuota struct{ entitlements.Service }
 
@@ -52,13 +72,20 @@ func TestConcurrentProviderDispatchRespectsMonthlyQuota(t *testing.T) {
 			close(start)
 			wg.Wait()
 			close(results)
-			success := 0
+			success, denied := 0, 0
 			for err := range results {
 				if err == nil {
 					success++
+				} else {
+					require.ErrorIs(t, err, usage.ErrQuotaExceeded)
+					denied++
 				}
 			}
 			require.Equal(t, 1, success)
+			require.Equal(t, 1, denied)
+			current, err := srv.usage.CurrentMonthly(t.Context(), "ws-1", metric, time.Now())
+			require.NoError(t, err)
+			require.Equal(t, int64(1), current)
 			require.Equal(t, 1, adapters[0].publishCalls+adapters[1].publishCalls)
 		})
 	}
@@ -125,6 +152,16 @@ func TestPublishedQuotaKeepsOperationIdentityAcrossRecovery(t *testing.T) {
 	}
 }
 
+type observedQuota struct {
+	entitlements.Service
+	beforeCheck func(context.Context)
+}
+
+func (s observedQuota) Check(ctx context.Context, request entitlements.Request) (entitlements.Decision, error) {
+	s.beforeCheck(ctx)
+	return s.Service.Check(ctx, request)
+}
+
 func TestQuotaDenialReleasesUnsentProviderCost(t *testing.T) {
 	adapter := &fakePublisherAdapter{}
 	srv := newPublisherUsageTestServer(t, adapter)
@@ -134,14 +171,36 @@ func TestQuotaDenialReleasesUnsentProviderCost(t *testing.T) {
 	require.NoError(t, err)
 	_, err = srv.db.NewUpdate().Model((*models.Workspace)(nil)).Set("organization_id = ?", "org").Where("id = ?", "ws-1").Exec(t.Context())
 	require.NoError(t, err)
-	srv.service.SetEntitlement(entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "limited", Limits: map[entitlements.LimitKey]int64{entitlements.LimitProviderWriteCallsMonthly: 0}}))
+	observed := false
+	reservationKey := ""
+	srv.service.SetEntitlement(observedQuota{
+		Service: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "limited", Limits: map[entitlements.LimitKey]int64{entitlements.LimitProviderWriteCallsMonthly: 0}}),
+		beforeCheck: func(ctx context.Context) {
+			if observed {
+				return
+			}
+			var reservation models.ProviderUsageReservation
+			require.NoError(t, srv.db.NewSelect().Model(&reservation).Where("workspace_id = ?", "ws-1").Scan(ctx))
+			require.Equal(t, "x", reservation.Provider)
+			require.Equal(t, "pending", reservation.State)
+			require.Equal(t, int64(15000), reservation.CostMicrousd)
+			reservationKey = reservation.OperationKey
+			require.NotEmpty(t, reservationKey)
+			observed = true
+		},
+	})
 	require.NoError(t, srv.usage.SetProviderCostPolicy(usage.NewXProviderCostPolicy(1000000, 15000, 200000)))
 	scope := legacyWriteScope(t.Context(), "ws-1", "account-1", "x", "denied")
 	_, err = srv.service.publishProviderWithUsage(t.Context(), "ws-1", "x", "denied", "publish", scope, adapter, "token", "x-account", &platform.PublishRequest{Content: "hello", Profile: models.ContentProfileShortText, OutputProfile: "x.post"}, nil)
-	require.Error(t, err)
+	require.ErrorIs(t, err, usage.ErrQuotaExceeded)
+	require.True(t, observed)
+	reservations, queryErr := srv.db.NewSelect().Model((*models.ProviderUsageReservation)(nil)).Where("operation_key = ?", reservationKey).Count(t.Context())
+	require.NoError(t, queryErr)
+	require.Zero(t, reservations)
 	require.Zero(t, adapter.publishCalls)
 	costs, err := srv.usage.SnapshotProviderCosts(t.Context(), "ws-1", time.Now())
 	require.NoError(t, err)
+	require.Len(t, costs, 1)
 	for _, cost := range costs {
 		require.Zero(t, cost.ReservedMicrousd)
 		require.Zero(t, cost.CostMicrousd)

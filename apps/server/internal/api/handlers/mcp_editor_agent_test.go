@@ -49,22 +49,36 @@ func (g *editorAssistantSequenceGenerator) Generate(_ context.Context, request a
 
 func TestEditorAssistantRequiresConfiguredModelEditAccessAndHostedPlan(t *testing.T) {
 	db := workflowHandlerDB(t)
+	blank, whitespace := "", " \t "
 	for _, test := range []struct {
-		name        string
-		edition     string
-		entitlement entitlements.Service
-		workspaceID string
-		userID      string
-		available   bool
-		reason      string
+		name         string
+		edition      string
+		entitlement  entitlements.Service
+		workspaceID  string
+		userID       string
+		available    bool
+		reason       string
+		nilGenerator bool
+		model        *string
 	}{
 		{name: "paid editor", edition: "cloud", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "user", available: true},
 		{name: "free editor", edition: "cloud", entitlement: entitlements.NewCloudBootstrapService(), workspaceID: "ws", userID: "user", reason: "paid_plan_required"},
 		{name: "other user", edition: "cloud", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "other", reason: "no_edit_access"},
 		{name: "self hosted", edition: "selfhost", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "user", available: true},
+		{name: "nil generator", edition: "cloud", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "user", nilGenerator: true, reason: "not_configured"},
+		{name: "blank model", edition: "cloud", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "user", model: &blank, reason: "not_configured"},
+		{name: "whitespace model", edition: "cloud", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "user", model: &whitespace, reason: "not_configured"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			handler := NewEditorAgentAssistantHandler(db, workflowSession{}, test.entitlement, editorAssistantTestGenerator{}, "test-model", test.edition)
+			var generator ai.Generator = editorAssistantTestGenerator{}
+			if test.nilGenerator {
+				generator = nil
+			}
+			model := "test-model"
+			if test.model != nil {
+				model = *test.model
+			}
+			handler := NewEditorAgentAssistantHandler(db, workflowSession{}, test.entitlement, generator, model, test.edition)
 			available, reason, err := handler.available(t.Context(), test.workspaceID, test.userID)
 			if err != nil || available != test.available || reason != test.reason {
 				t.Fatalf("availability = %v, %q, %v; want %v, %q", available, reason, err, test.available, test.reason)
@@ -263,23 +277,60 @@ func TestEditorAgentMCPValidatesSpecificActions(t *testing.T) {
 }
 
 func TestEditorAudioPreviewReturnsBoundedMCPAudioContent(t *testing.T) {
-	wav := make([]byte, 44)
-	copy(wav[:4], "RIFF")
-	copy(wav[8:12], "WAVE")
-	encoded := base64.StdEncoding.EncodeToString(wav)
-	result := editorAgentToolResult(map[string]any{"request": &editoragent.Request{
-		Status: "completed", Result: json.RawMessage(`{"audio_base64":"` + encoded + `","start_frame":0}`),
-	}})
-	content := result["content"].([]mcpContent)
-	if len(content) != 2 || content[1].Type != "audio" || content[1].MimeType != "audio/wav" || content[1].Data != encoded {
-		t.Fatalf("WAV preview was not returned as audio content: %#v", content)
+	wave := func(size int) []byte {
+		data := make([]byte, size)
+		copy(data[:4], "RIFF")
+		copy(data[8:12], "WAVE")
+		return data
 	}
-	receipt := result["structuredContent"].(map[string]any)["request"].(*editoragent.Request)
-	if string(receipt.Result) != `{"start_frame":0}` {
-		t.Fatalf("audio bytes leaked into the structured receipt: %s", receipt.Result)
+	badRIFF, badWAVE := wave(44), wave(44)
+	copy(badRIFF[:4], "NOPE")
+	copy(badWAVE[8:12], "NOPE")
+	for _, test := range []struct {
+		name    string
+		encoded string
+		valid   bool
+	}{
+		{"minimum WAV", base64.StdEncoding.EncodeToString(wave(44)), true},
+		{"inclusive one MiB", base64.StdEncoding.EncodeToString(wave(1048576)), true},
+		{"over one MiB", base64.StdEncoding.EncodeToString(wave(1048577)), false},
+		{"short header", base64.StdEncoding.EncodeToString(wave(43)), false},
+		{"wrong RIFF", base64.StdEncoding.EncodeToString(badRIFF), false},
+		{"wrong WAVE", base64.StdEncoding.EncodeToString(badWAVE), false},
+		{"invalid base64", "%%%not-base64%%%", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := editorAgentToolResult(map[string]any{"request": &editoragent.Request{
+				Status: "completed", Result: json.RawMessage(`{"audio_base64":"` + test.encoded + `","start_frame":0}`),
+			}})
+			content := result["content"].([]mcpContent)
+			if test.valid {
+				if len(content) != 2 || content[1].Type != "audio" || content[1].MimeType != "audio/wav" || content[1].Data != test.encoded {
+					t.Fatalf("WAV preview was not returned as audio content: type/count/MIME/data mismatch")
+				}
+			} else if len(content) != 1 || content[0].Type != "text" {
+				t.Fatalf("invalid audio produced non-text content: %#v", content)
+			}
+			receipt := result["structuredContent"].(map[string]any)["request"].(*editoragent.Request)
+			if test.valid {
+				if string(receipt.Result) != `{"start_frame":0}` {
+					t.Fatalf("audio bytes leaked into the structured receipt")
+				}
+			} else {
+				var data map[string]any
+				if err := json.Unmarshal(receipt.Result, &data); err != nil {
+					t.Fatal(err)
+				}
+				if _, leaked := data["audio_base64"]; leaked {
+					t.Fatal("invalid audio bytes leaked into the structured receipt")
+				}
+				if message, ok := data["audio_error"].(string); !ok || message != "preview audio could not be validated" || data["start_frame"] != float64(0) {
+					t.Fatalf("invalid audio did not preserve a typed error and receipt: %#v", data)
+				}
+			}
+		})
 	}
 }
-
 func TestEditorAgentMCPResultUsesAdvertisedEnvelope(t *testing.T) {
 	result := editorAgentToolResult(map[string]any{"sessions": []any{}})
 	if err := validateMCPToolOutput("editor_sessions", result); err != nil {

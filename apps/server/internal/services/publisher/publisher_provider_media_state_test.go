@@ -45,6 +45,8 @@ func TestPublisherRetriesNonResumableMediaAfterTransientProviderFailure(t *testi
 	require.NoError(t, err)
 	require.Equal(t, "platform-media-id", providerMediaID)
 	require.Equal(t, 2, adapter.uploadCalls)
+	require.Equal(t, []string{"image-transient.png", "image-transient.png"}, srv.storage.opened)
+	require.Equal(t, "stored-media", adapter.uploadedBody)
 }
 
 func TestPublisherDoesNotRetryExplicitTerminalNonResumableMediaFailure(t *testing.T) {

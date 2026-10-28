@@ -57,6 +57,16 @@ describe('speech-cleanup-settings', () => {
 			'openpost-video-editor-cleanup-settings-v1': '{broken'
 		});
 		expect(loadSpeechCleanupSettings(storage)).toEqual(DEFAULT_SPEECH_CLEANUP_SETTINGS);
+		expect(loadSpeechCleanupSettings(storage)).toMatchObject({
+			fillerPreset: 'balanced',
+			silenceMode: 'signal',
+			minSilenceMs: 500,
+			paddingStartMs: 100,
+			paddingEndMs: 100,
+			autoThresholds: true,
+			silenceThresholdDb: -45,
+			audioThresholdDb: -35
+		});
 	});
 
 	it('rejects malformed filler durations while keeping valid stored choices', () => {

@@ -469,6 +469,43 @@ it('renders saved grapheme emphasis in the live canvas and static export', async
 		expect(glyph?.styles[0]?.[1]).toBeUndefined();
 		await settleCanvas();
 		expect(pixelDigest(live.canvas)).toBe(pixelDigest(exported.canvas));
+
+		// Two canvases produced by the same adapter can agree while both miss the
+		// artwork. The red run belongs to B, so B must paint red pixels to the right
+		// of the non-red A glyph in each canvas.
+		const emphasisBounds = (canvas: HTMLCanvasElement) => {
+			const { data } = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
+			const bounds = {
+				reds: 0,
+				darks: 0,
+				redLeft: Number.POSITIVE_INFINITY,
+				redTop: Number.POSITIVE_INFINITY,
+				darkLeft: Number.POSITIVE_INFINITY
+			};
+			for (let index = 0; index < data.length; index += 4) {
+				const red = data[index]! > 200 && data[index + 1]! < 60 && data[index + 2]! < 60;
+				const dark = data[index]! < 60 && data[index + 1]! < 60 && data[index + 2]! < 60;
+				if (!red && !dark) continue;
+				const pixel = index / 4;
+				const x = pixel % canvas.width;
+				if (red) {
+					bounds.reds += 1;
+					bounds.redLeft = Math.min(bounds.redLeft, x);
+					bounds.redTop = Math.min(bounds.redTop, Math.floor(pixel / canvas.width));
+				} else {
+					bounds.darks += 1;
+					bounds.darkLeft = Math.min(bounds.darkLeft, x);
+				}
+			}
+			return bounds;
+		};
+		const liveEmphasis = emphasisBounds(live.canvas);
+		for (const probe of [liveEmphasis, emphasisBounds(exported.canvas)]) {
+			expect(probe.reds).toBeGreaterThan(0);
+			expect(probe.darks).toBeGreaterThan(0);
+			expect(probe.darkLeft).toBeLessThan(probe.redLeft);
+		}
+
 		const changedLayer: ImageEditorLayer = {
 			...layer,
 			text: {
@@ -483,6 +520,11 @@ it('renders saved grapheme emphasis in the live canvas and static export', async
 			fontWeight: 700,
 			fill: '#ff0000'
 		});
+		await settleCanvas();
+		const movedEmphasis = emphasisBounds(live.canvas);
+		expect(movedEmphasis.reds).toBeGreaterThan(0);
+		// The authored newline moves the emphasized B down by one 52px line.
+		expect(movedEmphasis.redTop).toBeGreaterThan(liveEmphasis.redTop + 30);
 	} finally {
 		live.adapter.dispose();
 		exported.adapter.dispose();
@@ -772,7 +814,65 @@ describe('OpenPost Image Editor Fabric reconciliation', () => {
 				document.height_px
 			);
 			expect(selection).not.toBeNull();
-			expect(differingPixels(selection!, binaryAlpha(isolated!))).toBe(0);
+			if (!selection) throw new Error('Layer alpha mask is missing.');
+			expect(differingPixels(selection, binaryAlpha(isolated!))).toBe(0);
+
+			// Independent authored-geometry probes. Fabric rotates this stroked layer
+			// about the centre of its stroke-expanded box: the authored origin (96,52)
+			// plus half of (132+24, 88+24), turned by 31 degrees. The 132x88 diamond
+			// mask is inset 8 and the 18px erase stroke runs from (34,20) to (98,68), so
+			// a layer-local point maps to a document point as below. The 24px outline is
+			// centred on the layer edge and the inset diamond leaves only ~4px slivers
+			// of it, so the outline is not independently alpha-probed.
+			const radians = (31 * Math.PI) / 180;
+			const cos = Math.cos(radians);
+			const sin = Math.sin(radians);
+			const centreX = 96 + cos * 78 - sin * 56;
+			const centreY = 52 + sin * 78 + cos * 56;
+			const layerPoint = (localX: number, localY: number) => {
+				const offsetX = localX - 66;
+				const offsetY = localY - 44;
+				return {
+					x: Math.round(centreX + cos * offsetX - sin * offsetY),
+					y: Math.round(centreY + sin * offsetX + cos * offsetY)
+				};
+			};
+			const alphaAt = (point: { x: number; y: number }) =>
+				selection[point.y * document.width_px + point.x];
+			const pixelAt = (point: { x: number; y: number }) => [
+				...mounted.canvas.getContext('2d')!.getImageData(point.x, point.y, 1, 1).data
+			];
+			// The authored mapping puts the masked centre at (134,140).
+			expect(layerPoint(66, 44)).toEqual({ x: 134, y: 140 });
+			// Two safe interior points: inside the diamond and outside both the erase
+			// band and the outline band.
+			const interiorA = layerPoint(57.7, 55.2);
+			expect(interiorA).toEqual({ x: 121, y: 145 });
+			expect(pixelAt(interiorA).slice(0, 3)).toEqual([249, 115, 22]);
+			expect(alphaAt(interiorA)).toBe(1);
+			const interiorB = layerPoint(74.5, 32.7);
+			expect(interiorB).toEqual({ x: 147, y: 135 });
+			expect(pixelAt(interiorB).slice(0, 3)).toEqual([249, 115, 22]);
+			expect(alphaAt(interiorB)).toBe(1);
+			// Inside the authored rectangle but outside the rotated diamond: clear under
+			// the authored 31 degree rotation, while a dropped clip would leave it filled.
+			const clippedCorner = layerPoint(112, 16);
+			expect(clippedCorner).toEqual({ x: 188, y: 140 });
+			expect(pixelAt(clippedCorner).slice(0, 3)).toEqual([255, 255, 255]);
+			expect(alphaAt(clippedCorner)).toBe(0);
+			// A document point that is clear only because of the 31 degree rotation:
+			// dropped rotation would leave it inside the unrotated diamond.
+			const rotationClear = { x: 170, y: 80 };
+			expect(pixelAt(rotationClear).slice(0, 3)).toEqual([255, 255, 255]);
+			expect(alphaAt(rotationClear)).toBe(0);
+			// Centre of the authored erase stroke: the cut hole must be transparent.
+			const erasedHole = layerPoint(66, 44);
+			expect(pixelAt(erasedHole).slice(0, 3)).toEqual([255, 255, 255]);
+			expect(alphaAt(erasedHole)).toBe(0);
+			// Well outside the rotated layer and its stroke.
+			const outside = { x: 20, y: 20 };
+			expect(pixelAt(outside).slice(0, 3)).toEqual([255, 255, 255]);
+			expect(alphaAt(outside)).toBe(0);
 		} finally {
 			mounted.adapter.dispose();
 		}

@@ -63,7 +63,7 @@ func (p *PeerTubeAdapter) ListNativePosts(ctx context.Context, token string, inp
 		if strconv.FormatInt(video.Channel.ID, 10) != input.AccountID && video.Channel.Name != input.AccountID && video.Channel.Name+"@"+video.Channel.Host != input.AccountID {
 			continue
 		}
-		published := nativePostTime(video.PublishedAt)
+		published := ProviderTime(video.PublishedAt)
 		if !published.IsZero() && !published.After(input.PublishedAfter) {
 			page.NextCursor = ""
 			page.Coverage = NativePostComplete
@@ -131,7 +131,7 @@ func listNativeCommunityPosts(ctx context.Context, token string, input NativePos
 		if view.Creator.ID != person || post.Deleted || post.Removed {
 			continue
 		}
-		appendNativePost(&page, input, NativePostItem{ProviderPostID: strconv.FormatInt(post.ID, 10), Title: firstNonEmptyString(post.Title, post.Name), Text: post.Body, PublishedAt: nativePostTime(post.Published), ExternalURL: post.ActorID})
+		appendNativePost(&page, input, NativePostItem{ProviderPostID: strconv.FormatInt(post.ID, 10), Title: firstNonEmptyString(post.Title, post.Name), Text: post.Body, PublishedAt: ProviderTime(post.Published), ExternalURL: post.ActorID})
 	}
 	return page, nil
 }

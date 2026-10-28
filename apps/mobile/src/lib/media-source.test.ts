@@ -12,8 +12,9 @@ test("native previews resolve protected media URLs and authenticate their image 
   });
   try {
     const base = server.url.origin;
-    for (const uri of [`${base}/media/photo`, "/media/photo/thumb/small"]) {
+    for (const uri of [`${base}/media/photo`, "/media/photo/thumb/sm"]) {
       const source = mediaImageSource(uri, base, "preview-token");
+      expect(source.uri).toBe(`${base}/media/photo`);
       const response = await fetch(source.uri, {
         headers: (source as { headers?: Record<string, string> }).headers,
       });
@@ -80,13 +81,6 @@ test("native previews never thumbnail or authenticate outside or local images", 
       });
     }
   }
-});
-
-test("mediaImageSource stays the original-only wrapper around mediaPreviewSource", () => {
-  const base = "https://app.example";
-  expect(mediaImageSource("/media/photo", base, "preview-token")).toEqual(
-    mediaPreviewSource("/media/photo", "original", base, "preview-token"),
-  );
 });
 
 test("mediaPreviewCandidates requests the thumbnail first and falls back to the original once", () => {

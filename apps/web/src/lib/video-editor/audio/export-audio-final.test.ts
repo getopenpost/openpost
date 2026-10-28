@@ -67,6 +67,15 @@ describe('export audio final - trim, gain, speed', () => {
 			30
 		);
 		expect(gain[0]?.gainPoints[0]?.value).toBeCloseTo(0.25);
+		const faded = planMixdown(
+			[item({ durationInFrames: 60, audioFadeIn: 0.5, audioFadeOut: 0.5 })],
+			[track('t', 0)],
+			30
+		)[0]!;
+		expect(faded.gainPoints.find((point) => point.whenSeconds === 0)?.value).toBe(0);
+		expect(faded.gainPoints.find((point) => point.whenSeconds === 1)?.value).toBe(1);
+		expect(faded.gainPoints.at(-1)?.value).toBe(0);
+
 		const fast = planMixdown(
 			[item({ mediaId: 'a', speed: 2, durationInFrames: 60 })],
 			[track('t', 0)],

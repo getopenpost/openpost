@@ -466,6 +466,7 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 			letter_spacing: 2
 		});
 
+		expect(editor.selectedLayers).toHaveLength(2);
 		for (const layer of editor.selectedLayers) {
 			expect(layer.text).toMatchObject({
 				font_family: 'Brand Sans',
@@ -1280,15 +1281,18 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		const image = editor.selectedLayers[0];
 		const original = structuredClone(image.transform);
 
-		editor.applyImageCrop(image.id, { x: 0.25, y: 0, width: 0.5, height: 1 });
+		editor.applyImageCrop(image.id, { x: 0.25, y: 0.25, width: 0.5, height: 0.5 });
 
 		expect(editor.selectedLayers[0].image?.crop).toEqual({
 			x: 0.25,
-			y: 0,
+			y: 0.25,
 			width: 0.5,
-			height: 1
+			height: 0.5
 		});
+		expect(editor.selectedLayers[0].transform.x).toBeCloseTo(original.x + original.width / 4);
+		expect(editor.selectedLayers[0].transform.y).toBeCloseTo(original.y + original.height / 4);
 		expect(editor.selectedLayers[0].transform.width).toBeCloseTo(original.width / 2);
+		expect(editor.selectedLayers[0].transform.height).toBeCloseTo(original.height / 2);
 
 		editor.undo();
 		expect(editor.selectedLayers[0].image?.crop).toEqual({

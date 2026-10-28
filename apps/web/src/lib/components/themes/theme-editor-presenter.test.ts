@@ -41,12 +41,15 @@ describe('theme editor presentation', () => {
 		];
 
 		for (const token of new Set(tokens)) {
+			expect(themeEditorTokenLabel(token, 'en').trim(), token).not.toBe('');
 			expect(themeEditorTokenLabel(token, 'en'), token).not.toBe(token);
 		}
 		for (const value of new Set(values)) {
+			expect(themeEditorValueLabel(value, 'en').trim(), value).not.toBe('');
 			expect(themeEditorValueLabel(value, 'en'), value).not.toBe(value);
 		}
 		for (const pack of THEME_ICON_PACK_IDS) {
+			expect(themeEditorIconPackLabel(pack, 'en').trim(), pack).not.toBe('');
 			expect(themeEditorIconPackLabel(pack, 'en'), pack).not.toBe(pack);
 		}
 	});

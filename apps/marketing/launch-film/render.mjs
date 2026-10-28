@@ -1,10 +1,12 @@
 // Renders the launch film: bun apps/marketing/launch-film/render.mjs [--stills 1,8,14] [--from s --to s]
-// Frames come from film.js, captured in Chromium and encoded with FFmpeg. A full render then
-// scores it (music.py), mixes the earshot sound kit on the cues (mix.py) and muxes the film.
+// Frames come from film.js, captured in Chromium and encoded with FFmpeg. Each frame averages
+// --blur subframes across a 180-degree shutter, so fast moves blur and still UI stays sharp.
+// A full render then mixes the soundtrack on the film's cues (mix.py) and muxes the film.
+// --artwork <file.png> writes the sample launch image that the UI capture uploads.
 import { chromium } from '@playwright/test';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { dirname, extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -15,7 +17,9 @@ const { values } = parseArgs({
 		stills: { type: 'string' },
 		from: { type: 'string' },
 		to: { type: 'string' },
-		fps: { type: 'string' }
+		fps: { type: 'string' },
+		blur: { type: 'string' },
+		artwork: { type: 'string' }
 	}
 });
 
@@ -37,18 +41,30 @@ const server = Bun.serve({
 		const file = Bun.file(join(root, relative));
 		if (!(await file.exists())) return new Response('Not found', { status: 404 });
 		return new Response(file, {
-			headers: {
-				'content-type': types[extname(relative)] ?? 'application/octet-stream'
-			}
+			headers: { 'content-type': types[extname(relative)] ?? 'application/octet-stream' }
 		});
 	}
 });
 
+function encoder(output, args) {
+	const process = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args, output], {
+		stdio: ['pipe', 'inherit', 'inherit']
+	});
+	const finished = new Promise((resolve, reject) => {
+		process.on('error', reject);
+		process.on('close', (code) =>
+			code === 0 ? resolve() : reject(new Error(`ffmpeg exited ${code}`))
+		);
+	});
+	return { stdin: process.stdin, finished };
+}
+
 const browser = await chromium.launch({ channel: 'chromium' });
+let film;
 try {
 	const page = await browser.newPage({
 		viewport: { width: 1920, height: 1080 },
-		deviceScaleFactor: 1
+		deviceScaleFactor: values.artwork ? 2 : 1
 	});
 	const errors = [];
 	page.on('pageerror', (error) => errors.push(error.message));
@@ -56,85 +72,82 @@ try {
 	page.on('response', (response) => {
 		if (response.status() >= 400) errors.push(`${response.url()} ${response.status()}`);
 	});
-	await page.goto(`http://127.0.0.1:${server.port}/apps/marketing/launch-film/`);
 	page.on('console', (message) => {
 		if (message.type() === 'error') errors.push(message.text());
 	});
+	const query = values.artwork ? '?artwork' : '';
+	await page.goto(`http://127.0.0.1:${server.port}/apps/marketing/launch-film/${query}`);
 	await page
-		.waitForFunction(() => window.film, null, { timeout: 15_000 })
+		.waitForFunction(() => window.film, null, { timeout: 30_000 })
 		.catch((error) => {
 			throw new Error([error.message, ...errors].join('\n'));
 		});
-	const film = await page.evaluate(() => ({
+	film = await page.evaluate(() => ({
 		cues: window.film.cues,
 		fps: window.film.FPS,
 		duration: window.film.DURATION,
 		bpm: window.film.BPM,
 		sections: window.film.sections
 	}));
-	await mkdir(join(outputDirectory, 'stills'), { recursive: true });
-	await writeFile(join(outputDirectory, 'cues.json'), JSON.stringify(film, null, 2));
 	const seek = (t) => page.evaluate((time) => window.film.seek(time), t);
 	const stage = page.locator('#stage');
 
-	if (values.stills) {
+	if (values.artwork) {
+		await mkdir(dirname(values.artwork), { recursive: true });
+		await page.locator('#artwork').screenshot({ path: values.artwork });
+	} else if (values.stills) {
+		await mkdir(join(outputDirectory, 'stills'), { recursive: true });
+		await writeFile(join(outputDirectory, 'cues.json'), JSON.stringify(film, null, 2));
 		for (const t of values.stills.split(',').map(Number)) {
 			await seek(t);
-			await stage.screenshot({
-				path: join(outputDirectory, 'stills', `${t.toFixed(2)}.png`)
-			});
+			await stage.screenshot({ path: join(outputDirectory, 'stills', `${t.toFixed(2)}.png`) });
 		}
 	} else {
+		await mkdir(outputDirectory, { recursive: true });
+		await writeFile(join(outputDirectory, 'cues.json'), JSON.stringify(film, null, 2));
 		const fps = Number(values.fps ?? film.fps);
+		const subframes = Math.max(1, Number(values.blur ?? 3));
+		const shutter = 0.5 / fps;
 		const from = Number(values.from ?? 0);
 		const to = Number(values.to ?? film.duration);
 		const output = join(outputDirectory, 'picture.mp4');
-		const encoder = spawn(
-			'ffmpeg',
-			[
-				'-hide_banner',
-				'-loglevel',
-				'error',
-				'-y',
-				'-f',
-				'image2pipe',
-				'-framerate',
-				String(fps),
-				'-c:v',
-				'mjpeg',
-				'-i',
-				'-',
-				'-c:v',
-				'libx264',
-				'-preset',
-				'slow',
-				'-crf',
-				'16',
-				'-pix_fmt',
-				'yuv420p',
-				'-movflags',
-				'+faststart',
-				output
-			],
-			{ stdio: ['pipe', 'inherit', 'inherit'] }
-		);
-		const finished = new Promise((resolve, reject) => {
-			encoder.on('error', reject);
-			encoder.on('close', (code) =>
-				code === 0 ? resolve() : reject(new Error(`ffmpeg exited ${code}`))
-			);
-		});
+		const video = encoder(output, [
+			'-f',
+			'image2pipe',
+			'-framerate',
+			String(fps * subframes),
+			'-c:v',
+			'mjpeg',
+			'-i',
+			'-',
+			'-vf',
+			`tmix=frames=${subframes},select='eq(mod(n\\,${subframes})\\,${subframes - 1})',setpts=N/(${fps}*TB)`,
+			'-r',
+			String(fps),
+			'-c:v',
+			'libx264',
+			'-preset',
+			'slow',
+			'-crf',
+			'15',
+			'-pix_fmt',
+			'yuv420p',
+			'-movflags',
+			'+faststart'
+		]);
 		const frames = Math.round((to - from) * fps);
 		for (let frame = 0; frame < frames; frame++) {
-			await seek(from + frame / fps);
-			const image = await stage.screenshot({ type: 'jpeg', quality: 95 });
-			if (!encoder.stdin.write(image))
-				await new Promise((resolve) => encoder.stdin.once('drain', resolve));
+			for (let sub = 0; sub < subframes; sub++) {
+				await seek(from + frame / fps + (sub * shutter) / subframes);
+				const image = await stage.screenshot({ type: 'jpeg', quality: 96 });
+				if (!video.stdin.write(image))
+					await new Promise((resolve) => video.stdin.once('drain', resolve));
+			}
 			if (frame % fps === 0)
 				process.stdout.write(`\r${(frame / fps).toFixed(0)}s / ${(to - from).toFixed(0)}s`);
 		}
-		encoder.stdin.end();
-		await finished;
+		video.stdin.end();
+		await video.finished;
 		process.stdout.write(`\nwrote ${output}\n`);
 	}
 	if (errors.length) throw new Error(errors.join('\n'));
@@ -149,16 +162,10 @@ function run(command, args) {
 	if (result.status !== 0) throw new Error(`${command} ${args[0]} failed (${result.status})`);
 }
 
-if (!values.stills && !values.from && !values.to) {
+if (!values.stills && !values.artwork && !values.from && !values.to) {
 	const work = 'tmp/launch-film';
-	run('uv', [
-		'run',
-		'apps/marketing/launch-film/music.py',
-		`${work}/cues.json`,
-		`${work}/music.wav`
-	]);
 	run('uv', ['run', 'apps/marketing/launch-film/mix.py', work]);
-	// AAC adds up to ~1 dB of overshoot; the master keeps a -1.2 dBTP ceiling for it.
+	// AAC adds up to ~1 dB of overshoot; the master keeps a -1.5 dBTP ceiling for it.
 	run('ffmpeg', [
 		'-hide_banner',
 		'-loglevel',

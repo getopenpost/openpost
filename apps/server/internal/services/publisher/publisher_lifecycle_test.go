@@ -207,7 +207,11 @@ func TestPublicationAuthorizationPreflightRejectsAccountMovedToAnotherWorkspace(
 		Set("workspace_id = ?", "foreign-workspace").Where("id = ?", "account-1").Exec(t.Context())
 	require.NoError(t, err)
 	err = srv.service.HandlePublishPublicationJob(ctx, payload)
-	require.Error(t, err)
+	require.ErrorIs(t, err, publicationauth.ErrReceiptMismatch)
+	require.ErrorContains(t, err, "load authorization account")
+	var publication models.Publication
+	require.NoError(t, srv.db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(t.Context()))
+	require.Equal(t, models.PublicationStatusReady, publication.Status)
 	require.Zero(t, adapter.publishCalls)
 }
 
@@ -406,7 +410,10 @@ func TestCertificationIntentJobPayloadCannotEscalateProductionReceipt(t *testing
 	require.NoError(t, err)
 
 	err = srv.service.HandlePublishPublicationJob(ctx, string(tampered))
-	require.Error(t, err)
+	require.ErrorIs(t, err, publicationauth.ErrReceiptMismatch)
+	var publication models.Publication
+	require.NoError(t, srv.db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(t.Context()))
+	require.Equal(t, models.PublicationStatusReady, publication.Status)
 	require.Zero(t, adapter.publishCalls)
 }
 
@@ -471,7 +478,10 @@ func TestConfirmedPublicationSurvivesQuotaSettlementFailure(t *testing.T) {
 	require.Equal(t, "held", receipt.State, "failed accounting must retain conservative quota exposure")
 }
 
-type mentionPreflightPublisher struct{ *fakePublisherAdapter }
+type mentionPreflightPublisher struct {
+	*fakePublisherAdapter
+	validated []string
+}
 
 func TestSavedMentionSnapshotReachesProviderWithoutChangingSource(t *testing.T) {
 	adapter := &fakePublisherAdapter{externalID: "saved-mention-post"}
@@ -494,6 +504,7 @@ func TestSavedMentionSnapshotReachesProviderWithoutChangingSource(t *testing.T) 
 }
 
 func (p *mentionPreflightPublisher) ValidateMentionTargets(_ context.Context, _ string, req *platform.PublishRequest) error {
+	p.validated = append(p.validated, req.Content)
 	if req.Content == "Second mention" {
 		return fmt.Errorf("%w: selected mention changed", posttext.ErrInvalid)
 	}
@@ -502,7 +513,8 @@ func (p *mentionPreflightPublisher) ValidateMentionTargets(_ context.Context, _ 
 func TestThreadMentionPreflightRejectsLaterSegmentBeforeFirstWrite(t *testing.T) {
 	adapter := &fakePublisherAdapter{externalID: "must-not-publish"}
 	srv := newPublisherLifecycleTestServer(t, adapter)
-	srv.service.SetProvider("x", &mentionPreflightPublisher{adapter})
+	validator := &mentionPreflightPublisher{fakePublisherAdapter: adapter}
+	srv.service.SetProvider("x", validator)
 	canonical := []models.PublicationSegment{{ID: "first", PublicationID: "publication-1", Body: "First mention", SettingsJSON: "{}"}, {ID: "second", PublicationID: "publication-1", Position: 1, Body: "Second mention", SettingsJSON: "{}"}}
 	_, err := srv.db.NewInsert().Model(&canonical).Exec(t.Context())
 	require.NoError(t, err)
@@ -512,4 +524,10 @@ func TestThreadMentionPreflightRejectsLaterSegmentBeforeFirstWrite(t *testing.T)
 	require.NoError(t, srv.publishPublication(t))
 	require.Zero(t, adapter.publishCalls)
 	require.Zero(t, adapter.uploadCalls)
+	require.Equal(t, []string{"First mention", "Second mention"}, validator.validated)
+	var rendition models.Rendition
+	require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(t.Context()))
+	require.Equal(t, models.RenditionStatusFailed, rendition.Status)
+	require.Equal(t, "mention_choice_invalid", rendition.ErrorCode)
+	require.Equal(t, FailureValidation, rendition.ErrorKind)
 }

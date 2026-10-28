@@ -25,19 +25,6 @@ afterEach(() => {
 	timelineStore.__resetForTesting();
 });
 
-it('keeps the mask path hint visible text as the accessible name', async () => {
-	const item = maskPathItem();
-	timelineStore._setItems([item]);
-	const screen = await render(ShapePropertiesPanel, { item, onedit: vi.fn() });
-
-	// The hint span shows "Mask type" with the editing hint as a hover tooltip.
-	// Its accessible name must include the visible text (WCAG 2.5.3), so it must
-	// not carry an aria-label that overrides the visible label with the hint.
-	const hint = screen.getByText(m.video_editor_shape_mask_type(), { exact: true }).element();
-	expect(hint.getAttribute('aria-label')).toBeNull();
-	expect(hint.getAttribute('title')).toBe(m.video_editor_shape_mask_path_hint());
-});
-
 it('edits a keyed stroke width at the playhead', async () => {
 	const item: TimelineItem = {
 		...maskPathItem(),

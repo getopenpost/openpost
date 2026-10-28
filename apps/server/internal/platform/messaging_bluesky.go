@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 )
 
 const (
@@ -72,7 +71,7 @@ func (b *BlueskyAdapter) SendMessage(ctx context.Context, accessToken string, in
 	if err := json.Unmarshal(body, &result); err != nil {
 		return SendMessageResult{}, fmt.Errorf("decoding Bluesky sent message: %w", err)
 	}
-	sentAt, _ := time.Parse(time.RFC3339Nano, result.SentAt)
+	sentAt := ProviderTime(result.SentAt)
 	return SendMessageResult{RemoteMessageID: result.ID, CreatedAt: sentAt}, nil
 }
 

@@ -11,7 +11,6 @@ import {
   marketingRouteManifest,
 } from "../../packages/social-images/src/index.js";
 import {
-  discoveryDocument,
   generateAgentSurface,
   productionProjections,
   renderOriginVaryHeaders,
@@ -105,18 +104,6 @@ test("origin Vary headers cover only canonical HTML and explicit Markdown within
       ),
     /uses 102 rules; Free limit is 100/u,
   );
-});
-
-test("documentation discovery headers leave room for the canonical page catalogue", async () => {
-  const root = path.resolve(import.meta.dirname, "../..");
-  const base = await readFile(path.join(root, "apps/docs/public/_headers"), "utf8");
-  const pages = docsSocialEntries.filter(
-    ({ agentRepresentation }) => agentRepresentation.membership === "ordinary",
-  );
-
-  assert.match(base, /^\/llms\*\.txt$/mu);
-  assert.doesNotMatch(base, /^\/llms(?:-full)?\.txt$/mu);
-  assert.doesNotThrow(() => renderOriginVaryHeaders(base, pages));
 });
 
 test("origin Vary headers compact dense route namespaces before the Pages limit", () => {
@@ -549,66 +536,6 @@ test("marketing production projection emits deterministic homepage Markdown and 
   assert.match(firstDiscovery, /\[OpenPost overview\]\(https:\/\/openpo\.st\/index\.md\)/);
 });
 
-test("production discovery gives agents direct interface guidance", () => {
-  const marketing = discoveryDocument(productionProjections.marketing.discovery);
-  const documentation = discoveryDocument(productionProjections.documentation.discovery);
-
-  assert.match(marketing, /^## When to use OpenPost$/m);
-  assert.match(marketing, /^## When OpenPost is not a fit$/m);
-  assert.match(marketing, /https:\/\/openpo\.st\/docs\/openapi\.json/u);
-  assert.match(marketing, /https:\/\/openpo\.st\/docs\/automate\/index\.md/u);
-  assert.match(marketing, /https:\/\/openpo\.st\/docs\/automate\/cli\/index\.md/u);
-  assert.doesNotMatch(marketing, /https:\/\/openpo\.st\/docs\/automate\/cli\.md/u);
-  assert.match(marketing, /https:\/\/openpo\.st\/docs\/mcp\/index\.md/u);
-  assert.ok(
-    productionProjections.marketing.knownArtifactURLs.includes(
-      "https://openpo.st/docs/automate/cli/index.md",
-    ),
-  );
-  assert.ok(
-    !productionProjections.marketing.knownArtifactURLs.includes(
-      "https://openpo.st/docs/automate/cli.md",
-    ),
-  );
-  assert.match(documentation, /private workspace data, tokens, connected accounts/u);
-});
-
-test("marketing production projection covers every eligible route from canonical metadata", () => {
-  const representedRoutes = marketingRouteManifest;
-  assert.ok(representedRoutes.length > 1);
-  assert.deepEqual(
-    productionProjections.marketing.pages.map((page) => page.route.path),
-    representedRoutes.map((route) => route.path),
-  );
-  assert.equal(
-    new Set(productionProjections.marketing.pages.map((page) => page.outputPath)).size,
-    representedRoutes.length,
-  );
-  for (const route of representedRoutes) {
-    assert.match(route.agentDiscovery.membership, /^(?:primary|optional|unlisted)$/u);
-  }
-});
-
-test("documentation production projection covers every ordinary catalog page", () => {
-  const eligible = docsSocialEntries.filter(
-    (entry) => entry.agentRepresentation.membership === "ordinary",
-  );
-  assert.deepEqual(
-    productionProjections.documentation.pages.map((page) => page.page),
-    eligible.map((entry) => entry.page),
-  );
-  assert.equal(
-    new Set(productionProjections.documentation.pages.map((page) => page.outputPath)).size,
-    eligible.length,
-  );
-  for (const page of productionProjections.documentation.pages) {
-    assert.equal(page.outputPath, page.page.replace(/\.mdx$/, ".md"));
-    assert.equal(page.route, page.catalog.route);
-    assert.equal(page.title, page.catalog.socialTitle);
-    assert.equal(page.description, page.catalog.description);
-  }
-});
-
 test("marketing projection enforces the individual representation size ceiling", async () => {
   const directory = await fixtureDirectory();
   const htmlPath = path.join(directory, "index.html");
@@ -753,77 +680,6 @@ test("marketing projection preserves tables and informative images with absolute
   assert.doesNotMatch(markdown, /decoration\.svg/u);
 });
 
-test("documentation production projection emits homepage Markdown from its canonical source", async () => {
-  const directory = await fixtureDirectory();
-  const sourcePath = path.join(directory, "index.md.source");
-  await writeFile(
-    sourcePath,
-    `---
-layout: home
-hero:
-  name: OpenPost
-  text: Publish everywhere.
-  tagline: One content workspace.
-  actions:
-    - text: Read the user guide
-      link: /usage/
-features:
-  - title: Clear outcomes
-    details: See what published and what needs attention.
----
-
-::: info Hosted service plans
-Hosted service plans start at $15 per month.
-:::
-
-## Choose the right docs
-
-- [User docs](/usage/) explain the product.
-
-\`\`\`yaml
-services:
-  openpost:
-    image: ghcr.io/getopenpost/openpost:latest
-\`\`\`
-`,
-  );
-
-  await generateAgentSurface({
-    surface: "documentation",
-    outputDirectory: directory,
-    pages: [
-      {
-        sourcePath,
-        outputPath: "index.md",
-        canonical: "https://openpo.st/docs/",
-        title: "OpenPost Documentation",
-        description: "OpenPost product and operating documentation.",
-      },
-    ],
-    discovery: {
-      title: "OpenPost Documentation",
-      description: "OpenPost product and operating documentation.",
-      links: [
-        {
-          title: "Documentation home",
-          description: "Start with OpenPost documentation.",
-          url: "https://openpo.st/docs/index.md",
-        },
-      ],
-    },
-  });
-
-  const markdown = await readFile(path.join(directory, "index.md"), "utf8");
-  assert.equal((markdown.match(/^# /gm) ?? []).length, 1);
-  assert.match(markdown, /^# OpenPost$/m);
-  assert.match(markdown, /^Publish everywhere\.$/m);
-  assert.match(markdown, /^## Clear outcomes$/m);
-  assert.match(markdown, /\[Read the user guide\]\(https:\/\/openpo\.st\/docs\/usage\/\)/);
-  assert.match(markdown, /^> \*\*Hosted service plans\*\*$/m);
-  assert.match(markdown, /\[User docs\]\(https:\/\/openpo\.st\/docs\/usage\/\)/);
-  assert.match(markdown, /^  openpost:\n    image: ghcr\.io\/getopenpost\/openpost:latest$/m);
-});
-
 test("documentation projection keeps one canonical heading for an ordinary source page", async () => {
   const directory = await fixtureDirectory();
   const sourcePath = path.join(directory, "accounts.md");
@@ -858,63 +714,12 @@ test("documentation projection keeps one canonical heading for an ordinary sourc
   assert.doesNotMatch(markdown, /app\.openpo\.st/u);
 });
 
-test("documentation projection expands controlled includes from the owning source", async () => {
-  const directory = await fixtureDirectory();
-  const sourcePath = path.join(directory, "installation.md.source");
-  const includePath = path.join(directory, "module.md");
-  await writeFile(
-    sourcePath,
-    "# Installation\n\nUse the reviewed module below.\n\n<!--@include: ./module.md-->\n",
-  );
-  await writeFile(includePath, "## Module\n\n```nix\nservices.openpost.enable = true;\n```\n");
-
-  const projection = {
-    surface: "documentation",
-    outputDirectory: directory,
-    pages: [
-      {
-        sourcePath,
-        outputPath: "installation.md",
-        canonical: "https://openpo.st/docs/installation/module",
-        title: "Installation",
-        description: "Install OpenPost with a reviewed module.",
-      },
-    ],
-    discovery: {
-      title: "OpenPost Documentation",
-      description: "OpenPost product and operating documentation.",
-      links: [],
-    },
-  };
-
-  await generateAgentSurface(projection);
-  const first = await readFile(path.join(directory, "installation.md"), "utf8");
-  await generateAgentSurface(projection);
-
-  assert.equal(await readFile(path.join(directory, "installation.md"), "utf8"), first);
-  assert.match(first, /^## Module$/m);
-  assert.match(first, /services\.openpost\.enable = true;/u);
-  assert.doesNotMatch(first, /@include/u);
-});
-
-test("documentation projection normalizes supported VitePress and raw HTML constructs", async () => {
+test("documentation projection normalizes raw HTML constructs", async () => {
   const directory = await fixtureDirectory();
   const sourcePath = path.join(directory, "providers.md.source");
   await writeFile(
     sourcePath,
     `# Providers
-
-::: warning Provider review
-The provider must approve the application.
-:::
-
-::: details Why approval matters
-Publishing stays disabled until approval is complete.
-:::
-
-::: tip
-Reconnect the account after adding scopes.
-:::
 
 <section><p>Keep the <strong>provider outcome</strong> visible.</p><ul><li>Ready</li><li>Blocked</li></ul></section>
 
@@ -942,9 +747,6 @@ OPENPOST_INLINE_CODE_0_ remains ordinary maintained prose.
 
   await generateAgentSurface(projection);
   const markdown = await readFile(path.join(directory, "providers.md"), "utf8");
-  assert.match(markdown, /^> \*\*Provider review\*\*$/m);
-  assert.match(markdown, /^> \*\*Why approval matters\*\*$/m);
-  assert.match(markdown, /^> \*\*Tip\*\*$/m);
   assert.match(markdown, /OPENPOST_INLINE_CODE_0_ remains ordinary maintained prose\./u);
   assert.match(markdown, /Keep the \*\*provider outcome\*\* visible\./u);
   assert.match(markdown, /- Ready\n- Blocked/u);
@@ -959,10 +761,10 @@ OPENPOST_INLINE_CODE_0_ remains ordinary maintained prose.
     /providers\.md\.source: unsupported meaning-bearing <providerstatus>/u,
   );
 
-  await writeFile(sourcePath, "# Providers\n\n::: tabs\nProvider A\n::: tab Provider B\n:::\n");
+  await writeFile(sourcePath, "# Providers\n\n::: tabs\nProvider A\n:::\n");
   await assert.rejects(
     generateAgentSurface(projection),
-    /providers\.md\.source: unsupported VitePress container ::: tabs/u,
+    /providers\.md\.source: unsupported legacy documentation directive/u,
   );
 });
 
@@ -1616,6 +1418,16 @@ test(
     );
 
     const marketingDiscovery = await readFile(path.join(marketingDirectory, "llms.txt"), "utf8");
+    assert.match(marketingDiscovery, /^## When to use OpenPost$/m);
+    assert.match(marketingDiscovery, /^## When OpenPost is not a fit$/m);
+    for (const url of [
+      "https://openpo.st/docs/openapi.json",
+      "https://openpo.st/docs/automate/index.md",
+      "https://openpo.st/docs/automate/cli/index.md",
+      "https://openpo.st/docs/mcp/index.md",
+    ])
+      assert.ok(marketingDiscovery.includes(url));
+    assert.doesNotMatch(marketingDiscovery, /https:\/\/openpo\.st\/docs\/automate\/cli\.md/u);
     for (const route of staticRoutes.filter(
       (entry) => entry.agentDiscovery.membership === "primary",
     )) {
@@ -1698,6 +1510,7 @@ test(
 
     const docsDirectory = path.join(root, "apps/docs/out");
     const docsDiscovery = await readFile(path.join(docsDirectory, "llms.txt"), "utf8");
+    assert.match(docsDiscovery, /private workspace data, tokens, connected accounts/u);
     const docsCorpus = await readFile(path.join(docsDirectory, "llms-full.txt"), "utf8");
     const ordinaryDocs = docsSocialEntries.filter(
       (entry) => entry.agentRepresentation.membership === "ordinary",

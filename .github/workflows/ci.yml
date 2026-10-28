@@ -26,6 +26,7 @@ jobs:
   plan:
     name: Plan affected surfaces
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       actions: read
       contents: read
@@ -92,6 +93,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.mode != 'reuse'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -131,15 +133,65 @@ jobs:
         env:
           OPENPOST_SECRET_SCAN_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           OPENPOST_SECRET_SCAN_HEAD: ${{ github.sha }}
-        run: bun run format:check && bun run check -- policy
+        run: bun run format:check && bun run check -- policy && bun test ./scripts
       - if: always()
         run: bash scripts/ci-timing-summary.sh finish policy
+
+  public-build:
+    name: Public artifact contract
+    needs: plan
+    if: needs.plan.outputs.mode != 'reuse'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            /*
+            !/apps/web/static/image-editor-models/
+          sparse-checkout-cone-mode: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.19.0"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: |
+            apps/server/go.sum
+            apps/cli/go.sum
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      # Turbo entries are content-hashed, so a stale restore only costs a miss.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/openpost-turbo
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
+            turbo-${{ runner.os }}-${{ github.job }}-
+      - run: bash scripts/ci-timing-summary.sh start public-build
+      - run: bun install --frozen-lockfile
+      # Both production sites are built for this proof only, so it stays out of
+      # the policy aggregate instead of rebuilding them alongside policy checks.
+      - name: Prove both production artifacts and their agent surfaces
+        env:
+          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
+        run: bun run check -- public-routes
+      - if: always()
+        run: bash scripts/ci-timing-summary.sh finish public-build
 
   backend-lint:
     name: Backend and CLI lint
     needs: plan
     if: needs.plan.outputs.backend == 'true' || needs.plan.outputs.cli == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -174,6 +226,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -197,6 +250,14 @@ jobs:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
+      # Turbo entries are content-hashed, so a stale restore only costs a miss.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/openpost-turbo
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
+            turbo-${{ runner.os }}-${{ github.job }}-
       - run: bash scripts/ci-timing-summary.sh start frontend-quality
       - run: bun install --frozen-lockfile
       - if: needs.plan.outputs.frontend == 'true'
@@ -204,10 +265,16 @@ jobs:
       - if: needs.plan.outputs.marketing == 'true'
         run: bun run lint -- marketing
       - if: needs.plan.outputs.frontend == 'true' && needs.plan.outputs.marketing == 'true'
+        env:
+          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
         run: bun run check -- frontend-marketing
       - if: needs.plan.outputs.frontend == 'true' && needs.plan.outputs.marketing != 'true'
+        env:
+          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
         run: bun run check -- frontend
       - if: needs.plan.outputs.marketing == 'true' && needs.plan.outputs.frontend != 'true'
+        env:
+          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
         run: bun run check -- marketing
       # Changed-source dead-code gate plus advisory complexity report.
       # Health thresholds never fail this step; unused code still does.
@@ -403,6 +470,15 @@ jobs:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
+      # Only the shared-packages shard runs Turbo; the web shards run Vitest directly.
+      - if: matrix.shard == 'packages'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/openpost-turbo
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
+            turbo-${{ runner.os }}-${{ github.job }}-
       - run: bun install --frozen-lockfile
       - name: Install pinned Chromium and system dependencies
         timeout-minutes: 5
@@ -417,11 +493,14 @@ jobs:
         run: |
           bun run sync
           if [[ "${{ matrix.shard }}" == server ]]; then
+            bun run test:browser-tools
             bunx vitest run --project server
           else
             bun run test:browser ${{ matrix.shard }}
           fi
       - if: matrix.shard == 'packages'
+        env:
+          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
         run: bunx turbo run test --filter @openpost/query-catalog --filter @openpost/telemetry --filter @openpost/social-preview
       - name: Retain component browser failure screenshots
         if: failure() && matrix.shard != 'server' && matrix.shard != 'packages'
@@ -437,6 +516,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.application == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -450,10 +530,19 @@ jobs:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
+      # Turbo entries are content-hashed, so a stale restore only costs a miss.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/openpost-turbo
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
+            turbo-${{ runner.os }}-${{ github.job }}-
       - run: bash scripts/ci-timing-summary.sh start frontend-build
       - run: bun install --frozen-lockfile
       - name: Build the canonical application artifact and source maps
         env:
+          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
           POSTHOG_SOURCEMAPS_ENABLED: ${{ github.event_name == 'push' && secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
           POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
           POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
@@ -475,6 +564,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.marketing == 'true' || needs.plan.outputs.application == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -489,8 +579,17 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
+      # Turbo entries are content-hashed, so a stale restore only costs a miss.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/openpost-turbo
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
+            turbo-${{ runner.os }}-${{ github.job }}-
       - name: Build canonical marketing artifact and source maps
         env:
+          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
           # Fork pull requests cannot read repository variables. Their prebuilt
           # browser artifact needs analytics enabled against the local fixture.
           VITE_POSTHOG_PROJECT_TOKEN: ${{ github.event_name == 'pull_request' && 'phc_browser_fixture' || vars.POSTHOG_PROJECT_TOKEN }}
@@ -517,6 +616,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.documentation == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -542,8 +642,17 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
+      # Turbo entries are content-hashed, so a stale restore only costs a miss.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/openpost-turbo
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
+            turbo-${{ runner.os }}-${{ github.job }}-
       - name: Build canonical documentation artifact and source maps
         env:
+          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
           VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
           VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
           VITE_POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
@@ -574,6 +683,7 @@ jobs:
     needs: [plan, frontend-build, marketing-build]
     if: needs.plan.outputs.application == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -641,6 +751,7 @@ jobs:
     needs: [plan, marketing-build]
     if: needs.plan.outputs.marketing == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -698,6 +809,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.cache_contract == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -711,6 +823,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.npm == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -766,6 +879,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.n8n == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -813,6 +927,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.security == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -837,6 +952,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.cli == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1028,6 +1144,7 @@ jobs:
     needs: [plan, frontend-build, candidate-relay]
     if: ${{ !cancelled() && needs.plan.outputs.image == 'true' && (needs.frontend-build.result == 'success' || needs.candidate-relay.result == 'success') }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -1156,6 +1273,7 @@ jobs:
     needs: [plan, image]
     if: ${{ !cancelled() && needs.plan.outputs.image == 'true' && needs.image.result == 'success' && github.event_name == 'push' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       actions: read
       contents: read
@@ -1243,6 +1361,7 @@ jobs:
       [
         plan,
         policy,
+        public-build,
         backend-lint,
         frontend-quality,
         backend,
@@ -1264,6 +1383,7 @@ jobs:
         image-index,
       ]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       actions: read
       contents: read

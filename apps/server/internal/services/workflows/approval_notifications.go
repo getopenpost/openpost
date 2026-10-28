@@ -42,8 +42,12 @@ type approvalRecipient struct {
 // administer the workspace, which is the entire point of that role. A hardcoded
 // administrator filter would leave the client out of the audience, so the
 // person the run is waiting for would be the one person never told about it.
-func (s *Service) approvalRecipients(ctx context.Context, db bun.IDB, workspaceID, excludeUserID string) ([]string, error) {
-	roles := workspaceaccess.RolesMeetingLevel(workspaceaccess.LevelApprove)
+func (s *Service) approvalRecipients(ctx context.Context, db bun.IDB, workspaceID, excludeUserID string, levels ...workspaceaccess.Level) ([]string, error) {
+	level := workspaceaccess.LevelApprove
+	if len(levels) > 0 {
+		level = levels[0]
+	}
+	roles := workspaceaccess.RolesMeetingLevel(level)
 	if len(roles) == 0 {
 		return nil, nil
 	}
@@ -70,11 +74,15 @@ func (s *Service) approvalRecipients(ctx context.Context, db bun.IDB, workspaceI
 // authorCanApprove reports whether the author holds the level needed to decide
 // their own approval. It decides which copy a fallback recipient gets: telling
 // an editor to "review the post" would hand them a button that fails.
-func (s *Service) authorCanApprove(ctx context.Context, db bun.IDB, workspaceID, userID string) (bool, error) {
+func (s *Service) authorCanApprove(ctx context.Context, db bun.IDB, workspaceID, userID string, levels ...workspaceaccess.Level) (bool, error) {
 	if userID == "" {
 		return false, nil
 	}
-	roles := workspaceaccess.RolesMeetingLevel(workspaceaccess.LevelApprove)
+	level := workspaceaccess.LevelApprove
+	if len(levels) > 0 {
+		level = levels[0]
+	}
+	roles := workspaceaccess.RolesMeetingLevel(level)
 	if len(roles) == 0 {
 		return false, nil
 	}
@@ -126,7 +134,7 @@ func approvalPublicationID(result StepResult) string {
 // problem this exists to remove. Their copy depends on whether they can
 // actually decide it.
 func (s *Service) waitingAudience(ctx context.Context, db bun.IDB, record runRecord, author string) ([]approvalRecipient, error) {
-	approvers, err := s.approvalRecipients(ctx, db, record.WorkspaceID, author)
+	approvers, err := s.approvalRecipients(ctx, db, record.WorkspaceID, author, approvalLevel(record))
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +148,7 @@ func (s *Service) waitingAudience(ctx context.Context, db bun.IDB, record runRec
 	if author == "" {
 		return nil, nil
 	}
-	canApprove, err := s.authorCanApprove(ctx, db, record.WorkspaceID, author)
+	canApprove, err := s.authorCanApprove(ctx, db, record.WorkspaceID, author, approvalLevel(record))
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +164,7 @@ func (s *Service) waitingAudience(ctx context.Context, db bun.IDB, record runRec
 // approver gets the author copy rather than the approver copy, because "your
 // post was not published" is the actionable half and the dedup key is per run.
 func (s *Service) expiredAudience(ctx context.Context, db bun.IDB, record runRecord, author string) ([]approvalRecipient, error) {
-	approvers, err := s.approvalRecipients(ctx, db, record.WorkspaceID, "")
+	approvers, err := s.approvalRecipients(ctx, db, record.WorkspaceID, "", approvalLevel(record))
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +305,7 @@ func (s *Service) deliverApprovalNoticeToRecipient(ctx context.Context, record r
 		membership := tx.NewSelect().Model((*models.WorkspaceMember)(nil)).
 			Where("workspace_id = ? AND user_id = ? AND status = ?", current.WorkspaceID, recipient.userID, models.WorkspaceMemberStatusActive)
 		if recipient.audience == notifications.ApprovalAudienceApprover {
-			membership = membership.Where("role IN (?)", bun.List(workspaceaccess.RolesMeetingLevel(workspaceaccess.LevelApprove)))
+			membership = membership.Where("role IN (?)", bun.List(workspaceaccess.RolesMeetingLevel(approvalLevel(current))))
 		}
 		active, err := membership.Exists(ctx)
 		if err != nil || !active {
@@ -315,7 +323,7 @@ func (s *Service) deliverApprovalNoticeToRecipient(ctx context.Context, record r
 		}
 		outcome, err := notifications.NewWorkflowApprovalOutcome(notifications.WorkflowApprovalFacts{
 			RecipientUserID: recipient.userID, WorkspaceID: current.WorkspaceID, RunID: current.ID, StepID: stepID,
-			State: state, Audience: recipient.audience, PublicationID: approvalPublicationID(step),
+			State: state, Audience: recipient.audience, PublicationID: approvalPublicationID(step), EngagementID: commentApprovalID(step),
 			WorkflowName: current.WorkflowName, DaysLeft: approvalDaysLeft(current, time.Now().UTC()),
 		})
 		if err != nil {
@@ -449,4 +457,19 @@ func (s *Service) resolveApprovalNotices(ctx context.Context, db bun.IDB, record
 
 	return s.notifications.ResolveByDedupKeys(ctx, db, recipients, keys,
 		title, body)
+}
+
+func approvalLevel(record runRecord) workspaceaccess.Level {
+	step, ok := parkedApproval(decodeRunResults(record))
+	if ok && (step.Kind == KindCommentReply || step.Kind == KindPrivateReply) {
+		return workspaceaccess.LevelAdminister
+	}
+	return workspaceaccess.LevelApprove
+}
+func commentApprovalID(step StepResult) string {
+	if step.Kind == KindCommentReply || step.Kind == KindPrivateReply {
+		id, _ := step.Inputs["engagement_id"].(string)
+		return id
+	}
+	return ""
 }

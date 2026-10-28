@@ -3,8 +3,6 @@ import {
 	containsExternalImageDrag,
 	containsImageEditorMediaDrag,
 	externalFiles,
-	externalImageFiles,
-	isImageEditorImageFile,
 	readImageEditorMediaDrag,
 	IMAGE_EDITOR_MEDIA_DRAG_TYPE,
 	writeImageEditorMediaDrag,
@@ -55,7 +53,7 @@ describe('OpenPost Image Editor media drag payload', () => {
 		});
 	});
 
-	it('rejects malformed and empty payloads', () => {
+	it('rejects a payload without a media ID', () => {
 		const dataTransfer = dataTransferFixture();
 		dataTransfer.setData(IMAGE_EDITOR_MEDIA_DRAG_TYPE, '{"name":"missing id"}');
 
@@ -70,8 +68,6 @@ describe('OpenPost Image Editor media drag payload', () => {
 
 		expect(containsExternalImageDrag(dataTransfer)).toBe(true);
 		expect(externalFiles(dataTransfer)).toEqual([image, svg, text]);
-		expect(externalImageFiles(dataTransfer)).toEqual([image, svg]);
-		expect(isImageEditorImageFile(text)).toBe(false);
 
 		writeImageEditorMediaDrag(dataTransfer, { id: 'media-1' });
 		expect(containsExternalImageDrag(dataTransfer)).toBe(false);

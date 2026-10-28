@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"golang.org/x/net/html"
 )
@@ -81,11 +80,10 @@ func nativePostMastodonPage(statuses []mastodonNativeStatus, input NativePostReq
 		if _, duplicate := seen[id]; duplicate {
 			continue
 		}
-		publishedAt, err := time.Parse(time.RFC3339, strings.TrimSpace(status.CreatedAt))
-		if err != nil {
+		publishedAt := ProviderTime(status.CreatedAt)
+		if publishedAt.IsZero() {
 			continue
 		}
-		publishedAt = publishedAt.UTC()
 		if !input.PublishedAfter.IsZero() && publishedAt.Before(input.PublishedAfter) {
 			// Statuses are reverse-chronological: everything older than the
 			// import watermark ends the window.

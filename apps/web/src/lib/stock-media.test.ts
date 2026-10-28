@@ -45,17 +45,33 @@ describe('downloadStockAsset', () => {
 	});
 
 	it('rejects a declared oversized image before reading its body', async () => {
-		await expect(
-			downloadStockAsset(
-				asset,
-				resolved,
-				async () =>
-					new Response(new Uint8Array([1]), {
-						status: 200,
-						headers: { 'content-length': String(MAX_STOCK_PHOTO_BYTES + 1) }
-					})
-			)
-		).rejects.toMatchObject({ code: 'photo-too-large' });
+		let pulled = false;
+		// highWaterMark 0 keeps the stream from pulling a chunk at construction,
+		// so `pulled` can only become true when the body is genuinely read.
+		const body = new ReadableStream<Uint8Array>(
+			{
+				pull(controller) {
+					pulled = true;
+					controller.enqueue(new Uint8Array([1]));
+					controller.close();
+				}
+			},
+			{ highWaterMark: 0 }
+		);
+		const response = new Response(body, {
+			status: 200,
+			headers: {
+				'content-length': String(MAX_STOCK_PHOTO_BYTES + 1),
+				'content-type': 'image/png'
+			}
+		});
+
+		await expect(downloadStockAsset(asset, resolved, async () => response)).rejects.toMatchObject({
+			code: 'photo-too-large'
+		});
+		// The declared length must be enough: pulling the stream is a failure.
+		expect(pulled).toBe(false);
+		expect(response.bodyUsed).toBe(false);
 	});
 
 	it('maps network errors to a stable user-facing error code', async () => {

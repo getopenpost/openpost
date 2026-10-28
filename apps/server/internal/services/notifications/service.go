@@ -395,12 +395,6 @@ func (s *Service) muteView(ctx context.Context, db bun.IDB, row models.UserNotif
 	return view, err
 }
 
-func (s *Service) create(ctx context.Context, input createInput) error {
-	return s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		return s.createWithDB(ctx, tx, input)
-	})
-}
-
 // createWithDB is reachable only after notification-owned outcome
 // materialization has selected policy and presentation.
 func (s *Service) createWithDB(ctx context.Context, db bun.IDB, input createInput) error {

@@ -316,7 +316,7 @@ func validateOptionDirections(output *optionDirections, input BuildInput, catalo
 			return errors.New("option label is required")
 		}
 		restoreLockedDirection(&option.Direction, input.Direction)
-		if err := validateDirector(option.Direction, input.Destinations, sourceReferenceCatalogFor(input), input.Direction, input.DestinationPolicy); err != nil {
+		if err := validateDirector(option.Direction, input.Destinations, sourceReferenceCatalogFor(input), input.DestinationPolicy); err != nil {
 			return err
 		}
 		if err := validatePlannedTemplate(option.Direction.Media, catalog); err != nil {

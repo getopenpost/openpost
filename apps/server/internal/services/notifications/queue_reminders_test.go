@@ -103,12 +103,29 @@ func TestQueueEmptiedReminderOnlyFiresAfterTheLastQueuedPublicationFinishes(t *t
 	})
 	require.NoError(t, err)
 
+	// The seeded publication is still queued, so finishing it cannot report an
+	// empty queue.
+	require.NoError(t, service.RecordQueueEmptiedAfterPublication(t.Context(), db, "workspace-1", "queued"))
+	require.Empty(t, queueReminderEmailJobs(t, db), "a still-queued publication must not report an empty queue")
+
+	// A second publication stays queued after the first finishes, so the queue
+	// is still not empty.
+	seedQueuedPublication(t, db, "later", now.Add(4*24*time.Hour))
 	_, err = db.NewUpdate().Model((*models.Publication)(nil)).Set("status = ?", models.PublicationStatusPublished).Where("id = ?", "queued").Exec(t.Context())
 	require.NoError(t, err)
 	_, err = db.NewUpdate().Model((*models.Rendition)(nil)).Set("status = ?", models.RenditionStatusPublished).Where("publication_id = ?", "queued").Exec(t.Context())
 	require.NoError(t, err)
 	require.NoError(t, service.RecordQueueEmptiedAfterPublication(t.Context(), db, "workspace-1", "queued"))
-	require.NoError(t, service.RecordQueueEmptiedAfterPublication(t.Context(), db, "workspace-1", "queued"))
+	require.Empty(t, queueReminderEmailJobs(t, db), "a later queued publication must not report an empty queue")
+
+	// Finishing the last queued publication reports the empty queue once, even
+	// when the same completion is replayed.
+	_, err = db.NewUpdate().Model((*models.Publication)(nil)).Set("status = ?", models.PublicationStatusPublished).Where("id = ?", "later").Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*models.Rendition)(nil)).Set("status = ?", models.RenditionStatusPublished).Where("publication_id = ?", "later").Exec(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, service.RecordQueueEmptiedAfterPublication(t.Context(), db, "workspace-1", "later"))
+	require.NoError(t, service.RecordQueueEmptiedAfterPublication(t.Context(), db, "workspace-1", "later"))
 	jobs := queueReminderEmailJobs(t, db)
 	require.Len(t, jobs, 1)
 	require.NoError(t, service.HandleJob(t.Context(), jobs[0].Type, jobs[0].Payload))

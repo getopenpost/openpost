@@ -2,7 +2,9 @@ package apitokens
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"sync"
@@ -106,21 +108,33 @@ func TestGenerateTokenStoresHashOnlyAndDefaultExpiry(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, generated.Token)
 	require.NotContains(t, generated.Model.TokenHash, generated.Token)
-	require.Equal(t, DefaultScope, generated.Model.Scope)
+	require.Equal(t, "cli:full", generated.Model.Scope)
 	require.Equal(t, "ws-1", generated.Model.WorkspaceID)
 	require.Equal(t, "desktop-client", generated.Model.ClientID)
-	require.WithinDuration(t, time.Now().UTC().Add(DefaultExpiration), generated.Model.ExpiresAt, 5*time.Second)
+	require.WithinDuration(t, time.Now().UTC().Add(90*24*time.Hour), generated.Model.ExpiresAt, 5*time.Second)
 
 	parts := strings.SplitN(generated.Token, "_", 4)
 	require.Len(t, parts, 4)
 	require.Equal(t, "op", parts[0])
 	require.Equal(t, "cli", parts[1])
-	require.Len(t, parts[2], prefixHexLength)
+	require.Len(t, parts[2], 8)
 	require.Len(t, parts[3], 43)
 
-	prefix, hash := HashToken(parts[3])
-	require.Equal(t, prefix, generated.Model.TokenPrefix)
-	require.Equal(t, hash, generated.Model.TokenHash)
+	digest := sha256.Sum256([]byte(parts[3]))
+	wantHash := hex.EncodeToString(digest[:])
+	require.Equal(t, wantHash[:8], parts[2], "token prefix must be the leading digest bytes")
+	require.Equal(t, wantHash, generated.Model.TokenHash, "returned model must carry the SHA-256 digest")
+	require.Equal(t, wantHash[:8], generated.Model.TokenPrefix)
+
+	var persisted models.APIToken
+	require.NoError(t, db.NewSelect().Model(&persisted).Where("id = ?", generated.Model.ID).Scan(ctx))
+	require.Equal(t, wantHash, persisted.TokenHash, "stored hash must be the SHA-256 digest of the raw secret")
+	require.Equal(t, wantHash[:8], persisted.TokenPrefix)
+	require.NotContains(t, persisted.TokenHash, parts[3], "stored hash must never contain the raw secret")
+	require.Equal(t, "cli:full", persisted.Scope)
+	require.Equal(t, "ws-1", persisted.WorkspaceID)
+	require.Equal(t, "desktop-client", persisted.ClientID)
+	require.WithinDuration(t, time.Now().UTC().Add(90*24*time.Hour), persisted.ExpiresAt, 5*time.Second)
 }
 
 func TestGenerateTokenRejectsExplicitNoExpiryAndUnsafeLifetimes(t *testing.T) {

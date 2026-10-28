@@ -11,6 +11,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -392,15 +393,43 @@ func TestPaddleWebhookRouteRejectsInvalidSignature(t *testing.T) {
 
 	secret := "route-secret"
 	now := time.Now().UTC()
-	srv := newBillingHandlerTestServer(t, secret, now)
-	body := []byte(`{"event_id":"evt-route","event_type":"subscription.updated","data":{}}`)
+	// The body is otherwise acceptable so a rejection can only come from the
+	// signature guard under test, never from later payload validation.
+	body := []byte(`{"event_id":"evt-route","event_type":"subscription.updated","occurred_at":"2026-08-09T12:00:00Z","data":{"id":"sub-route"}}`)
 
-	resp := srv.postWebhook(t, body, "ts=1;h1=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	// Positive control: the identical payload, correctly signed, is accepted and
+	// leaves both durable records behind.
+	accepted := newBillingHandlerTestServer(t, secret, now)
+	acceptedResponse := accepted.postWebhook(t, body, signedPaddleWebhook(t, secret, now, body))
+	require.Equal(t, http.StatusOK, acceptedResponse.Code, acceptedResponse.Body.String())
+	acceptedEvents, err := accepted.db.NewSelect().Model((*models.BillingWebhookEvent)(nil)).Where("event_id = ?", "evt-route").Count(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 1, acceptedEvents, "an accepted webhook must record exactly one event")
+	acceptedJobs, err := accepted.db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", billing.JobTypeWebhook).Count(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 1, acceptedJobs, "an accepted webhook must queue exactly one reconciliation job")
+	var acceptedJob models.Job
+	require.NoError(t, accepted.db.NewSelect().Model(&acceptedJob).Where("type = ?", billing.JobTypeWebhook).Scan(context.Background()))
+	require.Contains(t, acceptedJob.Payload, "sub-route", "the queued job must carry the accepted event")
 
-	require.Equal(t, http.StatusUnauthorized, resp.Code, resp.Body.String())
-	var count int
-	require.NoError(t, srv.db.NewSelect().ColumnExpr("COUNT(*)").TableExpr("jobs").Scan(context.Background(), &count))
-	require.Equal(t, 0, count)
+	for _, test := range []struct{ name, signature string }{
+		{name: "tampered signature", signature: fmt.Sprintf("ts=%d;h1=%s", now.Unix(), strings.Repeat("a", 64))},
+		{name: "stale timestamp", signature: signedPaddleWebhook(t, secret, now.Add(-10*time.Minute), body)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			srv := newBillingHandlerTestServer(t, secret, now)
+
+			resp := srv.postWebhook(t, body, test.signature)
+
+			require.Equal(t, http.StatusUnauthorized, resp.Code, resp.Body.String())
+			events, err := srv.db.NewSelect().Model((*models.BillingWebhookEvent)(nil)).Count(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, 0, events, "a rejected webhook must not record an event")
+			jobs, err := srv.db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", billing.JobTypeWebhook).Count(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, 0, jobs, "a rejected webhook must not queue work")
+		})
+	}
 }
 
 func TestCreateBillingCheckoutRoute(t *testing.T) {

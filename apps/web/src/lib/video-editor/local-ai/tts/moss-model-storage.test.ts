@@ -1,40 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-	MOSS_MODEL_FILE_COUNT,
-	MOSS_MODEL_STORE_KEY,
-	MOSS_MODEL_STORE_ROOT,
-	MOSS_MODEL_TOTAL_BYTES,
-	clearMossModelStorage,
-	inspectMossModelStorage
-} from './moss-model-storage';
+import { clearMossModelStorage, inspectMossModelStorage } from './moss-model-storage';
 
 const originalStorage = Object.getOwnPropertyDescriptor(navigator, 'storage');
 
 function installStorage() {
-	const files = Array.from({ length: MOSS_MODEL_FILE_COUNT }, (_, index) => ({
-		kind: 'file' as const,
-		name: `${index}.bin`,
-		getFile: vi.fn(async () => ({
-			size: index === MOSS_MODEL_FILE_COUNT - 1 ? MOSS_MODEL_TOTAL_BYTES - 15 : 1
-		}))
-	}));
-	const modelDirectory = {
-		kind: 'directory' as const,
-		async *entries() {
-			for (const file of files) yield [file.name, file] as const;
-		}
-	};
-	const removeEntry = vi.fn(async () => undefined);
-	const storeRoot = {
-		getDirectoryHandle: vi.fn(async (name: string) => {
-			expect(name).toBe(MOSS_MODEL_STORE_KEY);
-			return modelDirectory;
-		}),
-		removeEntry
-	};
+	const directories = new Set(['openpost-moss-tts-f52645-ceff0d', 'unrelated-model']);
+	const removeEntry = vi.fn(async (name: string, options: { recursive: boolean }) => {
+		expect(options).toEqual({ recursive: true });
+		if (!directories.delete(name)) throw new DOMException('Missing', 'NotFoundError');
+	});
+	const storeRoot = { removeEntry };
 	const origin = {
 		getDirectoryHandle: vi.fn(async (name: string) => {
-			expect(name).toBe(MOSS_MODEL_STORE_ROOT);
+			expect(name).toBe('nano-reader-browser-model-store');
 			return storeRoot;
 		})
 	};
@@ -42,7 +20,7 @@ function installStorage() {
 		configurable: true,
 		value: { getDirectory: vi.fn(async () => origin) }
 	});
-	return { removeEntry };
+	return { removeEntry, directories };
 }
 
 afterEach(() => {
@@ -52,9 +30,12 @@ afterEach(() => {
 
 describe('MOSS model storage', () => {
 	it('removes only the revisioned MOSS model directory', async () => {
-		const { removeEntry } = installStorage();
+		const { removeEntry, directories } = installStorage();
 		await expect(clearMossModelStorage()).resolves.toBe(true);
-		expect(removeEntry).toHaveBeenCalledWith(MOSS_MODEL_STORE_KEY, { recursive: true });
+		expect(removeEntry).toHaveBeenCalledWith('openpost-moss-tts-f52645-ceff0d', {
+			recursive: true
+		});
+		expect([...directories]).toEqual(['unrelated-model']);
 	});
 
 	it('treats blocked OPFS subdirectory access as not downloaded', async () => {

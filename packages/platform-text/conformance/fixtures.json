@@ -221,6 +221,46 @@
       "platform": "devnull",
       "text": "héllo 👋",
       "expected": 7
+    },
+    {
+      "platform": "bluesky",
+      "text": "café",
+      "expected": 4
+    },
+    {
+      "platform": "threads",
+      "text": "👨‍👩‍👧‍👦",
+      "expected": 25
+    },
+    {
+      "platform": "mastodon",
+      "text": "日本語",
+      "expected": 3
+    },
+    {
+      "platform": "mastodon",
+      "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": 474
+    },
+    {
+      "platform": "youtube",
+      "text": "OpenPost",
+      "expected": 8
+    },
+    {
+      "platform": "youtube",
+      "text": "’",
+      "expected": 3
+    },
+    {
+      "platform": "youtube",
+      "text": "👋",
+      "expected": 4
+    },
+    {
+      "platform": "youtube",
+      "text": "👨‍👩‍👧‍👦",
+      "expected": 25
     }
   ]
 }

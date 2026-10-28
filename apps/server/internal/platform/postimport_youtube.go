@@ -90,7 +90,7 @@ func (y *YouTubeAdapter) ListNativePosts(ctx context.Context, token string, inpu
 		}
 		// Playlist insertion time is not a video's publication time. The videos
 		// resource also handles older uploads made public after activation.
-		appendNativePost(&page, input, NativePostItem{ProviderPostID: video.ID, Title: video.Snippet.Title, Text: video.Snippet.Description, PublishedAt: nativePostTime(video.Snippet.PublishedAt), ExternalURL: youtubeContentURL(video.ID)})
+		appendNativePost(&page, input, NativePostItem{ProviderPostID: video.ID, Title: video.Snippet.Title, Text: video.Snippet.Description, PublishedAt: ProviderTime(video.Snippet.PublishedAt), ExternalURL: youtubeContentURL(video.ID)})
 	}
 	return page, nil
 }

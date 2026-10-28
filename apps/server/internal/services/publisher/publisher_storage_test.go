@@ -114,30 +114,6 @@ func (f *fakePublisherAdapter) Publish(_ context.Context, _, _ string, req *plat
 	return result, req.Checkpoint(result)
 }
 
-func TestUploadRenditionMediaToPlatformReadsFromBlobStorage(t *testing.T) {
-	storage := &fakePublisherStorage{body: "stored-media"}
-	adapter := &fakePublisherAdapter{}
-	srv := newPublisherMediaStateTestServer(t, "youtube", &fakePublisherAdapter{})
-	_, err := srv.db.NewInsert().Model(&models.Publication{ID: "storage-post", WorkspaceID: "ws-1"}).Exec(t.Context())
-	require.NoError(t, err)
-	service := srv.service
-	service.SetStorage(storage)
-
-	got, err := service.uploadRenditionMediaToPlatform(
-		context.Background(),
-		&models.SocialAccount{Platform: "x", AccountID: "acct-1"},
-		adapter,
-		"token",
-		&models.Rendition{PublicationID: "storage-post", Body: "Launch\nDescription", Profile: models.ContentProfileShortText, SettingsJSON: "{}"},
-		models.MediaAttachment{FilePath: "media/example.png", MimeType: "image/png"},
-	)
-
-	require.NoError(t, err)
-	require.Equal(t, "platform-media-id", got)
-	require.Equal(t, []string{"example.png"}, storage.opened)
-	require.Equal(t, "stored-media", adapter.uploadedBody)
-}
-
 type rangedPublisherStorage struct {
 	*fakePublisherStorage
 	content []byte

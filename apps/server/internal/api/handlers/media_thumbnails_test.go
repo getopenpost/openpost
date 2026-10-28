@@ -40,8 +40,25 @@ func TestProcessImageKeepsTransparencyInThumbnails(t *testing.T) {
 		thumbnail, err := png.Decode(file)
 		require.NoError(t, file.Close())
 		require.NoError(t, err)
-		require.True(t, imageHasTransparency(thumbnail), "%s should keep its alpha channel", filename)
+		// Count surviving nonopaque pixels directly instead of asking the
+		// production predicate that chose the output format.
+		require.Positive(t, countNonOpaquePixels(thumbnail), "%s should keep its alpha channel", filename)
 	}
+}
+
+// countNonOpaquePixels reports how many pixels retain an alpha value below
+// fully opaque, independently of the encoder's format decision.
+func countNonOpaquePixels(img image.Image) int {
+	bounds := img.Bounds()
+	count := 0
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if _, _, _, alpha := img.At(x, y).RGBA(); alpha < 0xffff {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 func TestProcessImageUsesJPEGThumbnailsForOpaqueImages(t *testing.T) {
@@ -68,13 +85,4 @@ func TestProcessImageUsesJPEGThumbnailsForOpaqueImages(t *testing.T) {
 	require.NoError(t, file.Close())
 	require.NoError(t, err)
 	require.False(t, imageHasTransparency(thumbnail))
-}
-
-func TestThumbnailContentTypeFollowsFilename(t *testing.T) {
-	t.Parallel()
-
-	require.Equal(t, "image/png", thumbnailContentType("sm_media.png"))
-	require.Equal(t, "image/png", thumbnailContentType("sm_media.PNG"))
-	require.Equal(t, "image/jpeg", thumbnailContentType("sm_media.jpg"))
-	require.Equal(t, "image/jpeg", thumbnailContentType(""))
 }

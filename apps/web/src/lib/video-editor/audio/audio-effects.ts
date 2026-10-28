@@ -903,16 +903,6 @@ export class StreamingAudioEffectChain {
 	}
 }
 
-export function applyAudioEffectStages(
-	channels: Float32Array[],
-	sampleRate: number,
-	effects: AudioEffect[] | undefined
-): Float32Array[] {
-	if (!effects || effects.length === 0) return channels.map((c) => c.slice());
-	const chain = new StreamingAudioEffectChain(effects, sampleRate, channels.length);
-	return chain.process(channels.map((c) => c.slice()));
-}
-
 export function getAudioEffectTailSeconds(effects: AudioEffect[] | undefined): number {
 	if (!effects) return 0;
 	let tail = 0;

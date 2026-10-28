@@ -314,15 +314,40 @@ type threadsGraphComment struct {
 	Timestamp        string `json:"timestamp"`
 	HideStatus       string `json:"hide_status"`
 	IsReplyOwnedByMe bool   `json:"is_reply_owned_by_me"`
+	MediaURL         string `json:"media_url"`
+	MediaType        string `json:"media_type"`
+	ThumbnailURL     string `json:"thumbnail_url"`
 	RepliedTo        struct {
 		ID string `json:"id"`
 	} `json:"replied_to"`
 }
 
+// threadsCommentAttachment keeps the media a reply carries. Threads returns the
+// reply's own media in media_url, separate from the post the reply answers.
+func threadsCommentAttachment(item threadsGraphComment) []CommentAttachment {
+	link := strings.TrimSpace(item.MediaURL)
+	if link == "" {
+		return nil
+	}
+	kind := "file"
+	switch strings.ToLower(strings.TrimSpace(item.MediaType)) {
+	case "image", "gif":
+		kind = "image"
+	case "video":
+		kind = "video"
+	case "audio":
+		kind = "audio"
+	}
+	return []CommentAttachment{{Type: kind, URL: link, Thumbnail: strings.TrimSpace(item.ThumbnailURL)}}
+}
+
+// Replies can carry their own image, video, or audio. The conversation edge
+// returns it in media_url, separate from the post the reply answers.
+const threadsCommentFields = "id,text,username,timestamp,hide_status,is_reply_owned_by_me,replied_to,media_url,media_type,thumbnail_url"
+
 func (t *ThreadsAdapter) ListComments(ctx context.Context, accessToken, _ string, externalID string) ([]Comment, error) {
-	fields := "id,text,username,timestamp,hide_status,is_reply_owned_by_me,replied_to"
 	// The conversation edge holds replies at every depth, each naming its parent.
-	endpoint := "https://graph.threads.net/v1.0/" + externalID + "/conversation?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
+	endpoint := "https://graph.threads.net/v1.0/" + externalID + "/conversation?fields=" + url.QueryEscape(threadsCommentFields) + "&access_token=" + url.QueryEscape(accessToken)
 	items, err := fetchMetaGraphEdge[threadsGraphComment](ctx, endpoint, "threads replies", &metaGraphBudget{})
 	if err = metaCommentReadError(err); err != nil {
 		return nil, err
@@ -330,15 +355,16 @@ func (t *ThreadsAdapter) ListComments(ctx context.Context, accessToken, _ string
 	comments := make([]Comment, 0, len(items))
 	for _, item := range items {
 		comments = append(comments, Comment{
-			ID:         item.ID,
-			ParentID:   item.RepliedTo.ID,
-			AuthorName: item.Username,
-			Text:       item.Text,
-			CreatedAt:  item.Timestamp,
-			Hidden:     strings.EqualFold(item.HideStatus, "HIDDEN"),
-			IsOurs:     item.IsReplyOwnedByMe,
-			CanReply:   true,
-			CanHide:    true,
+			ID:          item.ID,
+			ParentID:    item.RepliedTo.ID,
+			AuthorName:  item.Username,
+			Text:        item.Text,
+			CreatedAt:   item.Timestamp,
+			Hidden:      strings.EqualFold(item.HideStatus, "HIDDEN"),
+			IsOurs:      item.IsReplyOwnedByMe,
+			CanReply:    true,
+			CanHide:     true,
+			Attachments: threadsCommentAttachment(item),
 		})
 	}
 	return comments, nil

@@ -12,7 +12,7 @@ function docsPath(value) {
   return value === "/" ? "/docs" : `/docs${value}`;
 }
 
-export function scopeDocsRedirects(source) {
+function scopeDocsRedirects(source) {
   return source
     .split("\n")
     .map((line) => {
@@ -35,7 +35,7 @@ function prioritizeStaticRedirects(source) {
   return [...rules.filter((line) => !dynamic(line)), ...rules.filter(dynamic)].join("\n") + "\n";
 }
 
-export function scopeDocsHeaders(source) {
+function scopeDocsHeaders(source) {
   return source
     .split("\n")
     .map((line) => {

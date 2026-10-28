@@ -54,9 +54,11 @@ export function checkPackageBuild(directory) {
   const dist = path.join(packageRoot, "dist");
   let distEntries = [];
   try {
-    distEntries = readdirSync(dist);
+    distEntries = readdirSync(dist, { recursive: true });
   } catch {
-    problems.push(`${directory}/dist is missing; run the package build before packing.`);
+    problems.push(
+      `${directory}/dist is missing or unreadable; run the package build before packing.`,
+    );
   }
   for (const required of ["index.js", "index.d.ts"]) {
     try {
@@ -69,6 +71,16 @@ export function checkPackageBuild(directory) {
   }
   if (distEntries.length === 0 && problems.length === 0) {
     problems.push(`${directory}/dist is empty; the published package would contain no code.`);
+  }
+
+  // TypeScript excludes src/**/*.test.ts from the build, but an import can
+  // still pull a test file into the program or stale output can survive.
+  for (const file of distEntries) {
+    if (/\.test\./u.test(path.basename(file))) {
+      problems.push(
+        `${directory}/dist/${file} is a compiled test file; tests must stay out of the published payload.`,
+      );
+    }
   }
 
   if (directory === "packages/cli") {

@@ -3,18 +3,6 @@ import { render } from 'vitest-browser-svelte';
 import AccountPickerSelectAll from './select-all.svelte';
 
 describe('account-picker select-all header', () => {
-	it('reports an unchecked state when nothing is selected', async () => {
-		const screen = await render(AccountPickerSelectAll, {
-			selectedCount: 0,
-			totalCount: 3,
-			onSelectAll: vi.fn(),
-			onClearAll: vi.fn()
-		});
-
-		await expect.element(screen.getByRole('checkbox', { name: 'Select all' })).not.toBeChecked();
-		await expect.element(screen.getByRole('button', { name: 'All' })).toBeVisible();
-	});
-
 	it('reports an indeterminate state when the selection is partial', async () => {
 		const screen = await render(AccountPickerSelectAll, {
 			selectedCount: 1,

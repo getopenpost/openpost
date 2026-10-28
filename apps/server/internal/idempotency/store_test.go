@@ -119,15 +119,18 @@ func TestExecuteScopesKeysByPrincipalWorkspaceAndOperation(t *testing.T) {
 		requestFor("shared-key"),
 		requestFor("shared-key"),
 		requestFor("shared-key"),
+		requestFor("shared-key"),
 	}
 	requests[1].PrincipalID = "token:token-2"
 	requests[2].WorkspaceID = "workspace-2"
+	requests[3].OperationID = "publish-publication"
 	for index, request := range requests {
 		result, err := Execute(t.Context(), db, request, func(context.Context, bun.Tx) (testResult, error) {
 			return testResult{ID: fmt.Sprintf("publication-%d", index+1)}, nil
 		})
 		require.NoError(t, err)
 		require.False(t, result.Replayed)
+		require.Equal(t, fmt.Sprintf("publication-%d", index+1), result.Value.ID)
 	}
 }
 

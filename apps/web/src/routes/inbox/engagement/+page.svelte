@@ -9,6 +9,7 @@
 <script lang="ts">
 	import { countUTF8Bytes } from '@openpost/platform-text';
 	import EngagementReview from '$lib/components/engagement-review.svelte';
+	import EngagementAutomation from '$lib/components/engagement-automation.svelte';
 	import { appBranding } from '$lib/app-branding.svelte';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import {
@@ -1266,6 +1267,7 @@
 												{/if}
 											{/if}
 
+											{#if item.kind === 'comment'}<EngagementAutomation {item} />{/if}
 											{#if item.kind === 'review'}
 												<EngagementReview {item} />
 												{#if item.reply_operation_state === 'active'}<p

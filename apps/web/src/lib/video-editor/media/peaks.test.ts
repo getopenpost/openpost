@@ -28,6 +28,7 @@ describe('peaksForWindow', () => {
 	it('clamps windows outside the decoded material to silence', () => {
 		const peaks = waveform([0.5]);
 		const columns = peaksForWindow(peaks, -100, -50, 30, 2);
+		expect(columns).toHaveLength(4);
 		expect(columns.every((value) => value === 0)).toBe(true);
 	});
 

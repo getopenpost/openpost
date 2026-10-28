@@ -27,8 +27,8 @@ describe('detectSilentRanges', () => {
 		const ranges = detectSilentRanges(audio, { minSilenceMs: 400, paddingMs: 0 });
 		expect(ranges.length).toBe(1);
 		const range = ranges[0];
-		expect(range?.start).toBeGreaterThanOrEqual(0.95);
-		expect(range?.end).toBeLessThanOrEqual(3.05);
+		expect(range?.start).toBeCloseTo(1, 2);
+		expect(range?.end).toBeCloseTo(3, 2);
 	});
 
 	it('returns nothing for continuous loud audio', () => {
@@ -40,7 +40,7 @@ describe('detectSilentRanges', () => {
 	it('returns everything for digital silence', () => {
 		const audio = bufferFrom(2, 8000, () => 0);
 		const ranges = detectSilentRanges(audio, { minSilenceMs: 200 });
-		expect(ranges.length).toBe(1);
+		expect(ranges).toEqual([{ start: 0.1, end: 1.9 }]);
 	});
 
 	it('padding keeps quiet margins inside detected ranges', () => {

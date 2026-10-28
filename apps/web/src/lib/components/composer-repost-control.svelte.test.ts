@@ -66,17 +66,6 @@ describe('composer repost target picker', () => {
 		return screen;
 	}
 
-	it('shows an indeterminate select-all header for a partial target selection', async () => {
-		const screen = await openCustomPicker({
-			mode: 'custom',
-			target_account_ids: ['account-a'],
-			rule: defaultRule()
-		});
-
-		const header = screen.getByRole('checkbox', { name: 'Select all' });
-		await expect.element(header).toHaveAttribute('aria-checked', 'mixed');
-	});
-
 	it('selecting all checks every target without changing picker order', async () => {
 		const onChange = vi.fn();
 		const value: RepostOverride = {
@@ -85,6 +74,11 @@ describe('composer repost target picker', () => {
 			rule: defaultRule()
 		};
 		const screen = await openCustomPicker(value, onChange);
+
+		// A partial target selection reports a mixed select-all state before the click.
+		await expect
+			.element(screen.getByRole('checkbox', { name: 'Select all' }))
+			.toHaveAttribute('aria-checked', 'mixed');
 
 		await screen.getByRole('button', { name: 'All' }).click();
 		expect(onChange).toHaveBeenCalled();

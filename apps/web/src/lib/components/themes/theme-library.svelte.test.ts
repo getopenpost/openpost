@@ -3,7 +3,7 @@ import { render } from 'vitest-browser-svelte';
 import { switchLocale } from '$lib/i18n';
 import { getBuiltInTheme, type ThemeFamilyId } from '$lib/themes';
 import ThemeLibrary from './theme-library.svelte';
-import { duplicateThemeManifest } from './theme-editor-model';
+import { duplicateThemeManifest } from './theme-manifest.test-fixtures';
 import { builtInManifestReference } from './theme-library-model';
 import '../../../routes/layout.css';
 
@@ -69,25 +69,6 @@ describe('ThemeLibrary', () => {
 		await expect
 			.element(screen.getByText('The organization has locked workspace theme selection.'))
 			.toBeVisible();
-	});
-
-	it('requires confirmation before clearing workspace theme choices', async () => {
-		const onToggleLock = vi.fn();
-		const screen = render(ThemeLibrary, {
-			canManageOrganization: true,
-			onToggleLock
-		});
-
-		await screen.getByText('Organization default', { exact: true }).first().click();
-		await expect.element(screen.getByText(/clear workspace overrides/i)).toBeVisible();
-		await screen.getByRole('switch', { name: 'Lock workspace theme selection' }).click();
-
-		expect(onToggleLock).not.toHaveBeenCalled();
-		await expect
-			.element(screen.getByRole('heading', { name: 'Lock theme selection?' }))
-			.toBeVisible();
-		await screen.getByRole('button', { name: 'Lock and clear choices' }).click();
-		expect(onToggleLock).toHaveBeenCalledWith(true);
 	});
 
 	it('names a duplicate and submits its immutable source reference', async () => {

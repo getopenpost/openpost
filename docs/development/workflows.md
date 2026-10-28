@@ -75,3 +75,17 @@ This is an in-place migration of the product surface. Existing `RepostPolicy` re
 The existing repost executor retains original-publication-relative times, all/any thresholds, plateau checks, deadlines, unrepost checkpoints, account grants, and per-rendition/target delivery identity. Enabled and paused rules keep their state. Pausing prevents new admissions; accepted executions continue from their immutable rule snapshots. Composer `off` and `custom` overrides keep precedence.
 
 Saving rules updates retained IDs in place, preserving creator, creation time, and execution foreign keys. The editor sends the collection revision and stale saves fail with 409. Deleting a rule leaves accepted execution snapshots intact. Native repost history exposes the latest 50 executions. No data-copy migration or job restart is required, and rolling back the UI leaves these native tables and jobs usable by the prior release.
+
+## Incoming comment campaigns
+
+`comment_received` reads canonical `engagement_items`, never a provider from a page read. Both the provider creation time and first local discovery must follow activation. Admission ledgers include nonmatching scanned comments so bounded pages can progress. Included and excluded keywords use explicit exact, contains, or Unicode word/phrase matching. Daily limits apply before AI work. Reply-bearing workflows resolve overlaps by priority and stable creation order; nonreply workflows remain independent.
+
+The `comment_reply`, `private_comment_reply`, and `comment_handoff` native effects delegate to Engagement. Delivery is automatic or reviewed. Prepared reply text and the exact Inbox item are stored in `engagement_automation_replies`; review resumes the same effect kind and edits the stored proposal. Reply approval requires administration, independently of publication approval roles. The source account, actor, workspace, current grants, feature activation, item state and opt-out are checked again before a provider-write fence begins.
+
+Claims are unique per item/channel and retain one run owner. Private recipient claims also deduplicate the account/post/author combination. A private send completes only after its native delivery job records acceptance, so a subsequent public acknowledgement cannot run after a failed or uncertain private write. Receipts remain after workflow deletion. Preserve these identities during queue replay and pruning.
+
+Inbox exposes compact stored automation summaries and loads full reply text only when expanded. Its reads use `@openpost/query-catalog`. Takeover and manual replies stop pending automatic sends. Workflow pause continues to stop admission only; the distinct stop-replies operation also cancels outstanding runs and native reply records. Provider acceptance remains the cancellation boundary.
+
+Signed Instagram comment receipts may hydrate media not authored in OpenPost through the Instagram adapter, then persist it under the current canonical account/grant fence. No synthetic Publication is created. The post picker includes published/scheduled native Publications and imported Instagram inventory. No private reply establishes a new normal messaging window or enables follow-up DMs. New provider-specific interaction triggers require their own canonical ingestion and native action owner before appearing in discovery.
+
+Migration 175 adds reply receipts, private-recipient uniqueness, opt-outs and takeover timestamps. Stop comment workflows before downgrading and retain the additive data for recovery.

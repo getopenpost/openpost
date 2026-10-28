@@ -63,17 +63,6 @@ beforeEach(() => {
 	getMock.mockResolvedValue({ data: status, response: new Response() } as never);
 });
 
-it('reveals Plan & usage when navigation reuses cached billing data', async () => {
-	queryClient.setQueryData(billingQueryKeys.status('workspace-a'), status);
-	const screen = await renderBilling();
-	await expect.element(screen.getByRole('heading', { name: 'Billing', exact: true })).toBeVisible();
-	expect(screen.container.querySelector('[data-slot="page-content"]')).toHaveAttribute(
-		'aria-busy',
-		'false'
-	);
-	expect(getMock).not.toHaveBeenCalled();
-});
-
 it('shows the delayed loader for a cold read and clears it when billing arrives', async () => {
 	type BillingResponse = { data: typeof status; response: Response };
 	let complete!: (value: BillingResponse) => void;
@@ -96,6 +85,13 @@ it('shows the delayed loader for a cold read and clears it when billing arrives'
 it('keeps cached billing visible and reports a failed background refresh', async () => {
 	queryClient.setQueryData(billingQueryKeys.status('workspace-a'), status);
 	const screen = await renderBilling();
+	// Reusing the warm cache reveals Plan & usage without a network read or pending state.
+	await expect.element(screen.getByRole('heading', { name: 'Billing', exact: true })).toBeVisible();
+	expect(screen.container.querySelector('[data-slot="page-content"]')).toHaveAttribute(
+		'aria-busy',
+		'false'
+	);
+	expect(getMock).not.toHaveBeenCalled();
 	// SAFETY: Billing refresh receives an API error envelope without success data.
 	getMock.mockResolvedValue({
 		error: { detail: 'Billing unavailable' },

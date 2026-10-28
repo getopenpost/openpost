@@ -468,6 +468,7 @@ describe('linked and multi-track source cuts', () => {
 		]);
 		removeTranscriptItemRanges({ a: [{ start: 1, end: 2 }] });
 		const pieces = timelineStore.items.filter((i) => i.id !== 'a' && i.mediaId !== 'a');
+		expect(pieces).toHaveLength(4);
 		expect(pieces.every((i) => !!i.linkedGroupId)).toBe(true);
 	});
 	it('cuts linked title along with video even when title track sync-lock is disabled', () => {

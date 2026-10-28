@@ -73,7 +73,7 @@ describe('SettingsInitialLoadBoundary', () => {
 });
 
 describe('getSettingsInitialLoadPlan', () => {
-	it('owns every Settings tab with a nested cold page loader', () => {
+	it('registers the covered Settings tabs with their expected cold page loaders', () => {
 		const scope = {
 			userID: 'user-a',
 			workspaceID: 'workspace-a',
@@ -99,23 +99,23 @@ describe('getSettingsInitialLoadPlan', () => {
 			SETTINGS_INITIAL_LOAD_PARTICIPANT.queueReminders
 		]);
 
-		for (const tab of [
-			'notifications',
-			'brand',
-			'reposts',
-			'schedule',
-			'members',
-			'plan',
-			'sso',
-			'audit',
-			'ownership',
-			'instance',
-			'configuration',
-			'ai-prompts',
-			'users',
-			'instance-audit'
+		for (const [tab, participants] of [
+			['notifications', ['notifications.preferences']],
+			['brand', ['workspace.brand']],
+			['reposts', ['workspace.reposts']],
+			['schedule', ['workspace.schedule']],
+			['members', ['workspace.members']],
+			['plan', ['organization.billing']],
+			['sso', ['organization.sso']],
+			['audit', ['organization.audit']],
+			['ownership', ['organization.ownership']],
+			['instance', ['instance.overview', 'instance.status', 'instance.backup']],
+			['configuration', ['instance.configuration']],
+			['ai-prompts', ['instance.prompts']],
+			['users', ['instance.users']],
+			['instance-audit', ['instance.audit']]
 		] as const) {
-			expect(getSettingsInitialLoadPlan(tab, scope).participants.length, tab).toBeGreaterThan(0);
+			expect(getSettingsInitialLoadPlan(tab, scope).participants, tab).toEqual(participants);
 		}
 	});
 

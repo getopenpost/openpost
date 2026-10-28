@@ -43,12 +43,18 @@ func TestDiscordChannelRequirementAtComposerBoundary(t *testing.T) {
 				resolved := result.Accounts[0]
 				wantMissing := mode == "bot" && settings != `{"channel_id":"channel-1"}`
 				require.Equal(t, wantMissing, hasCapabilityIssue(resolved.Issues, "setting_required", "channel_id"), rec.Body.String())
-				if mode == "bot" {
-					for _, field := range resolved.Settings {
-						if field.Key == "channel_id" {
-							require.True(t, field.Required)
-						}
+				channelFields := 0
+				for _, field := range resolved.Settings {
+					if field.Key != "channel_id" {
+						continue
 					}
+					channelFields++
+					require.True(t, field.Required, "the composer must mark its channel field required")
+				}
+				if mode == "bot" {
+					require.Equal(t, 1, channelFields, "bot destinations must expose exactly one channel field")
+				} else {
+					require.Zero(t, channelFields, "webhook destinations must expose no editable channel field")
 				}
 			})
 		}

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { organizationQueryKeys } from '@openpost/query-catalog';
 import { client } from '$lib/api/client';
+import { queryClient } from '$lib/query/client';
 import OrganizationOwnershipSettings from './organization-ownership-settings.svelte';
 
 const mocks = { get: vi.fn() };
@@ -79,8 +81,17 @@ describe('OrganizationOwnershipSettings', () => {
 		});
 
 		alphaTeam.resolve(team('alpha-owner', 'alpha-owner@example.com'));
-		await vi.waitFor(() => expect(screen.getByText(/alpha-owner@example.com/).query()).toBeNull());
+		// The deferred settles the fetch and the macrotask drains Promise.all's
+		// continuation before absence is judged; cache success alone does not prove
+		// the component consumed the delayed result.
+		await alphaTeam.promise;
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(queryClient.getQueryState(organizationQueryKeys.team('org-alpha'))?.status).toBe(
+			'success'
+		);
+		expect(screen.getByText(/alpha-owner@example.com/).query()).toBeNull();
 		await expect.element(screen.getByText(/beta-owner@example.com/)).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Delete Organization' })).toBeVisible();
 		expect(mocks.get.mock.calls.filter(([path]) => path === undefined)).toEqual([]);
 	});
 });

@@ -339,6 +339,9 @@ func TestPublicationBuildRetryEnforcesDurableActiveBuildLimit(t *testing.T) {
 	)
 
 	require.Equal(t, http.StatusTooManyRequests, retry.Code, retry.Body.String())
+	var stored publicationbuilder.BuildRecord
+	require.NoError(t, server.db.NewSelect().Model(&stored).Where("id = ?", failed.ID).Scan(t.Context()))
+	require.Equal(t, publicationbuilder.BuildStateFailed, stored.State, "the rejected retry must leave the target failed")
 }
 
 func TestPublicationBuildCreateStoresReferencesWithoutFetchingThem(t *testing.T) {

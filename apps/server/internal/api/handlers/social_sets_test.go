@@ -323,40 +323,12 @@ func TestSocialSetNameEditKeepsUnchangedDefaultsDuringProviderOutage(t *testing.
 	require.Equal(t, 1, calls)
 }
 
-func TestSocialSetDefaultsFillOnlyMissingPublicationSettings(t *testing.T) {
-	input := CreatePublicationBody{
-		SourceText: "First post",
-		Renditions: []RenditionInput{{
-			SocialAccountID: "acc-3", OutputProfile: "facebook.post",
-			Settings: map[string]any{"url": "https://post.example"},
-			Segments: []RenditionSegmentInput{{Settings: map[string]any{"first_comment": "Mine"}}},
-		}},
-	}
-	normalizePublicationCreateBody(&input)
-	applySocialSetRenditionDefaults(&input, []SocialSetAccountInput{{
-		SocialAccountID: "acc-3", DefaultOutputProfile: "facebook.post",
-		DefaultSettings:        map[string]any{"url": "https://default.example"},
-		DefaultSegmentSettings: map[string]any{"first_comment": "Default"},
-	}})
-	require.Equal(t, "facebook.post", input.Renditions[0].OutputProfile)
-	require.Equal(t, "https://post.example", input.Renditions[0].Settings["url"])
-	require.Equal(t, "Mine", input.Renditions[0].Segments[0].Settings["first_comment"])
-
-	input.Renditions = []RenditionInput{{SocialAccountID: "acc-3"}}
-	applySocialSetRenditionDefaults(&input, []SocialSetAccountInput{{
-		SocialAccountID: "acc-3", DefaultOutputProfile: "facebook.post",
-		DefaultSettings:        map[string]any{"url": "https://default.example"},
-		DefaultSegmentSettings: map[string]any{"first_comment": "Default"},
-	}})
-	require.Equal(t, "facebook.post", input.Renditions[0].OutputProfile)
-	require.True(t, input.Renditions[0].FormatLocked)
-	require.Equal(t, "https://default.example", input.Renditions[0].Settings["url"])
-	require.Equal(t, "Default", input.Renditions[0].Segments[0].Settings["first_comment"])
-}
-
 func TestSocialSetDefaultsSnapshotIntoNewPublicationWithoutChangingExistingDraft(t *testing.T) {
 	srv := newMCPTestServer(t)
 	ctx := context.Background()
+	server := echo.New()
+	api := humaecho.NewWithGroup(server, server.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	NewPublicationHandler(srv.db, testAuthenticator{}, nil).RegisterRoutes(api)
 	for _, model := range []any{(*models.SocialSet)(nil), (*models.SocialSetAccount)(nil)} {
 		_, err := srv.db.NewCreateTable().Model(model).IfNotExists().Exec(ctx)
 		require.NoError(t, err)
@@ -376,11 +348,14 @@ func TestSocialSetDefaultsSnapshotIntoNewPublicationWithoutChangingExistingDraft
 			SourceText: "Draft", Renditions: []RenditionInput{{SocialAccountID: "account-1"}},
 		}
 		if reply != "" {
+			input.Renditions[0].OutputProfile = "x.post"
 			input.Renditions[0].Settings = map[string]any{"reply_settings": reply}
 			input.Renditions[0].Segments = []RenditionSegmentInput{{Settings: map[string]any{"poll_options": "Custom"}}}
 		}
-		created, err := srv.handler.publicationHandler().publicationApplication().Create(ctx, "user-1", input)
-		require.NoError(t, err)
+		response := publicationApplicationRequest(ctx, t, server, http.MethodPost, "/api/v1/publications", input)
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		var created PublicationResponse
+		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &created))
 		var rendition models.Rendition
 		require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("publication_id = ?", created.ID).Scan(ctx))
 		var segment models.RenditionSegment
@@ -388,9 +363,12 @@ func TestSocialSetDefaultsSnapshotIntoNewPublicationWithoutChangingExistingDraft
 		return rendition, segment
 	}
 	defaultRendition, defaultSegment := create("")
+	require.Equal(t, "x.post", defaultRendition.OutputProfile)
+	require.True(t, defaultRendition.FormatLocked)
 	require.JSONEq(t, `{"reply_settings":"following","made_with_ai":true}`, defaultRendition.SettingsJSON)
 	require.JSONEq(t, `{"poll_options":"Default"}`, defaultSegment.SettingsJSON)
 	overriddenRendition, overriddenSegment := create("mentionedUsers")
+	require.Equal(t, "x.post", overriddenRendition.OutputProfile)
 	require.JSONEq(t, `{"reply_settings":"mentionedUsers","made_with_ai":true}`, overriddenRendition.SettingsJSON)
 	require.JSONEq(t, `{"poll_options":"Custom"}`, overriddenSegment.SettingsJSON)
 	_, err = srv.db.NewUpdate().Model((*models.SocialSetAccount)(nil)).Set("default_settings_json = ?", `{"reply_settings":"verified"}`).Where("social_set_id = ?", "set-1").Exec(ctx)

@@ -65,8 +65,8 @@ export function queryMutationSessionIsCurrent(session: QueryMutationSession): bo
 
 export function settleQueryMutationSession(
 	session: QueryMutationSession,
-	response: Pick<Response, 'status'>
+	response: Pick<Response, 'status' | 'headers'>
 ): boolean {
-	if (response.status === 401) settleQueryUnauthorized(session.authorizationIdentity);
+	if (isSessionUnauthorized(response)) settleQueryUnauthorized(session.authorizationIdentity);
 	return queryMutationSessionIsCurrent(session);
 }

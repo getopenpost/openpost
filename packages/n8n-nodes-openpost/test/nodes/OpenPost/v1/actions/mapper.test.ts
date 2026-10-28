@@ -2,14 +2,13 @@ import { describe, expect, test } from "bun:test";
 
 import {
   buildOpenPostRequest,
+  findRequestMapper,
   shouldRetryOpenPost,
 } from "../../../../../nodes/OpenPost/v1/actions/mapper";
-import { findGeneratedAction } from "../../../../../nodes/OpenPost/v1/actions/generated/requestMappers";
 
 describe("OpenPost request mapper", () => {
   test("maps native create publication fields and default idempotency keys", () => {
-    const mapper = findGeneratedAction("publication", "create");
-    if (!mapper) throw new Error("missing mapper");
+    const mapper = findRequestMapper("publication", "create");
 
     const request = buildOpenPostRequest({
       baseUrl: "https://example.com",
@@ -51,8 +50,7 @@ describe("OpenPost request mapper", () => {
   });
 
   test("maps offset pagination without exposing an internal offset field", () => {
-    const mapper = findGeneratedAction("media", "getMany");
-    if (!mapper) throw new Error("missing mapper");
+    const mapper = findRequestMapper("media", "getMany");
     const request = buildOpenPostRequest({
       baseUrl: "https://example.com",
       mapper,
@@ -69,18 +67,28 @@ describe("OpenPost request mapper", () => {
   });
 
   test("retries naturally idempotent completion requests only for transient failures", () => {
+    // Safety branch first: a mutation without an idempotency guarantee must not replay.
+    expect(shouldRetryOpenPost({ method: "POST", statusCode: 503, idempotency: "none" })).toBe(
+      false,
+    );
+    expect(shouldRetryOpenPost({ method: "POST", statusCode: 503, idempotency: "required" })).toBe(
+      true,
+    );
     expect(shouldRetryOpenPost({ method: "POST", statusCode: 503, idempotency: "natural" })).toBe(
       true,
     );
     expect(shouldRetryOpenPost({ method: "POST", statusCode: 409, idempotency: "natural" })).toBe(
       false,
     );
+    expect(shouldRetryOpenPost({ method: "POST", statusCode: 500, idempotency: "required" })).toBe(
+      false,
+    );
+    expect(shouldRetryOpenPost({ method: "GET", statusCode: 429, idempotency: "none" })).toBe(true);
   });
 });
 
 test("mention lookup sends the search in the GET query", () => {
-  const mapper = findGeneratedAction("account", "lookupMentions");
-  if (!mapper) throw new Error("missing lookup action");
+  const mapper = findRequestMapper("account", "lookupMentions");
   const request = buildOpenPostRequest({
     baseUrl: "https://example.com",
     mapper,

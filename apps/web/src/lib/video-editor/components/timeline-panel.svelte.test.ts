@@ -86,6 +86,11 @@ it.each([1280, 320])(
 				sourceEnd: 90,
 				volume: 0.5
 			});
+			expect(audio.id).not.toBe('speech');
+			expect(timelineStore.items.map((item) => item.id).toSorted()).toEqual(
+				['speech', audio.id].toSorted()
+			);
+			expect(audio.linkedGroupId).toBeTruthy();
 			expect(audio.linkedGroupId).toBe(timelineStore.itemById.get('speech')?.linkedGroupId);
 			await screen
 				.getByRole('button', { name: /^Speech\. Drag/ })
@@ -101,9 +106,9 @@ it.each([1280, 320])(
 				.first()
 				.click({ button: 'right' });
 			await page.getByRole('menuitem', { name: 'Link selected clips', exact: true }).click();
-			expect(timelineStore.itemById.get(audio.id)?.linkedGroupId).toBe(
-				timelineStore.itemById.get('speech')?.linkedGroupId
-			);
+			const relinkedGroupId = timelineStore.itemById.get(audio.id)?.linkedGroupId;
+			expect(relinkedGroupId).toBeTruthy();
+			expect(relinkedGroupId).toBe(timelineStore.itemById.get('speech')?.linkedGroupId);
 			commandHistory.undo();
 			commandHistory.undo();
 			commandHistory.undo();
@@ -172,16 +177,28 @@ it('shows fade handles only for the selected clip, including on hover', async ()
 	);
 	const screen = await render(TimelinePanel, { onedit: vi.fn() });
 	screen.container.style.cssText = 'width:1000px;height:400px;display:flex';
+	const fadeInSlider = (itemId: string) =>
+		screen.container.querySelector<HTMLButtonElement>(
+			`[data-timeline-item-id="${itemId}"] [data-fade-handle="in"]`
+		)!;
 	try {
 		await screen.getByRole('button', { name: /^first\. Drag/ }).click();
 		await userEvent.hover(screen.getByRole('button', { name: /^second\. Drag/ }));
 		await expect
 			.poll(() => screen.getByRole('slider', { name: 'Adjust video fade in' }).all().length)
 			.toBe(1);
+		// The one handle belongs to the selected clip; hovering the other clip
+		// neither adds a handle nor leaves the selected clip without one.
+		expect(fadeInSlider('first').checkVisibility()).toBe(true);
+		expect(fadeInSlider('first').disabled).toBe(false);
+		expect(fadeInSlider('second').checkVisibility()).toBe(false);
 		await screen.getByRole('button', { name: /^second\. Drag/ }).click();
 		await expect
 			.poll(() => screen.getByRole('slider', { name: 'Adjust video fade in' }).all().length)
 			.toBe(1);
+		expect(fadeInSlider('second').checkVisibility()).toBe(true);
+		expect(fadeInSlider('second').disabled).toBe(false);
+		expect(fadeInSlider('first').checkVisibility()).toBe(false);
 	} finally {
 		await screen.unmount();
 		timelineStore.__resetForTesting();

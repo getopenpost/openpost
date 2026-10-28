@@ -58,6 +58,26 @@ export function workflowIssues(definition: Definition, sourceData?: WorkflowData
 			: source.kind === 'interval'
 				? 'interval_minutes'
 				: '';
+	if (source.kind === 'comment_received') {
+		if (!source.account_ids?.length)
+			issues.push({ node: 'source', field: 'account_ids', message: m.workflows_required() });
+		if (
+			source.post_scope === 'selected' &&
+			!source.rendition_ids?.length &&
+			!source.post_ids?.length
+		)
+			issues.push({ node: 'source', field: 'post_ids', message: m.workflows_required() });
+		if (
+			!Number.isInteger(source.daily_limit) ||
+			Number(source.daily_limit) < 1 ||
+			Number(source.daily_limit) > 1000
+		)
+			issues.push({
+				node: 'source',
+				field: 'daily_limit',
+				message: m.workflows_comment_daily_limit()
+			});
+	}
 	if (source.kind === 'rss') {
 		const message = feedURLIssue(source.url);
 		if (message) issues.push({ node: 'source', field: 'url', message });

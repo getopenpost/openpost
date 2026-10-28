@@ -12,6 +12,7 @@ const devenv = (command) => `devenv shell -- bash -c ${JSON.stringify(command)}`
 // scripts/release-failures.test.mjs keeps this table in step with ci.yml.
 const jobCommands = [
   [/^Contracts and policy$/u, () => "bun run format:check && bun run check -- policy"],
+  [/^Public artifact contract$/u, () => "bun run check -- public-routes"],
   [/^Backend and CLI lint$/u, () => "bun run lint -- backend && bun run lint -- cli"],
   [
     /^Svelte lint and checks$/u,
@@ -53,27 +54,12 @@ const jobCommands = [
   [/^Production image \(linux\/\w+\)$/u, () => "bun run release -- check-full"],
 ];
 
-// Jobs that only move or verify artifacts have no meaningful local rerun.
-const artifactJobs = [
-  /^Plan affected surfaces$/u,
-  /^Relay proven candidate artifacts$/u,
-  /^Production image index$/u,
-  /^Release Candidate$/u,
-];
-
 export function localJobCommand(jobName) {
   for (const [pattern, command] of jobCommands) {
     const match = pattern.exec(jobName);
     if (match) return devenv(command(match));
   }
   return undefined;
-}
-
-export function hasLocalCommand(jobName) {
-  return (
-    jobCommands.some(([pattern]) => pattern.test(jobName)) ||
-    artifactJobs.some((pattern) => pattern.test(jobName))
-  );
 }
 
 // `gh run view --log-failed` prefixes each line with job, step, and timestamp.

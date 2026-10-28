@@ -8,7 +8,7 @@ Choose the event that should start your workflow. Use a manual trigger while you
 
 ## Available triggers
 
-Choose a manual trigger, GitHub release, RSS/Atom item, interval, new post, published variant, or publishing failure. New-post triggers exclude posts created by automation. Failure triggers preserve recorded failures even if the post is retried before the next check.
+Choose a manual trigger, GitHub release, RSS/Atom item, interval, new post, published variant, publishing failure, or new comment. New-post triggers exclude posts created by automation. Failure triggers preserve recorded failures even if the post is retried before the next check.
 
 ## GitHub and feeds
 
@@ -27,3 +27,7 @@ Choose an interval from 5 minutes to 30 days. It starts counting at activation. 
 [Test previews, nodes, and live runs](/workflows/testing), resolve **Needs attention** warnings, then select **Publish workflow**. Publish again after changing its draft to update future automatic runs. Existing runs retain the definition they started with.
 
 **Pause new runs** stops automatic admission. Existing runs continue. See [Inspect and stop runs](/workflows/runs) to cancel remaining steps.
+
+## New comments
+
+Select the account, post scope, and optional included or excluded keywords. Match whole words, exact comments, or contained text. Configure a daily run limit and reply priority, then choose saved replies, AI text, or a handoff. [Set up a comment campaign](/workflows/examples/comment-playbook).

@@ -179,8 +179,11 @@ func TestEnableSetsWatermarkWithoutBackfill(t *testing.T) {
 }
 
 func TestSyncDedupesRepeatedReads(t *testing.T) {
-	reader := &nativeReaderFixture{pages: map[string]platform.NativePostPage{
-		"": {Coverage: platform.NativePostComplete, NextCursor: "", Items: []platform.NativePostItem{nativePostItem("at://did:plc:owner/app.bsky.feed.post/aaa", "hello", "2026-09-26T11:00:00Z")}},
+	page := platform.NativePostPage{Coverage: platform.NativePostComplete, NextCursor: "", Items: []platform.NativePostItem{nativePostItem("at://did:plc:owner/app.bsky.feed.post/aaa", "hello", "2026-09-26T11:00:00Z")}}
+	reads := 0
+	reader := &nativeReaderFixture{read: func(context.Context, platform.NativePostRequest) (platform.NativePostPage, error) {
+		reads++
+		return page, nil
 	}}
 
 	db := newPostImportTestDB(t)
@@ -193,9 +196,11 @@ func TestSyncDedupesRepeatedReads(t *testing.T) {
 	_, err := service.Enable(context.Background(), "workspace-1", account.ID)
 	require.NoError(t, err)
 	require.NoError(t, service.SyncAccount(context.Background(), "workspace-1", account.ID))
+	require.Equal(t, 1, reads)
 	require.Equal(t, 1, countImported(t, db, account.ID))
 
-	// Force the next cycle: the same provider post must not duplicate.
+	// Force the next cycle: the same provider post must be read again and must
+	// not duplicate, so a skipped second read cannot pass this test.
 	_, err = db.NewUpdate().Model((*models.PostImportState)(nil)).
 		Set("next_eligible_at = ?", frozen.Add(-time.Minute)).
 		Set("last_success_at = ?", frozen.Add(-25*time.Hour)).
@@ -203,44 +208,8 @@ func TestSyncDedupesRepeatedReads(t *testing.T) {
 		Exec(context.Background())
 	require.NoError(t, err)
 	require.NoError(t, service.SyncAccount(context.Background(), "workspace-1", account.ID))
+	require.Equal(t, 2, reads, "the second cycle must issue a second provider read")
 	require.Equal(t, 1, countImported(t, db, account.ID))
-}
-
-func TestSyncResumesFromStoredCursor(t *testing.T) {
-	reader := &nativeReaderFixture{pages: map[string]platform.NativePostPage{
-		"":       {Coverage: platform.NativePostComplete, NextCursor: "page-2", Items: []platform.NativePostItem{nativePostItem("at://did:plc:owner/app.bsky.feed.post/aaa", "first", "2026-09-26T11:00:00Z")}},
-		"page-2": {Coverage: platform.NativePostComplete, NextCursor: "", Items: []platform.NativePostItem{nativePostItem("at://did:plc:owner/app.bsky.feed.post/bbb", "second", "2026-09-26T10:00:00Z")}},
-	}}
-
-	db := newPostImportTestDB(t)
-	account := seedPostImportAccount(t, db, "bluesky", "did:plc:owner", "")
-	service := NewService(db, &stubTokenSource{token: "token"})
-	service.SetProvider("bluesky", reader)
-	service.maxPages = 1
-	frozen := time.Date(2026, 9, 26, 9, 0, 0, 0, time.UTC)
-	service.now = func() time.Time { return frozen }
-
-	_, err := service.Enable(context.Background(), "workspace-1", account.ID)
-	require.NoError(t, err)
-
-	// First execution commits page one with its checkpoint and stops at the
-	// page bound, keeping the cursor for resume.
-	require.NoError(t, service.SyncAccount(context.Background(), "workspace-1", account.ID))
-	require.Equal(t, 1, countImported(t, db, account.ID))
-	state := loadImportState(t, db, account.ID)
-	require.Equal(t, "page-2", state.Cursor)
-
-	// The retry resumes from the stored cursor instead of re-reading page one.
-	_, err = db.NewUpdate().Model((*models.PostImportState)(nil)).
-		Set("next_eligible_at = ?", frozen.Add(-time.Minute)).
-		Where("social_account_id = ?", account.ID).
-		Exec(context.Background())
-	require.NoError(t, err)
-	require.NoError(t, service.SyncAccount(context.Background(), "workspace-1", account.ID))
-	require.Equal(t, 2, countImported(t, db, account.ID))
-	state = loadImportState(t, db, account.ID)
-	require.Empty(t, state.Cursor)
-	require.False(t, state.LastSuccessAt.IsZero())
 }
 
 func TestResumedSyncKeepsStartWatermark(t *testing.T) {
@@ -259,11 +228,16 @@ func TestResumedSyncKeepsStartWatermark(t *testing.T) {
 	_, err := service.Enable(t.Context(), "workspace-1", account.ID)
 	require.NoError(t, err)
 	require.NoError(t, service.SyncAccount(t.Context(), "workspace-1", account.ID))
+	require.Equal(t, 1, countImported(t, db, account.ID), "the first execution commits the first provider page")
+	state := loadImportState(t, db, account.ID)
+	require.Equal(t, "older", state.Cursor, "the first execution stops at the page bound with the remaining cursor stored")
 	current = started.Add(25 * time.Hour)
 	_, err = db.NewUpdate().Model((*models.PostImportState)(nil)).Set("next_eligible_at = ?", started).Where("social_account_id = ?", account.ID).Exec(t.Context())
 	require.NoError(t, err)
 	require.NoError(t, service.SyncAccount(t.Context(), "workspace-1", account.ID))
-	state := loadImportState(t, db, account.ID)
+	require.Equal(t, 2, countImported(t, db, account.ID), "the resumed execution imports the remaining provider page")
+	state = loadImportState(t, db, account.ID)
+	require.Empty(t, state.Cursor, "the resumed execution finishes the stored cursor")
 	require.True(t, state.LastSuccessAt.Equal(started), "next cycle must revisit posts published during the cursor resume")
 	require.True(t, state.CycleStartedAt.IsZero())
 }
@@ -339,7 +313,11 @@ func TestReadBudgetGuardBlocksProvidersReads(t *testing.T) {
 	require.Equal(t, 0, countImported(t, db, account.ID))
 	state := loadImportState(t, db, account.ID)
 	require.Equal(t, "cost_limited", state.Status)
-	require.True(t, account.IsActive)
+	// The block is a policy refusal, not a disconnection: the persisted account
+	// must still be active after the sync.
+	var stored models.SocialAccount
+	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", account.ID).Scan(context.Background()))
+	require.True(t, stored.IsActive)
 }
 
 func TestReadBudgetIsFreshAtTheUTCDayItsRetryWaitsFor(t *testing.T) {
@@ -352,7 +330,7 @@ func TestReadBudgetIsFreshAtTheUTCDayItsRetryWaitsFor(t *testing.T) {
 	account := seedPostImportAccount(t, db, "bluesky", "did:plc:owner", "")
 	service := NewService(db, &stubTokenSource{token: "token"})
 	service.SetProvider("bluesky", reader)
-	service.SetPolicy("bluesky", Policy{ReadRequestsPerDay: 1, PageSize: 50})
+	service.policies["bluesky"] = Policy{ReadRequestsPerDay: 1, PageSize: 50}
 	now := time.Date(2026, 9, 26, 15, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return now }
 	_, err := service.Enable(context.Background(), "workspace-1", account.ID)

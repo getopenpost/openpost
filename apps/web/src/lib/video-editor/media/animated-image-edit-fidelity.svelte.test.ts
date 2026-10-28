@@ -1,6 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
 import { createBlankProject } from '../project/defaults';
-import { splitItemsAtFrame, trimItemStart } from '../timeline/actions/items';
+import { splitItemsAtFrame } from '../timeline/actions/items';
+import { trimItemToFrame } from '../timeline/actions/trim-playhead';
 import { planTrimGesture } from '../timeline/edit-gesture';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
@@ -67,7 +68,8 @@ it.each([
 		]);
 		if (edit === 'split' || edit === 'split transition')
 			splitItemsAtFrame(edit === 'split transition' ? 7 : frame, ['animation']);
-		else if (edit === 'trim action') trimItemStart('animation', frame);
+		else if (edit === 'trim action')
+			expect(trimItemToFrame('animation', 'start', frame)).toBe(true);
 		else {
 			const plan = planTrimGesture(
 				timelineStore.items[0]!,

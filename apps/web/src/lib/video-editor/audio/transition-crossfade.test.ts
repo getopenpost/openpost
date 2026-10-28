@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { TimelineItem, TimelineTrack, TimelineTransition } from '../project/types';
-import { planMixdown, sliceMixEntries } from '../media/render-plan';
+import { planMixdown } from '../media/render-plan';
 import {
 	audioCrossfadeGainAtFrame,
 	buildTransitionGainCurve,
 	equalPowerGain,
-	isAudioTransitionParticipantAtFrame,
 	transitionGainSpansForItem,
 	type TransitionGainSpan
 } from './transition-crossfade';
@@ -57,26 +56,6 @@ function transition(
 		fromItemId,
 		toItemId,
 		...extra
-	};
-}
-
-function cutPair(durationInFrames = 20) {
-	const left = clip({ id: 'left' });
-	const right = clip({
-		id: 'right',
-		from: 60,
-		mediaId: 'media-2',
-		sourceStart: 10,
-		sourceEnd: 70
-	});
-	return {
-		left,
-		right,
-		transition: transition('left', 'right', durationInFrames),
-		itemsById: new Map([
-			['left', left],
-			['right', right]
-		])
 	};
 }
 

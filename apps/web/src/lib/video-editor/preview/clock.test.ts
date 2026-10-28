@@ -157,7 +157,8 @@ describe('Clock', () => {
 		clock.play({ range: { start: 10, end: 40 }, loop: true });
 		time.advance(5);
 		raf.flush(1);
-		expect(clock.currentFrame).toBeLessThan(40);
+		expect(clock.currentFrame).toBe(10);
+		expect(clock.isPlaying).toBe(true);
 		clock.dispose();
 	});
 

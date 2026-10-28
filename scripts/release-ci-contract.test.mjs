@@ -63,6 +63,7 @@ test("only green main release-plan runs record a release proof", () => {
   const jobs = load(ci).jobs;
   const steps = jobs["release-candidate"].steps;
   const gate = steps.findIndex((step) => step.name === "Require every planned check");
+  assert.ok(gate >= 0, "release proof requires the planned-check gate");
   const proofSteps = steps.filter(
     (step) =>
       step.name === "Record the release proof for this exact revision" ||
@@ -300,12 +301,95 @@ test("container candidates run and publish on native amd64 and arm64 runners", (
 });
 
 test("the exhaustive local image check uses the host's supported architecture", () => {
-  assert.match(releaseScript, /\{ arm64: "arm64", x64: "amd64" \}\[process\.arch\]/u);
-  assert.match(releaseScript, /`linux\/\$\{imageArchitecture\}`/u);
-  assert.match(
-    releaseScript,
-    /smoke-production-image\.sh", image, revision, "", imageArchitecture/u,
-  );
+  for (const [host, platform] of [
+    ["x64", "amd64"],
+    ["arm64", "arm64"],
+    ["unsupported", null],
+  ]) {
+    const directory = mkdtempSync(path.join(tmpdir(), "openpost-local-image-"));
+    try {
+      mkdirSync(path.join(directory, "scripts"));
+      for (const file of [
+        "release.mjs",
+        "check-mcp-registry.mjs",
+        "release-command-environment.mjs",
+        "release-failures.mjs",
+        "release-proof.mjs",
+        "ci-artifacts.mjs",
+        "published-release-tag.mjs",
+        "release-surfaces.mjs",
+      ]) {
+        copyFileSync(`scripts/${file}`, path.join(directory, "scripts", file));
+      }
+      writeFileSync(
+        path.join(directory, "preload.mjs"),
+        `
+        import { appendFileSync } from "node:fs";
+        Object.defineProperty(process, "arch", { value: ${JSON.stringify(host)} });
+        Bun.spawn = (argv) => {
+          if (argv.join(" ") !== "docker info --format {{.ServerVersion}} {{.MemTotal}}")
+            throw new Error("Unexpected asynchronous command: " + argv.join(" "));
+          return { stdout: new Response("28.0 17179869184").body,
+            stderr: new Response("").body, exited: Promise.resolve(0), kill() {} };
+        };
+        Bun.spawnSync = (argv) => {
+          appendFileSync("commands.jsonl", JSON.stringify(argv) + "\\n");
+          const command = argv.join(" ");
+          let stdout = "";
+          if (command.startsWith("df -Pk ")) stdout = "Filesystem 1024-blocks Used Available Capacity Mounted\\nfixture 99999999 1 99999998 1% /\\n";
+          else if (command === "git rev-parse HEAD") stdout = "${"a".repeat(40)}";
+          else if (command === "bun --version") stdout = "fixture-bun";
+          else if (command === "go version") stdout = "fixture-go";
+          else if (!(command === "bash -lc command -v docker" || command === "bun run doctor" ||
+            command.startsWith("bun install ") || command === "bun run check -- provider-certification" ||
+            command === "git diff --binary HEAD" || command === "git ls-files --others --exclude-standard" ||
+            command === "bun run verify" || command === "bun run test -- backend" ||
+            command === "scripts/security-check.sh" || command === "bun run test -- e2e" ||
+            command === "bun run test -- e2e-app" || command.startsWith("docker build ") ||
+            command.startsWith("scripts/smoke-production-image.sh ") ||
+            command.startsWith("docker image rm ") || command.startsWith("docker buildx prune ")))
+            throw new Error("Unexpected command: " + command);
+          return { exitCode: 0, stdout: Buffer.from(stdout), stderr: Buffer.from("") };
+        };
+      `,
+      );
+      const result = spawnSync(
+        "bun",
+        ["--preload", "./preload.mjs", "scripts/release.mjs", "check-full"],
+        {
+          cwd: directory,
+          encoding: "utf8",
+          timeout: 5_000,
+          env: { ...process.env, OPENPOST_FORCE_RELEASE_CHECK: "1" },
+        },
+      );
+      const commands = readFileSync(path.join(directory, "commands.jsonl"), "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      const builds = commands.filter(([tool, action]) => tool === "docker" && action === "build");
+      const smokes = commands.filter(([tool]) => tool === "scripts/smoke-production-image.sh");
+      assert.equal(result.status, platform ? 0 : 1, result.stdout + result.stderr);
+      assert.equal(builds.length, platform ? 1 : 0);
+      assert.equal(smokes.length, platform ? 1 : 0);
+      if (platform) {
+        const build = builds[0];
+        assert.equal(build[build.indexOf("--platform") + 1], `linux/${platform}`);
+        const image = build[build.indexOf("--tag") + 1];
+        assert.deepEqual(smokes[0], [
+          "scripts/smoke-production-image.sh",
+          image,
+          "a".repeat(40),
+          "",
+          platform,
+        ]);
+      } else {
+        assert.match(result.stderr, /do not support host architecture unsupported/u);
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }
 });
 
 for (const [workflow, job, step, output] of [

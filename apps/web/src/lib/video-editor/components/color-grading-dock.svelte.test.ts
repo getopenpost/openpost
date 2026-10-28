@@ -1,9 +1,16 @@
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
+import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { createDefaultTracks } from '$lib/video-editor/project/defaults';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 import { editorSettings } from '$lib/video-editor/settings/editor-settings.svelte';
+import { editorSession } from '$lib/video-editor/editor.svelte';
 import ColorGradingDock from './color-grading-dock.svelte';
+import '../../../routes/layout.css';
+
+afterEach(async () => {
+	await page.viewport(1280, 900);
+});
 
 it('shows when a selected locked clip is excluded from grading', async () => {
 	timelineStore.__resetForTesting();
@@ -88,7 +95,9 @@ it('keeps dedicated effect actions after adding the first qualifier', async () =
 });
 
 it('keeps a compact clip switcher available in short viewports', async () => {
+	await page.viewport(640, 450);
 	timelineStore.__resetForTesting();
+	editorSession.clock.seek(0);
 	editorSettings.set('colorPalette', 'primaries');
 	editorSettings.set('colorKeyframesVisible', false);
 	const track = createDefaultTracks()[1]!;
@@ -112,18 +121,45 @@ it('keeps a compact clip switcher available in short viewports', async () => {
 		}
 	]);
 	const onselectitem = vi.fn();
-	await render(ColorGradingDock, {
+	const screen = await render(ColorGradingDock, {
 		itemId: 'first',
 		itemIds: ['first'],
 		sequenceName: 'Main',
 		onedit: vi.fn(),
 		onselectitem
 	});
-	const secondClip = document.querySelector('[data-color-clip-chip="second"]');
-	if (!(secondClip instanceof HTMLButtonElement)) throw new Error('Expected compact clip button');
-	expect(secondClip.className).toContain('[@media(pointer:coarse)]:h-11');
-	expect(secondClip.className).toContain('[@media(pointer:coarse)]:min-w-11');
+	// A realistic short dock allocation; the switcher visibility itself comes from
+	// the short viewport above, not from this host height.
+	screen.container.style.cssText = 'display:flex;height:260px';
 
-	secondClip.click();
+	const secondClip = screen.getByRole('button', {
+		name: /Select a clip to use this tool\..*Second/u
+	});
+	await expect.element(secondClip).toBeVisible();
+	const chip = secondClip.element();
+	expect(chip.className).toContain('[@media(pointer:coarse)]:h-11');
+	expect(chip.className).toContain('[@media(pointer:coarse)]:min-w-11');
+
+	const rect = chip.getBoundingClientRect();
+	// Pointer-fine chips are 24 px tall from the maintained Tailwind stylesheet.
+	expect(rect.height).toBeGreaterThanOrEqual(24);
+	expect(rect.top).toBeGreaterThanOrEqual(0);
+	expect(rect.left).toBeGreaterThanOrEqual(0);
+	expect(rect.bottom).toBeLessThanOrEqual(window.innerHeight);
+	expect(rect.right).toBeLessThanOrEqual(window.innerWidth);
+	const dock = chip.closest('section');
+	if (!dock) throw new Error('Compact clip switcher is outside its dock section.');
+	const dockRect = dock.getBoundingClientRect();
+	expect(rect.top).toBeGreaterThanOrEqual(dockRect.top - 0.5);
+	expect(rect.bottom).toBeLessThanOrEqual(dockRect.bottom + 0.5);
+	expect(
+		document
+			.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+			?.closest('[data-color-clip-chip="second"]')
+	).toBe(chip);
+
+	await secondClip.click();
 	expect(onselectitem).toHaveBeenCalledWith('second');
+	expect(timelineStore.currentFrame).toBe(30);
+	expect(editorSession.clock.currentFrame).toBe(30);
 });

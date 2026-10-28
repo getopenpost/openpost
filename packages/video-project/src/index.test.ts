@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createCapturedVideoProjectDocumentFromAssets,
   createCapturedVideoProjectDocument,
-  overlappingTargets,
   portableVideoProjectDocument,
   videoProjectMutationOperations,
   VideoProjectMutationOutbox,
@@ -163,13 +162,6 @@ describe("portable Video Project contract", () => {
       id: "project-1",
       timeline: { items: [{ id: "clip-1" }] },
     });
-  });
-
-  it("classifies only overlapping stable targets as conflicts", () => {
-    expect(overlappingTargets(mutation("one").batch, ["track:two"])).toEqual([]);
-    expect(overlappingTargets(mutation("one").batch, ["clip:one", "track:two"])).toEqual([
-      "clip:one",
-    ]);
   });
 
   it("splits independent timeline property edits into stable mutation targets", () => {

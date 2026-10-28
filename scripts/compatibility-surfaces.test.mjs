@@ -3,11 +3,9 @@ import test from "node:test";
 
 import {
   readCompatibilityInputs,
-  requiredCompatibilityEntryIDs,
   validateCompatibilityRegistry,
 } from "./compatibility-surfaces.mjs";
 
-const clone = (value) => structuredClone(value);
 const currentDate = new Date("2026-08-09T00:00:00Z");
 
 function validationProblems(registry, openapi, now = currentDate) {

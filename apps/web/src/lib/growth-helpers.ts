@@ -304,20 +304,6 @@ export function followButtonState(followState: string): FollowButtonState {
 
 export const growthGridClasses = 'grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3';
 
-export class StaleGuard {
-	private seq = 0;
-	next(): number {
-		this.seq += 1;
-		return this.seq;
-	}
-	isStale(seq: number): boolean {
-		return seq !== this.seq;
-	}
-	current(): number {
-		return this.seq;
-	}
-}
-
 export function prefersReducedMotion(): boolean {
 	// eslint-disable-next-line anti-slop/no-runtime-typeof -- safe: guards for SSR where window is undefined
 	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;

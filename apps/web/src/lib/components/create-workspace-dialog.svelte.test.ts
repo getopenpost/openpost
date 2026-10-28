@@ -64,7 +64,7 @@ describe('CreateWorkspaceDialog selection', () => {
 		workspaceCtx.workspaces = [workspace];
 	});
 
-	it('applies the new workspace selection even when the dialog unmounts mid-flight', async () => {
+	it('keeps the workspace selection permission valid when the dialog unmounts mid-flight', async () => {
 		const create = deferred<never>();
 		postMock.mockReturnValue(create.promise);
 		let capturedSelection: (() => boolean) | undefined;

@@ -7,9 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
+	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -95,26 +97,6 @@ func emitWaitingTwice(t *testing.T, s *Service, run Run) {
 	s.notifyParkedApproval(t.Context(), record, decodeRunResults(record))
 }
 
-// Parking a draft is the moment the queue becomes someone else's problem. Until
-// now it told nobody, which is the whole reason the approval step got worked
-// around by hand.
-func TestParkedApprovalNotifiesTheOtherApprovers(t *testing.T) {
-	s, actor := workflowTestService(t, approvalAction())
-	approvalNotificationService(t, s)
-	addApprover(t, s, "approver", models.WorkspaceRoleAdmin)
-
-	run := parkApproval(t, s, actor)
-
-	approver := notificationsFor(t, s, "approver")
-	require.Len(t, approver, 1)
-	require.Contains(t, approver[0].Href, "run="+run.ID)
-	require.Equal(t, "ws", approver[0].WorkspaceID)
-
-	// The author is not told: they just parked it, and the wait is for somebody
-	// else.
-	require.Empty(t, notificationsFor(t, s, "user"))
-}
-
 // The client role exists so the person who owns the accounts can decide an
 // approval without being able to administer the workspace. Approving is
 // LevelApprove, which a client satisfies, so the client is exactly who a parked
@@ -198,19 +180,6 @@ func TestParkedApprovalSkipsInactiveMembers(t *testing.T) {
 	require.Empty(t, notificationsFor(t, s, "gone"))
 }
 
-// A workspace whose only approver is the author would otherwise park a draft and
-// tell nobody at all — exactly the silent queue this removes.
-func TestParkedApprovalFallsBackToTheAuthorWhenNobodyElseCanApprove(t *testing.T) {
-	s, actor := workflowTestService(t, approvalAction())
-	approvalNotificationService(t, s)
-
-	run := parkApproval(t, s, actor)
-
-	author := notificationsFor(t, s, "user")
-	require.Len(t, author, 1)
-	require.Contains(t, author[0].Href, "run="+run.ID)
-}
-
 // The same wait, emitted twice, must leave one row. This drives the real
 // emission twice rather than re-running a job that cannot claim an
 // awaiting_approval run, so it actually reaches the insert both times.
@@ -231,17 +200,24 @@ func TestParkedApprovalNotifiesOncePerWait(t *testing.T) {
 func TestExpiredApprovalNotifiesApproversAndAuthor(t *testing.T) {
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
+	recorder := &telemetry.MemoryRecorder{}
+	s.SetTelemetry(recorder)
 	addApprover(t, s, "approver", models.WorkspaceRoleAdmin)
 	addApprover(t, s, "client", models.WorkspaceRoleClient)
 
 	run := parkApproval(t, s, actor)
+	require.Empty(t, notificationsFor(t, s, "user"))
+	waitingAdmin := noticesInState(t, s, "approver", "waiting")
+	require.Len(t, waitingAdmin, 1)
+	require.Equal(t, "ws", waitingAdmin[0].WorkspaceID)
+	require.Contains(t, waitingAdmin[0].Href, "run="+run.ID)
 
 	// Age the wait past MaxRunAge, then run the sweep that fails stale waits.
 	_, err := s.db.NewUpdate().Model((*runRecord)(nil)).
 		Set("created_at = ?", time.Now().UTC().Add(-MaxRunAge-time.Hour)).
 		Where("id = ?", run.ID).Exec(t.Context())
 	require.NoError(t, err)
-	require.NoError(t, s.sweep(context.Background()))
+	require.NoError(t, s.HandleJob(t.Context(), jobregistry.TypeWorkflowSweep, "{}"))
 
 	var stored runRecord
 	require.NoError(t, s.db.NewSelect().Model(&stored).Where("id = ?", run.ID).Scan(t.Context()))
@@ -265,10 +241,13 @@ func TestExpiredApprovalNotifiesApproversAndAuthor(t *testing.T) {
 	require.Contains(t, author[0].Href, "/publications/post-1")
 
 	// A second sweep must not re-report an expiry that was already recorded.
-	require.NoError(t, s.sweep(context.Background()))
+	require.NoError(t, s.HandleJob(t.Context(), jobregistry.TypeWorkflowSweep, "{}"))
 	for _, userID := range []string{"approver", "client", "user"} {
 		require.Len(t, noticesInState(t, s, userID, "expired"), 1, userID)
 	}
+	require.Len(t, recorder.Events, 1)
+	require.Equal(t, telemetry.EventWorkflowRunFinished, recorder.Events[0].Name)
+	require.Equal(t, StateFailed, recorder.Events[0].Properties["outcome"])
 }
 
 // A wait that is about to run out is mentioned while the reader can still act
@@ -421,31 +400,6 @@ func TestApprovingResolvesTheOtherApproversNotices(t *testing.T) {
 	require.NotContains(t, rows[0].PayloadJSON, "Review post")
 }
 
-// Cancelling is also how an approval is declined. The approvers must hear that
-// their wait is over; today they hear nothing at all.
-func TestCancellingResolvesTheApproversNotices(t *testing.T) {
-	s, actor := workflowTestService(t, approvalAction())
-	approvalNotificationService(t, s)
-	addApprover(t, s, "approver", models.WorkspaceRoleAdmin)
-
-	run := parkApproval(t, s, actor)
-
-	_, err := s.Cancel(t.Context(), actor, "ws", run.ID, run.Revision)
-	require.NoError(t, err)
-
-	rows := notificationsFor(t, s, "approver")
-	require.Len(t, rows, 1)
-	require.False(t, rows[0].ReadAt.IsZero())
-}
-
-// A workflow service without a notification service must keep running. The
-// wiring is optional so existing constructions stay valid.
-func TestApprovalTransitionsStaySilentWithoutANotificationService(t *testing.T) {
-	s, actor := workflowTestService(t, approvalAction())
-
-	parkApproval(t, s, actor)
-}
-
 func TestApprovalRemindersReachBeyondFirstBatch(t *testing.T) {
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
@@ -470,16 +424,19 @@ func TestApprovalResolutionIncludesFormerApprovers(t *testing.T) {
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	addApprover(t, s, "client", models.WorkspaceRoleClient)
+	addApprover(t, s, "approver", models.WorkspaceRoleAdmin)
 	run := parkApproval(t, s, actor)
 	_, err := s.db.NewUpdate().Model((*models.WorkspaceMember)(nil)).
 		Set("role = ?", models.WorkspaceRoleViewer).Where("user_id = ?", "client").Exec(t.Context())
 	require.NoError(t, err)
 	_, err = s.Cancel(t.Context(), actor, "ws", run.ID, run.Revision)
 	require.NoError(t, err)
-	rows := notificationsFor(t, s, "client")
-	require.Len(t, rows, 1)
-	require.False(t, rows[0].ReadAt.IsZero())
-	require.NotContains(t, rows[0].PayloadJSON, "Review post")
+	for _, userID := range []string{"client", "approver"} {
+		rows := notificationsFor(t, s, userID)
+		require.Len(t, rows, 1, userID)
+		require.False(t, rows[0].ReadAt.IsZero(), userID)
+		require.NotContains(t, rows[0].PayloadJSON, "Review post", userID)
+	}
 }
 
 func TestApprovalExpiryNotificationRetriesAfterRecipientFailure(t *testing.T) {

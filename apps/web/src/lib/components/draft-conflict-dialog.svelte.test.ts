@@ -42,5 +42,8 @@ describe('DraftConflictDialog', () => {
 			.toBeVisible();
 		await screen.getByRole('button', { name: label }).click();
 		expect(callbacks[action]).toHaveBeenCalledOnce();
+		for (const other of ['reload', 'copy', 'overwrite'] as const) {
+			if (other !== action) expect(callbacks[other]).not.toHaveBeenCalled();
+		}
 	});
 });

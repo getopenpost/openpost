@@ -4,22 +4,11 @@ import {
 	type InterfaceSoundToken
 } from '$lib/stores/sound-preferences.svelte';
 
-interface EditorSoundPreferences {
-	playSemantic(token: InterfaceSoundToken, previewTheme?: InterfaceSoundTheme): void;
-}
-
-export function emitEditorSound(
-	token: InterfaceSoundToken,
-	previewIsPlaying: boolean,
-	preferences: EditorSoundPreferences = soundPreferences
-): void {
+export function emitEditorSound(token: InterfaceSoundToken, previewIsPlaying: boolean): void {
 	if (previewIsPlaying) return;
-	preferences.playSemantic(token);
+	soundPreferences.playSemantic(token);
 }
 
-export function previewEditorSound(
-	theme: InterfaceSoundTheme,
-	preferences: EditorSoundPreferences = soundPreferences
-): void {
-	preferences.playSemantic('confirm', theme);
+export function previewEditorSound(theme: InterfaceSoundTheme): void {
+	soundPreferences.playSemantic('confirm', theme);
 }

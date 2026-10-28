@@ -103,13 +103,6 @@ async function renderCalendar(publication: ReturnType<typeof scheduledPublicatio
 	);
 }
 
-it('names month-grid publication buttons with their account count', async () => {
-	const screen = await renderCalendar(scheduledPublication());
-	// Fails without the fix: the button is named only by the publication title.
-	const item = screen.getByRole('button', { name: 'Launch week post · 2 accounts' });
-	await expect.element(item).toBeVisible();
-});
-
 const AVATAR_URL = 'https://cdn.example/founder.jpg';
 
 function mockPhotoReads(publication: ReturnType<typeof scheduledPublication>) {
@@ -159,6 +152,7 @@ it('renders the account photo for a photo-bearing account', async () => {
 		{},
 		{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
 	);
+	// Fails without the account-count fix: the button is named only by the publication title.
 	await expect
 		.element(screen.getByRole('button', { name: 'Launch week post · 2 accounts' }))
 		.toBeVisible();

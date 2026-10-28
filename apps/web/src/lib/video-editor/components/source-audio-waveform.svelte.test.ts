@@ -36,12 +36,15 @@ async function renderWaveform(props: Partial<ComponentProps<typeof SourceAudioWa
 	// SAFETY: waveform slider locators resolve to HTMLElement hosts, which support focus().
 	(slider.element() as HTMLElement).focus();
 	await expect.element(slider).toHaveFocus();
-	return { slider, onseek };
+	return { screen, slider, onseek };
 }
 
 describe('Source audio waveform slider keyboard', () => {
 	it('seeks in large steps with PageUp and PageDown', async () => {
-		const { onseek } = await renderWaveform();
+		const { onseek, slider } = await renderWaveform();
+		// Without aria-valuetext assistive technology announces the raw
+		// aria-valuenow float ("50"); the formatted time carries the units.
+		await expect.element(slider).toHaveAttribute('aria-valuetext', '0:50.0');
 		await userEvent.keyboard('{PageUp}');
 		expect(onseek).toHaveBeenCalledTimes(1);
 		expect(onseek.mock.calls[0][0]).toBe(60);
@@ -65,18 +68,25 @@ describe('Source audio waveform slider keyboard', () => {
 });
 
 describe('Source audio waveform slider value text', () => {
-	it('announces the position as formatted time instead of raw seconds', async () => {
-		const { slider } = await renderWaveform({ currentTimeSeconds: 50 });
-		// Without aria-valuetext assistive technology announces the raw
-		// aria-valuenow float ("50"); the formatted time carries the units.
-		await expect.element(slider).toHaveAttribute('aria-valuetext', '0:50.0');
-	});
-
 	it('rolls tenths over into minutes and hours', async () => {
-		const { slider } = await renderWaveform({
+		const { screen, slider, onseek } = await renderWaveform({
 			durationSeconds: 7200,
 			currentTimeSeconds: 3725.46
 		});
 		await expect.element(slider).toHaveAttribute('aria-valuetext', '1:02:05.5');
+		await screen.rerender({
+			media: mediaFixture(),
+			durationSeconds: 7200,
+			currentTimeSeconds: 59.96,
+			onseek
+		});
+		await expect.element(slider).toHaveAttribute('aria-valuetext', '1:00.0');
+		await screen.rerender({
+			media: mediaFixture(),
+			durationSeconds: 7200,
+			currentTimeSeconds: 3599.96,
+			onseek
+		});
+		await expect.element(slider).toHaveAttribute('aria-valuetext', '1:00:00.0');
 	});
 });

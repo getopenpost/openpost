@@ -10,6 +10,7 @@ import (
 
 	"github.com/openpost/backend/internal/idempotency"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
+	"github.com/openpost/backend/internal/services/engagement"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/publicationauth"
 	"github.com/openpost/backend/internal/services/publicationbuilder"
@@ -18,6 +19,7 @@ import (
 )
 
 type workflowActions struct {
+	engagement   *engagement.Service
 	publications *PublicationHandler
 	builds       *PublicationBuildHandler
 	analytics    *analyticsservice.Service
@@ -44,6 +46,8 @@ func (a workflowActions) Execute(ctx context.Context, input workflows.EffectRequ
 		output, err = a.approval(ctx, input)
 	case workflows.KindSchedule:
 		output, err = a.schedule(ctx, input)
+	case workflows.KindCommentReply, workflows.KindPrivateReply, workflows.KindCommentHandoff:
+		return a.commentReply(ctx, input)
 	case workflows.KindReply:
 		output, err = a.reply(ctx, input)
 	case workflows.KindMetrics:
@@ -265,4 +269,65 @@ func (a workflowActions) build(ctx context.Context, input workflows.EffectReques
 
 func NewWorkflowActions(publications *PublicationHandler, builds *PublicationBuildHandler, analytics *analyticsservice.Service) workflows.Actions {
 	return workflowActions{publications: publications, builds: builds, analytics: analytics}
+}
+
+func (a workflowActions) commentReply(ctx context.Context, in workflows.EffectRequest) (workflows.EffectResult, error) {
+	if a.engagement == nil {
+		return workflows.EffectResult{}, errors.New("comment reply automation is unavailable")
+	}
+	approve, _ := in.Inputs["approved"].(bool)
+	channel := workflowText(in.Inputs, "channel")
+	if channel == "" {
+		channel = "public"
+	}
+	delivery := workflowText(in.Inputs, "delivery")
+	body := workflowText(in.Inputs, "text")
+	if in.Kind == workflows.KindPrivateReply {
+		channel = "private"
+	}
+	if in.Kind == workflows.KindCommentHandoff {
+		delivery = "handoff"
+		channel = "public"
+		body = "NEEDS_HUMAN"
+	}
+	reply, err := a.engagement.AdvanceAutomationReply(ctx, engagement.AutomationReplyRequest{Authority: in.Authority, WorkflowID: workflowText(in.Inputs, "workflow_id"), RunID: in.RunID, StepID: in.StepID, ItemID: workflowText(in.Inputs, "engagement_id"), Channel: channel, Body: body, Delivery: delivery, Approve: approve})
+	if err != nil {
+		return workflows.EffectResult{}, err
+	}
+	if reply.State == "failed" {
+		return workflows.EffectResult{}, errors.New("reply delivery failed; inspect the Inbox receipt before retrying")
+	}
+	return workflows.EffectResult{Stop: reply.State == "skipped" || reply.State == "cancelled", Review: reply.State == "awaiting_review", Pending: reply.State == "sending" || reply.State == "ready", Output: map[string]any{"engagement_id": reply.ItemID, "status": reply.State, "text": reply.Body, "channel": reply.Channel, "job_id": reply.JobID}}, nil
+}
+func NewWorkflowActionsWithEngagement(publications *PublicationHandler, builds *PublicationBuildHandler, analytics *analyticsservice.Service, inbox *engagement.Service) workflows.Actions {
+	return workflowActions{publications: publications, builds: builds, analytics: analytics, engagement: inbox}
+}
+func (a workflowActions) StopReplies(ctx context.Context, authority workspaceaccess.StoredAuthority, workflowID, runID string) error {
+	if a.engagement == nil {
+		return nil
+	}
+	return a.engagement.StopWorkflowReplies(ctx, authority, workflowID, runID)
+}
+func (a workflowActions) ValidateCommentSource(ctx context.Context, authority workspaceaccess.StoredAuthority, source workflows.Source, steps []workflows.Step) error {
+	if a.engagement == nil {
+		return errors.New("comment reply automation is unavailable")
+	}
+	private := false
+	var inspect func([]workflows.Step)
+	inspect = func(steps []workflows.Step) {
+		for _, step := range steps {
+			if step.Kind == workflows.KindPrivateReply || (step.Kind == workflows.KindCommentReply && step.Inputs["channel"].Literal == "private") {
+				private = true
+			}
+			inspect(step.Then)
+			inspect(step.Else)
+		}
+	}
+	inspect(steps)
+	for _, id := range source.AccountIDs {
+		if err := a.engagement.CheckAutomationAccount(ctx, authority, id, private); err != nil {
+			return err
+		}
+	}
+	return nil
 }

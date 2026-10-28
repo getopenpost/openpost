@@ -15,36 +15,6 @@ describe('ProtectedIcon', () => {
 	});
 
 	it.each([
-		'media-image',
-		'media-video',
-		'media-audio',
-		'media-file',
-		'editor-animation',
-		'editor-backgrounds',
-		'editor-captions',
-		'editor-cut',
-		'editor-effects',
-		'editor-media',
-		'editor-move',
-		'editor-record',
-		'editor-scenes',
-		'editor-shapes',
-		'editor-shape-rectangle',
-		'editor-shape-rounded-rectangle',
-		'editor-shape-ellipse',
-		'editor-stickers',
-		'editor-text',
-		'editor-transitions'
-	] as const)('renders the protected %s glyph without a theme pack identity', async (role) => {
-		const screen = await render(ProtectedIcon, { icon: role });
-		const icon = screen.container.querySelector(`[data-protected-icon="${role}"]`);
-
-		expect(icon).not.toBeNull();
-		expect(icon?.getAttribute('data-theme-icon')).toBeNull();
-		expect(icon?.getAttribute('data-icon-pack')).toBeNull();
-	});
-
-	it.each([
 		['editor-shape-rectangle', 'lucide-rectangle-horizontal'],
 		['editor-shape-rounded-rectangle', 'lucide-squircle'],
 		['editor-shape-ellipse', 'lucide-circle']

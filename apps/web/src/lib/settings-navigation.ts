@@ -190,10 +190,6 @@ export interface SettingsDestination {
 	loadingVariant: SettingsLoadingVariant;
 }
 
-export const settingsTabIDs: readonly SettingsTabID[] = settingsDestinationDefinitions.map(
-	(destination) => destination.id
-);
-
 export function getSettingsDestinations(
 	includeInstance: boolean,
 	context: SettingsDestinationContext = {},

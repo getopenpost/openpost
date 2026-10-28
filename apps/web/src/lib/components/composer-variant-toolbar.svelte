@@ -13,12 +13,15 @@
 		multiAccount: boolean;
 		segmentStrategy?: string;
 		postCount: number;
+		restorableImages?: Array<{ id: string; number: number }>;
+		restorablePending?: boolean;
 		onPreview: () => void;
 		onToggleSync: () => void;
 		onSettings: () => void;
 		onResetField: (field: 'content' | 'media') => void;
 		onResync: () => void;
 		onDestinationAction: (action: 'copy' | 'media') => void;
+		onUseOriginalImage: (mediaId: string) => void;
 	}
 
 	let {
@@ -30,12 +33,15 @@
 		multiAccount,
 		segmentStrategy,
 		postCount,
+		restorableImages = [],
+		restorablePending = false,
 		onPreview,
 		onToggleSync,
 		onSettings,
 		onResetField,
 		onResync,
-		onDestinationAction
+		onDestinationAction,
+		onUseOriginalImage
 	}: Props = $props();
 	const syncDescriptionId = $props.id();
 	const contentSynced = $derived(!hasContentOverride && !hasMediaOverride);
@@ -108,6 +114,17 @@
 				<DropdownMenu.Item onclick={() => onResync()}>
 					{m.compose_reset_destination()}
 				</DropdownMenu.Item>
+			{/if}
+			{#if restorableImages.length > 0}
+				<DropdownMenu.Separator />
+				{#each restorableImages as image (image.id)}
+					<DropdownMenu.Item
+						disabled={restorablePending}
+						onclick={() => onUseOriginalImage(image.id)}
+					>
+						{m.compose_image_original({ number: image.number })}
+					</DropdownMenu.Item>
+				{/each}
 			{/if}
 			{#if multiAccount}
 				<DropdownMenu.Separator />

@@ -255,7 +255,10 @@ describe('Image Editor full-resolution rendering', () => {
 		const files = unzipSync(new Uint8Array(await archive.arrayBuffer()));
 		expect(files['first.png']).toEqual(first);
 		expect(files['second.webp']).toEqual(second);
-		expect(strFromU8(files['manifest.txt'])).toContain('2');
+		// Read the page count itself: a substring match would also accept "12".
+		const manifest = files['manifest.txt'];
+		if (!manifest) throw new Error('Archive manifest is missing.');
+		expect(strFromU8(manifest).match(/\d+/gu)).toEqual(['2']);
 	});
 
 	it('cancels a page archive before opening a download', async () => {

@@ -52,7 +52,7 @@ func TestPublicationEventQueuesAndDeliversSignedWebhook(t *testing.T) {
 
 	service := NewService(db, servicecrypto.NewTokenEncryptor("test-webhook-key"))
 	service.SetHTTPClient(server.Client())
-	service.SetURLValidator(func(context.Context, *url.URL) error { return nil })
+	service.validateURL = func(context.Context, *url.URL) error { return nil }
 	created, err := service.Create(ctx, CreateInput{InstallationID: "installation-1", WorkspaceID: "ws-1", URL: server.URL, EventTypes: []string{"published"}})
 	require.NoError(t, err)
 	require.NotEmpty(t, created.Secret)

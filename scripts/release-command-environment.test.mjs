@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  releaseCommandEnvironment,
-  releaseGitHubRepository,
-} from "./release-command-environment.mjs";
+import { releaseCommandEnvironment } from "./release-command-environment.mjs";
 
 test("release commands stay bound to the canonical repository", () => {
   const environment = releaseCommandEnvironment(
@@ -12,7 +9,7 @@ test("release commands stay bound to the canonical repository", () => {
     { RELEASE_TOKEN: "available", GH_REPO: "another/other-repository" },
   );
 
-  assert.equal(environment.GH_REPO, releaseGitHubRepository);
+  assert.equal(environment.GH_REPO, "getopenpost/openpost");
   assert.equal(environment.PATH, "/bin");
   assert.equal(environment.RELEASE_TOKEN, "available");
 });

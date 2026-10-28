@@ -180,6 +180,9 @@ func (s *Service) Publish(ctx context.Context, actor workspaceaccess.ActorFacts,
 
 func (s *Service) activateWorkflow(ctx context.Context, record workflowRecord, definition Definition, authority workspaceaccess.StoredAuthority) error {
 	workspaceID, id, expected := record.WorkspaceID, record.ID, record.Revision
+	if err := s.validateCommentAutomation(ctx, authority, definition); err != nil {
+		return err
+	}
 	if _, err := s.connectionToken(ctx, workspaceID, definition.Source.ConnectionID); err != nil {
 		return err
 	}
@@ -192,7 +195,7 @@ func (s *Service) activateWorkflow(ctx context.Context, record workflowRecord, d
 		return err
 	}
 	now := time.Now().UTC()
-	initialized := record.SourceInitialized && record.SourceFingerprint == fingerprint
+	initialized := workflowSourceInitialized(record, definition, fingerprint)
 	var baseline []SourceItem
 	if !initialized {
 		baseline, err = s.readSource(ctx, workspaceID, definition.Source, now)
@@ -285,6 +288,11 @@ func decodeWorkflow(record workflowRecord) (Workflow, error) {
 	if err := json.Unmarshal([]byte(record.DraftJSON), &item.Definition); err != nil {
 		return Workflow{}, fmt.Errorf("decode workflow: %w", err)
 	}
+	var published Definition
+	if err := json.Unmarshal([]byte(record.PublishedJSON), &published); err != nil {
+		return Workflow{}, fmt.Errorf("decode published workflow: %w", err)
+	}
+	item.HasCommentReplies = published.Source.Kind == "comment_received" || commentResponseSteps(published.Steps)
 	return item, nil
 }
 
@@ -318,4 +326,70 @@ func (s *Service) SetDecisionAI(decider ai.Decider, model string) {
 func (s *Service) SetAILimits(enabled bool, monthlyCalls int64) {
 	s.aiEnabled = enabled
 	s.aiMonthlyCalls = max(0, monthlyCalls)
+}
+
+func (s *Service) StopReplies(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, id string, expected int) (Workflow, error) {
+	authority, err := s.authorize(ctx, actor, workspaceID, workspaceaccess.LevelAdminister)
+	if err != nil {
+		return Workflow{}, err
+	}
+	current, err := s.Get(ctx, actor, workspaceID, id)
+	if err != nil {
+		return Workflow{}, err
+	}
+	record, err := s.loadWorkflow(ctx, workspaceID, id)
+	if err != nil {
+		return Workflow{}, err
+	}
+	var published Definition
+	if err := json.Unmarshal([]byte(record.PublishedJSON), &published); err != nil {
+		return Workflow{}, err
+	}
+	if current.Definition.Source.Kind != "comment_received" && published.Source.Kind != "comment_received" {
+		return Workflow{}, invalid("this workflow does not automate comment replies")
+	}
+	item, err := s.Pause(ctx, actor, workspaceID, id, expected)
+	if err != nil {
+		return Workflow{}, err
+	}
+	if err := s.cancelWorkflowReplyRuns(ctx, workspaceID, id); err != nil {
+		return Workflow{}, err
+	}
+	if stopper, ok := s.actions.(ReplyStopper); ok {
+		if err := stopper.StopReplies(ctx, authority, id, ""); err != nil {
+			return Workflow{}, err
+		}
+	}
+	return item, nil
+}
+
+func (s *Service) validateCommentAutomation(ctx context.Context, authority workspaceaccess.StoredAuthority, definition Definition) error {
+	if definition.Source.Kind == "comment_received" {
+		if validator, ok := s.actions.(CommentSourceValidator); ok {
+			if err := validator.ValidateCommentSource(ctx, authority, definition.Source, definition.Steps); err != nil {
+				return invalid(err.Error())
+			}
+		}
+	}
+	return nil
+}
+
+func workflowSourceInitialized(record workflowRecord, definition Definition, fingerprint string) bool {
+	return record.SourceInitialized && record.SourceFingerprint == fingerprint && (record.Enabled || definition.Source.Kind != "comment_received")
+}
+
+func (s *Service) cancelWorkflowReplyRuns(ctx context.Context, workspaceID, workflowID string) error {
+	return s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if err := organizationguard.LockWorkspace(ctx, tx, workspaceID); err != nil {
+			return err
+		}
+		var ids []string
+		if err := tx.NewSelect().Model((*runRecord)(nil)).Column("id").Where("workflow_id = ? AND workspace_id = ? AND state IN (?)", workflowID, workspaceID, bun.List([]string{StateQueued, StateRunning, StateWaiting, StateApproval})).Scan(ctx, &ids); err != nil {
+			return err
+		}
+		if len(ids) == 0 {
+			return nil
+		}
+		return s.CancelCommentReplyRuns(ctx, tx, workspaceID, ids)
+	})
 }

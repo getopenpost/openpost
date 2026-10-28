@@ -1,11 +1,9 @@
-import { imageEditorLayerRenderOrder } from './document';
 import { describe, expect, it, vi } from 'vitest';
 import {
 	computeImageGeometry,
 	type ImageEditorImageGeometry,
 	imageEditorScreenZoom,
 	imageEditorPixelGrid,
-	imageEditorPixelIsOpaque,
 	OpenPostFabricAdapter,
 	snapImageEditorPoint,
 	snapImageEditorResize
@@ -134,19 +132,6 @@ describe('OpenPost Image Editor image geometry', () => {
 		expect(Array.from(grid.data.slice(0, 4))).toEqual([0, 0, 0, 0]);
 		expect(Array.from(grid.data.slice(16, 20))).toEqual([255, 0, 0, 255]);
 		expect(Array.from(grid.data.slice(32, 36))).toEqual([255, 255, 255, 255]);
-	});
-
-	it('treats transparent image padding as click-through while keeping visible edge pixels selectable', () => {
-		const image = {
-			width: 2,
-			height: 2,
-			data: new Uint8ClampedArray([255, 0, 0, 0, 255, 0, 0, 7, 255, 0, 0, 8, 255, 0, 0, 255])
-		};
-
-		expect(imageEditorPixelIsOpaque(image, { x: 0, y: 0 })).toBe(false);
-		expect(imageEditorPixelIsOpaque(image, { x: 1, y: 0 })).toBe(false);
-		expect(imageEditorPixelIsOpaque(image, { x: 0, y: 1 })).toBe(true);
-		expect(imageEditorPixelIsOpaque(image, { x: 2, y: 1 })).toBe(false);
 	});
 
 	it('keeps cover pixels flush with a resized frame', () => {
@@ -688,18 +673,6 @@ describe('OpenPost Image Editor layer render order', () => {
 		text.parent_id = group.id;
 		return [rectangle, circle, text, image, group];
 	}
-
-	it('keeps every grouped child inside the group stacking slot', () => {
-		const order = imageEditorLayerRenderOrder(interleavedGroupLayers());
-
-		expect(order.map((layer) => layer.id)).toEqual([
-			'circle',
-			'image',
-			'rectangle',
-			'text',
-			'group'
-		]);
-	});
 
 	it('reapplies the grouped stacking order during incremental canvas sync', () => {
 		interface OrderedObjectFixture {

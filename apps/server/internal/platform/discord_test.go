@@ -561,19 +561,3 @@ func TestDiscordBotAmbiguousSendIsMarkedNeverReplay(t *testing.T) {
 		t.Fatalf("unexpected ambiguous send calls=%d checkpointed=%v", postCalls, checkpointed)
 	}
 }
-
-func TestDiscordWebhookDeleteRegression(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		if req.Method != http.MethodDelete || req.URL.String() != "https://discord.com/api/webhooks/123/token/messages/message-1" {
-			t.Fatalf("unexpected webhook delete %s %s", req.Method, req.URL.String())
-		}
-		return &http.Response{StatusCode: http.StatusNoContent, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("")), Request: req}, nil
-	})}
-
-	if err := NewDiscordAdapter().DeletePublished(t.Context(), "https://discord.com/api/webhooks/123/token", "message-1"); err != nil {
-		t.Fatal(err)
-	}
-}

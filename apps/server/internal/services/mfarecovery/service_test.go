@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +16,39 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
+
+// synchronizeRecoveryCodeReadsHook holds each successful reader of the
+// recovery-code table in AfterQuery until two readers have finished. bun calls
+// AfterQuery after the row has been scanned, so both reads have their result in
+// hand before either consumer can issue its write. The production conditional
+// UPDATE never issues a SELECT and is unaffected.
+type synchronizeRecoveryCodeReadsHook struct {
+	mu       sync.Mutex
+	arrivals int
+	release  chan struct{}
+}
+
+func (*synchronizeRecoveryCodeReadsHook) BeforeQuery(ctx context.Context, _ *bun.QueryEvent) context.Context {
+	return ctx
+}
+
+func (hook *synchronizeRecoveryCodeReadsHook) AfterQuery(ctx context.Context, event *bun.QueryEvent) {
+	if event.Err != nil || event.Operation() != "SELECT" || !strings.Contains(event.Query, "user_mfa_recovery_codes") {
+		return
+	}
+
+	hook.mu.Lock()
+	hook.arrivals++
+	if hook.arrivals == 2 {
+		close(hook.release)
+	}
+	hook.mu.Unlock()
+
+	select {
+	case <-hook.release:
+	case <-ctx.Done():
+	}
+}
 
 func TestConsumeIsSingleUseAndReplacementRevokesTheOldBatch(t *testing.T) {
 	t.Parallel()
@@ -56,8 +92,10 @@ func TestConsumeIsSingleUseAndReplacementRevokesTheOldBatch(t *testing.T) {
 func TestConcurrentConsumeAllowsExactlyOneAttempt(t *testing.T) {
 	t.Parallel()
 
-	db := newRecoveryTestDB(t)
-	db.SetMaxOpenConns(1)
+	db := newConcurrentRecoveryTestDB(t)
+	// A single-connection pool serializes both attempts and hides a
+	// check-then-write Consume, so this test needs real concurrent connections.
+	db.SetMaxOpenConns(4)
 	service := NewService(db)
 	ctx := context.Background()
 	now := time.Now().UTC()
@@ -67,13 +105,17 @@ func TestConcurrentConsumeAllowsExactlyOneAttempt(t *testing.T) {
 		return service.ReplaceWithDB(txCtx, tx, "user-1", set, now)
 	}))
 
+	db.AddQueryHook(&synchronizeRecoveryCodeReadsHook{release: make(chan struct{})})
+
 	start := make(chan struct{})
 	results := make(chan bool, 2)
 	errors := make(chan error, 2)
+	consumeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	for range 2 {
 		go func() {
 			<-start
-			consumed, consumeErr := service.Consume(ctx, "user-1", set.Codes[0], now.Add(time.Second))
+			consumed, consumeErr := service.Consume(consumeCtx, "user-1", set.Codes[0], now.Add(time.Second))
 			results <- consumed
 			errors <- consumeErr
 		}()
@@ -91,7 +133,22 @@ func TestConcurrentConsumeAllowsExactlyOneAttempt(t *testing.T) {
 
 func newRecoveryTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared&_foreign_keys=1", t.Name()))
+	return newRecoveryTestDBAt(t, fmt.Sprintf("file:%s?mode=memory&cache=shared&_foreign_keys=1", t.Name()))
+}
+
+// newConcurrentRecoveryTestDB keeps the concurrent harness on its own
+// file-backed WAL database so two writers wait on the busy handler instead of
+// deadlocking on one shared-cache table lock. The DSN is test-local and claims
+// nothing about the production PRAGMA set.
+func newConcurrentRecoveryTestDB(t *testing.T) *bun.DB {
+	t.Helper()
+	dsn := "file:" + filepath.Join(t.TempDir(), "mfa-recovery.db") + "?_busy_timeout=10000&_journal_mode=WAL&_foreign_keys=1"
+	return newRecoveryTestDBAt(t, dsn)
+}
+
+func newRecoveryTestDBAt(t *testing.T, dsn string) *bun.DB {
+	t.Helper()
+	sqldb, err := sql.Open("sqlite3", dsn)
 	require.NoError(t, err)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 	t.Cleanup(func() { require.NoError(t, db.Close()) })

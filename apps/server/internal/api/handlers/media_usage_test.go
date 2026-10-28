@@ -100,12 +100,48 @@ func TestMediaUsageSummaryCountsOnePublicationAcrossReferenceKinds(t *testing.T)
 					}
 				}
 			}
-			usage, err := handler.mediaUsageSummaries(ctx, "ws-1", []string{"shared", "completed-only", "unused"})
+			// One post per reference kind proves each UNION arm contributes on its
+			// own; the shared-media posts above only prove deduplication.
+			_, err = db.NewInsert().Model(&models.Publication{ID: "asset-only-post", WorkspaceID: "ws-1", CreatedByID: "user", Status: models.PublicationStatusDraft}).Exec(ctx)
+			require.NoError(t, err)
+			_, err = db.NewInsert().Model(&models.PublicationAsset{PublicationID: "asset-only-post", MediaID: "asset-only"}).Exec(ctx)
+			require.NoError(t, err)
+
+			_, err = db.NewInsert().Model(&models.Publication{ID: "segment-only-post", WorkspaceID: "ws-1", CreatedByID: "user", Status: models.PublicationStatusDraft}).Exec(ctx)
+			require.NoError(t, err)
+			_, err = db.NewInsert().Model(&models.PublicationSegment{ID: "segment-only-segment", PublicationID: "segment-only-post"}).Exec(ctx)
+			require.NoError(t, err)
+			_, err = db.NewInsert().Model(&models.PublicationSegmentMedia{SegmentID: "segment-only-segment", MediaID: "segment-only"}).Exec(ctx)
+			require.NoError(t, err)
+
+			_, err = db.NewInsert().Model(&models.Publication{ID: "rendition-only-post", WorkspaceID: "ws-1", CreatedByID: "user", Status: models.PublicationStatusDraft}).Exec(ctx)
+			require.NoError(t, err)
+			_, err = db.NewInsert().Model(&models.Rendition{ID: "rendition-only-rendition", PublicationID: "rendition-only-post"}).Exec(ctx)
+			require.NoError(t, err)
+			_, err = db.NewInsert().Model(&models.RenditionMedia{RenditionID: "rendition-only-rendition", MediaID: "rendition-only"}).Exec(ctx)
+			require.NoError(t, err)
+
+			_, err = db.NewInsert().Model(&models.Publication{ID: "rendition-segment-only-post", WorkspaceID: "ws-1", CreatedByID: "user", Status: models.PublicationStatusDraft}).Exec(ctx)
+			require.NoError(t, err)
+			_, err = db.NewInsert().Model(&models.PublicationSegment{ID: "rendition-segment-only-source", PublicationID: "rendition-segment-only-post"}).Exec(ctx)
+			require.NoError(t, err)
+			_, err = db.NewInsert().Model(&models.Rendition{ID: "rendition-segment-only-rendition", PublicationID: "rendition-segment-only-post"}).Exec(ctx)
+			require.NoError(t, err)
+			_, err = db.NewInsert().Model(&models.RenditionSegment{ID: "rendition-segment-only-segment", RenditionID: "rendition-segment-only-rendition", PublicationSegmentID: "rendition-segment-only-source"}).Exec(ctx)
+			require.NoError(t, err)
+			_, err = db.NewInsert().Model(&models.RenditionSegmentMedia{RenditionSegmentID: "rendition-segment-only-segment", MediaID: "rendition-segment-only"}).Exec(ctx)
+			require.NoError(t, err)
+
+			usage, err := handler.mediaUsageSummaries(ctx, "ws-1", []string{"shared", "completed-only", "unused", "asset-only", "segment-only", "rendition-only", "rendition-segment-only"})
 			require.NoError(t, err)
 			require.Equal(t, map[string]mediaUsageSummary{
-				"shared":         {Total: 5, Blocking: 3},
-				"completed-only": {Total: 2},
-				"unused":         {},
+				"shared":                 {Total: 5, Blocking: 3},
+				"completed-only":         {Total: 2},
+				"unused":                 {},
+				"asset-only":             {Total: 1, Blocking: 1},
+				"segment-only":           {Total: 1, Blocking: 1},
+				"rendition-only":         {Total: 1, Blocking: 1},
+				"rendition-segment-only": {Total: 1, Blocking: 1},
 			}, usage)
 		})
 	}

@@ -126,7 +126,8 @@ describe('AI workspace dialog', () => {
 				error: 'Publication discovery timed out',
 				onFindMore: vi.fn(),
 				onContinue: vi.fn(),
-				onRetry
+				onRetry,
+				onDismissError: vi.fn()
 			})
 		});
 

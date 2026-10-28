@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -145,6 +146,8 @@ func TestBuildAdapterRegistryTikTokDisplayAPIToggle(t *testing.T) {
 	full, ok := adapters["tiktok"].(*TikTokAdapter)
 	require.True(t, ok)
 	require.Equal(t, TikTokDefaultScopeCapabilities().Scopes(), full.RequestedScopes())
+	require.True(t, full.AnalyticsSupport().Account)
+	require.True(t, full.AnalyticsSupport().Content)
 
 	adapters, _, err = BuildAdapterRegistry([]AppConfig{app}, RegistryOptions{DisableTikTokDisplayAPI: true})
 	require.NoError(t, err)
@@ -152,6 +155,21 @@ func TestBuildAdapterRegistryTikTokDisplayAPIToggle(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, TikTokRequiredPublishingScopes(), minimal.RequestedScopes())
 	require.False(t, minimal.AnalyticsSupport().Account)
+	require.False(t, minimal.AnalyticsSupport().Content)
+	require.Contains(t, minimal.AnalyticsSupport().AccountUnavailable, "user.info.stats")
+	require.Contains(t, minimal.AnalyticsSupport().ContentUnavailable, "video.list")
+	authURL, _ := minimal.GenerateAuthURL("state-123")
+	scope := mustParseQuery(t, authURL).Get("scope")
+	require.Equal(t, "user.info.basic,video.publish,video.upload", scope)
+	require.Equal(t, scope, strings.Join(minimal.RequestedScopes(), ","))
+	for _, dropped := range TikTokOptionalDisplayScopes() {
+		require.NotContains(t, scope, dropped)
+	}
+	capabilityURL, _ := minimal.GenerateAuthURLWithCapabilities("state-123", TikTokDefaultScopeCapabilities())
+	capabilityScope := mustParseQuery(t, capabilityURL).Get("scope")
+	for _, want := range []string{"video.publish", "user.info.stats", "video.list"} {
+		require.Contains(t, capabilityScope, want)
+	}
 }
 
 func TestNewInstanceAdapterCoversCredentialProviders(t *testing.T) {

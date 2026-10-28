@@ -78,12 +78,3 @@ export function externalFiles(dataTransfer: ImageEditorDataTransfer | null): Fil
 	if (!dataTransfer) return [];
 	return [...dataTransfer.files];
 }
-
-export function externalImageFiles(dataTransfer: ImageEditorDataTransfer | null): File[] {
-	return externalFiles(dataTransfer).filter(isImageEditorImageFile);
-}
-
-export function isImageEditorImageFile(file: Pick<File, 'name' | 'type'>): boolean {
-	if (file.type.startsWith('image/')) return true;
-	return /\.(?:avif|gif|jpe?g|png|svg|webp)$/i.test(file.name);
-}

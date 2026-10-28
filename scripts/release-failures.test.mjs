@@ -6,7 +6,6 @@ import { load } from "js-yaml";
 import {
   focusedCommands,
   formatFailureDigest,
-  hasLocalCommand,
   localJobCommand,
   parseFailureLog,
 } from "./release-failures.mjs";
@@ -17,15 +16,35 @@ const logged = (job, ...lines) =>
 
 test("every CI job maps to a local reproduction or is an artifact-only job", () => {
   const jobs = load(readFileSync(".github/workflows/ci.yml", "utf8")).jobs;
+  const artifactOnly = new Set([
+    "Plan affected surfaces",
+    "Relay proven candidate artifacts",
+    "Production image index",
+    "Release Candidate",
+  ]);
+  const encountered = new Set();
+  let expandedJobs = 0;
   for (const [id, job] of Object.entries(jobs)) {
     const values = job.strategy?.matrix?.shard ?? job.strategy?.matrix?.include ?? [undefined];
     for (const value of values) {
+      expandedJobs += 1;
       const name = String(job.name ?? id)
         .replace("${{ matrix.shard }}", String(value))
         .replace("${{ matrix.arch }}", String(value?.arch));
-      assert.ok(hasLocalCommand(name), `${name} needs a local command in release-failures.mjs`);
+      if (artifactOnly.has(name)) {
+        encountered.add(name);
+        assert.equal(localJobCommand(name), undefined);
+      } else {
+        assert.match(
+          localJobCommand(name) ?? "",
+          /^devenv shell -- bash -c ".+"$/u,
+          `${name} needs an executable local command`,
+        );
+      }
     }
   }
+  assert.ok(expandedJobs > 0, "the CI inventory must contain jobs");
+  assert.deepEqual([...encountered].sort(), [...artifactOnly].sort());
 });
 
 test("browser failures name the spec declaration and its focused rerun", () => {

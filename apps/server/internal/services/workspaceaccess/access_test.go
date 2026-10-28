@@ -2,7 +2,6 @@ package workspaceaccess
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"testing"
 	"time"
@@ -10,34 +9,7 @@ import (
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
-	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
-	_ "github.com/uptrace/bun/driver/sqliteshim"
 )
-
-func TestInactiveMemberHasNoWorkspaceAccess(t *testing.T) {
-	sqlDB, err := sql.Open("sqliteshim", "file:workspace-access?mode=memory&cache=shared")
-	require.NoError(t, err)
-	db := bun.NewDB(sqlDB, sqlitedialect.New())
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-
-	_, err = db.NewCreateTable().Model((*models.WorkspaceMember)(nil)).Exec(context.Background())
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.WorkspaceMember{
-		WorkspaceID: "workspace-1",
-		UserID:      "user-1",
-		Role:        models.WorkspaceRoleAdmin,
-		Status:      models.WorkspaceMemberStatusInactive,
-	}).Exec(context.Background())
-	require.NoError(t, err)
-
-	decision, err := NewAuthorizer(db).Authorize(context.Background(), "workspace-1", ActorFacts{UserID: "user-1"}, LevelRead)
-	require.NoError(t, err)
-	require.False(t, decision.Allowed)
-	decision, err = NewAuthorizer(db).Authorize(context.Background(), "workspace-1", ActorFacts{UserID: "user-1"}, LevelAdminister)
-	require.NoError(t, err)
-	require.False(t, decision.Allowed)
-}
 
 func TestAuthorizeCombinesCredentialPolicyMembershipAndLevel(t *testing.T) {
 	ctx := context.Background()
@@ -92,8 +64,13 @@ func TestAuthorizeCombinesCredentialPolicyMembershipAndLevel(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, decision.Allowed)
 
+	_, err = db.NewUpdate().Model((*models.WorkspaceMember)(nil)).Set("role = ?", models.WorkspaceRoleAdmin).Where("workspace_id = ? AND user_id = ?", workspace.ID, user.ID).Exec(ctx)
+	require.NoError(t, err)
 	_, err = db.NewUpdate().Model((*models.WorkspaceMember)(nil)).Set("status = ?", models.WorkspaceMemberStatusInactive).Where("workspace_id = ? AND user_id = ?", workspace.ID, user.ID).Exec(ctx)
 	require.NoError(t, err)
+	decision, err = authorizer.Authorize(ctx, workspace.ID, ActorFacts{UserID: user.ID, SessionID: session.ID}, LevelAdminister)
+	require.NoError(t, err)
+	require.False(t, decision.Allowed, "an inactive admin must not retain administration access")
 	decision, err = authorizer.Authorize(ctx, workspace.ID, ActorFacts{UserID: user.ID, SessionID: session.ID}, LevelRead)
 	require.NoError(t, err)
 	require.False(t, decision.Allowed)

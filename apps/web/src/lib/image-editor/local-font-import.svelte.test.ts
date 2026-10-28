@@ -68,7 +68,7 @@ it('imports an embedded TrueType font, restores its saved face, and preserves mi
 		}));
 		const parsed = await parseImageEditorProjectArchive(new File([archive], 'font.openpost-image'));
 		await expect(storeGuestImageEditorMedia(local.id, parsed.media[0].file)).rejects.toThrow(
-			'Choose a PNG, JPEG, or WebP image.'
+			'Choose a PNG, JPEG, WebP, or GIF image.'
 		);
 		const imported = await storeGuestImageEditorProjectMedia(
 			local.id,

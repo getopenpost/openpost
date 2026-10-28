@@ -305,7 +305,12 @@ test("preflight stops on formatting before generation and overlaps independent p
       "packages/n8n-nodes-openpost",
     ])
       mkdirSync(path.join(fixture, directory), { recursive: true });
-    for (const script of ["tasks.mjs", "turbo-cache.mjs", "go-test-shards.mjs"]) {
+    for (const script of [
+      "tasks.mjs",
+      "task-process.mjs",
+      "turbo-cache.mjs",
+      "go-test-shards.mjs",
+    ]) {
       copyFileSync(new URL(`./${script}`, import.meta.url), path.join(fixture, "scripts", script));
     }
     // Only task orchestration is real in this fixture. Leaf tools record their
@@ -649,7 +654,7 @@ test("Go formatting checks current tracked and untracked files after an unstaged
   try {
     mkdirSync(path.join(directory, "scripts"));
     mkdirSync(path.join(directory, "apps/server"), { recursive: true });
-    for (const name of ["tasks.mjs", "turbo-cache.mjs", "go-test-shards.mjs"])
+    for (const name of ["tasks.mjs", "task-process.mjs", "turbo-cache.mjs", "go-test-shards.mjs"])
       copyFileSync(path.join("scripts", name), path.join(directory, "scripts", name));
     const git = (...args) => {
       const result = spawnSync("git", args, { cwd: directory, encoding: "utf8" });

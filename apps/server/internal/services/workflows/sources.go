@@ -35,6 +35,10 @@ const githubReleasesPerPage = 10
 var sourceURLPolicy = netguard.URLPolicy{Label: "workflow source", AllowedSchemes: []string{"https", "http"}}
 
 type WorkflowSourceItem struct {
+	Excluded      bool    `json:"-"`
+	EngagementID  string  `json:"engagement_id,omitempty"`
+	Platform      string  `json:"platform,omitempty"`
+	AuthorName    string  `json:"author_name,omitempty"`
 	ID            string  `json:"id"`
 	Title         string  `json:"title"`
 	Body          string  `json:"body"`
@@ -65,6 +69,8 @@ func (s *Service) Sample(ctx context.Context, actor workspaceaccess.ActorFacts, 
 
 func (s *Service) readSource(ctx context.Context, workspaceID string, source Source, since time.Time) ([]SourceItem, error) {
 	switch source.Kind {
+	case "comment_received":
+		return s.commentItems(ctx, workspaceID, source, since, nil)
 	case "interval":
 		return intervalItems(source, since)
 	case "publication_created":

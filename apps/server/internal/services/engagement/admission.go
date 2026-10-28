@@ -67,18 +67,13 @@ func (s *Service) queueEngagementActionWithDB(ctx context.Context, tx bun.Tx, ac
 	if err = tx.NewSelect().Model(&item).WherePK().Scan(ctx); err != nil {
 		return "", err
 	}
-	if scoped, ok := s.featureGate.(interface {
-		IsEffectiveEnabledWithDB(context.Context, bun.IDB, string, string) (bool, error)
-	}); ok {
-		enabled, err := scoped.IsEffectiveEnabledWithDB(ctx, tx, item.SocialAccountID, "engagement")
-		if err != nil {
-			return "", err
-		}
-		if !enabled {
-			return "", fmt.Errorf("engagement is disabled for this account")
-		}
+	if err := s.requireEngagementFeature(ctx, tx, item.SocialAccountID); err != nil {
+		return "", err
 	}
 	if _, err = validateEngagementAction(item, action, message); err != nil {
+		return "", err
+	}
+	if err := s.stopAutomationForManualReply(ctx, tx, item, action); err != nil {
 		return "", err
 	}
 	if item.Kind == "review" {
@@ -159,4 +154,34 @@ func (s *Service) persistEngagementActionReceipt(ctx context.Context, tx bun.Tx,
 		}
 	}
 	return err
+}
+
+func (s *Service) stopAutomationForManualReply(ctx context.Context, tx bun.Tx, item models.EngagementItem, action string) error {
+	if action != "reply" {
+		return nil
+	}
+
+	if err := s.stopItemAutomation(ctx, tx, item); err != nil {
+		return err
+	}
+	if _, err := tx.NewUpdate().Model(&item).Set("automation_stopped_at = ?", s.now()).WherePK().Exec(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) requireEngagementFeature(ctx context.Context, tx bun.Tx, accountID string) error {
+	if scoped, ok := s.featureGate.(interface {
+		IsEffectiveEnabledWithDB(context.Context, bun.IDB, string, string) (bool, error)
+	}); ok {
+		enabled, err := scoped.IsEffectiveEnabledWithDB(ctx, tx, accountID, "engagement")
+		if err != nil {
+			return err
+		}
+		if !enabled {
+			return fmt.Errorf("engagement is disabled for this account")
+		}
+	}
+	return nil
 }

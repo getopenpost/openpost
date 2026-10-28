@@ -54,15 +54,16 @@ type FeatureGate interface {
 }
 
 type Service struct {
-	db                *bun.DB
-	tokenSource       TokenSource
-	notifications     *notifications.Service
-	providersMu       sync.RWMutex
-	providers         map[string]platform.EngagementAdapter
-	activityProviders map[string]platform.AccountActivityAdapter
-	now               func() time.Time
-	featureGate       FeatureGate
-	xDailyReadBudget  int
+	automationRunStopper func(context.Context, bun.Tx, string, []string) error
+	db                   *bun.DB
+	tokenSource          TokenSource
+	notifications        *notifications.Service
+	providersMu          sync.RWMutex
+	providers            map[string]platform.EngagementAdapter
+	activityProviders    map[string]platform.AccountActivityAdapter
+	now                  func() time.Time
+	featureGate          FeatureGate
+	xDailyReadBudget     int
 }
 
 func NewService(db *bun.DB, tokenSource TokenSource, notificationService *notifications.Service) *Service {
@@ -157,6 +158,7 @@ type subjectJob struct {
 }
 
 type engagementActionJob struct {
+	AutomationID      string `json:"automation_id,omitempty"`
 	ReviewJobID       string `json:"review_job_id,omitempty"`
 	ClientOperationID string `json:"client_operation_id,omitempty"`
 	ItemID            string `json:"item_id,omitempty"`
@@ -572,10 +574,20 @@ func persistEngagementComment(
 		return models.EngagementItem{}, false, nil
 	}
 	if comment.IsOurs {
+		if comment.ParentID != "" {
+			if _, err := tx.NewUpdate().Model((*models.EngagementItem)(nil)).Set("automation_stopped_at = ?, replied_at = ?", now, now).Where("social_account_id = ? AND remote_id = ?", account.ID, comment.ParentID).Where("NOT EXISTS (SELECT 1 FROM engagement_automation_replies a WHERE a.item_id = engagement_item.id AND a.state IN ('sending','acknowledging','sent') AND a.body = ?)", strings.TrimSpace(comment.Text)).Exec(ctx); err != nil {
+				return models.EngagementItem{}, false, err
+			}
+		}
 		_, err := tx.NewDelete().Model((*models.EngagementItem)(nil)).
 			Where("social_account_id = ? AND remote_id = ?", account.ID, comment.ID).
 			Exec(ctx)
 		return models.EngagementItem{}, false, err
+	}
+	if comment.AuthorID != "" && (strings.EqualFold(strings.TrimSpace(comment.Text), "stop") || strings.EqualFold(strings.TrimSpace(comment.Text), "unsubscribe") || strings.EqualFold(strings.TrimSpace(comment.Text), "stop replying")) {
+		if _, err := tx.NewRaw("INSERT INTO engagement_automation_optouts(social_account_id,author_remote_id,created_at) VALUES(?,?,?) ON CONFLICT DO NOTHING", account.ID, comment.AuthorID, now).Exec(ctx); err != nil {
+			return models.EngagementItem{}, false, err
+		}
 	}
 	existing, existingErr := findEngagementIdentity(ctx, tx, account, comment.ID)
 	exists := existingErr == nil
@@ -625,11 +637,12 @@ func engagementItemFromComment(
 		canUnlike = comment.CanUnlike && liked
 	}
 	return models.EngagementItem{
-		ID:                   itemID,
-		WorkspaceID:          account.WorkspaceID,
-		RenditionID:          firstNonEmpty(rendition.ID, existing.RenditionID),
-		Kind:                 firstNonEmpty(existing.Kind, "comment"),
-		SubjectJSON:          firstNonEmpty(existing.SubjectJSON, "{}"),
+		ID:                  itemID,
+		WorkspaceID:         account.WorkspaceID,
+		RenditionID:         firstNonEmpty(rendition.ID, existing.RenditionID),
+		Kind:                firstNonEmpty(existing.Kind, "comment"),
+		SubjectJSON:         firstNonEmpty(existing.SubjectJSON, "{}"),
+		AutomationStoppedAt: existing.AutomationStoppedAt, RepliedAt: existing.RepliedAt,
 		ReviewReplyCheckAt:   existing.ReviewReplyCheckAt,
 		ReviewReplyWrittenAt: existing.ReviewReplyWrittenAt,
 		SocialAccountID:      account.ID,
@@ -743,13 +756,8 @@ func validateEngagementAction(item models.EngagementItem, action, message string
 		return validateReviewAction(item, action, message)
 	}
 	switch action {
-	case "reply":
-		if !item.CanReply {
-			return "", fmt.Errorf("this provider does not allow a reply to this item")
-		}
-		if message == "" {
-			return "", fmt.Errorf("reply message is required")
-		}
+	case "private_reply", "reply":
+		return validateCommentReplyAction(item, action, message)
 	case "hide":
 		if !item.CanHide {
 			return "", fmt.Errorf("this provider does not allow this item to be hidden")
@@ -894,7 +902,7 @@ func (s *Service) performEngagementAction(ctx context.Context, input engagementA
 		return fmt.Errorf("engagement actions are unsupported")
 	}
 	var authority *activityAuthority
-	if item.Kind == "mention" {
+	if requiresActivityAuthority(item, input) {
 		current, err := s.loadActivityAuthority(ctx, s.db, account.ID)
 		if err != nil {
 			return err
@@ -968,10 +976,14 @@ func (s *Service) executeEngagementAction(
 				return platform.PublishResult{}, errActivityChanged
 			}
 		}
-		if err := control.Begin(platform.PublishResult{
-			ProviderState: "engagement_" + input.Action,
-			RetrySafety:   platform.PublishRetryNever,
-		}); err != nil {
+		var currentItem models.EngagementItem
+		if err := s.db.NewSelect().Model(&currentItem).Where("id = ?", item.ID).Scan(sendCtx); err != nil {
+			return platform.PublishResult{}, err
+		}
+		if err := s.checkAutomationWrite(sendCtx, s.db, currentItem, input); err != nil {
+			return platform.PublishResult{}, err
+		}
+		if err := s.beginEngagementWrite(control, item, input, account, authority); err != nil {
 			return platform.PublishResult{}, err
 		}
 		return sendEngagementAction(sendCtx, commenter, token, account, item, input)
@@ -979,7 +991,7 @@ func (s *Service) executeEngagementAction(
 	if err != nil {
 		return err
 	}
-	return s.commitEngagementAction(ctx, item, input.Action)
+	return s.commitEngagementActionReceipt(ctx, item, input.Action, input.AutomationID)
 }
 
 func sendEngagementAction(
@@ -991,21 +1003,8 @@ func sendEngagementAction(
 	input engagementActionJob,
 ) (platform.PublishResult, error) {
 	switch input.Action {
-	case "reply":
-		if strings.TrimSpace(input.Message) == "" {
-			return platform.PublishResult{}, fmt.Errorf("reply message is required")
-		}
-		var externalID string
-		var err error
-		if activity, ok := commenter.(platform.AccountActivityReplyAdapter); ok && item.Kind == "mention" && item.Subject != nil {
-			externalID, err = activity.ReplyToAccountActivity(ctx, token, account.AccountID, item.RemoteID, *item.Subject, input.Message)
-		} else {
-			externalID, err = commenter.ReplyToComment(ctx, token, account.AccountID, item.RemoteID, input.Message)
-		}
-		if err != nil {
-			return platform.PublishResult{}, err
-		}
-		return platform.AcceptedPublishResult(externalID), nil
+	case "private_reply", "reply":
+		return sendCommentReply(ctx, commenter, token, account, item, input)
 	case "hide":
 		if err := commenter.HideComment(ctx, token, account.AccountID, item.RemoteID); err != nil {
 			return platform.PublishResult{}, err
@@ -1329,11 +1328,19 @@ func (s *Service) hydrateEngagementProviderURLs(ctx context.Context, items []mod
 	if err != nil {
 		return err
 	}
+	autoByItem, err := s.loadAutomationSummaries(ctx, items)
+	if err != nil {
+		return err
+	}
 	operations, err := s.loadReviewOperations(ctx, items)
 	if err != nil {
 		return err
 	}
 	for index := range items {
+		if reply, ok := autoByItem[items[index].ID]; ok {
+			items[index].AutomationState = reply.State
+			items[index].AutomationRunID = reply.RunID
+		}
 		if operation, found := operations[items[index].ID]; found {
 			items[index].ReplyJobID, items[index].ReplyOperationState = operation.JobID, operation.State
 		}
@@ -1998,4 +2005,104 @@ func saveEngagementItem(ctx context.Context, tx bun.Tx, item models.EngagementIt
 		err = appendEngagementChange(ctx, tx, item)
 	}
 	return err
+}
+
+func (s *Service) beginEngagementWrite(control *providerwrite.Control, item *models.EngagementItem, input engagementActionJob, account models.SocialAccount, authority *activityAuthority) error {
+	return control.BeginGuarded(platform.PublishResult{ProviderState: "engagement_" + input.Action, RetrySafety: platform.PublishRetryNever}, func(txCtx context.Context, tx bun.Tx) error {
+		if input.AutomationID == "" {
+			return nil
+		}
+		if err := organizationguard.LockWorkspace(txCtx, tx, item.WorkspaceID); err != nil {
+			return err
+		}
+		var latest models.EngagementItem
+		if err := tx.NewSelect().Model(&latest).Where("id = ?", item.ID).Scan(txCtx); err != nil {
+			return err
+		}
+		if authority != nil {
+			current, err := s.loadActivityAuthority(txCtx, tx, account.ID)
+			if err != nil {
+				return err
+			}
+			if current.Account.OAuthGrantID != authority.Account.OAuthGrantID || !current.GrantConsentedAt.Equal(authority.GrantConsentedAt) || !current.FeatureDecidedAt.Equal(authority.FeatureDecidedAt) || current.Account.GrantedScopes != authority.Account.GrantedScopes {
+				return errActivityChanged
+			}
+		}
+		return s.checkAutomationWrite(txCtx, tx, latest, input)
+	})
+}
+
+func validatePrivateCommentAction(item models.EngagementItem, message string) (string, error) {
+	if item.Platform != "instagram" || !item.CanReply || message == "" || len(message) > 1000 {
+		return "", errors.New("private replies require an Instagram comment and up to 1000 bytes of text")
+	}
+	return message, nil
+}
+
+func sendPrivateCommentReply(ctx context.Context, commenter platform.CommentAdapter, token string, account models.SocialAccount, item *models.EngagementItem, input engagementActionJob) (platform.PublishResult, error) {
+	adapter, ok := commenter.(platform.PrivateCommentReplyAdapter)
+	if !ok {
+		return platform.PublishResult{}, fmt.Errorf("this provider does not support private comment replies")
+	}
+	id, err := adapter.ReplyPrivatelyToComment(ctx, token, account.AccountID, item.RemoteID, input.Message)
+	if err != nil {
+		return platform.PublishResult{}, err
+	}
+	return platform.AcceptedPublishResult(id), nil
+}
+
+func (s *Service) loadAutomationSummaries(ctx context.Context, items []models.EngagementItem) (map[string]AutomationReply, error) {
+	var automatic []AutomationReply
+	itemIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		itemIDs = append(itemIDs, item.ID)
+	}
+	if len(itemIDs) > 0 {
+		if err := s.db.NewSelect().Model(&automatic).Column("item_id", "state", "run_id", "created_at").Where("item_id IN (?)", bun.List(itemIDs)).Order("created_at ASC").Scan(ctx); err != nil {
+			return nil, err
+		}
+	}
+	autoByItem := map[string]AutomationReply{}
+	for _, reply := range automatic {
+		autoByItem[reply.ItemID] = reply
+	}
+	return autoByItem, nil
+}
+
+func requiresActivityAuthority(item models.EngagementItem, input engagementActionJob) bool {
+	return item.Kind == "mention" || input.AutomationID != ""
+}
+
+func validateCommentReplyAction(item models.EngagementItem, action, message string) (string, error) {
+	if action == "private_reply" {
+		return validatePrivateCommentAction(item, message)
+	}
+	if !item.CanReply {
+		return "", fmt.Errorf("this provider does not allow a reply to this item")
+	}
+	if message == "" {
+		return "", fmt.Errorf("reply message is required")
+	}
+	return message, nil
+}
+
+func sendCommentReply(ctx context.Context, commenter platform.CommentAdapter, token string, account models.SocialAccount, item *models.EngagementItem, input engagementActionJob) (platform.PublishResult, error) {
+	if input.Action == "private_reply" {
+		return sendPrivateCommentReply(ctx, commenter, token, account, item, input)
+	}
+
+	if strings.TrimSpace(input.Message) == "" {
+		return platform.PublishResult{}, fmt.Errorf("reply message is required")
+	}
+	var externalID string
+	var err error
+	if activity, ok := commenter.(platform.AccountActivityReplyAdapter); ok && item.Kind == "mention" && item.Subject != nil {
+		externalID, err = activity.ReplyToAccountActivity(ctx, token, account.AccountID, item.RemoteID, *item.Subject, input.Message)
+	} else {
+		externalID, err = commenter.ReplyToComment(ctx, token, account.AccountID, item.RemoteID, input.Message)
+	}
+	if err != nil {
+		return platform.PublishResult{}, err
+	}
+	return platform.AcceptedPublishResult(externalID), nil
 }

@@ -177,6 +177,15 @@ func (s *Service) Cancel(ctx context.Context, actor workspaceaccess.ActorFacts, 
 	// Cancelling is also how an approval is declined, so the approvers must
 	// hear that their wait is over. Today they hear nothing at all.
 	s.resolveApprovalNoticesAfterDecision(ctx, cancelled)
+	if stopper, ok := s.actions.(ReplyStopper); ok {
+		authority, err := s.authorize(ctx, actor, workspaceID, workspaceaccess.LevelAdminister)
+		if err != nil {
+			return Run{}, err
+		}
+		if err := stopper.StopReplies(ctx, authority, "", id); err != nil {
+			return Run{}, err
+		}
+	}
 
 	return s.GetRun(ctx, actor, workspaceID, id)
 }
@@ -185,7 +194,7 @@ func (s *Service) Cancel(ctx context.Context, actor workspaceaccess.ActorFacts, 
 // scheduling command receives that revision and rejects intervening edits.
 // Deciding a parked approval is its own level: a client is trusted with the
 // decision without being trusted to administer the workspace.
-func (s *Service) Approve(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, id string, expected, publicationRevision int) (Run, error) {
+func (s *Service) Approve(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, id string, expected, publicationRevision int, replyText ...string) (Run, error) {
 	authority, err := s.authorize(ctx, actor, workspaceID, workspaceaccess.LevelApprove)
 	if err != nil {
 		return Run{}, err
@@ -212,6 +221,13 @@ func (s *Service) Approve(ctx context.Context, actor workspaceaccess.ActorFacts,
 		return Run{}, ErrState
 	}
 	step := run.Steps[index]
+	if s.actions == nil {
+		return Run{}, errors.New("native workflow actions are unavailable")
+	}
+	if step.Kind == KindCommentReply || step.Kind == KindPrivateReply {
+		return s.approveCommentReply(ctx, actor, authority, record, run, index, replyText)
+	}
+
 	inputs := map[string]any{"publication_id": step.Inputs["publication_id"], "revision": publicationRevision}
 	if s.actions == nil {
 		return Run{}, errors.New("native workflow actions are unavailable")
@@ -288,4 +304,80 @@ func decodeRun(record runRecord) (Run, error) {
 		}
 	}
 	return run, nil
+}
+
+// CancelCommentReplyRuns is the internal workflow half of Inbox takeover. The
+// engagement owner supplies only runs holding native claims for that comment.
+func (s *Service) CancelCommentReplyRuns(ctx context.Context, tx bun.Tx, workspaceID string, ids []string) error {
+	var runs []runRecord
+	if err := tx.NewSelect().Model(&runs).Where("workspace_id = ? AND id IN (?) AND state IN (?)", workspaceID, bun.List(ids), bun.List([]string{StateQueued, StateRunning, StateWaiting, StateApproval})).Scan(ctx); err != nil {
+		return err
+	}
+	for _, run := range runs {
+		if _, err := tx.NewUpdate().Model(&run).Set("state = ?, revision = revision + 1, wake_at = NULL,updated_at = ?", StateCancelled, time.Now().UTC()).WherePK().Exec(ctx); err != nil {
+			return err
+		}
+		if step, ok := parkedApproval(decodeRunResults(run)); ok {
+			run.State = StateCancelled
+			if err := s.enqueueApprovalNotice(ctx, tx, run, step.StepID, "resolved"); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Service) approveCommentReply(ctx context.Context, actor workspaceaccess.ActorFacts, authority workspaceaccess.StoredAuthority, record runRecord, run Run, index int, replyText []string) (Run, error) {
+	id, workspaceID, expected := record.ID, record.WorkspaceID, record.Revision
+	step := run.Steps[index]
+
+	if _, err := s.authorize(ctx, actor, workspaceID, workspaceaccess.LevelAdminister); err != nil {
+		return Run{}, err
+	}
+	inputs := map[string]any{}
+	for key, value := range step.Inputs {
+		inputs[key] = value
+	}
+	inputs["approved"] = true
+	inputs["workflow_id"] = record.WorkflowID
+	if len(replyText) > 0 {
+		inputs["text"] = replyText[0]
+	}
+	effect, err := s.actions.Execute(ctx, EffectRequest{Kind: step.Kind, Inputs: inputs, Authority: authority, RunID: id, StepID: step.StepID})
+	if err != nil {
+		return Run{}, err
+	}
+	if effect.Stop {
+		return s.Cancel(ctx, actor, workspaceID, id, expected)
+	}
+	step.Inputs["text"] = effect.Output["text"]
+	step.Output = effect.Output
+	step.State = StateQueued
+	run.Steps[index] = step
+	raw, err := json.Marshal(run.Steps)
+	if err != nil {
+		return Run{}, err
+	}
+	err = s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if err := organizationguard.LockWorkspace(ctx, tx, workspaceID); err != nil {
+			return err
+		}
+		updated, err := tx.NewUpdate().Model((*runRecord)(nil)).Set("state = ?, results_json = ?, revision = revision + 1, updated_at = ?", StateQueued, string(raw), time.Now().UTC()).Where("id = ? AND workspace_id = ? AND revision = ? AND state = ?", id, workspaceID, expected, StateApproval).Exec(ctx)
+		if err != nil {
+			return err
+		}
+		if n, _ := updated.RowsAffected(); n != 1 {
+			return ErrState
+		}
+		record.Revision++
+		if err := s.enqueueApprovalNotice(ctx, tx, record, step.StepID, "resolved"); err != nil {
+			return err
+		}
+		return enqueueRun(ctx, tx, record, time.Now().UTC())
+	})
+	if err != nil {
+		return Run{}, err
+	}
+	s.resolveApprovalNoticesAfterDecision(ctx, record)
+	return s.GetRun(ctx, actor, workspaceID, id)
 }

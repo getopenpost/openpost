@@ -65,31 +65,6 @@ describe('login TOTP submit gate', () => {
 		});
 	});
 
-	it('keeps Verify Code disabled until a full six-digit code is entered', async () => {
-		const screen = await render(LoginPage, undefined, {
-			wrapper: QueryClientProvider,
-			wrapperProps: { client: queryClient }
-		});
-
-		await screen.getByLabelText('Email', { exact: true }).fill('founder@example.com');
-		await screen
-			.getByRole('textbox', { name: 'Password', exact: true })
-			.fill('correct horse battery staple');
-		await screen.getByRole('button', { name: 'Sign In', exact: true }).click();
-
-		const codeInput = screen.getByLabelText('Authenticator code');
-		await expect.element(codeInput).toBeVisible();
-		const verifyButton = screen.getByRole('button', { name: 'Verify Code', exact: true });
-
-		await expect.element(verifyButton).toBeDisabled();
-
-		await codeInput.fill('123');
-		await expect.element(verifyButton).toBeDisabled();
-
-		await codeInput.fill('123456');
-		await expect.element(verifyButton).toBeEnabled();
-	});
-
 	it('does not call the TOTP verify endpoint for an incomplete code submitted with Enter', async () => {
 		const screen = await render(LoginPage, undefined, {
 			wrapper: QueryClientProvider,
@@ -104,7 +79,10 @@ describe('login TOTP submit gate', () => {
 
 		const codeInput = screen.getByLabelText('Authenticator code');
 		await expect.element(codeInput).toBeVisible();
+		const verifyButton = screen.getByRole('button', { name: 'Verify Code', exact: true });
+		await expect.element(verifyButton).toBeDisabled();
 		await codeInput.fill('123');
+		await expect.element(verifyButton).toBeDisabled();
 		// Keyboard submission bypasses the disabled submit button, so drive the
 		// form's submit path directly the way an Enter keypress would.
 		const form = codeInput.element().closest<HTMLFormElement>('form');
@@ -117,6 +95,7 @@ describe('login TOTP submit gate', () => {
 
 		// Positive control: the same submit path reaches verify once the code is complete.
 		await codeInput.fill('123456');
+		await expect.element(verifyButton).toBeEnabled();
 		form!.requestSubmit();
 		await vi.waitFor(() => expect(totpCalls()).toHaveLength(1));
 		expect(postMock).toHaveBeenCalledWith('/auth/login/totp', {

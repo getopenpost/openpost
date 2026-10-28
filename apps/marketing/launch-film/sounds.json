@@ -1,0 +1,228 @@
+{
+	"_doc": "Recordings for the launch film soundtrack. mix.py downloads each preview, checks its sha256, and trims it. Every licence was read on the sound's own page (licence_seen). The music is CC BY 4.0: publish its credit line with the film. Effects are CC0.",
+	"music": {
+		"id": 13264,
+		"title": "Sascha Ende - Mainstream Music 2025 Vol. 10.mp3",
+		"author": "Sascha Ende (ende.app)",
+		"page": "https://ende.app/en/song/13264-mainstream-music-2025-vol-10",
+		"preview": "https://ende.app/storage/mp3low/378676de-9ccb-4e8f-995e-599a8fe7ea73.mp3",
+		"licence": "CC BY 4.0",
+		"sha256": "ba2d8a9174e117d3e33f769d35e74e1155a908167c6271b2e0100f033e40bcfc",
+		"licence_seen": "['ende.app/standard-license'] on https://ende.app/en/song/13264-mainstream-music-2025-vol-10 (2026-10-27)",
+		"credit": "\"Mainstream Music 2025 Vol. 10\" by Sascha Ende (https://ende.app/en/song/13264-mainstream-music-2025-vol-10), licensed under CC BY 4.0 (https://ende.app/en/standard-license). Edited: one cut into the drop at the logo and a faded tail.",
+		"edit": [
+			{
+				"label": "pickup and intro: source bars 0-3.5",
+				"from": 0.0,
+				"to": 8.3925,
+				"at": 0.0
+			},
+			{
+				"label": "the drop, then the groove through the product: source bars 5-30.75",
+				"from": 11.205,
+				"to": 59.49,
+				"at": 8.3925
+			},
+			{
+				"label": "tail under the logo with fade: source bars 30.75-33",
+				"from": 59.49,
+				"to": 63.95,
+				"at": 56.67,
+				"fade_out": 1.4
+			}
+		]
+	},
+	"effects": {
+		"click": [
+			{
+				"id": 687108,
+				"title": "Mouse 2 Button Long Click",
+				"author": "aphom000",
+				"page": "https://freesound.org/people/aphom000/sounds/687108/",
+				"preview": "https://cdn.freesound.org/previews/687/687108_11545182-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "a8a632ad2fb4808f79046ee1de572b16b203bd2fcf9bb3c71fed3b70375892cd",
+				"trim": [0.104, 0.24],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/aphom000/sounds/687108/ (2026-10-27)"
+			}
+		],
+		"tick": [
+			{
+				"id": 488534,
+				"title": "UI click",
+				"author": "Ranner",
+				"page": "https://freesound.org/people/Ranner/sounds/488534/",
+				"preview": "https://cdn.freesound.org/previews/488/488534_5382295-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "935eacff4e0011927efb57975b609e8c14893ce11a2c5505aab0289e289fc390",
+				"trim": [0.151, 0.275],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/Ranner/sounds/488534/ (2026-10-27)"
+			}
+		],
+		"pop": [
+			{
+				"id": 762781,
+				"title": "BubblePopping",
+				"author": "Sess8it",
+				"page": "https://freesound.org/people/Sess8it/sounds/762781/",
+				"preview": "https://cdn.freesound.org/previews/762/762781_6736069-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "7412b3008b1500d3c73f117602c36698133b703e397c994edb5c2fd469fab2b2",
+				"trim": [0.14, 0.235],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/Sess8it/sounds/762781/ (2026-10-27)"
+			},
+			{
+				"id": 328119,
+				"title": "Pop 9",
+				"author": "D.S.G.",
+				"page": "https://freesound.org/people/D.S.G./sounds/328119/",
+				"preview": "https://cdn.freesound.org/previews/328/328119_3624044-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "55977824448a11b668d95374c3fda9037b7959766e903f95ab02e9b1ee666746",
+				"trim": [0.011, 0.085],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/D.S.G./sounds/328119/ (2026-10-27)"
+			},
+			{
+				"id": 784041,
+				"title": "Mouth bop",
+				"author": "Sadiquecat",
+				"page": "https://freesound.org/people/Sadiquecat/sounds/784041/",
+				"preview": "https://cdn.freesound.org/previews/784/784041_5287430-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "bef45b3a44f2feabb62946cf1551c038d1777f9f6dc3b83e55eea0548debfeff",
+				"trim": [0.011, 0.19],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/Sadiquecat/sounds/784041/ (2026-10-27)"
+			}
+		],
+		"whoosh": [
+			{
+				"id": 855844,
+				"title": "Whoosh - Long Bamboo stick - OS ST 13",
+				"author": "Sadiquecat",
+				"page": "https://freesound.org/people/Sadiquecat/sounds/855844/",
+				"preview": "https://cdn.freesound.org/previews/855/855844_5287430-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "890c7c1324b991b7db4d4505f2addccb6c9e42783a6042f6c8f723e74953d95a",
+				"trim": [0.012, 0.45],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/Sadiquecat/sounds/855844/ (2026-10-27)"
+			}
+		],
+		"swoosh": [
+			{
+				"id": 812652,
+				"title": "Sound Design Elements Whoosh SFX 017",
+				"author": "AudioPapkin",
+				"page": "https://freesound.org/people/AudioPapkin/sounds/812652/",
+				"preview": "https://cdn.freesound.org/previews/812/812652_8698658-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "28e1045982501675af3eedd0046baf35227940114df0ac20419c75fb804fcbcd",
+				"trim": [0.01, 1.365],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/AudioPapkin/sounds/812652/ (2026-10-27)"
+			}
+		],
+		"impact": [
+			{
+				"id": 755054,
+				"title": "Sound Design Elements Impact SFX PS 017",
+				"author": "AudioPapkin",
+				"page": "https://freesound.org/people/AudioPapkin/sounds/755054/",
+				"preview": "https://cdn.freesound.org/previews/755/755054_8698658-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "b91ec8dc47033807f34eee89cc4b4bc1acf13d2a9d6edf5848bdb910b162eaa9",
+				"trim": [0.076, 1.438],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/AudioPapkin/sounds/755054/ (2026-10-27)"
+			}
+		],
+		"shimmer": [
+			{
+				"id": 817466,
+				"title": "Cliche Magic Spell Sound",
+				"author": "qubodup",
+				"page": "https://freesound.org/people/qubodup/sounds/817466/",
+				"preview": "https://cdn.freesound.org/previews/817/817466_71257-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "36d951736776288334ca6a88a8d4afaafc159c6aca28fbeffe0b70804eb125d1",
+				"trim": [0.0, 2.158],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/qubodup/sounds/817466/ (2026-10-27)"
+			}
+		],
+		"ding": [
+			{
+				"id": 611113,
+				"title": "bell ding 1.wav",
+				"author": "5ro4",
+				"page": "https://freesound.org/people/5ro4/sounds/611113/",
+				"preview": "https://cdn.freesound.org/previews/611/611113_1629501-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "65d37c4fb8f2eded41ffd66df6a30f02abf5c5344fc9127e9c246d16cf4f731c",
+				"trim": [0.052, 0.835],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/5ro4/sounds/611113/ (2026-10-27)"
+			}
+		],
+		"land": [
+			{
+				"id": 872227,
+				"title": "Soft Impact - Pillow Hit",
+				"author": "KoimeMatsuchiya",
+				"page": "https://freesound.org/people/KoimeMatsuchiya/sounds/872227/",
+				"preview": "https://cdn.freesound.org/previews/872/872227_19256798-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "244a081dd0e32e77559e8f0ce6adf5a01b694fb9ac6413a494d9c277924d9d5f",
+				"trim": [0.047, 0.29],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/KoimeMatsuchiya/sounds/872227/ (2026-10-27)"
+			}
+		],
+		"error": [
+			{
+				"id": 336495,
+				"title": "LowHit_01.wav",
+				"author": "Faulkin",
+				"page": "https://freesound.org/people/Faulkin/sounds/336495/",
+				"preview": "https://cdn.freesound.org/previews/336/336495_5866833-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "904644cbc128d9ce853d7e39c66b67b8204b0a7c513648e613f832230fbf6b24",
+				"trim": [0.017, 0.145],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/Faulkin/sounds/336495/ (2026-10-27)"
+			}
+		],
+		"riser": [
+			{
+				"id": 110218,
+				"title": "reverse crash.wav",
+				"author": "genocidalguitar",
+				"page": "https://freesound.org/people/genocidalguitar/sounds/110218/",
+				"preview": "https://cdn.freesound.org/previews/110/110218_1763875-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "718e625538fc12c0aa7f5cb16ce15275133d13f747d9be4dfd319fdd097641f5",
+				"trim": [1.215, 3.02],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/genocidalguitar/sounds/110218/ (2026-10-27)"
+			}
+		],
+		"key": [
+			{
+				"id": 546088,
+				"title": "Keyboard Typing 6 (HHKB, Topre)",
+				"author": "grcekh",
+				"page": "https://freesound.org/people/grcekh/sounds/546088/",
+				"preview": "https://cdn.freesound.org/previews/546/546088_12206738-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "6270931a9543977541cdf007c1343c4d0c80eb3e63338befdf44443da45d27d1",
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/grcekh/sounds/546088/ (2026-10-27)",
+				"slices": [
+					[3.68, 3.89],
+					[1.525, 1.67],
+					[14.974, 15.2],
+					[16.998, 17.192],
+					[13.576, 13.795],
+					[18.68, 18.815],
+					[0.399, 0.685],
+					[11.466, 11.6],
+					[2.703, 2.815],
+					[5.806, 6.005],
+					[20.61, 20.66],
+					[20.991, 21.125]
+				]
+			}
+		]
+	}
+}

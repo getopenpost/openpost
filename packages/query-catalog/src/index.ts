@@ -58,3 +58,4 @@ export * from "./job-status";
 export * from "./app-branding";
 export * from "./mentions";
 export * from "./saved-mentions";
+export * from "./comment-automation";

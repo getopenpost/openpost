@@ -48,6 +48,7 @@
 	const sources = $derived(
 		(
 			[
+				'comment_received',
 				'manual',
 				'interval',
 				'github_release',

@@ -2387,6 +2387,63 @@
 				"required": ["redirect_url"],
 				"type": "object"
 			},
+			"AutomationReply": {
+				"additionalProperties": false,
+				"properties": {
+					"body": {
+						"type": "string"
+					},
+					"channel": {
+						"type": "string"
+					},
+					"created_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"item_id": {
+						"type": "string"
+					},
+					"job_id": {
+						"type": "string"
+					},
+					"run_id": {
+						"type": "string"
+					},
+					"state": {
+						"type": "string"
+					},
+					"step_id": {
+						"type": "string"
+					},
+					"updated_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"workflow_id": {
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"workspace_id",
+					"item_id",
+					"workflow_id",
+					"run_id",
+					"step_id",
+					"channel",
+					"body",
+					"state",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object"
+			},
 			"BatchDeleteMediaInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -7838,6 +7895,16 @@
 					"author_remote_id": {
 						"type": "string"
 					},
+					"automation_run_id": {
+						"type": "string"
+					},
+					"automation_state": {
+						"type": "string"
+					},
+					"automation_stopped_at": {
+						"format": "date-time",
+						"type": "string"
+					},
 					"body": {
 						"type": "string"
 					},
@@ -7923,6 +7990,10 @@
 						"type": "string"
 					},
 					"rendition_id": {
+						"type": "string"
+					},
+					"replied_at": {
+						"format": "date-time",
 						"type": "string"
 					},
 					"reply_job_id": {
@@ -11288,6 +11359,9 @@
 			"ImportedPostResponse": {
 				"additionalProperties": false,
 				"properties": {
+					"external_id": {
+						"type": "string"
+					},
 					"external_url": {
 						"type": "string"
 					},
@@ -11305,7 +11379,7 @@
 						"type": "string"
 					}
 				},
-				"required": ["id", "title", "text", "external_url", "published_at"],
+				"required": ["external_id", "id", "title", "text", "external_url", "published_at"],
 				"type": "object"
 			},
 			"InboxActivityInputBody": {
@@ -26424,6 +26498,9 @@
 					"enabled": {
 						"type": "boolean"
 					},
+					"has_comment_replies": {
+						"type": "boolean"
+					},
 					"id": {
 						"type": "string"
 					},
@@ -26623,6 +26700,10 @@
 						"format": "int64",
 						"minimum": 0,
 						"type": "integer"
+					},
+					"reply_text": {
+						"maxLength": 20000,
+						"type": "string"
 					}
 				},
 				"required": ["expected_revision"],
@@ -26858,6 +26939,19 @@
 					"connection_id": {
 						"type": "string"
 					},
+					"daily_limit": {
+						"format": "int64",
+						"maximum": 1000,
+						"minimum": 0,
+						"type": "integer"
+					},
+					"excluded_keywords": {
+						"items": {
+							"type": "string"
+						},
+						"maxItems": 20,
+						"type": ["array", "null"]
+					},
 					"include_prereleases": {
 						"type": "boolean"
 					},
@@ -26867,6 +26961,13 @@
 						"minimum": 0,
 						"type": "integer"
 					},
+					"keywords": {
+						"items": {
+							"type": "string"
+						},
+						"maxItems": 20,
+						"type": ["array", "null"]
+					},
 					"kind": {
 						"enum": [
 							"manual",
@@ -26875,13 +26976,45 @@
 							"rendition_published",
 							"interval",
 							"publication_created",
-							"rendition_failed"
+							"rendition_failed",
+							"comment_received"
 						],
 						"type": "string"
+					},
+					"match_mode": {
+						"enum": ["word", "exact", "contains"],
+						"type": "string"
+					},
+					"post_ids": {
+						"items": {
+							"type": "string"
+						},
+						"maxItems": 50,
+						"type": ["array", "null"]
+					},
+					"post_scope": {
+						"enum": ["all", "selected"],
+						"type": "string"
+					},
+					"priority": {
+						"format": "int64",
+						"maximum": 100,
+						"minimum": 0,
+						"type": "integer"
+					},
+					"rendition_ids": {
+						"items": {
+							"type": "string"
+						},
+						"maxItems": 50,
+						"type": ["array", "null"]
 					},
 					"repository": {
 						"maxLength": 200,
 						"type": "string"
+					},
+					"top_level_only": {
+						"type": "boolean"
 					},
 					"url": {
 						"maxLength": 2048,
@@ -26897,13 +27030,22 @@
 					"account_id": {
 						"type": "string"
 					},
+					"author_name": {
+						"type": "string"
+					},
 					"body": {
 						"type": "string"
 					},
 					"created_at": {
 						"type": "string"
 					},
+					"engagement_id": {
+						"type": "string"
+					},
 					"id": {
+						"type": "string"
+					},
+					"platform": {
 						"type": "string"
 					},
 					"publication_id": {
@@ -26979,6 +27121,9 @@
 							"approval",
 							"schedule",
 							"reply",
+							"comment_reply",
+							"private_comment_reply",
+							"comment_handoff",
 							"wait",
 							"condition",
 							"metrics",
@@ -40514,6 +40659,202 @@
 				},
 				"summary": "Mark engagement read or archived",
 				"tags": ["Engagement"]
+			}
+		},
+		"/engagement/{id}/automation": {
+			"get": {
+				"operationId": "list-engagement-automation",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/AutomationReply"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Inspect automatic replies for a comment",
+				"tags": ["Engagement"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
+			}
+		},
+		"/engagement/{id}/automation/stop": {
+			"post": {
+				"operationId": "stop-engagement-automation",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/AutomationReply"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Take over a comment and stop pending automatic replies",
+				"tags": ["Engagement"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/engagement/{item_id}": {
@@ -64327,6 +64668,131 @@
 				"x-openpost-automation": {
 					"access": "write",
 					"effect": "external-action",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
+			}
+		},
+		"/workflows/{id}/stop-replies": {
+			"post": {
+				"operationId": "stop-workflow-replies",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/WorkflowRevisionInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Workflow"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Stop new runs and pending automatic replies",
+				"tags": ["Workflows"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
 					"exposure": "disabled",
 					"idempotency": "none",
 					"retry": "never"

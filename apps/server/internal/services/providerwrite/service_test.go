@@ -294,3 +294,23 @@ func TestProviderWriteFenceAcceptsHeartbeatButRejectsAReclaimedLease(t *testing.
 		})
 	}
 }
+
+func TestGuardedWriteRejectsNativeCancellationBeforeDispatch(t *testing.T) {
+	db := newProviderWriteTestDB(t)
+	input := providerWriteTestInput(t, "native-cancelled")
+	calls := 0
+	_, err := New(db).Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		err := control.BeginGuarded(platform.PublishResult{RetrySafety: platform.PublishRetryNever}, func(_ context.Context, _ bun.Tx) error {
+			// The owning service checks current native state within the write fence.
+			return fmt.Errorf("automatic reply stopped before sending")
+		})
+		if err != nil {
+			return platform.PublishResult{}, err
+		}
+		calls++
+		return platform.AcceptedPublishResult("should-not-send"), nil
+	}, nil)
+	require.ErrorContains(t, err, "stopped before sending")
+	require.Zero(t, calls)
+	require.NotEqual(t, StatusSending, latestProviderWriteAttempt(t, db, input.OperationID).Status)
+}

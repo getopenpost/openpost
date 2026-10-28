@@ -1,61 +1,77 @@
 # OpenPost launch film
 
-A 32-second, 1920x1080, 60 fps launch film made in code. `film.js` draws a simplified version of the OpenPost
-interface in the Dither theme, using the Lucide icon set, the integration marks, the feature artwork and the
-Converge logo, so every part of it can move. Its sound is made in code with
+A 60-second, 1920x1080, 60 fps launch film made in code. It follows one founder's release from GitHub to every
+network and back. The interface is rebuilt in code, close to the app's light Dither UI, with individually animated
+nodes, posts, network cards, calendar cells and chart columns. The soundtrack is a
+licensed music track and real CC0 recordings, chosen, trimmed, placed and checked with
 [earshot](https://github.com/Leonxlnx/earshot).
 
 ```sh
 devenv shell -- bun run render:launch-film
 ```
 
-The command writes `tmp/launch-film/openpost-launch.mp4`. Each step can be rerun alone:
+The render writes `tmp/launch-film/openpost-launch.mp4`. Each step can be rerun alone:
 
-| Step               | Command                                                                                          | Output in `tmp/launch-film/`                |
-| ------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| Render the picture | `bun apps/marketing/launch-film/render.mjs`                                                      | `picture.mp4`, `cues.json`                  |
-| Score the music    | `uv run apps/marketing/launch-film/music.py tmp/launch-film/cues.json tmp/launch-film/music.wav` | `music.wav`                                 |
-| Mix the sound      | `uv run apps/marketing/launch-film/mix.py tmp/launch-film`                                       | `kit/`, `soundtrack.wav`, `mix-report.json` |
+| Step                         | Command                                                                                | Output in `tmp/launch-film/`                          |
+| ---------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Draw the sample launch image | `bun apps/marketing/launch-film/render.mjs --artwork tmp/launch-film/lumen-launch.png` | `lumen-launch.png`                                    |
+| Render the picture           | `bun apps/marketing/launch-film/render.mjs`                                            | `picture.mp4`, `cues.json`                            |
+| Mix the sound                | `uv run apps/marketing/launch-film/mix.py tmp/launch-film`                             | `sounds/`, `soundtrack.wav`, stems, `mix-report.json` |
 
-To render stills while you edit, run `bun apps/marketing/launch-film/render.mjs --stills 4.2,11,28.6`.
+To render stills while you edit, run `bun apps/marketing/launch-film/render.mjs --stills 4.2,11,28.6`. Stills also
+write `cues.json`, so `mix.py` can run without a full picture render.
 
-## The cut
+## The story
 
-The film is one continuous move through the product. Each scene hands an element to the next:
+One continuous move. Each scene hands an element to the next one, and every scene change sits on a bar line of the
+music (128 BPM).
 
-1. The headline types, and the composer draws itself around it.
-2. On the downbeat, the composer bursts into five native network cards. The X card gets its own shorter version, and
-   the launch image drops into every card.
-3. The camera zooms through the X card's image into the image editor, where the image is finished.
-4. The canvas shrinks into the video monitor while clips, captions and music fill the timeline.
-5. The video lands in Friday 09:00. The week fills up, then a publishing sweep turns each post from scheduled to
-   published, including one failure that retries.
-6. Results and replies follow, then a feature roll on the beat, then the logo.
+1. **The problem.** "You just shipped." A GitHub release for Lumen 2.0, a sample product, ticks through its changes.
+   "Now tell everyone." The work piles up around it: ten tasks and sixteen networks, faster and faster.
+2. **The turn.** The music stops. Everything is pulled into four quadrants, which become the four modules of the
+   Converge mark on the drop. OpenPost, and its promise.
+3. **The product.** The camera dives through the mark's centre into Workflows and its GitHub release trigger. The camera follows the run through a stable-release condition, up to Build draft, and glides on into Review post, which
+   opens into the composer, where the draft streams in. The composer bursts into five rebuilt network previews; X
+   gets its own perfected version, punched in so the swap reads at a glance. The camera zooms through the X card's image
+   into the image editor, the finished image becomes the first shot on a video timeline, scheduling fires the
+   composer's confetti, and a click on Schedule pulls back to the month. Publishing turns one post green and walks
+   another through Failed and Retrying to Published. Dithered chart columns climb to the launch-day spike, and a
+   reply goes out from one inbox.
+4. **The breadth.** The headliner features pop on the beat, everything else scrolls past on a tilted plane and is
+   pulled back into the mark.
+5. **The logo.** The four modules converge again, the music resolves, and the line lands: "Your socials, on
+   steroids."
 
 ## How it fits together
 
-- `film.js` owns the timeline. Every frame is a pure function of time. The renderer calls `window.film.seek(t)` and
-  captures the stage, so playback speed never depends on the machine.
-- Layout positions sit on a fixed grid in `left` and `top`. Motion is a transform on top of them, so alignment does not
-  drift during animation.
-- Scene boundaries sit on bar lines at 120 BPM. `film.js` also emits the sound cues (`cues.json`), so picture and
-  sound share one source of truth.
-- `script.json` holds the post, its shorter X version and the reply.
+- `film.js` owns the timeline. Every frame is a pure function of time. `render.mjs` calls `window.film.seek(t)` and
+  captures the stage, averaging three subframes over a 180-degree shutter so fast moves blur like a camera.
+- Scene times come from the music's measured downbeats (`bar(k)` in `film.js`). The picture's cues for sound come from
+  the same timeline, so sync never drifts.
+- `script.json` holds the sample product, post and replies. The authored UI renders those values directly.
+- Workflow nodes and branching edges are separate DOM and SVG elements. The camera follows the selected path and
+  reveals the alternate branch before the review node becomes the composer. Calendar dates, post states, social
+  cards and chart columns are authored elements as well. Match the current UI at refresh time; literal screen
+  captures are reference material, not film backgrounds.
+- The opening and closing logo lockups share compact vertical spacing. Four assembly pops, a landing impact and
+  a wordmark whoosh give each logo reveal its own sound sequence.
 - Character limits come from `@openpost/platform-text`: X 280, Bluesky 300, Threads and Mastodon 500, LinkedIn 3,000.
-- `music.py` builds the bed from the film's sections: an A minor progression, earshot's physically modelled mallets,
-  oscillator pads and bass, and synthesized drums. It steps down 12 dB before the two big hits.
-- `mix.py` renders `kit.json` (earshot's `launch` preset, with the hits tuned to A) and places every take by its
-  measured onset or peak. It sets each effect's level against the music bed and masters the mix to -14 LUFS with
-  true peak at or below -1.2 dBTP.
+- `sounds.json` lists every recording: page, preview URL, sha256, licence as read on the sound's own page, and trims.
+  `mix.py` downloads and checks them, cuts the music at bar lines, places each effect on its measured onset or peak,
+  sets its level against the music bed, applies optional per-cue `gain_db` accents, climbs pop runs in pitch,
+  and masters to -14 LUFS with true peak at or below -1.5 dBTP.
 
-## Provenance
+## Credits and provenance
 
-- The interface is an illustration of the app, not a capture. Accounts, analytics and replies are sample data, and the
-  results scenes are labelled as such.
-- Integration marks come from `assets/postiz-socials/`, the set the README uses. Feature artwork comes from
-  `assets/brand/features/`.
-- The music and effects contain no recordings. earshot's bank sounds are made in code, and its kit preset notes where
-  a sound was fitted from a CC0 recording.
+Publish this line with the film (the track's licence requires it):
+
+> Music: "Mainstream Music 2025 Vol. 10" by Sascha Ende (https://ende.app/en/song/13264-mainstream-music-2025-vol-10),
+> licensed under CC BY 4.0 (https://ende.app/en/standard-license). Edited: one cut into the drop at the logo and a
+> faded tail.
+
+- Sound effects are CC0 recordings from Freesound, listed in `sounds.json`.
+- Lumen is a sample product. Accounts, analytics and replies are sample data, and the results scenes are labelled.
+- Integration marks come from `assets/postiz-socials/`, the set the README uses.
 
 ## Checking the sound
 
@@ -65,9 +81,9 @@ You can't judge the soundtrack by reading code. Measure it with earshot after a 
 E='uvx --python 3.12 --from earshot@git+https://github.com/Leonxlnx/earshot@591fa3e028032e6dce56620a20e932e35667e8d8 earshot'
 $E critique tmp/launch-film/openpost-launch.mp4
 $E sheet tmp/launch-film/openpost-launch.mp4 -o tmp/launch-film/sheet.png --cues tmp/launch-film/cues.json
+$E realness tmp/launch-film/music-stem.wav tmp/launch-film/effects-stem.wav
 ```
 
-On 24 October 2026 the film scored launch-grade: 22 of 23 metrics fell inside the range of earshot's seven reference
-launch films, with sound on 88% of visual events. The only open item is realness, rated uncertain (p_real 0.62),
-because the music is synthesized. To get a produced sound, replace `music.wav` with a licensed 120 BPM track that keeps
-the bar structure, then run `mix.py` again.
+To replace a sound, find candidates on Freesound or ende.app (full CC BY 4.0 tracks), read the licence on the
+sound's own page (CC0 or CC BY only), rank them with `earshot rank`, trim with `earshot find`, measure the tempo
+grid with `earshot measure --music`, and add the entry to `sounds.json` with its sha256.

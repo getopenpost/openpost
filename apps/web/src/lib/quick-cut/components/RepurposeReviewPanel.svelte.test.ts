@@ -158,23 +158,6 @@ test('invalidates ready review when the transcript changes and restores only mat
 	expect(api.create).not.toHaveBeenCalled();
 });
 
-test('handles an empty result without creating clips and permits another search', async () => {
-	api.request.mockImplementation(async (request) => ready(request, []));
-	const screen = await render(RepurposePanel, {
-		props: { context: context(), onsave: vi.fn(), onback: vi.fn() }
-	});
-	await screen.getByRole('button', { name: 'Find clips', exact: true }).click();
-	await expect
-		.element(
-			screen.getByText(
-				'No clear standalone clips found. Try a topic, or adjust the transcript and find again.'
-			)
-		)
-		.toBeVisible();
-	await expect.element(screen.getByRole('button', { name: 'Find again' })).toBeEnabled();
-	expect(api.create).not.toHaveBeenCalled();
-});
-
 test('a late AI receipt cannot populate a different workspace', async () => {
 	let finish!: (value: ReturnType<typeof ready>) => void;
 	api.request.mockImplementation(
@@ -202,32 +185,6 @@ test('a late AI receipt cannot populate a different workspace', async () => {
 	expect(api.create).not.toHaveBeenCalled();
 });
 
-test('resumes a ready review from the durable suggestion receipt after reopening', async () => {
-	const current = context();
-	const screen = await render(RepurposePanel, {
-		props: { context: current, onsave: vi.fn(), onback: vi.fn() }
-	});
-	await screen.getByRole('button', { name: 'Find clips', exact: true }).click();
-	await expect
-		.element(screen.getByRole('button', { name: 'Useful lesson', exact: true }))
-		.toBeVisible();
-	api.read.mockResolvedValue(ready(api.request.mock.calls[0]![0]));
-	await screen.unmount();
-	const reopened = await render(RepurposePanel, {
-		props: { context: current, onsave: vi.fn(), onback: vi.fn() }
-	});
-	await expect
-		.element(reopened.getByRole('button', { name: 'Useful lesson', exact: true }))
-		.toBeVisible();
-	expect(api.request).toHaveBeenCalledTimes(1);
-	expect(api.read).toHaveBeenCalledWith(
-		'workspace',
-		'person',
-		'suggestion',
-		expect.any(AbortSignal)
-	);
-});
-
 test('shows a failed search and retries the same durable job', async () => {
 	api.request.mockImplementation(async (request) => ({
 		...ready(request, []),
@@ -253,6 +210,8 @@ test('shows a failed search and retries the same durable job', async () => {
 			)
 		)
 		.toBeVisible();
+	await expect.element(screen.getByRole('button', { name: 'Find again' })).toBeEnabled();
+	expect(api.create).not.toHaveBeenCalled();
 	expect(api.change).toHaveBeenCalledWith(
 		'workspace',
 		'person',
@@ -341,6 +300,16 @@ test('reopening retains completed clip links and only creates remaining candidat
 		props: { context: current, onsave: vi.fn(), onback: vi.fn() }
 	});
 	await expect.element(reopened.getByRole('link', { name: 'Open clip project' })).toBeVisible();
+	await expect
+		.element(reopened.getByRole('button', { name: 'Useful lesson', exact: true }))
+		.toBeVisible();
+	expect(api.request).toHaveBeenCalledTimes(1);
+	expect(api.read).toHaveBeenCalledWith(
+		'workspace',
+		'person',
+		'suggestion',
+		expect.any(AbortSignal)
+	);
 	await expect
 		.element(reopened.getByRole('textbox', { name: 'Start', exact: true }))
 		.toHaveValue('00:00.00');

@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 
 import { shardRunPattern } from "./go-test-shards.mjs";
+import { DEFAULT_STEP_TIMEOUT_MS, spawnTaskProcess } from "./task-process.mjs";
 import {
   formatPruneResult,
   pruneTurboCache,
@@ -16,9 +17,6 @@ import {
   withTurboCacheLease,
   withTurboCacheLock,
 } from "./turbo-cache.mjs";
-
-// A hung step used to block a task for hours. Keep a bounded default.
-const DEFAULT_STEP_TIMEOUT_MS = 30 * 60_000;
 
 const root = path.resolve(import.meta.dir, "..");
 const [command, rawScope, ...flags] = process.argv.slice(2);
@@ -212,6 +210,7 @@ const checks = {
   tasks: stage("task interface", [
     bunTest(
       "scripts/tasks.test.mjs",
+      "scripts/task-process.test.mjs",
       "scripts/affected-checks.test.mjs",
       "scripts/changed-files-check.test.mjs",
       "scripts/secret-scan-contract.test.mjs",
@@ -859,38 +858,16 @@ async function gitFiles(directory, pattern) {
 // Never attach stdin unless a step explicitly supplies input, so a missing
 // binary cannot sit on an install prompt.
 async function spawn(argv, step = {}, signal) {
-  if (signal?.aborted) return 1;
-  const child = Bun.spawn(argv, {
-    cwd: step.cwd ? path.join(root, step.cwd) : root,
-    env: { ...process.env, ...step.env },
-    stdin: step.input === undefined ? "ignore" : new Blob([step.input]),
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  const timeoutMs = step.timeoutMs ?? DEFAULT_STEP_TIMEOUT_MS;
-  let timedOut = false;
-  let killTimer;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    child.kill();
-    killTimer = setTimeout(() => child.kill(9), 5_000);
-  }, timeoutMs);
-  const abort = () => child.kill();
-  signal?.addEventListener("abort", abort, { once: true });
-  try {
-    const status = await child.exited;
-    if (timedOut) {
-      process.stderr.write(
-        `✗ ${argv.join(" ")} exceeded ${Math.round(timeoutMs / 1_000)}s and was stopped\n`,
-      );
-      return 124;
-    }
-    return status;
-  } finally {
-    clearTimeout(timer);
-    if (killTimer !== undefined) clearTimeout(killTimer);
-    signal?.removeEventListener("abort", abort);
-  }
+  return spawnTaskProcess(
+    argv,
+    {
+      cwd: step.cwd ? path.join(root, step.cwd) : root,
+      env: { ...process.env, ...step.env },
+      input: step.input,
+      timeoutMs: step.timeoutMs ?? DEFAULT_STEP_TIMEOUT_MS,
+    },
+    signal,
+  );
 }
 
 async function capture(argv) {

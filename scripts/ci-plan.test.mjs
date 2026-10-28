@@ -128,6 +128,23 @@ test("changed files route to their CI paths", () => {
         "android",
       ],
     },
+    {
+      name: "a changelog entry beside a documentation change stays on the documentation path",
+      files: ["apps/docs/content/docs/guides/publishing.mdx", "changes/476.md"],
+      on: ["documentation"],
+      off: [
+        "application",
+        "backend",
+        "frontend",
+        "marketing",
+        "cli",
+        "n8n",
+        "npm",
+        "security",
+        "image",
+        "android",
+      ],
+    },
   ];
   for (const { name, files, on, off } of cases) {
     const plan = planCI(files, manifest);

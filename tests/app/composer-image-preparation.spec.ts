@@ -89,6 +89,13 @@ test("optimizes attachments automatically and fits one network while keeping bot
     await picker.getByRole("button", { name: `Select ${filename}`, exact: true }).click();
     await picker.getByRole("button", { name: /^Add/ }).click();
   };
+  const useOriginal = async (label: string) => {
+    await page
+      .getByTestId("composer-variant-toolbar")
+      .getByRole("button", { name: "More", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: label, exact: true }).click();
+  };
   await add("flat.png");
   await expect
     .poll(async () => (await read()).segments[0].media?.[0]?.id)
@@ -102,7 +109,8 @@ test("optimizes attachments automatically and fits one network while keeping bot
     .toBe("Orange original");
   expect(captionRequests).toContain(optimized.id);
   expect(captionRequests).not.toContain(originals[0].id);
-  // Loading the original must not redirect an account action into All after a tab switch.
+  // Loading the original through a destination menu must keep resolving shared media,
+  // even when the tab switches back to All while the request is held.
   await page.waitForLoadState("networkidle");
   await page.reload();
   await page.locator(`#composer-destination-${accounts[0].id}`).click();
@@ -127,7 +135,7 @@ test("optimizes attachments automatically and fits one network while keeping bot
       res.url().includes("/media/metadata?") &&
       new URL(res.url()).searchParams.get("media_ids") === originals[0].id,
   );
-  await page.getByRole("button", { name: "Use original image 1", exact: true }).click();
+  await useOriginal("Use original image 1");
   await originalStarted;
   await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
   releaseOriginal();
@@ -138,9 +146,8 @@ test("optimizes attachments automatically and fits one network while keeping bot
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       ),
   );
-  await expect(page.locator(`[data-composer-media-id="${optimized.id}"]`)).toHaveCount(1);
+  await expect.poll(async () => (await read()).segments[0].media[0]?.id).toBe(originals[0].id);
   await page.unroute("**/api/v1/media/metadata?**");
-  await page.getByRole("button", { name: "Use original image 1", exact: true }).click();
   await expect.poll(async () => (await read()).segments[0].media[0]?.id).toBe(originals[0].id);
   await page.locator(`#composer-destination-${accounts[0].id}`).click();
   const captionStarted = page.waitForRequest("**/api/v1/media/*/alt-text/generate");
@@ -222,8 +229,7 @@ test("optimizes attachments automatically and fits one network while keeping bot
         fullPage: true,
       });
     }
-  const useOriginal = page.getByRole("button", { name: "Use original image 2", exact: true });
-  await useOriginal.click();
+  await useOriginal("Use original image 2");
   await expect
     .poll(async () =>
       (await read()).renditions
@@ -345,8 +351,8 @@ test("optimizes attachments automatically and fits one network while keeping bot
       .getByTestId("composer-variant-toolbar")
       .getByRole("button", { name: "Shared content", exact: true }),
   ).toHaveAttribute("aria-pressed", "false");
-  await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
-  await page.getByRole("button", { name: "Use original image 1", exact: true }).click();
+  // Restoring from a destination menu without per-account media still resolves shared media.
+  await useOriginal("Use original image 1");
   await expect
     .poll(async () => (await readBlue()).segments[0].media?.[0]?.id)
     .toBe(blueOriginal.id);

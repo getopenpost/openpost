@@ -11,7 +11,7 @@ import (
 
 // The provider write fence has already confirmed the action. Its local state
 // and the feed wakeup commit together, including after a fence replay.
-func (s *Service) commitEngagementAction(ctx context.Context, item *models.EngagementItem, action string) error {
+func (s *Service) commitEngagementActionReceipt(ctx context.Context, item *models.EngagementItem, action, automationID string) error {
 	return s.db.RunInTx(ctx, nil, func(txCtx context.Context, tx bun.Tx) error {
 		if err := organizationguard.LockWorkspace(txCtx, tx, item.WorkspaceID); err != nil {
 			return err
@@ -22,7 +22,13 @@ func (s *Service) commitEngagementAction(ctx context.Context, item *models.Engag
 		now := s.now()
 		query := tx.NewUpdate().Model(item).Set("updated_at=?", now).WherePK()
 		switch action {
-		case "reply":
+		case "reply", "private_reply":
+			if _, err := tx.NewUpdate().Model(item).Set("replied_at = ?", now).WherePK().Exec(txCtx); err != nil {
+				return err
+			}
+			if err := recordAutomationAcceptance(txCtx, tx, *item, automationID, now); err != nil {
+				return err
+			}
 			// The receipt is inspectable through its job; also wake stored thread reads.
 			return appendEngagementChange(txCtx, tx, *item)
 		case "hide":

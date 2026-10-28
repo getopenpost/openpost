@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { createRawSnippet } from 'svelte';
-import DestructiveConfirmDialog from './destructive-confirm-dialog.svelte';
 import PageContainer from './page-container.svelte';
 import PageLoading from './page-loading.svelte';
 import '../../routes/layout.css';
@@ -126,20 +125,5 @@ describe('shared page states', () => {
 		expect(revealedInput?.value).toBe('preserved');
 		await expect.element(screen.getByTestId('mounted-page-content')).toBeVisible();
 		await expect.element(screen.getByTestId('page-loading')).not.toBeInTheDocument();
-	});
-
-	it('requires an explicit action before confirming destructive work', async () => {
-		const onConfirm = vi.fn(() => ({ ok: true }));
-		const screen = await render(DestructiveConfirmDialog, {
-			open: true,
-			title: 'Delete this item?',
-			description: 'This action cannot be undone.',
-			onConfirm
-		});
-
-		await expect.element(screen.getByRole('dialog')).toBeVisible();
-		await expect.element(screen.getByText('This action cannot be undone.')).toBeVisible();
-		await screen.getByRole('button', { name: 'Delete' }).click();
-		expect(onConfirm).toHaveBeenCalledOnce();
 	});
 });

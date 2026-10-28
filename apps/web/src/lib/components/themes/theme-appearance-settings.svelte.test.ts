@@ -105,8 +105,20 @@ it('invalidates sibling workspace settings when locking organization theme assig
 		.element(screen.getByRole('switch', { name: 'Lock workspace theme selection' }))
 		.toBeEnabled();
 	await screen.getByRole('switch', { name: 'Lock workspace theme selection' }).click();
+	await expect
+		.element(screen.getByRole('heading', { name: 'Lock theme selection?' }))
+		.toBeVisible();
+	await expect.element(screen.getByText(/clear workspace overrides/i)).toBeVisible();
+	expect(putMock).not.toHaveBeenCalled();
 	await screen.getByRole('button', { name: 'Lock and clear choices' }).click();
 	await vi.waitFor(() => expect(queryClient.getQueryState(sibling)?.isInvalidated).toBe(true));
+	expect(putMock).toHaveBeenCalledExactlyOnceWith('/theme-settings/organization', {
+		body: {
+			organization_id: 'org-a',
+			default_reference: reference,
+			assignments_locked: true
+		}
+	});
 });
 
 it('retries publishing with the saved draft revision after publishing fails', async () => {

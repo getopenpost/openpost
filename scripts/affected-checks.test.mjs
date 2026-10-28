@@ -62,6 +62,7 @@ function fixture(t) {
     write(file, "base\n");
   for (const script of [
     "tasks.mjs",
+    "task-process.mjs",
     "affected-checks.mjs",
     "release-surfaces.mjs",
     "turbo-cache.mjs",

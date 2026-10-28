@@ -150,8 +150,12 @@ func (s *Service) evaluateNativeStep(ctx context.Context, record runRecord, auth
 	if err != nil {
 		return progress, err
 	}
+	if effect.Stop {
+		progress.remaining = nil
+		return progress, nil
+	}
 	switch {
-	case step.Kind == KindApproval:
+	case step.Kind == KindApproval || effect.Review:
 		progress.state = StateApproval
 		progress.remaining = remaining
 	case effect.Pending:

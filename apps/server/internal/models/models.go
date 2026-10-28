@@ -1732,7 +1732,11 @@ type EngagementAttachment struct {
 // EngagementItem is a normalized reply or comment collected from a provider.
 // Provider payloads are deliberately not retained.
 type EngagementItem struct {
-	bun.BaseModel `bun:"table:engagement_items"`
+	AutomationState     string    `bun:"-" json:"automation_state,omitempty"`
+	AutomationRunID     string    `bun:"-" json:"automation_run_id,omitempty"`
+	AutomationStoppedAt time.Time `bun:"automation_stopped_at,nullzero" json:"automation_stopped_at,omitempty,omitzero"`
+	RepliedAt           time.Time `bun:"replied_at,nullzero" json:"replied_at,omitempty,omitzero"`
+	bun.BaseModel       `bun:"table:engagement_items"`
 
 	ID                   string                 `bun:",pk" json:"id"`
 	WorkspaceID          string                 `bun:"workspace_id,notnull" json:"workspace_id"`

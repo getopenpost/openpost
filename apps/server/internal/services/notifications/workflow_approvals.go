@@ -42,6 +42,7 @@ const (
 // more than once; keying only on the run would silently drop the second notice.
 // An expiry is the exception: a run expires once, so it keys on the run alone.
 type WorkflowApprovalFacts struct {
+	EngagementID    string
 	RecipientUserID string
 	WorkspaceID     string
 	RunID           string
@@ -97,6 +98,7 @@ func NewWorkflowApprovalOutcome(facts WorkflowApprovalFacts) (Outcome, error) {
 		"audience": facts.Audience,
 	}
 	putOptionalFact(payload, "step_id", facts.StepID)
+	putOptionalFact(payload, "engagement_id", facts.EngagementID)
 	putOptionalFact(payload, "publication_id", facts.PublicationID)
 	putOptionalFact(payload, "workflow_name", facts.WorkflowName)
 	// Payload facts are strings: semantic payloads accept no numeric type, and
@@ -134,6 +136,10 @@ func materializeWorkflowApproval(value semanticOutcome) (createInput, error) {
 
 	runHref := approvalRunHref(runID, value.workspaceID)
 	input.Href = runHref
+
+	if engagementID, _ := value.payload["engagement_id"].(string); engagementID != "" {
+		return materializeCommentApproval(input, state, runHref)
+	}
 
 	switch state {
 	case ApprovalStateWaiting:
@@ -209,4 +215,20 @@ func pluralDays(days int) string {
 		return "1 day"
 	}
 	return strconv.Itoa(days) + " days"
+}
+
+func materializeCommentApproval(input createInput, state, runHref string) (createInput, error) {
+	switch state {
+	case ApprovalStateWaiting:
+		input.Title = "A reply is waiting for your approval"
+		input.Body = "Review the incoming comment and exact reply before sending."
+	case ApprovalStateReminder:
+		input.Title = "A reply still needs your approval"
+		input.Body = "Review or dismiss the reply before the workflow expires."
+	case ApprovalStateExpired:
+		input.Title = "The reply approval expired"
+		input.Body = "No reply was sent. Open the comment in Inbox if you still want to answer."
+	}
+	input.Actions = []models.NotificationAction{{Label: "Review reply", Href: runHref, Kind: "primary"}}
+	return input, nil
 }

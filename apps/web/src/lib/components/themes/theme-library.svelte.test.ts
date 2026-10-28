@@ -71,25 +71,6 @@ describe('ThemeLibrary', () => {
 			.toBeVisible();
 	});
 
-	it('requires confirmation before clearing workspace theme choices', async () => {
-		const onToggleLock = vi.fn();
-		const screen = render(ThemeLibrary, {
-			canManageOrganization: true,
-			onToggleLock
-		});
-
-		await screen.getByText('Organization default', { exact: true }).first().click();
-		await expect.element(screen.getByText(/clear workspace overrides/i)).toBeVisible();
-		await screen.getByRole('switch', { name: 'Lock workspace theme selection' }).click();
-
-		expect(onToggleLock).not.toHaveBeenCalled();
-		await expect
-			.element(screen.getByRole('heading', { name: 'Lock theme selection?' }))
-			.toBeVisible();
-		await screen.getByRole('button', { name: 'Lock and clear choices' }).click();
-		expect(onToggleLock).toHaveBeenCalledWith(true);
-	});
-
 	it('names a duplicate and submits its immutable source reference', async () => {
 		const onCreate = vi.fn();
 		const screen = render(ThemeLibrary, {

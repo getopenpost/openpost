@@ -178,6 +178,8 @@ func (s *Service) readPolledSource(ctx context.Context, record workflowRecord, s
 	var items []SourceItem
 	nextPage := record.SourcePage
 	switch source.Kind {
+	case "comment_received":
+		items, err = s.commentItems(ctx, record.WorkspaceID, source, since, &record)
 	case "publication_created":
 		items, err = s.publicationItems(ctx, record.WorkspaceID, since, &record)
 	case "rendition_failed":
@@ -210,31 +212,28 @@ func (s *Service) commitSourcePoll(ctx context.Context, record workflowRecord, d
 		if err != nil {
 			return err
 		}
+		capped, err := commentDailyLimitReached(ctx, tx, record, def, now)
+		if err != nil || capped {
+			return err
+		}
+
 		// Admit oldest first so a feed's newest-first presentation does not reverse
 		// the order in which its posts reach the publication queue.
 		for i := len(items) - 1; i >= 0; i-- {
 			item := items[i]
-			key, err := sourceEventKey(def.Source.Kind, item.ID)
-			if err != nil {
-				return err
-			}
-			if active >= maxActiveRuns && record.SourceInitialized {
+			if sourceAdmissionAtCapacity(active, record) {
 				// Keep this page available until its unadmitted events have room to run.
 				_, err := tx.NewUpdate().Model((*workflowRecord)(nil)).Set("source_page = ?, source_error = ?", record.SourcePage, "workspace has reached 1000 active workflow runs").Where("id = ?", id).Exec(ctx)
 				return err
 			}
-			event := eventRecord{WorkflowID: id, SourceFingerprint: record.SourceFingerprint, EventKey: key, CreatedAt: now}
-			inserted, err := tx.NewInsert().Model(&event).On("CONFLICT DO NOTHING").Exec(ctx)
+			admit, err := s.admitSourceEvent(ctx, tx, record, def, item, now)
 			if err != nil {
 				return err
 			}
-			n, err := inserted.RowsAffected()
-			if err != nil {
-				return err
-			}
-			if n == 0 || !record.SourceInitialized {
+			if !admit {
 				continue
 			}
+
 			source, err := sourceItemValues(item)
 			if err != nil {
 				return err
@@ -243,6 +242,13 @@ func (s *Service) commitSourcePoll(ctx context.Context, record workflowRecord, d
 				return err
 			}
 			active++
+			capped, err := commentDailyLimitReached(ctx, tx, record, def, now)
+			if err != nil {
+				return err
+			}
+			if capped {
+				break
+			}
 		}
 		return nil
 	})
@@ -257,7 +263,7 @@ func (s *Service) pollError(ctx context.Context, record workflowRecord, leaseUnt
 }
 
 func sourceEventKey(kind, id string) (string, error) {
-	if kind == "rendition_published" || kind == "publication_created" || kind == "rendition_failed" {
+	if kind == "rendition_published" || kind == "publication_created" || kind == "rendition_failed" || kind == "comment_received" {
 		return id, nil
 	}
 	return idempotency.Hash([]string{kind, id})
@@ -271,4 +277,46 @@ func sourceItemValues(item SourceItem) (map[string]any, error) {
 	var source map[string]any
 	err = json.Unmarshal(data, &source)
 	return source, err
+}
+
+func commentDailyLimitReached(ctx context.Context, db bun.IDB, record workflowRecord, def Definition, now time.Time) (bool, error) {
+	if def.Source.Kind != "comment_received" {
+		return false, nil
+	}
+	count, err := db.NewSelect().Model((*runRecord)(nil)).Where("workflow_id = ? AND mode = ? AND created_at >= ?", record.ID, ModeLive, now.Truncate(24*time.Hour)).Count(ctx)
+	return count >= def.Source.DailyLimit, err
+}
+
+func (s *Service) admitSourceEvent(ctx context.Context, tx bun.Tx, record workflowRecord, def Definition, item SourceItem, now time.Time) (bool, error) {
+	key, err := sourceEventKey(def.Source.Kind, item.ID)
+	if err != nil {
+		return false, err
+	}
+
+	event := eventRecord{WorkflowID: record.ID, SourceFingerprint: record.SourceFingerprint, EventKey: key, CreatedAt: now}
+	inserted, err := tx.NewInsert().Model(&event).On("CONFLICT DO NOTHING").Exec(ctx)
+	if err != nil {
+		return false, err
+	}
+	n, err := inserted.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if n == 0 || !record.SourceInitialized || item.Excluded {
+		return false, nil
+	}
+	if def.Source.Kind == "comment_received" {
+		winner, err := s.commentWorkflowWins(ctx, tx, record, item.ID)
+		if err != nil {
+			return false, err
+		}
+		if !winner {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func sourceAdmissionAtCapacity(active int, record workflowRecord) bool {
+	return active >= maxActiveRuns && record.SourceInitialized
 }

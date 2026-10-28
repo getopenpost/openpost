@@ -11,46 +11,49 @@ import (
 )
 
 const (
-	maxWorkflows   = 100
-	maxActiveRuns  = 1000
-	SchemaVersion  = 1
-	MaxSteps       = 40
-	MaxDepth       = 4
-	MaxTextBytes   = 20000
-	MaxRunAge      = 30 * 24 * time.Hour
-	SourceInterval = 5 * time.Minute
-	StateQueued    = "queued"
-	StateRunning   = "running"
-	StateWaiting   = "waiting"
-	StateApproval  = "awaiting_approval"
-	StateSucceeded = "succeeded"
-	StateFailed    = "failed"
-	StateCancelled = "cancelled"
-	ModeTest       = "test"
-	ModeLive       = "live"
-	ModePreview    = "preview"
-	KindDraft      = "create_draft"
-	KindBuild      = "build_draft"
-	KindApproval   = "approval"
-	KindSchedule   = "schedule"
-	KindReply      = "reply"
-	KindWait       = "wait"
-	KindCondition  = "condition"
-	KindMetrics    = "metrics"
-	KindHTTP       = "http_request"
-	KindCode       = "code"
-	KindAIText     = "ai_text"
-	KindAIDecision = "ai_decision"
-	KindFields     = "set_fields"
-	KindText       = "text"
-	KindJSON       = "parse_json"
-	KindFilter     = "list_filter"
-	KindSort       = "list_sort"
-	KindLimit      = "list_limit"
-	KindMerge      = "merge"
-	KindDate       = "date"
-	KindURL        = "tracking_link"
-	KindFeed       = "read_feed"
+	maxWorkflows       = 100
+	maxActiveRuns      = 1000
+	SchemaVersion      = 1
+	MaxSteps           = 40
+	MaxDepth           = 4
+	MaxTextBytes       = 20000
+	MaxRunAge          = 30 * 24 * time.Hour
+	SourceInterval     = 5 * time.Minute
+	StateQueued        = "queued"
+	StateRunning       = "running"
+	StateWaiting       = "waiting"
+	StateApproval      = "awaiting_approval"
+	StateSucceeded     = "succeeded"
+	StateFailed        = "failed"
+	StateCancelled     = "cancelled"
+	ModeTest           = "test"
+	ModeLive           = "live"
+	ModePreview        = "preview"
+	KindDraft          = "create_draft"
+	KindBuild          = "build_draft"
+	KindApproval       = "approval"
+	KindSchedule       = "schedule"
+	KindReply          = "reply"
+	KindCommentReply   = "comment_reply"
+	KindPrivateReply   = "private_comment_reply"
+	KindCommentHandoff = "comment_handoff"
+	KindWait           = "wait"
+	KindCondition      = "condition"
+	KindMetrics        = "metrics"
+	KindHTTP           = "http_request"
+	KindCode           = "code"
+	KindAIText         = "ai_text"
+	KindAIDecision     = "ai_decision"
+	KindFields         = "set_fields"
+	KindText           = "text"
+	KindJSON           = "parse_json"
+	KindFilter         = "list_filter"
+	KindSort           = "list_sort"
+	KindLimit          = "list_limit"
+	KindMerge          = "merge"
+	KindDate           = "date"
+	KindURL            = "tracking_link"
+	KindFeed           = "read_feed"
 )
 
 // ReminderLead is how long before the deadline a parked approval is mentioned
@@ -74,8 +77,17 @@ type WorkflowDefinition struct {
 }
 
 type WorkflowSource struct {
+	PostScope          string   `json:"post_scope,omitempty" enum:"all,selected"`
+	Priority           int      `json:"priority,omitempty" minimum:"0" maximum:"100"`
+	Keywords           []string `json:"keywords,omitempty" maxItems:"20"`
+	ExcludedKeywords   []string `json:"excluded_keywords,omitempty" maxItems:"20"`
+	MatchMode          string   `json:"match_mode,omitempty" enum:"word,exact,contains"`
+	RenditionIDs       []string `json:"rendition_ids,omitempty" maxItems:"50"`
+	PostIDs            []string `json:"post_ids,omitempty" maxItems:"50"`
+	TopLevelOnly       bool     `json:"top_level_only,omitempty"`
+	DailyLimit         int      `json:"daily_limit,omitempty" minimum:"0" maximum:"1000"`
 	IntervalMinutes    int      `json:"interval_minutes,omitempty" minimum:"0" maximum:"43200"`
-	Kind               string   `json:"kind" enum:"manual,github_release,rss,rendition_published,interval,publication_created,rendition_failed"`
+	Kind               string   `json:"kind" enum:"manual,github_release,rss,rendition_published,interval,publication_created,rendition_failed,comment_received"`
 	Repository         string   `json:"repository,omitempty" maxLength:"200"`
 	URL                string   `json:"url,omitempty" maxLength:"2048"`
 	ConnectionID       string   `json:"connection_id,omitempty"`
@@ -92,7 +104,7 @@ type WorkflowValue struct {
 
 type WorkflowStep struct {
 	ID     string           `json:"id" maxLength:"64"`
-	Kind   string           `json:"kind" enum:"create_draft,build_draft,approval,schedule,reply,wait,condition,metrics,http_request,code,ai_text,ai_decision,set_fields,text,parse_json,list_filter,list_sort,list_limit,merge,date,tracking_link,read_feed"`
+	Kind   string           `json:"kind" enum:"create_draft,build_draft,approval,schedule,reply,comment_reply,private_comment_reply,comment_handoff,wait,condition,metrics,http_request,code,ai_text,ai_decision,set_fields,text,parse_json,list_filter,list_sort,list_limit,merge,date,tracking_link,read_feed"`
 	Name   string           `json:"name" maxLength:"100"`
 	Inputs map[string]Value `json:"inputs"`
 	Then   []Step           `json:"then,omitempty" maxItems:"40"`
@@ -100,6 +112,7 @@ type WorkflowStep struct {
 }
 
 type Workflow struct {
+	HasCommentReplies bool       `json:"has_comment_replies,omitempty"`
 	ID                string     `json:"id"`
 	WorkspaceID       string     `json:"workspace_id"`
 	Name              string     `json:"name"`
@@ -171,6 +184,8 @@ type EffectRequest struct {
 }
 
 type EffectResult struct {
+	Stop   bool
+	Review bool
 	Output map[string]any
 	// Pending returns control to the database queue while a native durable
 	// operation finishes. Repeating the effect uses the same run/step identity.
@@ -204,4 +219,15 @@ type WorkflowCredentialRequest struct {
 	Token      string `json:"token" minLength:"1" maxLength:"4000"`
 	Host       string `json:"host,omitempty" maxLength:"253"`
 	HeaderName string `json:"header_name,omitempty" maxLength:"100"`
+}
+
+type ReplyStopper interface {
+	StopReplies(context.Context, workspaceaccess.StoredAuthority, string, string) error
+}
+type CommentSourceValidator interface {
+	ValidateCommentSource(context.Context, workspaceaccess.StoredAuthority, Source, []Step) error
+}
+
+func isCommentAction(kind string) bool {
+	return kind == KindCommentReply || kind == KindPrivateReply || kind == KindCommentHandoff
 }

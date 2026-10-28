@@ -10,7 +10,18 @@ export type NodeCategory = 'triggers' | 'ai' | 'flow' | 'content' | 'tools' | 'd
 export function actionCategory(kind: Step['kind']): NodeCategory {
 	if (['ai_text', 'ai_decision', 'build_draft'].includes(kind)) return 'ai';
 	if (['approval', 'wait', 'condition'].includes(kind)) return 'flow';
-	if (['create_draft', 'schedule', 'reply', 'metrics'].includes(kind)) return 'content';
+	if (
+		[
+			'create_draft',
+			'schedule',
+			'reply',
+			'comment_reply',
+			'private_comment_reply',
+			'comment_handoff',
+			'metrics'
+		].includes(kind)
+	)
+		return 'content';
 	if (['http_request', 'code', 'read_feed'].includes(kind)) return 'tools';
 	return 'data';
 }
@@ -18,6 +29,7 @@ export function actionCategory(kind: Step['kind']): NodeCategory {
 export function sourceIcon(kind: Definition['source']['kind']): ThemeIconRole {
 	return (
 		{
+			comment_received: 'communications',
 			manual: 'launch',
 			github_release: 'github',
 			rss: 'download',
@@ -35,6 +47,24 @@ export function actionCatalog(): {
 	icon: ThemeIconRole;
 }[] {
 	return [
+		{
+			kind: 'private_comment_reply',
+			label: m.workflows_comment_private_node(),
+			description: m.workflows_comment_private_node_help(),
+			icon: 'communications'
+		},
+		{
+			kind: 'comment_handoff',
+			label: m.workflows_comment_handoff_node(),
+			description: m.workflows_comment_handoff_help(),
+			icon: 'inbox'
+		},
+		{
+			kind: 'comment_reply',
+			label: m.workflows_comment_reply(),
+			description: m.workflows_comment_reply_help(),
+			icon: 'communications'
+		},
 		{
 			kind: 'http_request',
 			label: m.workflows_http(),
@@ -161,6 +191,7 @@ export function actionCatalog(): {
 }
 export function sourceLabel(kind: Definition['source']['kind']): string {
 	return {
+		comment_received: m.workflows_comment_received(),
 		manual: m.workflows_manual(),
 		github_release: m.workflows_github(),
 		rss: m.workflows_rss(),
@@ -228,6 +259,20 @@ export function newStep(kind: Step['kind']): Step {
 		inputs.publication_id = literal('');
 		inputs.revision = literal(1);
 	}
+	if (kind === 'private_comment_reply')
+		Object.assign(inputs, {
+			engagement_id: reference('source.engagement_id'),
+			text: literal(''),
+			delivery: literal('review')
+		});
+	if (kind === 'comment_handoff') inputs.engagement_id = reference('source.engagement_id');
+	if (kind === 'comment_reply')
+		Object.assign(inputs, {
+			engagement_id: reference('source.engagement_id'),
+			text: literal(''),
+			channel: literal('public'),
+			delivery: literal('review')
+		});
 	if (kind === 'approval') inputs.publication_id = literal('');
 	if (kind === 'reply' || kind === 'metrics')
 		inputs.rendition_id = reference('source.rendition_id');
@@ -278,6 +323,7 @@ export function templates(): {
 		inputs
 	});
 	return [
+		...commentTemplates(),
 		{
 			id: 'digest',
 			name: m.workflows_template_digest(),
@@ -415,6 +461,129 @@ export function templates(): {
 		}
 	];
 }
+export function commentTemplates() {
+	const reply = (
+		kind: 'comment_reply' | 'private_comment_reply',
+		delivery: string,
+		id = 'respond'
+	): Step => ({
+		id,
+		kind,
+		name:
+			kind === 'private_comment_reply'
+				? m.workflows_comment_private_node()
+				: m.workflows_comment_reply(),
+		inputs: {
+			engagement_id: reference('source.engagement_id'),
+			text: literal(''),
+			delivery: literal(delivery)
+		}
+	});
+	const handoff: Step = {
+		id: 'handoff',
+		kind: 'comment_handoff',
+		name: m.workflows_comment_handoff_node(),
+		inputs: { engagement_id: reference('source.engagement_id') }
+	};
+	const source: Definition['source'] = {
+		kind: 'comment_received',
+		account_ids: [],
+		keywords: [],
+		excluded_keywords: [],
+		match_mode: 'word',
+		daily_limit: 100,
+		top_level_only: true,
+		priority: 50,
+		post_scope: 'all'
+	};
+	return [
+		{
+			id: 'instagram-playbook',
+			name: m.workflows_comment_campaign(),
+			description: m.workflows_comment_campaign_help(),
+			definition: {
+				schema: 1,
+				source: { ...source, keywords: ['GRIND'], post_scope: 'selected' },
+				steps: [
+					reply('private_comment_reply', 'automatic', 'private'),
+					{
+						...reply('comment_reply', 'automatic', 'acknowledge'),
+						inputs: {
+							...reply('comment_reply', 'automatic').inputs,
+							text: literal('Sent! Check your messages.')
+						}
+					}
+				]
+			}
+		},
+		{
+			id: 'comment-resource',
+			name: m.workflows_comment_resource(),
+			description: m.workflows_comment_resource_help(),
+			definition: { schema: 1, source, steps: [reply('comment_reply', 'automatic')] }
+		},
+		{
+			id: 'comment-ai',
+			name: m.workflows_comment_ai(),
+			description: m.workflows_comment_ai_help(),
+			definition: {
+				schema: 1,
+				source: { ...source, daily_limit: 20 },
+				steps: [
+					{
+						id: 'write',
+						kind: 'ai_text',
+						name: m.workflows_ai_text(),
+						inputs: { text: reference('source.body'), instructions: literal('') }
+					},
+					{
+						id: 'answer',
+						kind: 'text',
+						name: m.workflows_text(),
+						inputs: { text: reference('write.text'), operation: literal('trim') }
+					},
+					{
+						id: 'covered',
+						kind: 'condition',
+						name: m.workflows_condition(),
+						inputs: {
+							left: reference('answer.text'),
+							operator: literal('not_equals'),
+							right: literal('NEEDS_HUMAN')
+						},
+						then: [
+							{
+								...reply('comment_reply', 'review'),
+								inputs: {
+									...reply('comment_reply', 'review').inputs,
+									text: reference('answer.text')
+								}
+							}
+						],
+						else: [handoff]
+					}
+				]
+			}
+		},
+		{
+			id: 'comment-review',
+			name: m.workflows_comment_pending(),
+			description: m.workflows_comment_auto_help(),
+			definition: { schema: 1, source, steps: [reply('comment_reply', 'review')] }
+		},
+		{
+			id: 'comment-support',
+			name: m.workflows_comment_support(),
+			description: m.workflows_comment_support_help(),
+			definition: {
+				schema: 1,
+				source: { ...source, keywords: ['help', 'broken', 'support'] },
+				steps: [handoff]
+			}
+		}
+	] satisfies { id: string; name: string; description: string; definition: Definition }[];
+}
+
 export function findStep(steps: Step[], id: string): Step | undefined {
 	for (const step of steps) {
 		if (step.id === id) return step;
@@ -458,6 +627,12 @@ export function exampleSource(kind: Definition['source']['kind']): WorkflowData 
 	if (kind === 'rendition_published' || kind === 'rendition_failed') {
 		data.rendition_id = 'sample-variant';
 		data.account_id = 'sample-account';
+	}
+	if (kind === 'comment_received') {
+		data.engagement_id = 'sample-comment';
+		data.body = 'GRIND please!';
+		data.platform = 'instagram';
+		data.author_name = 'Sample reader';
 	}
 	if (kind === 'interval') {
 		data.title = 'Scheduled workflow';

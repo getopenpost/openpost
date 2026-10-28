@@ -1,0 +1,53 @@
+---
+title: Send a playbook from Reel comments
+description: Send a saved Instagram message when someone requests a resource on a selected post or Reel.
+icon: MessageCircle
+---
+
+Use this workflow for an offer such as “Comment GRIND and I’ll send you the playbook.” It sends your saved text and link. It does not need an AI provider.
+
+## Choose the campaign
+
+Open **Workflows → Templates → Send a playbook by private message**. You can also choose **Automate replies…** from a comment in Inbox to preselect its account and post.
+
+1. Select the Instagram account. Enable Comments and grant the account’s required comment permissions before activating the workflow.
+2. Choose a specific post or Reel, including a scheduled OpenPost post. Imported Instagram posts are also available. Use **All available posts** only when the same offer applies across that account.
+3. Enter the keyword or phrases, separated by commas. Matching ignores capitalization. The default matches whole words or phrases, so `GRIND` matches “grind please” and does not match “grinding”.
+4. Write the private message, including the promised resource link. This first private reply supports text and links, not uploaded attachments or a multi-message sequence.
+5. Optionally write a public acknowledgement. Leave it empty to send only the private message. OpenPost runs this step only after Instagram accepts the private reply.
+6. Choose **Send automatically** or **Review in Inbox**. Preview stored matching comments, then create the workflow draft.
+
+The draft opens in the workflow editor. Inspect its trigger and separate private and public reply steps, then select **Publish workflow** to activate it. Creating, saving, and previewing the draft do not send replies.
+
+## Narrow the trigger
+
+Open **Configure** in the comment trigger to exclude keywords, choose whole-word, exact, or contains matching, change the daily run limit, or adjust reply priority. Lower priority numbers run first when multiple reply workflows match. Equal priorities use the oldest workflow. A new-comment workflow that performs other actions can still run independently.
+
+Only comments created and first collected after activation start runs. Existing comments, imports of historical comments, edits, and the account’s own replies do not start another run. Reactivating a paused comment workflow starts with future comments again.
+
+Comment delivery follows the account’s existing collection and webhook setup. A workflow does not make polling-only accounts instant. Instagram comments on media published outside OpenPost require the comments webhook; signed events are stored in the same Inbox inventory.
+
+## Review or take over
+
+Inbox shows the automatic reply’s state and links to the workflow run. Expand a reply waiting for review to edit its exact text and approve it. Workspace administrators activate workflows and approve automated replies; editors can take over and answer manually.
+
+**Take over** stops pending automatic replies for that comment. Sending a manual reply also stops pending automation there. **Pause new runs** leaves existing runs active. **Stop automatic replies** on a comment workflow stops new runs and pending sends. Replies already being sent may still arrive.
+
+Failed and uncertain sends remain inspectable. OpenPost does not automatically repeat an uncertain provider write, and a failed private send does not post “Sent!”.
+
+## Instagram limits
+
+A comment permits one private reply within seven days. Sending it does not open the normal messaging window. Further messages require a qualifying response from the person. Messages may appear in their Requests folder. Provider approval, account permissions, and rate limits still apply.
+
+OpenPost also limits private campaigns to one send per person per post across matching workflows. `STOP`, `unsubscribe`, and `stop replying` comments suppress future automatic responses to that author on the same account. Public replies remain bound to the original comment and account.
+
+See [Meta’s private-reply documentation](https://developers.facebook.com/documentation/instagram-platform/private-replies) for provider requirements. This template does not include follower gates, email capture, reminders, or automatic follow-up DMs.
+
+## Other comment templates
+
+- **Share a requested resource** sends a saved public reply.
+- **Answer product questions** uses approved product information. Choose review or automatic sending; questions outside that information are handed off to Inbox.
+- **Reply waiting for review** prepares a saved response for approval.
+- **Flag support requests** brings matching comments to a person without posting a generic acknowledgement.
+
+Automatic X replies are unavailable. Use manual Inbox replies there. First comments on your own published posts remain in destination settings; the existing follow-up workflow remains separate from incoming-comment campaigns.

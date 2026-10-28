@@ -6,9 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
-- Facebook and Instagram direct messages keep their times. Graph returns `created_time` and `updated_time` with an offset without a colon (`+0000`), which the messaging adapters rejected, so every collected message was stored in the year 1, conversations without messages showed the year 1 as their last activity and no reply window was recorded.
 - Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
-- Instagram and Facebook direct messages that share a post or reel, reply to a story or mention the account in a story no longer appear empty in the inbox. The Meta messaging adapters did not request the `shares` and `story` fields and read image attachments from `image_data.src`, while Graph returns `image_data.url` without a MIME type. These messages now show a link attachment.
 
 ## [7.31.1] - 2026-10-26
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -34,15 +34,35 @@ let productionBuildPromise;
 // Compare canonical artifacts with independent forced rebuilds, including cold
 // marketing without generated application configuration. Keep CI headroom.
 const productionBuildTestTimeoutMs = 900_000;
+const prebuiltProductionArtifacts = process.env.OPENPOST_PUBLIC_ARTIFACTS_PREBUILT === "1";
+
+// The CI marketing build applies a local analytics fixture when repository
+// variables are unavailable to fork pull requests. The docs build does not.
+// Prefixed values keep one job able to rebuild either surface with the exact
+// environment that produced its downloadable artifact.
+function marketingBuildEnvironment(environment = process.env) {
+  const translated = {};
+  for (const name of ["PROJECT_TOKEN", "API_HOST", "UI_HOST"]) {
+    const value = environment[`OPENPOST_MARKETING_POSTHOG_${name}`];
+    if (value !== undefined) translated[`VITE_POSTHOG_${name}`] = value;
+  }
+  return translated;
+}
 
 function ensureProductionBuilds(root) {
   productionBuildPromise ??= (async () => {
     // Canonical graph dependencies normally restore these artifacts first.
     // Keep direct invocation useful too, without bypassing the build cache.
-    await runRootTask(root, ["build", "--", "marketing"]);
+    await runRootTask(root, ["build", "--", "marketing"], marketingBuildEnvironment());
     await runRootTask(root, ["build", "--", "docs"]);
   })();
   return productionBuildPromise;
+}
+
+async function requirePrebuiltProductionArtifacts(root) {
+  for (const relativePath of ["apps/marketing/dist/_headers", "apps/docs/out/_headers"]) {
+    await access(path.join(root, relativePath));
+  }
 }
 
 async function fixtureDirectory() {
@@ -1248,7 +1268,11 @@ test(
       );
     }
 
-    await ensureProductionBuilds(root);
+    if (prebuiltProductionArtifacts) {
+      await requirePrebuiltProductionArtifacts(root);
+    } else {
+      await ensureProductionBuilds(root);
+    }
 
     for (const [surface, headersPath, canonicalPaths, plainTextPaths] of [
       [
@@ -1720,7 +1744,10 @@ test(
     });
     await rm(appConfig, { force: true });
     try {
-      await runRootTask(root, ["build", "--", "marketing"], { TURBO_FORCE: "true" });
+      await runRootTask(root, ["build", "--", "marketing"], {
+        TURBO_FORCE: "true",
+        ...marketingBuildEnvironment(),
+      });
     } finally {
       if (previousConfig) await writeFile(appConfig, previousConfig);
     }

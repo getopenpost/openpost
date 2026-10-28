@@ -1,3 +1,31 @@
+import { platformLabel } from "./format";
+
+function normalizeSearch(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
+
+/** Search is a view of the catalogue; it never changes selection or account order. */
+export function filterDestinationAccounts<
+  T extends {
+    platform: string;
+    account_username?: string | null;
+    alias?: string | null;
+  },
+>(accounts: readonly T[], query: string): T[] {
+  const terms = normalizeSearch(query).trim().split(/\s+/).filter(Boolean);
+  return accounts.filter((account) => {
+    const text = normalizeSearch(
+      [account.alias, account.account_username, account.platform, platformLabel(account.platform)]
+        .filter(Boolean)
+        .join(" "),
+    );
+    return terms.every((term) => text.includes(term));
+  });
+}
+
 export type KnownDestination = {
   id: string;
   platform?: string | null;

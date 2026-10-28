@@ -8,15 +8,19 @@
 // own mutation owners; the composer passes its per-account text overrides
 // through the optional row slots.
 
-import type { ReactNode } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useState, type ReactNode } from "react";
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import { AccountAvatar } from "@/components/account-avatar";
 import { NativeText as Text } from "@/components/native-text";
 import { DelayedQueryPlaceholder, QueryNotice } from "@/components/query-state";
 import { ThemeIcon } from "@/components/theme-icon";
-import { BodyText, Button, ContentSection } from "@/components/ui";
-import { orderedSocialSets, reconcileDestinationSelection } from "@/lib/destination-selection";
+import { BodyText, Button, ContentSection, TextField } from "@/components/ui";
+import {
+  filterDestinationAccounts,
+  orderedSocialSets,
+  reconcileDestinationSelection,
+} from "@/lib/destination-selection";
 import { accountHandle, platformLabel } from "@/lib/format";
 import { useNativeTheme, withAlpha } from "@/theme";
 
@@ -82,6 +86,17 @@ export function DestinationChooser({
 }) {
   const theme = useNativeTheme();
   const { colors, typography } = theme.manifest;
+  const [search, setSearch] = useState("");
+  const [selectedOnly, setSelectedOnly] = useState(false);
+  const [contentWidth, setContentWidth] = useState(0);
+  const { fontScale } = useWindowDimensions();
+  const hasSearch = search.trim().length > 0;
+  const visibleAccounts = filterDestinationAccounts(accounts.data ?? [], search).filter(
+    (account) => !selectedOnly || selectedIds.includes(account.id),
+  );
+  // Inline account editors need the full drawer width. Narrow screens and
+  // enlarged text always keep a single reading column.
+  const columns = contentWidth >= 720 && fontScale <= 1.2 && !expandedContent ? 2 : 1;
   const catalogFailed = accounts.isError || socialSets.isError;
   const catalogPending =
     (accounts.data === undefined && accounts.isPending) ||
@@ -104,9 +119,20 @@ export function DestinationChooser({
   };
 
   return (
-    <View style={styles.body}>
+    <View style={styles.body} onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}>
+      <View style={styles.summary}>
+        <BodyText style={{ flex: 1 }}>
+          {`${selectedIds.length} ${selectedIds.length === 1 ? "destination" : "destinations"} selected`}
+        </BodyText>
+        <Button title="Done" onPress={onConfirm} disabled={selectedIds.length === 0} />
+      </View>
       {(socialSets.data?.length ?? 0) > 0 ? (
-        <View style={styles.chipRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator
+          contentContainerStyle={styles.chipRow}
+          keyboardShouldPersistTaps="handled"
+        >
           {orderedSocialSets(socialSets.data ?? []).map((set) => (
             <Pressable
               key={set.id}
@@ -139,7 +165,7 @@ export function DestinationChooser({
               </Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
       ) : null}
       <BodyText>Choose a saved set or fine-tune the accounts below.</BodyText>
       {catalogPending ? (
@@ -159,73 +185,118 @@ export function DestinationChooser({
         <QueryNotice message="You are offline. Current destinations remain visible." offline />
       ) : null}
       {notice}
+      {(accounts.data?.length ?? 0) > 5 || search || selectedOnly ? (
+        <View style={styles.body}>
+          <TextField
+            accessibilityLabel="Search accounts"
+            placeholder="Search name, handle, or network"
+            value={search}
+            onChangeText={setSearch}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          <View style={styles.chipRow}>
+            <Button
+              title={selectedOnly ? "Show all accounts" : "Show selected"}
+              intent="ordinary"
+              accessibilityState={{ selected: selectedOnly }}
+              onPress={() => setSelectedOnly(!selectedOnly)}
+            />
+            {hasSearch ? (
+              <Button title="Clear search" intent="quiet" onPress={() => setSearch("")} />
+            ) : null}
+          </View>
+          <BodyText accessibilityLiveRegion="polite">
+            {visibleAccounts.length} {visibleAccounts.length === 1 ? "account" : "accounts"} shown
+          </BodyText>
+        </View>
+      ) : null}
       {accountsLoadedEmpty && unavailable.length === 0 && !catalogFailed ? (
         <ContentSection>
           <BodyText>No connected accounts. Connect them in the web app first.</BodyText>
         </ContentSection>
       ) : (
-        <View style={styles.accountList}>
-          {(accounts.data ?? []).map((account) => {
-            const selected = selectedIds.includes(account.id);
-            return (
-              <View key={account.id}>
+        <View style={styles.body}>
+          {accounts.data !== undefined && visibleAccounts.length === 0 && !accountsLoadedEmpty ? (
+            <ContentSection>
+              <BodyText>
+                {hasSearch ? "No accounts match your search." : "No connected accounts selected."}
+              </BodyText>
+            </ContentSection>
+          ) : null}
+          <View style={[styles.accountList, columns === 2 && styles.accountGrid]}>
+            {visibleAccounts.map((account) => {
+              const selected = selectedIds.includes(account.id);
+              return (
                 <View
-                  style={[
-                    styles.accountRow,
-                    {
-                      backgroundColor: colors.background,
-                      borderColor: selected ? colors.primary : colors.outlineVariant,
-                    },
-                  ]}
+                  key={account.id}
+                  style={columns === 2 ? { width: (contentWidth - 8) / 2 } : undefined}
                 >
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: selected }}
-                    onPress={() => onToggle(account.id)}
-                    style={({ pressed }) => [styles.accountSelection, pressed && { opacity: 0.65 }]}
+                  <View
+                    style={[
+                      styles.accountRow,
+                      {
+                        backgroundColor: colors.background,
+                        borderColor: selected ? colors.primary : colors.outlineVariant,
+                      },
+                    ]}
                   >
-                    <View
-                      style={[
-                        styles.checkbox,
-                        {
-                          borderColor: selected ? colors.primary : colors.outlineVariant,
-                          backgroundColor: selected ? colors.primary : "transparent",
-                        },
+                    <Pressable
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      onPress={() => onToggle(account.id)}
+                      style={({ pressed }) => [
+                        styles.accountSelection,
+                        pressed && { opacity: 0.65 },
                       ]}
                     >
-                      {selected ? (
-                        <ThemeIcon role="check" size={15} tintColor={colors.onPrimary} />
-                      ) : null}
-                    </View>
-                    <AccountAvatar
-                      name={
-                        account.alias || account.account_username || platformLabel(account.platform)
-                      }
-                      platform={account.platform}
-                      avatarUrl={account.account_avatar_url}
-                    />
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text
-                        numberOfLines={2}
-                        style={[typography.labelLarge, { color: colors.onSurface }]}
+                      <View
+                        style={[
+                          styles.checkbox,
+                          {
+                            borderColor: selected ? colors.primary : colors.outlineVariant,
+                            backgroundColor: selected ? colors.primary : "transparent",
+                          },
+                        ]}
                       >
-                        {accountHandle(
-                          account.account_username,
-                          platformLabel(account.platform),
-                          account.platform,
-                          account.alias ?? "",
-                        )}
-                      </Text>
-                      <BodyText>{platformLabel(account.platform)}</BodyText>
-                      {rowNote?.(account.id)}
-                    </View>
-                  </Pressable>
-                  {rowAction?.(account.id, selected)}
+                        {selected ? (
+                          <ThemeIcon role="check" size={15} tintColor={colors.onPrimary} />
+                        ) : null}
+                      </View>
+                      <AccountAvatar
+                        name={
+                          account.alias ||
+                          account.account_username ||
+                          platformLabel(account.platform)
+                        }
+                        platform={account.platform}
+                        avatarUrl={account.account_avatar_url}
+                      />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={[typography.labelLarge, { color: colors.onSurface }]}>
+                          {accountHandle(
+                            account.account_username,
+                            platformLabel(account.platform),
+                            account.platform,
+                            account.alias ?? "",
+                          )}
+                        </Text>
+                        <BodyText>{platformLabel(account.platform)}</BodyText>
+                        {rowNote?.(account.id)}
+                      </View>
+                    </Pressable>
+                    {rowAction?.(account.id, selected)}
+                  </View>
+                  {selected ? expandedContent?.(account.id) : null}
                 </View>
-                {selected ? expandedContent?.(account.id) : null}
-              </View>
-            );
-          })}
+              );
+            })}
+          </View>
+          {unavailable.length > 0 ? (
+            <BodyText>Disconnected destinations remain selected until you remove them.</BodyText>
+          ) : null}
           {unavailable.map((destination) => (
             <View key={destination.accountId}>
               <Pressable
@@ -258,10 +329,7 @@ export function DestinationChooser({
                   <ThemeIcon role="check" size={15} tintColor={colors.onPrimary} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text
-                    numberOfLines={2}
-                    style={[typography.labelLarge, { color: colors.onSurface }]}
-                  >
+                  <Text style={[typography.labelLarge, { color: colors.onSurface }]}>
                     {destination.platform
                       ? `Unavailable destination, ${platformLabel(destination.platform)}`
                       : "Unavailable destination"}
@@ -276,13 +344,20 @@ export function DestinationChooser({
       {selectedIds.length === 0 ? (
         <BodyText>Select at least one destination to continue.</BodyText>
       ) : null}
-      <Button title="Done" onPress={onConfirm} disabled={selectedIds.length === 0} />
+      {visibleAccounts.length + unavailable.length > 5 ? (
+        <Button title="Done" onPress={onConfirm} disabled={selectedIds.length === 0} />
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   body: {
+    gap: 12,
+  },
+  summary: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   chipRow: {
@@ -295,9 +370,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 7,
+    minHeight: 44,
+    justifyContent: "center",
   },
   accountList: {
     gap: 8,
+  },
+  accountGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "flex-start",
   },
   accountRow: {
     flexDirection: "row",
@@ -308,7 +390,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     minHeight: 52,
   },
-  accountSelection: { flex: 1, minHeight: 52, flexDirection: "row", alignItems: "center", gap: 12 },
+  accountSelection: {
+    flex: 1,
+    minHeight: 52,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   checkbox: {
     width: 22,
     height: 22,

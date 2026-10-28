@@ -2,9 +2,32 @@ import { expect, test } from "bun:test";
 import {
   applySocialSetSelection,
   destinationSummaryLabel,
+  filterDestinationAccounts,
   orderedSocialSets,
   reconcileDestinationSelection,
 } from "./destination-selection";
+
+test("destination search matches aliases, handles, and network labels without reordering", () => {
+  const accounts = [
+    { id: "b", platform: "mastodon", account_username: "founder@social.example", alias: "Work" },
+    { id: "a", platform: "instagram", account_username: "founder", alias: "Studio" },
+    { id: "c", platform: "instagram", account_username: "personal", alias: "Home" },
+  ];
+  expect(filterDestinationAccounts(accounts, "  FOUNDER ").map((account) => account.id)).toEqual([
+    "b",
+    "a",
+  ]);
+  expect(filterDestinationAccounts(accounts, "studio instagram")).toEqual([accounts[1]]);
+  expect(filterDestinationAccounts(accounts, "@social.example")).toEqual([accounts[0]]);
+  expect(filterDestinationAccounts(accounts, "missing")).toEqual([]);
+  expect(filterDestinationAccounts(accounts, " ")).toEqual(accounts);
+});
+
+test("destination search finds accented names without changing authored labels", () => {
+  const account = { id: "international", platform: "mastodon", alias: "José Álvarez" };
+  expect(filterDestinationAccounts([account], "JOSE alvarez")).toEqual([account]);
+  expect(account.alias).toBe("José Álvarez");
+});
 
 const known = [
   { id: "active-a", platform: "x" },

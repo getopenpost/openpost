@@ -66,3 +66,26 @@ describe('workflow repost source picker', () => {
 		expect(onchange).toHaveBeenLastCalledWith(expect.objectContaining({ account_ids: [] }));
 	});
 });
+
+it('keeps hidden workflow source accounts when selecting a search result', async () => {
+	const onchange = vi.fn();
+	const screen = await render(SourceFields, {
+		source: publishedSource(['account-0']),
+		connections: [],
+		accounts: Array.from({ length: 8 }, (_, index) =>
+			sourceAccount(`account-${index}`, `founder${index}`)
+		),
+		onchange
+	});
+
+	await screen.getByRole('searchbox').fill('founder7');
+	await expect
+		.element(screen.getByRole('checkbox', { name: 'founder0, X' }))
+		.not.toBeInTheDocument();
+	await screen.getByRole('checkbox', { name: 'founder7, X' }).click();
+	expect(onchange).toHaveBeenLastCalledWith(
+		expect.objectContaining({ account_ids: ['account-0', 'account-7'] })
+	);
+	await screen.getByRole('checkbox', { name: 'Any compatible source account' }).click();
+	expect(onchange).toHaveBeenLastCalledWith(expect.objectContaining({ account_ids: [] }));
+});

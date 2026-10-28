@@ -259,8 +259,8 @@
 						{#snippet child({ props })}<Button
 								{...props}
 								variant="outline"
-								size="sm"
-								class="w-9 px-0 group-data-[collapsible=icon]:w-full"
+								size="icon-sm"
+								class="px-0"
 								aria-label={m.editors_title()}
 								data-testid="sidebar-new-post-menu"
 								><ThemeIcon role="chevron-down" class="size-4" /></Button
@@ -268,10 +268,10 @@
 					</DropdownMenu.Trigger>
 					<DropdownMenu.Content align="start">
 						<DropdownMenu.Item onclick={() => navigate('/image-editor')}
-							><ThemeIcon role="image" class="size-4" />{m.image_editor_title()}</DropdownMenu.Item
+							><ThemeIcon role="image" class="size-4" />{m.editors_new_image()}</DropdownMenu.Item
 						>
 						<DropdownMenu.Item onclick={() => navigate('/video-editor')}
-							><ThemeIcon role="video" class="size-4" />{m.video_editor_title()}</DropdownMenu.Item
+							><ThemeIcon role="video" class="size-4" />{m.editors_new_video()}</DropdownMenu.Item
 						>
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>

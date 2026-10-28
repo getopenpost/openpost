@@ -81,7 +81,8 @@ test("Dither keeps the app's main routes usable on desktop and phones", async ({
               main &&
               menu &&
               main.height > 0 &&
-              Math.round(main.height) === Math.round(menu.height),
+              Math.round(main.height) === Math.round(menu.height) &&
+              Math.round(menu.width) === Math.round(menu.height),
             );
           })
           .toBe(true);

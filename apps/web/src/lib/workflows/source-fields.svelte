@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { SocialAccount } from '@openpost/query-catalog';
+	import AccountPickerList from '$lib/components/account-picker/list.svelte';
 	import AccountPickerRow from '$lib/components/account-picker/row.svelte';
 	import type { Source, Connection } from './api';
 	import Choice from './choice.svelte';
@@ -10,6 +11,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
+	import { getPlatformName } from '$lib/utils';
 	import { feedURLIssue } from './validation';
 	let {
 		source,
@@ -144,22 +146,28 @@
 					onCheckedChange={(checked) => setAnySource(checked === true)}
 				/>{m.repost_any_compatible_source()}</label
 			>
-			{#each accounts as account (account.id)}<AccountPickerRow
-					name={account.account_username || account.platform}
-					platform={account.platform}
-					avatarUrl={account.account_avatar_url}
-					selected={source.account_ids?.includes(account.id) ?? false}
-					onToggle={() => {
-						const selected = source.account_ids ?? [];
-						onchange({
-							...source,
-							account_ids: selected.includes(account.id)
-								? selected.filter((id) => id !== account.id)
-								: [...selected, account.id]
-						});
-					}}
-					class="min-h-11 gap-3 px-0 py-0"
-				/>{/each}
+			<AccountPickerList
+				{accounts}
+				searchText={(account) =>
+					`${account.account_username || account.platform} ${getPlatformName(account.platform)}`}
+			>
+				{#snippet children(account)}<AccountPickerRow
+						name={account.account_username || account.platform}
+						platform={account.platform}
+						avatarUrl={account.account_avatar_url}
+						selected={source.account_ids?.includes(account.id) ?? false}
+						onToggle={() => {
+							const selected = source.account_ids ?? [];
+							onchange({
+								...source,
+								account_ids: selected.includes(account.id)
+									? selected.filter((id) => id !== account.id)
+									: [...selected, account.id]
+							});
+						}}
+						class="min-h-11 gap-3 px-0 py-0"
+					/>{/snippet}
+			</AccountPickerList>
 		</fieldset>
 	{/if}
 	<p class="text-sm leading-6 text-muted-foreground">

@@ -114,18 +114,12 @@
 							<DropdownMenu.Item
 								class="min-h-11 gap-3"
 								onclick={() => goto(resolveAppPath('/image-editor'))}
-								><ThemeIcon
-									role="image"
-									class="size-4"
-								/>{m.image_editor_title()}</DropdownMenu.Item
+								><ThemeIcon role="image" class="size-4" />{m.editors_new_image()}</DropdownMenu.Item
 							>
 							<DropdownMenu.Item
 								class="min-h-11 gap-3"
 								onclick={() => goto(resolveAppPath('/video-editor'))}
-								><ThemeIcon
-									role="video"
-									class="size-4"
-								/>{m.video_editor_title()}</DropdownMenu.Item
+								><ThemeIcon role="video" class="size-4" />{m.editors_new_video()}</DropdownMenu.Item
 							>
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>

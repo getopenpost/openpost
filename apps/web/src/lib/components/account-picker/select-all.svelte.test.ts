@@ -49,4 +49,14 @@ describe('account-picker select-all header', () => {
 		await screen.getByRole('checkbox', { name: 'Select all' }).click();
 		expect(onSelectAll).toHaveBeenCalledTimes(1);
 	});
+	it('disables bulk selection when there are no accounts', async () => {
+		const screen = await render(AccountPickerSelectAll, {
+			selectedCount: 0,
+			totalCount: 0,
+			onSelectAll: vi.fn(),
+			onClearAll: vi.fn()
+		});
+		await expect.element(screen.getByRole('checkbox', { name: 'Select all' })).toBeDisabled();
+		await expect.element(screen.getByRole('button', { name: 'All', exact: true })).toBeDisabled();
+	});
 });

@@ -29,6 +29,7 @@
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
+	import AccountPickerList from '$lib/components/account-picker/list.svelte';
 	import AccountPickerRow from '$lib/components/account-picker/row.svelte';
 	import RepostStageEditor from '$lib/components/repost-stage-editor.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -539,26 +540,34 @@
 									/>
 									<span>{m.repost_any_compatible_source()}</span>
 								</label>
-								<div class="grid gap-2 sm:grid-cols-2">
-									{#each sourceAccounts as account (account.id)}
+								<AccountPickerList
+									accounts={sourceAccounts}
+									searchText={(account) =>
+										`${accountLabel(account)} ${account.username} ${getPlatformName(account.platform)} ${account.workspace_name}`}
+								>
+									{#snippet children(account)}
 										<AccountPickerRow
 											name={accountLabel(account)}
 											platform={account.platform}
 											avatarUrl={account.avatar_url}
 											selected={(policy.source_account_ids ?? []).includes(account.id)}
-											disabled={!settings.can_manage}
+											disabled={!settings?.can_manage}
 											onToggle={() => toggleSource(policy, account.id)}
 											class="rounded-md border px-3 py-2"
 										/>
-									{/each}
-								</div>
+									{/snippet}
+								</AccountPickerList>
 							</fieldset>
 
 							<fieldset class="space-y-3">
 								<legend class="text-sm font-medium">{m.repost_target_accounts()}</legend>
 								<p class="text-sm text-muted-foreground">{m.repost_target_accounts_body()}</p>
-								<div class="grid gap-2 sm:grid-cols-2">
-									{#each targetAccounts as account (account.id)}
+								<AccountPickerList
+									accounts={targetAccounts}
+									searchText={(account) =>
+										`${accountLabel(account)} ${account.username} ${getPlatformName(account.platform)} ${account.workspace_name}`}
+								>
+									{#snippet children(account)}
 										<AccountPickerRow
 											name={accountLabel(account)}
 											platform={account.platform}
@@ -566,12 +575,12 @@
 											detail={targetAccountDetail(policy, account)}
 											constraint={targetAccountConstraint(policy, account)}
 											selected={(policy.target_account_ids ?? []).includes(account.id)}
-											disabled={!settings.can_manage || !targetCompatible(policy, account)}
+											disabled={!settings?.can_manage || !targetCompatible(policy, account)}
 											onToggle={() => toggleTarget(policy, account.id)}
 											class="rounded-md border px-3 py-2"
 										/>
-									{/each}
-								</div>
+									{/snippet}
+								</AccountPickerList>
 							</fieldset>
 						</div>
 

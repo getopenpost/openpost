@@ -19,6 +19,11 @@ test("navigation separates work, workspace management, and personal preferences"
   }
   await expect(page.getByTestId("sidebar-new-post-menu")).toHaveAccessibleName("Editors");
   await page.screenshot({ path: testInfo.outputPath("navigation-before.png") });
+  await page.getByTestId("sidebar-new-post-menu").click();
+  await expect(page.getByRole("menuitem", { name: "New image", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "New video", exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("creation-menu.png") });
+  await page.keyboard.press("Escape");
   await page.getByTestId("profile-menu-trigger").click();
   await expect(page.getByRole("menuitem", { name: "Settings", exact: true })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Profile & security", exact: true })).toHaveCount(
@@ -174,7 +179,7 @@ test("mobile menus preserve keyboard focus and expose editor creation", async ({
   await expect(profile).toBeFocused();
   await page.keyboard.press("Escape");
   await nav.getByRole("button", { name: "New", exact: true }).click();
-  await page.getByRole("menuitem", { name: "OpenPost Image Editor", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New image", exact: true }).click();
   await expect(page).toHaveURL(/\/image-editor$/);
 });
 

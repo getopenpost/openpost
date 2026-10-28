@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AsyncActionButton from '$lib/components/async-action-button.svelte';
+	import AccountPickerList from '$lib/components/account-picker/list.svelte';
 	import AccountPickerRow from '$lib/components/account-picker/row.svelte';
 	import { client } from '$lib/api/client';
 	import type { paths } from '$lib/api/types';
@@ -11,7 +12,7 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { analyticsMetricLabel } from '$lib/analytics-metric-label';
 	import { m } from '$lib/paraglide/messages';
-	import { formatSocialAccountName } from '$lib/utils';
+	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 
 	type ExportFormat = 'csv' | 'xlsx' | 'json';
 	type GroupBy = 'post' | 'day' | 'week' | 'month' | 'platform' | 'account';
@@ -275,8 +276,12 @@
 						/>
 						<span>{m.analytics_all_accounts()}</span>
 					</label>
-					<div class="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
-						{#each accounts as account (account.id)}
+					<AccountPickerList
+						{accounts}
+						searchText={(account) =>
+							`${formatSocialAccountName(account.username, account.platform)} ${account.username} ${getPlatformName(account.platform)}`}
+					>
+						{#snippet children(account)}
 							<AccountPickerRow
 								name={formatSocialAccountName(account.username, account.platform) ||
 									account.platform}
@@ -290,8 +295,8 @@
 										!selectedAccounts.includes(account.id)
 									))}
 							/>
-						{/each}
-					</div>
+						{/snippet}
+					</AccountPickerList>
 				</fieldset>
 			{/if}
 

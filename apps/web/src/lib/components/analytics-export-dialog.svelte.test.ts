@@ -98,3 +98,36 @@ it.each([390, 320])('keeps long account identities inside the form at %ipx', asy
 		await page.viewport(1280, 900);
 	}
 });
+
+it('exports selected accounts that are hidden by an account search', async () => {
+	const requestExport = vi.fn().mockResolvedValue({
+		data: new Blob(['account']),
+		response: new Response(null)
+	});
+	const screen = await render(AnalyticsExportDialog, {
+		open: true,
+		workspaceId: 'ws-1',
+		days: 30,
+		accountId: 'account-0',
+		accounts: Array.from({ length: 8 }, (_, index) => ({
+			id: `account-${index}`,
+			username: `founder${index}`,
+			platform: index === 7 ? 'linkedin' : 'x'
+		})),
+		metrics: [],
+		requestExport
+	});
+
+	await screen.getByRole('searchbox').fill('LinkedIn');
+	await expect
+		.element(screen.getByRole('checkbox', { name: '@founder0, X' }))
+		.not.toBeInTheDocument();
+	await screen.getByRole('checkbox', { name: 'founder7, LinkedIn' }).click();
+	await screen.getByRole('button', { name: 'Download' }).click();
+
+	await vi.waitFor(() =>
+		expect(requestExport).toHaveBeenCalledWith(
+			expect.objectContaining({ account_ids: 'account-0,account-7' })
+		)
+	);
+});

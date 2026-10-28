@@ -8,6 +8,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import AccountPickerList from '$lib/components/account-picker/list.svelte';
 	import AccountPickerRow from '$lib/components/account-picker/row.svelte';
 	import AccountPickerSelectAll from '$lib/components/account-picker/select-all.svelte';
 	import RepostStageEditor from '$lib/components/repost-stage-editor.svelte';
@@ -15,7 +16,7 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
-	import { formatSocialAccountName } from '$lib/utils';
+	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { ThemeIcon } from '$lib/themes/icons';
 
 	type RepostOverride = components['schemas']['Override'];
@@ -290,8 +291,13 @@
 								{disabled}
 							/>
 						{/if}
-						<div class="grid gap-2 sm:grid-cols-2">
-							{#each targetAccounts as account (account.id)}
+						<AccountPickerList
+							accounts={targetAccounts}
+							searchText={(account) =>
+								`${accountLabel(account)} ${account.username} ${getPlatformName(account.platform)}`}
+							emptyLabel={m.repost_no_supported_accounts()}
+						>
+							{#snippet children(account)}
 								<AccountPickerRow
 									name={accountLabel(account)}
 									platform={account.platform}
@@ -300,12 +306,8 @@
 									onToggle={() => toggleTarget(account.id)}
 									class="rounded-md border px-3 py-2"
 								/>
-							{:else}
-								<p class="text-sm text-muted-foreground sm:col-span-2">
-									{m.repost_no_supported_accounts()}
-								</p>
-							{/each}
-						</div>
+							{/snippet}
+						</AccountPickerList>
 					{/if}
 				</fieldset>
 

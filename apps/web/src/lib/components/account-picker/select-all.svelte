@@ -31,6 +31,7 @@
 		clearLabel = m.compose_clear()
 	}: Props = $props();
 
+	const selectionDisabled = $derived(disabled || totalCount === 0);
 	const allSelected = $derived(totalCount > 0 && selectedCount >= totalCount);
 	const partiallySelected = $derived(selectedCount > 0 && selectedCount < totalCount);
 
@@ -45,7 +46,7 @@
 		<Checkbox
 			checked={allSelected}
 			indeterminate={partiallySelected}
-			{disabled}
+			disabled={selectionDisabled}
 			aria-label={checkboxLabel}
 			onCheckedChange={toggle}
 		/>
@@ -56,7 +57,7 @@
 		variant="ghost"
 		size="sm"
 		class="h-9 text-xs"
-		{disabled}
+		disabled={selectionDisabled}
 		onclick={allSelected ? onClearAll : onSelectAll}
 	>
 		{allSelected ? clearLabel : allLabel}

@@ -62,7 +62,7 @@
 
 <label
 	class={cn(
-		'flex min-h-12 cursor-pointer items-center gap-3 text-sm has-disabled:cursor-not-allowed has-disabled:opacity-50',
+		'flex min-h-12 min-w-0 cursor-pointer items-center gap-3 text-sm has-disabled:cursor-not-allowed has-disabled:opacity-50',
 		className
 	)}
 	data-testid={testId}
@@ -79,13 +79,16 @@
 	<div class="min-w-0 flex-1">
 		<SocialAccountIdentity {name} {platform} {avatarUrl} {detail} />
 		{#if issues.length > 0}
-			<ul id={issuesId} class="mt-1 space-y-0.5 pl-10 text-xs leading-snug text-destructive">
+			<ul
+				id={issuesId}
+				class="mt-1 space-y-0.5 pl-10 text-xs leading-snug break-words text-destructive"
+			>
 				{#each issues as issue (issue)}
 					<li>{issue}</li>
 				{/each}
 			</ul>
 		{:else if constraint}
-			<p class="mt-1 pl-10 text-xs leading-5 text-muted-foreground">{constraint}</p>
+			<p class="mt-1 pl-10 text-xs leading-5 break-words text-muted-foreground">{constraint}</p>
 		{/if}
 	</div>
 	{#if custom}

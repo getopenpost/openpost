@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { page } from 'vitest/browser';
+import '../../routes/layout.css';
 import type { components } from '$lib/api/types';
 import { client, type SocialAccount } from '$lib/api/client';
 import { openPostQueryKeys } from '@openpost/query-catalog';
@@ -244,7 +246,9 @@ describe('Social Set request ownership', () => {
 		await expect.element(settingsDialog).not.toBeInTheDocument();
 		await screen.getByRole('button', { name: 'Edit post settings' }).nth(1).click();
 		await expect.element(settingsDialog.getByRole('combobox', { name: 'Channel' })).toBeVisible();
-		await settingsDialog.getByRole('button', { name: 'Done' }).click();
+		// Inspect the bot fields without committing its missing required channel.
+		await settingsDialog.getByRole('button', { name: 'Close', exact: true }).click();
+		await expect.element(settingsDialog).not.toBeInTheDocument();
 		await screen
 			.getByRole('dialog', { name: 'Manage Social Sets' })
 			.getByRole('button', { name: 'Save' })
@@ -420,6 +424,128 @@ describe('Social Set request ownership', () => {
 			}
 		);
 	}
+
+	it('searches a long destination list without changing hidden selections or bulk actions', async () => {
+		await page.viewport(1000, 700);
+		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), []);
+		const accounts = Array.from({ length: 20 }, (_, index) =>
+			socialAccount(`account-${index}`, index === 19 ? 'mastodon' : 'x', `founder-${index}`)
+		);
+		const onToggle = vi.fn();
+		const onSelectAll = vi.fn();
+		const screen = await render(SocialSetControl, {
+			workspaceId: 'workspace-a',
+			accounts,
+			selectedAccountIds: ['account-0', 'account-19'],
+			onApply: vi.fn(),
+			onToggle,
+			onSelectAll,
+			onClearAll: vi.fn()
+		});
+		await screen.getByTestId('composer-account-control').click();
+		const search = screen.getByRole('searchbox', { name: 'Search accounts or Social Sets' });
+		await search.fill('mastodon founder-19');
+		await expect.element(screen.getByTestId('composer-account-row')).toBeVisible();
+		expect(document.querySelectorAll('[data-testid="composer-account-row"]')).toHaveLength(1);
+		await expect
+			.element(screen.getByRole('checkbox', { name: /founder-19, Mastodon/ }))
+			.toBeChecked();
+		expect(onToggle).not.toHaveBeenCalled();
+		await screen.getByRole('button', { name: 'All', exact: true }).click();
+		expect(onSelectAll).toHaveBeenCalledOnce();
+		await search.fill('missing destination');
+		await expect.element(screen.getByText('No matching accounts.', { exact: true })).toBeVisible();
+		await screen.getByTestId('composer-account-control').click();
+		await screen.getByTestId('composer-account-control').click();
+		await expect
+			.element(screen.getByRole('searchbox', { name: 'Search accounts or Social Sets' }))
+			.toHaveValue('');
+		expect(onToggle).not.toHaveBeenCalled();
+	});
+
+	it('keeps long account lists within desktop and phone viewports', async () => {
+		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), []);
+		const accounts = Array.from({ length: 20 }, (_, index) =>
+			socialAccount(`many-${index}`, 'x', `founder-${index}`)
+		);
+		const screen = await render(SocialSetControl, {
+			workspaceId: 'workspace-a',
+			accounts,
+			selectedAccountIds: [],
+			onApply: vi.fn(),
+			onToggle: vi.fn(),
+			onSelectAll: vi.fn(),
+			onClearAll: vi.fn()
+		});
+		for (const [width, height] of [
+			[1000, 700],
+			[390, 640],
+			[320, 568],
+			[1000, 360]
+		]) {
+			await page.viewport(width, height);
+			await screen.getByTestId('composer-account-control').click();
+			const manage = screen.getByRole('button', { name: 'Manage Social Sets', exact: true });
+			await expect.element(manage).toBeVisible();
+			await expect
+				.poll(() => {
+					const rect = document.querySelector('.social-set-picker')!.getBoundingClientRect();
+					return rect.left >= 0 && rect.right <= width && rect.top >= 0 && rect.bottom <= height;
+				})
+				.toBe(true);
+			await expect
+				.poll(() => {
+					const rows = [...document.querySelectorAll('[data-testid="composer-account-row"]')];
+					const first = rows[0].getBoundingClientRect();
+					const second = rows[1].getBoundingClientRect();
+					return width >= 600
+						? Math.abs(first.top - second.top) < 1 && second.left > first.left
+						: second.top > first.top;
+				})
+				.toBe(true);
+			const footer = manage.element().getBoundingClientRect();
+			expect(footer.bottom).toBeLessThanOrEqual(height);
+			await screen.getByTestId('composer-account-control').click();
+		}
+	});
+
+	it('keeps loaded accounts usable while Social Sets are loading', async () => {
+		const pending = deferred<ReturnType<typeof response<SocialSet[]>>>();
+		getMock.mockReturnValue(pending.promise);
+		const onToggle = vi.fn();
+		const screen = await render(SocialSetControl, {
+			workspaceId: 'workspace-a',
+			accounts: [socialAccount('ready', 'x', 'ready')],
+			onApply: vi.fn(),
+			onToggle
+		});
+		const trigger = screen.getByTestId('composer-account-control');
+		await expect.element(trigger).toBeEnabled();
+		await trigger.click();
+		await screen.getByRole('checkbox', { name: /ready, X/ }).click();
+		expect(onToggle).toHaveBeenCalledOnce();
+		pending.resolve(response([]));
+	});
+
+	it('recovers a failed Social Set load without losing available accounts', async () => {
+		getMock.mockRejectedValue(new Error('Social Sets could not load'));
+		const onApply = vi.fn();
+		const onToggle = vi.fn();
+		const screen = await render(SocialSetControl, {
+			workspaceId: 'workspace-a',
+			accounts: [socialAccount('ready', 'x', 'ready')],
+			onApply,
+			onToggle
+		});
+		await screen.getByTestId('composer-account-control').click();
+		await expect.element(screen.getByRole('alert')).toHaveTextContent('Social Sets could not load');
+		await screen.getByRole('checkbox', { name: /ready, X/ }).click();
+		expect(onToggle).toHaveBeenCalledOnce();
+		getMock.mockResolvedValue(response([]));
+		await screen.getByRole('button', { name: 'Try again', exact: true }).click();
+		await expect.element(screen.getByRole('alert')).not.toBeInTheDocument();
+		expect(onApply).not.toHaveBeenCalled();
+	});
 
 	async function openManager(screen: Awaited<ReturnType<typeof render>>) {
 		await screen.getByTestId('composer-account-control').click();

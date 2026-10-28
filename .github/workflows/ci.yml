@@ -659,6 +659,7 @@ jobs:
           name: marketing-static-${{ github.sha }}-${{ github.run_attempt }}
           path: apps/marketing/dist
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 14
 
   docs-build:
@@ -720,6 +721,7 @@ jobs:
           name: docs-static-${{ github.sha }}-${{ github.run_attempt }}
           path: apps/docs/out
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 14
 
   browser-app:

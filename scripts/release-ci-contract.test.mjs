@@ -231,6 +231,21 @@ for (const jobName of ["marketing-build", "public-build"]) {
   });
 }
 
+test("uploaded public artifacts retain hidden discovery files", () => {
+  for (const [jobName, output] of [
+    ["marketing-build", "apps/marketing/dist"],
+    ["docs-build", "apps/docs/out"],
+  ]) {
+    const upload = load(ci).jobs[jobName].steps.find((step) => step.with?.path === output);
+    assert.ok(upload, `${jobName} must upload its public output`);
+    assert.equal(
+      upload.with["include-hidden-files"],
+      true,
+      `${output}/.well-known must survive upload`,
+    );
+  }
+});
+
 test("the screenshot refresh checks out its canonical immutable frontend assets", () => {
   const checkout = load(screenshotRefresh).jobs.refresh.steps.find((step) =>
     step.uses?.startsWith("actions/checkout@"),

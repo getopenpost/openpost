@@ -230,7 +230,11 @@ test("a joined Facebook caption edits the delivered description without flatteni
       };
     })
     .toEqual({ description: "", first: "Authored first" });
-  await editor.fill("");
+  // Drive ProseMirror's selection transaction before deleting the whole caption.
+  await editor.click();
+  await editor.press("ControlOrMeta+a");
+  await editor.press("Backspace");
+  await expect(editor).toHaveText("");
   await expect
     .poll(async () => {
       const saved = await (

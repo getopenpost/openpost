@@ -27,7 +27,8 @@ export default defineConfig({
 					entries: [...browserTestFiles, '../../packages/ui/dist/**/*.{js,svelte}'],
 					// Keep wrapper components and their mount helpers on the same Svelte runtime.
 					exclude: ['@testing-library/svelte-core', 'vitest-browser-svelte'],
-					include: ['html-to-image']
+					// Worker-loaded GIF encoding must not trigger a mid-test optimizer reload.
+					include: ['gifenc', 'html-to-image']
 				},
 				resolve: {
 					// Browser tests assert computed font-family names, which resolve

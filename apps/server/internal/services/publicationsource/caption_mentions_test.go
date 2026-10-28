@@ -1,9 +1,9 @@
 package publicationsource
 
 import (
-	"github.com/openpost/backend/internal/posttext"
 	"testing"
 
+	"github.com/openpost/backend/internal/posttext"
 	"github.com/stretchr/testify/require"
 )
 

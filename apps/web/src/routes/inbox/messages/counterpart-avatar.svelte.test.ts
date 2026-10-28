@@ -13,10 +13,14 @@ import '../../layout.css';
 
 // Component tests do not populate the SvelteKit page store, so provide its public readable contract.
 // oxlint-disable-next-line anti-slop/no-module-mocking
-vi.mock('$app/stores', async () => {
-	const { readable } = await import('svelte/store');
-	return { page: readable({ url: new URL('http://localhost/inbox/messages') }) };
-});
+vi.mock('$app/stores', () => ({
+	page: {
+		subscribe(run: (value: { url: URL }) => void) {
+			run({ url: new URL('http://localhost/inbox/messages') });
+			return () => {};
+		}
+	}
+}));
 
 const getMock = vi.spyOn(client, 'GET');
 const postMock = vi.spyOn(client, 'POST');

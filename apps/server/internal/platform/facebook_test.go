@@ -62,7 +62,9 @@ func TestFacebookVideoCaptionPreservesExplicitEmpty(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := &PublishRequest{Content: "Shared source text", Settings: tc.settings}
+			calls := 0
 			httpClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+				calls++
 				if err := request.ParseForm(); err != nil {
 					t.Fatal(err)
 				}
@@ -74,6 +76,9 @@ func TestFacebookVideoCaptionPreservesExplicitEmpty(t *testing.T) {
 			_, err := NewFacebookAdapter("", "", "").publishVideo(t.Context(), "token", "page-1", req, "https://media.example/video.mp4")
 			if err != nil {
 				t.Fatal(err)
+			}
+			if calls != 1 {
+				t.Fatalf("video upload made %d requests, want 1", calls)
 			}
 			_, _, finish := facebookVideoFinishRequest(req)
 			if finish["description"] != tc.want {

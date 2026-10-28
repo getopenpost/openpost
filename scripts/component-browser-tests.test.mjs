@@ -131,13 +131,12 @@ import { loadConfigFromFile } from 'vite';
 import { createVitest } from 'vitest/node';
 const root=path.resolve('../..');
 const base=await loadConfigFromFile({command:'serve',mode:'test'},path.join(root,'apps/web/vitest.config.ts'));
-// This probe opens no modules. Disable dependency discovery so its temporary
-// root does not scan application entries or optimize unrelated Node tooling.
-const watcherOnly={name:'watcher-probe-no-deps',configResolved(config){config.optimizeDeps.noDiscovery=true;config.optimizeDeps.include=[];config.optimizeDeps.entries=[];}};
+// Exercise the real project watcher lifecycle without opening browser modules.
+// Browser dependency optimization is unrelated to watching this fixture file.
 const results=[];
 for(const watch of [false,true]) {
  const fixture=await mkdtemp(path.join(os.tmpdir(),'openpost-vitest-watcher-'));
- const projects=base.config.test.projects.map(project=>({...project,cacheDir:path.join(fixture,'cache'),plugins:[...project.plugins??[],watcherOnly],extends:path.join(root,'apps/web/vite.config.ts')}));
+ const projects=base.config.test.projects.map(project=>({...project,cacheDir:path.join(fixture,'cache'),test:{...project.test,browser:{enabled:false}},extends:path.join(root,'apps/web/vite.config.ts')}));
  const file=path.join(fixture,'watched.txt');await writeFile(file,'before');
  let ctx;
  try {

@@ -1459,6 +1459,7 @@
 			mediaAltTexts: Array.from(mediaAltTexts.entries()),
 			linkUrl,
 			settingsByAccount,
+			captionMentionsByAccount,
 			segmentSettingsByPost,
 			mediaSettingsByAccount,
 			aiAppliedStrategies,
@@ -2453,15 +2454,19 @@
 		linkUrl = firstComposerURL(posts[0]?.content ?? '') || publication.source_url || '';
 		captionMentionsByAccount = Object.fromEntries(
 			(publication.renditions ?? []).map((rendition) => {
-				const raw = rendition.segments?.[0]?.settings?.caption_mentions as
-					| { field?: string; body?: string; mentions?: unknown }
-					| undefined;
-				const metadata =
-					typeof raw?.body === 'string' ? readMentionMetadata(raw.body, raw.mentions) : undefined;
+				const parsed = z
+					.object({
+						field: z.enum(['description', 'video_description']),
+						body: z.string(),
+						mentions: z.unknown()
+					})
+					.safeParse(rendition.segments?.[0]?.settings?.caption_mentions);
+				const caption = parsed.success ? parsed.data : undefined;
+				const metadata = caption ? readMentionMetadata(caption.body, caption.mentions) : undefined;
 				return [
 					rendition.social_account_id,
-					raw?.field && typeof raw.body === 'string' && metadata
-						? { field: raw.field, body: raw.body, mentions: metadata }
+					caption && metadata
+						? { field: caption.field, body: caption.body, mentions: metadata }
 						: null
 				];
 			})
@@ -6669,13 +6674,18 @@
 			variants.get(sourceAccountId) ?? inheritedVariantRecord(),
 			posts
 		);
+		const sourceCaption = $state.snapshot(captionMentionsByAccount[sourceAccountId]);
+		const sourceMentions = sourceCaption
+			? [sourceCaption.mentions]
+			: posts.map((post) => {
+					const variant = source[post.key];
+					return variant?.contentInherited ? post.mentions : variant?.mentions;
+				});
 		if (
 			destinationAction === 'copy' &&
 			currentTargetIds.some((targetId) => {
 				const account = selectedAccounts.find((account) => account.id === targetId);
-				return posts.some((post) => {
-					const variant = source[post.key];
-					const metadata = variant?.contentInherited ? post.mentions : variant?.mentions;
+				return sourceMentions.some((metadata) => {
 					return metadata?.spans.some(
 						(span) =>
 							(span.target.provider !== 'workspace' &&
@@ -6694,6 +6704,8 @@
 		const nextSchedules = { ...scheduleOverridesByAccount };
 
 		for (const targetId of currentTargetIds) {
+			const targetAccount = selectedAccounts.find((account) => account.id === targetId);
+			const captionKey = targetAccount ? joinedDescriptionKey(targetAccount) : undefined;
 			const target = normalizeVariantRecord(
 				nextVariants.get(targetId) ?? inheritedVariantRecord(),
 				posts
@@ -6703,13 +6715,22 @@
 				const targetVariant = target[post.key];
 				if (!sourceVariant || !targetVariant) continue;
 				if (destinationAction === 'copy') {
-					targetVariant.content = sourceVariant.contentInherited
-						? post.content
-						: sourceVariant.content;
-					targetVariant.contentInherited = sourceVariant.contentInherited;
-					targetVariant.mentions = sourceVariant.contentInherited
-						? post.mentions
-						: (sourceVariant.mentions ?? { version: 1, spans: [] });
+					if (sourceCaption && !captionKey) {
+						targetVariant.content = post === posts[0] ? sourceCaption.body : '';
+						targetVariant.contentInherited = false;
+						targetVariant.mentions =
+							post === posts[0]
+								? structuredClone(sourceCaption.mentions)
+								: { version: 1, spans: [] };
+					} else {
+						targetVariant.content = sourceVariant.contentInherited
+							? post.content
+							: sourceVariant.content;
+						targetVariant.contentInherited = sourceVariant.contentInherited;
+						targetVariant.mentions = sourceVariant.contentInherited
+							? post.mentions
+							: (sourceVariant.mentions ?? { version: 1, spans: [] });
+					}
 				}
 				targetVariant.mediaIds = sourceVariant.mediaInherited
 					? [...post.mediaIds]
@@ -6724,6 +6745,15 @@
 				nextVariants.set(targetId, target);
 			}
 			if (destinationAction === 'copy') {
+				captionMentionsByAccount = {
+					...captionMentionsByAccount,
+					[targetId]:
+						sourceCaption && captionKey
+							? { ...structuredClone(sourceCaption), field: captionKey }
+							: null
+				};
+				if (targetAccount && captionKey)
+					updateAccountSetting(targetAccount, captionKey, sourceCaption?.body ?? '');
 				if (scheduleOverridesByAccount[sourceAccountId]) {
 					nextSchedules[targetId] = scheduleOverridesByAccount[sourceAccountId];
 				} else {
@@ -6881,11 +6911,15 @@
 			? nativeDescriptionKey(account)
 			: undefined;
 	}
-	function nativeHasCustomText(account: SocialAccount): boolean {
+	function nativeHasCaptionOverride(account: SocialAccount): boolean {
 		const key = nativeDescriptionKey(account);
 		return (
-			variantHasContentOverride(account.id) || Boolean(key && settingsByAccount[account.id]?.[key])
+			Boolean(captionMentionsByAccount[account.id]) ||
+			Boolean(key && settingsByAccount[account.id]?.[key])
 		);
+	}
+	function nativeHasCustomText(account: SocialAccount): boolean {
+		return variantHasContentOverride(account.id) || nativeHasCaptionOverride(account);
 	}
 	function nativeEditableText(post: PostItem): string {
 		if (activeVariantAccount && posts.indexOf(post) === 0) {
@@ -6903,7 +6937,7 @@
 	function resetNativeField(account: SocialAccount, field: 'content' | 'media') {
 		if (field === 'content') {
 			const key = nativeDescriptionKey(account);
-			const hasCaptionOverride = Boolean(key && settingsByAccount[account.id]?.[key]);
+			const hasCaptionOverride = nativeHasCaptionOverride(account);
 			const resetCaptionOnly = Boolean(joinedDescriptionKey(account) && hasCaptionOverride);
 			if (key && hasCaptionOverride) {
 				captionMentionsByAccount = { ...captionMentionsByAccount, [account.id]: null };
@@ -7893,9 +7927,7 @@
 								hasContentOverride={nativeHasCustomText(activeVariantAccount)}
 								resetTextLabel={nativeHasCustomText(activeVariantAccount) &&
 								(!joinedDescriptionKey(activeVariantAccount) ||
-									settingsByAccount[activeVariantAccount.id]?.[
-										joinedDescriptionKey(activeVariantAccount)!
-									])
+									nativeHasCaptionOverride(activeVariantAccount))
 									? joinedDescriptionKey(activeVariantAccount)
 										? m.compose_preview_reset()
 										: m.compose_reset_field()

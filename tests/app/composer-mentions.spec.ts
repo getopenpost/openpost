@@ -12,12 +12,20 @@ for (const joined of [false, true])
     const auth = await registerUser(request, `description-mention-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Description mention edits");
     const accountID = randomUUID();
+    const copyAccountID = joined ? randomUUID() : undefined;
     execFileSync("sqlite3", [
       "-cmd",
       ".timeout 5000",
       `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`,
       `INSERT INTO social_accounts (id,workspace_id,slug,platform,account_id,account_username,access_token_encrypted,is_active) VALUES ('${accountID}','${workspace.id}','video-mention','youtube','channel','channel',X'00',1);`,
     ]);
+    if (copyAccountID)
+      execFileSync("sqlite3", [
+        "-cmd",
+        ".timeout 5000",
+        `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`,
+        `INSERT INTO social_accounts (id,workspace_id,slug,platform,account_id,account_username,access_token_encrypted,is_active) VALUES ('${copyAccountID}','${workspace.id}','caption-copy','youtube','copy-channel','copy-channel',X'00',1);`,
+      ]);
     const headers = { Authorization: `Bearer ${auth.token}` };
     const uploaded = await request.post("/api/v1/media/upload", {
       headers,
@@ -66,7 +74,12 @@ for (const joined of [false, true])
           },
           ...(joined ? [{ body: "Later" }] : []),
         ],
-        renditions: [{ social_account_id: accountID, output_profile: "youtube.video" }],
+        renditions: [
+          { social_account_id: accountID, output_profile: "youtube.video" },
+          ...(copyAccountID
+            ? [{ social_account_id: copyAccountID, output_profile: "youtube.video" }]
+            : []),
+        ],
       },
     });
     expect(response.ok(), await response.text()).toBe(true);
@@ -173,6 +186,27 @@ for (const joined of [false, true])
           sourceBodies: ["Hello @alice", "Later"],
           advanced: true,
         });
+      await page
+        .getByRole("region", { name: "Destinations", exact: true })
+        .getByRole("button", { name: "More", exact: true })
+        .click();
+      await page.getByRole("menuitem", { name: "Copy rendition to…", exact: true }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Apply", exact: true }).click();
+      await expect
+        .poll(async () => {
+          const saved = await (
+            await request.get(`/api/v1/publications/${publication.id}`, { headers })
+          ).json();
+          const target = saved.renditions.find(
+            (rendition: { social_account_id: string }) =>
+              rendition.social_account_id === copyAccountID,
+          );
+          return [
+            target.description,
+            target.segments[0].settings.caption_mentions?.mentions.spans[0].target.id,
+          ];
+        })
+        .toEqual(["Hello @caption_youtube", "independent-caption-person"]);
       await description.fill("Hello @alice");
       await expect
         .poll(async () => {

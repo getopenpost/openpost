@@ -230,6 +230,21 @@ test("a joined Facebook caption edits the delivered description without flatteni
       };
     })
     .toEqual({ description: "", first: "Authored first" });
+  await editor.fill("");
+  await expect
+    .poll(async () => {
+      const saved = await (
+        await request.get(`/api/v1/publications/${publication.id}`, { headers })
+      ).json();
+      return saved.renditions[0].segments[0].settings.caption_mentions?.body;
+    })
+    .toBe("");
+  await page
+    .getByTestId("composer-variant-toolbar")
+    .getByRole("button", { name: "More", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Reset", exact: true }).click();
+  await expect(editor).toHaveText("Authored first\n\nContinuation once", { useInnerText: true });
   await page
     .getByTestId("composer-variant-toolbar")
     .getByRole("button", { name: "More", exact: true })

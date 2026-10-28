@@ -230,9 +230,11 @@ export async function insertLibrarySelection(
 			sequenceStore.addComposition(composition);
 		if (timeline.items.length === 1 && project.metadata.fps === timelineStore.fps) {
 			const item = timeline.items[0]!;
+			const overlay = item.type === 'text' || item.type === 'shape';
 			const track = ensureOpenTrackForRange({
 				kind: item.type === 'audio' ? 'audio' : 'video',
 				itemType: item.type,
+				stacking: overlay ? 'top' : undefined,
 				from,
 				durationInFrames: item.durationInFrames,
 				label: name,

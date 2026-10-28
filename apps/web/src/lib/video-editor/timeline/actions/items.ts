@@ -254,6 +254,7 @@ export function addShapeItem(
 		const targetTrack = ensureOpenTrackForRange({
 			kind: 'video',
 			itemType: 'shape',
+			stacking: 'top',
 			from,
 			durationInFrames,
 			label,

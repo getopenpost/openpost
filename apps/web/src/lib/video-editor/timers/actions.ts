@@ -30,6 +30,7 @@ export function addTimer(
 		const track = ensureOpenTrackForRange({
 			kind: 'video',
 			itemType: 'text',
+			stacking: 'top',
 			from,
 			durationInFrames,
 			label,

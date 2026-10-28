@@ -1224,7 +1224,10 @@
 			visible: true,
 			muted: false,
 			solo: false,
-			order: timelineStore.tracks.reduce((max, candidate) => Math.max(max, candidate.order), -1) + 1
+			order:
+				timelineStore.tracks.length > 0
+					? Math.min(...timelineStore.tracks.map((candidate) => candidate.order)) - 1
+					: 0
 		};
 		timelineStore._setTracks([...timelineStore.tracks, track]);
 		timelineStore._setItems([...timelineStore.items, base]);

@@ -523,6 +523,68 @@ it.each(['solid', 'gradient'] as const)(
 	}
 );
 
+it('adds generated Motion layers above an existing video track', async () => {
+	const id = 'generated-layer-over-video';
+	const videoTrack = {
+		id: 'motion-video',
+		name: 'Video',
+		kind: 'video' as const,
+		height: 34,
+		locked: false,
+		visible: true,
+		muted: false,
+		solo: false,
+		order: 0
+	};
+	const composition = {
+		id,
+		name: 'Generated layer over video',
+		editorKind: 'composite-2d' as const,
+		items: [
+			{
+				id: 'motion-video-item',
+				trackId: videoTrack.id,
+				type: 'video' as const,
+				from: 0,
+				durationInFrames: 30,
+				label: 'Video'
+			}
+		],
+		tracks: [
+			videoTrack,
+			{
+				id: 'motion-audio',
+				name: 'Audio',
+				kind: 'audio' as const,
+				height: 34,
+				locked: false,
+				visible: true,
+				muted: false,
+				solo: false,
+				order: 1
+			}
+		],
+		transitions: [],
+		fps: 30,
+		width: 64,
+		height: 64,
+		durationInFrames: 30
+	};
+	sequenceStore.addComposition(composition);
+	sequenceStore.switchTo(id);
+	try {
+		const screen = await render(CompositionTimeline, { onedit: vi.fn() });
+		await screen.getByTestId('add-layer-text').click();
+		const layer = timelineStore.items.find((item) => item.type === 'text')!;
+		expect(timelineStore.tracks.find((track) => track.id === layer.trackId)!.order).toBeLessThan(
+			videoTrack.order
+		);
+	} finally {
+		timelineStore.__resetForTesting();
+		sequenceStore.deleteCompositionAndReferences(id);
+	}
+});
+
 it('keeps an existing Motion group intact when Group is repeated and undoes once', async () => {
 	const id = 'motion-repeat-group';
 	const tracks = ['a', 'b', 'c'].map((id, order) => ({

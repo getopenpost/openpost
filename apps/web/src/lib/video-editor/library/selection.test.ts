@@ -69,6 +69,42 @@ it('captures an independent reusable block, exposes text, and preserves its seco
 	expect(timelineStore.items).toEqual([]);
 	expect(sequenceStore.compositions).toEqual([]);
 });
+it('inserts a saved single text item above an occupied overlay track', async () => {
+	timelineStore._setTracks(createEmptyTimeline().tracks);
+	const main = timelineStore.tracks.find((track) => track.kind === 'video' && track.order === 1)!;
+	timelineStore._setItems([
+		{
+			id: 'saved-text',
+			type: 'text',
+			label: 'Saved title',
+			text: 'Saved',
+			trackId: main.id,
+			from: 0,
+			durationInFrames: 50
+		}
+	]);
+	const recipe = await captureLibrarySelection(['saved-text']);
+	timelineStore._setItems([]);
+	sequenceStore.reset();
+	sequenceStore.load(createEmptyTimeline(), project.metadata);
+	const top = timelineStore.tracks.find((track) => track.kind === 'video' && track.order === 0)!;
+	timelineStore._setItems([
+		{
+			id: 'overlay-clip',
+			type: 'video',
+			label: 'Overlay',
+			trackId: top.id,
+			from: 0,
+			durationInFrames: 50,
+			mediaId: 'media'
+		}
+	]);
+	const ids = await insertLibrarySelection(recipe, 'Saved title');
+	const item = timelineStore.itemById.get(ids[0]!)!;
+	expect(timelineStore.tracks.find((track) => track.id === item.trackId)!.order).toBeLessThan(
+		top.order
+	);
+});
 it('applies a saved text style without replacing the target wording or timing', async () => {
 	const { applyLibraryTextStyle } = await import('./selection');
 	const trackId = timelineStore.tracks[0]!.id;

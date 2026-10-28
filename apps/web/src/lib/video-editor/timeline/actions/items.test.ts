@@ -649,3 +649,19 @@ it('adds titles above an occupied video instead of hiding them on an empty lower
 		top.order
 	);
 });
+
+it('adds shapes above an occupied video instead of hiding them on an empty lower track', () => {
+	timelineStore.__resetForTesting();
+	const tracks = createDefaultTracks();
+	timelineStore._setTracks(tracks);
+	commandHistory.clearHistory();
+	const top = tracks
+		.filter((track) => track.kind === 'video')
+		.sort((a, b) => a.order - b.order)[0]!;
+	timelineStore._setItems([clip({ trackId: top.id, durationInFrames: 300 })]);
+	const id = addShapeItem('rectangle');
+	const shape = timelineStore.itemById.get(id)!;
+	expect(timelineStore.tracks.find((track) => track.id === shape.trackId)!.order).toBeLessThan(
+		top.order
+	);
+});

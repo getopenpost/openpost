@@ -228,7 +228,11 @@ jobs:
           OPENPOST_MARKETING_POSTHOG_PROJECT_TOKEN: ${{ github.event_name == 'pull_request' && 'phc_browser_fixture' || vars.POSTHOG_PROJECT_TOKEN }}
           OPENPOST_MARKETING_POSTHOG_API_HOST: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4322' || vars.POSTHOG_BROWSER_HOST }}
           OPENPOST_MARKETING_POSTHOG_UI_HOST: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4322' || vars.POSTHOG_UI_HOST }}
-        run: bun run check -- public-routes
+        # Run the proof directly: the local Turbo task depends on canonical
+        # builds and filters environment variables before the proof starts.
+        run: |
+          bun test ./tests/build/generate-agent-surfaces.test.mjs
+          bun scripts/check-marketing-route-manifest.mjs
       - if: always()
         run: bash scripts/ci-timing-summary.sh finish public-build
 

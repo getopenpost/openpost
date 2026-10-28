@@ -107,7 +107,10 @@ describe('Social Set request ownership', () => {
 
 	it('preserves an API-authored embed when its Social Set is opened and renamed', async () => {
 		const existing = socialSet('workspace-a');
-		const embed = { title: 'Launch', fields: [{ name: 'Version', value: '4.30' }] };
+		const embed = {
+			title: 'Launch',
+			fields: [{ name: 'Version', value: '4.30' }]
+		};
 		existing.accounts = [
 			{
 				social_account_id: 'bot',
@@ -443,7 +446,9 @@ describe('Social Set request ownership', () => {
 			onClearAll: vi.fn()
 		});
 		await screen.getByTestId('composer-account-control').click();
-		const search = screen.getByRole('searchbox', { name: 'Search accounts or Social Sets' });
+		const search = screen.getByRole('searchbox', {
+			name: 'Search accounts or Social Sets'
+		});
 		await search.fill('mastodon founder-19');
 		await expect.element(screen.getByTestId('composer-account-row')).toBeVisible();
 		expect(document.querySelectorAll('[data-testid="composer-account-row"]')).toHaveLength(1);
@@ -458,7 +463,11 @@ describe('Social Set request ownership', () => {
 		await screen.getByTestId('composer-account-control').click();
 		await screen.getByTestId('composer-account-control').click();
 		await expect
-			.element(screen.getByRole('searchbox', { name: 'Search accounts or Social Sets' }))
+			.element(
+				screen.getByRole('searchbox', {
+					name: 'Search accounts or Social Sets'
+				})
+			)
 			.toHaveValue('');
 		expect(onToggle).not.toHaveBeenCalled();
 	});
@@ -485,7 +494,10 @@ describe('Social Set request ownership', () => {
 		]) {
 			await page.viewport(width, height);
 			await screen.getByTestId('composer-account-control').click();
-			const manage = screen.getByRole('button', { name: 'Manage Social Sets', exact: true });
+			const manage = screen.getByRole('button', {
+				name: 'Manage Social Sets',
+				exact: true
+			});
 			await expect.element(manage).toBeVisible();
 			await expect
 				.poll(() => {
@@ -546,6 +558,52 @@ describe('Social Set request ownership', () => {
 		await expect.element(screen.getByRole('alert')).not.toBeInTheDocument();
 		expect(onApply).not.toHaveBeenCalled();
 	});
+
+	it('applies the default Social Set when the user has not chosen destinations', async () => {
+		const defaultSet = { ...socialSet('workspace-a'), is_default: true };
+		getMock.mockResolvedValue(response([defaultSet]));
+		const onApply = vi.fn();
+		await render(SocialSetControl, {
+			workspaceId: 'workspace-a',
+			accounts: [socialAccount('ready', 'x', 'ready')],
+			autoApplyDefault: true,
+			onApply
+		});
+		await expect.poll(() => onApply.mock.calls).toEqual([[defaultSet]]);
+	});
+
+	for (const action of ['account', 'all', 'clear'] as const) {
+		it(`does not replace an explicit ${action} choice with a delayed default Social Set`, async () => {
+			const pending = deferred<ReturnType<typeof response<SocialSet[]>>>();
+			getMock.mockReturnValue(pending.promise);
+			const onApply = vi.fn();
+			const defaultSet = { ...socialSet('workspace-a'), is_default: true };
+			const screen = await render(SocialSetControl, {
+				workspaceId: 'workspace-a',
+				accounts: [socialAccount('ready', 'x', 'ready'), socialAccount('default', 'x', 'default')],
+				selectedAccountIds: action === 'clear' ? ['ready', 'default'] : [],
+				autoApplyDefault: true,
+				onApply,
+				onToggle: vi.fn(),
+				onSelectAll: vi.fn(),
+				onClearAll: vi.fn()
+			});
+			await screen.getByTestId('composer-account-control').click();
+			if (action === 'account') await screen.getByRole('checkbox', { name: /ready, X/ }).click();
+			else
+				await screen
+					.getByRole('button', {
+						name: action === 'clear' ? 'Clear' : 'All',
+						exact: true
+					})
+					.click();
+			pending.resolve(response([defaultSet]));
+			await expect
+				.element(screen.getByRole('button', { name: defaultSet.name, exact: true }))
+				.toBeVisible();
+			expect(onApply).not.toHaveBeenCalled();
+		});
+	}
 
 	async function openManager(screen: Awaited<ReturnType<typeof render>>) {
 		await screen.getByTestId('composer-account-control').click();

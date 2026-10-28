@@ -134,6 +134,7 @@
 	let loadedWorkspaceId = '';
 	let pickerOpen = $state(false);
 	let pickerSearch = $state('');
+	let explicitDestinationChoice = false;
 	const visibleSets = $derived(sets.filter((set) => matchesAccountSearch(set.name, pickerSearch)));
 	$effect(() => {
 		if (!pickerOpen) pickerSearch = '';
@@ -233,7 +234,10 @@
 		const requestedWorkspace = workspaceId;
 		if (!requestedWorkspace) return;
 		const requestSequence = ++loadSequence;
-		if (loadedWorkspaceId !== requestedWorkspace) sets = [];
+		if (loadedWorkspaceId !== requestedWorkspace) {
+			sets = [];
+			explicitDestinationChoice = false;
+		}
 		loadedWorkspaceId = requestedWorkspace;
 		loading = true;
 		error = '';
@@ -257,7 +261,8 @@
 			// reusable set must never replace that snapshot with current membership.
 			return;
 		}
-		if (autoApplyDefault) {
+		// A delayed default must not replace an account or bulk choice made while loading.
+		if (autoApplyDefault && !explicitDestinationChoice) {
 			const defaultSet = sets.find((set) => set.is_default) ?? null;
 			if (defaultSet) {
 				selectedSetId = defaultSet.id;
@@ -267,6 +272,7 @@
 	}
 
 	function selectSet(id: string) {
+		explicitDestinationChoice = true;
 		selectedSetId = id;
 		onApply(sets.find((set) => set.id === id) ?? null);
 		pickerOpen = false;
@@ -685,6 +691,7 @@
 	}
 
 	function requestAccountToggle(account: SocialAccount) {
+		explicitDestinationChoice = true;
 		if (selectedAccountIds.includes(account.id) && customAccountIds.includes(account.id)) {
 			pendingCustomAccount = account;
 			pickerOpen = false;
@@ -773,8 +780,14 @@
 					<AccountPickerSelectAll
 						selectedCount={selectedAccounts.length}
 						totalCount={accounts.length}
-						{onSelectAll}
-						{onClearAll}
+						onSelectAll={() => {
+							explicitDestinationChoice = true;
+							onSelectAll?.();
+						}}
+						onClearAll={() => {
+							explicitDestinationChoice = true;
+							onClearAll?.();
+						}}
 						{disabled}
 					/>
 				{/if}

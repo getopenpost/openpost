@@ -1,6 +1,6 @@
 ### Changed
 
-- Run the public artifact contract in a dedicated CI job, reuse the local Turbo cache across jobs, and keep changelog-only pull requests out of the full matrix.
+- Run the public artifact contract in a dedicated CI job, reuse the docs and marketing artifacts that job needs, persist the local Turbo cache across jobs, and keep changelog-only pull requests out of the full matrix.
 
 ### Fixed
 

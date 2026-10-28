@@ -253,6 +253,103 @@ describe('OpenPost Image Editor canvas reconciliation', () => {
 		expect(canvas.backgroundColor).toBe('rgba(18, 52, 86, 1)');
 	});
 
+	it('keeps a newly applied gradient background behind existing layers during incremental sync', async () => {
+		interface StackObjectFixture {
+			id?: string;
+		}
+		interface StackCanvasFixture {
+			backgroundColor: string;
+			objects: StackObjectFixture[];
+			add(object: StackObjectFixture): void;
+			remove(object: StackObjectFixture): void;
+			moveObjectTo(object: StackObjectFixture, index: number): void;
+			sendObjectToBack(object: StackObjectFixture): void;
+			renderAll(): void;
+		}
+		class FabricObjectFixture {
+			constructor(..._options: unknown[]) {}
+		}
+		const bottom = imageLayer(400, 300);
+		const top: ImageEditorLayer = { ...imageLayer(240, 320), id: 'top-layer' };
+		const page = pageFixture([bottom, top]);
+		const document = documentFixture(page);
+		const adapter = new OpenPostFabricAdapter({
+			canvas: TEST_CANVAS,
+			document,
+			page,
+			readOnly: true,
+			staticCanvas: true,
+			onSelection: () => undefined,
+			onTransform: () => undefined,
+			onTextChange: () => undefined
+		});
+		const bottomObject: StackObjectFixture = { id: bottom.id };
+		const topObject: StackObjectFixture = { id: top.id };
+		const objects: StackObjectFixture[] = [bottomObject, topObject];
+		const canvas: StackCanvasFixture = {
+			backgroundColor: '',
+			objects,
+			add(object) {
+				objects.push(object);
+			},
+			remove(object) {
+				const index = objects.indexOf(object);
+				if (index >= 0) objects.splice(index, 1);
+			},
+			moveObjectTo(object, index) {
+				const current = objects.indexOf(object);
+				if (current < 0 || current === index) return;
+				objects.splice(current, 1);
+				objects.splice(index, 0, object);
+			},
+			sendObjectToBack(object) {
+				const current = objects.indexOf(object);
+				if (current <= 0) return;
+				objects.splice(current, 1);
+				objects.unshift(object);
+			},
+			renderAll() {}
+		};
+		const internals = adapterInternals<{
+			fabric: { FabricObject: typeof FabricObjectFixture };
+			canvas: StackCanvasFixture;
+			objectByLayerID: Map<string, StackObjectFixture>;
+			layerSnapshots: Map<string, ImageEditorLayer>;
+			backgroundObject: StackObjectFixture | null;
+		}>(adapter);
+		internals.fabric = { FabricObject: FabricObjectFixture };
+		internals.canvas = canvas;
+		internals.objectByLayerID = new Map([
+			[bottom.id, bottomObject],
+			[top.id, topObject]
+		]);
+		internals.layerSnapshots = new Map([
+			[bottom.id, bottom],
+			[top.id, top]
+		]);
+		const nextPage: ImageEditorPage = {
+			...page,
+			background: {
+				type: 'gradient',
+				opacity: 1,
+				gradient: {
+					type: 'linear',
+					start: { x: 0, y: 540 },
+					end: { x: 1080, y: 540 },
+					stops: [
+						{ offset: 0, color: '#f97316' },
+						{ offset: 1, color: '#7c3aed' }
+					],
+					reverse: false
+				}
+			}
+		};
+
+		await adapter.sync({ ...document, pages: [nextPage] }, nextPage);
+
+		expect(canvas.objects).toEqual([internals.backgroundObject, bottomObject, topObject]);
+	});
+
 	it('detaches an active selection before applying document coordinates to its children', async () => {
 		interface SelectionLayerObjectFixture {
 			left: number;

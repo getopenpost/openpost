@@ -2680,6 +2680,7 @@ export class OpenPostFabricAdapter {
 
 	private syncObjectOrder(): void {
 		if (!this.canvas) return;
+		if (this.backgroundObject) this.canvas.sendObjectToBack(this.backgroundObject);
 		let index = this.backgroundObject ? 1 : 0;
 		for (const layer of imageEditorLayerRenderOrder(this.page.layers)) {
 			const object = this.objectByLayerID.get(layer.id);

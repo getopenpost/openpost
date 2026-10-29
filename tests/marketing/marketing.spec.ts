@@ -265,7 +265,7 @@ test("public changelog is generated from the canonical release record @desktop",
     readFileSync(new URL("../../CHANGELOG.md", import.meta.url), "utf8"),
   ).find((section) => section.groups.some((group) => group.items.length > 0));
   const canonicalItem = canonicalSection?.groups.find((group) => group.items.length > 0)?.items[0];
-  if (!canonicalItem) {
+  if (!canonicalSection || !canonicalItem) {
     throw new Error("The canonical changelog has no visible entries");
   }
 
@@ -278,7 +278,12 @@ test("public changelog is generated from the canonical release record @desktop",
       })
       .first(),
   ).toBeVisible();
-  await expect(page.getByText(canonicalItem, { exact: true })).toBeVisible();
+  const canonicalLabel =
+    canonicalSection.label === "Unreleased" ? "Unreleased" : `v${canonicalSection.label}`;
+  const section = page.locator("article").filter({
+    has: page.getByRole("heading", { name: canonicalLabel, exact: true }),
+  });
+  await expect(section.getByText(canonicalItem, { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Full changelog" })).toHaveAttribute(
     "href",
     "https://github.com/getopenpost/openpost/blob/main/CHANGELOG.md",

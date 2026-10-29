@@ -74,7 +74,7 @@ var providerFeatureTable = map[string]providerFeatureSupport{
 	// package-level GoogleBusinessAnalyticsSupport describes the reporting
 	// boundary) and declares no engagement support.
 	providerGoogleBusiness: {adapterAnalytics: false, seedAnalytics: false, engagement: false},
-	providerDevNull:        {adapterAnalytics: false, seedAnalytics: false, engagement: false},
+	providerDevNull:        {adapterAnalytics: true, seedAnalytics: true, engagement: false},
 }
 
 // lookupFeatureSupport resolves one table row for a provider account. Unknown

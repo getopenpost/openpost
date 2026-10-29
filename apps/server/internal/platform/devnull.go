@@ -217,6 +217,7 @@ type devNullUserResponse struct {
 	Data struct {
 		ID        string `json:"id"`
 		Username  string `json:"username"`
+		Handle    string `json:"handle"`
 		Name      string `json:"name"`
 		AvatarURL string `json:"avatar_url"`
 	} `json:"data"`
@@ -232,13 +233,14 @@ func (d *DevNullAdapter) fetchUserProfile(ctx context.Context, username string) 
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("decoding dev/null profile: %w", err)
 	}
-	if strings.TrimSpace(response.Data.Username) == "" {
+	handle := firstNonEmptyString(response.Data.Handle, response.Data.Username)
+	if strings.TrimSpace(handle) == "" {
 		return nil, fmt.Errorf("dev/null user %q was not found", username)
 	}
 	return &UserProfile{
-		ID:              firstNonEmptyString(response.Data.ID, response.Data.Username),
-		Username:        response.Data.Username,
-		DisplayName:     firstNonEmptyString(response.Data.Name, response.Data.Username),
+		ID:              firstNonEmptyString(response.Data.ID, handle),
+		Username:        handle,
+		DisplayName:     firstNonEmptyString(response.Data.Name, handle),
 		AvatarURL:       strings.TrimSpace(response.Data.AvatarURL),
 		CapabilityState: map[string]string{"devnull_key_type": "ssh_signature"},
 	}, nil

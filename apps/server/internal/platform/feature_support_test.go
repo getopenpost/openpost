@@ -68,7 +68,7 @@ func TestSupportsAnalyticsSeededDefaults(t *testing.T) {
 		{"discord", `{"connection_type":"webhook"}`, false},
 		{"discord", `{"connection_type":"bot"}`, true},
 		{"googlebusiness", "", false},
-		{"devnull", "", false},
+		{"devnull", "", true},
 		{"unknown", "", false},
 		{"", "", false},
 	}

@@ -1015,6 +1015,10 @@ if (args[0] === 'pr' && args[1] === 'list' && process.env.REVIEW_EXISTS === '1')
         REVIEW_EXISTS: attempt === 2 ? "1" : "0",
       });
       assert.equal(run("git", ["show", "-s", "--format=%an"], checkout), "openpost-bot[bot]");
+      assert.equal(
+        run("git", ["show", "-s", "--format=%ae"], checkout),
+        "12345+openpost-bot[bot]@users.noreply.github.com",
+      );
       heads.push(run("git", ["rev-parse", "HEAD"], checkout));
       const branch = run("git", ["branch", "--show-current"], checkout);
       assert.equal(
@@ -1027,6 +1031,13 @@ if (args[0] === 'pr' && args[1] === 'list' && process.env.REVIEW_EXISTS === '1')
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));
+    assert.deepEqual(
+      calls.filter((args) => args[0] === "api"),
+      [
+        ["api", "users/openpost-bot[bot]", "--jq", ".id"],
+        ["api", "users/openpost-bot[bot]", "--jq", ".id"],
+      ],
+    );
     assert.equal(calls.filter((args) => args[0] === "pr" && args[1] === "create").length, 1);
     assert.equal(calls.filter((args) => args[0] === "pr" && args[1] === "edit").length, 1);
   } finally {

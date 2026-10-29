@@ -307,3 +307,10 @@ test("backend changes retain the application build and browser qualification", (
   assert.equal(plan.application, true);
   assert.equal(plan.image, true);
 });
+
+test("shared editor and web library changes include their real consumers", () => {
+  const editor = planCI(["packages/editor-shared/src/workspace.ts"], manifest);
+  assert.equal(editor.frontend, true);
+  const library = planCI(["apps/web/src/lib/components/button.svelte"], manifest);
+  assert.equal(library.marketing, true);
+});

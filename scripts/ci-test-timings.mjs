@@ -12,7 +12,8 @@ export function summarizeReports(reports) {
     if (!Array.isArray(suites)) throw new Error("report requires a suites array");
     for (const suite of suites) {
       for (const spec of suite.specs ?? []) {
-        for (const entry of spec.tests ?? []) {
+        if (!Array.isArray(spec.tests)) throw new Error("spec requires a tests array");
+        for (const entry of spec.tests) {
           const identity = JSON.stringify([spec.id, entry.projectName]);
           if (!spec.id || typeof entry.projectName !== "string")
             throw new Error("test requires stable id and projectName");

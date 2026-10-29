@@ -103,6 +103,7 @@
 		"@number-flow/svelte": "^0.4.2",
 		"@openpost/api-contract": "workspace:*",
 		"@openpost/dither": "workspace:*",
+		"@openpost/editor-shared": "workspace:*",
 		"@openpost/plan-catalog": "workspace:*",
 		"@openpost/platform-text": "workspace:*",
 		"@openpost/query-catalog": "workspace:*",

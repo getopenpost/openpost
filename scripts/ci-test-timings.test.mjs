@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { summarizeReports, auditSelection } from "./ci-test-timings.mjs";
 
-const report = (specs) => ({ suites: [{ title: "outer", suites: [{ title: "nested", specs }] }] });
+const report = (specs) => ({
+  suites: [
+    {
+      title: "outer",
+      specs: specs.slice(0, 1),
+      suites: [{ title: "nested", specs: specs.slice(1) }],
+    },
+  ],
+});
 const spec = (id, durations, status = "expected", projectName = "chrome") => ({
   id,
   title: id,
@@ -32,20 +40,21 @@ test("retains per-test retry cost and combines shard reports by stable project i
 });
 
 test("selection audit reports failed tests absent from executed selection, without calling flakes misses", () => {
-  const selected = summarizeReports([report([spec("covered", [10])])]);
+  const selected = summarizeReports([report([spec("covered", [10]), spec("not-run", [])])]);
   const full = summarizeReports([
     report([
       spec("covered", [10], "unexpected"),
       spec("missed", [30], "unexpected"),
+      spec("not-run", [20], "unexpected"),
       spec("flake", [10], "flaky"),
     ]),
   ]);
   const audit = auditSelection(selected, full);
   assert.deepEqual(
     audit.uncoveredFailures.map((t) => t.id),
-    ["missed"],
+    ["missed", "not-run"],
   );
-  assert.equal(audit.fullTests, 3);
+  assert.equal(audit.fullTests, 4);
   assert.equal(audit.selectedTests, 1);
 });
 
@@ -56,4 +65,10 @@ test("invalid reports and duplicate shard inputs fail rather than double-countin
     /duplicate/,
   );
   assert.throws(() => summarizeReports([report([spec("bad", [-1])])]), /duration/);
+});
+
+test("malformed specs cannot silently disappear from timings", () => {
+  for (const tests of [undefined, null, {}]) {
+    assert.throws(() => summarizeReports([report([{ id: "broken", tests }])]), /tests array/);
+  }
 });

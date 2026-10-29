@@ -163,6 +163,7 @@ function planFiltered(files, manifest, { full = false, repositoryRoot = root } =
       full ||
       delivery ||
       consumers.has("marketing") ||
+      files.some((file) => file.startsWith("apps/web/src/lib/")) ||
       touched.has("marketing") ||
       touched.has("shared-assets"),
     documentation:

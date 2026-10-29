@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'qualification' || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || github.event_name == 'schedule' && 'qualification' || github.ref }}
   # Superseded feedback can stop. Tags and exhaustive audits stay independent.
   cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
@@ -1072,6 +1072,20 @@ jobs:
       - name: Install the standalone mobile app
         working-directory: apps/mobile
         run: bun install --frozen-lockfile
+      - name: Verify the standalone mobile install
+        working-directory: apps/mobile
+        # Bun occasionally leaves registry and file: dependencies unlinked
+        # after a cached install; tsc then fails with dozens of cascading
+        # errors. Show the tree and repair loudly instead of debugging
+        # type noise.
+        run: |
+          ls node_modules/@tanstack/ node_modules/@openpost/ || true
+          if [ ! -f node_modules/@tanstack/query-core/package.json ] || [ ! -f node_modules/@openpost/api-contract/package.json ]; then
+            rm -rf node_modules
+            bun install --frozen-lockfile --no-cache
+          fi
+          test -f node_modules/@tanstack/query-core/package.json
+          test -f node_modules/@openpost/api-contract/package.json
       - name: Check the standalone mobile app
         working-directory: apps/mobile
         run: bun run check

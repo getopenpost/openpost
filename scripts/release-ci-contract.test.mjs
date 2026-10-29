@@ -127,7 +127,10 @@ case "$1" in
 esac
 `,
     );
-    writeFileSync(path.join(bin, "git"), '#!/bin/sh\nexit "${MOCK_GIT_RESULT:-0}"\n');
+    writeFileSync(
+      path.join(bin, "git"),
+      '#!/bin/sh\nif [ "${MOCK_GIT_RESULT:-0}" != 0 ]; then exit "${MOCK_GIT_RESULT}"; fi\ncase "$1 $2 $3 $4" in\n  "cat-file -e"*) exit 0 ;;\n  "merge-base --is-ancestor ${MOCK_BEFORE:-abc} ${MOCK_HEAD:-def}") exit 0 ;;\n  *) exit 1 ;;\nesac\n',
+    );
     chmodSync(path.join(bin, "bun"), 0o755);
     chmodSync(path.join(bin, "git"), 0o755);
     const script = workflowStepScript(
@@ -137,6 +140,7 @@ esac
     );
     const cases = [
       [{ EVENT_NAME: "push", BEFORE_SHA: "abc" }, "--base abc --head def"],
+      [{ EVENT_NAME: "push", BEFORE_SHA: "abc", MOCK_BEFORE: "def", MOCK_HEAD: "abc" }, "--full"],
       [{ EVENT_NAME: "push", BEFORE_SHA: "" }, "--full"],
       [{ EVENT_NAME: "push", BEFORE_SHA: "0".repeat(40) }, "--full"],
       [{ EVENT_NAME: "push", BEFORE_SHA: "abc", MOCK_GIT_RESULT: "1" }, "--full"],

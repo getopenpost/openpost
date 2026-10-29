@@ -369,5 +369,5 @@ test("shared web implementation selects frontend checks without unrelated applic
   f.write("apps/web/src/lib/shared.ts", "export const value = 1;\n");
   const selected = f.plan();
   assert.equal(selected.affected.fallback, false);
-  assert.deepEqual(selected.affected.scopes, ["frontend"]);
+  assert.deepEqual(selected.affected.scopes, ["frontend", "marketing"]);
 });

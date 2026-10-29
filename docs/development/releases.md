@@ -34,7 +34,7 @@ bun run release -- plan   # optional: changed paths, release surfaces, planned v
 bun run release -- ship
 ```
 
-`ship` (also available as `prod`) releases a clean, committed `HEAD`. It validates release notes and identities, installs pinned dependencies, and checks unpushed changes with `check:affected --base origin/main`. Unknown, shared package, and configuration changes fall back to full local preflight. Exhaustive release qualification remains mandatory in tag CI. Use `bun run release -- check` when you want a full local rehearsal. Neither local path creates remote release proof.
+`ship` (also available as `prod`) releases a clean, committed `HEAD`. It validates release notes and identities, installs pinned dependencies, and checks unpushed changes with `check:affected --base refs/remotes/origin/main`. Unknown, shared package, and configuration changes fall back to full local preflight. Exhaustive release qualification remains mandatory in tag CI. Use `bun run release -- check` when you want a full local rehearsal. Neither local path creates remote release proof.
 
 After verification, `ship` checks that the candidate is still clean and unchanged, pushes that exact revision, and creates its immutable tag. It watches tag CI and publication, then verifies Hosted. Local preparation and the observed remote CI/publication/deployment interval have separate timers. Five minutes is a target, not a guarantee for a cold checkout or a changed large suite.
 

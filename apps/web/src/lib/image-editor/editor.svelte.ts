@@ -1388,6 +1388,7 @@ export class ImageEditorController {
 			this.insertLayerAboveSelected(page, layer, selectedID);
 		});
 		this.selectedLayerIDs = [layer.id];
+		this.selectionAnchorID = layer.id;
 	}
 
 	private insertLayerAboveSelected(
@@ -1670,6 +1671,7 @@ export class ImageEditorController {
 			this.insertLayerAboveSelected(page, layer, selectedID);
 		});
 		this.selectedLayerIDs = [layer.id];
+		this.selectionAnchorID = layer.id;
 	}
 
 	commitRasterOperation(
@@ -1830,7 +1832,10 @@ export class ImageEditorController {
 			const page = document.pages.find((item) => item.id === pageID);
 			page?.layers.push(layer);
 		});
-		if (pageID === this.activePageID) this.selectedLayerIDs = [layer.id];
+		if (pageID === this.activePageID) {
+			this.selectedLayerIDs = [layer.id];
+			this.selectionAnchorID = layer.id;
+		}
 	}
 
 	isLayerLocked(id: string): boolean {

@@ -1231,6 +1231,19 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 		expect(order.indexOf(added.id)).toBeGreaterThan(order.indexOf('middle'));
 	});
 
+	it('anchors range selection at a newly added layer', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+		editor.selectLayer('middle');
+
+		editor.addEmptyLayer();
+		const added = editor.selectedLayers[0];
+
+		editor.selectLayer('back', 'range');
+
+		expect(editor.selectedLayerIDs).toContain(added.id);
+	});
+
 	it('moves layers precisely above or below a sibling', () => {
 		const editor = new ImageEditorController();
 		editor.load(response());

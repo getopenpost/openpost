@@ -11,7 +11,7 @@ export function assertQualifiedRun(run, jobs, repository, source) {
     run.head_sha !== source ||
     run.head_repository?.full_name !== repository ||
     run.event !== "push" ||
-    run.head_branch !== "main" ||
+    !(run.head_branch === "main" || /^v\d+\.\d+\.\d+$/u.test(run.head_branch || "")) ||
     run.path !== ".github/workflows/ci.yml" ||
     run.status !== "completed" ||
     run.conclusion !== "success"

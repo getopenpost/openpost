@@ -153,3 +153,13 @@ test("partial reruns retain prior qualification but never hide a newer producer 
     ),
   ).toThrow("prerequisite");
 });
+
+test("a complete stable-tag candidate can replace duplicate main qualification", () => {
+  expect(assertQualifiedRun({ ...run, head_branch: "v7.34.3" }, jobs, "owner/repo", source)).toBe(
+    1,
+  );
+  for (const branch of ["feature", "v7.34.3-beta", "vwrong"])
+    expect(() =>
+      assertQualifiedRun({ ...run, head_branch: branch }, jobs, "owner/repo", source),
+    ).toThrow("mismatch");
+});

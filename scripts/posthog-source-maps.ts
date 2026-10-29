@@ -48,9 +48,19 @@ export function postHogSourceMaps(surface: "app" | "marketing" | "docs") {
   // Filter before the upstream config hook can enable maps or writeBundle can
   // invoke the CLI. Vite 8 supplies isSsrBuild in ConfigEnv (not `ssrBuild`).
   const vitePlugin = plugin as unknown as Plugin;
+  const plugins: PluginOption[] = [vitePlugin];
   if (surface === "app" || surface === "marketing") {
+    // SvelteKit can set build.ssr after the initial config callback. Enforce
+    // map scope after its config hook, including inherited sourcemap settings.
+    plugins.unshift({
+      name: "openpost-static-source-map-scope",
+      enforce: "post",
+      config(config, { isSsrBuild }) {
+        if (isSsrBuild || config.build?.ssr) return { build: { sourcemap: false } };
+      },
+    });
     vitePlugin.apply = (config, { command, isSsrBuild }) =>
       command === "build" && !isSsrBuild && !config.build?.ssr;
   }
-  return { enabled: true, plugins: [vitePlugin] };
+  return { enabled: true, plugins };
 }

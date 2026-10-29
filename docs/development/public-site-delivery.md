@@ -3,10 +3,10 @@
 Marketing owns `/` and documentation owns `/docs`. The public artifact contract
 job composes their canonical outputs, builds only a missing component, and seals
 one candidate before running the independent rebuild and route proofs. Successful
-main pushes retain `public-site-qualified-SHA-ATTEMPT` for 90 days.
+main pushes and complete stable-tag qualification retain `public-site-qualified-SHA-ATTEMPT` for 90 days.
 
 The public-site delivery workflow consumes that exact artifact after successful
-main CI. It checks repository, workflow, event, source, producer attempt and
+main or stable-tag CI whose source is on main. It checks repository, workflow, event, source, producer attempt and
 configuration identity. Partial reruns may reuse a prior successful producer;
 a newer failed producer cannot be hidden by an older artifact. A CI run without a
 public candidate has nothing to deploy.
@@ -63,6 +63,8 @@ Rollback restores the original content, including its changelog.
 
 When tag CI cannot reuse completed qualification, its plan enables all core gates.
 A separate job then cancels only active main push CI for the identical SHA in the
-same workflow. PRs, other sources, manual audits and unrelated workflows remain
+same workflow. Stable tag CI owns the replacement public candidate and delivery
+accepts it only after successful complete qualification and a main-ancestry check.
+Prerelease tags do not cancel main work. PRs, other sources, manual audits and unrelated workflows remain
 independent. Tag qualification remains complete; this removes competition between
 two copies of the same work rather than reducing coverage.

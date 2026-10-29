@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
-import { mkdtemp, readFile, writeFile, rm, readdir } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, rm, readdir, lstat } from "node:fs/promises";
 import os from "node:os";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { cachedDocsInputs, docsInputKey } from "./docs-input-cache.mjs";
 
@@ -67,23 +68,37 @@ test("actual fingerprint includes Go source, config, generator, toolchain and ge
   // Exercise the real discovery and toolchain probes, changing only task-owned
   // temporary inputs and restoring them even if an assertion fails.
   const root = path.resolve(import.meta.dirname, "..");
+  const probe = `docs-cache-probe-${randomUUID()}`;
   const files = [
-    "scripts/lane-a-cache-input-probe",
-    "config/lane-a-cache-input-probe",
-    "apps/server/lane-a-cache-input-probe.go",
-    "apps/cli/lane-a-cache-input-probe.go",
+    `scripts/${probe}`,
+    `config/${probe}`,
+    `apps/server/${probe}.go`,
+    `apps/cli/${probe}.go`,
   ].map((file) => path.join(root, file));
+  // Check before cleanup becomes active, and claim files exclusively below.
+  for (const file of files) {
+    const exists = await lstat(file).then(
+      () => true,
+      (error) => {
+        if (error.code === "ENOENT") return false;
+        throw error;
+      },
+    );
+    assert.equal(exists, false, `Refusing to overwrite existing probe: ${file}`);
+  }
+  const owned = new Set();
   try {
-    for (const file of files) await rm(file, { force: true });
     const baseline = await docsInputKey(root);
     assert.equal(await docsInputKey(root), baseline);
     for (const file of files) {
-      await writeFile(file, "first");
+      await writeFile(file, "first", { flag: "wx" });
+      owned.add(file);
       const first = await docsInputKey(root);
       assert.notEqual(first, baseline);
       await writeFile(file, "second");
       assert.notEqual(await docsInputKey(root), first);
       await rm(file);
+      owned.delete(file);
     }
     assert.notEqual(
       await docsInputKey(root, { ...process.env, GOTOOLCHAIN: "test-identity" }),
@@ -99,6 +114,6 @@ test("actual fingerprint includes Go source, config, generator, toolchain and ge
       baseline,
     );
   } finally {
-    for (const file of files) await rm(file, { force: true });
+    for (const file of owned) await rm(file, { force: true });
   }
 }, 120_000);

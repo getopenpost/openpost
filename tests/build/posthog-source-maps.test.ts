@@ -111,7 +111,13 @@ for (const ssr of [false, true]) {
       root,
       logLevel: "silent",
       surface: "marketing",
-      build: { ssr, outDir, minify: true, rollupOptions: { input: entry } },
+      build: {
+        ssr,
+        outDir,
+        sourcemap: ssr ? "hidden" : undefined,
+        minify: true,
+        rollupOptions: { input: entry },
+      },
     });
     const files = await readdir(outDir, { recursive: true });
     expect(files.some((file) => file.endsWith(".map"))).toBe(false);
@@ -148,6 +154,10 @@ for (const ssr of [false, true]) {
 test("client CLI failure fails the build and retains private maps", async () => {
   process.env.OPENPOST_FIXTURE_UPLOAD_FAIL = "1";
   try {
+    await writeFile(
+      join(root, "entry.js"),
+      'export function fail() { throw new Error("fixture failure"); } globalThis.fail = fail;',
+    );
     const outDir = join(root, "failed-client");
     await expect(
       fixtureBuild({

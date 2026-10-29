@@ -1,6 +1,6 @@
 # Static client source maps (issue #490, lane B)
 
-Web and marketing run the existing PostHog plugin only for Vite client builds. Their Vite 8 configuration callbacks use `isSsrBuild` to avoid maps for build-only SSR output. The plugin also filters `config.build.ssr`, before its config/output/write hooks run. Docs behavior stays unchanged.
+Web and marketing run the existing PostHog plugin only for Vite client builds. Their Vite 8 configuration callbacks use `isSsrBuild` to avoid maps for build-only SSR output. The upload plugin also filters `config.build.ssr`, before its config/output/write hooks run. A post-order config hook disables inherited SSR maps after SvelteKit sets the effective `build.ssr`, even when the initial callback did not know it was an SSR build. Docs behavior stays unchanged.
 
 Pinned `@posthog/rollup-plugin` 1.4.7 has a sequential `writeBundle` hook awaiting `runSourcemapCli`, then reloads modified JavaScript into the bundle. The client retains that path, hidden maps, release name/version/build identity, strict key/project/region/revision checks, upload failure propagation, and deletion after success. Uploads remain synchronous.
 

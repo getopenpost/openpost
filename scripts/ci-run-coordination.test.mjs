@@ -46,6 +46,7 @@ test("replacement eligibility fails closed before any cancellation", () => {
   for (const changed of [
     { event: "workflow_dispatch" },
     { head_branch: "main" },
+    { head_branch: "v7.34.3-beta" },
     { head_repository: { full_name: "fork/repo" } },
     { path: ".github/workflows/other.yml" },
   ])

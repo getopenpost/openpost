@@ -7,7 +7,7 @@ export function supersededMainRuns(current, plan, runs, repository) {
     current.head_repository?.full_name !== repository ||
     current.path !== ".github/workflows/ci.yml" ||
     current.event !== "push" ||
-    !/^v\d+\.\d+\.\d+(?:-[\w.-]+)?$/u.test(current.head_branch || "") ||
+    !/^v\d+\.\d+\.\d+$/u.test(current.head_branch || "") ||
     !/^[a-f0-9]{40}$/u.test(current.head_sha || "") ||
     current.status !== "in_progress" ||
     !["release", "full"].includes(plan.mode) ||

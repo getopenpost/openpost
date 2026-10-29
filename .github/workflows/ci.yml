@@ -152,7 +152,7 @@ jobs:
   prioritize-release:
     name: Prioritize exact-source release qualification
     needs: plan
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && needs.plan.outputs.mode == 'release'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && !contains(github.ref, '-') && needs.plan.outputs.mode == 'release'
     permissions:
       actions: write
       contents: read
@@ -268,7 +268,7 @@ jobs:
           if [ "$DOCS_RESULT" != success ]; then timeout 600 bun run build -- docs; fi
           timeout 120 bun scripts/compose-public-site.mjs
       - name: Seal canonical public candidate before independent rebuild proofs
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')))
         run: |
           mkdir -p delivery
           cp -R dist/public-site delivery/site
@@ -302,7 +302,7 @@ jobs:
           bun test ./tests/build/generate-agent-surfaces.test.mjs
           bun scripts/check-marketing-route-manifest.mjs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')))
         with:
           name: public-site-qualified-${{ github.sha }}-${{ github.run_attempt }}
           path: delivery

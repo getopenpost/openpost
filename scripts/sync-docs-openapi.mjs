@@ -1,4 +1,4 @@
-import { cachedDocsInputs, docsInputKey } from "./docs-input-cache.mjs";
+import { cachedDocsInputs, docsInputKey, docsGeneratorEnvironment } from "./docs-input-cache.mjs";
 import { cp, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "..");
+const generatorEnvironment = docsGeneratorEnvironment();
 const source = path.join(root, "apps/web", "openapi.json");
 
 await cachedDocsInputs({
@@ -15,6 +16,7 @@ await cachedDocsInputs({
     const openapi = spawnSync("go", ["run", "./cmd/openpost-openapi"], {
       cwd: path.join(root, "apps/server"),
       encoding: "utf8",
+      env: generatorEnvironment,
       maxBuffer: 20 * 1024 * 1024,
     });
     if (openapi.status !== 0) {
@@ -31,6 +33,7 @@ await cachedDocsInputs({
       {
         cwd: root,
         stdio: "inherit",
+        env: generatorEnvironment,
       },
     );
     if (formatter.status !== 0) {
@@ -52,6 +55,7 @@ await cachedDocsInputs({
     const mediaLimits = spawnSync("go", ["run", "./cmd/openpost-media-limits"], {
       cwd: path.join(root, "apps/server"),
       encoding: "utf8",
+      env: generatorEnvironment,
     });
     if (mediaLimits.status !== 0) {
       throw new Error(`Failed to generate media limits: ${mediaLimits.stderr}`);
@@ -63,7 +67,7 @@ await cachedDocsInputs({
     const mediaFormatter = spawnSync(
       "bunx",
       ["oxfmt", "--write", "apps/docs/content/docs/guides/media-limits.mdx"],
-      { cwd: root, stdio: "inherit" },
+      { cwd: root, stdio: "inherit", env: generatorEnvironment },
     );
     if (mediaFormatter.status !== 0) throw new Error("Failed to format media limits");
 
@@ -71,6 +75,7 @@ await cachedDocsInputs({
     const result = spawnSync("go", ["run", "./cmd/openpost-docs", cliDocs], {
       cwd: path.join(root, "apps/cli"),
       stdio: "inherit",
+      env: generatorEnvironment,
     });
     if (result.status !== 0) {
       throw new Error(`Failed to generate CLI reference docs with exit code ${result.status}`);
@@ -78,6 +83,7 @@ await cachedDocsInputs({
     const cliFormatter = spawnSync("bunx", ["oxfmt", "--write", "docs/reference/cli.md"], {
       cwd: root,
       stdio: "inherit",
+      env: generatorEnvironment,
     });
     if (cliFormatter.status !== 0) {
       throw new Error(`Failed to format CLI reference with exit code ${cliFormatter.status}`);

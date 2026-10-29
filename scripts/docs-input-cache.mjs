@@ -12,12 +12,24 @@ export const docsOutputs = [
   "docs/reference/cli.md",
 ];
 
+// These generators use explicit dev/schema versions and produce no deployed
+// runtime identity. Keep CI/deployment identity out of both execution and keys.
+export function docsGeneratorEnvironment(env = process.env) {
+  return Object.fromEntries(
+    Object.entries(env).filter(
+      ([name]) =>
+        !/^(?:GITHUB_|CF_|VITE_|OPENPOST_RELEASE_VERSION$|OPENPOST_TURBO_CACHE_DIR$)/u.test(name),
+    ),
+  );
+}
+
 function command(root, program, args) {
   const result = spawnSync(program, args, {
     cwd: root,
     encoding: "utf8",
     timeout: 120_000,
     maxBuffer: 30 * 1024 * 1024,
+    env: docsGeneratorEnvironment(),
   });
   if (result.status !== 0) throw new Error(`Cannot establish docs inputs: ${program}`);
   return result.stdout;
@@ -44,18 +56,6 @@ export async function docsInputKey(root, env = process.env) {
     "go.work",
     "go.work.sum",
   ]);
-  if (
-    command(root, "git", [
-      "ls-files",
-      "--others",
-      "--ignored",
-      "--exclude-standard",
-      "apps/server",
-      "apps/cli",
-    ]).trim()
-  ) {
-    throw new Error("Ignored generator inputs require regeneration");
-  }
   const hash = createHash("sha256");
   hash.update("docs-inputs-v1\0");
   for (const file of [...new Set(files.split("\0").filter(Boolean))].sort()) {
@@ -74,6 +74,29 @@ export async function docsInputKey(root, env = process.env) {
     ) {
       throw new Error("External workspace or local module replacement has unknown inputs");
     }
+    // Hash actual local Go/CGO/embed inputs even when Git ignores them.
+    // Unrelated frontend outputs, dev environments and scratch packages do
+    // not participate in these command dependency graphs.
+    const targets =
+      directory === "apps/server"
+        ? ["./cmd/openpost-openapi", "./cmd/openpost-media-limits"]
+        : ["./cmd/openpost-docs"];
+    const template =
+      '{{if .Module}}{{if .Module.Main}}{{.Dir}}\t{{join .GoFiles "|"}}|{{join .CgoFiles "|"}}|{{join .CFiles "|"}}|{{join .CXXFiles "|"}}|{{join .HFiles "|"}}|{{join .SFiles "|"}}|{{join .SysoFiles "|"}}|{{join .EmbedFiles "|"}}{{end}}{{end}}';
+    const packages = command(cwd, "go", ["list", "-deps", "-f", template, ...targets]);
+    const inputs = new Set();
+    for (const line of packages.split("\n").filter(Boolean)) {
+      const [packageDirectory, names] = line.split("\t");
+      if (!packageDirectory || names === undefined || !packageDirectory.startsWith(root + path.sep))
+        throw new Error("Unknown local Go dependency");
+      for (const name of names.split("|").filter(Boolean))
+        inputs.add(path.join(packageDirectory, name));
+    }
+    for (const input of [...inputs].sort()) {
+      hash.update(path.relative(root, input) + "\0");
+      hash.update(await readFile(input));
+      hash.update("\0");
+    }
     // Go chooses a fresh compiler scratch directory for every env probe.
     // Its prefix-map target is stable and this path never reaches outputs.
     go.GOGCCFLAGS = go.GOGCCFLAGS.replace(
@@ -85,8 +108,9 @@ export async function docsInputKey(root, env = process.env) {
   }
   hash.update(command(root, "bun", ["--version"]));
   hash.update(command(root, "bunx", ["oxfmt", "--version"]));
-  // Preserve provenance and generator environment, including newly introduced
-  // OpenPost settings. Values are hashed, never written into cache metadata.
+  // Hash remaining generator configuration, including new OpenPost settings.
+  // Runtime artifact provenance remains in the consuming build, never here.
+  env = docsGeneratorEnvironment(env);
   const names = Object.keys(env)
     .filter((name) =>
       /^(?:OPENPOST_|VITE_|GITHUB_|CF_|GO|CGO|CC$|CXX$|CFLAGS$|CPPFLAGS$|LDFLAGS$|SOURCE_DATE_EPOCH$|TZ$|LANG$|LC_)/u.test(

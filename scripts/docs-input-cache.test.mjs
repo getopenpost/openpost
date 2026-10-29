@@ -63,7 +63,7 @@ test("verified docs inputs restore outputs, invalidate changed inputs and reject
   }
 });
 
-test("actual fingerprint includes Go source, config, generator, toolchain and provenance", async () => {
+test("actual fingerprint includes Go source, config, generator, toolchain and generator configuration", async () => {
   // Exercise the real discovery and toolchain probes, changing only task-owned
   // temporary inputs and restoring them even if an assertion fails.
   const root = path.resolve(import.meta.dirname, "..");
@@ -74,6 +74,7 @@ test("actual fingerprint includes Go source, config, generator, toolchain and pr
     "apps/cli/lane-a-cache-input-probe.go",
   ].map((file) => path.join(root, file));
   try {
+    for (const file of files) await rm(file, { force: true });
     const baseline = await docsInputKey(root);
     assert.equal(await docsInputKey(root), baseline);
     for (const file of files) {
@@ -88,11 +89,16 @@ test("actual fingerprint includes Go source, config, generator, toolchain and pr
       await docsInputKey(root, { ...process.env, GOTOOLCHAIN: "test-identity" }),
       baseline,
     );
-    assert.notEqual(
-      await docsInputKey(root, { ...process.env, CF_PAGES_COMMIT_SHA: "new-revision" }),
+    assert.equal(
+      await docsInputKey(root, {
+        ...process.env,
+        CF_PAGES_COMMIT_SHA: "new-revision",
+        GITHUB_RUN_ID: "another-run",
+        VITE_OPENPOST_REVISION: "new-revision",
+      }),
       baseline,
     );
   } finally {
     for (const file of files) await rm(file, { force: true });
   }
-});
+}, 120_000);

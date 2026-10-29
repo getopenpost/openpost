@@ -1,36 +1,62 @@
-import { afterAll, beforeAll, expect, test, mock } from "bun:test";
-import { build, resolveConfig, loadConfigFromFile } from "vite";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { resolveConfig, loadConfigFromFile } from "vite";
 import { mkdtemp, writeFile, readFile, readdir, rm, chmod, mkdir, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import posthogRollupPlugin from "@posthog/rollup-plugin";
+import { pathToFileURL } from "node:url";
 
 // Keep the installed plugin and its hooks, replacing only its CLI executable.
-const actualPlugin = posthogRollupPlugin;
 const root = await mkdtemp(join(tmpdir(), "openpost-posthog-"));
 const cli = join(root, "posthog-cli");
 const receipt = join(root, "receipt.json");
 await writeFile(
   cli,
-  `#!/usr/bin/env bun
-const paths = (await Bun.stdin.text()).trim().split("\\n");
+  `#!/usr/bin/env node
+const paths = (await import("node:fs")).readFileSync(0, "utf8").trim().split("\\n");
 const maps = [];
 for (const path of paths) {
-  const map = await Bun.file(path + ".map").json();
+  const map = JSON.parse((await import("node:fs")).readFileSync(path + ".map", "utf8"));
   if (!map.sourcesContent.some(source => source?.includes("fixture failure"))) process.exit(9);
   maps.push(map);
 }
-await Bun.write(${JSON.stringify(receipt)}, JSON.stringify({paths, maps, args: process.argv.slice(2), host: process.env.POSTHOG_CLI_HOST}));
+(await import("node:fs")).writeFileSync(${JSON.stringify(receipt)}, JSON.stringify({paths, maps, args: process.argv.slice(2), host: process.env.POSTHOG_CLI_HOST}));
 if (process.env.OPENPOST_FIXTURE_UPLOAD_FAIL === "1") process.exit(7);
 for (const path of paths) await (await import("node:fs/promises")).unlink(path + ".map");
 `,
 );
 await chmod(cli, 0o755);
-mock.module("@posthog/rollup-plugin", () => ({
-  default: (options: Parameters<typeof actualPlugin>[0]) =>
-    actualPlugin({ ...options, cliBinaryPath: cli }),
-}));
 const { postHogSourceMaps } = await import("../../scripts/posthog-source-maps");
+// Production Vite runs in Node. Intercept only the CLI path in its installed
+// plugin, leaving the helper and real build hooks unchanged.
+const wrapper = join(root, "plugin-wrapper.mjs");
+await writeFile(
+  wrapper,
+  `import plugin from ${JSON.stringify(import.meta.resolve("@posthog/rollup-plugin"))}; export default options => plugin({...options,cliBinaryPath:${JSON.stringify(cli)}});`,
+);
+const builder = join(root, "build.mjs");
+await writeFile(
+  builder,
+  `
+import {registerHooks} from 'node:module';
+registerHooks({resolve(specifier,context,next){return next(specifier==='@posthog/rollup-plugin' ? ${JSON.stringify(pathToFileURL(wrapper).href)} : specifier,context);}});
+const {build}=await import(${JSON.stringify(import.meta.resolve("vite"))});
+const {postHogSourceMaps}=await import(${JSON.stringify(pathToFileURL(join(process.cwd(), "scripts/posthog-source-maps.ts")).href)});
+const options=JSON.parse(process.argv[2]);
+await build({...options,plugins:postHogSourceMaps(options.surface).plugins});
+`,
+);
+async function fixtureBuild(options: Record<string, unknown>) {
+  const stdout = join(root, "bundle-build.log");
+  const stderr = join(root, "bundle-build-error.log");
+  const child = Bun.spawn(["node", builder, JSON.stringify(options)], {
+    stdout: Bun.file(stdout),
+    stderr: Bun.file(stderr),
+    env: process.env,
+  });
+  const status = await child.exited;
+  if (status !== 0)
+    throw new Error((await readFile(stdout, "utf8")) + (await readFile(stderr, "utf8")));
+}
 
 const saved = { ...process.env };
 beforeAll(() => {
@@ -80,11 +106,11 @@ for (const ssr of [false, true]) {
       'export function fail() { throw new Error("fixture failure"); } globalThis.fail = fail;',
     );
     const outDir = join(root, ssr ? "server" : "client");
-    await build({
+    await fixtureBuild({
       configFile: false,
       root,
       logLevel: "silent",
-      plugins: postHogSourceMaps("marketing").plugins,
+      surface: "marketing",
       build: { ssr, outDir, minify: true, rollupOptions: { input: entry } },
     });
     const files = await readdir(outDir, { recursive: true });
@@ -124,11 +150,11 @@ test("client CLI failure fails the build and retains private maps", async () => 
   try {
     const outDir = join(root, "failed-client");
     await expect(
-      build({
+      fixtureBuild({
         configFile: false,
         root,
         logLevel: "silent",
-        plugins: postHogSourceMaps("app").plugins,
+        surface: "app",
         build: { outDir, rollupOptions: { input: join(root, "entry.js") } },
       }),
     ).rejects.toThrow("Command failed with code 7");
@@ -179,21 +205,19 @@ test("adapter-static shipping output excludes server code and prerender failures
   await writeFile(join(fixture, "src/routes/+layout.js"), "export const prerender = true;");
   await writeFile(join(fixture, "src/routes/+page.svelte"), "<h1>Static fixture</h1>");
   const run = async () => {
+    const logFile = join(root, "static-build.log");
+    const errorFile = join(root, "static-build-error.log");
     const child = Bun.spawn(
       [process.execPath, join(process.cwd(), "node_modules/vite/bin/vite.js"), "build"],
       {
         cwd: fixture,
-        stdout: "pipe",
-        stderr: "pipe",
+        stdout: Bun.file(logFile),
+        stderr: Bun.file(errorFile),
         env: { ...process.env, POSTHOG_SOURCEMAPS_ENABLED: "0" },
       },
     );
-    const [stdout, stderr, code] = await Promise.all([
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-      child.exited,
-    ]);
-    return { code, log: stdout + stderr };
+    const code = await child.exited;
+    return { code, log: (await readFile(logFile, "utf8")) + (await readFile(errorFile, "utf8")) };
   };
   const success = await run();
   expect(success.code, success.log).toBe(0);

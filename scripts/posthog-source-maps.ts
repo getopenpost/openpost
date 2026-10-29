@@ -1,5 +1,5 @@
 import posthogRollupPlugin from "@posthog/rollup-plugin";
-import type { PluginOption } from "vite";
+import type { Plugin, PluginOption } from "vite";
 
 export function postHogSourceMaps(surface: "app" | "marketing" | "docs") {
   const enabled = process.env.POSTHOG_SOURCEMAPS_ENABLED === "1";
@@ -43,5 +43,14 @@ export function postHogSourceMaps(surface: "app" | "marketing" | "docs") {
       deleteAfterUpload: true,
     },
   });
-  return { enabled: true, plugins: [plugin as unknown as PluginOption] };
+  // These adapter-static surfaces ship only browser assets. Their SSR output
+  // exists for prerendering/builds, whose failures stay in the build log.
+  // Filter before the upstream config hook can enable maps or writeBundle can
+  // invoke the CLI. Vite 8 supplies isSsrBuild in ConfigEnv (not `ssrBuild`).
+  const vitePlugin = plugin as unknown as Plugin;
+  if (surface === "app" || surface === "marketing") {
+    vitePlugin.apply = (config, { command, isSsrBuild }) =>
+      command === "build" && !isSsrBuild && !config.build?.ssr;
+  }
+  return { enabled: true, plugins: [vitePlugin] };
 }

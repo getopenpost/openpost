@@ -290,6 +290,10 @@ func TestLinkedInOrganizationSelectionUsesOrganizationURN(t *testing.T) {
 						return response, nil
 					}
 					return jsonResponse(req, `{"results":{"42":{"localizedName":"OpenPost","vanityName":"openpost","logoV2":`+tt.logo+`}},"statuses":{"42":200}}`), nil
+				case "/rest/images/urn:li:image:logo":
+					response := jsonResponse(req, `{"status":403,"message":"Accessing this image resource is forbidden"}`)
+					response.StatusCode = http.StatusForbidden
+					return response, nil
 				default:
 					t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
 					return nil, nil

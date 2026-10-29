@@ -60,7 +60,13 @@ export function planOpenTrackForRange(options: {
 }): OpenTrackPlan {
 	const ignoredItemIds = options.ignoredItemIds ?? new Set<string>();
 	const compatible = options.tracks
-		.filter((track) => !track.isGroup && track.kind === options.kind && !track.locked)
+		.filter(
+			(track) =>
+				!track.isGroup &&
+				track.kind === options.kind &&
+				!track.locked &&
+				(track.visible !== false || track.id === options.preferredTrackId)
+		)
 		.toSorted((left, right) => {
 			if (options.kind === 'audio') return right.order - left.order;
 			return options.stacking === 'bottom' ? right.order - left.order : left.order - right.order;

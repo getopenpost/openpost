@@ -2,7 +2,7 @@ import { beforeEach, expect, it } from 'vitest';
 import { createEmptyTimeline, createDefaultTracks } from '../project/defaults';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { sequenceStore } from './sequence-store.svelte';
-import { nestSequence } from './sequence-actions';
+import { nestSequence, nestSequenceOnExactTracks } from './sequence-actions';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 const tracks = createDefaultTracks();
 beforeEach(() => {
@@ -64,4 +64,23 @@ it('inserts a ten-second block at another frame rate without moving existing foo
 	expect(timelineStore.itemById.get('footage-audio')?.from).toBe(0);
 	commandHistory.undo();
 	expect(timelineStore.items.map((item) => item.id)).toEqual(['footage-audio']);
+});
+
+it('accepts exact placement over a non-exclusive adjustment layer', () => {
+	timelineStore._addItem({
+		id: 'grade',
+		trackId: tracks[0]!.id,
+		type: 'adjustment',
+		from: 0,
+		durationInFrames: 300,
+		label: 'Grade'
+	});
+
+	const ids = nestSequenceOnExactTracks('saved', 30, {
+		visualTrackId: tracks[0]!.id,
+		audioTrackId: tracks[2]!.id
+	});
+
+	expect(ids).toHaveLength(2);
+	expect(timelineStore.tracks).toHaveLength(tracks.length);
 });

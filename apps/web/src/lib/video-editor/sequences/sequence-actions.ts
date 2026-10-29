@@ -18,6 +18,7 @@ import {
 } from '../timeline/actions/transform-parenting';
 import { transitionsStore } from '../timeline/actions/transitions.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
+import { trackRangeIsOpen } from '../timeline/track-occupancy';
 import { expandSelectionWithLinkedItems } from '../timeline/utils/linked-items';
 import { snapshotTimelineState } from '../timeline/utils/state-snapshot.svelte';
 import { effectiveMediaTracks } from '../timeline/utils/track-groups';
@@ -334,7 +335,6 @@ export function nestSequenceOnExactTracks(
 		const composition = assertCompositionCanNest(compositionId);
 		const exactFrom = Math.max(0, Math.round(from));
 		const duration = nestedDuration(composition);
-		const end = exactFrom + duration;
 		const effectiveTracks = effectiveMediaTracks(timelineStore.tracks);
 		const exactTrack = (trackId: string | undefined, kind: 'video' | 'audio') => {
 			if (!trackId) return undefined;
@@ -342,8 +342,12 @@ export function nestSequenceOnExactTracks(
 			if (!track || track.kind !== kind || track.locked || track.visible === false) {
 				throw new Error('Exact sequence placement target is unavailable.');
 			}
-			const occupied = (timelineStore.itemsByTrackId.get(track.id) ?? []).some(
-				(item) => item.from < end && item.from + item.durationInFrames > exactFrom
+			const occupied = !trackRangeIsOpen(
+				timelineStore.items,
+				track.id,
+				exactFrom,
+				duration,
+				'composition'
 			);
 			if (occupied) throw new Error('Exact sequence placement target is occupied.');
 			return track;

@@ -9,6 +9,7 @@ import type { TimelineItem, TimelineTrack } from '../../project/types';
 import { sequenceStore } from '../../sequences/sequence-store.svelte';
 import { execute } from '../commands/command-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
+import { trackRangeIsOpen } from '../track-occupancy';
 import { effectiveMediaTracks } from '../utils/track-groups';
 
 export interface InsertMediaOptions {
@@ -25,10 +26,13 @@ function itemKind(media: MediaMetadata): TimelineItem['type'] {
 	return 'video';
 }
 
-function collides(trackId: string, from: number, end: number): boolean {
-	return (timelineStore.itemsByTrackId.get(trackId) ?? []).some(
-		(item) => item.from < end && item.from + item.durationInFrames > from
-	);
+function trackIsOpen(
+	trackId: string,
+	from: number,
+	durationInFrames: number,
+	itemType: TimelineItem['type']
+): boolean {
+	return trackRangeIsOpen(timelineStore.items, trackId, from, durationInFrames, itemType);
 }
 
 function newTrack(kind: 'video' | 'audio', label: string): TimelineTrack {
@@ -57,23 +61,29 @@ function newTrack(kind: 'video' | 'audio', label: string): TimelineTrack {
 
 function targetTrack(
 	kind: 'video' | 'audio',
+	itemType: TimelineItem['type'],
 	from: number,
 	end: number,
 	preferredTrackId?: string
 ): TimelineTrack {
 	const tracks = effectiveMediaTracks(timelineStore.tracks);
+	const durationInFrames = Math.max(1, end - from);
 	const preferred = preferredTrackId
 		? tracks.find((track) => track.id === preferredTrackId)
 		: undefined;
-	if (preferred?.kind === kind && !preferred.locked && !collides(preferred.id, from, end)) {
+	if (
+		preferred?.kind === kind &&
+		!preferred.locked &&
+		trackIsOpen(preferred.id, from, durationInFrames, itemType)
+	) {
 		return preferred;
 	}
 	const open = tracks
-		.filter((track) => track.kind === kind && !track.locked)
+		.filter((track) => track.kind === kind && !track.locked && track.visible !== false)
 		.toSorted((left, right) =>
 			kind === 'video' ? left.order - right.order : right.order - left.order
 		)
-		.find((track) => !collides(track.id, from, end));
+		.find((track) => trackIsOpen(track.id, from, durationInFrames, itemType));
 	return open ?? newTrack(kind, kind === 'video' ? 'Overlay' : 'Audio');
 }
 
@@ -106,7 +116,7 @@ export function insertMediaAtFrame(
 			if (!exactTrack) throw new Error('Exact media placement rejected: missing-track');
 			track = exactTrack;
 		} else {
-			track = targetTrack(trackKind, from, from + durationInFrames, options.preferredTrackId);
+			track = targetTrack(trackKind, type, from, from + durationInFrames, options.preferredTrackId);
 		}
 		if (!timelineStore.tracks.some((candidate) => candidate.id === track.id)) {
 			timelineStore._setTracks([...timelineStore.tracks, track]);
@@ -171,7 +181,9 @@ export function insertMediaAtPlayhead(
 export function insertMediaAtSequenceEnd(media: MediaMetadata): string {
 	const kind = mediaTimelineKind(media);
 	const track = effectiveMediaTracks(timelineStore.tracks)
-		.filter((candidate) => candidate.kind === kind && !candidate.locked)
+		.filter(
+			(candidate) => candidate.kind === kind && !candidate.locked && candidate.visible !== false
+		)
 		.toSorted((left, right) => left.order - right.order);
 	return insertMediaAtFrame(media, timelineStore.maxItemEndFrame, {
 		preferredTrackId: kind === 'video' ? track.at(-1)?.id : track[0]?.id

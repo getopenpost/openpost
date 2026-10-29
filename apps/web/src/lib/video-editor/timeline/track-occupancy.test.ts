@@ -29,6 +29,31 @@ const tracks: TimelineTrack[] = [
 	}
 ];
 
+describe('overlay track placement', () => {
+	it('ignores hidden visual tracks when choosing where a new overlay lands', () => {
+		const hidden = {
+			...tracks[0]!,
+			id: 'visual-hidden',
+			visible: false,
+			order: -1
+		};
+
+		const plan = planOpenTrackForRange({
+			tracks: [hidden, ...tracks],
+			items: [],
+			kind: 'video',
+			itemType: 'text',
+			from: 0,
+			durationInFrames: 90,
+			label: 'Title',
+			stacking: 'top',
+			createId: () => 'created'
+		});
+
+		expect(plan).toMatchObject({ created: false, track: { id: 'visual-top' } });
+	});
+});
+
 describe('background track placement', () => {
 	it('uses the lowest open visual layer', () => {
 		const plan = planOpenTrackForRange({

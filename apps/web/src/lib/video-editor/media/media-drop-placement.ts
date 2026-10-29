@@ -1,6 +1,7 @@
 import type { MediaMetadata } from './types';
 import type { SubComposition, TimelineItem, TimelineTrack } from '../project/types';
 import { effectiveTrackState, isTrackGroup } from '../timeline/utils/track-groups';
+import { exclusivelyOccupiesTrack, timelineRangesOverlap } from '../timeline/track-occupancy';
 
 export type MediaTimelineKind = 'video' | 'audio';
 export type MediaDropRejection =
@@ -49,12 +50,14 @@ export function placementCollides(
 	trackId: string,
 	from: number,
 	durationInFrames: number,
-	items: readonly Pick<TimelineItem, 'trackId' | 'from' | 'durationInFrames'>[]
+	items: readonly Pick<TimelineItem, 'trackId' | 'from' | 'durationInFrames' | 'type'>[]
 ): boolean {
-	const end = from + durationInFrames;
+	const placement = { from, durationInFrames };
 	return items.some(
 		(item) =>
-			item.trackId === trackId && item.from < end && item.from + item.durationInFrames > from
+			item.trackId === trackId &&
+			exclusivelyOccupiesTrack(item) &&
+			timelineRangesOverlap(placement, item)
 	);
 }
 
@@ -83,7 +86,7 @@ export function evaluateExactMediaPlacement(options: {
 	durationInFrames: number;
 	kind: MediaTimelineKind;
 	tracks: readonly TimelineTrack[];
-	items: readonly Pick<TimelineItem, 'trackId' | 'from' | 'durationInFrames'>[];
+	items: readonly Pick<TimelineItem, 'trackId' | 'from' | 'durationInFrames' | 'type'>[];
 }): ExactMediaPlacementResult {
 	const track = options.tracks.find((candidate) => candidate.id === options.trackId);
 	if (!track) return { valid: false, reason: 'missing-track' };
@@ -118,7 +121,7 @@ export function planExactSequencePlacement(options: {
 	preferredTrackId: string;
 	from: number;
 	tracks: readonly TimelineTrack[];
-	items: readonly Pick<TimelineItem, 'trackId' | 'from' | 'durationInFrames'>[];
+	items: readonly Pick<TimelineItem, 'trackId' | 'from' | 'durationInFrames' | 'type'>[];
 }):
 	| { valid: true; placement: ExactSequencePlacementPlan }
 	| { valid: false; reason: MediaDropRejection } {

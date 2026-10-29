@@ -95,6 +95,32 @@ describe('insertMediaAtFrame', () => {
 		expect(timelineStore.tracks).toHaveLength(2);
 	});
 
+	it('reuses a track occupied only by a non-exclusive adjustment layer', () => {
+		timelineStore._addItem({
+			id: 'grade',
+			trackId: 'video-1',
+			from: 0,
+			durationInFrames: 300,
+			label: 'Grade',
+			type: 'adjustment'
+		});
+
+		const id = insertMediaAtFrame(image, 60);
+
+		expect(timelineStore.itemById.get(id)?.trackId).toBe('video-1');
+		expect(timelineStore.tracks).toHaveLength(1);
+	});
+
+	it('creates a visible track instead of inserting onto a hidden one', () => {
+		timelineStore._setTracks(timelineStore.tracks.map((track) => ({ ...track, visible: false })));
+
+		const id = insertMediaAtFrame(image, 0);
+
+		const inserted = timelineStore.itemById.get(id)!;
+		expect(inserted.trackId).not.toBe('video-1');
+		expect(timelineStore.tracks.find((track) => track.id === inserted.trackId)?.visible).toBe(true);
+	});
+
 	it('rejects an occupied exact track without adding an item, track, or undo entry', () => {
 		timelineStore._addItem({
 			id: 'existing',

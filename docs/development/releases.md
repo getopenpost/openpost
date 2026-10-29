@@ -25,6 +25,14 @@ bun scripts/ci-test-timings.mjs audit selected-summary.json full-summary.json
 
 Compare summaries from the same revision and configuration. The audit identifies failing full-run tests absent from the selection for investigation. It does not establish causality or automatically omit tests. Test selection inside a surface remains exhaustive until evidence supports a narrower rule.
 
+## Release bookkeeping
+
+Automated changelog, README asset and screenshot writes require the configured `openpost-bot` GitHub App. They fail if its credentials or identity are unavailable, rather than falling back to another author.
+
+The post-publication recorder stages the changelog and all consumed tag-pinned fragments in one commit. Recover a failed recording by rerunning that job; its idempotent sweep also removes already-recorded fragments. Avoid separate manual cleanup commits.
+
+Changelog-only and fragment-only pushes to main skip duplicate GitHub CI through path filters. Pull requests still validate those changes, and tag qualification stays exhaustive. Keep skip-CI markers out of release-record commits so Cloudflare can publish the public changelog. Scheduled README assets remain batched in their own periodic commit.
+
 ## Production release
 
 Commit the release work on `main` with Conventional Commit messages, then ship it:

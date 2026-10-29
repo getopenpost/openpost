@@ -972,6 +972,7 @@ test("screenshot PR recovery updates an existing remote branch and review", () =
       `#!/usr/bin/env node
 const fs = require('node:fs');
 const args = process.argv.slice(2);
+if (args[0] === 'api') console.log('12345');
 fs.appendFileSync(process.env.GH_CALL_LOG, JSON.stringify(args) + '\\n');
 if (args[0] === 'pr' && args[1] === 'list' && process.env.REVIEW_EXISTS === '1') console.log('https://github.com/example/repo/pull/1');
 `,
@@ -1009,10 +1010,11 @@ if (args[0] === 'pr' && args[1] === 'list' && process.env.REVIEW_EXISTS === '1')
       writeFileSync(path.join(checkout, "assets/screenshots/example.png"), `capture-${attempt}`);
       run("bash", ["-e", "-c", script], checkout, {
         PATH: tools + path.delimiter + process.env.PATH,
-        BOT_SLUG: "",
+        BOT_SLUG: "openpost-bot",
         GH_CALL_LOG: log,
         REVIEW_EXISTS: attempt === 2 ? "1" : "0",
       });
+      assert.equal(run("git", ["show", "-s", "--format=%an"], checkout), "openpost-bot[bot]");
       heads.push(run("git", ["rev-parse", "HEAD"], checkout));
       const branch = run("git", ["branch", "--show-current"], checkout);
       assert.equal(

@@ -3,6 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+    # Release bookkeeping was validated before publication. Pages still
+    # receives the push, so the public changelog can deploy.
+    paths-ignore: ["CHANGELOG.md", "changes/**"]
     tags: ["v*"]
   pull_request:
     branches: [main]

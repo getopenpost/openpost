@@ -77,11 +77,7 @@ jobs:
     steps:
       - name: Create openpost-bot token
         id: app-token
-        # The openpost-bot GitHub App gives automated commits the project's
-        # own bot identity. Until its app ID and private key are stored as
-        # OPENPOST_BOT_APP_ID / OPENPOST_BOT_PRIVATE_KEY, workflows fall
-        # back to the built-in token and the github-actions[bot] author below.
-        if: vars.OPENPOST_BOT_APP_ID != ''
+        # Bot writes require the configured OpenPost GitHub App.
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: ${{ vars.OPENPOST_BOT_APP_ID }}
@@ -90,7 +86,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
-          token: ${{ steps.app-token.outputs.token || github.token }}
+          token: ${{ steps.app-token.outputs.token }}
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -109,7 +105,7 @@ jobs:
           path: assets/screenshots
       - name: Open a review PR when screenshots drifted
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           BOT_SLUG: ${{ steps.app-token.outputs.app-slug }}
         run: |
           if git status --porcelain -- assets/screenshots | grep -q .; then
@@ -118,16 +114,12 @@ jobs:
             echo "Screenshots match the checked-in set; nothing to do."
             exit 0
           fi
-          if [ -n "$BOT_SLUG" ]; then
-            bot_id="$(gh api "users/${BOT_SLUG}[bot]" --jq .id)"
-            [[ "$bot_id" =~ ^[0-9]+$ ]] || exit 1
-            git config user.name "${BOT_SLUG}[bot]"
-            git config user.email "${bot_id}+${BOT_SLUG}[bot]@users.noreply.github.com"
-            gh auth setup-git
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          fi
+          [[ "$BOT_SLUG" == "openpost-bot" ]] || { echo "::error::OpenPost bot credentials are required"; exit 1; }
+          bot_id="$(gh api "users/${BOT_SLUG}[bot]" --jq .id)"
+          [[ "$bot_id" =~ ^[0-9]+$ ]] || exit 1
+          git config user.name "${BOT_SLUG}[bot]"
+          git config user.email "${bot_id}+${BOT_SLUG}[bot]@users.noreply.github.com"
+          gh auth setup-git
           stamp="$(date -u +%Y%m%d)"
           branch="chore/product-screenshots-${stamp}"
           git checkout -B "$branch"

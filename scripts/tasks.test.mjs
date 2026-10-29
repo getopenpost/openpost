@@ -345,7 +345,7 @@ if (sdkCheck({ tool, args, cwd: process.cwd() }) || args.includes("lint:oxlint")
 }
 record("end");
 `;
-    for (const tool of ["bun", "bunx", "go", "git", "golangci-lint", "bash"]) {
+    for (const tool of ["bun", "bunx", "node", "go", "git", "golangci-lint", "bash"]) {
       writeFileSync(path.join(fixture, "bin", tool), shim, { mode: 0o755 });
     }
     writeFileSync(path.join(fixture, "scripts/check-go-deadcode.sh"), "#!/bin/sh\nexit 0\n", {

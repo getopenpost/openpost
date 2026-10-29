@@ -148,6 +148,7 @@ type Config struct {
 	LinkedInClientID              string
 	LinkedInClientSecret          string
 	LinkedInRedirectURI           string
+	LinkedInAuthMode              string
 	DisableLinkedInThreadReplies  bool
 	EnableLinkedInOrganizations   bool
 	EnableLinkedInMemberReads     bool
@@ -360,6 +361,7 @@ func Load() *Config {
 		LinkedInClientSecret:          getEnvWithFallbacks("LINKEDIN_CLIENT_SECRET", ""),
 		LinkedInRedirectURI:           oauthRedirectFromFrontend("LINKEDIN_REDIRECT_URI", "", frontendURL, "/api/v1/accounts/linkedin/callback"),
 		DisableLinkedInThreadReplies:  getEnvBoolWithAliases(false, "OPENPOST_DISABLE_LINKEDIN_THREAD_REPLIES", "LINKEDIN_DISABLE_THREAD_REPLIES"),
+		LinkedInAuthMode:              getEnvDefault("OPENPOST_LINKEDIN_AUTH_MODE", "openid"),
 		EnableLinkedInOrganizations:   getEnvBoolWithAliases(false, "OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED"),
 		EnableLinkedInMemberReads:     getEnvBoolWithAliases(false, "OPENPOST_LINKEDIN_MEMBER_READS_ENABLED"),
 		EnableLinkedInMemberAnalytics: getEnvBoolWithAliases(false, "OPENPOST_LINKEDIN_MEMBER_ANALYTICS_ENABLED"),

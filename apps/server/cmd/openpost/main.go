@@ -517,6 +517,7 @@ func main() {
 		}
 	}
 	providers, providerEntries, err := platform.BuildAdapterRegistry(providerAppConfigs, platform.RegistryOptions{
+		LinkedInAuthMode:              cfg.LinkedInAuthMode,
 		DisableLinkedInThreadReplies:  cfg.DisableLinkedInThreadReplies,
 		EnableLinkedInOrganizations:   cfg.EnableLinkedInOrganizations,
 		EnableLinkedInMemberReads:     cfg.EnableLinkedInMemberReads,

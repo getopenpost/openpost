@@ -15,7 +15,9 @@ OpenPost connects a LinkedIn member through OAuth. It can also offer Organizatio
 ## Create and configure the LinkedIn app
 
 1. In the [LinkedIn Developer Portal](https://www.linkedin.com/developers/apps), create an app and associate it with the LinkedIn Page requested by the portal. Copy its **Client ID** and **Client Secret** from **Auth**.
-2. In **Products**, add **Sign In with LinkedIn using OpenID Connect** and **Share on LinkedIn**. These provide member identity and `w_member_social` publishing access. For Pages, request the appropriate Community Management product and obtain `rw_organization_admin`, `w_organization_social`, and `r_organization_social` approval. Member analytics use a separate OpenPost setting described below.
+2. Choose the products for your app:
+   - For member publishing with self-service access, add **Sign In with LinkedIn using OpenID Connect** and **Share on LinkedIn**. Keep `OPENPOST_LINKEDIN_AUTH_MODE=openid`, the default. This uses `openid`, `profile`, and `w_member_social`.
+   - For an approved **Community Management API** app, set `OPENPOST_LINKEDIN_AUTH_MODE=community_management`. This uses its `r_basicprofile` permission and the Profile API to identify the connected member. The same connection can offer the member profile and administered Pages. You do not need to add the separate OpenID Connect product, which LinkedIn can block on a Community Management-only app.
 3. In **Auth → OAuth 2.0 settings**, add this exact **Authorized redirect URL**:
 
    ```text
@@ -43,6 +45,19 @@ LinkedIn describes [self-service products and permissions](https://learn.microso
 ```
 
 For approved Organization Page access, set `OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED=true` and recreate the container. Otherwise leave it false. Threads use comments for later segments and require [`w_member_social_feed`](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/network-update-social-actions). Reconnect after adding that permission.
+
+For a Community Management app with the corresponding approved scopes, configure:
+
+```sh
+OPENPOST_LINKEDIN_AUTH_MODE=community_management
+OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED=true
+OPENPOST_LINKEDIN_MEMBER_ANALYTICS_ENABLED=true
+OPENPOST_DISABLE_LINKEDIN_THREAD_REPLIES=false
+```
+
+OpenPost retrieves each Page individually in this mode. LinkedIn's [Development Tier limits](https://learn.microsoft.com/en-us/linkedin/marketing/increasing-access) allow 500 API calls per app and 100 per member per 24 hours, prohibit `BATCH_GET`, and disable social-action webhooks. Use this tier to build and test your integration, then request Standard Tier for production use. Authentication mode does not grant additional permissions or remove these limits.
+
+Changing the developer app changes the member identity namespace. Reconnect your accounts using the new app; tokens and member IDs from the previous app cannot be reused. Switching authentication mode on an existing installation also requires reconnecting to grant its requested scopes.
 
 ## Connect and test
 
@@ -83,5 +98,6 @@ LinkedIn requires a new app without other products for initial Community Managem
 | Problem                                            | Check                                                                                                                                                                      |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Redirect mismatch                                  | Compare the portal URL, JSON `redirect_uri`, and public `OPENPOST_APP_URL` character for character, including HTTPS and trailing slashes.                                  |
+| `openid` or `r_basicprofile` scope rejected | Match `OPENPOST_LINKEDIN_AUTH_MODE` to the app's approved products. Self-service apps use `openid`; Community Management-only apps use `community_management`. |
 | No Organization Pages                              | Confirm the Community Management approval, all three Page scopes, `OPENPOST_LINKEDIN_ORGANIZATIONS_ENABLED=true`, and the member's approved Page administrator role.       |
 | Connection works but publishing or analytics fails | Review the LinkedIn response and app permissions. Reconnect the account after adding scopes. A connected member profile does not prove Page, comment, or analytics access. |

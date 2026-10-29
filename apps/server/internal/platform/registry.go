@@ -23,6 +23,7 @@ type AppConfig struct {
 }
 
 type RegistryOptions struct {
+	LinkedInAuthMode              string
 	DisableLinkedInThreadReplies  bool
 	EnableLinkedInOrganizations   bool
 	EnableLinkedInMemberReads     bool
@@ -115,7 +116,11 @@ var appBuilders = map[string]appBuilder{
 		if strings.TrimSpace(app.ClientID) == "" {
 			return nil, fmt.Errorf("linkedin provider app requires client_id")
 		}
+		if opts.LinkedInAuthMode != "" && opts.LinkedInAuthMode != "openid" && opts.LinkedInAuthMode != "community_management" {
+			return nil, fmt.Errorf("unsupported linkedin auth mode %q", opts.LinkedInAuthMode)
+		}
 		adapter := NewLinkedInAdapter(app.ClientID, app.ClientSecret, app.RedirectURI, opts.DisableLinkedInThreadReplies, opts.EnableLinkedInOrganizations)
+		adapter.authMode = opts.LinkedInAuthMode
 		adapter.enableMemberReads = opts.EnableLinkedInMemberReads
 		adapter.enableMemberAnalytics = opts.EnableLinkedInMemberAnalytics
 		return adapter, nil

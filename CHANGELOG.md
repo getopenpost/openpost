@@ -8,6 +8,13 @@ All notable changes to this project are documented in this file.
 
 - Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
 
+## [7.34.2] - 2026-10-29
+
+### Fixed
+
+- Releases can run from an exact published-main snapshot when another worktree owns the local main branch, while still rejecting other branches and unpublished detached revisions.
+- Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
+
 ## [7.34.1] - 2026-10-29
 
 ### Fixed

@@ -1080,12 +1080,11 @@ jobs:
         # type noise.
         run: |
           ls node_modules/@tanstack/ node_modules/@openpost/ || true
-          if [ ! -f node_modules/@tanstack/query-core/package.json ] || [ ! -f node_modules/@openpost/api-contract/package.json ]; then
+          if ! bun ../../scripts/check-mobile-install.mjs; then
             rm -rf node_modules
             bun install --frozen-lockfile --no-cache
           fi
-          test -f node_modules/@tanstack/query-core/package.json
-          test -f node_modules/@openpost/api-contract/package.json
+          bun ../../scripts/check-mobile-install.mjs
       - name: Check the standalone mobile app
         working-directory: apps/mobile
         run: bun run check
@@ -1141,12 +1140,11 @@ jobs:
         # type noise.
         run: |
           ls node_modules/@tanstack/ node_modules/@openpost/ || true
-          if [ ! -f node_modules/@tanstack/query-core/package.json ] || [ ! -f node_modules/@openpost/api-contract/package.json ]; then
+          if ! bun ../../scripts/check-mobile-install.mjs; then
             rm -rf node_modules
             bun install --frozen-lockfile --no-cache
           fi
-          test -f node_modules/@tanstack/query-core/package.json
-          test -f node_modules/@openpost/api-contract/package.json
+          bun ../../scripts/check-mobile-install.mjs
       - name: Check the current Android release identity
         working-directory: apps/mobile
         run: |

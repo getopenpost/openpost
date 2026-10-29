@@ -72,3 +72,16 @@ test("malformed specs cannot silently disappear from timings", () => {
     assert.throws(() => summarizeReports([report([{ id: "broken", tests }])]), /tests array/);
   }
 });
+
+test("suites require specs and explicitly skipped attempts remain uncovered", () => {
+  assert.throws(() => summarizeReports([{ suites: [{ title: "broken" }] }]), /specs array/);
+  const skipped = spec("skipped", [0]);
+  skipped.tests[0].results[0].status = "skipped";
+  const selected = summarizeReports([report([skipped])]);
+  assert.equal(selected.tests[0].attempts, 0);
+  const full = summarizeReports([report([spec("skipped", [20], "unexpected")])]);
+  assert.deepEqual(
+    auditSelection(selected, full).uncoveredFailures.map((test) => test.id),
+    ["skipped"],
+  );
+});

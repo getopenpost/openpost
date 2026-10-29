@@ -11,7 +11,8 @@ export function summarizeReports(reports) {
   function visit(suites) {
     if (!Array.isArray(suites)) throw new Error("report requires a suites array");
     for (const suite of suites) {
-      for (const spec of suite.specs ?? []) {
+      if (!Array.isArray(suite.specs)) throw new Error("suite requires a specs array");
+      for (const spec of suite.specs) {
         if (!Array.isArray(spec.tests)) throw new Error("spec requires a tests array");
         for (const entry of spec.tests) {
           const identity = JSON.stringify([spec.id, entry.projectName]);

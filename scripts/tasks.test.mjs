@@ -36,8 +36,11 @@ test("public site builds marketing and docs before composing their outputs", () 
   const stages = Object.fromEntries(
     JSON.parse(result.stdout).stages.map((stage) => [stage.label, stage]),
   );
-  assert.equal(stages["marketing build"].phase, stages["documentation build"].phase);
-  assert.ok(stages["public site composition"].phase > stages["documentation build"].phase);
+  assert.deepEqual(stages["public builds"].commands, [
+    "bunx turbo run build --filter @openpost/site --filter @openpost/docs",
+  ]);
+  assert.ok(stages["documentation inputs"].phase < stages["public builds"].phase);
+  assert.ok(stages["public site composition"].phase > stages["public builds"].phase);
 });
 
 test("unknown scopes fail with the supported interface", () => {

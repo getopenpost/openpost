@@ -215,6 +215,7 @@ const checks = {
       "scripts/changed-files-check.test.mjs",
       "scripts/secret-scan-contract.test.mjs",
       "scripts/turbo-cache.test.mjs",
+      "scripts/docs-input-cache.test.mjs",
     ),
   ]),
   "frontend-build-cache": stage("frontend build cache", [
@@ -711,7 +712,24 @@ function buildPlan(requestedScope) {
   const byScope = { frontend, backend, cli, marketing, docs };
   if (requestedScope === "docs") return plan("build", requestedScope, [[prepareDocs], [docs]]);
   if (requestedScope === "public-site") {
-    return plan("build", requestedScope, [[prepareDocs], [marketing, docs], [composePublicSite]]);
+    return plan("build", requestedScope, [
+      [prepareDocs],
+      [
+        stage("public builds", [
+          commandStep(
+            "bunx",
+            "turbo",
+            "run",
+            "build",
+            "--filter",
+            "@openpost/site",
+            "--filter",
+            "@openpost/docs",
+          ),
+        ]),
+      ],
+      [composePublicSite],
+    ]);
   }
   if (requestedScope) return plan("build", requestedScope, [[byScope[requestedScope]]]);
   return plan("build", undefined, [

@@ -50,7 +50,10 @@ const jobCommands = [
   [/^n8n community package$/u, () => "bun run check:n8n"],
   [/^Security$/u, () => "scripts/security-check.sh"],
   [/^CLI$/u, () => "bun run build -- cli && bun run test -- cli"],
-  [/^Native mobile source checks$/u, () => "cd apps/mobile && bun run check"],
+  [
+    /^Native mobile source checks$/u,
+    () => "cd apps/mobile && bun install --frozen-lockfile && bun run check",
+  ],
   [/^Native mobile Android candidate$/u, () => "cd apps/mobile && bun run check"],
   [/^Production image \(linux\/\w+\)$/u, () => "bun run release -- check-full"],
 ];

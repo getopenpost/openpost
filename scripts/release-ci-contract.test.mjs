@@ -1038,7 +1038,7 @@ test("unchanged CLI skips compilation and publication without bypassing failed p
   assert.match(gate, /needs.build-binaries.result == 'success'/u);
   assert.match(gate, /needs.verify-candidate.result == 'success'/u);
   assert.match(gate, /outputs.cli_changed == 'false' && needs.build-cli.result == 'skipped'/u);
-  assert.equal(jobs["publish-cli"].if, "needs.verify-candidate.outputs.cli_changed == 'true'");
+  assert.match(jobs["publish-cli"].if, /needs\.verify-candidate\.outputs\.cli_changed == 'true'/u);
   for (const name of ["prepare-draft", "promote-image", "publish-release"]) {
     const job = jobs[name];
     assert.ok(
@@ -1054,6 +1054,84 @@ test("unchanged CLI skips compilation and publication without bypassing failed p
     );
     assert.match(script, /verify "\$\{cli_scope\[@\]\}"/u);
   }
+});
+
+test("unchanged CLI does not suppress promotion, deployment, or release completion", () => {
+  const jobs = load(release).jobs;
+  const tail = [
+    "promote-image",
+    "deploy-production",
+    "publish-release",
+    "record-changelog",
+    "announce-discord",
+  ];
+  const completed = [
+    "distribution-plan",
+    "verify-candidate",
+    "candidate-frontend",
+    "prepare-draft",
+    "build-binaries",
+  ];
+  function releaseResults({
+    cliChanged = false,
+    blockedJob,
+    blockedResult,
+    cancelled = false,
+  } = {}) {
+    const results = Object.fromEntries(completed.map((name) => [name, "success"]));
+    results["build-cli"] = cliChanged ? "success" : "skipped";
+    function ancestors(name) {
+      const dependencies = [jobs[name].needs ?? []].flat();
+      return dependencies.flatMap((dependency) => [dependency, ...ancestors(dependency)]);
+    }
+    if (blockedJob) {
+      results[blockedJob] = blockedResult;
+      for (const name of Object.keys(results)) {
+        if (ancestors(name).includes(blockedJob)) results[name] = "skipped";
+      }
+    }
+    function result(name) {
+      if (results[name]) return results[name];
+      const dependencies = [jobs[name].needs ?? []].flat();
+      const needs = Object.fromEntries(
+        dependencies.map((dependency) => [
+          dependency,
+          { result: result(dependency), outputs: { cli_changed: String(cliChanged) } },
+        ]),
+      );
+      const expression = (jobs[name].if ?? "true")
+        .replace(/^\$\{\{\s*|\s*\}\}$/gu, "")
+        .replace(/needs\.([a-z][a-z0-9-]*)/gu, 'needs["$1"]');
+      // GitHub applies success() over the dependency graph unless the job
+      // condition contains an explicit status function.
+      const implicitSuccess =
+        /(?:always|cancelled|failure|success)\(/u.test(expression) ||
+        ancestors(name).every((dependency) => result(dependency) === "success");
+      const enabled =
+        implicitSuccess &&
+        Function("needs", "cancelled", `return (${expression});`)(needs, () => cancelled);
+      return (results[name] = enabled ? "success" : "skipped");
+    }
+    for (const name of [...tail, "publish-cli", "verify-npm-live"]) result(name);
+    return results;
+  }
+  const unchanged = releaseResults();
+  for (const name of tail) assert.equal(unchanged[name], "success", name);
+  assert.equal(unchanged["publish-cli"], "skipped");
+  assert.equal(unchanged["verify-npm-live"], "skipped");
+  const changed = releaseResults({ cliChanged: true });
+  assert.equal(changed["publish-cli"], "success");
+  assert.equal(changed["verify-npm-live"], "success");
+  const completion = [...tail, "publish-cli", "verify-npm-live"];
+  for (const blockedJob of [...completed, "build-cli"]) {
+    for (const blockedResult of ["failure", "cancelled", "skipped"]) {
+      const blocked = releaseResults({ cliChanged: true, blockedJob, blockedResult });
+      for (const name of completion)
+        assert.equal(blocked[name], "skipped", `${name}: ${blockedJob} ${blockedResult}`);
+    }
+  }
+  const cancelled = releaseResults({ cliChanged: true, cancelled: true });
+  for (const name of completion) assert.equal(cancelled[name], "skipped", `${name}: cancelled`);
 });
 
 test("release mobile selection matches preflight inputs and keeps standalone dependencies", async () => {

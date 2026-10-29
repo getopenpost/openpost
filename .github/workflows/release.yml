@@ -533,6 +533,7 @@ jobs:
     name: Promote tested image
     runs-on: ubuntu-latest
     needs: [verify-candidate, prepare-draft, upload-assets]
+    if: ${{ !cancelled() && needs.verify-candidate.result == 'success' && needs.prepare-draft.result == 'success' && needs.upload-assets.result == 'success' }}
     permissions:
       actions: read
       contents: write
@@ -596,6 +597,7 @@ jobs:
     name: Deploy production
     runs-on: ubuntu-latest
     needs: promote-image
+    if: ${{ !cancelled() && needs.promote-image.result == 'success' }}
     timeout-minutes: 70
     steps:
       - name: Trigger the verified VPS deployment
@@ -736,7 +738,7 @@ jobs:
     # unlike the SDK it publishes only after publish-release flips the draft
     # public. A wrapper version whose binaries are unreachable must never ship.
     needs: [promote-image, publish-release, verify-candidate]
-    if: needs.verify-candidate.outputs.cli_changed == 'true'
+    if: ${{ !cancelled() && needs.promote-image.result == 'success' && needs.publish-release.result == 'success' && needs.verify-candidate.result == 'success' && needs.verify-candidate.outputs.cli_changed == 'true' }}
     outputs:
       cli_spec: ${{ steps.cli.outputs.package_spec }}
     timeout-minutes: 20
@@ -780,6 +782,7 @@ jobs:
     # Reports only: the release is already published, so a failure here
     # opens a follow-up instead of blocking anything.
     needs: [publish-cli]
+    if: ${{ !cancelled() && needs.publish-cli.result == 'success' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -810,6 +813,7 @@ jobs:
     # publication. Server-only releases publish core assets; mobile releases
     # wait below for the parallel signing job to attach its APK.
     needs: [verify-candidate, prepare-draft, upload-assets, promote-image, deploy-production]
+    if: ${{ !cancelled() && needs.verify-candidate.result == 'success' && needs.prepare-draft.result == 'success' && needs.upload-assets.result == 'success' && needs.promote-image.result == 'success' && needs.deploy-production.result == 'success' }}
     permissions:
       actions: read
       contents: write
@@ -881,6 +885,7 @@ jobs:
     # shipped. The bot commit carries the automation identity, never a
     # human author: tagging needs no changelog commit anymore.
     needs: publish-release
+    if: ${{ !cancelled() && needs.publish-release.result == 'success' }}
     permissions:
       contents: write
     steps:
@@ -941,6 +946,7 @@ jobs:
     # covers the normal pipeline. They cannot double-post: publishes made
     # with GITHUB_TOKEN do not trigger other workflows.
     needs: publish-release
+    if: ${{ !cancelled() && needs.publish-release.result == 'success' }}
     permissions:
       contents: read
     steps:

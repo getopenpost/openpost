@@ -227,7 +227,7 @@ func (a workflowActions) build(ctx context.Context, input workflows.EffectReques
 		return workflows.EffectResult{}, err
 	}
 	if !found {
-		body := CreatePublicationBuildBody{WorkspaceID: input.Authority.WorkspaceID, Idea: workflowText(input.Inputs, "text"), AccountIDs: workflowAccounts(input.Inputs), SocialSetID: workflowText(input.Inputs, "social_set_id"), Direction: publicationbuilder.DirectionInput{Outcome: workflowText(input.Inputs, "instructions")}}
+		body := CreatePublicationBuildBody{WorkspaceID: input.Authority.WorkspaceID, Idea: workflowText(input.Inputs, "text"), AccountIDs: workflowAccounts(input.Inputs), SocialSetID: workflowText(input.Inputs, "social_set_id"), Direction: publicationbuilder.DirectionInput{Instructions: strings.TrimSpace(workflowText(input.Inputs, "instructions"))}}
 		destinations, err := a.builds.preparePublicationBuildDestinations(ctx, body.WorkspaceID, body)
 		if err != nil {
 			return workflows.EffectResult{}, err

@@ -5593,7 +5593,7 @@
 					},
 					"direction": {
 						"$ref": "#/components/schemas/DirectionInput",
-						"description": "Optional outcome, audience, angle, tone, and media direction"
+						"description": "Optional writing instructions, outcome, audience, angle, tone, and media direction"
 					},
 					"idea": {
 						"description": "Idea, note, update, or Markdown source text",
@@ -6929,6 +6929,11 @@
 					},
 					"audience": {
 						"maxLength": 1000,
+						"type": "string"
+					},
+					"instructions": {
+						"description": "Author's writing requirements, kept separate from source evidence and the short outcome",
+						"maxLength": 10000,
 						"type": "string"
 					},
 					"media_preference": {

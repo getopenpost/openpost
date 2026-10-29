@@ -19,6 +19,7 @@ func TestBuildPreservesAuthorDirectionAtProviderBoundary(t *testing.T) {
 		lockedFields []string
 	}{
 		{"locked", []string{"outcome", "audience", "angle"}},
+		{"writing instructions", nil},
 		{"unlocked", nil},
 		{"outcome only", []string{"outcome"}},
 		{"source only", nil},
@@ -66,6 +67,9 @@ func TestBuildPreservesAuthorDirectionAtProviderBoundary(t *testing.T) {
 				input.Idea = ""
 			}
 			direction := DirectionInput{}
+			if tc.name == "writing instructions" {
+				direction.Instructions = strings.Repeat("Keep the supplied release version and lead with a user benefit.\n", 8)
+			}
 			values := map[string]string{"outcome": "Explain the change.\nInvite feedback.", "audience": "video editors", "angle": "show the source audio"}
 			locked := map[string]bool{}
 			for _, field := range tc.lockedFields {
@@ -306,6 +310,7 @@ func TestBuildRejectsOversizedDirectionBeforeGeneration(t *testing.T) {
 		name      string
 		direction DirectionInput
 	}{
+		{"instructions", DirectionInput{Instructions: strings.Repeat("x", 10001)}},
 		{"outcome", DirectionInput{Outcome: strings.Repeat("x", 201)}},
 		{"audience", DirectionInput{Audience: strings.Repeat("x", 1001)}},
 		{"angle", DirectionInput{Angle: strings.Repeat("x", 1501)}},

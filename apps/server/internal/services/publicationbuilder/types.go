@@ -12,6 +12,7 @@ const (
 	DestinationPolicyRequireAll DestinationPolicy = "require_all"
 
 	MaxDirectionOutcomeCharacters         = 200
+	MaxDirectionInstructionsCharacters    = 10_000
 	MaxDirectionAudienceCharacters        = 1_000
 	MaxDirectionAngleCharacters           = 1_500
 	MaxDirectionToneCharacters            = 500
@@ -20,6 +21,7 @@ const (
 )
 
 type DirectionInput struct {
+	Instructions    string `json:"instructions,omitempty" maxLength:"10000" doc:"Author's writing requirements, kept separate from source evidence and the short outcome"`
 	Outcome         string `json:"outcome,omitempty" maxLength:"200"`
 	Audience        string `json:"audience,omitempty" maxLength:"1000"`
 	Angle           string `json:"angle,omitempty" maxLength:"1500"`

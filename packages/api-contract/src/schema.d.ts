@@ -9229,7 +9229,7 @@ export interface components {
              * @enum {string}
              */
             destination_policy?: "recommend" | "require_all";
-            /** @description Optional outcome, audience, angle, tone, and media direction */
+            /** @description Optional writing instructions, outcome, audience, angle, tone, and media direction */
             direction?: components["schemas"]["DirectionInput"];
             /** @description Idea, note, update, or Markdown source text */
             idea?: string;
@@ -9809,6 +9809,8 @@ export interface components {
         DirectionInput: {
             angle?: string;
             audience?: string;
+            /** @description Author's writing requirements, kept separate from source evidence and the short outcome */
+            instructions?: string;
             media_preference?: string;
             outcome?: string;
             tone_adjustment?: string;

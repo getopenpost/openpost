@@ -63,6 +63,7 @@ func validateBuildInputWithStoredReferences(input BuildInput, hasStoredReference
 		value   string
 		maximum int
 	}{
+		{"instructions", input.Direction.Instructions, MaxDirectionInstructionsCharacters},
 		{"outcome", input.Direction.Outcome, MaxDirectionOutcomeCharacters},
 		{"audience", input.Direction.Audience, MaxDirectionAudienceCharacters},
 		{"angle", input.Direction.Angle, MaxDirectionAngleCharacters},

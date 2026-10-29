@@ -103,7 +103,7 @@ type CreatePublicationBuildBody struct {
 	ContextNotes      string                               `json:"context_notes,omitempty" maxLength:"10000" doc:"Private planning notes supplied as untrusted source material"`
 	ContextMayPublish bool                                 `json:"context_may_publish,omitempty" doc:"Allow text from context notes to appear in generated drafts"`
 	Assets            []publicationbuilder.BuildAsset      `json:"assets,omitempty" maxItems:"10" doc:"Stored Workspace media used as source evidence"`
-	Direction         publicationbuilder.DirectionInput    `json:"direction,omitempty" doc:"Optional outcome, audience, angle, tone, and media direction"`
+	Direction         publicationbuilder.DirectionInput    `json:"direction,omitempty" doc:"Optional writing instructions, outcome, audience, angle, tone, and media direction"`
 	DestinationPolicy publicationbuilder.DestinationPolicy `json:"destination_policy,omitempty" enum:"recommend,require_all" doc:"Allow the director to skip weak destinations or require every candidate"`
 }
 
@@ -899,6 +899,11 @@ func publicationBuildAccountLabel(account models.SocialAccount) string {
 func normalizePublicationBuildDirection(
 	input publicationbuilder.DirectionInput,
 ) (publicationbuilder.DirectionInput, error) {
+	instructions, err := boundedBuildText(input.Instructions, publicationbuilder.MaxDirectionInstructionsCharacters, true, "direction.instructions")
+	if err != nil {
+		return publicationbuilder.DirectionInput{}, err
+	}
+	input.Instructions = instructions
 	fields := []struct {
 		value *string
 		max   int

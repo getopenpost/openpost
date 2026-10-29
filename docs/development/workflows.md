@@ -26,6 +26,8 @@ Merge appends the second list to the first. For objects, the second input replac
 
 Draft destinations reuse `SocialSetControl`, including its format and account-resolved settings dialogs. The workflow stores either a Social Set ID or explicit account IDs. A selected set resolves its current members and defaults through native publication or Builder creation for each new draft. Replaying an accepted step uses its original receipt, even if that set later changes or disappears. Created posts own their destination snapshots; reviewing or scheduling must not reapply set defaults.
 
+Build draft keeps the node's complete writing instructions in `direction.instructions` (up to 10,000 characters), separate from the original source text and the short `direction.outcome`. All Builder roles receive those authored requirements. Replaying an accepted native build retains its original instructions.
+
 Stored authority carries the activating user's identity assurance. Current workspace membership, organization policy, and action permissions are rechecked. Live runs require administration; editors can save and preview; viewers can inspect. The stored-authority context is internal and cannot be supplied by HTTP clients. Native commands verify that its workspace and user match the target.
 
 Approval reads the current native post and binds the decision to the revision displayed to the reviewer. Scheduling must reference the approval step's `publication_id` and `revision` to enforce that decision after a wait or subsequent edit. Cancelling stops remaining steps and retains any outcome already accepted by a native action. It does not undo a created draft or cancel an already queued publication job. Pausing stops automatic admission; existing runs continue.

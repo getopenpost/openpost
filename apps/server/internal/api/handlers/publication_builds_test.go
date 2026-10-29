@@ -377,14 +377,17 @@ func TestPublicationBuildCreateStoresReferencesWithoutFetchingThem(t *testing.T)
 func TestPublicationBuildCreateAcceptsMultilineContextNotes(t *testing.T) {
 	server := newPublicationBuildTestServer(t)
 	contextNotes := "What changed:\n- Removed the setup step\n- Kept the existing workflow"
+	instructions := "Start with the practical benefit for the reader.\nKeep the release version and supplied links.\nExplain what changed without inventing metrics, setup steps, outcomes or features.\nUse a short opening and one concrete use case."
 
 	response := server.request(t, http.MethodPost, "/api/v1/publication-builds", publicationBuildRequest(map[string]any{
 		"context_notes":       contextNotes,
 		"context_may_publish": true,
+		"direction":           map[string]any{"instructions": instructions},
 	}), "multiline-context-notes", "web-token")
 
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	build := decodePublicationBuild(t, response)
+	require.Equal(t, instructions, build.Input.Direction.Instructions)
 	require.Equal(t, []publicationbuilder.SourceMaterial{{
 		ID: "context:notes", Kind: "text", Label: "Additional context", Text: contextNotes, Publishable: true,
 	}}, build.Input.Sources)

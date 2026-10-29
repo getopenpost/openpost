@@ -8,6 +8,30 @@ All notable changes to this project are documented in this file.
 
 - Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
 
+## [7.34.0] - 2026-10-29
+
+### Fixed
+
+- Keep the Image Editor Alt-drag origin ghost above the page background and behind its multi-selection, including while animated layers re-sync.
+- Keep a newly applied Image Editor page background behind the layers that already exist instead of placing it above them until reload.
+- Keep a newly added Image Editor layer above a selected layer that belongs to a group, and draw the layer-tree drop line below an expanded group's full subtree.
+- Anchor Image Editor range selection at a newly added layer so the next shift-click starts from the new layer instead of the previous selection.
+- Insert Video Editor shapes, timers, Motion generated layers, and saved library text overlays above occupied video tracks instead of hiding them behind existing clips.
+- Keep automatic Video Editor placement on visible tracks, and let media and nested sequences share a track with non-exclusive adjustment layers and transform controllers.
+- Scene insertion and regular Video Editor adjustment layers now choose visible tracks and use the same non-exclusive occupancy rule as other placement paths.
+- Avoid duplicate default Video Editor track names when a matching track is hidden and source insert creates a new visible track.
+- Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
+
+### Changed
+
+- Run affected checks on main and pull requests while keeping complete release qualification on tags and nightly runs. Separate mobile source feedback from Android packaging and preserve production release gates.
+- Select shared package consumers through declared dependencies, avoid unrelated public-site builds, and retain browser test timing reports for regression and selection audits.
+- Check unpushed changes locally before releases; retain full local rehearsal as an explicit command.
+
+### Added
+
+- LinkedIn Community Management authentication uses the approved Profile API and individual Page lookups for Development Tier integrations. Self-hosted installations retain OpenID Connect as the default and can opt into Community Management with `OPENPOST_LINKEDIN_AUTH_MODE=community_management`.
+
 ## [7.33.0] - 2026-10-29
 
 ### Fixed

@@ -105,8 +105,8 @@ func fetchLinkedInOrganizationFollowers(ctx context.Context, accessToken, organi
 	if !strings.HasPrefix(organizationURN, "urn:li:organization") {
 		return nil, NewAnalyticsError(AnalyticsStatusUnsupported, "linkedin_organization_required")
 	}
-	endpoint := "https://api.linkedin.com/rest/networkSizes/" + url.PathEscape(organizationURN) +
-		"?edgeType=CompanyFollowedByMember"
+	endpoint := "https://api.linkedin.com/rest/networkSizes/" + url.QueryEscape(organizationURN) +
+		"?edgeType=COMPANY_FOLLOWED_BY_MEMBER"
 	body, err := DoRequest(ctx, http.MethodGet, endpoint, nil, linkedinHeaders(accessToken, linkedInAPIVersion()))
 	if err != nil {
 		return nil, fmt.Errorf("linkedin organization followers: %w", err)
@@ -216,13 +216,10 @@ func fetchLinkedInOrganizationContentAnalytics(ctx context.Context, accessToken,
 	for _, id := range ids {
 		switch {
 		case strings.HasPrefix(id, "urn:li:share:"):
-			shares = append(shares, id)
+			shares = append(shares, url.QueryEscape(id))
 		case strings.HasPrefix(id, "urn:li:ugcPost:"):
 			ugcPosts = append(ugcPosts, id)
 		}
-	}
-	if len(shares) > 0 {
-		query.Set("shares", "List("+strings.Join(shares, ",")+")")
 	}
 	for index, id := range ugcPosts {
 		query.Set(fmt.Sprintf("ugcPosts[%d]", index), id)
@@ -230,10 +227,15 @@ func fetchLinkedInOrganizationContentAnalytics(ctx context.Context, accessToken,
 	if len(shares) == 0 && len(ugcPosts) == 0 {
 		return nil, NewAnalyticsError(AnalyticsStatusNotFound, "linkedin_post_not_found")
 	}
+	encodedQuery := query.Encode()
+	if len(shares) > 0 {
+		// Rest.li 2.0 requires encoded URNs but literal list punctuation.
+		encodedQuery += "&shares=List(" + strings.Join(shares, ",") + ")"
+	}
 	body, err := DoRequest(
 		ctx,
 		http.MethodGet,
-		"https://api.linkedin.com/rest/organizationalEntityShareStatistics?"+query.Encode(),
+		"https://api.linkedin.com/rest/organizationalEntityShareStatistics?"+encodedQuery,
 		nil,
 		linkedinHeaders(accessToken, linkedInAPIVersion()),
 	)

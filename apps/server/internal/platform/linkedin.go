@@ -487,7 +487,7 @@ func linkedInLogoDownloadURL(ctx context.Context, accessToken, assetURN string) 
 	}
 	// Organization Lookup directs logoV2 to the Images API. LinkedIn's Comments
 	// API documents using the same asset identifier in an image URN.
-	endpoint := "https://api.linkedin.com/rest/images/" + url.PathEscape("urn:li:image:"+assetID)
+	endpoint := "https://api.linkedin.com/rest/images/" + url.QueryEscape("urn:li:image:"+assetID)
 	body, err := DoRequest(ctx, http.MethodGet, endpoint, nil, linkedinHeaders(accessToken, linkedInAPIVersion()))
 	if err != nil {
 		return ""

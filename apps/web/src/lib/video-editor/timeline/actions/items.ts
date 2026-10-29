@@ -310,10 +310,12 @@ export function addAdjustmentLayer(label: string, options: AddAdjustmentLayerOpt
 			.filter((track) => track.kind !== 'audio')
 			.toSorted((left, right) => left.order - right.order);
 		const editableVisualTracks = visualTracks.filter((track) => !track.locked);
+		const preferredVisualTrack = options.preferredTrackId
+			? editableVisualTracks.find((track) => track.id === options.preferredTrackId)
+			: undefined;
 		let topVisualTrack = options.sequenceColorGrade
 			? (visualTracks.find((track) => track.id === options.preferredTrackId) ?? visualTracks[0])
-			: (editableVisualTracks.find((track) => track.id === options.preferredTrackId) ??
-				editableVisualTracks[0]);
+			: (preferredVisualTrack ?? editableVisualTracks.find((track) => track.visible !== false));
 
 		const from = Math.max(0, Math.round(options.frame ?? timelineStore.currentFrame));
 		const durationInFrames = Math.max(

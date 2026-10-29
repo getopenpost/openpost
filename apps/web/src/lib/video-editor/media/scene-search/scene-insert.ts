@@ -3,16 +3,15 @@
 import type { TimelineItem, TimelineTrack } from '../../project/types';
 import { execute } from '../../timeline/commands/command-store.svelte';
 import { timelineStore } from '../../timeline/stores/timeline-store.svelte';
+import { trackRangeIsOpen } from '../../timeline/track-occupancy';
 import { effectiveMediaTracks } from '../../timeline/utils/track-groups';
 import type { MediaMetadata } from '../types';
 import type { MediaScene } from './types';
 import { m } from '$lib/paraglide/messages';
 import { insertMediaAtFrame } from '../../timeline/actions/insert-media';
 
-function collides(trackId: string, from: number, end: number): boolean {
-	return (timelineStore.itemsByTrackId.get(trackId) ?? []).some(
-		(item) => item.from < end && item.from + item.durationInFrames > from
-	);
+function trackIsOpen(trackId: string, from: number, end: number): boolean {
+	return trackRangeIsOpen(timelineStore.items, trackId, from, Math.max(1, end - from), 'video');
 }
 
 function targetTrack(from: number, end: number, preferredTrackId?: string): TimelineTrack {
@@ -20,13 +19,18 @@ function targetTrack(from: number, end: number, preferredTrackId?: string): Time
 	const preferred = preferredTrackId
 		? tracks.find((track) => track.id === preferredTrackId)
 		: undefined;
-	if (preferred?.kind === 'video' && !preferred.locked && !collides(preferred.id, from, end)) {
+	if (preferred?.kind === 'video' && !preferred.locked && trackIsOpen(preferred.id, from, end)) {
 		return preferred;
 	}
 	const unlocked = tracks
-		.filter((track) => track.kind === 'video' && !track.locked)
+		.filter(
+			(track) =>
+				track.kind === 'video' &&
+				!track.locked &&
+				(track.visible !== false || track.id === preferredTrackId)
+		)
 		.toSorted((left, right) => right.order - left.order);
-	const open = unlocked.find((track) => !collides(track.id, from, end));
+	const open = unlocked.find((track) => trackIsOpen(track.id, from, end));
 	if (open) return open;
 	const order = Math.min(0, ...timelineStore.tracks.map((track) => track.order)) - 1;
 	return {

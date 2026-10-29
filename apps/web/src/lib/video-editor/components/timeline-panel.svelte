@@ -2299,9 +2299,8 @@
 				(track) =>
 					track.kind === 'video' &&
 					!track.locked &&
-					!(timelineStore.itemsByTrackId.get(track.id) ?? []).some(
-						(item) => item.from < end && item.from + item.durationInFrames > from
-					)
+					(track.visible !== false || track.id === preferredTrackId) &&
+					trackRangeIsOpen(timelineStore.items, track.id, from, end - from, 'video')
 			)?.id ?? null
 		);
 	}

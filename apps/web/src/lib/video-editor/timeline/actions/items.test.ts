@@ -137,6 +137,21 @@ describe('sequence color grade item', () => {
 		});
 		expect(timelineStore.itemById.get(id)?.sequenceColorGrade).toBe(true);
 	});
+
+	it('adds a regular adjustment layer to a visible track instead of a hidden one', () => {
+		timelineStore._setTracks(
+			timelineStore.tracks.map((track) =>
+				track.id === 'track-video-overlay' ? { ...track, visible: false } : track
+			)
+		);
+
+		const id = addAdjustmentLayer('Grade');
+		const adjustment = timelineStore.itemById.get(id)!;
+		const track = timelineStore.tracks.find((candidate) => candidate.id === adjustment.trackId);
+
+		expect(track?.visible).not.toBe(false);
+		expect(adjustment.trackId).toBe('track-video-main');
+	});
 });
 
 describe('timeline delete actions', () => {

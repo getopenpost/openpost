@@ -9,6 +9,7 @@ import {
   copyFrontendWithoutImmutableAssets,
   validateImmutableFrontendAssets,
 } from "./immutable-frontend-assets.mjs";
+import { uploadPostHogWorkerSourceMaps } from "./posthog-source-maps.ts";
 
 export const frontendBuildHeapMiB = 8192;
 
@@ -90,6 +91,9 @@ export async function runFrontendViteBuild() {
   }
   if (exitStatus !== 0) process.exit(exitStatus);
   await validateCompiledWorkerRunes(
+    path.join(repositoryRoot, "apps/web/build/_app/immutable/workers"),
+  );
+  await uploadPostHogWorkerSourceMaps(
     path.join(repositoryRoot, "apps/web/build/_app/immutable/workers"),
   );
 }

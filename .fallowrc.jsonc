@@ -67,6 +67,7 @@
         "@iconify/utils",
         "@inlang/paraglide-js",
         "@napi-rs/canvas",
+        "@posthog/rollup-plugin",
         "js-yaml",
         "parse5",
         "tar",

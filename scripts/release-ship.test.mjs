@@ -68,9 +68,10 @@ function shipScenario(scenario = {}, command = "ship") {
         appendFileSync("commands.jsonl", JSON.stringify(argv) + "\\n");
         const command = argv.join(" ");
         let stdout = "", exitCode = 0;
-        if (command === "git branch --show-current") stdout = "main";
+        if (command === "git branch --show-current") stdout = scenario.branch ?? "main";
         else if (command === "git status --porcelain") stdout = scenario.dirty ? " M source.ts" : "";
         else if (command === "git rev-list --left-right --count HEAD...origin/main") stdout = scenario.resume ? "0\\t2" : "1\\t0";
+        else if (command === "git rev-parse refs/remotes/origin/main") stdout = scenario.remoteRevision ?? "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         else if (command === "git rev-parse HEAD") stdout = checked && scenario.moved ? "${"b".repeat(40)}" : "${revision}";
         else if (command.startsWith("git tag --points-at")) stdout = tagged ? "v1.0.1" : "";
         else if (command.startsWith("git tag --list")) stdout = "v1.0.0";
@@ -212,4 +213,18 @@ test("watch reports a cancelled job's timeout and step instead of inventing a su
   assert.match(result.output, /The operation was canceled/u);
   assert.doesNotMatch(result.output, /newer main push|pull and ship/u);
   assert.ok(result.commands.some((argv) => argv.includes("--log")));
+});
+
+test("ship accepts only an exact remote-main detached candidate", () => {
+  const accepted = shipScenario({ branch: "", failCheck: true });
+  assert.ok(
+    accepted.commands.some((argv) => argv.includes("check:affected")),
+    accepted.output,
+  );
+  for (const scenario of [{ branch: "feature" }, { branch: "", remoteRevision: "b".repeat(40) }]) {
+    const rejected = shipScenario(scenario);
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.output, /refusing to release/);
+    assert.ok(!rejected.commands.some((argv) => argv[0] === "git" && argv[1] === "push"));
+  }
 });

@@ -399,7 +399,13 @@ async function ship() {
   const phase = (message) => console.log(`\n[${formatDuration(Date.now() - started)}] ${message}`);
   requireCommand("gh");
   const branch = git(["branch", "--show-current"]);
-  if (branch !== "main") throw new Error(`refusing to release from ${JSON.stringify(branch)}`);
+  if (
+    branch !== "main" &&
+    !(
+      branch === "" && git(["rev-parse", "HEAD"]) === git(["rev-parse", "refs/remotes/origin/main"])
+    )
+  )
+    throw new Error(`refusing to release from ${JSON.stringify(branch)}`);
   if (isDirty())
     throw new Error(
       "ship requires a clean worktree; commit the candidate before running local release checks",

@@ -7,24 +7,42 @@ import { pathToFileURL } from "node:url";
 
 // Keep the installed plugin and its hooks, replacing only its CLI executable.
 const root = await mkdtemp(join(tmpdir(), "openpost-posthog-"));
-const cli = join(root, "posthog-cli");
+const cli = join(root, "posthog-cli.mjs");
 const receipt = join(root, "receipt.json");
+const history = join(root, "receipts.jsonl");
 await writeFile(
   cli,
   `#!/usr/bin/env node
-const paths = (await import("node:fs")).readFileSync(0, "utf8").trim().split("\\n");
+import fs from "node:fs";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+const args = process.argv.slice(2);
+const directory = args.includes("--directory") ? args[args.indexOf("--directory") + 1] : undefined;
+const paths = directory
+  ? fs.readdirSync(directory, { recursive: true }).filter(file => file.endsWith(".js.map")).map(file => path.join(directory, file.slice(0, -4)))
+  : fs.readFileSync(0, "utf8").trim().split("\\n");
 const maps = [];
-for (const path of paths) {
-  const map = JSON.parse((await import("node:fs")).readFileSync(path + ".map", "utf8"));
+for (const file of paths) {
+  const map = JSON.parse(fs.readFileSync(file + ".map", "utf8"));
   if (!map.sourcesContent.some(source => source?.includes("fixture failure"))) process.exit(9);
+  map.debug_id = randomUUID();
+  fs.appendFileSync(file, "\\n/* fixture symbol " + map.debug_id + " */");
+  fs.writeFileSync(file + ".map", JSON.stringify(map));
   maps.push(map);
 }
-(await import("node:fs")).writeFileSync(${JSON.stringify(receipt)}, JSON.stringify({paths, maps, args: process.argv.slice(2), host: process.env.POSTHOG_CLI_HOST}));
-if (process.env.OPENPOST_FIXTURE_UPLOAD_FAIL === "1") process.exit(7);
-for (const path of paths) await (await import("node:fs/promises")).unlink(path + ".map");
+const upload = JSON.stringify({paths, maps, args, host: process.env.POSTHOG_CLI_HOST, key: process.env.POSTHOG_CLI_API_KEY, project: process.env.POSTHOG_CLI_PROJECT_ID});
+fs.writeFileSync(${JSON.stringify(receipt)}, upload);
+fs.appendFileSync(${JSON.stringify(history)}, upload + "\\n");
+if (process.env.OPENPOST_FIXTURE_UPLOAD_FAIL === "1" || (directory && process.env.OPENPOST_FIXTURE_WORKER_UPLOAD_FAIL === "1")) process.exit(7);
+if (directory && process.env.OPENPOST_FIXTURE_KEEP_MAPS === "1") process.exit(0);
+for (const file of paths) fs.unlinkSync(file + ".map");
 `,
 );
 await chmod(cli, 0o755);
+// createRequire resolves from the plugin wrapper's location. Supply only its
+// owned CLI there; production resolves the real dependency beside the plugin.
+await mkdir(join(root, "node_modules/@posthog/cli"), { recursive: true });
+await symlink(cli, join(root, "node_modules/@posthog/cli/run-posthog-cli.js"));
 const { postHogSourceMaps } = await import("../../scripts/posthog-source-maps");
 // Production Vite runs in Node. Intercept only the CLI path in its installed
 // plugin, leaving the helper and real build hooks unchanged.
@@ -40,9 +58,10 @@ await writeFile(
 import {registerHooks} from 'node:module';
 registerHooks({resolve(specifier,context,next){return next(specifier==='@posthog/rollup-plugin' ? ${JSON.stringify(pathToFileURL(wrapper).href)} : specifier,context);}});
 const {build}=await import(${JSON.stringify(import.meta.resolve("vite"))});
-const {postHogSourceMaps}=await import(${JSON.stringify(pathToFileURL(join(process.cwd(), "scripts/posthog-source-maps.ts")).href)});
-const options=JSON.parse(process.argv[2]);
+const {postHogSourceMaps,uploadPostHogWorkerSourceMaps}=await import(${JSON.stringify(pathToFileURL(join(process.cwd(), "scripts/posthog-source-maps.ts")).href)});
+const {workerDirectory,...options}=JSON.parse(process.argv[2]);
 await build({...options,plugins:postHogSourceMaps(options.surface).plugins});
+if(workerDirectory) await uploadPostHogWorkerSourceMaps(workerDirectory);
 `,
 );
 async function fixtureBuild(options: Record<string, unknown>) {
@@ -65,6 +84,7 @@ beforeAll(() => {
   process.env.POSTHOG_PROJECT_ID = "123";
   process.env.POSTHOG_UI_HOST = "https://eu.posthog.com";
   process.env.OPENPOST_RELEASE_VERSION = "fixture-release";
+  process.env.GITHUB_RUN_ID = " fixture-build ";
 });
 afterAll(async () => {
   process.env = saved;
@@ -176,6 +196,88 @@ test("client CLI failure fails the build and retains private maps", async () => 
     delete process.env.OPENPOST_FIXTURE_UPLOAD_FAIL;
   }
 });
+
+async function workerFixtureOptions(outputName: string) {
+  const entry = join(root, "worker-entry.js");
+  await writeFile(
+    entry,
+    'globalThis.worker = new Worker(new URL("./analysis.worker.js", import.meta.url), { type: "module" }); globalThis.fail = () => { throw new Error("fixture failure"); };',
+  );
+  await writeFile(
+    join(root, "analysis.worker.js"),
+    'self.onmessage = () => { throw new Error("worker fixture failure"); };',
+  );
+  const outDir = join(root, outputName);
+  return {
+    configFile: false,
+    root,
+    logLevel: "silent",
+    surface: "app",
+    workerDirectory: join(outDir, "workers"),
+    worker: {
+      format: "es",
+      rollupOptions: { output: { entryFileNames: "workers/[name]-[hash].js" } },
+    },
+    build: { outDir, rollupOptions: { input: entry } },
+  };
+}
+
+test("real Vite worker output uploads private maps before shipping", async () => {
+  await rm(history, { force: true });
+  const options = await workerFixtureOptions("worker output with spaces");
+  const outDir = options.build.outDir;
+  await fixtureBuild(options);
+  const files = await readdir(outDir, { recursive: true });
+  expect(files.some((file) => file.includes("analysis.worker") && file.endsWith(".js"))).toBe(true);
+  expect(files.filter((file) => file.endsWith(".map"))).toEqual([]);
+  const uploads = (await readFile(history, "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  expect(uploads).toHaveLength(2);
+  expect(uploads[0].args).toContain("--stdin");
+  expect(uploads[1].args).toEqual([
+    "sourcemap",
+    "process",
+    "--directory",
+    join(outDir, "workers"),
+    "--release-name",
+    "openpost-app",
+    "--release-version",
+    "fixture-release",
+    ...(process.env.GITHUB_RUN_ID ? ["--build", process.env.GITHUB_RUN_ID.trim()] : []),
+    "--delete-after",
+  ]);
+  for (const upload of uploads) {
+    expect(upload.host).toBe("https://eu.posthog.com");
+    expect(upload.key).toBe("fixture-key");
+    expect(upload.project).toBe("123");
+    for (const [index, file] of upload.paths.entries()) {
+      const js = await readFile(file, "utf8");
+      expect(js).toContain(upload.maps[index].debug_id);
+      expect(js).not.toContain("sourceMappingURL");
+      expect(upload.maps[index].sourcesContent.join("")).toContain("fixture failure");
+    }
+  }
+});
+
+for (const [flag, message] of [
+  ["OPENPOST_FIXTURE_WORKER_UPLOAD_FAIL", "PostHog worker source-map upload failed (7)"],
+  ["OPENPOST_FIXTURE_KEEP_MAPS", "PostHog worker source maps remain after upload"],
+]) {
+  test(`worker processing rejects ${flag} and retains maps`, async () => {
+    process.env[flag] = "1";
+    const outDir = join(root, flag);
+    try {
+      await expect(fixtureBuild(await workerFixtureOptions(flag))).rejects.toThrow(message);
+      const files = await readdir(outDir, { recursive: true });
+      expect(files.some((file) => file.startsWith("workers/") && file.endsWith(".map"))).toBe(true);
+      expect(files.some((file) => file.startsWith("assets/") && file.endsWith(".map"))).toBe(false);
+    } finally {
+      delete process.env[flag];
+    }
+  });
+}
 
 for (const surface of ["web", "marketing"]) {
   test(`${surface} actual Vite config keeps hidden maps only for client`, async () => {

@@ -8,6 +8,17 @@ All notable changes to this project are documented in this file.
 
 - Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
 
+## [7.34.1] - 2026-10-29
+
+### Fixed
+
+- Show LinkedIn organization Page logos when choosing accounts and refreshing connected profiles, including the required image URN encoding.
+- Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
+
+### Changed
+
+- Releases keep unchanged Android, CLI, SDK and n8n downloads on their existing versions, with verified links in the release notes. App browser checks prepare earlier, and Android builds reuse Gradle and native compiler caches.
+
 ## [7.34.0] - 2026-10-29
 
 ### Fixed

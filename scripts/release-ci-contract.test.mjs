@@ -109,7 +109,7 @@ test("main feedback is filtered and nightly qualification is exhaustive", () => 
     "needs.plan.outputs.android == 'true' && needs.plan.outputs.mode != 'reuse'",
   );
   assert.match(workflow.jobs.android.if, /mode == 'release'/u);
-  assert.match(workflow.jobs["browser-app"].if, /always\(\)/u);
+  assert.equal(workflow.jobs["browser-app"].if, "needs.plan.outputs.application == 'true'");
 });
 
 test("event planning executes filtered pushes and fail-closed qualification", () => {
@@ -202,14 +202,22 @@ test("package recovery dispatch keeps app deployment out of the job graph", () =
   assert.equal(workflow.jobs["candidate-frontend"].if, "github.event_name == 'push'");
   assert.equal(
     workflow.jobs["publish-n8n"].if,
-    "!cancelled() && (needs.promote-image.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'n8n'))",
+    "!cancelled() && ((needs.promote-image.result == 'success' && needs.verify-candidate.outputs.n8n_changed == 'true') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'n8n'))",
   );
   assert.equal(
     workflow.jobs["publish-sdk"].if,
-    "!cancelled() && (needs.promote-image.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'sdk'))",
+    "!cancelled() && ((needs.promote-image.result == 'success' && needs.verify-candidate.outputs.sdk_changed == 'true') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'sdk'))",
   );
   for (const [name, job] of Object.entries(workflow.jobs)) {
-    if (["verify-candidate", "candidate-frontend", "publish-n8n", "publish-sdk"].includes(name))
+    if (
+      [
+        "distribution-plan",
+        "verify-candidate",
+        "candidate-frontend",
+        "publish-n8n",
+        "publish-sdk",
+      ].includes(name)
+    )
       continue;
     assert.ok(job.needs, `${name} must remain downstream of the release gate`);
     assert.ok(!job.if?.includes("always()"), `${name} must not run after skipped needs`);
@@ -219,16 +227,29 @@ test("package recovery dispatch keeps app deployment out of the job graph", () =
 test("tag release candidates schedule the application browser suite", () => {
   const jobs = load(ci).jobs;
   const browserApp = jobs["browser-app"];
-  assert.equal(
-    browserApp.if,
-    "always() && !cancelled() && needs.plan.outputs.application == 'true' && needs.frontend-build.result == 'success' && needs.marketing-build.result != 'failure'",
-  );
-  assert.ok(browserApp.needs.includes("marketing-build"));
+  assert.equal(browserApp.if, "needs.plan.outputs.application == 'true'");
+  assert.ok(!browserApp.needs.includes("marketing-build"));
+  assert.equal(browserApp.needs, "plan");
+  assert.equal(jobs["browser-handoff"].needs, "plan");
+  for (const job of [browserApp, jobs["browser-handoff"]]) {
+    const preparation = job.steps.findIndex(
+      (step) => step.name === "Install pinned Chromium and system dependencies",
+    );
+    const artifact = job.steps.findIndex((step) => step.id === "frontend-artifact");
+    assert.ok(preparation >= 0 && preparation < artifact);
+    assert.match(job.steps[artifact].run, /ci-artifacts.mjs wait/u);
+    assert.match(job.steps[artifact].run, /--producer "Canonical frontend build"/u);
+  }
+  assert.ok(jobs["release-candidate"].needs.includes("browser-handoff"));
+  const coreRun = browserApp.steps.find((step) => step.env?.OPENPOST_APP_E2E_SUITE);
+  const handoffRun = jobs["browser-handoff"].steps.find((step) => step.env?.OPENPOST_APP_E2E_SUITE);
+  assert.equal(coreRun.env.OPENPOST_APP_E2E_SUITE, "core");
+  assert.equal(handoffRun.env.OPENPOST_APP_E2E_SUITE, "handoff");
   assert.equal(
     jobs["marketing-build"].if,
     "needs.plan.outputs.marketing == 'true' || needs.plan.outputs.application == 'true'",
   );
-  const marketingDownload = browserApp.steps.find(
+  const marketingDownload = jobs["browser-handoff"].steps.find(
     (step) =>
       step.uses?.startsWith("actions/download-artifact@") &&
       step.with?.path === "apps/marketing/dist",
@@ -415,6 +436,7 @@ test("the exhaustive local image check uses the host's supported architecture", 
       mkdirSync(path.join(directory, "scripts"));
       for (const file of [
         "release.mjs",
+        "release-distribution-plan.mjs",
         "check-mcp-registry.mjs",
         "release-command-environment.mjs",
         "release-failures.mjs",
@@ -712,7 +734,8 @@ test("Android keeps its own cadence across core releases", () => {
 test("binaries build during tag CI but upload only after it verifies their frontend", () => {
   const jobs = load(release).jobs;
   assert.equal(jobs["build-binaries"].needs, "candidate-frontend");
-  assert.equal(jobs["build-cli"].needs, "candidate-frontend");
+  assert.equal(jobs["build-cli"].needs, "distribution-plan");
+  assert.equal(jobs["build-cli"].if, "needs.distribution-plan.outputs.cli == 'true'");
   for (const job of ["build-binaries", "build-cli"]) {
     assert.equal(jobs[job].permissions.contents, "read", `${job} must not write the release`);
   }
@@ -997,4 +1020,36 @@ if (args[0] === 'pr' && args[1] === 'list' && process.env.REVIEW_EXISTS === '1')
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test("unchanged CLI skips compilation and publication without bypassing failed prerequisites", () => {
+  const jobs = load(release).jobs;
+  const gate = jobs["upload-assets"].if;
+  assert.match(gate, /needs.build-binaries.result == 'success'/u);
+  assert.match(gate, /needs.verify-candidate.result == 'success'/u);
+  assert.match(gate, /outputs.cli_changed == 'false' && needs.build-cli.result == 'skipped'/u);
+  assert.equal(jobs["publish-cli"].if, "needs.verify-candidate.outputs.cli_changed == 'true'");
+  for (const name of ["prepare-draft", "promote-image", "publish-release"]) {
+    const job = jobs[name];
+    assert.ok(
+      job.steps.some(
+        (step) => step.with?.name === "${{ needs.verify-candidate.outputs.notes_artifact }}",
+      ),
+    );
+    const script = job.steps.find((step) => step.run?.includes("release-assets.mjs verify")).run;
+    assert.match(script, /cat reused-downloads.md >> release-notes.md/u);
+    assert.match(script, /cli_scope=\(--no-cli\)/u);
+    assert.match(script, /verify "\$\{cli_scope\[@\]\}"/u);
+  }
+});
+
+test("release mobile selection matches preflight inputs and keeps standalone dependencies", async () => {
+  const { mobileReleasePaths } = await import("./release-distribution-plan.mjs");
+  const script = workflowStepScript(
+    release,
+    "verify-candidate",
+    "Require a release-valid Android identity",
+  );
+  const inputs = script.match(/git diff --quiet[^\n]+ -- (.*); then/u)?.[1].split(" ");
+  assert.deepEqual(inputs, mobileReleasePaths);
 });

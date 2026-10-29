@@ -45,6 +45,20 @@ function asset(name) {
   return { name, state: "uploaded", size: 42 };
 }
 
+test("CLI assets are optional only when explicitly requested", () => {
+  const server = downloads.filter((name) => name.startsWith("openpost-server-"));
+  const candidate = release({ assets: server.map(asset) });
+  assert.deepEqual(
+    validateRelease(candidate, { tag, notes, core: true, complete: true, cli: false }),
+    [],
+  );
+  assert.ok(
+    validateRelease(candidate, { tag, notes, core: true, complete: true }).some((p) =>
+      p.includes("openpost-cli-"),
+    ),
+  );
+});
+
 test("a server-only release publishes its core assets without Android packaging", () => {
   const core = downloads.filter((name) => name !== "openpost-app-android.apk");
   assert.deepEqual(

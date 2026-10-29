@@ -20,8 +20,49 @@ env:
 permissions: {}
 
 jobs:
+  distribution-plan:
+    name: Select distributions and verify reused downloads
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sdk: ${{ steps.plan.outputs.sdk }}
+      n8n: ${{ steps.plan.outputs.n8n }}
+      cli: ${{ steps.plan.outputs.cli }}
+      notes_artifact: distribution-notes-${{ github.sha }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Plan independent distributions
+        id: plan
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          previous_tag="$(bun scripts/published-release-tag.mjs --exclude "$GITHUB_REF_NAME")"
+          [[ -n "$previous_tag" ]]
+          bun scripts/release-distribution-plan.mjs "$previous_tag" "$GITHUB_SHA" > distribution-plan.txt
+          cat distribution-plan.txt >> "$GITHUB_OUTPUT"
+          if grep -qx 'cli=true' distribution-plan.txt; then
+            bun -e 'const pkg=await Bun.file("packages/cli/package.json").json(); if(pkg.openpost?.releaseTag!==process.env.GITHUB_REF_NAME) throw Error("Changed CLI requires a new wrapper version pinned to this release tag before publication");'
+          fi
+          bun scripts/release-distribution-plan.mjs "$previous_tag" "$GITHUB_SHA" --json > distribution-plan.json
+          bun scripts/release-reuse-notes.mjs "$GITHUB_REF_NAME" distribution-plan.json reused-downloads.md
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: distribution-notes-${{ github.sha }}-${{ github.run_attempt }}
+          path: reused-downloads.md
+          if-no-files-found: error
+          retention-days: 7
+
   verify-candidate:
     name: Verify exact release candidate
+    needs: distribution-plan
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
@@ -33,6 +74,10 @@ jobs:
       frontend_artifact: ${{ steps.artifacts.outputs.frontend }}
       android_artifact: ${{ steps.artifacts.outputs.android }}
       mobile_changed: ${{ steps.mobile.outputs.changed }}
+      sdk_changed: ${{ needs.distribution-plan.outputs.sdk }}
+      n8n_changed: ${{ needs.distribution-plan.outputs.n8n }}
+      cli_changed: ${{ needs.distribution-plan.outputs.cli }}
+      notes_artifact: ${{ needs.distribution-plan.outputs.notes_artifact }}
       digest: ${{ steps.image.outputs.digest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -54,7 +99,7 @@ jobs:
           previous_tag="$(bun scripts/published-release-tag.mjs --exclude "$GITHUB_REF_NAME")"
           [[ -n "$previous_tag" ]]
           git show "$previous_tag:apps/mobile/app.json" > previous-release-app.json
-          if git diff --quiet --find-renames=40% "$previous_tag" "$GITHUB_SHA" -- apps/mobile packages/api-contract packages/query-catalog apps/web/openapi.json; then
+          if git diff --quiet --find-renames=40% "$previous_tag" "$GITHUB_SHA" -- apps/mobile packages/api-contract packages/query-catalog packages/dither packages/platform-text packages/telemetry packages/video-project apps/web/openapi.json bunfig.toml; then
             mobile_changed="false"
           else
             mobile_changed="true"
@@ -248,13 +293,19 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.verify-candidate.outputs.notes_artifact }}
       - name: Create or verify the draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
+          cli_scope=()
+          if [[ "${{ needs.verify-candidate.outputs.cli_changed }}" == 'false' ]]; then cli_scope=(--no-cli); fi
           bun scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
+          cat reused-downloads.md >> release-notes.md
           fetch_release() {
             release_id="$(gh release view "$GITHUB_REF_NAME" \
               --repo "$GITHUB_REPOSITORY" \
@@ -274,7 +325,7 @@ jobs:
             fi
             fetch_release
           fi
-          bun scripts/release-assets.mjs verify \
+          bun scripts/release-assets.mjs verify "${cli_scope[@]}" \
             --release-json draft-release.json \
             --tag "$GITHUB_REF_NAME" \
             --notes-file release-notes.md
@@ -324,7 +375,8 @@ jobs:
   build-cli:
     name: Build CLI (${{ matrix.os }}-${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
-    needs: candidate-frontend
+    needs: distribution-plan
+    if: needs.distribution-plan.outputs.cli == 'true'
     permissions:
       contents: read
     strategy:
@@ -373,9 +425,10 @@ jobs:
           retention-days: 7
 
   upload-assets:
-    name: Upload server, CLI, and MCP binaries
+    name: Upload changed release binaries
     runs-on: ubuntu-latest
     needs: [verify-candidate, prepare-draft, candidate-frontend, build-binaries, build-cli]
+    if: ${{ !cancelled() && needs.verify-candidate.result == 'success' && needs.prepare-draft.result == 'success' && needs.candidate-frontend.result == 'success' && needs.build-binaries.result == 'success' && (needs.build-cli.result == 'success' || (needs.verify-candidate.outputs.cli_changed == 'false' && needs.build-cli.result == 'skipped')) }}
     permissions:
       actions: read
       contents: write
@@ -481,6 +534,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [verify-candidate, prepare-draft, upload-assets]
     permissions:
+      actions: read
       contents: write
       packages: write
     outputs:
@@ -490,19 +544,25 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.verify-candidate.outputs.notes_artifact }}
       - name: Require every core draft release asset before promotion
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
+          cli_scope=()
+          if [[ "${{ needs.verify-candidate.outputs.cli_changed }}" == 'false' ]]; then cli_scope=(--no-cli); fi
           bun scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
+          cat reused-downloads.md >> release-notes.md
           release_id="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json databaseId --jq '.databaseId')"
           [[ "$release_id" =~ ^[0-9]+$ ]]
           gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}" > draft-release.json
           # Promotion only needs the core server/CLI assets it just built.
           # Android signs in parallel and the publish job verifies the final set.
-          bun scripts/release-assets.mjs verify \
+          bun scripts/release-assets.mjs verify "${cli_scope[@]}" \
             --release-json draft-release.json \
             --tag "$GITHUB_REF_NAME" \
             --notes-file release-notes.md \
@@ -583,12 +643,12 @@ jobs:
 
   publish-n8n:
     name: Publish and verify n8n package
-    if: "!cancelled() && (needs.promote-image.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'n8n'))"
+    if: "!cancelled() && ((needs.promote-image.result == 'success' && needs.verify-candidate.outputs.n8n_changed == 'true') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'n8n'))"
     runs-on: ubuntu-latest
     # The n8n package keeps its own publication identity and runs beside the
     # Hosted deployment, never behind it: an npm failure must not delay or
     # block the server rollout, and a server rollout never forces an n8n bump.
-    needs: promote-image
+    needs: [promote-image, verify-candidate]
     timeout-minutes: 20
     permissions:
       contents: read
@@ -632,11 +692,11 @@ jobs:
 
   publish-sdk:
     name: Publish and verify npm SDK package
-    if: "!cancelled() && (needs.promote-image.result == 'success' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'sdk'))"
+    if: "!cancelled() && ((needs.promote-image.result == 'success' && needs.verify-candidate.outputs.sdk_changed == 'true') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'sdk'))"
     runs-on: ubuntu-latest
     # Like the n8n package, the SDK keeps its own publication identity and
     # runs beside the Hosted deployment, never behind it.
-    needs: promote-image
+    needs: [promote-image, verify-candidate]
     timeout-minutes: 20
     permissions:
       contents: read
@@ -675,7 +735,8 @@ jobs:
     # The wrapper installs its binaries from the public GitHub release, so
     # unlike the SDK it publishes only after publish-release flips the draft
     # public. A wrapper version whose binaries are unreachable must never ship.
-    needs: [promote-image, publish-release]
+    needs: [promote-image, publish-release, verify-candidate]
+    if: needs.verify-candidate.outputs.cli_changed == 'true'
     outputs:
       cli_spec: ${{ steps.cli.outputs.package_spec }}
     timeout-minutes: 20
@@ -750,12 +811,16 @@ jobs:
     # wait below for the parallel signing job to attach its APK.
     needs: [verify-candidate, prepare-draft, upload-assets, promote-image, deploy-production]
     permissions:
+      actions: read
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.verify-candidate.outputs.notes_artifact }}
       - name: Verify the exact asset set and publish the draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -763,6 +828,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cli_scope=()
+          if [[ "${{ needs.verify-candidate.outputs.cli_changed }}" == 'false' ]]; then cli_scope=(--no-cli); fi
           # Server-only releases publish core assets without Android packaging;
           # mobile releases verify the full set including the signed APK.
           asset_scope="$([[ "$MOBILE_CHANGED" == 'true' ]] && echo '--complete' || echo '--core')"
@@ -776,6 +843,7 @@ jobs:
             done
           fi
           bun scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
+          cat reused-downloads.md >> release-notes.md
           release_id="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json databaseId --jq '.databaseId')"
           [[ "$release_id" =~ ^[0-9]+$ ]]
           fetch_release() {
@@ -789,7 +857,7 @@ jobs:
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}"
           }
           fetch_release
-          bun scripts/release-assets.mjs verify \
+          bun scripts/release-assets.mjs verify "${cli_scope[@]}" \
             --release-json release.json \
             --tag "$GITHUB_REF_NAME" \
             --notes-file release-notes.md \
@@ -800,7 +868,7 @@ jobs:
             --latest \
             --verify-tag
           fetch_release
-          bun scripts/release-assets.mjs verify \
+          bun scripts/release-assets.mjs verify "${cli_scope[@]}" \
             --release-json release.json \
             --tag "$GITHUB_REF_NAME" \
             --notes-file release-notes.md \

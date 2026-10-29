@@ -42,7 +42,12 @@ const jobCommands = [
   [/^Documentation build$/u, () => "bun run build -- docs"],
   [
     /^Application browser suite \((\d+)\/(\d+)\)$/u,
-    ([, index, count]) => `OPENPOST_APP_E2E_SHARD=${index}/${count} bun run test -- e2e-app`,
+    ([, index, count]) =>
+      `OPENPOST_APP_E2E_SUITE=core OPENPOST_APP_E2E_SHARD=${index}/${count} bun run test -- e2e-app`,
+  ],
+  [
+    /^Application tool handoff suite$/u,
+    () => "OPENPOST_APP_E2E_SUITE=handoff bun run test -- e2e-app",
   ],
   [/^Marketing browser suite$/u, () => "bun run test -- e2e"],
   [/^Frontend cache contract$/u, () => "bun run check -- frontend-build-cache"],

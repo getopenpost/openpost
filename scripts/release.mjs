@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
+import { mobileReleasePaths } from "./release-distribution-plan.mjs";
 import { checkMCPRegistryOwnership } from "./check-mcp-registry.mjs";
 import { releaseCommandEnvironment } from "./release-command-environment.mjs";
 import { formatFailureDigest } from "./release-failures.mjs";
@@ -21,13 +22,6 @@ import {
 const root = path.resolve(import.meta.dir, "..");
 const command = process.argv[2] ?? "plan";
 const args = process.argv.slice(3);
-
-const mobileReleasePaths = [
-  "apps/mobile",
-  "packages/api-contract",
-  "packages/query-catalog",
-  "apps/web/openapi.json",
-];
 
 try {
   switch (command) {

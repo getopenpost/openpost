@@ -43,8 +43,14 @@ const chromiumUse = {
   },
 };
 
+const suite = process.env.OPENPOST_APP_E2E_SUITE;
+if (suite && suite !== "core" && suite !== "handoff")
+  throw new Error("Unknown application browser suite");
+
 export default defineConfig({
   testDir: ".",
+  ...(suite === "handoff" ? { testMatch: "tool-draft-handoff.spec.ts" } : {}),
+  ...(suite === "core" ? { testIgnore: "tool-draft-handoff.spec.ts" } : {}),
   outputDir: `${repositoryRoot}/test-results`,
   fullyParallel: true,
   shard: shardParts ? { current: shardParts[0], total: shardParts[1] } : undefined,

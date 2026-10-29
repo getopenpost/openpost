@@ -156,7 +156,7 @@ test("changed files route to their CI paths", () => {
   }
 });
 
-test("delivery changes fail closed to the complete matrix", () => {
+test("delivery changes run core gates without rebuilding unchanged Android", () => {
   const plan = planCI([".github/workflows/ci.yml"], manifest);
   assert.deepEqual(plan, {
     application: true,
@@ -169,9 +169,24 @@ test("delivery changes fail closed to the complete matrix", () => {
     npm: true,
     security: true,
     image: true,
-    android: true,
+    android: false,
     cache_contract: false,
   });
+});
+
+test("Android build inputs select packaging", () => {
+  for (const file of [
+    "bunfig.toml",
+    "apps/mobile/bun.lock",
+    "apps/mobile/plugins/example.js",
+    "scripts/mobile-release.mjs",
+    "apps/web/openapi.json",
+  ]) {
+    assert.equal(planCI([file], manifest).android, true, file);
+  }
+  for (const file of [".github/workflows/ci.yml", "bun.lock", "package.json"])
+    assert.equal(planCI([file], manifest, { release: true }).android, false);
+  assert.equal(planCI([], manifest, { full: true }).android, true);
 });
 
 test("main candidates always run the complete matrix", () => {

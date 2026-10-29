@@ -13,6 +13,7 @@
 	import type { ProtectedIconRole } from '$lib/themes/icons/protected-icon.js';
 	import type { ImageEditorLayer, ImageEditorPage } from '../types';
 	import { isEmptyImageEditorPaintLayer } from '../document';
+	import { imageEditorLayerDropIndicator } from '../layer-drop';
 	import { m } from '$lib/paraglide/messages';
 	import { treeKeyboardAction } from '../tree-keyboard';
 
@@ -42,6 +43,9 @@
 	let contextRenameTimer: ReturnType<typeof setTimeout> | undefined;
 	const collapsedGroups = new SvelteSet<string>();
 	let items = $derived(flattenLayers(editor.activePage, collapsedGroups));
+	let dropIndicator = $derived(
+		imageEditorLayerDropIndicator(items, pointerTargetID, pointerTargetPosition, pointerDraggingID)
+	);
 	let reorderLayer = $derived(
 		editor.activePage?.layers.find((layer) => layer.id === editor.selectedLayerIDs.at(-1))
 	);
@@ -474,8 +478,8 @@
 									aria-expanded={item.hasChildren ? !collapsedGroups.has(layer.id) : undefined}
 									aria-selected={editor.selectedLayerIDs.includes(layer.id)}
 									data-image-editor-layer-id={layer.id}
-									data-drop-position={pointerTargetID === layer.id && pointerDraggingID !== layer.id
-										? pointerTargetPosition
+									data-drop-position={dropIndicator?.id === layer.id
+										? dropIndicator.position
 										: undefined}
 									aria-label={m.image_editor_layer_accessible({
 										name: layer.name,

@@ -1385,12 +1385,29 @@ export class ImageEditorController {
 		this.mutate(`Add ${name}`, (document) => {
 			const page = document.pages.find((item) => item.id === this.activePageID);
 			if (!page) return;
-			const selectedIndex = selectedID
-				? page.layers.findIndex((candidate) => candidate.id === selectedID)
-				: -1;
-			page.layers.splice(selectedIndex >= 0 ? selectedIndex + 1 : page.layers.length, 0, layer);
+			this.insertLayerAboveSelected(page, layer, selectedID);
 		});
 		this.selectedLayerIDs = [layer.id];
+	}
+
+	private insertLayerAboveSelected(
+		page: ImageEditorPage,
+		layer: ImageEditorLayer,
+		selectedID: string | undefined
+	): void {
+		page.layers = imageEditorLayerRenderOrder(page.layers);
+		let anchor = selectedID
+			? page.layers.find((candidate) => candidate.id === selectedID)
+			: undefined;
+		const visited = new Set<string>();
+		while (anchor?.parent_id && !visited.has(anchor.id)) {
+			visited.add(anchor.id);
+			const parent = page.layers.find((candidate) => candidate.id === anchor?.parent_id);
+			if (!parent) break;
+			anchor = parent;
+		}
+		const selectedIndex = anchor ? page.layers.indexOf(anchor) : -1;
+		page.layers.splice(selectedIndex >= 0 ? selectedIndex + 1 : page.layers.length, 0, layer);
 	}
 
 	addPencilStroke(points: SelectionPoint[]): void {
@@ -1650,10 +1667,7 @@ export class ImageEditorController {
 		this.mutate(`Add ${name}`, (document) => {
 			const page = document.pages.find((item) => item.id === this.activePageID);
 			if (!page) return;
-			const selectedIndex = selectedID
-				? page.layers.findIndex((candidate) => candidate.id === selectedID)
-				: -1;
-			page.layers.splice(selectedIndex >= 0 ? selectedIndex + 1 : page.layers.length, 0, layer);
+			this.insertLayerAboveSelected(page, layer, selectedID);
 		});
 		this.selectedLayerIDs = [layer.id];
 	}

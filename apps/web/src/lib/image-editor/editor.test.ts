@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { themeColorContrastRatio } from '@openpost/ui/themes/validation';
 import { defaultEditorColorWheels } from '$lib/editor-color-grade/model';
-import { defaultImageAdjustments } from './document';
+import { defaultImageAdjustments, imageEditorLayerRenderOrder } from './document';
 import { ImageEditorController } from './editor.svelte';
 import type { ImageEditorDocumentResponse, ImageEditorLayer } from './types';
 
@@ -1212,6 +1212,23 @@ describe('OpenPost Image Editor editor layer interactions', () => {
 
 		editor.addEmptyLayer();
 		expect(editor.selectedLayers[0].name).toBe('Layer 2');
+	});
+
+	it('adds an empty layer above the selected layer inside a group', () => {
+		const editor = new ImageEditorController();
+		editor.load(response());
+		editor.selectLayer('front');
+		editor.selectLayer('middle', 'toggle');
+		editor.groupSelected();
+		editor.selectLayer('middle');
+
+		editor.addEmptyLayer();
+
+		const added = editor.selectedLayers[0];
+		const order = imageEditorLayerRenderOrder(editor.activePage!.layers).map(
+			(candidate) => candidate.id
+		);
+		expect(order.indexOf(added.id)).toBeGreaterThan(order.indexOf('middle'));
 	});
 
 	it('moves layers precisely above or below a sibling', () => {

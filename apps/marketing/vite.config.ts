@@ -10,7 +10,7 @@ import { postHogSourceMaps } from '../../scripts/posthog-source-maps.ts';
 // components through svelte.config files.lib.
 const sourceMaps = postHogSourceMaps('marketing');
 
-export default defineConfig({
+export default defineConfig(({ isSsrBuild }) => ({
 	plugins: [pdfPreviewAssets(), tailwindcss(), sveltekit(), ...sourceMaps.plugins],
 	define: {
 		'import.meta.env.VITE_OPENPOST_REVISION': JSON.stringify(
@@ -18,9 +18,9 @@ export default defineConfig({
 		)
 	},
 	build: {
-		sourcemap: sourceMaps.enabled ? 'hidden' : false
+		sourcemap: sourceMaps.enabled && !isSsrBuild ? 'hidden' : false
 	},
 	ssr: {
 		noExternal: ['bits-ui']
 	}
-});
+}));

@@ -1737,6 +1737,12 @@ test(
         .toSorted(),
     );
 
+    // Recording-only pushes change content, not either compiler or generator.
+    // Keep every output assertion above; core CI and manual qualification also
+    // retain the independent cold/rebuild determinism proof below.
+    if (prebuiltProductionArtifacts && process.env.OPENPOST_PUBLIC_ARTIFACTS_REBUILD_PROOF === "0")
+      return;
+
     await runRootTask(root, ["build", "--", "docs"], { TURBO_FORCE: "true" });
     await assertArtifactSnapshot(docsDirectory, firstDocsSurface);
     assert.deepEqual(await semanticHTMLSnapshot(docsDirectory, expectedDocsHTML), firstDocsHTML);

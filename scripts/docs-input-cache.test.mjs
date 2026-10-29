@@ -1,0 +1,119 @@
+import assert from "node:assert/strict";
+import { test } from "bun:test";
+import { mkdtemp, readFile, writeFile, rm, readdir, lstat } from "node:fs/promises";
+import os from "node:os";
+import { randomUUID } from "node:crypto";
+import path from "node:path";
+import { cachedDocsInputs, docsInputKey } from "./docs-input-cache.mjs";
+
+test("verified docs inputs restore outputs, invalidate changed inputs and reject corruption", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "docs-inputs-"));
+  let input = "source-a-toolchain-a";
+  let calls = 0;
+  const options = {
+    root,
+    outputs: ["result"],
+    key: async () => input,
+    generate: async () => {
+      calls++;
+      await writeFile(path.join(root, "result"), "expected");
+    },
+  };
+  try {
+    assert.equal(await cachedDocsInputs(options), "miss");
+    await rm(path.join(root, "result"));
+    assert.equal(await cachedDocsInputs(options), "hit");
+    assert.equal(await readFile(path.join(root, "result"), "utf8"), "expected");
+    assert.equal(calls, 1);
+    input = "source-b-toolchain-a";
+    assert.equal(await cachedDocsInputs(options), "miss");
+    input = "source-b-toolchain-b";
+    assert.equal(await cachedDocsInputs(options), "miss");
+    const entry = path.join(root, ".turbo/docs-inputs", `${input}.json`);
+    const manifest = JSON.parse(await readFile(entry, "utf8"));
+    manifest.outputs.result.content = Buffer.from("corrupted").toString("base64");
+    await writeFile(entry, JSON.stringify(manifest));
+    assert.equal(await cachedDocsInputs(options), "miss");
+    assert.equal(calls, 4);
+    const unknown = {
+      ...options,
+      key: async () => {
+        throw new Error("unknown toolchain");
+      },
+    };
+    assert.equal(await cachedDocsInputs(unknown), "uncached");
+    assert.equal(calls, 5);
+    await assert.rejects(
+      cachedDocsInputs({
+        ...options,
+        key: async () => "failure",
+        generate: async () => {
+          throw new Error("generator failed");
+        },
+      }),
+      /generator failed/u,
+    );
+    assert.ok(!(await readdir(path.join(root, ".turbo/docs-inputs"))).includes("failure.json"));
+    let version = 0;
+    assert.equal(
+      await cachedDocsInputs({ ...options, key: async () => String(version++) }),
+      "uncached",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("actual fingerprint includes Go source, config, generator, toolchain and generator configuration", async () => {
+  // Exercise the real discovery and toolchain probes, changing only task-owned
+  // temporary inputs and restoring them even if an assertion fails.
+  const root = path.resolve(import.meta.dirname, "..");
+  const probe = `docs-cache-probe-${randomUUID()}`;
+  const files = [
+    `scripts/${probe}`,
+    `config/${probe}`,
+    `apps/server/${probe}.go`,
+    `apps/cli/${probe}.go`,
+  ].map((file) => path.join(root, file));
+  // Check before cleanup becomes active, and claim files exclusively below.
+  for (const file of files) {
+    const exists = await lstat(file).then(
+      () => true,
+      (error) => {
+        if (error.code === "ENOENT") return false;
+        throw error;
+      },
+    );
+    assert.equal(exists, false, `Refusing to overwrite existing probe: ${file}`);
+  }
+  const owned = new Set();
+  try {
+    const baseline = await docsInputKey(root);
+    assert.equal(await docsInputKey(root), baseline);
+    for (const file of files) {
+      await writeFile(file, "first", { flag: "wx" });
+      owned.add(file);
+      const first = await docsInputKey(root);
+      assert.notEqual(first, baseline);
+      await writeFile(file, "second");
+      assert.notEqual(await docsInputKey(root), first);
+      await rm(file);
+      owned.delete(file);
+    }
+    assert.notEqual(
+      await docsInputKey(root, { ...process.env, GOTOOLCHAIN: "test-identity" }),
+      baseline,
+    );
+    assert.equal(
+      await docsInputKey(root, {
+        ...process.env,
+        CF_PAGES_COMMIT_SHA: "new-revision",
+        GITHUB_RUN_ID: "another-run",
+        VITE_OPENPOST_REVISION: "new-revision",
+      }),
+      baseline,
+    );
+  } finally {
+    for (const file of owned) await rm(file, { force: true });
+  }
+}, 120_000);

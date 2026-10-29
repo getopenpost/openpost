@@ -36,8 +36,11 @@ test("public site builds marketing and docs before composing their outputs", () 
   const stages = Object.fromEntries(
     JSON.parse(result.stdout).stages.map((stage) => [stage.label, stage]),
   );
-  assert.equal(stages["marketing build"].phase, stages["documentation build"].phase);
-  assert.ok(stages["public site composition"].phase > stages["documentation build"].phase);
+  assert.deepEqual(stages["public builds"].commands, [
+    "bunx turbo run build --filter @openpost/site --filter @openpost/docs",
+  ]);
+  assert.ok(stages["documentation inputs"].phase < stages["public builds"].phase);
+  assert.ok(stages["public site composition"].phase > stages["public builds"].phase);
 });
 
 test("unknown scopes fail with the supported interface", () => {
@@ -342,7 +345,7 @@ if (sdkCheck({ tool, args, cwd: process.cwd() }) || args.includes("lint:oxlint")
 }
 record("end");
 `;
-    for (const tool of ["bun", "bunx", "go", "git", "golangci-lint", "bash"]) {
+    for (const tool of ["bun", "bunx", "node", "go", "git", "golangci-lint", "bash"]) {
       writeFileSync(path.join(fixture, "bin", tool), shim, { mode: 0o755 });
     }
     writeFileSync(path.join(fixture, "scripts/check-go-deadcode.sh"), "#!/bin/sh\nexit 0\n", {

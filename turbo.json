@@ -58,6 +58,7 @@
         "scripts/go-test-shards.mjs",
         "scripts/sync-docs-external.mjs",
         "scripts/sync-docs-openapi.mjs",
+        "scripts/docs-input-cache.mjs",
         "scripts/social-images/catalog.mjs",
         "docs/**",
         "apps/server/**",

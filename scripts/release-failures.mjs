@@ -11,6 +11,10 @@ const devenv = (command) => `devenv shell -- bash -c ${JSON.stringify(command)}`
 // Every CI job name maps to the local command that runs the same gate.
 // scripts/release-failures.test.mjs keeps this table in step with ci.yml.
 const jobCommands = [
+  [
+    /^Prioritize exact-source release qualification$/u,
+    () => "bun test scripts/ci-run-coordination.test.mjs",
+  ],
   [/^Contracts and policy$/u, () => "bun run format:check && bun run check -- policy"],
   [/^Public artifact contract$/u, () => "bun run check -- public-routes"],
   [/^Backend and CLI lint$/u, () => "bun run lint -- backend && bun run lint -- cli"],

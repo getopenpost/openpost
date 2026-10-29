@@ -112,6 +112,9 @@ const checks = {
       "scripts/release-assets.test.mjs",
       "scripts/release-lifecycle.test.mjs",
       "scripts/ci-artifacts.test.mjs",
+      "scripts/ci-run-coordination.test.mjs",
+      "scripts/public-site-artifact.test.mjs",
+      "tests/build/public-site-delivery.test.mjs",
       "scripts/ci-plan.test.mjs",
       "scripts/go-test-shards.test.mjs",
       "scripts/release-proof.test.mjs",
@@ -122,6 +125,8 @@ const checks = {
       "scripts/release-ship.test.mjs",
       "scripts/ci-setup-tools.test.mjs",
     ),
+    commandStep("node", "--test", "scripts/public-site-recording.test.mjs"),
+    bunTest("tests/build/posthog-source-maps.test.ts"),
     bun("scripts/release-surfaces.mjs"),
   ]),
   "app-routes": stage("application routes", [
@@ -215,6 +220,7 @@ const checks = {
       "scripts/changed-files-check.test.mjs",
       "scripts/secret-scan-contract.test.mjs",
       "scripts/turbo-cache.test.mjs",
+      "scripts/docs-input-cache.test.mjs",
     ),
   ]),
   "frontend-build-cache": stage("frontend build cache", [
@@ -711,7 +717,24 @@ function buildPlan(requestedScope) {
   const byScope = { frontend, backend, cli, marketing, docs };
   if (requestedScope === "docs") return plan("build", requestedScope, [[prepareDocs], [docs]]);
   if (requestedScope === "public-site") {
-    return plan("build", requestedScope, [[prepareDocs], [marketing, docs], [composePublicSite]]);
+    return plan("build", requestedScope, [
+      [prepareDocs],
+      [
+        stage("public builds", [
+          commandStep(
+            "bunx",
+            "turbo",
+            "run",
+            "build",
+            "--filter",
+            "@openpost/site",
+            "--filter",
+            "@openpost/docs",
+          ),
+        ]),
+      ],
+      [composePublicSite],
+    ]);
   }
   if (requestedScope) return plan("build", requestedScope, [[byScope[requestedScope]]]);
   return plan("build", undefined, [

@@ -74,7 +74,7 @@ const testMediaStubPlugin: Plugin = {
 	}
 };
 
-export default defineConfig({
+export default defineConfig(({ isSsrBuild }) => ({
 	// Editor extensions must share one state/view instance across transitive dependencies.
 	resolve: { dedupe: ['@codemirror/state', '@codemirror/view'] },
 	cacheDir:
@@ -168,7 +168,7 @@ export default defineConfig({
 		...sourceMaps.plugins
 	],
 	build: {
-		sourcemap: sourceMaps.enabled ? 'hidden' : false
+		sourcemap: sourceMaps.enabled && !isSsrBuild ? 'hidden' : false
 	},
 	optimizeDeps: {
 		// The scanner must share the app's Svelte runtime when mounted from client init.
@@ -275,4 +275,4 @@ export default defineConfig({
 					filename.includes('node_modules') ? undefined : { runes: true }
 			})
 	}
-});
+}));

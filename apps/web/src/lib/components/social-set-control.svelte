@@ -904,6 +904,7 @@
 				<nav class="max-h-64 space-y-1 overflow-y-auto" aria-label={m.social_set_manage()}>
 					{#each sets as set (set.id)}
 						<Button
+							multiline
 							type="button"
 							variant={editorId === set.id ? 'secondary' : 'ghost'}
 							class="h-auto min-h-11 w-full justify-start px-3 py-2 text-left"

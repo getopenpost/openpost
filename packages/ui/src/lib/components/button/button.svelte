@@ -41,11 +41,15 @@
 					"size-11 md:size-8 [@media(pointer:coarse)]:size-11 [&_svg:not([class*='size-'])]:size-3.5",
 				'icon-lg':
 					"size-11 md:size-10 [@media(pointer:coarse)]:size-11 [&_svg:not([class*='size-'])]:size-4"
+			},
+			multiline: {
+				true: 'h-auto whitespace-normal md:h-auto [@media(pointer:coarse)]:h-auto [@media(pointer:coarse)]:min-h-11'
 			}
 		},
 		defaultVariants: {
 			variant: 'default',
-			size: 'default'
+			size: 'default',
+			multiline: false
 		}
 	});
 
@@ -57,6 +61,7 @@
 			variant?: ButtonVariant;
 			intent?: ThemeActionIntent;
 			size?: ButtonSize;
+			multiline?: boolean;
 		};
 </script>
 
@@ -67,6 +72,7 @@
 		variant = 'default',
 		intent,
 		size = 'default',
+		multiline = false,
 		ref = $bindable(null),
 		href = undefined,
 		type = 'button',
@@ -105,7 +111,7 @@
 		use:ditherSurface={{ kind: 'button', interactive: true }}
 		data-action-intent={resolvedIntent}
 		data-cuelume-toggle={hasActionFeedback ? 'release' : undefined}
-		class={cn(buttonVariants({ variant: resolvedVariant, size }), className)}
+		class={cn(buttonVariants({ variant: resolvedVariant, size, multiline }), className)}
 		href={disabled ? undefined : href}
 		aria-disabled={disabled}
 		role={disabled ? 'link' : undefined}
@@ -122,7 +128,7 @@
 		use:ditherSurface={{ kind: 'button', interactive: true }}
 		data-action-intent={resolvedIntent}
 		data-cuelume-toggle={hasActionFeedback ? 'release' : undefined}
-		class={cn(buttonVariants({ variant: resolvedVariant, size }), className)}
+		class={cn(buttonVariants({ variant: resolvedVariant, size, multiline }), className)}
 		{type}
 		{disabled}
 		{...restProps}

@@ -4602,6 +4602,7 @@
 				{:else}
 					{#each revisions as revision (revision.id)}
 						<Button
+							multiline
 							variant={revisionPreview?.summary.id === revision.id ? 'secondary' : 'outline'}
 							class="h-auto min-h-16 w-full justify-start p-3 text-left whitespace-normal"
 							disabled={revisionPreviewBusy}

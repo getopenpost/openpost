@@ -154,6 +154,7 @@
 						<p>{m.compose_poll_review_accounts()}</p>
 						<div class="mt-1 flex flex-wrap gap-1">
 							{#each unresolved as destination (destination.id)}<Button
+									multiline
 									variant="ghost"
 									size="sm"
 									class="max-w-full justify-start whitespace-normal text-current hover:text-current"

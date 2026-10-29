@@ -1006,6 +1006,7 @@
 
 		<div class="grid grid-cols-2 gap-2">
 			<Button
+				multiline
 				size="xs"
 				variant="outline"
 				class="col-span-2 h-auto min-h-8 py-1 whitespace-normal [@media(pointer:coarse)]:min-h-11"

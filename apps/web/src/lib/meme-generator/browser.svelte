@@ -491,6 +491,7 @@
 											class="candidate-choice relative min-w-0 overflow-hidden rounded-lg border border-border bg-card hover:border-primary/45 hover:bg-muted/35"
 										>
 											<Button
+												multiline
 												variant="ghost"
 												class="h-auto w-full min-w-0 items-stretch justify-start rounded-none p-2 text-left whitespace-normal md:h-auto"
 												disabled={selecting || !rendererConfigured}
@@ -647,6 +648,7 @@
 						<div class="template-grid">
 							{#each templates as template (template.id)}
 								<Button
+									multiline
 									variant="ghost"
 									class="template-choice relative h-auto min-w-0 items-stretch justify-start overflow-hidden rounded-lg border border-border bg-card p-2 text-left whitespace-normal hover:border-primary/45 hover:bg-muted/35 md:h-auto"
 									disabled={selecting || !rendererConfigured}

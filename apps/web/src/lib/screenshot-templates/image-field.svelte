@@ -31,6 +31,7 @@
 			class:rounded-md={!avatar}
 		/>{/if}
 	<Button
+		multiline
 		variant="outline"
 		size="sm"
 		class="h-auto min-h-8 min-w-0 flex-1 py-2 whitespace-normal"

@@ -749,6 +749,7 @@
 							<div class="grid gap-2" role="group" aria-label={m.ideate_suggest()}>
 								{#each opportunities as opportunity (opportunity.id)}
 									<Button
+										multiline
 										type="button"
 										variant="outline"
 										class="h-auto min-h-11 flex-col items-start gap-1 p-3 text-left whitespace-normal"

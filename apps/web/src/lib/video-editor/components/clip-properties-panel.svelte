@@ -306,6 +306,7 @@
 				aria-label={m.video_editor_trim_to_playhead()}
 			>
 				<Button
+					multiline
 					size="xs"
 					variant="outline"
 					class="h-auto min-h-8 py-1 whitespace-normal [@media(pointer:coarse)]:min-h-11"
@@ -315,6 +316,7 @@
 					{m.video_editor_trim_start_playhead()}
 				</Button>
 				<Button
+					multiline
 					size="xs"
 					variant="outline"
 					class="h-auto min-h-8 py-1 whitespace-normal [@media(pointer:coarse)]:min-h-11"

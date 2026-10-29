@@ -95,6 +95,7 @@
 		<div class="space-y-1" aria-label={m.editor_mentions()}>
 			{#each matches as candidate (candidate.target.id)}
 				<Button
+					multiline
 					variant="ghost"
 					class="h-auto min-h-11 w-full justify-start text-left"
 					onclick={() => {

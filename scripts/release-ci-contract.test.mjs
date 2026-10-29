@@ -112,66 +112,70 @@ test("main feedback is filtered and nightly qualification is exhaustive", () => 
   assert.equal(workflow.jobs["browser-app"].if, "needs.plan.outputs.application == 'true'");
 });
 
-test("event planning executes filtered pushes and fail-closed qualification", () => {
-  const directory = mkdtempSync(path.join(tmpdir(), "openpost-ci-events-"));
-  try {
-    const bin = path.join(directory, "bin");
-    mkdirSync(bin);
-    writeFileSync(
-      path.join(bin, "bun"),
-      `#!/bin/sh
+test(
+  "event planning executes filtered pushes and fail-closed qualification",
+  { timeout: 30_000 },
+  () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "openpost-ci-events-"));
+    try {
+      const bin = path.join(directory, "bin");
+      mkdirSync(bin);
+      writeFileSync(
+        path.join(bin, "bun"),
+        `#!/bin/sh
 case "$1" in
   scripts/published-release-tag.mjs) echo v1.0.0 ;;
   scripts/release-proof.mjs) : ;;
   *) echo "$*" ;;
 esac
 `,
-    );
-    writeFileSync(
-      path.join(bin, "git"),
-      '#!/bin/sh\nif [ "${MOCK_GIT_RESULT:-0}" != 0 ]; then exit "${MOCK_GIT_RESULT}"; fi\ncase "$1 $2 $3 $4" in\n  "cat-file -e"*) exit 0 ;;\n  "merge-base --is-ancestor ${MOCK_BEFORE:-abc} ${MOCK_HEAD:-def}") exit 0 ;;\n  *) exit 1 ;;\nesac\n',
-    );
-    chmodSync(path.join(bin, "bun"), 0o755);
-    chmodSync(path.join(bin, "git"), 0o755);
-    const script = workflowStepScript(
-      ci,
-      "plan",
-      "Plan from the fail-closed release surface registry",
-    );
-    const cases = [
-      [{ EVENT_NAME: "push", BEFORE_SHA: "abc" }, "--base abc --head def"],
-      [{ EVENT_NAME: "push", BEFORE_SHA: "abc", MOCK_BEFORE: "def", MOCK_HEAD: "abc" }, "--full"],
-      [{ EVENT_NAME: "push", BEFORE_SHA: "" }, "--full"],
-      [{ EVENT_NAME: "push", BEFORE_SHA: "0".repeat(40) }, "--full"],
-      [{ EVENT_NAME: "push", BEFORE_SHA: "abc", MOCK_GIT_RESULT: "1" }, "--full"],
-      [{ EVENT_NAME: "schedule" }, "--release --full --base v1.0.0 --head def"],
-      [{ EVENT_NAME: "workflow_dispatch" }, "--release --full --base v1.0.0 --head def"],
-      [{ EVENT_NAME: "pull_request", BASE_SHA: "abc" }, "--base abc --head def"],
-      [
-        { EVENT_NAME: "push", GITHUB_REF: "refs/tags/v1.1.0" },
-        "--release --base v1.0.0 --head def",
-      ],
-    ];
-    for (const [env, expected] of cases) {
-      const result = spawnSync("bash", ["-e", "-c", script], {
-        env: {
-          ...process.env,
-          PATH: `${bin}:${process.env.PATH}`,
-          GITHUB_REF: "refs/heads/main",
-          GITHUB_SHA: "def",
-          GITHUB_REPOSITORY: "owner/repo",
-          BEFORE_SHA: "",
-          ...env,
-        },
-        encoding: "utf8",
-      });
-      assert.equal(result.status, 0, result.stderr);
-      assert.equal(result.stdout.trim(), `scripts/ci-plan.mjs ${expected}`);
+      );
+      writeFileSync(
+        path.join(bin, "git"),
+        '#!/bin/sh\nif [ "${MOCK_GIT_RESULT:-0}" != 0 ]; then exit "${MOCK_GIT_RESULT}"; fi\ncase "$1 $2 $3 $4" in\n  "cat-file -e"*) exit 0 ;;\n  "merge-base --is-ancestor ${MOCK_BEFORE:-abc} ${MOCK_HEAD:-def}") exit 0 ;;\n  *) exit 1 ;;\nesac\n',
+      );
+      chmodSync(path.join(bin, "bun"), 0o755);
+      chmodSync(path.join(bin, "git"), 0o755);
+      const script = workflowStepScript(
+        ci,
+        "plan",
+        "Plan from the fail-closed release surface registry",
+      );
+      const cases = [
+        [{ EVENT_NAME: "push", BEFORE_SHA: "abc" }, "--base abc --head def"],
+        [{ EVENT_NAME: "push", BEFORE_SHA: "abc", MOCK_BEFORE: "def", MOCK_HEAD: "abc" }, "--full"],
+        [{ EVENT_NAME: "push", BEFORE_SHA: "" }, "--full"],
+        [{ EVENT_NAME: "push", BEFORE_SHA: "0".repeat(40) }, "--full"],
+        [{ EVENT_NAME: "push", BEFORE_SHA: "abc", MOCK_GIT_RESULT: "1" }, "--full"],
+        [{ EVENT_NAME: "schedule" }, "--release --full --base v1.0.0 --head def"],
+        [{ EVENT_NAME: "workflow_dispatch" }, "--release --full --base v1.0.0 --head def"],
+        [{ EVENT_NAME: "pull_request", BASE_SHA: "abc" }, "--base abc --head def"],
+        [
+          { EVENT_NAME: "push", GITHUB_REF: "refs/tags/v1.1.0" },
+          "--release --base v1.0.0 --head def",
+        ],
+      ];
+      for (const [env, expected] of cases) {
+        const result = spawnSync("bash", ["-e", "-c", script], {
+          env: {
+            ...process.env,
+            PATH: `${bin}:${process.env.PATH}`,
+            GITHUB_REF: "refs/heads/main",
+            GITHUB_SHA: "def",
+            GITHUB_REPOSITORY: "owner/repo",
+            BEFORE_SHA: "",
+            ...env,
+          },
+          encoding: "utf8",
+        });
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.stdout.trim(), `scripts/ci-plan.mjs ${expected}`);
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
     }
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
+  },
+);
 
 test("proven tags build the versioned image from relayed proven artifacts", () => {
   const jobs = load(ci).jobs;

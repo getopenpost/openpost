@@ -434,7 +434,12 @@ type linkedInOrganization struct {
 
 func (l *LinkedInAdapter) fetchOrganizations(ctx context.Context, accessToken string, ids []string) (*linkedInOrganizations, error) {
 	if l.authMode != "community_management" {
-		return fetchLinkedInOrganizations(ctx, accessToken, ids)
+		result, err := fetchLinkedInOrganizations(ctx, accessToken, ids)
+		if err != nil {
+			return nil, err
+		}
+		resolveLinkedInOrganizationLogos(ctx, accessToken, result)
+		return result, nil
 	}
 	// Community Management Development Tier does not grant BATCH_GET access.
 	result := &linkedInOrganizations{Results: make(map[string]linkedInOrganization), Statuses: make(map[string]int)}
@@ -458,7 +463,42 @@ func (l *LinkedInAdapter) fetchOrganizations(ctx context.Context, accessToken st
 		result.Results[id] = organization
 		result.Statuses[id] = http.StatusOK
 	}
+	resolveLinkedInOrganizationLogos(ctx, accessToken, result)
 	return result, nil
+}
+
+func resolveLinkedInOrganizationLogos(ctx context.Context, accessToken string, organizations *linkedInOrganizations) {
+	for id, organization := range organizations.Results {
+		if organization.LogoV2.avatarURL() != "" {
+			continue
+		}
+		organization.LogoV2.resolvedURL = linkedInLogoDownloadURL(ctx, accessToken, firstNonEmptyString(organization.LogoV2.Cropped, organization.LogoV2.Original))
+		organizations.Results[id] = organization
+	}
+}
+
+func linkedInLogoDownloadURL(ctx context.Context, accessToken, assetURN string) string {
+	assetID := strings.TrimPrefix(assetURN, "urn:li:digitalmediaAsset:")
+	if assetID == assetURN {
+		assetID = strings.TrimPrefix(assetURN, "urn:li:image:")
+	}
+	if assetID == assetURN || assetID == "" || strings.Trim(assetID, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != "" {
+		return ""
+	}
+	// Organization Lookup directs logoV2 to the Images API. LinkedIn's Comments
+	// API documents using the same asset identifier in an image URN.
+	endpoint := "https://api.linkedin.com/rest/images/" + url.QueryEscape("urn:li:image:"+assetID)
+	body, err := DoRequest(ctx, http.MethodGet, endpoint, nil, linkedinHeaders(accessToken, linkedInAPIVersion()))
+	if err != nil {
+		return ""
+	}
+	var image struct {
+		DownloadURL string `json:"downloadUrl"`
+	}
+	if json.Unmarshal(body, &image) != nil || !IsSafeContentURL(image.DownloadURL) {
+		return ""
+	}
+	return strings.TrimSpace(image.DownloadURL)
 }
 
 func fetchLinkedInOrganizations(ctx context.Context, accessToken string, ids []string) (*linkedInOrganizations, error) {
@@ -487,7 +527,9 @@ func fetchLinkedInOrganizations(ctx context.Context, accessToken string, ids []s
 
 type linkedInOrganizationLogo struct {
 	Original        string                  `json:"original"`
+	Cropped         string                  `json:"cropped"`
 	OriginalStreams linkedInPlayableStreams `json:"original~"`
+	resolvedURL     string
 }
 
 type linkedInPlayableStreams struct {
@@ -510,7 +552,7 @@ func (logo linkedInOrganizationLogo) avatarURL() string {
 	if candidate := strings.TrimSpace(logo.Original); IsSafeContentURL(candidate) {
 		return candidate
 	}
-	return ""
+	return logo.resolvedURL
 }
 
 func (l *LinkedInAdapter) UploadMedia(ctx context.Context, accessToken, accountID, mimeType string, reader io.Reader) (string, error) {

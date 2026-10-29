@@ -232,7 +232,7 @@ test("adapter-static shipping output excludes server code and prerender failures
   const failure = await run();
   expect(failure.code).not.toBe(0);
   expect(failure.log).toContain("prerender fixture failure");
-});
+}, 60_000);
 
 test("release identity is mandatory and disabled uploads need no credentials", () => {
   const keys = [

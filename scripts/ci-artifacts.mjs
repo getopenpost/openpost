@@ -101,13 +101,21 @@ export async function waitForRunArtifact(
     throw new Error("invalid artifact wait timeout");
   const deadline = now() + timeoutMs;
   let pollError;
+  let consecutiveErrors = 0;
   while (now() < deadline) {
     let entries;
     try {
       entries = jobs();
       pollError = undefined;
+      consecutiveErrors = 0;
     } catch (error) {
       pollError = error;
+      consecutiveErrors++;
+      if (consecutiveErrors >= 3)
+        throw new Error(
+          `Could not inspect artifact producer after 3 consecutive errors: ${error.message}`,
+          { cause: error },
+        );
       await pause(Math.max(0, Math.min(15_000, deadline - now())));
       continue;
     }

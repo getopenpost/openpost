@@ -214,3 +214,58 @@ test("a newer producer attempt must finish before an older success can resolve",
   assert.equal(pauses, 1);
   assert.equal(resolved, 1);
 });
+
+test("consecutive producer API errors fail early and successful polls reset the limit", async () => {
+  const options = {
+    repository: "getopenpost/openpost",
+    runId: "123",
+    prefix: "frontend-",
+    producer: "Frontend",
+    timeoutMs: 100000,
+  };
+  let clock = 0,
+    calls = 0,
+    pauses = 0;
+  const timing = {
+    now: () => clock,
+    pause: async (ms) => {
+      clock += ms;
+      pauses++;
+    },
+  };
+  await assert.rejects(
+    waitForRunArtifact(options, {
+      ...timing,
+      jobs: () => {
+        calls++;
+        throw Error("API permission denied");
+      },
+    }),
+    /3 consecutive errors.*API permission denied/u,
+  );
+  assert.equal(calls, 3);
+  assert.equal(pauses, 2);
+  clock = 0;
+  calls = 0;
+  const results = [
+    Error("temporary"),
+    Error("temporary"),
+    [],
+    Error("temporary"),
+    Error("temporary"),
+    [{ name: "Frontend", status: "completed", conclusion: "success" }],
+  ];
+  assert.equal(
+    await waitForRunArtifact(options, {
+      ...timing,
+      jobs: () => {
+        const result = results[calls++];
+        if (result instanceof Error) throw result;
+        return result;
+      },
+      resolve: () => "frontend-1",
+    }),
+    "frontend-1",
+  );
+  assert.equal(calls, 6);
+});

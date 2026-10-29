@@ -23,6 +23,7 @@ concurrency:
 
 env:
   BUN_VERSION: "1.3.11"
+  NODE_VERSION: "24.19.0"
   GITLEAKS_VERSION: "8.30.1"
   GITLEAKS_LINUX_X64_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
 
@@ -145,6 +146,28 @@ jobs:
       - if: always()
         run: bash scripts/ci-timing-summary.sh finish policy
 
+  prioritize-release:
+    name: Prioritize exact-source release qualification
+    needs: plan
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && needs.plan.outputs.mode == 'release'
+    permissions:
+      actions: write
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Stop duplicate main work only after tag qualification is planned
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_PLAN: ${{ toJSON(needs.plan.outputs) }}
+        run: timeout 120 bun scripts/ci-run-coordination.mjs
+
   public-build:
     name: Public artifact contract
     needs: [plan, marketing-build, docs-build]
@@ -162,6 +185,15 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
+      VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
+      VITE_POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
+      VITE_OPENPOST_ENVIRONMENT: ${{ github.event_name == 'push' && 'production' || 'ci' }}
+      VITE_OPENPOST_REVISION: ${{ github.sha }}
+      POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+      POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
+      POSTHOG_SOURCEMAPS_ENABLED: ${{ github.event_name == 'push' && secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -190,6 +222,11 @@ jobs:
             turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
             turbo-${{ runner.os }}-${{ github.job }}-
       - run: bash scripts/ci-timing-summary.sh start public-build
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .turbo/docs-inputs
+          key: docs-inputs-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: docs-inputs-${{ runner.os }}-${{ github.job }}-
       - run: bun install --frozen-lockfile
       - name: Resolve the canonical marketing artifact
         if: needs.marketing-build.result == 'success'
@@ -217,14 +254,33 @@ jobs:
         with:
           name: ${{ steps.docs-artifact.outputs.name }}
           path: apps/docs/out
+      - name: Build only missing public components
+        env:
+          MARKETING_RESULT: ${{ needs.marketing-build.result }}
+          DOCS_RESULT: ${{ needs.docs-build.result }}
+          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
+          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+        run: |
+          if [ "$MARKETING_RESULT" != success ]; then timeout 600 bun run build -- marketing; fi
+          if [ "$DOCS_RESULT" != success ]; then timeout 600 bun run build -- docs; fi
+          timeout 120 bun scripts/compose-public-site.mjs
+      - name: Seal canonical public candidate before independent rebuild proofs
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p delivery
+          cp -R dist/public-site delivery/site
+          config=$(bun scripts/public-site-artifact.mjs config)
+          timeout 120 bun scripts/public-site-artifact.mjs seal delivery/site delivery/manifest.json "$GITHUB_SHA" "$config"
       # Both production sites are proved here, so this job stays out of the
       # policy aggregate instead of rebuilding them alongside policy checks.
       # Downloaded artifacts skip the canonical builds but still face the
       # forced rebuild determinism proof and every assertion.
       - name: Prove both production artifacts and their agent surfaces
         env:
+          # Independent rebuilds prove semantics without uploading duplicate symbols.
+          POSTHOG_SOURCEMAPS_ENABLED: "0"
           OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
-          OPENPOST_PUBLIC_ARTIFACTS_PREBUILT: ${{ needs.marketing-build.result == 'success' && needs.docs-build.result == 'success' && '1' || '0' }}
+          OPENPOST_PUBLIC_ARTIFACTS_PREBUILT: "1"
           # Match docs-build, which reads repository variables directly.
           VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
           VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
@@ -242,6 +298,14 @@ jobs:
         run: |
           bun test ./tests/build/generate-agent-surfaces.test.mjs
           bun scripts/check-marketing-route-manifest.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: public-site-qualified-${{ github.sha }}-${{ github.run_attempt }}
+          path: delivery
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
       - if: always()
         run: bash scripts/ci-timing-summary.sh finish public-build
 
@@ -701,6 +765,11 @@ jobs:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: .turbo/docs-inputs
+          key: docs-inputs-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: docs-inputs-${{ runner.os }}-${{ github.job }}-
       - run: bun install --frozen-lockfile
       # Turbo entries are content-hashed, so a stale restore only costs a miss.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -1574,6 +1643,7 @@ jobs:
     needs:
       [
         plan,
+        prioritize-release,
         policy,
         public-build,
         backend-lint,

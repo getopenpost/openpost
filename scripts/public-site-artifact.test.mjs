@@ -5,7 +5,6 @@ import path from "node:path";
 import {
   assertQualifiedRun,
   configIdentity,
-  matchIdentity,
   seal,
   verify,
   proveLive,
@@ -81,7 +80,7 @@ const run = {
   status: "completed",
   conclusion: "success",
 };
-const jobs = ["Marketing build", "Documentation build", "Public artifact contract"].map((name) => ({
+const jobs = ["Public artifact contract"].map((name) => ({
   name,
   conclusion: "success",
 }));
@@ -107,15 +106,50 @@ test("only successful exact-source main CI and all required jobs qualify", () =>
     );
   }
 });
-test("producer identity must match historical configuration, not current assumptions", () => {
-  matchIdentity(identity, source, config);
-  expect(() =>
-    matchIdentity(identity, source, configIdentity({ VITE_POSTHOG_API_HOST: "changed" })),
-  ).toThrow("producer");
-  expect(() => matchIdentity(identity, "b".repeat(40), config)).toThrow("producer");
-});
-
 test("consumer rejects a digest different from the qualification job output", () =>
   fixture(async (site, manifest) => {
     await expect(verify(site, manifest, { ...identity, digest: "f".repeat(64) })).rejects.toThrow();
   }));
+
+test("live proof bounds asset requests while local verification covers every file", () =>
+  fixture(async (site, manifest) => {
+    await mkdir(path.join(site, "assets"));
+    for (let i = 0; i < 1000; i++) await writeFile(path.join(site, "assets", `${i}.js`), "asset");
+    await seal(site, manifest, identity);
+    let requests = 0;
+    const result = await proveLive(site, manifest, identity, "https://example.com", async (url) => {
+      requests++;
+      return new Response(url.pathname === "/" ? "<p>qualified</p>" : "asset");
+    });
+    expect(requests).toBeLessThan(50);
+    expect(result.inventoryFiles).toBe(1001);
+    await writeFile(path.join(site, "assets", "999.js"), "corrupt");
+    await expect(proveLive(site, manifest, identity, "https://example.com")).rejects.toThrow(
+      "digest",
+    );
+  }));
+
+test("partial reruns retain prior qualification but never hide a newer producer failure", () => {
+  expect(
+    assertQualifiedRun(
+      run,
+      [
+        { ...jobs[0], run_attempt: 1 },
+        { name: "Other", run_attempt: 2 },
+      ],
+      "owner/repo",
+      source,
+    ),
+  ).toBe(1);
+  expect(() =>
+    assertQualifiedRun(
+      run,
+      [
+        { ...jobs[0], run_attempt: 1 },
+        { ...jobs[0], run_attempt: 2, conclusion: "failure" },
+      ],
+      "owner/repo",
+      source,
+    ),
+  ).toThrow("prerequisite");
+});

@@ -17,11 +17,12 @@ export function assertQualifiedRun(run, jobs, repository, source) {
     run.conclusion !== "success"
   )
     throw new Error("CI source/trust/status mismatch");
-  for (const name of ["Marketing build", "Documentation build", "Public artifact contract"]) {
-    const matches = jobs.filter((job) => job.name === name);
-    if (matches.length !== 1 || matches[0].conclusion !== "success")
-      throw new Error(`required prerequisite did not succeed: ${name}`);
-  }
+  const attempts = jobs.filter((job) => job.name === "Public artifact contract");
+  const latest = Math.max(0, ...attempts.map((job) => job.run_attempt ?? 1));
+  const matches = attempts.filter((job) => (job.run_attempt ?? 1) === latest);
+  if (matches.length !== 1 || matches[0].conclusion !== "success")
+    throw new Error("required prerequisite did not succeed: Public artifact contract");
+  return latest;
 }
 export function configIdentity(env = process.env) {
   const names = [
@@ -49,10 +50,6 @@ export async function inventory(directory, prefix = "") {
     else throw new Error(`unsupported artifact entry: ${relative}`);
   }
   return files;
-}
-export function matchIdentity(identity, source, config) {
-  if (!fullSHA(source) || identity.source !== source || identity.config !== config)
-    throw new Error("producer source/config mismatch");
 }
 export async function seal(directory, manifestFile, identity) {
   if (!fullSHA(identity.source) || !/^[a-f0-9]{64}$/.test(identity.config))
@@ -82,15 +79,62 @@ export async function verify(directory, manifestFile, expected) {
     throw new Error("artifact digest mismatch");
   return manifest;
 }
-// Live proof checks every deployed static byte, including discovery and docs. Pages
-// control files are deployment configuration, not publicly served resources.
+// The complete inventory is verified locally. HTTP proof samples each public
+// boundary and both ends of each asset family, instead of downloading the site.
+function liveProofFiles(files) {
+  const selected = new Set();
+  const boundaries = [
+    "index.html",
+    "index.md",
+    "pricing.html",
+    "privacy.html",
+    "changelog.html",
+    "changelog.md",
+    "changelog.xml",
+    "sitemap.xml",
+    "sitemap.md",
+    "llms.txt",
+    "llms-full.txt",
+    "openapi.json",
+    ".well-known/api-catalog",
+    ".well-known/ard.json",
+    ".well-known/agent-skills/index.json",
+    ".well-known/mcp/server-card.json",
+    "docs/index.html",
+    "docs/index.md",
+    "docs/openapi.json",
+    "docs/llms.txt",
+    "docs/llms-full.txt",
+    "docs/sitemap.xml",
+    "docs/guides/quickstart.html",
+    "docs/self-hosting.html",
+    "docs/api-reference.html",
+  ];
+  for (const file of boundaries) if (Object.hasOwn(files, file)) selected.add(file);
+  for (const prefix of ["", "docs/"]) {
+    for (const extension of [".js", ".css", ".woff2", ".png"]) {
+      const candidates = Object.keys(files).filter(
+        (file) =>
+          file.startsWith(prefix) &&
+          (prefix || !file.startsWith("docs/")) &&
+          file.endsWith(extension),
+      );
+      if (candidates.length) {
+        selected.add(candidates[0]);
+        selected.add(candidates.at(-1));
+      }
+    }
+  }
+  if (!selected.size) throw new Error("artifact has no public proof boundaries");
+  return [...selected].map((file) => [file, files[file]]);
+}
 export async function proveLive(directory, manifestFile, expected, origin, fetchImpl = fetch) {
   const manifest = await verify(directory, manifestFile, expected);
   const base = new URL(origin);
   if (base.protocol !== "https:" || base.pathname !== "/" || base.search || base.hash)
     throw new Error("expected HTTPS deployment origin");
   let count = 0;
-  const pending = Object.entries(manifest.files);
+  const pending = liveProofFiles(manifest.files);
   async function worker() {
     while (pending.length) {
       const [file, digest] = pending.shift();
@@ -118,19 +162,23 @@ export async function proveLive(directory, manifestFile, expected, origin, fetch
     }
   }
   await Promise.all(Array.from({ length: 8 }, worker));
-  return { source: manifest.source, digest: manifest.digest, origin, verifiedFiles: count };
+  return {
+    source: manifest.source,
+    digest: manifest.digest,
+    origin,
+    verifiedFiles: count,
+    inventoryFiles: Object.keys(manifest.files).length,
+  };
 }
 async function main() {
   const [command, directory, manifestFile, source, config, origin] = process.argv.slice(2);
   if (command === "config") return console.log(configIdentity());
-  if (command === "match-identity")
-    return matchIdentity(JSON.parse(await readFile(directory, "utf8")), manifestFile, source);
   if (command === "qualify-run") {
     const run = JSON.parse(await readFile(directory, "utf8"));
     const jobs = JSON.parse(await readFile(manifestFile, "utf8")).flatMap(
       (page) => page.jobs || [],
     );
-    assertQualifiedRun(run, jobs, source, config);
+    console.log(assertQualifiedRun(run, jobs, source, config));
     return;
   }
   if (command === "seal")

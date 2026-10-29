@@ -50,12 +50,14 @@ jobs:
       source: ${{ steps.identity.outputs.source }}
       config: ${{ steps.identity.outputs.config }}
       digest: ${{ steps.verified.outputs.digest }}
+      available: ${{ steps.verified.outputs.available }}
     steps:
       # Only trusted main code ever executes with delivery credentials.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
+          fetch-depth: 2
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: "1.3.11"
@@ -71,9 +73,24 @@ jobs:
       - id: identity
         env:
           SOURCE: ${{ inputs.rollback_source || github.event.workflow_run.head_sha || github.sha }}
+          ROLLBACK_RUN: ${{ inputs.rollback_run }}
+          ROLLBACK_SOURCE: ${{ inputs.rollback_source }}
+          ROLLBACK_DIGEST: ${{ inputs.rollback_digest }}
         run: |
-          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
-          echo "config=$(bun scripts/public-site-artifact.mjs config)" >> "$GITHUB_OUTPUT"
+          if [ -n "$ROLLBACK_RUN$ROLLBACK_SOURCE$ROLLBACK_DIGEST" ]; then
+            [[ "$ROLLBACK_RUN" =~ ^[0-9]+$ && "$ROLLBACK_SOURCE" =~ ^[a-f0-9]{40}$ && "$ROLLBACK_DIGEST" =~ ^[a-f0-9]{64}$ ]] || { echo 'All rollback identities must be supplied together'; exit 1; }
+          fi
+          build=false
+          if [ "${{ github.event_name }}" = workflow_dispatch ] && [ -z "$ROLLBACK_RUN" ]; then build=true; fi
+          if [ "${{ github.event_name }}" = push ]; then
+            # Mixed code/content pushes already have a canonical CI producer.
+            if ! git diff-tree --root --no-commit-id --name-only -r "$GITHUB_SHA" | grep -qEv '^(CHANGELOG[.]md|changes/)'; then build=true; fi
+          fi
+          {
+            echo "build=$build"
+            echo "source=$SOURCE"
+            echo "config=$(bun scripts/public-site-artifact.mjs config)"
+          } >> "$GITHUB_OUTPUT"
       - name: Resolve trusted canonical artifacts
         if: github.event_name == 'workflow_run'
         id: canonical
@@ -83,44 +100,21 @@ jobs:
           SOURCE: ${{ steps.identity.outputs.source }}
         run: |
           timeout 120 gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PRODUCER_RUN" > /tmp/producer.json
-          timeout 120 gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$PRODUCER_RUN/jobs?filter=latest&per_page=100" > /tmp/jobs.json
-          timeout 120 bun scripts/public-site-artifact.mjs qualify-run /tmp/producer.json /tmp/jobs.json "$GITHUB_REPOSITORY" "$SOURCE"
-          marketing=$(timeout 120 bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$PRODUCER_RUN" --prefix "marketing-static-$SOURCE-")
-          echo "marketing=$marketing" >> "$GITHUB_OUTPUT"
-          docs=$(timeout 120 bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$PRODUCER_RUN" --prefix "docs-static-$SOURCE-")
-          echo "docs=$docs" >> "$GITHUB_OUTPUT"
-          identity=$(timeout 120 bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$PRODUCER_RUN" --prefix "public-site-input-identity-$SOURCE-")
-          test "${marketing##*-}" = "${docs##*-}" && test "${docs##*-}" = "${identity##*-}" || { echo 'Canonical component/identity attempts differ'; exit 1; }
-          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+          timeout 120 gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$PRODUCER_RUN/jobs?filter=all&per_page=100" > /tmp/jobs.json
+          count=$(timeout 120 gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PRODUCER_RUN/artifacts?per_page=100" --jq '[.artifacts[] | select(.expired == false and (.name | startswith("public-site-qualified-")))] | length')
+          if [ "$count" = 0 ]; then echo 'available=false' >> "$GITHUB_OUTPUT"; exit 0; fi
+          producer_attempt=$(timeout 120 bun scripts/public-site-artifact.mjs qualify-run /tmp/producer.json /tmp/jobs.json "$GITHUB_REPOSITORY" "$SOURCE")
+          artifact=$(timeout 120 bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$PRODUCER_RUN" --prefix "public-site-qualified-$SOURCE-")
+          test "${artifact##*-}" = "$producer_attempt" || { echo 'Artifact does not match qualified producer attempt'; exit 1; }
+          echo "artifact=$artifact" >> "$GITHUB_OUTPUT"
+          echo 'available=true' >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        if: github.event_name == 'workflow_run'
+        if: github.event_name == 'workflow_run' && steps.canonical.outputs.available == 'true'
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
-          name: ${{ steps.canonical.outputs.marketing }}
-          path: apps/marketing/dist
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        if: github.event_name == 'workflow_run'
-        with:
-          github-token: ${{ github.token }}
-          run-id: ${{ github.event.workflow_run.id }}
-          name: ${{ steps.canonical.outputs.docs }}
-          path: apps/docs/out
-      # Parent must add this non-secret sidecar to the canonical producer. Never
-      # infer historical build configuration from current repository variables.
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-        if: github.event_name == 'workflow_run'
-        with:
-          github-token: ${{ github.token }}
-          run-id: ${{ github.event.workflow_run.id }}
-          name: ${{ steps.canonical.outputs.identity }}
-          path: producer-identity
-      - name: Match canonical producer configuration
-        if: github.event_name == 'workflow_run'
-        env:
-          SOURCE: ${{ steps.identity.outputs.source }}
-          CONFIG: ${{ steps.identity.outputs.config }}
-        run: timeout 120 bun scripts/public-site-artifact.mjs match-identity producer-identity/identity.json "$SOURCE" "$CONFIG"
+          name: ${{ steps.canonical.outputs.artifact }}
+          path: delivery
       - name: Restore known-good immutable artifact
         if: inputs.rollback_run != ''
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
@@ -138,21 +132,28 @@ jobs:
         run: |
           timeout 120 gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN" > /tmp/rollback-run.json
           timeout 120 bun -e 'const r=await Bun.file("/tmp/rollback-run.json").json(); if(r.path!==".github/workflows/public-site-delivery.yml" || r.head_branch!=="main" || r.conclusion!=="success" || !["workflow_run","workflow_dispatch","push"].includes(r.event)) throw Error("untrusted rollback run"); const m=await Bun.file("delivery/manifest.json").json(); if(!/^[a-f0-9]{64}$/.test(process.env.DIGEST)||m.digest!==process.env.DIGEST) throw Error("rollback digest mismatch")'
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        if: steps.identity.outputs.build == 'true'
+        with:
+          path: |
+            .turbo/docs-inputs
+            .turbo/cache
+            apps/docs/.next/cache
+            ~/.bun/install/cache
+          key: public-site-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ github.sha }}
+          restore-keys: public-site-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
       - name: Prepare public build environment
-        if: inputs.rollback_run == ''
+        if: steps.identity.outputs.build == 'true'
         run: timeout 600 bun install --frozen-lockfile
       - name: Build exact recording commit when CI did not run
-        if: github.event_name != 'workflow_run' && inputs.rollback_run == ''
+        if: steps.identity.outputs.build == 'true'
         env:
           VITE_OPENPOST_REVISION: ${{ steps.identity.outputs.source }}
           POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
           POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
         run: timeout 600 bun run build -- public-site
-      - name: Compose canonical components without rebuilding
-        if: github.event_name == 'workflow_run'
-        run: timeout 120 bun scripts/compose-public-site.mjs
       - name: Preserve candidate before proof rebuilds
-        if: inputs.rollback_run == ''
+        if: steps.identity.outputs.build == 'true'
         env:
           SOURCE: ${{ steps.identity.outputs.source }}
           CONFIG: ${{ steps.identity.outputs.config }}
@@ -162,9 +163,11 @@ jobs:
           cp -R dist/public-site delivery/site
           timeout 120 bun scripts/public-site-artifact.mjs seal delivery/site delivery/manifest.json "$SOURCE" "$CONFIG"
       - name: Run existing public artifact and route contracts
-        if: inputs.rollback_run == ''
+        if: steps.identity.outputs.build == 'true'
         env:
           OPENPOST_PUBLIC_ARTIFACTS_PREBUILT: "1"
+          OPENPOST_PUBLIC_ARTIFACTS_REBUILD_PROOF: ${{ github.event_name == 'push' && '0' || '1' }}
+          POSTHOG_SOURCEMAPS_ENABLED: "0"
           VITE_OPENPOST_REVISION: ${{ steps.identity.outputs.source }}
           GITHUB_SHA: ${{ steps.identity.outputs.source }}
           GITHUB_RUN_ID: ${{ github.event.workflow_run.id || github.run_id }}
@@ -174,6 +177,7 @@ jobs:
           timeout 600 bun test ./tests/build/generate-agent-surfaces.test.mjs
           timeout 120 bun scripts/check-marketing-route-manifest.mjs
       - name: Verify retained bytes and identity
+        if: steps.identity.outputs.build == 'true' || inputs.rollback_run != '' || steps.canonical.outputs.available == 'true'
         id: verified
         env:
           SOURCE: ${{ steps.identity.outputs.source }}
@@ -182,7 +186,9 @@ jobs:
           timeout 120 bun scripts/public-site-artifact.mjs verify delivery/site delivery/manifest.json "$SOURCE" "$CONFIG"
           digest=$(timeout 120 bun -e 'console.log((await Bun.file("delivery/manifest.json").json()).digest)')
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "available=true" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: steps.verified.outputs.available == 'true'
         with:
           name: public-site-qualified
           path: delivery
@@ -191,16 +197,16 @@ jobs:
           retention-days: 90
   deploy:
     needs: qualify
-    # Automatic runs retain only. Parent must provision environments and explicitly
-    # opt in to production after preview, symbolication and rollback proof.
-    if: github.event_name == 'workflow_dispatch' && inputs.delivery != 'retain'
-    environment: ${{ inputs.delivery == 'production' && 'public-site-production' || 'public-site-preview' }}
+    # The repository cutover flag is enabled after preview and rollback proof.
+    if: needs.qualify.outputs.available == 'true' && ((github.event_name == 'workflow_dispatch' && inputs.delivery != 'retain') || (github.event_name != 'workflow_dispatch' && vars.OPENPOST_PUBLIC_SITE_DELIVERY_ENABLED == 'true'))
+    environment: ${{ (github.event_name != 'workflow_dispatch' || inputs.delivery == 'production') && 'public-site-production' || 'public-site-preview' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
           bun-version: "1.3.11"
@@ -214,27 +220,35 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           SOURCE: ${{ needs.qualify.outputs.source }}
           CONFIG: ${{ needs.qualify.outputs.config }}
-          DELIVERY: ${{ inputs.delivery }}
+          DELIVERY: ${{ github.event_name == 'workflow_dispatch' && inputs.delivery || 'production' }}
           DIGEST: ${{ needs.qualify.outputs.digest }}
+          ROLLBACK_RUN: ${{ inputs.rollback_run }}
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Configuration error: provision least-privilege CLOUDFLARE_API_TOKEN repository secret'; exit 1; }
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo 'Configuration error: CLOUDFLARE_ACCOUNT_ID is required'; exit 1; }
           timeout 120 bun scripts/public-site-artifact.mjs verify delivery/site delivery/manifest.json "$SOURCE" "$CONFIG" "$DIGEST"
+          if [ "$DELIVERY" = production ] && [ -z "$ROLLBACK_RUN" ]; then
+            # JavaScript template literals intentionally expand inside Bun.
+            # shellcheck disable=SC2016
+            current=$(timeout 60 bun -e 'const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${process.env.CLOUDFLARE_ACCOUNT_ID}/pages/projects/openpost-marketing`,{headers:{Authorization:`Bearer ${process.env.CLOUDFLARE_API_TOKEN}`},signal:AbortSignal.timeout(30000)}); if(!r.ok) throw Error("Cannot inspect current deployment"); const d=await r.json();const sha=d.result?.canonical_deployment?.deployment_trigger?.metadata?.commit_hash; if(!d.success||!/^[a-f0-9]{40}$/.test(sha))throw Error("Unknown current deployment revision");console.log(sha)')
+            timeout 60 git fetch --no-tags origin "$current"
+            git merge-base --is-ancestor "$current" "$SOURCE" || { echo 'Refusing to replace a newer or unrelated production revision; use explicit verified rollback'; exit 1; }
+          fi
           branch="artifact-preview-$GITHUB_RUN_ID"
           if [ "$DELIVERY" = production ]; then branch=main; fi
-          timeout 600 bunx wrangler@4.45.0 pages deploy delivery/site --project-name openpost-marketing --branch "$branch" --commit-hash "$SOURCE" --commit-dirty=false > /tmp/pages-deploy.log 2>&1 || { tail -50 /tmp/pages-deploy.log; exit 1; }
+          timeout 600 bunx wrangler@4.129.1 pages deploy delivery/site --project-name openpost-marketing --branch "$branch" --commit-hash "$SOURCE" --commit-dirty=false > /tmp/pages-deploy.log 2>&1 || { tail -50 /tmp/pages-deploy.log; exit 1; }
           tail -20 /tmp/pages-deploy.log
       - name: Prove live deployment bytes
         env:
           SOURCE: ${{ needs.qualify.outputs.source }}
           CONFIG: ${{ needs.qualify.outputs.config }}
-          DELIVERY: ${{ inputs.delivery }}
+          DELIVERY: ${{ github.event_name == 'workflow_dispatch' && inputs.delivery || 'production' }}
         run: |
           origin=https://openpo.st
           if [ "$DELIVERY" != production ]; then
             origin=$(timeout 120 bun -e 'const log=await Bun.file("/tmp/pages-deploy.log").text(); const urls=log.match(/https:\/\/[a-f0-9]+\.openpost-marketing\.pages\.dev/g); if(!urls?.length) throw Error("No immutable preview deployment URL in Wrangler output"); console.log(urls.at(-1))')
           fi
-          timeout 1200 bun scripts/public-site-artifact.mjs live delivery/site delivery/manifest.json "$SOURCE" "$CONFIG" "$origin" > delivery/live-proof.json
+          timeout 120 bun scripts/public-site-artifact.mjs live delivery/site delivery/manifest.json "$SOURCE" "$CONFIG" "$origin" > delivery/live-proof.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: public-site-live-proof

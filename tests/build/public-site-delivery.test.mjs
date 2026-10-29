@@ -6,7 +6,7 @@ const workflow = Bun.YAML.parse(
     "utf8",
   ),
 );
-test("delivery workflow is parseable, manual-only for deployment, and credentials stay in consumer", () => {
+test("delivery workflow is parseable, gated automatic deployment, and credentials stay in consumer", () => {
   expect(workflow.on.workflow_run.workflows).toEqual(["CI"]);
   expect(workflow.on.push.branches).toEqual(["main"]);
   expect(workflow.jobs.deploy.needs).toBe("qualify");
@@ -14,7 +14,8 @@ test("delivery workflow is parseable, manual-only for deployment, and credential
   expect(workflow.jobs.deploy.environment).toContain("public-site-production");
   expect(JSON.stringify(workflow.jobs.qualify)).not.toContain("CLOUDFLARE_API_TOKEN");
   expect(JSON.stringify(workflow.jobs.deploy)).toContain("public-site-artifact.mjs verify");
-  expect(JSON.stringify(workflow.jobs.qualify)).toContain("match-identity");
+  expect(JSON.stringify(workflow.jobs.qualify)).toContain("public-site-qualified-$SOURCE-");
+  expect(workflow.jobs.deploy.if).toContain("OPENPOST_PUBLIC_SITE_DELIVERY_ENABLED");
 });
 test("no action floats and uploads preserve hidden agent discovery files", () => {
   for (const job of Object.values(workflow.jobs)) {

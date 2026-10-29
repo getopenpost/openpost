@@ -92,7 +92,7 @@ function shipScenario(scenario = {}, command = "ship") {
         else if (command.startsWith("gh release view")) stdout = "https://github.com/getopenpost/openpost/releases/tag/v1.0.1";
         else if (command === "bun scripts/next-release-version.mjs v1.0.0") stdout = "v1.0.1";
         else if (command.startsWith("bun scripts/release-notes.mjs")) stdout = "## Fixed\\n\\n- Release workflow.";
-        else if (command === "bun scripts/tasks.mjs preflight") { checked = true; exitCode = scenario.failCheck ? 1 : 0; }
+        else if (command === "bun scripts/tasks.mjs check:affected --base origin/main") { checked = true; exitCode = scenario.failCheck ? 1 : 0; }
         else if (!(command.startsWith("bun run check --") || command === "bun scripts/check-changelog.mjs" || command.startsWith("bun install") || command === "bun run doctor" || command.startsWith("bash -lc command -v") || command.startsWith("git fetch") || command.startsWith("git push") || command.startsWith("git merge-base"))) throw Error("Unexpected command: " + command);
         return {exitCode, stdout:Buffer.from(stdout), stderr:Buffer.from("")};
       };
@@ -122,7 +122,9 @@ function shipScenario(scenario = {}, command = "ship") {
 test("ship stops locally before pushing or tagging when verification fails", () => {
   const result = shipScenario({ failCheck: true });
   assert.ok(
-    result.commands.some((argv) => argv.join(" ") === "bun scripts/tasks.mjs preflight"),
+    result.commands.some(
+      (argv) => argv.join(" ") === "bun scripts/tasks.mjs check:affected --base origin/main",
+    ),
     result.output,
   );
   assert.equal(result.status, 1, result.output);
@@ -138,10 +140,10 @@ test("ship checks the exact clean revision then pushes and tags without waiting 
   const result = shipScenario();
   assert.equal(result.status, 0, result.output);
   const commands = result.commands.map((argv) => argv.join(" "));
-  assert.ok(commands.indexOf("bun scripts/tasks.mjs preflight") >= 0);
+  assert.ok(commands.indexOf("bun scripts/tasks.mjs check:affected --base origin/main") >= 0);
   assert.ok(
     commands.indexOf(`git push origin ${revision}:refs/heads/main`) >
-      commands.indexOf("bun scripts/tasks.mjs preflight"),
+      commands.indexOf("bun scripts/tasks.mjs check:affected --base origin/main"),
   );
   assert.ok(commands.includes(`git tag v1.0.1 ${revision}`));
   assert.ok(
@@ -168,7 +170,11 @@ test("ship resumes an immutable published tag after origin/main advances", () =>
   const result = shipScenario({ resume: true });
   assert.equal(result.status, 0, result.output);
   assert.ok(!result.commands.some(([tool, action]) => tool === "git" && action === "push"));
-  assert.ok(!result.commands.some((argv) => argv.join(" ") === "bun scripts/tasks.mjs preflight"));
+  assert.ok(
+    !result.commands.some(
+      (argv) => argv.join(" ") === "bun scripts/tasks.mjs check:affected --base origin/main",
+    ),
+  );
 });
 
 test("watch reports a cancelled job's timeout and step instead of inventing a superseding push", () => {

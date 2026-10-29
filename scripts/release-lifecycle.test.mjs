@@ -85,7 +85,7 @@ for (const localCommits of [0, 2]) {
           command === "bun scripts/release-notes.mjs v1.0.1" ||
           command.startsWith("bun scripts/mobile-release.mjs") ||
           command === "bun run doctor" ||
-          command.startsWith("bun install") || command === "bun scripts/tasks.mjs preflight")) throw new Error("Unexpected command: " + command);
+          command.startsWith("bun install") || command === "bun scripts/tasks.mjs check:affected --base origin/main")) throw new Error("Unexpected command: " + command);
         return { exitCode, stdout: Buffer.from(stdout), stderr: Buffer.from("") };
       };`,
       );
@@ -103,7 +103,8 @@ for (const localCommits of [0, 2]) {
       // Release inputs and local verification both run before any remote write.
       assert.ok(indexOf("bun scripts/check-changelog.mjs") >= 0);
       assert.ok(
-        indexOf("bun scripts/tasks.mjs preflight") > indexOf("bun scripts/check-changelog.mjs"),
+        indexOf("bun scripts/tasks.mjs check:affected --base origin/main") >
+          indexOf("bun scripts/check-changelog.mjs"),
       );
       assert.ok(indexOf("bun run check -- release-version") >= 0);
       assert.ok(indexOf("bun scripts/mobile-release.mjs check-release") >= 0);

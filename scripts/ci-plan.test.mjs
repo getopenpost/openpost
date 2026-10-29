@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import { planCI } from "./ci-plan.mjs";
 import { readReleaseSurfaceManifest } from "./release-surfaces.mjs";
@@ -238,4 +241,69 @@ test("proven tags rebuild only the versioned image and refresh advisories", () =
   const mobile = planCI(["apps/mobile/src/app/(tabs)/drafts.tsx"], manifest, { reuse: true });
   assert.equal(mobile.android, true);
   assert.equal(mobile.backend, false);
+});
+
+test("package selection follows consumers rather than every package selecting the web app", () => {
+  for (const name of ["sdk", "cli", "n8n-nodes-openpost", "social-images"]) {
+    const plan = planCI([`packages/${name}/src/index.ts`], manifest);
+    assert.equal(plan.frontend, false, name);
+    assert.equal(plan.application, false, name);
+    assert.equal(plan.image, false, name);
+  }
+  const shared = planCI(["packages/dither/src/index.ts"], manifest);
+  assert.equal(shared.frontend, true);
+  assert.equal(shared.android, true);
+  assert.equal(shared.marketing, true);
+  assert.equal(shared.documentation, true);
+  const native = planCI(["packages/telemetry/src/index.ts"], manifest);
+  assert.equal(native.android, true);
+});
+
+test("unknown packages fail closed for application consumers", () => {
+  const plan = planCI(["packages/not-yet-registered/src/index.ts"], manifest);
+  for (const key of ["frontend", "android", "application", "image", "marketing", "documentation"])
+    assert.equal(plan[key], true, key);
+});
+
+test("package selection follows transitive consumers and fails closed when metadata disappears", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "openpost-ci-consumers-"));
+  const writePackage = (name, data) => {
+    mkdirSync(path.join(directory, name), { recursive: true });
+    writeFileSync(path.join(directory, name, "package.json"), JSON.stringify(data));
+  };
+  try {
+    writePackage("packages/core", { name: "@openpost/core" });
+    writePackage("packages/ui", {
+      name: "@openpost/ui",
+      dependencies: { "@openpost/core": "workspace:*" },
+    });
+    writePackage("apps/web", { name: "web", dependencies: { "@openpost/ui": "workspace:*" } });
+    for (const app of ["mobile", "marketing", "docs"]) writePackage(`apps/${app}`, { name: app });
+    const files = ["packages/core/src/index.ts"];
+    const selected = planCI(files, manifest, { repositoryRoot: directory });
+    assert.equal(selected.frontend, true);
+    assert.equal(selected.android, false);
+    assert.equal(selected.marketing, false);
+    assert.equal(selected.documentation, false);
+    rmSync(path.join(directory, "packages/ui/package.json"));
+    const fallback = planCI(files, manifest, { repositoryRoot: directory });
+    for (const key of ["frontend", "android", "application", "image", "marketing", "documentation"])
+      assert.equal(fallback[key], true, key);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("nightly release qualification covers every surface even without changed files", () => {
+  const plan = planCI([], manifest, { release: true, full: true });
+  for (const [name, selected] of Object.entries(plan)) {
+    if (name !== "cache_contract") assert.equal(selected, true, name);
+  }
+});
+
+test("backend changes retain the application build and browser qualification", () => {
+  const plan = planCI(["apps/server/internal/services/publication/store.go"], manifest);
+  assert.equal(plan.backend, true);
+  assert.equal(plan.application, true);
+  assert.equal(plan.image, true);
 });

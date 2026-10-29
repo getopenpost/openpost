@@ -108,7 +108,6 @@ export function affectedSelection(args, root) {
     const shared =
       file.startsWith("packages/") ||
       file.startsWith("assets/") ||
-      file.startsWith("apps/web/src/lib/") ||
       file.startsWith("apps/web/messages/");
     if (
       !owner ||

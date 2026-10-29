@@ -66,7 +66,11 @@ export function validateRelease(release, options) {
     return problems;
   }
 
-  const expected = new Set(options.core === true ? coreReleaseAssets : expectedReleaseAssets);
+  const expected = new Set(
+    (options.core === true ? coreReleaseAssets : expectedReleaseAssets).filter(
+      (name) => options.cli !== false || !/^openpost-(cli|mcp)-/.test(name),
+    ),
+  );
   // The core check runs while the parallel Android job may already have
   // uploaded the APK, so unknown means outside the full set, not outside the
   // required subset. Missing-asset enforcement below stays scoped to the
@@ -103,7 +107,7 @@ function option(name) {
 async function main() {
   if (process.argv[2] !== "verify") {
     throw new Error(
-      "usage: release-assets.mjs verify --release-json FILE --tag TAG --notes-file FILE [--complete] [--core] [--published]",
+      "usage: release-assets.mjs verify --release-json FILE --tag TAG --notes-file FILE [--complete] [--core] [--published] [--no-cli]",
     );
   }
   const releaseJSON = option("--release-json");
@@ -122,6 +126,7 @@ async function main() {
     notes,
     complete: process.argv.includes("--complete") || core,
     core,
+    cli: !process.argv.includes("--no-cli"),
     published: process.argv.includes("--published"),
   });
   if (problems.length > 0) throw new Error(problems.join("; "));

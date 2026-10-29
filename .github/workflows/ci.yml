@@ -738,12 +738,13 @@ jobs:
         # Each shard runs one worker against its own server, so wall time
         # follows the shard count. This suite is the candidate's longest pole.
         shard: [1, 2, 3, 4, 5, 6]
-    needs: [plan, frontend-build, marketing-build]
-    if: >-
-      always() && !cancelled() && needs.plan.outputs.application == 'true' &&
-      needs.frontend-build.result == 'success' && needs.marketing-build.result != 'failure'
+    needs: plan
+    if: needs.plan.outputs.application == 'true'
+    permissions:
+      actions: read
+      contents: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -754,28 +755,6 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - name: Resolve the newest canonical application artifact
-        id: frontend-artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          artifact_name="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "frontend-public-${GITHUB_SHA}-")"
-          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: ${{ steps.frontend-artifact.outputs.name }}
-          path: apps/server/cmd/openpost/public
-      - name: Resolve the marketing artifact for tool-to-draft handoffs
-        id: marketing-artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          artifact_name="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "marketing-static-${GITHUB_SHA}-")"
-          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: ${{ steps.marketing-artifact.outputs.name }}
-          path: apps/marketing/dist
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: apps/server/go.mod
@@ -789,9 +768,21 @@ jobs:
       - name: Verify or install media fixture tools
         timeout-minutes: 5
         run: bash scripts/ci-setup-tools.sh media
+      - name: Resolve the newest canonical application artifact
+        id: frontend-artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_name="$(bun scripts/ci-artifacts.mjs wait --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --producer "Canonical frontend build" --prefix "frontend-public-${GITHUB_SHA}-")"
+          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ steps.frontend-artifact.outputs.name }}
+          path: apps/server/cmd/openpost/public
       - name: Test the canonical application artifact
         env:
           OPENPOST_E2E_PREBUILT: "1"
+          OPENPOST_APP_E2E_SUITE: core
           DEBUG: pw:browser
           OPENPOST_APP_E2E_SHARD: ${{ matrix.shard }}/6
           PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/openpost-app-timings-${{ matrix.shard }}.json
@@ -818,6 +809,92 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: browser-app-failure-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  browser-handoff:
+    name: Application tool handoff suite
+    needs: plan
+    if: needs.plan.outputs.application == 'true'
+    permissions:
+      actions: read
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            /*
+            !/apps/web/static/image-editor-models/
+          sparse-checkout-cone-mode: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - run: bun install --frozen-lockfile
+      - name: Install pinned Chromium and system dependencies
+        timeout-minutes: 5
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
+        run: bunx --no-install playwright install --with-deps chromium
+      - name: Resolve the newest canonical application artifact
+        id: frontend-artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_name="$(bun scripts/ci-artifacts.mjs wait --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --producer "Canonical frontend build" --prefix "frontend-public-${GITHUB_SHA}-")"
+          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ steps.frontend-artifact.outputs.name }}
+          path: apps/server/cmd/openpost/public
+      - name: Resolve the marketing artifact for tool-to-draft handoffs
+        id: marketing-artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_name="$(bun scripts/ci-artifacts.mjs wait --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --producer "Marketing build" --prefix "marketing-static-${GITHUB_SHA}-")"
+          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ steps.marketing-artifact.outputs.name }}
+          path: apps/marketing/dist
+      - name: Test the canonical application artifact
+        env:
+          OPENPOST_E2E_PREBUILT: "1"
+          DEBUG: pw:browser
+          OPENPOST_APP_E2E_SUITE: handoff
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/openpost-app-timings-handoff.json
+        run: bun run test -- e2e-app
+      - name: Summarize application test timings
+        if: always()
+        run: |
+          report="${{ runner.temp }}/openpost-app-timings-handoff.json"
+          if [[ -f "$report" ]]; then
+            bun scripts/ci-test-timings.mjs summarize "$report" > "${{ runner.temp }}/openpost-app-timing-summary-handoff.json"
+          fi
+      - name: Retain application test timings
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-test-timings-handoff-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/openpost-app-timings-handoff.json
+            ${{ runner.temp }}/openpost-app-timing-summary-handoff.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Retain application browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browser-app-failure-handoff-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             playwright-report
             test-results
@@ -1095,6 +1172,10 @@ jobs:
     if: needs.plan.outputs.android == 'true' && (needs.plan.outputs.mode == 'release' || needs.plan.outputs.mode == 'full')
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 1G
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1118,17 +1199,29 @@ jobs:
             build-tools;36.0.0
             ndk;27.1.12297006
             cmake;3.22.1
+      - uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          cache-cleanup: on-success
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/.bun/install/cache
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: android-build-v2-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock', 'apps/mobile/plugins/**') }}-${{ github.sha }}
+          path: ~/.bun/install/cache
+          key: android-bun-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock') }}
+          restore-keys: android-bun-${{ runner.os }}-
+      - name: Install the native compiler cache
+        id: ccache-install
+        timeout-minutes: 5
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y ccache
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/openpost-ccache
+          key: android-ccache-ndk27-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock') }}-${{ github.sha }}
           restore-keys: |
-            android-build-v2-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock', 'apps/mobile/plugins/**') }}-
-            android-build-v2-${{ runner.os }}-
-            android-${{ runner.os }}-
+            android-ccache-ndk27-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock') }}-
+      - name: Configure native compiler cache directory
+        run: echo "CCACHE_DIR=${RUNNER_TEMP}/openpost-ccache" >> "$GITHUB_ENV"
+      - name: Reset compiler cache statistics
+        run: ccache --zero-stats
       - name: Install the standalone mobile app
         working-directory: apps/mobile
         run: bun install --frozen-lockfile
@@ -1158,6 +1251,9 @@ jobs:
       - name: Build the native Expo Android candidate
         working-directory: apps/mobile
         run: bun run build:android:candidate
+      - name: Report native compiler cache effectiveness
+        if: always() && steps.ccache-install.outcome == 'success'
+        run: ccache --show-stats
       - run: |
           cp apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk openpost-app-android-unsigned.apk
           unzip -t openpost-app-android-unsigned.apk
@@ -1486,6 +1582,7 @@ jobs:
         marketing-build,
         docs-build,
         browser-app,
+        browser-handoff,
         browser-marketing,
         cache-contract,
         n8n,

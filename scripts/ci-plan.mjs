@@ -212,7 +212,15 @@ function planFiltered(files, manifest, { full = false, repositoryRoot = root } =
         ],
         [".dockerignore", "bun.lock", "bunfig.toml", "package.json", "turbo.json"],
       ),
-    android: native || matches(["apps/mobile/"], ["apps/web/openapi.json"]),
+    android:
+      full ||
+      native ||
+      files.some(
+        (file) =>
+          file.startsWith("apps/mobile/") ||
+          /^scripts\/(?:mobile-release|android[-/])/.test(file) ||
+          ["apps/web/openapi.json", "bunfig.toml"].includes(file),
+      ),
     cache_contract: files.some(
       (file) =>
         [

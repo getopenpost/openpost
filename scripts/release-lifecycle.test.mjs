@@ -18,6 +18,7 @@ for (const localCommits of [0, 2]) {
       );
       for (const file of [
         "release.mjs",
+        "release-distribution-plan.mjs",
         "check-changelog.mjs",
         "check-mcp-registry.mjs",
         "mobile-release.mjs",

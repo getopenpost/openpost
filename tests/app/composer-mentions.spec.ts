@@ -118,6 +118,18 @@ for (const joined of [false, true])
     if (joined) {
       const description = page.getByRole("textbox", { name: "Description", exact: true });
       await description.fill("");
+      // fill() changes contenteditable DOM before ProseMirror's observer has
+      // necessarily committed it. Confirm the clear before synthetic paste.
+      await expect
+        .poll(
+          async () =>
+            (
+              await (
+                await request.get(`/api/v1/publications/${publication.id}`, { headers })
+              ).json()
+            ).renditions[0].description,
+        )
+        .toBe("");
       await description.evaluate((element, copied) => {
         const data = new DataTransfer();
         for (const [type, value] of Object.entries(copied)) data.setData(type, value);

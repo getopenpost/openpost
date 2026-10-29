@@ -261,6 +261,7 @@ test("tag release candidates schedule the application browser suite", () => {
   );
   assert.match(marketingLookup.run, /ci-artifacts.mjs wait/u);
   assert.match(marketingLookup.run, /--producer "Marketing build"/u);
+  assert.match(marketingLookup.run, /--prefix "marketing-static-\$\{GITHUB_SHA\}-"/u);
 });
 
 test("tag n8n version checks use the last published release as their base", () => {

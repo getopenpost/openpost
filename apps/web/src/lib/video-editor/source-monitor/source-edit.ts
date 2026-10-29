@@ -44,18 +44,20 @@ function mediaKind(media: MediaMetadata): 'video' | 'audio' | 'image' | 'lottie'
 	return 'video';
 }
 
+function tracksOfKind(kind: 'video' | 'audio'): TimelineTrack[] {
+	return effectiveMediaTracks(timelineStore.tracks).filter((track) =>
+		kind === 'audio' ? track.kind === 'audio' : track.kind !== 'audio'
+	);
+}
+
 function availableTracks(kind: 'video' | 'audio'): TimelineTrack[] {
-	return effectiveMediaTracks(timelineStore.tracks)
-		.filter(
-			(track) =>
-				(kind === 'audio' ? track.kind === 'audio' : track.kind !== 'audio') &&
-				track.visible !== false
-		)
+	return tracksOfKind(kind)
+		.filter((track) => track.visible !== false)
 		.toSorted((left, right) => left.order - right.order);
 }
 
 function createTrack(kind: 'video' | 'audio', name?: string): TimelineTrack {
-	const sameKind = availableTracks(kind);
+	const sameKind = tracksOfKind(kind);
 	const orders = timelineStore.tracks.map((track) => track.order);
 	const track: TimelineTrack = {
 		id: crypto.randomUUID(),

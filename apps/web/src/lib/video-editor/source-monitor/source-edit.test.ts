@@ -161,4 +161,28 @@ describe('source monitor edits', () => {
 
 		expect(transitionsStore.list).toHaveLength(0);
 	});
+
+	it('names a new track uniquely when the only matching track is hidden', () => {
+		timelineStore.setAll({
+			tracks: [{ ...videoTrack, name: 'Video 1', visible: false }],
+			items: []
+		});
+
+		const result = applySourceEdit({
+			media,
+			inFrame: 0,
+			outFrame: 30,
+			insertFrame: 0,
+			videoEnabled: true,
+			audioEnabled: false,
+			videoTarget: 'auto',
+			audioTarget: 'auto',
+			mode: 'overwrite'
+		});
+		const item = timelineStore.itemById.get(result.itemIds[0]!)!;
+		const track = timelineStore.tracks.find((candidate) => candidate.id === item.trackId);
+
+		expect(track?.visible).toBe(true);
+		expect(track?.name).toBe('Video 2');
+	});
 });

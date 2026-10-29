@@ -260,6 +260,12 @@ test("tag release candidates schedule the application browser suite", () => {
   );
   assert.ok(marketingDownload, "Tool handoff tests require the canonical marketing build");
   assert.equal(marketingDownload.with.name, "${{ steps.marketing-artifact.outputs.name }}");
+  const marketingLookup = jobs["browser-handoff"].steps.find(
+    (step) => step.id === "marketing-artifact",
+  );
+  assert.match(marketingLookup.run, /ci-artifacts.mjs wait/u);
+  assert.match(marketingLookup.run, /--producer "Marketing build"/u);
+  assert.match(marketingLookup.run, /--prefix "marketing-static-\$\{GITHUB_SHA\}-"/u);
 });
 
 test("tag n8n version checks use the last published release as their base", () => {
@@ -1042,7 +1048,10 @@ test("unchanged CLI skips compilation and publication without bypassing failed p
     );
     const script = job.steps.find((step) => step.run?.includes("release-assets.mjs verify")).run;
     assert.match(script, /cat reused-downloads.md >> release-notes.md/u);
-    assert.match(script, /cli_scope=\(--no-cli\)/u);
+    assert.match(
+      script,
+      /if \[\[ "\$\{\{ needs\.verify-candidate\.outputs\.cli_changed \}\}" == 'false' \]\]; then cli_scope=\(--no-cli\); fi/u,
+    );
     assert.match(script, /verify "\$\{cli_scope\[@\]\}"/u);
   }
 });

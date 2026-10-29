@@ -27,17 +27,30 @@ function completeAsset(asset, repository, tag) {
       `https://github.com/${repository}/releases/download/${tag}/${asset.name}`
   );
 }
-async function verifyDownload(url, algorithm, expected, encoding = "hex", size) {
+async function verifyDownload(
+  url,
+  algorithm,
+  expected,
+  encoding = "hex",
+  size,
+  captureText = false,
+) {
   const response = await fetch(url, { signal: AbortSignal.timeout(180000) });
   if (!response.ok || !response.body) throw Error(`Download failed: ${url} (${response.status})`);
   const hash = createHash(algorithm);
   let bytes = 0;
+  const chunks = [];
   for await (const chunk of response.body) {
     bytes += chunk.length;
+    if (captureText) {
+      if (bytes > 65536) throw Error(`Checksum file is too large: ${url}`);
+      chunks.push(chunk);
+    }
     hash.update(chunk);
   }
   if (hash.digest(encoding) !== expected || (size !== undefined && bytes !== size))
     throw Error(`Download integrity mismatch: ${url}`);
+  if (captureText) return Buffer.concat(chunks).toString("utf8");
 }
 async function registryPackage(directory) {
   const local = JSON.parse(readFileSync(`${directory}/package.json`, "utf8"));
@@ -85,6 +98,7 @@ export async function reusedDownloads(options, dependencies = {}) {
         asset.digest.slice(7),
         "hex",
         asset.size,
+        asset.name.endsWith(".sha256"),
       ),
     registry: registryPackage,
     ...dependencies,
@@ -131,7 +145,18 @@ export async function reusedDownloads(options, dependencies = {}) {
       const asset = release.assets.find((asset) => asset.name === name);
       if (!completeAsset(asset, repository, release.tag_name))
         throw Error(`Invalid prior CLI asset: ${name}`);
-      await deps.verifyAsset(asset);
+      const text = await deps.verifyAsset(asset);
+      if (name.endsWith(".sha256")) {
+        const binaryName = name.slice(0, -7);
+        const binary = release.assets.find((asset) => asset.name === binaryName);
+        const checksum = /^([a-f0-9]{64}) [ *](\S+)\r?\n?$/i.exec(text ?? "");
+        if (
+          !checksum ||
+          checksum[1].toLowerCase() !== binary.digest?.slice(7) ||
+          checksum[2] !== binaryName
+        )
+          throw Error(`CLI checksum does not match its binary: ${name}`);
+      }
     }
     lines.push(
       `- CLI and MCP binaries: [${release.tag_name} downloads](https://github.com/${repository}/releases/tag/${release.tag_name}).`,

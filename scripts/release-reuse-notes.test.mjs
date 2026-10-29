@@ -15,7 +15,10 @@ function dependencies(overrides = {}) {
     releases: async () => [{ ...release, tag_name: "v1.1.0", assets: [] }, release],
     identity: async () => identity,
     paths: async () => [],
-    verifyAsset: async () => {},
+    verifyAsset: async (asset) =>
+      asset.name.endsWith(".sha256")
+        ? `${"a".repeat(64)}  ${asset.name.slice(0, -7)}\n`
+        : undefined,
     ...overrides,
   };
 }
@@ -70,8 +73,9 @@ test("links unchanged CLI/MCP and package versions, and rejects incomplete recov
   const { coreReleaseAssets } = await import("./release-assets.mjs");
   const assets = coreReleaseAssets
     .filter((name) => /^openpost-(cli|mcp)-/.test(name))
-    .map((name) => ({
+    .map((name, index) => ({
       ...asset,
+      digest: `sha256:${String(index + 1).padStart(64, "0")}`,
       name,
       browser_download_url: `https://github.com/getopenpost/openpost/releases/download/v1.0.0/${name}`,
     }));
@@ -80,15 +84,44 @@ test("links unchanged CLI/MCP and package versions, and rejects incomplete recov
     tag: "v1.2.0",
     plan: { mobile: true, cli: false, sdk: false, n8n: false },
   };
+  const verified = [];
   const deps = dependencies({
     releases: async () => [{ ...release, assets }],
+    verifyAsset: async (asset) => {
+      verified.push(asset.name);
+      return asset.name.endsWith(".sha256")
+        ? `${assets.find((binary) => binary.name === asset.name.slice(0, -7)).digest.slice(7)}  ${asset.name.slice(0, -7)}\n`
+        : undefined;
+    },
     registry: async (directory) => ({ name: directory.slice(9), version: "0.1.0", pin: "v1.0.0" }),
   });
   const notes = await reusedDownloads(options, deps);
+  expect(verified).toHaveLength(assets.length);
+  expect(new Set(verified)).toEqual(new Set(assets.map((asset) => asset.name)));
   expect(notes).toContain("v1.0.0 downloads");
   expect(notes).toContain("wrapper pins v1.0.0");
   expect(notes).toContain("sdk/v/0.1.0");
   for (const overrides of [
+    {
+      verifyAsset: async (asset) =>
+        asset.name.endsWith(".sha256")
+          ? `${assets.find((binary) => binary.name === asset.name.slice(0, -7)).digest.slice(7)}  other-binary\n`
+          : undefined,
+    },
+    {
+      verifyAsset: async (asset) =>
+        asset.name.endsWith(".sha256")
+          ? `${assets.find((binary) => !binary.name.endsWith(".sha256") && binary.name !== asset.name.slice(0, -7)).digest.slice(7)}  ${asset.name.slice(0, -7)}\n`
+          : undefined,
+    },
+
+    {
+      verifyAsset: async (asset) =>
+        asset.name.endsWith(".sha256")
+          ? `${"b".repeat(64)}  ${asset.name.slice(0, -7)}\n`
+          : undefined,
+    },
+
     { releases: async () => [{ ...release, assets: assets.slice(1) }] },
     { paths: async () => ["apps/cli/cmd/main.go"] },
     {

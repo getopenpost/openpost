@@ -84,15 +84,20 @@ test("links unchanged CLI/MCP and package versions, and rejects incomplete recov
     tag: "v1.2.0",
     plan: { mobile: true, cli: false, sdk: false, n8n: false },
   };
+  const verified = [];
   const deps = dependencies({
     releases: async () => [{ ...release, assets }],
-    verifyAsset: async (asset) =>
-      asset.name.endsWith(".sha256")
+    verifyAsset: async (asset) => {
+      verified.push(asset.name);
+      return asset.name.endsWith(".sha256")
         ? `${assets.find((binary) => binary.name === asset.name.slice(0, -7)).digest.slice(7)}  ${asset.name.slice(0, -7)}\n`
-        : undefined,
+        : undefined;
+    },
     registry: async (directory) => ({ name: directory.slice(9), version: "0.1.0", pin: "v1.0.0" }),
   });
   const notes = await reusedDownloads(options, deps);
+  expect(verified).toHaveLength(assets.length);
+  expect(new Set(verified)).toEqual(new Set(assets.map((asset) => asset.name)));
   expect(notes).toContain("v1.0.0 downloads");
   expect(notes).toContain("wrapper pins v1.0.0");
   expect(notes).toContain("sdk/v/0.1.0");

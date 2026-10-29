@@ -47,7 +47,7 @@ const jobCommands = [
   ],
   [
     /^Application tool handoff suite$/u,
-    () => "OPENPOST_APP_E2E_SUITE=handoff bun run test -- e2e-app",
+    () => "bun run build -- marketing && OPENPOST_APP_E2E_SUITE=handoff bun run test -- e2e-app",
   ],
   [/^Marketing browser suite$/u, () => "bun run test -- e2e"],
   [/^Frontend cache contract$/u, () => "bun run check -- frontend-build-cache"],

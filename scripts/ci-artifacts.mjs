@@ -46,7 +46,7 @@ export function resolveRunArtifact({ repository, runId, prefix }) {
       "--jq",
       ".artifacts[] | @json",
     ],
-    { stdout: "pipe", stderr: "pipe", timeout: 30_000 },
+    { stdout: "pipe", stderr: "pipe", timeout: 60_000 },
   );
   if (result.exitCode !== 0) {
     throw new Error(`could not list workflow artifacts: ${result.stderr.toString().trim()}`);
@@ -100,8 +100,17 @@ export async function waitForRunArtifact(
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
     throw new Error("invalid artifact wait timeout");
   const deadline = now() + timeoutMs;
+  let pollError;
   while (now() < deadline) {
-    const entries = jobs();
+    let entries;
+    try {
+      entries = jobs();
+      pollError = undefined;
+    } catch (error) {
+      pollError = error;
+      await pause(Math.max(0, Math.min(15_000, deadline - now())));
+      continue;
+    }
     if (!Array.isArray(entries)) throw new Error("producer jobs must be an array");
     const attempts = entries.filter((job) => job.name === options.producer);
     const latest = Math.max(0, ...attempts.map((job) => job.run_attempt ?? 1));
@@ -116,7 +125,9 @@ export async function waitForRunArtifact(
     }
     await pause(Math.min(15_000, deadline - now()));
   }
-  throw new Error(`Timed out waiting for artifact producer ${options.producer}`);
+  throw new Error(
+    `Timed out waiting for artifact producer ${options.producer}${pollError ? `: ${pollError.message}` : ""}`,
+  );
 }
 
 function option(name) {
@@ -128,7 +139,7 @@ if (import.meta.main) {
   try {
     if (!["resolve", "wait"].includes(process.argv[2])) {
       throw new Error(
-        "usage: ci-artifacts.mjs resolve --repository owner/name --run-id ID --prefix PREFIX",
+        "usage: ci-artifacts.mjs resolve --repository owner/name --run-id ID --prefix PREFIX; ci-artifacts.mjs wait --repository owner/name --run-id ID --prefix PREFIX --producer NAME",
       );
     }
     console.log(

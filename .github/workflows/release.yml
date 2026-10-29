@@ -58,7 +58,7 @@ jobs:
           name: distribution-notes-${{ github.sha }}-${{ github.run_attempt }}
           path: reused-downloads.md
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 31
 
   verify-candidate:
     name: Verify exact release candidate

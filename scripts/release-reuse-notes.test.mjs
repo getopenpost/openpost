@@ -15,7 +15,10 @@ function dependencies(overrides = {}) {
     releases: async () => [{ ...release, tag_name: "v1.1.0", assets: [] }, release],
     identity: async () => identity,
     paths: async () => [],
-    verifyAsset: async () => {},
+    verifyAsset: async (asset) =>
+      asset.name.endsWith(".sha256")
+        ? `${"a".repeat(64)}  ${asset.name.slice(0, -7)}\n`
+        : undefined,
     ...overrides,
   };
 }
@@ -89,6 +92,13 @@ test("links unchanged CLI/MCP and package versions, and rejects incomplete recov
   expect(notes).toContain("wrapper pins v1.0.0");
   expect(notes).toContain("sdk/v/0.1.0");
   for (const overrides of [
+    {
+      verifyAsset: async (asset) =>
+        asset.name.endsWith(".sha256")
+          ? `${"b".repeat(64)}  ${asset.name.slice(0, -7)}\n`
+          : undefined,
+    },
+
     { releases: async () => [{ ...release, assets: assets.slice(1) }] },
     { paths: async () => ["apps/cli/cmd/main.go"] },
     {

@@ -142,3 +142,75 @@ test("browser-only reruns reuse successful producers from earlier attempts", asy
     /failure/u,
   );
 });
+
+test("producer API failures retry within the existing deadline", async () => {
+  let clock = 0,
+    calls = 0;
+  const options = {
+    repository: "getopenpost/openpost",
+    runId: "123",
+    prefix: "frontend-",
+    producer: "Frontend",
+    timeoutMs: 10,
+  };
+  const deps = {
+    now: () => clock,
+    pause: async (ms) => {
+      clock += ms;
+    },
+    jobs: () => {
+      if (++calls === 1) throw Error("temporary API error");
+      return [{ name: "Frontend", status: "completed", conclusion: "success" }];
+    },
+    resolve: () => "frontend-1",
+  };
+  // Leave enough time for another poll after the first retry interval.
+  assert.equal(await waitForRunArtifact({ ...options, timeoutMs: 30001 }, deps), "frontend-1");
+  assert.equal(calls, 2);
+  clock = 0;
+  await assert.rejects(
+    waitForRunArtifact(options, {
+      ...deps,
+      jobs: () => {
+        throw Error("persistent API error");
+      },
+    }),
+    /Timed out.*persistent API error/u,
+  );
+});
+
+test("a newer producer attempt must finish before an older success can resolve", async () => {
+  let complete = false,
+    resolved = 0,
+    pauses = 0;
+  const options = {
+    repository: "getopenpost/openpost",
+    runId: "123",
+    prefix: "frontend-",
+    producer: "Frontend",
+  };
+  const result = await waitForRunArtifact(options, {
+    jobs: () => [
+      { name: "Frontend", run_attempt: 1, status: "completed", conclusion: "success" },
+      {
+        name: "Frontend",
+        run_attempt: 2,
+        status: complete ? "completed" : "in_progress",
+        conclusion: complete ? "success" : null,
+      },
+    ],
+    pause: async () => {
+      assert.equal(resolved, 0);
+      pauses++;
+      complete = true;
+    },
+    resolve: () => {
+      assert.equal(complete, true);
+      resolved++;
+      return "frontend-2";
+    },
+  });
+  assert.equal(result, "frontend-2");
+  assert.equal(pauses, 1);
+  assert.equal(resolved, 1);
+});

@@ -53,7 +53,18 @@ export default defineConfig({
   failOnFlakyTests: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI
-    ? [["github"], ["html", { open: "never", outputFolder: `${repositoryRoot}/playwright-report` }]]
+    ? [
+        ["github"],
+        ["html", { open: "never", outputFolder: `${repositoryRoot}/playwright-report` }],
+        [
+          "json",
+          {
+            outputFile:
+              process.env.PLAYWRIGHT_JSON_OUTPUT_FILE ??
+              `${repositoryRoot}/test-results/app-timings-${shardParts?.[0] ?? 1}.json`,
+          },
+        ],
+      ]
     : "list",
   use: {
     baseURL,

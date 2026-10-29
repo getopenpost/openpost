@@ -10,6 +10,21 @@ OpenPost follows [Semantic Versioning 2.0.0](https://semver.org/) and derives th
 
 `feat:` selects a minor release. A `!` after the commit type or a `BREAKING CHANGE:` footer selects a major release. When neither appears, a release advances the patch version.
 
+## Fast feedback and release qualification
+
+PRs and main pushes select affected surfaces from the change diff. Mobile source checks run without compiling an APK. Full native packaging belongs to tag qualification and nightly/manual full runs. An unavailable push base widens checks to every surface.
+
+The nightly CI run checks every surface without deploying. Filtered runs and scheduled runs never produce release proof. Shared package selection follows transitive declared dependencies; missing package metadata widens checks to all consumers.
+
+Application browser jobs retain raw Playwright JSON and timing summaries, including retry costs, in `app-test-timings-*` artifacts. Download reports from a completed CI run to inspect slow tests:
+
+```bash
+bun scripts/ci-test-timings.mjs summarize shard-1.json shard-2.json > full-summary.json
+bun scripts/ci-test-timings.mjs audit selected-summary.json full-summary.json
+```
+
+Compare summaries from the same revision and configuration. The audit identifies failing full-run tests absent from the selection for investigation. It does not establish causality or automatically omit tests. Test selection inside a surface remains exhaustive until evidence supports a narrower rule.
+
 ## Production release
 
 Commit the release work on `main` with Conventional Commit messages, then ship it:
@@ -19,11 +34,11 @@ bun run release -- plan   # optional: changed paths, release surfaces, planned v
 bun run release -- ship
 ```
 
-`ship` (also available as `prod`) releases a clean, committed `HEAD`. It validates release notes and identities, installs the pinned root and standalone mobile dependencies, and runs the local preflight before any push. The preflight checks formatting before generation and builds, then uses the shared root tasks for generated/type/policy checks, lint, standard repository and workspace tests, component browser tests, and package/mobile source checks. Fix failures locally and run it again. Go and Turbo reuse successful work when their inputs still match.
+`ship` (also available as `prod`) releases a clean, committed `HEAD`. It validates release notes and identities, installs pinned dependencies, and checks unpushed changes with `check:affected --base refs/remotes/origin/main`. Unknown, shared package, and configuration changes fall back to full local preflight. Exhaustive release qualification remains mandatory in tag CI. Use `bun run release -- check` when you want a full local rehearsal. Neither local path creates remote release proof.
 
 After verification, `ship` checks that the candidate is still clean and unchanged, pushes that exact revision, and creates its immutable tag. It watches tag CI and publication, then verifies Hosted. Local preparation and the observed remote CI/publication/deployment interval have separate timers. Five minutes is a target, not a guarantee for a cold checkout or a changed large suite.
 
-Every push to `main` runs the release plan: the full core gates plus the distributions that changed since the last published stable release. A green run of that plan records a `release-proof-<sha>` artifact. When the tagged SHA has a proof, tag CI rebuilds only the versioned production images from the proven frontend artifact, relays the proven Android build, and reruns the security and image-vulnerability gates. The release workflow builds the server, CLI, and MCP binaries in parallel with tag CI and uploads them once CI passes. Releasing an already proven SHA therefore skips every test gate; its critical path is the versioned image build, promotion, and deployment. A tag without a completed proof runs every required gate itself. `ship` does not wait for a moving main run before tagging, so a newer main push cannot cancel the tag candidate. Main and tag validation can overlap when the candidate has no completed proof; remote work is not free merely because preparation has finished.
+PRs and pushes to `main` run affected feedback checks. Nightly qualification runs every surface. Unproven tags run the full core gates plus distributions changed since the last published stable release. Only a successful release-plan push records a `release-proof-<sha>` artifact; filtered main runs and scheduled runs cannot qualify a tag for proof reuse. When the tagged SHA has a proof, tag CI rebuilds only the versioned production images from the proven frontend artifact, relays the proven Android build, and reruns the security and image-vulnerability gates. The release workflow builds the server, CLI, and MCP binaries in parallel with tag CI and uploads them once CI passes. Releasing an already proven SHA therefore skips every test gate; its critical path is the versioned image build, promotion, and deployment. A tag without a completed proof runs every required gate itself. `ship` does not wait for a moving main run before tagging, so a newer main push cannot cancel the tag candidate. Main and tag validation can overlap when the candidate has no completed proof; remote work is not free merely because preparation has finished.
 
 When a job fails, `ship` stops and prints the failing step, available log evidence, and local reproduction commands. For canceled jobs it also reads GitHub annotations, which distinguish a job timeout from an ordinary cancellation. It does not infer a newer main push from a canceled result. Fix a code failure locally and commit a new candidate. For infrastructure failures, rerun only failed jobs with `gh run rerun <run-id> --failed`, then run `ship` again. An existing remote tag resumes on its original revision even if `origin/main` advanced. Never move a failed release tag to changed code.
 
@@ -31,7 +46,7 @@ When a job fails, `ship` stops and prints the failing step, available log eviden
 
 The `plan` subcommand inventories every path changed since the latest release, plus staged, unstaged, and untracked work, before anything is written. [`config/release-surfaces.json`](https://github.com/getopenpost/openpost/blob/main/config/release-surfaces.json) assigns each maintained path to one or more release surfaces or a reasoned exemption; both release planning and CI fail when a new path has no owner. Pull-request CI uses that registry to run only affected runtime, site, browser, security, and image checks. The `preflight` subcommand checks the worktree, GitHub access, required workflows and deployment configuration, and current production readiness. `bun run release -- check` runs the local preflight on the current worktree, including uncommitted fixes. Its root task lock protects generated outputs while allowing independent lint/package checks to overlap after formatting and static checks. Production public-site corpus and determinism tests remain a dedicated Turbo task; their results can be reused only when declared inputs and public build dependencies match. They run in the `public-build` job rather than the policy job. CI persists the local Turbo cache through `actions/cache`, keyed per job, lockfile, and Turbo configuration; entries are content-hashed, so a stale restore only costs a cache miss. They no longer run a second time under repository unit tests. Normal builds use the reviewed Nix documentation snapshot. Refresh it deliberately with `bun scripts/sync-docs-external.mjs --refresh`, review the diff, and commit it.
 
-For everyday changes, [`bun run check:affected`](./testing.md) selects maintained local check/test scopes and prints its omitted gates. It does not replace release preflight or qualify an exact SHA for CI release-proof reuse. Use `--base REV` to keep committed branch changes in that local selection.
+For everyday changes, [`bun run check:affected`](./testing.md) selects maintained local check/test scopes and prints its omitted gates. It supplies local release feedback but does not qualify an exact SHA for CI release-proof reuse. Use `--base REV` to keep committed branch changes in that local selection.
 
 Mobile source checks include types, lint, unit tests and generated theme/platform-mark validation. Full mobile `check` retains `expo-doctor` for the build host; a server release does not require upgrading this laptop's iOS compiler. Android packaging and its environment checks remain in CI.
 

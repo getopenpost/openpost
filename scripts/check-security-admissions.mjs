@@ -17,9 +17,9 @@ import path from "node:path";
 // graph pins those consumers; reject first-party imports so it cannot become
 // a runtime helper without re-review. The Go image carries no Node packages.
 const reviewedArtifacts = {
-  // Re-reviewed after the qs 6.16.1 patch: all other package versions and scopes
-  // are unchanged. deepmerge remains confined to the reviewed development graph.
-  "bun.lock": "38923e9892899f7d3fe1ec623a1d6a4999b3929cd3c974f8e7d6b4f3f4f5911d",
+  // Re-reviewed after declaring the existing editor-shared workspace consumer.
+  // Registry versions, legacy Zod/deepmerge parents, and editor boundary are unchanged.
+  "bun.lock": "b532e267753689d397edb6ebdcce8830ac2a600b5fa2b203bc127e890d499db4",
   "apps/web/src/lib/image-editor/background-removal.worker.ts":
     "06f3aaf6c78d574c1d2538903e8bf34cf70032801824d8988a9ba2d2435749d5",
 };

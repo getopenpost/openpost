@@ -205,7 +205,12 @@ async function check() {
 }
 
 async function verifyLocalCandidate(revision) {
-  await check();
+  // Remote release qualification owns exhaustive gates. Local feedback selects
+  // unpushed changes and fails closed to preflight for shared/configuration work.
+  run(["bun", "run", "doctor"]);
+  run(["bun", "install", "--frozen-lockfile"]);
+  run(["bun", "install", "--cwd", "apps/mobile", "--frozen-lockfile"]);
+  run(["bun", "scripts/tasks.mjs", "check:affected", "--base", "refs/remotes/origin/main"]);
   if (git(["rev-parse", "HEAD"]) !== revision || isDirty()) {
     throw new Error(
       "candidate changed during local checks; commit the intended revision and run ship again",

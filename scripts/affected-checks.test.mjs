@@ -207,7 +207,6 @@ test("shared consumers and unknown/config inputs fall back; invalid arguments an
   };
 
   for (const file of [
-    "apps/web/src/lib/shared.ts",
     "apps/web/messages/en.json",
     "packages/shared/value.txt",
     "assets/value.txt",
@@ -363,4 +362,12 @@ process.exit(result.status ?? 1);
     assert.match(malformed.stderr, /unambiguously to one commit/u);
     assert.doesNotMatch(malformed.stdout, /▶/u);
   }
+});
+
+test("shared web implementation selects frontend checks without unrelated applications", (t) => {
+  const f = fixture(t);
+  f.write("apps/web/src/lib/shared.ts", "export const value = 1;\n");
+  const selected = f.plan();
+  assert.equal(selected.affected.fallback, false);
+  assert.deepEqual(selected.affected.scopes, ["frontend", "marketing"]);
 });

@@ -6,16 +6,17 @@ on:
     tags: ["v*"]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # A newer main push supersedes the previous candidate; only a completed,
-  # green release-plan run writes a release proof, so a canceled run can never
-  # read as coverage. Tag runs are never canceled.
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || github.event_name == 'schedule' && 'qualification' || github.ref }}
+  # Superseded feedback can stop. Tags and exhaustive audits stay independent.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 env:
   BUN_VERSION: "1.3.11"
@@ -80,12 +81,16 @@ jobs:
             else
               bun scripts/ci-plan.mjs --release --base "$previous_tag" --head "$GITHUB_SHA"
             fi
-          else
-            # Every main push is a release candidate, planned exactly like the
-            # tag that would ship it, so a green run can prove that tag.
+          elif [[ "$EVENT_NAME" == schedule || "$EVENT_NAME" == workflow_dispatch ]]; then
+            # Audit all surfaces outside the merge path. This never deploys.
             previous_tag="$(bun scripts/published-release-tag.mjs)"
             [[ -n "$previous_tag" ]]
-            bun scripts/ci-plan.mjs --release --base "$previous_tag" --head "$GITHUB_SHA"
+            bun scripts/ci-plan.mjs --release --full --base "$previous_tag" --head "$GITHUB_SHA"
+          elif [[ -n "$BEFORE_SHA" && "$BEFORE_SHA" != 0000000000000000000000000000000000000000 ]] && git cat-file -e "$BEFORE_SHA^{commit}" && git merge-base --is-ancestor "$BEFORE_SHA" "$GITHUB_SHA"; then
+            bun scripts/ci-plan.mjs --base "$BEFORE_SHA" --head "$GITHUB_SHA"
+          else
+            # Unknown push ancestry must widen checks rather than skip them.
+            bun scripts/ci-plan.mjs --full
           fi
 
   policy:
@@ -146,6 +151,7 @@ jobs:
       always() && !cancelled() &&
       needs.plan.result == 'success' &&
       needs.plan.outputs.mode != 'reuse' &&
+      (needs.plan.outputs.marketing == 'true' || needs.plan.outputs.documentation == 'true' || needs.plan.outputs.mode == 'release' || needs.plan.outputs.mode == 'full') &&
       needs.marketing-build.result != 'failure' &&
       needs.docs-build.result != 'failure'
     permissions:
@@ -733,7 +739,9 @@ jobs:
         # follows the shard count. This suite is the candidate's longest pole.
         shard: [1, 2, 3, 4, 5, 6]
     needs: [plan, frontend-build, marketing-build]
-    if: needs.plan.outputs.application == 'true'
+    if: >-
+      always() && !cancelled() && needs.plan.outputs.application == 'true' &&
+      needs.frontend-build.result == 'success' && needs.marketing-build.result != 'failure'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -786,7 +794,25 @@ jobs:
           OPENPOST_E2E_PREBUILT: "1"
           DEBUG: pw:browser
           OPENPOST_APP_E2E_SHARD: ${{ matrix.shard }}/6
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/openpost-app-timings-${{ matrix.shard }}.json
         run: bun run test -- e2e-app
+      - name: Summarize application test timings
+        if: always()
+        run: |
+          report="${{ runner.temp }}/openpost-app-timings-${{ matrix.shard }}.json"
+          if [[ -f "$report" ]]; then
+            bun scripts/ci-test-timings.mjs summarize "$report" > "${{ runner.temp }}/openpost-app-timing-summary-${{ matrix.shard }}.json"
+          fi
+      - name: Retain application test timings
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-test-timings-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/openpost-app-timings-${{ matrix.shard }}.json
+            ${{ runner.temp }}/openpost-app-timing-summary-${{ matrix.shard }}.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Retain application browser failure diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -1022,10 +1048,51 @@ jobs:
       - run: bun run build -- cli
       - run: bun run test -- cli
 
+  mobile-source:
+    name: Native mobile source checks
+    needs: plan
+    if: needs.plan.outputs.android == 'true' && needs.plan.outputs.mode != 'reuse'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.19.0"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: mobile-source-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock') }}
+          restore-keys: mobile-source-${{ runner.os }}-
+      - name: Install the standalone mobile app
+        working-directory: apps/mobile
+        run: bun install --frozen-lockfile
+      - name: Verify the standalone mobile install
+        working-directory: apps/mobile
+        # Bun occasionally leaves registry and file: dependencies unlinked
+        # after a cached install; tsc then fails with dozens of cascading
+        # errors. Show the tree and repair loudly instead of debugging
+        # type noise.
+        run: |
+          ls node_modules/@tanstack/ node_modules/@openpost/ || true
+          if ! bun ../../scripts/check-mobile-install.mjs; then
+            rm -rf node_modules
+            bun install --frozen-lockfile --no-cache
+          fi
+          bun ../../scripts/check-mobile-install.mjs
+      - name: Check the standalone mobile app
+        working-directory: apps/mobile
+        run: bun run check
+
   android:
     name: Native mobile Android candidate
     needs: plan
-    if: needs.plan.outputs.android == 'true' && needs.plan.outputs.mode != 'reuse'
+    if: needs.plan.outputs.android == 'true' && (needs.plan.outputs.mode == 'release' || needs.plan.outputs.mode == 'full')
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -1073,15 +1140,11 @@ jobs:
         # type noise.
         run: |
           ls node_modules/@tanstack/ node_modules/@openpost/ || true
-          if [ ! -f node_modules/@tanstack/query-core/package.json ] || [ ! -f node_modules/@openpost/api-contract/package.json ]; then
+          if ! bun ../../scripts/check-mobile-install.mjs; then
             rm -rf node_modules
             bun install --frozen-lockfile --no-cache
           fi
-          test -f node_modules/@tanstack/query-core/package.json
-          test -f node_modules/@openpost/api-contract/package.json
-      - name: Check the standalone mobile app
-        working-directory: apps/mobile
-        run: bun run check
+          bun ../../scripts/check-mobile-install.mjs
       - name: Check the current Android release identity
         working-directory: apps/mobile
         run: |
@@ -1429,6 +1492,7 @@ jobs:
         npm-packages,
         security,
         cli,
+        mobile-source,
         android,
         candidate-relay,
         image,

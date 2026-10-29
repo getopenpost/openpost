@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { load } from "js-yaml";
 
@@ -136,4 +139,33 @@ test("unrecognized failures fall back to the step output, not its header", () =>
     localJobCommand("Svelte lint and checks"),
     'devenv shell -- bash -c "bun run lint -- frontend && bun run check -- frontend && bun run check -- marketing"',
   );
+});
+
+test("mobile source reproduction installs standalone dependencies before checking", (t) => {
+  const directory = mkdtempSync(path.join(tmpdir(), "openpost-mobile-repro-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  mkdirSync(path.join(directory, "apps/mobile"), { recursive: true });
+  const bin = path.join(directory, "bin");
+  mkdirSync(bin);
+  writeFileSync(
+    path.join(bin, "bun"),
+    '#!/bin/sh\ncase "$*" in\n "install --frozen-lockfile") test "${FAIL_INSTALL:-0}" = 0 || exit 12; touch installed ;;\n "run check") test -f installed || exit 13; touch checked ;;\n *) exit 14 ;;\nesac\n',
+    { mode: 0o755 },
+  );
+  const command = JSON.parse(
+    localJobCommand("Native mobile source checks").slice("devenv shell -- bash -c ".length),
+  );
+  const run = (fail) =>
+    spawnSync("bash", ["-c", command], {
+      cwd: directory,
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAIL_INSTALL: fail },
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+  assert.equal(run("0").status, 0);
+  assert.equal(readFileSync(path.join(directory, "apps/mobile/checked"), "utf8"), "");
+  rmSync(path.join(directory, "apps/mobile/installed"));
+  rmSync(path.join(directory, "apps/mobile/checked"));
+  assert.equal(run("1").status, 12);
+  assert.throws(() => readFileSync(path.join(directory, "apps/mobile/checked")));
 });

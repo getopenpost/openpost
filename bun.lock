@@ -129,6 +129,7 @@
         "@openpost/api-contract": "workspace:*",
         "@openpost/dither": "workspace:*",
         "@openpost/draft-transfer": "workspace:*",
+        "@openpost/editor-shared": "workspace:*",
         "@openpost/plan-catalog": "workspace:*",
         "@openpost/platform-text": "workspace:*",
         "@openpost/query-catalog": "workspace:*",

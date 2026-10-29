@@ -89,13 +89,97 @@ test("only green main release-plan runs record a release proof", () => {
   assert.match(planStep, /ci-plan\.mjs --reuse "\$proof_run"/u);
 });
 
+test("main feedback is filtered and nightly qualification is exhaustive", () => {
+  const workflow = load(ci);
+  assert.equal(workflow.on.schedule[0].cron, "23 3 * * *");
+  const script = workflowStepScript(
+    ci,
+    "plan",
+    "Plan from the fail-closed release surface registry",
+  );
+  assert.match(script, /EVENT_NAME.*schedule/u);
+  assert.match(script, /--release --full/u);
+  assert.match(script, /--base "\$BEFORE_SHA" --head "\$GITHUB_SHA"/u);
+  assert.match(script, /git cat-file -e/u);
+  assert.match(script, /git merge-base --is-ancestor/u);
+  assert.match(workflow.jobs["public-build"].if, /outputs.marketing == 'true'/u);
+  assert.match(workflow.jobs["public-build"].if, /outputs.documentation == 'true'/u);
+  assert.equal(
+    workflow.jobs["mobile-source"].if,
+    "needs.plan.outputs.android == 'true' && needs.plan.outputs.mode != 'reuse'",
+  );
+  assert.match(workflow.jobs.android.if, /mode == 'release'/u);
+  assert.match(workflow.jobs["browser-app"].if, /always\(\)/u);
+});
+
+test("event planning executes filtered pushes and fail-closed qualification", () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "openpost-ci-events-"));
+  try {
+    const bin = path.join(directory, "bin");
+    mkdirSync(bin);
+    writeFileSync(
+      path.join(bin, "bun"),
+      `#!/bin/sh
+case "$1" in
+  scripts/published-release-tag.mjs) echo v1.0.0 ;;
+  scripts/release-proof.mjs) : ;;
+  *) echo "$*" ;;
+esac
+`,
+    );
+    writeFileSync(
+      path.join(bin, "git"),
+      '#!/bin/sh\nif [ "${MOCK_GIT_RESULT:-0}" != 0 ]; then exit "${MOCK_GIT_RESULT}"; fi\ncase "$1 $2 $3 $4" in\n  "cat-file -e"*) exit 0 ;;\n  "merge-base --is-ancestor ${MOCK_BEFORE:-abc} ${MOCK_HEAD:-def}") exit 0 ;;\n  *) exit 1 ;;\nesac\n',
+    );
+    chmodSync(path.join(bin, "bun"), 0o755);
+    chmodSync(path.join(bin, "git"), 0o755);
+    const script = workflowStepScript(
+      ci,
+      "plan",
+      "Plan from the fail-closed release surface registry",
+    );
+    const cases = [
+      [{ EVENT_NAME: "push", BEFORE_SHA: "abc" }, "--base abc --head def"],
+      [{ EVENT_NAME: "push", BEFORE_SHA: "abc", MOCK_BEFORE: "def", MOCK_HEAD: "abc" }, "--full"],
+      [{ EVENT_NAME: "push", BEFORE_SHA: "" }, "--full"],
+      [{ EVENT_NAME: "push", BEFORE_SHA: "0".repeat(40) }, "--full"],
+      [{ EVENT_NAME: "push", BEFORE_SHA: "abc", MOCK_GIT_RESULT: "1" }, "--full"],
+      [{ EVENT_NAME: "schedule" }, "--release --full --base v1.0.0 --head def"],
+      [{ EVENT_NAME: "workflow_dispatch" }, "--release --full --base v1.0.0 --head def"],
+      [{ EVENT_NAME: "pull_request", BASE_SHA: "abc" }, "--base abc --head def"],
+      [
+        { EVENT_NAME: "push", GITHUB_REF: "refs/tags/v1.1.0" },
+        "--release --base v1.0.0 --head def",
+      ],
+    ];
+    for (const [env, expected] of cases) {
+      const result = spawnSync("bash", ["-e", "-c", script], {
+        env: {
+          ...process.env,
+          PATH: `${bin}:${process.env.PATH}`,
+          GITHUB_REF: "refs/heads/main",
+          GITHUB_SHA: "def",
+          GITHUB_REPOSITORY: "owner/repo",
+          BEFORE_SHA: "",
+          ...env,
+        },
+        encoding: "utf8",
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.trim(), `scripts/ci-plan.mjs ${expected}`);
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("proven tags build the versioned image from relayed proven artifacts", () => {
   const jobs = load(ci).jobs;
   assert.equal(jobs.policy.if, "needs.plan.outputs.mode != 'reuse'");
   assert.equal(jobs["candidate-relay"].if, "needs.plan.outputs.mode == 'reuse'");
   assert.equal(
     jobs.android.if,
-    "needs.plan.outputs.android == 'true' && needs.plan.outputs.mode != 'reuse'",
+    "needs.plan.outputs.android == 'true' && (needs.plan.outputs.mode == 'release' || needs.plan.outputs.mode == 'full')",
   );
   assert.deepEqual(jobs.image.needs, ["plan", "frontend-build", "candidate-relay"]);
   assert.match(
@@ -135,7 +219,10 @@ test("package recovery dispatch keeps app deployment out of the job graph", () =
 test("tag release candidates schedule the application browser suite", () => {
   const jobs = load(ci).jobs;
   const browserApp = jobs["browser-app"];
-  assert.equal(browserApp.if, "needs.plan.outputs.application == 'true'");
+  assert.equal(
+    browserApp.if,
+    "always() && !cancelled() && needs.plan.outputs.application == 'true' && needs.frontend-build.result == 'success' && needs.marketing-build.result != 'failure'",
+  );
   assert.ok(browserApp.needs.includes("marketing-build"));
   assert.equal(
     jobs["marketing-build"].if,

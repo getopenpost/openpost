@@ -108,7 +108,6 @@ export function affectedSelection(args, root) {
     const shared =
       file.startsWith("packages/") ||
       file.startsWith("assets/") ||
-      file.startsWith("apps/web/src/lib/") ||
       file.startsWith("apps/web/messages/");
     if (
       !owner ||
@@ -120,6 +119,7 @@ export function affectedSelection(args, root) {
       reasons.push(`full preflight required for ${JSON.stringify(file)}`);
     } else {
       scopes.add(owner);
+      if (file.startsWith("apps/web/src/lib/")) scopes.add("marketing");
     }
   }
   const fallback = reasons.length > 0;

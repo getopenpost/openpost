@@ -1,7 +1,8 @@
 import { DitherPressable } from "@/components/dither-pressable";
 import { NativeText as Text } from "@/components/native-text";
 import {
-  hasEngagementMeasurement,
+  analyticsCalendarPresetRange,
+  type AnalyticsSort,
   type AnalyticsOverview,
   type AnalyticsRangeDays,
 } from "@openpost/query-catalog";
@@ -12,6 +13,15 @@ import {
 } from "@/lib/analytics-date-range";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import { getServer } from "@/lib/server";
+import {
+  AnalyticsAccountPerformance,
+  AnalyticsCoverage,
+  AnalyticsPostResult,
+  AnalyticsTakeaways,
+  type AnalyticsPost,
+} from "@/components/analytics-results";
 import { useState } from "react";
 import {
   Platform,
@@ -29,18 +39,11 @@ import { trendBars } from "@/lib/analytics-chart";
 import { DitherPanel } from "@/components/dither-panel";
 import { PlatformIcon } from "@/components/platform-icon";
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
-import {
-  BodyText,
-  Button,
-  ContentSection,
-  ContentTitle,
-  EmptyState,
-  Screen,
-} from "@/components/ui";
+import { BodyText, Button, ContentTitle, EmptyState, Screen } from "@/components/ui";
 import { WorkspaceHeader } from "@/components/workspace-header";
 import { analyticsAccountOptions } from "@/lib/analytics-accounts";
 import { accountHandle, platformLabel } from "@/lib/format";
-import { useAnalytics, useWorkspaceId } from "@/lib/queries";
+import { useAnalytics, useWorkspaceId, useWorkspaceCapabilities } from "@/lib/queries";
 import { useNativeTheme } from "@/theme";
 
 const RANGES: readonly AnalyticsRangeDays[] = [7, 30, 90, 365, 0];
@@ -57,6 +60,8 @@ export default function AnalyticsScreen() {
 }
 
 function AnalyticsDashboard() {
+  const workspaceId = useWorkspaceId();
+  const canRepurpose = useWorkspaceCapabilities()?.can_edit === true;
   const { colors, spacing, typography, shape } = useNativeTheme().manifest;
   const [days, setDays] = useState<AnalyticsRangeDays>(30);
   const [from, setFrom] = useState("");
@@ -69,16 +74,33 @@ function AnalyticsDashboard() {
   const [draftTo, setDraftTo] = useState(() => calendarDate(new Date()));
   const [picking, setPicking] = useState<"from" | "to" | null>(null);
   const validRange = draftFrom <= draftTo && draftTo <= calendarDate(new Date());
-  const [trend, setTrend] = useState<"views" | "engagement" | "followers">("views");
+  const [trend, setTrend] = useState<"visibility" | "engagement" | "followers">("visibility");
+  const [sort, setSort] = useState<AnalyticsSort>("visibility");
+  const [coverageOpen, setCoverageOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<AnalyticsPost | null>(null);
+  const [actionError, setActionError] = useState("");
   const [accountId, setAccountId] = useState("");
   const [accountPickerOpen, setAccountPickerOpen] = useState(false);
   const selectedRangeLabel = from && to ? `${from} – ${to}` : rangeLabel(days);
-  const query = useAnalytics({ days, from, to, accountId });
+  const query = useAnalytics({ days, from, to, accountId, sort });
   const overview = query.data?.pages[0];
   // The filter offers exactly the accounts the overview describes, using the
   // same identity as the audience and post rows below.
   const { options: overviewAccounts, effectiveAccountId } = analyticsAccountOptions(
-    overview?.accounts,
+    overview
+      ? [
+          ...(overview.accounts ?? []),
+          ...(overview.performance ?? [])
+            .filter((item) => !overview.accounts?.some((account) => account.id === item.account_id))
+            .map((item) => ({
+              id: item.account_id,
+              platform: item.platform,
+              username: item.username,
+              avatar_url: item.avatar_url,
+              status: item.status,
+            })),
+        ]
+      : undefined,
     accountId,
   );
   const selectedAccount = overviewAccounts.find((account) => account.id === effectiveAccountId);
@@ -97,6 +119,40 @@ function AnalyticsDashboard() {
     setAccountId("");
   }
   const error = query.error instanceof Error ? query.error.message : "Try again.";
+  function openPost(reference: AnalyticsPost["reference"]) {
+    if (reference.publication_id)
+      router.push({
+        pathname: "/publications/[id]",
+        params: { id: reference.publication_id },
+      });
+  }
+  async function openWeb(path: string, params: Record<string, string>) {
+    const server = getServer();
+    if (!server) return;
+    const url = new URL(path, server.baseUrl);
+    for (const [key, value] of Object.entries(params)) if (value) url.searchParams.set(key, value);
+    try {
+      await WebBrowser.openBrowserAsync(url.toString());
+    } catch {
+      setActionError("Could not open the web app. Try again.");
+    }
+  }
+  const manageAccount = (id: string) =>
+    void openWeb("/settings", {
+      tab: "accounts",
+      account_id: id,
+      workspace_id: workspaceId ?? "",
+    });
+  const repurpose = (reference: AnalyticsPost["reference"]) =>
+    void openWeb("/analytics", {
+      repurpose_type: reference.type,
+      repurpose_publication_id: reference.publication_id ?? "",
+      repurpose_rendition_id: reference.rendition_id ?? "",
+      workspace: workspaceId ?? "",
+      days: String(days),
+      from,
+      to,
+    });
   return (
     <Screen>
       <WorkspaceHeader />
@@ -122,7 +178,7 @@ function AnalyticsDashboard() {
         <Button
           title={
             selectedAccount
-              ? `${platformLabel(selectedAccount.platform)} · ${accountHandle(selectedAccount.username, platformLabel(selectedAccount.platform), selectedAccount.platform)}`
+              ? `${platformLabel(selectedAccount.platform)} · ${accountHandle(selectedAccount.username, platformLabel(selectedAccount.platform), selectedAccount.platform)}${selectedAccount.status === "inactive" ? " · Inactive" : ""}`
               : "All accounts"
           }
           intent="quiet"
@@ -132,6 +188,22 @@ function AnalyticsDashboard() {
       </View>
       <BottomDrawer open={rangeOpen} onDismiss={() => setRangeOpen(false)} title="Date range">
         <View style={{ gap: spacing.medium, padding: spacing.large }}>
+          {!custom
+            ? (["month_to_date", "last_month"] as const).map((preset) => (
+                <Button
+                  key={preset}
+                  title={preset === "month_to_date" ? "Month to date" : "Last month"}
+                  intent="ordinary"
+                  onPress={() => {
+                    const range = analyticsCalendarPresetRange(preset);
+                    setDays(range.days);
+                    setFrom(range.from);
+                    setTo(range.to);
+                    setRangeOpen(false);
+                  }}
+                />
+              ))
+            : null}
           {!custom &&
             RANGES.map((range) => (
               <Button
@@ -239,7 +311,29 @@ function AnalyticsDashboard() {
         ) : null}
         {overview ? (
           <>
+            {actionError ? <BodyText accessibilityRole="alert">{actionError}</BodyText> : null}
+            <AnalyticsTakeaways
+              canRepurpose={canRepurpose}
+              overview={overview}
+              onOpen={openPost}
+              onRestore={manageAccount}
+              onRepurpose={repurpose}
+            />
             <View style={styles.metrics}>
+              <Metric
+                label="Visibility"
+                value={
+                  overview.summary.visibility?.measured
+                    ? number.format(overview.summary.visibility.value)
+                    : "No data"
+                }
+                detail={`${overview.summary.visibility?.measured ?? 0} of ${overview.content_total} outputs measured`}
+              />
+              <Metric
+                label="Posts"
+                value={number.format(overview.publication_total)}
+                detail={`${overview.summary.published} published ${overview.summary.published === 1 ? "output" : "outputs"}`}
+              />
               <Metric
                 label="Followers"
                 value={
@@ -257,37 +351,22 @@ function AnalyticsDashboard() {
                     ? number.format(overview.summary.engagement.value)
                     : "No data"
                 }
-                detail={`${overview.summary.engagement.measured} of ${overview.content_total} destinations`}
-              />
-              <Metric
-                label="Views"
-                value={
-                  overview.summary.views.measured
-                    ? number.format(overview.summary.views.value)
-                    : "No data"
-                }
-                detail={`${overview.summary.views.measured} of ${overview.content_total} destinations`}
-              />
-              <Metric
-                label="Reach"
-                value={
-                  overview.summary.reach.measured
-                    ? number.format(overview.summary.reach.value)
-                    : "No data"
-                }
-                detail={`${overview.summary.reach.measured} of ${overview.content_total} destinations`}
-              />
-
-              <Metric
-                label="Published"
-                value={number.format(overview.summary.published)}
-                detail={selectedRangeLabel}
+                detail={`${overview.summary.engagement.measured} of ${overview.content_total} outputs`}
               />
             </View>
+            <BodyText>
+              Posts published in {selectedRangeLabel.toLowerCase()}, with their saved lifetime
+              outcomes.
+            </BodyText>
+            <Button
+              title="What visibility includes"
+              intent="quiet"
+              onPress={() => setCoverageOpen(true)}
+            />
             <View style={{ gap: spacing.small }}>
               <ContentTitle>Trends</ContentTitle>
               <View style={styles.actions}>
-                {(["views", "engagement", "followers"] as const).map((metric) => (
+                {(["visibility", "engagement", "followers"] as const).map((metric) => (
                   <Button
                     key={metric}
                     title={metric[0].toUpperCase() + metric.slice(1)}
@@ -301,69 +380,56 @@ function AnalyticsDashboard() {
               <TrendChart
                 points={overview.trends[trend] ?? []}
                 metric={trend}
-                measured={overview.summary[trend].measured > 0}
+                measured={(overview.summary[trend]?.measured ?? 0) > 0}
               />
             </View>
+            <AnalyticsAccountPerformance overview={overview} onSelect={setAccountId} />
             <View style={{ gap: spacing.small }}>
-              <ContentTitle>Post performance</ContentTitle>
+              <ContentTitle>Top posts</ContentTitle>
+              <View style={styles.actions}>
+                {(["visibility", "engagement", "newest"] as const).map((value) => (
+                  <Button
+                    key={value}
+                    title={
+                      value === "newest"
+                        ? "Newest"
+                        : value === "visibility"
+                          ? "Visibility"
+                          : "Engagement"
+                    }
+                    intent={sort === value ? "primary" : "ordinary"}
+                    accessibilityState={{ selected: sort === value }}
+                    onPress={() => setSort(value)}
+                  />
+                ))}
+              </View>
+              <BodyText>Ranked across every matching post, with each post shown once.</BodyText>
+              {(overview.highlights ?? []).map((post, index) => (
+                <AnalyticsPostResult
+                  key={post.reference.rendition_id}
+                  post={post}
+                  rank={index + 1}
+                  onInspect={setSelectedPost}
+                />
+              ))}
+              {!overview.highlights?.length ? (
+                <BodyText>No measured post results in this period.</BodyText>
+              ) : null}
+            </View>
+            <View style={{ gap: spacing.small }}>
+              <ContentTitle>All results</ContentTitle>
               {(overview.content?.length ?? 0) === 0 ? (
                 <EmptyState title="No published posts in this period" />
               ) : (
                 query.data?.pages
                   .flatMap((page) => page.content ?? [])
-                  .map((post) => {
-                    const publicationId = post.publication_id || post.reference.publication_id;
-                    return (
-                      <DitherPressable
-                        radius={shape.medium}
-                        focusColor={colors.focus}
-                        key={post.reference.rendition_id}
-                        accessibilityRole="button"
-                        disabled={!publicationId}
-                        onPress={() =>
-                          publicationId &&
-                          router.push({
-                            pathname: "/publications/[id]",
-                            params: { id: publicationId },
-                          })
-                        }
-                        style={({ pressed }) => ({
-                          opacity: pressed ? 0.6 : 1,
-                        })}
-                      >
-                        <ContentSection
-                          style={{
-                            borderBottomColor: colors.outlineVariant,
-                            borderBottomWidth: StyleSheet.hairlineWidth,
-                          }}
-                        >
-                          <ContentTitle numberOfLines={2}>
-                            {post.title || post.excerpt || "Untitled post"}
-                          </ContentTitle>
-                          <View style={styles.accountRow}>
-                            <PlatformIcon platform={post.platform} size={18} />
-                            <BodyText>
-                              {platformLabel(post.platform)} ·{" "}
-                              {accountHandle(
-                                post.username,
-                                platformLabel(post.platform),
-                                post.platform,
-                              )}
-                            </BodyText>
-                          </View>
-                          <BodyText>
-                            {"views" in post.metrics
-                              ? `${number.format(post.metrics.views ?? 0)} views`
-                              : "Views unavailable"}{" "}
-                            ·{" "}
-                            {hasEngagementMeasurement(post)
-                              ? `${number.format(post.engagement)} engagements`
-                              : "Engagement unavailable"}
-                          </BodyText>
-                        </ContentSection>
-                      </DitherPressable>
-                    );
-                  })
+                  .map((post) => (
+                    <AnalyticsPostResult
+                      key={post.reference.rendition_id}
+                      post={post}
+                      onInspect={setSelectedPost}
+                    />
+                  ))
               )}
             </View>
             {query.hasNextPage ? (
@@ -373,54 +439,6 @@ function AnalyticsDashboard() {
                 onPress={() => void query.fetchNextPage()}
               />
             ) : null}
-            <View style={{ gap: spacing.small }}>
-              <ContentTitle>Audience by account</ContentTitle>
-              {(overview.accounts?.length ?? 0) === 0 ? (
-                <EmptyState title="No account measurements yet" />
-              ) : (
-                overview.accounts?.map((account) => (
-                  <ContentSection
-                    key={account.id}
-                    style={{
-                      borderBottomColor: colors.outlineVariant,
-                      borderBottomWidth: StyleSheet.hairlineWidth,
-                    }}
-                  >
-                    <View style={styles.accountRow}>
-                      <AccountAvatar
-                        name={account.username}
-                        platform={account.platform}
-                        avatarUrl={account.avatar_url}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <ContentTitle>
-                          {accountHandle(
-                            account.username,
-                            platformLabel(account.platform),
-                            account.platform,
-                          )}
-                        </ContentTitle>
-                        <BodyText>
-                          {platformLabel(account.platform)}
-                          {account.stale ? " · Out of date" : ""}
-                        </BodyText>
-                      </View>
-                      <Text style={[typography.titleLarge, { color: colors.onSurface }]}>
-                        {"followers" in account.metrics
-                          ? number.format(account.metrics.followers)
-                          : "No data"}
-                      </Text>
-                    </View>
-                    {account.error_message ? (
-                      <BodyText accessibilityRole="alert">{account.error_message}</BodyText>
-                    ) : null}
-                    {!account.account_supported ? (
-                      <BodyText>Account analytics unavailable</BodyText>
-                    ) : null}
-                  </ContentSection>
-                ))
-              )}
-            </View>
             {overview.last_synced_at ? (
               <BodyText>
                 Last synced {new Date(overview.last_synced_at).toLocaleString("en")}
@@ -431,6 +449,73 @@ function AnalyticsDashboard() {
           </>
         ) : null}
       </ScrollView>
+      <BottomDrawer
+        open={coverageOpen}
+        onDismiss={() => setCoverageOpen(false)}
+        title="Visibility coverage"
+      >
+        {overview ? (
+          <View style={{ padding: spacing.large }}>
+            <AnalyticsCoverage overview={overview} />
+          </View>
+        ) : null}
+      </BottomDrawer>
+      <BottomDrawer
+        open={Boolean(selectedPost)}
+        onDismiss={() => setSelectedPost(null)}
+        title="Post results"
+      >
+        {selectedPost ? (
+          <View style={{ padding: spacing.large, gap: spacing.medium }}>
+            <ContentTitle>
+              {selectedPost.title || selectedPost.excerpt || "Untitled post"}
+            </ContentTitle>
+            <BodyText>
+              {platformLabel(selectedPost.platform)} · {selectedPost.username}
+            </BodyText>
+            {Object.entries(selectedPost.metrics).map(([metric, value]) => (
+              <BodyText key={metric}>
+                {metric.replaceAll("_", " ")}: {number.format(value)}
+                {selectedPost.metric_metadata?.[metric]?.unit &&
+                selectedPost.metric_metadata?.[metric].unit !== "count"
+                  ? ` ${selectedPost.metric_metadata?.[metric].unit.replaceAll("_", " ")}`
+                  : ""}
+              </BodyText>
+            ))}
+            {!Object.keys(selectedPost.metrics).length ? (
+              <BodyText>No platform measurements for this output.</BodyText>
+            ) : null}
+            {selectedPost.error_message ? <BodyText>{selectedPost.error_message}</BodyText> : null}
+            <Button
+              title="Open post"
+              intent="ordinary"
+              onPress={() => {
+                setSelectedPost(null);
+                openPost(selectedPost.reference);
+              }}
+            />
+            {canRepurpose ? (
+              <Button
+                title="Repurpose in web app"
+                intent="ordinary"
+                onPress={() => repurpose(selectedPost.reference)}
+              />
+            ) : null}
+            {selectedPost.external_url ? (
+              <Button
+                title="View original"
+                intent="quiet"
+                onPress={() => {
+                  if (selectedPost.external_url)
+                    void WebBrowser.openBrowserAsync(selectedPost.external_url).catch(() =>
+                      setActionError("Could not open the original post."),
+                    );
+                }}
+              />
+            ) : null}
+          </View>
+        ) : null}
+      </BottomDrawer>
       {accountPickerOpen ? (
         <BottomDrawer open title="Accounts" onDismiss={() => setAccountPickerOpen(false)}>
           {query.isError && !overview ? (
@@ -447,7 +532,7 @@ function AnalyticsDashboard() {
           />
           {overviewAccounts.map((account) => {
             const selected = effectiveAccountId === account.id;
-            const label = `${platformLabel(account.platform)} · ${accountHandle(account.username, platformLabel(account.platform), account.platform)}`;
+            const label = `${platformLabel(account.platform)} · ${accountHandle(account.username, platformLabel(account.platform), account.platform)}${account.status === "inactive" ? " · Inactive" : ""}`;
             return (
               <DitherPressable
                 key={account.id}
@@ -536,8 +621,8 @@ function TrendChart({
   measured,
   metric,
 }: {
-  metric: "views" | "engagement" | "followers";
-  points: NonNullable<AnalyticsOverview["trends"]["views"]>;
+  metric: "visibility" | "engagement" | "followers";
+  points: NonNullable<AnalyticsOverview["trends"]["visibility"]>;
   measured: boolean;
 }) {
   const { colors, typography, spacing, decoration } = useNativeTheme().manifest;
@@ -570,7 +655,7 @@ function TrendChart({
       <BodyText>
         {metric === "followers"
           ? "Daily follower change"
-          : `${metric === "views" ? "Views" : "Engagement"} per day`}
+          : `${metric === "visibility" ? "Visibility" : "Engagement"} snapshot change per day`}
       </BodyText>
       {!measured || !points.length ? (
         <BodyText>No {metric} measurements in this period.</BodyText>
@@ -610,6 +695,5 @@ function TrendChart({
 const styles = StyleSheet.create({
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   filter: { flex: 1, minWidth: 90 },
-  metrics: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  accountRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  metrics: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
 });

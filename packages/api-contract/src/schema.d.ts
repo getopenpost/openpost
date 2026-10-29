@@ -7197,6 +7197,23 @@ export interface components {
             status: string;
             username: string;
         };
+        AccountPerformance: {
+            account_id: string;
+            avatar_url?: string;
+            engagement: components["schemas"]["MetricSummary"];
+            /** Format: int64 */
+            follower_delta?: number;
+            /** Format: int64 */
+            followers?: number;
+            platform: string;
+            /** Format: int64 */
+            publication_count: number;
+            /** Format: int64 */
+            published: number;
+            status: string;
+            username: string;
+            visibility: components["schemas"]["MetricSummary"];
+        };
         AccountReauthenticationInputBody: {
             /**
              * Format: uri
@@ -8699,12 +8716,21 @@ export interface components {
             status: string;
             title: string;
             username: string;
+            visibility?: components["schemas"]["ContentVisibility"];
         };
         ContentReference: {
             publication_id?: string;
             rendition_id?: string;
             /** @enum {string} */
             type: "openpost";
+        };
+        ContentVisibility: {
+            /** @enum {string} */
+            basis: "post_displays" | "content_views" | "video_views";
+            /** @enum {string} */
+            metric: "views" | "impressions";
+            /** Format: int64 */
+            value: number;
         };
         Context: {
             /**
@@ -13279,9 +13305,11 @@ export interface components {
             follower_series: components["schemas"]["SeriesPoint"][] | null;
             /** Format: date-time */
             generated_at: string;
+            highlights: components["schemas"]["ContentOverview"][] | null;
             insights: components["schemas"]["Insight"][] | null;
             /** Format: date-time */
             last_synced_at?: string;
+            performance: components["schemas"]["AccountPerformance"][] | null;
             publication_next_cursor?: string;
             /** Format: int64 */
             publication_total: number;
@@ -13293,7 +13321,9 @@ export interface components {
             /** Format: date-time */
             range_start?: string;
             summary: components["schemas"]["Summary"];
+            takeaways: components["schemas"]["Takeaway"][] | null;
             trends: components["schemas"]["TrendSeries"];
+            visibility_breakdown: components["schemas"]["VisibilityBreakdown"][] | null;
         };
         OwnershipTransferResponse: {
             /**
@@ -14121,6 +14151,7 @@ export interface components {
             published_at: string;
             renditions: components["schemas"]["ContentOverview"][] | null;
             title: string;
+            visibility: components["schemas"]["MetricSummary"];
         };
         PublicationResponse: {
             /**
@@ -16521,6 +16552,7 @@ export interface components {
             published: number;
             reach: components["schemas"]["MetricSummary"];
             views: components["schemas"]["MetricSummary"];
+            visibility: components["schemas"]["MetricSummary"];
         };
         SyncStateView: {
             /** Format: date-time */
@@ -16540,6 +16572,25 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
             workspace_id: string;
+        };
+        Takeaway: {
+            account_id: string;
+            /** Format: double */
+            baseline?: number;
+            /** Format: int64 */
+            comparison_sample: number;
+            excerpt?: string;
+            /** @enum {string} */
+            kind: "repurpose_post" | "restore_measurements";
+            /** Format: int64 */
+            measured_count: number;
+            platform: string;
+            reason: string;
+            reference?: components["schemas"]["ContentReference"];
+            title?: string;
+            username: string;
+            /** Format: int64 */
+            value: number;
         };
         Template: {
             animated: boolean;
@@ -17061,6 +17112,7 @@ export interface components {
             engagement: components["schemas"]["DailyBreakdownPoint"][] | null;
             followers: components["schemas"]["DailyBreakdownPoint"][] | null;
             views: components["schemas"]["DailyBreakdownPoint"][] | null;
+            visibility: components["schemas"]["DailyBreakdownPoint"][] | null;
         };
         UpdateAccountInputBody: {
             /**
@@ -17756,6 +17808,17 @@ export interface components {
             pixel_ratio: number;
             /** Format: int64 */
             width: number;
+        };
+        VisibilityBreakdown: {
+            /** @enum {string} */
+            basis: "post_displays" | "content_views" | "video_views";
+            /** Format: int64 */
+            measured: number;
+            /** @enum {string} */
+            metric: "views" | "impressions";
+            platform: string;
+            /** Format: int64 */
+            value: number;
         };
         VoiceDefinition: {
             avoidances?: string[] | null;
@@ -21571,7 +21634,7 @@ export interface operations {
                 /** @description Optional social account ID used to filter results and content totals */
                 account_id?: string;
                 /** @description Stored result ordering */
-                sort?: "engagement" | "views" | "newest";
+                sort?: "engagement" | "views" | "visibility" | "newest";
                 /** @description Opaque source-bound content cursor */
                 cursor?: string;
                 /** @description Content results per page */

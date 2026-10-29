@@ -4,6 +4,73 @@ import builtins from "../../apps/server/internal/services/themes/builtins.v1.jso
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
 const platforms = ["x", "threads", "bluesky", "mastodon", "linkedin"];
+
+test("native repurpose restores its authorized Workspace before resolving the source", async ({
+  page,
+  request,
+}) => {
+  const { token } = await registerUser(request, `analytics-handoff-${randomUUID()}@example.com`);
+  const first = await createWorkspace(request, token, "Browser workspace");
+  const target = await createWorkspace(request, token, "Native workspace");
+  await authenticatePage(page, token);
+  await page.addInitScript((workspace) => {
+    localStorage.setItem("openpost_current_workspace", JSON.stringify(workspace));
+  }, first);
+  const reads: string[] = [];
+  await page.route("**/api/v1/account-features?**", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/v1/analytics?**", (route) => {
+    reads.push(new URL(route.request().url()).searchParams.get("workspace_id") ?? "");
+    return route.fulfill({
+      json: {
+        range_days: 30,
+        publication_total: 0,
+        content_total: 0,
+        accounts: [],
+        content: [],
+        publications: [],
+        insights: [],
+        takeaways: [],
+        performance: [],
+        highlights: [],
+        visibility_breakdown: [],
+        follower_series: [],
+        trends: { followers: [], engagement: [], views: [], visibility: [] },
+        summary: {
+          followers: { value: 0, measured: 0 },
+          engagement: { value: 0, measured: 0 },
+          views: { value: 0, measured: 0 },
+          visibility: { value: 0, measured: 0 },
+          impressions: { value: 0, measured: 0 },
+          reach: { value: 0, measured: 0 },
+          published: 0,
+        },
+      },
+    });
+  });
+  let resolved: Record<string, unknown> | undefined;
+  await page.route("**/api/v1/analytics/repurpose", (route) => {
+    resolved = route.request().postDataJSON();
+    return route.fulfill({ status: 422, json: { detail: "Source fixture reached" } });
+  });
+  const source = { type: "openpost", publication_id: randomUUID(), rendition_id: randomUUID() };
+  const query = new URLSearchParams({
+    workspace: target.id,
+    repurpose_type: source.type,
+    repurpose_publication_id: source.publication_id,
+    repurpose_rendition_id: source.rendition_id,
+    days: "30",
+  });
+  await page.goto(`/analytics?${query}`);
+  await expect
+    .poll(() => resolved, { timeout: 15_000 })
+    .toEqual({
+      workspace_id: target.id,
+      reference: source,
+      range: { days: 30 },
+    });
+  expect(reads).toContain(target.id);
+  expect(page.url()).not.toContain("repurpose_type");
+});
 const content = platforms.map((platform, index) => ({
   reference: {
     type: "openpost",
@@ -202,7 +269,7 @@ for (const [themeID, scheme] of [
                 metrics: { followers: 20 },
               })),
               content,
-              trends: { views: trend, engagement: trend, followers: trend },
+              trends: { views: trend, visibility: trend, engagement: trend, followers: trend },
               insights: [
                 {
                   kind: "most_engagement_actions",
@@ -360,15 +427,15 @@ for (const [themeID, scheme] of [
         await expect(
           page.getByRole("img", { name: "Daily engagement", exact: true }),
         ).toBeVisible();
-        const views = metrics.getByRole("button", { name: "Views", exact: true });
+        const views = metrics.getByRole("button", { name: "Visibility", exact: true });
         await views.focus();
         await views.press("Enter");
         await expect(views).toHaveAttribute("aria-pressed", "true");
         await metrics.screenshot({ path: testInfo.outputPath("metric-controls.png") });
-        await page.getByRole("img", { name: "Daily views" }).scrollIntoViewIfNeeded();
+        await page.getByRole("img", { name: "Visibility" }).scrollIntoViewIfNeeded();
         await page.screenshot({ path: testInfo.outputPath("chart.png") });
         if (themeID === "dither") {
-          const figure = page.getByRole("figure", { name: "Daily views" });
+          const figure = page.getByRole("figure", { name: "Visibility" });
           const day = figure.getByRole("button").nth(width < 768 ? 6 : 15);
           const bar = day.locator("[data-chart-fill]").first();
           const before = await bar.evaluate((el: SVGRectElement) => ({

@@ -51,11 +51,12 @@ func TestBuildExportDailyPreservesMeasuredZeroChanges(t *testing.T) {
 			service.now = func() time.Time { return now }
 			export, err := service.BuildExport(t.Context(), "workspace", ExportOptions{Days: 7})
 			require.NoError(t, err)
+			require.Equal(t, []string{"Date", "Follower change", "Engagement", "Views", "Visibility"}, export.Daily.Columns)
 			require.Equal(t, [][]any{
-				{"2026-10-11", int64(0), int64(0), int64(0)},
-				{"2026-10-12", nil, nil, int64(0)},
-				{"2026-10-13", int64(0), nil, nil},
-				{"2026-10-14", nil, int64(0), nil},
+				{"2026-10-11", int64(0), int64(0), int64(0), int64(0)},
+				{"2026-10-12", nil, nil, int64(0), int64(0)},
+				{"2026-10-13", int64(0), nil, nil, nil},
+				{"2026-10-14", nil, int64(0), nil, nil},
 			}, export.Daily.Rows, "unchanged measured counts are zero; absent or incomparable measurements stay blank")
 		})
 	}
@@ -84,24 +85,34 @@ func TestExportGroupKeyFollowsTimezone(t *testing.T) {
 func TestExportGroupedTableKeepsUnmeasuredMetricsEmpty(t *testing.T) {
 	published := time.Date(2026, time.October, 1, 10, 0, 0, 0, time.UTC)
 	content := []ContentOverview{
-		{Platform: "x", PublishedAt: published, MetricAvailability: "available", Engagement: 10, Metrics: platform.AnalyticsValues{"views": 100, "likes": 0, "comments": 10}},
-		{Platform: "x", PublishedAt: published, MetricAvailability: "available", Engagement: 5, Metrics: platform.AnalyticsValues{"views": 50, "likes": 0, "comments": 5}},
+		{Platform: "x", PublishedAt: published, MetricAvailability: "available", Engagement: 10, Metrics: platform.AnalyticsValues{"views": 100, "impressions": 200, "likes": 0, "comments": 10}},
+		{Platform: "x", PublishedAt: published, MetricAvailability: "available", Engagement: 5, Metrics: platform.AnalyticsValues{"views": 50, "impressions": 75, "likes": 0, "comments": 5}},
 		{Platform: "bluesky", PublishedAt: published, MetricAvailability: "pending"},
 		{Platform: "threads", PublishedAt: published, MetricAvailability: "available", Metrics: platform.AnalyticsValues{"views": 7}},
+		{Platform: "youtube", PublishedAt: published, MetricAvailability: "available", Metrics: platform.AnalyticsValues{"views": 11, "impressions": 999}},
+		{Platform: "youtube", PublishedAt: published, MetricAvailability: "available", Metrics: platform.AnalyticsValues{"views": 0}},
 	}
 
 	for i := range content {
 		content[i].MetricMetadata = legacyMetricMetadata(content[i].Metrics, platform.AnalyticsMetricSubjectContent, content[i].Platform)
 	}
+	projectContentVisibility(content)
+	require.Contains(t, measuredContentMetrics(content), "visibility")
+	require.NotContains(t, measuredContentMetrics([]ContentOverview{{Metrics: platform.AnalyticsValues{"visibility": 999}}}), "visibility", "the projected key requires a compatible visibility measurement")
 
-	table := exportGroupedTable(content, []string{"views", "likes"}, ExportGroupPlatform, time.UTC)
+	table := exportGroupedTable(content, []string{"views", "likes", "visibility"}, ExportGroupPlatform, time.UTC)
 
-	require.Equal(t, []string{"Platform", "Posts", "Engagement", "Views", "Likes"}, table.Columns)
+	require.Equal(t, []string{"Platform", "Posts", "Engagement", "Views", "Likes", "Visibility"}, table.Columns)
 	require.Equal(t, [][]any{
-		{"x", 2, int64(15), int64(150), int64(0)},
-		{"bluesky", 1, nil, nil, nil},
-		{"threads", 1, nil, int64(7), nil},
+		{"x", 2, int64(15), int64(150), int64(0), int64(275)},
+		{"bluesky", 1, nil, nil, nil, nil},
+		{"threads", 1, nil, int64(7), nil, int64(7)},
+		{"youtube", 2, nil, int64(11), nil, int64(11)},
 	}, table.Rows, "a measured zero stays 0 and an unmeasured value stays empty")
+	posts := exportPostsTable(content, []string{"visibility"}, time.UTC)
+	require.Equal(t, []any{int64(200), int64(75), nil, int64(7), int64(11), int64(0)}, []any{posts.Rows[0][7], posts.Rows[1][7], posts.Rows[2][7], posts.Rows[3][7], posts.Rows[4][7], posts.Rows[5][7]})
+	totals := exportGroupedTable(content, []string{"visibility"}, ExportGroupDay, time.UTC)
+	require.Equal(t, int64(293), totals.Rows[0][3], "mixed providers contribute exactly one projected counter per output")
 }
 
 func TestNormalizeExportGroupBy(t *testing.T) {
@@ -123,7 +134,7 @@ func TestExportDailyFilteringDoesNotInventMeasurements(t *testing.T) {
 		Views:      []DailyBreakdownPoint{{Date: "2026-10-01", Value: 12, Items: []DailyBreakdownItem{{Platform: "youtube", Value: 12}}}},
 	}
 	table := exportDailyTable(trends, exportScope{platforms: map[string]bool{"bluesky": true}})
-	require.Equal(t, [][]any{{"2026-10-01", nil, int64(3), nil}}, table.Rows)
+	require.Equal(t, [][]any{{"2026-10-01", nil, int64(3), nil, nil}}, table.Rows)
 }
 
 func TestExportGroupedTableDoesNotSumAverages(t *testing.T) {

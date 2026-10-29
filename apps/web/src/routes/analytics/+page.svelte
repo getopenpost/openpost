@@ -1,8 +1,8 @@
 <!--
-THESIS: Analytics explains stored account and content measurements without hiding provider limits.
+THESIS: Analytics leads with evidence-backed next actions and keeps provider limits inspectable.
 OWN-WORLD: It uses OpenPost's flat borders, compact controls, and provider marks.
-STORY: Read exact totals, verify evidence, then inspect published content in one list.
-FIRST VIEWPORT: The reporting window, refresh action, metric ledger, and unified follower trend are visible without scrolling.
+STORY: Choose a supported next action, compare account outcomes, then inspect the source post.
+FIRST VIEWPORT: Persistent reporting controls lead into available actions and a compact outcome summary.
 FORM: Server-owned insights and content rows preserve source, period, sample, and provider context.
 -->
 <script lang="ts">
@@ -10,6 +10,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import AnalyticsDateRange from '$lib/components/analytics-date-range.svelte';
 	import type { AnalyticsRangeDays } from '@openpost/query-catalog';
 	import { page } from '$app/state';
+	import { untrack } from 'svelte';
 	import AnalyticsNumber from '$lib/components/analytics-number.svelte';
 	import AnalyticsExportDialog from '$lib/components/analytics-export-dialog.svelte';
 	import AsyncActionButton from '$lib/components/async-action-button.svelte';
@@ -35,6 +36,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import { reconcileQueryMutation } from '$lib/query/mutation-reconciliation';
 	import { featureQueryAPI } from '$lib/query/features';
 	import { ui } from '$lib/stores/ui.svelte';
+	import { auth } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
@@ -44,6 +46,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import AnalyticsPerformanceChart from '$lib/components/analytics-performance-chart.svelte';
+	import AnalyticsNextActions from '$lib/components/analytics-next-actions.svelte';
+	import AnalyticsAccountPerformance from '$lib/components/analytics-account-performance.svelte';
+	import AnalyticsPostHighlights from '$lib/components/analytics-post-highlights.svelte';
 	import AnalyticsAccountComposition from '$lib/components/analytics-account-composition.svelte';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import SectionHeading from '$lib/components/section-heading.svelte';
@@ -67,7 +72,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	type AnalyticsMetricMetadata = components['schemas']['AnalyticsMetricMetadata'];
 	type MetricSummary = components['schemas']['MetricSummary'];
 	type RangeDays = AnalyticsRangeDays;
-	type ChartMetric = 'followers' | 'engagement' | 'views';
+	type ChartMetric = 'followers' | 'engagement' | 'visibility';
 
 	const rangePresets: RangeDays[] = [0, 7, 30, 90, 365];
 	let rangeDays = $state<RangeDays>(
@@ -86,18 +91,20 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	);
 	let selectedAccountID = $state('all');
 	let selectedAccountWorkspaceID = $state('');
-	let chartMetric = $state<ChartMetric>('views');
-	let sortMode = $state<AnalyticsSortMode>('engagement');
+	let chartMetric = $state<ChartMetric>('visibility');
+	let sortMode = $state<AnalyticsSortMode>('visibility');
 	let expandedContentID = $state('');
 	let refreshing = $state(false);
 	let warningsOpen = $state(false);
 	let exportOpen = $state(false);
 	let refreshSequence = 0;
 	let repurposingReferenceKey = $state('');
+	let handledRepurposeURL = $state('');
 	let toastMessage = $state('');
 	let toastTone = $state<'success' | 'error'>('success');
 
 	const currentWorkspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	const canEdit = $derived(workspaceCtx.currentWorkspace?.can_edit ?? false);
 	const queryAccountID = $derived(
 		selectedAccountWorkspaceID === currentWorkspaceID ? selectedAccountID : 'all'
 	);
@@ -113,6 +120,27 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	);
 	const overview = $derived(combineAnalyticsPages(analyticsQuery.data?.pages ?? []));
 	const accounts = $derived(overview?.accounts ?? []);
+	const filterAccounts = $derived([
+		...accounts.map(({ id, platform, username, avatar_url }) => ({
+			id,
+			platform,
+			username,
+			avatar_url,
+			inactive: false
+		})),
+		...(overview?.performance ?? [])
+			.filter((item) => !accounts.some((account) => account.id === item.account_id))
+			.map((item) => ({
+				id: item.account_id,
+				platform: item.platform,
+				username: item.username,
+				avatar_url: item.avatar_url,
+				inactive: true
+			}))
+	]);
+	const selectedFilterAccount = $derived(
+		filterAccounts.find((account) => account.id === queryAccountID)
+	);
 	const featuresQuery = createQuery(() =>
 		accountFeaturesQueryOptions(
 			featureQueryAPI,
@@ -144,9 +172,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	const exportMetrics = $derived(overview?.content_metric_keys ?? []);
 	const analyticsInsights = $derived(overview?.insights ?? []);
 	const selectedAccount = $derived(
-		queryAccountID === 'all'
-			? undefined
-			: (accounts.find((account) => account.id === queryAccountID) ?? accounts[0])
+		queryAccountID === 'all' ? undefined : accounts.find((account) => account.id === queryAccountID)
 	);
 	const chartPoints = $derived(overview?.trends?.[chartMetric] ?? []);
 	const chartTitle = $derived(
@@ -154,7 +180,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			? m.analytics_daily_followers()
 			: chartMetric === 'engagement'
 				? m.analytics_daily_engagement()
-				: m.analytics_daily_views()
+				: m.analytics_visibility()
 	);
 	const accountsNeedingReconnect = $derived(
 		accounts.filter(
@@ -201,7 +227,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				key: 'followers',
 				label: m.analytics_summary_followers(),
 				metric: summary.followers,
-				denominator: selectedAccount ? 1 : accounts.length,
+				denominator: queryAccountID !== 'all' ? 1 : accounts.length,
 				unit: 'account' as const
 			},
 			{
@@ -212,9 +238,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				unit: 'destination' as const
 			},
 			{
-				key: 'views',
-				label: m.analytics_views(),
-				metric: summary.views,
+				key: 'visibility',
+				label: m.analytics_visibility(),
+				metric: summary.visibility ?? { value: 0, measured: 0 },
 				denominator: destinationCount,
 				unit: 'destination' as const
 			},
@@ -228,7 +254,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		];
 	});
 	const featuredSummaryMetrics = $derived(
-		summaryMetrics.filter((item) => ['followers', 'engagement', 'views'].includes(item.key))
+		['visibility', 'engagement', 'followers'].flatMap((key) =>
+			summaryMetrics.filter((item) => item.key === key)
+		)
 	);
 	const secondarySummaryMetrics = $derived(
 		summaryMetrics.filter((item) => item.key === 'reach' && item.metric.measured > 0)
@@ -248,7 +276,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		if (
 			selectedAccountID !== 'all' &&
 			analyticsQuery.data &&
-			!accounts.some((account) => account.id === selectedAccountID)
+			!filterAccounts.some((account) => account.id === selectedAccountID)
 		) {
 			selectedAccountID = 'all';
 		}
@@ -259,6 +287,63 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		) {
 			expandedContentID = '';
 		}
+	});
+
+	$effect(() => {
+		const requestURL = page.url.href;
+		const actorID = $auth.user?.id;
+		const params = new URL(requestURL).searchParams;
+		const workspaceID = params.get('workspace');
+		if (params.get('repurpose_type') !== 'openpost' || !workspaceID || !actorID) return;
+		let active = true;
+		const isCurrent = () => active && $auth.user?.id === actorID && page.url.href === requestURL;
+		untrack(() => {
+			if (currentWorkspaceID === workspaceID) return;
+			void workspaceCtx
+				.initialize(workspaceID, { selectionIsCurrent: isCurrent })
+				.then(() => {
+					if (!isCurrent() || currentWorkspaceID === workspaceID) return;
+					toastTone = 'error';
+					toastMessage = m.analytics_repurpose_failed();
+				})
+				.catch(() => {
+					if (!isCurrent()) return;
+					toastTone = 'error';
+					toastMessage = m.analytics_repurpose_failed();
+				});
+		});
+		return () => {
+			active = false;
+		};
+	});
+
+	$effect(() => {
+		const params = page.url.searchParams;
+		if (
+			params.get('repurpose_type') !== 'openpost' ||
+			!canEdit ||
+			!analyticsQuery.isSuccess ||
+			analyticsQuery.isPlaceholderData ||
+			analyticsQuery.isFetching ||
+			!overview ||
+			!currentWorkspaceID ||
+			params.get('workspace') !== currentWorkspaceID ||
+			handledRepurposeURL === page.url.href
+		)
+			return;
+		const publicationID = params.get('repurpose_publication_id') || '';
+		const renditionID = params.get('repurpose_rendition_id') || '';
+		if (!publicationID || !renditionID) return;
+		handledRepurposeURL = page.url.href;
+		const url = new URL(page.url);
+		for (const name of ['repurpose_type', 'repurpose_publication_id', 'repurpose_rendition_id'])
+			url.searchParams.delete(name);
+		replaceState(url, page.state);
+		void repurposeReference({
+			type: 'openpost',
+			publication_id: publicationID,
+			rendition_id: renditionID
+		});
 	});
 
 	async function loadMoreContent() {
@@ -351,15 +436,21 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	}
 
 	async function repurposeContent(item: AnalyticsContent) {
-		const key = contentIdentity(item);
-		if (!currentWorkspaceID || repurposingReferenceKey) return;
+		return repurposeReference(item.reference, contentIdentity(item));
+	}
+
+	async function repurposeReference(
+		reference: components['schemas']['ContentReference'],
+		key = JSON.stringify(reference)
+	) {
+		if (!canEdit || !currentWorkspaceID || repurposingReferenceKey) return;
 		const requestedWorkspaceID = currentWorkspaceID;
 		repurposingReferenceKey = key;
 		try {
 			const response = await client.POST('/analytics/repurpose', {
 				body: {
 					workspace_id: requestedWorkspaceID,
-					reference: item.reference,
+					reference,
 					range: { days: rangeDays, from: rangeFrom || undefined, to: rangeTo || undefined }
 				}
 			});
@@ -412,15 +503,17 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		}).format(new Date(value));
 	}
 
-	function accountName(account: AnalyticsAccount): string {
+	function accountName(account: Pick<AnalyticsAccount, 'username' | 'platform'>): string {
 		return formatSocialAccountName(account.username, account.platform) || account.platform;
 	}
 
-	function accountLabel(account: AnalyticsAccount): string {
+	function accountLabel(account: Pick<AnalyticsAccount, 'username' | 'platform'>): string {
 		return formatSocialAccountLabel(account.username, account.platform);
 	}
 
-	function accountFilterLabel(account: AnalyticsAccount | undefined): string {
+	function accountFilterLabel(
+		account: Pick<AnalyticsAccount, 'username' | 'platform'> | undefined
+	): string {
 		if (!account) return m.analytics_account_filter();
 		return `${m.analytics_account_filter()}: ${accountLabel(account)}`;
 	}
@@ -675,11 +768,58 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 
 {#snippet actions()}
 	<div class="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+		<Select.Root
+			type="single"
+			value={selectedAccountID}
+			onValueChange={(value) => (selectedAccountID = value)}
+		>
+			<Select.Trigger
+				class="h-11 w-full sm:h-9 sm:w-60"
+				aria-label={accountFilterLabel(selectedFilterAccount)}
+			>
+				{#if selectedFilterAccount}
+					<SocialAccountIdentity
+						name={accountName(selectedFilterAccount) +
+							(selectedFilterAccount.inactive ? ` · ${m.settings_member_status_inactive()}` : '')}
+						platform={selectedFilterAccount.platform}
+						avatarUrl={selectedFilterAccount.avatar_url}
+						size="sm"
+					/>
+				{:else}
+					<span class="flex items-center gap-2">
+						<ThemeIcon role="users" class="size-4 text-muted-foreground" />
+						{m.analytics_all_accounts()}
+					</span>
+				{/if}
+			</Select.Trigger>
+			<Select.Content class="w-72 max-w-[calc(100vw-1rem)]">
+				<Select.Item value="all" class="min-h-11">
+					<span class="flex items-center gap-2.5">
+						<span
+							class="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground"
+						>
+							<ThemeIcon role="users" class="size-4" />
+						</span>
+						<span class="font-medium">{m.analytics_all_accounts()}</span>
+					</span>
+				</Select.Item>
+				{#each filterAccounts as account (account.id)}
+					<Select.Item value={account.id} class="min-h-12 py-2">
+						<SocialAccountIdentity
+							name={formatSocialAccountName(account.username, account.platform) +
+								(account.inactive ? ` · ${m.settings_member_status_inactive()}` : '')}
+							platform={account.platform}
+							avatarUrl={account.avatar_url}
+						/>
+					</Select.Item>
+				{/each}
+			</Select.Content>
+		</Select.Root>
 		<AnalyticsDateRange days={rangeDays} from={rangeFrom} to={rangeTo} onchange={setDateRange} />
 		<Button
 			variant="outline"
 			size="sm"
-			disabled={!overview || accounts.length === 0}
+			disabled={!overview || filterAccounts.length === 0}
 			onclick={() => (exportOpen = true)}
 			data-testid="analytics-export"
 		>
@@ -693,7 +833,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 						{...props}
 						variant="outline"
 						size="sm"
-						disabled={!overview || accounts.length === 0}
+						disabled={!overview || filterAccounts.length === 0}
 						data-testid="analytics-warnings"
 					>
 						<ProtectedIcon icon={warningCount ? 'warning' : 'info'} class="size-4" />
@@ -785,7 +925,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 							? m.analytics_daily_followers_description()
 							: chartMetric === 'engagement'
 								? m.analytics_daily_engagement_description()
-								: m.analytics_daily_views_description()}
+								: m.analytics_outcome_period()}
 					</p>
 					<p>
 						{chartMetric === 'followers'
@@ -873,6 +1013,14 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				</InlineNotice>
 			{/if}
 
+			<AnalyticsNextActions
+				{canEdit}
+				items={overview?.takeaways ?? []}
+				busy={Boolean(repurposingReferenceKey)}
+				onrepurpose={repurposeReference}
+				formatValue={formatNumber}
+			/>
+			<p class="text-xs leading-5 text-muted-foreground">{m.analytics_outcome_period()}</p>
 			<section aria-label={m.analytics_title()}>
 				<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 					{#each featuredSummaryMetrics as item (item.key)}
@@ -912,16 +1060,56 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 					<div class="min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground">
 						<div class="flex items-center gap-2 text-sm text-muted-foreground">
 							<ThemeIcon role="send" class="size-4" />
-							<span>{m.analytics_published()}</span>
+							<span>{m.analytics_distinct_posts()}</span>
 						</div>
 						<p class="mt-5 text-3xl font-semibold tracking-[-0.03em] tabular-nums">
-							<AnalyticsNumber value={displayedSummary?.published ?? 0} />
+							<AnalyticsNumber value={overview?.publication_total ?? 0} />
 						</p>
 						<p class="mt-1 text-xs text-muted-foreground">
-							{rangeLabel}
+							{m.analytics_output_count({ count: displayedSummary?.published ?? 0 })}
 						</p>
 					</div>
 				</div>
+				<details class="mt-3 border-t border-border pt-2 text-xs leading-5 text-muted-foreground">
+					<summary
+						class="min-h-11 cursor-pointer rounded-md py-3 font-medium focus-visible:ring-2 focus-visible:ring-ring"
+						>{m.analytics_data_notes()}</summary
+					>
+					<p>{m.analytics_visibility_definition()}</p>
+					<p class="mt-2">
+						{m.analytics_visibility_missing({
+							count: Math.max(0, destinationCount - (displayedSummary?.visibility?.measured ?? 0))
+						})}
+					</p>
+					<ul class="mt-2 space-y-1">
+						{#each overview?.visibility_breakdown ?? [] as source (`${source.platform}:${source.metric}:${source.basis}`)}
+							<li>
+								{getPlatformName(source.platform)} · {source.basis === 'post_displays'
+									? m.analytics_visibility_post_displays()
+									: source.basis === 'video_views'
+										? m.analytics_visibility_video_views()
+										: m.analytics_visibility_content_views()}: {formatNumber(source.value)} · {m.analytics_destination_coverage(
+									{ measured: source.measured, total: destinationCount }
+								)}
+							</li>
+						{/each}
+						{#each overview?.performance?.filter((item) => item.visibility.measured < item.published) ?? [] as account (account.account_id)}
+							<li>
+								{formatSocialAccountLabel(account.username, account.platform)}: {m.analytics_destination_coverage(
+									{ measured: account.visibility.measured, total: account.published }
+								)} · {account.status === 'unsupported'
+									? m.analytics_unsupported()
+									: account.status === 'permission_required'
+										? m.analytics_permission_required()
+										: account.status === 'rate_limited'
+											? m.analytics_rate_limited()
+											: account.status === 'failed'
+												? m.analytics_collection_failed()
+												: m.analytics_evidence_unavailable()}
+							</li>
+						{/each}
+					</ul>
+				</details>
 				{#if secondarySummaryMetrics.length}
 					<p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
 						{#each secondarySummaryMetrics as item (item.key)}
@@ -947,7 +1135,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 							role="group"
 							aria-label={m.analytics_chart_metric_label()}
 						>
-							{#each ['views', 'engagement', 'followers'] as metric (metric)}
+							{#each ['visibility', 'engagement', 'followers'] as metric (metric)}
 								<button
 									type="button"
 									class={[
@@ -959,59 +1147,14 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 									aria-pressed={chartMetric === metric}
 									onclick={() => (chartMetric = metric as ChartMetric)}
 								>
-									{metric === 'views'
-										? m.analytics_views()
+									{metric === 'visibility'
+										? m.analytics_visibility()
 										: metric === 'engagement'
 											? m.analytics_summary_engagement()
 											: m.analytics_summary_followers()}
 								</button>
 							{/each}
 						</div>
-						<Select.Root
-							type="single"
-							value={selectedAccountID}
-							onValueChange={(value) => (selectedAccountID = value)}
-						>
-							<Select.Trigger
-								class="h-11 w-full sm:h-9 sm:w-60"
-								aria-label={accountFilterLabel(selectedAccount)}
-							>
-								{#if selectedAccount}
-									<SocialAccountIdentity
-										name={accountName(selectedAccount)}
-										platform={selectedAccount.platform}
-										avatarUrl={selectedAccount.avatar_url}
-										size="sm"
-									/>
-								{:else}
-									<span class="flex items-center gap-2">
-										<ThemeIcon role="users" class="size-4 text-muted-foreground" />
-										{m.analytics_all_accounts()}
-									</span>
-								{/if}
-							</Select.Trigger>
-							<Select.Content class="w-72 max-w-[calc(100vw-1rem)]">
-								<Select.Item value="all" class="min-h-11">
-									<span class="flex items-center gap-2.5">
-										<span
-											class="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground"
-										>
-											<ThemeIcon role="users" class="size-4" />
-										</span>
-										<span class="font-medium">{m.analytics_all_accounts()}</span>
-									</span>
-								</Select.Item>
-								{#each accounts as account (account.id)}
-									<Select.Item value={account.id} class="min-h-12 py-2">
-										<SocialAccountIdentity
-											name={accountName(account)}
-											platform={account.platform}
-											avatarUrl={account.avatar_url}
-										/>
-									</Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
 					</div>
 				</div>
 				<div class="p-2 pt-3 sm:p-4">
@@ -1029,6 +1172,18 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				</div>
 			</section>
 
+			<AnalyticsAccountPerformance
+				items={overview?.performance ?? []}
+				onselect={(id) => (selectedAccountID = id)}
+				formatValue={formatNumber}
+			/>
+			<AnalyticsPostHighlights
+				{canEdit}
+				items={overview?.highlights ?? []}
+				busy={Boolean(repurposingReferenceKey)}
+				onrepurpose={repurposeContent}
+				formatValue={formatNumber}
+			/>
 			<section
 				class="rounded-xl border bg-card p-4 sm:p-5"
 				aria-labelledby="analytics-composition-heading"
@@ -1180,13 +1335,16 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 								class="h-11 w-full sm:h-9 sm:w-44"
 								aria-label={m.analytics_sort_label()}
 							>
-								{sortMode === 'newest'
-									? m.analytics_sort_newest()
-									: sortMode === 'views'
-										? m.analytics_sort_views()
-										: m.analytics_sort_engagement()}
+								{sortMode === 'visibility'
+									? m.analytics_visibility()
+									: sortMode === 'newest'
+										? m.analytics_sort_newest()
+										: sortMode === 'views'
+											? m.analytics_sort_views()
+											: m.analytics_sort_engagement()}
 							</Select.Trigger>
 							<Select.Content>
+								<Select.Item value="visibility">{m.analytics_visibility()}</Select.Item>
 								<Select.Item value="engagement">{m.analytics_sort_engagement()}</Select.Item>
 								<Select.Item value="views">{m.analytics_sort_views()}</Select.Item>
 								<Select.Item value="newest">{m.analytics_sort_newest()}</Select.Item>
@@ -1208,7 +1366,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 							<span class="analytics-post">{m.analytics_table_post()}</span>
 							<span class="analytics-destination">{m.analytics_table_platforms()}</span>
 							<span class="analytics-engagement text-end">{m.analytics_summary_engagement()}</span>
-							<span class="analytics-views text-end">{m.analytics_views()}</span>
+							<span class="analytics-views text-end">{m.analytics_visibility()}</span>
 							<span class="analytics-published hidden">{m.analytics_table_published()}</span>
 							<span class="analytics-actions sr-only">{m.analytics_table_actions()}</span>
 						</div>
@@ -1264,12 +1422,10 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											class="analytics-metric analytics-views flex items-baseline justify-between gap-2 text-sm"
 										>
 											<span class="analytics-row-label text-xs text-muted-foreground"
-												>{m.analytics_views()}</span
+												>{m.analytics_visibility()}</span
 											>
 											<span class="font-medium tabular-nums"
-												>{item.metrics.views === undefined
-													? '—'
-													: semanticMetricValue(item, 'views', item.metrics.views)}</span
+												>{item.visibility ? formatNumber(item.visibility.value) : '—'}</span
 											>
 										</div>
 										<div class="analytics-published hidden text-sm text-muted-foreground">
@@ -1277,17 +1433,19 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											{formatDate(item.published_at)}
 										</div>
 										<div class="analytics-actions flex w-full items-center justify-end gap-1">
-											<Button
-												variant="ghost"
-												size="sm"
-												disabled={Boolean(repurposingReferenceKey)}
-												onclick={() => repurposeContent(item)}
-												data-testid={`analytics-repurpose-${id}`}
-											>
-												{repurposingReferenceKey === id
-													? m.analytics_repurposing()
-													: m.analytics_repurpose()}
-											</Button>
+											{#if canEdit}
+												<Button
+													variant="ghost"
+													size="sm"
+													disabled={Boolean(repurposingReferenceKey)}
+													onclick={() => repurposeContent(item)}
+													data-testid={`analytics-repurpose-${id}`}
+												>
+													{repurposingReferenceKey === id
+														? m.analytics_repurposing()
+														: m.analytics_repurpose()}
+												</Button>
+											{/if}
 											<Button
 												variant="ghost"
 												size="icon-sm"

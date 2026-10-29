@@ -4,7 +4,7 @@ description: Understand account growth and content performance using the data yo
 icon: ChartNoAxesCombined
 ---
 
-Use Analytics to see how an account and its posts performed over time. It includes posts you published through OpenPost and, where the provider allows it, posts published elsewhere. Those external posts appear in reports, not in **Publications**, which holds work you authored in OpenPost.
+Use Analytics to find posts worth building on, compare account performance, and inspect the results of posts published through OpenPost. Web and mobile use the same stored measurements and calculations.
 
 ## Turn on collection for an account
 
@@ -16,11 +16,23 @@ Disabling Analytics stops future collection for that account. It keeps the histo
 
 ## Compare the right posts
 
-Choose an account and date range. Use **All content**, **Published with OpenPost**, or **Published elsewhere** to choose which posts to compare. Follower counts describe the whole account. Views and engagement describe individual posts.
+Choose an account and date range, including **Month to date**, **Last month**, or custom dates. Content totals describe posts published in that period and their saved lifetime results. Daily charts show changes in stored measurements. Follower counts describe the whole account.
+
+The **Posts** count is the number of distinct OpenPost posts. A post published to three accounts contributes one post and three destination outputs.
+
+**Visibility** selects one supported exposure measurement per output: post impressions where available, otherwise content or video views. YouTube contributes video views. YouTube thumbnail impressions do not contribute. Open the coverage details to see which provider measurements contributed and which outputs are missing data. Visibility includes repeats; it does not count unique people or prove that someone read or watched the complete post.
 
 Read each measurement's label. Views, impressions, and reach mean different things, and providers do not all return them. A blank measurement is not zero. If the page shows a coverage notice, the account may be newly connected, lack permission, or have only part of its provider history available.
 
 Open a content row or insight to see the posts behind it. Compare similar formats over similar periods before deciding that a topic or time worked better.
+
+## Choose a next action
+
+**What to do next** suggests strong posts to build on when comparable stored results support the recommendation. Each suggestion names the source post, its engagement, the account's baseline, and the comparison sample. It compares a post with other posts on the same account. A strong result is evidence to inspect, not a promise that another post will perform the same way.
+
+If collection fails, a recovery action opens account settings. When there is not enough comparable data, Analytics explains that rather than inventing advice. These suggestions use deterministic calculations and do not request AI-generated analysis.
+
+**Account performance** compares measured visibility, engagement, followers, and publishing activity. Select an account to inspect it. **Top posts** uses the complete filtered population, including results beyond the loaded page, and shows each distinct post once.
 
 ## Export your analytics
 
@@ -32,6 +44,8 @@ Choose **Export** to download the data behind the page for the selected date ran
 - **Table.** For CSV and JSON, choose the grouped report, posts, daily trends, or accounts. Excel always contains all of them.
 - **Accounts.** Select accounts by their avatar, platform, and handle, including multiple accounts on the same platform. Choose **All accounts** to remove the account filter. Your selection applies to every table.
 - **Post metric columns.** Choose the metric columns for the report and posts tables. Leave the selection empty to include every measured metric across the full range. Daily trends and accounts keep their own columns.
+
+Visibility is available in post and grouped exports when measured. Daily exports include Visibility changes alongside the original Views column. Original provider views and impressions remain available separately.
 
 Totals grouped by date, platform, or account sum lifetime counters. Provider averages and reporting-period measurements remain available in the posts table, but stay blank in grouped reports because they cannot be summed by publication date. Per-post values retain their stored integer units, including milliseconds for durations and basis points for percentages.
 
@@ -53,5 +67,7 @@ A provider may revise its numbers after publication. The latest saved result can
 ## Make another post from a result
 
 Choose **Repurpose** on a content item. OpenPost opens a new, unsaved composer and asks you to review the direction before requesting AI-generated copy. Check the idea, destination accounts, and final text before saving or publishing.
+
+On mobile, **Repurpose in web app** continues in the browser and restores the source Workspace. You may need to sign in there. The browser resolves the source through your current permissions; the link contains source identifiers rather than post content or credentials.
 
 To check whether a post arrived, open it in **Publications** and inspect each destination. To investigate a delivery error, open the post and use the [delivery troubleshooting guide](/guides/troubleshooting).

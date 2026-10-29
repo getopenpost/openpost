@@ -6,7 +6,7 @@
 
 	type DailyPoint = components['schemas']['DailyBreakdownPoint'];
 	type DailyItem = components['schemas']['DailyBreakdownItem'];
-	type Metric = 'followers' | 'engagement' | 'views';
+	type Metric = 'followers' | 'engagement' | 'views' | 'visibility';
 
 	interface Props {
 		points: DailyPoint[];

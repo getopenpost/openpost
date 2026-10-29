@@ -3,6 +3,13 @@ const config = require("../../metro.config.js");
 const resolve = config.resolver.resolveRequest;
 config.watchFolders.push(path.resolve(__dirname, "../../../../tests/app/fixtures"));
 config.resolver.resolveRequest = (context, name, platform) => {
+  if (
+    platform === "web" &&
+    process.env.OPENPOST_ANALYTICS_PREVIEW === "1" &&
+    ["@swmansion/react-native-bottom-sheet", "react-native-keyboard-controller"].includes(name)
+  ) {
+    return { type: "sourceFile", filePath: path.join(__dirname, "native-controls.web.tsx") };
+  }
   if (name === "expo-secure-store") {
     return { type: "sourceFile", filePath: path.join(__dirname, "storage.js") };
   }

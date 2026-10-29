@@ -95,7 +95,7 @@ func TestAnalyticsOverviewRejectsStaleCursor(t *testing.T) {
 	require.NoError(t, json.Unmarshal(firstResponse.Body.Bytes(), &first))
 	require.NotEmpty(t, first.ContentNextCursor)
 	require.Len(t, first.Content, 1)
-	require.Equal(t, []string{"views"}, first.ContentMetricKeys, "metric options cover unloaded content, including measured zero")
+	require.Equal(t, []string{"views", "visibility"}, first.ContentMetricKeys, "metric options cover unloaded content, including measured zero")
 	require.NotContains(t, first.Content[0].Metrics, "views", "the measured metric belongs to a later page")
 
 	mismatchResponse := get("?workspace_id=ws-1&days=30&limit=1&account_id=account-2&cursor=" + first.ContentNextCursor)

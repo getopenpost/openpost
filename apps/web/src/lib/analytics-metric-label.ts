@@ -2,6 +2,8 @@ import { m } from '$lib/paraglide/messages';
 
 export function analyticsMetricLabel(key: string): string {
 	switch (key) {
+		case 'visibility':
+			return m.analytics_visibility();
 		case 'views':
 		case 'report_views':
 			return m.analytics_views();

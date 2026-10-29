@@ -36,7 +36,7 @@ type GetAnalyticsOverviewInput struct {
 	From        string `query:"from" doc:"Inclusive start date (YYYY-MM-DD, UTC), supplied together with to"`
 	To          string `query:"to" doc:"Inclusive end date (YYYY-MM-DD, UTC), supplied together with from"`
 	AccountID   string `query:"account_id" doc:"Optional social account ID used to filter results and content totals"`
-	Sort        string `query:"sort" default:"engagement" enum:"engagement,views,newest" doc:"Stored result ordering"`
+	Sort        string `query:"sort" default:"engagement" enum:"engagement,views,visibility,newest" doc:"Stored result ordering"`
 	Cursor      string `query:"cursor" doc:"Opaque source-bound content cursor"`
 	Limit       int    `query:"limit" default:"50" minimum:"1" maximum:"100" doc:"Content results per page"`
 }

@@ -887,6 +887,59 @@
 				],
 				"type": "object"
 			},
+			"AccountPerformance": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"type": "string"
+					},
+					"avatar_url": {
+						"type": "string"
+					},
+					"engagement": {
+						"$ref": "#/components/schemas/MetricSummary"
+					},
+					"follower_delta": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"followers": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"publication_count": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"published": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"status": {
+						"type": "string"
+					},
+					"username": {
+						"type": "string"
+					},
+					"visibility": {
+						"$ref": "#/components/schemas/MetricSummary"
+					}
+				},
+				"required": [
+					"account_id",
+					"platform",
+					"username",
+					"published",
+					"publication_count",
+					"visibility",
+					"engagement",
+					"status"
+				],
+				"type": "object"
+			},
 			"AccountReauthenticationInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -4463,6 +4516,9 @@
 					},
 					"username": {
 						"type": "string"
+					},
+					"visibility": {
+						"$ref": "#/components/schemas/ContentVisibility"
 					}
 				},
 				"required": [
@@ -4499,6 +4555,25 @@
 					}
 				},
 				"required": ["type"],
+				"type": "object"
+			},
+			"ContentVisibility": {
+				"additionalProperties": false,
+				"properties": {
+					"basis": {
+						"enum": ["post_displays", "content_views", "video_views"],
+						"type": "string"
+					},
+					"metric": {
+						"enum": ["views", "impressions"],
+						"type": "string"
+					},
+					"value": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["value", "metric", "basis"],
 				"type": "object"
 			},
 			"Context": {
@@ -15283,6 +15358,12 @@
 						"format": "date-time",
 						"type": "string"
 					},
+					"highlights": {
+						"items": {
+							"$ref": "#/components/schemas/ContentOverview"
+						},
+						"type": ["array", "null"]
+					},
 					"insights": {
 						"items": {
 							"$ref": "#/components/schemas/Insight"
@@ -15292,6 +15373,12 @@
 					"last_synced_at": {
 						"format": "date-time",
 						"type": "string"
+					},
+					"performance": {
+						"items": {
+							"$ref": "#/components/schemas/AccountPerformance"
+						},
+						"type": ["array", "null"]
 					},
 					"publication_next_cursor": {
 						"type": "string"
@@ -15321,11 +15408,27 @@
 					"summary": {
 						"$ref": "#/components/schemas/Summary"
 					},
+					"takeaways": {
+						"items": {
+							"$ref": "#/components/schemas/Takeaway"
+						},
+						"type": ["array", "null"]
+					},
 					"trends": {
 						"$ref": "#/components/schemas/TrendSeries"
+					},
+					"visibility_breakdown": {
+						"items": {
+							"$ref": "#/components/schemas/VisibilityBreakdown"
+						},
+						"type": ["array", "null"]
 					}
 				},
 				"required": [
+					"visibility_breakdown",
+					"performance",
+					"highlights",
+					"takeaways",
 					"generated_at",
 					"range_days",
 					"summary",
@@ -17261,9 +17364,13 @@
 					},
 					"title": {
 						"type": "string"
+					},
+					"visibility": {
+						"$ref": "#/components/schemas/MetricSummary"
 					}
 				},
 				"required": [
+					"visibility",
 					"publication_id",
 					"title",
 					"excerpt",
@@ -23058,9 +23165,13 @@
 					},
 					"views": {
 						"$ref": "#/components/schemas/MetricSummary"
+					},
+					"visibility": {
+						"$ref": "#/components/schemas/MetricSummary"
 					}
 				},
 				"required": [
+					"visibility",
 					"followers",
 					"follower_scope",
 					"engagement",
@@ -23134,6 +23245,63 @@
 					"current_generation_id",
 					"created_at",
 					"updated_at"
+				],
+				"type": "object"
+			},
+			"Takeaway": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"type": "string"
+					},
+					"baseline": {
+						"format": "double",
+						"type": "number"
+					},
+					"comparison_sample": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"excerpt": {
+						"type": "string"
+					},
+					"kind": {
+						"enum": ["repurpose_post", "restore_measurements"],
+						"type": "string"
+					},
+					"measured_count": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"reason": {
+						"type": "string"
+					},
+					"reference": {
+						"$ref": "#/components/schemas/ContentReference"
+					},
+					"title": {
+						"type": "string"
+					},
+					"username": {
+						"type": "string"
+					},
+					"value": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": [
+					"kind",
+					"account_id",
+					"platform",
+					"username",
+					"value",
+					"measured_count",
+					"comparison_sample",
+					"reason"
 				],
 				"type": "object"
 			},
@@ -24854,9 +25022,15 @@
 							"$ref": "#/components/schemas/DailyBreakdownPoint"
 						},
 						"type": ["array", "null"]
+					},
+					"visibility": {
+						"items": {
+							"$ref": "#/components/schemas/DailyBreakdownPoint"
+						},
+						"type": ["array", "null"]
 					}
 				},
-				"required": ["followers", "engagement", "views"],
+				"required": ["visibility", "followers", "engagement", "views"],
 				"type": "object"
 			},
 			"UpdateAccountInputBody": {
@@ -26356,6 +26530,32 @@
 					}
 				},
 				"required": ["width", "height", "pixel_ratio"],
+				"type": "object"
+			},
+			"VisibilityBreakdown": {
+				"additionalProperties": false,
+				"properties": {
+					"basis": {
+						"enum": ["post_displays", "content_views", "video_views"],
+						"type": "string"
+					},
+					"measured": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"metric": {
+						"enum": ["views", "impressions"],
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"value": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["platform", "metric", "basis", "value", "measured"],
 				"type": "object"
 			},
 			"VoiceDefinition": {
@@ -32336,7 +32536,7 @@
 						"schema": {
 							"default": "engagement",
 							"description": "Stored result ordering",
-							"enum": ["engagement", "views", "newest"],
+							"enum": ["engagement", "views", "visibility", "newest"],
 							"type": "string"
 						}
 					},

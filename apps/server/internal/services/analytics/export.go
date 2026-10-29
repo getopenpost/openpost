@@ -35,6 +35,7 @@ var (
 		platform.MetricLikes, platform.MetricReactions, platform.MetricComments,
 		platform.MetricReposts, platform.MetricQuotes, platform.MetricShares,
 		platform.MetricSaves, platform.MetricClicks, platform.MetricVideoViews,
+		"visibility",
 	}
 )
 
@@ -202,7 +203,13 @@ func filterExportContent(content []ContentOverview, scope exportScope) []Content
 func measuredContentMetrics(content []ContentOverview) []string {
 	present := map[string]bool{}
 	for _, item := range content {
+		if item.Visibility != nil {
+			present["visibility"] = true
+		}
 		for key := range item.Metrics {
+			if key == "visibility" {
+				continue
+			}
 			present[key] = true
 		}
 	}
@@ -242,7 +249,7 @@ func exportPostsTable(content []ContentOverview, metrics []string, location *tim
 			exportEngagement(item),
 		)
 		for _, key := range metrics {
-			row = append(row, exportMetricValue(item.Metrics, key))
+			row = append(row, exportContentMetricValue(item, key))
 		}
 		table.Rows = append(table.Rows, row)
 	}
@@ -276,6 +283,16 @@ func exportMetricValue(values platform.AnalyticsValues, key string) any {
 	return nil
 }
 
+func exportContentMetricValue(item ContentOverview, key string) any {
+	if key == "visibility" {
+		if item.Visibility != nil {
+			return item.Visibility.Value
+		}
+		return nil
+	}
+	return exportMetricValue(item.Metrics, key)
+}
+
 type exportBucket struct {
 	key, label  string
 	posts       int
@@ -299,6 +316,12 @@ func exportGroupedTable(content []ContentOverview, metrics []string, groupBy str
 			bucket.measuredEng = true
 		}
 		for _, metric := range metrics {
+			if metric == "visibility" {
+				if item.Visibility != nil {
+					bucket.metrics[metric] += item.Visibility.Value
+				}
+				continue
+			}
 			// Publish-date buckets can sum lifetime counters, not averages or
 			// values measured over separate provider reporting periods.
 			if value, ok := compatibleCountMetricValue(item.Metrics, item.MetricMetadata, metric, platform.AnalyticsMetricAggregationLifetimeTotal); ok {
@@ -369,13 +392,13 @@ func exportGroupKey(item ContentOverview, groupBy string, location *time.Locatio
 	}
 }
 
-// exportDailyTable merges the three daily trend series on calendar day. Trend
+// exportDailyTable merges the daily trend series on calendar day. Trend
 // days are the provider-neutral UTC days the dashboard charts use, so they do
 // not shift with the export timezone.
 func exportDailyTable(trends TrendSeries, scope exportScope) ExportTable {
 	type day struct {
-		followers, engagement, views          int64
-		hasFollowers, hasEngagement, hasViews bool
+		followers, engagement, views, visibility             int64
+		hasFollowers, hasEngagement, hasViews, hasVisibility bool
 	}
 	days := map[string]*day{}
 	add := func(points []DailyBreakdownPoint, apply func(*day, int64)) {
@@ -403,16 +426,17 @@ func exportDailyTable(trends TrendSeries, scope exportScope) ExportTable {
 	add(trends.Followers, func(d *day, v int64) { d.followers, d.hasFollowers = v, true })
 	add(trends.Engagement, func(d *day, v int64) { d.engagement, d.hasEngagement = v, true })
 	add(trends.Views, func(d *day, v int64) { d.views, d.hasViews = v, true })
+	add(trends.Visibility, func(d *day, v int64) { d.visibility, d.hasVisibility = v, true })
 
 	dates := make([]string, 0, len(days))
 	for date := range days {
 		dates = append(dates, date)
 	}
 	sort.Strings(dates)
-	table := ExportTable{Columns: []string{"Date", "Follower change", "Engagement", "Views"}, Rows: [][]any{}}
+	table := ExportTable{Columns: []string{"Date", "Follower change", "Engagement", "Views", "Visibility"}, Rows: [][]any{}}
 	for _, date := range dates {
 		entry := days[date]
-		row := []any{date, nil, nil, nil}
+		row := []any{date, nil, nil, nil, nil}
 		if entry.hasFollowers {
 			row[1] = entry.followers
 		}
@@ -421,6 +445,9 @@ func exportDailyTable(trends TrendSeries, scope exportScope) ExportTable {
 		}
 		if entry.hasViews {
 			row[3] = entry.views
+		}
+		if entry.hasVisibility {
+			row[4] = entry.visibility
 		}
 		table.Rows = append(table.Rows, row)
 	}

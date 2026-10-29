@@ -192,7 +192,9 @@ const content = posts
     title: p.title,
     excerpt: p.source_text,
     published_at: p.actual_run_at,
-    metrics: { views: 1240, likes: 32 },
+    metrics: { views: 1240, likes: 32, comments: 3 },
+    metric_metadata: {},
+    measurements: {},
     measured: { views: 1 },
     engagement: 35,
     engagement_measured: 1,
@@ -252,6 +254,77 @@ const overview = {
   },
   insights: [],
 };
+// Analytics fixtures include complete-population projections, independent of paging.
+overview.summary.visibility = metric(1240, 1);
+overview.summary.views = metric(1240, 1);
+overview.summary.published = 1;
+overview.trends.visibility = series;
+overview.content = overview.content.map((post) => ({
+  ...post,
+  visibility: { value: 1240, metric: "views", basis: "content_views" },
+}));
+overview.highlights = overview.content;
+overview.visibility_breakdown = [
+  {
+    platform: account.platform,
+    metric: "views",
+    basis: "content_views",
+    value: 1240,
+    measured: 1,
+  },
+];
+overview.performance = [
+  {
+    account_id: account.id,
+    platform: account.platform,
+    username: account.account_username,
+    published: 1,
+    publication_count: 1,
+    visibility: metric(1240, 1),
+    engagement: metric(35, 1),
+    followers: 6910,
+    follower_delta: 157,
+    status: "ok",
+  },
+];
+overview.takeaways = [
+  {
+    kind: "repurpose_post",
+    title: overview.content[0].title,
+    excerpt: overview.content[0].excerpt,
+    account_id: account.id,
+    platform: account.platform,
+    username: account.account_username,
+    reference: overview.content[0].reference,
+    value: 35,
+    baseline: 12,
+    measured_count: 5,
+    comparison_sample: 4,
+    reason: "above_account_engagement_baseline",
+  },
+];
+overview.takeaways.push(
+  {
+    kind: "restore_measurements",
+    account_id: "threads-account",
+    platform: "threads",
+    username: "studio",
+    value: 0,
+    measured_count: 0,
+    comparison_sample: 0,
+    reason: "permission_required",
+  },
+  {
+    kind: "restore_measurements",
+    account_id: "facebook-account",
+    platform: "facebook",
+    username: "Studio",
+    value: 0,
+    measured_count: 0,
+    comparison_sample: 0,
+    reason: "failed",
+  },
+);
 const ideateDocument = {
   schema_version: 1,
   template_id: "messages",
@@ -590,7 +663,13 @@ global.fetch = async (input, options = {}) => {
     ? jsonResponse({ detail: `No screenshot fixture for ${path}` }, 404)
     : jsonResponse(value);
 };
-if (require("react-native").Platform.OS === "web") {
+const analyticsCapture =
+  require("react-native").Platform.OS === "web" &&
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).has("analytics_capture");
+if (analyticsCapture) {
+  require("./analytics-harness");
+} else if (require("react-native").Platform.OS === "web") {
   workspace.role = "client";
   workspace.can_edit = false;
   require("./review-harness");

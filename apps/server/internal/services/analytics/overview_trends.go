@@ -40,7 +40,7 @@ func (s *Service) loadDailyContentTrends(
 	workspaceID string,
 	start, end time.Time,
 	accountID string,
-) ([]DailyBreakdownPoint, []DailyBreakdownPoint, error) {
+) ([]DailyBreakdownPoint, []DailyBreakdownPoint, []DailyBreakdownPoint, error) {
 	var snapshots []models.AnalyticsRenditionSnapshot
 	query := s.db.NewSelect().Model(&snapshots).
 		Where("workspace_id = ? AND captured_at >= ? AND captured_at < ?", workspaceID, start, end).
@@ -49,16 +49,16 @@ func (s *Service) loadDailyContentTrends(
 		query = query.Where("social_account_id = ?", accountID)
 	}
 	if err := query.Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, nil, fmt.Errorf("list rendition analytics trend: %w", err)
+		return nil, nil, nil, fmt.Errorf("list rendition analytics trend: %w", err)
 	}
 	if len(snapshots) == 0 {
-		return []DailyBreakdownPoint{}, []DailyBreakdownPoint{}, nil
+		return []DailyBreakdownPoint{}, []DailyBreakdownPoint{}, []DailyBreakdownPoint{}, nil
 	}
 
 	renditionIDs := uniqueRenditionIDs(snapshots)
 	baselines, err := s.loadLatestRenditionSnapshots(ctx, workspaceID, renditionIDs, start, accountID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	snapshots = append(baselines, snapshots...)
 	sort.SliceStable(snapshots, func(i, j int) bool {
@@ -70,15 +70,16 @@ func (s *Service) loadDailyContentTrends(
 
 	publicationByID, err := s.loadTrendPublications(ctx, snapshots)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	accountByID, err := s.loadTrendAccounts(ctx, snapshots)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	engagementByDate := map[string][]DailyBreakdownItem{}
 	viewsByDate := map[string][]DailyBreakdownItem{}
+	visibilityByDate := map[string][]DailyBreakdownItem{}
 	for _, history := range renditionTrendHistories(snapshots) {
 		publication := publicationByID[history[0].PublicationID]
 		account := accountByID[history[0].SocialAccountID]
@@ -87,9 +88,9 @@ func (s *Service) loadDailyContentTrends(
 			publishedAt = publication.UpdatedAt
 		}
 		label := firstNonEmptyAnalyticsText(publication.Title, publication.SourceText, publication.SourceContent)
-		appendRenditionTrend(history, start, publishedAt, label, account.AccountUsername, engagementByDate, viewsByDate)
+		appendRenditionTrend(history, start, publishedAt, label, account.AccountUsername, engagementByDate, viewsByDate, visibilityByDate)
 	}
-	return orderedDailyBreakdown(engagementByDate), orderedDailyBreakdown(viewsByDate), nil
+	return orderedDailyBreakdown(engagementByDate), orderedDailyBreakdown(viewsByDate), orderedDailyBreakdown(visibilityByDate), nil
 }
 
 func (s *Service) loadTrendPublications(
@@ -183,6 +184,7 @@ func appendRenditionTrend(
 	username string,
 	engagementByDate map[string][]DailyBreakdownItem,
 	viewsByDate map[string][]DailyBreakdownItem,
+	visibilityByDate map[string][]DailyBreakdownItem,
 ) {
 	daily := make([]models.AnalyticsRenditionSnapshot, 0, len(history))
 	for _, snapshot := range history {
@@ -233,6 +235,10 @@ func appendRenditionTrend(
 		}
 		if viewsDelta, measured := comparableContentMetricDelta(current.values, current.metadata, previous, platform.MetricViews); measured {
 			viewsByDate[date] = append(viewsByDate[date], withTrendValue(item, viewsDelta, username))
+		}
+
+		if delta, measured := visibilitySnapshotDelta(snapshot.Platform, current, previous); measured {
+			visibilityByDate[date] = append(visibilityByDate[date], withTrendValue(item, delta, username))
 		}
 		previous = current
 	}
@@ -306,4 +312,22 @@ func orderedDailyBreakdown(byDate map[string][]DailyBreakdownItem) []DailyBreakd
 		points = append(points, point)
 	}
 	return points
+}
+
+func visibilityMeasurementCompatible(current, previous platform.AnalyticsMetricMetadata) bool {
+	return current.Source == previous.Source && engagementKey(current) == engagementKey(previous)
+}
+
+func visibilitySnapshotDelta(provider string, current, previous *decodedAnalyticsSnapshot) (int64, bool) {
+	visibility := projectedVisibility(ContentOverview{Platform: provider, Metrics: current.values, MetricMetadata: current.metadata})
+	if visibility == nil {
+		return 0, false
+	}
+	if previous != nil {
+		prior := projectedVisibility(ContentOverview{Platform: provider, Metrics: previous.values, MetricMetadata: previous.metadata})
+		if prior == nil || prior.Metric != visibility.Metric || prior.Basis != visibility.Basis || !visibilityMeasurementCompatible(current.metadata[visibility.Metric], previous.metadata[visibility.Metric]) {
+			return 0, false
+		}
+	}
+	return comparableContentMetricDelta(current.values, current.metadata, previous, visibility.Metric)
 }

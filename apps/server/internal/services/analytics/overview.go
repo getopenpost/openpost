@@ -23,6 +23,7 @@ type MetricSummary struct {
 }
 
 type Summary struct {
+	Visibility    MetricSummary `json:"visibility"`
 	Followers     MetricSummary `json:"followers"`
 	FollowerScope string        `json:"follower_scope" enum:"account_wide"`
 	Engagement    MetricSummary `json:"engagement"`
@@ -58,6 +59,7 @@ type DailyBreakdownPoint struct {
 }
 
 type TrendSeries struct {
+	Visibility []DailyBreakdownPoint `json:"visibility"`
 	Followers  []DailyBreakdownPoint `json:"followers"`
 	Engagement []DailyBreakdownPoint `json:"engagement"`
 	Views      []DailyBreakdownPoint `json:"views"`
@@ -98,6 +100,7 @@ type ContentMeasurement struct {
 }
 
 type ContentOverview struct {
+	Visibility         *ContentVisibility                          `json:"visibility,omitempty"`
 	Reference          ContentReference                            `json:"reference"`
 	PublicationID      string                                      `json:"publication_id,omitempty"`
 	RenditionID        string                                      `json:"rendition_id,omitempty"`
@@ -124,6 +127,7 @@ type ContentOverview struct {
 }
 
 type PublicationOverview struct {
+	Visibility         MetricSummary            `json:"visibility"`
 	PublicationID      string                   `json:"publication_id"`
 	Title              string                   `json:"title"`
 	Excerpt            string                   `json:"excerpt"`
@@ -137,17 +141,21 @@ type PublicationOverview struct {
 }
 
 type Overview struct {
-	GeneratedAt    time.Time             `json:"generated_at"`
-	LastSyncedAt   time.Time             `json:"last_synced_at,omitempty"`
-	RangeDays      int                   `json:"range_days"`
-	RangeStart     time.Time             `json:"range_start,omitempty"`
-	RangeEnd       time.Time             `json:"range_end,omitempty"`
-	Summary        Summary               `json:"summary"`
-	Accounts       []AccountOverview     `json:"accounts"`
-	FollowerSeries []SeriesPoint         `json:"follower_series"`
-	Trends         TrendSeries           `json:"trends"`
-	Publications   []PublicationOverview `json:"publications"`
-	Content        []ContentOverview     `json:"content"`
+	VisibilityBreakdown []VisibilityBreakdown `json:"visibility_breakdown"`
+	Performance         []AccountPerformance  `json:"performance"`
+	Highlights          []ContentOverview     `json:"highlights"`
+	Takeaways           []Takeaway            `json:"takeaways"`
+	GeneratedAt         time.Time             `json:"generated_at"`
+	LastSyncedAt        time.Time             `json:"last_synced_at,omitempty"`
+	RangeDays           int                   `json:"range_days"`
+	RangeStart          time.Time             `json:"range_start,omitempty"`
+	RangeEnd            time.Time             `json:"range_end,omitempty"`
+	Summary             Summary               `json:"summary"`
+	Accounts            []AccountOverview     `json:"accounts"`
+	FollowerSeries      []SeriesPoint         `json:"follower_series"`
+	Trends              TrendSeries           `json:"trends"`
+	Publications        []PublicationOverview `json:"publications"`
+	Content             []ContentOverview     `json:"content"`
 	// ContentMetricKeys covers the complete filtered population, independent of pagination.
 	ContentMetricKeys  []string  `json:"content_metric_keys,omitempty"`
 	Insights           []Insight `json:"insights"`
@@ -237,7 +245,7 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 	result.Accounts = s.buildAccountOverviews(activeAccounts, stateByID, history, &result.Summary)
 	result.FollowerSeries = combinedFollowerSeries(result.Accounts)
 	result.Trends.Followers = dailyFollowerTrend(result.Accounts, options.AccountID)
-	result.Trends.Engagement, result.Trends.Views, err = s.loadDailyContentTrends(ctx, workspaceID, start, end, options.AccountID)
+	result.Trends.Engagement, result.Trends.Views, result.Trends.Visibility, err = s.loadDailyContentTrends(ctx, workspaceID, start, end, options.AccountID)
 	if err != nil {
 		return Overview{}, err
 	}
@@ -250,7 +258,12 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 		return Overview{}, err
 	}
 	result.Insights = buildOverviewInsights(insightContent, result.Accounts, options.AccountID, start, end)
+	projectContentVisibility(allContent)
+	result.VisibilityBreakdown = buildVisibilityBreakdown(allContent)
+	result.Performance = buildAccountPerformance(allContent, result.Accounts, options.AccountID)
+	result.Takeaways = buildTakeaways(insightContent, result.Accounts, options.AccountID)
 	orderContentOverviews(allContent, options.Sort)
+	result.Highlights = buildHighlights(allContent, options.Sort)
 	result.ContentMetricKeys = measuredContentMetrics(allContent)
 	result.ContentTotal = len(allContent)
 	result.PublicationTotal = uniquePublicationCount(allContent)
@@ -259,6 +272,7 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 
 	if options.Unpaged {
 		result.Content = allContent
+		result.Publications = buildPublicationOverviews(allContent)
 		return result, nil
 	}
 	populationRevision := overviewPopulationRevision(allContent)
@@ -269,6 +283,7 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 	endIndex := min(offset+options.Limit, len(allContent))
 	result.Content = allContent[offset:endIndex]
 	result.Publications = buildPublicationOverviews(result.Content)
+	applyPublicationVisibility(result.Publications, allContent)
 	nextCursor := s.encodeOverviewNextCursor(workspaceID, offset, len(result.Content), len(allContent), options, days, populationRevision, now)
 	result.ContentNextCursor = nextCursor
 	result.PublicationNextCursor = nextCursor
@@ -279,7 +294,7 @@ func normalizeOverviewOptions(options OverviewOptions) OverviewOptions {
 	options.AccountID = strings.TrimSpace(options.AccountID)
 	options.Sort = strings.ToLower(strings.TrimSpace(options.Sort))
 	switch options.Sort {
-	case "views", "newest":
+	case "views", "visibility", "newest":
 	default:
 		options.Sort = "engagement"
 	}
@@ -585,6 +600,7 @@ func buildPublicationOverviews(content []ContentOverview) []PublicationOverview 
 			order = append(order, item.PublicationID)
 		}
 		publication.Renditions = append(publication.Renditions, item)
+		addVisibility(&publication.Visibility, projectedVisibility(item))
 		compatible := compatibleContentValues(item.Metrics, item.MetricMetadata)
 		publication.Engagement += platform.EngagementTotal(compatible)
 		if platform.HasEngagementMetric(compatible) {
@@ -793,6 +809,7 @@ func (s *Service) loadManagedContent(
 func summarizeWholeAccountContent(content []ContentOverview) Summary {
 	summary := Summary{Published: len(content)}
 	for _, item := range content {
+		addVisibility(&summary.Visibility, projectedVisibility(item))
 		compatible := compatibleContentValues(item.Metrics, item.MetricMetadata)
 		summary.Engagement.Value += platform.EngagementTotal(compatible)
 		if platform.HasEngagementMetric(compatible) {
@@ -818,7 +835,15 @@ func uniquePublicationCount(content []ContentOverview) int {
 func orderContentOverviews(content []ContentOverview, order string) {
 	sort.SliceStable(content, func(i, j int) bool {
 		left, right := content[i], content[j]
+		leftKnown, rightKnown := contentMetricKnown(left, order), contentMetricKnown(right, order)
+		if leftKnown != rightKnown {
+			return leftKnown
+		}
 		switch order {
+		case "visibility":
+			if left.Visibility != nil && right.Visibility != nil && left.Visibility.Value != right.Visibility.Value {
+				return left.Visibility.Value > right.Visibility.Value
+			}
 		case "newest":
 			if !left.PublishedAt.Equal(right.PublishedAt) {
 				return left.PublishedAt.After(right.PublishedAt)

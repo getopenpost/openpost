@@ -1,11 +1,25 @@
 import type { components } from "@openpost/api-contract";
-import type { QueryFunctionContext } from "@tanstack/query-core";
+import type { InfiniteData, QueryFunctionContext } from "@tanstack/query-core";
 import { openPostWorkspaceKey } from "./keys";
 import { openPostQueryPolicy, queryStaleTime } from "./policies";
 
 export type AnalyticsOverview = components["schemas"]["Overview"];
 export type AnalyticsRangeDays = 0 | 7 | 30 | 90 | 365;
-export type AnalyticsSort = "engagement" | "views" | "newest";
+export type AnalyticsSort = "engagement" | "views" | "visibility" | "newest";
+
+export type AnalyticsCalendarPreset = "month_to_date" | "last_month";
+
+// Custom analytics bounds are inclusive UTC dates on every client.
+export function analyticsCalendarPresetRange(
+  preset: AnalyticsCalendarPreset,
+  now: Date = new Date(),
+): { days: 0; from: string; to: string } {
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const from = new Date(Date.UTC(year, month - (preset === "last_month" ? 1 : 0), 1));
+  const to = preset === "last_month" ? new Date(Date.UTC(year, month, 0)) : now;
+  return { days: 0, from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+}
 
 export interface AnalyticsFilters {
   readonly days: AnalyticsRangeDays;
@@ -43,6 +57,10 @@ export function analyticsOverviewQueryOptions(
     queryKey,
     enabled: Boolean(workspaceId),
     initialPageParam: "",
+    placeholderData: (
+      previous: InfiniteData<AnalyticsOverview, string> | undefined,
+      previousQuery: { queryKey: typeof queryKey } | undefined,
+    ) => (previousQuery?.queryKey[3] === workspaceId ? previous : undefined),
     queryFn: ({ pageParam, signal }: QueryFunctionContext<typeof queryKey, string>) =>
       api.getAnalyticsOverview(workspaceId, normalized, pageParam, signal),
     getNextPageParam: (lastPage: AnalyticsOverview) => lastPage.content_next_cursor || undefined,

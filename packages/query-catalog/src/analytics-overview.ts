@@ -3,7 +3,7 @@ import type { components } from "@openpost/api-contract";
 type AnalyticsContent = components["schemas"]["ContentOverview"];
 type AnalyticsInsight = components["schemas"]["Insight"];
 type AnalyticsOverview = components["schemas"]["Overview"];
-export type AnalyticsSortMode = "engagement" | "views" | "newest";
+export type AnalyticsSortMode = "engagement" | "views" | "visibility" | "newest";
 
 const engagementKeys = ["likes", "comments", "reposts", "quotes", "shares", "saves", "clicks"];
 

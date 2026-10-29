@@ -5,7 +5,7 @@
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
-	import type { AnalyticsRangeDays } from '@openpost/query-catalog';
+	import { analyticsCalendarPresetRange, type AnalyticsRangeDays } from '@openpost/query-catalog';
 	interface Props {
 		days: AnalyticsRangeDays;
 		from?: string;
@@ -85,6 +85,20 @@
 		aria-label={m.analytics_range_label()}
 	>
 		<div class="grid grid-cols-2 gap-1" role="group" aria-label={m.analytics_range_label()}>
+			{#each ['month_to_date', 'last_month'] as preset}
+				<Button
+					variant="ghost"
+					class="justify-start"
+					onclick={() => {
+						const range = analyticsCalendarPresetRange(preset as 'month_to_date' | 'last_month');
+						onchange(range.days, range.from, range.to);
+						open = false;
+					}}
+					>{preset === 'month_to_date'
+						? m.analytics_month_to_date()
+						: m.analytics_last_month()}</Button
+				>
+			{/each}
 			{#each presets as value (value)}
 				<Button
 					variant={!from && days === value ? 'secondary' : 'ghost'}

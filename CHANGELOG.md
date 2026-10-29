@@ -8,6 +8,17 @@ All notable changes to this project are documented in this file.
 
 - Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
 
+## [7.33.0] - 2026-10-29
+
+### Fixed
+
+- Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
+
+### Changed
+
+- Make long account lists searchable and responsive across the composer, Social Sets, workflows, repost settings, analytics exports, and native destination selection. Keep selection controls reachable and preserve hidden selections while filtering.
+- Label creation-menu actions New image and New video, and keep the sidebar arrow button square.
+
 ## [7.32.2] - 2026-10-28
 
 ### Fixed

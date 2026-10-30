@@ -388,6 +388,7 @@
 		oncutselection = () => false,
 		onpasteat = () => false,
 		onsplitselection = () => {},
+		onaddcrossfade = () => {},
 		ondeleteselection = () => {},
 		onrippledeleteselection = () => {},
 		onmixerlayoutchange = () => {},
@@ -423,6 +424,7 @@
 		oncutselection?: () => boolean;
 		onpasteat?: (frame: number, trackId: string | null) => boolean;
 		onsplitselection?: () => void;
+		onaddcrossfade?: () => void;
 		ondeleteselection?: () => void;
 		onrippledeleteselection?: () => void;
 		onmixerlayoutchange?: (open: boolean, height: number) => void;
@@ -4517,6 +4519,20 @@
 		}
 		return joinableItemNeighbors(timelineStore.items, contextPrimaryItem);
 	});
+	const contextCrossfadeAvailable = $derived.by(() => {
+		if (
+			!contextPrimaryItem ||
+			isTrackEffectivelyLocked(contextPrimaryItem.trackId, timelineStore.tracks)
+		)
+			return false;
+		const neighbors = (timelineStore.itemsByTrackId.get(contextPrimaryItem.trackId) ?? [])
+			.filter(
+				(other) => other.from >= contextPrimaryItem.from + contextPrimaryItem.durationInFrames - 1
+			)
+			.sort((a, b) => a.from - b.from);
+		const next = neighbors[0];
+		return Boolean(next && !isTrackEffectivelyLocked(next.trackId, timelineStore.tracks));
+	});
 	const captionConsolidationTarget = $derived.by<CaptionConsolidationOptions | null>(() => {
 		const lockedTrackIds = new Set(
 			effectiveMediaTracks(timelineStore.tracks)
@@ -5018,6 +5034,7 @@
 							{m.video_editor_marker_label()}
 							<Input
 								class="h-7 w-44 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-2 text-[var(--video-editor-field-text)] outline-none focus:border-[var(--video-editor-focus-border)]"
+								data-marker-label-input
 								value={markers.markerLabelDraft}
 								oninput={(event) => (markers.markerLabelDraft = event.currentTarget.value)}
 								onblur={() =>
@@ -5265,7 +5282,12 @@
 										onpointerdown={(event) => markers.startMarkerDrag(event, marker)}
 										ondblclick={(event) => {
 											event.stopPropagation();
-											markers.deleteTimelineMarker(marker.id);
+											markers.selectMarker(marker);
+											requestAnimationFrame(() => {
+												document
+													.querySelector<HTMLInputElement>('[data-marker-label-input]')
+													?.focus();
+											});
 										}}
 										onkeydown={(event) => markers.onMarkerKeydown(event, marker)}
 									>
@@ -6063,6 +6085,7 @@
 													<ContextMenu.Shortcut>4 fps</ContextMenu.Shortcut>
 												</ContextMenu.Item>
 												<ContextMenu.Item
+													title={m.video_editor_scene_split_adaptive_help()}
 													onclick={() => onsplitscenes(contextPrimaryItem.id, 'adaptive-lfm')}
 												>
 													{m.video_editor_scene_split_adaptive()}
@@ -6195,6 +6218,9 @@
 							>
 						</ContextMenu.Item>
 					{/if}
+					<ContextMenu.Item disabled={!contextCrossfadeAvailable} onclick={onaddcrossfade}>
+						{m.video_editor_crossfade()}
+					</ContextMenu.Item>
 					{#if bentoEligibleIds.length >= 2}
 						<ContextMenu.Item onclick={() => (bentoLayoutOpen = true)}>
 							{m.video_editor_bento_open()}
@@ -6422,6 +6448,13 @@
 						<ContextMenu.Shortcut
 							>{formatShortcutBinding(keyboardShortcuts.bindings.PASTE)}</ContextMenu.Shortcut
 						>
+					</ContextMenu.Item>
+					<ContextMenu.Separator />
+					<ContextMenu.Item onclick={() => addNamedTrack('video')}>
+						{m.video_editor_track_add_video()}
+					</ContextMenu.Item>
+					<ContextMenu.Item onclick={() => addNamedTrack('audio')}>
+						{m.video_editor_track_add_audio()}
 					</ContextMenu.Item>
 				{/if}
 			</ContextMenu.Content>

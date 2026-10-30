@@ -65,7 +65,7 @@ test("Cloud conflicts identify this browser and another device without presentin
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Version history", exact: true }).click();
   const history = page.getByRole("dialog", { name: "Version history", exact: true });
-  await expect(history.getByText("Loading...", { exact: true })).toHaveCount(0);
+  await expect(history.getByText("Loading…", { exact: true })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("conflict-origin-before-assertion.png") });
   await expect(history.getByText(/^From another browser or device\s*·/)).toBeVisible();
   await expect(history.getByText(/^From this browser\s*·/)).toBeVisible();

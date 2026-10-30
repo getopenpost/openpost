@@ -5,6 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { Input } from '$lib/components/ui/input';
+	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import type { CutMode, QuickCutSegment, QuickCutSource } from '../types';
 	import { formatTimecode } from '../model';
@@ -216,10 +217,7 @@
 									{m.quick_cut_export()}
 								</Button>
 							</div>
-							<details class="border-t pt-2">
-								<summary class="cursor-pointer text-xs text-muted-foreground"
-									>{m.editor_more_options()}</summary
-								>
+							<EditorDisclosure label={m.editor_more_options()} class="border-t border-b-0 pt-2">
 								<div class="mt-2 grid min-w-0 gap-2">
 									<label class="flex flex-col gap-1 text-xs">
 										<span class="sr-only">{m.quick_cut_segment_name()} {index + 1}</span>
@@ -256,7 +254,7 @@
 										/>
 									</label>
 								</div>
-							</details>
+							</EditorDisclosure>
 						{/if}
 					</div>
 				</ContextMenu.Trigger>

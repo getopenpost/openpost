@@ -37,7 +37,7 @@ async function createProject(
   await installLocalWorkspacePicker(page);
   await page.goto("/video-editor");
   if (options.selectLocalProjects) {
-    await page.getByRole("button", { name: "Local only" }).click();
+    await page.getByRole("button", { name: "This device" }).click();
   }
   await page.getByRole("button", { name: "Choose folder" }).click();
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
@@ -141,7 +141,7 @@ for (const scheme of ["light", "dark"] as const) {
         if (width < 768)
           await page
             .getByRole("navigation", { name: "Editor panels" })
-            .getByRole("button", { name: "Edit", exact: true })
+            .getByRole("button", { name: "Properties", exact: true })
             .click();
         await trimStart.scrollIntoViewIfNeeded();
         await expect(trimStart).toBeInViewport();

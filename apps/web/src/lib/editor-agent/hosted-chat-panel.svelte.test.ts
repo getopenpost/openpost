@@ -160,7 +160,7 @@ it('shows an unavailable assistant without waiting for a guest workspace', async
 		sessionId: null
 	});
 	await expect.element(screen.getByText('Assistant unavailable.', { exact: true })).toBeVisible();
-	await expect.element(screen.getByText('Loading...', { exact: true })).not.toBeInTheDocument();
+	await expect.element(screen.getByText('Loading…', { exact: true })).not.toBeInTheDocument();
 	await expect
 		.element(screen.getByRole('button', { name: 'Preferences', exact: true }))
 		.toBeDisabled();

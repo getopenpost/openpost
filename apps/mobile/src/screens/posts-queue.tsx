@@ -247,7 +247,7 @@ export default function QueueScreen({ navigation }: { navigation?: React.ReactNo
               <QueueRow key={publication.id} publication={publication} />
             ))}
             {(scheduled.data?.length ?? 0) === 0 && hasScheduledData ? (
-              <EmptyState title="Nothing scheduled yet" />
+              <EmptyState iconRole="queue" title="Nothing scheduled yet" />
             ) : null}
           </Section>
         ) : null}

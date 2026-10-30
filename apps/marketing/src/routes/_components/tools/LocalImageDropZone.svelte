@@ -14,7 +14,7 @@
 		disabled = false,
 		label = 'Drop an image here, paste it, or choose a file',
 		maxBytes = LOCAL_IMAGE_MAX_BYTES,
-		hint = 'PNG, JPEG, or WebP, up to 50 MB',
+		hint,
 		acceptTypes = 'image/png,image/jpeg,image/webp',
 		helpText,
 		onerror
@@ -31,6 +31,7 @@
 
 	let input = $state<HTMLInputElement | null>(null);
 	let dragging = $state(false);
+	const sizeHint = $derived(`PNG, JPEG, or WebP, up to ${Math.round(maxBytes / 1024 / 1024)} MB`);
 
 	async function accept(file: File | null): Promise<void> {
 		if (!file || disabled) return;
@@ -86,7 +87,7 @@
 >
 	<ImageUp size={28} aria-hidden="true" />
 	<span>{label}</span>
-	<small>{helpText ?? hint}</small>
+	<small>{helpText ?? hint ?? sizeHint}</small>
 </button>
 <Input
 	bind:ref={input}

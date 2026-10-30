@@ -369,7 +369,15 @@ export function ThemeAsset({
   );
 }
 
-export function EmptyState({ body, title }: { body?: string; title: string }) {
+export function EmptyState({
+  body,
+  iconRole = "drafts",
+  title,
+}: {
+  body?: string;
+  iconRole?: NativeIconRole;
+  title: string;
+}) {
   const theme = useNativeTheme();
   const presentation = emptyStatePresentation(theme.manifest);
   const illustration = themeAssetFor(theme, "empty-state-illustration");
@@ -400,7 +408,11 @@ export function EmptyState({ body, title }: { body?: string; title: string }) {
             },
           ]}
         >
-          <ThemeIcon role="drafts" size={36} tintColor={theme.manifest.colors.onPrimaryContainer} />
+          <ThemeIcon
+            role={iconRole}
+            size={36}
+            tintColor={theme.manifest.colors.onPrimaryContainer}
+          />
         </View>
       ) : null}
       <ContentTitle style={styles.stateText}>{title}</ContentTitle>

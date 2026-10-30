@@ -709,7 +709,7 @@
 						onclick={() => {
 							storageModeChosen = true;
 							storageMode = 'cloud';
-						}}>{m.video_editor_cloud_projects()}</Button
+						}}>{m.editor_storage_choice_cloud()}</Button
 					>
 					<Button
 						variant={storageMode === 'local' ? 'secondary' : 'ghost'}
@@ -718,7 +718,7 @@
 						onclick={() => {
 							storageModeChosen = true;
 							storageMode = 'local';
-						}}>{m.video_editor_local_only()}</Button
+						}}>{m.editor_storage_choice_local()}</Button
 					>
 				</div>
 			{/if}

@@ -196,7 +196,7 @@ Organization themes are versioned visual documents. They may control semantic co
 
 The app uses a centered content column up to 72rem with 1rem mobile gutters, 1.5rem tablet gutters, and 2rem large-screen gutters. Theme density may adjust bounded internal gaps, but it cannot remove safe gutters or change route structure. Shared page containers establish the route rhythm. Page headers switch from stacked to split action layout through a 44rem container query so they respond to available content width rather than the viewport alone.
 
-Public pages use a wider 80rem frame and larger responsive section spacing. Documentation keeps a reading-first column and conventional sidebar. Mobile app navigation respects safe-area insets, keeps the primary compose action distinct, and leaves enough bottom clearance for content. Coarse-pointer controls have a minimum 44px target.
+Public pages use a wider 78rem frame and larger responsive section spacing. Documentation keeps a reading-first column and conventional sidebar. Mobile app navigation respects safe-area insets, keeps the primary compose action distinct, and leaves enough bottom clearance for content. Coarse-pointer controls have a minimum 44px target.
 
 Use the established 4px spacing family, but vary it by hierarchy: tight within controls and metadata groups, moderate within sections, generous between major public-page ideas. Prefer `gap` for sibling relationships.
 

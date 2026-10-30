@@ -890,7 +890,7 @@ export async function installLocalVideoWorkspace(page: Page, sourceBase64: strin
 
 export async function createVideoEditorProject(page: Page, name: string): Promise<void> {
   await page.goto("/video-editor");
-  await page.getByRole("button", { name: "Local only", exact: true }).click();
+  await page.getByRole("button", { name: "This device", exact: true }).click();
   await page.getByRole("button", { name: "Choose folder" }).click();
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
   await page.getByRole("button", { name: "Custom project" }).click();

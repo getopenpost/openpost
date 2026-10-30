@@ -153,7 +153,7 @@
 				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[var(--video-editor-muted)]"
 			/>
 			<Input
-				class="h-[22px] w-full rounded bg-[var(--video-editor-panel)] pr-8 pl-7 text-[11px] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base"
+				class="h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-panel)] pr-8 pl-7 text-[11px] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base"
 				placeholder={m.video_editor_lottiefiles_search()}
 				bind:value={inputValue}
 			/>

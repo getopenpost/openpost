@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import { formatBytes as formatByteSize } from '$lib/byte-size';
 	import { getCurrentLocale, localeLabels, switchLocale } from '$lib/i18n';
 	import { locales, type Locale } from '$lib/paraglide/runtime';
 	import AppSelect from '$lib/components/app-select.svelte';
@@ -72,9 +73,7 @@
 	let proxyBytes = $state(0);
 
 	function formatBytes(bytes: number): string {
-		if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-		if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-		return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+		return formatByteSize(bytes, { base: 'iec' }) ?? '—';
 	}
 
 	$effect(() => {

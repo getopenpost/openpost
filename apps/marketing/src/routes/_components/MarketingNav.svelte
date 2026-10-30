@@ -331,7 +331,7 @@
 				{#if mode.current === 'dark'}<Sun />{:else}<Moon />{/if}
 			</Button>
 			<Button href={`${appUrl}/login`} variant="ghost" size="sm">Sign in</Button>
-			<Button href={managedSignupUrl} size="sm" class="nav-cta">
+			<Button href={managedSignupUrl} size="sm">
 				Get started
 				<ArrowRight data-icon="inline-end" />
 			</Button>
@@ -388,7 +388,7 @@
 				<div class="mt-4 grid grid-cols-[auto_1fr] gap-2 border-t pt-4">
 					<Button
 						type="button"
-						variant="outline"
+						variant="ghost"
 						size="icon"
 						class="size-11"
 						aria-label={mode.current === 'dark' ? 'Use light theme' : 'Use dark theme'}
@@ -397,7 +397,7 @@
 					>
 						{#if mode.current === 'dark'}<Sun />{:else}<Moon />{/if}
 					</Button>
-					<Button href={managedSignupUrl} size="sm" class="nav-cta">Get started</Button>
+					<Button href={managedSignupUrl} size="sm">Get started</Button>
 				</div>
 			</div>
 		</nav>

@@ -541,7 +541,7 @@
 											tabindex={-1}
 											variant="ghost"
 											size="icon-xs"
-											class="size-6 shrink-0"
+											class="size-6 shrink-0 [@media(pointer:coarse)]:size-11"
 											onclick={(event) => {
 												event.stopPropagation();
 												toggleGroup(layer.id);
@@ -610,6 +610,7 @@
 										tabindex={-1}
 										variant="ghost"
 										size="icon-xs"
+										class="[@media(pointer:coarse)]:size-11"
 										aria-label={layer.visible
 											? m.image_editor_hide_layer({ name: layer.name })
 											: m.image_editor_show_layer({ name: layer.name })}
@@ -628,6 +629,7 @@
 										tabindex={-1}
 										variant="ghost"
 										size="icon-xs"
+										class="[@media(pointer:coarse)]:size-11"
 										aria-label={layer.locked
 											? m.image_editor_unlock_layer({ name: layer.name })
 											: m.image_editor_lock_layer({ name: layer.name })}

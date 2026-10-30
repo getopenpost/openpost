@@ -273,7 +273,7 @@
 					aria-label={m.compose_schedule_time()}
 				/>
 				{#if inputError || externalError}
-					<p class="px-1 text-xs text-destructive">
+					<p role="alert" class="px-1 text-xs text-destructive">
 						{inputError || externalError}
 					</p>
 				{/if}

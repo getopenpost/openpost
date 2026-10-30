@@ -47,7 +47,7 @@
 				aria-valuenow={Math.round(progress.fraction * 100)}
 			>
 				<div
-					class="h-full bg-primary transition-all"
+					class="h-full bg-primary transition-[width] motion-reduce:transition-none"
 					style={`width:${Math.round(progress.fraction * 100)}%`}
 				></div>
 			</div>

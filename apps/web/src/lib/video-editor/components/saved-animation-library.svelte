@@ -149,7 +149,7 @@
 				id="saved-animation-name"
 				bind:value={presetName}
 				maxlength={80}
-				class="h-[22px] min-h-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-2 text-[0.6rem] text-[var(--video-editor-field-text)]"
+				class="h-[var(--editor-22,22px)] min-h-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-2 text-[0.6rem] text-[var(--video-editor-field-text)]"
 				onkeydown={(event) => event.key === 'Enter' && savePreset()}
 			/>
 			<div>
@@ -172,7 +172,7 @@
 						type="search"
 						bind:value={localQuery}
 						placeholder={m.video_editor_saved_animation_search()}
-						class="h-[22px] min-h-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-2 text-[0.6rem] text-[var(--video-editor-field-text)]"
+						class="h-[var(--editor-22,22px)] min-h-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-2 text-[0.6rem] text-[var(--video-editor-field-text)]"
 					/>
 				</label>
 			{/if}

@@ -97,7 +97,7 @@ test("a background moves between visual tracks with undo, cancel and persistence
     await expect(
       page
         .getByRole("navigation", { name: "Editor panels" })
-        .getByRole("button", { name: "Edit", exact: true }),
+        .getByRole("button", { name: "Properties", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("textbox", { name: "Width", exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath(`inspector-light-${width}.png`) });

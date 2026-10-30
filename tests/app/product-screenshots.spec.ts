@@ -394,11 +394,11 @@ test.describe("product screenshot capture", () => {
       await page.setViewportSize(captureViewport);
 
       await page.goto("/settings?tab=accounts");
-      await expect(page.getByRole("heading", { name: "Connected channels" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Connected accounts" })).toBeVisible();
       await expect(page.getByText("@rodrgds").first()).toBeVisible();
       await capture(page, `accounts-${captureScheme}.png`, [
-        page.getByRole("heading", { name: "Connected channels" }),
-        page.getByRole("heading", { name: "Add a channel", exact: true }),
+        page.getByRole("heading", { name: "Connected accounts" }),
+        page.getByRole("heading", { name: "Add an account", exact: true }),
         page.getByTestId("provider-card-x"),
       ]);
 
@@ -655,7 +655,7 @@ test.describe("product screenshot capture", () => {
         }),
       );
       await page.goto("/settings?tab=accounts");
-      await expect(page.getByRole("heading", { name: "Connected channels" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Connected accounts" })).toBeVisible();
       await page.addStyleTag({
         content: `*, *::before, *::after { animation: none !important; transition: none !important; }`,
       });

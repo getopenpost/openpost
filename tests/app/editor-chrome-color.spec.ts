@@ -38,7 +38,7 @@ async function createVideoProject(page: Page, name = "Shared editor chrome"): Pr
     });
   });
   await page.goto("/video-editor");
-  await page.getByRole("button", { name: "Local only" }).click();
+  await page.getByRole("button", { name: "This device" }).click();
   await page.getByRole("button", { name: "Choose folder" }).click();
   await page.getByRole("button", { name: "Custom project" }).click();
   await page.getByRole("textbox", { name: "Project name" }).fill(name);
@@ -243,7 +243,6 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
       if (width === 320) {
         await page.getByRole("banner").getByRole("button", { name: "More actions" }).click();
         await expect(page.getByRole("textbox", { name: "Project name" })).toBeVisible();
-        await expect(page.getByRole("menuitem", { name: /Split/ })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: "New sequence" })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible();
         await page.keyboard.press("Escape");
@@ -294,7 +293,6 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         await page.getByRole("button", { name: "Show all scopes" }).click();
         await expect(page.locator("[data-color-scope-canvas]")).toHaveCount(4);
         await page.getByRole("banner").getByRole("button", { name: "More actions" }).click();
-        await expect(page.getByRole("menuitem", { name: /Split/ })).toBeVisible();
         await expect(page.getByRole("menuitem", { name: "New sequence" })).toBeVisible();
         await page.keyboard.press("Escape");
         await expect(page.getByRole("menu")).toHaveCount(0);

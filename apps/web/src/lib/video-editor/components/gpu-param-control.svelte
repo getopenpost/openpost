@@ -139,7 +139,7 @@
 			max={param.max}
 			step={param.step}
 			decimals={param.step < 0.1 ? 2 : param.step < 1 ? 1 : 0}
-			class="h-[22px] w-12 shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-right text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
+			class="h-[var(--editor-22,22px)] w-12 shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-right text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
 			onlive={(next) => {
 				draftNumber = next;
 			}}
@@ -195,7 +195,7 @@
 			}}
 		/>
 		<Input
-			class="h-[22px] min-w-0 flex-1 px-2 font-mono text-[10px]"
+			class="h-[var(--editor-22,22px)] min-w-0 flex-1 px-2 font-mono text-[10px]"
 			value={draftColor}
 			maxlength={9}
 			spellcheck={false}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import { formatBytes as formatByteSize } from '$lib/byte-size';
 	import { Button } from '$lib/components/ui/button';
 	import { ProtectedIcon } from '$lib/themes/icons';
 	import {
@@ -55,9 +56,7 @@
 	}
 
 	function formatBytes(bytes: number): string {
-		if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
-		if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-		return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+		return formatByteSize(bytes, { base: 'iec' }) ?? '—';
 	}
 
 	async function refresh(): Promise<void> {

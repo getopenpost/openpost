@@ -3,6 +3,7 @@
 	import LibraryFavorite from './library-favorite.svelte';
 	import { videoLibrary } from '../library/library-store.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { onDestroy } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { TransitionDirection } from '$lib/video-editor/project/types';
@@ -23,6 +24,7 @@
 	} = $props();
 
 	let scroller = $state<HTMLElement | null>(null);
+	let search = $state('');
 	let activeId = $state<string | null>(null);
 
 	const categoryOrder = ['basic', 'dissolve', 'motion', 'wipe', 'iris', 'shape', 'custom'];
@@ -48,6 +50,18 @@
 				items: transitionRegistry
 					.getDefinitions()
 					.filter((definition) => definition.category === category)
+			}))
+			.filter((group) => group.items.length > 0)
+	);
+	const filteredGroups = $derived(
+		groups
+			.map((group) => ({
+				...group,
+				items: group.items.filter((definition) =>
+					`${group.label} ${localizedTransitionLabel(definition.id, definition.label)}`
+						.toLocaleLowerCase()
+						.includes(search.trim().toLocaleLowerCase())
+				)
 			}))
 			.filter((group) => group.items.length > 0)
 	);
@@ -89,7 +103,17 @@
 			>
 		{/if}
 	{/each}
-	{#each groups as group (group.category)}
+	<Input
+		type="search"
+		bind:value={search}
+		placeholder={m.video_editor_transition_search()}
+		aria-label={m.video_editor_transition_search()}
+		class="mb-2 h-[25px] text-xs [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base"
+	/>
+	{#if filteredGroups.length === 0}<p class="text-xs text-muted-foreground" role="status">
+			{m.video_editor_transition_no_results()}
+		</p>{/if}
+	{#each filteredGroups as group (group.category)}
 		<section class="mb-2 last:mb-0">
 			<h3
 				class="mb-2 text-[10px] font-semibold tracking-[0.12em] text-[var(--video-editor-muted)] uppercase"

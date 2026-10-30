@@ -213,7 +213,7 @@
 		>
 		<button
 			type="button"
-			class="inline-flex h-[22px] items-center gap-1 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 text-[10px] font-medium text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-not-allowed disabled:opacity-35"
+			class="inline-flex h-[var(--editor-22,22px)] items-center gap-1 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-2 text-[10px] font-medium text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:cursor-not-allowed disabled:opacity-35"
 			disabled={!canAdd}
 			onclick={addPoint}
 		>
@@ -294,7 +294,7 @@
 						disabled={!range}
 						aria-label={m.video_editor_speed_point_time({ index: index + 1 })}
 						title={formatSourceTime(point, item)}
-						class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-1 text-right text-[10px] text-[var(--video-editor-field-text)] tabular-nums outline-none focus:border-[var(--video-editor-focus-border)]"
+						class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-1 text-right text-[10px] text-[var(--video-editor-field-text)] tabular-nums outline-none focus:border-[var(--video-editor-focus-border)]"
 						onchange={(event) => {
 							updatePoint(point.id, { sourceFrame: event.currentTarget.valueAsNumber });
 							event.currentTarget.value = String(
@@ -313,7 +313,7 @@
 							step="0.05"
 							value={point.speed}
 							aria-label={pointLabel(index)}
-							class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] py-1 pr-4 pl-1.5 text-right text-[10px] text-[var(--video-editor-field-text)] tabular-nums outline-none focus:border-[var(--video-editor-focus-border)]"
+							class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] py-1 pr-4 pl-1.5 text-right text-[10px] text-[var(--video-editor-field-text)] tabular-nums outline-none focus:border-[var(--video-editor-focus-border)]"
 							onchange={(event) =>
 								updatePoint(point.id, { speed: event.currentTarget.valueAsNumber })}
 						/>
@@ -328,7 +328,7 @@
 						ariaLabel={m.video_editor_keyframe_graph_segment_easing({
 							frame: point.sourceFrame
 						})}
-						class="h-[22px] min-w-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-1 text-[9px] text-[var(--video-editor-field-text)] outline-none focus:border-[var(--video-editor-focus-border)]"
+						class="h-[var(--editor-22,22px)] min-w-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-1 text-[9px] text-[var(--video-editor-field-text)] outline-none focus:border-[var(--video-editor-focus-border)]"
 						onValueChange={(value) => updatePoint(point.id, { easing: value as EasingType })}
 					/>
 					<button

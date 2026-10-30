@@ -1512,7 +1512,7 @@
 					<span>{m.media_filters()}</span>
 					{#if activeDetailFilterCount > 0}
 						<span
-							class="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+							class="flex size-5 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground ring-1 ring-background"
 						>
 							{activeDetailFilterCount}
 						</span>

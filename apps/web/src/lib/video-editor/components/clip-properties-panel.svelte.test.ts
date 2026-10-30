@@ -226,7 +226,7 @@ it('opens active corner pin controls by default', async () => {
 	await vi.waitFor(() => {
 		expect(
 			screen.container
-				.querySelector('[data-collapsible-trigger][aria-label="Corner pin: Active"]')
+				.querySelector('[data-collapsible-trigger][aria-label="Corner pin: Modified"]')
 				?.getAttribute('aria-expanded')
 		).toBe('true');
 	});
@@ -322,10 +322,10 @@ it('marks collapsed appearance and crop groups when only keyframes change those 
 	timelineStore._setItems([item]);
 	const screen = await render(ClipPropertiesPanel, { itemId: item.id, onedit: vi.fn() });
 	await expect
-		.element(screen.getByRole('button', { name: 'Appearance: Active', exact: true }))
+		.element(screen.getByRole('button', { name: 'Appearance: Modified', exact: true }))
 		.toHaveAttribute('aria-expanded', 'false');
 	await expect
-		.element(screen.getByRole('button', { name: 'Crop media: Active', exact: true }))
+		.element(screen.getByRole('button', { name: 'Crop media: Modified', exact: true }))
 		.toHaveAttribute('aria-expanded', 'false');
 });
 

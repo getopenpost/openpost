@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount, type Snippet } from 'svelte';
 	import { Input } from '$lib/components/ui/input';
+	import { StatusLine } from '$lib/components/editor-density';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import EditorColorComparison from '$lib/components/editor-color-comparison.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -282,7 +283,7 @@
 
 {#if isVisual}
 	<section
-		class="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--video-editor-panel)] {scrollCompactBody
+		class="editor-density flex h-full min-h-0 flex-col overflow-hidden bg-[var(--video-editor-panel)] {scrollCompactBody
 			? 'short-scroll-workspace'
 			: ''}"
 		aria-label={m.video_editor_color_workspace()}
@@ -294,16 +295,9 @@
 		>
 			<div class="flex items-center justify-between gap-2 overflow-x-auto">
 				<div class="flex shrink-0 items-center gap-1">
-					{#if !compact}
-						<h3
-							class="text-xs font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase"
-						>
-							{m.video_editor_color_workspace()}
-						</h3>
-					{/if}
 					<button
 						type="button"
-						class="color-tool h-[22px] [@media(pointer:coarse)]:h-11"
+						class="editor-tool"
 						class:bg-[var(--video-editor-primary)]={autoKey}
 						class:text-[var(--video-editor-primary-text)]={autoKey}
 						aria-pressed={autoKey}
@@ -316,7 +310,7 @@
 					{#if compact}
 						<button
 							type="button"
-							class="color-tool h-[22px] [@media(pointer:coarse)]:h-11"
+							class="editor-tool"
 							aria-label={m.image_editor_more_actions()}
 							title={m.image_editor_more_actions()}
 							aria-expanded={showGradeTools}
@@ -350,7 +344,7 @@
 				>
 					<button
 						type="button"
-						class="color-tool min-w-24 flex-1"
+						class="editor-tool min-w-24 flex-1"
 						disabled={grade.length === 0}
 						onclick={copyGrade}
 					>
@@ -358,7 +352,7 @@
 					</button>
 					<button
 						type="button"
-						class="color-tool min-w-24 flex-1"
+						class="editor-tool min-w-24 flex-1"
 						disabled={!colorPreviewStore.gradeClipboard?.length}
 						onclick={pasteGrade}
 					>
@@ -367,7 +361,7 @@
 					{#if oncreateadjustment}
 						<button
 							type="button"
-							class="color-tool min-w-28 flex-1"
+							class="editor-tool min-w-28 flex-1"
 							title={m.video_editor_adjustment_layer_hint()}
 							onclick={oncreateadjustment}
 						>
@@ -379,7 +373,7 @@
 					{/if}
 					<button
 						type="button"
-						class="color-tool shrink-0"
+						class="editor-tool shrink-0"
 						aria-expanded={showPresets}
 						onclick={() => (showPresets = !showPresets)}
 					>
@@ -387,7 +381,7 @@
 					</button>
 					<button
 						type="button"
-						class="color-icon"
+						class="editor-tool-icon"
 						disabled={grade.length === 0}
 						title={m.video_editor_color_presets()}
 						aria-label={m.video_editor_color_presets()}
@@ -401,7 +395,7 @@
 			{#if showPresetSave}
 				<div class="mt-1 grid grid-cols-[1fr_auto] gap-1">
 					<Input
-						class="h-[22px] min-w-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-xs [@media(pointer:coarse)]:h-11"
+						class="h-[var(--editor-22,22px)] min-w-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-xs [@media(pointer:coarse)]:h-11"
 						bind:value={presetName}
 						placeholder={m.video_editor_color_preset_name()}
 						aria-label={m.video_editor_color_preset_name()}
@@ -412,7 +406,7 @@
 					/>
 					<button
 						type="button"
-						class="color-icon"
+						class="editor-tool-icon"
 						disabled={!presetName.trim() || grade.length === 0}
 						title={m.video_editor_color_save_preset()}
 						aria-label={m.video_editor_color_save_preset()}
@@ -478,9 +472,11 @@
 				</div>
 			{/if}
 			{#if status}
-				<p class="mt-0.5 truncate text-[9px] text-[var(--video-editor-muted)]" aria-live="polite">
-					{status}
-				</p>
+				<StatusLine
+					segments={[status]}
+					live
+					class="mt-0.5 border-t-0 text-[var(--video-editor-muted)]"
+				/>
 			{/if}
 		</div>
 		<div
@@ -515,50 +511,6 @@
 
 		.short-scroll-workspace .short-scroll-workspace-body {
 			overflow: visible;
-		}
-	}
-
-	.color-tool {
-		display: flex;
-		height: 1.375rem;
-		align-items: center;
-		justify-content: center;
-		gap: 0.25rem;
-		border-radius: 0.25rem;
-		border: 1px solid var(--video-editor-border);
-		padding-inline: 0.375rem;
-		font-size: 0.625rem;
-	}
-	.color-tool:hover:not(:disabled),
-	.color-icon:hover:not(:disabled) {
-		background: var(--video-editor-control-hover);
-	}
-	.color-tool:focus-visible,
-	.color-icon:focus-visible {
-		outline: 2px solid var(--video-editor-focus);
-		outline-offset: 1px;
-	}
-	.color-tool:disabled,
-	.color-icon:disabled {
-		cursor: not-allowed;
-		opacity: 0.45;
-	}
-	.color-icon {
-		display: flex;
-		height: 1.375rem;
-		width: 1.375rem;
-		align-items: center;
-		justify-content: center;
-		border-radius: 0.25rem;
-		border: 1px solid var(--video-editor-border);
-	}
-	@media (pointer: coarse) {
-		.color-tool,
-		.color-icon {
-			height: 2.75rem;
-		}
-		.color-icon {
-			width: 2.75rem;
 		}
 	}
 </style>

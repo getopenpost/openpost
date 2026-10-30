@@ -261,7 +261,7 @@
 				{max}
 				step={1}
 				decimals={0}
-				class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-7 pl-5 text-right text-[11px] text-[var(--video-editor-text)] tabular-nums transition-colors outline-none hover:border-[var(--video-editor-focus-border)] focus:border-[var(--video-editor-focus-border)] focus:ring-1 focus:ring-[color-mix(in_oklch,var(--video-editor-focus)_35%,transparent)] [@media(pointer:coarse)]:h-11"
+				class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-7 pl-5 text-right text-[11px] text-[var(--video-editor-text)] tabular-nums transition-colors outline-none hover:border-[var(--video-editor-focus-border)] focus:border-[var(--video-editor-focus-border)] focus:ring-1 focus:ring-[color-mix(in_oklch,var(--video-editor-focus)_35%,transparent)] [@media(pointer:coarse)]:h-11"
 				onbegin={beginGesture}
 				onlive={(value) => writeLive(property, value)}
 				oncommit={(value) => commitGesture(property, value)}
@@ -413,7 +413,18 @@
 				</div>
 			</div>
 
-			<EditorDisclosure label={m.video_editor_property_anchor()}>
+			<EditorDisclosure
+				label={m.video_editor_property_anchor()}
+				summary={items.some(
+					(item) =>
+						item.transform?.anchorX !== undefined ||
+						item.transform?.anchorY !== undefined ||
+						item.keyframes?.anchorX?.frames.length ||
+						item.keyframes?.anchorY?.frames.length
+				)
+					? m.video_editor_modified()
+					: undefined}
+			>
 				<div
 					class="grid grid-cols-1 gap-1 px-2.5 py-2 @min-[24rem]/transform:grid-cols-[4.25rem_minmax(0,1fr)] @min-[24rem]/transform:gap-2"
 				>
@@ -468,7 +479,7 @@
 						disabled={locked}
 						size="sm"
 						variant="ghost"
-						class="h-[22px] justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
+						class="h-[var(--editor-22,22px)] justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
 						aria-pressed={items.every((item) => item.transform?.flipHorizontal === true)}
 						onclick={() => toggleFlip('flipHorizontal')}>{m.video_editor_property_flip_x()}</Button
 					>
@@ -477,7 +488,7 @@
 						disabled={locked}
 						size="sm"
 						variant="ghost"
-						class="h-[22px] justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
+						class="h-[var(--editor-22,22px)] justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
 						aria-pressed={items.every((item) => item.transform?.flipVertical === true)}
 						onclick={() => toggleFlip('flipVertical')}>{m.video_editor_property_flip_y()}</Button
 					>
@@ -499,7 +510,7 @@
 					item.keyframes?.opacity?.frames.length ||
 					item.keyframes?.cornerRadius?.frames.length
 			)
-				? m.video_editor_workspace_active()
+				? m.video_editor_modified()
 				: undefined}
 		>
 			<div class="divide-y divide-[var(--video-editor-border)]">
@@ -550,7 +561,7 @@
 						>{m.video_editor_blend_mode()}</span
 					>
 					<AppSelect
-						class="h-[22px] min-w-0 text-xs"
+						class="h-[var(--editor-22,22px)] min-w-0 text-xs"
 						value={hasShapeMask() ? 'normal' : mixedBlendMode()}
 						options={blendOptions}
 						placeholder={m.video_editor_property_mixed()}

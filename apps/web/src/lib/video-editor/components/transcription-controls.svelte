@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Disclosure as EditorDisclosure, HintButton } from '$lib/components/editor-density';
+	import { formatBytes as formatByteSize } from '$lib/byte-size';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
@@ -70,8 +71,7 @@
 	);
 
 	function formatBytes(bytes: number): string {
-		if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-		return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+		return formatByteSize(bytes, { base: 'iec' }) ?? '—';
 	}
 
 	const modelDownloadSize = $derived(

@@ -441,7 +441,7 @@ function AnalyticsDashboard() {
             <View style={{ gap: spacing.small }}>
               <ContentTitle>All results</ContentTitle>
               {(overview.content?.length ?? 0) === 0 ? (
-                <EmptyState title="No published posts in this period" />
+                <EmptyState iconRole="analytics" title="No published posts in this period" />
               ) : (
                 query.data?.pages
                   .flatMap((page) => page.content ?? [])

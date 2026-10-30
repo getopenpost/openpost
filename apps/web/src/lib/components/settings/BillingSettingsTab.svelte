@@ -8,6 +8,7 @@
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { getLocaleTag } from '$lib/i18n';
+	import { formatBytes as formatByteSize } from '$lib/byte-size';
 	import { checkoutPathForPlan, hostedPlanFromSearchParams } from '$lib/billing';
 	import {
 		billingPortalBody,
@@ -295,13 +296,8 @@
 	}
 
 	function formatBytes(value: number): string {
-		if (value >= 1_000_000_000) {
-			return `${new Intl.NumberFormat(getLocaleTag(), { maximumFractionDigits: 1 }).format(value / 1_000_000_000)} GB`;
-		}
-		if (value >= 1_000_000) {
-			return `${new Intl.NumberFormat(getLocaleTag(), { maximumFractionDigits: 1 }).format(value / 1_000_000)} MB`;
-		}
-		return `${new Intl.NumberFormat(getLocaleTag()).format(value)} B`;
+		// Billing surfaces quote decimal (SI) sizes, matching plan catalog limits.
+		return formatByteSize(value, { locale: getLocaleTag(), base: 'si' }) ?? '—';
 	}
 
 	function formatDate(value: string): string {

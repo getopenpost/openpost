@@ -1,5 +1,5 @@
 import { NativeText as Text } from "@/components/native-text";
-import { Redirect, router, Stack } from "expo-router";
+import { Redirect, Stack } from "expo-router";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BodyText, ContentSection, IconButton, Screen, SectionHeader } from "@/components/ui";
+import { BodyText, ContentSection, Screen, SectionHeader } from "@/components/ui";
 import { ThemeIcon } from "@/components/theme-icon";
 import {
   getToken,
@@ -104,44 +104,25 @@ export default function AppearanceScreen() {
   if (!server || !token || !workspaceId) return <Redirect href="/" />;
 
   return (
-    <Screen>
-      <Stack.Screen options={{ headerShown: false }} />
+    <Screen safeTop={false}>
+      <Stack.Screen
+        options={{
+          title: "Appearance",
+          headerShown: true,
+          headerBackTitle: "Back",
+        }}
+      />
       <ScrollView
         contentContainerStyle={[
           {
             paddingBottom: Math.max(48, insets.bottom + spacing.large),
             paddingHorizontal: spacing.large,
+            paddingTop: spacing.small,
           },
         ]}
         contentInsetAdjustmentBehavior="automatic"
       >
-        <View
-          style={[
-            styles.header,
-            appearanceLayout.stackContent && styles.stackedContentRow,
-            {
-              gap: spacing.small,
-              paddingBottom: spacing.medium,
-              paddingTop: spacing.medium,
-            },
-          ]}
-        >
-          <IconButton label="Back" role="back" onPress={() => router.back()} />
-          <View
-            style={[styles.headerCopy, appearanceLayout.stackContent && styles.stackedContentCopy]}
-          >
-            <Text
-              accessibilityRole="header"
-              lineBreakStrategyIOS="push-out"
-              maxFontSizeMultiplier={2}
-              style={[typography.titleLarge, { color: colors.onSurface }]}
-              textBreakStrategy="balanced"
-            >
-              Appearance
-            </Text>
-            <BodyText>Choose how OpenPost looks on this device.</BodyText>
-          </View>
-        </View>
+        <BodyText>Choose how OpenPost looks on this device.</BodyText>
 
         <View style={{ gap: spacing.extraLarge }}>
           <ThemePreview />
@@ -544,13 +525,6 @@ const styles = StyleSheet.create({
     height: 28,
     justifyContent: "center",
     width: 28,
-  },
-  header: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-  },
-  headerCopy: {
-    flex: 1,
   },
   notice: {
     alignItems: "center",

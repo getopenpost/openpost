@@ -2,7 +2,8 @@
 	import ProgressMeter from '$lib/components/progress-meter.svelte';
 	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import { HintButton } from '$lib/components/editor-density';
+	import ScrubField from '$lib/components/editor-density/scrub-field.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { m } from '$lib/paraglide/messages';
 	import { analyzeAudioBlob } from '@openpost/editor-shared/audio';
@@ -104,44 +105,55 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col gap-3">
-	<div class="grid grid-cols-2 gap-1" role="group" aria-label={m.quick_cut_cleanup()}>
-		<Button
-			size="sm"
-			variant={mode === 'signal' ? 'secondary' : 'ghost'}
-			aria-pressed={mode === 'signal'}
-			disabled={busy}
-			onclick={() => (mode = 'signal')}>{m.video_editor_remove_silence()}</Button
+	<div class="flex items-center gap-1">
+		<div
+			class="grid min-w-0 flex-1 grid-cols-2 gap-1"
+			role="group"
+			aria-label={m.quick_cut_cleanup()}
 		>
-		<Button
-			size="sm"
-			variant={mode === 'speech' ? 'secondary' : 'ghost'}
-			aria-pressed={mode === 'speech'}
-			disabled={busy}
-			onclick={() => (mode = 'speech')}>{m.editor_cleanup_speech()}</Button
-		>
+			<Button
+				size="sm"
+				variant={mode === 'signal' ? 'secondary' : 'ghost'}
+				aria-pressed={mode === 'signal'}
+				disabled={busy}
+				onclick={() => (mode = 'signal')}>{m.video_editor_remove_silence()}</Button
+			>
+			<Button
+				size="sm"
+				variant={mode === 'speech' ? 'secondary' : 'ghost'}
+				aria-pressed={mode === 'speech'}
+				disabled={busy}
+				onclick={() => (mode = 'speech')}>{m.editor_cleanup_speech()}</Button
+			>
+		</div>
+		<HintButton
+			label={mode === 'speech' ? m.editor_cleanup_speech_hint() : m.editor_cleanup_signal_hint()}
+			hint={mode === 'speech' ? m.editor_cleanup_speech_hint() : m.editor_cleanup_signal_hint()}
+		/>
 	</div>
-	<p class="text-xs text-muted-foreground">
-		{mode === 'speech' ? m.editor_cleanup_speech_hint() : m.editor_cleanup_signal_hint()}
-	</p>
 	<div class="grid grid-cols-2 gap-2">
 		<label class="text-xs"
-			>{m.video_editor_cleanup_min_silence()}<Input
-				type="number"
-				min="100"
-				max="10000"
-				step="50"
-				bind:value={minSilenceMs}
+			>{m.video_editor_cleanup_min_silence()}<ScrubField
+				ariaLabel={m.video_editor_cleanup_min_silence()}
+				value={minSilenceMs}
+				min={100}
+				max={10000}
+				step={50}
+				precision={0}
 				disabled={busy}
+				onValueChange={(next) => (minSilenceMs = next)}
 			/></label
 		>
 		<label class="text-xs"
-			>{m.quick_cut_breathing_room()}<Input
-				type="number"
-				min="0"
-				max="2000"
-				step="25"
-				bind:value={paddingMs}
+			>{m.quick_cut_breathing_room()}<ScrubField
+				ariaLabel={m.quick_cut_breathing_room()}
+				value={paddingMs}
+				min={0}
+				max={2000}
+				step={25}
+				precision={0}
 				disabled={busy}
+				onValueChange={(next) => (paddingMs = next)}
 			/></label
 		>
 	</div>
@@ -153,12 +165,14 @@
 			/>{m.video_editor_cleanup_auto_thresholds()}</label
 		>
 		{#if !autoThresholds}<label class="text-xs"
-				>{m.video_editor_cleanup_silence_threshold()}<Input
-					type="number"
-					min="-80"
-					max="-20"
-					bind:value={threshold}
+				>{m.video_editor_cleanup_silence_threshold()}<ScrubField
+					ariaLabel={m.video_editor_cleanup_silence_threshold()}
+					value={threshold}
+					min={-80}
+					max={-20}
+					precision={0}
 					disabled={busy}
+					onValueChange={(next) => (threshold = next)}
 				/></label
 			>{/if}
 	{/if}

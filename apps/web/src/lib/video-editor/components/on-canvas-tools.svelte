@@ -1234,7 +1234,7 @@
 							class:size-2.5={cornerHandle(handle)}
 							class:h-2.5={handle === 'n' || handle === 's'}
 							class:w-[22px]={handle === 'n' || handle === 's'}
-							class:h-[22px]={handle === 'e' || handle === 'w'}
+							class:h-[var(--editor-22,22px)]={handle === 'e' || handle === 'w'}
 							class:w-2.5={handle === 'e' || handle === 'w'}
 							class:rounded-sm={!cornerHandle(handle)}
 						></span>
@@ -1250,7 +1250,7 @@
 					onkeydown={rotationKeydown}
 				>
 					<span
-						class="pointer-events-none absolute top-1/2 left-1/2 h-[22px] border-l border-dashed border-[oklch(0.72_0.16_45)] shadow-[1px_0_0_black]"
+						class="pointer-events-none absolute top-1/2 left-1/2 h-[var(--editor-22,22px)] border-l border-dashed border-[oklch(0.72_0.16_45)] shadow-[1px_0_0_black]"
 					></span>
 					<span
 						class="z-10 size-2.5 rounded-full border border-black bg-[oklch(0.72_0.16_45)] shadow-[0_0_0_1px_white]"

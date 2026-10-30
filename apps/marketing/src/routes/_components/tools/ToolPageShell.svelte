@@ -69,7 +69,7 @@
 				<section>
 					<h2>Common questions</h2>
 					{#each article.questions as item (item.question)}<details>
-							<summary>{item.question}</summary>
+							<summary class="focus-ring">{item.question}</summary>
 							<p>{item.answer}</p>
 						</details>{/each}
 				</section>

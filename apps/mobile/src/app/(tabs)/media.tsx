@@ -5,8 +5,8 @@ import { mediaListQueryOptions } from "@openpost/query-catalog";
 import { Screen, BodyText, Button, ContentTitle, EmptyState, TextField } from "@/components/ui";
 import { WorkspaceHeader } from "@/components/workspace-header";
 import { MediaImage } from "@/components/media-image";
-import { InboxSegments } from "@/components/inbox/controls";
-import { DelayedQueryPlaceholder, QueryNotice } from "@/components/query-state";
+import { Segments } from "@/components/segments";
+import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import { mobileMediaAPI } from "@/lib/inbox/api";
 import { useWorkspaceId } from "@/lib/queries";
 import { useNativeTheme } from "@/theme";
@@ -26,6 +26,7 @@ export default function MediaScreen() {
       lifecycle: "library",
     }),
   );
+  const hasMediaData = media.data !== undefined;
   return (
     <Screen>
       <WorkspaceHeader />
@@ -39,7 +40,7 @@ export default function MediaScreen() {
             setOffset(0);
           }}
         />
-        <InboxSegments
+        <Segments
           values={[
             { value: "", label: "All" },
             { value: "image", label: "Images" },
@@ -66,12 +67,21 @@ export default function MediaScreen() {
         }
         ListHeaderComponent={
           <>
-            <DelayedQueryPlaceholder pending={media.isPending} />
-            {media.isError ? (
-              <QueryNotice
+            <DelayedQueryPlaceholder pending={!hasMediaData && media.isPending} />
+            {media.isError && !hasMediaData ? (
+              <InitialQueryError
+                title="Could not load media"
                 message={
-                  media.error instanceof Error ? media.error.message : "Could not load media"
+                  media.error instanceof Error
+                    ? media.error.message
+                    : "Check your connection and try again."
                 }
+                retry={() => void media.refetch()}
+              />
+            ) : null}
+            {media.isError && hasMediaData ? (
+              <QueryNotice
+                message="Could not refresh media. The current library remains visible."
                 retry={() => void media.refetch()}
               />
             ) : null}
@@ -85,6 +95,7 @@ export default function MediaScreen() {
         ListEmptyComponent={
           !media.isPending && !media.isError ? (
             <EmptyState
+              iconRole="videoProjects"
               title="No media found"
               body="Uploaded and saved assets appear in your Workspace library."
             />

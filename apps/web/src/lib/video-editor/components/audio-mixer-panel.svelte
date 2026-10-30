@@ -85,6 +85,13 @@
 		const readout = root.querySelector<HTMLElement>(`[data-fader-readout="${key}"]`);
 		if (knob) knob.style.bottom = `${mixerDbToFaderPercent(db)}%`;
 		if (readout) readout.textContent = formatMixerDb(db);
+		// Pointer drags bypass Svelte's reactive aria bindings, so keep the
+		// slider semantics in sync manually like the keyboard path does.
+		const slider = knob?.parentElement;
+		if (slider?.getAttribute('role') === 'slider') {
+			slider.setAttribute('aria-valuenow', String(db));
+			slider.setAttribute('aria-valuetext', `${formatMixerDb(db)} dB`);
+		}
 	}
 
 	function previewFader(target: FaderTarget, startDb: number, db: number): void {
@@ -596,18 +603,16 @@
 			{#if target.kind === 'master'}
 				<AudioEqPanel
 					settings={timelineStore.busAudioEq}
-					title={eqTitle(target)}
 					onsettingschange={updateMasterEq}
-					open
+					hideHeader
 				/>
 			{:else}
 				{@const eqTrack = timelineStore.tracks.find((track) => track.id === target.trackId)}
 				{#if eqTrack}
 					<AudioEqPanel
 						settings={eqTrack.audioEq}
-						title={eqTitle(target)}
 						onsettingschange={(settings) => updateTrackEq(eqTrack.id, settings)}
-						open
+						hideHeader
 					/>
 				{/if}
 			{/if}

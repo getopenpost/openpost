@@ -5,6 +5,7 @@
 	import { videoLibrary } from '../library/library-store.svelte';
 	import LibraryFavorite from './library-favorite.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { Input } from '$lib/components/ui/input';
 	import { ProtectedIcon } from '$lib/themes/icons';
 	import { addTextItem, addTextTemplateItem } from '$lib/video-editor/timeline/actions/items';
 	import { applyTextStylePreset } from '$lib/video-editor/timeline/actions/text-layout';
@@ -39,11 +40,32 @@
 			: false
 	);
 
+	let search = $state('');
+	const searchQuery = $derived(search.trim().toLocaleLowerCase());
+	const addTextVisible = $derived(
+		`${m.video_editor_text_layout_single()} ${m.video_editor_add_text()}`
+			.toLocaleLowerCase()
+			.includes(searchQuery)
+	);
 	const groups: Array<{ layout: TextStylePresetLayout; label: () => string }> = [
 		{ layout: 'single', label: m.video_editor_text_layout_single },
 		{ layout: 'two', label: m.video_editor_text_layout_two },
 		{ layout: 'three', label: m.video_editor_text_layout_three }
 	];
+	const filteredGroups = $derived(
+		groups
+			.map((group) => ({
+				...group,
+				presets: TEXT_STYLE_PRESETS.filter(
+					(preset) =>
+						preset.layout === group.layout &&
+						`${group.label()} ${localizedTextStylePresetCopy(preset.id).label}`
+							.toLocaleLowerCase()
+							.includes(searchQuery)
+				)
+			}))
+			.filter((group) => group.presets.length > 0 || (group.layout === 'single' && addTextVisible))
+	);
 
 	function insertPlainText(): void {
 		oninserted(addTextItem(m.video_editor_text_default_label()));
@@ -102,7 +124,14 @@
 		onedit={onapplied}
 		{importAsset}
 	/>
-	{#each groups as group (group.layout)}
+	<Input
+		type="search"
+		bind:value={search}
+		placeholder={m.image_editor_search_templates()}
+		aria-label={m.image_editor_search_templates()}
+		class="mb-2 h-[25px] text-xs [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base"
+	/>
+	{#each filteredGroups as group (group.layout)}
 		<section class="mb-4 last:mb-0">
 			<h3
 				class="mb-2 text-[10px] font-semibold tracking-[0.12em] text-[var(--video-editor-muted)] uppercase"
@@ -110,7 +139,7 @@
 				{group.label()}
 			</h3>
 			<div class="template-grid">
-				{#if group.layout === 'single'}
+				{#if group.layout === 'single' && addTextVisible}
 					<button
 						type="button"
 						class="template-card w-full"
@@ -127,7 +156,7 @@
 						<span class="template-name">{m.video_editor_add_text()}</span>
 					</button>
 				{/if}
-				{#each TEXT_STYLE_PRESETS.filter((preset) => preset.layout === group.layout) as preset (preset.id)}
+				{#each group.presets as preset (preset.id)}
 					{@const copy = localizedTextStylePresetCopy(preset.id)}
 					<div class="group/library-item relative min-w-0">
 						<button

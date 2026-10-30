@@ -2723,16 +2723,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					>
 						{m.recording_cleanup_action()}
 					</DropdownMenu.Item>
-					<DropdownMenu.Label>{m.video_editor_clip()}</DropdownMenu.Label>
-					<DropdownMenu.Item disabled={!selectedItemId} onclick={handleSplit}>
-						{m.video_editor_split()}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item disabled={!selectedItemId} onclick={() => handleDelete(false)}>
-						{m.video_editor_delete_leave_gap()}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item disabled={!selectedItemId} onclick={() => handleDelete(true)}>
-						{m.video_editor_delete_clip()}
-					</DropdownMenu.Item>
 					<DropdownMenu.Separator />
 					<DropdownMenu.Label>{m.video_editor_sequences()}</DropdownMenu.Label>
 					<DropdownMenu.Item onclick={createEditorSequence}>
@@ -2888,7 +2878,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							aria-pressed={mobileEditPane === 'tools'}
 							onclick={() => (mobileEditPane = 'tools')}
 						>
-							{m.video_editor_tools()}
+							{m.video_editor_inspector()}
 						</button>
 					</nav>
 				{/if}
@@ -3567,6 +3557,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																	>{m.video_editor_scene_split_fast()}</DropdownMenu.Item
 																>
 																<DropdownMenu.Item
+																	title={m.video_editor_scene_split_adaptive_help()}
 																	onclick={() =>
 																		void handleAutoSplitScenes(selectedItemId, 'adaptive-lfm')}
 																	>{m.video_editor_scene_split_adaptive()}</DropdownMenu.Item
@@ -3587,7 +3578,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 															: m.video_editor_create_compound()}
 													</DropdownMenu.Item>
 													<DropdownMenu.Separator />
-													<DropdownMenu.Item onclick={() => handleDelete(false)}>
+													<DropdownMenu.Item
+														variant="destructive"
+														onclick={() => handleDelete(false)}
+													>
 														{m.video_editor_delete_leave_gap()}
 													</DropdownMenu.Item>
 													<DropdownMenu.Item
@@ -3689,9 +3683,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												oncancel={cancelAiCaptions}
 											/>
 										</div>
-										<div
-											class="mt-1 max-h-64 overflow-y-auto rounded-md border border-[var(--video-editor-border)] p-1"
-										>
+										<div class="mt-1">
 											<TranscriptPanel
 												ontextinserted={handleTranscriptTextInserted}
 												itemIds={selectedItemIds.length > 0
@@ -3705,7 +3697,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										<Button
 											size="sm"
 											variant="outline"
-											class="mt-3 w-full [@media(pointer:coarse)]:min-h-11"
+											class="mt-2 w-full [@media(pointer:coarse)]:min-h-11"
 											disabled={speechCleanupItemIds.length === 0}
 											onclick={() => openSpeechCleanup('recording')}
 										>
@@ -3857,6 +3849,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												oncutselection={() => copyTimelineSelection(true)}
 												onpasteat={(frame, trackId) => pasteTimelineClipboard(frame, trackId)}
 												onsplitselection={handleSplit}
+												onaddcrossfade={handleAddCrossfade}
 												ondeleteselection={() => handleDelete(false)}
 												onrippledeleteselection={() => handleDelete(true)}
 												onmixerlayoutchange={handleMixerLayoutChange}

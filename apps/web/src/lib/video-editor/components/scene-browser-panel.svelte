@@ -22,6 +22,7 @@
 	} from '$lib/video-editor/media/scene-search/library-palette';
 	import { splitTextBySpans } from '$lib/video-editor/media/scene-search/match-highlight';
 	import type { MediaScene } from '$lib/video-editor/media/scene-search/types';
+	import { formatMediaDuration } from '$lib/media-duration';
 	import SceneThumbnail from './scene-thumbnail.svelte';
 
 	let batchBusy = $state(false);
@@ -55,16 +56,6 @@
 
 	onMount(() => void sceneBrowser.loadAll());
 	onDestroy(clearSceneDragData);
-
-	function formatTime(seconds: number): string {
-		const total = Math.max(0, Math.floor(seconds));
-		const hours = Math.floor(total / 3600);
-		const minutes = Math.floor((total % 3600) / 60);
-		const secs = total % 60;
-		return hours > 0
-			? `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-			: `${minutes}:${String(secs).padStart(2, '0')}`;
-	}
 
 	async function analyze(force: boolean): Promise<void> {
 		if (batchBusy || analyzableMedia.length === 0) return;
@@ -339,7 +330,7 @@
 								<span
 									class="absolute right-1 bottom-1 rounded bg-[var(--video-editor-control)] px-1 font-mono text-[9px] text-[var(--video-editor-text)]"
 								>
-									{formatTime(scene.startSec)}
+									{formatMediaDuration(scene.startSec)}
 								</span>
 								<button
 									type="button"
@@ -375,7 +366,7 @@
 									class="truncate text-[9px] text-[var(--video-editor-muted)]"
 									title={ranked.mediaFileName}
 								>
-									{ranked.mediaFileName} · {formatTime(scene.endSec - scene.startSec)}
+									{ranked.mediaFileName} · {formatMediaDuration(scene.endSec - scene.startSec)}
 								</p>
 								{#if sceneBrowser.query || sceneBrowser.referencePalette}
 									<div

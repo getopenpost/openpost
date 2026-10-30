@@ -190,7 +190,7 @@
 						Object.values(item.crop).some((value) => typeof value === 'number' && value !== 0)) ||
 					controls.some((control) => item.keyframes?.[control.property]?.frames.length)
 			)
-				? m.video_editor_workspace_active()
+				? m.video_editor_modified()
 				: undefined}
 		>
 			<div class="divide-y divide-[var(--video-editor-border)]">
@@ -203,7 +203,7 @@
 						>
 						<div class="flex min-w-0 items-center gap-1">
 							<Slider
-								class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
+								class="h-[var(--editor-22,22px)] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 								min={control.axis === 'softness' ? -maximum : 0}
 								max={maximum}
 								step={1}
@@ -230,7 +230,7 @@
 									max={maximum}
 									step={1}
 									decimals={0}
-									class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-5 pl-4 text-right text-[11px] tabular-nums outline-none"
+									class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-5 pl-4 text-right text-[11px] tabular-nums outline-none"
 									onbegin={beginGesture}
 									onlive={(next) => writeLive(control.property, next)}
 									oncommit={(next) => commitGesture(control.property, next)}

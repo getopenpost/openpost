@@ -328,22 +328,31 @@
 			<Logo class="h-5 w-auto" />
 			<span class="text-sm font-semibold">{m.record_title()}</span>
 		</a>
-		{#if cloudWorkspaceId && !captureBusy}
+		{#if cloudWorkspaceId}
 			<div
-				class="flex items-center gap-1 rounded-lg border border-[var(--video-editor-border)] p-1"
+				class="flex flex-wrap items-center gap-2"
+				role="group"
+				aria-label={m.editor_storage_destination()}
 			>
-				<Button
-					size="sm"
-					variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
-					aria-pressed={storageMode === 'cloud'}
-					onclick={() => chooseStorage('cloud')}>{m.video_editor_saved_cloud()}</Button
+				<span class="text-xs text-muted-foreground">{m.editor_storage_destination()}</span>
+				<div
+					class="flex items-center gap-1 rounded-lg border border-[var(--video-editor-border)] p-1"
 				>
-				<Button
-					size="sm"
-					variant={storageMode === 'local' ? 'secondary' : 'ghost'}
-					aria-pressed={storageMode === 'local'}
-					onclick={() => chooseStorage('local')}>{m.video_editor_local_only()}</Button
-				>
+					<Button
+						size="sm"
+						variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
+						aria-pressed={storageMode === 'cloud'}
+						disabled={captureBusy}
+						onclick={() => chooseStorage('cloud')}>{m.editor_storage_choice_cloud()}</Button
+					>
+					<Button
+						size="sm"
+						variant={storageMode === 'local' ? 'secondary' : 'ghost'}
+						aria-pressed={storageMode === 'local'}
+						disabled={captureBusy}
+						onclick={() => chooseStorage('local')}>{m.editor_storage_choice_local()}</Button
+					>
+				</div>
 			</div>
 		{/if}
 	</header>

@@ -1077,9 +1077,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 									<span
 										class={[
 											'text-xs font-medium tabular-nums',
-											item.metric.delta >= 0
-												? 'text-emerald-700 dark:text-emerald-300'
-												: 'text-destructive'
+											item.metric.delta >= 0 ? 'text-success-foreground' : 'text-destructive'
 										]}
 									>
 										{item.metric.delta >= 0 ? '+' : ''}{formatNumber(item.metric.delta)}

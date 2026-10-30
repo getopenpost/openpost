@@ -90,7 +90,7 @@ test("Dither keeps the app's main routes usable on desktop and phones", async ({
       await page.evaluate(() => document.fonts.ready);
       if (path === "/quick-cut") {
         await expect(
-          page.getByText("No projects yet. Create one to start cutting.", {
+          page.getByText("No projects yet. Open a video to start cutting.", {
             exact: true,
           }),
         ).toBeVisible();

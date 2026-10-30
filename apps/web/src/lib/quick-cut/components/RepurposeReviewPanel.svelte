@@ -6,6 +6,7 @@
 	import SegmentTimeInput from './SegmentTimeInput.svelte';
 	import { Label } from '$lib/components/ui/label';
 	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Disclosure as EditorDisclosure, HintButton } from '$lib/components/editor-density';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		captureQueryMutationSession,
@@ -112,13 +113,14 @@
 		<Button disabled={locked || mediaMissing} onclick={() => review.find(topic)}
 			>{review.result ? m.repurpose_find_again() : m.repurpose_find()}</Button
 		>
+		{#if !review.result && !review.busy && !review.error}<HintButton
+				label={m.repurpose_ready_hint()}
+				hint={m.repurpose_ready_hint()}
+			/>{/if}
 		{#if review.busy}<span class="text-sm text-muted-foreground" role="status"
 				>{m.repurpose_finding()}</span
 			><Button variant="outline" onclick={() => review.cancel()}>{m.common_cancel()}</Button>{/if}
-		<details class="min-w-0">
-			<summary class="cursor-pointer p-2 text-xs [@media(pointer:coarse)]:min-h-11"
-				>{m.repurpose_focus()}</summary
-			>
+		<EditorDisclosure label={m.repurpose_focus()} class="min-w-0 border-b-0">
 			<div class="pt-2">
 				<Label for="repurpose-topic">{m.repurpose_topic()}</Label><Input
 					id="repurpose-topic"
@@ -128,7 +130,7 @@
 					placeholder={m.repurpose_topic_placeholder()}
 				/>
 			</div>
-		</details>
+		</EditorDisclosure>
 	</div>
 	{#if review.warning}<p role="status" class="text-sm text-muted-foreground">
 			{review.warning}
@@ -150,11 +152,6 @@
 			class="text-sm"
 		>
 			{m.repurpose_empty()}
-		</p>{/if}
-	{#if !review.result && !review.busy && !review.error}<p
-			class="max-w-xl text-sm text-muted-foreground"
-		>
-			{m.repurpose_ready_hint()}
 		</p>{/if}
 	{#if active}
 		<div class="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
@@ -286,15 +283,17 @@
 							>{/if}
 					</div>
 				{/each}
-				<Button
-					class="w-full"
-					disabled={locked || mediaMissing || !pendingCount}
-					onclick={() => review.createSelected()}
-					>{review.creating
-						? m.repurpose_creating()
-						: m.repurpose_create({ count: pendingCount })}</Button
-				>
-				<p class="text-xs text-muted-foreground">{m.repurpose_create_hint()}</p>
+				<div class="flex items-center gap-1">
+					<Button
+						class="min-w-0 flex-1"
+						disabled={locked || mediaMissing || !pendingCount}
+						onclick={() => review.createSelected()}
+						>{review.creating
+							? m.repurpose_creating()
+							: m.repurpose_create({ count: pendingCount })}</Button
+					>
+					<HintButton label={m.repurpose_create_hint()} hint={m.repurpose_create_hint()} />
+				</div>
 				{#if review.creating && review.creationProgress}<div
 						role="status"
 						class="flex items-center gap-2 text-xs"

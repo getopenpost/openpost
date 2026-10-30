@@ -2,7 +2,9 @@
 	import type { components } from '$lib/api/types';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
+	import { resolveAppPath } from '$lib/app-path';
 	import { deliveryOutcomeSummary } from '$lib/delivery-outcome';
+	import InlineNotice from './inline-notice.svelte';
 	import PublicationDeliveryCard from './publication-delivery-card.svelte';
 
 	type Rendition = components['schemas']['RenditionActionOutcome'];
@@ -39,12 +41,9 @@
 >
 	<div class="space-y-4">
 		{#if workspaceActivated}
-			<div class="rounded-lg border border-success-foreground/25 bg-success p-4">
-				<h2 class="font-semibold">{m.workspace_activation_heading()}</h2>
-				<p class="mt-1 text-sm/6 text-muted-foreground">
-					{m.workspace_activation_description()}
-				</p>
-			</div>
+			<InlineNotice tone="success" message={m.workspace_activation_heading()}>
+				<p class="mt-0.5">{m.workspace_activation_description()}</p>
+			</InlineNotice>
 		{/if}
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 			<div>
@@ -56,7 +55,10 @@
 				</p>
 			</div>
 			<div class="flex flex-wrap gap-2">
-				<Button variant="outline" href={`/publications/${encodeURIComponent(publicationID)}`}>
+				<Button
+					variant="outline"
+					href={resolveAppPath(`/publications/${encodeURIComponent(publicationID)}`)}
+				>
 					{m.workspace_activation_view_publication()}
 				</Button>
 				<Button onclick={onCreateAnother}>{m.workspace_activation_create_another()}</Button>

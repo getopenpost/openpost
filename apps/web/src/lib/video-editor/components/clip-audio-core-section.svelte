@@ -203,7 +203,7 @@
 		<span class="text-[10px] font-medium text-[var(--video-editor-muted)]">{label}</span>
 		<div class="flex min-w-0 items-center gap-1">
 			<Slider
-				class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
+				class="h-[var(--editor-22,22px)] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 				{min}
 				{max}
 				{step}
@@ -227,7 +227,7 @@
 					{max}
 					{step}
 					{decimals}
-					class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-6 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+					class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-6 pl-1.5 text-right text-[11px] tabular-nums outline-none"
 					onbegin={() => beginGesture(property)}
 					onlive={(next) => (property === 'volume' ? writeGain(next) : writeStatic(property, next))}
 					oncommit={(next) => commit(property, next)}

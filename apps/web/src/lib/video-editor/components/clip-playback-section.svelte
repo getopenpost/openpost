@@ -191,7 +191,7 @@
 					item.fadeIn ||
 					item.fadeOut
 			)
-				? m.video_editor_workspace_active()
+				? m.video_editor_modified()
 				: undefined}
 		>
 			<div class="divide-y divide-[var(--video-editor-border)]">
@@ -201,7 +201,7 @@
 					>
 					<div class="flex min-w-0 items-center gap-1">
 						<Slider
-							class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
+							class="h-[var(--editor-22,22px)] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 							min={0.1}
 							max={10}
 							step={0.01}
@@ -224,7 +224,7 @@
 								max={10}
 								step={0.01}
 								decimals={2}
-								class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+								class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
 								onbegin={() => beginGesture('speed')}
 								onlive={writeSpeed}
 								oncommit={(value) => commitGesture('speed', value)}
@@ -262,7 +262,7 @@
 							>
 							<div class="flex min-w-0 items-center gap-1">
 								<Slider
-									class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
+									class="h-[var(--editor-22,22px)] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 									min={0}
 									max={fadeLimit()}
 									step={0.05}
@@ -285,7 +285,7 @@
 										max={fadeLimit()}
 										step={0.05}
 										decimals={2}
-										class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+										class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
 										onbegin={() => beginGesture(field)}
 										onlive={(next) => writeFade(field, next)}
 										oncommit={(next) => commitGesture(field, next)}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { formatBytes as formatByteSize } from '$lib/byte-size';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
 	import { Slider } from '$lib/components/ui/slider';
@@ -106,8 +107,8 @@
 	);
 
 	function formatBytes(bytes: number): string {
-		if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
-		return `${Math.round(bytes / 1_000_000)} MB`;
+		// Music model downloads quote decimal (SI) sizes, matching their listings.
+		return formatByteSize(bytes, { base: 'si' }) ?? '—';
 	}
 
 	function selectPreset(value: string): void {

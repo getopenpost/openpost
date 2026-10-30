@@ -35,7 +35,7 @@ async function createProject(
   await installLocalWorkspacePicker(page);
   await page.goto("/video-editor");
   if (options.selectLocalProjects) {
-    await page.getByRole("button", { name: "Local only" }).click();
+    await page.getByRole("button", { name: "This device" }).click();
   }
   await page.getByRole("button", { name: "Choose folder" }).click();
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();

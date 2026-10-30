@@ -526,7 +526,7 @@
 	let meaningfulEditTracked = false;
 	let panelResize:
 		| {
-				panel: 'inspector' | 'layers';
+				panel: 'inspector' | 'layers' | 'pages';
 				startX: number;
 				startY: number;
 				startSize: number;
@@ -1155,7 +1155,7 @@
 		});
 	}
 
-	function startPanelResize(event: PointerEvent, panel: 'inspector' | 'layers'): void {
+	function startPanelResize(event: PointerEvent, panel: 'inspector' | 'layers' | 'pages'): void {
 		if (event.button !== 0) return;
 		const handle = event.currentTarget;
 		if (!(handle instanceof HTMLElement)) return;
@@ -1168,7 +1168,12 @@
 			panel,
 			startX: event.clientX,
 			startY: event.clientY,
-			startSize: panel === 'inspector' ? inspectorPanelWidth : activeLayersPanelHeight()
+			startSize:
+				panel === 'inspector'
+					? inspectorPanelWidth
+					: panel === 'pages'
+						? pagesPanelHeight
+						: activeLayersPanelHeight()
 		};
 	}
 
@@ -1180,6 +1185,13 @@
 				280,
 				panelMaximum(),
 				inspectorPanelWidth
+			);
+		} else if (panelResize.panel === 'pages') {
+			pagesPanelHeight = clampPanelSize(
+				panelResize.startSize + (panelResize.startY - event.clientY),
+				88,
+				480,
+				pagesPanelHeight
 			);
 		} else {
 			setActiveLayersPanelHeight(
@@ -1256,7 +1268,10 @@
 		storeViewPreferences();
 	}
 
-	function resizePanelWithKeyboard(event: KeyboardEvent, panel: 'inspector' | 'layers'): void {
+	function resizePanelWithKeyboard(
+		event: KeyboardEvent,
+		panel: 'inspector' | 'layers' | 'pages'
+	): void {
 		const verticalSeparator = panel === 'inspector';
 		if (
 			(verticalSeparator && event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') ||
@@ -1278,6 +1293,13 @@
 				280,
 				panelMaximum(),
 				inspectorPanelWidth
+			);
+		} else if (panel === 'pages') {
+			pagesPanelHeight = clampPanelSize(
+				pagesPanelHeight - direction * step,
+				88,
+				480,
+				pagesPanelHeight
 			);
 		} else {
 			if (!activeLayersPanelIsUserSized()) {
@@ -3152,13 +3174,6 @@
 	{/if}
 {/snippet}
 
-{#snippet toolGroupIndicator()}
-	<span
-		aria-hidden="true"
-		class="pointer-events-none absolute right-[3px] bottom-[3px] size-[5px] bg-current opacity-50 [clip-path:polygon(100%_0,100%_100%,0_100%)]"
-	></span>
-{/snippet}
-
 <svelte:window
 	onkeydown={handleShortcut}
 	onresize={handleWindowResize}
@@ -3383,11 +3398,6 @@
 									</DropdownMenu.Item>
 								{/if}
 							{/each}
-							{#if compactMenuSection === 'layer'}<p
-									class="max-w-64 px-2 py-1.5 text-xs text-muted-foreground"
-								>
-									{m.image_editor_raster_help()}
-								</p>{/if}
 						{:else}
 							<div class="w-64 p-1 md:hidden">
 								<EditorTitleInput
@@ -3428,12 +3438,13 @@
 								</DropdownMenu.Item>
 							{/each}
 							<DropdownMenu.Item
-								class="[@media(pointer:coarse)]:min-h-11"
+								class="lg:hidden [@media(pointer:coarse)]:min-h-11"
 								onSelect={() => (mobileSheet = 'layers')}
 								>{m.image_editor_layers()}</DropdownMenu.Item
 							>
-							<DropdownMenu.Item class="[@media(pointer:coarse)]:min-h-11" onSelect={openProperties}
-								>{m.image_editor_properties()}</DropdownMenu.Item
+							<DropdownMenu.Item
+								class="lg:hidden [@media(pointer:coarse)]:min-h-11"
+								onSelect={openProperties}>{m.image_editor_properties()}</DropdownMenu.Item
 							>
 							{#if !guestMode}
 								<DropdownMenu.Item
@@ -3921,7 +3932,7 @@
 					>
 						{#snippet icon()}
 							{#if shapeSlotKind === 'line'}
-								<ThemeIcon role="remove" />
+								<ProtectedIcon icon="editor-path" />
 							{:else if shapeSlotKind === 'rounded_rectangle'}
 								<ProtectedIcon icon="editor-shape-rounded-rectangle" />
 							{:else if shapeSlotKind === 'ellipse'}
@@ -3945,7 +3956,7 @@
 								{m.image_editor_ellipse()}
 							</DropdownMenu.Item>
 							<DropdownMenu.Item onclick={() => insertShape('line')}>
-								<ThemeIcon role="remove" />
+								<ProtectedIcon icon="editor-path" />
 								{m.image_editor_line()}
 							</DropdownMenu.Item>
 						{/snippet}
@@ -4062,31 +4073,55 @@
 					size="icon-xs"
 					class="size-8 md:size-8 lg:size-7 [@media(pointer:coarse)]:size-11"
 					onclick={() => (editor.zoom = Math.max(0.1, editor.zoom - 0.1))}
-					aria-label={m.image_editor_zoom_out()}>−</Button
+					aria-label={m.image_editor_zoom_out()}><ThemeIcon role="remove" /></Button
 				>
-				<button
-					type="button"
-					class="min-h-8 min-w-12 rounded px-2 text-xs md:min-h-8 lg:min-h-7 [@media(pointer:coarse)]:min-h-11"
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					class="size-8 min-w-12 px-2 text-xs md:size-8 lg:size-7 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:min-w-11"
 					onclick={() => editor.fitZoom()}
 					aria-label={`${m.image_editor_zoom()} ${Math.round(editor.zoom * 100)}%`}
 				>
 					{Math.round(editor.zoom * 100)}%
-				</button>
+				</Button>
 				<Button
 					variant="ghost"
 					size="icon-xs"
 					class="size-8 md:size-8 lg:size-7 [@media(pointer:coarse)]:size-11"
 					onclick={() => (editor.zoom = Math.min(4, editor.zoom + 0.1))}
-					aria-label={m.image_editor_zoom_in()}>+</Button
+					aria-label={m.image_editor_zoom_in()}><ThemeIcon role="add" /></Button
 				>
 			</div>
 			{#if !focusedCanvas}
 				<div
-					class="absolute inset-x-0 bottom-0 {pagesExpanded
+					class="absolute inset-x-0 bottom-0 flex flex-col {pagesExpanded
 						? 'h-[8.75rem] lg:h-[var(--image-editor-pages-height)]'
 						: 'h-11 lg:h-9'}"
 				>
-					<PageStrip onExternalFiles={placeExternalFiles} compact={compactPages} />
+					{#if pagesExpanded}
+						<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+						<!-- svelte-ignore a11y_no_noninteractive_element_interactions -- focusable ARIA Window Splitter -->
+						<div
+							aria-label={`${m.image_editor_resize()} ${m.image_editor_pages()}`}
+							title={`${m.image_editor_resize()} ${m.image_editor_pages()}`}
+							role="separator"
+							tabindex="0"
+							aria-orientation="horizontal"
+							aria-valuemin="88"
+							aria-valuemax="480"
+							aria-valuenow={Math.round(pagesPanelHeight)}
+							class="image-editor-resize-handle hidden h-2 shrink-0 cursor-row-resize touch-none border-0 bg-transparent p-0 lg:block [@media(pointer:coarse)]:h-11"
+							onpointerdown={(event) => startPanelResize(event, 'pages')}
+							onkeydown={(event) => resizePanelWithKeyboard(event, 'pages')}
+							ondblclick={() => {
+								pagesPanelHeight = clampPanelSize(132, 88, 480, 132);
+								storePanelLayout();
+							}}
+						></div>
+					{/if}
+					<div class="min-h-0 flex-1">
+						<PageStrip onExternalFiles={placeExternalFiles} compact={compactPages} />
+					</div>
 				</div>
 			{/if}
 		</main>
@@ -4301,7 +4336,7 @@
 			<ThemeIcon role="layout" />
 			{m.image_editor_add()}
 		</Button>
-		{#each tools.filter( (tool) => ['select', 'marquee', 'lasso', 'magic_wand', 'crop', 'eyedropper', 'text', 'pencil', 'bucket', 'eraser', 'hand'].includes(tool.key) ) as tool (tool.key)}
+		{#each tools as tool (tool.key)}
 			{@const ToolIcon = commandIcons.get(tool.command.id) ?? fallbackToolGlyph}
 			{#if tool.key === 'select'}
 				<Button
@@ -4316,146 +4351,166 @@
 					<ProtectedIcon icon="editor-select" />
 					{m.image_editor_select()}
 				</Button>
+			{:else if tool.key === 'shape'}
+				<ToolFamilyButton
+					label={commandLabel(tool.command.id)}
+					active={editor.activeTool === 'shape'}
+					disabled={!commandEnabled(tool.command.id)}
+					layout="bottom"
+					onclick={() => executeEditorCommand(tool.command.id)}
+				>
+					{#snippet icon()}
+						{#if shapeSlotKind === 'line'}
+							<ProtectedIcon icon="editor-path" />
+						{:else if shapeSlotKind === 'rounded_rectangle'}
+							<ProtectedIcon icon="editor-shape-rounded-rectangle" />
+						{:else if shapeSlotKind === 'ellipse'}
+							<ProtectedIcon icon="editor-shape-ellipse" />
+						{:else}
+							<ProtectedIcon icon="editor-shape-rectangle" />
+						{/if}
+						<span class="max-w-full truncate">{tool.label}</span>
+					{/snippet}
+					{#snippet menu()}
+						<DropdownMenu.Item onclick={() => insertShape('rectangle')}>
+							<ProtectedIcon icon="editor-shape-rectangle" />
+							{m.image_editor_rectangle()}
+							<span class="ml-auto text-xs text-muted-foreground">U</span>
+						</DropdownMenu.Item>
+						<DropdownMenu.Item onclick={() => insertShape('rounded_rectangle')}>
+							<ProtectedIcon icon="editor-shape-rounded-rectangle" />
+							{m.image_editor_rounded_rectangle()}
+						</DropdownMenu.Item>
+						<DropdownMenu.Item onclick={() => insertShape('ellipse')}>
+							<ProtectedIcon icon="editor-shape-ellipse" />
+							{m.image_editor_ellipse()}
+						</DropdownMenu.Item>
+						<DropdownMenu.Item onclick={() => insertShape('line')}>
+							<ProtectedIcon icon="editor-path" />
+							{m.image_editor_line()}
+						</DropdownMenu.Item>
+					{/snippet}
+				</ToolFamilyButton>
 			{:else if tool.key === 'marquee'}
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<Button
-								{...props}
-								variant={isMarqueeTool(editor.activeTool) ? 'secondary' : 'ghost'}
-								class="relative h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
-								aria-label={m.image_editor_pixel_select()}
-							>
-								{#if editor.activeTool === 'marquee'}
-									<ProtectedIcon icon="editor-marquee" />
-								{:else if editor.activeTool === 'ellipse_marquee'}
-									<ProtectedIcon icon="pending" />
-								{:else}
-									<ProtectedIcon icon="editor-marquee" />
-								{/if}
-								{m.image_editor_pixels()}
-								{@render toolGroupIndicator()}
-							</Button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content side="top" align="start" class="min-w-52">
+				{@const marqueeCommand =
+					marqueeSlotTool === 'ellipse_marquee' ? 'tool_ellipse_marquee' : 'tool_marquee'}
+				<ToolFamilyButton
+					label={commandLabel(marqueeCommand)}
+					active={isMarqueeTool(editor.activeTool)}
+					disabled={!commandEnabled(marqueeCommand)}
+					layout="bottom"
+					onclick={() => executeEditorCommand(marqueeCommand)}
+				>
+					{#snippet icon()}
+						<ProtectedIcon
+							icon={marqueeSlotTool === 'ellipse_marquee'
+								? 'editor-marquee-ellipse'
+								: 'editor-marquee'}
+						/>
+						<span class="max-w-full truncate">{m.image_editor_pixels()}</span>
+					{/snippet}
+					{#snippet menu()}
 						{#each railSlotCommands('pixel_select') as command (command.id)}
 							{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 							<DropdownMenu.Item
 								onclick={() => executeEditorCommand(command.id)}
 								disabled={!commandEnabled(command.id)}
-								title={commandDisabledReason(command.id) || undefined}
 							>
-								{@render toolGlyph(CommandIcon)}
-								{commandLabel(command.id)}
+								{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
+								<span class="ml-auto text-xs text-muted-foreground"
+									>{commandShortcut(command.id)}</span
+								>
 							</DropdownMenu.Item>
 						{/each}
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
+					{/snippet}
+				</ToolFamilyButton>
 			{:else if tool.key === 'lasso'}
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<Button
-								{...props}
-								variant={isLassoTool(editor.activeTool) ? 'secondary' : 'ghost'}
-								class="relative h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
-								aria-label={lassoSlotTool === 'polygonal_lasso'
-									? m.image_editor_polygonal_lasso_select()
-									: m.image_editor_lasso_select()}
-							>
-								<ProtectedIcon icon="editor-lasso" />
-								{m.image_editor_lasso_select()}
-								{@render toolGroupIndicator()}
-							</Button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content side="top" align="start" class="min-w-52">
+				{@const lassoCommand =
+					lassoSlotTool === 'polygonal_lasso' ? 'tool_polygonal_lasso' : 'tool_lasso'}
+				<ToolFamilyButton
+					label={commandLabel(lassoCommand)}
+					active={isLassoTool(editor.activeTool)}
+					disabled={!commandEnabled(lassoCommand)}
+					layout="bottom"
+					onclick={() => executeEditorCommand(lassoCommand)}
+				>
+					{#snippet icon()}
+						<ProtectedIcon icon="editor-lasso" />
+						<span class="max-w-full truncate">{m.image_editor_lasso_select()}</span>
+					{/snippet}
+					{#snippet menu()}
 						{#each railSlotCommands('lasso') as command (command.id)}
 							<DropdownMenu.Item
 								onclick={() => executeEditorCommand(command.id)}
 								disabled={!commandEnabled(command.id)}
-								title={commandDisabledReason(command.id) || undefined}
 							>
 								<ProtectedIcon icon="editor-lasso" />{commandLabel(command.id)}
+								<span class="ml-auto text-xs text-muted-foreground"
+									>{commandShortcut(command.id)}</span
+								>
 							</DropdownMenu.Item>
 						{/each}
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
+					{/snippet}
+				</ToolFamilyButton>
 			{:else if tool.key === 'bucket'}
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<Button
-								{...props}
-								variant={isFillTool(editor.activeTool) ? 'secondary' : 'ghost'}
-								class="relative h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
-								disabled={!editor.canEdit}
-								aria-label={editor.activeTool === 'gradient'
-									? m.image_editor_gradient()
-									: m.image_editor_paint_bucket()}
-							>
-								{#if editor.activeTool === 'gradient'}
-									<ProtectedIcon icon="editor-blend" />
-								{:else}
-									<ProtectedIcon icon="editor-fill" />
-								{/if}
-								{m.image_editor_fill()}
-								{@render toolGroupIndicator()}
-							</Button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content side="top" align="start" class="min-w-44">
+				{@const fillCommand = fillSlotTool === 'gradient' ? 'tool_gradient' : 'tool_bucket'}
+				<ToolFamilyButton
+					label={commandLabel(fillCommand)}
+					active={isFillTool(editor.activeTool)}
+					disabled={!commandEnabled(fillCommand)}
+					layout="bottom"
+					onclick={() => executeEditorCommand(fillCommand)}
+				>
+					{#snippet icon()}
+						<ProtectedIcon icon={fillSlotTool === 'gradient' ? 'editor-blend' : 'editor-fill'} />
+						<span class="max-w-full truncate">{m.image_editor_fill()}</span>
+					{/snippet}
+					{#snippet menu()}
 						{#each railSlotCommands('fill') as command (command.id)}
 							{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 							<DropdownMenu.Item
 								onclick={() => executeEditorCommand(command.id)}
 								disabled={!commandEnabled(command.id)}
-								title={commandDisabledReason(command.id) || undefined}
 							>
-								{@render toolGlyph(CommandIcon)}
-								{commandLabel(command.id)}
+								{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
+								<span class="ml-auto text-xs text-muted-foreground"
+									>{commandShortcut(command.id)}</span
+								>
 							</DropdownMenu.Item>
 						{/each}
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
+					{/snippet}
+				</ToolFamilyButton>
 			{:else if tool.key === 'eraser'}
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<Button
-								{...props}
-								variant={isEraserTool(editor.activeTool) ? 'secondary' : 'ghost'}
-								class="relative h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
-								disabled={!editor.canEdit}
-								aria-label={editor.activeTool === 'magic_eraser'
-									? m.image_editor_magic_erase()
-									: m.image_editor_erase()}
-							>
-								{#if editor.activeTool === 'magic_eraser'}
-									<ProtectedIcon icon="editor-effects" />
-								{:else}
-									<ProtectedIcon icon="editor-erase" />
-								{/if}
-								{m.image_editor_erase()}
-								{@render toolGroupIndicator()}
-							</Button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content side="top" align="start" class="min-w-48">
+				{@const eraseCommand =
+					eraserSlotTool === 'magic_eraser' ? 'tool_magic_eraser' : 'tool_eraser'}
+				<ToolFamilyButton
+					label={commandLabel(eraseCommand)}
+					active={isEraserTool(editor.activeTool)}
+					disabled={!commandEnabled(eraseCommand)}
+					layout="bottom"
+					onclick={() => executeEditorCommand(eraseCommand)}
+				>
+					{#snippet icon()}
+						<ProtectedIcon
+							icon={eraserSlotTool === 'magic_eraser' ? 'editor-effects' : 'editor-erase'}
+						/>
+						<span class="max-w-full truncate">{m.image_editor_erase()}</span>
+					{/snippet}
+					{#snippet menu()}
 						{#each railSlotCommands('erase') as command (command.id)}
 							{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
 							<DropdownMenu.Item
 								onclick={() => executeEditorCommand(command.id)}
 								disabled={!commandEnabled(command.id)}
-								title={commandDisabledReason(command.id) || undefined}
 							>
-								{@render toolGlyph(CommandIcon)}
-								{commandLabel(command.id)}
+								{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
+								<span class="ml-auto text-xs text-muted-foreground"
+									>{commandShortcut(command.id)}</span
+								>
 							</DropdownMenu.Item>
 						{/each}
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
+					{/snippet}
+				</ToolFamilyButton>
 			{:else}
 				<Button
 					variant={editor.activeTool === tool.key ? 'secondary' : 'ghost'}
@@ -4483,7 +4538,7 @@
 			onclick={() => (mobileSheet = 'properties')}
 		>
 			<ThemeIcon role="controls" />
-			{m.image_editor_edit()}
+			{m.image_editor_properties()}
 		</Button>
 	</nav>
 </div>
@@ -4523,7 +4578,7 @@
 							{...props}
 							variant="ghost"
 							size="icon-sm"
-							class="absolute top-0 right-1 z-20"
+							class="absolute top-0 right-1 z-20 [@media(pointer:coarse)]:size-11"
 							aria-label={m.common_close()}
 						>
 							<ThemeIcon role="close" />

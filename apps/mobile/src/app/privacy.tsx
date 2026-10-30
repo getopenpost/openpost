@@ -1,7 +1,7 @@
-import { Stack, router } from "expo-router";
+import { Stack } from "expo-router";
 import { useState, useSyncExternalStore } from "react";
 import { ScrollView, View } from "react-native";
-import { BodyText, IconButton, Screen, SectionHeader } from "@/components/ui";
+import { BodyText, Screen, SectionHeader } from "@/components/ui";
 import { NativeText } from "@/components/native-text";
 import { DitherPressable } from "@/components/dither-pressable";
 import { nativeTelemetry } from "@/lib/telemetry";
@@ -27,27 +27,18 @@ export default function PrivacyScreen() {
     }
   }
   return (
-    <Screen>
-      <Stack.Screen options={{ headerShown: false }} />
+    <Screen safeTop={false}>
+      <Stack.Screen
+        options={{
+          title: "Privacy",
+          headerShown: true,
+          headerBackTitle: "Back",
+        }}
+      />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ padding: spacing.large, gap: spacing.large }}
       >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.small,
-          }}
-        >
-          <IconButton label="Back" role="back" onPress={() => router.back()} />
-          <NativeText
-            accessibilityRole="header"
-            style={[typography.titleLarge, { color: colors.onSurface }]}
-          >
-            Privacy
-          </NativeText>
-        </View>
         <View style={{ gap: spacing.medium }}>
           <SectionHeader label="App analytics" />
           <BodyText>

@@ -180,7 +180,7 @@ for (const scheme of ["light", "dark"] as const) {
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       const panels = page.getByRole("navigation", { name: "Editor panels" });
-      for (const name of ["Assets", "Edit", "Program"]) {
+      for (const name of ["Assets", "Properties", "Program"]) {
         await panels.getByRole("button", { name, exact: true }).click();
         await expect(panels.getByRole("button", { name, exact: true })).toHaveAttribute(
           "aria-pressed",
@@ -200,7 +200,7 @@ for (const scheme of ["light", "dark"] as const) {
             });
           }
         }
-        if (name === "Edit") {
+        if (name === "Properties") {
           await page
             .getByRole("button", { name: "Warp: Shape", exact: true })
             .scrollIntoViewIfNeeded();

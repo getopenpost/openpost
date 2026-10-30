@@ -771,7 +771,7 @@
 					>
 					<Input
 						type="search"
-						class="h-[22px] w-28 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1.5 text-xs shadow-none"
+						class="h-[var(--editor-22,22px)] w-28 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1.5 text-xs shadow-none"
 						bind:value={searchQuery}
 						placeholder={m.video_editor_keyframe_sheet_search()}
 						aria-label={m.video_editor_keyframe_sheet_search()}
@@ -814,7 +814,7 @@
 							type="number"
 							min={0}
 							max={item.durationInFrames - 1}
-							class="h-[22px] w-14 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1 font-mono text-xs shadow-none disabled:opacity-45"
+							class="h-[var(--editor-22,22px)] w-14 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1 font-mono text-xs shadow-none disabled:opacity-45"
 							value={selectedFrame ?? ''}
 							placeholder={selectedIds.size > 1 ? m.video_editor_keyframe_sheet_mixed() : '-'}
 							disabled={selectedFrame === undefined}
@@ -839,7 +839,7 @@
 				{/if}
 				{#if presentation === 'side'}
 					<div
-						class="grid h-[22px] shrink-0 border-b border-white/10 bg-[oklch(0.155_0.008_55)] text-[8px] tracking-wider text-white/35 uppercase"
+						class="grid h-[var(--editor-22,22px)] shrink-0 border-b border-white/10 bg-[oklch(0.155_0.008_55)] text-[8px] tracking-wider text-white/35 uppercase"
 						style="grid-template-columns:{propertyColumnWidth}px minmax(0, 1fr)"
 						data-keyframe-side-ruler
 					>
@@ -870,7 +870,7 @@
 					{/if}
 					{#each groupedRows as { group, properties, hidden } (group)}
 						<div
-							class="flex h-[22px] shrink-0 items-center gap-1 border-b border-[oklch(0.28_0.015_55)] bg-[oklch(0.17_0.008_55)] px-1.5"
+							class="flex h-[var(--editor-22,22px)] shrink-0 items-center gap-1 border-b border-[oklch(0.28_0.015_55)] bg-[oklch(0.17_0.008_55)] px-1.5"
 							data-dopesheet-group={group}
 							data-group-hidden={hidden}
 						>

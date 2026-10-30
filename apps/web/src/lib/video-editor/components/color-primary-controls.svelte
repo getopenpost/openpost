@@ -553,7 +553,7 @@
 					max={Number(param.max)}
 					step={Number(param.step)}
 					decimals={sliderDecimals(name)}
-					class="h-[22px] w-12 shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-right text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
+					class="h-[var(--editor-22,22px)] w-12 shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-right text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
 					onlive={(next) => updateParameter(name, next)}
 					oncommit={(next) => commitParameter(name, next)}
 					oncancel={() => cancelParameter(name)}
@@ -906,7 +906,7 @@
 	<div class="order-4 shrink-0 border-t border-[var(--video-editor-border)]">
 		<button
 			type="button"
-			class="flex h-[22px] w-full items-center justify-between px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+			class="flex h-[var(--editor-22,22px)] w-full items-center justify-between px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 			aria-expanded={showPrimaries}
 			onclick={() => (showPrimaries = !showPrimaries)}
 		>
@@ -927,7 +927,7 @@
 		{/if}
 		<button
 			type="button"
-			class="flex h-[22px] w-full items-center justify-between border-t border-[var(--video-editor-border)] px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+			class="flex h-[var(--editor-22,22px)] w-full items-center justify-between border-t border-[var(--video-editor-border)] px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 			aria-expanded={showBalance}
 			onclick={() => (showBalance = !showBalance)}
 		>

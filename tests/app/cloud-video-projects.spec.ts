@@ -19,7 +19,7 @@ test("Cloud Video Projects are the signed-in default with recovery on desktop an
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/video-editor");
   await expect(page.getByRole("heading", { name: "Saved to OpenPost" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Saved to OpenPost" })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "OpenPost cloud" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -90,7 +90,7 @@ test("Cloud Video Projects are the signed-in default with recovery on desktop an
   await page.getByRole("menuitem", { name: "Version history" }).click();
   const history = page.getByRole("dialog", { name: "Version history" });
   await expect(history).toBeVisible();
-  await expect(history.getByText("Loading...", { exact: true })).toHaveCount(0);
+  await expect(history.getByText("Loading…", { exact: true })).toHaveCount(0);
   await history.getByRole("textbox", { name: "Checkpoint name" }).fill("Before captions");
   await history.getByRole("button", { name: "Create checkpoint" }).click();
   await expect(history.getByText("Before captions", { exact: true })).toBeVisible();

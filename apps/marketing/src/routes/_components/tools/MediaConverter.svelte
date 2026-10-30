@@ -35,6 +35,7 @@
 	const audioOnly = $derived(tool.mode === 'audio' || tool.mode === 'extract');
 	const inspectOnly = $derived(tool.mode === 'inspect');
 	let picker = $state<HTMLInputElement | null>(null);
+	let dragging = $state(false);
 	let source: MediaInput | null = null;
 	let file = $state<File | null>(null);
 	let info = $state<MediaInfo | null>(null);
@@ -277,12 +278,20 @@
 	{#if !file}
 		<Button
 			variant="outline"
-			class="media-drop focus-ring"
+			class={'media-drop focus-ring' + (dragging ? ' dragging' : '')}
 			disabled={busy}
 			onclick={() => picker?.click()}
+			ondragenter={(event) => {
+				event.preventDefault();
+				dragging = true;
+			}}
 			ondragover={(event) => event.preventDefault()}
+			ondragleave={(event) => {
+				if (!event.currentTarget.contains(event.relatedTarget as Node | null)) dragging = false;
+			}}
 			ondrop={(event) => {
 				event.preventDefault();
+				dragging = false;
 				const dropped = event.dataTransfer?.files[0];
 				if (dropped) void load(dropped);
 			}}
@@ -486,6 +495,10 @@
 		white-space: normal;
 		text-align: center;
 		border-style: dashed;
+	}
+	.media-tool :global(.media-drop.dragging) {
+		border-color: var(--primary);
+		background-color: var(--accent);
 	}
 	small,
 	.hint,

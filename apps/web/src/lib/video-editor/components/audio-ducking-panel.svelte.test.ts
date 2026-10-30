@@ -44,7 +44,7 @@ it('turns ducking off at zero, preserves its undo settings and keeps it off afte
 	await userEvent.keyboard('{Tab}');
 	await screen.rerender({ item: timelineStore.itemById.get('voice')! });
 	await expect
-		.element(screen.container.querySelector('summary')!)
+		.element(screen.container.querySelector('[data-editor-disclosure] button') as HTMLButtonElement)
 		.toHaveTextContent(m.video_editor_duck_off());
 	await screen.getByText(m.video_editor_duck_title(), { exact: true }).click();
 	await expect.element(toggle).toHaveAttribute('aria-pressed', 'false');
@@ -73,7 +73,9 @@ it('turns ducking off at zero, preserves its undo settings and keeps it off afte
 		sequenceStore.load(loaded.timeline!, loaded.metadata);
 		await screen.rerender({ item: timelineStore.itemById.get('voice')! });
 		await expect
-			.element(screen.container.querySelector('summary')!)
+			.element(
+				screen.container.querySelector('[data-editor-disclosure] button') as HTMLButtonElement
+			)
 			.toHaveTextContent(m.video_editor_duck_off());
 		await screen.getByText(m.video_editor_duck_title(), { exact: true }).click();
 		await expect.element(toggle).toHaveAttribute('aria-pressed', 'false');

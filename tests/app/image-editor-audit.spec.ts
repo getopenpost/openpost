@@ -69,7 +69,7 @@ test("ordinary start page opens workspace templates with their pages and editabl
   expect(templateResponse.ok()).toBe(true);
   await authenticatePage(page, auth.token);
   await page.goto("/image-editor");
-  await expect(page.getByRole("button", { name: "Saved to OpenPost", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "OpenPost cloud", exact: true })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Workspace templates", exact: true }),
   ).toBeVisible();
@@ -77,7 +77,7 @@ test("ordinary start page opens workspace templates with their pages and editabl
   const showAll = page.getByRole("button", { name: /Show all .* templates/ });
   if (await showAll.isVisible()) await showAll.click();
   const workspaceCard = page.getByRole("button", { name: /^Audit workspace template/ });
-  await page.getByRole("button", { name: "Local only", exact: true }).click();
+  await page.getByRole("button", { name: "This device", exact: true }).click();
   await expect(workspaceCard).toBeVisible();
   await expect(workspaceCard).toHaveAccessibleName(
     "Audit workspace template: Create design, Saved to OpenPost",
@@ -98,7 +98,7 @@ test("ordinary start page opens workspace templates with their pages and editabl
     }
   }
   await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(page.getByRole("button", { name: "Local only", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "This device", exact: true })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -135,7 +135,7 @@ test("ordinary start page opens workspace templates with their pages and editabl
   );
   expect(savedTemplate.document.title).toBe("Template source");
   await page.goto("/image-editor");
-  await page.getByRole("button", { name: "Local only", exact: true }).click();
+  await page.getByRole("button", { name: "This device", exact: true }).click();
   await expect(workspaceCard).toBeVisible();
   await page.getByRole("button", { name: "Quick announcement", exact: true }).click();
   await expect(page).toHaveURL(/\/image-editor\/local_design_/);

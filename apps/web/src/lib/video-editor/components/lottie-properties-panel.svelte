@@ -253,7 +253,7 @@
 				min="0.05"
 				max="16"
 				step="0.05"
-				class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+				class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 				value={item.speed ?? 1}
 				onchange={(event) => setNumber('speed', event.currentTarget.valueAsNumber)}
 			/>
@@ -298,7 +298,7 @@
 				min="0"
 				max={maxFrame}
 				step="1"
-				class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+				class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 				value={item.lottieSegmentStart ?? 0}
 				onchange={(event) => setNumber('lottieSegmentStart', event.currentTarget.valueAsNumber)}
 			/>
@@ -310,7 +310,7 @@
 				min="0"
 				max={maxFrame}
 				step="1"
-				class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+				class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 				value={item.lottieSegmentEnd ?? maxFrame}
 				onchange={(event) => setNumber('lottieSegmentEnd', event.currentTarget.valueAsNumber)}
 			/>
@@ -364,7 +364,7 @@
 				<label class="min-w-0 text-[9px] text-[var(--video-editor-muted)]">
 					<span class="block truncate">{layer.label}</span>
 					<Input
-						class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+						class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 						value={item.lottieTextOverrides?.[layer.key] ?? layer.text}
 						onchange={(event) => setText(layer, event.currentTarget.value)}
 					/>
@@ -457,7 +457,7 @@
 						<Input
 							type="number"
 							step="0.1"
-							class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+							class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 							value={typeof current === 'number' ? current : slot.value}
 							onchange={(event) => setSlot(slot, event.currentTarget.valueAsNumber)}
 						/>
@@ -467,7 +467,7 @@
 							<Input
 								type="number"
 								step="0.1"
-								class="h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+								class="h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 								aria-label={`${slot.label} X`}
 								value={vector[0]}
 								onchange={(event) => setSlot(slot, [event.currentTarget.valueAsNumber, vector[1]])}
@@ -475,7 +475,7 @@
 							<Input
 								type="number"
 								step="0.1"
-								class="h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+								class="h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 								aria-label={`${slot.label} Y`}
 								value={vector[1]}
 								onchange={(event) => setSlot(slot, [vector[0], event.currentTarget.valueAsNumber])}

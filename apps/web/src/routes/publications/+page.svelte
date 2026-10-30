@@ -516,12 +516,12 @@
 	function statusClass(post: ActivityItem) {
 		switch (post.status) {
 			case 'scheduled':
-				return 'text-amber-700 dark:text-amber-300';
+				return 'text-warning-foreground';
 			case 'publishing':
 			case 'ready':
-				return 'text-blue-700 dark:text-blue-300';
+				return 'text-info-foreground';
 			case 'published':
-				return 'text-emerald-700 dark:text-emerald-300';
+				return 'text-success-foreground';
 			case 'failed':
 				return 'text-destructive';
 			default:
@@ -786,9 +786,9 @@
 	{#if items.length === 0}
 		<EmptyState
 			themeIconRole="file"
-			title={searchTerm ? m.media_search_results({ count: 0, query: searchTerm }) : emptyTitle}
+			title={searchTerm ? m.posts_search_results({ count: 0, query: searchTerm }) : emptyTitle}
 			description={searchTerm ? undefined : emptyDescription}
-			actionLabel={searchTerm ? m.media_clear_search() : undefined}
+			actionLabel={searchTerm ? m.posts_clear_search() : undefined}
 			onAction={searchTerm ? () => (searchQuery = '') : undefined}
 			variant="muted"
 		/>
@@ -1103,13 +1103,13 @@
 				<div class="min-w-0">
 					<p class="mt-0.5 text-xs text-muted-foreground">
 						{searchQuery
-							? m.media_search_results({ count: publicationPage.total, query: searchQuery })
-							: m.stock_results_count({ shown: activePosts.length, total: publicationPage.total })}
+							? m.posts_search_results({ count: publicationPage.total, query: searchQuery })
+							: m.posts_results_count({ shown: activePosts.length, total: publicationPage.total })}
 					</p>
 				</div>
 				{#if searchQuery}
 					<Button variant="ghost" size="sm" class="shrink-0" onclick={() => (searchQuery = '')}>
-						{m.media_clear_search()}
+						{m.posts_clear_search()}
 					</Button>
 				{/if}
 			</div>
@@ -1227,7 +1227,7 @@
 			{#if publicationsInfinite.hasNextPage}
 				<div class="mt-6 flex min-h-10 items-center justify-between gap-3 border-t pt-4">
 					<span class="text-xs text-muted-foreground tabular-nums" aria-live="polite">
-						{m.stock_results_count({ shown: posts.length, total: publicationPage.total })}
+						{m.posts_results_count({ shown: posts.length, total: publicationPage.total })}
 					</span>
 					<Button
 						variant="outline"

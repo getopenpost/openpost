@@ -196,12 +196,12 @@ for (const { destinationOnly, provider, outputProfile, count } of [
       .locator(`[data-composer-media-id="${media.id}"]`)
       .getByRole("button", { name: /^(Add alt text|Alt text)$/ })
       .click();
-    await expect(page.getByPlaceholder("Alt text...")).toHaveValue(media.alt_text);
+    await expect(page.getByPlaceholder("Alt text…")).toHaveValue(media.alt_text);
     for (const colorScheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       for (const width of [390, 320]) {
         await page.setViewportSize({ width, height: 800 });
-        await expect(page.getByPlaceholder("Alt text...")).toBeVisible();
+        await expect(page.getByPlaceholder("Alt text…")).toBeVisible();
         expect(
           await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
         ).toBe(true);
@@ -214,8 +214,8 @@ for (const { destinationOnly, provider, outputProfile, count } of [
         });
       }
     }
-    await page.getByPlaceholder("Alt text...").fill("Updated publication description");
-    await page.getByPlaceholder("Alt text...").blur();
+    await page.getByPlaceholder("Alt text…").fill("Updated publication description");
+    await page.getByPlaceholder("Alt text…").blur();
     await expect
       .poll(() =>
         saves.some((saved) =>

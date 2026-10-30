@@ -1,6 +1,6 @@
 <script lang="ts">
 	import AppSelect from '$lib/components/app-select.svelte';
-	import { Slider } from '$lib/components/ui/slider';
+	import { SliderRow } from '$lib/components/editor-density';
 	import { useImageEditor } from '../editor.svelte';
 	import { DEFAULT_LENS_EFFECT } from '../lens-effects';
 	import type { ImageEditorLayer, ImageEditorLensEffect } from '../types';
@@ -45,50 +45,43 @@
 	{#if effect}
 		<p class="text-xs text-muted-foreground">{m.image_editor_lens_help()}</p>
 		{#each [{ key: 'amount', label: m.image_editor_lens_amount() }, { key: 'threshold', label: m.image_editor_lens_threshold() }, { key: 'size', label: m.image_editor_lens_size() }] as field (field.key)}
-			<label class="grid gap-1 text-xs">
-				<span
-					>{field.label} · {Math.round(
-						effect[field.key as 'amount' | 'threshold' | 'size'] * 100
-					)}%</span
-				>
-				<Slider
-					value={effect[field.key as 'amount' | 'threshold' | 'size']}
-					min={0}
-					max={1}
-					step={0.01}
-					{disabled}
-					ariaLabel={field.label}
-					onValueChange={(value) => update({ [field.key]: value }, field.key)}
-				/>
-			</label>
+			<SliderRow
+				label={field.label}
+				value={effect[field.key as 'amount' | 'threshold' | 'size'] * 100}
+				min={0}
+				max={100}
+				step={1}
+				precision={0}
+				{disabled}
+				onValueChange={(value) => update({ [field.key]: value / 100 }, field.key)}
+				onValueCommit={(value) => update({ [field.key]: value / 100 }, field.key)}
+			/>
 		{/each}
 		{#if effect.kind !== 'mist'}
-			<label class="grid gap-1 text-xs">
-				<span>{m.image_editor_lens_angle()} · {effect.angle}°</span>
-				<Slider
-					value={effect.angle}
-					min={-180}
-					max={180}
-					step={1}
-					{disabled}
-					ariaLabel={m.image_editor_lens_angle()}
-					onValueChange={(angle) => update({ angle }, 'angle')}
-				/>
-			</label>
+			<SliderRow
+				label={m.image_editor_lens_angle()}
+				value={effect.angle}
+				min={-180}
+				max={180}
+				step={1}
+				precision={0}
+				{disabled}
+				onValueChange={(angle) => update({ angle }, 'angle')}
+				onValueCommit={(angle) => update({ angle }, 'angle')}
+			/>
 		{/if}
 		{#if effect.kind === 'starburst' || effect.kind === 'bokeh'}
-			<label class="grid gap-1 text-xs">
-				<span>{m.image_editor_lens_blades()} · {effect.blades}</span>
-				<Slider
-					value={effect.blades}
-					min={3}
-					max={8}
-					step={1}
-					{disabled}
-					ariaLabel={m.image_editor_lens_blades()}
-					onValueChange={(blades) => update({ blades }, 'blades')}
-				/>
-			</label>
+			<SliderRow
+				label={m.image_editor_lens_blades()}
+				value={effect.blades}
+				min={3}
+				max={8}
+				step={1}
+				precision={0}
+				{disabled}
+				onValueChange={(blades) => update({ blades }, 'blades')}
+				onValueCommit={(blades) => update({ blades }, 'blades')}
+			/>
 		{/if}
 	{/if}
 </section>

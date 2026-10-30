@@ -73,7 +73,7 @@
 	<div class="faq-list">
 		{#each shortFaqs as item (item.question)}
 			<details>
-				<summary>{item.question}<span aria-hidden="true">+</span></summary>
+				<summary class="focus-ring">{item.question}<span aria-hidden="true">+</span></summary>
 				<p>{item.answer}</p>
 			</details>
 		{/each}
@@ -206,11 +206,6 @@
 	}
 	.faq-list summary::-webkit-details-marker {
 		display: none;
-	}
-	.faq-list summary:focus-visible {
-		outline: 2px solid var(--ring);
-		outline-offset: 4px;
-		border-radius: 4px;
 	}
 	.faq-list summary span {
 		font-size: 22px;

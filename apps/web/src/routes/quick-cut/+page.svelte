@@ -12,7 +12,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	import EditorStart from '$lib/components/editor-start.svelte';
 	import WorkspaceGatePanel from '$lib/video-editor/components/workspace-gate-panel.svelte';
 	import { createWorkspaceGate } from '$lib/video-editor/gate/workspace-gate.svelte';
-	import { ToolbarGroup } from '$lib/components/editor-density';
+	import { Disclosure, ToolbarGroup } from '$lib/components/editor-density';
 	import { Input } from '$lib/components/ui/input';
 	import TranscriptCutPanel from '$lib/quick-cut/components/TranscriptCutPanel.svelte';
 	import RepurposePanel from '$lib/quick-cut/components/RepurposePanel.svelte';
@@ -1678,7 +1678,25 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	}
 
 	function onKeydown(event: KeyboardEvent): void {
-		if (panel === 'repurpose') return;
+		if (panel === 'repurpose') {
+			// Playback shortcuts keep working; Escape returns to the cuts panel.
+			// Text entry keeps its own Escape behavior.
+			if (handleGlobalPlayPauseShortcut(event, keyboardShortcuts.bindings.PLAY_PAUSE, togglePlay))
+				return;
+			if (event.repeat || event.defaultPrevented) return;
+			if (event.key === 'Escape') {
+				const target = event.target;
+				const inTextEntry =
+					target instanceof HTMLElement &&
+					Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+				if (!inTextEntry) {
+					event.preventDefault();
+					event.stopPropagation();
+					panel = 'cuts';
+				}
+			}
+			return;
+		}
 		if (handleGlobalPlayPauseShortcut(event, keyboardShortcuts.bindings.PLAY_PAUSE, togglePlay))
 			return;
 		if (event.repeat) return;
@@ -2015,13 +2033,13 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 							size="sm"
 							variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
 							aria-pressed={storageMode === 'cloud'}
-							onclick={() => chooseStorage('cloud')}>{m.video_editor_saved_cloud()}</Button
+							onclick={() => chooseStorage('cloud')}>{m.editor_storage_choice_cloud()}</Button
 						>{/if}
 					<Button
 						size="sm"
 						variant={storageMode === 'local' ? 'secondary' : 'ghost'}
 						aria-pressed={storageMode === 'local'}
-						onclick={() => chooseStorage('local')}>{m.video_editor_local_only()}</Button
+						onclick={() => chooseStorage('local')}>{m.editor_storage_choice_local()}</Button
 					>
 				</div>
 				<section
@@ -2083,7 +2101,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 					{#if !cloudLoading && !cloudProjects.length && !localProjects.length}<p
 							class="py-6 text-sm text-muted-foreground"
 						>
-							{m.video_editor_projects_empty()}
+							{m.quick_cut_projects_empty()}
 						</p>{/if}
 				</section>
 				{#if localGate.state === 'unavailable'}
@@ -2356,10 +2374,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 									onPreview={previewSegment}
 									onExport={(segment) => void handleExportOne(segment)}
 								/>
-								<details class="mt-4 border-t pt-3">
-									<summary class="cursor-pointer text-xs text-muted-foreground"
-										>{m.quick_cut_segment_files()}</summary
-									>
+								<Disclosure class="mt-4 border-t" label={m.quick_cut_segment_files()}>
 									<div class="mt-2">
 										<DropdownMenu.Root>
 											<DropdownMenu.Trigger>
@@ -2404,7 +2419,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 											</DropdownMenu.Content>
 										</DropdownMenu.Root>
 									</div>
-								</details>
+								</Disclosure>
 								{#if hasOverlapError}<p role="alert" class="mt-2 text-xs text-destructive">
 										{m.quick_cut_overlap_error()}
 									</p>
@@ -2533,16 +2548,14 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 										disabled={exporting || !preflight?.eligible}
 										onclick={handleSendToOpenPost}>{m.quick_cut_send_to_openpost()}</Button
 									>
-									{#if activeSource}<details>
-											<summary class="cursor-pointer text-xs">{m.quick_cut_tracks()}</summary
-											><StreamSelector
+									{#if activeSource}<Disclosure label={m.quick_cut_tracks()}>
+											<StreamSelector
 												source={activeSource}
 												onChange={(patch) => updateSourceStreams(activeSource.id, patch)}
 											/>
-										</details>{/if}
-									<details>
-										<summary class="cursor-pointer text-xs">{m.quick_cut_advanced()}</summary><Label
-											class="mt-3 flex items-start gap-2 text-xs"
+										</Disclosure>{/if}
+									<Disclosure label={m.quick_cut_advanced()}>
+										<Label class="mt-3 flex items-start gap-2 text-xs"
 											><Checkbox
 												checked={removeMarkedRanges}
 												onCheckedChange={(checked) => {
@@ -2551,7 +2564,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 												}}
 											/>{m.quick_cut_remove_marked_ranges()}</Label
 										>
-									</details>
+									</Disclosure>
 								</div>
 							{/if}
 						</div>

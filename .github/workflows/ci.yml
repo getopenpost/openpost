@@ -606,11 +606,16 @@ jobs:
             turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
             turbo-${{ runner.os }}-${{ github.job }}-
       - run: bun install --frozen-lockfile
+      # Component browser shards launch channel chromium (the full browser's
+      # headless backend), so they download that build without the separate
+      # headless shell. The server project and shared-package shards are Node
+      # only, so they skip Playwright browsers entirely.
       - name: Install pinned Chromium and system dependencies
+        if: matrix.shard != 'server' && matrix.shard != 'packages'
         timeout-minutes: 5
         env:
           PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
-        run: bunx --no-install playwright install --with-deps chromium
+        run: bunx --no-install playwright install --with-deps --no-shell chromium
       - if: matrix.shard != 'packages'
         working-directory: apps/web
         env:
@@ -835,11 +840,13 @@ jobs:
           go-version-file: apps/server/go.mod
           cache-dependency-path: apps/server/go.sum
       - run: bun install --frozen-lockfile
+      # This suite launches channel chromium, so it needs the full browser
+      # build and not the headless shell.
       - name: Install pinned Chromium and system dependencies
         timeout-minutes: 5
         env:
           PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
-        run: bunx --no-install playwright install --with-deps chromium
+        run: bunx --no-install playwright install --with-deps --no-shell chromium
       - name: Verify or install media fixture tools
         timeout-minutes: 5
         run: bash scripts/ci-setup-tools.sh media
@@ -914,11 +921,13 @@ jobs:
           go-version-file: apps/server/go.mod
           cache-dependency-path: apps/server/go.sum
       - run: bun install --frozen-lockfile
+      # This suite launches channel chromium, so it needs the full browser
+      # build and not the headless shell.
       - name: Install pinned Chromium and system dependencies
         timeout-minutes: 5
         env:
           PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
-        run: bunx --no-install playwright install --with-deps chromium
+        run: bunx --no-install playwright install --with-deps --no-shell chromium
       - name: Resolve the newest canonical application artifact
         id: frontend-artifact
         env:
@@ -1004,6 +1013,8 @@ jobs:
           name: ${{ steps.marketing-artifact.outputs.name }}
           path: apps/marketing/dist
       - run: bun install --frozen-lockfile
+      # Marketing's Playwright config keeps Playwright's bundled headless shell
+      # (it does not launch channel chromium), so this install must stay as-is.
       - name: Install pinned Chromium and system dependencies
         timeout-minutes: 5
         env:
@@ -1012,9 +1023,30 @@ jobs:
       - name: Verify or install media conversion fixture tools
         timeout-minutes: 5
         run: bash scripts/ci-setup-tools.sh media
-      - env:
+      - name: Test the marketing artifact
+        env:
           OPENPOST_E2E_PREBUILT: "1"
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/openpost-marketing-timings.json
         run: bun run test -- e2e
+      - name: Summarize marketing test timings
+        if: always()
+        run: |
+          report="${{ runner.temp }}/openpost-marketing-timings.json"
+          if [[ -f "$report" ]]; then
+            bun scripts/ci-test-timings.mjs summarize "$report" > "${{ runner.temp }}/openpost-marketing-timing-summary.json"
+          else
+            echo "::warning::No marketing Playwright JSON report at ${report}; skipping the timing summary."
+          fi
+      - name: Retain marketing test timings
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: marketing-test-timings-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/openpost-marketing-timings.json
+            ${{ runner.temp }}/openpost-marketing-timing-summary.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Collect marketing browser diagnostics
         if: failure()
         run: |

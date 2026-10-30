@@ -54,6 +54,30 @@ it('requests the chosen format, grouping and filters, then closes', async () => 
 	);
 });
 
+it('starts an export with every account selected on the analytics page', async () => {
+	const requestExport = vi
+		.fn()
+		.mockResolvedValue({ data: new Blob(['report']), response: new Response(null) });
+	const screen = await render(AnalyticsExportDialog, {
+		open: true,
+		workspaceId: 'workspace',
+		days: 30,
+		accountIds: ['first', 'second'],
+		accounts: [
+			{ id: 'first', username: 'first', platform: 'x' },
+			{ id: 'second', username: 'second', platform: 'youtube' }
+		],
+		metrics: ['views'],
+		requestExport
+	});
+	await screen.getByRole('button', { name: 'Download' }).click();
+	await vi.waitFor(() =>
+		expect(requestExport).toHaveBeenCalledWith(
+			expect.objectContaining({ account_ids: 'first,second' })
+		)
+	);
+});
+
 it('keeps the dialog open and explains a failed export', async () => {
 	const requestExport = vi.fn().mockResolvedValue({
 		error: { detail: 'nope' },

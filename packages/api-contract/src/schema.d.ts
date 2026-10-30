@@ -21633,6 +21633,8 @@ export interface operations {
                 to?: string;
                 /** @description Optional social account ID used to filter results and content totals */
                 account_id?: string;
+                /** @description Optional comma-separated social account IDs, combined with account_id */
+                account_ids?: string;
                 /** @description Stored result ordering */
                 sort?: "engagement" | "views" | "visibility" | "newest";
                 /** @description Opaque source-bound content cursor */

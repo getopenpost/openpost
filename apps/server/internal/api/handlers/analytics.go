@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/openpost/backend/internal/api/middleware"
@@ -36,6 +37,7 @@ type GetAnalyticsOverviewInput struct {
 	From        string `query:"from" doc:"Inclusive start date (YYYY-MM-DD, UTC), supplied together with to"`
 	To          string `query:"to" doc:"Inclusive end date (YYYY-MM-DD, UTC), supplied together with from"`
 	AccountID   string `query:"account_id" doc:"Optional social account ID used to filter results and content totals"`
+	AccountIDs  string `query:"account_ids" doc:"Optional comma-separated social account IDs, combined with account_id"`
 	Sort        string `query:"sort" default:"engagement" enum:"engagement,views,visibility,newest" doc:"Stored result ordering"`
 	Cursor      string `query:"cursor" doc:"Opaque source-bound content cursor"`
 	Limit       int    `query:"limit" default:"50" minimum:"1" maximum:"100" doc:"Content results per page"`
@@ -89,7 +91,7 @@ func (h *AnalyticsHandler) RegisterRoutes(api huma.API) {
 			return nil, huma.Error400BadRequest(err.Error())
 		}
 		overview, err := h.service.OverviewWithOptions(ctx, input.WorkspaceID, input.Days, analyticsservice.OverviewOptions{
-			From: input.From, To: input.To, AccountID: input.AccountID,
+			From: input.From, To: input.To, AccountID: input.AccountID, AccountIDs: strings.Split(input.AccountIDs, ","),
 			Sort:   input.Sort,
 			Cursor: input.Cursor,
 			Limit:  input.Limit,

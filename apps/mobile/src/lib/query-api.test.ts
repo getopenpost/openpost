@@ -1,6 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import createClient from "openapi-fetch";
 import type { paths } from "@openpost/api-contract";
+import { normalizeAnalyticsFilters } from "@openpost/query-catalog";
 
 mock.module("expo-secure-store", () => ({
   getItemAsync: async () => null,
@@ -23,7 +24,7 @@ test("sends workspace, account, range and pagination to the analytics API", asyn
   const controller = new AbortController();
   const overview = await createMobileQueryAPI(() => transport).getAnalyticsOverview(
     "workspace-a",
-    { days: 7, accountId: "account-b", sort: "views", limit: 10 },
+    { days: 7, accountId: "account-b", accountIds: ["account-b"], sort: "views", limit: 10 },
     "page-c",
     controller.signal,
   );
@@ -36,6 +37,7 @@ test("sends workspace, account, range and pagination to the analytics API", asyn
     workspace_id: "workspace-a",
     days: "7",
     account_id: "account-b",
+    account_ids: "account-b",
     sort: "views",
     cursor: "page-c",
     limit: "10",
@@ -56,14 +58,37 @@ test("omits unselected analytics filters and surfaces server failures", async ()
   await expect(
     createMobileQueryAPI(() => transport).getAnalyticsOverview(
       "workspace-a",
-      { days: 30, accountId: "", sort: "engagement", limit: 50 },
+      { days: 30, accountId: "", accountIds: [], sort: "engagement", limit: 50 },
       "",
       new AbortController().signal,
     ),
   ).rejects.toMatchObject({ status: 503 });
   const url = new URL(received!.url);
   expect(url.searchParams.has("account_id")).toBe(false);
+  expect(url.searchParams.has("account_ids")).toBe(false);
   expect(url.searchParams.has("cursor")).toBe(false);
+});
+
+test("sends the normalized multi-account selection with pagination", async () => {
+  let received: Request | undefined;
+  const transport = createClient<paths>({
+    baseUrl: "https://review.invalid/api/v1",
+    fetch: async (request) => {
+      received = request;
+      return Response.json({ content: [], content_total: 0 });
+    },
+  });
+  await createMobileQueryAPI(() => transport).getAnalyticsOverview(
+    "workspace-a",
+    normalizeAnalyticsFilters({ days: 30, accountIds: [" account-c ", "account-b", "account-c"] }),
+    "selection-page",
+    new AbortController().signal,
+  );
+  const url = new URL(received!.url);
+  expect(url.searchParams.get("account_ids")).toBe("account-b,account-c");
+  expect(url.searchParams.has("account_id")).toBe(false);
+  expect(url.searchParams.get("cursor")).toBe("selection-page");
+  expect(url.searchParams.get("workspace_id")).toBe("workspace-a");
 });
 
 test.each([200, 404, 403, 503])(

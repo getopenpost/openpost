@@ -100,11 +100,10 @@ func (s *Service) BuildExport(ctx context.Context, workspaceID string, options E
 	if location == nil {
 		location = time.UTC
 	}
-	scope := exportScope{accountID: strings.TrimSpace(options.AccountID), accounts: map[string]bool{}, platforms: map[string]bool{}}
-	for _, id := range options.AccountIDs {
-		if id = strings.TrimSpace(id); id != "" {
-			scope.accounts[id] = true
-		}
+	accountIDs := normalizedOverviewAccountIDs(options.AccountID, options.AccountIDs)
+	scope := exportScope{accounts: map[string]bool{}, platforms: map[string]bool{}}
+	for _, id := range accountIDs {
+		scope.accounts[id] = true
 	}
 	for _, name := range options.Platforms {
 		if name = strings.ToLower(strings.TrimSpace(name)); name != "" {
@@ -119,7 +118,7 @@ func (s *Service) BuildExport(ctx context.Context, workspaceID string, options E
 	// One unpaged pass keeps the export complete without rebuilding the
 	// overview for every page of a large workspace.
 	overview, err := s.OverviewWithOptions(ctx, workspaceID, options.Days, OverviewOptions{
-		From: options.From, To: options.To, AccountID: scope.accountID, Sort: "newest", Unpaged: true,
+		From: options.From, To: options.To, AccountIDs: accountIDs, Sort: "newest", Unpaged: true,
 	})
 	if err != nil {
 		return ExportDataset{}, err
@@ -179,14 +178,12 @@ func normalizeExportMetrics(values []string) ([]string, error) {
 }
 
 type exportScope struct {
-	accountID string
 	accounts  map[string]bool
 	platforms map[string]bool
 }
 
 func (scope exportScope) includes(accountID, platformName string) bool {
-	return (scope.accountID == "" || scope.accountID == accountID) &&
-		(len(scope.accounts) == 0 || scope.accounts[accountID]) &&
+	return (len(scope.accounts) == 0 || scope.accounts[accountID]) &&
 		(len(scope.platforms) == 0 || scope.platforms[strings.ToLower(platformName)])
 }
 

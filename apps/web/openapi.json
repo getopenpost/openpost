@@ -32529,6 +32529,16 @@
 						}
 					},
 					{
+						"description": "Optional comma-separated social account IDs, combined with account_id",
+						"explode": false,
+						"in": "query",
+						"name": "account_ids",
+						"schema": {
+							"description": "Optional comma-separated social account IDs, combined with account_id",
+							"type": "string"
+						}
+					},
+					{
 						"description": "Stored result ordering",
 						"explode": false,
 						"in": "query",

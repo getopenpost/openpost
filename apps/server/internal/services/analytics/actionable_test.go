@@ -104,18 +104,18 @@ func TestTakeawaysRejectInsufficientOrIncompatibleEvidenceAndUnsupportedAccounts
 	for i := range items {
 		items[i].Status = "ok"
 	}
-	require.Len(t, buildTakeaways(items, nil, ""), 1)
-	require.Empty(t, buildTakeaways(items[:2], nil, ""))
+	require.Len(t, buildTakeaways(items, nil), 1)
+	require.Empty(t, buildTakeaways(items[:2], nil))
 	items[2].Status = "failed"
-	require.Empty(t, buildTakeaways(items, nil, ""))
+	require.Empty(t, buildTakeaways(items, nil))
 	items[2].Status = "ok"
 	items[2].Metrics[platform.MetricLikes] = 12
-	require.Empty(t, buildTakeaways(items, nil, ""), "small improvements do not create a recommendation")
+	require.Empty(t, buildTakeaways(items, nil), "small improvements do not create a recommendation")
 	items[2].Metrics[platform.MetricLikes] = 40
 	items[2].MetricMetadata = legacyMetricMetadata(platform.AnalyticsValues{"likes": 1}, platform.AnalyticsMetricSubjectContent, "different_measurement")
-	require.Empty(t, buildTakeaways(items, nil, ""))
+	require.Empty(t, buildTakeaways(items, nil))
 	accounts := []AccountOverview{{ID: "unsupported", Status: "unsupported"}, {ID: "broken", Status: "permission_required", AccountSupported: true}}
-	actions := buildTakeaways(nil, accounts, "")
+	actions := buildTakeaways(nil, accounts)
 	require.Len(t, actions, 1)
 	require.Equal(t, "broken", actions[0].AccountID)
 }
@@ -152,7 +152,7 @@ func TestTakeawaysReserveRoomAndDeduplicateCrossPostedWinners(t *testing.T) {
 			items = append(items, item)
 		}
 	}
-	actions := buildTakeaways(items, []AccountOverview{{ID: "broken-a", Status: "failed", AccountSupported: true}, {ID: "broken-b", Status: "failed", ContentSupported: true}}, "")
+	actions := buildTakeaways(items, []AccountOverview{{ID: "broken-a", Status: "failed", AccountSupported: true}, {ID: "broken-b", Status: "failed", ContentSupported: true}})
 	require.Len(t, actions, 2)
 	require.Equal(t, "restore_measurements", actions[0].Kind)
 	require.Equal(t, "repurpose_post", actions[1].Kind)
@@ -163,7 +163,7 @@ func TestTakeawaysReserveRoomAndDeduplicateCrossPostedWinners(t *testing.T) {
 			items[i].Metrics[platform.MetricLikes] = 1
 		}
 	}
-	require.Empty(t, buildTakeaways(items, nil, ""))
+	require.Empty(t, buildTakeaways(items, nil))
 }
 
 func TestRecoveryTakeawaysRespectUnsupportedProvidersAndCollectionChoices(t *testing.T) {
@@ -171,9 +171,9 @@ func TestRecoveryTakeawaysRespectUnsupportedProvidersAndCollectionChoices(t *tes
 		{ID: "unsupported", Status: "permission_required", ErrorCode: "feature_disabled"},
 		{ID: "opted-out", Status: "permission_required", ErrorCode: "feature_disabled", AccountSupported: true},
 	} {
-		require.Empty(t, buildTakeaways(nil, []AccountOverview{account}, ""), "unsupported providers and disabled collection are not broken connections")
+		require.Empty(t, buildTakeaways(nil, []AccountOverview{account}), "unsupported providers and disabled collection are not broken connections")
 	}
-	actions := buildTakeaways(nil, []AccountOverview{{ID: "expired", Status: "permission_required", ErrorCode: "missing_scope", AccountSupported: true}}, "")
+	actions := buildTakeaways(nil, []AccountOverview{{ID: "expired", Status: "permission_required", ErrorCode: "missing_scope", AccountSupported: true}})
 	require.Len(t, actions, 1)
 	require.Equal(t, "expired", actions[0].AccountID)
 }

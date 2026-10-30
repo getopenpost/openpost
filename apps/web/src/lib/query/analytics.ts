@@ -28,6 +28,7 @@ function analyticsQuery(workspaceId: string, filters: NormalizedAnalyticsFilters
 		from: filters.from || undefined,
 		to: filters.to || undefined,
 		account_id: filters.accountId || undefined,
+		account_ids: filters.accountIds.join(',') || undefined,
 		sort: filters.sort,
 		cursor: cursor || undefined,
 		limit: filters.limit

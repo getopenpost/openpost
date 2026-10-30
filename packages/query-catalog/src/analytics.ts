@@ -26,6 +26,7 @@ export interface AnalyticsFilters {
   readonly from?: string;
   readonly to?: string;
   readonly accountId?: string;
+  readonly accountIds?: readonly string[];
   readonly sort?: AnalyticsSort;
   readonly limit?: number;
 }
@@ -73,10 +74,18 @@ export type NormalizedAnalyticsFilters = ReturnType<typeof normalizeAnalyticsFil
 };
 
 export function normalizeAnalyticsFilters(filters: AnalyticsFilters) {
+  const accountIds = [
+    ...new Set(
+      [...(filters.accountIds ?? []), filters.accountId ?? ""]
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  ].sort();
   return {
     days: filters.days,
     ...(filters.from || filters.to ? { from: filters.from ?? "", to: filters.to ?? "" } : {}),
-    accountId: filters.accountId?.trim() ?? "",
+    accountId: accountIds.length === 1 ? (accountIds[0] ?? "") : "",
+    accountIds,
     sort: filters.sort ?? "engagement",
     limit: filters.limit ?? 50,
   } as const;

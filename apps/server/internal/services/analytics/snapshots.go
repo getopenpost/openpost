@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/openpost/backend/internal/models"
+	"github.com/uptrace/bun"
 )
 
 // loadLatestRenditionSnapshots seeks the rendition/workspace/capture index
@@ -16,7 +17,7 @@ func (s *Service) loadLatestRenditionSnapshots(
 	workspaceID string,
 	renditionIDs []string,
 	before time.Time,
-	accountID string,
+	accountIDs ...string,
 ) ([]models.AnalyticsRenditionSnapshot, error) {
 	type reference struct{ RenditionID string }
 	requested := make([]reference, 0, len(renditionIDs))
@@ -39,8 +40,8 @@ func (s *Service) loadLatestRenditionSnapshots(
 	if !before.IsZero() {
 		latest = latest.Where("captured_at < ?", before)
 	}
-	if accountID != "" {
-		latest = latest.Where("social_account_id = ?", accountID)
+	if ids := normalizedOverviewAccountIDs("", accountIDs); len(ids) > 0 {
+		latest = latest.Where("social_account_id IN (?)", bun.List(ids))
 	}
 	err := s.db.NewSelect().With("requested", s.db.NewValues(&requested)).
 		TableExpr("requested").ColumnExpr("snapshot.*").

@@ -3,9 +3,29 @@ import {
   analyticsCalendarPresetRange,
   analyticsOverviewQueryOptions,
   analyticsQueryKeys,
+  normalizeAnalyticsFilters,
 } from "./analytics";
 
 describe("shared analytics calendar ranges", () => {
+  it("normalizes a multi-account selection and includes legacy selection in the same scope", () => {
+    const filters = normalizeAnalyticsFilters({
+      days: 30,
+      accountId: " account-c ",
+      accountIds: ["account-b", " account-a ", "account-b", ""],
+    });
+    expect(filters.accountIds).toEqual(["account-a", "account-b", "account-c"]);
+    expect(filters.accountId).toBe("");
+    expect(analyticsQueryKeys.overview("workspace", { days: 30, accountIds: ["b", "a"] })).toEqual(
+      analyticsQueryKeys.overview("workspace", { days: 30, accountIds: ["a", "b", "a"] }),
+    );
+    expect(analyticsQueryKeys.overview("workspace", { days: 30, accountId: "a" })).toEqual(
+      analyticsQueryKeys.overview("workspace", { days: 30, accountIds: ["a"] }),
+    );
+    expect(analyticsQueryKeys.overview("workspace", { days: 30, accountIds: ["a"] })).not.toEqual(
+      analyticsQueryKeys.overview("workspace", { days: 30, accountIds: ["b"] }),
+    );
+    expect(normalizeAnalyticsFilters({ days: 30, accountIds: [] }).accountIds).toEqual([]);
+  });
   it.each([
     ["month_to_date", "2026-10-29T00:30:00+01:00", "2026-10-01", "2026-10-28"],
     ["last_month", "2026-01-04T12:00:00Z", "2025-12-01", "2025-12-31"],

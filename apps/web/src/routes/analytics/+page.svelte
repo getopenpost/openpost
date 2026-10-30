@@ -1,8 +1,8 @@
 <!--
-THESIS: Analytics leads with evidence-backed next actions and keeps provider limits inspectable.
+THESIS: Analytics leads with measured outcomes, then audience and account performance.
 OWN-WORLD: It uses OpenPost's flat borders, compact controls, and provider marks.
-STORY: Choose a supported next action, compare account outcomes, then inspect the source post.
-FIRST VIEWPORT: Persistent reporting controls lead into available actions and a compact outcome summary.
+STORY: Choose accounts and dates, compare outcomes, then inspect the source post.
+FIRST VIEWPORT: Compact reporting controls lead directly into the outcome summary and chart.
 FORM: Server-owned insights and content rows preserve source, period, sample, and provider context.
 -->
 <script lang="ts">
@@ -13,7 +13,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import { untrack } from 'svelte';
 	import AnalyticsNumber from '$lib/components/analytics-number.svelte';
 	import AnalyticsExportDialog from '$lib/components/analytics-export-dialog.svelte';
-	import AsyncActionButton from '$lib/components/async-action-button.svelte';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import {
 		accountFeaturesQueryOptions,
@@ -46,7 +45,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import AnalyticsPerformanceChart from '$lib/components/analytics-performance-chart.svelte';
-	import AnalyticsNextActions from '$lib/components/analytics-next-actions.svelte';
+	import SocialSetControl from '$lib/components/social-set-control.svelte';
 	import AnalyticsAccountPerformance from '$lib/components/analytics-account-performance.svelte';
 	import AnalyticsPostHighlights from '$lib/components/analytics-post-highlights.svelte';
 	import AnalyticsAccountComposition from '$lib/components/analytics-account-composition.svelte';
@@ -89,7 +88,8 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 					? m.analytics_range_year()
 					: m.analytics_range_days({ days: rangeDays })
 	);
-	let selectedAccountID = $state('all');
+	let selectedAccountIDs = $state<string[]>([]);
+	let selectedSetID = $state('');
 	let selectedAccountWorkspaceID = $state('');
 	let chartMetric = $state<ChartMetric>('visibility');
 	let sortMode = $state<AnalyticsSortMode>('visibility');
@@ -105,21 +105,58 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 
 	const currentWorkspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const canEdit = $derived(workspaceCtx.currentWorkspace?.can_edit ?? false);
-	const queryAccountID = $derived(
-		selectedAccountWorkspaceID === currentWorkspaceID ? selectedAccountID : 'all'
+	const queryAccountIDs = $derived(
+		selectedAccountWorkspaceID === currentWorkspaceID ? selectedAccountIDs : []
 	);
+
 	const analyticsQuery = createInfiniteQuery(() =>
 		analyticsOverviewQueryOptions(analyticsQueryAPI, currentWorkspaceID, {
 			days: rangeDays,
 			from: rangeFrom,
 			to: rangeTo,
-			accountId: queryAccountID === 'all' ? undefined : queryAccountID,
+			accountIds: queryAccountIDs,
 			sort: sortMode,
 			limit: 50
 		})
 	);
 	const overview = $derived(combineAnalyticsPages(analyticsQuery.data?.pages ?? []));
 	const accounts = $derived(overview?.accounts ?? []);
+	const scopedAccounts = $derived(
+		accounts.filter(
+			(account) => queryAccountIDs.length === 0 || queryAccountIDs.includes(account.id)
+		)
+	);
+	type FilterAccount = {
+		id: string;
+		platform: string;
+		username: string;
+		avatar_url?: string;
+		inactive: boolean;
+	};
+	let historicalAccounts = $state<FilterAccount[]>([]);
+	let catalogWorkspaceID = $state('');
+	$effect(() => {
+		if (!overview || analyticsQuery.isPlaceholderData) return;
+		const workspaceID = currentWorkspaceID;
+		const history = (overview.performance ?? [])
+			.filter((item) => !accounts.some((account) => account.id === item.account_id))
+			.map((item) => ({
+				id: item.account_id,
+				platform: item.platform,
+				username: item.username,
+				avatar_url: item.avatar_url,
+				inactive: true
+			}));
+		untrack(() => {
+			const known = catalogWorkspaceID === workspaceID ? historicalAccounts : [];
+			const merged = [
+				...new Map([...known, ...history].map((account) => [account.id, account])).values()
+			];
+			catalogWorkspaceID = workspaceID;
+			if (JSON.stringify(merged) !== JSON.stringify(historicalAccounts))
+				historicalAccounts = merged;
+		});
+	});
 	const filterAccounts = $derived([
 		...accounts.map(({ id, platform, username, avatar_url }) => ({
 			id,
@@ -128,19 +165,27 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			avatar_url,
 			inactive: false
 		})),
-		...(overview?.performance ?? [])
-			.filter((item) => !accounts.some((account) => account.id === item.account_id))
-			.map((item) => ({
-				id: item.account_id,
-				platform: item.platform,
-				username: item.username,
-				avatar_url: item.avatar_url,
-				inactive: true
-			}))
+		...(catalogWorkspaceID === currentWorkspaceID ? historicalAccounts : []).filter(
+			(item) => !accounts.some((account) => account.id === item.id)
+		)
 	]);
-	const selectedFilterAccount = $derived(
-		filterAccounts.find((account) => account.id === queryAccountID)
+	const pickerAccounts = $derived(
+		filterAccounts.map((account) => ({
+			id: account.id,
+			platform: account.platform,
+			account_id: account.id,
+			account_username: account.username,
+			account_avatar_url: account.avatar_url ?? '',
+			slug: '',
+			alias: account.inactive
+				? `${accountName(account)} · ${m.settings_member_status_inactive()}`
+				: undefined
+		}))
 	);
+	function selectAccounts(ids: string[]) {
+		selectedAccountIDs = [...new Set(ids)].sort();
+		selectedSetID = '';
+	}
 	const featuresQuery = createQuery(() =>
 		accountFeaturesQueryOptions(
 			featureQueryAPI,
@@ -172,7 +217,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	const exportMetrics = $derived(overview?.content_metric_keys ?? []);
 	const analyticsInsights = $derived(overview?.insights ?? []);
 	const selectedAccount = $derived(
-		queryAccountID === 'all' ? undefined : accounts.find((account) => account.id === queryAccountID)
+		queryAccountIDs.length === 1
+			? accounts.find((account) => account.id === queryAccountIDs[0])
+			: undefined
 	);
 	const chartPoints = $derived(overview?.trends?.[chartMetric] ?? []);
 	const chartTitle = $derived(
@@ -185,7 +232,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	const accountsNeedingReconnect = $derived(
 		accounts.filter(
 			(account) =>
-				(selectedAccountID === 'all' || account.id === selectedAccountID) &&
+				(queryAccountIDs.length === 0 || queryAccountIDs.includes(account.id)) &&
 				(account.status === 'permission_required' ||
 					(account.missing_account_scopes?.length ?? 0) > 0 ||
 					(account.missing_content_scopes?.length ?? 0) > 0)
@@ -194,9 +241,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	const displayedSummary = $derived(overview?.summary ?? null);
 	const destinationCount = $derived(overview?.content_total ?? 0);
 	const hasMeasurements = $derived(
-		(selectedAccount
-			? Boolean(selectedAccount.last_synced_at)
-			: accounts.some((account) => Boolean(account.last_synced_at))) ||
+		scopedAccounts.some((account) => Boolean(account.last_synced_at)) ||
 			contentItems.some((item) => Boolean(item.collected_at || item.last_synced_at))
 	);
 	const initialLoading = $derived(
@@ -227,7 +272,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				key: 'followers',
 				label: m.analytics_summary_followers(),
 				metric: summary.followers,
-				denominator: queryAccountID !== 'all' ? 1 : accounts.length,
+				denominator: scopedAccounts.length,
 				unit: 'account' as const
 			},
 			{
@@ -269,17 +314,12 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			refreshSequence++;
 			refreshing = false;
 			selectedAccountWorkspaceID = currentWorkspaceID;
-			selectedAccountID = 'all';
+			selectedAccountIDs = [];
+			selectedSetID = '';
 			expandedContentID = '';
 			warningsOpen = false;
 		}
-		if (
-			selectedAccountID !== 'all' &&
-			analyticsQuery.data &&
-			!filterAccounts.some((account) => account.id === selectedAccountID)
-		) {
-			selectedAccountID = 'all';
-		}
+
 		if (
 			expandedContentID &&
 			analyticsQuery.data &&
@@ -509,13 +549,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 
 	function accountLabel(account: Pick<AnalyticsAccount, 'username' | 'platform'>): string {
 		return formatSocialAccountLabel(account.username, account.platform);
-	}
-
-	function accountFilterLabel(
-		account: Pick<AnalyticsAccount, 'username' | 'platform'> | undefined
-	): string {
-		if (!account) return m.analytics_account_filter();
-		return `${m.analytics_account_filter()}: ${accountLabel(account)}`;
 	}
 
 	function renditionName(rendition: AnalyticsContent): string {
@@ -761,70 +794,41 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	from={rangeFrom}
 	to={rangeTo}
 	{rangeLabel}
-	accountId={queryAccountID === 'all' ? '' : queryAccountID}
-	{accounts}
+	accountIds={queryAccountIDs}
+	accounts={filterAccounts}
 	metrics={exportMetrics}
 />
 
 {#snippet actions()}
 	<div class="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
-		<Select.Root
-			type="single"
-			value={selectedAccountID}
-			onValueChange={(value) => (selectedAccountID = value)}
-		>
-			<Select.Trigger
-				class="h-11 w-full sm:h-9 sm:w-60"
-				aria-label={accountFilterLabel(selectedFilterAccount)}
-			>
-				{#if selectedFilterAccount}
-					<SocialAccountIdentity
-						name={accountName(selectedFilterAccount) +
-							(selectedFilterAccount.inactive ? ` · ${m.settings_member_status_inactive()}` : '')}
-						platform={selectedFilterAccount.platform}
-						avatarUrl={selectedFilterAccount.avatar_url}
-						size="sm"
-					/>
-				{:else}
-					<span class="flex items-center gap-2">
-						<ThemeIcon role="users" class="size-4 text-muted-foreground" />
-						{m.analytics_all_accounts()}
-					</span>
-				{/if}
-			</Select.Trigger>
-			<Select.Content class="w-72 max-w-[calc(100vw-1rem)]">
-				<Select.Item value="all" class="min-h-11">
-					<span class="flex items-center gap-2.5">
-						<span
-							class="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground"
-						>
-							<ThemeIcon role="users" class="size-4" />
-						</span>
-						<span class="font-medium">{m.analytics_all_accounts()}</span>
-					</span>
-				</Select.Item>
-				{#each filterAccounts as account (account.id)}
-					<Select.Item value={account.id} class="min-h-12 py-2">
-						<SocialAccountIdentity
-							name={formatSocialAccountName(account.username, account.platform) +
-								(account.inactive ? ` · ${m.settings_member_status_inactive()}` : '')}
-							platform={account.platform}
-							avatarUrl={account.avatar_url}
-						/>
-					</Select.Item>
-				{/each}
-			</Select.Content>
-		</Select.Root>
+		<SocialSetControl
+			mode="filter"
+			workspaceId={currentWorkspaceID}
+			accounts={pickerAccounts}
+			selectedAccountIds={queryAccountIDs}
+			bind:selectedSetId={selectedSetID}
+			onApply={(set) => {
+				selectedAccountIDs = (set?.accounts ?? []).map((item) => item.social_account_id);
+			}}
+			onToggle={(account) =>
+				selectAccounts(
+					queryAccountIDs.includes(account.id)
+						? queryAccountIDs.filter((id) => id !== account.id)
+						: [...queryAccountIDs, account.id]
+				)}
+			onClearAll={() => selectAccounts([])}
+		/>
 		<AnalyticsDateRange days={rangeDays} from={rangeFrom} to={rangeTo} onchange={setDateRange} />
 		<Button
 			variant="outline"
-			size="sm"
+			size="icon-sm"
+			title={m.analytics_export()}
+			aria-label={m.analytics_export()}
 			disabled={!overview || filterAccounts.length === 0}
 			onclick={() => (exportOpen = true)}
 			data-testid="analytics-export"
 		>
 			<ThemeIcon role="download" class="size-4" />
-			{m.analytics_export()}
 		</Button>
 		<Popover.Root bind:open={warningsOpen}>
 			<Popover.Trigger>
@@ -832,13 +836,15 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 					<Button
 						{...props}
 						variant="outline"
-						size="sm"
+						size="icon-sm"
+						title={warningCount ? m.analytics_warnings() : m.analytics_data_notes()}
+						aria-label={warningCount
+							? `${m.analytics_warnings()}: ${warningCount}`
+							: m.analytics_data_notes()}
 						disabled={!overview || filterAccounts.length === 0}
 						data-testid="analytics-warnings"
 					>
 						<ProtectedIcon icon={warningCount ? 'warning' : 'info'} class="size-4" />
-						{warningCount ? m.analytics_warnings() : m.analytics_data_notes()}
-						{#if warningCount}<span class="text-xs tabular-nums">{warningCount}</span>{/if}
 					</Button>
 				{/snippet}
 			</Popover.Trigger>
@@ -919,6 +925,40 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 							})}
 						</p>
 					{/if}
+					<p>{m.analytics_visibility_definition()}</p>
+					<p class="mt-2">
+						{m.analytics_visibility_missing({
+							count: Math.max(0, destinationCount - (displayedSummary?.visibility?.measured ?? 0))
+						})}
+					</p>
+					<ul class="mt-2 space-y-1">
+						{#each overview?.visibility_breakdown ?? [] as source (`${source.platform}:${source.metric}:${source.basis}`)}
+							<li>
+								{getPlatformName(source.platform)} · {source.basis === 'post_displays'
+									? m.analytics_visibility_post_displays()
+									: source.basis === 'video_views'
+										? m.analytics_visibility_video_views()
+										: m.analytics_visibility_content_views()}: {formatNumber(source.value)} · {m.analytics_destination_coverage(
+									{ measured: source.measured, total: destinationCount }
+								)}
+							</li>
+						{/each}
+						{#each overview?.performance?.filter((item) => item.visibility.measured < item.published) ?? [] as account (account.account_id)}
+							<li>
+								{formatSocialAccountLabel(account.username, account.platform)}: {m.analytics_destination_coverage(
+									{ measured: account.visibility.measured, total: account.published }
+								)} · {account.status === 'unsupported'
+									? m.analytics_unsupported()
+									: account.status === 'permission_required'
+										? m.analytics_permission_required()
+										: account.status === 'rate_limited'
+											? m.analytics_rate_limited()
+											: account.status === 'failed'
+												? m.analytics_collection_failed()
+												: m.analytics_evidence_unavailable()}
+							</li>
+						{/each}
+					</ul>
 					<p>{m.analytics_metric_definitions()}</p>
 					<p>
 						{chartMetric === 'followers'
@@ -937,17 +977,22 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			</Popover.Content>
 		</Popover.Root>
 
-		<AsyncActionButton
+		<Button
 			variant="outline"
-			size="sm"
+			size="icon-sm"
 			onclick={refreshAnalytics}
 			disabled={!overview || accounts.length === 0 || analyticsAllDisabled}
-			state={refreshing ? 'pending' : 'idle'}
-			label={m.analytics_refresh()}
-			pendingLabel={m.analytics_refreshing()}
-			icon="refresh"
+			aria-busy={refreshing}
+			aria-disabled={refreshing || undefined}
+			aria-label={refreshing ? m.analytics_refreshing() : m.analytics_refresh()}
+			title={refreshing ? m.analytics_refreshing() : m.analytics_refresh()}
 			data-testid="analytics-refresh"
-		/>
+		>
+			<ThemeIcon
+				role="refresh"
+				class={refreshing ? 'size-4 animate-spin motion-reduce:animate-none' : 'size-4'}
+			/>
+		</Button>
 	</div>
 {/snippet}
 
@@ -1013,14 +1058,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				</InlineNotice>
 			{/if}
 
-			<AnalyticsNextActions
-				{canEdit}
-				items={overview?.takeaways ?? []}
-				busy={Boolean(repurposingReferenceKey)}
-				onrepurpose={repurposeReference}
-				formatValue={formatNumber}
-			/>
-			<p class="text-xs leading-5 text-muted-foreground">{m.analytics_outcome_period()}</p>
 			<section aria-label={m.analytics_title()}>
 				<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 					{#each featuredSummaryMetrics as item (item.key)}
@@ -1070,46 +1107,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 						</p>
 					</div>
 				</div>
-				<details class="mt-3 border-t border-border pt-2 text-xs leading-5 text-muted-foreground">
-					<summary
-						class="min-h-11 cursor-pointer rounded-md py-3 font-medium focus-visible:ring-2 focus-visible:ring-ring"
-						>{m.analytics_data_notes()}</summary
-					>
-					<p>{m.analytics_visibility_definition()}</p>
-					<p class="mt-2">
-						{m.analytics_visibility_missing({
-							count: Math.max(0, destinationCount - (displayedSummary?.visibility?.measured ?? 0))
-						})}
-					</p>
-					<ul class="mt-2 space-y-1">
-						{#each overview?.visibility_breakdown ?? [] as source (`${source.platform}:${source.metric}:${source.basis}`)}
-							<li>
-								{getPlatformName(source.platform)} · {source.basis === 'post_displays'
-									? m.analytics_visibility_post_displays()
-									: source.basis === 'video_views'
-										? m.analytics_visibility_video_views()
-										: m.analytics_visibility_content_views()}: {formatNumber(source.value)} · {m.analytics_destination_coverage(
-									{ measured: source.measured, total: destinationCount }
-								)}
-							</li>
-						{/each}
-						{#each overview?.performance?.filter((item) => item.visibility.measured < item.published) ?? [] as account (account.account_id)}
-							<li>
-								{formatSocialAccountLabel(account.username, account.platform)}: {m.analytics_destination_coverage(
-									{ measured: account.visibility.measured, total: account.published }
-								)} · {account.status === 'unsupported'
-									? m.analytics_unsupported()
-									: account.status === 'permission_required'
-										? m.analytics_permission_required()
-										: account.status === 'rate_limited'
-											? m.analytics_rate_limited()
-											: account.status === 'failed'
-												? m.analytics_collection_failed()
-												: m.analytics_evidence_unavailable()}
-							</li>
-						{/each}
-					</ul>
-				</details>
 				{#if secondarySummaryMetrics.length}
 					<p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
 						{#each secondarySummaryMetrics as item (item.key)}
@@ -1131,7 +1128,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				<div class="flex flex-wrap items-center justify-between gap-2 border-b border-border p-3">
 					<div class="contents">
 						<div
-							class="flex min-h-11 items-center gap-1 rounded-md border border-border p-1 sm:min-h-9"
+							class="flex min-h-11 max-w-full items-center gap-1 rounded-md border border-border p-1 sm:min-h-9"
 							role="group"
 							aria-label={m.analytics_chart_metric_label()}
 						>
@@ -1139,7 +1136,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 								<button
 									type="button"
 									class={[
-										'min-h-11 flex-auto rounded-sm px-2.5 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:min-h-7 [@media(pointer:coarse)]:min-h-11',
+										'min-h-11 flex-auto rounded-sm px-1.5 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:min-h-7 sm:px-2.5 [@media(pointer:coarse)]:min-h-11',
 										chartMetric === metric
 											? 'bg-secondary text-secondary-foreground'
 											: 'text-muted-foreground hover:text-foreground'
@@ -1172,18 +1169,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				</div>
 			</section>
 
-			<AnalyticsAccountPerformance
-				items={overview?.performance ?? []}
-				onselect={(id) => (selectedAccountID = id)}
-				formatValue={formatNumber}
-			/>
-			<AnalyticsPostHighlights
-				{canEdit}
-				items={overview?.highlights ?? []}
-				busy={Boolean(repurposingReferenceKey)}
-				onrepurpose={repurposeContent}
-				formatValue={formatNumber}
-			/>
 			<section
 				class="rounded-xl border bg-card p-4 sm:p-5"
 				aria-labelledby="analytics-composition-heading"
@@ -1193,9 +1178,25 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 						{m.analytics_audience_title()}
 					</SectionHeading>
 				</div>
-				<AnalyticsAccountComposition {accounts} formatValue={formatNumber} {accountLabel} />
+				<AnalyticsAccountComposition
+					accounts={scopedAccounts}
+					formatValue={formatNumber}
+					{accountLabel}
+				/>
 			</section>
 
+			<AnalyticsAccountPerformance
+				items={overview?.performance ?? []}
+				onselect={(id) => selectAccounts([id])}
+				formatValue={formatNumber}
+			/>
+			<AnalyticsPostHighlights
+				{canEdit}
+				items={overview?.highlights ?? []}
+				busy={Boolean(repurposingReferenceKey)}
+				onrepurpose={repurposeContent}
+				formatValue={formatNumber}
+			/>
 			{#if analyticsInsights.length}
 				<section
 					class="rounded-xl border border-border"

@@ -606,16 +606,21 @@ jobs:
             turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
             turbo-${{ runner.os }}-${{ github.job }}-
       - run: bun install --frozen-lockfile
-      # Component browser shards launch channel chromium (the full browser's
-      # headless backend), so they download that build without the separate
-      # headless shell. The server project and shared-package shards are Node
-      # only, so they skip Playwright browsers entirely.
+      # Component shards and the server job's browser-tooling fixture launch
+      # channel chromium, so they need the full browser without a separate shell.
       - name: Install pinned Chromium and system dependencies
-        if: matrix.shard != 'server' && matrix.shard != 'packages'
+        if: matrix.shard != 'packages'
         timeout-minutes: 5
         env:
           PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
         run: bunx --no-install playwright install --with-deps --no-shell chromium
+      # Social-preview package tests launch Playwright's default headless shell.
+      - name: Install pinned Chromium headless shell and system dependencies
+        if: matrix.shard == 'packages'
+        timeout-minutes: 5
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
+        run: bunx --no-install playwright install --with-deps --only-shell chromium
       - if: matrix.shard != 'packages'
         working-directory: apps/web
         env:

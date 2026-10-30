@@ -37,8 +37,9 @@ of all six shards. Handoff remains a separate suite.
 Marketing browser jobs retain equivalent raw reports and summaries in
 `marketing-test-timings-*`. Use those measurements before changing its shard
 count or test setup. Browser installation follows each suite's launch mode:
-Node-only jobs install none, full-Chromium suites omit the headless shell, and
-marketing keeps its existing headless shell.
+full-Chromium suites omit the headless shell, including the server job's
+browser-tooling fixture. Shared-package social previews install only the shell,
+and marketing keeps its existing browser installation.
 
 ## Release bookkeeping
 

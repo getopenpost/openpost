@@ -4,7 +4,7 @@ import { load } from "js-yaml";
 
 // Browser installs follow the launch mode of each suite: channel chromium
 // suites need the full browser build only, while the marketing suite keeps
-// Playwright's bundled headless shell. Node-only shards install no browser.
+// Playwright's bundled headless shell. Server tooling tests also launch Chromium.
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
 const jobs = load(workflow).jobs;
 
@@ -21,13 +21,17 @@ function stepConditionRuns(condition, shard) {
 
 test("browser installs match each suite's launch mode", () => {
   const frontend = browserInstall(jobs["frontend-tests"]);
-  // Component browser shards launch channel chromium; server and shared
-  // packages run Node only.
-  for (const shard of ["1/6", "4/6", "6/6"])
+  // The server job includes a real browser-tooling test. Shared package
+  // tests include social previews, which use Playwright's headless shell.
+  for (const shard of ["server", "1/6", "4/6", "6/6"])
     expect(stepConditionRuns(frontend.if, shard)).toBe(true);
-  for (const shard of ["server", "packages"])
-    expect(stepConditionRuns(frontend.if, shard)).toBe(false);
+  expect(stepConditionRuns(frontend.if, "packages")).toBe(false);
   expect(frontend.run).toContain("--no-shell");
+  const packages = jobs["frontend-tests"].steps.find((step) => step.run?.includes("--only-shell"));
+  expect(packages).toBeDefined();
+  expect(stepConditionRuns(packages.if, "packages")).toBe(true);
+  expect(stepConditionRuns(packages.if, "server")).toBe(false);
+  expect(packages.run).toContain("playwright install");
 
   for (const name of ["browser-app", "browser-handoff"]) {
     const step = browserInstall(jobs[name]);

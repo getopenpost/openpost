@@ -536,6 +536,10 @@ for (const scheme of ["light", "dark"] as const) {
             name === "Assets" ? assets : name === "Properties" ? tools : preview,
           ).toBeVisible();
         }
+        const dock = await page.getByRole("navigation", { name: "Editor panels" }).boundingBox();
+        const timeline = await footer.boundingBox();
+        expect(dock!.y).toBeGreaterThan((await preview.boundingBox())!.y);
+        expect(dock!.y + dock!.height).toBeLessThanOrEqual(timeline!.y);
       }
       await expect(preview).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(

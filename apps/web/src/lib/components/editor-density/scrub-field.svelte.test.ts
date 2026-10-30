@@ -153,4 +153,81 @@ describe('ScrubField keyboard', () => {
 		expect(onValueChange).toHaveBeenLastCalledWith(20);
 		expect(onValueCancel).toHaveBeenCalled();
 	});
+
+	it('nudges from the current value when the typed draft is incomplete', async () => {
+		const onValueChange = vi.fn();
+		const onValueCommit = vi.fn();
+		const screen = await render(ScrubField, {
+			ariaLabel: 'Pitch',
+			value: 1,
+			min: -5,
+			max: 5,
+			step: 1,
+			onValueChange,
+			onValueCommit
+		});
+		const input = screen.getByRole('textbox', { name: 'Pitch' });
+		await input.clear();
+		await userEvent.type(input, '-');
+		await userEvent.keyboard('{ArrowUp}');
+		expect(onValueChange).toHaveBeenLastCalledWith(2);
+		expect(onValueCommit).toHaveBeenCalledExactlyOnceWith(2);
+	});
+
+	it('supports page and boundary keys per the keyboard contract', async () => {
+		const onValueChange = vi.fn();
+		const onValueCommit = vi.fn();
+		const screen = await render(ScrubField, {
+			ariaLabel: 'Opacity',
+			value: 20,
+			min: 0,
+			max: 100,
+			step: 1,
+			onValueChange,
+			onValueCommit
+		});
+		const input = screen.getByRole('textbox', { name: 'Opacity' });
+		await expect.element(input).toBeVisible();
+		await input.click();
+		await userEvent.keyboard('{PageUp}');
+		expect(onValueChange).toHaveBeenLastCalledWith(30);
+		expect(onValueCommit).toHaveBeenCalledExactlyOnceWith(30);
+		await userEvent.keyboard('{End}');
+		expect(onValueChange).toHaveBeenLastCalledWith(100);
+		expect(onValueCommit).toHaveBeenLastCalledWith(100);
+		await userEvent.keyboard('{Home}');
+		expect(onValueChange).toHaveBeenLastCalledWith(0);
+		expect(onValueCommit).toHaveBeenLastCalledWith(0);
+	});
+
+	it('commits a pointer scrub through the input', async () => {
+		const onValueChange = vi.fn();
+		const onValueCommit = vi.fn();
+		const screen = await render(ScrubField, {
+			ariaLabel: 'Position',
+			value: 10,
+			step: 1,
+			onValueChange,
+			onValueCommit
+		});
+		await expect.element(screen.getByRole('textbox', { name: 'Position' })).toBeVisible();
+		const input = document.querySelector<HTMLInputElement>('input[aria-label="Position"]');
+		if (!input) throw new Error('Expected the scrub field input');
+		input.setPointerCapture = vi.fn();
+		input.hasPointerCapture = vi.fn(() => false);
+		await new Promise((resolve) => requestAnimationFrame(resolve));
+		input.dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, button: 0, clientX: 100 })
+		);
+		expect(input.setPointerCapture).toHaveBeenCalledWith(1);
+		input.dispatchEvent(
+			new PointerEvent('pointermove', { bubbles: true, pointerId: 1, buttons: 1, clientX: 140 })
+		);
+		input.dispatchEvent(
+			new PointerEvent('pointerup', { bubbles: true, pointerId: 1, button: 0, clientX: 140 })
+		);
+		// 40px at 4px per step = 10 steps from the anchor pixel.
+		expect(onValueChange).toHaveBeenCalledWith(20);
+		expect(onValueCommit).toHaveBeenCalledWith(20);
+	});
 });

@@ -83,9 +83,8 @@ async function createShaderProject(
   await page.getByRole("textbox", { name: "Project name" }).press("Tab");
   await page
     .getByRole("navigation", { name: "Assets", exact: true })
-    .getByRole("button", { name: "More", exact: true })
+    .getByRole("tab", { name: "Backgrounds", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Backgrounds", exact: true }).click();
   await page.getByRole("searchbox", { name: "Search backgrounds" }).fill(preset);
   await page.getByRole("button", { name: preset, exact: true }).click();
   await page.getByRole("searchbox", { name: "Search backgrounds" }).fill("");
@@ -140,9 +139,8 @@ test("shader clips preserve edits, seek and export an MP4", async ({ page }) => 
   await page.goto(projectURL);
   await page
     .getByRole("navigation", { name: "Assets", exact: true })
-    .getByRole("button", { name: "More", exact: true })
+    .getByRole("tab", { name: "Backgrounds", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Backgrounds", exact: true }).click();
   await expect(canvas).toBeVisible();
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Export", exact: true }).click();

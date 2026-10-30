@@ -67,7 +67,9 @@
 
 <section class="tools-directory marketing-shell" aria-labelledby="tools-title">
 	<header>
-		<h1 id="tools-title">Free tools.<br /><HeroAccent>For your next post.</HeroAccent></h1>
+		<h1 id="tools-title" class="marketing-title">
+			Free tools.<br /><HeroAccent>For your next post.</HeroAccent>
+		</h1>
 		<p class="intro">
 			Preview a post, split a thread, format LinkedIn text, or edit your media. Start with a tool,
 			then continue your draft in OpenPost when you are ready to publish.
@@ -156,12 +158,6 @@
 	header {
 		max-width: 800px;
 		padding-bottom: 36px;
-	}
-	h1 {
-		font-size: clamp(2.5rem, 5vw, 4rem);
-		line-height: 1.08;
-		letter-spacing: -0.035em;
-		font-weight: 600;
 	}
 	.intro {
 		margin-top: 24px;
@@ -356,15 +352,5 @@
 	.empty p {
 		margin-block: 12px 24px;
 		color: var(--muted-foreground);
-	}
-	@media (max-width: 389px) {
-		h1 {
-			font-size: 2.25rem;
-		}
-	}
-	@media (max-width: 340px) {
-		h1 {
-			font-size: 1.9rem;
-		}
 	}
 </style>

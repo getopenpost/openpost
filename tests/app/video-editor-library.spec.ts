@@ -96,15 +96,7 @@ for (const scheme of ["light", "dark"] as const) {
     await page.setViewportSize({ width: 1280, height: 800 });
     await createProject(page, "Contextual library favorites");
     for (const tab of ["Effects", "Transition", "Text", "Timers"]) {
-      if (tab === "Timers") {
-        await page
-          .getByRole("navigation", { name: "Assets", exact: true })
-          .getByRole("button", { name: "More", exact: true })
-          .click();
-        await page.getByRole("menuitem", { name: tab, exact: true }).click();
-      } else {
-        await page.getByRole("tab", { name: tab, exact: true }).click();
-      }
+      await page.getByRole("tab", { name: tab, exact: true }).click();
       const hearts = page.getByRole("button", { name: /^Favorite / });
       const heart = hearts.first();
       const card = heart.locator("..");
@@ -140,9 +132,8 @@ for (const scheme of ["light", "dark"] as const) {
     }
     await page
       .getByRole("navigation", { name: "Assets", exact: true })
-      .getByRole("button", { name: "More", exact: true })
+      .getByRole("tab", { name: "Library", exact: true })
       .click();
-    await page.getByRole("menuitem", { name: "Library", exact: true }).click();
     const savedHeart = page.getByRole("button", { name: "Favorite Countdown", exact: true });
     await expect(savedHeart).toHaveCSS("opacity", "0");
     await page.getByRole("button", { name: "Countdown", exact: true }).first().hover();
@@ -168,9 +159,8 @@ for (const scheme of ["light", "dark"] as const) {
     const projectURL = page.url();
     await page
       .getByRole("navigation", { name: "Assets", exact: true })
-      .getByRole("button", { name: "More", exact: true })
+      .getByRole("tab", { name: "Timers", exact: true })
       .click();
-    await page.getByRole("menuitem", { name: "Timers", exact: true }).click();
     const ringCard = page.getByRole("button", { name: "Ring", exact: true });
     const cardBounds = await ringCard.boundingBox();
     const previewBounds = await ringCard.locator("canvas").boundingBox();
@@ -206,9 +196,8 @@ for (const scheme of ["light", "dark"] as const) {
     await page.getByRole("textbox", { name: "Finish text", exact: true }).press("Tab");
     await page
       .getByRole("navigation", { name: "Assets", exact: true })
-      .getByRole("button", { name: "More", exact: true })
+      .getByRole("tab", { name: "Library", exact: true })
       .click();
-    await page.getByRole("menuitem", { name: "Library", exact: true }).click();
     await page.getByRole("button", { name: "Save selection to library", exact: true }).click();
     await page.getByRole("textbox", { name: "Name", exact: true }).fill("My rest timer");
     await page
@@ -265,15 +254,17 @@ for (const scheme of ["light", "dark"] as const) {
       "saved",
     );
     await page.reload();
-    await page
-      .getByRole("navigation", { name: "Assets", exact: true })
-      .getByRole("button", { name: "More", exact: true })
-      .click();
-    await page.getByRole("menuitem", { name: "Library", exact: true }).click();
-    await expect(
-      page.getByRole("button", { name: "My rest timer", exact: true }).first(),
-    ).toBeVisible();
-    await page.getByRole("button", { name: "My rest timer", exact: true }).first().click();
+    const savedTimer = page.getByRole("button", { name: "My rest timer", exact: true }).first();
+    try {
+      await expect(savedTimer).toBeVisible({ timeout: 15_000 });
+    } catch {
+      await page
+        .getByRole("navigation", { name: "Assets", exact: true })
+        .getByRole("tab", { name: "Library", exact: true })
+        .click();
+      await expect(savedTimer).toBeVisible({ timeout: 10_000 });
+    }
+    await savedTimer.click();
     await expect(page.locator("[data-timeline-item-id]")).toHaveCount(2);
     await expect(duration).toHaveValue("45");
     await page
@@ -380,9 +371,8 @@ for (const style of ["Bomb", "Tomato"] as const) {
     await createProject(page, `${style} timer`);
     await page
       .getByRole("navigation", { name: "Assets", exact: true })
-      .getByRole("button", { name: "More", exact: true })
+      .getByRole("tab", { name: "Timers", exact: true })
       .click();
-    await page.getByRole("menuitem", { name: "Timers", exact: true }).click();
     await page.getByRole("button", { name: style, exact: true }).click();
     await page
       .getByRole("region", { name: "Text", exact: true })

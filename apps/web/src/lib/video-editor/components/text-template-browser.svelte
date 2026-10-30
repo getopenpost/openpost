@@ -127,10 +127,13 @@
 	<Input
 		type="search"
 		bind:value={search}
-		placeholder={m.image_editor_search_templates()}
-		aria-label={m.image_editor_search_templates()}
+		placeholder={m.video_editor_text_templates_search()}
+		aria-label={m.video_editor_text_templates_search()}
 		class="mb-2 h-[25px] text-xs [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base"
 	/>
+	{#if filteredGroups.length === 0}<p class="text-xs text-muted-foreground" role="status">
+			{m.video_editor_text_templates_no_results()}
+		</p>{/if}
 	{#each filteredGroups as group (group.layout)}
 		<section class="mb-4 last:mb-0">
 			<h3

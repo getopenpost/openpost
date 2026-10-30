@@ -1,6 +1,6 @@
 <script lang="ts">
 	import AppSelect from '$lib/components/app-select.svelte';
-	import ScrubbableNumberInput from '$lib/components/editor-scrubbable-number-input.svelte';
+	import { ScrubField } from '$lib/components/editor-density';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -131,19 +131,20 @@
 				oncommit(next);
 			}}
 		/>
-		<ScrubbableNumberInput
+		<ScrubField
 			ariaLabel={`${effectLabel}: ${localizedParamLabel}`}
 			ariaDescribedBy={descriptionId}
 			value={draftNumber}
 			min={param.min}
 			max={param.max}
 			step={param.step}
-			decimals={param.step < 0.1 ? 2 : param.step < 1 ? 1 : 0}
-			class="h-[var(--editor-22,22px)] w-12 shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-right text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
-			onlive={(next) => {
+			precision={param.step < 0.1 ? 2 : param.step < 1 ? 1 : 0}
+			valueWidth="3rem"
+			class="h-[var(--editor-22,22px)] shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-right text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
+			onValueChange={(next) => {
 				draftNumber = next;
 			}}
-			oncommit={(next) => {
+			onValueCommit={(next) => {
 				draftNumber = next;
 				oncommit(next);
 			}}

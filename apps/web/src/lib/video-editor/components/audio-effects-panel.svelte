@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import ReorderList from '$lib/components/reorder-list.svelte';
-	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
+	import { Disclosure as EditorDisclosure, SliderRow } from '$lib/components/editor-density';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { Slider } from '$lib/components/ui/slider';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
@@ -225,20 +224,16 @@
 				step: number,
 				onNumber: (value: number) => void
 			)}
-				<label class="text-xs text-[var(--video-editor-muted)]">
+				<SliderRow
 					{label}
-					<Slider
-						class="mt-1 w-full"
-						{min}
-						{max}
-						{step}
-						{value}
-						ariaLabel={label}
-						onValueChange={onNumber}
-						onKeydown={(event) => event.stopPropagation()}
-					/>
-					{@render effectNumberParam(label, value, min, max, step, onNumber)}
-				</label>
+					{value}
+					{min}
+					{max}
+					{step}
+					precision={step < 1 ? 2 : 0}
+					onValueChange={onNumber}
+					onValueCommit={onNumber}
+				/>
 			{/snippet}
 
 			<div bind:this={rackElement}>

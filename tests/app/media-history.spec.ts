@@ -64,7 +64,7 @@ test("Media history retains submitted discovery independently from unfinished se
   ]);
   await authenticatePage(page, auth.token);
   await page.goto("/media");
-  const search = page.getByRole("textbox", { name: "Search filename or alt text", exact: true });
+  const search = page.getByRole("searchbox", { name: "Search filename or alt text", exact: true });
   async function applyDiscovery() {
     await search.fill("Audit return");
     await search.press("Enter");
@@ -156,7 +156,7 @@ test("Media history never restores another workspace or actor discovery", async 
   await createWorkspace(request, auth.token, "History second");
   await authenticatePage(page, auth.token);
   await page.goto("/media");
-  const search = page.getByRole("textbox", { name: "Search filename or alt text", exact: true });
+  const search = page.getByRole("searchbox", { name: "Search filename or alt text", exact: true });
   const switcher = page.getByRole("button", {
     name: "Switch workspace: History first",
     exact: true,

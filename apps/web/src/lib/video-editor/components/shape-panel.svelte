@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import { Input } from '$lib/components/ui/input';
 	import type { ShapeType } from '$lib/video-editor/project/types';
 	import { addShapeItem, type AddShapeItemStyle } from '$lib/video-editor/timeline/actions/items';
 	import {
@@ -91,6 +92,13 @@
 		}
 	];
 
+	let search = $state('');
+	const filteredShapes = $derived(
+		shapes.filter((shape) =>
+			shape.label().toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
+		)
+	);
+
 	function insert(shape: ShapeCard): void {
 		oninserted(addShapeItem(shape.type, shape.label(), shape.style));
 	}
@@ -109,8 +117,18 @@
 	role="group"
 	aria-label={m.video_editor_shapes()}
 >
+	<Input
+		type="search"
+		bind:value={search}
+		placeholder={m.video_editor_shapes_search()}
+		aria-label={m.video_editor_shapes_search()}
+		class="mb-2 h-[25px] text-xs [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base"
+	/>
+	{#if filteredShapes.length === 0}<p class="text-xs text-muted-foreground" role="status">
+			{m.video_editor_shapes_no_results()}
+		</p>{/if}
 	<div class="shape-grid grid grid-cols-2 gap-1">
-		{#each shapes as shape (shape.id)}
+		{#each filteredShapes as shape (shape.id)}
 			<button
 				type="button"
 				class="group flex min-h-14 cursor-grab flex-col items-center justify-center gap-1 rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 py-1.5 text-[10px] text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-control)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] active:cursor-grabbing"

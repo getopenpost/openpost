@@ -29,7 +29,7 @@
 	{#if story}
 		<section class="channel-hero" aria-labelledby="channel-title">
 			<div>
-				<h1 id="channel-title">{story.title}</h1>
+				<h1 id="channel-title" class="marketing-title">{story.title}</h1>
 				<p class="marketing-copy">{story.intro}</p>
 				<Button href={managedSignupUrl} size="lg"
 					>Start your free trial <ArrowRight data-icon="inline-end" /></Button
@@ -122,7 +122,7 @@
 	{:else}
 		<section class="channel-unavailable">
 			<PlatformIcon platform={platform.short} class="size-10" />
-			<h1>{platform.name} is not available yet.</h1>
+			<h1 class="marketing-title">{platform.name} is not available yet.</h1>
 			<p class="marketing-copy">
 				You cannot connect or publish to {platform.name} in OpenPost right now. Explore the other channels,
 				or contact us if this is the one your business needs.
@@ -145,12 +145,6 @@
 	}
 	h1 {
 		margin: 0 0 24px;
-		max-width: 15ch;
-		font-size: clamp(40px, 5vw, 70px);
-		line-height: 1.06;
-		letter-spacing: -0.04em;
-		font-weight: 550;
-		text-wrap: balance;
 	}
 	.channel-hero :global(.marketing-copy) {
 		margin-bottom: 28px;

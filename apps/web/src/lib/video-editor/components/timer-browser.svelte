@@ -5,6 +5,7 @@
 	import LibraryFavorite from './library-favorite.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { addTimer } from '../timers/actions';
 	import { videoTimerPresets } from '../timers/presets';
 	import { videoLibrary } from '../library/library-store.svelte';
@@ -17,12 +18,28 @@
 		importAsset
 	}: { oninserted: (id: string) => void; importAsset?: ProjectAssetImporter } = $props();
 	const presets = $derived(videoTimerPresets());
+	let search = $state('');
+	const filteredPresets = $derived(
+		presets.filter((preset) =>
+			preset.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
+		)
+	);
 </script>
 
 <div class="min-h-0 flex-1 overflow-y-auto p-2">
 	<LibraryShelf kind="timer" {oninserted} {importAsset} />
+	<Input
+		type="search"
+		bind:value={search}
+		placeholder={m.video_editor_timer_search()}
+		aria-label={m.video_editor_timer_search()}
+		class="mb-2 h-[25px] text-xs [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base"
+	/>
+	{#if filteredPresets.length === 0}<p class="text-xs text-muted-foreground" role="status">
+			{m.video_editor_timer_no_results()}
+		</p>{/if}
 	<div class="grid grid-cols-2 gap-2">
-		{#each presets as preset}
+		{#each filteredPresets as preset}
 			<div class="group/library-item relative min-w-0">
 				<Button
 					variant="outline"

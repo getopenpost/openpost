@@ -36,9 +36,13 @@
 	];
 </script>
 
-<section id="product" class="product-details marketing-shell" aria-labelledby="studio-title">
-	<div class="section-heading">
-		<h2 id="studio-title">Make the media<br />right here.</h2>
+<section
+	id="product"
+	class="product-details marketing-shell section-pad"
+	aria-labelledby="studio-title"
+>
+	<div class="section-head">
+		<h2 id="studio-title" class="section-heading">Make the media<br />right here.</h2>
 		<p>Free browser editors. No account needed.<br />Export without watermarks.</p>
 	</div>
 	<div class="editors">
@@ -91,21 +95,12 @@
 </section>
 
 <style>
-	.product-details {
-		padding-block: 72px;
-	}
-	.section-heading {
+	.section-head {
 		display: flex;
 		justify-content: space-between;
 		align-items: end;
 		gap: 24px;
 		margin-bottom: 36px;
-	}
-	h2 {
-		font-size: clamp(32px, 3.5vw, 48px);
-		font-weight: 550;
-		line-height: 1.12;
-		letter-spacing: -0.035em;
 	}
 	p {
 		font-size: 16px;
@@ -202,10 +197,7 @@
 		color: var(--muted-foreground);
 	}
 	@media (max-width: 760px) {
-		.product-details {
-			padding-block: 48px;
-		}
-		.section-heading {
+		.section-head {
 			display: grid;
 			gap: 20px;
 		}

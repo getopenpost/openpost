@@ -30,7 +30,7 @@
 
 <section class="guide-directory marketing-shell" aria-labelledby="directory-title">
 	<header>
-		<h1 id="directory-title">
+		<h1 id="directory-title" class="marketing-title">
 			{collection === 'comparisons' ? 'Compare your tools.' : 'Make more of your work.'}<br
 			/><HeroAccent
 				>{collection === 'comparisons' ? 'Choose for the job.' : 'Find a better way.'}</HeroAccent
@@ -163,11 +163,6 @@
 		margin-bottom: 48px;
 	}
 	h1 {
-		font-size: clamp(36px, 5vw, 68px);
-		font-weight: 550;
-		letter-spacing: -0.035em;
-		line-height: 1.1;
-		text-wrap: balance;
 		margin-bottom: 24px;
 	}
 	.directory-layout {

@@ -304,6 +304,25 @@ it('keeps everyday video controls visible and discloses detailed playback and cr
 		.toBeVisible();
 	await screen.getByRole('button', { name: 'Crop media', exact: true }).click();
 	await expect.element(screen.getByRole('textbox', { name: 'Left', exact: true })).toBeVisible();
+
+	// Audio EQ, effects, ducking, and noise reduction are named section-level disclosures
+	// beside the gain section, ahead of playback; only the fade shape stays under Advanced.
+	for (const name of ['Parametric EQ', 'Audio effects', 'Duck other audio', 'Noise reduction']) {
+		await expect.element(screen.getByRole('button', { name, exact: false })).toBeVisible();
+	}
+	const gain = screen.getByRole('textbox', { name: 'Gain', exact: false }).element();
+	const equalizer = screen.getByRole('button', { name: 'Parametric EQ', exact: false }).element();
+	const noise = screen.getByRole('button', { name: 'Noise reduction', exact: false }).element();
+	const playback = screen.getByRole('button', { name: 'Playback', exact: true }).element();
+	expect(gain.compareDocumentPosition(equalizer) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+	expect(noise.compareDocumentPosition(playback) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+	await expect
+		.element(screen.getByRole('checkbox', { name: 'Enable', exact: true }))
+		.not.toBeInTheDocument();
+	await screen.getByRole('button', { name: 'Noise reduction', exact: false }).click();
+	await expect.element(screen.getByRole('checkbox', { name: 'Enable', exact: true })).toBeVisible();
+	await screen.getByRole('button', { name: 'Advanced', exact: true }).click();
+	await expect.element(screen.getByText('Fade shape', { exact: true })).toBeVisible();
 });
 
 it('marks collapsed appearance and crop groups when only keyframes change those properties', async () => {

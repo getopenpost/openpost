@@ -1,6 +1,6 @@
-<section class="stories" aria-labelledby="stories-title">
+<section class="stories section-pad" aria-labelledby="stories-title">
 	<div class="marketing-shell">
-		<h2 id="stories-title">First reactions.</h2>
+		<h2 id="stories-title" class="section-heading">First reactions.</h2>
 		<div class="quotes">
 			<figure>
 				<blockquote><p>"It looks fantastic, great job"</p></blockquote>
@@ -30,14 +30,7 @@
 
 <style>
 	.stories {
-		padding-block: 64px;
 		border-block: 1px solid var(--border);
-	}
-	h2 {
-		font-size: clamp(32px, 3.5vw, 48px);
-		font-weight: 550;
-		letter-spacing: -0.035em;
-		line-height: 1.12;
 	}
 	.quotes {
 		display: grid;
@@ -69,9 +62,6 @@
 		color: var(--muted-foreground);
 	}
 	@media (max-width: 760px) {
-		.stories {
-			padding-block: 48px;
-		}
 		.quotes {
 			grid-template-columns: minmax(0, 1fr);
 			gap: 28px;

@@ -533,9 +533,8 @@ test("editing text over a background does not leave the old lettering underneath
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   await page
     .getByRole("navigation", { name: "Assets", exact: true })
-    .getByRole("button", { name: "More", exact: true })
+    .getByRole("tab", { name: "Backgrounds", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Backgrounds", exact: true }).click();
   await page.getByRole("button", { name: "Ocean mesh", exact: true }).click();
   const canvas = page.locator<HTMLCanvasElement>("[data-stacked-preview]");
   const overlay = page.getByRole("group", { name: "Visual 2", exact: true });

@@ -2,7 +2,7 @@
 	import { Slider } from '$lib/components/ui/slider';
 	import { Button } from '$lib/components/ui/button';
 	import { ThemeIcon } from '$lib/themes/icons';
-	import EditorScrubbableNumberInput from './editor-scrubbable-number-input.svelte';
+	import { ScrubField } from '$lib/components/editor-density';
 
 	let {
 		label,
@@ -58,20 +58,21 @@
 			class={hideLabel ? 'sr-only' : 'min-w-0 flex-1 truncate text-xs font-medium'}
 			title={label}>{label}</span
 		>
-		<EditorScrubbableNumberInput
+		<ScrubField
 			ariaLabel={label}
 			value={displayValue}
 			min={min * displayScale}
 			max={max * displayScale}
 			step={displayStep}
-			{decimals}
+			precision={decimals}
+			valueWidth="4rem"
 			placeholder={mixedLabel}
 			{disabled}
-			class="h-8 w-16 px-1.5 text-right text-xs tabular-nums [@media(pointer:coarse)]:h-11"
+			class="h-8 px-1.5 text-right text-xs tabular-nums [@media(pointer:coarse)]:h-11"
 			{onbegin}
-			onlive={previewDisplay}
-			oncommit={commitDisplay}
-			{oncancel}
+			onValueChange={previewDisplay}
+			onValueCommit={commitDisplay}
+			onValueCancel={oncancel}
 		/>
 		<Button
 			type="button"

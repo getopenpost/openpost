@@ -12,6 +12,7 @@
 
 	let {
 		ariaLabel,
+		ariaDescribedBy,
 		value,
 		min,
 		max,
@@ -19,6 +20,7 @@
 		precision = 2,
 		valueWidth = '4.25rem',
 		resetValue,
+		placeholder = '',
 		disabled = false,
 		class: className = '',
 		onbegin,
@@ -27,6 +29,7 @@
 		onValueCancel
 	}: {
 		ariaLabel: string;
+		ariaDescribedBy?: string;
 		value: number | null;
 		min?: number;
 		max?: number;
@@ -34,6 +37,7 @@
 		precision?: number;
 		valueWidth?: string;
 		resetValue?: number;
+		placeholder?: string;
 		disabled?: boolean;
 		class?: string;
 		onbegin?: () => void;
@@ -153,12 +157,33 @@
 			const current = parseNumeric(draft ?? '') ?? value ?? 0;
 			const direction = event.key === 'ArrowUp' ? 1 : -1;
 			setLive(nudgeValue(current, direction, step, { shift: event.shiftKey, alt: event.altKey }));
+		} else if (event.key === 'PageUp' || event.key === 'PageDown') {
+			event.preventDefault();
+			const current = parseNumeric(draft ?? '') ?? value ?? 0;
+			const direction = event.key === 'PageUp' ? 1 : -1;
+			setLive(nudgeValue(current, direction, step * 10));
+		} else if (event.key === 'Home' && min !== undefined) {
+			event.preventDefault();
+			setLive(min);
+		} else if (event.key === 'End' && max !== undefined) {
+			event.preventDefault();
+			setLive(max);
 		}
 	}
 
 	function handleKeyup(event: KeyboardEvent): void {
 		event.stopPropagation();
-		if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && draft !== null) commit();
+		if (
+			(event.key === 'ArrowUp' ||
+				event.key === 'ArrowDown' ||
+				event.key === 'PageUp' ||
+				event.key === 'PageDown' ||
+				event.key === 'Home' ||
+				event.key === 'End') &&
+			draft !== null
+		) {
+			commit();
+		}
 	}
 </script>
 
@@ -169,6 +194,8 @@
 	autocomplete="off"
 	{disabled}
 	aria-label={ariaLabel}
+	aria-describedby={ariaDescribedBy}
+	{placeholder}
 	value={displayValue}
 	style="width: {valueWidth};"
 	title={ariaLabel}

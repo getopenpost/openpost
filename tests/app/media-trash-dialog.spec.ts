@@ -105,10 +105,10 @@ test("Media inspector allows pointer cancellation, recoverable deletion and rest
   expect(trashed.trashed_at).toBeTruthy();
   expect(trashed.purge_after).toBeTruthy();
   const tabs = page.getByTestId("media-lifecycle-tabs");
-  await tabs.getByRole("button", { name: "Trash", exact: true }).click();
+  await tabs.getByRole("tab", { name: "Trash", exact: true }).click();
   await expect(page.getByText(name, { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Restore", exact: true }).click();
-  await tabs.getByRole("button", { name: "Library", exact: true }).click();
+  await tabs.getByRole("tab", { name: "Library", exact: true }).click();
   await expect(details).toBeVisible();
   await page.reload();
   await details.click();

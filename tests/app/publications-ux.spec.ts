@@ -19,7 +19,7 @@ test("publications keeps the main workflow clear across list, search, and calend
 
   await page.goto("/publications?tab=drafts");
   await expect(page.getByRole("heading", { name: "Posts", exact: true })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Search posts" })).toBeVisible();
+  await expect(page.getByRole("searchbox", { name: "Search posts" })).toBeVisible();
   const selectedTab = page.getByRole("tab", { name: "Drafts", exact: true });
   await expect(selectedTab).toHaveCSS("border-radius", "0px");
   await expect(selectedTab).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
@@ -42,9 +42,9 @@ test("publications keeps the main workflow clear across list, search, and calend
     });
   }
 
-  await page.getByRole("textbox", { name: "Search posts" }).fill("does not exist");
+  await page.getByRole("searchbox", { name: "Search posts" }).fill("does not exist");
   await expect(page.getByTestId("publication-list")).toHaveCount(0);
-  await page.getByRole("textbox", { name: "Search posts" }).fill("launch note");
+  await page.getByRole("searchbox", { name: "Search posts" }).fill("launch note");
   await expect(page.getByTestId("publication-list")).toContainText("A clear launch note");
 
   await page

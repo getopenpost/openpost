@@ -6,7 +6,7 @@
 </script>
 
 <section class="pricing-hero marketing-shell">
-	<h1>Simple pricing. Every feature.</h1>
+	<h1 class="marketing-title marketing-title--compact">Simple pricing. Every feature.</h1>
 </section>
 
 <section id="plans" class="plans-section marketing-shell" aria-labelledby="plans-title">
@@ -16,7 +16,7 @@
 	<PricingShowcase />
 </section>
 
-<section class="purchase-faq border-t" aria-labelledby="purchase-faq-title">
+<section class="purchase-faq section-pad border-t" aria-labelledby="purchase-faq-title">
 	<div class="marketing-shell faq-grid">
 		<h2 id="purchase-faq-title">A few things to know.</h2>
 		<div class="faq-list">
@@ -49,20 +49,9 @@
 	.pricing-hero {
 		padding-block: clamp(2rem, 4vw, 3rem) 1.5rem;
 	}
-	.pricing-hero h1 {
-		max-width: 26ch;
-		font-size: clamp(2rem, 4vw, 3.5rem);
-		font-weight: 650;
-		line-height: 1.04;
-		letter-spacing: -0.025em;
-		text-wrap: balance;
-	}
 	.plans-section {
 		padding-bottom: clamp(3rem, 6vw, 5rem);
 		scroll-margin-top: 5rem;
-	}
-	.purchase-faq {
-		padding-block: clamp(3rem, 6vw, 5rem);
 	}
 	.faq-grid {
 		display: grid;

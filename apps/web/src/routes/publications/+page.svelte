@@ -7,6 +7,7 @@
 	import PublicationDraftGallery from '$lib/components/publication-draft-gallery.svelte';
 	import PublicationViewSwitch from '$lib/components/publication-view-switch.svelte';
 	import CopyButton from '$lib/components/copy-button.svelte';
+	import ListSearch from '$lib/components/list-search.svelte';
 	import { goto } from '$app/navigation';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import type { ThemeIconRole } from '$lib/themes';
@@ -22,7 +23,6 @@
 	import { publicationActivityOccurrence } from '$lib/publication-calendar';
 	import { publicationView, isPublicationListTab } from '$lib/stores/publication-view.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 	import { Tabs, TabsList, TabsTrigger, TabsContent } from '$lib/components/ui/tabs';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
@@ -1027,18 +1027,11 @@
 					<TabsTrigger class="sm:px-3" value="drafts">{m.activity_tab_drafts()}</TabsTrigger>
 				</TabsList>
 				<div class="flex w-full items-center gap-2 sm:w-auto">
-					<div class="relative min-w-0 flex-1 sm:w-64">
-						<ThemeIcon
-							role="search"
-							class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-						/>
-						<Input
-							bind:value={searchQuery}
-							class="h-10 pl-9"
-							aria-label={m.engagement_search_posts()}
-							placeholder={m.engagement_search_posts()}
-						/>
-					</div>
+					<ListSearch
+						bind:value={searchQuery}
+						label={m.engagement_search_posts()}
+						class="flex-1 sm:w-64"
+					/>
 					<Button
 						variant="outline"
 						size="icon-sm"

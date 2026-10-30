@@ -53,9 +53,15 @@
 	];
 </script>
 
-<section id="features" class="product-features marketing-shell" aria-labelledby="features-title">
-	<div class="section-heading">
-		<h2 id="features-title">From the first idea<br />to the next conversation.</h2>
+<section
+	id="features"
+	class="product-features marketing-shell section-pad"
+	aria-labelledby="features-title"
+>
+	<div class="section-head">
+		<h2 id="features-title" class="section-heading">
+			From the first idea<br />to the next conversation.
+		</h2>
 		<p>Write, schedule, publish, and follow up.<br />Keep it all in one workspace.</p>
 	</div>
 	<article class="schedule feature-panel">
@@ -273,21 +279,14 @@
 
 <style>
 	.product-features {
-		padding-block: 72px 24px;
 		scroll-margin-top: 4rem;
 	}
-	.section-heading {
+	.section-head {
 		display: flex;
 		align-items: end;
 		justify-content: space-between;
 		gap: 32px;
 		margin-bottom: 36px;
-	}
-	h2 {
-		font-size: clamp(32px, 3.5vw, 48px);
-		font-weight: 550;
-		line-height: 1.12;
-		letter-spacing: -0.035em;
 	}
 	h3 {
 		font-size: clamp(25px, 2.5vw, 34px);
@@ -468,10 +467,7 @@
 			top: -22px;
 			left: 18px;
 		}
-		.product-features {
-			padding-block: 48px 0;
-		}
-		.section-heading {
+		.section-head {
 			display: grid;
 			gap: 20px;
 		}

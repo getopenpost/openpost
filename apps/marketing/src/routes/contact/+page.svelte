@@ -6,7 +6,7 @@
 
 <section class="contact marketing-shell">
 	<header>
-		<h1>Let’s <HeroAccent>talk.</HeroAccent></h1>
+		<h1 class="marketing-title">Let’s <HeroAccent>talk.</HeroAccent></h1>
 		<p>A question, an idea, or something not working?<br />We’d like to hear from you.</p>
 	</header>
 	<div class="contact-options">
@@ -57,12 +57,6 @@
 	}
 	header {
 		text-align: center;
-	}
-	h1 {
-		font-size: clamp(48px, 6vw, 80px);
-		line-height: 1.1;
-		font-weight: 550;
-		letter-spacing: -0.04em;
 	}
 	header p {
 		font-size: 18px;

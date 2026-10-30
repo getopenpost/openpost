@@ -26,7 +26,7 @@
 	import type { TimelineSnapshot } from '$lib/video-editor/timeline/commands/types';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	import ScrubbableNumberInput from '$lib/components/editor-scrubbable-number-input.svelte';
+	import { ScrubField } from '$lib/components/editor-density';
 
 	let {
 		itemId,
@@ -222,19 +222,20 @@
 									class="pointer-events-none absolute top-1/2 left-1.5 -translate-y-1/2 text-[9px] font-semibold text-[var(--video-editor-muted)]"
 									>{control.shortLabel}</span
 								>
-								<ScrubbableNumberInput
+								<ScrubField
 									ariaLabel={control.label()}
 									{value}
 									placeholder={m.video_editor_property_mixed()}
 									min={control.axis === 'softness' ? -maximum : 0}
 									max={maximum}
 									step={1}
-									decimals={0}
-									class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-5 pl-4 text-right text-[11px] tabular-nums outline-none"
+									precision={0}
+									valueWidth="100%"
+									class="h-[var(--editor-22,22px)] rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-5 pl-4 text-right text-[11px] tabular-nums outline-none"
 									onbegin={beginGesture}
-									onlive={(next) => writeLive(control.property, next)}
-									oncommit={(next) => commitGesture(control.property, next)}
-									oncancel={cancelGesture}
+									onValueChange={(next) => writeLive(control.property, next)}
+									onValueCommit={(next) => commitGesture(control.property, next)}
+									onValueCancel={cancelGesture}
 								/>
 								<span
 									class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"

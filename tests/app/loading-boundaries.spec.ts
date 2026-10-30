@@ -176,7 +176,7 @@ for (const surface of ["calendar", "media"] as const) {
     const control =
       surface === "calendar"
         ? page.getByRole("button", { name: "Next month", exact: true })
-        : page.getByTestId("media-filter-bar").getByRole("textbox");
+        : page.getByTestId("media-filter-bar").getByRole("searchbox");
     await expect(control).toBeVisible();
     await page.waitForLoadState("networkidle");
     let release!: () => void;

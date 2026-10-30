@@ -28,7 +28,7 @@
 	import type { TimelineSnapshot } from '$lib/video-editor/timeline/commands/types';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	import ScrubbableNumberInput from '$lib/components/editor-scrubbable-number-input.svelte';
+	import { ScrubField } from '$lib/components/editor-density';
 
 	let { audioItems, onedit }: { audioItems: TimelineItem[]; onedit: () => void } = $props();
 
@@ -219,19 +219,21 @@
 				onKeydown={(event) => event.stopPropagation()}
 			/>
 			<div class="relative w-[4.8rem] shrink-0">
-				<ScrubbableNumberInput
+				<ScrubField
 					ariaLabel={label}
 					{value}
 					placeholder={m.video_editor_property_mixed()}
 					{min}
 					{max}
 					{step}
-					{decimals}
-					class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-6 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+					precision={decimals}
+					valueWidth="100%"
+					class="h-[var(--editor-22,22px)] rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-6 pl-1.5 text-right text-[11px] tabular-nums outline-none"
 					onbegin={() => beginGesture(property)}
-					onlive={(next) => (property === 'volume' ? writeGain(next) : writeStatic(property, next))}
-					oncommit={(next) => commit(property, next)}
-					oncancel={cancelGesture}
+					onValueChange={(next) =>
+						property === 'volume' ? writeGain(next) : writeStatic(property, next)}
+					onValueCommit={(next) => commit(property, next)}
+					onValueCancel={cancelGesture}
 				/>
 				<span
 					class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"

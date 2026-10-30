@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { fileURLToPath } from "node:url";
-import { appShardFiles } from "../../scripts/app-e2e-shards.mjs";
+import { appShardFiles, appTestPattern } from "../../scripts/app-e2e-shards.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -62,9 +62,7 @@ export default defineConfig({
   ...(suite === "core" ? { testIgnore: "tool-draft-handoff.spec.ts" } : {}),
   ...(balancedFiles
     ? {
-        testMatch: balancedFiles.map((file) =>
-          fileURLToPath(new URL(file, new URL("./", import.meta.url))),
-        ),
+        testMatch: balancedFiles.map(appTestPattern),
       }
     : {}),
   outputDir: `${repositoryRoot}/test-results`,

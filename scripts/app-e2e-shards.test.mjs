@@ -1,8 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { spawnSync } from "node:child_process";
-import { balanceAppFiles, appShardFiles } from "./app-e2e-shards.mjs";
+import { balanceAppFiles, appShardFiles, appTestPattern } from "./app-e2e-shards.mjs";
+import { fileURLToPath } from "node:url";
 import { localJobCommand } from "./release-failures.mjs";
+
+test("shard matchers treat URL delimiters and glob characters as literal filename bytes", () => {
+  const root = fileURLToPath(new URL("../tests/app/", import.meta.url));
+  for (const file of ["literal#name.spec.ts", "literal?name.spec.ts", "nested/[literal].spec.ts"])
+    assert.ok(appTestPattern(file).test(root + file));
+  assert.equal(appTestPattern("literal?name.spec.ts").test(root + "literalXname.spec.ts"), false);
+  assert.equal(appTestPattern("[literal].spec.ts").test(root + "l.spec.ts"), false);
+});
 
 test("balances expensive files while assigning every file exactly once", () => {
   const files = ["a.spec.ts", "b.spec.ts", "c.spec.ts", "d.spec.ts"];

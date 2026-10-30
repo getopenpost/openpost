@@ -23,20 +23,20 @@ test("browser installs match each suite's launch mode", () => {
   const frontend = browserInstall(jobs["frontend-tests"]);
   // The server job includes a real browser-tooling test. Shared package
   // tests include social previews, which use Playwright's headless shell.
-  for (const shard of ["server", "1/6", "4/6", "6/6"])
+  for (const shard of ["server", "1/6", "2/6", "3/6", "4/6", "5/6", "6/6"])
     expect(stepConditionRuns(frontend.if, shard)).toBe(true);
   expect(stepConditionRuns(frontend.if, "packages")).toBe(false);
-  expect(frontend.run).toContain("--no-shell");
+  expect(frontend.run).toContain("playwright install --with-deps --no-shell chromium");
   const packages = jobs["frontend-tests"].steps.find((step) => step.run?.includes("--only-shell"));
   expect(packages).toBeDefined();
   expect(stepConditionRuns(packages.if, "packages")).toBe(true);
   expect(stepConditionRuns(packages.if, "server")).toBe(false);
-  expect(packages.run).toContain("playwright install");
+  expect(packages.run).toContain("playwright install --with-deps --only-shell chromium");
 
   for (const name of ["browser-app", "browser-handoff"]) {
     const step = browserInstall(jobs[name]);
     expect(step.if).toBeUndefined();
-    expect(step.run).toContain("--no-shell");
+    expect(step.run).toContain("playwright install --with-deps --no-shell chromium");
   }
 
   // Marketing launches the bundled headless shell, so its install stays intact.

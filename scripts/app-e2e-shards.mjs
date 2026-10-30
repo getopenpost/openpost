@@ -4,6 +4,14 @@ import { fileURLToPath } from "node:url";
 
 const testDirectory = fileURLToPath(new URL("../tests/app/", import.meta.url));
 
+export function appTestPattern(file) {
+  // Playwright also accepts globs. An exact regex preserves literal filename
+  // characters such as ?, # and [] without URL or glob interpretation.
+  return new RegExp(
+    `^${path.resolve(testDirectory, file).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+  );
+}
+
 // Timings influence assignment only. The current filesystem owns the inventory,
 // so new tests always run and deleted tests never return through stale weights.
 export function balanceAppFiles(files, durations, count) {

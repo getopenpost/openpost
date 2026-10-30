@@ -22,7 +22,34 @@ export function assertQualifiedRun(run, jobs, repository, source) {
   const matches = attempts.filter((job) => (job.run_attempt ?? 1) === latest);
   if (matches.length !== 1 || matches[0].conclusion !== "success")
     throw new Error("required prerequisite did not succeed: Public artifact contract");
-  return latest;
+  const producer = matches[0];
+  // Failed-job reruns create new job records for retained successes. Their IDs
+  // and run_attempt change, but the execution window and runner do not. Keep
+  // the artifact bound to the original successful execution, never just to an
+  // older green job when the producer actually ran again.
+  const sameExecution = attempts.filter(
+    (job) =>
+      job.status === "completed" &&
+      job.conclusion === "success" &&
+      job.run_id === run.id &&
+      job.head_sha === source &&
+      producer.run_id === run.id &&
+      producer.head_sha === source &&
+      Number.isSafeInteger(job.run_attempt) &&
+      job.run_attempt > 0 &&
+      job.run_attempt <= latest &&
+      Number.isSafeInteger(job.runner_id) &&
+      job.runner_id > 0 &&
+      job.runner_id === producer.runner_id &&
+      Number.isFinite(Date.parse(job.started_at)) &&
+      Date.parse(job.completed_at) >= Date.parse(job.started_at) &&
+      job.started_at === producer.started_at &&
+      job.completed_at === producer.completed_at,
+  );
+  const original = Math.min(latest, ...sameExecution.map((job) => job.run_attempt));
+  if (attempts.filter((job) => (job.run_attempt ?? 1) === original).length !== 1)
+    throw new Error("ambiguous original artifact producer");
+  return original;
 }
 export function configIdentity(env = process.env) {
   const names = [

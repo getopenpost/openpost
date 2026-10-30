@@ -1,4 +1,5 @@
 import { test, expect } from "bun:test";
+import { selectAttemptArtifact } from "./ci-artifacts.mjs";
 import { mkdtemp, mkdir, writeFile, rm, symlink } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -162,4 +163,126 @@ test("a complete stable-tag candidate can replace duplicate main qualification",
     expect(() =>
       assertQualifiedRun({ ...run, head_branch: branch }, jobs, "owner/repo", source),
     ).toThrow("mismatch");
+});
+
+// GitHub carries successful jobs forward on failed-job reruns with new IDs and
+// run_attempt values, while retaining the original execution timestamps.
+const replayRun = { ...run, id: 41044488009, run_attempt: 2 };
+const replayJob = {
+  ...jobs[0],
+  status: "completed",
+  run_id: replayRun.id,
+  head_sha: source,
+  runner_id: 1000030036,
+  started_at: "2026-10-30T11:19:17Z",
+  completed_at: "2026-10-30T11:25:54Z",
+};
+const replayJobs = [
+  { ...replayJob, id: 124034138592, run_attempt: 1 },
+  { ...replayJob, id: 124044147008, run_attempt: 2 },
+];
+const replayArtifact = {
+  name: `public-site-qualified-${source}-1`,
+  expired: false,
+  created_at: "2026-10-30T11:25:43Z",
+  workflow_run: { id: replayRun.id, head_sha: source },
+};
+test("delivery CLI qualifies the retained artifact after GitHub carries a successful job forward", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "public-qualification-"));
+  try {
+    for (const [name, value] of Object.entries({
+      run: replayRun,
+      jobs: [{ jobs: replayJobs }],
+      artifacts: { artifacts: [replayArtifact] },
+    }))
+      await writeFile(path.join(root, `${name}.json`), JSON.stringify(value));
+    const result = Bun.spawnSync([
+      process.execPath,
+      "scripts/public-site-artifact.mjs",
+      "qualify-run",
+      `${root}/run.json`,
+      `${root}/jobs.json`,
+      "owner/repo",
+      source,
+    ]);
+    expect(result.exitCode).toBe(0);
+    const metadata = JSON.parse(await Bun.file(`${root}/artifacts.json`).text());
+    const selected = selectAttemptArtifact(metadata.artifacts, `public-site-qualified-${source}-`);
+    expect(selected).toBe(`public-site-qualified-${source}-${result.stdout.toString().trim()}`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("retained qualification requires identical successful execution provenance", () => {
+  expect(assertQualifiedRun(replayRun, replayJobs, "owner/repo", source)).toBe(1);
+  for (const change of [
+    { started_at: "2026-10-30T11:44:20Z", completed_at: "2026-10-30T11:48:00Z" },
+    { started_at: undefined },
+    { completed_at: undefined },
+    { runner_id: 123 },
+    { runner_id: undefined },
+    { head_sha: "b".repeat(40) },
+    { run_id: 123 },
+  ]) {
+    expect(
+      assertQualifiedRun(
+        replayRun,
+        [replayJobs[0], { ...replayJobs[1], ...change }],
+        "owner/repo",
+        source,
+      ),
+    ).toBe(2);
+  }
+  for (const conclusion of ["failure", "cancelled", "skipped", null]) {
+    expect(() =>
+      assertQualifiedRun(
+        replayRun,
+        [replayJobs[0], { ...replayJobs[1], conclusion }],
+        "owner/repo",
+        source,
+      ),
+    ).toThrow("prerequisite");
+    expect(
+      assertQualifiedRun(
+        replayRun,
+        [{ ...replayJobs[0], conclusion }, replayJobs[1]],
+        "owner/repo",
+        source,
+      ),
+    ).toBe(2);
+  }
+  expect(() =>
+    assertQualifiedRun(
+      replayRun,
+      [replayJobs[0], replayJobs[0], replayJobs[1]],
+      "owner/repo",
+      source,
+    ),
+  ).toThrow("ambiguous");
+});
+
+test("a real producer rerun owns its new artifact even when a later rerun carries it forward", () => {
+  const rerunJob = {
+    ...replayJob,
+    run_attempt: 2,
+    started_at: "2026-10-30T11:44:20Z",
+    completed_at: "2026-10-30T11:48:00Z",
+  };
+  const qualified = assertQualifiedRun(
+    { ...replayRun, run_attempt: 3 },
+    [replayJobs[0], rerunJob, { ...rerunJob, run_attempt: 3 }],
+    "owner/repo",
+    source,
+  );
+  expect(qualified).toBe(2);
+  expect(selectAttemptArtifact([replayArtifact], `public-site-qualified-${source}-`)).not.toBe(
+    `public-site-qualified-${source}-${qualified}`,
+  );
+  expect(
+    selectAttemptArtifact(
+      [replayArtifact, { ...replayArtifact, name: `public-site-qualified-${source}-2` }],
+      `public-site-qualified-${source}-`,
+    ),
+  ).toBe(`public-site-qualified-${source}-${qualified}`);
 });

@@ -115,6 +115,8 @@ jobs:
           timeout 120 gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$PRODUCER_RUN/jobs?filter=all&per_page=100" > /tmp/jobs.json
           count=$(timeout 120 gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PRODUCER_RUN/artifacts?per_page=100" --jq '[.artifacts[] | select(.expired == false and (.name | startswith("public-site-qualified-")))] | length')
           if [ "$count" = 0 ]; then echo 'available=false' >> "$GITHUB_OUTPUT"; exit 0; fi
+          # Qualification returns the original successful execution attempt,
+          # including jobs carried forward by GitHub after a failed-job rerun.
           producer_attempt=$(timeout 120 bun scripts/public-site-artifact.mjs qualify-run /tmp/producer.json /tmp/jobs.json "$GITHUB_REPOSITORY" "$SOURCE")
           artifact=$(timeout 120 bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$PRODUCER_RUN" --prefix "public-site-qualified-$SOURCE-")
           test "${artifact##*-}" = "$producer_attempt" || { echo 'Artifact does not match qualified producer attempt'; exit 1; }

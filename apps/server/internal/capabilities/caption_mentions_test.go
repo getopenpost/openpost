@@ -8,21 +8,30 @@ import (
 )
 
 func TestCaptionResetDoesNotBlockPublishing(t *testing.T) {
+	imageMedia := []MediaItem{{ID: "image", MimeType: "image/jpeg", Size: 1024, Width: 1080, Height: 1080, URL: "https://example.com/image.jpg", PublicURLReady: true}}
 	for _, provider := range []string{ProviderInstagram, ProviderDiscord, ProviderFacebook} {
-		for _, content := range []struct {
-			name, body string
-			media      []MediaItem
+		contents := []struct {
+			name, profile, body string
+			media               []MediaItem
 		}{
-			{name: "text only", body: "hi"},
-			{name: "image only", media: []MediaItem{{ID: "image", MimeType: "image/jpeg", Size: 1024, Width: 1080, Height: 1080, URL: "https://example.com/image.jpg", PublicURLReady: true}}},
-			{name: "image caption", body: "Hello 🌍 #launch", media: []MediaItem{{ID: "image", MimeType: "image/jpeg", Size: 1024, Width: 1080, Height: 1080, URL: "https://example.com/image.jpg", PublicURLReady: true}}},
-		} {
+			{name: "image only", profile: models.ContentProfileImagePost, media: imageMedia},
+			{name: "image caption", profile: models.ContentProfileImagePost, body: "Hello 🌍 #launch", media: imageMedia},
+		}
+		// Instagram feed has no text-only profile; Facebook and Discord do.
+		if provider != ProviderInstagram {
+			contents = append([]struct {
+				name, profile, body string
+				media               []MediaItem
+			}{{name: "text only", profile: models.ContentProfileShortText, body: "hi"}}, contents...)
+		}
+		for _, content := range contents {
 			t.Run(provider+"/"+content.name, func(t *testing.T) {
 				// Compare with the same post without the composer's reset marker:
 				// genuine media/format restrictions must remain unchanged.
-				baseline := Validate(provider, models.ContentProfileImagePost, content.body, "", "", content.media, nil)
-				actual := Validate(provider, models.ContentProfileImagePost, content.body, "", "", content.media, map[string]any{"caption_mentions": nil})
+				baseline := Validate(provider, content.profile, content.body, "", "", content.media, nil)
+				actual := Validate(provider, content.profile, content.body, "", "", content.media, map[string]any{"caption_mentions": nil})
 				require.Equal(t, baseline, actual)
+				requireNoIssueCode(t, actual, "unsupported_setting")
 			})
 		}
 	}

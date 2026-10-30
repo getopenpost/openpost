@@ -287,6 +287,30 @@ func TestPublicationMentionValidationSeparatesMetadataFromProviderSettings(t *te
 	}
 }
 
+func TestCrossProviderCaptionStillRejectedWithoutUnsupportedSetting(t *testing.T) {
+	db := createHandlerTestDB(t, (*models.Publication)(nil), (*models.Rendition)(nil),
+		(*models.PublicationSegment)(nil), (*models.PublicationSegmentMedia)(nil),
+		(*models.RenditionSegment)(nil), (*models.RenditionSegmentMedia)(nil),
+		(*models.RenditionMedia)(nil), (*models.MediaAttachment)(nil), (*models.SocialAccount)(nil))
+	for _, row := range []any{
+		&models.Publication{ID: "pub", WorkspaceID: "ws-1", CreatedByID: "user-1", ContentProfile: models.ContentProfileLongVideo, Status: models.PublicationStatusDraft},
+		&models.SocialAccount{ID: "account", WorkspaceID: "ws-1", Platform: "youtube", AccountID: "yt-user", AccessTokenEnc: []byte("token"), IsActive: true},
+		&models.PublicationSegment{ID: "source", PublicationID: "pub", Body: "Hello"},
+		&models.Rendition{ID: "rendition", PublicationID: "pub", SocialAccountID: "account", Platform: "youtube", Profile: models.ContentProfileLongVideo, OutputProfile: "youtube.video", Status: models.RenditionStatusDraft},
+		&models.RenditionSegment{ID: "segment", RenditionID: "rendition", PublicationSegmentID: "source", Body: "Hello", SettingsJSON: `{"caption_mentions":{"field":"video_description","body":"Hello","mentions":{"version":1,"spans":[]}}}`},
+	} {
+		_, err := db.NewInsert().Model(row).Exec(t.Context())
+		require.NoError(t, err)
+	}
+	handler := &PublicationHandler{db: db}
+	issues, err := handler.validatePublicationByIDWithDB(t.Context(), db, "pub")
+	require.NoError(t, err)
+	requirePublicationIssueCode(t, issues, "mention_choice_invalid")
+	for _, issue := range issues {
+		require.False(t, issue.Code == "unsupported_setting" && issue.Field == "caption_mentions", "cross-provider caption must not be reported as an unknown provider setting: %#v", issue)
+	}
+}
+
 func TestNativeCaptionLegacyClearAndProjectionEcho(t *testing.T) {
 	caption := &publicationsource.CaptionMentions{Field: "description", Body: "Hi @alice", Mentions: &posttext.Mentions{Version: 1, Spans: []posttext.MentionSpan{{Start: 3, End: 9, Text: "@alice", Target: posttext.MentionTarget{Provider: "workspace", Kind: "profile", ID: "caption-person", Profiles: []posttext.MentionProfile{{Provider: "youtube", Text: "@alice_video"}}}}}}}
 	data, err := json.Marshal(map[string]any{publicationsource.CaptionMentionsKey: caption})

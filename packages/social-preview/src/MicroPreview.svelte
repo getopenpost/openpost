@@ -355,15 +355,100 @@
     cursor: pointer;
   }
 
+  /* X web client (x.com): TwitterChirp over the system stack, timeline cells
+     with 12px block and 16px inline padding, a 40px avatar with a 12px
+     gutter, one 15px name/handle/time row, 15px/1.33 bodies, an 18.75px
+     caret and action icons with 13px regular counts, and the lights-out
+     dark scheme: #e7e9ea ink on #000, #71767b secondary, #2f3336 hairlines. */
+  .platform-x {
+    --native-bg: light-dark(#fff, #000);
+    --native-surface: light-dark(#fff, #000);
+    --native-fg: light-dark(#0f1419, #e7e9ea);
+    --native-muted: light-dark(#536471, #71767b);
+    --native-border: light-dark(#eff3f4, #2f3336);
+    --native-soft: light-dark(#f7f9f9, #16181c);
+    font-family:
+      TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Helvetica, Arial, sans-serif;
+  }
+
+  /* Timeline cell: 12px 16px padding, 40px avatar rail, 12px gutter. */
   .platform-x .micro-post {
-    gap: 0.5rem;
+    gap: 0.75rem;
     grid-template-columns: 2.5rem minmax(0, 1fr);
-    padding-block: 0.75rem 0.15rem;
+    padding-block: 0.75rem;
+  }
+
+  /* Name, @handle and time all sit on one 15px row on the web client. */
+  .platform-x .name-line {
+    font-size: 0.9375rem;
+    line-height: 1.33;
+  }
+
+  .platform-x .name-line span {
+    font-size: 0.9375rem;
+  }
+
+  .platform-x :global(.more) {
+    width: 1.171875rem;
+    height: 1.171875rem;
   }
 
   .platform-x .post-text {
-    font-size: 0.95rem;
-    line-height: 1.3;
+    margin: 0.125rem 0 0.75rem;
+    font-size: 0.9375rem;
+    line-height: 1.33;
+  }
+
+  .platform-x .post-column :global(.media-grid) {
+    margin-top: 0;
+  }
+
+  /* Action bar: 18.75px icons in a 34px pill, 13px regular counts in the
+     timeline gray, and the per-action hover tints (reply, views, bookmark
+     and share blue; repost green; like pink). */
+  .platform-x .post-column :global(.preview-actions) {
+    margin-top: 0.75rem;
+  }
+
+  .platform-x .post-column :global(.preview-actions .action) {
+    gap: 0.0625rem;
+    font-size: 0.8125rem;
+    font-weight: 400;
+  }
+
+  .platform-x .post-column :global(.preview-actions .icon) {
+    width: 2.125rem;
+    height: 2.125rem;
+  }
+
+  .platform-x .post-column :global(.preview-actions .icon svg) {
+    width: 1.171875rem;
+    height: 1.171875rem;
+  }
+
+  .platform-x .post-column :global(.preview-actions .action:hover) {
+    color: #1d9bf0;
+  }
+
+  .platform-x .post-column :global(.preview-actions .action:hover .icon) {
+    background: rgb(29 155 240 / 10%);
+  }
+
+  .platform-x .post-column :global(.preview-actions .action:nth-child(2):hover) {
+    color: #00ba7c;
+  }
+
+  .platform-x .post-column :global(.preview-actions .action:nth-child(2):hover .icon) {
+    background: rgb(0 186 124 / 10%);
+  }
+
+  .platform-x .post-column :global(.preview-actions .action:nth-child(3):hover) {
+    color: #f91880;
+  }
+
+  .platform-x .post-column :global(.preview-actions .action:nth-child(3):hover .icon) {
+    background: rgb(249 24 128 / 10%);
   }
 
   /* Bluesky web app (social-app): InterVariable with the system stack,
@@ -645,6 +730,9 @@
     }
   }
 
+  /* Threads web (threads.net): the Meta system stack, 15px/1.4 bodies with
+     15px/600 usernames and 13px muted timestamps, the paper-white and
+     #101010 schemes with #e9e9e9/#2d2d2d hairlines, and a 16px feed card. */
   .platform-threads {
     --native-fg: light-dark(#101010, #f2f2f2);
     --native-muted: light-dark(#737373, #999);
@@ -654,6 +742,9 @@
     --native-bg: light-dark(#fff, #101010);
     --native-surface: light-dark(#fff, #101010);
     --native-soft: light-dark(#f3f3f3, #161616);
+    font-family:
+      system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Helvetica, Arial, sans-serif;
   }
 
   .platform-threads .micro-post {
@@ -668,18 +759,19 @@
   }
 
   .platform-threads .name-line strong {
-    font-size: 0.88rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
   }
 
   .platform-threads .name-line span {
     margin-left: 0.15rem;
-    font-size: 0.84rem;
+    font-size: 0.8125rem;
   }
 
   .platform-threads .post-text {
     margin-top: 0.15rem;
-    font-size: 0.94rem;
-    line-height: 1.42;
+    font-size: 0.9375rem;
+    line-height: 1.4;
   }
 
   /* /dev/null (dev-null.sh), from the site's DESIGN.md and commit card: a
@@ -807,13 +899,5 @@
     .content-warning button {
       min-height: 44px;
     }
-  }
-  .platform-x {
-    --native-bg: light-dark(#fff, #000);
-    --native-surface: light-dark(#fff, #000);
-    --native-fg: light-dark(#0f1419, #f2f2f2);
-    --native-muted: light-dark(#536471, #8b9095);
-    --native-border: light-dark(#eff3f4, #2f3336);
-    --native-soft: light-dark(#f3f4f6, #16181c);
   }
 </style>

@@ -813,7 +813,9 @@
     --native-bg: light-dark(#fff, #202124);
     --native-panel: light-dark(#fff, #303134);
     --native-text: light-dark(#202124, #e8eaed);
-    --native-muted: light-dark(#5f6368, #bdc1c6);
+    --native-muted: light-dark(#5f6368, #9aa0a6);
+    --native-border: light-dark(#dadce0, #5f6368);
+    font-family: "Google Sans Text", Roboto, Arial, sans-serif;
   }
   /* /dev/null (dev-null.sh): shell background, a bordered log column, an icon
      rail, and the GitHub sign-in aside, from the site's DESIGN.md tokens. */

@@ -39,7 +39,7 @@
         >{model.business.startDate}{model.business.startTime
           ? `, ${model.business.startTime}`
           : ""}{model.business.endDate
-          ? ` to ${model.business.endDate}`
+          ? ` - ${model.business.endDate}`
           : ""}{model.business.endTime
           ? `, ${model.business.endTime}`
           : ""}</span
@@ -63,14 +63,15 @@
   .business-preview {
     --native-bg: light-dark(#fff, #202124);
     --native-fg: light-dark(#202124, #e8eaed);
-    --native-muted: light-dark(#5f6368, #bdc1c6);
+    --native-muted: light-dark(#5f6368, #9aa0a6);
+    --native-ui-font: "Google Sans", "Google Sans Text", Roboto, Arial, sans-serif;
     width: min(100%, 30rem);
     overflow: hidden;
     border: 1px solid light-dark(#dadce0, #5f6368);
     border-radius: 0.75rem;
     background: var(--native-bg);
     color: var(--native-fg);
-    font-family: Arial, sans-serif;
+    font-family: "Google Sans Text", Roboto, Arial, sans-serif;
   }
   header {
     display: flex;
@@ -85,16 +86,19 @@
     gap: 0.2rem;
   }
   header strong {
-    font-size: 0.9rem;
+    font-family: var(--native-ui-font);
+    font-size: 0.875rem;
+    font-weight: 500;
     overflow-wrap: anywhere;
   }
   header span {
     color: var(--native-muted);
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
   }
   header > :global(svg) {
     width: 1.25rem;
     flex: none;
+    color: var(--native-muted);
   }
   .update-copy {
     display: grid;
@@ -103,23 +107,26 @@
   }
   h2 {
     margin: 0;
-    font-size: 1.1rem;
+    font-family: var(--native-ui-font);
+    font-size: 1rem;
+    font-weight: 500;
     line-height: 1.35;
     overflow-wrap: anywhere;
   }
   p {
     margin: 0;
-    font-size: 0.9rem;
-    line-height: 1.5;
+    font-size: 0.875rem;
+    line-height: 1.43;
     white-space: pre-wrap;
     unicode-bidi: plaintext;
     text-align: start;
     overflow-wrap: anywhere;
   }
   .link-label {
-    color: light-dark(#1967d2, #8ab4f8);
-    font-size: 0.87rem;
-    font-weight: 600;
+    color: light-dark(#1a73e8, #8ab4f8);
+    font-family: var(--native-ui-font);
+    font-size: 0.875rem;
+    font-weight: 500;
   }
   .compact header,
   .compact .update-copy {
@@ -128,12 +135,15 @@
   .date-range,
   small {
     color: var(--native-muted);
-    font-size: 0.78rem;
+    font-size: 0.8125rem;
     line-height: 1.4;
     overflow-wrap: anywhere;
   }
   .coupon {
-    font-size: 0.85rem;
+    font-size: 0.875rem;
     overflow-wrap: anywhere;
+  }
+  .coupon strong {
+    font-weight: 500;
   }
 </style>

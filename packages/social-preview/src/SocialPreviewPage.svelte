@@ -1493,7 +1493,7 @@
     --page-fg: rgb(0 0 0 / 90%);
     --page-muted: rgb(0 0 0 / 60%);
     --page-border: #e0dfdc;
-    --page-soft: #edf3f8;
+    --page-soft: #eef3f8;
     font-family:
       -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto,
       sans-serif;
@@ -3246,10 +3246,15 @@
   .preview-page {
     --page-bg: light-dark(#fff, #000);
     --page-surface: light-dark(#fff, #121212);
-    --page-fg: light-dark(#0f1419, #f2f2f2);
-    --page-muted: light-dark(#536471, #a4a4a4);
+    --page-fg: light-dark(#0f1419, #e7e9ea);
+    --page-muted: light-dark(#536471, #71767b);
     --page-border: light-dark(#eff3f4, #2f3336);
-    --page-soft: light-dark(#f5f5f5, #202124);
+    --page-soft: light-dark(#f7f9f9, #16181c);
+  }
+  .platform-x {
+    font-family:
+      TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Helvetica, Arial, sans-serif;
   }
   .platform-bluesky {
     --page-bg: light-dark(#fff, #000);
@@ -3265,8 +3270,8 @@
   .platform-linkedin {
     --page-bg: light-dark(#f4f2ee, #000);
     --page-surface: light-dark(#fff, #1b1f23);
-    --page-border: light-dark(#dfdeda, #38434f);
-    --page-soft: light-dark(#eef3f8, #293138);
+    --page-border: light-dark(#e0dfdc, #38434f);
+    --page-soft: light-dark(#eef3f8, #2a2e33);
   }
   .platform-facebook {
     --page-bg: light-dark(#f0f2f5, #18191a);

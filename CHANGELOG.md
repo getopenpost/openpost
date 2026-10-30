@@ -8,6 +8,14 @@ All notable changes to this project are documented in this file.
 
 - Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
 
+## [7.35.2] - 2026-10-30
+
+### Fixed
+
+- Prevent a delayed GitHub run status from failing release CI coordination. Retry pending tag status briefly and retain main CI when tag liveness cannot be confirmed, while keeping full release qualification required.
+- Restore public site delivery after CI reruns retain an earlier successful public build, while keeping artifacts tied to their original successful execution.
+- Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
+
 ## [7.35.1] - 2026-10-30
 
 ### Fixed

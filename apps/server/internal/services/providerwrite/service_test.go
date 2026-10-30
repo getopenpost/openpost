@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -65,6 +66,35 @@ func TestAmbiguousWriteIsTerminalWithoutReconciliation(t *testing.T) {
 	require.Equal(t, StatusAmbiguous, attempt.Status)
 	require.Equal(t, string(platform.PublishRetryNever), attempt.RetrySafety)
 	require.Empty(t, attempt.SafeErrorCode)
+}
+
+func TestClassifiedRejectionOverridesPendingCheckpoint(t *testing.T) {
+	db := newProviderWriteTestDB(t)
+	service := New(db)
+	input := providerWriteTestInput(t, "rejected-after-checkpoint")
+	pending := platform.PublishResult{
+		SubmissionState:   platform.PublishSubmissionPending,
+		ProviderState:     "instagram:v1:story_container_create_started",
+		ProviderReference: "ig1:u:0:-:-",
+		RetrySafety:       platform.PublishRetryReconcileOnly,
+		ReconcileAfter:    time.Minute,
+	}
+	_, err := service.Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		require.NoError(t, control.Begin(pending))
+		require.NoError(t, control.Checkpoint(pending))
+		rejected := pending
+		rejected.SubmissionState = platform.PublishSubmissionRejected
+		rejected.RetrySafety = platform.PublishRetryNever
+		return rejected, &platform.HTTPError{StatusCode: http.StatusBadRequest, Code: "100"}
+	}, nil)
+	require.Error(t, err)
+
+	attempt := latestProviderWriteAttempt(t, db, input.OperationID)
+	require.Equal(t, StatusDefiniteFailure, attempt.Status)
+	require.Equal(t, string(platform.PublishSubmissionRejected), attempt.SubmissionState)
+	require.Equal(t, "provider_rejected", attempt.SafeErrorClass)
+	require.Equal(t, "100", attempt.SafeErrorCode)
+	require.Equal(t, http.StatusBadRequest, attempt.ErrorHTTPStatus)
 }
 
 func TestAcceptedWriteWithoutNativeIDFailsAmbiguousForManualResolution(t *testing.T) {

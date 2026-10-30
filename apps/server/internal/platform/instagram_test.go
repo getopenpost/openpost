@@ -26,11 +26,14 @@ func TestInstagramContainerSettingsStayWithinProviderRules(t *testing.T) {
 			if req.Form.Get("media_type") != "STORIES" || req.Form.Get("collaborators") != "" {
 				t.Fatalf("unexpected Story container payload: %s", req.Form.Encode())
 			}
+			if altText := req.Form.Get("alt_text"); altText != "" {
+				t.Fatalf("Stories do not support alt_text, got %q", altText)
+			}
 			return jsonResponse(req, `{"id":"container-1"}`), nil
 		})}
 		id, err := adapter.createMediaContainer(t.Context(), "token", "ig-1", "Story", "https://media.example/story.jpg", false, false, &PublishRequest{
 			OutputProfile: "instagram.story", Settings: map[string]interface{}{"collaborators": "one,two"},
-		}, nil, "")
+		}, nil, "story alt text")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -488,5 +491,76 @@ func TestInstagramReadinessRejectionResumesSameContainer(t *testing.T) {
 	result, err = adapter.ResumePublish(t.Context(), "token", "ig", req, result.ProviderReference)
 	if err != nil || result.ExternalID != "published" {
 		t.Fatalf("resuming confirmed readiness rejection: result=%+v err=%v", result, err)
+	}
+}
+
+func TestInstagramStoryContainerCreateRejectionIsDefinite(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	original := httpClient
+	defer func() { httpClient = original }()
+	published := false
+	httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch r.URL.Path {
+		case "/v25.0/ig-1/media":
+			resp := jsonResponse(r, `{"error":{"code":100,"message":"The param alt_text is not supported for STORY"}}`)
+			resp.StatusCode = http.StatusBadRequest
+			return resp, nil
+		case "/v25.0/ig-1/media_publish":
+			published = true
+			return jsonResponse(r, `{"id":"story-1"}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+			return nil, nil
+		}
+	})}
+	req := &PublishRequest{
+		Profile:          "story",
+		PlatformMediaIDs: []string{"https://media.example/story.jpg"},
+		Media:            []MediaItem{{MimeType: "image/jpeg"}},
+	}
+	result, err := NewInstagramAdapter("", "", "").Publish(t.Context(), "token", "ig-1", req)
+	if published {
+		t.Fatal("a rejected story container must never be published")
+	}
+	if err == nil {
+		t.Fatal("expected the container rejection to surface")
+	}
+	if result.SubmissionState != PublishSubmissionRejected || result.RetrySafety != PublishRetryNever {
+		t.Fatalf("story container rejection must be definite, got %#v (err %v)", result, err)
+	}
+	if result.ProviderReference != "ig1:u:0:-:-" {
+		t.Fatalf("rejection must retain the create checkpoint, got %q", result.ProviderReference)
+	}
+}
+
+func TestInstagramResumeStoryCreateCheckpointRecreatesContainer(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	original := httpClient
+	defer func() { httpClient = original }()
+	created := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		switch r.URL.Path {
+		case "/v25.0/ig-1/media":
+			created++
+			return jsonResponse(r, `{"id":"container-2"}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+			return nil, nil
+		}
+	})}
+	req := &PublishRequest{
+		Profile:          "story",
+		PlatformMediaIDs: []string{"https://media.example/story.jpg"},
+		Media:            []MediaItem{{MimeType: "image/jpeg"}},
+	}
+	result, err := NewInstagramAdapter("", "", "").ResumePublish(t.Context(), "token", "ig-1", req, "ig1:u:0:-:-")
+	if err != nil {
+		t.Fatalf("resuming a create checkpoint: %v", err)
+	}
+	if created != 1 {
+		t.Fatalf("a create checkpoint without a container must retry creation, got %d requests", created)
+	}
+	if result.SubmissionState != PublishSubmissionPending || result.ProviderReference != "ig1:s:0:-:container-2" {
+		t.Fatalf("unexpected resumed create result: %#v", result)
 	}
 }

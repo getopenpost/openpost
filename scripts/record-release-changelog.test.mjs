@@ -114,12 +114,23 @@ test("recording merges direct Unreleased edits with tag fragments", () => {
   try {
     writeFileSync(
       path.join(root, "CHANGELOG.md"),
-      "# Changelog\n\n## [Unreleased]\n\n### Fixed\n\n- Direct edit.\n\n## [1.0.0] - 2026-01-01\n",
+      "# Changelog\n\n## [Unreleased]\n\n### Fixed\n\n- Direct edit.\n\n### Changed\n\n- Direct change.\n\n## [1.0.0] - 2026-01-01\n",
     );
     writeFileSync(path.join(root, "changes", "a.md"), "### Fixed\n\n- Tagged fix.\n");
     git(["add", "."]);
     git(["commit", "-m", "fix: tagged work"]);
     git(["tag", "v1.0.1"]);
+
+    // The recorder runs on main after publication, while later direct notes
+    // may already have been added to both existing and new groups.
+    const taggedChangelog = readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
+    writeFileSync(
+      path.join(root, "CHANGELOG.md"),
+      taggedChangelog.replace(
+        "- Direct edit.",
+        "- Direct edit.\n- Future fix.\n\n### Added\n\n- Future feature.",
+      ),
+    );
 
     const result = record(root, env, ["v1.0.1", "2026-02-02"]);
     assert.equal(result.status, 0, result.stderr);
@@ -131,6 +142,49 @@ test("recording merges direct Unreleased edits with tag fragments", () => {
     );
     assert.match(section, /- Tagged fix\./u);
     assert.match(section, /- Direct edit\./u);
+    assert.match(section, /- Direct change\./u);
+    const unreleased = changelog.slice(
+      changelog.indexOf("## [Unreleased]"),
+      changelog.indexOf("## [1.0.1]"),
+    );
+    assert.equal(
+      unreleased,
+      "## [Unreleased]\n\n### Fixed\n\n- Future fix.\n\n### Added\n\n- Future feature.\n\n",
+    );
+    assert.doesNotMatch(section, /Future/u);
+    assert.ok(!existsSync(path.join(root, "changes", "a.md")));
+
+    const rerun = record(root, env, ["v1.0.1", "2026-02-02"]);
+    assert.equal(rerun.status, 0, rerun.stderr);
+    assert.equal(readFileSync(path.join(root, "CHANGELOG.md"), "utf8"), changelog);
+
+    // A rerun also repairs notes stranded by the previous recorder version.
+    writeFileSync(
+      path.join(root, "CHANGELOG.md"),
+      changelog.replace("- Future fix.", "- Direct edit.\n- Future fix."),
+    );
+    const repair = record(root, env, ["v1.0.1", "2026-02-02"]);
+    assert.equal(repair.status, 0, repair.stderr);
+    assert.equal(readFileSync(path.join(root, "CHANGELOG.md"), "utf8"), changelog);
+
+    // The next release must contain only the work added after the old tag.
+    git(["add", "."]);
+    git(["commit", "-m", "docs: record prior release"]);
+    git(["tag", "v1.1.0"]);
+    writeFileSync(
+      path.join(root, "bin", "gh"),
+      '#!/bin/sh\nprintf \'[[{"tag_name":"v1.0.1","draft":false,"prerelease":false,"published_at":"2026-02-02T00:00:00Z"}]]\\n\'\n',
+    );
+    const next = record(root, env, ["v1.1.0", "2026-02-03"]);
+    assert.equal(next.status, 0, next.stderr);
+    const nextChangelog = readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
+    const nextSection = nextChangelog.slice(
+      nextChangelog.indexOf("## [1.1.0]"),
+      nextChangelog.indexOf("## [1.0.1]"),
+    );
+    assert.match(nextSection, /Future fix/u);
+    assert.match(nextSection, /Future feature/u);
+    assert.doesNotMatch(nextSection, /Direct edit|Direct change|Tagged fix/u);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

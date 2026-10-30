@@ -4,7 +4,11 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { prepareReleaseChangelog, validateChangelog } from "../packages/changelog/src/index.js";
+import {
+  parseChangelog,
+  prepareReleaseChangelog,
+  validateChangelog,
+} from "../packages/changelog/src/index.js";
 import { publishedStableReleaseTag } from "./published-release-tag.mjs";
 import {
   changelogFragmentEntries,
@@ -104,11 +108,58 @@ const body = preparedLines
   .trim();
 if (!body) fail(`prepared changelog section [${normalized}] has no entries`);
 
+// Direct edits live in CHANGELOG rather than fragment files. Consume only
+// the exact notes captured by the tag, retaining additions made on main later.
+function consumeTaggedDirectNotes(markdown, taggedMarkdown) {
+  const tagged = parseChangelog(taggedMarkdown).find((section) => section.label === "Unreleased");
+  const pending = parseChangelog(markdown).find((section) => section.label === "Unreleased");
+  if (!tagged || !pending) return markdown;
+  const counts = new Map();
+  for (const group of tagged.groups) {
+    const items = counts.get(group.title) ?? new Map();
+    for (const item of group.items) items.set(item, (items.get(item) ?? 0) + 1);
+    counts.set(group.title, items);
+  }
+  const introCounts = new Map();
+  for (const line of tagged.intro) introCounts.set(line, (introCounts.get(line) ?? 0) + 1);
+  let consumed = 0;
+  const keep = (item, items) => {
+    const count = items?.get(item) ?? 0;
+    if (!count) return true;
+    items.set(item, count - 1);
+    consumed += 1;
+    return false;
+  };
+  const intro = pending.intro.filter((line) => keep(line, introCounts));
+  const groups = pending.groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => keep(item, counts.get(group.title))),
+    }))
+    .filter((group) => group.items.length > 0);
+  if (!consumed) return markdown;
+  const remaining = [
+    intro.join("\n"),
+    ...groups.map(
+      (group) => `### ${group.title}\n\n${group.items.map((item) => `- ${item}`).join("\n")}`,
+    ),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  const marker = "## [Unreleased]";
+  const bodyStart = markdown.indexOf(marker) + marker.length;
+  const next = markdown.slice(bodyStart).search(/\n## \[/u);
+  const bodyEnd = next < 0 ? markdown.length : bodyStart + next;
+  return `${markdown.slice(0, bodyStart)}\n\n${remaining ? `${remaining}\n\n` : ""}${markdown.slice(bodyEnd).replace(/^\n+/u, "")}`;
+}
+
 const changelogPath = resolve("CHANGELOG.md");
-const current = readFileSync(changelogPath, "utf8");
+const original = readFileSync(changelogPath, "utf8");
+const current = consumeTaggedDirectNotes(original, tagChangelog);
 if (new RegExp(`^## \\[${normalized}\\](?: - .+)?$`, "mu").test(current)) {
-  // Idempotent reruns (for example after a rebase) keep the recorded
-  // section and sweep any consumed fragments left behind.
+  // Idempotent reruns keep the dated section, repair pending direct notes
+  // left by older recorders, and sweep consumed fragments left behind.
+  if (current !== original) writeFileSync(changelogPath, current);
   let swept = 0;
   for (const entry of tagTree) {
     const file = resolve("changes", entry);

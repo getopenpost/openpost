@@ -25,6 +25,21 @@ bun scripts/ci-test-timings.mjs audit selected-summary.json full-summary.json
 
 Compare summaries from the same revision and configuration. The audit identifies failing full-run tests absent from the selection for investigation. It does not establish causality or automatically omit tests. Test selection inside a surface remains exhaustive until evidence supports a narrower rule.
 
+Core application browser shards assign whole spec files by recorded duration in
+`scripts/app-e2e-durations.json`. The current test directory owns the inventory,
+not that timing snapshot: new files receive a median weight and deleted files are
+ignored. Refresh weights by summing each file's `durationMs` across a complete
+set of successful `app-test-timings-*` summaries, retaining the source run and
+revision. CI and local shard reproduction use the same configuration. Workflow
+checks compare Playwright's complete test inventory against the disjoint union
+of all six shards. Handoff remains a separate suite.
+
+Marketing browser jobs retain equivalent raw reports and summaries in
+`marketing-test-timings-*`. Use those measurements before changing its shard
+count or test setup. Browser installation follows each suite's launch mode:
+Node-only jobs install none, full-Chromium suites omit the headless shell, and
+marketing keeps its existing headless shell.
+
 ## Release bookkeeping
 
 Automated changelog, README asset and screenshot writes require the configured `openpost-bot` GitHub App. They fail if its credentials or identity are unavailable, rather than falling back to another author.

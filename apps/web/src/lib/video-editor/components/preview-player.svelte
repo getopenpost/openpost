@@ -228,7 +228,7 @@
 	let pickerColor = $state<{ r: number; g: number; b: number } | null>(null);
 	let canvasContextOpen = $state(false);
 	let canvasContextLayers = $state<CanvasLayerCandidate[]>([]);
-	let lastStackScopeAt = 0;
+	let lastStackScopeAt = Number.NEGATIVE_INFINITY;
 	let stackFrameRequest: number | null = null;
 	let pendingStackInputs: {
 		items: TimelineItem[];

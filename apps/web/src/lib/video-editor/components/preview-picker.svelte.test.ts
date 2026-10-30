@@ -9,12 +9,15 @@ import PreviewPlayer from './preview-player.svelte';
 import '../../../routes/layout.css';
 
 afterEach(() => {
+	vi.restoreAllMocks();
 	colorPreviewStore.__resetForTesting();
 	editorSession.project = null;
 });
 
 it('previews the rendered color on hover and selects that same color on click', async () => {
 	await page.viewport(1280, 900);
+	// A paused first frame must be sampled before the normal capture interval elapses.
+	vi.spyOn(performance, 'now').mockReturnValue(100);
 	const project = createBlankProject('Picker');
 	project.timeline!.items = [
 		{

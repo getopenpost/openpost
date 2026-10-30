@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 import { execFileSync } from "node:child_process";
+import { setTimeout } from "node:timers/promises";
 
-export function supersededMainRuns(current, plan, runs, repository) {
+function requireQualifiedTag(current, plan, repository) {
   const core = ["application", "backend", "frontend", "security", "image"];
   if (
     current.head_repository?.full_name !== repository ||
@@ -9,11 +10,30 @@ export function supersededMainRuns(current, plan, runs, repository) {
     current.event !== "push" ||
     !/^v\d+\.\d+\.\d+$/u.test(current.head_branch || "") ||
     !/^[a-f0-9]{40}$/u.test(current.head_sha || "") ||
-    current.status !== "in_progress" ||
     !["release", "full"].includes(plan.mode) ||
     core.some((key) => ![true, "true"].includes(plan[key]))
   )
-    throw new Error("A trusted running tag with complete core qualification is required");
+    throw new Error(
+      `A trusted tag with complete core qualification is required: ${JSON.stringify({
+        id: current.id,
+        repository: current.head_repository?.full_name,
+        path: current.path,
+        event: current.event,
+        ref: current.head_branch,
+        sha: current.head_sha,
+        status: current.status,
+        mode: plan.mode,
+        missingCore: core.filter((key) => ![true, "true"].includes(plan[key])),
+      })}`,
+    );
+}
+
+export function supersededMainRuns(current, plan, runs, repository) {
+  requireQualifiedTag(current, plan, repository);
+  if (current.status !== "in_progress")
+    throw new Error(
+      `Tag run ${current.id} must be in_progress before cancellation; status=${current.status}`,
+    );
   return runs
     .filter(
       (run) =>
@@ -43,8 +63,27 @@ if (import.meta.main) {
   const id = process.env.GITHUB_RUN_ID;
   if (!/^[\w.-]+\/[\w.-]+$/u.test(repository || "") || !/^\d+$/u.test(id || ""))
     throw new Error("GitHub run identity is required");
-  const current = api(`repos/${repository}/actions/runs/${id}`);
+  let current = api(`repos/${repository}/actions/runs/${id}`);
   const plan = JSON.parse(process.env.CI_PLAN || "{}");
+  // GitHub's aggregate run status can lag the executing job. Never cancel on
+  // a pending snapshot, or make this optional optimization fail qualification.
+  for (let attempt = 1; ; attempt++) {
+    requireQualifiedTag(current, plan, repository);
+    if (current.status === "in_progress") break;
+    if (!["queued", "waiting", "pending", "requested", "completed"].includes(current.status))
+      throw new Error(`Unexpected tag run ${id} status=${current.status}`);
+    if (attempt === 3 || current.status === "completed") {
+      console.log(
+        `Skipping redundant main cancellation: tag ${id} status=${current.status} after ${attempt} read(s); full tag qualification continues.`,
+      );
+      process.exit(0);
+    }
+    console.log(
+      `Waiting for tag ${id} to become in_progress: status=${current.status}, read=${attempt}/3.`,
+    );
+    await setTimeout(2_000);
+    current = api(`repos/${repository}/actions/runs/${id}`);
+  }
   const runs = [];
   for (let page = 1; page <= 10; page++) {
     const result = api(

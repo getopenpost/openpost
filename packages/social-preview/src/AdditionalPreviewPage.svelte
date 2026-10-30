@@ -252,7 +252,7 @@
           <span>Following</span><strong>Latest</strong><span>Trending</span>
         </div>
         <SocialPreview {model} {scheme} />
-        {#each [1, 2] as index (index)}
+        {#each Array(4) as _, index (index)}
           <div class="devnull-ghost" aria-hidden="true">
             <i></i>
             <span><b></b><b></b></span>
@@ -307,6 +307,12 @@
             ><span>Top</span><ChevronDown />
           </div>{/if}
         <SocialPreview {model} {scheme} />
+        {#each Array(3) as _, index (index)}
+          <div class="forum-ghost" aria-hidden="true">
+            <i></i>
+            <span><b></b><b></b><b></b></span>
+          </div>
+        {/each}
       </section>
       <aside class="community-sidebar" aria-hidden="true">
         <h2>{model.subtitle || "Community"}</h2>
@@ -780,6 +786,43 @@
   }
   .sort :global(svg) {
     width: 16px;
+  }
+  .forum-ghost {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--native-border);
+  }
+  .forum-ghost i {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--native-soft);
+  }
+  .forum-ghost span {
+    display: grid;
+    flex: 1;
+    gap: 8px;
+    padding-top: 2px;
+  }
+  .forum-ghost b {
+    display: block;
+    border-radius: 999px;
+    background: var(--native-soft);
+  }
+  .forum-ghost b:first-child {
+    width: 42%;
+    height: 11px;
+  }
+  .forum-ghost b:nth-child(2) {
+    width: 88%;
+    height: 9px;
+  }
+  .forum-ghost b:last-child {
+    width: 64%;
+    height: 9px;
   }
   .community-sidebar {
     align-self: start;

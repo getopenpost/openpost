@@ -1803,7 +1803,7 @@
   }
 
   .facebook-topbar .nav-item strong {
-    display: none;
+    font-size: 0.9rem;
   }
 
   .facebook-topbar .nav-item.active {
@@ -3361,13 +3361,6 @@
     --page-muted: light-dark(#646570, #aaa);
     --page-border: light-dark(#e5e5e5, #303030);
     --page-soft: light-dark(#f2f2f2, #272727);
-  }
-  .instagram-left .instagram-wordmark,
-  .instagram-left .nav-item strong {
-    display: none;
-  }
-  .instagram-left .compact-logo {
-    display: grid;
   }
   @container social-page (max-width: 40rem) {
     .instagram-mobile-header {

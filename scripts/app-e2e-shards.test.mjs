@@ -49,54 +49,58 @@ test("real core shards cover the discovered inventory without overlaps", () => {
   assert.throws(() => appShardFiles("1/0"), /shard/);
 });
 
-test("Playwright executes exactly the full core inventory across CI and reproduction shards", () => {
-  const root = new URL("../", import.meta.url);
-  function inventory(shard) {
-    const result = spawnSync(
-      "node",
-      [
-        "node_modules/@playwright/test/cli.js",
-        "test",
-        "--config",
-        "tests/app/playwright.config.ts",
-        "--list",
-        "--reporter=json",
-      ],
-      {
-        cwd: root,
-        env: { ...process.env, OPENPOST_APP_E2E_SUITE: "core", OPENPOST_APP_E2E_SHARD: shard },
-        encoding: "utf8",
-        timeout: 30_000,
-        maxBuffer: 12 * 1024 * 1024,
-      },
-    );
-    assert.equal(result.status, 0, result.stderr || String(result.error));
-    const report = JSON.parse(result.stdout);
-    assert.deepEqual(report.errors, []);
-    const identities = [];
-    const files = new Set();
-    function visit(suites) {
-      for (const suite of suites) {
-        for (const spec of suite.specs ?? []) {
-          files.add(spec.file);
-          for (const entry of spec.tests)
-            identities.push(JSON.stringify([spec.id, entry.projectName]));
+test(
+  "Playwright executes exactly the full core inventory across CI and reproduction shards",
+  { timeout: 120_000 },
+  () => {
+    const root = new URL("../", import.meta.url);
+    function inventory(shard) {
+      const result = spawnSync(
+        "node",
+        [
+          "node_modules/@playwright/test/cli.js",
+          "test",
+          "--config",
+          "tests/app/playwright.config.ts",
+          "--list",
+          "--reporter=json",
+        ],
+        {
+          cwd: root,
+          env: { ...process.env, OPENPOST_APP_E2E_SUITE: "core", OPENPOST_APP_E2E_SHARD: shard },
+          encoding: "utf8",
+          timeout: 15_000,
+          maxBuffer: 12 * 1024 * 1024,
+        },
+      );
+      assert.equal(result.status, 0, result.stderr || String(result.error));
+      const report = JSON.parse(result.stdout);
+      assert.deepEqual(report.errors, []);
+      const identities = [];
+      const files = new Set();
+      function visit(suites) {
+        for (const suite of suites) {
+          for (const spec of suite.specs ?? []) {
+            files.add(spec.file);
+            for (const entry of spec.tests)
+              identities.push(JSON.stringify([spec.id, entry.projectName]));
+          }
+          visit(suite.suites ?? []);
         }
-        visit(suite.suites ?? []);
       }
+      visit(report.suites);
+      if (shard) assert.deepEqual([...files].sort(), appShardFiles(shard));
+      return identities;
     }
-    visit(report.suites);
-    if (shard) assert.deepEqual([...files].sort(), appShardFiles(shard));
-    return identities;
-  }
-  const full = inventory("");
-  const selected = Array.from({ length: 6 }, (_, index) => {
-    const shard = `${index + 1}/6`;
-    const command = localJobCommand(`Application browser suite (${shard})`);
-    assert.ok(command.includes(`OPENPOST_APP_E2E_SUITE=core OPENPOST_APP_E2E_SHARD=${shard}`));
-    return inventory(shard);
-  }).flat();
-  assert.ok(full.length > 100);
-  assert.equal(new Set(selected).size, selected.length);
-  assert.deepEqual(selected.sort(), full.sort());
-});
+    const full = inventory("");
+    const selected = Array.from({ length: 6 }, (_, index) => {
+      const shard = `${index + 1}/6`;
+      const command = localJobCommand(`Application browser suite (${shard})`);
+      assert.ok(command.includes(`OPENPOST_APP_E2E_SUITE=core OPENPOST_APP_E2E_SHARD=${shard}`));
+      return inventory(shard);
+    }).flat();
+    assert.ok(full.length > 100);
+    assert.equal(new Set(selected).size, selected.length);
+    assert.deepEqual(selected.sort(), full.sort());
+  },
+);

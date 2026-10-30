@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.35.4] - 2026-10-30
+
+### Fixed
+
+- Instagram Story publishing omits the unsupported `alt_text` parameter and records a rejected media container as a definite failure with the provider error visible, instead of leaving the publication processing until reconciliation expires.
+- Resuming an Instagram Story create checkpoint now retries container creation when Meta never returned a container id.
+- `openpost publication create --content-profile story` no longer writes a `post_type` setting that server validation rejects.
+- Release recording now removes the changelog entries that shipped with the tag instead of repeating them in every later release, while keeping entries added after the tag.
+
 ## [7.35.3] - 2026-10-30
 
 ### Fixed

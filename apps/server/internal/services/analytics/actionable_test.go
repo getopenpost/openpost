@@ -30,6 +30,11 @@ func TestActionableOverviewUsesFullPopulationAndImmutableOwnAccountEvidence(t *t
 	retired := models.SocialAccount{ID: "retired", WorkspaceID: account.WorkspaceID, Platform: "test", AccountUsername: "retired", AccessTokenEnc: []byte("fixture"), IsActive: false}
 	_, err := db.NewInsert().Model(&retired).Exec(t.Context())
 	require.NoError(t, err)
+	// SocialAccount.IsActive carries `bun:",default:true"`, so bun omits an
+	// explicit false on insert and the database default wins. Force the flag
+	// off so the account below is genuinely disconnected.
+	_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("is_active = false").Where("id = ?", retired.ID).Exec(t.Context())
+	require.NoError(t, err)
 	for i, value := range []int{10, 10, 40, 100} {
 		id := fmt.Sprintf("output-%d", i)
 		publicationID := id

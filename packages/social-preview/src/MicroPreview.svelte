@@ -43,6 +43,24 @@
   ): PreviewMedia[] {
     return segment.media ?? (index === 0 ? model.media : []);
   }
+
+  /** /dev/null names every commit by its short hash. The preview model has no
+   * server id, so derive a stable one from the commit body with FNV-1a: the
+   * same text always hashes to the same 7 lowercase hex characters, and an
+   * empty body keeps a fixed placeholder. Only read for platform "devnull". */
+  const DEVNULL_EMPTY_COMMIT_HASH = "0000000";
+
+  function devnullCommitHash(text: string): string {
+    if (!text) {
+      return DEVNULL_EMPTY_COMMIT_HASH;
+    }
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(16).padStart(8, "0").slice(0, 7);
+  }
 </script>
 
 {#snippet authorMeta()}
@@ -130,7 +148,7 @@
             ? 46
             : platform === "threads"
               ? 36
-              : platform === "x"
+              : platform === "x" || platform === "devnull"
                 ? 40
                 : 42}
         />
@@ -156,6 +174,10 @@
         <div class="post-column">
           <header>
             {@render authorMeta()}
+            {#if platform === "devnull"}
+              {@const hash = devnullCommitHash(segment.text)}
+              <span class="commit-hash" title={"Commit " + hash}>{hash}</span>
+            {/if}
             <MoreHorizontal class="more" aria-hidden="true" />
           </header>
           {@render postBody(segment, index)}
@@ -466,6 +488,105 @@
     margin-top: 0.15rem;
     font-size: 0.94rem;
     line-height: 1.42;
+  }
+
+  /* /dev/null (dev-null.sh), from the site's DESIGN.md and commit card: a
+     bordered log column on the cool shell, Geist for prose, Geist Mono for
+     the machine output (handles, times, hashes), and a quiet muted row. */
+  .platform-devnull {
+    --native-bg: light-dark(#f6f7f8, #111112);
+    --native-surface: light-dark(#fff, #18181a);
+    --native-fg: light-dark(#121417, #ececec);
+    --native-muted: light-dark(#5b616b, #a1a1a6);
+    --native-border: light-dark(#e1e4e8, #2a2a2d);
+    --native-soft: light-dark(#eef0f2, #232326);
+    --devnull-mono:
+      "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    width: min(100%, 38.75rem);
+    font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  .platform-devnull .micro-post {
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.75rem 1rem 0 0.75rem;
+    background: var(--native-surface);
+    border-bottom: 0;
+  }
+
+  /* The real row hairline starts beside the graph rail, never across it. */
+  .platform-devnull .post-column {
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--native-border);
+  }
+
+  .platform-devnull .micro-post:last-child .post-column {
+    border-bottom: 0;
+  }
+
+  .platform-devnull .name-line {
+    gap: 0.375rem;
+    font-size: 0.9375rem;
+  }
+
+  .platform-devnull .name-line strong {
+    font-weight: 600;
+  }
+
+  .platform-devnull .name-line span {
+    font-family: var(--devnull-mono);
+    font-size: 0.8125rem;
+  }
+
+  .platform-devnull .commit-hash {
+    flex: 0 0 auto;
+    align-self: center;
+    color: var(--native-muted);
+    font-family: var(--devnull-mono);
+    font-size: 0.8125rem;
+  }
+
+  .platform-devnull .post-text {
+    margin: 0.25rem 0 0.15rem;
+    font-size: 0.9375rem;
+    line-height: 1.625;
+  }
+
+  .platform-devnull .thread-line {
+    background: light-dark(#d3d7dd, #36363a);
+  }
+
+  /* The real action row: small muted 13px buttons with a 16px icon that pick
+     up the hover wash and ink. */
+  .platform-devnull :global(.preview-actions) {
+    justify-content: flex-start;
+    gap: 0.125rem;
+    margin-left: -0.5rem;
+  }
+
+  .platform-devnull :global(.preview-actions .action) {
+    min-height: 1.75rem;
+    gap: 0.25rem;
+    border-radius: 0.375rem;
+    padding: 0 0.5rem;
+    font-size: 0.8125rem;
+  }
+
+  .platform-devnull :global(.preview-actions .action:hover) {
+    background: var(--native-soft);
+    color: var(--native-fg);
+  }
+
+  .platform-devnull :global(.preview-actions .icon) {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .platform-devnull :global(.preview-actions .icon svg) {
+    width: 1rem;
+    height: 1rem;
+    stroke-width: 1.75;
   }
 
   .compact .micro-post {

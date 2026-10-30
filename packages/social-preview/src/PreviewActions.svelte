@@ -9,6 +9,7 @@
   import Heart from "@lucide/svelte/icons/heart";
   import MessageCircle from "@lucide/svelte/icons/message-circle";
   import MoreHorizontal from "@lucide/svelte/icons/ellipsis";
+  import Quote from "@lucide/svelte/icons/quote";
   import Repeat2 from "@lucide/svelte/icons/repeat-2";
   import Send from "@lucide/svelte/icons/send";
   import Share2 from "@lucide/svelte/icons/share-2";
@@ -33,6 +34,7 @@
     | "download"
     | "dislike"
     | "support"
+    | "quote"
     | "more";
 
   interface Action {
@@ -94,6 +96,13 @@
           { name: "reply", label: "Reply" },
           { name: "repost", label: "Repost" },
           { name: "like", label: "Like" },
+          { name: "more", label: "More" },
+        ];
+      case "devnull":
+        return [
+          { name: "favorite", label: "Star" },
+          { name: "quote", label: "Quote" },
+          { name: "reply", label: "Reply" },
           { name: "more", label: "More" },
         ];
       case "linkedin":
@@ -196,6 +205,8 @@
     <Download />
   {:else if name === "support"}
     <HandHeart />
+  {:else if name === "quote"}
+    <Quote />
   {:else if name === "dislike"}
     <ThumbsDown />
   {:else}

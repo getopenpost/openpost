@@ -59,15 +59,22 @@
 </article>
 
 <style>
+  /* Discord client tokens: dark theme --background-primary/--text-normal and
+     light theme equivalents, resolved through light-dark(). */
   .discord-preview {
     --native-bg: light-dark(#fff, #313338);
     --native-surface: light-dark(#fff, #313338);
     --native-soft: light-dark(#f2f3f5, #2b2d31);
-    --native-fg: light-dark(#313338, #f2f3f5);
-    --native-muted: light-dark(#5c6067, #b5bac1);
+    --native-fg: light-dark(#313338, #dbdee1);
+    --native-heading: light-dark(#060607, #f2f3f5);
+    --native-muted: light-dark(#5c5e66, #949ba4);
     --native-border: light-dark(#dfe1e5, #4e5058);
+    --native-link: light-dark(#006ce7, #00a8fc);
+    --native-accent: #5865f2;
+    --native-floating: light-dark(#fff, #111214);
     width: min(100%, 42rem);
     overflow: hidden;
+    padding-top: 0.875rem;
     background: var(--native-bg);
     color: var(--native-fg);
     font-family:
@@ -79,15 +86,11 @@
     display: grid;
     grid-template-columns: 2.5rem minmax(0, 1fr);
     gap: 1rem;
-    padding: 1rem 1rem 0.65rem;
+    padding: 0.25rem 1rem;
   }
 
   .message:hover {
-    background: light-dark(#f2f3f5, #2e3035);
-  }
-
-  .message + .message {
-    margin-top: 0.45rem;
+    background: light-dark(#f7f7f7, #2e3035);
   }
 
   .message-body {
@@ -99,58 +102,114 @@
     min-width: 0;
     align-items: baseline;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: 0 0.5rem;
+    font-size: 1rem;
+    line-height: 1.25;
   }
 
   header strong {
     overflow: hidden;
-    color: var(--native-fg);
-    font-size: 0.9rem;
+    color: var(--native-heading);
+    font-size: 1rem;
+    font-weight: 500;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   header > span {
     color: var(--native-muted);
-    font-size: 0.68rem;
+    font-size: 0.75rem;
+    font-weight: 500;
   }
 
   .app-badge {
-    border-radius: 0.18rem;
-    background: #5865f2;
-    color: white;
-    padding: 0.08rem 0.25rem;
-    font-size: 0.58rem;
-    font-weight: 700;
-    line-height: 1.2;
+    align-self: center;
+    border-radius: 3px;
+    background: var(--native-accent);
+    color: #fff;
+    padding: 0 0.3rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 0.9375rem;
+    text-transform: uppercase;
   }
 
   p {
-    margin: 0.15rem 0 0;
+    margin: 0.125rem 0 0;
     color: var(--native-fg);
-    font-size: 0.9rem;
-    line-height: 1.4;
+    font-size: 1rem;
+    line-height: 1.375;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
     unicode-bidi: plaintext;
     text-align: start;
   }
 
-  .message-body :global(.single-media) {
+  .message-body :global(.empty-media) {
     margin-top: 0.5rem;
+  }
+
+  /* Attachment mosaics: 4px corners and Discord's 400x300 inline-attachment
+     box; single media letterboxes inside the box like the real client. */
+  .message-body :global(.attachment-gallery) {
+    width: min(100%, 25rem);
+  }
+
+  .message-body :global(.mosaic) {
+    border-radius: 4px;
+  }
+
+  .message-body :global(.mosaic .media-tile) {
+    border-radius: 4px;
+  }
+
+  .message-body :global(.attachment-gallery .mosaic.single .media-tile) {
+    max-height: 18.75rem;
+    background: transparent;
+  }
+
+  .message-body :global(.attachment-gallery .mosaic.single .media-tile img),
+  .message-body :global(.attachment-gallery .mosaic.single .media-tile video) {
+    object-fit: contain;
+  }
+
+  .message-body :global(.file-attachment) {
+    border-radius: 4px;
+  }
+
+  /* Link cards render like channel embeds: blurple title, muted provider. */
+  .message-body :global(.platform-discord .link-copy) {
+    padding: 0.5rem 0.875rem 0.625rem 0.75rem;
+  }
+
+  .message-body :global(.platform-discord .link-copy > span) {
+    color: light-dark(#4e5058, #b5bac1);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .message-body :global(.platform-discord .link-copy > strong) {
+    color: var(--native-link);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .message-body :global(.platform-discord .link-copy > p) {
+    color: var(--native-fg);
+    font-size: 0.875rem;
   }
 
   .message-actions {
     position: absolute;
     z-index: 2;
-    top: -1.05rem;
-    right: 0.8rem;
+    top: -0.875rem;
+    right: 1rem;
     display: none;
     overflow: hidden;
-    border: 1px solid #26272d;
-    border-radius: 0.35rem;
-    background: #2b2d31;
-    box-shadow: 0 2px 5px rgb(0 0 0 / 25%);
+    padding: 0.125rem;
+    border-radius: 0.5rem;
+    background: var(--native-floating);
+    box-shadow: 0 8px 16px light-dark(rgb(0 0 0 / 16%), rgb(0 0 0 / 24%));
   }
 
   .message:hover .message-actions {
@@ -158,10 +217,17 @@
   }
 
   .message-actions :global(svg) {
+    box-sizing: border-box;
     width: 2rem;
     height: 2rem;
-    padding: 0.45rem;
-    color: var(--native-muted);
+    padding: 0.375rem;
+    border-radius: 4px;
+    color: light-dark(#4e5058, #b5bac1);
+  }
+
+  .message-actions :global(svg:hover) {
+    background: rgb(109 111 120 / 30%);
+    color: var(--native-heading);
   }
 
   .compact .message {
@@ -181,6 +247,7 @@
       grid-column: 2;
       width: max-content;
       margin-top: -0.35rem;
+      box-shadow: none;
     }
   }
 </style>

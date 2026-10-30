@@ -162,3 +162,29 @@ it("shows related Pins beside the closeup and the Other videos rail beside the w
     watchHost.remove();
   }
 });
+
+it("renders the dev/null log page instead of the generic fallback", async () => {
+  await page.viewport(1280, 900);
+  host = document.createElement("div");
+  host.style.width = "1200px";
+  document.body.append(host);
+  await render(SocialPreviewPage, {
+    target: host,
+    props: {
+      model: createPreviewModel({
+        platform: "devnull",
+        identity: { displayName: "Alice", handle: "alice" },
+        segments: [{ id: "primary", text: "Commit body for the preview." }],
+      }),
+      scheme: "light",
+    },
+  });
+  expect(host.querySelector(".unsupported-page")).toBeNull();
+  expect(host.querySelector(".devnull-page")).not.toBeNull();
+  expect(host.textContent).toContain("Starred");
+  expect(host.textContent).toContain("Latest");
+  expect(host.textContent).toContain("New to /dev/null?");
+  expect(host.textContent).toContain("Sign in with GitHub");
+  const hash = host.querySelector(".commit-hash");
+  expect(hash?.getAttribute("title")).toContain("Commit");
+});

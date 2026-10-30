@@ -14,6 +14,9 @@
   import MoreHorizontal from "@lucide/svelte/icons/ellipsis";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import MapPin from "@lucide/svelte/icons/map-pin";
+  import Settings from "@lucide/svelte/icons/settings";
+  import Star from "@lucide/svelte/icons/star";
+  import Github from "@lucide/svelte/icons/github";
   import type { PreviewModel, PreviewScheme } from "./model";
   import { platformNames } from "./model";
   import PlatformGlyph from "./PlatformGlyph.svelte";
@@ -219,6 +222,56 @@
       <h3>Updates</h3>
       <SocialPreview {model} {scheme} />
     </section>
+  {:else if platform === "devnull"}
+    <div class="devnull-page">
+      <aside class="devnull-rail" aria-hidden="true">
+        <div class="devnull-logo">
+          <PlatformGlyph platform="devnull" /><strong>/dev/null</strong>
+        </div>
+        <nav class="devnull-nav">
+          <div class="active"><Home /><span>Log</span></div>
+          <div><Bell /><span>Notifications</span></div>
+          <div><User /><span>Profile</span></div>
+          <div><Star /><span>Starred</span></div>
+          <div><Settings /><span>Settings</span></div>
+        </nav>
+        <div class="devnull-rail-tools">
+          <div><Search /><span>Search</span></div>
+          <div class="commit"><Plus /><span>Commit</span></div>
+          <div class="signin"><Github /><span>Sign in with GitHub</span></div>
+        </div>
+      </aside>
+      <section class="devnull-feed">
+        <header class="devnull-mobile-header" aria-hidden="true">
+          <div class="devnull-logo">
+            <PlatformGlyph platform="devnull" /><strong>/dev/null</strong>
+          </div>
+          <span class="signin compact-signin"><Github /><span>Sign in</span></span>
+        </header>
+        <div class="devnull-tabs" aria-hidden="true">
+          <span>Following</span><strong>Latest</strong><span>Trending</span>
+        </div>
+        <SocialPreview {model} {scheme} />
+        {#each [1, 2] as index (index)}
+          <div class="devnull-ghost" aria-hidden="true">
+            <i></i>
+            <span><b></b><b></b></span>
+          </div>
+        {/each}
+      </section>
+      <aside class="devnull-aside" aria-hidden="true">
+        <div class="devnull-cta">
+          <h2>New to /dev/null?</h2>
+          <p>
+            12,000+ developers are already here. Sign in with GitHub to follow
+            them, star commits, and join the conversation.
+          </p>
+          <span class="signin"><Github /><span>Sign in with GitHub</span></span>
+        </div>
+        <footer>About · Apps · Terms · Privacy · Changelog</footer>
+      </aside>
+      {@render bottom()}
+    </div>
   {:else}
     <header class="topbar forum-topbar">
       {@render brand()}{#if platform === "reddit"}{@render search(
@@ -762,6 +815,235 @@
     --native-text: light-dark(#202124, #e8eaed);
     --native-muted: light-dark(#5f6368, #bdc1c6);
   }
+  /* /dev/null (dev-null.sh): shell background, a bordered log column, an icon
+     rail, and the GitHub sign-in aside, from the site's DESIGN.md tokens. */
+  .devnull-page {
+    --devnull-shell: light-dark(#f6f7f8, #111112);
+    --devnull-surface: light-dark(#fff, #18181a);
+    --devnull-ink: light-dark(#121417, #ececec);
+    --devnull-muted: light-dark(#5b616b, #a1a1a6);
+    --devnull-hairline: light-dark(#e1e4e8, #2a2a2d);
+    --devnull-primary: light-dark(#3b6fe0, #7aa2f7);
+    --native-bg: var(--devnull-shell);
+    --native-panel: var(--devnull-surface);
+    --native-text: var(--devnull-ink);
+    --native-muted: var(--devnull-muted);
+    display: grid;
+    grid-template-columns: minmax(0, 40rem);
+    justify-content: center;
+    min-height: 100dvh;
+    background: var(--devnull-shell);
+    color: var(--devnull-ink);
+    font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+  }
+  .devnull-rail {
+    display: none;
+  }
+  .devnull-feed {
+    min-width: 0;
+    background: var(--devnull-surface);
+  }
+  .devnull-feed :global(.social-preview) {
+    width: 100%;
+  }
+  .devnull-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .devnull-logo :global(svg) {
+    width: 28px;
+    height: 28px;
+    color: var(--devnull-primary);
+  }
+  .devnull-mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--devnull-hairline);
+  }
+  .devnull-tabs {
+    display: flex;
+    gap: 24px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--devnull-hairline);
+    color: var(--devnull-muted);
+    font-size: 14px;
+  }
+  .devnull-tabs strong {
+    color: var(--devnull-ink);
+    font-weight: 600;
+  }
+  .devnull-ghost {
+    display: flex;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--devnull-hairline);
+  }
+  .devnull-ghost i {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border-radius: 999px;
+    background: var(--devnull-shell);
+  }
+  .devnull-ghost span {
+    display: grid;
+    gap: 8px;
+    padding-top: 4px;
+  }
+  .devnull-ghost b {
+    display: block;
+    border-radius: 999px;
+    background: var(--devnull-shell);
+  }
+  .devnull-ghost b:first-child {
+    width: 38%;
+    height: 10px;
+  }
+  .devnull-ghost b:last-child {
+    width: 72%;
+    height: 10px;
+  }
+  .signin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 8px;
+    background: light-dark(#121417, #ececec);
+    color: light-dark(#fff, #111112);
+    padding: 8px 14px;
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .signin :global(svg) {
+    width: 16px;
+    height: 16px;
+  }
+  .compact-signin {
+    padding: 7px 12px;
+  }
+  .devnull-aside {
+    display: none;
+  }
+  @container social-page (min-width: 52rem) {
+    .devnull-page {
+      grid-template-columns: 5rem minmax(0, 40rem);
+    }
+    .devnull-rail {
+      position: sticky;
+      top: 0;
+      display: flex;
+      height: 100dvh;
+      flex-direction: column;
+      gap: 20px;
+      padding: 20px 10px;
+    }
+    .devnull-rail nav,
+    .devnull-rail-tools {
+      display: grid;
+      gap: 4px;
+    }
+    .devnull-rail nav > div,
+    .devnull-rail-tools > div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      border-radius: 10px;
+      color: var(--devnull-muted);
+      padding: 10px 0;
+      font-size: 14.5px;
+    }
+    .devnull-rail nav > div.active {
+      background: var(--devnull-shell);
+      color: var(--devnull-ink);
+    }
+    .devnull-rail nav > div :global(svg),
+    .devnull-rail-tools > div:not(.signin) :global(svg) {
+      width: 20px;
+      height: 20px;
+      flex: none;
+    }
+    .devnull-rail nav > div > span,
+    .devnull-rail-tools > div > span,
+    .devnull-logo > strong {
+      display: none;
+    }
+    .devnull-rail-tools .commit {
+      color: var(--devnull-ink);
+      font-weight: 600;
+    }
+    .devnull-feed {
+      border-inline: 1px solid var(--devnull-hairline);
+    }
+    .devnull-mobile-header {
+      display: none;
+    }
+  }
+  @container social-page (min-width: 68rem) {
+    .devnull-page {
+      grid-template-columns: 16rem minmax(0, 40rem) 20rem;
+      justify-content: center;
+      gap: 0;
+    }
+    .devnull-rail {
+      padding: 20px 14px;
+    }
+    .devnull-rail nav > div,
+    .devnull-rail-tools > div {
+      justify-content: flex-start;
+      padding: 10px;
+    }
+    .devnull-rail nav > div.active {
+      font-weight: 600;
+    }
+    .devnull-rail nav > div > span,
+    .devnull-rail-tools > div > span,
+    .devnull-logo > strong {
+      display: inline;
+    }
+    .devnull-rail .signin {
+      justify-content: flex-start;
+    }
+    .devnull-aside {
+      display: grid;
+      align-content: start;
+      gap: 28px;
+      padding: 24px 20px;
+    }
+    .devnull-cta {
+      display: grid;
+      gap: 12px;
+      border: 1px solid var(--devnull-hairline);
+      border-radius: 14px;
+      background: var(--devnull-surface);
+      padding: 18px;
+    }
+    .devnull-cta h2 {
+      font-size: 17px;
+      font-weight: 600;
+    }
+    .devnull-cta p {
+      margin: 0;
+      color: var(--devnull-muted);
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+    .devnull-cta .signin {
+      justify-self: start;
+    }
+    .devnull-aside footer {
+      margin: 0;
+      color: var(--devnull-muted);
+      font-size: 12px;
+    }
+  }
   .google-wordmark {
     font-size: 28px;
     color: light-dark(#4285f4, #8ab4f8);
@@ -1116,7 +1398,8 @@
   @container social-page (max-width: 40rem) {
     .pixelfed,
     .pinterest,
-    .reddit {
+    .reddit,
+    .devnull-page {
       display: flex;
       flex-direction: column;
     }

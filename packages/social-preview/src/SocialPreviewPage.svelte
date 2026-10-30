@@ -206,7 +206,7 @@
     data-preview-shell={model.platform}
     aria-label={`${platformName} page preview`}
   >
-    {#if ["threads", "mastodon", "pixelfed", "peertube", "lemmy", "piefed", "pinterest", "reddit", "googlebusiness"].includes(model.platform)}
+    {#if ["threads", "mastodon", "pixelfed", "peertube", "lemmy", "piefed", "pinterest", "reddit", "googlebusiness", "devnull"].includes(model.platform)}
       <AdditionalPreviewPage {model} {scheme} />
     {:else if model.platform === "x" || model.platform === "bluesky"}
       <div class="micro-page">
@@ -457,7 +457,7 @@
           <div class="facebook-stories" aria-hidden="true">
             {#each ["Create story", "Maya", "Ari", "OpenPost Image Editor"] as story, index (story)}
               <div
-                style={`--story-tone: ${["#1877f2", "#7c3aed", "#db2777", "#0f766e"][index]}`}
+                style={`--story-tone: ${["#0866ff", "#7c3aed", "#db2777", "#0f766e"][index]}`}
               >
                 <i>{story.slice(0, 1)}</i><span>{story}</span>
               </div>
@@ -476,7 +476,7 @@
           {@render nativeContextPost(
             "OpenPost Community",
             "This week’s community round-up is ready. Thanks to everyone who shared feedback.",
-            "#1877f2",
+            "#0866ff",
           )}
         </section>
         <aside class="facebook-right">
@@ -1762,7 +1762,9 @@
     --page-muted: #65676b;
     --page-border: #ced0d4;
     --page-soft: #e4e6eb;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family:
+      system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Historic", "Segoe UI",
+      Helvetica, Arial, sans-serif;
   }
 
   .facebook-topbar {
@@ -1778,7 +1780,7 @@
     width: 2.5rem;
     height: 2.5rem;
     place-items: center;
-    color: #1877f2;
+    color: #0866ff;
   }
 
   .facebook-brand :global(svg) {
@@ -1808,9 +1810,9 @@
   }
 
   .facebook-topbar .nav-item.active {
-    border-bottom: 3px solid #1877f2;
+    border-bottom: 3px solid #0866ff;
     border-radius: 0;
-    color: #1877f2;
+    color: #0866ff;
   }
 
   .top-actions {
@@ -1893,7 +1895,7 @@
     border-radius: 0.7rem;
     background: color-mix(
       in srgb,
-      var(--story-tone, #1877f2) 22%,
+      var(--story-tone, #0866ff) 22%,
       var(--page-surface)
     );
     box-shadow: 0 1px 2px rgb(0 0 0 / 16%);
@@ -1905,7 +1907,7 @@
     height: 2.25rem;
     margin: 0.65rem;
     place-items: center;
-    border: 3px solid #1877f2;
+    border: 3px solid #0866ff;
     border-radius: 50%;
     background: var(--story-tone);
     color: #fff;
@@ -2633,7 +2635,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    border-bottom: 1px solid #26272d;
+    border-bottom: 1px solid light-dark(#e3e5e8, #3f4147);
     padding: 0 1rem;
     box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
   }
@@ -2645,14 +2647,15 @@
   }
 
   .discord-chat > header strong {
-    font-size: 0.9rem;
+    font-size: 1rem;
+    font-weight: 600;
   }
 
   .discord-chat > header span {
     border-left: 1px solid #4e5058;
     color: var(--page-muted);
     padding-left: 0.75rem;
-    font-size: 0.72rem;
+    font-size: 0.875rem;
   }
 
   .discord-chat > header > div {
@@ -2714,10 +2717,10 @@
     min-height: 2.8rem;
     margin: 0 1rem 1.5rem;
     border-radius: 0.5rem;
-    background: light-dark(#ebedef, #383a40);
+    background: light-dark(#ebebed, #383a40);
     color: var(--page-muted);
     padding: 0 0.8rem;
-    font-size: 0.78rem;
+    font-size: 0.875rem;
   }
 
   .message-box :global(svg) {
@@ -3292,7 +3295,6 @@
     }
     .facebook-feed :global(.facebook-preview) {
       border-radius: 0;
-      border-inline: 0;
     }
   }
   .platform-x .column-header {

@@ -345,6 +345,28 @@ describe("SocialPreview destination presentations", () => {
     await expect.element(screen.getByText("The launch is live.")).toBeVisible();
   });
 
+  it("names dev/null commits with a stable hash chip and git actions", async () => {
+    const commitModel = () =>
+      createPreviewModel({
+        platform: "devnull",
+        identity: { displayName: "Alice", handle: "alice" },
+        segments: [{ id: "primary", text: "Commit body for the preview." }],
+      });
+    const first = await render(SocialPreview, { model: commitModel() });
+    await expect.element(first.getByText("Star", { exact: true })).toBeVisible();
+    await expect.element(first.getByText("Quote", { exact: true })).toBeVisible();
+    await expect.element(first.getByText("Reply", { exact: true })).toBeVisible();
+    const chips = [...document.querySelectorAll(".platform-devnull .commit-hash")];
+    expect(chips.length).toBe(1);
+    expect(chips[0].textContent ?? "").toMatch(/^[0-9a-f]{7}$/u);
+    expect(chips[0].getAttribute("title")).toBe(`Commit ${chips[0].textContent}`);
+    // The same text always names the same commit.
+    await render(SocialPreview, { model: commitModel() });
+    const next = [...document.querySelectorAll(".platform-devnull .commit-hash")];
+    expect(next.length).toBe(2);
+    expect(next[1].textContent).toBe(chips[0].textContent);
+  });
+
   it("orders the Pixelfed caption before its actions and shows the handle", async () => {
     const host = document.createElement("div");
     document.body.append(host);

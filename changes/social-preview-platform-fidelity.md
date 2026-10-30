@@ -7,3 +7,4 @@
 - Added the channel view count to the Telegram message footer, matching the Telegram web channel preview.
 - Rebuilt the PeerTube preview on the real watch page: stats line under the title, labeled Like/Dislike/Support/Share/Download actions, the channel row with Subscribe, a "No comments." state, and a page shell with the Other videos rail instead of the generic sidebar.
 - Polished the Pixelfed status card against the real web app: handle header with the time and place line, caption above the action row, pill-shaped actions, and Pixelfed's own fonts, colors, radius, and shadow.
+- Built out the /dev/null preview from the real dev-null.sh interface: the commit card now shows the commit hash chip, star/quote/reply actions, and the site's Geist theme in both schemes, and the full page preview renders the real Log layout with the icon rail, the bordered commit column, and the GitHub sign-in aside instead of the generic fallback.

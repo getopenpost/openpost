@@ -24,6 +24,9 @@ This directory is for local, gitignored source checkouts used as implementation 
 - `piefed/` is a shallow clone of <https://codeberg.org/rimu/pyfedi> (AGPL-3.0). Use it for PieFed post card fidelity in `@openpost/social-preview`; behavioral reference only, never port its source.
 - `peertube/` is a shallow clone of <https://github.com/Chocobozzz/PeerTube>. Use it for PeerTube watch page fidelity in `@openpost/social-preview` (watch info, action buttons, channel row, sass theme tokens).
 - `pixelfed/` is a shallow clone of <https://github.com/pixelfed/pixelfed> (AGPL-3.0). Use it for Pixelfed status card fidelity in `@openpost/social-preview`; behavioral reference only, never port its source.
+- `devnull/` is a shallow clone of <https://github.com/dev-null-sh/dev-null.sh> (dev-null.sh, a social network for developers; open source). Use it for the /dev/null commit card and Log page fidelity in `@openpost/social-preview`, including its `DESIGN.md` color and typography tokens.
+- `bluesky/` is a shallow clone of <https://github.com/bluesky-social/social-app> (MIT). Use it for Bluesky post card and page shell fidelity in `@openpost/social-preview`.
+- `mastodon/` is a shallow clone of <https://github.com/mastodon/mastodon> (AGPL-3.0). Use it for Mastodon post card and page shell fidelity in `@openpost/social-preview`; behavioral reference only, never port its source.
 
 The [October 2026 publishing competitor audit](competitor-audit-2026-10-10.md) records the pulled revisions, source licenses, provider reliability findings, and useful changes across Postiz, TryPost, Shoutrrr, PostHive, Mixpost, Socioboard, and OpenPost. The [October 10 to 17 follow-up](competitor-audit-2026-10-17.md) verifies the next weekly report and records the adopted and deferred changes. The [October 17 to 24 audit](competitor-audit-2026-10-24.md) covers all 39 local references and records provider fixes, preserved checkouts, unavailable upstreams, and product decisions.
 

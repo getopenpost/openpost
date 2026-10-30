@@ -19,7 +19,7 @@ import path from "node:path";
 const reviewedArtifacts = {
   // Re-reviewed after declaring the existing editor-shared workspace consumer.
   // Registry versions, legacy Zod/deepmerge parents, and editor boundary are unchanged.
-  "bun.lock": "b532e267753689d397edb6ebdcce8830ac2a600b5fa2b203bc127e890d499db4",
+  "bun.lock": "1107fd7cf46fb350b949c762eb9e0dcd8771d50e8ebbf50cc2636cf0ac2f917c",
   "apps/web/src/lib/image-editor/background-removal.worker.ts":
     "06f3aaf6c78d574c1d2538903e8bf34cf70032801824d8988a9ba2d2435749d5",
 };

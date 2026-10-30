@@ -250,3 +250,29 @@ func TestPublicationRenditionsMapMixedShortVideoTargets(t *testing.T) {
 		t.Fatalf("tiktok settings = %+v", tiktok.Settings)
 	}
 }
+
+func TestPublicationStoryRenditionsOnlyWriteAcceptedSettings(t *testing.T) {
+	renditions := buildPublicationRenditions(
+		"story",
+		"Story caption",
+		publicationFlags{},
+		[]api.SocialAccount{
+			{ID: "acc_instagram", Platform: "instagram"},
+			{ID: "acc_facebook", Platform: "facebook"},
+		},
+		[]string{"acc_instagram", "acc_facebook"},
+		nil,
+	)
+
+	if len(renditions) != 2 {
+		t.Fatalf("renditions = %+v", renditions)
+	}
+	for _, rendition := range renditions {
+		if rendition.Profile != "story" {
+			t.Fatalf("rendition profile = %q, want story", rendition.Profile)
+		}
+		if _, exists := rendition.Settings["post_type"]; exists {
+			t.Fatalf("%s story settings must not carry post_type: %+v", rendition.SocialAccountID, rendition.Settings)
+		}
+	}
+}

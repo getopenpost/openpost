@@ -914,18 +914,12 @@ func publicationSettingsForAccount(platform, profile string, flags publicationFl
 	}
 
 	if platform == "instagram" {
-		if profile == "story" {
-			settings["post_type"] = "story"
-		}
 		if profile == "short_video" {
 			settings["is_reel"] = true
 		}
 	}
 
 	if platform == "facebook" {
-		if profile == "story" {
-			settings["post_type"] = "story"
-		}
 		if profile == "link_share" && flags.url != "" {
 			settings["url"] = flags.url
 		}

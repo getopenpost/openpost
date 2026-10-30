@@ -59,32 +59,53 @@
     </div>
 
     <h2 dir="auto">{#if editing()?.title}{@render editing()!.title!(title, primary)}{:else}{title}{/if}</h2>
-    <div class="video-meta">
-      <div class="channel">
-        <PreviewAvatar identity={model.identity} size={40} />
+    {#if platform === "peertube"}
+      <div class="watch-info">
+        <span class="watch-stats">{model.createdAtLabel} • 0 views</span>
+        <div class="video-actions">
+          <PreviewActions {platform} {compact} />
+        </div>
+      </div>
+      <div class="watch-channel">
+        <PreviewAvatar identity={model.identity} size={35} />
         <div>
           <strong>{model.identity.displayName}</strong>
-          <span>@{model.identity.handle.replace(/^@/u, "")}</span>
+          <span>By {model.identity.handle.replace(/^@/u, "")}</span>
         </div>
         <span class="subscribe">Subscribe</span>
-        <Bell aria-hidden="true" />
       </div>
-      <div class="video-actions">
-        <PreviewActions {platform} {compact} />
+    {:else}
+      <div class="video-meta">
+        <div class="channel">
+          <PreviewAvatar identity={model.identity} size={40} />
+          <div>
+            <strong>{model.identity.displayName}</strong>
+            <span>@{model.identity.handle.replace(/^@/u, "")}</span>
+          </div>
+          <span class="subscribe">Subscribe</span>
+          <Bell aria-hidden="true" />
+        </div>
+        <div class="video-actions">
+          <PreviewActions {platform} {compact} />
+        </div>
       </div>
-    </div>
+    {/if}
 
     <div class="description">
-      <strong>0 views · {model.createdAtLabel}</strong>
+      {#if platform !== "peertube"}<strong>0 views · {model.createdAtLabel}</strong>{/if}
       {#if editing()?.text}{@render editing()!.text(primary)}{:else}<p dir="auto">{description}</p>{/if}
     </div>
 
     <div class="comments">
       <div>
         <strong>Comments</strong>
-        <span>0</span>
+        {#if platform === "peertube"}
+          <p class="no-comments">No comments.</p>
+        {:else}
+          <span>0</span>
+        {/if}
       </div>
-      <MoreHorizontal aria-hidden="true" />
+      {#if platform !== "peertube"}<MoreHorizontal aria-hidden="true" />{/if}
     </div>
   </article>
 {/if}
@@ -288,10 +309,6 @@
     height: 1.1rem;
   }
 
-  .compact h2 {
-    font-size: 1.05rem;
-  }
-
   .player-controls :global(svg) {
     width: 1.15rem;
     height: 1.15rem;
@@ -300,16 +317,129 @@
   .player :global(img) {
     object-fit: contain;
   }
-  .platform-peertube .player {
-    border-radius: 0;
+  .platform-peertube {
+    --native-bg: light-dark(#f4f4f5, #121212);
+    --native-surface: light-dark(#f4f4f5, #121212);
+    --native-fg: light-dark(#0a0a0a, #f4f4f5);
+    --native-muted: light-dark(#8d7777, #8d7777);
+    --native-border: light-dark(#e8dede, #2f2323);
+    --native-soft: light-dark(#e8dede, #2f2323);
+    font-family: "Source Sans Pro", sans-serif;
   }
-  .platform-peertube .subscribe {
-    background: #f1680d;
-    color: #fff;
-    border-radius: 0.25rem;
+  .platform-peertube .player {
+    border-radius: 5px;
+  }
+  .platform-peertube .empty-player :global(svg) {
+    color: #ff8e38;
+  }
+  .platform-peertube h2 {
+    margin-top: 1.5rem;
+    min-height: 40px;
+    font-size: 27px;
+    line-height: 1.2;
+    letter-spacing: normal;
+  }
+  .platform-peertube .watch-info {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .platform-peertube .watch-stats {
+    color: var(--native-fg);
+    font-size: 0.875rem;
+  }
+  .platform-peertube .video-actions :global(.preview-actions) {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0;
+    color: light-dark(#3d2f2f, #d5c8c8);
+    font-weight: 700;
+  }
+  .platform-peertube .video-actions :global(.preview-actions .action) {
+    flex: 0 0 auto;
+    gap: 8px;
+    padding: 4px 13px;
+    font-size: 1rem;
+    text-transform: uppercase;
+  }
+  .platform-peertube .video-actions :global(.preview-actions .icon) {
+    width: auto;
+    height: auto;
+    background: none;
+  }
+  .platform-peertube .video-actions :global(.preview-actions .icon svg) {
+    width: 21px;
+    height: 21px;
+  }
+  .platform-peertube .watch-channel {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0;
+    border-top: 1px solid var(--native-border);
+    padding-top: 1rem;
+  }
+  .platform-peertube .watch-channel > div {
+    display: grid;
+    min-width: 0;
+    gap: 0;
+    line-height: 1.37;
+  }
+  .platform-peertube .watch-channel strong {
+    overflow: hidden;
+    font-size: 1rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .platform-peertube .watch-channel > div > span {
+    color: var(--native-fg);
+    font-size: 0.9rem;
+    font-weight: 400;
+  }
+  .platform-peertube .watch-channel .subscribe {
+    margin-left: auto;
+    min-height: 2.3rem;
+    border-radius: 4px;
+    background: #ff8e38;
+    color: light-dark(#0a0a0a, #111);
+    padding: 0.3rem 0.65rem;
+    font-size: 1rem;
+    font-weight: 700;
   }
   .platform-peertube .description {
-    border-radius: 0.25rem;
+    margin: 1.25rem 0;
+    margin-inline-start: 2.75rem;
+    border-radius: 0;
+    background: none;
+    padding: 0;
+  }
+  .platform-peertube .description p {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  .platform-peertube .comments {
+    margin-top: 0;
+    padding-block: 1rem;
+  }
+  .platform-peertube .comments strong {
+    font-size: 1.25rem;
+    font-weight: 500;
+  }
+  .platform-peertube .no-comments {
+    margin: 1.5rem 0 0;
+    color: var(--native-fg);
+    font-size: 1rem;
+    font-weight: 400;
+  }
+  .compact h2 {
+    font-size: 1.05rem;
+  }
+  .platform-peertube.compact h2 {
+    min-height: 0;
   }
   @container (max-width: 43rem) {
     .player {
@@ -317,6 +447,8 @@
     }
     h2,
     .video-meta,
+    .watch-info,
+    .watch-channel,
     .description,
     .comments {
       margin-inline: 0.75rem;
@@ -327,6 +459,13 @@
     }
     .video-actions {
       width: 100%;
+    }
+    .platform-peertube:not(.compact) h2 {
+      font-size: 20px;
+    }
+    .platform-peertube .video-actions :global(.preview-actions .action) {
+      padding: 4px 8px;
+      font-size: 0.85rem;
     }
   }
 </style>

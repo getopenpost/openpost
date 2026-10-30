@@ -32,7 +32,7 @@ Canonical segment `settings.link.destinations[accountID]` owns the URL choice: `
 
 ## Reference baseline
 
-Reviewed on 26 September 2026. Logged-in Brave observations informed X, Threads, Facebook, Instagram, and LinkedIn web layouts. Account experiments, app versions, locales, native apps, fonts, and federated instance themes can differ. These previews estimate presentation; they do not guarantee published output.
+Reviewed on 26 September 2026, and again on 30 October 2026 for the Reddit, Pinterest, TikTok photo, PeerTube, Lemmy, and PieFed cards and pages. Logged-in Brave observations informed X, Threads, Facebook, Instagram, and LinkedIn web layouts; the Telegram channel web preview (`t.me/s/<channel>`) and a live PeerTube instance informed those cards. Account experiments, app versions, locales, native apps, fonts, and federated instance themes can differ. These previews estimate presentation; they do not guarantee published output.
 
 | Platform or behavior                        | Primary reference                                                                                                                                                                              |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -48,7 +48,7 @@ Reviewed on 26 September 2026. Logged-in Brave observations informed X, Threads,
 | Reddit posts and galleries                  | [Posting](https://support.reddithelp.com/hc/en-us/articles/360060422572-How-do-I-post-and-comment-on-Reddit), [image galleries](https://redditinc.com/news/introducing-reddit-image-galleries) |
 | Google Business updates, events, and offers | [Create posts](https://support.google.com/business/answer/7342169?hl=en)                                                                                                                       |
 
-Open-source interfaces were consulted as behavioral references: [Bluesky](https://github.com/bluesky-social/social-app), [Lemmy](https://github.com/LemmyNet/lemmy-ui), [PeerTube](https://github.com/Chocobozzz/PeerTube), and [Pixelfed](https://github.com/pixelfed/pixelfed). No interface source was copied. Reddit and Google glyph paths come from [Simple Icons](https://github.com/simple-icons/simple-icons), under [CC0](https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md); Pinterest reuses the existing repository glyph.
+Open-source interfaces were consulted as behavioral references: [Bluesky](https://github.com/bluesky-social/social-app), [Lemmy](https://github.com/LemmyNet/lemmy-ui), [PeerTube](https://github.com/Chocobozzz/PeerTube), [Pixelfed](https://github.com/pixelfed/pixelfed), and [PieFed](https://codeberg.org/rimu/pyfedi). Their shallow checkouts live under `docs/references/` (`lemmy-ui`, `peertube`, `pixelfed`, `piefed`). No interface source was copied. Reddit and Google glyph paths come from [Simple Icons](https://github.com/simple-icons/simple-icons), under [CC0](https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md); Pinterest reuses the existing repository glyph.
 
 When updating fidelity, compare real cards containing text, links, polls, multiple images, portrait media, and warnings. Check cards and full pages at 320px, 390px, and desktop widths in both schemes. Keep regression tests at the renderer, composer mapping, or browser-flow boundary that owns the behavior.
 

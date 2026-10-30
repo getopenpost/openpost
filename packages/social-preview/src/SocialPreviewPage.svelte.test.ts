@@ -104,3 +104,61 @@ it("shows no verified badge in the page chrome when verified is unset", async ()
   expect(host.querySelector(".rail-profile [aria-label='Verified']")).toBeNull();
   expect(host.querySelector("[aria-label='Verified']")).toBeNull();
 });
+
+it("shows related Pins beside the closeup and the Other videos rail beside the watch card", async () => {
+  await page.viewport(1280, 900);
+  const pinHost = document.createElement("div");
+  pinHost.style.width = "1200px";
+  document.body.append(pinHost);
+  try {
+    await render(SocialPreviewPage, {
+      target: pinHost,
+      props: {
+        model: createPreviewModel({
+          platform: "pinterest",
+          identity: { displayName: "Studio", handle: "studio" },
+          title: "Launch checklist",
+          segments: [{ id: "primary", text: "Notes from the launch." }],
+        }),
+        scheme: "light",
+      },
+    });
+    const related = pinHost.querySelector(".related-pins")!;
+    expect(related).not.toBeNull();
+    expect([...pinHost.querySelectorAll(".related-pin")].length).toBeGreaterThan(3);
+    const closeup = pinHost.querySelector(".pin-closeup .pin-detail")!;
+    expect(related.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+      closeup.getBoundingClientRect().right - 2,
+    );
+  } finally {
+    pinHost.remove();
+  }
+
+  const watchHost = document.createElement("div");
+  watchHost.style.width = "1200px";
+  document.body.append(watchHost);
+  try {
+    await render(SocialPreviewPage, {
+      target: watchHost,
+      props: {
+        model: createPreviewModel({
+          platform: "peertube",
+          format: "video",
+          identity: { displayName: "Framasoft", handle: "framasoft" },
+          title: "Launch demo",
+          segments: [{ id: "primary", text: "" }],
+        }),
+        scheme: "light",
+      },
+    });
+    const rail = watchHost.querySelector(".other-videos")!;
+    expect(rail).not.toBeNull();
+    expect([...watchHost.querySelectorAll(".video-miniature")].length).toBeGreaterThan(3);
+    const watchMain = watchHost.querySelector(".watch-layout .video-main")!;
+    expect(rail.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+      watchMain.getBoundingClientRect().right - 2,
+    );
+  } finally {
+    watchHost.remove();
+  }
+});

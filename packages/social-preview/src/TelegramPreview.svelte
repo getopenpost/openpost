@@ -1,5 +1,6 @@
 <script lang="ts">
   import { previewEditing } from "./editing";
+  import Eye from "@lucide/svelte/icons/eye";
   import FileText from "@lucide/svelte/icons/file-text";
   import type { PreviewModel } from "./model";
   import PreviewAvatar from "./PreviewAvatar.svelte";
@@ -44,6 +45,7 @@
       {/if}
       {#if editing()?.text && segment}{@render editing()!.text(segment)}{:else if segment?.text}<p dir="auto">{segment.text}</p>{/if}
       <footer>
+        <span class="views"><Eye aria-hidden="true" />0</span>
         <span>{model.createdAtLabel}</span>
       </footer>
     </div>
@@ -117,10 +119,21 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.2rem;
+    gap: 0.55rem;
     margin-top: 0.2rem;
     color: var(--native-muted);
     font-size: 0.66rem;
+  }
+
+  .views {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  .views :global(svg) {
+    width: 0.8rem;
+    height: 0.8rem;
   }
 
   .bubble :global(.single-media),

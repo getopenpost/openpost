@@ -152,22 +152,23 @@
     </div>
     {@render bottom()}
   {:else if platform === "peertube"}
-    <header class="topbar">
-      <Menu aria-hidden="true" />{@render brand()}{@render search(
-        "Search videos",
-      )}<span class="publish" aria-hidden="true"><Plus />Publish</span>
+    <header class="topbar peertube-topbar">
+      {@render brand()}{@render search("Search videos")}
+      <span class="publish" aria-hidden="true"><Plus />Publish</span>
     </header>
-    <div class="video-layout">
-      <aside class="video-sidebar" aria-hidden="true">
-        <div class="side-row"><Home /><strong>Home</strong></div>
-        <div class="side-row"><Compass /><strong>Discover</strong></div>
-        <div class="side-row"><Video /><strong>Trending</strong></div>
-        <div class="side-row"><Video /><strong>Recently added</strong></div>
-        <hr />
-        <div class="side-row"><User /><strong>Subscriptions</strong></div>
-        <div class="side-row"><Bookmark /><strong>My library</strong></div>
-      </aside>
+    <div class="watch-layout">
       <section class="video-main"><SocialPreview {model} {scheme} /></section>
+      <aside class="other-videos" aria-hidden="true">
+        <h2>Other videos</h2>
+        {#each Array(4) as _, index (index)}
+          <div class="video-miniature">
+            <div class="miniature-thumb"><i></i></div>
+            <div class="miniature-info">
+              <b></b><span></span>
+            </div>
+          </div>
+        {/each}
+      </aside>
     </div>
   {:else if platform === "pinterest"}
     <header class="topbar pinterest-topbar">
@@ -179,7 +180,21 @@
         <Bell /><MessageCircle /><User /><ChevronDown />
       </div>
     </header>
-    <section class="pin-detail"><SocialPreview {model} {scheme} /></section>
+    <div class="pin-closeup">
+      <section class="pin-detail"><SocialPreview {model} {scheme} /></section>
+      <aside class="related-pins" aria-hidden="true">
+        <h2>More like this</h2>
+        <div class="related-grid">
+          {#each [{ ratio: "3/4", wide: "70%" }, { ratio: "4/5", wide: "85%" }, { ratio: "1/1", wide: "60%" }, { ratio: "2/3", wide: "75%" }, { ratio: "4/3", wide: "55%" }, { ratio: "3/4", wide: "80%" }] as tile, index (index)}
+            <div class="related-pin">
+              <i style={`aspect-ratio: ${tile.ratio};`}></i>
+              <span style={`width: ${tile.wide};`}></span>
+              <b></b>
+            </div>
+          {/each}
+        </div>
+      </aside>
+    </div>
     {@render bottom()}
   {:else if platform === "googlebusiness"}
     <header class="topbar google-topbar">
@@ -551,21 +566,55 @@
     padding: 8px 16px;
     font-weight: 600;
   }
-  .video-layout {
+  .watch-layout {
     display: grid;
-    grid-template-columns: 230px minmax(0, 1fr);
-  }
-  .video-sidebar {
-    padding: 22px 12px;
-    background: var(--native-soft);
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+    max-width: 1400px;
+    margin: auto;
+    padding: 32px 28px;
   }
   .video-main {
     min-width: 0;
-    padding: 32px;
   }
   .video-main :global(.social-preview) {
     max-width: 1100px;
     margin-inline: auto;
+  }
+  .other-videos h2 {
+    margin-bottom: 18px;
+    font-size: 16px;
+  }
+  .video-miniature {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .miniature-thumb i {
+    display: block;
+    aspect-ratio: 16 / 9;
+    border-radius: 4px;
+    background: var(--native-soft);
+  }
+  .miniature-info b,
+  .miniature-info span {
+    display: block;
+    border-radius: 999px;
+    background: var(--native-soft);
+  }
+  .miniature-info b {
+    width: 92%;
+    height: 11px;
+    margin-bottom: 8px;
+  }
+  .miniature-info span {
+    width: 55%;
+    height: 9px;
+  }
+  @container social-page (min-width: 68rem) {
+    .watch-layout {
+      grid-template-columns: minmax(0, 1fr) 340px;
+    }
   }
   .pinterest .brand {
     color: light-dark(#bd081b, #ff8a99);
@@ -579,10 +628,55 @@
     max-width: none;
     min-height: 48px;
   }
-  .pin-detail {
-    max-width: 1016px;
+  .pin-closeup {
+    display: grid;
+    gap: 24px;
+    max-width: 1080px;
     margin: 32px auto;
     padding: 0 24px;
+  }
+  .pin-closeup .pin-detail {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+  .related-pins h2 {
+    margin-bottom: 14px;
+    font-size: 16px;
+  }
+  .related-grid {
+    columns: 2;
+    column-gap: 16px;
+  }
+  .related-pin {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 12px;
+    border-radius: 20px;
+    background: var(--native-panel);
+    break-inside: avoid;
+  }
+  .related-pin i {
+    display: block;
+    border-radius: 14px;
+    background: var(--native-soft);
+  }
+  .related-pin span,
+  .related-pin b {
+    display: block;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--native-soft);
+  }
+  .related-pin b {
+    width: 40%;
+  }
+  @container social-page (min-width: 68rem) {
+    .pin-closeup {
+      grid-template-columns: minmax(0, 48rem) minmax(0, 1fr);
+      align-items: start;
+    }
   }
   .reddit {
     --native-bg: light-dark(#fff, #0e1113);
@@ -756,11 +850,9 @@
     .threads-column {
       margin-right: 20px;
     }
-    .video-layout {
-      grid-template-columns: minmax(0, 1fr);
-    }
-    .video-sidebar {
-      display: none;
+    .watch-layout {
+      gap: 24px;
+      padding: 24px 16px;
     }
     .pixelfed .topbar {
       gap: 24px;
@@ -876,12 +968,12 @@
     .desktop {
       display: none;
     }
-    .video-main {
+    .watch-layout {
       padding: 12px 0;
     }
-    .pin-detail {
+    .pin-closeup {
       margin: 0;
-      padding: 0;
+      padding: 0 12px;
     }
     .pinterest-topbar > strong,
     .pinterest-topbar .top-icons {

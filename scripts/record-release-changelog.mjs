@@ -4,7 +4,11 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { prepareReleaseChangelog, validateChangelog } from "../packages/changelog/src/index.js";
+import {
+  prepareReleaseChangelog,
+  parseChangelog,
+  validateChangelog,
+} from "../packages/changelog/src/index.js";
 import { publishedStableReleaseTag } from "./published-release-tag.mjs";
 import {
   changelogFragmentEntries,
@@ -35,6 +39,53 @@ function git(args) {
   } catch (error) {
     fail(`git ${args.join(" ")} failed (${String(error.message).split("\n")[0]})`);
   }
+}
+
+function extractUnreleasedBody(markdown) {
+  const marker = "## [Unreleased]";
+  const markerIndex = markdown.indexOf(marker);
+  if (markerIndex < 0) return "";
+  const bodyStart = markerIndex + marker.length;
+  const nextOffset = markdown.slice(bodyStart).search(/\n## \[/u);
+  return markdown
+    .slice(bodyStart, nextOffset < 0 ? markdown.length : bodyStart + nextOffset)
+    .trim();
+}
+
+function unreleasedItemCounts(body) {
+  const section = parseChangelog(`## [Unreleased]\n\n${body}\n`)[0];
+  const counts = new Map();
+  for (const group of section?.groups ?? []) {
+    for (const item of group.items) {
+      const key = `${group.title}\u0000${item}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+// Keep only Unreleased items added after the tag. Items already present at
+// the tag were shipped by this release, so leaving them behind would repeat
+// them in every later release note.
+function keepPostTagUnreleased(currentBody, tagBody) {
+  const shipped = unreleasedItemCounts(tagBody);
+  const section = parseChangelog(`## [Unreleased]\n\n${currentBody}\n`)[0];
+  const lines = [];
+  for (const group of section?.groups ?? []) {
+    const remaining = [];
+    for (const item of group.items) {
+      const key = `${group.title}\u0000${item}`;
+      const count = shipped.get(key) ?? 0;
+      if (count > 0) {
+        shipped.set(key, count - 1);
+        continue;
+      }
+      remaining.push(item);
+    }
+    if (remaining.length === 0) continue;
+    lines.push(`### ${group.title}`, "", ...remaining.map((item) => `- ${item}`), "");
+  }
+  return lines.join("\n").trim();
 }
 
 // The tag pins exactly which fragments belong to this release. Fragments
@@ -128,10 +179,14 @@ const bodyStart = markerIndex + marker.length;
 const nextOffset = current.slice(bodyStart).search(/\n## \[/u);
 const insertAt = nextOffset < 0 ? current.length : bodyStart + nextOffset;
 const unreleasedBody = current.slice(bodyStart, insertAt).trim();
+const postTagUnreleased = keepPostTagUnreleased(
+  unreleasedBody,
+  extractUnreleasedBody(tagChangelog),
+);
 const rest = current.slice(insertAt).replace(/^\n+/u, "").trimEnd();
 
 let result = `${current.slice(0, bodyStart)}\n\n`;
-if (unreleasedBody) result += `${unreleasedBody}\n\n`;
+if (postTagUnreleased) result += `${postTagUnreleased}\n\n`;
 result += `## [${normalized}] - ${recordDate}\n\n${body}\n`;
 if (rest) result += `\n${rest}\n`;
 

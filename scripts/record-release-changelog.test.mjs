@@ -124,13 +124,54 @@ test("recording merges direct Unreleased edits with tag fragments", () => {
     const result = record(root, env, ["v1.0.1", "2026-02-02"]);
     assert.equal(result.status, 0, result.stderr);
     const changelog = readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
-    assert.match(changelog, /^## \[1\.0\.1\] - 2026-02-02$/mu);
+    const unreleased = changelog.slice(
+      changelog.indexOf("## [Unreleased]"),
+      changelog.indexOf("## [1.0.1]"),
+    );
+    assert.equal(unreleased.trim(), "## [Unreleased]");
     const section = changelog.slice(
       changelog.indexOf("## [1.0.1]"),
       changelog.indexOf("## [1.0.0]"),
     );
     assert.match(section, /- Tagged fix\./u);
     assert.match(section, /- Direct edit\./u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("recording keeps direct Unreleased edits added after the tag", () => {
+  const { root, env, git } = setupRepo();
+  try {
+    writeFileSync(
+      path.join(root, "CHANGELOG.md"),
+      "# Changelog\n\n## [Unreleased]\n\n## [1.0.0] - 2026-01-01\n",
+    );
+    writeFileSync(path.join(root, "changes", "a.md"), "### Fixed\n\n- Tagged fix.\n");
+    git(["add", "."]);
+    git(["commit", "-m", "fix: tagged work"]);
+    git(["tag", "v1.0.1"]);
+    writeFileSync(
+      path.join(root, "CHANGELOG.md"),
+      "# Changelog\n\n## [Unreleased]\n\n### Added\n\n- Post-tag direct edit.\n\n## [1.0.0] - 2026-01-01\n",
+    );
+    git(["add", "."]);
+    git(["commit", "-m", "feat: post-tag direct edit"]);
+
+    const result = record(root, env, ["v1.0.1", "2026-02-02"]);
+    assert.equal(result.status, 0, result.stderr);
+    const changelog = readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
+    const unreleased = changelog.slice(
+      changelog.indexOf("## [Unreleased]"),
+      changelog.indexOf("## [1.0.1]"),
+    );
+    assert.match(unreleased, /- Post-tag direct edit\./u);
+    const section = changelog.slice(
+      changelog.indexOf("## [1.0.1]"),
+      changelog.indexOf("## [1.0.0]"),
+    );
+    assert.match(section, /- Tagged fix\./u);
+    assert.doesNotMatch(section, /Post-tag direct edit\./u);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

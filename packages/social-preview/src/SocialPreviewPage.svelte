@@ -517,13 +517,10 @@
           ]}
         >
           <header class="instagram-mobile-header">
-            <strong>For you</strong>
+            <strong>Instagram</strong>
             {@render searchBox("Search")}
           </header>
           {#if model.format === "post"}
-            <div class="instagram-feed-tabs" aria-hidden="true">
-              <strong>For you</strong><span>Following</span>
-            </div>
             <div class="story-strip" aria-hidden="true">
               {#each Array(6) as _, index (index)}
                 <div>
@@ -565,7 +562,7 @@
           </aside>
         {/if}
         <nav class="mobile-native-nav instagram-bottom" aria-hidden="true">
-          <Home /><Search /><Video /><Plus /><Send /><Grid2X2 /><User />
+          <Home /><Search /><Plus /><Video /><User />
         </nav>
       </div>
     {:else if model.platform === "youtube"}
@@ -2038,7 +2035,7 @@
     --page-muted: #737373;
     --page-border: #dbdbdb;
     font-family:
-      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+      "Optimistic Text", Optimistic, Montserrat, Helvetica, Arial, "Noto Sans",
       sans-serif;
   }
 
@@ -2121,10 +2118,26 @@
   .story-strip i {
     width: 3.5rem;
     height: 3.5rem;
-    border: 2px solid #e1306c;
     border-radius: 50%;
-    background: #efefef;
-    box-shadow: inset 0 0 0 2px #fff;
+    padding: 3px;
+    background: linear-gradient(
+      125deg,
+      #ffd600 15%,
+      #ff7a00 30%,
+      #ff0169,
+      #d300c5 70%,
+      #7638fa 85%
+    );
+  }
+
+  .story-strip i::after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: light-dark(#efefef, #262626);
+    box-shadow: 0 0 0 1px var(--page-bg);
   }
 
   .story-strip span {
@@ -2267,9 +2280,10 @@
 
   .youtube-page {
     display: grid;
-    grid-template-columns: 15rem minmax(0, 1fr);
+    grid-template-columns: 5rem minmax(0, 1fr);
   }
 
+  /* The real watch page keeps the guide collapsed to icons by default. */
   .youtube-left {
     position: sticky;
     top: 3.5rem;
@@ -2280,16 +2294,27 @@
   }
 
   .youtube-left .nav-item {
+    display: grid;
+    justify-items: center;
+    gap: 0.15rem;
     min-height: 2.5rem;
     border-radius: 0.65rem;
-    font-size: 0.82rem;
+    padding: 0.35rem 0;
+    font-size: 0.58rem;
+  }
+
+  .youtube-left .nav-item > span {
+    width: auto;
   }
 
   .youtube-left .nav-item.active {
     background: var(--page-soft);
   }
 
-  .youtube-left hr,
+  .youtube-left hr {
+    display: none;
+  }
+
   .tiktok-left hr {
     width: 100%;
     border: 0;
@@ -2840,12 +2865,10 @@
       display: none;
     }
 
-    .youtube-page,
     .tiktok-page {
       grid-template-columns: 5rem minmax(0, 1fr);
     }
 
-    .youtube-left .nav-item,
     .tiktok-left .nav-item {
       display: grid;
       justify-items: center;
@@ -2854,12 +2877,10 @@
       font-size: 0.58rem;
     }
 
-    .youtube-left .nav-item > span,
     .tiktok-left .nav-item > span {
       width: auto;
     }
 
-    .youtube-left hr,
     .tiktok-left hr,
     .tiktok-left .rail-label,
     .tiktok-left .ghost-rows {
@@ -3229,15 +3250,17 @@
     --page-muted: light-dark(#536471, #a4a4a4);
     --page-border: light-dark(#eff3f4, #2f3336);
     --page-soft: light-dark(#f5f5f5, #202124);
-    font-family: Arial, Helvetica, sans-serif;
   }
   .platform-bluesky {
-    --page-bg: light-dark(#fff, #111822);
+    --page-bg: light-dark(#fff, #000);
     --page-surface: var(--page-bg);
-    --page-border: light-dark(#e5eaf0, #273344);
-    --page-fg: light-dark(#101827, #f1f3f5);
-    --page-muted: light-dark(#68788a, #a7b5c5);
-    --page-soft: light-dark(#f1f5f9, #1e2938);
+    --page-border: light-dark(#dce2ea, #232e3e);
+    --page-fg: light-dark(#000, #fff);
+    --page-muted: light-dark(#405168, #a5b2c5);
+    --page-soft: light-dark(#f9fafb, #111822);
+    font-family:
+      InterVariable, Inter, system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   .platform-linkedin {
     --page-bg: light-dark(#f4f2ee, #000);
@@ -3311,8 +3334,8 @@
     font-weight: 400;
   }
   .platform-instagram {
-    --page-bg: light-dark(#fff, #000);
-    --page-surface: light-dark(#fff, #000);
+    --page-bg: light-dark(#fff, #0c1014);
+    --page-surface: light-dark(#fff, #0c1014);
     --page-fg: light-dark(#262626, #f5f5f5);
     --page-muted: light-dark(#737373, #a8a8a8);
     --page-border: light-dark(#dbdbdb, #262626);
@@ -3341,20 +3364,7 @@
   .instagram-left .compact-logo {
     display: grid;
   }
-  .instagram-feed-tabs {
-    display: flex;
-    gap: 20px;
-    width: min(100%, 470px);
-    border-bottom: 1px solid var(--page-border);
-    padding: 16px 0;
-  }
-  .instagram-feed-tabs span {
-    color: var(--page-muted);
-  }
   @container social-page (max-width: 40rem) {
-    .instagram-feed-tabs {
-      display: none;
-    }
     .instagram-mobile-header {
       gap: 20px;
     }
@@ -3365,7 +3375,7 @@
       border-radius: 8px;
     }
     .instagram-bottom {
-      grid-template-columns: repeat(7, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       justify-items: center;
     }
   }

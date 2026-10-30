@@ -87,17 +87,26 @@
 
   .preview-avatar-ring {
     display: grid;
-    width: calc(var(--avatar-size) + 4px);
-    height: calc(var(--avatar-size) + 4px);
+    width: calc(var(--avatar-size) + 6px);
+    height: calc(var(--avatar-size) + 6px);
     flex: 0 0 auto;
     place-items: center;
     border-radius: 50%;
-    background: conic-gradient(#d300c5, #ff3040, #ffdc80, #d300c5);
+    background: linear-gradient(
+      125deg,
+      #ffd600 15%,
+      #ff7a00 30%,
+      #ff0169,
+      #d300c5 70%,
+      #7638fa 85%
+    );
     padding: 2px;
   }
 
+  /* One pixel of the card background separates the gradient band from the
+     photo, like the real Stories ring. */
   .preview-avatar-ring .preview-avatar {
-    box-shadow: 0 0 0 2px var(--native-bg, var(--native-surface, #fff));
+    box-shadow: 0 0 0 1px var(--native-bg, var(--native-surface, #fff));
   }
 
   img {

@@ -1309,23 +1309,25 @@
   }
 
   .mastodon {
-    --native-bg: light-dark(#f3f5f7, #191b22);
-    --native-panel: light-dark(#fff, #282c37);
-    --native-text: light-dark(#282c37, #f5f5f7);
-    --native-muted: light-dark(#606984, #9baec8);
-    --native-border: light-dark(#d9e1e8, #393f4f);
-    --native-soft: light-dark(#e8edf2, #313543);
+    --mastodon-accent: light-dark(#705dd6, #d1c7ff);
+    --native-bg: light-dark(#f9f7fc, #07060e);
+    --native-panel: light-dark(#fff, #15151e);
+    --native-text: light-dark(#21212c, #eeedf3);
+    --native-muted: light-dark(rgb(33 33 44 / 80%), rgb(238 237 243 / 80%));
+    --native-border: light-dark(rgb(112 93 214 / 20%), rgb(209 199 255 / 20%));
+    --native-soft: light-dark(rgb(112 93 214 / 8%), rgb(209 199 255 / 8%));
+    font-family: Inter, system-ui, -apple-system, sans-serif;
   }
   .mastodon-layout {
     display: grid;
-    grid-template-columns: 285px minmax(0, 600px) 260px;
+    grid-template-columns: 285px minmax(0, 700px) 260px;
     gap: 16px;
-    max-width: 1200px;
+    max-width: 1320px;
     margin: auto;
     padding: 16px;
   }
   .mastodon-compose .brand {
-    color: light-dark(#563acc, #858afa);
+    color: var(--mastodon-accent);
     margin: 12px 0 28px;
   }
   .mastodon-compose .search {
@@ -1350,10 +1352,10 @@
     padding: 10px;
   }
   .compose-tools span {
-    background: #6364ff;
-    color: #fff;
+    background: var(--mastodon-accent);
+    color: light-dark(#fff, #15151e);
     padding: 7px 16px;
-    border-radius: 4px;
+    border-radius: 999px;
     font-weight: 600;
   }
   .mastodon-feed {
@@ -1381,7 +1383,7 @@
     padding-top: 12px;
   }
   .mastodon-navigation .side-row:first-child {
-    color: light-dark(#563acc, #858afa);
+    color: var(--mastodon-accent);
   }
   .mastodon-feed :global(.micro-preview.platform-mastodon) {
     border: 0;
@@ -1416,7 +1418,7 @@
   }
   @container social-page (max-width: 68rem) {
     .mastodon-layout {
-      grid-template-columns: minmax(0, 600px) 240px;
+      grid-template-columns: minmax(0, 700px) 240px;
       justify-content: center;
     }
     .mastodon-compose {

@@ -3,8 +3,7 @@
   import Play from "@lucide/svelte/icons/play";
   import Settings from "@lucide/svelte/icons/settings";
   import Maximize from "@lucide/svelte/icons/maximize";
-  import Bell from "@lucide/svelte/icons/bell";
-  import MoreHorizontal from "@lucide/svelte/icons/ellipsis";
+  import ArrowDownWideNarrow from "@lucide/svelte/icons/arrow-down-wide-narrow";
   import type { PreviewModel } from "./model";
   import PlatformGlyph from "./PlatformGlyph.svelte";
   import PreviewActions from "./PreviewActions.svelte";
@@ -83,7 +82,6 @@
             <span>@{model.identity.handle.replace(/^@/u, "")}</span>
           </div>
           <span class="subscribe">Subscribe</span>
-          <Bell aria-hidden="true" />
         </div>
         <div class="video-actions">
           <PreviewActions {platform} {compact} />
@@ -94,18 +92,25 @@
     <div class="description">
       {#if platform !== "peertube"}<strong>0 views · {model.createdAtLabel}</strong>{/if}
       {#if editing()?.text}{@render editing()!.text(primary)}{:else}<p dir="auto">{description}</p>{/if}
+      {#if platform !== "peertube"}<span class="more" aria-hidden="true">…more</span>{/if}
     </div>
 
     <div class="comments">
-      <div>
-        <strong>Comments</strong>
-        {#if platform === "peertube"}
+      {#if platform === "peertube"}
+        <div>
+          <strong>Comments</strong>
           <p class="no-comments">No comments.</p>
-        {:else}
+        </div>
+      {:else}
+        <div class="comments-header">
+          <strong>Comments</strong>
           <span>0</span>
-        {/if}
-      </div>
-      {#if platform !== "peertube"}<MoreHorizontal aria-hidden="true" />{/if}
+        </div>
+        <span class="sort-by" aria-hidden="true">
+          <ArrowDownWideNarrow />
+          Sort by
+        </span>
+      {/if}
     </div>
   </article>
 {/if}
@@ -170,8 +175,8 @@
     gap: 0.75rem;
     padding: 2.5rem 0.85rem 0.6rem;
     background: linear-gradient(transparent, rgb(0 0 0 / 78%));
-    color: #fff;
-    font-size: 0.72rem;
+    color: #eee;
+    font-size: 0.75rem;
   }
 
   .play-button {
@@ -192,7 +197,7 @@
     display: block;
     width: 0;
     height: 100%;
-    background: #f00;
+    background: #f03;
   }
 
   h2 {
@@ -202,6 +207,13 @@
     line-height: 1.35;
     letter-spacing: -0.015em;
     overflow-wrap: anywhere;
+  }
+
+  .platform-youtube h2 {
+    font-size: 1.25rem;
+    font-weight: 400;
+    line-height: 1.4;
+    letter-spacing: 0;
   }
 
   .video-meta {
@@ -215,7 +227,7 @@
     display: flex;
     min-width: 0;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0.75rem;
   }
 
   .channel > div {
@@ -225,14 +237,15 @@
 
   .channel strong {
     overflow: hidden;
-    font-size: 0.88rem;
+    font-size: 0.875rem;
+    font-weight: 500;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .channel span {
     color: var(--native-muted);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
   }
 
   .channel .subscribe {
@@ -245,20 +258,87 @@
     color: var(--native-bg);
     padding: 0 1rem;
     font: inherit;
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: 0.875rem;
+    font-weight: 500;
     pointer-events: none;
-  }
-
-  .channel > :global(svg) {
-    width: 1.15rem;
-    height: 1.15rem;
   }
 
   .video-actions {
     min-width: 0;
     flex: 1;
     overflow: hidden;
+  }
+
+  .platform-youtube .video-actions :global(.preview-actions.with-labels) {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  .platform-youtube .video-actions :global(.preview-actions.with-labels .action) {
+    position: relative;
+    min-height: 2.25rem;
+    gap: 0.4rem;
+    padding: 0 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .platform-youtube .video-actions :global(.preview-actions .icon) {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .platform-youtube .video-actions :global(.preview-actions .icon svg) {
+    width: 1.4rem;
+    height: 1.4rem;
+    stroke-width: 2;
+  }
+
+  .platform-youtube .video-actions :global(
+      .preview-actions.with-labels .action:first-child
+    ) {
+    border-radius: 999px 0 0 999px;
+  }
+
+  .platform-youtube .video-actions :global(
+      .preview-actions.with-labels .action:nth-child(2)
+    ) {
+    margin-left: -0.5rem;
+    border-radius: 0 999px 999px 0;
+  }
+
+  .platform-youtube .video-actions :global(
+      .preview-actions.with-labels .action:first-child::after
+    ) {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 0;
+    width: 1px;
+    height: 1.5rem;
+    transform: translateY(-50%);
+    background: light-dark(rgb(0 0 0 / 10%), rgb(255 255 255 / 10%));
+  }
+
+  .platform-youtube .video-actions :global(
+      .preview-actions.with-labels .action:first-child > span:not(.icon)
+    ),
+  .platform-youtube .video-actions :global(
+      .preview-actions.with-labels .action:nth-child(2) > span:not(.icon)
+    ),
+  .platform-youtube .video-actions :global(
+      .preview-actions.with-labels .action:last-child > span:not(.icon)
+    ) {
+    display: none;
+  }
+
+  .platform-youtube .video-actions :global(
+      .preview-actions.with-labels .action:last-child
+    ) {
+    width: 2.25rem;
+    padding: 0;
+    border-radius: 50%;
   }
 
   .description {
@@ -271,14 +351,20 @@
   }
 
   .description strong {
-    font-size: 0.76rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .description .more {
+    font-size: 0.875rem;
+    font-weight: 500;
   }
 
   .description p {
     display: -webkit-box;
     overflow: hidden;
     margin: 0;
-    font-size: 0.78rem;
+    font-size: 0.875rem;
     line-height: 1.45;
     white-space: pre-wrap;
     unicode-bidi: plaintext;
@@ -309,9 +395,37 @@
     height: 1.1rem;
   }
 
+  .platform-youtube .comments {
+    margin-top: 1.25rem;
+    padding-block: 0;
+    border-top: 0;
+  }
+
+  .comments > .comments-header {
+    gap: 0.3rem;
+    font-size: 1.25rem;
+    font-weight: 400;
+  }
+
+  .comments-header strong {
+    font-weight: 400;
+  }
+
+  .sort-by {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
   .player-controls :global(svg) {
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 1rem;
+    height: 1rem;
+  }
+  .player-controls .play-button :global(svg) {
+    width: 1.5rem;
+    height: 1.5rem;
   }
   .player :global(video),
   .player :global(img) {
@@ -459,6 +573,9 @@
     }
     .video-actions {
       width: 100%;
+    }
+    .platform-youtube .video-actions :global(.preview-actions.with-labels) {
+      justify-content: flex-start;
     }
     .platform-peertube:not(.compact) h2 {
       font-size: 20px;

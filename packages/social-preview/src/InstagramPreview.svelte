@@ -118,20 +118,24 @@
 
 <style>
   .instagram-preview {
-    --native-bg: light-dark(#fff, #000);
-    --native-surface: light-dark(#fff, #000);
+    --native-bg: light-dark(#fff, #0c1014);
+    --native-surface: light-dark(#fff, #0c1014);
     --native-fg: light-dark(#000, #f5f5f5);
     --native-muted: light-dark(#737373, #a8a8a8);
     --native-border: light-dark(#dbdbdb, #262626);
-    width: min(100%, 29.25rem);
+    width: min(100%, 29.375rem);
     overflow: hidden;
     border: 1px solid var(--native-border);
-    border-radius: 0.5rem;
+    border-radius: 0.25rem;
     background: var(--native-bg);
     color: var(--native-fg);
     font-family:
-      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+      "Optimistic Text", Optimistic, Montserrat, Helvetica, Arial, "Noto Sans",
       sans-serif;
+  }
+
+  .platform-instagram {
+    -webkit-font-smoothing: antialiased;
   }
 
   header {
@@ -140,7 +144,7 @@
     align-items: center;
     gap: 0.65rem;
     min-height: 3.75rem;
-    padding: 0.55rem 0.85rem;
+    padding: 0.55rem 1rem;
   }
 
   .identity {
@@ -164,6 +168,17 @@
     white-space: nowrap;
   }
 
+  .platform-instagram .identity strong {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.125rem;
+  }
+
+  .platform-instagram .identity > span {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+
   .identity > span {
     font-size: 0.68rem;
   }
@@ -171,6 +186,11 @@
   header > :global(svg) {
     width: 1.25rem;
     height: 1.25rem;
+  }
+
+  .platform-instagram header > :global(svg) {
+    width: 1.5rem;
+    height: 1.5rem;
   }
 
   .empty-feed-media {
@@ -197,8 +217,21 @@
     line-height: 1.4;
   }
 
+  .platform-instagram .empty-feed-media {
+    background: light-dark(#efefef, #262626);
+  }
+
   .post-actions {
     padding: 0.15rem 0.55rem 0;
+  }
+
+  .platform-instagram .post-actions {
+    padding: 0.25rem 1rem 0;
+  }
+
+  .platform-instagram .post-actions :global(.icon svg) {
+    width: 1.5rem;
+    height: 1.5rem;
   }
 
   .post-actions :global(.preview-actions) {
@@ -213,22 +246,27 @@
   .caption {
     display: grid;
     gap: 0.3rem;
-    padding: 0 0.85rem 0.85rem;
+    padding: 0.25rem 1rem 1rem;
   }
 
   .caption-text {
     margin: 0;
-    font-size: 0.81rem;
-    line-height: 1.45;
+    font-size: 0.875rem;
+    line-height: 1.125rem;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+  }
+
+  .platform-instagram .caption-text :global(strong) {
+    font-weight: 600;
   }
 
   .caption small {
     margin-top: 0.2rem;
     color: var(--native-muted);
-    font-size: 0.62rem;
-    letter-spacing: 0.02em;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    line-height: 1rem;
     text-transform: uppercase;
   }
 

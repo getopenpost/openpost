@@ -60,3 +60,13 @@ func TestUnsupportedSettingNullIsAbsent(t *testing.T) {
 		requireIssueCode(t, validateUnsupportedSettings(capability, map[string]any{"unknown_option": value}), "unsupported_setting")
 	}
 }
+
+func TestDefaultSettingsNullIsAbsent(t *testing.T) {
+	resolved := Resolve(ProviderYouTube, ResolveInput{
+		RequestedOutputProfile: "youtube.video", Context: ResolveContextSocialSetDefaults,
+	})
+	for _, key := range []string{"unknown_option", "caption_mentions"} {
+		require.Empty(t, ValidateDefaultSettings(resolved.Capability, SettingScopeDestination, map[string]any{key: nil}, map[string]any{}))
+	}
+	requireIssueCode(t, ValidateDefaultSettings(resolved.Capability, SettingScopeDestination, map[string]any{"unknown_option": "value"}, map[string]any{}), "unsupported_setting")
+}

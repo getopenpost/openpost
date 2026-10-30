@@ -1920,6 +1920,7 @@ func validateSettingDefinition(capability Capability, field SettingDefinition, s
 
 // ValidateDefaultSettings checks only values supplied for a reusable preset.
 // Missing required fields remain a decision for the publication that uses it.
+// Null values clear stored settings and do not request a provider feature.
 func ValidateDefaultSettings(capability Capability, scope string, values, context map[string]any) []ValidationIssue {
 	fields := make(map[string]SettingDefinition, len(capability.Settings))
 	for _, field := range capability.Settings {
@@ -1933,6 +1934,9 @@ func ValidateDefaultSettings(capability Capability, scope string, values, contex
 	sort.Strings(keys)
 	for _, key := range keys {
 		value := values[key]
+		if value == nil {
+			continue
+		}
 		field, ok := fields[key]
 		if !ok || field.Scope != scope {
 			issues = append(issues, ValidationIssue{Severity: "error", Code: "unsupported_setting", Field: key, Message: key + " is not supported by this account or scope"})
@@ -1944,9 +1948,6 @@ func ValidateDefaultSettings(capability Capability, scope string, values, contex
 		}
 		if attachmentDependentDefault(field) {
 			issues = append(issues, settingValidationIssue(capability, field, "setting_requires_post_media", "Choose media-specific settings on the post."))
-			continue
-		}
-		if value == nil {
 			continue
 		}
 		if text, ok := value.(string); ok && text == "" {

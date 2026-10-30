@@ -489,6 +489,7 @@
           {@render contactRow("OpenPost Image Editor Notes", "#2563eb")}
           {@render contactRow("Open Design", "#0f766e")}
         </aside>
+        {@render mobileNav()}
       </div>
     {:else if model.platform === "instagram"}
       <div class="instagram-page">
@@ -2968,6 +2969,23 @@
   }
 
   @container social-page (max-width: 40rem) {
+    /* Phone shells stack and stretch so the bottom navigation pins to the
+       frame bottom even when the feed content is shorter than the screen. */
+    .micro-page,
+    .linkedin-page,
+    .facebook-page,
+    .instagram-page,
+    .youtube-watch,
+    .tiktok-feed {
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+    }
+
+    .mobile-native-nav {
+      margin-top: auto;
+    }
+
     .telegram-page {
       display: block;
     }

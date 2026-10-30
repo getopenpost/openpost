@@ -799,7 +799,7 @@
     height: 36px;
     flex: none;
     border-radius: 50%;
-    background: var(--native-soft);
+    background: light-dark(rgb(0 0 0 / 10%), rgb(255 255 255 / 16%));
   }
   .forum-ghost span {
     display: grid;
@@ -810,7 +810,7 @@
   .forum-ghost b {
     display: block;
     border-radius: 999px;
-    background: var(--native-soft);
+    background: light-dark(rgb(0 0 0 / 10%), rgb(255 255 255 / 16%));
   }
   .forum-ghost b:first-child {
     width: 42%;
@@ -1312,6 +1312,8 @@
     .forum-layout,
     .reddit .forum-layout {
       padding: 0;
+      margin: 0;
+      width: 100%;
     }
     .forum-topbar .brand strong {
       display: none;

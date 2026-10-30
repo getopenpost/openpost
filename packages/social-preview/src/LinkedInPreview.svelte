@@ -304,6 +304,22 @@
     background: #6dae4f;
   }
 
+  .engagement {
+    display: flex;
+    min-height: 2.2rem;
+    align-items: center;
+    gap: 0.35rem;
+    margin-inline: 1rem;
+    padding: 0.1rem 0 0.3rem;
+    border-bottom: 1px solid var(--native-border);
+    color: var(--native-muted);
+    font-size: 0.78rem;
+  }
+
+  .engagement .right {
+    margin-left: auto;
+  }
+
   .action-row {
     display: flex;
     align-items: center;

@@ -1229,10 +1229,15 @@
     grid-row: 1 / span 2;
     grid-column: 3;
     border-radius: 999px;
-    background: var(--page-accent);
-    color: #fff;
+    background: var(--page-fg);
+    color: var(--page-bg);
     padding: 0.48rem 0.9rem;
     font-size: 0.75rem;
+  }
+
+  .platform-bluesky .micro-composer > b {
+    background: #0066ff;
+    color: #fff;
   }
 
   .micro-right {
@@ -1577,7 +1582,7 @@
   .profile-cover {
     width: 100%;
     height: 3.6rem;
-    background: #a0b4b7;
+    background: light-dark(#a0b4b7, #38434f);
   }
 
   .linkedin-profile :global(.preview-avatar) {
@@ -2045,6 +2050,17 @@
     grid-template-columns: 4.5rem minmax(30rem, 44rem) minmax(15rem, 20rem);
     justify-content: start;
     gap: 1.5rem;
+  }
+  /* The real desktop rail is wide, with the wordmark and labeled items. */
+  @container social-page (min-width: 68rem) {
+    .instagram-page {
+      grid-template-columns: 14.75rem minmax(30rem, 44rem) minmax(15rem, 20rem);
+    }
+
+    .instagram-left {
+      align-items: stretch;
+      padding-inline: 0.75rem;
+    }
   }
 
   .instagram-left {
@@ -2579,9 +2595,9 @@
     align-items: center;
     justify-content: space-between;
     margin: -0.75rem -0.5rem 0.8rem;
-    border-bottom: 1px solid #1f2024;
+    border-bottom: 1px solid var(--page-border);
     padding: 0 1rem;
-    color: #f2f3f5;
+    color: var(--page-fg);
     box-shadow: 0 1px 2px rgb(0 0 0 / 20%);
   }
 
@@ -2982,6 +2998,10 @@
       min-height: 100dvh;
     }
 
+    .youtube-watch {
+      min-height: calc(100dvh - 3.5rem);
+    }
+
     .mobile-native-nav {
       margin-top: auto;
     }
@@ -2998,8 +3018,6 @@
       padding-inline: 0.7rem;
     }
 
-    .micro-page,
-    .instagram-page,
     .youtube-page,
     .tiktok-page,
     .discord-page {
@@ -3110,8 +3128,8 @@
     }
 
     .linkedin-page {
-      display: block;
-      padding: 0 0 3.75rem;
+      display: flex;
+      flex-direction: column;
     }
 
     .linkedin-composer,
@@ -3219,8 +3237,9 @@
 
     .youtube-watch,
     .youtube-watch.shorts-view {
-      display: block;
-      padding: 0 0 3.75rem;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
     }
 
     .youtube-chips {
@@ -3229,7 +3248,7 @@
 
     .tiktok-feed {
       min-height: calc(100dvh - 3.75rem);
-      padding: 0 0 3.75rem;
+      padding: 0;
     }
 
     .tiktok-feed-tabs {

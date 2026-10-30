@@ -8,6 +8,38 @@ All notable changes to this project are documented in this file.
 
 - Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
 
+## [7.35.1] - 2026-10-30
+
+### Fixed
+
+- Fixed posts being blocked by a `caption_mentions is not supported` error even without mentions. Caption reset markers and authored caption metadata no longer count as unsupported provider settings, and null settings no longer block publishing.
+- Keep Instagram connection choices and other multiline actions readable at desktop and touch sizes, with their labels, descriptions, and setup notices inside the button.
+- Restore LinkedIn Page follower and post analytics with current follower parameters and correctly encoded API requests.
+- Keep browser worker source maps private and verify their upload before frontend packaging.
+- AI draft workflows preserve complete writing instructions separately from the short outcome, so release-post instructions longer than 200 characters no longer fail before generation.
+- Self-hosted instance administrators can record certification evidence for Telegram bot publishing. Recording derived the expected contract from the managed-production flag, while readiness decisions and the certification context derived it from the provider's mandatory certification policy, so every Telegram, Pinterest and Google Business Profile evidence append on a self-hosted instance was rejected with "provider readiness evidence was rejected". Both paths now share one contract derivation.
+
+### Added
+
+- Analytics now combines supported post impressions and video views into an inspectable Visibility total, with the same calculations, account performance and ranked posts on web and mobile.
+- Evidence-backed next actions identify strong posts to build on and connections needing attention. Suggestions use stored results and each account's own history.
+- dev/null analytics now collects public follower, following, and commit counts, plus stars and replies on published commits. Missing counters remain unavailable, and views are not reported. Profile refresh also recognizes the current public API handle field.
+
+### Changed
+
+- Analytics distinguishes posts from their published destination outputs, adds month-to-date and last-month ranges, and includes Visibility in exports while keeping original provider metrics available.
+- Automated repository updates require the OpenPost bot identity. Changelog-only main pushes skip duplicate GitHub CI while the public changelog continues deploying; release recording and fragment cleanup remain one commit.
+
+### Improved
+
+- Balance application browser test shards using recorded durations, retain marketing test timings, and avoid unused browser downloads in application test jobs.
+
+### CI/CD
+
+- Deploy verified public-site artifacts with retained rollback bytes and coordinate duplicate release qualification.
+- Build marketing and documentation through one task graph and reuse verified generated documentation inputs.
+- Process private browser source maps without uploading build-only server symbols for static web and marketing builds.
+
 ## [7.34.2] - 2026-10-29
 
 ### Fixed

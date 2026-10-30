@@ -63,8 +63,12 @@ test(
   { timeout: 120_000 },
   () => {
     const root = new URL("../", import.meta.url);
+    const deadline = Date.now() + 110_000;
     function inventory(shard) {
+      const remaining = deadline - Date.now();
+      assert.ok(remaining > 0, "Playwright inventory verification exhausted its shared budget");
       const result = spawnSync(
+        // Match the pinned Node Playwright toolchain used by CI and builds.
         "node",
         [
           "node_modules/@playwright/test/cli.js",
@@ -78,7 +82,7 @@ test(
           cwd: root,
           env: { ...process.env, OPENPOST_APP_E2E_SUITE: "core", OPENPOST_APP_E2E_SHARD: shard },
           encoding: "utf8",
-          timeout: 15_000,
+          timeout: remaining,
           maxBuffer: 12 * 1024 * 1024,
         },
       );

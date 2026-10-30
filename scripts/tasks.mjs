@@ -82,7 +82,11 @@ const checks = {
     bun("scripts/asset-surfaces.mjs"),
   ]),
   workflows: stage("GitHub Actions workflows", [
-    bunTest("scripts/check-automation-paths.test.mjs"),
+    bunTest(
+      "scripts/check-automation-paths.test.mjs",
+      "scripts/ci-browser-workflow-contract.test.mjs",
+      "scripts/app-e2e-shards.test.mjs",
+    ),
     bun("scripts/check-automation-paths.mjs"),
     go("run", "github.com/rhysd/actionlint/cmd/actionlint@v1.7.12"),
   ]),

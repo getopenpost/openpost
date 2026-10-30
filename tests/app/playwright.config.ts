@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { fileURLToPath } from "node:url";
+import { appShardFiles, appTestPattern } from "../../scripts/app-e2e-shards.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -18,7 +19,9 @@ const dbPath = `/tmp/openpost-app-e2e-${port}.db`;
 const reuseExistingServer = process.env.OPENPOST_APP_E2E_REUSE_SERVER === "1";
 const usePrebuiltArtifact = process.env.OPENPOST_E2E_PREBUILT === "1";
 const workers = Number(process.env.OPENPOST_APP_E2E_WORKERS ?? (process.env.CI ? 1 : 2));
-const shardParts = process.env.OPENPOST_APP_E2E_SHARD?.split("/").map(Number);
+const shardParts = process.env.OPENPOST_APP_E2E_SHARD
+  ? process.env.OPENPOST_APP_E2E_SHARD.split("/").map(Number)
+  : undefined;
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 // Extra Chromium flags for local runs whose browser renders differently from
 // the pinned CI browser (for example newer engines without overlay
@@ -46,14 +49,26 @@ const chromiumUse = {
 const suite = process.env.OPENPOST_APP_E2E_SUITE;
 if (suite && suite !== "core" && suite !== "handoff")
   throw new Error("Unknown application browser suite");
+// CI and local failure reproduction share this exact assignment. Keep an
+// unsharded core run exhaustive; timings never determine suite membership.
+const balancedFiles =
+  suite === "core" && process.env.OPENPOST_APP_E2E_SHARD
+    ? appShardFiles(process.env.OPENPOST_APP_E2E_SHARD)
+    : undefined;
 
 export default defineConfig({
   testDir: ".",
   ...(suite === "handoff" ? { testMatch: "tool-draft-handoff.spec.ts" } : {}),
   ...(suite === "core" ? { testIgnore: "tool-draft-handoff.spec.ts" } : {}),
+  ...(balancedFiles
+    ? {
+        testMatch: balancedFiles.map(appTestPattern),
+      }
+    : {}),
   outputDir: `${repositoryRoot}/test-results`,
   fullyParallel: true,
-  shard: shardParts ? { current: shardParts[0], total: shardParts[1] } : undefined,
+  shard:
+    !balancedFiles && shardParts ? { current: shardParts[0], total: shardParts[1] } : undefined,
   workers,
   forbidOnly: !!process.env.CI,
   failOnFlakyTests: !!process.env.CI,

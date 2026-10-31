@@ -401,7 +401,11 @@ func TestXAnalyticsReservesReadBudgetBeforeProviderRequest(t *testing.T) {
 	service.SetProvider("x", adapter)
 	service.SetFeatureGate(alwaysEnabledGate{})
 	service.SetUsage(meter)
-	now := time.Now().UTC()
+	// Pin the clock mid-month: the X budget window is the calendar month of the
+	// event time, and the retry below adds 25 hours. A real-clock start on the
+	// last day of a month would cross into the next budget period and make the
+	// budget-exhaustion assertion date-dependent.
+	now := time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return now }
 	require.NoError(t, service.syncAccount(t.Context(), account.ID))
 	require.True(t, reservedBeforeFetch, "the provider request must observe the reservation")

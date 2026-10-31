@@ -37,7 +37,7 @@ test("Media distinguishes matching inventory from workspace storage", async ({
   const workspaceSize =
     (await summary.innerText()).match(/\d+(?:\.\d+)? (?:B|KB|MB|GB)/)?.[0] ?? "";
   expect(workspaceSize).toBeTruthy();
-  const search = page.getByRole("textbox", { name: "Search filename or alt text" });
+  const search = page.getByRole("searchbox", { name: "Search filename or alt text" });
   await search.fill("matching-picture");
   await search.press("Enter");
   await expect(page.getByTestId("media-result-count")).toContainText("1 result");

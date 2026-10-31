@@ -18,7 +18,7 @@
 	} from '$lib/video-editor/timeline/commands/snapshot.svelte';
 	import type { TimelineSnapshot } from '$lib/video-editor/timeline/commands/types';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	import ScrubbableNumberInput from '$lib/components/editor-scrubbable-number-input.svelte';
+	import { ScrubField } from '$lib/components/editor-density';
 
 	let {
 		itemId,
@@ -127,19 +127,20 @@
 						onKeydown={(event) => event.stopPropagation()}
 					/>
 					<div class="relative w-[4.6rem] shrink-0">
-						<ScrubbableNumberInput
+						<ScrubField
 							ariaLabel={m.video_editor_clip_speed()}
 							value={speedValue}
 							placeholder={m.video_editor_property_mixed()}
 							min={0.1}
 							max={10}
 							step={0.01}
-							decimals={2}
-							class="h-7 w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-xs tabular-nums outline-none"
+							precision={2}
+							valueWidth="100%"
+							class="h-7 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-xs tabular-nums outline-none"
 							onbegin={beginGesture}
-							onlive={writeSpeed}
-							oncommit={commitSpeed}
-							oncancel={cancelGesture}
+							onValueChange={writeSpeed}
+							onValueCommit={commitSpeed}
+							onValueCancel={cancelGesture}
 						/>
 						<span
 							class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-xs text-[var(--video-editor-muted)]"

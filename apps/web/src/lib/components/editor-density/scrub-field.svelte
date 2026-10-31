@@ -1,3 +1,8 @@
+<script module lang="ts">
+	// Deterministic unique ids for suffix announcement wiring, one per instance.
+	let nextSuffixId = 0;
+</script>
+
 <script lang="ts">
 	import { Input } from '$lib/components/ui/input';
 	import { cn } from '$lib/utils';
@@ -12,6 +17,7 @@
 
 	let {
 		ariaLabel,
+		ariaDescribedBy,
 		value,
 		min,
 		max,
@@ -19,6 +25,8 @@
 		precision = 2,
 		valueWidth = '4.25rem',
 		resetValue,
+		placeholder = '',
+		suffix = '',
 		disabled = false,
 		class: className = '',
 		onbegin,
@@ -27,6 +35,8 @@
 		onValueCancel
 	}: {
 		ariaLabel: string;
+		ariaDescribedBy?: string;
+		/** Numeric model value; null renders `placeholder` (mixed selection). */
 		value: number | null;
 		min?: number;
 		max?: number;
@@ -34,6 +44,17 @@
 		precision?: number;
 		valueWidth?: string;
 		resetValue?: number;
+		placeholder?: string;
+		/**
+		 * Unit rendered after the value (e.g. "frames" shows "12 frames").
+		 *
+		 * Display-only: the unit is a sibling of the input, never part of the
+		 * typed text, so typing "5" parses and commits 5 with no stripping.
+		 * It stays visible while editing, is announced through
+		 * aria-describedby, and yields to the mixed placeholder while the
+		 * value is null with nothing being typed.
+		 */
+		suffix?: string;
 		disabled?: boolean;
 		class?: string;
 		onbegin?: () => void;
@@ -48,6 +69,14 @@
 	let drag: { pointerId: number; startX: number; startValue: number; moved: boolean } | null = null;
 
 	const displayValue = $derived(draft ?? (value === null ? '' : formatFixed(value, precision)));
+
+	const suffixId = `scrub-field-suffix-${(nextSuffixId += 1)}`;
+	// The unit stays visible while editing, but yields to the mixed placeholder.
+	const suffixVisible = $derived(suffix !== '' && (draft !== null || value !== null));
+	const describedBy = $derived.by(() => {
+		const joined = [suffixVisible ? suffixId : null, ariaDescribedBy].filter(Boolean).join(' ');
+		return joined === '' ? undefined : joined;
+	});
 
 	function beginGesture(): void {
 		if (gestureActive) return;
@@ -129,6 +158,14 @@
 		if (moved) revert();
 	}
 
+	function handleDoubleClick(): void {
+		if (!disabled && resetValue !== undefined) {
+			beginGesture();
+			onValueCommit?.(clampValue(resetValue, min, max));
+			gestureActive = false;
+		}
+	}
+
 	function handleInput(event: Event): void {
 		if (!(event.currentTarget instanceof HTMLInputElement)) return;
 		const raw = event.currentTarget.value;
@@ -153,44 +190,74 @@
 			const current = parseNumeric(draft ?? '') ?? value ?? 0;
 			const direction = event.key === 'ArrowUp' ? 1 : -1;
 			setLive(nudgeValue(current, direction, step, { shift: event.shiftKey, alt: event.altKey }));
+		} else if (event.key === 'PageUp' || event.key === 'PageDown') {
+			event.preventDefault();
+			const current = parseNumeric(draft ?? '') ?? value ?? 0;
+			const direction = event.key === 'PageUp' ? 1 : -1;
+			setLive(nudgeValue(current, direction, step * 10));
+		} else if (event.key === 'Home' && min !== undefined) {
+			event.preventDefault();
+			setLive(min);
+		} else if (event.key === 'End' && max !== undefined) {
+			event.preventDefault();
+			setLive(max);
 		}
 	}
 
 	function handleKeyup(event: KeyboardEvent): void {
 		event.stopPropagation();
-		if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && draft !== null) commit();
+		if (
+			(event.key === 'ArrowUp' ||
+				event.key === 'ArrowDown' ||
+				event.key === 'PageUp' ||
+				event.key === 'PageDown' ||
+				event.key === 'Home' ||
+				event.key === 'End') &&
+			draft !== null
+		) {
+			commit();
+		}
 	}
 </script>
 
-<Input
-	bind:ref={input}
-	type="text"
-	inputmode="decimal"
-	autocomplete="off"
-	{disabled}
-	aria-label={ariaLabel}
-	value={displayValue}
-	style="width: {valueWidth};"
-	title={ariaLabel}
-	class={cn(
-		'h-[var(--editor-22,22px)] shrink-0 cursor-ew-resize touch-none px-1 text-right text-[11px] tabular-nums select-none focus:cursor-text focus:select-auto [@media(pointer:coarse)]:h-11',
-		className
-	)}
+<!-- svelte-ignore a11y_no_static_element_interactions -- decorative gesture wrapper extending the input's drag target; the input owns the ARIA contract -->
+<span
+	class="inline-flex shrink-0 cursor-ew-resize touch-none items-center select-none"
 	onpointerdown={startScrub}
 	onpointermove={moveScrub}
 	onpointerup={finishScrub}
 	onpointercancel={cancelScrub}
-	ondblclick={() => {
-		if (!disabled && resetValue !== undefined) {
-			beginGesture();
-			onValueCommit?.(clampValue(resetValue, min, max));
-			gestureActive = false;
-		}
-	}}
-	oninput={handleInput}
-	onkeydown={handleKeydown}
-	onkeyup={handleKeyup}
-	onblur={(event) => {
-		if (draft !== null) commit(event.currentTarget.value);
-	}}
-/>
+	ondblclick={handleDoubleClick}
+>
+	<Input
+		bind:ref={input}
+		type="text"
+		inputmode="decimal"
+		autocomplete="off"
+		{disabled}
+		aria-label={ariaLabel}
+		aria-describedby={describedBy}
+		{placeholder}
+		value={displayValue}
+		style="width: {valueWidth};"
+		title={ariaLabel}
+		class={cn(
+			'h-[var(--editor-22,22px)] shrink-0 cursor-ew-resize touch-none px-1 text-right text-[11px] tabular-nums select-none focus:cursor-text focus:select-auto [@media(pointer:coarse)]:h-11',
+			className
+		)}
+		oninput={handleInput}
+		onkeydown={handleKeydown}
+		onkeyup={handleKeyup}
+		onblur={(event) => {
+			if (draft !== null) commit(event.currentTarget.value);
+		}}
+	/>
+	{#if suffixVisible}
+		<span
+			id={suffixId}
+			class="shrink-0 pl-0.5 text-[11px] whitespace-nowrap tabular-nums select-none"
+			class:opacity-60={!disabled}
+			class:opacity-35={disabled}>{suffix}</span
+		>
+	{/if}
+</span>

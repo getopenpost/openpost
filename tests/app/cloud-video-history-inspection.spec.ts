@@ -24,7 +24,7 @@ test("Cloud history can inspect a saved version without restoring or changing th
     await page.locator("header").getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Version history", exact: true }).click();
     const history = page.getByRole("dialog", { name: "Version history", exact: true });
-    await expect(history.getByText("Loading...", { exact: true })).toHaveCount(0);
+    await expect(history.getByText("Loading…", { exact: true })).toHaveCount(0);
     return history;
   };
   let history = await openHistory();

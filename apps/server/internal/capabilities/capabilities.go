@@ -478,8 +478,8 @@ func buildCatalog() []Capability {
 		defaultQueued(Capability{Provider: ProviderFacebook, Profile: models.ContentProfileShortVideo, Label: "Facebook Reel/video", TextLimit: 63206, Media: publicShortVideo, RequiresPublicMedia: true, Settings: facebookSettings()}),
 		defaultQueued(Capability{Provider: ProviderFacebook, Profile: models.ContentProfileLongVideo, Label: "Facebook video", TextLimit: 63206, Media: longVideo, RequiresPublicMedia: true, Settings: facebookSettings()}),
 
-		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileImagePost, Label: "Instagram feed", TextLimit: 2200, Media: publicImage, RequiresPublicMedia: true, Settings: instagramSettings(models.ContentProfileImagePost)}),
-		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileCarousel, Label: "Instagram carousel", TextLimit: 2200, Media: publicMediaCarousel, RequiresPublicMedia: true, Settings: instagramSettings(models.ContentProfileCarousel)}),
+		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileImagePost, Label: "Instagram feed", TextLimit: 2200, Media: publicImage, RequiresPublicMedia: true, Settings: instagramSettings(models.ContentProfileImagePost), Content: instagramAltTextConstraint()}),
+		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileCarousel, Label: "Instagram carousel", TextLimit: 2200, Media: publicMediaCarousel, RequiresPublicMedia: true, Settings: instagramSettings(models.ContentProfileCarousel), Content: instagramAltTextConstraint()}),
 		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileStory, Label: "Instagram Story", Media: publicStory, RequiresPublicMedia: true, RequiresAppReview: true, Settings: instagramSettings(models.ContentProfileStory)}),
 		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileShortVideo, Label: "Instagram Reel", TextLimit: 2200, Media: publicShortVideo, RequiresPublicMedia: true, Settings: instagramSettings(models.ContentProfileShortVideo)}),
 
@@ -639,7 +639,7 @@ func normalizeSettingDefinitions(capability Capability) []SettingDefinition {
 		out = append(out, definition)
 	}
 	if altShapes := altTextMediaShapes(capability); len(altShapes) > 0 {
-		out = append(out, SettingDefinition{
+		definition := SettingDefinition{
 			Key:            "alt_text",
 			MessageKey:     "publishing.setting.alt.text",
 			Label:          "Alt text",
@@ -651,9 +651,24 @@ func normalizeSettingDefinitions(capability Capability) []SettingDefinition {
 			OutputProfiles: []string{capability.OutputProfile},
 			MediaShapes:    altShapes,
 			RequiredPolicy: "never",
-		})
+		}
+		if capability.Provider == ProviderInstagram {
+			// Meta accepts alt_text on image containers only, up to
+			// InstagramAltTextMaxCharacters; Reels and Stories are not
+			// supported.
+			definition.Constraints = SettingConstraint{MaxLength: providerlimits.InstagramAltTextMaxCharacters}
+			definition.Help = fmt.Sprintf("Instagram accepts alt text up to %d characters.", providerlimits.InstagramAltTextMaxCharacters)
+		}
+		out = append(out, definition)
 	}
 	return out
+}
+
+// instagramAltTextConstraint declares the alt_text maximum Meta documents for
+// image containers on the feed and carousel profiles. Reels and Stories never
+// receive alt text, and validateMediaItem skips non-image items there.
+func instagramAltTextConstraint() ContentConstraint {
+	return ContentConstraint{AltText: TextConstraint{MaxLength: providerlimits.InstagramAltTextMaxCharacters}}
 }
 
 func altTextMediaShapes(capability Capability) []string {
@@ -2366,7 +2381,15 @@ func validateMediaItem(capability Capability, item MediaItem) []ValidationIssue 
 	if capability.Media.AudioPolicy == "forbidden" && item.AudioChannels > 0 {
 		issues = append(issues, ValidationIssue{Severity: "error", Code: "media_audio_forbidden", Message: "Video must not include audio", Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID})
 	}
-	issues = append(issues, validateTextConstraint(capability, "alt_text", item.AltText, capability.Content.AltText)...)
+	// Meta accepts alt_text on image containers only, so alt text on a
+	// video carousel child is never projected to Instagram and stays
+	// unvalidated there.
+	if capability.Provider != ProviderInstagram || strings.HasPrefix(item.MimeType, "image/") {
+		for _, issue := range validateTextConstraint(capability, "alt_text", item.AltText, capability.Content.AltText) {
+			issue.MediaID = item.ID
+			issues = append(issues, issue)
+		}
+	}
 	if strings.HasPrefix(item.MimeType, "video/") && item.AnalysisStatus != "" && item.AnalysisStatus != "ready" && item.AnalysisStatus != "failed" {
 		issues = append(issues, ValidationIssue{Severity: "error", Code: "media_analysis_pending", Message: "Video analysis must finish before scheduling or publishing", Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID})
 	}
@@ -2575,7 +2598,7 @@ func xSettings() []SettingField {
 		{Key: "location_id", Label: "Location", Type: "select", Control: "remote_picker", OptionsSource: "x_locations", Capability: "geo", UnavailableReason: "X has not granted this account access to location publishing options."},
 		{Key: "paid_partnership", Label: "Paid partnership", Type: "boolean"},
 		{Key: "made_with_ai", Label: "Made with AI", Type: "boolean"},
-		{Key: "tagged_users", Label: "Tag people", Type: "tags", Control: "user_picker", Scope: SettingScopeMediaItem, MediaShapes: []string{MediaShapeSingleImage, MediaShapeMultipleImage}},
+		{Key: "tagged_users", Label: "Tag people", Type: "tags", Control: "user_picker", Scope: SettingScopeMediaItem, MediaShapes: []string{MediaShapeSingleImage, MediaShapeMultipleImage}, Constraints: SettingConstraint{MaxItems: providerlimits.XPostMaxTaggedUsers}, Help: "Tag up to 10 people per post. Enter X handles or numeric X user IDs, separated by commas; handles are resolved when publishing."},
 	}
 }
 

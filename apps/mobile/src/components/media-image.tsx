@@ -1,9 +1,10 @@
 import { Image, type ImageProps } from "expo-image";
 import { useState, useSyncExternalStore } from "react";
-import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { type StyleProp, type ViewStyle, View } from "react-native";
 import { getToken, subscribeToken } from "@/lib/api/token-store";
 import { getServer, subscribeServer } from "@/lib/server";
 import { mediaPreviewCandidates, type MediaPreviewSize } from "@/lib/media-source";
+import { useNativeTheme } from "@/theme";
 
 export type { MediaPreviewSize };
 
@@ -14,6 +15,7 @@ type MediaImageProps = Omit<ImageProps, "source" | "cachePolicy" | "onError"> & 
 };
 
 export function MediaImage({ uri, size = "original", onError, ...props }: MediaImageProps) {
+  const placeholderColor = useNativeTheme().manifest.colors.surfaceContainerHigh;
   const server = useSyncExternalStore(subscribeServer, getServer);
   const token = useSyncExternalStore(subscribeToken, getToken);
   const baseUrl = server?.baseUrl ?? "";
@@ -30,7 +32,7 @@ export function MediaImage({ uri, size = "original", onError, ...props }: MediaI
   if (attempt.missing) {
     return (
       <View
-        style={[styles.placeholder, props.style] as StyleProp<ViewStyle>}
+        style={[{ backgroundColor: placeholderColor }, props.style] as StyleProp<ViewStyle>}
         accessibilityRole="image"
         accessibilityLabel={
           typeof props.accessibilityLabel === "string"
@@ -60,9 +62,3 @@ export function MediaImage({ uri, size = "original", onError, ...props }: MediaI
     />
   );
 }
-
-const styles = StyleSheet.create({
-  placeholder: {
-    backgroundColor: "#8E8E93",
-  },
-});

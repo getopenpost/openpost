@@ -9,7 +9,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { m } from '$lib/paraglide/messages';
 	import { Input } from '$lib/components/ui/input';
-	import { Slider } from '$lib/components/ui/slider';
+	import { SliderRow } from '$lib/components/editor-density';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import {
@@ -981,13 +981,15 @@
 					{#if !collapsedEffects.has(effect.id)}
 						<div class="px-2 pb-1.5" class:opacity-55={!effect.enabled}>
 							{#if definition && effect.type !== 'gpu'}
-								<Slider
+								<SliderRow
 									class="mt-1"
+									showLabel={false}
+									label={`${typeLabels[effect.type]} — ${m.video_editor_effects_amount()}`}
 									min={definition.min}
 									max={definition.max}
 									step={definition.step}
+									precision={definition.step < 1 ? 2 : 0}
 									value={draftAmounts[effect.id] ?? effect.amount}
-									ariaLabel={`${typeLabels[effect.type]} — ${m.video_editor_effects_amount()}`}
 									onValueChange={(value) => {
 										draftAmounts[effect.id] = value;
 									}}

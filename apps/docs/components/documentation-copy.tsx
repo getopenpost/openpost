@@ -77,7 +77,7 @@ function DocumentationCopyButton({
             void copy();
           }}
           aria-disabled={busy}
-          aria-label={copied ? "Copied Text" : label}
+          aria-label={copied ? "Copied" : label}
           aria-describedby={failed ? descriptionId : undefined}
           className={`${className ?? buttonVariants({ size: "icon-xs" })} [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11`}
         >

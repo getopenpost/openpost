@@ -91,19 +91,20 @@
     </div>
   {/if}
 
+  <div class="engagement" aria-hidden="true">
+    <span class="reaction-cluster"><i>👍</i><i>♥</i><i>👏</i></span>
+    <span>0</span>
+    <span class="right">0 comments · 0 reposts</span>
+  </div>
   <div class="action-row">
-    <PreviewAvatar identity={model.identity} size={24} />
     <div class="actions"><PreviewActions platform="linkedin" {compact} /></div>
-    <span class="reaction-cluster" aria-hidden="true"
-      ><i>👍</i><i>♥</i><i>👏</i></span
-    >
   </div>
 
   {#if replies.length > 0}
     <div class="comment-thread">
       {#each replies as reply (reply.id)}
         <div class="comment">
-          <PreviewAvatar identity={model.identity} size={34} />
+          <PreviewAvatar identity={model.identity} size={32} />
           <div>
             <div class="comment-bubble">
               <strong>{model.identity.displayName}</strong>
@@ -138,8 +139,8 @@
     --native-fg: light-dark(rgb(0 0 0 / 90%), rgb(255 255 255 / 90%));
     --native-muted: light-dark(rgb(0 0 0 / 60%), rgb(255 255 255 / 60%));
     --native-border: light-dark(#e0dfdc, #38434f);
-    --native-soft: light-dark(#edf3f8, #293138);
-    width: min(100%, 34.75rem);
+    --native-soft: light-dark(#eef3f8, #2a2e33);
+    width: min(100%, 34.5rem);
     overflow: hidden;
     border: 1px solid var(--native-border);
     border-radius: 0.5rem;
@@ -168,12 +169,13 @@
     min-width: 0;
     align-items: center;
     gap: 0.25rem;
-    font-size: 0.88rem;
+    font-size: 0.875rem;
     line-height: 1.25;
   }
 
   .name strong {
     overflow: hidden;
+    font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -181,7 +183,7 @@
   .name span,
   .identity > span {
     color: var(--native-muted);
-    font-size: 0.73rem;
+    font-size: 0.75rem;
     line-height: 1.35;
   }
 
@@ -197,12 +199,12 @@
   }
 
   .more {
-    color: var(--native-fg);
+    color: var(--native-muted);
   }
 
   .more :global(svg) {
-    width: 1.35rem;
-    height: 1.35rem;
+    width: 1.25rem;
+    height: 1.25rem;
   }
 
   .post-body {
@@ -218,7 +220,7 @@
   .post-text {
     margin: 0;
     color: var(--native-fg);
-    font-size: 0.88rem;
+    font-size: 0.875rem;
     line-height: 1.45;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
@@ -226,6 +228,17 @@
 
   .poll-wrap {
     padding: 0 1rem 0.75rem;
+  }
+
+  .poll-wrap :global(.poll-option) {
+    min-height: 3rem;
+    border-radius: 0.15rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .poll-wrap :global(small) {
+    font-size: 0.75rem;
   }
 
   .empty-document {
@@ -271,15 +284,15 @@
 
   .reaction-cluster i {
     display: grid;
-    width: 1rem;
-    height: 1rem;
+    width: 1.125rem;
+    height: 1.125rem;
     place-items: center;
-    margin-right: -0.16rem;
-    border: 1px solid white;
+    margin-right: -0.25rem;
+    border: 2px solid var(--native-surface);
     border-radius: 50%;
-    background: #0a66c2;
+    background: #378fe9;
     color: white;
-    font-size: 0.54rem;
+    font-size: 0.55rem;
     font-style: normal;
   }
 
@@ -289,6 +302,22 @@
 
   .reaction-cluster i:nth-child(3) {
     background: #6dae4f;
+  }
+
+  .engagement {
+    display: flex;
+    min-height: 2.2rem;
+    align-items: center;
+    gap: 0.35rem;
+    margin-inline: 1rem;
+    padding: 0.1rem 0 0.3rem;
+    border-bottom: 1px solid var(--native-border);
+    color: var(--native-muted);
+    font-size: 0.78rem;
+  }
+
+  .engagement .right {
+    margin-left: auto;
   }
 
   .action-row {
@@ -302,6 +331,10 @@
   .actions {
     flex: 1;
     min-width: 0;
+  }
+
+  .actions :global(.action) {
+    font-size: 0.875rem;
   }
 
   .comment-thread {
@@ -321,23 +354,35 @@
     display: grid;
     gap: 0.15rem;
     border-radius: 0 0.7rem 0.7rem;
-    background: light-dark(#f2f2f2, #293138);
+    background: light-dark(#f2f2f2, #2a2e33);
     padding: 0.55rem 0.7rem;
   }
 
   .comment-bubble > strong {
-    font-size: 0.76rem;
+    font-size: 0.75rem;
+    font-weight: 600;
   }
 
-  .comment-bubble > span,
+  .comment-bubble > span {
+    justify-self: start;
+    border-radius: 0.125rem;
+    background: #13707e;
+    color: #fff;
+    padding: 0.05rem 0.3rem;
+    font-size: 0.6rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
   .comment > div > small {
     color: var(--native-muted);
-    font-size: 0.66rem;
+    font-size: 0.75rem;
+    line-height: 1.35;
   }
 
   .comment-bubble .post-text {
     margin-top: 0.2rem;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
 
   .comment > div > small {

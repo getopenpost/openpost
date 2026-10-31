@@ -41,7 +41,7 @@
 	<div class="tool-layout" class:preview-layout={fullWidth}>
 		<div class="tool-main">
 			<header>
-				<h1>{article.title}</h1>
+				<h1 class="marketing-title marketing-title--compact">{article.title}</h1>
 				<p>{article.description}</p>
 			</header>
 			<div class="tool-controls" data-agent-exclude="interactive-tool">
@@ -69,7 +69,7 @@
 				<section>
 					<h2>Common questions</h2>
 					{#each article.questions as item (item.question)}<details>
-							<summary>{item.question}</summary>
+							<summary class="focus-ring">{item.question}</summary>
 							<p>{item.answer}</p>
 						</details>{/each}
 				</section>
@@ -148,14 +148,6 @@
 	}
 	header {
 		padding-block: 16px 28px;
-	}
-	h1 {
-		max-width: 22ch;
-		font-size: clamp(36px, 4vw, 56px);
-		font-weight: 550;
-		line-height: 1.08;
-		letter-spacing: -0.035em;
-		text-wrap: balance;
 	}
 	header > p {
 		margin-top: 18px;

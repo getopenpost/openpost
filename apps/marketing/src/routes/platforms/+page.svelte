@@ -12,7 +12,7 @@
 
 <section class="channels marketing-shell">
 	<header>
-		<h1>Your business.<br /><HeroAccent>Your channels.</HeroAccent></h1>
+		<h1 class="marketing-title">Your business.<br /><HeroAccent>Your channels.</HeroAccent></h1>
 		<p>
 			A product demo for TikTok. A lesson for LinkedIn. A new arrival for Instagram.<br
 				class="hidden sm:block"
@@ -54,12 +54,6 @@
 	header {
 		text-align: center;
 		margin-bottom: 56px;
-	}
-	h1 {
-		font-size: clamp(42px, 5.7vw, 78px);
-		font-weight: 550;
-		letter-spacing: -0.04em;
-		line-height: 1.06;
 	}
 	header p {
 		margin: 28px auto 0;

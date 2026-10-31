@@ -2,8 +2,11 @@ package notifications
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -83,6 +86,83 @@ func NewAccountNeedsAttentionOutcome(facts AccountAttentionFacts) (Outcome, erro
 			"scheduled_at_risk": facts.ScheduledAtRisk,
 		},
 	})
+}
+
+// AccountCredentialFailureFacts reports one healthy-to-failing credential
+// transition for a connected account. Generation scopes the event so every
+// failure inside one break coalesces per recipient, while a reconnected
+// account that breaks again starts a fresh generation.
+type AccountCredentialFailureFacts struct {
+	RecipientUserID string
+	WorkspaceID     string
+	AccountID       string
+	Generation      int64
+	Provider        string
+	AccountLabel    string
+}
+
+// NewAccountCredentialFailureOutcome records the account-scoped credential
+// break that routes to the people who can reconnect the account. It shares
+// the account attention topic and copy, but its event identity is the
+// account plus the claimed generation instead of a publication.
+func NewAccountCredentialFailureOutcome(facts AccountCredentialFailureFacts) (Outcome, error) {
+	generation := strconv.FormatInt(facts.Generation, 10)
+	return newOutcome(semanticOutcome{
+		recipientID: facts.RecipientUserID, workspaceID: facts.WorkspaceID,
+		topic: TypeAccountNeedsAttention, eventID: facts.AccountID + ":" + generation,
+		payload: map[string]any{
+			"account_id": facts.AccountID, "provider": facts.Provider,
+			"account_label": facts.AccountLabel, "credential_generation": generation,
+		},
+	})
+}
+
+// AccountCredentialFailureRecipients resolves who can reconnect an account:
+// the user who consented to its OAuth grant plus every active administrator
+// of the account's workspace. The set is deduplicated, keeps the connector
+// first, and may be empty; producers fall back to their existing recipients.
+func AccountCredentialFailureRecipients(ctx context.Context, db bun.IDB, account *models.SocialAccount) ([]string, error) {
+	recipients := make([]string, 0, 4)
+	seen := make(map[string]struct{}, 4)
+	addRecipient := func(userID string) {
+		userID = strings.TrimSpace(userID)
+		if userID == "" {
+			return
+		}
+		if _, ok := seen[userID]; ok {
+			return
+		}
+		seen[userID] = struct{}{}
+		recipients = append(recipients, userID)
+	}
+	if grantID := strings.TrimSpace(account.OAuthGrantID); grantID != "" {
+		grant := struct {
+			ConsentedByID string `bun:"consented_by_id"`
+		}{}
+		err := db.NewSelect().Model((*models.OAuthGrant)(nil)).
+			Column("consented_by_id").
+			Where("id = ?", grantID).
+			Scan(ctx, &grant)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("resolve account connector: %w", err)
+		}
+		if err == nil {
+			addRecipient(grant.ConsentedByID)
+		}
+	}
+	var admins []models.WorkspaceMember
+	if err := db.NewSelect().Model(&admins).
+		Column("user_id").
+		Where("workspace_id = ?", account.WorkspaceID).
+		Where("role = ?", models.WorkspaceRoleAdmin).
+		Where("status = ?", models.WorkspaceMemberStatusActive).
+		Scan(ctx); err != nil {
+		return nil, fmt.Errorf("resolve workspace administrators: %w", err)
+	}
+	for _, admin := range admins {
+		addRecipient(admin.UserID)
+	}
+	return recipients, nil
 }
 
 // putOptionalFact keeps an empty descriptive fact out of the payload entirely.

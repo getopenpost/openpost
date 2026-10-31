@@ -206,7 +206,7 @@
     data-preview-shell={model.platform}
     aria-label={`${platformName} page preview`}
   >
-    {#if ["threads", "mastodon", "pixelfed", "peertube", "lemmy", "piefed", "pinterest", "reddit", "googlebusiness"].includes(model.platform)}
+    {#if ["threads", "mastodon", "pixelfed", "peertube", "lemmy", "piefed", "pinterest", "reddit", "googlebusiness", "devnull"].includes(model.platform)}
       <AdditionalPreviewPage {model} {scheme} />
     {:else if model.platform === "x" || model.platform === "bluesky"}
       <div class="micro-page">
@@ -457,7 +457,7 @@
           <div class="facebook-stories" aria-hidden="true">
             {#each ["Create story", "Maya", "Ari", "OpenPost Image Editor"] as story, index (story)}
               <div
-                style={`--story-tone: ${["#1877f2", "#7c3aed", "#db2777", "#0f766e"][index]}`}
+                style={`--story-tone: ${["#0866ff", "#7c3aed", "#db2777", "#0f766e"][index]}`}
               >
                 <i>{story.slice(0, 1)}</i><span>{story}</span>
               </div>
@@ -476,7 +476,7 @@
           {@render nativeContextPost(
             "OpenPost Community",
             "This week’s community round-up is ready. Thanks to everyone who shared feedback.",
-            "#1877f2",
+            "#0866ff",
           )}
         </section>
         <aside class="facebook-right">
@@ -489,6 +489,7 @@
           {@render contactRow("OpenPost Image Editor Notes", "#2563eb")}
           {@render contactRow("Open Design", "#0f766e")}
         </aside>
+        {@render mobileNav()}
       </div>
     {:else if model.platform === "instagram"}
       <div class="instagram-page">
@@ -517,13 +518,10 @@
           ]}
         >
           <header class="instagram-mobile-header">
-            <strong>For you</strong>
+            <strong>Instagram</strong>
             {@render searchBox("Search")}
           </header>
           {#if model.format === "post"}
-            <div class="instagram-feed-tabs" aria-hidden="true">
-              <strong>For you</strong><span>Following</span>
-            </div>
             <div class="story-strip" aria-hidden="true">
               {#each Array(6) as _, index (index)}
                 <div>
@@ -565,7 +563,7 @@
           </aside>
         {/if}
         <nav class="mobile-native-nav instagram-bottom" aria-hidden="true">
-          <Home /><Search /><Video /><Plus /><Send /><Grid2X2 /><User />
+          <Home /><Search /><Plus /><Video /><User />
         </nav>
       </div>
     {:else if model.platform === "youtube"}
@@ -1231,10 +1229,15 @@
     grid-row: 1 / span 2;
     grid-column: 3;
     border-radius: 999px;
-    background: var(--page-accent);
-    color: #fff;
+    background: var(--page-fg);
+    color: var(--page-bg);
     padding: 0.48rem 0.9rem;
     font-size: 0.75rem;
+  }
+
+  .platform-bluesky .micro-composer > b {
+    background: #0066ff;
+    color: #fff;
   }
 
   .micro-right {
@@ -1496,7 +1499,7 @@
     --page-fg: rgb(0 0 0 / 90%);
     --page-muted: rgb(0 0 0 / 60%);
     --page-border: #e0dfdc;
-    --page-soft: #edf3f8;
+    --page-soft: #eef3f8;
     font-family:
       -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto,
       sans-serif;
@@ -1579,7 +1582,7 @@
   .profile-cover {
     width: 100%;
     height: 3.6rem;
-    background: #a0b4b7;
+    background: light-dark(#a0b4b7, #38434f);
   }
 
   .linkedin-profile :global(.preview-avatar) {
@@ -1762,7 +1765,9 @@
     --page-muted: #65676b;
     --page-border: #ced0d4;
     --page-soft: #e4e6eb;
-    font-family: Arial, Helvetica, sans-serif;
+    font-family:
+      system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Historic", "Segoe UI",
+      Helvetica, Arial, sans-serif;
   }
 
   .facebook-topbar {
@@ -1778,7 +1783,7 @@
     width: 2.5rem;
     height: 2.5rem;
     place-items: center;
-    color: #1877f2;
+    color: #0866ff;
   }
 
   .facebook-brand :global(svg) {
@@ -1804,13 +1809,13 @@
   }
 
   .facebook-topbar .nav-item strong {
-    display: none;
+    font-size: 0.9rem;
   }
 
   .facebook-topbar .nav-item.active {
-    border-bottom: 3px solid #1877f2;
+    border-bottom: 3px solid #0866ff;
     border-radius: 0;
-    color: #1877f2;
+    color: #0866ff;
   }
 
   .top-actions {
@@ -1893,7 +1898,7 @@
     border-radius: 0.7rem;
     background: color-mix(
       in srgb,
-      var(--story-tone, #1877f2) 22%,
+      var(--story-tone, #0866ff) 22%,
       var(--page-surface)
     );
     box-shadow: 0 1px 2px rgb(0 0 0 / 16%);
@@ -1905,7 +1910,7 @@
     height: 2.25rem;
     margin: 0.65rem;
     place-items: center;
-    border: 3px solid #1877f2;
+    border: 3px solid #0866ff;
     border-radius: 50%;
     background: var(--story-tone);
     color: #fff;
@@ -2036,7 +2041,7 @@
     --page-muted: #737373;
     --page-border: #dbdbdb;
     font-family:
-      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+      "Optimistic Text", Optimistic, Montserrat, Helvetica, Arial, "Noto Sans",
       sans-serif;
   }
 
@@ -2045,6 +2050,17 @@
     grid-template-columns: 4.5rem minmax(30rem, 44rem) minmax(15rem, 20rem);
     justify-content: start;
     gap: 1.5rem;
+  }
+  /* The real desktop rail is wide, with the wordmark and labeled items. */
+  @container social-page (min-width: 68rem) {
+    .instagram-page {
+      grid-template-columns: 14.75rem minmax(30rem, 44rem) minmax(15rem, 20rem);
+    }
+
+    .instagram-left {
+      align-items: stretch;
+      padding-inline: 0.75rem;
+    }
   }
 
   .instagram-left {
@@ -2119,10 +2135,26 @@
   .story-strip i {
     width: 3.5rem;
     height: 3.5rem;
-    border: 2px solid #e1306c;
     border-radius: 50%;
-    background: #efefef;
-    box-shadow: inset 0 0 0 2px #fff;
+    padding: 3px;
+    background: linear-gradient(
+      125deg,
+      #ffd600 15%,
+      #ff7a00 30%,
+      #ff0169,
+      #d300c5 70%,
+      #7638fa 85%
+    );
+  }
+
+  .story-strip i::after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: light-dark(#efefef, #262626);
+    box-shadow: 0 0 0 1px var(--page-bg);
   }
 
   .story-strip span {
@@ -2265,9 +2297,10 @@
 
   .youtube-page {
     display: grid;
-    grid-template-columns: 15rem minmax(0, 1fr);
+    grid-template-columns: 5rem minmax(0, 1fr);
   }
 
+  /* The real watch page keeps the guide collapsed to icons by default. */
   .youtube-left {
     position: sticky;
     top: 3.5rem;
@@ -2278,16 +2311,27 @@
   }
 
   .youtube-left .nav-item {
+    display: grid;
+    justify-items: center;
+    gap: 0.15rem;
     min-height: 2.5rem;
     border-radius: 0.65rem;
-    font-size: 0.82rem;
+    padding: 0.35rem 0;
+    font-size: 0.58rem;
+  }
+
+  .youtube-left .nav-item > span {
+    width: auto;
   }
 
   .youtube-left .nav-item.active {
     background: var(--page-soft);
   }
 
-  .youtube-left hr,
+  .youtube-left hr {
+    display: none;
+  }
+
   .tiktok-left hr {
     width: 100%;
     border: 0;
@@ -2551,9 +2595,9 @@
     align-items: center;
     justify-content: space-between;
     margin: -0.75rem -0.5rem 0.8rem;
-    border-bottom: 1px solid #1f2024;
+    border-bottom: 1px solid var(--page-border);
     padding: 0 1rem;
-    color: #f2f3f5;
+    color: var(--page-fg);
     box-shadow: 0 1px 2px rgb(0 0 0 / 20%);
   }
 
@@ -2633,7 +2677,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    border-bottom: 1px solid #26272d;
+    border-bottom: 1px solid light-dark(#e3e5e8, #3f4147);
     padding: 0 1rem;
     box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
   }
@@ -2645,14 +2689,15 @@
   }
 
   .discord-chat > header strong {
-    font-size: 0.9rem;
+    font-size: 1rem;
+    font-weight: 600;
   }
 
   .discord-chat > header span {
     border-left: 1px solid #4e5058;
     color: var(--page-muted);
     padding-left: 0.75rem;
-    font-size: 0.72rem;
+    font-size: 0.875rem;
   }
 
   .discord-chat > header > div {
@@ -2714,10 +2759,10 @@
     min-height: 2.8rem;
     margin: 0 1rem 1.5rem;
     border-radius: 0.5rem;
-    background: light-dark(#ebedef, #383a40);
+    background: light-dark(#ebebed, #383a40);
     color: var(--page-muted);
     padding: 0 0.8rem;
-    font-size: 0.78rem;
+    font-size: 0.875rem;
   }
 
   .message-box :global(svg) {
@@ -2837,12 +2882,10 @@
       display: none;
     }
 
-    .youtube-page,
     .tiktok-page {
       grid-template-columns: 5rem minmax(0, 1fr);
     }
 
-    .youtube-left .nav-item,
     .tiktok-left .nav-item {
       display: grid;
       justify-items: center;
@@ -2851,12 +2894,10 @@
       font-size: 0.58rem;
     }
 
-    .youtube-left .nav-item > span,
     .tiktok-left .nav-item > span {
       width: auto;
     }
 
-    .youtube-left hr,
     .tiktok-left hr,
     .tiktok-left .rail-label,
     .tiktok-left .ghost-rows {
@@ -2944,6 +2985,27 @@
   }
 
   @container social-page (max-width: 40rem) {
+    /* Phone shells stack and stretch so the bottom navigation pins to the
+       frame bottom even when the feed content is shorter than the screen. */
+    .micro-page,
+    .linkedin-page,
+    .facebook-page,
+    .instagram-page,
+    .youtube-watch,
+    .tiktok-feed {
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+    }
+
+    .youtube-watch {
+      min-height: calc(100dvh - 3.5rem);
+    }
+
+    .mobile-native-nav {
+      margin-top: auto;
+    }
+
     .telegram-page {
       display: block;
     }
@@ -2956,8 +3018,6 @@
       padding-inline: 0.7rem;
     }
 
-    .micro-page,
-    .instagram-page,
     .youtube-page,
     .tiktok-page,
     .discord-page {
@@ -3068,8 +3128,8 @@
     }
 
     .linkedin-page {
-      display: block;
-      padding: 0 0 3.75rem;
+      display: flex;
+      flex-direction: column;
     }
 
     .linkedin-composer,
@@ -3177,8 +3237,9 @@
 
     .youtube-watch,
     .youtube-watch.shorts-view {
-      display: block;
-      padding: 0 0 3.75rem;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
     }
 
     .youtube-chips {
@@ -3187,7 +3248,7 @@
 
     .tiktok-feed {
       min-height: calc(100dvh - 3.75rem);
-      padding: 0 0 3.75rem;
+      padding: 0;
     }
 
     .tiktok-feed-tabs {
@@ -3222,25 +3283,32 @@
   .preview-page {
     --page-bg: light-dark(#fff, #000);
     --page-surface: light-dark(#fff, #121212);
-    --page-fg: light-dark(#0f1419, #f2f2f2);
-    --page-muted: light-dark(#536471, #a4a4a4);
+    --page-fg: light-dark(#0f1419, #e7e9ea);
+    --page-muted: light-dark(#536471, #71767b);
     --page-border: light-dark(#eff3f4, #2f3336);
-    --page-soft: light-dark(#f5f5f5, #202124);
-    font-family: Arial, Helvetica, sans-serif;
+    --page-soft: light-dark(#f7f9f9, #16181c);
+  }
+  .platform-x {
+    font-family:
+      TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Helvetica, Arial, sans-serif;
   }
   .platform-bluesky {
-    --page-bg: light-dark(#fff, #111822);
+    --page-bg: light-dark(#fff, #000);
     --page-surface: var(--page-bg);
-    --page-border: light-dark(#e5eaf0, #273344);
-    --page-fg: light-dark(#101827, #f1f3f5);
-    --page-muted: light-dark(#68788a, #a7b5c5);
-    --page-soft: light-dark(#f1f5f9, #1e2938);
+    --page-border: light-dark(#dce2ea, #232e3e);
+    --page-fg: light-dark(#000, #fff);
+    --page-muted: light-dark(#405168, #a5b2c5);
+    --page-soft: light-dark(#f9fafb, #111822);
+    font-family:
+      InterVariable, Inter, system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   .platform-linkedin {
     --page-bg: light-dark(#f4f2ee, #000);
     --page-surface: light-dark(#fff, #1b1f23);
-    --page-border: light-dark(#dfdeda, #38434f);
-    --page-soft: light-dark(#eef3f8, #293138);
+    --page-border: light-dark(#e0dfdc, #38434f);
+    --page-soft: light-dark(#eef3f8, #2a2e33);
   }
   .platform-facebook {
     --page-bg: light-dark(#f0f2f5, #18191a);
@@ -3292,7 +3360,6 @@
     }
     .facebook-feed :global(.facebook-preview) {
       border-radius: 0;
-      border-inline: 0;
     }
   }
   .platform-x .column-header {
@@ -3309,8 +3376,8 @@
     font-weight: 400;
   }
   .platform-instagram {
-    --page-bg: light-dark(#fff, #000);
-    --page-surface: light-dark(#fff, #000);
+    --page-bg: light-dark(#fff, #0c1014);
+    --page-surface: light-dark(#fff, #0c1014);
     --page-fg: light-dark(#262626, #f5f5f5);
     --page-muted: light-dark(#737373, #a8a8a8);
     --page-border: light-dark(#dbdbdb, #262626);
@@ -3332,27 +3399,7 @@
     --page-border: light-dark(#e5e5e5, #303030);
     --page-soft: light-dark(#f2f2f2, #272727);
   }
-  .instagram-left .instagram-wordmark,
-  .instagram-left .nav-item strong {
-    display: none;
-  }
-  .instagram-left .compact-logo {
-    display: grid;
-  }
-  .instagram-feed-tabs {
-    display: flex;
-    gap: 20px;
-    width: min(100%, 470px);
-    border-bottom: 1px solid var(--page-border);
-    padding: 16px 0;
-  }
-  .instagram-feed-tabs span {
-    color: var(--page-muted);
-  }
   @container social-page (max-width: 40rem) {
-    .instagram-feed-tabs {
-      display: none;
-    }
     .instagram-mobile-header {
       gap: 20px;
     }
@@ -3363,7 +3410,7 @@
       border-radius: 8px;
     }
     .instagram-bottom {
-      grid-template-columns: repeat(7, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       justify-items: center;
     }
   }

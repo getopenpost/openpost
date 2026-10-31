@@ -45,11 +45,11 @@ it('commits a scrub to the selection captured when the gesture starts', async ()
 		new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, button: 0, clientX: 100 })
 	);
 	input.dispatchEvent(
-		new PointerEvent('pointermove', { bubbles: true, pointerId: 1, buttons: 1, clientX: 110 })
+		new PointerEvent('pointermove', { bubbles: true, pointerId: 1, buttons: 1, clientX: 140 })
 	);
 	await screen.rerender({ itemIds: ['primary', 'new-secondary'] });
 	input.dispatchEvent(
-		new PointerEvent('pointerup', { bubbles: true, pointerId: 1, button: 0, clientX: 110 })
+		new PointerEvent('pointerup', { bubbles: true, pointerId: 1, button: 0, clientX: 140 })
 	);
 
 	await vi.waitFor(() => expect(contrast('primary')).toBe(1.05));

@@ -25,9 +25,9 @@ Add `takeaways` as a server-derived list of at most three evidence-backed action
 
 ## Web and native UX
 
-Keep date and account controls mounted through loading and failures. Add month-to-date and last-month presets through one shared UTC helper, retaining custom and all-time ranges. Show distinct post count prominently and output count as secondary context.
+Keep date and account controls mounted through loading and failures. Use the shared multi-account/Social Set picker; one selection scopes every content aggregate, follower total, chart and initial export. Keep export, data-details and refresh actions as labelled icons, with definitions behind the data-details icon rather than a second disclosure or persistent prose. Add month-to-date and last-month presets through one shared UTC helper, retaining custom and all-time ranges. Show distinct post count prominently and output count as secondary context.
 
-Lead with available takeaways, then a compact summary, the visibility/engagement/follower chart, account performance, and ranked post performance. Account rows drill into the existing account filter. Post actions open the native post or the existing repurpose handoff. Show coverage with an inspectable explanation of unmeasured accounts/outputs and provider definitions. Use appropriate native controls and layouts instead of a squeezed desktop table.
+Lead with a compact summary and the visibility/engagement/follower chart, then audience by account, account performance, and ranked post performance. Keep takeaways available in the API, without recommendation cards on web or native. Account rows drill into the existing account filter. Post actions open the native post or the existing repurpose handoff. Show coverage with an inspectable explanation of unmeasured accounts/outputs and provider definitions. Use appropriate native controls and layouts instead of a squeezed desktop table.
 
 Retain export, refresh, paging, source links, read-only permissions, offline/cached state, localization and existing recovery paths. No generic posting-frequency targets, cross-customer benchmarks, automatic reposting, new paid AI dependency or pretend YouTube thumbnail data.
 

@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import ReorderList from '$lib/components/reorder-list.svelte';
+	import { Disclosure as EditorDisclosure, SliderRow } from '$lib/components/editor-density';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { Slider } from '$lib/components/ui/slider';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import type { TimelineItem } from '$lib/video-editor/project/types';
 	import { updateItemProperties } from '$lib/video-editor/timeline/actions/items';
@@ -24,9 +25,11 @@
 		type ReverbEffect
 	} from '$lib/video-editor/audio/audio-effects';
 
+	import ToggleStatePill from './toggle-state-pill.svelte';
+
 	let {
 		item,
-		open = false
+		open = $bindable(false)
 	}: {
 		item: TimelineItem;
 		open?: boolean;
@@ -150,27 +153,17 @@
 	}
 </script>
 
-<details
-	{open}
-	class="group rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
+<EditorDisclosure
+	label={m.video_editor_audio_effects_title()}
+	summary={effects.length === 0
+		? m.common_none()
+		: m.video_editor_audio_effects_count({
+				count: effects.length,
+				enabled: effects.filter((effect) => effect.enabled).length
+			})}
+	bind:open
+	class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
 >
-	<summary
-		class="flex min-h-[25px] cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
-	>
-		<span class="font-medium text-[var(--video-editor-text)]"
-			>{m.video_editor_audio_effects_title()}</span
-		>
-		<span class="text-xs text-[var(--video-editor-muted)]">
-			{#if effects.length === 0}
-				{m.common_none()}
-			{:else}
-				{m.video_editor_audio_effects_count({
-					count: effects.length,
-					enabled: effects.filter((effect) => effect.enabled).length
-				})}
-			{/if}
-		</span>
-	</summary>
 	<div class="space-y-2 border-t border-[var(--video-editor-border)] p-2">
 		<div class="flex items-center gap-1">
 			<AppSelect
@@ -214,7 +207,7 @@
 					{label}
 					<Input
 						type="number"
-						class="mt-0.5 h-[22px] text-xs"
+						class="mt-0.5 h-[var(--editor-22,22px)] text-xs"
 						{value}
 						{min}
 						{max}
@@ -231,20 +224,16 @@
 				step: number,
 				onNumber: (value: number) => void
 			)}
-				<label class="text-xs text-[var(--video-editor-muted)]">
+				<SliderRow
 					{label}
-					<Slider
-						class="mt-1 w-full"
-						{min}
-						{max}
-						{step}
-						{value}
-						ariaLabel={label}
-						onValueChange={onNumber}
-						onKeydown={(event) => event.stopPropagation()}
-					/>
-					{@render effectNumberParam(label, value, min, max, step, onNumber)}
-				</label>
+					{value}
+					{min}
+					{max}
+					{step}
+					precision={step < 1 ? 2 : 0}
+					onValueChange={onNumber}
+					onValueCommit={onNumber}
+				/>
 			{/snippet}
 
 			<div bind:this={rackElement}>
@@ -260,10 +249,8 @@
 							data-effect-id={effect.id}
 							class="mt-1 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)]"
 						>
-							<details class="group/effect">
-								<summary
-									class="flex min-h-[25px] cursor-pointer list-none items-center gap-1.5 px-2 py-1 text-xs"
-								>
+							<EditorDisclosure label={labelFor(effect.type)}>
+								{#snippet actions()}
 									<button
 										{...handle}
 										type="button"
@@ -271,57 +258,44 @@
 											name: labelFor(effect.type)
 										})}
 										class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
-										onclick={(event) => event.preventDefault()}
-										><span aria-hidden="true">≡</span></button
+										><ThemeIcon role="drag" class="size-3.5" /></button
 									>
-									<span class="flex-1 truncate font-medium text-[var(--video-editor-text)]"
-										>{labelFor(effect.type)}</span
-									>
-									<button
-										type="button"
-										class={`rounded px-1.5 py-0.5 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] ${effect.enabled ? 'bg-primary text-primary-foreground' : 'bg-[var(--video-editor-control)] text-[var(--video-editor-muted)]'}`}
-										aria-pressed={effect.enabled}
-										aria-label={effect.enabled
+									<ToggleStatePill
+										label={effect.enabled
+											? m.video_editor_audio_eq_on()
+											: m.video_editor_audio_eq_off()}
+										pressed={effect.enabled}
+										ariaLabel={effect.enabled
 											? m.video_editor_audio_effects_bypass({ name: labelFor(effect.type) })
 											: m.video_editor_audio_effects_enable({ name: labelFor(effect.type) })}
-										onclick={(event) => {
-											event.preventDefault();
-											toggleEnabled(effect.id);
-										}}
-										>{effect.enabled
-											? m.video_editor_audio_eq_on()
-											: m.video_editor_audio_eq_off()}</button
-									>
+										onchange={() => toggleEnabled(effect.id)}
+									/>
 									<button
 										type="button"
 										class="rounded bg-[var(--video-editor-control)] px-1.5 py-0.5 text-xs text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 										aria-label={m.video_editor_audio_effects_reset_effect({
 											name: labelFor(effect.type)
 										})}
-										onclick={(event) => {
-											event.preventDefault();
-											resetEffect(effect.id);
-										}}>{m.video_editor_audio_effects_reset()}</button
+										onclick={() => resetEffect(effect.id)}
+										>{m.video_editor_audio_effects_reset()}</button
 									>
 									<button
 										type="button"
-										class="rounded px-1 py-0.5 text-xs text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+										class="grid size-[22px] place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 										aria-label={m.video_editor_audio_effects_remove_effect({
 											name: labelFor(effect.type)
 										})}
-										onclick={(event) => {
-											event.preventDefault();
-											removeEffect(effect.id);
-										}}>×</button
+										onclick={() => removeEffect(effect.id)}
+										><ThemeIcon role="delete" class="size-3.5" /></button
 									>
-								</summary>
+								{/snippet}
 								<div class="border-t border-[var(--video-editor-border)] p-2">
 									<div class="mb-2 flex gap-1">
 										<Button
 											type="button"
 											size="sm"
 											variant="ghost"
-											class="h-[22px] px-1.5 text-xs"
+											class="h-[var(--editor-22,22px)] px-1.5 text-xs"
 											disabled={index === 0}
 											aria-label={m.video_editor_audio_effects_move_up({
 												name: labelFor(effect.type)
@@ -333,7 +307,7 @@
 											type="button"
 											size="sm"
 											variant="ghost"
-											class="h-[22px] px-1.5 text-xs"
+											class="h-[var(--editor-22,22px)] px-1.5 text-xs"
 											disabled={index === effects.length - 1}
 											aria-label={m.video_editor_audio_effects_move_down({
 												name: labelFor(effect.type)
@@ -498,11 +472,11 @@
 										</div>
 									{/if}
 								</div>
-							</details>
+							</EditorDisclosure>
 						</div>
 					{/snippet}
 				</ReorderList>
 			</div>
 		{/if}
 	</div>
-</details>
+</EditorDisclosure>

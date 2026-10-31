@@ -1,4 +1,3 @@
-import { DitherPressable } from "@/components/dither-pressable";
 import { NativeText as Text } from "@/components/native-text";
 import {
   analyticsCalendarPresetRange,
@@ -19,7 +18,6 @@ import {
   AnalyticsAccountPerformance,
   AnalyticsCoverage,
   AnalyticsPostResult,
-  AnalyticsTakeaways,
   type AnalyticsPost,
 } from "@/components/analytics-results";
 import { useState } from "react";
@@ -34,16 +32,20 @@ import {
 import { SvgXml } from "react-native-svg";
 
 import { BottomDrawer } from "@/components/bottom-drawer";
-import { AccountAvatar } from "@/components/account-avatar";
 import { trendBars } from "@/lib/analytics-chart";
 import { DitherPanel } from "@/components/dither-panel";
-import { PlatformIcon } from "@/components/platform-icon";
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import { BodyText, Button, ContentTitle, EmptyState, Screen } from "@/components/ui";
 import { WorkspaceHeader } from "@/components/workspace-header";
 import { analyticsAccountOptions } from "@/lib/analytics-accounts";
+import { DestinationChooser } from "@/components/destination-chooser";
 import { accountHandle, platformLabel } from "@/lib/format";
-import { useAnalytics, useWorkspaceId, useWorkspaceCapabilities } from "@/lib/queries";
+import {
+  useAnalytics,
+  useSocialSets,
+  useWorkspaceId,
+  useWorkspaceCapabilities,
+} from "@/lib/queries";
 import { useNativeTheme } from "@/theme";
 
 const RANGES: readonly AnalyticsRangeDays[] = [7, 30, 90, 365, 0];
@@ -62,7 +64,7 @@ export default function AnalyticsScreen() {
 function AnalyticsDashboard() {
   const workspaceId = useWorkspaceId();
   const canRepurpose = useWorkspaceCapabilities()?.can_edit === true;
-  const { colors, spacing, typography, shape } = useNativeTheme().manifest;
+  const { colors, spacing } = useNativeTheme().manifest;
   const [days, setDays] = useState<AnalyticsRangeDays>(30);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -79,19 +81,53 @@ function AnalyticsDashboard() {
   const [coverageOpen, setCoverageOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<AnalyticsPost | null>(null);
   const [actionError, setActionError] = useState("");
-  const [accountId, setAccountId] = useState("");
+  const [accountIds, setAccountIds] = useState<string[]>([]);
+  const [draftAccountIds, setDraftAccountIds] = useState<string[]>([]);
   const [accountPickerOpen, setAccountPickerOpen] = useState(false);
+  const [historicalAccounts, setHistoricalAccounts] = useState<
+    Pick<
+      NonNullable<AnalyticsOverview["accounts"]>[number],
+      "id" | "platform" | "username" | "avatar_url" | "status"
+    >[]
+  >([]);
   const selectedRangeLabel = from && to ? `${from} – ${to}` : rangeLabel(days);
-  const query = useAnalytics({ days, from, to, accountId, sort });
+  const query = useAnalytics({ days, from, to, accountIds, sort });
+  const socialSets = useSocialSets(accountPickerOpen);
   const overview = query.data?.pages[0];
-  // The filter offers exactly the accounts the overview describes, using the
-  // same identity as the audience and post rows below.
-  const { options: overviewAccounts, effectiveAccountId } = analyticsAccountOptions(
+  // Scoped performance can omit historical accounts. Retain discovered picker
+  // identities for this mounted Workspace without changing the chosen scope.
+  const [observedPerformance, setObservedPerformance] =
+    useState<AnalyticsOverview["performance"]>();
+  if (observedPerformance !== overview?.performance) {
+    setObservedPerformance(overview?.performance);
+    const discovered = (overview?.performance ?? [])
+      .filter((item) => item.status === "inactive")
+      .map((item) => ({
+        id: item.account_id,
+        platform: item.platform,
+        username: item.username,
+        avatar_url: item.avatar_url,
+        status: item.status,
+      }));
+    if (discovered.length) {
+      const merged = new Map(historicalAccounts.map((account) => [account.id, account]));
+      for (const account of discovered) merged.set(account.id, account);
+      setHistoricalAccounts([...merged.values()]);
+    }
+  }
+  const { options: overviewAccounts } = analyticsAccountOptions(
     overview
       ? [
           ...(overview.accounts ?? []),
+          ...historicalAccounts.filter(
+            (item) => !overview.accounts?.some((account) => account.id === item.id),
+          ),
           ...(overview.performance ?? [])
-            .filter((item) => !overview.accounts?.some((account) => account.id === item.account_id))
+            .filter(
+              (item) =>
+                !overview.accounts?.some((account) => account.id === item.account_id) &&
+                !historicalAccounts.some((account) => account.id === item.account_id),
+            )
             .map((item) => ({
               id: item.account_id,
               platform: item.platform,
@@ -101,23 +137,12 @@ function AnalyticsDashboard() {
             })),
         ]
       : undefined,
-    accountId,
+    "",
   );
-  const selectedAccount = overviewAccounts.find((account) => account.id === effectiveAccountId);
-  // A settled fresh overview that no longer describes the selected account
-  // (it was revoked or removed) clears the filter. Adjusting state here is the
-  // supported React pattern; a transient empty (loading), error, or
-  // offline/paused response never clears the filter.
-  if (
-    accountId &&
-    !effectiveAccountId &&
-    overview &&
-    !query.isPending &&
-    !query.isError &&
-    query.fetchStatus !== "paused"
-  ) {
-    setAccountId("");
-  }
+  const selectedAccount =
+    accountIds.length === 1
+      ? overviewAccounts.find((account) => account.id === accountIds[0])
+      : undefined;
   const error = query.error instanceof Error ? query.error.message : "Try again.";
   function openPost(reference: AnalyticsPost["reference"]) {
     if (reference.publication_id)
@@ -137,12 +162,6 @@ function AnalyticsDashboard() {
       setActionError("Could not open the web app. Try again.");
     }
   }
-  const manageAccount = (id: string) =>
-    void openWeb("/settings", {
-      tab: "accounts",
-      account_id: id,
-      workspace_id: workspaceId ?? "",
-    });
   const repurpose = (reference: AnalyticsPost["reference"]) =>
     void openWeb("/analytics", {
       repurpose_type: reference.type,
@@ -163,26 +182,43 @@ function AnalyticsDashboard() {
           paddingBottom: spacing.small,
         }}
       >
-        <Button
-          title={selectedRangeLabel}
-          intent="ordinary"
-          accessibilityHint="Choose the analytics date range"
-          onPress={() => {
-            setCustom(Boolean(from));
-            setDraftFrom(from || calendarDate(new Date(Date.now() - 30 * 86400000)));
-            setDraftTo(to || calendarDate(new Date()));
-            setPicking(null);
-            setRangeOpen(true);
-          }}
-        />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.small }}>
+          <Button
+            style={{ flex: 1 }}
+            title={selectedRangeLabel}
+            intent="ordinary"
+            accessibilityHint="Choose the analytics date range"
+            onPress={() => {
+              setCustom(Boolean(from));
+              setDraftFrom(from || calendarDate(new Date(Date.now() - 30 * 86400000)));
+              setDraftTo(to || calendarDate(new Date()));
+              setPicking(null);
+              setRangeOpen(true);
+            }}
+          />
+          <Button
+            title="Measurement details"
+            icon="info"
+            display="icon"
+            intent="quiet"
+            onPress={() => setCoverageOpen(true)}
+          />
+        </View>
         <Button
           title={
             selectedAccount
               ? `${platformLabel(selectedAccount.platform)} · ${accountHandle(selectedAccount.username, platformLabel(selectedAccount.platform), selectedAccount.platform)}${selectedAccount.status === "inactive" ? " · Inactive" : ""}`
-              : "All accounts"
+              : accountIds.length
+                ? `${accountIds.length} accounts`
+                : "All accounts"
           }
           intent="quiet"
-          onPress={() => setAccountPickerOpen(true)}
+          onPress={() => {
+            setDraftAccountIds(
+              accountIds.length ? accountIds : overviewAccounts.map((account) => account.id),
+            );
+            setAccountPickerOpen(true);
+          }}
           accessibilityHint="Filter analytics by account"
         />
       </View>
@@ -312,13 +348,6 @@ function AnalyticsDashboard() {
         {overview ? (
           <>
             {actionError ? <BodyText accessibilityRole="alert">{actionError}</BodyText> : null}
-            <AnalyticsTakeaways
-              canRepurpose={canRepurpose}
-              overview={overview}
-              onOpen={openPost}
-              onRestore={manageAccount}
-              onRepurpose={repurpose}
-            />
             <View style={styles.metrics}>
               <Metric
                 label="Visibility"
@@ -341,7 +370,7 @@ function AnalyticsDashboard() {
                     ? number.format(overview.summary.followers.value)
                     : "No data"
                 }
-                detail={`${overview.summary.followers.measured} of ${accountId ? 1 : (overview.accounts?.length ?? 0)} accounts`}
+                detail={`${overview.summary.followers.measured} of ${accountIds.length || (overview.accounts?.length ?? 0)} accounts`}
                 delta={overview.summary.followers.delta}
               />
               <Metric
@@ -354,15 +383,6 @@ function AnalyticsDashboard() {
                 detail={`${overview.summary.engagement.measured} of ${overview.content_total} outputs`}
               />
             </View>
-            <BodyText>
-              Posts published in {selectedRangeLabel.toLowerCase()}, with their saved lifetime
-              outcomes.
-            </BodyText>
-            <Button
-              title="What visibility includes"
-              intent="quiet"
-              onPress={() => setCoverageOpen(true)}
-            />
             <View style={{ gap: spacing.small }}>
               <ContentTitle>Trends</ContentTitle>
               <View style={styles.actions}>
@@ -383,7 +403,10 @@ function AnalyticsDashboard() {
                 measured={(overview.summary[trend]?.measured ?? 0) > 0}
               />
             </View>
-            <AnalyticsAccountPerformance overview={overview} onSelect={setAccountId} />
+            <AnalyticsAccountPerformance
+              overview={overview}
+              onSelect={(id) => setAccountIds([id])}
+            />
             <View style={{ gap: spacing.small }}>
               <ContentTitle>Top posts</ContentTitle>
               <View style={styles.actions}>
@@ -403,7 +426,6 @@ function AnalyticsDashboard() {
                   />
                 ))}
               </View>
-              <BodyText>Ranked across every matching post, with each post shown once.</BodyText>
               {(overview.highlights ?? []).map((post, index) => (
                 <AnalyticsPostResult
                   key={post.reference.rendition_id}
@@ -419,7 +441,7 @@ function AnalyticsDashboard() {
             <View style={{ gap: spacing.small }}>
               <ContentTitle>All results</ContentTitle>
               {(overview.content?.length ?? 0) === 0 ? (
-                <EmptyState title="No published posts in this period" />
+                <EmptyState iconRole="analytics" title="No published posts in this period" />
               ) : (
                 query.data?.pages
                   .flatMap((page) => page.content ?? [])
@@ -518,60 +540,44 @@ function AnalyticsDashboard() {
       </BottomDrawer>
       {accountPickerOpen ? (
         <BottomDrawer open title="Accounts" onDismiss={() => setAccountPickerOpen(false)}>
-          {query.isError && !overview ? (
-            <QueryNotice message="Could not load accounts." retry={() => void query.refetch()} />
-          ) : null}
           <Button
             title="All accounts"
-            intent={effectiveAccountId ? "ordinary" : "primary"}
-            accessibilityState={{ selected: !effectiveAccountId }}
+            intent={accountIds.length ? "ordinary" : "primary"}
+            accessibilityState={{ selected: accountIds.length === 0 }}
             onPress={() => {
-              setAccountId("");
+              setAccountIds([]);
               setAccountPickerOpen(false);
             }}
           />
-          {overviewAccounts.map((account) => {
-            const selected = effectiveAccountId === account.id;
-            const label = `${platformLabel(account.platform)} · ${accountHandle(account.username, platformLabel(account.platform), account.platform)}${account.status === "inactive" ? " · Inactive" : ""}`;
-            return (
-              <DitherPressable
-                key={account.id}
-                radius={shape.medium}
-                focusColor={colors.focus}
-                accessibilityRole="button"
-                accessibilityLabel={selected ? `${label}, selected` : label}
-                accessibilityState={{ selected }}
-                accessibilityHint="Filter analytics by account"
-                onPress={() => {
-                  setAccountId(account.id);
-                  setAccountPickerOpen(false);
-                }}
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
-                  minHeight: 48,
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderWidth: 1,
-                  borderColor: selected ? colors.primary : colors.outlineVariant,
-                  borderRadius: shape.medium,
-                  opacity: pressed ? 0.6 : 1,
-                })}
-              >
-                <AccountAvatar
-                  name={account.username || platformLabel(account.platform)}
-                  platform={account.platform}
-                  avatarUrl={account.avatar_url}
-                  size={32}
-                />
-                <PlatformIcon platform={account.platform} size={20} />
-                <Text style={[typography.bodyLarge, { flex: 1, color: colors.onSurface }]}>
-                  {label}
-                </Text>
-              </DitherPressable>
-            );
-          })}
+          <DestinationChooser
+            accounts={{
+              data: overview
+                ? overviewAccounts.map((account) => ({
+                    id: account.id,
+                    platform: account.platform,
+                    account_username: account.username,
+                    account_avatar_url: account.avatar_url,
+                  }))
+                : undefined,
+              isPending: query.isPending,
+              isError: query.isError,
+              fetchStatus: query.fetchStatus,
+              refetch: query.refetch,
+            }}
+            socialSets={socialSets}
+            selectedIds={draftAccountIds}
+            activeSetId=""
+            onApplySet={(_id, ids) => setDraftAccountIds(ids)}
+            onToggle={(id) =>
+              setDraftAccountIds((selected) =>
+                selected.includes(id) ? selected.filter((item) => item !== id) : [...selected, id],
+              )
+            }
+            onConfirm={() => {
+              setAccountIds(draftAccountIds);
+              setAccountPickerOpen(false);
+            }}
+          />
         </BottomDrawer>
       ) : null}
     </Screen>

@@ -5,6 +5,7 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import { createDelayedVisibility } from '$lib/query/presentation.svelte';
+	import { m } from '$lib/paraglide/messages';
 
 	type PageLoadingProps = ComponentProps<typeof PageLoading>;
 
@@ -52,7 +53,7 @@
 		headerActionLayout = 'responsive',
 		navigation,
 		loading = false,
-		loadingMessage = 'Loading...',
+		loadingMessage = m.common_loading(),
 		loadingLayout = 'list',
 		loadingVariant = 'profile',
 		loadingItems = 4,

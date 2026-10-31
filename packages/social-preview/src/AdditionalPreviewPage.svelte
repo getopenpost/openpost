@@ -14,6 +14,9 @@
   import MoreHorizontal from "@lucide/svelte/icons/ellipsis";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
   import MapPin from "@lucide/svelte/icons/map-pin";
+  import Settings from "@lucide/svelte/icons/settings";
+  import Star from "@lucide/svelte/icons/star";
+  import Github from "@lucide/svelte/icons/github";
   import type { PreviewModel, PreviewScheme } from "./model";
   import { platformNames } from "./model";
   import PlatformGlyph from "./PlatformGlyph.svelte";
@@ -152,22 +155,23 @@
     </div>
     {@render bottom()}
   {:else if platform === "peertube"}
-    <header class="topbar">
-      <Menu aria-hidden="true" />{@render brand()}{@render search(
-        "Search videos",
-      )}<span class="publish" aria-hidden="true"><Plus />Publish</span>
+    <header class="topbar peertube-topbar">
+      {@render brand()}{@render search("Search videos")}
+      <span class="publish" aria-hidden="true"><Plus />Publish</span>
     </header>
-    <div class="video-layout">
-      <aside class="video-sidebar" aria-hidden="true">
-        <div class="side-row"><Home /><strong>Home</strong></div>
-        <div class="side-row"><Compass /><strong>Discover</strong></div>
-        <div class="side-row"><Video /><strong>Trending</strong></div>
-        <div class="side-row"><Video /><strong>Recently added</strong></div>
-        <hr />
-        <div class="side-row"><User /><strong>Subscriptions</strong></div>
-        <div class="side-row"><Bookmark /><strong>My library</strong></div>
-      </aside>
+    <div class="watch-layout">
       <section class="video-main"><SocialPreview {model} {scheme} /></section>
+      <aside class="other-videos" aria-hidden="true">
+        <h2>Other videos</h2>
+        {#each Array(4) as _, index (index)}
+          <div class="video-miniature">
+            <div class="miniature-thumb"><i></i></div>
+            <div class="miniature-info">
+              <b></b><span></span>
+            </div>
+          </div>
+        {/each}
+      </aside>
     </div>
   {:else if platform === "pinterest"}
     <header class="topbar pinterest-topbar">
@@ -179,7 +183,21 @@
         <Bell /><MessageCircle /><User /><ChevronDown />
       </div>
     </header>
-    <section class="pin-detail"><SocialPreview {model} {scheme} /></section>
+    <div class="pin-closeup">
+      <section class="pin-detail"><SocialPreview {model} {scheme} /></section>
+      <aside class="related-pins" aria-hidden="true">
+        <h2>More like this</h2>
+        <div class="related-grid">
+          {#each [{ ratio: "3/4", wide: "70%" }, { ratio: "4/5", wide: "85%" }, { ratio: "1/1", wide: "60%" }, { ratio: "2/3", wide: "75%" }, { ratio: "4/3", wide: "55%" }, { ratio: "3/4", wide: "80%" }] as tile, index (index)}
+            <div class="related-pin">
+              <i style={`aspect-ratio: ${tile.ratio};`}></i>
+              <span style={`width: ${tile.wide};`}></span>
+              <b></b>
+            </div>
+          {/each}
+        </div>
+      </aside>
+    </div>
     {@render bottom()}
   {:else if platform === "googlebusiness"}
     <header class="topbar google-topbar">
@@ -204,6 +222,56 @@
       <h3>Updates</h3>
       <SocialPreview {model} {scheme} />
     </section>
+  {:else if platform === "devnull"}
+    <div class="devnull-page">
+      <aside class="devnull-rail" aria-hidden="true">
+        <div class="devnull-logo">
+          <PlatformGlyph platform="devnull" /><strong>/dev/null</strong>
+        </div>
+        <nav class="devnull-nav">
+          <div class="active"><Home /><span>Log</span></div>
+          <div><Bell /><span>Notifications</span></div>
+          <div><User /><span>Profile</span></div>
+          <div><Star /><span>Starred</span></div>
+          <div><Settings /><span>Settings</span></div>
+        </nav>
+        <div class="devnull-rail-tools">
+          <div><Search /><span>Search</span></div>
+          <div class="commit"><Plus /><span>Commit</span></div>
+          <div class="signin"><Github /><span>Sign in with GitHub</span></div>
+        </div>
+      </aside>
+      <section class="devnull-feed">
+        <header class="devnull-mobile-header" aria-hidden="true">
+          <div class="devnull-logo">
+            <PlatformGlyph platform="devnull" /><strong>/dev/null</strong>
+          </div>
+          <span class="signin compact-signin"><Github /><span>Sign in</span></span>
+        </header>
+        <div class="devnull-tabs" aria-hidden="true">
+          <span>Following</span><strong>Latest</strong><span>Trending</span>
+        </div>
+        <SocialPreview {model} {scheme} />
+        {#each Array(4) as _, index (index)}
+          <div class="devnull-ghost" aria-hidden="true">
+            <i></i>
+            <span><b></b><b></b></span>
+          </div>
+        {/each}
+      </section>
+      <aside class="devnull-aside" aria-hidden="true">
+        <div class="devnull-cta">
+          <h2>New to /dev/null?</h2>
+          <p>
+            12,000+ developers are already here. Sign in with GitHub to follow
+            them, star commits, and join the conversation.
+          </p>
+          <span class="signin"><Github /><span>Sign in with GitHub</span></span>
+        </div>
+        <footer>About · Apps · Terms · Privacy · Changelog</footer>
+      </aside>
+      {@render bottom()}
+    </div>
   {:else}
     <header class="topbar forum-topbar">
       {@render brand()}{#if platform === "reddit"}{@render search(
@@ -239,6 +307,12 @@
             ><span>Top</span><ChevronDown />
           </div>{/if}
         <SocialPreview {model} {scheme} />
+        {#each Array(3) as _, index (index)}
+          <div class="forum-ghost" aria-hidden="true">
+            <i></i>
+            <span><b></b><b></b><b></b></span>
+          </div>
+        {/each}
       </section>
       <aside class="community-sidebar" aria-hidden="true">
         <h2>{model.subtitle || "Community"}</h2>
@@ -551,21 +625,55 @@
     padding: 8px 16px;
     font-weight: 600;
   }
-  .video-layout {
+  .watch-layout {
     display: grid;
-    grid-template-columns: 230px minmax(0, 1fr);
-  }
-  .video-sidebar {
-    padding: 22px 12px;
-    background: var(--native-soft);
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+    max-width: 1400px;
+    margin: auto;
+    padding: 32px 28px;
   }
   .video-main {
     min-width: 0;
-    padding: 32px;
   }
   .video-main :global(.social-preview) {
     max-width: 1100px;
     margin-inline: auto;
+  }
+  .other-videos h2 {
+    margin-bottom: 18px;
+    font-size: 16px;
+  }
+  .video-miniature {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .miniature-thumb i {
+    display: block;
+    aspect-ratio: 16 / 9;
+    border-radius: 4px;
+    background: var(--native-soft);
+  }
+  .miniature-info b,
+  .miniature-info span {
+    display: block;
+    border-radius: 999px;
+    background: var(--native-soft);
+  }
+  .miniature-info b {
+    width: 92%;
+    height: 11px;
+    margin-bottom: 8px;
+  }
+  .miniature-info span {
+    width: 55%;
+    height: 9px;
+  }
+  @container social-page (min-width: 68rem) {
+    .watch-layout {
+      grid-template-columns: minmax(0, 1fr) 340px;
+    }
   }
   .pinterest .brand {
     color: light-dark(#bd081b, #ff8a99);
@@ -579,10 +687,55 @@
     max-width: none;
     min-height: 48px;
   }
-  .pin-detail {
-    max-width: 1016px;
+  .pin-closeup {
+    display: grid;
+    gap: 24px;
+    max-width: 1080px;
     margin: 32px auto;
     padding: 0 24px;
+  }
+  .pin-closeup .pin-detail {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+  .related-pins h2 {
+    margin-bottom: 14px;
+    font-size: 16px;
+  }
+  .related-grid {
+    columns: 2;
+    column-gap: 16px;
+  }
+  .related-pin {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 12px;
+    border-radius: 20px;
+    background: var(--native-panel);
+    break-inside: avoid;
+  }
+  .related-pin i {
+    display: block;
+    border-radius: 14px;
+    background: var(--native-soft);
+  }
+  .related-pin span,
+  .related-pin b {
+    display: block;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--native-soft);
+  }
+  .related-pin b {
+    width: 40%;
+  }
+  @container social-page (min-width: 68rem) {
+    .pin-closeup {
+      grid-template-columns: minmax(0, 48rem) minmax(0, 1fr);
+      align-items: start;
+    }
   }
   .reddit {
     --native-bg: light-dark(#fff, #0e1113);
@@ -634,6 +787,43 @@
   .sort :global(svg) {
     width: 16px;
   }
+  .forum-ghost {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--native-border);
+  }
+  .forum-ghost i {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    border-radius: 50%;
+    background: light-dark(rgb(0 0 0 / 10%), rgb(255 255 255 / 16%));
+  }
+  .forum-ghost span {
+    display: grid;
+    flex: 1;
+    gap: 8px;
+    padding-top: 2px;
+  }
+  .forum-ghost b {
+    display: block;
+    border-radius: 999px;
+    background: light-dark(rgb(0 0 0 / 10%), rgb(255 255 255 / 16%));
+  }
+  .forum-ghost b:first-child {
+    width: 42%;
+    height: 11px;
+  }
+  .forum-ghost b:nth-child(2) {
+    width: 88%;
+    height: 9px;
+  }
+  .forum-ghost b:last-child {
+    width: 64%;
+    height: 9px;
+  }
   .community-sidebar {
     align-self: start;
     background: var(--native-panel);
@@ -666,7 +856,238 @@
     --native-bg: light-dark(#fff, #202124);
     --native-panel: light-dark(#fff, #303134);
     --native-text: light-dark(#202124, #e8eaed);
-    --native-muted: light-dark(#5f6368, #bdc1c6);
+    --native-muted: light-dark(#5f6368, #9aa0a6);
+    --native-border: light-dark(#dadce0, #5f6368);
+    font-family: "Google Sans Text", Roboto, Arial, sans-serif;
+  }
+  /* /dev/null (dev-null.sh): shell background, a bordered log column, an icon
+     rail, and the GitHub sign-in aside, from the site's DESIGN.md tokens. */
+  .devnull-page {
+    --devnull-shell: light-dark(#f6f7f8, #111112);
+    --devnull-surface: light-dark(#fff, #18181a);
+    --devnull-ink: light-dark(#121417, #ececec);
+    --devnull-muted: light-dark(#5b616b, #a1a1a6);
+    --devnull-hairline: light-dark(#e1e4e8, #2a2a2d);
+    --devnull-primary: light-dark(#3b6fe0, #7aa2f7);
+    --native-bg: var(--devnull-shell);
+    --native-panel: var(--devnull-surface);
+    --native-text: var(--devnull-ink);
+    --native-muted: var(--devnull-muted);
+    display: grid;
+    grid-template-columns: minmax(0, 40rem);
+    justify-content: center;
+    min-height: 100dvh;
+    background: var(--devnull-shell);
+    color: var(--devnull-ink);
+    font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+  }
+  .devnull-rail {
+    display: none;
+  }
+  .devnull-feed {
+    min-width: 0;
+    background: var(--devnull-surface);
+  }
+  .devnull-feed :global(.social-preview) {
+    width: 100%;
+  }
+  .devnull-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .devnull-logo :global(svg) {
+    width: 28px;
+    height: 28px;
+    color: var(--devnull-primary);
+  }
+  .devnull-mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--devnull-hairline);
+  }
+  .devnull-tabs {
+    display: flex;
+    gap: 24px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--devnull-hairline);
+    color: var(--devnull-muted);
+    font-size: 14px;
+  }
+  .devnull-tabs strong {
+    color: var(--devnull-ink);
+    font-weight: 600;
+  }
+  .devnull-ghost {
+    display: flex;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--devnull-hairline);
+  }
+  .devnull-ghost i {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border-radius: 999px;
+    background: var(--devnull-shell);
+  }
+  .devnull-ghost span {
+    display: grid;
+    gap: 8px;
+    padding-top: 4px;
+  }
+  .devnull-ghost b {
+    display: block;
+    border-radius: 999px;
+    background: var(--devnull-shell);
+  }
+  .devnull-ghost b:first-child {
+    width: 38%;
+    height: 10px;
+  }
+  .devnull-ghost b:last-child {
+    width: 72%;
+    height: 10px;
+  }
+  .signin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 8px;
+    background: light-dark(#121417, #ececec);
+    color: light-dark(#fff, #111112);
+    padding: 8px 14px;
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .signin :global(svg) {
+    width: 16px;
+    height: 16px;
+  }
+  .compact-signin {
+    padding: 7px 12px;
+  }
+  .devnull-aside {
+    display: none;
+  }
+  @container social-page (min-width: 52rem) {
+    .devnull-page {
+      grid-template-columns: 5rem minmax(0, 40rem);
+    }
+    .devnull-rail {
+      position: sticky;
+      top: 0;
+      display: flex;
+      height: 100dvh;
+      flex-direction: column;
+      gap: 20px;
+      padding: 20px 10px;
+    }
+    .devnull-rail nav,
+    .devnull-rail-tools {
+      display: grid;
+      gap: 4px;
+    }
+    .devnull-rail nav > div,
+    .devnull-rail-tools > div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      border-radius: 10px;
+      color: var(--devnull-muted);
+      padding: 10px 0;
+      font-size: 14.5px;
+    }
+    .devnull-rail nav > div.active {
+      background: var(--devnull-shell);
+      color: var(--devnull-ink);
+    }
+    .devnull-rail nav > div :global(svg),
+    .devnull-rail-tools > div:not(.signin) :global(svg) {
+      width: 20px;
+      height: 20px;
+      flex: none;
+    }
+    .devnull-rail nav > div > span,
+    .devnull-rail-tools > div > span,
+    .devnull-logo > strong {
+      display: none;
+    }
+    .devnull-rail-tools .commit {
+      color: var(--devnull-ink);
+      font-weight: 600;
+    }
+    .devnull-feed {
+      border-inline: 1px solid var(--devnull-hairline);
+    }
+    .devnull-mobile-header {
+      display: none;
+    }
+  }
+  @container social-page (min-width: 68rem) {
+    .devnull-page {
+      grid-template-columns: 16rem minmax(0, 40rem) 20rem;
+      justify-content: center;
+      gap: 0;
+    }
+    .devnull-rail {
+      padding: 20px 14px;
+    }
+    .devnull-rail nav > div,
+    .devnull-rail-tools > div {
+      justify-content: flex-start;
+      padding: 10px;
+    }
+    .devnull-rail nav > div.active {
+      font-weight: 600;
+    }
+    .devnull-rail nav > div > span,
+    .devnull-rail-tools > div > span,
+    .devnull-logo > strong {
+      display: inline;
+    }
+    .devnull-rail .signin {
+      justify-content: flex-start;
+    }
+    .devnull-aside {
+      display: grid;
+      align-content: start;
+      gap: 28px;
+      padding: 24px 20px;
+    }
+    .devnull-cta {
+      display: grid;
+      gap: 12px;
+      border: 1px solid var(--devnull-hairline);
+      border-radius: 14px;
+      background: var(--devnull-surface);
+      padding: 18px;
+    }
+    .devnull-cta h2 {
+      font-size: 17px;
+      font-weight: 600;
+    }
+    .devnull-cta p {
+      margin: 0;
+      color: var(--devnull-muted);
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+    .devnull-cta .signin {
+      justify-self: start;
+    }
+    .devnull-aside footer {
+      margin: 0;
+      color: var(--devnull-muted);
+      font-size: 12px;
+    }
   }
   .google-wordmark {
     font-size: 28px;
@@ -756,11 +1177,9 @@
     .threads-column {
       margin-right: 20px;
     }
-    .video-layout {
-      grid-template-columns: minmax(0, 1fr);
-    }
-    .video-sidebar {
-      display: none;
+    .watch-layout {
+      gap: 24px;
+      padding: 24px 16px;
     }
     .pixelfed .topbar {
       gap: 24px;
@@ -876,12 +1295,12 @@
     .desktop {
       display: none;
     }
-    .video-main {
+    .watch-layout {
       padding: 12px 0;
     }
-    .pin-detail {
+    .pin-closeup {
       margin: 0;
-      padding: 0;
+      padding: 0 12px;
     }
     .pinterest-topbar > strong,
     .pinterest-topbar .top-icons {
@@ -893,6 +1312,8 @@
     .forum-layout,
     .reddit .forum-layout {
       padding: 0;
+      margin: 0;
+      width: 100%;
     }
     .forum-topbar .brand strong {
       display: none;
@@ -935,23 +1356,25 @@
   }
 
   .mastodon {
-    --native-bg: light-dark(#f3f5f7, #191b22);
-    --native-panel: light-dark(#fff, #282c37);
-    --native-text: light-dark(#282c37, #f5f5f7);
-    --native-muted: light-dark(#606984, #9baec8);
-    --native-border: light-dark(#d9e1e8, #393f4f);
-    --native-soft: light-dark(#e8edf2, #313543);
+    --mastodon-accent: light-dark(#705dd6, #d1c7ff);
+    --native-bg: light-dark(#f9f7fc, #07060e);
+    --native-panel: light-dark(#fff, #15151e);
+    --native-text: light-dark(#21212c, #eeedf3);
+    --native-muted: light-dark(rgb(33 33 44 / 80%), rgb(238 237 243 / 80%));
+    --native-border: light-dark(rgb(112 93 214 / 20%), rgb(209 199 255 / 20%));
+    --native-soft: light-dark(rgb(112 93 214 / 8%), rgb(209 199 255 / 8%));
+    font-family: Inter, system-ui, -apple-system, sans-serif;
   }
   .mastodon-layout {
     display: grid;
-    grid-template-columns: 285px minmax(0, 600px) 260px;
+    grid-template-columns: 285px minmax(0, 700px) 260px;
     gap: 16px;
-    max-width: 1200px;
+    max-width: 1320px;
     margin: auto;
     padding: 16px;
   }
   .mastodon-compose .brand {
-    color: light-dark(#563acc, #858afa);
+    color: var(--mastodon-accent);
     margin: 12px 0 28px;
   }
   .mastodon-compose .search {
@@ -976,10 +1399,10 @@
     padding: 10px;
   }
   .compose-tools span {
-    background: #6364ff;
-    color: #fff;
+    background: var(--mastodon-accent);
+    color: light-dark(#fff, #15151e);
     padding: 7px 16px;
-    border-radius: 4px;
+    border-radius: 999px;
     font-weight: 600;
   }
   .mastodon-feed {
@@ -1007,7 +1430,7 @@
     padding-top: 12px;
   }
   .mastodon-navigation .side-row:first-child {
-    color: light-dark(#563acc, #858afa);
+    color: var(--mastodon-accent);
   }
   .mastodon-feed :global(.micro-preview.platform-mastodon) {
     border: 0;
@@ -1024,7 +1447,8 @@
   @container social-page (max-width: 40rem) {
     .pixelfed,
     .pinterest,
-    .reddit {
+    .reddit,
+    .devnull-page {
       display: flex;
       flex-direction: column;
     }
@@ -1041,7 +1465,7 @@
   }
   @container social-page (max-width: 68rem) {
     .mastodon-layout {
-      grid-template-columns: minmax(0, 600px) 240px;
+      grid-template-columns: minmax(0, 700px) 240px;
       justify-content: center;
     }
     .mastodon-compose {

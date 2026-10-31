@@ -992,6 +992,7 @@
 															id="destination-media-{item.id}-{setting.key}"
 															class="mt-1 min-h-24"
 															value={valueAsString(setting.key, scopedValues)}
+															maxlength={setting.constraints?.max_length}
 															disabled={Boolean(setting.unavailable_reason)}
 															oninput={(event) =>
 																onMediaChange?.(item.id, setting.key, event.currentTarget.value)}

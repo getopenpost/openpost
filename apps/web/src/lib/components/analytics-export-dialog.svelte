@@ -29,6 +29,7 @@
 		to?: string;
 		rangeLabel?: string;
 		accountId?: string;
+		accountIds?: string[];
 		/** Connected account identities, including multiple accounts per platform. */
 		accounts: { id: string; username: string; platform: string; avatar_url?: string | null }[];
 		/** Metric keys measured across the full filtered population. */
@@ -50,6 +51,7 @@
 		to = '',
 		rangeLabel,
 		accountId = '',
+		accountIds = [],
 		accounts,
 		metrics,
 		onExported,
@@ -87,7 +89,7 @@
 
 	$effect(() => {
 		if (open) {
-			selectedAccounts = accountId ? [accountId] : [];
+			selectedAccounts = [...new Set([...accountIds, ...(accountId ? [accountId] : [])])];
 			error = '';
 			selectedMetrics = [];
 		}

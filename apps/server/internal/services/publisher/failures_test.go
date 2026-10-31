@@ -22,6 +22,7 @@ func TestClassifyFailureUsesStableTaxonomyAndRetryPolicy(t *testing.T) {
 		{"validation", &platform.HTTPError{StatusCode: 422, Code: "invalid_media"}, FailureValidation, false, FailureActionEdit},
 		{"expired auth", &platform.HTTPError{StatusCode: 401, Code: "token_expired"}, FailureAuthExpired, false, FailureActionReconnect},
 		{"reconnect", &platform.HTTPError{StatusCode: 401}, FailureReconnectRequired, false, FailureActionReconnect},
+		{"discord bot token invalid", &platform.HTTPError{StatusCode: 401, Code: "discord:bot_token_invalid"}, FailurePermission, false, FailureActionProvider},
 		{"permission", &platform.HTTPError{StatusCode: 403}, FailurePermission, false, FailureActionProvider},
 		{"youtube thumbnail verification", &platform.HTTPError{StatusCode: 403, Code: "youtube:thumbnail_channel_verification_required"}, FailurePermission, false, FailureActionProvider},
 		{"billing", &platform.HTTPError{StatusCode: 402}, FailureBillingRequired, false, FailureActionBilling},
@@ -109,6 +110,17 @@ func TestDiscordAttachmentPermissionFailureExplainsHowToPublish(t *testing.T) {
 	require.Equal(t, FailureActionProvider, failure.Action)
 	require.Contains(t, failure.Message, "Attach Files")
 	require.Contains(t, failure.Message, "remove the attachments")
+}
+
+func TestClassifyDiscordBotTokenInvalidDoesNotReconnectUserAccount(t *testing.T) {
+	failure := ClassifyFailure(&platform.HTTPError{
+		StatusCode: http.StatusUnauthorized,
+		Code:       "discord:bot_token_invalid",
+	})
+	require.Equal(t, FailurePermission, failure.Kind)
+	require.False(t, failure.Retryable)
+	require.NotEqual(t, FailureActionReconnect, failure.Action)
+	require.Contains(t, failure.Message, "administrator must update the Discord bot token in the server settings")
 }
 
 func TestPinterestBoardFailureIsTerminalAndNamesBoard(t *testing.T) {

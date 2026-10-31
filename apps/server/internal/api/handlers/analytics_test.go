@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -246,4 +248,82 @@ func TestAnalyticsOverviewAllowsViewerButRefreshRequiresEditor(t *testing.T) {
 	refreshResponse := httptest.NewRecorder()
 	e.ServeHTTP(refreshResponse, refreshRequest)
 	require.Equal(t, http.StatusForbidden, refreshResponse.Code, refreshResponse.Body.String())
+}
+
+func TestAnalyticsOverviewFiltersSeveralAccountsAndBindsCursorToTheSet(t *testing.T) {
+	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil), (*models.Publication)(nil), (*models.Rendition)(nil), (*models.AnalyticsAccountSnapshot)(nil), (*models.AnalyticsRenditionSnapshot)(nil), (*models.AnalyticsSyncState)(nil))
+	ctx := t.Context()
+	now := time.Now().UTC()
+	_, err := db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "selected", UserID: "user-1", Role: models.WorkspaceRoleViewer}).Exec(ctx)
+	require.NoError(t, err)
+	for i, id := range []string{"a", "b", "c", "foreign"} {
+		workspace := "selected"
+		if id == "foreign" {
+			workspace = "other"
+		}
+		account := models.SocialAccount{ID: id, WorkspaceID: workspace, Slug: id, Platform: "youtube", AccountID: id, AccountUsername: id, AccessTokenEnc: []byte("fixture"), IsActive: true}
+		publication := models.Publication{ID: id, WorkspaceID: workspace, CreatedByID: "user-1", Intent: "post", ContentProfile: models.ContentProfileShortText, SourceText: id, Status: models.PublicationStatusPublished, ActualRunAt: now.Add(-time.Hour), CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour)}
+		rendition := models.Rendition{ID: id, PublicationID: id, SocialAccountID: id, Platform: "youtube", Status: models.RenditionStatusPublished}
+		state := models.AnalyticsSyncState{ID: "account:" + id, WorkspaceID: workspace, SubjectType: "account", SubjectID: id, SocialAccountID: id, Platform: "youtube", Status: "ok", MetricsJSON: fmt.Sprintf(`{"followers":%d}`, 10*(i+1)), LastSuccessAt: now}
+		contentState := models.AnalyticsSyncState{ID: "rendition:" + id, WorkspaceID: workspace, SubjectType: "rendition", SubjectID: id, SocialAccountID: id, Platform: "youtube", Status: "ok", MetricsJSON: fmt.Sprintf(`{"views":%d}`, 100*(i+1)), LastSuccessAt: now}
+		for _, row := range []any{&account, &publication, &rendition, &state, &contentState} {
+			_, err = db.NewInsert().Model(row).Exec(ctx)
+			require.NoError(t, err)
+		}
+		for n, captured := range []time.Time{now.Add(-26 * time.Hour), now.Add(-time.Minute)} {
+			snapshot := models.AnalyticsAccountSnapshot{ID: fmt.Sprintf("%s-%d", id, n), WorkspaceID: workspace, SocialAccountID: id, Platform: "youtube", MetricsJSON: fmt.Sprintf(`{"followers":%d}`, 10*(i+1)+n), CapturedAt: captured}
+			_, err = db.NewInsert().Model(&snapshot).Exec(ctx)
+			require.NoError(t, err)
+			contentSnapshot := models.AnalyticsRenditionSnapshot{ID: snapshot.ID, WorkspaceID: workspace, PublicationID: id, RenditionID: id, SocialAccountID: id, Platform: "youtube", MetricsJSON: fmt.Sprintf(`{"views":%d}`, (90+10*n)*(i+1)), CapturedAt: captured}
+			_, err = db.NewInsert().Model(&contentSnapshot).Exec(ctx)
+			require.NoError(t, err)
+		}
+	}
+	service := analyticsservice.NewService(db, analyticsHandlerTokenSource{})
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	NewAnalyticsHandler(db, testAuthenticator{}, service).RegisterRoutes(api)
+	get := func(query string) (analyticsservice.Overview, int) {
+		request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=selected&days=30&sort=visibility&"+query, nil)
+		request.Header.Set("Authorization", "Bearer web-token")
+		response := httptest.NewRecorder()
+		e.ServeHTTP(response, request)
+		var overview analyticsservice.Overview
+		if response.Code == http.StatusOK {
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &overview))
+		}
+		return overview, response.Code
+	}
+	first, status := get("account_ids=b,a,b&limit=1")
+	require.Equal(t, http.StatusOK, status)
+	require.Equal(t, 2, first.ContentTotal)
+	require.Len(t, first.Accounts, 3, "selector retains all authorized accounts")
+	require.Equal(t, analyticsservice.MetricSummary{Value: 300, Measured: 2}, first.Summary.Visibility)
+	require.Equal(t, int64(30), first.Summary.Followers.Value)
+	require.Equal(t, 2, first.Summary.Followers.Measured)
+	require.NotEmpty(t, first.ContentNextCursor)
+	second, status := get("account_id=a&account_ids=b&limit=1&cursor=" + url.QueryEscape(first.ContentNextCursor))
+	require.Equal(t, http.StatusOK, status, "legacy and multi selection are a normalized union")
+	require.Len(t, second.Content, 1)
+	require.ElementsMatch(t, []string{"a", "b"}, []string{first.Content[0].AccountID, second.Content[0].AccountID})
+	require.Len(t, first.Performance, 2)
+	require.Len(t, first.Highlights, 2)
+	require.NotEmpty(t, first.FollowerSeries)
+	require.Equal(t, int64(32), first.FollowerSeries[len(first.FollowerSeries)-1].Value)
+	require.NotEmpty(t, first.Trends.Followers)
+	require.Equal(t, int64(2), first.Trends.Followers[len(first.Trends.Followers)-1].Value)
+	require.NotEmpty(t, first.Trends.Visibility)
+	require.Equal(t, int64(30), first.Trends.Visibility[len(first.Trends.Visibility)-1].Value)
+	exported, err := service.BuildExport(ctx, "selected", analyticsservice.ExportOptions{Days: 30, AccountID: "a", AccountIDs: []string{"b", "a"}, Metrics: []string{"visibility"}})
+	require.NoError(t, err)
+	require.Len(t, exported.Posts.Rows, 2)
+	require.Len(t, exported.Accounts.Rows, 2)
+	_, status = get("account_ids=a,c&limit=1&cursor=" + url.QueryEscape(first.ContentNextCursor))
+	require.Equal(t, http.StatusBadRequest, status, "cursor cannot move to another selected set")
+	foreign, status := get("account_ids=foreign")
+	require.Equal(t, http.StatusOK, status)
+	require.Zero(t, foreign.ContentTotal)
+	require.Zero(t, foreign.Summary.Followers.Measured)
+	require.Empty(t, foreign.Performance)
+	require.Empty(t, foreign.FollowerSeries)
 }

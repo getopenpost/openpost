@@ -242,7 +242,7 @@ test("draft gallery keeps content, selection and search without repeated row chr
   await page.goto(`/publications?tab=drafts&view=list&workspace_id=${workspace.id}`);
   await expect(page.getByTestId("publication-list")).toBeVisible();
   await views.getByRole("link", { name: "Grid", exact: true }).click();
-  const search = page.getByRole("textbox", { name: "Search posts", exact: true });
+  const search = page.getByRole("searchbox", { name: "Search posts", exact: true });
   await search.fill("customer interview");
   await expect(gallery.locator("article")).toHaveCount(1);
   await gallery.getByRole("link").click();

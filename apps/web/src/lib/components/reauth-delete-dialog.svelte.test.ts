@@ -143,7 +143,7 @@ describe('ReauthDeleteDialog shared delete flow', () => {
 			)
 			.mockResolvedValue({ blockers: [], expectedConfirm: 'Acme' });
 		const screen = await render(ReauthDeleteDialog, baseProps({ previewLoader }));
-		await expect.element(screen.getByRole('status', { name: 'Loading...' })).toBeVisible();
+		await expect.element(screen.getByRole('status', { name: 'Loading…' })).toBeVisible();
 		await expect.element(screen.getByRole('dialog')).toHaveAttribute('aria-busy', 'true');
 		rejectPreview(new Error('Preview unavailable'));
 		await expect.element(screen.getByText('Preview unavailable')).toBeVisible();

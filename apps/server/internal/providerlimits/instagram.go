@@ -1,8 +1,30 @@
 package providerlimits
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+	"unicode/utf8"
+)
 
 const InstagramMaxCollaborators = 3
+
+// InstagramAltTextMaxCharacters is the alt_text maximum Meta documents for
+// image containers. Verified 2026-10-31 against Meta's IG User Media
+// reference ("Alternative text, up to 1000 character, for an image. Only
+// supported on a single image or image media in a carousel. Reels and
+// stories are not supported."):
+// https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media
+const InstagramAltTextMaxCharacters = 1000
+
+// ValidateInstagramAltText checks alt text projected onto an Instagram
+// image container. It counts code points, matching the capability
+// catalogue's Instagram text counter.
+func ValidateInstagramAltText(altText string) error {
+	if utf8.RuneCountInString(altText) > InstagramAltTextMaxCharacters {
+		return fmt.Errorf("instagram alt text is limited to %d characters", InstagramAltTextMaxCharacters)
+	}
+	return nil
+}
 
 const (
 	InstagramTrialReelProfileRequired      = "instagram_trial_reel_profile_required"

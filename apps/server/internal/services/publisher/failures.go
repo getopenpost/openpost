@@ -208,6 +208,14 @@ func classifyProviderSpecificFailure(providerErr *platform.HTTPError) (Failure, 
 		failure.Action = FailureActionEdit
 		return failure, true
 	}
+	if providerErr.Code == "discord:bot_token_invalid" {
+		// The instance-configured bot token is server configuration, not a
+		// user credential. Reconnecting the user's Discord OAuth cannot fix
+		// it, so the failure must not mark their account for reconnection.
+		failure := failureForKind(FailurePermission, providerErr.Code, providerErr.StatusCode, 0)
+		failure.Message = "The Discord bot token configured for this server was rejected. An administrator must update the Discord bot token in the server settings, then try publishing again."
+		return failure, true
+	}
 	return classifyMetaFailure(providerErr)
 }
 

@@ -58,13 +58,10 @@ func buildVisibilityBreakdown(content []ContentOverview) []VisibilityBreakdown {
 	return result
 }
 
-func buildAccountPerformance(content []ContentOverview, accounts []AccountOverview, accountID string) []AccountPerformance {
+func buildAccountPerformance(content []ContentOverview, accounts []AccountOverview) []AccountPerformance {
 	byID := map[string]*AccountPerformance{}
 	publications := map[string]map[string]bool{}
 	for _, account := range accounts {
-		if accountID != "" && account.ID != accountID {
-			continue
-		}
 		row := &AccountPerformance{AccountID: account.ID, Platform: account.Platform, Username: account.Username, AvatarURL: account.AvatarURL, Status: account.Status, FollowerDelta: account.FollowerDelta}
 		if value, ok := compatibleCountMetricValue(account.Metrics, account.MetricMetadata, platform.MetricFollowers, platform.AnalyticsMetricAggregationCurrentSnapshot); ok {
 			row.Followers = &value

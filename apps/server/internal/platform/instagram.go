@@ -50,6 +50,7 @@ type InstagramAdapter struct {
 	redirectURI    string
 	graphVersion   string
 	instagramLogin bool
+	configID       string
 }
 
 func NewInstagramAdapter(clientID, clientSecret, redirectURI string) *InstagramAdapter {
@@ -145,8 +146,16 @@ func (i *InstagramAdapter) GenerateAuthURL(state string) (string, map[string]str
 	params.Set(oauthParamClientID, i.clientID)
 	params.Set(oauthParamRedirectURI, i.redirectURI)
 	params.Set("response_type", oauthResponseType)
-	params.Set("scope", strings.Join(instagramScopes(), ","))
 	params.Set("state", state)
+	if i.configID != "" {
+		// Meta forces newer apps onto Facebook Login for Business
+		// configurations: the configuration's config_id replaces the
+		// scope list in the dialog, and auth_type has no meaning there.
+		// The code exchange stays the shared oauth/access_token endpoint.
+		params.Set("config_id", i.configID)
+		return facebookOAuthBaseURL + "/" + i.graphVersion + "/dialog/oauth?" + params.Encode(), nil
+	}
+	params.Set("scope", strings.Join(instagramScopes(), ","))
 	params.Set("auth_type", "rerequest")
 	return facebookOAuthBaseURL + "/" + i.graphVersion + "/dialog/oauth?" + params.Encode(), nil
 }
@@ -434,6 +443,9 @@ func (i *InstagramAdapter) createMediaContainer(ctx context.Context, accessToken
 		values["share_to_feed"] = "true"
 	}
 	if altText != "" && !video && !instagramIsStory(req) {
+		if err := providerlimits.ValidateInstagramAltText(altText); err != nil {
+			return "", err
+		}
 		values["alt_text"] = altText
 	}
 	if userTags := settingString(mediaSettings, "user_tags"); userTags != "" {
@@ -1085,7 +1097,11 @@ func (i *InstagramAdapter) resumeFinalContainer(ctx context.Context, accessToken
 		result.ProviderReference = pending.ProviderReference
 		return result, nil
 	case "PUBLISHED":
-		result := AcceptedPublishResult("")
+		// Meta published the container, but the media_publish response that
+		// carried the published media ID was lost. Recover the ID with an
+		// identity check over the account's recent published media so post
+		// links and analytics joins survive the ambiguous submission.
+		result := AcceptedPublishResult(i.recoverPublishedMediaID(ctx, accessToken, instagramUserID, req))
 		result.ProviderState = instagramPublishedProviderState
 		result.ProviderReference = pending.ProviderReference
 		return result, nil
@@ -1099,6 +1115,61 @@ func (i *InstagramAdapter) resumeFinalContainer(ctx context.Context, accessToken
 	default:
 		return pending, nil
 	}
+}
+
+// recoverPublishedMediaID resolves the published media ID after a resumed
+// final container reports PUBLISHED. The original media_publish response was
+// lost to an ambiguous failure, so the ID is recovered from the account's
+// recent published media with an identity check: the authored caption
+// derivation (the trimmed request content sent as the container caption) must
+// match exactly one recent item of the media type this request publishes.
+// Empty captions never attempt recovery, and an ambiguous or failed lookup
+// keeps the empty ID instead of failing a publish that succeeded.
+func (i *InstagramAdapter) recoverPublishedMediaID(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest) string {
+	if req == nil || len(req.PlatformMediaIDs) == 0 {
+		return ""
+	}
+	caption := strings.TrimSpace(req.Content)
+	if caption == "" {
+		return ""
+	}
+	expectedType := "IMAGE"
+	if len(req.PlatformMediaIDs) > 1 {
+		expectedType = "CAROUSEL_ALBUM"
+	} else if len(req.Media) > 0 && isVideoMime(req.Media[0].MimeType) {
+		expectedType = "VIDEO"
+	}
+	query := url.Values{
+		"fields":              {"id,caption,media_type"},
+		"limit":               {"10"},
+		oauthParamAccessToken: {accessToken},
+	}
+	respBody, err := doMetaRequest(ctx, http.MethodGet, i.graphURL(instagramUserID+"/media")+"?"+query.Encode(), nil, nil)
+	if err != nil {
+		return ""
+	}
+	var response struct {
+		Data []struct {
+			ID        string `json:"id"`
+			Caption   string `json:"caption"`
+			MediaType string `json:"media_type"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &response); err != nil {
+		return ""
+	}
+	match, matches := "", 0
+	for _, item := range response.Data {
+		if item.MediaType != expectedType || item.Caption != caption {
+			continue
+		}
+		matches++
+		match = item.ID
+	}
+	if matches != 1 || validateInstagramCheckpointID(match) != nil {
+		return ""
+	}
+	return match
 }
 
 func (i *InstagramAdapter) resumeCarousel(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest, checkpoint instagramPublishCheckpoint) (PublishResult, error) {

@@ -62,7 +62,7 @@ export function BottomDrawer({
       onIndexChange={(index) => {
         if (index === 0) onDismiss();
       }}
-      scrimColor="#00000099"
+      scrimColor={colors.scrim}
       surface={
         <View
           style={[

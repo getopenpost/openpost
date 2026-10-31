@@ -6,6 +6,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { m } from '$lib/paraglide/messages';
+	import { formatBytes as formatByteSize } from '$lib/byte-size';
 	import type { MediaMetadata } from '$lib/video-editor/media/types';
 	import { resolveMediaBlob } from '$lib/video-editor/media/import.svelte';
 	import {
@@ -58,10 +59,7 @@
 	);
 
 	function formatBytes(value: number): string {
-		if (value < 1024) return `${value} B`;
-		if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-		if (value < 1024 * 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-		return `${(value / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+		return formatByteSize(value, { base: 'iec' }) ?? '—';
 	}
 
 	function resetScan(): void {

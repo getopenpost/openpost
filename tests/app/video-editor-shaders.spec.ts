@@ -83,9 +83,8 @@ async function createShaderProject(
   await page.getByRole("textbox", { name: "Project name" }).press("Tab");
   await page
     .getByRole("navigation", { name: "Assets", exact: true })
-    .getByRole("button", { name: "More", exact: true })
+    .getByRole("tab", { name: "Backgrounds", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Backgrounds", exact: true }).click();
   await page.getByRole("searchbox", { name: "Search backgrounds" }).fill(preset);
   await page.getByRole("button", { name: preset, exact: true }).click();
   await page.getByRole("searchbox", { name: "Search backgrounds" }).fill("");
@@ -140,9 +139,8 @@ test("shader clips preserve edits, seek and export an MP4", async ({ page }) => 
   await page.goto(projectURL);
   await page
     .getByRole("navigation", { name: "Assets", exact: true })
-    .getByRole("button", { name: "More", exact: true })
+    .getByRole("tab", { name: "Backgrounds", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Backgrounds", exact: true }).click();
   await expect(canvas).toBeVisible();
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Export", exact: true }).click();
@@ -180,7 +178,7 @@ for (const scheme of ["light", "dark"] as const) {
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       const panels = page.getByRole("navigation", { name: "Editor panels" });
-      for (const name of ["Assets", "Edit", "Program"]) {
+      for (const name of ["Assets", "Properties", "Program"]) {
         await panels.getByRole("button", { name, exact: true }).click();
         await expect(panels.getByRole("button", { name, exact: true })).toHaveAttribute(
           "aria-pressed",
@@ -200,7 +198,7 @@ for (const scheme of ["light", "dark"] as const) {
             });
           }
         }
-        if (name === "Edit") {
+        if (name === "Properties") {
           await page
             .getByRole("button", { name: "Warp: Shape", exact: true })
             .scrollIntoViewIfNeeded();

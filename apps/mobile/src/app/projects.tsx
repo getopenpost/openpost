@@ -505,7 +505,11 @@ export default function VideoProjectsScreen() {
         ) : null}
         <ContentTitle>Recent projects</ContentTitle>
         {projects.length === 0 ? (
-          <EmptyState title="No cloud projects yet" body="Record or import a video to start one." />
+          <EmptyState
+            iconRole="videoProjects"
+            title="No cloud projects yet"
+            body="Record or import a video to start one."
+          />
         ) : (
           <View style={{ gap: spacing.small }}>
             {projects.map((project) => (

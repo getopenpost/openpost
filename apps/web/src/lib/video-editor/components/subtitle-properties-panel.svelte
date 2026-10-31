@@ -190,7 +190,7 @@
 			<Button
 				type="button"
 				size="sm"
-				class="h-[22px]"
+				class="h-[var(--editor-22,22px)]"
 				variant={karaokeMode === 'normal' ? 'secondary' : 'ghost'}
 				aria-pressed={karaokeMode === 'normal'}
 				onclick={() => commitKaraokeMode('normal')}
@@ -200,7 +200,7 @@
 			<Button
 				type="button"
 				size="sm"
-				class="h-[22px]"
+				class="h-[var(--editor-22,22px)]"
 				variant={karaokeMode === 'karaoke' ? 'secondary' : 'ghost'}
 				aria-pressed={karaokeMode === 'karaoke'}
 				onclick={() => commitKaraokeMode('karaoke')}
@@ -233,7 +233,7 @@
 							type="button"
 							size="sm"
 							variant={activeItem.karaokeActiveBackground ? 'ghost' : 'secondary'}
-							class="h-[22px] px-2 text-[10px]"
+							class="h-[var(--editor-22,22px)] px-2 text-[10px]"
 							onclick={() =>
 								commit(
 									{
@@ -258,7 +258,7 @@
 		<Button
 			type="button"
 			size="sm"
-			class="h-[22px]"
+			class="h-[var(--editor-22,22px)]"
 			variant={(activeItem.fontWeight ?? 600) >= 700 ? 'secondary' : 'ghost'}
 			aria-pressed={(activeItem.fontWeight ?? 600) >= 700}
 			onclick={() =>

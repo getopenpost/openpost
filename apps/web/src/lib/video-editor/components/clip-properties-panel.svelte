@@ -437,6 +437,79 @@
 
 		{#if item.type === 'video' || item.type === 'audio'}
 			<ClipAudioCoreSection {audioItems} {onedit} />
+
+			{#if audioItem}
+				{@const noise = resolveNoiseReductionSettings(audioItem)}
+				<AudioEqPanel items={audioItems} {onedit} />
+				<AudioEffectsPanel item={audioItem} />
+				<AudioDuckingPanel item={audioItem} {onedit} />
+				<EditorDisclosure
+					label={m.video_editor_audio_noise_title()}
+					summary={noise.enabled
+						? m.video_editor_audio_noise_applied({ amount: String(noise.amount) })
+						: m.video_editor_audio_noise_bypassed()}
+					class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)]"
+				>
+					{#snippet actions()}
+						<HintButton
+							label={m.video_editor_audio_noise_description()}
+							hint={m.video_editor_audio_noise_description()}
+						/>
+					{/snippet}
+					<div class="p-2" data-testid="noise-reduction-panel">
+						<div class="flex items-center gap-2">
+							<div class="flex items-center gap-2">
+								<Checkbox
+									checked={noise.enabled}
+									aria-label={m.video_editor_audio_noise_enable()}
+									onCheckedChange={(checked) =>
+										commitAudioPatch({
+											audioNoiseReductionEnabled: checked === true,
+											audioNoiseReductionAmount: noise.amount
+										})}
+								/>
+								<Label class="text-[11px] text-foreground"
+									>{m.video_editor_audio_noise_enable()}</Label
+								>
+							</div>
+							<span class="ml-auto text-[10px] text-muted-foreground" aria-live="polite">
+								{noise.enabled
+									? m.video_editor_audio_noise_applied({ amount: String(noise.amount) })
+									: m.video_editor_audio_noise_bypassed()}
+							</span>
+						</div>
+						<div class="mt-2 space-y-1">
+							<Label
+								for={`nr-${audioItem.id}`}
+								class="text-[10px] text-muted-foreground"
+								title={m.video_editor_audio_noise_amount_hint({
+									amount: String(nrDraftAmount ?? noise.amount)
+								})}>{m.video_editor_audio_noise_amount()}</Label
+							>
+							<Slider
+								value={nrDraftAmount ?? noise.amount}
+								min={0}
+								max={100}
+								step={1}
+								disabled={!noise.enabled}
+								ariaLabel={m.video_editor_audio_noise_aria()}
+								onValueChange={(v) => {
+									nrDraftAmount = clampNoiseReductionAmount(v);
+								}}
+								onValueCommit={(v) => {
+									const clamped = clampNoiseReductionAmount(v);
+									nrDraftAmount = null;
+									commitAudioPatch({
+										audioNoiseReductionAmount: clamped,
+										audioNoiseReductionEnabled: true
+									});
+								}}
+							/>
+						</div>
+					</div>
+				</EditorDisclosure>
+			{/if}
+
 			<ClipPlaybackSection itemId={item.id} {itemIds} {onedit} />
 
 			{#if audioItem}
@@ -471,79 +544,6 @@
 							{/each}
 						</div>
 					</details>
-					<div class="mt-2 space-y-2">
-						<AudioEqPanel items={audioItems} {onedit} />
-						<AudioEffectsPanel item={audioItem} />
-						<AudioDuckingPanel item={audioItem} {onedit} />
-					</div>
-					<div
-						class="mt-2 rounded-md border border-border bg-muted/40 p-2"
-						data-testid="noise-reduction-panel"
-					>
-						<div class="flex items-center justify-between gap-2">
-							<h4
-								class="inline-flex items-center gap-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase"
-							>
-								{m.video_editor_audio_noise_title()}
-								<HintButton
-									label={m.video_editor_audio_noise_description()}
-									hint={m.video_editor_audio_noise_description()}
-								/>
-							</h4>
-						</div>
-						{#if audioItem}
-							{@const nr = resolveNoiseReductionSettings(audioItem)}
-							<div class="mt-2 flex items-center gap-2">
-								<div class="flex items-center gap-2">
-									<Checkbox
-										checked={nr.enabled}
-										aria-label={m.video_editor_audio_noise_enable()}
-										onCheckedChange={(checked) =>
-											commitAudioPatch({
-												audioNoiseReductionEnabled: checked === true,
-												audioNoiseReductionAmount: nr.amount
-											})}
-									/>
-									<Label class="text-[11px] text-foreground"
-										>{m.video_editor_audio_noise_enable()}</Label
-									>
-								</div>
-								<span class="ml-auto text-[10px] text-muted-foreground" aria-live="polite">
-									{nr.enabled
-										? m.video_editor_audio_noise_applied({ amount: String(nr.amount) })
-										: m.video_editor_audio_noise_bypassed()}
-								</span>
-							</div>
-							<div class="mt-2 space-y-1">
-								<Label
-									for={`nr-${audioItem.id}`}
-									class="text-[10px] text-muted-foreground"
-									title={m.video_editor_audio_noise_amount_hint({
-										amount: String(nrDraftAmount ?? nr.amount)
-									})}>{m.video_editor_audio_noise_amount()}</Label
-								>
-								<Slider
-									value={nrDraftAmount ?? nr.amount}
-									min={0}
-									max={100}
-									step={1}
-									disabled={!nr.enabled}
-									ariaLabel={m.video_editor_audio_noise_aria()}
-									onValueChange={(v) => {
-										nrDraftAmount = clampNoiseReductionAmount(v);
-									}}
-									onValueCommit={(v) => {
-										const clamped = clampNoiseReductionAmount(v);
-										nrDraftAmount = null;
-										commitAudioPatch({
-											audioNoiseReductionAmount: clamped,
-											audioNoiseReductionEnabled: true
-										});
-									}}
-								/>
-							</div>
-						{/if}
-					</div>
 				</EditorDisclosure>
 			{/if}
 		{/if}

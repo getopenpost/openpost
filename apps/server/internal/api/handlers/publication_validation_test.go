@@ -8,6 +8,7 @@ import (
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/providerlimits"
 	"github.com/stretchr/testify/require"
 )
 
@@ -140,6 +141,41 @@ func TestInstagramLoginReconnectionRejectsRetainedShoppingTagsBeforeScheduling(t
 	require.Len(t, tagIssues, 1)
 	require.Equal(t, "photo", tagIssues[0].MediaID)
 	require.Equal(t, "segment", tagIssues[0].SegmentID)
+}
+
+func TestValidatePublicationRejectsOverLimitInstagramAltText(t *testing.T) {
+	db := createHandlerTestDB(t, (*models.Publication)(nil), (*models.Rendition)(nil),
+		(*models.PublicationSegment)(nil), (*models.PublicationSegmentMedia)(nil),
+		(*models.RenditionSegment)(nil), (*models.RenditionSegmentMedia)(nil),
+		(*models.RenditionMedia)(nil), (*models.MediaAttachment)(nil), (*models.SocialAccount)(nil))
+	overLimitAltText := strings.Repeat("a", providerlimits.InstagramAltTextMaxCharacters+1)
+	for _, row := range []any{
+		&models.Publication{ID: "pub", WorkspaceID: "ws-1", CreatedByID: "user-1", ContentProfile: models.ContentProfileImagePost, Status: models.PublicationStatusDraft},
+		&models.SocialAccount{ID: "account", WorkspaceID: "ws-1", Platform: "instagram", AccountID: "ig-user", AccessTokenEnc: []byte("token"), IsActive: true, GrantedScopes: "instagram_basic instagram_content_publish"},
+		&models.MediaAttachment{ID: "photo", WorkspaceID: "ws-1", FilePath: "photo.jpg", MimeType: "image/jpeg", Size: 100, PublicURLReady: true},
+		&models.PublicationSegment{ID: "source", PublicationID: "pub", Body: "Launch"},
+		&models.PublicationSegmentMedia{SegmentID: "source", MediaID: "photo"},
+		&models.Rendition{ID: "rendition", PublicationID: "pub", SocialAccountID: "account", Platform: "instagram", Profile: models.ContentProfileImagePost, OutputProfile: "instagram.feed", Status: models.RenditionStatusDraft},
+		&models.RenditionSegment{ID: "segment", RenditionID: "rendition", PublicationSegmentID: "source", MediaInherited: true, Status: models.RenditionStatusDraft},
+		&models.RenditionSegmentMedia{RenditionSegmentID: "segment", MediaID: "photo", AltText: overLimitAltText},
+	} {
+		_, err := db.NewInsert().Model(row).Exec(t.Context())
+		require.NoError(t, err)
+	}
+
+	issues, err := (&PublicationHandler{db: db}).validatePublicationByID(t.Context(), "pub")
+
+	require.NoError(t, err)
+	var altIssues []capabilities.ValidationIssue
+	for _, issue := range issues {
+		if issue.Code == "alt_text_too_long" {
+			altIssues = append(altIssues, issue)
+		}
+	}
+	require.Len(t, altIssues, 1)
+	require.Equal(t, "photo", altIssues[0].MediaID)
+	require.Equal(t, "segment", altIssues[0].SegmentID)
+	require.Contains(t, altIssues[0].Message, "1000 character limit")
 }
 
 func TestValidateDynamicXConstraintsUseTheResolvedAccountTier(t *testing.T) {

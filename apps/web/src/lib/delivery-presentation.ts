@@ -49,7 +49,7 @@ export function deliveryRecoveryAction(
 
 export function deliveryStatusClass(state: string) {
 	if (state === 'live' || state === 'published' || state === 'success') {
-		return 'text-emerald-800 dark:text-emerald-300';
+		return 'text-success-foreground';
 	}
 	if (state === 'rejected' || state === 'failed' || state === 'manual_resolution') {
 		return 'text-destructive';
@@ -60,7 +60,7 @@ export function deliveryStatusClass(state: string) {
 		state === 'processing' ||
 		state === 'awaiting_user'
 	) {
-		return 'text-blue-700 dark:text-blue-300';
+		return 'text-info-foreground';
 	}
 	return 'text-muted-foreground';
 }

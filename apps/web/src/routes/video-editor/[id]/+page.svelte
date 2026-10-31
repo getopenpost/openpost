@@ -509,7 +509,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	});
 	let colorGradeScope = $state<'clip' | 'sequence'>('clip');
 	let sourceMediaId = $state<string | null>(null);
-	let sourceMonitorOverlay = $state(false);
 	$effect(() => {
 		void sourceMediaId;
 		shuttleScrubResume.cancel();
@@ -583,9 +582,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	const editorHeaderHeight = 48;
 	const minimumColorProgramHeight = 280;
 	const minimumColorDockHeight = 160;
-	const sourceMonitorHorizontal = $derived(
-		sourceMediaId !== null && editorViewportWidth >= 1280 && !sourceMonitorOverlay
-	);
+	const sourceMonitorHorizontal = $derived(sourceMediaId !== null && editorViewportWidth >= 1280);
 	const minimumEditCenterWidth = $derived(
 		minimumProgramWidth + (sourceMonitorHorizontal ? 300 : 0)
 	);
@@ -848,10 +845,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		}
 	]);
 	const leftPanelOptions = $derived([...primaryLeftPanelOptions, ...utilityLeftPanelOptions]);
-	const railPanelOptions = $derived(
-		primaryLeftPanelOptions.filter((option, index) => index < 6 || option.value === leftPanel)
-	);
-	const morePanelOptions = $derived(primaryLeftPanelOptions.slice(6));
+	const railPanelOptions = $derived(primaryLeftPanelOptions);
 	const leftPanelHeading = $derived(
 		leftPanelOptions.find((option) => option.value === leftPanel)?.label ?? m.video_editor_assets()
 	);
@@ -2723,16 +2717,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					>
 						{m.recording_cleanup_action()}
 					</DropdownMenu.Item>
-					<DropdownMenu.Label>{m.video_editor_clip()}</DropdownMenu.Label>
-					<DropdownMenu.Item disabled={!selectedItemId} onclick={handleSplit}>
-						{m.video_editor_split()}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item disabled={!selectedItemId} onclick={() => handleDelete(false)}>
-						{m.video_editor_delete_leave_gap()}
-					</DropdownMenu.Item>
-					<DropdownMenu.Item disabled={!selectedItemId} onclick={() => handleDelete(true)}>
-						{m.video_editor_delete_clip()}
-					</DropdownMenu.Item>
 					<DropdownMenu.Separator />
 					<DropdownMenu.Label>{m.video_editor_sequences()}</DropdownMenu.Label>
 					<DropdownMenu.Item onclick={createEditorSequence}>
@@ -2855,44 +2839,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				data-workspace={activeWorkspace}
 				class="flex min-h-0 flex-1 flex-col"
 			>
-				{#if activeWorkspace === 'edit'}
-					<nav
-						class="grid shrink-0 grid-cols-3 border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1 lg:hidden"
-						aria-label={m.video_editor_mobile_panels()}
-					>
-						<button
-							type="button"
-							class:active={mobileEditPane === 'assets'}
-							class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-							aria-controls="video-editor-assets-panel"
-							aria-pressed={mobileEditPane === 'assets'}
-							onclick={() => (mobileEditPane = 'assets')}
-						>
-							{m.video_editor_assets()}
-						</button>
-						<button
-							type="button"
-							class:active={mobileEditPane === 'program'}
-							class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-							aria-controls="video-editor-program-panel"
-							aria-pressed={mobileEditPane === 'program'}
-							onclick={() => (mobileEditPane = 'program')}
-						>
-							{m.video_editor_program_monitor()}
-						</button>
-						<button
-							type="button"
-							class:active={mobileEditPane === 'tools'}
-							class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-							aria-controls="video-editor-tools-panel"
-							aria-pressed={mobileEditPane === 'tools'}
-							onclick={() => (mobileEditPane = 'tools')}
-						>
-							{m.video_editor_tools()}
-						</button>
-					</nav>
-				{/if}
-
 				<div
 					class="flex min-h-0 w-full min-w-0 flex-1 flex-col {activeWorkspace === 'edit'
 						? 'lg:grid lg:grid-rows-[minmax(0,1fr)_var(--timeline-height)]'
@@ -2998,28 +2944,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												{/each}
 											</div>
 										</div>
-										<DropdownMenu.Root>
-											<DropdownMenu.Trigger>
-												{#snippet child({ props })}
-													<Button
-														{...props}
-														variant="ghost"
-														size="icon-sm"
-														class="mx-auto shrink-0"
-														aria-label={m.sidebar_more()}
-														title={m.sidebar_more()}><ThemeIcon role="more-horizontal" /></Button
-													>
-												{/snippet}
-											</DropdownMenu.Trigger>
-											<DropdownMenu.Content side="right" align="end" class="video-editor-theme">
-												{#each morePanelOptions as option (option.value)}
-													<DropdownMenu.Item onclick={() => openLeftPanel(option.value)}
-														>{@render leftPanelIcon(option, 'size-4')}
-														{option.label}</DropdownMenu.Item
-													>
-												{/each}
-											</DropdownMenu.Content>
-										</DropdownMenu.Root>
 										{#if leftSidebarRail}
 											<div
 												class="flex shrink-0 flex-col items-center gap-1 border-t border-[var(--video-editor-border)] py-2"
@@ -3340,7 +3264,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										? 'flex flex-col xl:flex-row'
 										: 'flex'}"
 							>
-								{#if showSourceMonitor && !sourceMonitorOverlay && sourceMediaId}
+								{#if showSourceMonitor && sourceMediaId}
 									<div
 										class="relative flex h-[min(44%,22rem)] min-h-0 w-full shrink-0 xl:h-auto xl:w-[var(--source-monitor-width)] xl:max-w-[calc(100%_-_300px)]"
 										style:--source-monitor-width={`${effectiveSourceMonitorWidth}px`}
@@ -3370,18 +3294,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										>
 											<span class="min-w-0 flex-1 truncate">{m.video_editor_program_monitor()}</span
 											>
-											{#if sourceMediaId}
-												<Button
-													size="icon-xs"
-													variant="ghost"
-													aria-label={m.video_editor_source_monitor()}
-													title={m.video_editor_source_monitor()}
-													aria-pressed={sourceMonitorOverlay}
-													onclick={() => (sourceMonitorOverlay = !sourceMonitorOverlay)}
-												>
-													<ThemeIcon role="layout" class="size-3.5" />
-												</Button>
-											{/if}
 										</div>
 									{/if}
 									{#if activeWorkspace === 'motion' && !activeMotionComposition}
@@ -3410,15 +3322,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											theaterActive={layoutTheaterActive}
 											ontoggletheater={() => setTheaterMode(!theaterMode)}
 										/>
-										{#if showSourceMonitor && sourceMonitorOverlay && sourceMediaId}
-											<div
-												class="absolute inset-y-0 right-0 z-30 flex w-[min(30rem,85%)] flex-col border-l border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] shadow-lg"
-												role="dialog"
-												aria-label={m.video_editor_source_monitor()}
-											>
-												{@render sourceMonitorPanel(sourceMediaId)}
-											</div>
-										{/if}
 									{/if}
 								</section>
 								{#if activeWorkspace === 'color' && showColorScopes}
@@ -3567,6 +3470,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																	>{m.video_editor_scene_split_fast()}</DropdownMenu.Item
 																>
 																<DropdownMenu.Item
+																	title={m.video_editor_scene_split_adaptive_help()}
 																	onclick={() =>
 																		void handleAutoSplitScenes(selectedItemId, 'adaptive-lfm')}
 																	>{m.video_editor_scene_split_adaptive()}</DropdownMenu.Item
@@ -3587,7 +3491,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 															: m.video_editor_create_compound()}
 													</DropdownMenu.Item>
 													<DropdownMenu.Separator />
-													<DropdownMenu.Item onclick={() => handleDelete(false)}>
+													<DropdownMenu.Item
+														variant="destructive"
+														onclick={() => handleDelete(false)}
+													>
 														{m.video_editor_delete_leave_gap()}
 													</DropdownMenu.Item>
 													<DropdownMenu.Item
@@ -3689,9 +3596,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												oncancel={cancelAiCaptions}
 											/>
 										</div>
-										<div
-											class="mt-1 max-h-64 overflow-y-auto rounded-md border border-[var(--video-editor-border)] p-1"
-										>
+										<div class="mt-1">
 											<TranscriptPanel
 												ontextinserted={handleTranscriptTextInserted}
 												itemIds={selectedItemIds.length > 0
@@ -3705,7 +3610,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										<Button
 											size="sm"
 											variant="outline"
-											class="mt-3 w-full [@media(pointer:coarse)]:min-h-11"
+											class="mt-2 w-full [@media(pointer:coarse)]:min-h-11"
 											disabled={speechCleanupItemIds.length === 0}
 											onclick={() => openSpeechCleanup('recording')}
 										>
@@ -3785,6 +3690,43 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							/>
 						</div>
 					{/if}
+					{#if activeWorkspace === 'edit'}
+						<nav
+							class="grid shrink-0 grid-cols-3 border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1 lg:hidden"
+							aria-label={m.video_editor_mobile_panels()}
+						>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'assets'}
+								class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
+								aria-controls="video-editor-assets-panel"
+								aria-pressed={mobileEditPane === 'assets'}
+								onclick={() => (mobileEditPane = 'assets')}
+							>
+								{m.video_editor_assets()}
+							</button>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'program'}
+								class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
+								aria-controls="video-editor-program-panel"
+								aria-pressed={mobileEditPane === 'program'}
+								onclick={() => (mobileEditPane = 'program')}
+							>
+								{m.video_editor_program_monitor()}
+							</button>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'tools'}
+								class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
+								aria-controls="video-editor-tools-panel"
+								aria-pressed={mobileEditPane === 'tools'}
+								onclick={() => (mobileEditPane = 'tools')}
+							>
+								{m.video_editor_inspector()}
+							</button>
+						</nav>
+					{/if}
 					{#if activeWorkspace !== 'color' && !(activeWorkspace === 'motion' && !activeMotionComposition)}
 						<footer
 							class="relative flex shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)] {activeWorkspace ===
@@ -3857,6 +3799,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												oncutselection={() => copyTimelineSelection(true)}
 												onpasteat={(frame, trackId) => pasteTimelineClipboard(frame, trackId)}
 												onsplitselection={handleSplit}
+												onaddcrossfade={handleAddCrossfade}
 												ondeleteselection={() => handleDelete(false)}
 												onrippledeleteselection={() => handleDelete(true)}
 												onmixerlayoutchange={handleMixerLayoutChange}

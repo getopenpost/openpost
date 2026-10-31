@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { page, userEvent } from 'vitest/browser';
+import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { components } from '$lib/api/types';
 import AnalyticsPostHighlights from './analytics-post-highlights.svelte';
 import AnalyticsDateRange from './analytics-date-range.svelte';
-import AnalyticsNextActions from './analytics-next-actions.svelte';
 import AnalyticsAccountPerformance from './analytics-account-performance.svelte';
 import '../../routes/layout.css';
 
@@ -13,31 +12,6 @@ const reference = {
 	publication_id: 'best-publication',
 	rendition_id: 'best-output'
 } as const;
-const actions: components['schemas']['Takeaway'][] = [
-	{
-		kind: 'repurpose_post',
-		account_id: 'account',
-		platform: 'linkedin',
-		username: 'Founder',
-		reference,
-		value: 40,
-		baseline: 10,
-		measured_count: 4,
-		comparison_sample: 4,
-		reason: 'above_baseline',
-		title: 'Launch lessons that earned attention'
-	},
-	{
-		kind: 'restore_measurements',
-		account_id: 'broken',
-		platform: 'instagram',
-		username: 'Needs connection',
-		value: 0,
-		measured_count: 0,
-		comparison_sample: 0,
-		reason: 'permission_required'
-	}
-];
 const performance: components['schemas']['AccountPerformance'][] = [
 	{
 		account_id: 'outside-loaded-page',
@@ -78,39 +52,12 @@ describe('Actionable analytics', () => {
 			it(`keeps evidence and actions usable at ${width}px ${dark ? 'dark' : 'light'}`, async () => {
 				await page.viewport(width, 1000);
 				document.documentElement.classList.toggle('dark', dark);
-				const onrepurpose = vi.fn();
 				const onselect = vi.fn();
-				const next = render(AnalyticsNextActions, {
-					items: actions,
-					canEdit: true,
-					onrepurpose,
-					formatValue: String
-				});
 				const accounts = render(AnalyticsAccountPerformance, {
 					items: performance,
 					onselect,
 					formatValue: String
 				});
-				await expect
-					.element(
-						next.getByText(
-							'40 engagement actions, compared with 10 for this account across 4 comparable outputs.'
-						)
-					)
-					.toBeVisible();
-				const repurpose = next.getByRole('button', { name: 'Repurpose', exact: true });
-				repurpose.element().focus();
-				await userEvent.keyboard('{Enter}');
-				expect(onrepurpose).toHaveBeenCalledExactlyOnceWith(reference);
-				if (width < 1024) {
-					expect(next.getByRole('link', { name: 'Open account details' }).query()).toBeNull();
-					const disclosure = next.getByText('More actions', { exact: true }).element();
-					disclosure.focus();
-					await userEvent.keyboard('{Enter}');
-				}
-				await expect
-					.element(next.getByRole('link', { name: 'Open account details' }))
-					.toHaveAttribute('href', '/settings?tab=accounts');
 				await accounts.getByRole('button', { name: /Full-population leader/ }).click();
 				expect(onselect).toHaveBeenCalledExactlyOnceWith('outside-loaded-page');
 				const rows = [
@@ -121,7 +68,7 @@ describe('Actionable analytics', () => {
 				expect(rows[1].querySelector('dd')?.textContent).toBe('0');
 				expect(rows[2].querySelector('dd')?.textContent).toBe('—');
 				for (const row of document.querySelectorAll(
-					'[data-testid="analytics-takeaway"], [data-testid="analytics-account-performance"]'
+					'[data-testid="analytics-account-performance"]'
 				)) {
 					expect(row.getBoundingClientRect().right).toBeLessThanOrEqual(width);
 				}
@@ -129,38 +76,13 @@ describe('Actionable analytics', () => {
 					for (const button of document.querySelectorAll('button, a[role="button"]'))
 						expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 				}
-				if (width < 1024) {
-					next.getByText('More actions', { exact: true }).element().focus();
-					await userEvent.keyboard('{Enter}');
-				}
 				await page.screenshot({
 					path: `__screenshots__/actionable-analytics-${width}-${dark ? 'dark' : 'light'}.png`
 				});
-				await next.unmount();
 				await accounts.unmount();
 				document.documentElement.classList.remove('dark');
 			});
 		}
-	it('shows an evidence empty state and disables an in-flight repurpose action', async () => {
-		const empty = render(AnalyticsNextActions, {
-			items: [],
-			onrepurpose: vi.fn(),
-			formatValue: String
-		});
-		await expect.element(empty.getByText(/No recommendations yet/)).toBeVisible();
-		await empty.unmount();
-		const busy = render(AnalyticsNextActions, {
-			items: actions,
-			canEdit: true,
-			busy: true,
-			onrepurpose: vi.fn(),
-			formatValue: String
-		});
-		await expect
-			.element(busy.getByRole('button', { name: 'Repurpose', exact: true }))
-			.toBeDisabled();
-		await busy.unmount();
-	});
 	it('uses server highlights with native links and the existing repurpose action', async () => {
 		const item: components['schemas']['ContentOverview'] = {
 			account_id: 'account',
@@ -211,17 +133,6 @@ describe('Actionable analytics', () => {
 			new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10),
 			now.toISOString().slice(0, 10)
 		);
-		await screen.unmount();
-	});
-	it('keeps evidence visible for readers without offering an authoring action', async () => {
-		const screen = render(AnalyticsNextActions, {
-			items: actions.slice(0, 1),
-			canEdit: false,
-			onrepurpose: vi.fn(),
-			formatValue: String
-		});
-		await expect.element(screen.getByText('Launch lessons that earned attention')).toBeVisible();
-		expect(screen.getByRole('button', { name: 'Repurpose' }).query()).toBeNull();
 		await screen.unmount();
 	});
 });

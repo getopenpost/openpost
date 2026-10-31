@@ -81,11 +81,8 @@ test("Quick Cut keeps earlier cuts, supports undo, markers, and exports the edit
   await expect(markOut).toHaveValue(originalOut);
   await expect(page.getByRole("img", { name: /Saved to OpenPost/ })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("qct-cold-restored.png") });
-  await page
-    .locator("summary")
-    .filter({ hasText: /^Segment files$/ })
-    .click();
-  await page.getByRole("button", { name: "Segment files", exact: true }).click();
+  await page.locator('[data-collapsible-trigger][aria-label="Segment files"]').click();
+  await page.getByRole("button", { name: "Segment files", exact: true }).last().click();
   const importSegments = page.getByRole("menuitem", { name: /^Import segments/ });
   await expect(importSegments).toBeVisible();
   const [segmentChooser] = await Promise.all([

@@ -3,6 +3,7 @@
 	import { onDestroy } from 'svelte';
 	import { canEncodeVideo, type VideoCodec } from 'mediabunny';
 	import { m } from '$lib/paraglide/messages';
+	import { formatBytes as formatByteSize } from '$lib/byte-size';
 	import { Button, type ButtonVariant } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -325,9 +326,7 @@
 	});
 
 	function formatBytes(bytes: number): string {
-		if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-		if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-		return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+		return formatByteSize(bytes, { base: 'iec' }) ?? '—';
 	}
 
 	function preflightMessage(check: ExportPreflightCheck): string {

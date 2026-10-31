@@ -114,12 +114,26 @@
 		text-wrap: balance;
 	}
 
+	/* Size modifier for heroes that share the H1 recipe at a smaller scale. */
+	.marketing-title--compact {
+		max-width: 22ch;
+		font-size: clamp(2rem, 4vw, 3.5rem);
+	}
+
 	.marketing-heading {
 		max-width: 18ch;
-		font-size: clamp(2.2rem, 4.2vw, 4rem);
-		font-weight: 630;
+		font-size: clamp(2rem, 3.5vw, 3rem);
+		font-weight: 550;
 		line-height: 1;
 		letter-spacing: -0.038em;
+		text-wrap: balance;
+	}
+
+	.section-heading {
+		font-size: clamp(2rem, 3.5vw, 3rem);
+		font-weight: 550;
+		line-height: 1.12;
+		letter-spacing: -0.035em;
 		text-wrap: balance;
 	}
 

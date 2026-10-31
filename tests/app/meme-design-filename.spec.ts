@@ -47,7 +47,7 @@ test("Meme Media exports use the authored design name and remain searchable afte
   expect(download.suggestedFilename()).toBe("Audit café named meme.png");
   await download.saveAs(testInfo.outputPath(download.suggestedFilename()));
   await page.goto("/media");
-  const mediaSearch = page.getByRole("textbox", {
+  const mediaSearch = page.getByRole("searchbox", {
     name: "Search filename or alt text",
     exact: true,
   });

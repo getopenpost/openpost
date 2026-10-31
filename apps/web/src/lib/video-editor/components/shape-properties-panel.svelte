@@ -253,7 +253,7 @@
 							min="-360"
 							max="360"
 							step="1"
-							class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+							class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 							value={item.gradientAngle ?? 0}
 							onchange={(event) => numberPatch('gradientAngle', event.currentTarget.valueAsNumber)}
 						/>
@@ -288,7 +288,7 @@
 						min="0"
 						max="500"
 						step="1"
-						class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+						class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 						value={item.strokeWidth ?? 8}
 						onchange={(event) => numberPatch('strokeWidth', event.currentTarget.valueAsNumber)}
 					/>
@@ -334,7 +334,7 @@
 						min="1"
 						max="100"
 						step="0.5"
-						class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+						class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 						value={item.strokeMiterLimit ?? 4}
 						onchange={(event) => numberPatch('strokeMiterLimit', event.currentTarget.valueAsNumber)}
 					/>
@@ -350,7 +350,7 @@
 							min={field.minimum}
 							max={field.maximum}
 							step="1"
-							class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+							class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 							value={item[field.property] ?? field.defaultValue}
 							onchange={(event) => strokePathPatch(field, event.currentTarget.valueAsNumber)}
 						/>
@@ -412,7 +412,7 @@
 					min="0"
 					max="1000"
 					step="1"
-					class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+					class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 					value={item.shapeCornerRadius ?? 0}
 					onchange={(event) => numberPatch('shapeCornerRadius', event.currentTarget.valueAsNumber)}
 				/>
@@ -447,7 +447,7 @@
 						min="3"
 						max="64"
 						step="1"
-						class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+						class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 						value={item.shapePoints ?? (item.shapeType === 'star' ? 5 : 6)}
 						onchange={(event) => numberPatch('shapePoints', event.currentTarget.valueAsNumber)}
 					/>
@@ -460,7 +460,7 @@
 							min="0.05"
 							max="0.95"
 							step="0.01"
-							class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+							class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 							value={item.shapeInnerRadius ?? 0.5}
 							onchange={(event) =>
 								numberPatch('shapeInnerRadius', event.currentTarget.valueAsNumber)}
@@ -509,7 +509,7 @@
 					min="0"
 					max="100"
 					step="1"
-					class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+					class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 					value={item.maskFeather ?? 10}
 					onchange={(event) => numberPatch('maskFeather', event.currentTarget.valueAsNumber)}
 				/>
@@ -523,7 +523,7 @@
 				min="0"
 				max="100"
 				step="1"
-				class="mt-0.5 h-[22px] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
+				class="mt-0.5 h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-control)] px-1.5 text-[11px]"
 				value={item.maskOpacity ?? 100}
 				onchange={(event) => numberPatch('maskOpacity', event.currentTarget.valueAsNumber)}
 			/>

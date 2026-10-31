@@ -41,7 +41,9 @@ export default function NotFound() {
             width={768}
             height={768}
           />
-          <figcaption className="op-recovery-status">404</figcaption>
+          <figcaption className="op-recovery-status">
+            404<span className="sr-only"> · Page not found</span>
+          </figcaption>
         </figure>
       </div>
     </main>

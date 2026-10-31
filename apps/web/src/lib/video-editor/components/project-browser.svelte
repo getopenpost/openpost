@@ -28,6 +28,7 @@
 		type ProjectPresetId
 	} from '$lib/video-editor/project/project-presets';
 	import type { TrashedProjectEntry } from '$lib/video-editor/workspace-fs/trash';
+	import { formatMediaDuration } from '$lib/media-duration';
 	import { onMount } from 'svelte';
 
 	let {
@@ -184,16 +185,6 @@
 		if (Math.abs(ratio - 1) < 0.01) return '1:1';
 		if (Math.abs(ratio - 21 / 9) < 0.01) return '21:9';
 		return `${width}:${height}`;
-	}
-
-	function formatDuration(seconds: number): string {
-		const rounded = Math.max(0, Math.round(seconds));
-		const hours = Math.floor(rounded / 3600);
-		const minutes = Math.floor((rounded % 3600) / 60);
-		const remainingSeconds = rounded % 60;
-		return hours > 0
-			? `${hours}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
-			: `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
 	}
 
 	async function createProject(): Promise<void> {
@@ -733,7 +724,7 @@
 											<span>{project.metadata.fps} fps</span>
 											<span
 												>{m.video_editor_project_duration({
-													duration: formatDuration(project.duration)
+													duration: formatMediaDuration(project.duration)
 												})}</span
 											>
 										</span>

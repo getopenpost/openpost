@@ -14,6 +14,7 @@ import (
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/uptrace/bun"
 )
 
 type MetricSummary struct {
@@ -177,12 +178,13 @@ func (s *Service) Overview(ctx context.Context, workspaceID string, days int) (O
 }
 
 type OverviewOptions struct {
-	From      string
-	To        string
-	AccountID string
-	Sort      string
-	Cursor    string
-	Limit     int
+	From       string
+	To         string
+	AccountID  string
+	AccountIDs []string
+	Sort       string
+	Cursor     string
+	Limit      int
 	// Unpaged returns every matching content row in one pass, with no cursor.
 	// Exports use it so a large workspace is not recomputed once per page.
 	Unpaged bool
@@ -243,13 +245,15 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 	}
 
 	result.Accounts = s.buildAccountOverviews(activeAccounts, stateByID, history, &result.Summary)
-	result.FollowerSeries = combinedFollowerSeries(result.Accounts)
-	result.Trends.Followers = dailyFollowerTrend(result.Accounts, options.AccountID)
-	result.Trends.Engagement, result.Trends.Views, result.Trends.Visibility, err = s.loadDailyContentTrends(ctx, workspaceID, start, end, options.AccountID)
+	selectedAccounts := filterOverviewAccounts(result.Accounts, options.AccountIDs)
+	result.Summary.Followers = selectedFollowerSummary(selectedAccounts)
+	result.FollowerSeries = combinedFollowerSeries(selectedAccounts)
+	result.Trends.Followers = dailyFollowerTrend(selectedAccounts)
+	result.Trends.Engagement, result.Trends.Views, result.Trends.Visibility, err = s.loadDailyContentTrends(ctx, workspaceID, start, end, options.AccountIDs)
 	if err != nil {
 		return Overview{}, err
 	}
-	allContent, err := s.loadManagedContent(ctx, workspaceID, start, end, options.AccountID, accountByID, now)
+	allContent, err := s.loadManagedContent(ctx, workspaceID, start, end, options.AccountIDs, accountByID, now)
 	if err != nil {
 		return Overview{}, err
 	}
@@ -257,18 +261,20 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 	if err != nil {
 		return Overview{}, err
 	}
-	result.Insights = buildOverviewInsights(insightContent, result.Accounts, options.AccountID, start, end)
+	result.Insights = buildOverviewInsights(insightContent, selectedAccounts, start, end)
 	projectContentVisibility(allContent)
 	result.VisibilityBreakdown = buildVisibilityBreakdown(allContent)
-	result.Performance = buildAccountPerformance(allContent, result.Accounts, options.AccountID)
-	result.Takeaways = buildTakeaways(insightContent, result.Accounts, options.AccountID)
+	result.Performance = buildAccountPerformance(allContent, selectedAccounts)
+	result.Takeaways = buildTakeaways(insightContent, selectedAccounts)
 	orderContentOverviews(allContent, options.Sort)
 	result.Highlights = buildHighlights(allContent, options.Sort)
 	result.ContentMetricKeys = measuredContentMetrics(allContent)
 	result.ContentTotal = len(allContent)
 	result.PublicationTotal = uniquePublicationCount(allContent)
 	contentSummary := summarizeWholeAccountContent(allContent)
-	result.Summary = mergeOverviewContentSummary(result.Summary, contentSummary, result.Accounts, options.AccountID)
+	contentSummary.Followers = result.Summary.Followers
+	contentSummary.FollowerScope = "account_wide"
+	result.Summary = contentSummary
 
 	if options.Unpaged {
 		result.Content = allContent
@@ -291,7 +297,11 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 }
 
 func normalizeOverviewOptions(options OverviewOptions) OverviewOptions {
-	options.AccountID = strings.TrimSpace(options.AccountID)
+	options.AccountIDs = normalizedOverviewAccountIDs(options.AccountID, options.AccountIDs)
+	options.AccountID = ""
+	if len(options.AccountIDs) == 1 {
+		options.AccountID = options.AccountIDs[0]
+	}
 	options.Sort = strings.ToLower(strings.TrimSpace(options.Sort))
 	switch options.Sort {
 	case "views", "visibility", "newest":
@@ -644,6 +654,7 @@ type overviewCursor struct {
 	WorkspaceID string    `json:"workspace_id"`
 	Offset      int       `json:"offset"`
 	AccountID   string    `json:"account_id"`
+	AccountIDs  []string  `json:"account_ids,omitempty"`
 	Sort        string    `json:"sort"`
 	Days        int       `json:"days"`
 	From        string    `json:"from,omitempty"`
@@ -769,7 +780,7 @@ func (s *Service) loadManagedContent(
 	ctx context.Context,
 	workspaceID string,
 	start, end time.Time,
-	accountID string,
+	accountIDs []string,
 	accountByID map[string]models.SocialAccount,
 	now time.Time,
 ) ([]ContentOverview, error) {
@@ -781,8 +792,8 @@ func (s *Service) loadManagedContent(
 		Where("rendition.status = ?", models.RenditionStatusPublished).
 		Where("COALESCE(publication.actual_run_at, publication.updated_at) >= ?", start).
 		Where("COALESCE(publication.actual_run_at, publication.updated_at) < ?", end)
-	if accountID != "" {
-		query = query.Where("rendition.social_account_id = ?", accountID)
+	if len(accountIDs) > 0 {
+		query = query.Where("rendition.social_account_id IN (?)", bun.List(accountIDs))
 	}
 	if err := query.Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("load managed whole-account content: %w", err)
@@ -896,4 +907,42 @@ func metricAvailability(status string, measured int) string {
 		return "pending"
 	}
 	return "unavailable"
+}
+
+func normalizedOverviewAccountIDs(accountID string, accountIDs []string) []string {
+	seen := map[string]bool{}
+	ids := make([]string, 0, len(accountIDs)+1)
+	for _, id := range append([]string{accountID}, accountIDs...) {
+		if id = strings.TrimSpace(id); id != "" && !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func filterOverviewAccounts(accounts []AccountOverview, ids []string) []AccountOverview {
+	if len(ids) == 0 {
+		return accounts
+	}
+	selected := map[string]bool{}
+	for _, id := range ids {
+		selected[id] = true
+	}
+	result := make([]AccountOverview, 0, len(ids))
+	for _, account := range accounts {
+		if selected[account.ID] {
+			result = append(result, account)
+		}
+	}
+	return result
+}
+
+func selectedFollowerSummary(accounts []AccountOverview) MetricSummary {
+	result := MetricSummary{}
+	for _, account := range accounts {
+		addFollowerSummary(&result, account)
+	}
+	return result
 }

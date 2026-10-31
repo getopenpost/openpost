@@ -361,7 +361,7 @@ test("optimizes attachments automatically and fits one network while keeping bot
   const blueTile = page
     .getByTestId("composer-account-preview")
     .locator(`[data-composer-media-id="${blueOriginal.id}"]`);
-  await blueTile.getByRole("button", { name: "Generating alt text...", exact: true }).click();
+  await blueTile.getByRole("button", { name: "Generating alt text…", exact: true }).click();
   await blueTile
     .getByRole("textbox", { name: "Alt text", exact: true })
     .fill("Temporary description");

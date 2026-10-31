@@ -77,9 +77,9 @@ type measuredEngagementContent struct {
 	key     engagementSemanticKey
 }
 
-func buildOverviewInsights(content []ContentOverview, accounts []AccountOverview, accountID string, start, end time.Time) []Insight {
+func buildOverviewInsights(content []ContentOverview, accounts []AccountOverview, start, end time.Time) []Insight {
 	insights := buildContentInsights(content, start, end)
-	insights = append(insights, buildFollowerDeclineInsight(accounts, accountID, start, end))
+	insights = append(insights, buildFollowerDeclineInsight(accounts, start, end))
 	return insights
 }
 
@@ -298,7 +298,7 @@ func availableContentInsight(kind string, candidate measuredEngagementContent, m
 	}
 }
 
-func buildFollowerDeclineInsight(accounts []AccountOverview, accountID string, start, end time.Time) Insight {
+func buildFollowerDeclineInsight(accounts []AccountOverview, start, end time.Time) Insight {
 	period := InsightPeriod{
 		FilterStart: start, FilterEnd: end, Aggregation: platform.AnalyticsMetricAggregationCurrentSnapshot,
 	}
@@ -306,9 +306,6 @@ func buildFollowerDeclineInsight(accounts []AccountOverview, accountID string, s
 	measuredCount := 0
 	var candidates []AccountOverview
 	for _, account := range accounts {
-		if accountID != "" && account.ID != accountID {
-			continue
-		}
 		comparisonSample++
 		if len(account.FollowerSeries) < 2 || account.FollowerDelta == nil {
 			continue

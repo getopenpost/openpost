@@ -12,7 +12,7 @@
 	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs';
-	import EditorColorSlider from '$lib/components/editor-color-slider.svelte';
+	import { SliderRow } from '$lib/components/editor-density';
 	import EditorColorComparison from '$lib/components/editor-color-comparison.svelte';
 	import {
 		EDITOR_COLOR_GRADE_PRESETS,
@@ -371,15 +371,17 @@
 						<section class="space-y-3 border-t pt-4">
 							<h3 class="text-xs font-medium">{group.label}</h3>
 							{#each group.controls as [label, key, min, max] (key)}
-								<EditorColorSlider
+								<SliderRow
 									{label}
 									value={adjustmentValue(key)}
 									{min}
 									{max}
 									step={0.01}
+									precision={0}
 									displayScale={100}
-									decimals={0}
-									mixedLabel={m.image_editor_mixed_value()}
+									valueWidth="4rem"
+									placeholder={m.image_editor_mixed_value()}
+									resetValue={0}
 									resetLabel={m.image_editor_reset()}
 									disabled={!editor.canEdit}
 									onbegin={() => {
@@ -388,9 +390,9 @@
 												editor.beginPageColorGradeGesture(activePage.id, key);
 										} else editor.beginImageAdjustmentGesture(targetLayerIDs, key);
 									}}
-									onpreview={(value) => previewAdjustment(key, value)}
-									oncommit={(value) => commitAdjustment(key, value)}
-									oncancel={() => {
+									onValueChange={(value) => previewAdjustment(key, value)}
+									onValueCommit={(value) => commitAdjustment(key, value)}
+									onValueCancel={() => {
 										if (scope === 'page') editor.cancelPageColorGradeGesture();
 										else editor.cancelImageAdjustmentGesture();
 									}}
@@ -464,8 +466,8 @@
 										oncancel={cancelTools}
 									/>
 								</div>
-								<EditorColorSlider
-									hideLabel
+								<SliderRow
+									showLabel={false}
 									label={wheelLabels[descriptor.level]}
 									value={wheelMixed(descriptor.level, descriptor.level)
 										? null
@@ -473,17 +475,18 @@
 									min={descriptor.ring.min}
 									max={descriptor.ring.max}
 									step={0.01}
-									defaultValue={defaultEditorColorWheels()[descriptor.level]}
-									decimals={2}
-									disabled={!editor.canEdit}
+									precision={2}
+									valueWidth="4rem"
+									resetValue={defaultEditorColorWheels()[descriptor.level]}
 									resetLabel={m.image_editor_reset()}
-									mixedLabel={m.image_editor_mixed_value()}
-									onpreview={(value) => previewTools('wheels', { [descriptor.level]: value })}
-									oncommit={(value) => {
+									placeholder={m.image_editor_mixed_value()}
+									disabled={!editor.canEdit}
+									onValueChange={(value) => previewTools('wheels', { [descriptor.level]: value })}
+									onValueCommit={(value) => {
 										previewTools('wheels', { [descriptor.level]: value });
 										finishTools();
 									}}
-									oncancel={cancelTools}
+									onValueCancel={cancelTools}
 								/>
 							</div>
 						{/each}

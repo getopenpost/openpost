@@ -207,6 +207,18 @@ type SavedMention struct {
 	UpdatedAt     time.Time `bun:"updated_at,notnull,default:current_timestamp"`
 }
 
+type ProviderUserResolution struct {
+	bun.BaseModel  `bun:"table:provider_user_resolutions"`
+	ID             string    `bun:",pk"`
+	WorkspaceID    string    `bun:"workspace_id,notnull"`
+	Provider       string    `bun:"provider,notnull"`
+	Handle         string    `bun:"handle,notnull"`
+	ProviderUserID string    `bun:"provider_user_id,notnull"`
+	ResolvedAt     time.Time `bun:"resolved_at,notnull"`
+	CreatedAt      time.Time `bun:"created_at,notnull,default:current_timestamp"`
+	UpdatedAt      time.Time `bun:"updated_at,notnull,default:current_timestamp"`
+}
+
 type User struct {
 	bun.BaseModel `bun:"table:users"`
 
@@ -1205,6 +1217,10 @@ type SocialAccount struct {
 	PreflightSuccessAt  time.Time `bun:"preflight_success_at,nullzero" json:"-"`
 	PreflightWarnedAt   time.Time `bun:"preflight_warned_at,nullzero" json:"-"`
 	PreflightFailure    string    `bun:"preflight_failure,notnull,default:''" json:"-"`
+	// CredentialFailureGeneration counts healthy-to-failing credential
+	// transitions. Producers claim it atomically so one credential break
+	// notifies the reconnect-capable recipients once per generation.
+	CredentialFailureGeneration int64 `bun:"credential_failure_generation,notnull,default:0" json:"-"`
 
 	IsActive        bool      `bun:",default:true" json:"is_active"`
 	ErrorMessage    string    `json:"error_message"`

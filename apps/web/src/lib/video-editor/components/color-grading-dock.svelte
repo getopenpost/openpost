@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '$lib/components/editor-density/editor-density.css';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
@@ -115,7 +116,7 @@
 </script>
 
 <section
-	class="flex size-full min-h-0 shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
+	class="editor-density flex size-full min-h-0 shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)]"
 	aria-label={m.video_editor_color_dock()}
 	data-sequence-grade-item-id={colorTarget.sequenceGradeItemId ?? undefined}
 >
@@ -155,7 +156,7 @@
 		<div class="ml-auto flex shrink-0 items-center gap-1">
 			<button
 				type="button"
-				class="dock-tool"
+				class="dock-tool editor-tool"
 				class:dock-tool-active={keyframesVisible}
 				aria-pressed={keyframesVisible}
 				aria-label={m.video_editor_keyframes()}
@@ -167,7 +168,7 @@
 			</button>
 			<button
 				type="button"
-				class="dock-tool"
+				class="dock-tool editor-tool"
 				class:dock-tool-active={scopesVisible}
 				aria-pressed={scopesVisible}
 				onclick={ontogglescopes}
@@ -181,7 +182,7 @@
 			>
 				<button
 					type="button"
-					class="scope-button"
+					class="scope-button editor-tool"
 					class:scope-button-active={colorScope === 'clip'}
 					aria-pressed={colorScope === 'clip'}
 					onclick={() => setColorScope('clip')}
@@ -190,7 +191,7 @@
 				</button>
 				<button
 					type="button"
-					class="scope-button border-l border-[var(--video-editor-border)]"
+					class="scope-button editor-tool border-l border-[var(--video-editor-border)]"
 					class:scope-button-active={colorScope === 'sequence'}
 					aria-pressed={colorScope === 'sequence'}
 					onclick={() => setColorScope('sequence')}
@@ -312,29 +313,17 @@
 		}
 	}
 
-	.dock-tool,
-	.scope-button {
-		height: 1.375rem;
+	/* Base tool metrics live in editor-density.css (.editor-tool); these are
+	   the dock-specific paddings, text colors, and pressed states. Compound
+	   selectors keep these wins deterministic over the shared utilities. */
+	.dock-tool.editor-tool,
+	.scope-button.editor-tool {
 		padding-inline: 0.625rem;
-		font-size: 0.625rem;
 		color: var(--video-editor-muted);
 	}
-	.dock-tool {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-		border-radius: 0.25rem;
-		border: 1px solid var(--video-editor-border);
-	}
-	.dock-tool:hover,
-	.scope-button:hover {
-		background: var(--video-editor-control-hover);
+	.dock-tool.editor-tool:hover:not(:disabled),
+	.scope-button.editor-tool:hover:not(:disabled) {
 		color: var(--video-editor-text);
-	}
-	.dock-tool:focus-visible,
-	.scope-button:focus-visible {
-		outline: 2px solid var(--video-editor-focus);
-		outline-offset: -2px;
 	}
 	.dock-tool-active,
 	.scope-button-active {
@@ -356,13 +345,5 @@
 	.color-sequence-create:focus-visible {
 		outline: 2px solid var(--video-editor-focus);
 		outline-offset: 2px;
-	}
-	@media (pointer: coarse) {
-		.dock-tool,
-		.scope-button {
-			height: 2.75rem;
-			min-height: 2.75rem;
-			min-width: 2.75rem;
-		}
 	}
 </style>

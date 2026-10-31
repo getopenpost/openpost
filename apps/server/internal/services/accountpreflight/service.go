@@ -178,8 +178,14 @@ func (s *Service) handleFailure(ctx context.Context, candidate upcomingCandidate
 	if !confirmed {
 		return s.recordCheck(ctx, candidate.SocialAccountID, now, "unknown", false)
 	}
-	if updateErr := s.recordCheck(ctx, candidate.SocialAccountID, now, failure, false); updateErr != nil {
-		return updateErr
+	claimed, claimErr := s.recordConfirmedFailure(ctx, candidate.SocialAccountID, now, failure)
+	if claimErr != nil {
+		return claimErr
+	}
+	if claimed {
+		if notifyErr := s.recordCredentialFailureTransitions(ctx, candidate); notifyErr != nil {
+			return notifyErr
+		}
 	}
 	if s.notifications == nil || strings.TrimSpace(candidate.RecipientUserID) == "" ||
 		(!candidate.PreflightWarnedAt.IsZero() && candidate.PreflightWarnedAt.After(now.Add(-warningCooldown))) {
@@ -217,8 +223,78 @@ func firstPreflightValue(values ...string) string {
 	return "Connected account"
 }
 
+// recordConfirmedFailure stores a confirmed credential failure and claims the
+// account's credential failure generation when this check transitions the
+// account from healthy to failing. The claim and the stored failure state
+// commit atomically, so a concurrent producer can never also observe a
+// healthy account and notify the same break twice. A losing caller still
+// records the failure state; only the claim winner reports the transition.
+// A later successful recordCheck resets preflight_failure, so the next
+// failure claims a fresh generation.
+func (s *Service) recordConfirmedFailure(ctx context.Context, accountID string, now time.Time, failure string) (bool, error) {
+	claimed := false
+	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		claimed = false
+		result, err := tx.NewUpdate().Model((*models.SocialAccount)(nil)).
+			Set("credential_failure_generation = credential_failure_generation + 1").
+			Where("id = ?", accountID).
+			Where("(preflight_failure = '' OR preflight_failure IS NULL)").
+			Exec(ctx)
+		if err != nil {
+			return err
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		claimed = affected == 1
+		return recordCheckWithDB(ctx, tx, accountID, now, failure, false)
+	})
+	return claimed, err
+}
+
+// recordCredentialFailureTransitions reports a claimed healthy-to-failing
+// credential transition to the people who can reconnect the account: its
+// connector and the active workspace administrators. The existing
+// per-publication creator warning is separate and keeps its own cooldown.
+func (s *Service) recordCredentialFailureTransitions(ctx context.Context, candidate upcomingCandidate) error {
+	if s.notifications == nil {
+		return nil
+	}
+	var account models.SocialAccount
+	if err := s.db.NewSelect().Model(&account).Where("id = ?", candidate.SocialAccountID).Scan(ctx); err != nil {
+		return err
+	}
+	recipients, err := notifications.AccountCredentialFailureRecipients(ctx, s.db, &account)
+	if err != nil {
+		return err
+	}
+	label := firstPreflightValue(candidate.AccountUsername, candidate.ProviderAccountID, candidate.Platform)
+	for _, recipientID := range recipients {
+		outcome, outcomeErr := notifications.NewAccountCredentialFailureOutcome(notifications.AccountCredentialFailureFacts{
+			RecipientUserID: recipientID,
+			WorkspaceID:     account.WorkspaceID,
+			AccountID:       account.ID,
+			Generation:      account.CredentialFailureGeneration,
+			Provider:        candidate.Platform,
+			AccountLabel:    label,
+		})
+		if outcomeErr != nil {
+			return outcomeErr
+		}
+		if err := s.notifications.Record(ctx, outcome); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Service) recordCheck(ctx context.Context, accountID string, now time.Time, failure string, success bool) error {
-	query := s.db.NewUpdate().Model((*models.SocialAccount)(nil)).
+	return recordCheckWithDB(ctx, s.db, accountID, now, failure, success)
+}
+
+func recordCheckWithDB(ctx context.Context, db bun.IDB, accountID string, now time.Time, failure string, success bool) error {
+	query := db.NewUpdate().Model((*models.SocialAccount)(nil)).
 		Set("preflight_checked_at = ?", now).
 		Set("preflight_failure = ?", failure).
 		Where("id = ?", accountID)

@@ -34,6 +34,7 @@
     Math.min(currentIndex, Math.max(0, media.length - 1)),
   );
   const activeMedia = $derived(media[safeIndex]);
+  const isPhoto = $derived(model.format === "photo");
   const handle = $derived(model.identity.handle.replace(/^@/u, ""));
   const caption = $derived(
     platform === "youtube"
@@ -97,6 +98,14 @@
 
   <div class="top-fade" aria-hidden="true"></div>
   <div class="bottom-fade" aria-hidden="true"></div>
+
+  {#if isPhoto && media.length > 1}
+    <div class="photo-dots" aria-hidden="true">
+      {#each media as item, index (item.id)}
+        <span class:active={index === safeIndex}></span>
+      {/each}
+    </div>
+  {/if}
 
   {#if isStory}
     <div class="story-progress" aria-hidden="true">
@@ -193,7 +202,9 @@
     </div>
   {/if}
 
-  <div class="player-progress" aria-hidden="true"><span></span></div>
+  {#if !isPhoto}
+    <div class="player-progress" aria-hidden="true"><span></span></div>
+  {/if}
 </div>
 
 <style>
@@ -531,6 +542,29 @@
     display: block;
     width: 0;
     height: 100%;
+    background: white;
+  }
+
+  /* TikTok photo posts show one dot per slide at the bottom center
+     instead of the video progress bar. */
+  .photo-dots {
+    position: absolute;
+    z-index: 3;
+    bottom: 0.7rem;
+    left: 50%;
+    display: flex;
+    translate: -50% 0;
+    gap: 0.3rem;
+  }
+
+  .photo-dots span {
+    width: 0.3rem;
+    height: 0.3rem;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 40%);
+  }
+
+  .photo-dots span.active {
     background: white;
   }
 

@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import { formatBytes as formatByteSize } from '$lib/byte-size';
 	import { getCurrentLocale, localeLabels, switchLocale } from '$lib/i18n';
 	import { locales, type Locale } from '$lib/paraglide/runtime';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { SliderRow } from '$lib/components/editor-density';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
@@ -72,9 +74,7 @@
 	let proxyBytes = $state(0);
 
 	function formatBytes(bytes: number): string {
-		if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-		if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-		return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+		return formatByteSize(bytes, { base: 'iec' }) ?? '—';
 	}
 
 	$effect(() => {
@@ -345,19 +345,15 @@
 							{#if soundPreferences.enabled}
 								<div class="mt-4 space-y-4 border-t border-border pt-4">
 									<div>
-										<div class="flex items-center justify-between gap-3 text-xs">
-											<span>{m.video_editor_settings_sound_volume()}</span>
-											<span class="text-[var(--video-editor-muted)] tabular-nums">
-												{Math.round(soundPreferences.volume * 100)}%
-											</span>
-										</div>
-										<Slider
-											class="mt-3"
+										<SliderRow
+											label={m.video_editor_settings_sound_volume()}
+											value={soundPreferences.volume}
 											min={0}
 											max={1}
 											step={0.05}
-											value={soundPreferences.volume}
-											ariaLabel={m.video_editor_settings_sound_volume()}
+											precision={0}
+											displayScale={100}
+											suffix="%"
 											onValueChange={(value) => soundPreferences.setVolume(value)}
 											onValueCommit={() => previewEditorSound(soundPreferences.theme)}
 										/>

@@ -2,6 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
 	import TranscriptionControls from '$lib/video-editor/components/transcription-controls.svelte';
 	import { BrowserTranscriber } from '$lib/video-editor/transcript/engine/transcriber';
 	import type {
@@ -186,8 +187,7 @@
 			})}
 		</p>
 	{/if}
-	<details open={words.length === 0}>
-		<summary class="cursor-pointer py-1 text-xs font-medium">{m.quick_cut_transcribe()}</summary>
+	<EditorDisclosure label={m.quick_cut_transcribe()} open={words.length === 0} class="border-b-0">
 		<TranscriptionControls
 			startLabel={m.quick_cut_transcribe()}
 			{canTranscribe}
@@ -198,7 +198,7 @@
 			onstart={transcribe}
 			oncancel={cancel}
 		/>
-	</details>
+	</EditorDisclosure>
 	{#if error}<p role="alert" class="text-xs text-destructive">{error}</p>{/if}
 	{#if transcript && words.length === 0 && !busy && !error}
 		<p role="status" class="text-xs text-muted-foreground">{m.quick_cut_transcript_no_speech()}</p>

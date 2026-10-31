@@ -29,6 +29,7 @@
 		type BackupSummary
 	} from '$lib/instance-backup';
 	import { getLocaleTag } from '$lib/i18n';
+	import { formatBytes as formatByteSize } from '$lib/byte-size';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon } from '$lib/themes/icons';
 
@@ -73,14 +74,7 @@
 	});
 
 	function formatBytes(value: number) {
-		const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-		let size = value;
-		let unit = 0;
-		while (size >= 1024 && unit < units.length - 1) {
-			size /= 1024;
-			unit += 1;
-		}
-		return `${new Intl.NumberFormat(getLocaleTag(), { maximumFractionDigits: unit === 0 ? 0 : 1 }).format(size)} ${units[unit]}`;
+		return formatByteSize(value, { locale: getLocaleTag(), base: 'iec' }) ?? '—';
 	}
 
 	function formatDateTime(value: string) {

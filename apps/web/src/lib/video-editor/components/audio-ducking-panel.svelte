@@ -1,7 +1,7 @@
 <script lang="ts">
 	/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-conditional-empty-object-spread */
 	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
+	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { m } from '$lib/paraglide/messages';
 	import type {
@@ -19,6 +19,7 @@
 		DUCKING_MIN_DB,
 		normalizeAudioDucking
 	} from '$lib/video-editor/audio/audio-ducking';
+	import ToggleStatePill from './toggle-state-pill.svelte';
 
 	let { item, onedit = () => {} }: { item: TimelineItem; onedit?: () => void } = $props();
 
@@ -112,20 +113,12 @@
 	}
 </script>
 
-<details
-	class="group rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)]"
+<EditorDisclosure
+	label={m.video_editor_duck_title()}
+	summary={enabled ? `${duckDb} dB` : m.video_editor_duck_off()}
 	open={enabled}
+	class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)]"
 >
-	<summary
-		class="flex min-h-[25px] cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-		aria-label={m.video_editor_duck_title()}
-		title={m.video_editor_duck_description()}
-	>
-		<span class="font-medium text-[var(--video-editor-text)]">{m.video_editor_duck_title()}</span>
-		<span class="text-[10px] text-[var(--video-editor-muted)]" aria-live="polite"
-			>{enabled ? `${duckDb} dB` : m.video_editor_duck_off()}</span
-		>
-	</summary>
 	<div class="space-y-2 border-t border-[var(--video-editor-border)] p-2">
 		<div
 			class="flex min-h-[25px] items-center justify-between gap-2 [@media(pointer:coarse)]:min-h-11"
@@ -133,17 +126,12 @@
 			<span class="text-[11px] font-medium text-[var(--video-editor-muted)]"
 				>{m.video_editor_duck_enable()}</span
 			>
-			<Button
-				type="button"
-				size="sm"
-				variant={enabled ? 'secondary' : 'outline'}
-				class="h-[25px] min-w-11 px-3 text-xs [@media(pointer:coarse)]:min-h-11"
-				aria-pressed={enabled}
-				aria-label={m.video_editor_duck_enable()}
-				onclick={toggleEnabled}
-			>
-				{enabled ? m.video_editor_duck_on() : m.video_editor_duck_off()}
-			</Button>
+			<ToggleStatePill
+				label={enabled ? m.video_editor_audio_eq_on() : m.video_editor_audio_eq_off()}
+				pressed={enabled}
+				ariaLabel={m.video_editor_duck_enable()}
+				onchange={toggleEnabled}
+			/>
 		</div>
 
 		{#if enabled}
@@ -151,7 +139,7 @@
 				<label class="flex flex-col gap-1 text-[11px] text-[var(--video-editor-muted)]">
 					<span>{m.video_editor_duck_amount()}</span>
 					<Input
-						class="h-[22px] w-full bg-[var(--video-editor-control)] text-xs [@media(pointer:coarse)]:h-11"
+						class="h-[var(--editor-22,22px)] w-full bg-[var(--video-editor-control)] text-xs [@media(pointer:coarse)]:h-11"
 						type="number"
 						min={DUCKING_MIN_DB}
 						max={0}
@@ -162,13 +150,10 @@
 						onchange={(e) => commitDuckDb(e.currentTarget.valueAsNumber)}
 					/>
 				</label>
-				<div class="text-[11px] text-[var(--video-editor-muted)]">
-					<span aria-live="polite">{m.video_editor_duck_current({ db: String(duckDb) })}</span>
-				</div>
 				<label class="flex flex-col gap-1 text-[11px] text-[var(--video-editor-muted)]">
 					<span>{m.video_editor_duck_attack()}</span>
 					<Input
-						class="h-[22px] w-full bg-[var(--video-editor-control)] text-xs [@media(pointer:coarse)]:h-11"
+						class="h-[var(--editor-22,22px)] w-full bg-[var(--video-editor-control)] text-xs [@media(pointer:coarse)]:h-11"
 						type="number"
 						min="0"
 						max={DUCKING_MAX_ATTACK_SEC}
@@ -181,7 +166,7 @@
 				<label class="flex flex-col gap-1 text-[11px] text-[var(--video-editor-muted)]">
 					<span>{m.video_editor_duck_release()}</span>
 					<Input
-						class="h-[22px] w-full bg-[var(--video-editor-control)] text-xs [@media(pointer:coarse)]:h-11"
+						class="h-[var(--editor-22,22px)] w-full bg-[var(--video-editor-control)] text-xs [@media(pointer:coarse)]:h-11"
 						type="number"
 						min="0"
 						max={DUCKING_MAX_RELEASE_SEC}
@@ -194,18 +179,13 @@
 			</div>
 
 			{#if availableTracks.length > 0}
-				<details class="rounded bg-[var(--video-editor-panel)]">
-					<summary
-						class="flex min-h-[25px] cursor-pointer list-none items-center justify-between gap-2 px-2 text-[11px] font-medium text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-						title={m.video_editor_duck_targets_hint()}
-					>
-						<span>{m.video_editor_duck_targets()}</span>
-						<span class="text-[10px]" aria-live="polite"
-							>{targetTrackIds.length > 0
-								? `${targetTrackIds.length}/${availableTracks.length}`
-								: ''}</span
-						>
-					</summary>
+				<EditorDisclosure
+					label={m.video_editor_duck_targets()}
+					summary={targetTrackIds.length > 0
+						? `${targetTrackIds.length}/${availableTracks.length}`
+						: undefined}
+					class="rounded bg-[var(--video-editor-panel)]"
+				>
 					<div
 						class="grid max-h-32 grid-cols-1 gap-1 overflow-y-auto rounded bg-[var(--video-editor-panel)] p-2"
 					>
@@ -229,8 +209,8 @@
 							</label>
 						{/each}
 					</div>
-				</details>
+				</EditorDisclosure>
 			{/if}
 		{/if}
 	</div>
-</details>
+</EditorDisclosure>

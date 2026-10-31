@@ -64,7 +64,7 @@ for (const { control, width, scheme } of cases) {
     await expect(page.getByRole("alert").filter({ hasText: "Could not copy" })).toContainText(
       "Could not copy",
     );
-    await expect(page.getByRole("button", { name: "Copied Text", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Copied", exact: true })).toHaveCount(0);
     expect(errors).toEqual([]);
     await expect(button).toBeFocused();
     await expect.poll(async () => (await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);

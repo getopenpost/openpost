@@ -202,7 +202,7 @@ for (const joined of [false, true])
         .getByRole("region", { name: "Destinations", exact: true })
         .getByRole("button", { name: "More", exact: true })
         .click();
-      await page.getByRole("menuitem", { name: "Copy rendition to…", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Copy variant to…", exact: true }).click();
       await page.getByRole("dialog").getByRole("button", { name: "Apply", exact: true }).click();
       await expect
         .poll(async () => {
@@ -294,7 +294,7 @@ test("copying a variant replaces its selected company identity", async ({ page, 
     .getByRole("region", { name: "Destinations", exact: true })
     .getByRole("button", { name: "More", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "Copy rendition to…", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Copy variant to…", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Apply", exact: true }).click();
   await expect
     .poll(async () => {

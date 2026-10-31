@@ -254,7 +254,7 @@
 						type="button"
 						variant="outline"
 						size="sm"
-						class="h-9 shrink-0"
+						class="shrink-0"
 						disabled={mediaActionDisabled}
 						aria-busy={mediaActionDisabled}
 						onclick={onAddMedia}

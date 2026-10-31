@@ -129,7 +129,7 @@ for (const scheme of ["light", "dark"] as const) {
         const requests: string[] = [];
         await page.route("**/api/v1/account-features?**", (route) => route.fulfill({ json: [] }));
         await page.route("**/api/v1/analytics?**", (route) => {
-          requests.push(new URL(route.request().url()).searchParams.get("account_id") ?? "all");
+          requests.push(new URL(route.request().url()).searchParams.get("account_ids") ?? "all");
           return route.fulfill({
             json: {
               range_days: 30,
@@ -157,58 +157,56 @@ for (const scheme of ["light", "dark"] as const) {
             },
           });
         });
+        await page.route("**/api/v1/social-sets?**", (route) =>
+          route.fulfill({
+            json: [
+              {
+                id: "historical-set",
+                workspace_id: workspace.id,
+                name: "Historical set",
+                is_default: false,
+                accounts: [
+                  { social_account_id: "inactive-account", platform: "linkedin", display_order: 0 },
+                ],
+                created_at: "2026-09-01T00:00:00Z",
+                updated_at: "2026-09-01T00:00:00Z",
+              },
+            ],
+          }),
+        );
         await page.goto(`/analytics?workspace=${workspace.id}`);
         const filter = page.getByRole("button", { name: /^Account filter/ });
-        await filter.evaluate((element) => element.scrollIntoView({ block: "center" }));
-        await filter.focus();
-        await filter.press("Enter");
-        await filter.press("End");
-        await filter.press("Enter");
-        await expect(filter).toContainText("account8");
-        await expect(page.getByText(/^Impressions/)).toHaveCount(0);
-        await expect.poll(() => requests.at(-1)).toBe("account-8");
-        await filter.evaluate((element) => element.scrollIntoView({ block: "center" }));
         await filter.click();
-        const menu = page.getByRole("listbox");
-        await expect(menu).toBeVisible();
-        await expect.poll(async () => (await menu.boundingBox())!.y).toBeGreaterThanOrEqual(0);
-        await expect
-          .poll(async () => {
-            const bounds = (await menu.boundingBox())!;
-            return bounds.y + bounds.height;
-          })
-          .toBeLessThanOrEqual(600);
-        await menu.hover();
-        await page.mouse.wheel(0, -2000);
-        await page.mouse.move(1, 1);
-        await page.evaluate(async () => {
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-        });
-        const reset = menu.getByRole("option", { name: "All accounts", exact: true });
+        const menu = page
+          .locator('[data-slot="popover-content"]')
+          .filter({ hasText: "Account filter" });
+        await menu.getByRole("searchbox").fill("account8");
+        await menu.getByRole("checkbox", { name: /account8/ }).click();
+        await expect.poll(() => requests.at(-1)).toBe("account-8");
+        await menu.getByRole("searchbox").fill("account2");
+        await menu.getByRole("checkbox", { name: /account2/ }).click();
+        await expect.poll(() => requests.at(-1)).toBe("account-2,account-8");
+        await expect(filter).toContainText("2 accounts");
+        await expect(page.getByText(/^Impressions/)).toHaveCount(0);
+        const reset = menu.getByRole("checkbox", { name: "All accounts", exact: true });
         await expect(reset).toBeInViewport();
-        await expect
-          .poll(async () => {
-            const bounds = (await reset.boundingBox())!;
-            const menuBounds = (await menu.boundingBox())!;
-            return (
-              bounds.y >= menuBounds.y &&
-              bounds.y + bounds.height <= menuBounds.y + menuBounds.height
-            );
-          })
-          .toBe(true);
-        if (width < 768) expect((await reset.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        if (width < 768)
+          expect((await reset.locator("..").boundingBox())!.height).toBeGreaterThanOrEqual(44);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
           true,
         );
         await page.screenshot({ path: testInfo.outputPath("account-reset-menu.png") });
-        if (width < 768) await reset.tap();
-        else await reset.click();
+        await reset.click();
         await expect(filter).toContainText("All accounts");
-        await filter.focus();
-        await filter.press("Enter");
-        await filter.press("Escape");
+        await page.keyboard.press("Escape");
         await expect(filter).toBeFocused();
+        await page.getByRole("button", { name: /^Reporting window:/ }).click();
+        await page.getByRole("button", { name: "7 days", exact: true }).click();
+        await expect.poll(() => requests.at(-1)).toBe("all");
+        await filter.click();
+        await menu.getByRole("button", { name: "Historical set", exact: true }).click();
+        await expect.poll(() => requests.at(-1)).toBe("inactive-account");
+        await expect(filter).toContainText("Historical set");
         expect(errors).toEqual([]);
       });
     });
@@ -245,6 +243,8 @@ for (const [themeID, scheme] of [
             json: {
               range_days: 30,
               content_total: content.length,
+              publication_total: content.length,
+              highlights: content.slice(0, 2),
               summary: {
                 followers: {
                   value:
@@ -252,6 +252,7 @@ for (const [themeID, scheme] of [
                   measured: 5,
                 },
                 engagement: { value: 30, measured: 5 },
+                visibility: { value: 6000, measured: 5 },
                 views: { value: 6000, measured: 5 },
                 impressions: { value: 774, measured: 16 },
                 reach: { value: 0, measured: 0 },
@@ -330,9 +331,16 @@ for (const [themeID, scheme] of [
           reducedMotion: width === 320 ? "reduce" : "no-preference",
         });
         await page.goto(`/analytics?workspace=${workspace.id}`);
+        await expect(page.getByRole("heading", { name: "What to do next" })).toHaveCount(0);
+        await expect(page.locator("summary").filter({ hasText: "Data notes" })).toHaveCount(0);
         const section = page.locator('section[aria-labelledby="analytics-content-heading"]');
         const row = page.getByTestId("analytics-content-row").first();
         await expect(row).toBeVisible();
+        await page.evaluate(() => document.fonts.ready);
+        await page
+          .getByRole("heading", { name: "Analytics", exact: true })
+          .scrollIntoViewIfNeeded();
+        await page.screenshot({ path: testInfo.outputPath("overview.png") });
         // The shell owns scrolling: the document must not grow past the viewport
         // while the page content is taller than it.
         await expect
@@ -349,6 +357,11 @@ for (const [themeID, scheme] of [
           exact: false,
         });
         await expect(warning).not.toBeVisible();
+        const audience = page.locator('section[aria-labelledby="analytics-composition-heading"]');
+        const highlights = page.getByRole("heading", { name: "Top posts", exact: true });
+        expect((await audience.boundingBox())!.y).toBeLessThan((await highlights.boundingBox())!.y);
+        const exportButton = page.getByTestId("analytics-export");
+        expect((await exportButton.boundingBox())!.width).toBeLessThanOrEqual(44);
         const warnings = page.getByRole("button", { name: /Warnings/ });
         await warnings.focus();
         await warnings.press("Enter");
@@ -404,6 +417,13 @@ for (const [themeID, scheme] of [
         await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
         const metrics = page.getByRole("group", { name: "Chart metric", exact: true });
         await metrics.scrollIntoViewIfNeeded();
+        expect(
+          await metrics.evaluate(
+            (group) =>
+              group.getBoundingClientRect().right <=
+              group.closest("section")!.getBoundingClientRect().right,
+          ),
+        ).toBe(true);
         for (const metric of await metrics.getByRole("button").all()) {
           const bounds = await metric.evaluate((button) => {
             const range = document.createRange();

@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import { FlatList, Pressable, RefreshControl, View } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
-import * as SecureStore from "expo-secure-store";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
   conversationsQueryOptions,
@@ -14,12 +13,9 @@ import { Screen, BodyText, Button, ContentTitle, EmptyState, TextField } from "@
 import { XMessagingRecovery } from "@/components/inbox/account-recovery";
 import { WorkspaceHeader } from "@/components/workspace-header";
 import { AccountAvatar } from "@/components/account-avatar";
-import {
-  InboxSegments,
-  InboxStatusTabs,
-  AccountFilter,
-  InboxDivider,
-} from "@/components/inbox/controls";
+import { Segments } from "@/components/segments";
+import { InboxStatusTabs, AccountFilter, InboxDivider } from "@/components/inbox/controls";
+import { useRememberedView } from "@/lib/use-remembered-view";
 import { DelayedQueryPlaceholder, QueryNotice } from "@/components/query-state";
 import { NativeText as Text } from "@/components/native-text";
 import { useAccounts, useWorkspaceCapabilities, useWorkspaceId } from "@/lib/queries";
@@ -46,12 +42,12 @@ export default function InboxScreen() {
     </InboxSessionBoundary>
   );
 }
+const INBOX_VIEWS = ["chats", "comments"] as const;
 function InboxContent({ workspaceId }: { workspaceId: string }) {
   const { colors, spacing, typography } = useNativeTheme().manifest;
   const accounts = useAccounts();
   const canEdit = !!useWorkspaceCapabilities()?.can_edit;
   const queryClient = useQueryClient();
-  const [view, setView] = useState<"chats" | "comments">("chats");
   const [filter, setFilter] = useState<"all" | "unread" | "archived">("all");
   const [accountId, setAccountId] = useState("");
   const [kind, setKind] = useState<"" | "comment" | "mention" | "review">("");
@@ -66,24 +62,11 @@ function InboxContent({ workspaceId }: { workspaceId: string }) {
     archived: boolean;
   } | null>(null);
   const [archiving, setArchiving] = useState<string | null>(null);
-  const [preferenceReady, setPreferenceReady] = useState(false);
-  const preferenceKey = `inbox-view-${workspaceId}`;
-  useEffect(() => {
-    let active = true;
-    void SecureStore.getItemAsync(preferenceKey)
-      .then((value) => {
-        if (active) {
-          if (value === "comments") setView(value);
-          setPreferenceReady(true);
-        }
-      })
-      .catch(() => {
-        if (active) setPreferenceReady(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [preferenceKey]);
+  const { select: selectRememberedView, value: view } = useRememberedView({
+    allowedValues: INBOX_VIEWS,
+    key: `inbox-view-${workspaceId}`,
+    onPersistError: () => setError("Could not remember Inbox view."),
+  });
   useEffect(() => {
     const timer = setTimeout(() => setQuery(search.trim()), 250);
     return () => clearTimeout(timer);
@@ -201,19 +184,15 @@ function InboxContent({ workspaceId }: { workspaceId: string }) {
   }
   const header = (
     <View style={{ gap: 12, paddingHorizontal: spacing.large, paddingBottom: 12 }}>
-      <InboxSegments
+      <Segments
         values={[
           { value: "chats", label: "Chats" },
           { value: "comments", label: "Activity" },
         ]}
         selected={view}
         onSelect={(value) => {
-          setView(value);
+          selectRememberedView(value);
           setSearch("");
-          if (preferenceReady)
-            void SecureStore.setItemAsync(preferenceKey, value).catch(() =>
-              setError("Could not remember Inbox view."),
-            );
         }}
       />
       {view === "chats" ? (
@@ -352,6 +331,7 @@ function InboxContent({ workspaceId }: { workspaceId: string }) {
         ListEmptyComponent={
           !activeQuery.isPending && !activeQuery.isError ? (
             <EmptyState
+              iconRole="notification"
               title={
                 query
                   ? "No matching chats"

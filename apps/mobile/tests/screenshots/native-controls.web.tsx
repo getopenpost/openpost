@@ -1,5 +1,12 @@
 // Web-only presentation adapters for native modules, used only by screenshot Metro.
-import { forwardRef, type PropsWithChildren, type ComponentProps, type ReactNode } from "react";
+import {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  type PropsWithChildren,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
 export function BottomSheetProvider({ children }: PropsWithChildren) {
@@ -18,7 +25,13 @@ export function ModalBottomSheet({
   ) : null;
 }
 export const KeyboardAwareScrollView = forwardRef<ScrollView, ComponentProps<typeof ScrollView>>(
-  (props, ref) => <ScrollView {...props} ref={ref} />,
+  (props, ref) => {
+    const scroll = useRef<ScrollView>(null);
+    useImperativeHandle(ref, () =>
+      Object.assign(scroll.current!, { assureFocusedInputVisible() {} }),
+    );
+    return <ScrollView {...props} ref={scroll} />;
+  },
 );
 export function useReanimatedKeyboardAnimation() {
   return { height: useSharedValue(0), progress: useSharedValue(0) };

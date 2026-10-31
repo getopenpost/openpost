@@ -29,7 +29,7 @@
 	import type { TimelineSnapshot } from '$lib/video-editor/timeline/commands/types';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { getSynchronizedLinkedItems } from '$lib/video-editor/timeline/utils/linked-items';
-	import ScrubbableNumberInput from '$lib/components/editor-scrubbable-number-input.svelte';
+	import { ScrubField } from '$lib/components/editor-density';
 	import SpeedRampEditor from './speed-ramp-editor.svelte';
 
 	let {
@@ -191,7 +191,7 @@
 					item.fadeIn ||
 					item.fadeOut
 			)
-				? m.video_editor_workspace_active()
+				? m.video_editor_modified()
 				: undefined}
 		>
 			<div class="divide-y divide-[var(--video-editor-border)]">
@@ -201,7 +201,7 @@
 					>
 					<div class="flex min-w-0 items-center gap-1">
 						<Slider
-							class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
+							class="h-[var(--editor-22,22px)] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 							min={0.1}
 							max={10}
 							step={0.01}
@@ -216,19 +216,20 @@
 							onKeydown={(event) => event.stopPropagation()}
 						/>
 						<div class="relative w-[4.6rem] shrink-0">
-							<ScrubbableNumberInput
+							<ScrubField
 								ariaLabel={m.video_editor_clip_speed()}
 								value={speedValue}
 								placeholder={m.video_editor_property_mixed()}
 								min={0.1}
 								max={10}
 								step={0.01}
-								decimals={2}
-								class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+								precision={2}
+								valueWidth="100%"
+								class="h-[var(--editor-22,22px)] rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
 								onbegin={() => beginGesture('speed')}
-								onlive={writeSpeed}
-								oncommit={(value) => commitGesture('speed', value)}
-								oncancel={cancelGesture}
+								onValueChange={writeSpeed}
+								onValueCommit={(value) => commitGesture('speed', value)}
+								onValueCancel={cancelGesture}
 							/>
 							<span
 								class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
@@ -262,7 +263,7 @@
 							>
 							<div class="flex min-w-0 items-center gap-1">
 								<Slider
-									class="h-[22px] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
+									class="h-[var(--editor-22,22px)] min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 									min={0}
 									max={fadeLimit()}
 									step={0.05}
@@ -277,19 +278,20 @@
 									onKeydown={(event) => event.stopPropagation()}
 								/>
 								<div class="relative w-[4.6rem] shrink-0">
-									<ScrubbableNumberInput
+									<ScrubField
 										ariaLabel={control.label}
 										{value}
 										placeholder={m.video_editor_property_mixed()}
 										min={0}
 										max={fadeLimit()}
 										step={0.05}
-										decimals={2}
-										class="h-[22px] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+										precision={2}
+										valueWidth="100%"
+										class="h-[var(--editor-22,22px)] rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
 										onbegin={() => beginGesture(field)}
-										onlive={(next) => writeFade(field, next)}
-										oncommit={(next) => commitGesture(field, next)}
-										oncancel={cancelGesture}
+										onValueChange={(next) => writeFade(field, next)}
+										onValueCommit={(next) => commitGesture(field, next)}
+										onValueCancel={cancelGesture}
 									/>
 									<span
 										class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"

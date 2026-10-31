@@ -505,13 +505,13 @@
 					size="sm"
 					variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
 					aria-pressed={storageMode === 'cloud'}
-					onclick={() => (storageChoice = 'cloud')}>{m.video_editor_saved_cloud()}</Button
+					onclick={() => (storageChoice = 'cloud')}>{m.editor_storage_choice_cloud()}</Button
 				>{/if}
 			<Button
 				size="sm"
 				variant={storageMode === 'local' ? 'secondary' : 'ghost'}
 				aria-pressed={storageMode === 'local'}
-				onclick={() => (storageChoice = 'local')}>{m.video_editor_local_only()}</Button
+				onclick={() => (storageChoice = 'local')}>{m.editor_storage_choice_local()}</Button
 			>
 		</div>
 

@@ -57,6 +57,9 @@ const (
 	xMediaProcessingMinDelay = time.Second
 	xMediaProcessingMaxPolls = 3
 	xMediaProcessingWindow   = time.Minute
+	// X's create_tweet contract accepts at most 10 tagged_user_ids per post.
+	xMaxTaggedUsers         = providerlimits.XPostMaxTaggedUsers
+	xUserLookupMaxUsernames = 100
 )
 
 type XRequestStore interface {
@@ -828,10 +831,21 @@ func buildXTweetPayload(req *PublishRequest) (map[string]interface{}, error) {
 	if locationID := settingString(req.Settings, "location_id"); locationID != "" {
 		payload["geo"] = map[string]interface{}{"place_id": locationID}
 	}
-	if taggedUserIDs := xTaggedUserIDs(req.MediaSettings); len(taggedUserIDs) > 0 {
+	if taggedUserIDs := XTaggedUserEntries(req.MediaSettings); len(taggedUserIDs) > 0 {
+		if len(taggedUserIDs) > xMaxTaggedUsers {
+			return nil, fmt.Errorf("x posts tag at most %d users, got %d", xMaxTaggedUsers, len(taggedUserIDs))
+		}
+		for _, taggedUser := range taggedUserIDs {
+			if !IsXUserID(taggedUser) {
+				return nil, fmt.Errorf("x tagged user %q must be an X user ID or a handle OpenPost can resolve", taggedUser)
+			}
+		}
 		mediaPayload, ok := payload["media"].(map[string]interface{})
 		if !ok {
 			return nil, fmt.Errorf("x tagged users require media")
+		}
+		if !xHasPhotoAttachment(req) {
+			return nil, fmt.Errorf("x tagged users require a photo attachment")
 		}
 		mediaPayload["tagged_user_ids"] = taggedUserIDs
 	}
@@ -873,7 +887,11 @@ func xQuoteTweetID(settings map[string]interface{}) (string, error) {
 	return "", fmt.Errorf("x quote_url must contain a status id")
 }
 
-func xTaggedUserIDs(mediaSettings []map[string]interface{}) []string {
+// XTaggedUserEntries returns the authored tagged-user entries collected from
+// per-media settings, split on commas, spaces and newlines and deduplicated
+// in authored order. X accepts numeric user IDs only; handles must be
+// resolved to IDs before dispatch.
+func XTaggedUserEntries(mediaSettings []map[string]interface{}) []string {
 	seen := map[string]struct{}{}
 	result := []string{}
 	for _, settings := range mediaSettings {
@@ -893,6 +911,96 @@ func xTaggedUserIDs(mediaSettings []map[string]interface{}) []string {
 		}
 	}
 	return result
+}
+
+// IsXUserID reports whether value is a numeric X user ID, the only form X
+// accepts in media tagged_user_ids (pattern ^[0-9]{1,19}$).
+func IsXUserID(value string) bool {
+	if len(value) == 0 || len(value) > 19 {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// xHasPhotoAttachment reports whether any dispatched media attachment is a
+// photo. X applies media tagging to photos only, not videos or GIFs, and
+// req.Media aligns with req.PlatformMediaIDs by index.
+func xHasPhotoAttachment(req *PublishRequest) bool {
+	for index := range req.PlatformMediaIDs {
+		if index >= len(req.Media) {
+			continue
+		}
+		mimeType := strings.ToLower(strings.TrimSpace(req.Media[index].MimeType))
+		if strings.HasPrefix(mimeType, "image/") && mimeType != "image/gif" {
+			return true
+		}
+	}
+	return false
+}
+
+// NormalizeXHandle trims an X handle, strips its leading @ and lowercases it
+// for matching. It does not change anything else.
+func NormalizeXHandle(value string) string {
+	return strings.ToLower(strings.TrimPrefix(strings.TrimSpace(value), "@"))
+}
+
+// ResolveTaggedUsernames resolves X handles to numeric user IDs through
+// GET /2/users/by, which X documents with OAuth 1.0a user context support.
+// Handles are normalized (trimmed, @-stripped, lowercased) and the returned
+// map is keyed by the normalized handle. A handle X does not return fails the
+// whole lookup with an error naming it.
+func (x *XAdapter) ResolveTaggedUsernames(ctx context.Context, accessToken string, handles []string) (map[string]string, error) {
+	normalized := make([]string, 0, len(handles))
+	seen := make(map[string]struct{}, len(handles))
+	for _, handle := range handles {
+		value := NormalizeXHandle(handle)
+		if value == "" {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
+	}
+	resolved := make(map[string]string, len(normalized))
+	if len(normalized) == 0 {
+		return resolved, nil
+	}
+	if len(normalized) > xUserLookupMaxUsernames {
+		return nil, fmt.Errorf("x user lookup accepts at most %d usernames", xUserLookupMaxUsernames)
+	}
+	query := url.Values{"usernames": []string{strings.Join(normalized, ",")}}
+	respBody, err := x.doSignedRequest(ctx, accessToken, http.MethodGet, x.apiURL("/2/users/by?"+query.Encode()), nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("looking up X users: %w", err)
+	}
+	var result struct {
+		Data []struct {
+			ID       string `json:"id"`
+			Username string `json:"username"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("decoding X user lookup response: %w", err)
+	}
+	for _, user := range result.Data {
+		if user.ID == "" || user.Username == "" {
+			continue
+		}
+		resolved[NormalizeXHandle(user.Username)] = user.ID
+	}
+	for _, handle := range normalized {
+		if _, ok := resolved[handle]; !ok {
+			return nil, fmt.Errorf("x user @%s could not be found", handle)
+		}
+	}
+	return resolved, nil
 }
 
 func xPollPayload(settings map[string]interface{}) map[string]interface{} {

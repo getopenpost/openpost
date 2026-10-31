@@ -82,6 +82,38 @@ OpenPost refreshes direct-login access tokens before they expire. An expired or 
 
 Meta's [Instagram API documentation](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/) describes the Page-linked account model and permissions. Its [Content Publishing guide](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/content-publishing/) describes media requirements.
 
+### New Meta apps: Unified Login with `config_id`
+
+Meta now forces newer apps onto its **Unified Login** setup. If your app was created recently, the dashboard shows:
+
+> API setup with Instagram login is not available for newer apps. Your app uses API setup with Unified login instead.
+
+When that happens, the standalone Instagram authorize endpoint rejects the app with "Invalid platform app", and the Facebook dialog rejects explicit permission lists with "Invalid Scopes". Apps created before the change keep working with the scope-based flow above.
+
+For a newer app, authorize through a **Facebook Login for Business** configuration instead of a scope list:
+
+1. In the [Meta for Developers dashboard](https://developers.facebook.com/apps/), open your app and go to **Use cases → Manage messaging & content on Instagram → Customize → API setup with Unified login**. The app must be owned by a business portfolio for the tab to appear.
+2. Select **Create new configuration**, grant it the Instagram permissions OpenPost needs (`instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`, `instagram_manage_messages`, `instagram_manage_insights`), and select **Use this configuration**.
+3. Enter your redirect URI and copy the **Configuration ID** (`config_id`). OpenPost sends this ID instead of a permission list: Meta's login dialog replaces the `scope` parameter with the configuration, and the code exchange endpoint stays the same.
+
+Then add the Configuration ID to your Instagram entry. The field is optional; the example without `config_id` keeps using the permission list:
+
+```json
+[
+  {
+    "provider": "instagram",
+    "client_id": "your-meta-app-id",
+    "client_secret": "your-meta-app-secret",
+    "redirect_uri": "https://post.example.com/api/v1/accounts/instagram/callback",
+    "config_id": "your-facebook-login-for-business-configuration-id"
+  }
+]
+```
+
+See Meta's [Instagram API with Unified Login](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-unified-login) and [Facebook Login for Business](https://developers.facebook.com/docs/facebook-login/facebook-login-for-business/) documentation for the configuration model.
+
+End-to-end verification of this flow against a freshly created Meta app is still pending ([issue #495](https://github.com/getopenpost/openpost/issues/495)). If your new app behaves differently than described here, please report it there.
+
 ### Save the Facebook Login app in OpenPost
 
 [Save these credentials](/self-hosting/integrations#save-your-provider-credentials) with your own domain and app values:
@@ -111,3 +143,4 @@ Meta's [Instagram API documentation](https://developers.facebook.com/docs/instag
 | No Instagram account appears through Facebook | Verify it is Business or Creator, linked to a Page the signed-in person can manage, and that the Page and Instagram permissions were granted. Without a linked Page, choose **Continue with Instagram** instead. |
 | Media creation fails                          | Fetch a specific uploaded file URL under `OPENPOST_MEDIA_URL` from outside your network. It must be public HTTPS and return the correct file and media type.                                                     |
 | Permission or redirect error                  | Check app review, the scopes granted in consent, and the exact redirect URI. Reconnect after changing permissions.                                                                                               |
+| New Meta app fails with "Invalid platform app" or "Invalid Scopes" | Meta forces newer apps onto Unified Login. Use a Facebook Login for Business configuration and add its `config_id` to the Instagram provider app entry. Apps created before the change are unaffected.         |

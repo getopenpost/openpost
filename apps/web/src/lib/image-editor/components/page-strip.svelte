@@ -6,7 +6,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Input } from '$lib/components/ui/input';
-	import { ThemeIcon } from '$lib/themes/icons';
+	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import TemplatePreview from './template-preview.svelte';
 	import ImageEditorResizeDialog from './image-editor-resize-dialog.svelte';
 	import { imageEditorPageDimensions } from '../page-dimensions';
@@ -341,7 +341,7 @@
 			onclick={() => (resizePageOpen = true)}
 			disabled={!editor.canEdit}
 		>
-			<ThemeIcon role="edit" />
+			<ProtectedIcon icon="editor-crop" />
 			<span class="sr-only">{m.image_editor_resize_page()}</span>
 		</Button>
 		<Button
@@ -410,7 +410,7 @@
 					class="size-11"
 					aria-label={m.image_editor_resize_page()}
 					onclick={() => (resizePageOpen = true)}
-					disabled={!editor.canEdit}><ThemeIcon role="edit" /></Button
+					disabled={!editor.canEdit}><ProtectedIcon icon="editor-crop" /></Button
 				>
 				<DropdownMenu.Root>
 					<DropdownMenu.Trigger>

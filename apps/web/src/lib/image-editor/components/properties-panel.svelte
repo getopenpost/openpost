@@ -4,7 +4,7 @@
 	import { defaultTextCurve } from '../effects';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
-	import { Slider } from '$lib/components/ui/slider';
+	import { SliderRow } from '$lib/components/editor-density';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import * as Tooltip from '$lib/components/ui/tooltip';
@@ -156,6 +156,11 @@
 		editor.updateTransform(layer.id, { [key]: value });
 	}
 
+	function updateSelectedOpacityPercent(percent: number): void {
+		const result = editor.updateSelectedOpacity(percent / 100);
+		applicationFeedback = partialApplicationMessage(result);
+	}
+
 	function updateCrop(key: 'x' | 'y' | 'width' | 'height', event: Event, fallback: number): void {
 		if (!layer?.image) return;
 		const value = numberValue(event, fallback * 100) / 100;
@@ -197,6 +202,38 @@
 				Math.min(editor.activePageDimensions.height - nextHeight, centerY - nextHeight / 2)
 			);
 		});
+	}
+
+	function updateCurveStrength(percent: number): void {
+		const text = layer?.text;
+		const curve = text?.curve;
+		if (!layer || !text || !curve) return;
+		editor.updateLayer(
+			layer.id,
+			{
+				text: {
+					...text,
+					curve: { ...curve, strength: percent / 100 }
+				}
+			},
+			`text-curve-strength:${layer.id}`
+		);
+	}
+
+	function updateCurveOffset(percent: number): void {
+		const text = layer?.text;
+		const curve = text?.curve;
+		if (!layer || !text || !curve) return;
+		editor.updateLayer(
+			layer.id,
+			{
+				text: {
+					...text,
+					curve: { ...curve, offset: percent / 100 }
+				}
+			},
+			`text-curve-offset:${layer.id}`
+		);
 	}
 
 	type AdjustmentControl = readonly [
@@ -535,44 +572,30 @@
 							{#if aspectLocked}<ThemeIcon role="link" />{:else}<ThemeIcon role="unlink" />{/if}
 							{m.image_editor_lock_aspect_ratio()}
 						</Button>
-						<div class="space-y-1">
-							<div class="flex items-center justify-between gap-2">
-								<span class="text-xs">{m.image_editor_rotation()}</span>
-								<div class="flex items-center gap-1">
-									<Input
-										type="number"
-										min="-180"
-										max="180"
-										value={Math.round(selectedTransform?.rotation ?? 0)}
-										class="h-7 w-16 px-1.5 text-right text-xs"
-										disabled={!editor.canEdit || selectionLocked}
-										oninput={(event) =>
-											updateSelectedTransform(
-												'rotation',
-												numberValue(event, selectedTransform?.rotation ?? 0)
-											)}
-									/>
-									<Button
-										variant="ghost"
-										size="icon-xs"
-										onclick={() => updateSelectedTransform('rotation', 0)}
-										disabled={!editor.canEdit || selectionLocked}
-										aria-label={m.image_editor_reset_rotation()}
-										title={m.image_editor_reset_rotation()}
-									>
-										<ProtectedIcon icon="editor-rotate-left" />
-									</Button>
-								</div>
+						<div class="flex items-center gap-1">
+							<div class="min-w-0 flex-1">
+								<SliderRow
+									label={m.image_editor_rotation()}
+									value={selectedTransform?.rotation ?? 0}
+									min={-180}
+									max={180}
+									step={1}
+									precision={0}
+									disabled={!editor.canEdit || selectionLocked}
+									onValueChange={(rotation) => updateSelectedTransform('rotation', rotation)}
+									onValueCommit={(rotation) => updateSelectedTransform('rotation', rotation)}
+								/>
 							</div>
-							<Slider
-								value={selectedTransform?.rotation ?? 0}
-								min={-180}
-								max={180}
-								step={1}
+							<Button
+								variant="ghost"
+								size="icon-xs"
+								onclick={() => updateSelectedTransform('rotation', 0)}
 								disabled={!editor.canEdit || selectionLocked}
-								ariaLabel={m.image_editor_rotation()}
-								onValueChange={(rotation) => updateSelectedTransform('rotation', rotation)}
-							/>
+								aria-label={m.image_editor_reset_rotation()}
+								title={m.image_editor_reset_rotation()}
+							>
+								<ProtectedIcon icon="editor-rotate-left" />
+							</Button>
 						</div>
 						<div class="grid grid-cols-2 gap-2">
 							<Button
@@ -594,29 +617,19 @@
 								{m.image_editor_flip_y()}
 							</Button>
 						</div>
-						<label class="grid gap-1 text-xs">
-							<span>
-								{mixedOpacity.mixed
-									? m.image_editor_opacity_mixed()
-									: m.image_editor_opacity({
-											value: Math.round(layer.opacity * 100)
-										})}
-							</span>
-							<Slider
-								min={0}
-								max={1}
-								step={0.01}
-								value={layer.opacity}
-								disabled={!editor.canEdit || selectionLocked}
-								ariaLabel={m.image_editor_opacity({
-									value: Math.round(layer.opacity * 100)
-								})}
-								onValueChange={(opacity) => {
-									const result = editor.updateSelectedOpacity(opacity);
-									applicationFeedback = partialApplicationMessage(result);
-								}}
-							/>
-						</label>
+						<SliderRow
+							label={mixedOpacity.mixed
+								? m.image_editor_opacity_mixed()
+								: m.image_editor_opacity({ value: Math.round(layer.opacity * 100) })}
+							value={layer.opacity * 100}
+							min={0}
+							max={100}
+							step={1}
+							precision={0}
+							disabled={!editor.canEdit || selectionLocked}
+							onValueChange={updateSelectedOpacityPercent}
+							onValueCommit={updateSelectedOpacityPercent}
+						/>
 					</Collapsible.Content>
 				</Collapsible.Root>
 
@@ -772,59 +785,29 @@
 							</label>
 							{#if layer.text.curve && layer.text.curve.type !== 'none'}
 								{#if ['arc_up', 'arc_down', 'wave'].includes(layer.text.curve.type)}
-									<label class="grid gap-1 text-xs">
-										<span
-											>{m.image_editor_curve_strength()} · {Math.round(
-												layer.text.curve.strength * 100
-											)}%</span
-										>
-										<Slider
-											value={layer.text.curve.strength}
-											min={0.05}
-											max={1}
-											step={0.01}
-											disabled={!editor.canEdit || layerLocked}
-											ariaLabel={m.image_editor_curve_strength()}
-											onValueChange={(strength) =>
-												editor.updateLayer(
-													layer.id,
-													{
-														text: {
-															...layer.text!,
-															curve: { ...layer.text!.curve!, strength }
-														}
-													},
-													`text-curve-strength:${layer.id}`
-												)}
-										/>
-									</label>
-								{/if}
-								<label class="grid gap-1 text-xs">
-									<span
-										>{m.image_editor_curve_offset()} · {Math.round(
-											layer.text.curve.offset * 100
-										)}%</span
-									>
-									<Slider
-										value={layer.text.curve.offset}
-										min={-1}
-										max={1}
-										step={0.01}
+									<SliderRow
+										label={m.image_editor_curve_strength()}
+										value={layer.text.curve.strength * 100}
+										min={5}
+										max={100}
+										step={1}
+										precision={0}
 										disabled={!editor.canEdit || layerLocked}
-										ariaLabel={m.image_editor_curve_offset()}
-										onValueChange={(offset) =>
-											editor.updateLayer(
-												layer.id,
-												{
-													text: {
-														...layer.text!,
-														curve: { ...layer.text!.curve!, offset }
-													}
-												},
-												`text-curve-offset:${layer.id}`
-											)}
+										onValueChange={updateCurveStrength}
+										onValueCommit={updateCurveStrength}
 									/>
-								</label>
+								{/if}
+								<SliderRow
+									label={m.image_editor_curve_offset()}
+									value={layer.text.curve.offset * 100}
+									min={-100}
+									max={100}
+									step={1}
+									precision={0}
+									disabled={!editor.canEdit || layerLocked}
+									onValueChange={updateCurveOffset}
+									onValueCommit={updateCurveOffset}
+								/>
 								<Button
 									variant={layer.text.curve.reverse ? 'secondary' : 'outline'}
 									size="xs"
@@ -1213,23 +1196,17 @@
 									<div class="space-y-3 not-first:border-t not-first:pt-3">
 										<h4 class="text-xs font-medium">{group.label}</h4>
 										{#each group.controls as [label, key, min, max] (key)}
-											<label class="grid gap-1 text-xs">
-												<span class="flex items-center justify-between gap-2">
-													<span>{label}</span>
-													<span class="text-muted-foreground tabular-nums">
-														{Math.round(layer.image.adjustments[key] * 100)}
-													</span>
-												</span>
-												<Slider
-													{min}
-													{max}
-													step={0.01}
-													value={layer.image.adjustments[key]}
-													disabled={!editor.canEdit || layerLocked}
-													ariaLabel={label}
-													onValueChange={(value) => setAdjustment(key, value)}
-												/>
-											</label>
+											<SliderRow
+												{label}
+												value={layer.image.adjustments[key] * 100}
+												min={min * 100}
+												max={max * 100}
+												step={1}
+												precision={0}
+												disabled={!editor.canEdit || layerLocked}
+												onValueChange={(value) => setAdjustment(key, value / 100)}
+												onValueCommit={(value) => setAdjustment(key, value / 100)}
+											/>
 										{/each}
 									</div>
 								{/each}

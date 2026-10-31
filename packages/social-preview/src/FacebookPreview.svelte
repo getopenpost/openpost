@@ -69,7 +69,6 @@
 
 <style>
   .facebook-preview {
-    --native-bg: light-dark(#f0f2f5, #18191a);
     --native-surface: light-dark(#fff, #242526);
     --native-fg: light-dark(#050505, #e4e6eb);
     --native-muted: light-dark(#65676b, #b0b3b8);
@@ -77,19 +76,20 @@
     --native-soft: light-dark(#e4e6eb, #3a3b3c);
     width: min(100%, 41.25rem);
     overflow: hidden;
-    border: 1px solid var(--native-border);
-    border-radius: 0.75rem;
+    border-radius: 0.5rem;
     background: var(--native-surface);
     color: var(--native-fg);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 14%);
-    font-family: Arial, Helvetica, sans-serif;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 20%);
+    font-family:
+      system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Historic", "Segoe UI",
+      Helvetica, Arial, sans-serif;
   }
 
   header {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.5rem;
     padding: 0.75rem 1rem 0.45rem;
   }
 
@@ -101,7 +101,8 @@
 
   .identity strong {
     overflow: hidden;
-    font-size: 0.88rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -112,7 +113,7 @@
     align-items: center;
     gap: 0.25rem;
     color: var(--native-muted);
-    font-size: 0.72rem;
+    font-size: 0.8125rem;
   }
 
   .identity span :global(svg) {
@@ -134,21 +135,22 @@
   .post-text {
     margin: 0;
     padding: 0.35rem 1rem 0.75rem;
-    font-size: 0.94rem;
-    line-height: 1.35;
+    font-size: 0.9375rem;
+    line-height: 1.3333;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
   }
 
   .engagement {
     display: flex;
-    min-height: 2.7rem;
+    min-height: 2.5rem;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.6rem;
+    padding-block: 0.5rem;
     margin-inline: 1rem;
     border-bottom: 1px solid var(--native-border);
     color: var(--native-muted);
-    font-size: 0.78rem;
+    font-size: 0.9375rem;
   }
 
   .reactions {
@@ -157,20 +159,20 @@
 
   .reactions i {
     display: grid;
-    width: 1.15rem;
-    height: 1.15rem;
+    width: 1.25rem;
+    height: 1.25rem;
     place-items: center;
-    margin-right: -0.15rem;
+    margin-right: -0.25rem;
     border: 2px solid var(--native-surface);
     border-radius: 50%;
-    background: #1877f2;
+    background: #0866ff;
     color: white;
-    font-size: 0.65rem;
+    font-size: 0.625rem;
     font-style: normal;
   }
 
   .reactions i:last-child {
-    background: #f55368;
+    background: #f3425f;
   }
 
   .engagement .right {
@@ -178,7 +180,23 @@
   }
 
   .action-row {
-    padding: 0.15rem 0.55rem;
+    padding: 0.25rem 1rem;
+  }
+
+  .action-row :global(.action) {
+    min-height: 2.25rem;
+    gap: 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.9375rem;
+  }
+
+  .action-row :global(.action:hover) {
+    background: var(--native-soft);
+  }
+
+  .action-row :global(.icon svg) {
+    width: 1.25rem;
+    height: 1.25rem;
   }
 
   .compact header,

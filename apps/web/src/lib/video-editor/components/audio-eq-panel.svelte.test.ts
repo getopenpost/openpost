@@ -124,7 +124,7 @@ it('plots Flat and edited EQ as gain relative to the visible zero dB line', asyn
 	const band = screen
 		.getByText(m.video_editor_audio_eq_low_mid(), { exact: true })
 		.element()
-		.closest('details')!;
+		.closest('[data-editor-disclosure]')!;
 	const gain = page
 		.elementLocator(band)
 		.getByRole('spinbutton', { name: m.video_editor_audio_eq_gain(), exact: true });

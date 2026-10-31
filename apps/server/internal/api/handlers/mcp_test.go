@@ -1143,6 +1143,24 @@ func TestMCPLocalUploadWidgetContractIsAccessibleAndAppScoped(t *testing.T) {
 	} {
 		require.Contains(t, html, required)
 	}
+	// Gateways in front of MCP servers (Cloudflare MCP Server Portals and
+	// similar aggregators) expose tools under rewritten names such as
+	// {server_id}_{tool_name}, so a bare hardcoded ticket call fails with
+	// tool-not-found even though the widget rendered fine. The widget must
+	// recover the gateway prefix from the host-reported name of the tool that
+	// rendered it (ui/initialize hostContext.toolInfo.tool.name) and reapply
+	// it to the ticket tool, falling back to the bare name when the host
+	// provides no metadata.
+	require.Contains(t, html, `var renderTool="`+mcpToolRenderUpload+`",ticketToolDefault="`+mcpToolCreateTicket+`"`)
+	require.Contains(t, html, `method:'ui/initialize'`)
+	require.Contains(t, html, `data.result.hostContext&&data.result.hostContext.toolInfo`)
+	require.Contains(t, html, `invoked.slice(-renderTool.length)===renderTool`)
+	require.Contains(t, html, `invoked.slice(0,invoked.length-renderTool.length)+ticketToolDefault`)
+	require.Contains(t, html, `await resolveTicketTool()`)
+	require.Contains(t, html, `callTool(ticketTool,{`)
+	require.Contains(t, html, `This MCP client does not expose the OpenPost upload tool`)
+	require.Contains(t, html, `This MCP client does not support app tool calls.`)
+	require.NotContains(t, html, `callTool('`+mcpToolCreateTicket+`'`)
 	ticketTool := mcpCreateLocalUploadTicketTool()
 	meta := ticketTool["_meta"].(map[string]any)
 	require.Equal(t, []string{"app"}, meta["ui"].(map[string]any)["visibility"])

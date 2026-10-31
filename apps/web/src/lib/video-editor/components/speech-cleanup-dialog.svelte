@@ -13,7 +13,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
-	import { Slider } from '$lib/components/ui/slider';
+	import { SliderRow } from '$lib/components/editor-density';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
@@ -808,38 +808,36 @@
 											{m.video_editor_cleanup_auto_thresholds()}
 										</label>
 										<div></div>
-										<label class="text-[11px] text-[var(--video-editor-muted)]">
-											<span class="flex items-center justify-between">
-												{m.video_editor_cleanup_silence_level()}
-												<output>{silenceThresholdDb} dB</output>
-											</span>
-											<Slider
-												bind:value={silenceThresholdDb}
-												disabled={autoThresholds}
-												min={-80}
-												max={-20}
-												step={1}
-												ariaLabel={m.video_editor_cleanup_silence_level()}
-												onValueCommit={() => persistCleanupSettings()}
-												class="mt-2"
-											/>
-										</label>
-										<label class="text-[11px] text-[var(--video-editor-muted)]">
-											<span class="flex items-center justify-between">
-												{m.video_editor_cleanup_speech_level()}
-												<output>{audioThresholdDb} dB</output>
-											</span>
-											<Slider
-												bind:value={audioThresholdDb}
-												disabled={autoThresholds}
-												min={-77}
-												max={-6}
-												step={1}
-												ariaLabel={m.video_editor_cleanup_speech_level()}
-												onValueCommit={() => persistCleanupSettings()}
-												class="mt-2"
-											/>
-										</label>
+										<SliderRow
+											label={m.video_editor_cleanup_silence_level()}
+											value={silenceThresholdDb}
+											min={-80}
+											max={-20}
+											step={1}
+											precision={0}
+											suffix="dB"
+											disabled={autoThresholds}
+											onValueChange={(next) => (silenceThresholdDb = next)}
+											onValueCommit={(next) => {
+												silenceThresholdDb = next;
+												persistCleanupSettings();
+											}}
+										/>
+										<SliderRow
+											label={m.video_editor_cleanup_speech_level()}
+											value={audioThresholdDb}
+											min={-77}
+											max={-6}
+											step={1}
+											precision={0}
+											suffix="dB"
+											disabled={autoThresholds}
+											onValueChange={(next) => (audioThresholdDb = next)}
+											onValueCommit={(next) => {
+												audioThresholdDb = next;
+												persistCleanupSettings();
+											}}
+										/>
 									</div>
 								</details>
 							{/if}

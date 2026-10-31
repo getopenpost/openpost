@@ -18,12 +18,9 @@ type decodedAnalyticsSnapshot struct {
 	metadata map[string]platform.AnalyticsMetricMetadata
 }
 
-func dailyFollowerTrend(accounts []AccountOverview, accountID string) []DailyBreakdownPoint {
+func dailyFollowerTrend(accounts []AccountOverview) []DailyBreakdownPoint {
 	byDate := map[string][]DailyBreakdownItem{}
 	for _, account := range accounts {
-		if accountID != "" && account.ID != accountID {
-			continue
-		}
 		for index := 1; index < len(account.FollowerSeries); index++ {
 			current := account.FollowerSeries[index]
 			delta := current.Value - account.FollowerSeries[index-1].Value
@@ -39,14 +36,14 @@ func (s *Service) loadDailyContentTrends(
 	ctx context.Context,
 	workspaceID string,
 	start, end time.Time,
-	accountID string,
+	accountIDs []string,
 ) ([]DailyBreakdownPoint, []DailyBreakdownPoint, []DailyBreakdownPoint, error) {
 	var snapshots []models.AnalyticsRenditionSnapshot
 	query := s.db.NewSelect().Model(&snapshots).
 		Where("workspace_id = ? AND captured_at >= ? AND captured_at < ?", workspaceID, start, end).
 		Order("rendition_id ASC", "captured_at ASC")
-	if accountID != "" {
-		query = query.Where("social_account_id = ?", accountID)
+	if len(accountIDs) > 0 {
+		query = query.Where("social_account_id IN (?)", bun.List(accountIDs))
 	}
 	if err := query.Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil, fmt.Errorf("list rendition analytics trend: %w", err)
@@ -56,7 +53,7 @@ func (s *Service) loadDailyContentTrends(
 	}
 
 	renditionIDs := uniqueRenditionIDs(snapshots)
-	baselines, err := s.loadLatestRenditionSnapshots(ctx, workspaceID, renditionIDs, start, accountID)
+	baselines, err := s.loadLatestRenditionSnapshots(ctx, workspaceID, renditionIDs, start, accountIDs...)
 	if err != nil {
 		return nil, nil, nil, err
 	}

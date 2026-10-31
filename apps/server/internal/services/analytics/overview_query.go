@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -81,34 +82,6 @@ func (s *Service) loadOverviewRenditionStates(
 	return stateByID, nil
 }
 
-func mergeOverviewContentSummary(
-	accountSummary Summary,
-	contentSummary Summary,
-	accounts []AccountOverview,
-	accountID string,
-) Summary {
-	contentSummary.FollowerScope = "account_wide"
-	if accountID == "" {
-		contentSummary.Followers = accountSummary.Followers
-		return contentSummary
-	}
-	for _, account := range accounts {
-		if account.ID != accountID {
-			continue
-		}
-		if followers, ok := compatibleCountMetricValue(
-			account.Metrics,
-			account.MetricMetadata,
-			platform.MetricFollowers,
-			platform.AnalyticsMetricAggregationCurrentSnapshot,
-		); ok {
-			contentSummary.Followers = MetricSummary{Value: followers, Delta: account.FollowerDelta, Measured: 1}
-		}
-		break
-	}
-	return contentSummary
-}
-
 func decodeCanonicalOverviewCursorPart(value string) ([]byte, error) {
 	decoded, err := base64.RawURLEncoding.DecodeString(value)
 	if err != nil || base64.RawURLEncoding.EncodeToString(decoded) != value {
@@ -137,7 +110,7 @@ func (s *Service) decodeSignedOverviewCursor(workspaceID string, options Overvie
 	}
 	var cursor overviewCursor
 	if json.Unmarshal(decoded, &cursor) != nil || cursor.Offset < 0 || cursor.WorkspaceID != workspaceID ||
-		cursor.AccountID != options.AccountID || cursor.Sort != options.Sort || cursor.Days != days || cursor.From != options.From || cursor.To != options.To ||
+		!slices.Equal(normalizedOverviewAccountIDs(cursor.AccountID, cursor.AccountIDs), normalizedOverviewAccountIDs(options.AccountID, options.AccountIDs)) || cursor.Sort != options.Sort || cursor.Days != days || cursor.From != options.From || cursor.To != options.To ||
 		cursor.Revision == "" || cursor.RangeEnd.IsZero() {
 		return overviewCursor{}, ErrInvalidOverviewCursor
 	}
@@ -160,7 +133,7 @@ func (s *Service) encodeOverviewNextCursor(workspaceID string, offset, pageSize,
 	if nextOffset >= total {
 		return ""
 	}
-	next, _ := json.Marshal(overviewCursor{WorkspaceID: workspaceID, Offset: nextOffset, AccountID: options.AccountID, Sort: options.Sort, Days: days, From: options.From, To: options.To, Revision: populationRevision, RangeEnd: rangeEnd.UTC()})
+	next, _ := json.Marshal(overviewCursor{WorkspaceID: workspaceID, Offset: nextOffset, AccountID: options.AccountID, AccountIDs: options.AccountIDs, Sort: options.Sort, Days: days, From: options.From, To: options.To, Revision: populationRevision, RangeEnd: rangeEnd.UTC()})
 	signature := hmac.New(sha256.New, s.cursorSigningKey)
 	_, _ = signature.Write(next)
 	return base64.RawURLEncoding.EncodeToString(next) + "." + base64.RawURLEncoding.EncodeToString(signature.Sum(nil))

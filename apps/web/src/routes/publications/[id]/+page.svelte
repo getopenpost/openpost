@@ -377,135 +377,141 @@
 	/>
 {/snippet}
 
-{#if !hasLoaded}
+{#if !hasLoaded || (error && !publication) || (publication && readOnlyPublication)}
 	<PageContainer
-		title={m.publication_edit_loading_title()}
-		loading={true}
+		title={!hasLoaded
+			? m.publication_edit_loading_title()
+			: publication
+				? publication.title || m.publication_detail_title()
+				: m.publication_detail_title()}
+		description={publication
+			? m.publication_detail_description({ status: statusLabel(publication.status) })
+			: undefined}
+		loading={!hasLoaded}
 		loadingLayout="composer"
 		loadingMessage={m.publication_edit_loading()}
-	/>
-{:else if error && !publication}
-	<div class="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-		<InlineNotice tone="error" message={error}>
-			{#snippet actions()}
-				<Button
-					size="sm"
-					onclick={() =>
-						publicationId &&
-						publicationWorkspaceId &&
-						loadPublication(publicationId, publicationWorkspaceId)}
-				>
-					{m.common_retry()}
-				</Button>
-				<Button variant="outline" size="sm" onclick={() => goto(resolve('/'))}>
-					{m.common_back()}
-				</Button>
-			{/snippet}
-		</InlineNotice>
-	</div>
-{:else if publication && readOnlyPublication}
-	<PageContainer
-		title={publication.title || m.publication_detail_title()}
-		description={m.publication_detail_description({ status: statusLabel(publication.status) })}
 	>
 		{#snippet actions()}
-			{#if publication?.status === 'failed' && workspaceCtx.currentWorkspace?.can_edit}
-				<Button variant="outline" onclick={toggleFailureDismissal}>
-					{publication?.failure_dismissed_at
-						? m.activity_restore_failed()
-						: m.activity_dismiss_failed()}
+			{#if publication}
+				{#if publication?.status === 'failed' && workspaceCtx.currentWorkspace?.can_edit}
+					<Button variant="outline" onclick={toggleFailureDismissal}>
+						{publication?.failure_dismissed_at
+							? m.activity_restore_failed()
+							: m.activity_dismiss_failed()}
+					</Button>
+				{/if}
+				{#if publication?.status === 'published' && workspaceCtx.currentWorkspace?.can_edit}
+					<Button
+						variant="outline"
+						onclick={() => {
+							if (!publication) return;
+							pendingRemoval = publication;
+							removeDialogOpen = true;
+						}}
+					>
+						<ThemeIcon role="delete" class="mr-1.5 size-4" />
+						{m.publication_remove_local()}
+					</Button>
+				{/if}
+				{#if workspaceCtx.currentWorkspace?.can_edit}{@render copyAsDraftButton()}{/if}
+				<Button variant="outline" onclick={() => history.back()}>
+					<ThemeIcon role="arrow-left" class="mr-1.5 size-4" />
+					{m.common_back()}
 				</Button>
 			{/if}
-			{#if publication?.status === 'published' && workspaceCtx.currentWorkspace?.can_edit}
-				<Button
-					variant="outline"
-					onclick={() => {
-						if (!publication) return;
-						pendingRemoval = publication;
-						removeDialogOpen = true;
-					}}
-				>
-					<ThemeIcon role="delete" class="mr-1.5 size-4" />
-					{m.publication_remove_local()}
-				</Button>
-			{/if}
-			{#if workspaceCtx.currentWorkspace?.can_edit}{@render copyAsDraftButton()}{/if}
-			<Button variant="outline" onclick={() => history.back()}>
-				<ThemeIcon role="arrow-left" class="mr-1.5 size-4" />
-				{m.common_back()}
-			</Button>
 		{/snippet}
 
-		<div class="space-y-6">
-			<PublicationReviewControl
-				workspaceId={publication.workspace_id}
-				publicationId={publication.id}
-				reviewState={publication.review_state ?? ''}
-				onChanged={(next) => {
-					publication = next;
-				}}
-			/>
-			{#if !workspaceCtx.currentWorkspace?.can_edit}<PublicationReviewPreview
-					{publication}
-					accounts={reviewAccounts.data ?? []}
-				/>{/if}
-			{#if publication.status === 'published' || publication.status === 'publishing'}
-				<InlineNotice tone="info" message={m.publication_published_editing_explanation()} />
-			{/if}
-			{#if recoveryMessage}
-				<InlineNotice tone={recoveryFailed ? 'error' : 'info'} message={recoveryMessage} />
-			{/if}
-			{#if copyError}
-				<InlineNotice tone="error" message={copyError} />
-			{/if}
+		{#if error && !publication}
+			<InlineNotice tone="error" message={error}>
+				{#snippet actions()}
+					<Button
+						size="sm"
+						onclick={() =>
+							publicationId &&
+							publicationWorkspaceId &&
+							loadPublication(publicationId, publicationWorkspaceId)}
+					>
+						{m.common_retry()}
+					</Button>
+					<Button variant="outline" size="sm" onclick={() => goto(resolve('/'))}>
+						{m.common_back()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
+		{:else if publication}
+			<div class="space-y-6">
+				<PublicationReviewControl
+					workspaceId={publication.workspace_id}
+					publicationId={publication.id}
+					reviewState={publication.review_state ?? ''}
+					onChanged={(next) => {
+						publication = next;
+					}}
+				/>
+				{#if !workspaceCtx.currentWorkspace?.can_edit}<PublicationReviewPreview
+						{publication}
+						accounts={reviewAccounts.data ?? []}
+					/>{/if}
+				{#if publication.status === 'published' || publication.status === 'publishing'}
+					<InlineNotice tone="info" message={m.publication_published_editing_explanation()} />
+				{/if}
+				{#if recoveryMessage}
+					<InlineNotice tone={recoveryFailed ? 'error' : 'info'} message={recoveryMessage} />
+				{/if}
+				{#if copyError}
+					<InlineNotice tone="error" message={copyError} />
+				{/if}
 
-			<section class="rounded-xl border bg-card p-4 sm:p-6">
-				<div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-					<span class="font-medium text-foreground">{statusLabel(publication.status)}</span>
-					<span>·</span>
-					<span>{formatDateTime(publicationActivityOccurrence(publication))}</span>
-				</div>
-				<div class="mt-4 space-y-4">
-					{#if publication.source_text}
-						<p class="max-w-3xl leading-7 whitespace-pre-wrap">{publication.source_text}</p>
-					{/if}
-					{#each publication.segments ?? [] as segment (segment.id)}
-						<div class="max-w-3xl border-t pt-4">
-							{#if segment.title}<h2 class="font-semibold">{segment.title}</h2>{/if}
-							{#if segment.body}<p class="mt-2 leading-7 whitespace-pre-wrap">
-									{segment.body}
-								</p>{/if}
-						</div>
-					{/each}
-				</div>
-			</section>
+				<section class="rounded-xl border bg-card p-4 sm:p-6">
+					<div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+						<span class="font-medium text-foreground">{statusLabel(publication.status)}</span>
+						<span>·</span>
+						<span>{formatDateTime(publicationActivityOccurrence(publication))}</span>
+					</div>
+					<div class="mt-4 space-y-4">
+						{#if publication.source_text}
+							<p class="max-w-3xl leading-7 whitespace-pre-wrap">{publication.source_text}</p>
+						{/if}
+						{#each publication.segments ?? [] as segment (segment.id)}
+							<div class="max-w-3xl border-t pt-4">
+								{#if segment.title}<h2 class="font-semibold">{segment.title}</h2>{/if}
+								{#if segment.body}<p class="mt-2 leading-7 whitespace-pre-wrap">
+										{segment.body}
+									</p>{/if}
+							</div>
+						{/each}
+					</div>
+				</section>
 
-			<section aria-labelledby="publication-destinations-heading">
-				<h2 id="publication-destinations-heading" class="mb-3 text-base font-semibold">
-					{m.publication_destinations_heading()}
-				</h2>
-				<div class="grid gap-3 sm:grid-cols-2">
-					{#each publication.renditions ?? [] as rendition (rendition.id)}
-						<PublicationDeliveryCard
-							{rendition}
-							retrying={retryingRenditionID === rendition.id}
-							onRetry={workspaceCtx.currentWorkspace?.can_edit ? retryRendition : undefined}
-							onManualResolution={workspaceCtx.currentWorkspace?.can_edit
-								? reviewDestination
-								: undefined}
-						/>
-					{/each}
-				</div>
-			</section>
+				<section aria-labelledby="publication-destinations-heading">
+					<h2 id="publication-destinations-heading" class="mb-3 text-base font-semibold">
+						{m.publication_destinations_heading()}
+					</h2>
+					<div class="grid gap-3 sm:grid-cols-2">
+						{#each publication.renditions ?? [] as rendition (rendition.id)}
+							<PublicationDeliveryCard
+								{rendition}
+								retrying={retryingRenditionID === rendition.id}
+								onRetry={workspaceCtx.currentWorkspace?.can_edit ? retryRendition : undefined}
+								onManualResolution={workspaceCtx.currentWorkspace?.can_edit
+									? reviewDestination
+									: undefined}
+							/>
+						{/each}
+					</div>
+				</section>
 
-			<PublicationHistory
-				publicationId={publication.id}
-				workspaceId={publication.workspace_id}
-				{retryingRenditionID}
-				onRetry={workspaceCtx.currentWorkspace?.can_edit ? retryRendition : undefined}
-				onManualResolution={workspaceCtx.currentWorkspace?.can_edit ? reviewDestination : undefined}
-			/>
-		</div>
+				<PublicationHistory
+					publicationId={publication.id}
+					workspaceId={publication.workspace_id}
+					{retryingRenditionID}
+					onRetry={workspaceCtx.currentWorkspace?.can_edit ? retryRendition : undefined}
+					onManualResolution={workspaceCtx.currentWorkspace?.can_edit
+						? reviewDestination
+						: undefined}
+				/>
+			</div>
+		{/if}
 	</PageContainer>
 {:else if publication}
 	<div class="flex flex-1 flex-col overflow-hidden">

@@ -77,7 +77,7 @@
 
 <EditorDisclosure
 	label={m.video_editor_corner_pin()}
-	summary={item.cornerPin ? m.video_editor_workspace_active() : undefined}
+	summary={item.cornerPin ? m.video_editor_modified() : undefined}
 	bind:open
 	actions={disclosureActions}
 	class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"

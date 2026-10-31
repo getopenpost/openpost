@@ -29,7 +29,7 @@
 		setKeyframe
 	} from '$lib/video-editor/timeline/actions/keyframes';
 	import ColorEffectHeader from './color-effect-header.svelte';
-	import ScrubbableNumberInput from '$lib/components/editor-scrubbable-number-input.svelte';
+	import { ScrubField } from '$lib/components/editor-density';
 	import {
 		EDITOR_COLOR_PRIMARY_BOTTOM_PARAMETERS,
 		EDITOR_COLOR_PRIMARY_TOP_PARAMETERS,
@@ -545,18 +545,19 @@
 					onValueCancel={() => cancelParameter(name)}
 					onKeydown={(event) => event.stopPropagation()}
 				/>
-				<ScrubbableNumberInput
+				<ScrubField
 					disabled={!controlsEnabled}
 					ariaLabel={`${gpuEffectLabel(definition)}: ${gpuParamLabel(param)}`}
 					value={parameterValue(name)}
 					min={Number(param.min)}
 					max={Number(param.max)}
 					step={Number(param.step)}
-					decimals={sliderDecimals(name)}
-					class="h-[22px] w-12 shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-right text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
-					onlive={(next) => updateParameter(name, next)}
-					oncommit={(next) => commitParameter(name, next)}
-					oncancel={() => cancelParameter(name)}
+					precision={sliderDecimals(name)}
+					valueWidth="3rem"
+					class="h-[var(--editor-22,22px)] shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-right text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
+					onValueChange={(next) => updateParameter(name, next)}
+					onValueCommit={(next) => commitParameter(name, next)}
+					onValueCancel={() => cancelParameter(name)}
 				/>
 				{#if keyframe}
 					<button
@@ -698,19 +699,20 @@
 				<div class="parameter-control">
 					<span class="parameter-label" title={gpuParamLabel(param)}>{gpuParamLabel(param)}</span>
 					<span class="flex min-w-0 flex-col items-center">
-						<ScrubbableNumberInput
+						<ScrubField
 							disabled={!controlsEnabled}
 							ariaLabel={gpuParamLabel(param)}
 							value={displayParameter(name)}
 							min={range.min}
 							max={range.max}
 							step={display.step}
-							decimals={display.decimals}
+							precision={display.decimals}
+							valueWidth="100%"
 							class="parameter-chip"
 							placeholder={m.image_editor_mixed_value()}
-							onlive={(next) => updateParameter(name, parameterFromDisplay(name, next))}
-							oncommit={(next) => commitParameter(name, parameterFromDisplay(name, next))}
-							oncancel={() => cancelParameter(name)}
+							onValueChange={(next) => updateParameter(name, parameterFromDisplay(name, next))}
+							onValueCommit={(next) => commitParameter(name, parameterFromDisplay(name, next))}
+							onValueCancel={() => cancelParameter(name)}
 						/>
 						<span
 							class="parameter-accent {parameterAccentByName.get(name) ?? 'tonal'}"
@@ -794,40 +796,42 @@
 					>
 						{#if descriptor.masterChip}
 							<span class="flex min-w-0 flex-col items-center">
-								<ScrubbableNumberInput
+								<ScrubField
 									disabled={!controlsEnabled}
 									ariaLabel={`${label(descriptor.level)} master`}
 									value={displayLevel(descriptor)}
 									min={levelRange.min}
 									max={levelRange.max}
 									step={descriptor.display.step}
-									decimals={descriptor.display.decimals}
+									precision={descriptor.display.decimals}
+									valueWidth="100%"
 									class="wheel-chip"
 									placeholder={m.image_editor_mixed_value()}
-									onlive={(next) =>
+									onValueChange={(next) =>
 										updateParameter(descriptor.level, levelFromDisplay(descriptor, next))}
-									oncommit={(next) =>
+									onValueCommit={(next) =>
 										commitParameter(descriptor.level, levelFromDisplay(descriptor, next))}
-									oncancel={() => cancelParameter(descriptor.level)}
+									onValueCancel={() => cancelParameter(descriptor.level)}
 								/>
 								<span class="mt-0.5 h-0.5 w-5 rounded-full bg-zinc-200"></span>
 							</span>
 						{/if}
 						{#each channelIndices as channelIndex (channelIndex)}
 							<span class="flex min-w-0 flex-col items-center">
-								<ScrubbableNumberInput
+								<ScrubField
 									disabled={!controlsEnabled}
 									ariaLabel={`${label(descriptor.level)} ${channelLabels[channelIndex]}`}
 									value={wheelIsMixed(descriptor) ? null : channels[channelIndex]}
 									min={levelRange.min - descriptor.display.scale}
 									max={levelRange.max + descriptor.display.scale}
 									step={descriptor.display.step}
-									decimals={descriptor.display.decimals}
+									precision={descriptor.display.decimals}
+									valueWidth="100%"
 									class="wheel-chip"
 									placeholder={m.image_editor_mixed_value()}
-									onlive={(next) => updateChannel(descriptor, channelIndex, next, 'live')}
-									oncommit={(next) => updateChannel(descriptor, channelIndex, next, 'commit')}
-									oncancel={() => cancelChannel(descriptor)}
+									onValueChange={(next) => updateChannel(descriptor, channelIndex, next, 'live')}
+									onValueCommit={(next) => updateChannel(descriptor, channelIndex, next, 'commit')}
+									onValueCancel={() => cancelChannel(descriptor)}
 								/>
 								<span class="mt-0.5 h-0.5 w-5 rounded-full {channelAccents[channelIndex]}"></span>
 							</span>
@@ -867,19 +871,20 @@
 				<div class="parameter-control">
 					<span class="parameter-label" title={gpuParamLabel(param)}>{gpuParamLabel(param)}</span>
 					<span class="flex min-w-0 flex-col items-center">
-						<ScrubbableNumberInput
+						<ScrubField
 							disabled={!controlsEnabled}
 							ariaLabel={gpuParamLabel(param)}
 							value={displayParameter(name)}
 							min={range.min}
 							max={range.max}
 							step={display.step}
-							decimals={display.decimals}
+							precision={display.decimals}
+							valueWidth="100%"
 							class="parameter-chip"
 							placeholder={m.image_editor_mixed_value()}
-							onlive={(next) => updateParameter(name, parameterFromDisplay(name, next))}
-							oncommit={(next) => commitParameter(name, parameterFromDisplay(name, next))}
-							oncancel={() => cancelParameter(name)}
+							onValueChange={(next) => updateParameter(name, parameterFromDisplay(name, next))}
+							onValueCommit={(next) => commitParameter(name, parameterFromDisplay(name, next))}
+							onValueCancel={() => cancelParameter(name)}
 						/>
 						<span
 							class="parameter-accent {parameterAccentByName.get(name) ?? 'tonal'}"
@@ -906,7 +911,7 @@
 	<div class="order-4 shrink-0 border-t border-[var(--video-editor-border)]">
 		<button
 			type="button"
-			class="flex h-[22px] w-full items-center justify-between px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+			class="flex h-[var(--editor-22,22px)] w-full items-center justify-between px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 			aria-expanded={showPrimaries}
 			onclick={() => (showPrimaries = !showPrimaries)}
 		>
@@ -927,7 +932,7 @@
 		{/if}
 		<button
 			type="button"
-			class="flex h-[22px] w-full items-center justify-between border-t border-[var(--video-editor-border)] px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+			class="flex h-[var(--editor-22,22px)] w-full items-center justify-between border-t border-[var(--video-editor-border)] px-2 text-[10px] font-semibold tracking-wide text-[var(--video-editor-muted)] uppercase hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 			aria-expanded={showBalance}
 			onclick={() => (showBalance = !showBalance)}
 		>

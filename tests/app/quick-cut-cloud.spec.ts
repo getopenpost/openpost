@@ -23,7 +23,7 @@ test("Quick Cut saves a source project to OpenPost and opens it again", async ({
   });
 
   await page.goto("/quick-cut");
-  await expect(page.getByRole("button", { name: "Saved to OpenPost" })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "OpenPost cloud" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );

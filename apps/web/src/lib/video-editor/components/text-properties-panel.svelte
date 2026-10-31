@@ -249,7 +249,7 @@
 								disabled={locked}
 								type="button"
 								size="sm"
-								class="h-[22px]"
+								class="h-[var(--editor-22,22px)]"
 								variant={(span.fontStyle ?? activeItem.fontStyle) === 'italic'
 									? 'secondary'
 									: 'ghost'}
@@ -264,7 +264,7 @@
 								disabled={locked}
 								type="button"
 								size="sm"
-								class="h-[22px]"
+								class="h-[var(--editor-22,22px)]"
 								variant={(span.underline ?? activeItem.underline) ? 'secondary' : 'ghost'}
 								aria-pressed={span.underline ?? activeItem.underline ?? false}
 								onclick={() =>
@@ -471,7 +471,7 @@
 					type="button"
 					size="sm"
 					variant="outline"
-					class="h-[22px] min-w-0 px-1 text-[10px]"
+					class="h-[var(--editor-22,22px)] min-w-0 px-1 text-[10px]"
 					onclick={() => commitEffectPreset(presetId as TextEffectPresetId)}
 				>
 					<span class="truncate">{effectPresetLabel(presetId as TextEffectPresetId)}</span>

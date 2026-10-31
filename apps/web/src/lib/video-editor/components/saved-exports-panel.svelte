@@ -13,6 +13,7 @@
 		type ExportEntry
 	} from '../workspace-fs/exports';
 	import { createLogger } from '../workspace-fs/logger';
+	import { formatBytes as formatByteSize } from '$lib/byte-size';
 
 	const logger = createLogger('SavedExports');
 
@@ -59,16 +60,7 @@
 	}
 
 	function formatBytes(bytes: number): string {
-		if (bytes < 1024) return `${bytes} B`;
-		const units = ['KB', 'MB', 'GB', 'TB'];
-		let value = bytes / 1024;
-		let unit = 0;
-		while (value >= 1024 && unit < units.length - 1) {
-			value /= 1024;
-			unit += 1;
-		}
-		const digits = value >= 10 || Number.isInteger(value) ? 0 : 1;
-		return `${value.toFixed(digits)} ${units[unit]}`;
+		return formatByteSize(bytes, { base: 'iec' }) ?? '—';
 	}
 
 	function formatDate(timestamp: number): string {

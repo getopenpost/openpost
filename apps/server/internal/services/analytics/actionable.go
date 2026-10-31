@@ -50,14 +50,12 @@ type Takeaway struct {
 	Reason           string            `json:"reason"`
 }
 
-func buildTakeaways(content []ContentOverview, accounts []AccountOverview, accountID string) []Takeaway {
-	result := measurementRecoveryTakeaways(content, accounts, accountID)
+func buildTakeaways(content []ContentOverview, accounts []AccountOverview) []Takeaway {
+	result := measurementRecoveryTakeaways(content, accounts)
 	result = result[:min(1, len(result))]
 	groups := map[string][]ContentOverview{}
 	for _, item := range content {
-		if accountID == "" || item.AccountID == accountID {
-			groups[item.AccountID] = append(groups[item.AccountID], item)
-		}
+		groups[item.AccountID] = append(groups[item.AccountID], item)
 	}
 	candidates := []Takeaway{}
 	for _, items := range groups {
@@ -102,12 +100,9 @@ func engagementEvidenceSignature(item ContentOverview) string {
 	return string(encoded)
 }
 
-func measurementRecoveryTakeaways(content []ContentOverview, accounts []AccountOverview, accountID string) []Takeaway {
+func measurementRecoveryTakeaways(content []ContentOverview, accounts []AccountOverview) []Takeaway {
 	result := []Takeaway{}
 	for _, account := range accounts {
-		if accountID != "" && account.ID != accountID {
-			continue
-		}
 		if (!account.AccountSupported && !account.ContentSupported) || account.ErrorCode == "feature_disabled" {
 			continue
 		}

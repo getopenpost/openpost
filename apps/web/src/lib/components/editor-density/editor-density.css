@@ -20,3 +20,51 @@
 .editor-density-nums {
 	font-variant-numeric: tabular-nums;
 }
+
+/*
+ * Shared editor tool buttons: bordered 22px chips (44px on coarse pointers)
+ * for editor headers and docks. Scoped to .editor-density so hosts opt in;
+ * metrics fall back to the literal px values from the density scale above.
+ */
+.editor-density .editor-tool,
+.editor-density .editor-tool-icon {
+	display: flex;
+	height: var(--editor-22, 22px);
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--video-editor-border);
+	border-radius: 0.25rem;
+	font-size: 0.625rem;
+}
+.editor-density .editor-tool {
+	gap: 0.25rem;
+	padding-inline: 0.375rem;
+}
+.editor-density .editor-tool-icon {
+	width: var(--editor-22, 22px);
+}
+.editor-density .editor-tool:hover:not(:disabled),
+.editor-density .editor-tool-icon:hover:not(:disabled) {
+	background: var(--video-editor-control-hover);
+}
+.editor-density .editor-tool:focus-visible,
+.editor-density .editor-tool-icon:focus-visible {
+	outline: 2px solid var(--video-editor-focus);
+	outline-offset: 1px;
+}
+.editor-density .editor-tool:disabled,
+.editor-density .editor-tool-icon:disabled {
+	cursor: not-allowed;
+	opacity: 0.45;
+}
+@media (pointer: coarse) {
+	.editor-density .editor-tool,
+	.editor-density .editor-tool-icon {
+		height: 2.75rem;
+		min-height: 2.75rem;
+		min-width: 2.75rem;
+	}
+	.editor-density .editor-tool-icon {
+		width: 2.75rem;
+	}
+}

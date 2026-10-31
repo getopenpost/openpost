@@ -70,7 +70,7 @@ Direct messages, Comments and replies, and Analytics are optional and per connec
 | Feed, carousel, Reel | 2,200 characters |
 | Story                |       No caption |
 
-Caption limits come from the capability catalogue. Meta documents publishing in the [Content Publishing guide](https://developers.facebook.com/documentation/instagram-platform/content-publishing) (verified there 17 October 2026).
+Caption limits come from the capability catalogue. Meta documents publishing in the [Content Publishing guide](https://developers.facebook.com/documentation/instagram-platform/content-publishing) (verified there 17 October 2026). Alt text on image posts is limited to 1,000 characters, per Meta's [IG User Media reference](https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media) (verified 31 October 2026).
 <!-- provider-limits:end -->
 
 - No text-only Instagram posts.

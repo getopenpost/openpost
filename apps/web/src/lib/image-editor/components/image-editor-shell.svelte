@@ -3398,6 +3398,11 @@
 									</DropdownMenu.Item>
 								{/if}
 							{/each}
+							{#if compactMenuSection === 'layer'}<p
+									class="max-w-64 px-2 py-1.5 text-xs text-muted-foreground"
+								>
+									{m.image_editor_raster_help()}
+								</p>{/if}
 						{:else}
 							<div class="w-64 p-1 md:hidden">
 								<EditorTitleInput

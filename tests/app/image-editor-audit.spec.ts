@@ -6,6 +6,9 @@ import { authenticatePage, registerUser, createWorkspace } from "./helpers";
 test("editor audit controls fit desktop and phone widths in both schemes", async ({
   page,
 }, testInfo) => {
+  // First template instantiation loads template previews and local storage;
+  // on a loaded CI shard that can exceed the 30s default.
+  test.setTimeout(60_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/image-editor");

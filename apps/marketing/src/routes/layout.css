@@ -114,6 +114,21 @@
 		text-wrap: balance;
 	}
 
+	/* Keep accented hero phrases inside the shell: they cannot wrap, and the
+	   longest ("Choose for the job.") needs the narrower step below 341px.
+	   Declared before the compact modifier so compact titles keep their size. */
+	@media (max-width: 760px) {
+		.marketing-title {
+			font-size: clamp(2.125rem, 7vw, 3.3125rem);
+		}
+	}
+
+	@media (max-width: 340px) {
+		.marketing-title {
+			font-size: 1.9rem;
+		}
+	}
+
 	/* Size modifier for heroes that share the H1 recipe at a smaller scale. */
 	.marketing-title--compact {
 		max-width: 22ch;

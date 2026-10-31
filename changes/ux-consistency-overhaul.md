@@ -29,5 +29,7 @@
 - Composer: the schedule dialog announces failed time parsing to screen readers, the post-publish feedback uses the shared success notice, and the publication link respects base-path deployments.
 - Publications: status and analytics delta colors use semantic theme tokens so organization themes render correctly; the failed-load state keeps the page chrome; loading defaults to the localized message everywhere.
 - Media library: the active-filter count badge no longer spends the focal action color on a passive chip.
+- Marketing: hero headings step down again on phones, so accented phrases such as "For your next post." and "Choose for the job." stay inside 320px screens.
+- Image Editor: the phone "More actions" Layer section explains destructive rasterizing again, matching the desktop menu.
 - Docs: the copy button announces "Copied" after copying, and the 404 figure includes screen-reader context; marketing FAQs share one keyboard focus treatment; the image dropzone limit hint derives from the actual limit; the media converter dropzone shows drag feedback.
 - Developers: removed 10 duplicate byte-size formatters and consolidated media-duration formatting and editor control-height tokens onto their shared owners.

@@ -1,15 +1,22 @@
 {
-	"product": "Lumen",
-	"repository": "lumen-app/lumen",
-	"tag": "v2.0.0",
-	"release": "Offline sync is here",
-	"draft": "Lumen 2.0 is live. Offline sync, a faster editor and dark mode: everything you asked for, shipped.",
-	"short": "Lumen 2.0 is live: offline sync, a faster editor, dark mode.",
+	"product": "Todoist",
+	"repository": "doist/todoist",
+	"tag": "v12.0.0",
+	"release": "Focus mode is here",
+	"notes": ["Focus mode across devices", "A faster Quick Add", "Calendar widgets"],
+	"draft": "Todoist 12 is live. Focus mode, a faster Quick Add and calendar widgets: everything you asked for, shipped.",
+	"tooLong": "Todoist 12 is live, and honestly this is the release we are most proud of. Focus mode hides everything except today, across every device you own. Quick Add is faster than ever. Calendar widgets are finally here. Everything you have been asking us for, all shipped together, and it is out for everyone right now.",
+	"perfect": "Your to-do list shouldn't feel like a to-do list.\n\nTodoist 12 hides everything except today. Focus mode is live on every device.",
+	"linkedin": "Two years of your feedback, one release. Todoist 12 brings Focus mode to every device.",
+	"tiktok": "POV: your to-do list finally shuts up",
+	"youtube": "Todoist 12 in 60 seconds",
+	"pinterest": "A calmer way to plan your day",
+	"bluesky": "Todoist 12 is here: Focus mode, faster Quick Add, calendar widgets.",
 	"comments": [
-		["Bluesky", "Marta Silva", "Offline sync, finally!"],
+		["Bluesky", "Marta Silva", "Focus mode, finally!"],
 		["Threads", "Alex Chen", "Does it work on iPad too?"],
 		["Linkedin", "Priya Nair", "Congrats on the launch!"],
-		["Mastodon", "Sam Taylor", "The new editor feels so fast."]
+		["Mastodon", "Sam Taylor", "Quick Add feels so fast now."]
 	],
 	"reply": "Thanks! iPad support ships next week."
 }

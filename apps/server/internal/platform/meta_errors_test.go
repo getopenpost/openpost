@@ -321,3 +321,35 @@ func TestInstagramResumePublishRejectsFailedContainerWithCuratedCode(t *testing.
 		t.Fatalf("expected the shared classifier code, got %v", err)
 	}
 }
+
+func TestInstagramResumePublishedIDRecoverySwallowsRecentMediaFailure(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/v25.0/container-1":
+			return jsonResponse(req, `{"status_code":"PUBLISHED"}`), nil
+		case "/v25.0/ig-1/media":
+			resp := jsonResponse(req, `{"error":{"message":"permissions went away","type":"OAuthException","code":200}}`)
+			resp.StatusCode = http.StatusBadRequest
+			return resp, nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	result, err := NewInstagramAdapter("", "", "").ResumePublish(t.Context(), "page-token", "ig-1", &PublishRequest{
+		Content:          "Launch image",
+		PlatformMediaIDs: []string{"https://media.example/image.jpg"},
+		Media:            []MediaItem{{ID: "media-1", MimeType: "image/jpeg"}},
+	}, "ig1:container-1")
+	if err != nil {
+		t.Fatalf("a failed recovery lookup must not fail the accepted publish: %v", err)
+	}
+	if result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != "" {
+		t.Fatalf("failed recovery must keep the empty ID: %#v", result)
+	}
+}

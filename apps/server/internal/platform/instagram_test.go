@@ -3,6 +3,7 @@ package platform
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -270,6 +271,219 @@ func TestInstagramExchangeAndSelectBusinessAccount(t *testing.T) {
 	}
 	if accountsCalls != 2 {
 		t.Fatalf("expected two accounts calls, got %d", accountsCalls)
+	}
+}
+
+func TestInstagramResumeRecoversPublishedIDFromMatchingRecentMedia(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	mediaListings := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/v25.0/container-1":
+			return jsonResponse(req, `{"status_code":"PUBLISHED"}`), nil
+		case "/v25.0/ig-1/media":
+			mediaListings++
+			if got := req.URL.Query().Get("fields"); got != "id,caption,media_type" {
+				t.Fatalf("unexpected recent-media fields: %q", got)
+			}
+			if got := req.URL.Query().Get("limit"); got != "10" {
+				t.Fatalf("recent-media lookup must stay bounded, got limit %q", got)
+			}
+			if got := req.URL.Query().Get(oauthParamAccessToken); got != "" {
+				t.Fatalf("the transport owns the token, got query token %q", got)
+			}
+			if got := req.Header.Get(headerAuthorization); got != "Bearer page-token" {
+				t.Fatalf("unexpected recent-media authorization: %q", got)
+			}
+			return jsonResponse(req, `{"data":[
+				{"id":"ig-other","caption":"Different caption","media_type":"IMAGE"},
+				{"id":"ig-video","caption":"Launch image","media_type":"VIDEO"},
+				{"id":"ig-media-1","caption":"Launch image","media_type":"IMAGE"}]}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	result, err := NewInstagramAdapter("", "", "").ResumePublish(
+		t.Context(),
+		"page-token",
+		"ig-1",
+		&PublishRequest{
+			Content:          "Launch image",
+			PlatformMediaIDs: []string{"https://media.example/image.jpg"},
+			Media:            []MediaItem{{ID: "media-1", MimeType: "image/jpeg"}},
+		},
+		"ig1:f:container-1",
+	)
+	if err != nil {
+		t.Fatalf("ResumePublish returned error: %v", err)
+	}
+	if result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != "ig-media-1" {
+		t.Fatalf("expected the unique caption and media_type match to be adopted: %#v", result)
+	}
+	if result.ProviderState != instagramPublishedProviderState {
+		t.Fatalf("unexpected provider state: %#v", result)
+	}
+	if mediaListings != 1 {
+		t.Fatalf("expected one recent-media listing, got %d", mediaListings)
+	}
+}
+
+func TestInstagramResumeRecoversPublishedIDForVideoAndCarousel(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	tests := []struct {
+		name    string
+		media   string
+		wantID  string
+		want    string
+		request *PublishRequest
+	}{
+		{
+			name:   "video",
+			want:   "VIDEO",
+			wantID: "ig-video-1",
+			request: &PublishRequest{
+				Content:          "Launch video",
+				PlatformMediaIDs: []string{"https://media.example/video.mp4"},
+				Media:            []MediaItem{{ID: "media-1", MimeType: "video/mp4"}},
+			},
+		},
+		{
+			name:   "carousel",
+			want:   "CAROUSEL_ALBUM",
+			wantID: "ig-carousel-1",
+			request: &PublishRequest{
+				Content:          "Launch carousel",
+				PlatformMediaIDs: []string{"https://media.example/one.jpg", "https://media.example/two.jpg"},
+				Media:            []MediaItem{{ID: "media-1", MimeType: "image/jpeg"}, {ID: "media-2", MimeType: "image/jpeg"}},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			originalClient := httpClient
+			defer func() { httpClient = originalClient }()
+
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				switch req.URL.Path {
+				case "/v25.0/container-1":
+					return jsonResponse(req, `{"status_code":"PUBLISHED"}`), nil
+				case "/v25.0/ig-1/media":
+					items := fmt.Sprintf(`{"id":"ig-image","caption":"%s","media_type":"IMAGE"},{"id":"%s","caption":"%s","media_type":"%s"}`,
+						test.request.Content, test.wantID, test.request.Content, test.want)
+					return jsonResponse(req, `{"data":[`+items+`]}`), nil
+				default:
+					t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+					return nil, nil
+				}
+			})}
+
+			result, err := NewInstagramAdapter("", "", "").ResumePublish(
+				t.Context(), "page-token", "ig-1", test.request, "ig1:p:container-1",
+			)
+			if err != nil {
+				t.Fatalf("ResumePublish returned error: %v", err)
+			}
+			if result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != test.wantID {
+				t.Fatalf("expected the %s match to be adopted: %#v", test.want, result)
+			}
+		})
+	}
+}
+
+func TestInstagramResumePublishedIDRecoveryRequiresStrictUniqueMatch(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	tests := []struct {
+		name  string
+		media string
+	}{
+		{name: "no matching caption", media: `{"data":[{"id":"ig-other","caption":"Different caption","media_type":"IMAGE"}]}`},
+		{name: "multiple matches stay ambiguous", media: `{"data":[{"id":"ig-media-1","caption":"Launch image","media_type":"IMAGE"},{"id":"ig-media-2","caption":"Launch image","media_type":"IMAGE"}]}`},
+		{name: "wrong media type with same caption", media: `{"data":[{"id":"ig-video","caption":"Launch image","media_type":"VIDEO"}]}`},
+		{name: "caption differing by one character", media: `{"data":[{"id":"ig-media-1","caption":"Launch images","media_type":"IMAGE"}]}`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			originalClient := httpClient
+			defer func() { httpClient = originalClient }()
+
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				switch req.URL.Path {
+				case "/v25.0/container-1":
+					return jsonResponse(req, `{"status_code":"PUBLISHED"}`), nil
+				case "/v25.0/ig-1/media":
+					return jsonResponse(req, test.media), nil
+				default:
+					t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+					return nil, nil
+				}
+			})}
+
+			result, err := NewInstagramAdapter("", "", "").ResumePublish(
+				t.Context(),
+				"page-token",
+				"ig-1",
+				&PublishRequest{
+					Content:          "Launch image",
+					PlatformMediaIDs: []string{"https://media.example/image.jpg"},
+					Media:            []MediaItem{{ID: "media-1", MimeType: "image/jpeg"}},
+				},
+				"ig1:container-1",
+			)
+			if err != nil {
+				t.Fatalf("ResumePublish returned error: %v", err)
+			}
+			if result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != "" {
+				t.Fatalf("ambiguous matches must keep the empty ID: %#v", result)
+			}
+		})
+	}
+}
+
+func TestInstagramResumePublishedIDRecoveryNeedsAuthoredCaption(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	tests := []struct {
+		name string
+		req  *PublishRequest
+	}{
+		{name: "empty caption never lists recent media", req: &PublishRequest{
+			Content:          "   ",
+			PlatformMediaIDs: []string{"https://media.example/image.jpg"},
+			Media:            []MediaItem{{ID: "media-1", MimeType: "image/jpeg"}},
+		}},
+		{name: "missing request never lists recent media", req: nil},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			originalClient := httpClient
+			defer func() { httpClient = originalClient }()
+
+			paths := []string{}
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				paths = append(paths, req.URL.Path)
+				if req.URL.Path != "/v25.0/container-1" {
+					t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+				}
+				return jsonResponse(req, `{"status_code":"PUBLISHED"}`), nil
+			})}
+
+			result, err := NewInstagramAdapter("", "", "").ResumePublish(
+				t.Context(), "page-token", "ig-1", test.req, "ig1:container-1",
+			)
+			if err != nil {
+				t.Fatalf("ResumePublish returned error: %v", err)
+			}
+			if result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != "" {
+				t.Fatalf("captionless recovery must keep the empty ID: %#v", result)
+			}
+			if len(paths) != 1 {
+				t.Fatalf("recovery must not call the recent-media edge without a caption: %v", paths)
+			}
+		})
 	}
 }
 

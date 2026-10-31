@@ -1247,7 +1247,6 @@ const confetti = Array.from({ length: 40 }, (_, i) => {
 });
 // The Schedule button sits large in the close-up; the burst starts at its centre.
 const confettiOrigin = { x: 1469, y: 540 };
-const sample = make(stage, 'label', {}, 'Sample data');
 const states = (at, fails) => [
 	[at, 'Publishing', 'var(--amber)'],
 	...(fails
@@ -1645,7 +1644,6 @@ await document.fonts.load('800 136px Manrope');
 
 export async function seek(t) {
 	drawGlow(t);
-	sample.style.opacity = between(t, T.schedule + 1.3, T.featFast) ? '1' : '0';
 	hookScene(t);
 	revealScene(t);
 	flowScene(t);

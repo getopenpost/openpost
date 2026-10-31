@@ -70,7 +70,7 @@ Publish this line with the film (the track's licence requires it):
 > faded tail.
 
 - Sound effects are CC0 recordings from Freesound, listed in `sounds.json`.
-- Lumen is a sample product. Accounts, analytics and replies are sample data, and the results scenes are labelled.
+- Lumen is a sample product. Accounts, analytics and replies are sample data.
 - Integration marks come from `assets/postiz-socials/`, the set the README uses.
 
 ## Checking the sound

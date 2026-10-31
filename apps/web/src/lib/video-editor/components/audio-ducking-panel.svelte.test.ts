@@ -43,6 +43,8 @@ it('turns ducking off at zero, preserves its undo settings and keeps it off afte
 	await screen.getByRole('spinbutton', { name: m.video_editor_duck_amount() }).fill('0');
 	await userEvent.keyboard('{Tab}');
 	await screen.rerender({ item: timelineStore.itemById.get('voice')! });
+	// SAFETY: the shared editor disclosure always renders a native button, and
+	// the selector is scoped to that disclosure's own button.
 	await expect
 		.element(screen.container.querySelector('[data-editor-disclosure] button') as HTMLButtonElement)
 		.toHaveTextContent(m.video_editor_duck_off());
@@ -72,6 +74,8 @@ it('turns ducking off at zero, preserves its undo settings and keeps it off afte
 		const loaded = (await getProject(project.id))!;
 		sequenceStore.load(loaded.timeline!, loaded.metadata);
 		await screen.rerender({ item: timelineStore.itemById.get('voice')! });
+		// SAFETY: the shared editor disclosure always renders a native button,
+		// and the selector is scoped to that disclosure's own button.
 		await expect
 			.element(
 				screen.container.querySelector('[data-editor-disclosure] button') as HTMLButtonElement

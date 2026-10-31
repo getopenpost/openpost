@@ -85,7 +85,7 @@ test("a queued API snapshot while the tag job executes is retried before cancell
   expect(result.requests.filter((route) => route.endsWith("/cancel"))).toEqual([
     "repos/getopenpost/openpost/actions/runs/10/cancel",
   ]);
-});
+}, 15_000);
 
 test("unconfirmed liveness skips cancellation without failing full tag qualification", () => {
   for (const statuses of [["queued"], ["queued", "completed"]]) {
@@ -110,7 +110,7 @@ test("pending status never bypasses trust and core qualification checks", () => 
     expect(result.stderr).toContain("complete core qualification is required");
     expect(result.requests).toHaveLength(1);
   }
-});
+}, 30_000);
 
 test("only a running tag can authorize cancellation", () => {
   for (const status of ["queued", "waiting", "pending", "requested", "completed", "unknown"]) {

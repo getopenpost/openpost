@@ -202,6 +202,36 @@ func TestInstagramGenerateAuthURL(t *testing.T) {
 	}
 }
 
+func TestInstagramGenerateAuthURLWithLoginConfiguration(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	adapter := NewInstagramAdapter("client-id", "client-secret", "https://app.example/api/v1/accounts/instagram/callback")
+	adapter.configID = "config-123"
+
+	authURL, _ := adapter.GenerateAuthURL("state-123")
+	parsed, err := url.Parse(authURL)
+	if err != nil {
+		t.Fatalf("parsing auth url: %v", err)
+	}
+	if parsed.Scheme != "https" || parsed.Host != "www.facebook.com" || parsed.Path != "/v25.0/dialog/oauth" {
+		t.Fatalf("unexpected auth url %s", authURL)
+	}
+	query := parsed.Query()
+	if query.Get("config_id") != "config-123" {
+		t.Fatalf("expected the Facebook Login for Business configuration id, got %q", query.Get("config_id"))
+	}
+	if query.Get("scope") != "" {
+		t.Fatalf("config_id replaces the scope list in the login dialog: %s", authURL)
+	}
+	if query.Get("auth_type") != "" {
+		t.Fatalf("the configuration dialog must not re-request permissions: %s", authURL)
+	}
+	if query.Get("response_type") != "code" || query.Get("state") != "state-123" ||
+		query.Get(oauthParamClientID) != "client-id" ||
+		query.Get(oauthParamRedirectURI) != "https://app.example/api/v1/accounts/instagram/callback" {
+		t.Fatalf("unexpected dialog parameters: %s", authURL)
+	}
+}
+
 func TestInstagramExchangeAndSelectBusinessAccount(t *testing.T) {
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient

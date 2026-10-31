@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 
@@ -114,6 +115,47 @@ func TestAccountProviderKeyIsolatesNonDefaultBlueskyPDS(t *testing.T) {
 	require.Equal(t, "bluesky", AccountProviderKey("bluesky", BlueskyDefaultPDSURL, ""))
 	require.Equal(t, "bluesky", AccountProviderKey("bluesky", BlueskyDefaultPDSURL+"/", ""))
 	require.Equal(t, "bluesky:https://pds.example", AccountProviderKey("bluesky", "https://pds.example/", ""))
+}
+
+func TestBuildAdapterRegistryPassesInstagramConfigIDToAuthURL(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+
+	adapters, _, err := BuildAdapterRegistry([]AppConfig{{
+		Provider:     "instagram",
+		ClientID:     "ig-client",
+		ClientSecret: "ig-secret",
+		RedirectURI:  "https://app.test/api/v1/accounts/instagram/callback",
+		ConfigID:     " config-123 ",
+	}}, RegistryOptions{})
+	require.NoError(t, err)
+
+	adapter, ok := adapters["instagram"].(*InstagramAdapter)
+	require.True(t, ok, "the Facebook Login Instagram adapter must be registered")
+	require.Equal(t, "config-123", adapter.configID, "config_id must be trimmed on the adapter")
+	authURL, _ := adapter.GenerateAuthURL("state-1")
+	parsed, err := url.Parse(authURL)
+	require.NoError(t, err)
+	require.Equal(t, "config-123", parsed.Query().Get("config_id"))
+	require.Empty(t, parsed.Query().Get("scope"), "config_id replaces the scope list")
+
+	loginAdapters, _, err := BuildAdapterRegistry([]AppConfig{{
+		Provider:       "instagram",
+		ConnectionMode: ConnectionModeInstagramLogin,
+		ClientID:       "ig-login-client",
+		ClientSecret:   "ig-login-secret",
+		RedirectURI:    "https://app.test/api/v1/accounts/instagram/callback",
+		ConfigID:       "config-123",
+	}}, RegistryOptions{})
+	require.NoError(t, err)
+	loginAdapter, ok := loginAdapters["instagram:instagram_login"].(*InstagramAdapter)
+	require.True(t, ok, "the direct Instagram login adapter must be registered")
+	require.Empty(t, loginAdapter.configID, "direct Instagram login ignores Facebook Login configurations")
+	loginURL, _ := loginAdapter.GenerateAuthURL("state-1")
+	parsedLogin, err := url.Parse(loginURL)
+	require.NoError(t, err)
+	require.Equal(t, "www.instagram.com", parsedLogin.Host)
+	require.Empty(t, parsedLogin.Query().Get("config_id"))
+	require.NotEmpty(t, parsedLogin.Query().Get("scope"), "direct login keeps its own scopes")
 }
 
 func TestBuildAdapterRegistryAcceptsBuiltinCredentialProviders(t *testing.T) {

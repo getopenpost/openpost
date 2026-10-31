@@ -50,6 +50,7 @@ type InstagramAdapter struct {
 	redirectURI    string
 	graphVersion   string
 	instagramLogin bool
+	configID       string
 }
 
 func NewInstagramAdapter(clientID, clientSecret, redirectURI string) *InstagramAdapter {
@@ -145,8 +146,16 @@ func (i *InstagramAdapter) GenerateAuthURL(state string) (string, map[string]str
 	params.Set(oauthParamClientID, i.clientID)
 	params.Set(oauthParamRedirectURI, i.redirectURI)
 	params.Set("response_type", oauthResponseType)
-	params.Set("scope", strings.Join(instagramScopes(), ","))
 	params.Set("state", state)
+	if i.configID != "" {
+		// Meta forces newer apps onto Facebook Login for Business
+		// configurations: the configuration's config_id replaces the
+		// scope list in the dialog, and auth_type has no meaning there.
+		// The code exchange stays the shared oauth/access_token endpoint.
+		params.Set("config_id", i.configID)
+		return facebookOAuthBaseURL + "/" + i.graphVersion + "/dialog/oauth?" + params.Encode(), nil
+	}
+	params.Set("scope", strings.Join(instagramScopes(), ","))
 	params.Set("auth_type", "rerequest")
 	return facebookOAuthBaseURL + "/" + i.graphVersion + "/dialog/oauth?" + params.Encode(), nil
 }

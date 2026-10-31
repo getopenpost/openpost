@@ -16,6 +16,7 @@ type AppConfig struct {
 	ClientID       string `json:"client_id,omitempty"`
 	ClientSecret   string `json:"client_secret,omitempty"`
 	RedirectURI    string `json:"redirect_uri,omitempty"`
+	ConfigID       string `json:"config_id,omitempty"`
 	InstanceURL    string `json:"instance_url,omitempty"`
 	BotToken       string `json:"bot_token,omitempty"`
 	BotUsername    string `json:"bot_username,omitempty"`
@@ -110,7 +111,9 @@ var appBuilders = map[string]appBuilder{
 		if app.ConnectionMode == ConnectionModeInstagramLogin {
 			return NewInstagramLoginAdapter(app.ClientID, app.ClientSecret, app.RedirectURI), nil
 		}
-		return NewInstagramAdapter(app.ClientID, app.ClientSecret, app.RedirectURI), nil
+		adapter := NewInstagramAdapter(app.ClientID, app.ClientSecret, app.RedirectURI)
+		adapter.configID = app.ConfigID
+		return adapter, nil
 	},
 	providerLinkedIn: func(app AppConfig, opts RegistryOptions) (Adapter, error) {
 		if strings.TrimSpace(app.ClientID) == "" {
@@ -292,6 +295,7 @@ func NormalizeAppConfig(app AppConfig) AppConfig {
 	app.ClientID = strings.TrimSpace(app.ClientID)
 	app.ClientSecret = strings.TrimSpace(app.ClientSecret)
 	app.RedirectURI = strings.TrimSpace(app.RedirectURI)
+	app.ConfigID = strings.TrimSpace(app.ConfigID)
 	app.InstanceURL = strings.TrimRight(strings.TrimSpace(app.InstanceURL), "/")
 	app.BotToken = strings.TrimSpace(app.BotToken)
 	app.BotUsername = strings.TrimPrefix(strings.TrimSpace(app.BotUsername), "@")

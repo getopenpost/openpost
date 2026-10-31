@@ -29,6 +29,7 @@ import (
 	"github.com/openpost/backend/internal/services/mediastore"
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/providerreadiness"
+	"github.com/openpost/backend/internal/services/provideruserresolutions"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/publicationauth"
 	"github.com/openpost/backend/internal/services/publicationlink"
@@ -64,6 +65,7 @@ type Service struct {
 	reposts                      RepostScheduler
 	readiness                    *providerreadiness.Service
 	telemetry                    telemetry.Recorder
+	userResolutions              *provideruserresolutions.Service
 }
 
 type RepostScheduler interface {
@@ -72,11 +74,12 @@ type RepostScheduler interface {
 
 func NewService(db *bun.DB, tm *tokenmanager.TokenManager) *Service {
 	return &Service{
-		db:        db,
-		tm:        tm,
-		providers: make(map[string]platform.Publisher),
-		usage:     usage.NewService(db),
-		quota:     entitlements.NewSelfHostedService(),
+		db:              db,
+		tm:              tm,
+		providers:       make(map[string]platform.Publisher),
+		usage:           usage.NewService(db),
+		quota:           entitlements.NewSelfHostedService(),
+		userResolutions: provideruserresolutions.NewService(db),
 	}
 }
 
@@ -590,6 +593,11 @@ func (s *Service) publishRendition(
 		MediaSettings:    mediaSettings,
 		Media:            mediaItems,
 	}
+	if account.Platform == "x" {
+		if err := s.resolveRenditionTaggedUsers(ctx, publication.WorkspaceID, provider, token, req); err != nil {
+			return err
+		}
+	}
 	s.recordPublicationLifecycleEvent(ctx, publication.WorkspaceID, publication.ID, rendition.ID, lifecycle.EventProviderProcessing, lifecycle.StatusStarted, "provider publish started", map[string]any{
 		"platform":     rendition.Platform,
 		"provider_key": providerKey,
@@ -924,6 +932,11 @@ func (s *Service) publishRenditionSegments(
 			MediaSettings:    mediaSettings,
 			Media:            mediaItems,
 			ReplyToID:        parentExternalID,
+		}
+		if account.Platform == "x" {
+			if resolveErr := s.resolveRenditionTaggedUsers(ctx, publication.WorkspaceID, provider, token, req); resolveErr != nil {
+				return s.persistRenditionSegmentOutcome(ctx, segment, resolveErr)
+			}
 		}
 		s.recordPublicationLifecycleEvent(ctx, publication.WorkspaceID, publication.ID, rendition.ID, lifecycle.EventProviderProcessing, lifecycle.StatusStarted, "rendition segment publish started", map[string]any{
 			"platform":     rendition.Platform,

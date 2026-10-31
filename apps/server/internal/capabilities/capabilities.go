@@ -2598,7 +2598,7 @@ func xSettings() []SettingField {
 		{Key: "location_id", Label: "Location", Type: "select", Control: "remote_picker", OptionsSource: "x_locations", Capability: "geo", UnavailableReason: "X has not granted this account access to location publishing options."},
 		{Key: "paid_partnership", Label: "Paid partnership", Type: "boolean"},
 		{Key: "made_with_ai", Label: "Made with AI", Type: "boolean"},
-		{Key: "tagged_users", Label: "Tag people", Type: "tags", Control: "user_picker", Scope: SettingScopeMediaItem, MediaShapes: []string{MediaShapeSingleImage, MediaShapeMultipleImage}},
+		{Key: "tagged_users", Label: "Tag people", Type: "tags", Control: "user_picker", Scope: SettingScopeMediaItem, MediaShapes: []string{MediaShapeSingleImage, MediaShapeMultipleImage}, Constraints: SettingConstraint{MaxItems: providerlimits.XPostMaxTaggedUsers}, Help: "Tag up to 10 people per post. Enter X handles or numeric X user IDs, separated by commas; handles are resolved when publishing."},
 	}
 }
 

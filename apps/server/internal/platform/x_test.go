@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -554,5 +555,114 @@ func TestXResumableUploadReadsLazyStoredMedia(t *testing.T) {
 				t.Fatalf("upload lost media or receipt: id=%s state=%+v uploaded=%q", id, saved, uploaded)
 			}
 		})
+	}
+}
+
+func xTaggedUsersRequest(mediaSettings string, media []MediaItem) *PublishRequest {
+	req := &PublishRequest{
+		Content:          "Tagged",
+		PlatformMediaIDs: []string{"media-1"},
+		MediaSettings: []map[string]interface{}{
+			{"tagged_users": mediaSettings},
+		},
+	}
+	if media == nil {
+		req.Media = []MediaItem{{ID: "media-1", MimeType: "image/jpeg"}}
+	} else {
+		req.Media = media
+	}
+	return req
+}
+
+func TestXTweetRejectsTaggedUserHandlesWithoutResolution(t *testing.T) {
+	_, err := buildXTweetPayload(xTaggedUsersRequest("@someone", nil))
+	if err == nil || !strings.Contains(err.Error(), "must be an X user ID or a handle OpenPost can resolve") {
+		t.Fatalf("expected tagged-user handle rejection, got %v", err)
+	}
+
+	payload, err := buildXTweetPayload(xTaggedUsersRequest("123456789", nil))
+	if err != nil {
+		t.Fatalf("numeric tagged user rejected: %v", err)
+	}
+	media := payload["media"].(map[string]interface{})
+	if got := media["tagged_user_ids"].([]string); len(got) != 1 || got[0] != "123456789" {
+		t.Fatalf("unexpected tagged_user_ids: %#v", media["tagged_user_ids"])
+	}
+}
+
+func TestXTweetRejectsMoreThanTenTaggedUsers(t *testing.T) {
+	entries := make([]string, 11)
+	for index := range entries {
+		entries[index] = fmt.Sprintf("10000000000%d", index)
+	}
+	_, err := buildXTweetPayload(xTaggedUsersRequest(strings.Join(entries, ","), nil))
+	if err == nil || !strings.Contains(err.Error(), "at most 10 users, got 11") {
+		t.Fatalf("expected tagged-user limit rejection, got %v", err)
+	}
+
+	tenOnly := strings.Join(entries[:10], ",")
+	if _, err := buildXTweetPayload(xTaggedUsersRequest(tenOnly, nil)); err != nil {
+		t.Fatalf("ten tagged users rejected: %v", err)
+	}
+}
+
+func TestXTweetTaggedUsersRequireMedia(t *testing.T) {
+	_, err := buildXTweetPayload(&PublishRequest{
+		Content: "Tagged without media",
+		MediaSettings: []map[string]interface{}{
+			{"tagged_users": "123456789"},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "x tagged users require media") {
+		t.Fatalf("expected tagged users without media rejection, got %v", err)
+	}
+}
+
+func TestXTweetTaggedUsersRequirePhotoAttachment(t *testing.T) {
+	_, err := buildXTweetPayload(xTaggedUsersRequest("123456789", []MediaItem{{ID: "media-1", MimeType: "video/mp4"}}))
+	if err == nil || !strings.Contains(err.Error(), "x tagged users require a photo attachment") {
+		t.Fatalf("expected tagged users without photo rejection, got %v", err)
+	}
+
+	if _, err := buildXTweetPayload(xTaggedUsersRequest("123456789", []MediaItem{{ID: "media-1", MimeType: "image/gif"}})); err == nil {
+		t.Fatal("expected tagged users on GIF-only media to be rejected")
+	}
+}
+
+func TestXResolveTaggedUsernamesUsesBatchLookupAndNamesMissingHandle(t *testing.T) {
+	var lookupPaths []string
+	var lookupQueries []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		lookupPaths = append(lookupPaths, r.URL.Path)
+		lookupQueries = append(lookupQueries, r.URL.Query().Get("usernames"))
+		switch r.URL.Query().Get("usernames") {
+		case "openposthq,otheruser":
+			_, _ = io.WriteString(w, `{"data":[{"id":"2244996801","username":"OpenPostHQ"},{"id":"1001","username":"OtherUser"}]}`)
+		default:
+			_, _ = io.WriteString(w, `{"data":[]}`)
+		}
+	}))
+	defer server.Close()
+	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
+	defer close(adapter.cleanupDone)
+	adapter.apiBaseURL = server.URL
+
+	resolved, err := adapter.ResolveTaggedUsernames(t.Context(), "access-token|access-secret", []string{"@openposthq", "OtherUser"})
+	if err != nil {
+		t.Fatalf("handle resolution failed: %v", err)
+	}
+	if len(lookupPaths) != 1 || lookupPaths[0] != "/2/users/by" {
+		t.Fatalf("expected one batch lookup at /2/users/by, got %v", lookupPaths)
+	}
+	if len(lookupQueries) != 1 || lookupQueries[0] != "openposthq,otheruser" {
+		t.Fatalf("expected normalized batch usernames, got %v", lookupQueries)
+	}
+	if id := resolved["openposthq"]; id != "2244996801" {
+		t.Fatalf("expected openposthq resolved to user id, got %#v", resolved)
+	}
+
+	_, err = adapter.ResolveTaggedUsernames(t.Context(), "access-token|access-secret", []string{"missinguser"})
+	if err == nil || !strings.Contains(err.Error(), "@missinguser could not be found") {
+		t.Fatalf("expected missing handle named in error, got %v", err)
 	}
 }

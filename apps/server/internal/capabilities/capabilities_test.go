@@ -49,6 +49,33 @@ func TestInstagramAltTextLimitAgreesAcrossAuthoringAndProviderValidation(t *test
 	require.Equal(t, SettingScopeMediaItem, setting.Scope)
 }
 
+func TestXTaggedUsersLimitAgreesAcrossAuthoringAndProviderValidation(t *testing.T) {
+	require.Equal(t, 10, providerlimits.XPostMaxTaggedUsers, "canonical X tagged users limit")
+	image := MediaItem{
+		ID: "image-1", MimeType: "image/jpeg", Size: 1024,
+		Width: 1080, Height: 1080, PublicURLReady: true, PublicURLStatus: 200,
+		URL: "https://cdn.example/image.jpg",
+	}
+	atLimit := "user01,user02,user03,user04,user05,user06,user07,user08,user09,user10"
+	overLimit := atLimit + ",user11"
+
+	issues := ValidateMediaSettings(ProviderX, "x.post", models.ContentProfileImagePost, image, map[string]any{"tagged_users": atLimit})
+	requireNoIssueCode(t, issues, "setting_max_items")
+
+	issues = ValidateMediaSettings(ProviderX, "x.post", models.ContentProfileImagePost, image, map[string]any{"tagged_users": overLimit})
+	requireIssueCode(t, issues, "setting_max_items")
+	require.Equal(t, "Tag people supports at most 10 values", issueMessage(issues, "setting_max_items"))
+
+	// The catalogue and the platform publish boundary share the same
+	// provider limit.
+	capability, ok := Find(ProviderX, models.ContentProfileImagePost)
+	require.True(t, ok)
+	setting, ok := settingDefinitionForKey(capability.Settings, "tagged_users")
+	require.True(t, ok, "X capabilities must expose the media-item tagged_users setting")
+	require.Equal(t, providerlimits.XPostMaxTaggedUsers, setting.Constraints.MaxItems)
+	require.Equal(t, SettingScopeMediaItem, setting.Scope)
+}
+
 func settingDefinitionForKey(settings []SettingDefinition, key string) (SettingDefinition, bool) {
 	for _, setting := range settings {
 		if setting.Key == key {

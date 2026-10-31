@@ -20,3 +20,11 @@ const (
 	XPremiumPostVideoMaxBytes           = 16 * 1024 * 1024 * 1024
 	XPremiumPostVideoMaxDurationSeconds = 125 * 60
 )
+
+// XPostMaxTaggedUsers is X's documented media tagging cap. Verified
+// 2026-10-31 against the POST /2/tweets OpenAPI, whose media.tagged_user_ids
+// array declares maxItems 10 with pattern ^[0-9]{1,19}$ (numeric user IDs):
+// https://docs.x.com/x-api/posts/create-or-edit-post
+// Tagging applies to photo attachments; the adapter additionally rejects
+// tagged users on posts without a photo.
+const XPostMaxTaggedUsers = 10

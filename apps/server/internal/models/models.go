@@ -207,6 +207,18 @@ type SavedMention struct {
 	UpdatedAt     time.Time `bun:"updated_at,notnull,default:current_timestamp"`
 }
 
+type ProviderUserResolution struct {
+	bun.BaseModel  `bun:"table:provider_user_resolutions"`
+	ID             string    `bun:",pk"`
+	WorkspaceID    string    `bun:"workspace_id,notnull"`
+	Provider       string    `bun:"provider,notnull"`
+	Handle         string    `bun:"handle,notnull"`
+	ProviderUserID string    `bun:"provider_user_id,notnull"`
+	ResolvedAt     time.Time `bun:"resolved_at,notnull"`
+	CreatedAt      time.Time `bun:"created_at,notnull,default:current_timestamp"`
+	UpdatedAt      time.Time `bun:"updated_at,notnull,default:current_timestamp"`
+}
+
 type User struct {
 	bun.BaseModel `bun:"table:users"`
 

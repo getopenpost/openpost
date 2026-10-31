@@ -20,7 +20,10 @@ function run(executable, args, suite) {
 	if (suite) env.OPENPOST_COMPONENT_TEST_SUITE = suite;
 	const result = spawnSync(executable, args, {
 		stdio: 'inherit',
-		timeout: 600_000,
+		// A healthy shard takes about two minutes locally; release preflight runs
+		// several suites in parallel, so allow generous headroom before treating
+		// the run as hung.
+		timeout: 1_800_000,
 		env
 	});
 	if (result.error) throw result.error;

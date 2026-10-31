@@ -120,11 +120,18 @@ func preflightTestDB(t *testing.T) *bun.DB {
 	require.NoError(t, err)
 	db := bun.NewDB(raw, sqlitedialect.New())
 	t.Cleanup(func() { _ = db.Close() })
-	for _, model := range []any{(*models.SocialAccount)(nil), (*models.Publication)(nil), (*models.Rendition)(nil), (*models.Job)(nil)} {
+	for _, model := range []any{
+		(*models.SocialAccount)(nil), (*models.Publication)(nil), (*models.Rendition)(nil), (*models.Job)(nil),
+		(*models.Organization)(nil), (*models.Workspace)(nil), (*models.WorkspaceMember)(nil),
+		(*models.OAuthGrant)(nil), (*models.UserNotification)(nil), (*models.UserNotificationPreference)(nil),
+	} {
 		_, err := db.NewCreateTable().Model(model).Exec(t.Context())
 		require.NoError(t, err)
 	}
 	_, err = db.NewCreateIndex().Index("jobs_active_dedupe_unique_idx").Table("jobs").Column("type", "scope_id", "dedupe_key").Unique().Where("status IN ('pending', 'processing') AND scope_id <> '' AND dedupe_key <> ''").Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `CREATE UNIQUE INDEX user_notifications_dedup_test_idx
+		ON user_notifications (user_id, dedup_key) WHERE dedup_key <> ''`)
 	require.NoError(t, err)
 	return db
 }
@@ -230,4 +237,134 @@ func TestProviderMatchesTheAccountSpecificAdapter(t *testing.T) {
 			require.True(t, account.PreflightSuccessAt.IsZero(), "a failed preflight must not store a success for %s", accountID)
 		}
 	}
+}
+
+// seedPreflightReconnectRecipients wires the account from
+// seedPreflightCandidate to an OAuth grant consented by connectorID and to
+// workspace members that cover every recipient filtering branch.
+func seedPreflightReconnectRecipients(t *testing.T, db *bun.DB, connectorID string) {
+	t.Helper()
+	ctx := t.Context()
+	_, err := db.NewInsert().Model(&models.Organization{ID: "org-1", Name: "Org"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", OrganizationID: "org-1", Name: "Launch"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.OAuthGrant{
+		ID: "grant-1", WorkspaceID: "workspace-1", Provider: "x",
+		ConsentedByID: connectorID, AccessTokenEnc: []byte("test-token"),
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).
+		Set("oauth_grant_id = ?", "grant-1").
+		Where("id = ?", "account-1").
+		Exec(ctx)
+	require.NoError(t, err)
+	members := []models.WorkspaceMember{
+		{WorkspaceID: "workspace-1", UserID: "admin-1", Role: models.WorkspaceRoleAdmin, Status: models.WorkspaceMemberStatusActive},
+		{WorkspaceID: "workspace-1", UserID: "admin-2", Role: models.WorkspaceRoleAdmin, Status: models.WorkspaceMemberStatusActive},
+		{WorkspaceID: "workspace-1", UserID: "editor-1", Role: "editor", Status: models.WorkspaceMemberStatusActive},
+		{WorkspaceID: "workspace-1", UserID: "admin-inactive", Role: models.WorkspaceRoleAdmin, Status: models.WorkspaceMemberStatusInactive},
+	}
+	_, err = db.NewInsert().Model(&members).Exec(ctx)
+	require.NoError(t, err)
+}
+
+func preflightNotificationRows(t *testing.T, db *bun.DB, userID string) []models.UserNotification {
+	t.Helper()
+	var rows []models.UserNotification
+	require.NoError(t, db.NewSelect().Model(&rows).
+		Where("user_id = ?", userID).
+		Order("created_at ASC, id ASC").
+		Scan(t.Context()))
+	return rows
+}
+
+func requirePreflightNotifications(t *testing.T, db *bun.DB, userID string, want int, message string) []models.UserNotification {
+	t.Helper()
+	rows := preflightNotificationRows(t, db, userID)
+	require.Len(t, rows, want, "%s: want %d notifications for %s, got %d", message, want, userID, len(rows))
+	return rows
+}
+
+func requirePreflightAccountState(t *testing.T, db *bun.DB, wantGeneration int64, wantFailure string) {
+	t.Helper()
+	var account models.SocialAccount
+	require.NoError(t, db.NewSelect().Model(&account).Where("id = ?", "account-1").Scan(t.Context()))
+	require.Equal(t, wantGeneration, account.CredentialFailureGeneration)
+	require.Equal(t, wantFailure, account.PreflightFailure)
+}
+
+// The first confirmed credential failure on a healthy account claims
+// generation 1 and routes the transition to the connector and the active
+// workspace administrators. Repeated failures inside the same generation
+// dedupe, and only a successful check arms a fresh generation.
+func TestConfirmedPreflightFailureNotifiesReconnectRecipientsPerGeneration(t *testing.T) {
+	db := preflightTestDB(t)
+	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
+	seedPreflightCandidate(t, db, now.Add(time.Hour))
+	seedPreflightReconnectRecipients(t, db, "connector-1")
+
+	service := NewService(db, preflightTokens{}, notifications.NewService(db))
+	authFailure := &platform.HTTPError{StatusCode: 401, Code: "invalid_token"}
+	service.SetProvider("x", &preflightAdapter{err: authFailure})
+
+	// First confirmed failure: the healthy account claims generation 1.
+	service.now = func() time.Time { return now }
+	require.NoError(t, service.HandleJob(t.Context(), JobType))
+	requirePreflightAccountState(t, db, 1, "authentication")
+	connectorRows := requirePreflightNotifications(t, db, "connector-1", 1, "the connector can reconnect the account")
+	require.Equal(t, "account_needs_attention:account-1:1", connectorRows[0].DedupKey)
+	require.Equal(t, "Connected account needs attention", connectorRows[0].Title)
+	require.Contains(t, connectorRows[0].PayloadJSON, `"credential_generation":"1"`)
+	requirePreflightNotifications(t, db, "admin-1", 1, "active administrators can reconnect the account")
+	requirePreflightNotifications(t, db, "admin-2", 1, "active administrators can reconnect the account")
+	requirePreflightNotifications(t, db, "editor-1", 0, "editors cannot reconnect the account")
+	requirePreflightNotifications(t, db, "admin-inactive", 0, "inactive administrators are not notified")
+	// The existing per-publication creator warning still fires unchanged.
+	requirePreflightNotifications(t, db, "user-1", 1, "the publication creator keeps the scheduled-at-risk warning")
+
+	// A second failure without an intervening success stays in generation 1
+	// and notifies nobody again.
+	service.now = func() time.Time { return now.Add(checkCadence + time.Minute) }
+	require.NoError(t, service.HandleJob(t.Context(), JobType))
+	requirePreflightAccountState(t, db, 1, "authentication")
+	requirePreflightNotifications(t, db, "connector-1", 1, "repeated failures inside one generation dedupe")
+	requirePreflightNotifications(t, db, "admin-1", 1, "repeated failures inside one generation dedupe")
+	requirePreflightNotifications(t, db, "user-1", 1, "the creator warning keeps its cooldown")
+
+	// A successful check resets the failure state, so the account is healthy
+	// again and the generation stays claimed until the next failure.
+	service.SetProvider("x", &preflightAdapter{})
+	service.now = func() time.Time { return now.Add(2*checkCadence + 2*time.Minute) }
+	require.NoError(t, service.HandleJob(t.Context(), JobType))
+	requirePreflightAccountState(t, db, 1, "")
+
+	// The next confirmed failure claims generation 2 and notifies again.
+	service.SetProvider("x", &preflightAdapter{err: authFailure})
+	service.now = func() time.Time { return now.Add(3*checkCadence + 3*time.Minute) }
+	require.NoError(t, service.HandleJob(t.Context(), JobType))
+	requirePreflightAccountState(t, db, 2, "authentication")
+	secondGeneration := requirePreflightNotifications(t, db, "connector-1", 2, "a fresh generation notifies again")
+	require.Equal(t, "account_needs_attention:account-1:2", secondGeneration[1].DedupKey)
+	requirePreflightNotifications(t, db, "admin-1", 2, "a fresh generation notifies again")
+	requirePreflightNotifications(t, db, "admin-2", 2, "a fresh generation notifies again")
+	requirePreflightNotifications(t, db, "user-1", 1, "the creator warning cooldown still suppresses repeats")
+}
+
+// The connector who is also a workspace administrator is notified once.
+func TestCredentialFailureTransitionDeduplicatesConnectorWhoIsAdmin(t *testing.T) {
+	db := preflightTestDB(t)
+	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
+	seedPreflightCandidate(t, db, now.Add(time.Hour))
+	seedPreflightReconnectRecipients(t, db, "admin-1")
+
+	service := NewService(db, preflightTokens{}, notifications.NewService(db))
+	service.now = func() time.Time { return now }
+	service.SetProvider("x", &preflightAdapter{err: &platform.HTTPError{StatusCode: 401, Code: "invalid_token"}})
+
+	require.NoError(t, service.HandleJob(t.Context(), JobType))
+	requirePreflightAccountState(t, db, 1, "authentication")
+	requirePreflightNotifications(t, db, "admin-1", 1, "the connector who is also an admin is notified once")
+	requirePreflightNotifications(t, db, "admin-2", 1, "other administrators are notified once")
+	requirePreflightNotifications(t, db, "user-1", 1, "the publication creator keeps the scheduled-at-risk warning")
 }

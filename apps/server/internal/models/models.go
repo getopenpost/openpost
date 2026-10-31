@@ -1205,6 +1205,10 @@ type SocialAccount struct {
 	PreflightSuccessAt  time.Time `bun:"preflight_success_at,nullzero" json:"-"`
 	PreflightWarnedAt   time.Time `bun:"preflight_warned_at,nullzero" json:"-"`
 	PreflightFailure    string    `bun:"preflight_failure,notnull,default:''" json:"-"`
+	// CredentialFailureGeneration counts healthy-to-failing credential
+	// transitions. Producers claim it atomically so one credential break
+	// notifies the reconnect-capable recipients once per generation.
+	CredentialFailureGeneration int64 `bun:"credential_failure_generation,notnull,default:0" json:"-"`
 
 	IsActive        bool      `bun:",default:true" json:"is_active"`
 	ErrorMessage    string    `json:"error_message"`

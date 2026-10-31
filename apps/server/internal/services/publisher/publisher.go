@@ -2546,7 +2546,7 @@ func (s *Service) createPublicationResultNotifications(
 	if !result.reconnect {
 		return nil
 	}
-	return s.createReconnectNotifications(ctx, db, publication, result)
+	return s.createReconnectNotifications(ctx, db, publication, result, renditions)
 }
 
 type publicationNotificationResult struct {
@@ -2615,6 +2615,7 @@ func (s *Service) createReconnectNotifications(
 	db bun.IDB,
 	publication *models.Publication,
 	result publicationNotificationResult,
+	renditions []models.Rendition,
 ) error {
 	for _, accountID := range result.failedAccountIDs {
 		account := result.accounts[accountID]
@@ -2628,6 +2629,83 @@ func (s *Service) createReconnectNotifications(
 		})
 		if err != nil {
 			return err
+		}
+		if err := s.notifications.RecordWithDB(ctx, db, outcome); err != nil {
+			return err
+		}
+		if err := s.recordCredentialFailureTransition(ctx, db, accountID, reconnectFailureKind(renditions, accountID)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// reconnectFailureKind returns the stored error kind of a failed destination
+// that requires reconnecting the account, or the reconnect-required default
+// when the persisted kind is missing.
+func reconnectFailureKind(renditions []models.Rendition, accountID string) string {
+	for _, rendition := range renditions {
+		if rendition.SocialAccountID == accountID &&
+			rendition.Status == models.RenditionStatusFailed &&
+			rendition.ErrorAction == FailureActionReconnect {
+			if kind := strings.TrimSpace(rendition.ErrorKind); kind != "" {
+				return kind
+			}
+		}
+	}
+	return FailureReconnectRequired
+}
+
+// recordCredentialFailureTransition claims the account's credential failure
+// generation when this destination failure is the first confirmed credential
+// break since the account was last healthy. The claim, the stored failure
+// state, and the transition notifications commit with the publication
+// result, so concurrent publications cannot double-notify one break. The
+// existing per-publication creator notification is recorded separately and
+// stays unchanged.
+func (s *Service) recordCredentialFailureTransition(ctx context.Context, db bun.IDB, accountID, failureKind string) error {
+	result, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).
+		Set("credential_failure_generation = credential_failure_generation + 1").
+		Where("id = ?", accountID).
+		Where("(preflight_failure = '' OR preflight_failure IS NULL)").
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return nil
+	}
+	var account models.SocialAccount
+	if err := db.NewSelect().Model(&account).Where("id = ?", accountID).Scan(ctx); err != nil {
+		return err
+	}
+	// The claimed break must also mark the account unhealthy so a later
+	// preflight failure cannot claim a second generation for the same break.
+	if _, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).
+		Set("preflight_failure = ?", failureKind).
+		Where("id = ?", accountID).
+		Exec(ctx); err != nil {
+		return err
+	}
+	recipients, err := notifications.AccountCredentialFailureRecipients(ctx, db, &account)
+	if err != nil {
+		return err
+	}
+	for _, recipientID := range recipients {
+		outcome, outcomeErr := notifications.NewAccountCredentialFailureOutcome(notifications.AccountCredentialFailureFacts{
+			RecipientUserID: recipientID,
+			WorkspaceID:     account.WorkspaceID,
+			AccountID:       account.ID,
+			Generation:      account.CredentialFailureGeneration,
+			Provider:        account.Platform,
+			AccountLabel:    publisherAccountLabel(account),
+		})
+		if outcomeErr != nil {
+			return outcomeErr
 		}
 		if err := s.notifications.RecordWithDB(ctx, db, outcome); err != nil {
 			return err

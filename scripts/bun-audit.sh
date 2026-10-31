@@ -26,6 +26,16 @@ set -euo pipefail
 # Remove these exceptions when compatible upstream tools adopt patched releases.
 # GHSA-gcqx-w48m-w2h4 is limited to the pinned build/n8n development graph.
 # check-security-admissions.mjs rejects dependency drift or first-party imports.
+# GHSA-g3hv-75wg-m249 (minimatch DoS), GHSA-3g3m-2fjr-6pw4 (glob AbortSignal
+# bypass), and GHSA-mrwp-f3q8-3g9p (follow-redirects credentials) were published
+# 2026-10-30 and enter only through lint, i18n, PWA build, and n8n development
+# toolchains. The patched minimatch 11 and glob 14 releases are ESM majors that
+# the pinned eslint, typescript-eslint, openapi-typescript, vite-plugin-pwa, and
+# @n8n/node-cli versions do not accept; follow-redirects ships only through
+# n8n-workflow in that same development graph, and the published n8n node carries
+# no runtime dependencies. No Node packages ship in the Go image or static
+# sites. Remove these admissions when the consuming tools adopt the patched
+# majors.
 bun "$(dirname "${BASH_SOURCE[0]}")/check-braces-security-patch.mjs"
 # These admissions fail closed when the reviewed dependency/source boundaries
 # change. See the linked advisory conditions in check-security-admissions.mjs.
@@ -53,7 +63,10 @@ while [ "$attempt" -le 3 ]; do
   --ignore GHSA-mrhx-c7xc-m3w5 \
   --ignore GHSA-pfhg-q3qv-9q6r \
   --ignore GHSA-27mw-82g8-phjj \
-  --ignore GHSA-gcqx-w48m-w2h4
+  --ignore GHSA-gcqx-w48m-w2h4 \
+  --ignore GHSA-g3hv-75wg-m249 \
+  --ignore GHSA-3g3m-2fjr-6pw4 \
+  --ignore GHSA-mrwp-f3q8-3g9p
   then
     break
   fi

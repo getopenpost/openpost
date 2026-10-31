@@ -647,7 +647,7 @@ describe('route mutation sessions', () => {
 		);
 
 		const screen = await renderWithQuery(MediaPage);
-		await screen.getByRole('button', { name: 'Trash', exact: true }).click();
+		await screen.getByRole('tab', { name: 'Trash', exact: true }).click();
 		await expect.element(screen.getByText('actor-a.png')).toBeVisible();
 		await screen.getByRole('button', { name: 'Restore', exact: true }).click();
 		await vi.waitFor(() => expect(postMock).toHaveBeenCalledOnce());
@@ -657,7 +657,7 @@ describe('route mutation sessions', () => {
 		auth.setUser(user('user-b'));
 		restoreWorkspace();
 		const currentScreen = await renderWithQuery(MediaPage);
-		await currentScreen.getByRole('button', { name: 'Trash', exact: true }).click();
+		await currentScreen.getByRole('tab', { name: 'Trash', exact: true }).click();
 		await expect.element(currentScreen.getByText('actor-b.png')).toBeVisible();
 		const mediaGetsBeforeStaleRestore = mediaGets;
 

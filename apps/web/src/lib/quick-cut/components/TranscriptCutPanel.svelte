@@ -55,6 +55,10 @@
 	let selected = $state<Set<number>>(new Set());
 	let anchor = $state<number | null>(null);
 	let busy = $state(false);
+	// The transcribe controls are collapsible, open by default until a transcript
+	// exists. Keep the user's choice across source updates instead of resetting
+	// the section whenever the panel rerenders.
+	let transcribeOpen = $state(words.length === 0);
 	let error = $state('');
 	let progress = $state<TranscribeProgress | null>(null);
 	let backend = $state<'webgpu' | 'wasm' | null>(null);
@@ -187,7 +191,7 @@
 			})}
 		</p>
 	{/if}
-	<EditorDisclosure label={m.quick_cut_transcribe()} open={words.length === 0} class="border-b-0">
+	<EditorDisclosure bind:open={transcribeOpen} label={m.quick_cut_transcribe()} class="border-b-0">
 		<TranscriptionControls
 			startLabel={m.quick_cut_transcribe()}
 			{canTranscribe}

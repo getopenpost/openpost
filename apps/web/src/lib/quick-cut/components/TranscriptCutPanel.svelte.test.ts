@@ -66,7 +66,7 @@ test('opens the transcript panel for a video without audio and prevents transcri
 		onremove: vi.fn()
 	});
 	await expect
-		.element(screen.getByRole('button', { name: 'Create transcript', exact: true }))
+		.element(screen.getByRole('button', { name: 'Create transcript', exact: true }).last())
 		.toBeDisabled();
 	await expect.element(screen.getByText('No audio tracks', { exact: true })).toBeVisible();
 });
@@ -140,7 +140,9 @@ test('Space activates a transcript word instead of the global playback shortcut'
 });
 
 test('explains an empty successful transcript and retains that outcome when reopened', async () => {
-	const file = new File(['owned transport fixture'], 'tone.wav', { type: 'audio/wav' });
+	const file = new File(['owned transport fixture'], 'tone.wav', {
+		type: 'audio/wav'
+	});
 	const input = { ...source, file, transcript: undefined };
 	const collect = vi.spyOn(TranscriptionJob.prototype, 'collect').mockResolvedValueOnce([]);
 	const onsave = vi.fn();
@@ -161,19 +163,24 @@ test('explains an empty successful transcript and retains that outcome when reop
 				)
 			)
 			.not.toBeInTheDocument();
-		screen.getByRole('button', { name: 'Create transcript', exact: true }).element().focus();
+		screen.getByRole('button', { name: 'Create transcript', exact: true }).last().element().focus();
 		await userEvent.keyboard('{Enter}');
 		await vi.waitFor(() =>
-			expect(onsave).toHaveBeenCalledExactlyOnceWith(source.id, { audioTrackIndex: 0, words: [] })
+			expect(onsave).toHaveBeenCalledExactlyOnceWith(source.id, {
+				audioTrackIndex: 0,
+				words: []
+			})
 		);
-		await screen.rerender({ source: { ...input, transcript: onsave.mock.calls[0]![1] } });
+		await screen.rerender({
+			source: { ...input, transcript: onsave.mock.calls[0]![1] }
+		});
 		await expect
 			.element(screen.getByRole('status'))
 			.toHaveTextContent(
 				'No speech was found in this audio. Check the language or choose audio with speech, then try again.'
 			);
 		await expect
-			.element(screen.getByRole('button', { name: 'Create transcript', exact: true }))
+			.element(screen.getByRole('button', { name: 'Create transcript', exact: true }).last())
 			.toBeEnabled();
 		await screen.unmount();
 		const reopened = await render(TranscriptCutPanel, {
@@ -223,11 +230,11 @@ test('does not report an empty successful result after transcription is cancelle
 			onseek: vi.fn(),
 			onremove: vi.fn()
 		});
-		await screen.getByRole('button', { name: 'Create transcript', exact: true }).click();
+		await screen.getByRole('button', { name: 'Create transcript', exact: true }).last().click();
 		await screen.getByRole('button', { name: 'Cancel transcription', exact: true }).click();
 		finish([]);
 		await expect
-			.element(screen.getByRole('button', { name: 'Create transcript', exact: true }))
+			.element(screen.getByRole('button', { name: 'Create transcript', exact: true }).last())
 			.toBeEnabled();
 		await expect
 			.element(
@@ -265,14 +272,17 @@ test('explains audio deselection and clears the guidance when a source track is 
 			await panel.rerender({ source: input });
 		}
 	});
-	const audio = selector.getByRole('checkbox', { name: 'Audio 1 Interview.mp4', exact: true });
+	const audio = selector.getByRole('checkbox', {
+		name: 'Audio 1 Interview.mp4',
+		exact: true
+	});
 	await expect
-		.element(panel.getByRole('button', { name: 'Create transcript', exact: true }))
+		.element(panel.getByRole('button', { name: 'Create transcript', exact: true }).last())
 		.toBeEnabled();
 	audio.element().focus();
 	await userEvent.keyboard(' ');
 	await expect
-		.element(panel.getByRole('button', { name: 'Create transcript', exact: true }))
+		.element(panel.getByRole('button', { name: 'Create transcript', exact: true }).last())
 		.toBeDisabled();
 	await expect
 		.element(panel.getByRole('status'))
@@ -282,7 +292,7 @@ test('explains audio deselection and clears the guidance when a source track is 
 	await expect.element(audio).toHaveFocus();
 	await userEvent.keyboard(' ');
 	await expect
-		.element(panel.getByRole('button', { name: 'Create transcript', exact: true }))
+		.element(panel.getByRole('button', { name: 'Create transcript', exact: true }).last())
 		.toBeEnabled();
 	await expect
 		.element(
@@ -324,7 +334,10 @@ test('keeps the cached transcript target when another audio stream is retained a
 		}
 	});
 	await expect.element(panel.getByRole('button', { name: 'Hello', exact: true })).toBeVisible();
-	const first = selector.getByRole('checkbox', { name: 'Audio 1 Interview.mp4', exact: true });
+	const first = selector.getByRole('checkbox', {
+		name: 'Audio 1 Interview.mp4',
+		exact: true
+	});
 	first.element().focus();
 	await userEvent.keyboard(' ');
 	expect(input.selectedAudioTrackIndices).toEqual([0, 1]);
@@ -349,31 +362,42 @@ test('keeps the cached transcript target when another audio stream is retained a
 		await cold.rerender({
 			source: {
 				...reopened,
-				file: new File(['owned transport fixture'], 'interview.mp4', { type: 'video/mp4' })
+				file: new File(['owned transport fixture'], 'interview.mp4', {
+					type: 'video/mp4'
+				})
 			}
 		});
 		await cold.getByText('Create transcript', { exact: true }).first().click();
-		await cold.getByRole('button', { name: 'Create transcript', exact: true }).click();
+		await cold.getByRole('button', { name: 'Create transcript', exact: true }).last().click();
 		expect(transcribe).toHaveBeenCalledWith(
 			expect.any(File),
 			expect.objectContaining({ audioTrackIndex: 1 })
 		);
 		await vi.waitFor(() =>
-			expect(onsave).toHaveBeenCalledExactlyOnceWith('interview', { audioTrackIndex: 1, words: [] })
+			expect(onsave).toHaveBeenCalledExactlyOnceWith('interview', {
+				audioTrackIndex: 1,
+				words: []
+			})
 		);
 	} finally {
 		collect.mockRestore();
 		transcribe.mockRestore();
 	}
-	await cold.rerender({ source: { ...reopened, selectedAudioTrackIndices: [0] } });
+	await cold.rerender({
+		source: { ...reopened, selectedAudioTrackIndices: [0] }
+	});
 	await expect
 		.element(cold.getByRole('button', { name: 'Hello', exact: true }))
 		.not.toBeInTheDocument();
-	await cold.rerender({ source: { ...reopened, selectedAudioTrackIndices: [] } });
+	await cold.rerender({
+		source: { ...reopened, selectedAudioTrackIndices: [] }
+	});
 	await expect
-		.element(cold.getByRole('button', { name: 'Create transcript', exact: true }))
+		.element(cold.getByRole('button', { name: 'Create transcript', exact: true }).last())
 		.toBeDisabled();
-	await cold.rerender({ source: { ...reopened, selectedAudioTrackIndices: [1] } });
+	await cold.rerender({
+		source: { ...reopened, selectedAudioTrackIndices: [1] }
+	});
 	await expect.element(cold.getByRole('button', { name: 'Hello', exact: true })).toBeVisible();
 });
 
@@ -400,9 +424,12 @@ test('retains completed words for review when the browser transcript cache is fu
 			onseek: vi.fn(),
 			onremove: vi.fn()
 		});
-		await screen.getByRole('button', { name: 'Create transcript', exact: true }).click();
+		await screen.getByRole('button', { name: 'Create transcript', exact: true }).last().click();
 		await vi.waitFor(() =>
-			expect(onsave).toHaveBeenCalledExactlyOnceWith(source.id, { audioTrackIndex: 0, words })
+			expect(onsave).toHaveBeenCalledExactlyOnceWith(source.id, {
+				audioTrackIndex: 0,
+				words
+			})
 		);
 		await expect
 			.element(

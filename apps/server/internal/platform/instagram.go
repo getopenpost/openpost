@@ -418,6 +418,9 @@ func (i *InstagramAdapter) createMediaContainer(ctx context.Context, accessToken
 		values["share_to_feed"] = "true"
 	}
 	if altText != "" && !video {
+		if err := providerlimits.ValidateInstagramAltText(altText); err != nil {
+			return "", err
+		}
 		values["alt_text"] = altText
 	}
 	if userTags := settingString(mediaSettings, "user_tags"); userTags != "" {

@@ -6,9 +6,57 @@ import (
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/providerlimits"
 	"github.com/openpost/backend/internal/services/publicationlink"
 	"github.com/stretchr/testify/require"
 )
+
+func TestInstagramAltTextLimitAgreesAcrossAuthoringAndProviderValidation(t *testing.T) {
+	require.Equal(t, 1000, providerlimits.InstagramAltTextMaxCharacters, "canonical Instagram alt text limit")
+	image := func(altText string) MediaItem {
+		return MediaItem{
+			ID: "image-1", MimeType: "image/jpeg", Size: 1024,
+			Width: 1080, Height: 1080, PublicURLReady: true, PublicURLStatus: 200,
+			URL: "https://cdn.example/image.jpg", AltText: altText,
+		}
+	}
+	atLimit := strings.Repeat("a", providerlimits.InstagramAltTextMaxCharacters)
+	overLimit := strings.Repeat("a", providerlimits.InstagramAltTextMaxCharacters+1)
+
+	for _, profile := range []string{models.ContentProfileImagePost, models.ContentProfileCarousel} {
+		issues := Validate(ProviderInstagram, profile, "caption", "", "", []MediaItem{image(atLimit)}, nil)
+		requireNoIssueCode(t, issues, "alt_text_too_long")
+
+		issues = Validate(ProviderInstagram, profile, "caption", "", "", []MediaItem{image(overLimit)}, nil)
+		requireIssueCode(t, issues, "alt_text_too_long")
+		require.Equal(t, "Alt text is over the 1000 character limit", issueMessage(issues, "alt_text_too_long"))
+	}
+
+	// Meta accepts alt_text on image containers only, so a video carousel
+	// child's description is never projected and stays unvalidated.
+	video := MediaItem{ID: "video-1", MimeType: "video/mp4", Size: 1024, DurationMS: 20_000, AnalysisStatus: "ready", AltText: overLimit}
+	issues := Validate(ProviderInstagram, models.ContentProfileCarousel, "caption", "", "", []MediaItem{video}, nil)
+	requireNoIssueCode(t, issues, "alt_text_too_long")
+
+	// The catalogue and its media-item alt_text setting expose the same
+	// provider limit to clients.
+	capability, ok := Find(ProviderInstagram, models.ContentProfileImagePost)
+	require.True(t, ok)
+	require.Equal(t, providerlimits.InstagramAltTextMaxCharacters, capability.Content.AltText.MaxLength)
+	setting, ok := settingDefinitionForKey(capability.Settings, "alt_text")
+	require.True(t, ok, "Instagram capabilities must expose the media-item alt_text setting")
+	require.Equal(t, providerlimits.InstagramAltTextMaxCharacters, setting.Constraints.MaxLength)
+	require.Equal(t, SettingScopeMediaItem, setting.Scope)
+}
+
+func settingDefinitionForKey(settings []SettingDefinition, key string) (SettingDefinition, bool) {
+	for _, setting := range settings {
+		if setting.Key == key {
+			return setting, true
+		}
+	}
+	return SettingDefinition{}, false
+}
 
 func TestBlueskyVideoLimitsAgreeAcrossAuthoringAndProviderValidation(t *testing.T) {
 	platform.RegisterAllMediaValidators()

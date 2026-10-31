@@ -10,6 +10,8 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"github.com/openpost/backend/internal/providerlimits"
 )
 
 func TestInstagramContainerSettingsStayWithinProviderRules(t *testing.T) {
@@ -58,6 +60,61 @@ func TestInstagramContainerSettingsStayWithinProviderRules(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("alt text over the provider limit is rejected", func(t *testing.T) {
+		if providerlimits.InstagramAltTextMaxCharacters != 1000 {
+			t.Fatalf("Instagram alt text limit changed: %d", providerlimits.InstagramAltTextMaxCharacters)
+		}
+		_, err := adapter.createMediaContainer(t.Context(), "token", "ig-1", "Caption", "https://media.example/image.jpg", false, false, &PublishRequest{
+			OutputProfile: "instagram.feed",
+		}, nil, strings.Repeat("a", providerlimits.InstagramAltTextMaxCharacters+1))
+		if err == nil || !strings.Contains(err.Error(), "limited to 1000 characters") {
+			t.Fatalf("expected over-limit alt text rejection, got %v", err)
+		}
+	})
+
+	t.Run("alt text at the provider limit reaches the container", func(t *testing.T) {
+		originalClient := httpClient
+		defer func() { httpClient = originalClient }()
+		httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if err := req.ParseForm(); err != nil {
+				t.Fatal(err)
+			}
+			if got := req.Form.Get("alt_text"); got != strings.Repeat("a", providerlimits.InstagramAltTextMaxCharacters) {
+				t.Fatalf("expected alt_text at the provider limit, got %d characters", len(got))
+			}
+			return jsonResponse(req, `{"id":"container-1"}`), nil
+		})}
+		id, err := adapter.createMediaContainer(t.Context(), "token", "ig-1", "Caption", "https://media.example/image.jpg", false, false, &PublishRequest{
+			OutputProfile: "instagram.feed",
+		}, nil, strings.Repeat("a", providerlimits.InstagramAltTextMaxCharacters))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if id != "container-1" {
+			t.Fatalf("unexpected native container ID %q", id)
+		}
+	})
+
+	t.Run("video alt text is never projected to Instagram", func(t *testing.T) {
+		originalClient := httpClient
+		defer func() { httpClient = originalClient }()
+		httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if err := req.ParseForm(); err != nil {
+				t.Fatal(err)
+			}
+			if req.Form.Get("alt_text") != "" {
+				t.Fatalf("unexpected alt_text on a video container: %s", req.Form.Encode())
+			}
+			return jsonResponse(req, `{"id":"container-1"}`), nil
+		})}
+		_, err := adapter.createMediaContainer(t.Context(), "token", "ig-1", "Caption", "https://media.example/reel.mp4", true, false, &PublishRequest{
+			OutputProfile: "instagram.reel",
+		}, nil, strings.Repeat("a", providerlimits.InstagramAltTextMaxCharacters+1))
+		if err != nil {
+			t.Fatalf("alt text on a video container is dropped, not rejected: %v", err)
+		}
+	})
 }
 
 func TestInstagramRetriesExactMediaContainerPropagationFailure(t *testing.T) {

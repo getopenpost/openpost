@@ -3315,6 +3315,7 @@ func capabilityMediaFromSummary(item MediaSummary) capabilities.MediaItem {
 		PublicURLStatus: item.PublicURLStatus,
 		PublicURLError:  item.PublicURLError,
 		URL:             item.URL,
+		AltText:         item.AltText,
 	}
 }
 

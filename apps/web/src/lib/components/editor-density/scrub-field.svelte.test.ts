@@ -231,3 +231,54 @@ describe('ScrubField keyboard', () => {
 		expect(onValueCommit).toHaveBeenCalledWith(20);
 	});
 });
+
+describe('ScrubField suffix', () => {
+	it('keeps the unit outside the typed value and parses without it', async () => {
+		const onValueChange = vi.fn();
+		const onValueCommit = vi.fn();
+		const screen = await render(ScrubField, {
+			ariaLabel: 'Duration',
+			value: 12,
+			min: 0,
+			max: 100,
+			step: 1,
+			precision: 0,
+			suffix: 's',
+			ariaDescribedBy: 'external-hint',
+			onValueChange,
+			onValueCommit
+		});
+		const input = screen.getByRole('textbox', { name: 'Duration' });
+		await expect.element(input).toHaveValue('12');
+		await expect.element(screen.getByText('s')).toBeVisible();
+		// The unit is announced alongside the caller's description, never typed.
+		const described = input.element().getAttribute('aria-describedby');
+		expect(described).toContain('external-hint');
+		const ids = described!.split(/\s+/);
+		expect(ids).toHaveLength(2);
+		expect(document.getElementById(ids[0]!)?.textContent).toBe('s');
+		await input.clear();
+		await userEvent.type(input, '5');
+		await expect.element(input).toHaveValue('5');
+		expect(onValueChange).toHaveBeenLastCalledWith(5);
+		await userEvent.keyboard('{Enter}');
+		expect(onValueCommit).toHaveBeenCalledExactlyOnceWith(5);
+	});
+
+	it('hides the unit while the mixed placeholder is shown', async () => {
+		const screen = await render(ScrubField, {
+			ariaLabel: 'Duration',
+			value: null,
+			placeholder: 'Mixed values',
+			suffix: 's'
+		});
+		const input = screen.getByRole('textbox', { name: 'Duration' });
+		await expect.element(input).toHaveValue('');
+		await expect.element(input).toHaveAttribute('placeholder', 'Mixed values');
+		expect(input.element().getAttribute('aria-describedby')).toBeNull();
+		await userEvent.type(input, '7');
+		const described = input.element().getAttribute('aria-describedby');
+		expect(described).not.toBeNull();
+		expect(document.getElementById(described!)?.textContent).toBe('s');
+	});
+});

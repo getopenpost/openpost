@@ -2,8 +2,11 @@
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { Slider } from '$lib/components/ui/slider';
-	import { Disclosure as EditorDisclosure, EditorMenu } from '$lib/components/editor-density';
+	import {
+		Disclosure as EditorDisclosure,
+		EditorMenu,
+		SliderRow
+	} from '$lib/components/editor-density';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import type {
@@ -146,6 +149,14 @@
 	const hasFilteredResults = $derived(
 		categories.some((category) => filteredDefinitions(category).length > 0)
 	);
+	const durationResetValue = $derived.by(() => {
+		if (!transition || !definition) return 1;
+		const available = maxDuration(transition);
+		return Math.max(
+			definition.minDuration,
+			Math.min(available, definition.maxDuration, definition.defaultDuration)
+		);
+	});
 
 	function pairFor(current: TimelineTransition) {
 		const outgoing = timelineStore.itemById.get(current.fromItemId);
@@ -171,16 +182,6 @@
 		if (!transition) return;
 		if (maxDuration(transition, alignment) < transition.durationInFrames) return;
 		commit({ alignment });
-	}
-
-	function resetDuration(): void {
-		if (!transition || !definition) return;
-		const available = maxDuration(transition);
-		const durationInFrames = Math.max(
-			definition.minDuration,
-			Math.min(available, definition.maxDuration, definition.defaultDuration)
-		);
-		commit({ durationInFrames });
 	}
 
 	function propertyValue(parameter: TransitionParameterDefinition): TransitionPropertyValue {
@@ -313,36 +314,19 @@
 			</div>
 		</details>
 
-		<div class="text-[10px] text-[var(--video-editor-muted)]">
-			<span class="flex justify-between">
-				<span>{m.video_editor_transition_duration()}</span>
-				<span class="font-mono"
-					>{transition.durationInFrames} {m.video_editor_transition_frames()}</span
-				>
-			</span>
-			<div class="mt-1 flex items-center gap-1">
-				<Slider
-					class="min-w-0 flex-1"
-					min={Math.min(definition.minDuration, maxDuration(transition))}
-					max={Math.max(2, Math.min(definition.maxDuration, maxDuration(transition)))}
-					step={1}
-					value={transition.durationInFrames}
-					ariaLabel={m.video_editor_transition_duration()}
-					onValueChange={(value) => commit({ durationInFrames: Math.round(value) })}
-				/>
-				<Button
-					size="icon"
-					variant="ghost"
-					class="size-7 shrink-0"
-					aria-label={m.video_editor_motion_override_reset({
-						name: m.video_editor_transition_duration()
-					})}
-					onclick={resetDuration}
-				>
-					<ThemeIcon role="undo" class="size-3.5" />
-				</Button>
-			</div>
-		</div>
+		<SliderRow
+			label={m.video_editor_transition_duration()}
+			value={transition.durationInFrames}
+			min={Math.min(definition.minDuration, maxDuration(transition))}
+			max={Math.max(2, Math.min(definition.maxDuration, maxDuration(transition)))}
+			step={1}
+			precision={0}
+			suffix={m.video_editor_transition_frames()}
+			resetValue={durationResetValue}
+			resetLabel={m.video_editor_settings_reset()}
+			onValueChange={(value) => commit({ durationInFrames: Math.round(value) })}
+			onValueCommit={(value) => commit({ durationInFrames: Math.round(value) })}
+		/>
 
 		<fieldset>
 			<legend class="text-[10px] text-[var(--video-editor-muted)]">
@@ -429,8 +413,8 @@
 		{#if definition.parameters?.length}
 			<div class="flex flex-col gap-2 border-t border-[var(--video-editor-border)] pt-2">
 				{#each definition.parameters as parameter (parameter.key)}
-					<div class="flex items-end gap-1">
-						{#if parameter.type === 'color'}
+					{#if parameter.type === 'color'}
+						<div class="flex items-end gap-1">
 							<ColorPicker
 								label={parameterLabel(parameter)}
 								value={rgbToHex(propertyValue(parameter))}
@@ -438,36 +422,34 @@
 								live={false}
 								onChange={(value) => setProperty(parameter, hexToRgb(value))}
 							/>
-						{:else}
-							<label class="min-w-0 flex-1 text-[10px] text-[var(--video-editor-muted)]">
-								<span class="flex justify-between">
-									<span>{parameterLabel(parameter)}</span>
-									<span class="font-mono">{propertyValue(parameter)}{parameter.unit ?? ''}</span>
-								</span>
-								<Slider
-									class="mt-1"
-									min={parameter.min ?? 0}
-									max={parameter.max ?? 1}
-									step={parameter.step ?? 0.01}
-									value={propertyValue(parameter) as number}
-									ariaLabel={parameterLabel(parameter)}
-									onValueChange={(value) => setProperty(parameter, value)}
-								/>
-							</label>
-						{/if}
-						<Button
-							size="icon"
-							variant="ghost"
-							class="size-7 shrink-0"
-							disabled={parameterAtDefault(parameter)}
-							aria-label={m.video_editor_motion_override_reset({
-								name: parameterLabel(parameter)
-							})}
-							onclick={() => resetProperty(parameter)}
-						>
-							<ThemeIcon role="undo" class="size-3.5" />
-						</Button>
-					</div>
+							<Button
+								size="icon"
+								variant="ghost"
+								class="size-7 shrink-0"
+								disabled={parameterAtDefault(parameter)}
+								aria-label={m.video_editor_motion_override_reset({
+									name: parameterLabel(parameter)
+								})}
+								onclick={() => resetProperty(parameter)}
+							>
+								<ThemeIcon role="undo" class="size-3.5" />
+							</Button>
+						</div>
+					{:else}
+						<SliderRow
+							label={parameterLabel(parameter)}
+							value={propertyValue(parameter) as number}
+							min={parameter.min ?? 0}
+							max={parameter.max ?? 1}
+							step={parameter.step ?? 0.01}
+							precision={(parameter.step ?? 0.01) < 1 ? 2 : 0}
+							suffix={parameter.unit ?? ''}
+							resetValue={parameter.defaultValue as number}
+							resetLabel={m.video_editor_settings_reset()}
+							onValueChange={(value) => setProperty(parameter, value)}
+							onValueCommit={(value) => setProperty(parameter, value)}
+						/>
+					{/if}
 				{/each}
 				<Button
 					size="sm"

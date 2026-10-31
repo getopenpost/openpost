@@ -7,19 +7,21 @@
 - Video Editor: phones now switch panes from one bottom dock above the timeline instead of stacked top tabs, the desktop tool rail shows every content panel without an overflow menu, and the source monitor no longer floats over the preview.
 - Video Editor: audio EQ, effects, ducking, and noise reduction sit beside the other audio controls in Properties instead of nested inside Advanced.
 - Video Editor: the audio EQ, effects, and ducking panels use the editor's shared disclosure and toggle controls, one consistent on/off pill style, and editor theme tokens instead of mixed app-theme styles; the mixer drawer no longer shows a duplicated "Track EQ" header, and fader drags announce their value to screen readers.
-- Video Editor: every content browser has search (shapes, timers, and text templates join effects, stickers, backgrounds, and scenes), and the scrub fields across color, transform, crop, and playback share one numeric-scrub control with PageUp/PageDown and Home/End keyboard support.
+- Video Editor: every content browser has search (shapes, timers, and text templates join effects, stickers, backgrounds, and scenes), and the scrub fields across color, transform, crop, and playback share one numeric-scrub control with PageUp/PageDown and Home/End keyboard support, unit suffixes, and display scaling. Speech cleanup, transitions, text motion, motion presets, local music, and settings sliders use the shared rows, and the Image Editor's color sliders use them instead of a private component.
 - Editors and start pages: the storage destination choice now reads "OpenPost cloud" / "This device" instead of the past-tense status strings; the Recorder keeps the toggle visible and labeled while recording.
 - Quick Cut: panels use the shared editor disclosure and scrub controls, the empty state says to open a video (there is no create action), and playback shortcuts plus Escape keep working in repurpose mode.
 - Image Editor: the tablet tool rail now behaves like the desktop rail (click activates the remembered variant; menus open on repeat click and arrow keys), the page strip is resizable with a stable reset, and touch targets meet the 44px minimum.
 - Image Editor: properties sliders (opacity, rotation, curve, adjustments, lens) share the standard editor slider row with typed and scrubbable values.
+- Image Editor: Color workspace adjustment and wheel-ring controls use the standard editor slider row (one label, track, value field, and reset line), keeping the mixed-value placeholder, reset buttons, and 0-100 display scale.
 - Composer and workspace copy now use the product terms consistently: "variant" instead of "rendition" or "account versions", and "account" instead of "channel" for connectable destinations.
-- Message catalog: trailing "..." normalized to "…", labels no longer end with periods, and the video editor agent error prefix no longer apologizes. Broken machine-generated Quick Cut translations ("Cut in", "Cut export" shown as literal text in French, Portuguese, Spanish, German, and Japanese) are replaced with correct translations across 9 locales.
+- Message catalog: trailing "..." normalized to "…", labels no longer end with periods, and the video editor agent error prefix no longer apologizes. Broken machine-generated Quick Cut translations ("Cut in", "Cut export" shown as literal text in French, Portuguese, Spanish, German, and Japanese) are replaced with correct translations, and Quick Cut strings that silently dropped their second sentence are restored across nine locales.
 - Posts and Media share one search control and the same tabbed filter chrome; status and delta colors follow semantic theme tokens.
 - Mobile: Media tab shows the standard full-page error state on first-load failure, More drill-ins use the native stack header, empty states fall back to a fitting icon, and the media placeholder and drawer scrim follow the theme.
 - Public site: one heading system and section rhythm across marketing pages, shared FAQ keyboard focus, dropzone drag feedback, and limits derived from the actual configured size.
 
 ### Fixed
 
+- Phones: the workspace shell now defines the mobile bottom navigation's height and clearance variables, so page content no longer slides under the semi-transparent fixed nav and shows through behind its passive icons.
 - Image Editor: the Line tool no longer shows a remove (×) glyph, the tablet ellipse marquee no longer shows a pending (clock) glyph, and the desktop "More" menu can no longer open phone-style sheets stacked over the persistent panes.
 - Image Editor: "Resize page" and "Rename page" no longer share the same pencil icon.
 - Video Editor: the transcript inspector tab no longer scrolls inside its own nested box within the scrolling inspector.

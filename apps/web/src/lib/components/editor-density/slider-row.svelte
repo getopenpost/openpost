@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { Slider } from '$lib/components/ui/slider';
+	import { Button } from '$lib/components/ui/button';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import { cn } from '$lib/utils';
 	import ScrubField from './scrub-field.svelte';
 	import { sliderValueFromPointer } from './slider-track-math';
+	import { formatFixed } from './scrub-math';
 
 	let {
 		label,
@@ -12,8 +15,12 @@
 		max = 100,
 		step = 1,
 		precision = 2,
+		displayScale = 1,
+		suffix = '',
 		resetValue,
+		resetLabel,
 		valueWidth,
+		placeholder = '',
 		disabled = false,
 		trackClass = '',
 		rangeClass = '',
@@ -25,13 +32,27 @@
 	}: {
 		label: string;
 		showLabel?: boolean;
-		value: number;
+		/** Numeric model value; null renders `placeholder` (mixed selection). */
+		value: number | null;
 		min?: number;
 		max?: number;
 		step?: number;
 		precision?: number;
+		/**
+		 * Multiplies the value for display only (e.g. 100 shows 0-1 values as
+		 * 0-100 in the field and thumb announcements). Scrub-field edits are
+		 * divided back before `onValueChange`/`onValueCommit` fire, which stay
+		 * in model units, like the slider track.
+		 */
+		displayScale?: number;
+		/** Unit shown after the field value; display-only, never parsed. */
+		suffix?: string;
 		resetValue?: number;
+		/** Shows a reset button committing `resetValue` when provided. */
+		resetLabel?: string;
 		valueWidth?: string;
+		/** Field placeholder, shown while `value` is null (mixed selection). */
+		placeholder?: string;
 		disabled?: boolean;
 		trackClass?: string;
 		rangeClass?: string;
@@ -41,6 +62,23 @@
 		onValueCommit?: (value: number) => void;
 		onValueCancel?: () => void;
 	} = $props();
+
+	// The slider track always works in model units; a mixed (null) value parks
+	// the thumb at the reset value so the track still points somewhere stable.
+	const sliderValue = $derived(value ?? resetValue ?? min);
+	const thumbValueText = $derived(
+		displayScale !== 1 || suffix !== ''
+			? `${formatFixed(sliderValue * displayScale, precision)}${suffix !== '' ? ` ${suffix}` : ''}`
+			: undefined
+	);
+
+	function scrubChange(next: number): void {
+		onValueChange?.(next / displayScale);
+	}
+
+	function scrubCommit(next: number): void {
+		onValueCommit?.(next / displayScale);
+	}
 
 	function reset(): void {
 		if (disabled || resetValue === undefined) return;
@@ -138,12 +176,13 @@
 		title={label}
 	>
 		<Slider
-			{value}
+			value={sliderValue}
 			{min}
 			{max}
 			{step}
 			{disabled}
 			ariaLabel={label}
+			ariaValueText={thumbValueText}
 			{onValueChange}
 			{onValueCommit}
 			{onValueCancel}
@@ -154,17 +193,33 @@
 	</div>
 	<ScrubField
 		ariaLabel={label}
-		{value}
-		{min}
-		{max}
-		{step}
+		value={value === null ? null : value * displayScale}
+		min={min * displayScale}
+		max={max * displayScale}
+		step={step * displayScale}
 		{precision}
+		{suffix}
 		{valueWidth}
-		{resetValue}
+		{placeholder}
+		resetValue={resetValue === undefined ? undefined : resetValue * displayScale}
 		{disabled}
 		{onbegin}
-		{onValueChange}
-		{onValueCommit}
+		onValueChange={scrubChange}
+		onValueCommit={scrubCommit}
 		{onValueCancel}
 	/>
+	{#if resetLabel !== undefined && resetValue !== undefined}
+		<Button
+			type="button"
+			variant="ghost"
+			size="icon-xs"
+			class="shrink-0 [@media(pointer:coarse)]:size-11"
+			disabled={disabled || value === resetValue}
+			aria-label={`${resetLabel}: ${label}`}
+			title={`${resetLabel}: ${label}`}
+			onclick={reset}
+		>
+			<ThemeIcon role="undo" />
+		</Button>
+	{/if}
 </div>

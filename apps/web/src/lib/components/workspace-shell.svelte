@@ -29,7 +29,9 @@
 >
 	{m.common_skip_to_content()}
 </a>
-<Sidebar.Provider style="padding-top: env(safe-area-inset-top);">
+<Sidebar.Provider
+	style="padding-top: env(safe-area-inset-top); --mobile-bottom-nav-height: 3.5rem; --mobile-bottom-nav-clearance: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom));"
+>
 	<SidebarLeft />
 	<Sidebar.Inset
 		id="main-content"

@@ -356,7 +356,9 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         "color",
       );
       await expect(page.locator("[data-image-color-workspace]:visible")).toBeVisible();
-      await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(10);
+      await expect(
+        page.locator("[data-image-color-workspace] [data-editor-slider-row]:visible"),
+      ).toHaveCount(10);
       await expect(page.getByRole("tab", { name: "Curves", exact: true })).toBeVisible();
       await expect(page.getByRole("tab", { name: "Color Wheels", exact: true })).toBeVisible();
       await expect(page.getByRole("tab", { name: "Scopes", exact: true })).toBeVisible();
@@ -364,11 +366,15 @@ test("shared editor chrome and Color workspaces fit desktop and narrow phones", 
         const scope = page.getByRole("group", { name: "Color", exact: true });
         await page.getByRole("tree", { name: "Layers" }).getByText("color-source.png").click();
         await scope.getByRole("button", { name: "Layers", exact: true }).click();
-        await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(11);
+        await expect(
+          page.locator("[data-image-color-workspace] [data-editor-slider-row]:visible"),
+        ).toHaveCount(11);
         await scope.getByRole("button", { name: "Page", exact: true }).click();
         if (theme.id === "workshop") {
           await page.getByRole("tab", { name: "Color Wheels", exact: true }).click();
-          await expect(page.locator("[data-editor-color-control]:visible")).toHaveCount(4);
+          await expect(
+            page.locator("[data-image-color-workspace] [data-editor-slider-row]:visible"),
+          ).toHaveCount(4);
           const originalPixel = await designCanvasCenterPixel(page);
           const offset = page.getByRole("slider", { name: "Offset color wheel" });
           await offset.press("End");

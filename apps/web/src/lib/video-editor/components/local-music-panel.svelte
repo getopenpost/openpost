@@ -4,7 +4,7 @@
 	import { formatBytes as formatByteSize } from '$lib/byte-size';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
-	import { Slider } from '$lib/components/ui/slider';
+	import { SliderRow } from '$lib/components/editor-density';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import LocalModelCacheControl from './local-model-cache-control.svelte';
@@ -319,19 +319,20 @@
 				<label for="local-music-duration" class="text-[10px] text-[var(--video-editor-muted)]">
 					{m.video_editor_local_music_duration()}
 				</label>
-				<Slider
+				<SliderRow
+					label={m.video_editor_local_music_duration()}
+					showLabel={false}
 					value={durationSeconds}
 					min={ACE_STEP_MIN_DURATION_SECONDS}
 					max={ACE_STEP_MAX_DURATION_SECONDS}
 					step={1}
+					precision={0}
+					suffix="s"
 					disabled={generating}
-					ariaLabel={m.video_editor_local_music_duration()}
 					onValueChange={(v) => (durationSeconds = v)}
+					onValueCommit={(v) => (durationSeconds = v)}
 					class="mt-0.5"
 				/>
-				<span class="block text-center text-[9px] text-[var(--video-editor-muted)]">
-					{durationSeconds}s
-				</span>
 			</div>
 			<div class="min-w-0">
 				<label for="local-music-quality" class="text-[10px] text-[var(--video-editor-muted)]">

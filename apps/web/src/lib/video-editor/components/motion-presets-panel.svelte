@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
-	import { Slider } from '$lib/components/ui/slider';
+	import { SliderRow } from '$lib/components/editor-density';
 	import { m } from '$lib/paraglide/messages';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
@@ -650,39 +650,40 @@
 	</p>
 
 	<div class="generator-controls">
-		<label>
-			<span>{m.video_editor_motion_duration()}</span>
-			<output>{Math.round(durationScale * 100)}%</output>
-			<Slider
-				min={0.25}
-				max={3}
-				step={0.05}
-				bind:value={() => durationScale, (value) => (application.settings.durationScale = value)}
-				ariaLabel={m.video_editor_motion_duration()}
-			/>
-		</label>
-		<label>
-			<span>{m.video_editor_motion_intensity()}</span>
-			<output>{Math.round(intensityScale * 100)}%</output>
-			<Slider
-				min={0}
-				max={2}
-				step={0.05}
-				bind:value={() => intensityScale, (value) => (application.settings.intensityScale = value)}
-				ariaLabel={m.video_editor_motion_intensity()}
-			/>
-		</label>
-		<label>
-			<span>{m.video_editor_motion_stagger()}</span>
-			<output>{staggerFrames}</output>
-			<Slider
-				min={0}
-				max={30}
-				step={1}
-				bind:value={() => staggerFrames, (value) => (application.settings.staggerFrames = value)}
-				ariaLabel={m.video_editor_motion_stagger()}
-			/>
-		</label>
+		<SliderRow
+			label={m.video_editor_motion_duration()}
+			value={durationScale}
+			min={0.25}
+			max={3}
+			step={0.05}
+			precision={0}
+			displayScale={100}
+			suffix="%"
+			onValueChange={(value) => (application.settings.durationScale = value)}
+			onValueCommit={(value) => (application.settings.durationScale = value)}
+		/>
+		<SliderRow
+			label={m.video_editor_motion_intensity()}
+			value={intensityScale}
+			min={0}
+			max={2}
+			step={0.05}
+			precision={0}
+			displayScale={100}
+			suffix="%"
+			onValueChange={(value) => (application.settings.intensityScale = value)}
+			onValueCommit={(value) => (application.settings.intensityScale = value)}
+		/>
+		<SliderRow
+			label={m.video_editor_motion_stagger()}
+			value={staggerFrames}
+			min={0}
+			max={30}
+			step={1}
+			precision={0}
+			onValueChange={(value) => (application.settings.staggerFrames = value)}
+			onValueCommit={(value) => (application.settings.staggerFrames = value)}
+		/>
 	</div>
 
 	<div class="preset-library">
@@ -794,52 +795,47 @@
 							</button>
 						</div>
 						<div class="generator-controls live-controls">
-							<label>
-								<span>{m.video_editor_motion_intensity()}</span>
-								<output>{Math.round(settings.intensityScale * 100)}%</output>
-								<Slider
+							<SliderRow
+								label={m.video_editor_motion_intensity()}
+								value={settings.intensityScale}
+								min={0}
+								max={2}
+								step={0.05}
+								precision={0}
+								displayScale={100}
+								suffix="%"
+								onValueChange={(value) => liveModifierEdit(modulator.id, { intensityScale: value })}
+								onValueCommit={(value) =>
+									commitModifierEdit(modulator.id, { intensityScale: value })}
+							/>
+							<SliderRow
+								label={m.video_editor_motion_duration()}
+								value={settings.durationScale}
+								min={0.25}
+								max={3}
+								step={0.05}
+								precision={0}
+								displayScale={100}
+								suffix="%"
+								onValueChange={(value) => liveModifierEdit(modulator.id, { durationScale: value })}
+								onValueCommit={(value) =>
+									commitModifierEdit(modulator.id, { durationScale: value })}
+							/>
+							{#each modulator.properties as channel}
+								<SliderRow
+									label={channelLabels[channel]}
+									value={settings.channelGains[channel] ?? 1}
 									min={0}
 									max={2}
 									step={0.05}
-									value={settings.intensityScale}
-									ariaLabel={m.video_editor_motion_intensity()}
+									precision={0}
+									displayScale={100}
+									suffix="%"
 									onValueChange={(value) =>
-										liveModifierEdit(modulator.id, { intensityScale: value })}
+										liveModifierEdit(modulator.id, { channelGains: { [channel]: value } })}
 									onValueCommit={(value) =>
-										commitModifierEdit(modulator.id, { intensityScale: value })}
+										commitModifierEdit(modulator.id, { channelGains: { [channel]: value } })}
 								/>
-							</label>
-							<label>
-								<span>{m.video_editor_motion_duration()}</span>
-								<output>{Math.round(settings.durationScale * 100)}%</output>
-								<Slider
-									min={0.25}
-									max={3}
-									step={0.05}
-									value={settings.durationScale}
-									ariaLabel={m.video_editor_motion_duration()}
-									onValueChange={(value) =>
-										liveModifierEdit(modulator.id, { durationScale: value })}
-									onValueCommit={(value) =>
-										commitModifierEdit(modulator.id, { durationScale: value })}
-								/>
-							</label>
-							{#each modulator.properties as channel}
-								<label>
-									<span>{channelLabels[channel]}</span>
-									<output>{Math.round((settings.channelGains[channel] ?? 1) * 100)}%</output>
-									<Slider
-										min={0}
-										max={2}
-										step={0.05}
-										value={settings.channelGains[channel] ?? 1}
-										ariaLabel={channelLabels[channel]}
-										onValueChange={(value) =>
-											liveModifierEdit(modulator.id, { channelGains: { [channel]: value } })}
-										onValueCommit={(value) =>
-											commitModifierEdit(modulator.id, { channelGains: { [channel]: value } })}
-									/>
-								</label>
 							{/each}
 						</div>
 					</div>
@@ -1184,23 +1180,6 @@
 		border-radius: 0.45rem;
 		padding: 0.55rem;
 		background: color-mix(in oklch, var(--video-editor-panel) 70%, transparent);
-	}
-	.generator-controls label {
-		display: grid;
-		grid-template-columns: 1fr auto;
-		align-items: center;
-		column-gap: 0.5rem;
-		font-size: 0.6rem;
-		color: var(--video-editor-muted);
-	}
-	.generator-controls output {
-		min-width: 2.4rem;
-		font-variant-numeric: tabular-nums;
-		text-align: right;
-		color: var(--video-editor-primary);
-	}
-	.generator-controls label :global([data-orientation='horizontal']) {
-		grid-column: 1 / -1;
 	}
 	.preset-library {
 		display: grid;

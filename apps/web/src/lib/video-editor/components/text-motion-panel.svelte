@@ -1,7 +1,6 @@
 <script lang="ts">
 	import AppSelect from '$lib/components/app-select.svelte';
-	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
-	import { Slider } from '$lib/components/ui/slider';
+	import { Disclosure as EditorDisclosure, SliderRow } from '$lib/components/editor-density';
 	import { m } from '$lib/paraglide/messages';
 	import type {
 		TextMotionEffect,
@@ -180,64 +179,53 @@
 				<h3>{slotLabels[slot]}</h3>
 				{#if effect}
 					<div class="controls">
-						<label
-							><span
-								>{m.video_editor_text_motion_duration()}
-								<output>{effect.durationFrames}f</output></span
-							><Slider
-								min={1}
-								max={90}
-								step={1}
-								value={effect.durationFrames}
-								ariaLabel={m.video_editor_text_motion_duration()}
-								onValueChange={(value) => liveEdit(slot, { durationFrames: value })}
-								onValueCommit={(value) => commitEdit(slot, { durationFrames: value })}
-							/></label
-						>
+						<SliderRow
+							label={m.video_editor_text_motion_duration()}
+							value={effect.durationFrames}
+							min={1}
+							max={90}
+							step={1}
+							precision={0}
+							suffix="f"
+							onValueChange={(value) => liveEdit(slot, { durationFrames: value })}
+							onValueCommit={(value) => commitEdit(slot, { durationFrames: value })}
+						/>
 						{#if slot !== 'loop'}
-							<label
-								><span
-									>{m.video_editor_text_motion_offset()}
-									<output>{effect.offsetFrames ?? 0}f</output></span
-								><Slider
-									min={0}
-									max={Math.max(0, maxOffsetFor(slot))}
-									step={1}
-									value={effect.offsetFrames ?? 0}
-									ariaLabel={m.video_editor_text_motion_offset()}
-									onValueChange={(value) => liveEdit(slot, { offsetFrames: value })}
-									onValueCommit={(value) => commitEdit(slot, { offsetFrames: value })}
-								/></label
-							>
-						{/if}
-						<label
-							><span
-								>{m.video_editor_text_motion_stagger()}
-								<output>{effect.staggerFrames}f</output></span
-							><Slider
+							<SliderRow
+								label={m.video_editor_text_motion_offset()}
+								value={effect.offsetFrames ?? 0}
 								min={0}
-								max={30}
+								max={Math.max(0, maxOffsetFor(slot))}
 								step={1}
-								value={effect.staggerFrames}
-								ariaLabel={m.video_editor_text_motion_stagger()}
-								onValueChange={(value) => liveEdit(slot, { staggerFrames: value })}
-								onValueCommit={(value) => commitEdit(slot, { staggerFrames: value })}
-							/></label
-						>
-						<label
-							><span
-								>{m.video_editor_text_motion_intensity()}
-								<output>{Math.round(effect.intensity * 100)}%</output></span
-							><Slider
-								min={0}
-								max={2}
-								step={0.05}
-								value={effect.intensity}
-								ariaLabel={m.video_editor_text_motion_intensity()}
-								onValueChange={(value) => liveEdit(slot, { intensity: value })}
-								onValueCommit={(value) => commitEdit(slot, { intensity: value })}
-							/></label
-						>
+								precision={0}
+								suffix="f"
+								onValueChange={(value) => liveEdit(slot, { offsetFrames: value })}
+								onValueCommit={(value) => commitEdit(slot, { offsetFrames: value })}
+							/>
+						{/if}
+						<SliderRow
+							label={m.video_editor_text_motion_stagger()}
+							value={effect.staggerFrames}
+							min={0}
+							max={30}
+							step={1}
+							precision={0}
+							suffix="f"
+							onValueChange={(value) => liveEdit(slot, { staggerFrames: value })}
+							onValueCommit={(value) => commitEdit(slot, { staggerFrames: value })}
+						/>
+						<SliderRow
+							label={m.video_editor_text_motion_intensity()}
+							value={effect.intensity}
+							min={0}
+							max={2}
+							step={0.05}
+							precision={0}
+							displayScale={100}
+							suffix="%"
+							onValueChange={(value) => liveEdit(slot, { intensity: value })}
+							onValueCommit={(value) => commitEdit(slot, { intensity: value })}
+						/>
 						<div class="select-row">
 							<label
 								>{m.video_editor_text_motion_unit()}<AppSelect
@@ -392,15 +380,6 @@
 		gap: 0.2rem;
 		color: var(--video-editor-muted);
 		font-size: 0.5625rem;
-	}
-	.controls label > span {
-		display: flex;
-		justify-content: space-between;
-		gap: 0.5rem;
-	}
-	output {
-		color: var(--video-editor-text);
-		font-variant-numeric: tabular-nums;
 	}
 	.select-row {
 		display: grid;

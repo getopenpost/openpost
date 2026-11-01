@@ -1646,7 +1646,7 @@
 					>
 						{#snippet actions()}
 							{#if canEditWorkspace}
-								<Button href={links.createPublicationHref} size="sm"
+								<Button variant="outline" href={links.createPublicationHref} size="sm"
 									>{m.accounts_create_post()}</Button
 								>
 							{/if}
@@ -1886,6 +1886,7 @@
 												</div>
 											</div>
 											<Button
+												variant="outline"
 												class="mt-3 min-h-11 self-end sm:min-h-9"
 												onclick={() => handleProviderAction(provider)}
 												size="sm"

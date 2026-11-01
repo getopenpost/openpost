@@ -369,8 +369,10 @@
 
 <style>
 	/* Desktop: a left rail beside the panel. The rail stays mounted outside the
-	   content loading boundary, so it remains usable while a panel loads. */
-	@media (min-width: 768px) {
+	   content loading boundary, so it remains usable while a panel loads. The
+	   breakpoint matches the navigation's rail switch: below it the app sidebar
+	   plus a rail would leave the panel too narrow. */
+	@media (min-width: 64rem) {
 		.settings-page :global([data-slot='page-container']) {
 			display: grid;
 			grid-template-columns: 14rem minmax(0, 1fr);

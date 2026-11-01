@@ -21,7 +21,7 @@
 
 {#if canEdit}
 	<div class="flex flex-wrap gap-2" data-testid="home-quick-actions">
-		<Button variant="focal" class="min-h-11 sm:min-h-9" onclick={startNewPost}>
+		<Button variant="outline" class="min-h-11 sm:min-h-9" onclick={startNewPost}>
 			<ThemeIcon role="compose" class="size-4" />
 			{m.sidebar_new_post()}
 		</Button>

@@ -70,7 +70,7 @@
 {/snippet}
 
 <div class="min-w-0" data-testid="settings-navigation">
-	<div class="md:hidden">
+	<div class="lg:hidden">
 		<Select.Root
 			type="single"
 			value={active}
@@ -93,7 +93,7 @@
 		</Select.Root>
 	</div>
 
-	<nav class="hidden md:block" aria-label={m.settings_groups_label()}>
+	<nav class="hidden lg:block" aria-label={m.settings_groups_label()}>
 		{#each visibleGroups as group (group.id)}
 			<div class="mb-5 last:mb-0">
 				<p class="mb-1 px-3 text-xs font-medium text-muted-foreground">{group.label}</p>

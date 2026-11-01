@@ -212,6 +212,7 @@
 <svelte:head><title>{m.nav_automations()} · {appBranding.profile.display_name}</title></svelte:head>
 <PageContainer title={m.nav_automations()} themeIconRole="repeat" loading={loading && !error}>
 	{#snippet actions()}<Button
+			variant="outline"
 			disabled={busy || !workspaceID || workspaceCtx.currentWorkspace?.role === 'viewer'}
 			onclick={() => create()}><ThemeIcon role="add" class="size-4" />{m.workflows_new()}</Button
 		>{/snippet}

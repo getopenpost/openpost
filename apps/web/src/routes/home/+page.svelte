@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { createInfiniteQuery, createQuery } from '@tanstack/svelte-query';
 	import { appBranding } from '$lib/app-branding.svelte';
-	import { resolveAppPath } from '$lib/app-path';
 	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import GoingOutSection, {
@@ -30,8 +29,6 @@
 		workspaceAccountsQueryOptions,
 		type InboxSummary
 	} from '@openpost/query-catalog';
-	import { goto } from '$app/navigation';
-	import { ui } from '$lib/stores/ui.svelte';
 	import type { components } from '$lib/api/types';
 
 	type Publication = components['schemas']['PublicationResponse'];
@@ -184,11 +181,6 @@
 			value: summary.engagement.value.toLocaleString(getLocaleTag())
 		});
 	});
-
-	function startNewPost() {
-		if (!ui.startNewPost()) return;
-		void goto(resolveAppPath('/'));
-	}
 </script>
 
 <svelte:head>
@@ -257,12 +249,7 @@
 				{closure}
 			</p>
 		{:else if !scheduledLoading && !scheduledQuery.isError && upcoming.length === 0 && canEdit}
-			<div class="space-y-3">
-				<p class="text-sm leading-6 text-muted-foreground">{m.home_empty_prompt()}</p>
-				<Button variant="focal" class="min-h-11 sm:min-h-9" onclick={startNewPost}>
-					{m.sidebar_new_post()}
-				</Button>
-			</div>
+			<p class="text-sm leading-6 text-muted-foreground">{m.home_empty_prompt()}</p>
 		{/if}
 	</div>
 </PageContainer>

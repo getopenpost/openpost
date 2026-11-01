@@ -31,6 +31,9 @@
 	let loadedRevision = ui.workspaceSetupRevision;
 	let requestSequence = 0;
 	let loadError = $state('');
+	/** Steps already complete on first load never play the completion animation. */
+	let initialCompletedIDs = new Set<string>();
+	let sawFirstSetup = false;
 
 	async function loadSetup(options: { refresh?: boolean } = {}) {
 		if (!workspaceID) return;
@@ -52,6 +55,12 @@
 			}
 			const data = await queryClient.fetchQuery(queryOptions);
 			if (sequence !== requestSequence || workspaceID !== targetWorkspaceID) return;
+			if (!sawFirstSetup) {
+				sawFirstSetup = true;
+				initialCompletedIDs = new Set(
+					(data.steps ?? []).filter((step) => step.completed).map((step) => step.id)
+				);
+			}
 			setup = data;
 			loadedWorkspaceID = targetWorkspaceID;
 		} catch (cause) {
@@ -141,6 +150,25 @@
 		if (!ui.startNewPost()) return;
 		void goto(resolveAppPath('/'));
 	}
+
+	/** Pending steps count through their own sequence so completed checks never break the numbering. */
+	const pendingStepNumbers = $derived.by(() => {
+		const numbers = new Map<SetupStepID, number>();
+		if (!setup) return numbers;
+		let next = 1;
+		for (const step of setup.steps ?? []) {
+			if (!step.completed) numbers.set(step.id, next++);
+		}
+		return numbers;
+	});
+
+	/** Next steps lead the list; finished steps trail as a quiet receipt. */
+	const pendingSteps = $derived((setup?.steps ?? []).filter((step) => !step.completed));
+	const completedSteps = $derived((setup?.steps ?? []).filter((step) => step.completed));
+
+	function stepJustCompleted(step: NonNullable<Setup['steps']>[number]) {
+		return step.completed && !initialCompletedIDs.has(step.id);
+	}
 </script>
 
 <svelte:window onfocus={() => void loadSetup()} />
@@ -190,27 +218,18 @@
 				</h2>
 			</div>
 			<ol class="mt-4 space-y-1.5 text-sm">
-				{#each setup.steps ?? [] as step, index (step.id)}
-					{#if step.completed}
-						<li class="flex min-h-11 items-center gap-2.5 text-muted-foreground">
-							<span
-								class="flex size-6 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
-							>
-								<ThemeIcon role="check" class="size-3.5" />
-							</span>
-							{stepLabel(step.id)}
-						</li>
-					{:else if stepOpensComposer(step.id) && canEdit}
+				{#each pendingSteps as step (step.id)}
+					{#if stepOpensComposer(step.id) && canEdit}
 						<li>
 							<button
 								type="button"
 								onclick={startComposer}
-								class="flex min-h-11 w-full items-center gap-2.5 rounded-md font-medium hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+								class="flex min-h-11 w-full items-center gap-2.5 rounded-md font-medium transition-colors duration-200 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 							>
 								<span
-									class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+									class="setup-step-badge flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
 								>
-									{index + 1}
+									{pendingStepNumbers.get(step.id)}
 								</span>
 								{stepLabel(step.id)}
 							</button>
@@ -219,12 +238,12 @@
 						<li>
 							<a
 								href={resolveAppPath(stepHref(step.id) ?? '')}
-								class="flex min-h-11 items-center gap-2.5 rounded-md font-medium hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+								class="flex min-h-11 items-center gap-2.5 rounded-md font-medium transition-colors duration-200 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 							>
 								<span
-									class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+									class="setup-step-badge flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
 								>
-									{index + 1}
+									{pendingStepNumbers.get(step.id)}
 								</span>
 								{stepLabel(step.id)}
 							</a>
@@ -232,13 +251,26 @@
 					{:else}
 						<li class="flex min-h-11 items-center gap-2.5 font-medium">
 							<span
-								class="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
+								class="setup-step-badge flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
 							>
-								{index + 1}
+								{pendingStepNumbers.get(step.id)}
 							</span>
 							{stepLabel(step.id)}
 						</li>
 					{/if}
+				{/each}
+				{#each completedSteps as step (step.id)}
+					<li class="flex min-h-11 items-center gap-2.5 text-muted-foreground">
+						<span
+							class="setup-step-badge flex size-6 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
+						>
+							<ThemeIcon
+								role="check"
+								class="size-3.5 {stepJustCompleted(step) ? 'setup-check-in' : ''}"
+							/>
+						</span>
+						{stepLabel(step.id)}
+					</li>
 				{/each}
 			</ol>
 		</section>
@@ -262,24 +294,30 @@
 						</h2>
 						<p class="text-sm/6 text-muted-foreground">{description}</p>
 					</div>
-					<Button href={setup.action_href} variant="focal" class="min-h-11 shrink-0 sm:min-h-9"
+					<Button href={setup.action_href} variant="outline" class="min-h-11 shrink-0 sm:min-h-9"
 						>{actionLabel}</Button
 					>
 				</div>
 				<ol class="mt-4 grid gap-2 text-sm sm:grid-cols-3">
-					{#each setup.steps ?? [] as step, index (step.id)}
+					{#each [...pendingSteps, ...completedSteps] as step (step.id)}
 						<li
 							class={step.completed
 								? 'flex items-center gap-2 text-muted-foreground'
 								: 'flex items-center gap-2 font-medium'}
 						>
 							<span
-								class={step.completed
-									? 'flex size-6 items-center justify-center rounded-full bg-success text-success-foreground'
-									: 'flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground'}
+								class="setup-step-badge flex size-6 items-center justify-center rounded-full {step.completed
+									? 'bg-success text-success-foreground'
+									: 'bg-primary text-primary-foreground'}"
 							>
-								{#if step.completed}<ThemeIcon role="check" class="size-3.5" />{:else}{index +
-										1}{/if}
+								{#if step.completed}
+									<ThemeIcon
+										role="check"
+										class="size-3.5 {stepJustCompleted(step) ? 'setup-check-in' : ''}"
+									/>
+								{:else}
+									{pendingStepNumbers.get(step.id)}
+								{/if}
 							</span>
 							{stepLabel(step.id)}
 						</li>
@@ -289,3 +327,32 @@
 		</div>
 	{/if}
 {/if}
+
+<style>
+	.setup-step-badge {
+		transition:
+			background-color 200ms ease-out,
+			color 200ms ease-out;
+	}
+
+	.setup-check-in {
+		animation: setup-check-in 200ms ease-out;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.setup-check-in {
+			animation: none;
+		}
+	}
+
+	@keyframes setup-check-in {
+		from {
+			transform: scale(0.5);
+			opacity: 0;
+		}
+		to {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+</style>

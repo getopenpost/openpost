@@ -1408,7 +1408,7 @@
 			<Button variant="outline" href={resolveAppPath('/templates')}
 				><ThemeIcon role="editors" class="size-4" />{m.templates_title()}</Button
 			>
-			<Button class="gap-2" onclick={() => (uploadDialogOpen = true)}>
+			<Button variant="outline" class="gap-2" onclick={() => (uploadDialogOpen = true)}>
 				<ThemeIcon role="add" class="size-4" />
 				{m.media_picker_add_media()}
 			</Button>

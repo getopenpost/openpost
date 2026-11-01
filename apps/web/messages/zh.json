@@ -1587,6 +1587,7 @@
 	"onboarding_workspace_hint": "以后可以为不同项目或品牌创建更多工作区。",
 	"onboarding_plan_heading": "套餐和账单周期",
 	"onboarding_submit": "创建工作区并继续",
+	"workspace_create_submit": "创建工作区",
 	"onboarding_confirming": "正在准备安全结账…",
 	"onboarding_selfhost_submit": "创建工作区",
 	"onboarding_selfhost_confirming": "正在创建工作区…",

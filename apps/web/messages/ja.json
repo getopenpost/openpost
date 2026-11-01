@@ -1587,6 +1587,7 @@
 	"onboarding_workspace_hint": "別のプロジェクトやブランド用に、後からワークスペースを追加できます。",
 	"onboarding_plan_heading": "プランと請求期間",
 	"onboarding_submit": "ワークスペースを作成して続ける",
+	"workspace_create_submit": "ワークスペースを作成する",
 	"onboarding_confirming": "安全なお支払いを準備中…",
 	"onboarding_selfhost_submit": "ワークスペースを作成",
 	"onboarding_selfhost_confirming": "ワークスペースを作成中…",

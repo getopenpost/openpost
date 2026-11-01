@@ -1623,6 +1623,7 @@
 	"onboarding_workspace_hint": "Você pode criar mais espaços de trabalho depois para projetos ou marcas diferentes.",
 	"onboarding_plan_heading": "Plano e período de cobrança",
 	"onboarding_submit": "Criar espaço de trabalho e continuar",
+	"workspace_create_submit": "Criar espaço de trabalho",
 	"onboarding_confirming": "Preparando checkout seguro…",
 	"onboarding_selfhost_submit": "Criar espaço de trabalho",
 	"onboarding_selfhost_confirming": "Criando espaço de trabalho…",

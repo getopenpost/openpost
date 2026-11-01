@@ -1587,6 +1587,7 @@
 	"onboarding_workspace_hint": "Du kannst später weitere Workspaces für andere Projekte oder Marken erstellen.",
 	"onboarding_plan_heading": "Tarif und Abrechnungs­zeitraum",
 	"onboarding_submit": "Workspace erstellen und fortfahren",
+	"workspace_create_submit": "Workspace erstellen",
 	"onboarding_confirming": "Sicherer Checkout wird vorbereitet …",
 	"onboarding_selfhost_submit": "Workspace erstellen",
 	"onboarding_selfhost_confirming": "Workspace wird erstellt …",

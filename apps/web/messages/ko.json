@@ -1587,6 +1587,7 @@
 	"onboarding_workspace_hint": "나중에 다른 프로젝트나 브랜드용 워크스페이스를 추가로 만들 수 있습니다.",
 	"onboarding_plan_heading": "요금제 및 결제 주기",
 	"onboarding_submit": "워크스페이스 만들고 계속하기",
+	"workspace_create_submit": "워크스페이스 만들기",
 	"onboarding_confirming": "안전한 결제를 준비하는 중…",
 	"onboarding_selfhost_submit": "워크스페이스 만들기",
 	"onboarding_selfhost_confirming": "워크스페이스를 만드는 중…",

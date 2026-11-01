@@ -35,14 +35,14 @@
 	);
 </script>
 
-<svelte:head><title>{m.workflows_title()} · {appBranding.profile.display_name}</title></svelte:head>
+<svelte:head><title>{m.nav_automations()} · {appBranding.profile.display_name}</title></svelte:head>
 {#if workflowQuery.data && !loading}
 	{#key `${workspaceID}:${workflowQuery.data.id}`}<Editor
 			initial={workflowQuery.data}
 			accounts={accountsQuery.data ?? []}
 			connections={connectionsQuery.data ?? []}
 		/>{/key}
-{:else}<PageContainer title={m.workflows_title()} themeIconRole="repeat" loading={loading && !error}
+{:else}<PageContainer title={m.nav_automations()} themeIconRole="repeat" loading={loading && !error}
 		>{#if error}<InlineNotice tone="error" message={String(error)} />{/if}<Button
 			variant="outline"
 			href="/workflows">{m.workflows_back()}</Button

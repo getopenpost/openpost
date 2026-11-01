@@ -13,10 +13,10 @@
 </script>
 
 <svelte:head
-	><title>{m.repost_heading()} · {m.workflows_title()} · {appBranding.profile.display_name}</title
+	><title>{m.repost_heading()} · {m.nav_automations()} · {appBranding.profile.display_name}</title
 	></svelte:head
 >
-<PageContainer title={m.workflows_title()} themeIconRole="repeat">
+<PageContainer title={m.nav_automations()} themeIconRole="repeat">
 	{#snippet navigation()}
 		<div class="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
 			<Button href="/workflows" variant="ghost"

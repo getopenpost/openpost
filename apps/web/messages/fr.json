@@ -1587,6 +1587,7 @@
 	"onboarding_workspace_hint": "Vous pourrez créer d’autres espaces de travail plus tard pour différents projets ou marques.",
 	"onboarding_plan_heading": "Offre et période de facturation",
 	"onboarding_submit": "Créer l’espace de travail et continuer",
+	"workspace_create_submit": "Créer un espace de travail",
 	"onboarding_confirming": "Préparation du paiement sécurisé…",
 	"onboarding_selfhost_submit": "Créer l’espace de travail",
 	"onboarding_selfhost_confirming": "Création de l’espace de travail…",

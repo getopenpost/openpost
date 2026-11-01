@@ -1623,6 +1623,7 @@
 	"onboarding_workspace_hint": "You can create more workspaces later for different projects or brands.",
 	"onboarding_plan_heading": "Plan and billing period",
 	"onboarding_submit": "Create Workspace and continue",
+	"workspace_create_submit": "Create workspace",
 	"onboarding_confirming": "Preparing secure checkout…",
 	"onboarding_selfhost_submit": "Create Workspace",
 	"onboarding_selfhost_confirming": "Creating Workspace…",

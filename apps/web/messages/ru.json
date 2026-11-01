@@ -1597,6 +1597,7 @@
 	"onboarding_workspace_hint": "Позже можно создать другие рабочие пространства для разных проектов или брендов.",
 	"onboarding_plan_heading": "Тариф и период оплаты",
 	"onboarding_submit": "Создать рабочее пространство и продолжить",
+	"workspace_create_submit": "Создать рабочее пространство",
 	"onboarding_confirming": "Подготовка безопасной оплаты…",
 	"onboarding_selfhost_submit": "Создать рабочее пространство",
 	"onboarding_selfhost_confirming": "Создание рабочего пространства…",

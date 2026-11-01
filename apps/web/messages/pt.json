@@ -1587,6 +1587,7 @@
 	"onboarding_workspace_hint": "Podes criar mais workspaces depois para diferentes projetos ou marcas.",
 	"onboarding_plan_heading": "Plano e período de faturação",
 	"onboarding_submit": "Criar Workspace e continuar",
+	"workspace_create_submit": "Criar workspace",
 	"onboarding_confirming": "A preparar o checkout seguro…",
 	"onboarding_selfhost_submit": "Criar Workspace",
 	"onboarding_selfhost_confirming": "A criar o Workspace…",

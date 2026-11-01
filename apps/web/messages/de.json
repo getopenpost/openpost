@@ -3055,6 +3055,8 @@
 	"settings_backup_points_title": "Vorherige Daten",
 	"settings_backup_points_body": "Jede Wiederherstellung behält die ersetzten Daten. Löschen Sie diese Kopien, wenn Sie sie nicht mehr brauchen, um Speicherplatz freizugeben.",
 	"settings_backup_points_delete": "Löschen",
+	"settings_backup_points_delete_confirm_title": "Diese Kopie löschen?",
+	"settings_backup_points_delete_confirm_body": "Die Kopie der Daten von vor der Wiederherstellung wird dauerhaft gelöscht. Sonst ändert sich nichts.",
 	"settings_backup_load_failed": "Der Sicherungsstatus konnte nicht geladen werden.",
 	"settings_backup_unsupported_database": "Sicherungen erfordern die standardmäßige SQLite-Datenbank. Diese Instanz nutzt eine andere Datenbank – sichern Sie sie mit deren Werkzeugen.",
 	"settings_backup_unsupported_storage": "Sicherungen erfordern lokalen Medienspeicher. Diese Instanz speichert Medien anderswo – sichern Sie diesen Speicher separat.",

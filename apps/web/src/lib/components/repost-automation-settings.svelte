@@ -22,6 +22,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import * as Select from '$lib/components/ui/select';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
@@ -486,21 +487,21 @@
 
 		<div class="space-y-4">
 			{#each policies as policy, index (policy.id)}
-				<details
-					class="rounded-xl border bg-background"
+				<Disclosure
+					summary={policy.name}
 					open={expandedPolicyID === policy.id}
-					ontoggle={(event) => {
-						if (event.currentTarget.open) expandedPolicyID = policy.id ?? '';
+					onToggle={(open) => {
+						if (open) expandedPolicyID = policy.id ?? '';
 						else if (expandedPolicyID === policy.id) expandedPolicyID = '';
 					}}
+					boxed
+					class="rounded-xl bg-background"
 				>
-					<summary
-						class="min-h-11 cursor-pointer p-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring"
-						>{policy.name}
-						<span class="ml-2 text-xs font-normal text-muted-foreground"
+					{#snippet summaryEnd()}
+						<span class="text-xs font-normal text-muted-foreground"
 							>{policy.enabled ? m.workflows_active() : m.workflows_paused()}</span
-						></summary
-					>
+						>
+					{/snippet}
 					<div class="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center">
 						<div class="min-w-0 flex-1">
 							<Label for={`repost-rule-${policy.id}`} class="sr-only">{m.repost_rule_name()}</Label>
@@ -628,101 +629,106 @@
 							</div>
 						</div>
 
-						<details
-							class="space-y-3 border-t pt-5"
+						<Disclosure
+							summary={m.repost_engagement_gates()}
+							class="border-t pt-5"
 							open={policy.rule.min_likes > 0 ||
 								policy.rule.min_comments > 0 ||
 								policy.rule.min_reposts > 0 ||
 								policy.rule.min_views > 0 ||
 								policy.rule.require_plateau}
 						>
-							<summary class="min-h-11 cursor-pointer text-sm font-medium"
-								>{m.repost_engagement_gates()}</summary
-							>
-							<p class="text-sm text-muted-foreground">{m.repost_engagement_gates_body()}</p>
-							<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-								{#each [['min_likes', m.repost_min_likes()], ['min_comments', m.repost_min_comments()], ['min_reposts', m.repost_min_reposts()], ['min_views', m.repost_min_views()]] as threshold (threshold[0])}
-									<div class="space-y-2">
-										<Label for={`${threshold[0]}-${policy.id}`}>{threshold[1]}</Label>
-										<Input
-											id={`${threshold[0]}-${policy.id}`}
-											type="number"
-											min="0"
-											step="1"
-											value={String(policy.rule[threshold[0] as keyof RepostRule])}
-											oninput={(event) =>
-												setThreshold(
-													policy.rule,
-													threshold[0] as keyof RepostRule,
-													(event.target as HTMLInputElement).value
-												)}
+							<div class="space-y-3">
+								<p class="text-sm text-muted-foreground">{m.repost_engagement_gates_body()}</p>
+								<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+									{#each [['min_likes', m.repost_min_likes()], ['min_comments', m.repost_min_comments()], ['min_reposts', m.repost_min_reposts()], ['min_views', m.repost_min_views()]] as threshold (threshold[0])}
+										<div class="space-y-2">
+											<Label for={`${threshold[0]}-${policy.id}`}>{threshold[1]}</Label>
+											<Input
+												id={`${threshold[0]}-${policy.id}`}
+												type="number"
+												min="0"
+												step="1"
+												value={String(policy.rule[threshold[0] as keyof RepostRule])}
+												oninput={(event) =>
+													setThreshold(
+														policy.rule,
+														threshold[0] as keyof RepostRule,
+														(event.target as HTMLInputElement).value
+													)}
+												disabled={!settings.can_manage}
+											/>
+										</div>
+									{/each}
+								</div>
+
+								<RadioGroup.Root
+									class="grid gap-2 sm:grid-cols-2"
+									value={policy.rule.threshold_mode}
+									onValueChange={(value) => (policy.rule.threshold_mode = value as 'all' | 'any')}
+									disabled={!settings.can_manage}
+									aria-label={m.repost_threshold_mode()}
+								>
+									{#each [['all', m.repost_require_all(), m.repost_require_all_body()], ['any', m.repost_require_any(), m.repost_require_any_body()]] as option (option[0])}
+										<label
+											class={[
+												'flex min-h-11 cursor-pointer items-start gap-3 rounded-md border p-3',
+												policy.rule.threshold_mode === option[0] && 'border-primary bg-primary/5'
+											]}
+										>
+											<RadioGroup.Item value={option[0]} class="mt-0.5" />
+											<span>
+												<span class="block text-sm font-medium">{option[1]}</span>
+												<span class="block text-xs leading-5 text-muted-foreground"
+													>{option[2]}</span
+												>
+											</span>
+										</label>
+									{/each}
+								</RadioGroup.Root>
+
+								<div
+									class="flex flex-col gap-3 rounded-md border bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between"
+								>
+									<label class="flex min-h-11 items-center gap-3 text-sm">
+										<Checkbox
+											bind:checked={policy.rule.require_plateau}
 											disabled={!settings.can_manage}
 										/>
-									</div>
-								{/each}
-							</div>
-
-							<RadioGroup.Root
-								class="grid gap-2 sm:grid-cols-2"
-								value={policy.rule.threshold_mode}
-								onValueChange={(value) => (policy.rule.threshold_mode = value as 'all' | 'any')}
-								disabled={!settings.can_manage}
-								aria-label={m.repost_threshold_mode()}
-							>
-								{#each [['all', m.repost_require_all(), m.repost_require_all_body()], ['any', m.repost_require_any(), m.repost_require_any_body()]] as option (option[0])}
-									<label
-										class={[
-											'flex min-h-11 cursor-pointer items-start gap-3 rounded-md border p-3',
-											policy.rule.threshold_mode === option[0] && 'border-primary bg-primary/5'
-										]}
-									>
-										<RadioGroup.Item value={option[0]} class="mt-0.5" />
 										<span>
-											<span class="block text-sm font-medium">{option[1]}</span>
-											<span class="block text-xs leading-5 text-muted-foreground">{option[2]}</span>
+											<span class="block font-medium">{m.repost_wait_for_plateau()}</span>
+											<span class="block text-xs text-muted-foreground"
+												>{m.repost_wait_for_plateau_body()}</span
+											>
 										</span>
 									</label>
-								{/each}
-							</RadioGroup.Root>
-
-							<div
-								class="flex flex-col gap-3 rounded-md border bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between"
-							>
-								<label class="flex min-h-11 items-center gap-3 text-sm">
-									<Checkbox
-										bind:checked={policy.rule.require_plateau}
-										disabled={!settings.can_manage}
-									/>
-									<span>
-										<span class="block font-medium">{m.repost_wait_for_plateau()}</span>
-										<span class="block text-xs text-muted-foreground"
-											>{m.repost_wait_for_plateau_body()}</span
+									{#if policy.rule.require_plateau}
+										<Select.Root
+											type="single"
+											value={String(policy.rule.plateau_checks)}
+											onValueChange={(value) => (policy.rule.plateau_checks = Number(value))}
+											disabled={!settings.can_manage}
 										>
-									</span>
-								</label>
-								{#if policy.rule.require_plateau}
-									<Select.Root
-										type="single"
-										value={String(policy.rule.plateau_checks)}
-										onValueChange={(value) => (policy.rule.plateau_checks = Number(value))}
-										disabled={!settings.can_manage}
-									>
-										<Select.Trigger class="w-full sm:w-48" aria-label={m.repost_unchanged_checks()}>
-											{m.repost_check_count({ count: policy.rule.plateau_checks })}
-										</Select.Trigger>
-										<Select.Content>
-											{#each [2, 3, 4, 6, 8, 12] as count (count)}
-												<Select.Item value={String(count)}
-													>{m.repost_check_count({ count })}</Select.Item
-												>
-											{/each}
-										</Select.Content>
-									</Select.Root>
-								{/if}
+											<Select.Trigger
+												class="w-full sm:w-48"
+												aria-label={m.repost_unchanged_checks()}
+											>
+												{m.repost_check_count({ count: policy.rule.plateau_checks })}
+											</Select.Trigger>
+											<Select.Content>
+												{#each [2, 3, 4, 6, 8, 12] as count (count)}
+													<Select.Item value={String(count)}
+														>{m.repost_check_count({ count })}</Select.Item
+													>
+												{/each}
+											</Select.Content>
+										</Select.Root>
+									{/if}
+								</div>
 							</div>
-						</details>
+						</Disclosure>
 					</div>
-				</details>
+				</Disclosure>
 			{:else}
 				<div class="rounded-xl border border-dashed px-5 py-12 text-center">
 					<ThemeIcon role="repeat" class="mx-auto size-6 text-muted-foreground" />

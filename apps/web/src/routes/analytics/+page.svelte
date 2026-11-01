@@ -14,6 +14,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import AnalyticsNumber from '$lib/components/analytics-number.svelte';
 	import AnalyticsExportDialog from '$lib/components/analytics-export-dialog.svelte';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import {
 		accountFeaturesQueryOptions,
 		analyticsOverviewQueryOptions,
@@ -1234,16 +1235,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 										{insightBody(insight)}
 									</p>
 								{/if}
-								<details class="group mt-2 border-t border-border pt-1">
-									<summary
-										class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-									>
-										{m.analytics_evidence_details()}
-										<ThemeIcon
-											role="chevron-down"
-											class="size-4 transition-transform group-open:rotate-180"
-										/>
-									</summary>
+								<Disclosure
+									summary={m.analytics_evidence_details()}
+									summaryClass="text-xs text-muted-foreground hover:text-foreground"
+									class="mt-2 border-t border-border pt-1"
+								>
 									<p class="pb-2 text-xs leading-5 text-muted-foreground">{insightBody(insight)}</p>
 									<dl class="space-y-1 pb-2 text-xs leading-5 text-muted-foreground">
 										<div class="flex flex-wrap gap-x-1">
@@ -1303,7 +1299,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											{insightCaveat(insight)}
 										</p>
 									{/if}
-								</details>
+								</Disclosure>
 							</article>
 						{/each}
 					</div>

@@ -11,6 +11,7 @@
 	import { mediaUsageStatusLabel } from '$lib/media-presentation';
 	import { getLocaleTag } from '$lib/i18n';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
 	import * as Popover from '$lib/components/ui/popover';
@@ -451,15 +452,12 @@
 			</div>
 
 			{#if randomDelayOptions.length > 0}
-				<details class="group mx-3 rounded-lg border bg-muted/10 sm:mx-0">
-					<summary
-						class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-					>
-						<span>{m.compose_randomize_time()}</span>
+				<Disclosure summary={m.compose_randomize_time()} boxed class="mx-3 bg-muted/10 sm:mx-0">
+					{#snippet summaryEnd()}
 						<span class="text-xs font-normal text-muted-foreground"
 							>{formatRandomDelay(effectiveRandomDelayMinutes)}</span
 						>
-					</summary>
+					{/snippet}
 					<div class="border-t p-3">
 						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<div class="space-y-1">
@@ -498,7 +496,7 @@
 							</Select.Root>
 						</div>
 					</div>
-				</details>
+				</Disclosure>
 			{/if}
 		</div>
 

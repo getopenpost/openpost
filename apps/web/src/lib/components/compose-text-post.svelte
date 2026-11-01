@@ -143,6 +143,7 @@
 	import ComposerValidationMenu from './composer-validation-menu.svelte';
 	import DestinationSettingsDialog from './destination-settings-dialog.svelte';
 	import InlineNotice from './inline-notice.svelte';
+	import Disclosure from './disclosure.svelte';
 	import TextCardPreview from './text-card-preview.svelte';
 	import {
 		supportsTextCards,
@@ -8048,10 +8049,7 @@
 				{/if}
 
 				{#if visibleAIStrategies.length > 0}
-					<details>
-						<summary class="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground"
-							>{m.compose_ai_strategy_label()}</summary
-						>
+					<Disclosure summary={m.compose_ai_strategy_label()} summaryClass="text-muted-foreground">
 						<div
 							class="mb-3 flex gap-2 overflow-x-auto border-y py-3"
 							aria-label={m.compose_ai_strategy_label()}
@@ -8077,7 +8075,7 @@
 								</div>
 							{/each}
 						</div>
-					</details>
+					</Disclosure>
 				{/if}
 
 				{#if textCardAccounts.length && !textCardNoticeDismissed}
@@ -8648,10 +8646,11 @@
 						placeholder={m.compose_ai_context_change_placeholder()}
 					/>
 				</label>
-				<details class="sm:col-span-2">
-					<summary class="min-h-8 cursor-pointer text-xs font-medium text-muted-foreground">
-						{m.compose_ai_context_add()}
-					</summary>
+				<Disclosure
+					summary={m.compose_ai_context_add()}
+					summaryClass="text-xs text-muted-foreground"
+					class="sm:col-span-2"
+				>
 					<div class="mt-2 grid gap-3 sm:grid-cols-2">
 						<label class="grid gap-1.5 text-xs font-medium">
 							{m.compose_ai_context_notes()}
@@ -8685,7 +8684,7 @@
 							</p>
 						{/if}
 					</div>
-				</details>
+				</Disclosure>
 			</div>
 		{/if}
 	{/snippet}

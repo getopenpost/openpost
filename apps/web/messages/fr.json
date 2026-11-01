@@ -3055,6 +3055,8 @@
 	"settings_backup_points_title": "Données précédentes",
 	"settings_backup_points_body": "Chaque restauration conserve les données qu’elle a remplacées. Supprimez ces copies quand vous n’en avez plus besoin pour libérer de l’espace disque.",
 	"settings_backup_points_delete": "Supprimer",
+	"settings_backup_points_delete_confirm_title": "Supprimer cette copie ?",
+	"settings_backup_points_delete_confirm_body": "La copie des données d'avant la restauration est supprimée définitivement. Rien d'autre ne change.",
 	"settings_backup_load_failed": "Impossible de charger l’état des sauvegardes.",
 	"settings_backup_unsupported_database": "Les sauvegardes nécessitent la base de données SQLite par défaut. Cette instance utilise une autre base ; sauvegardez-la avec ses propres outils.",
 	"settings_backup_unsupported_storage": "Les sauvegardes nécessitent un stockage multimédia local. Cette instance stocke les médias ailleurs ; sauvegardez ce stockage séparément.",

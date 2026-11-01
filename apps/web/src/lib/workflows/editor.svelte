@@ -36,6 +36,7 @@
 		runStateLabel,
 		sourceLabel
 	} from './catalog';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import Canvas from './canvas.svelte';
 	import { duplicateStep } from './operations';
 	import { recipeSteps } from './recipes';
@@ -971,8 +972,7 @@
 									disabled={!canEdit || busy || saving}
 									onclick={() => action('preview')}>{m.workflows_run_preview()}</Button
 								>
-								<details class="border-t pt-4">
-									<summary class="cursor-pointer text-sm font-medium">{m.workflows_live()}</summary>
+								<Disclosure summary={m.workflows_live()} class="border-t pt-4">
 									<p class="my-3 text-sm leading-6 text-muted-foreground">
 										{m.workflows_live_help()}
 									</p>
@@ -981,7 +981,7 @@
 										disabled={!canAdmin || busy || saving}
 										onclick={() => action('live')}>{m.workflows_run_live()}</Button
 									>
-								</details>
+								</Disclosure>
 							</div>
 						{:else if panel === 'runs'}<DataView
 								label={m.workflows_configure()}

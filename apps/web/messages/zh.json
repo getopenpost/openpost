@@ -3055,6 +3055,8 @@
 	"settings_backup_points_title": "之前的数据",
 	"settings_backup_points_body": "每次恢复都会保留被替换的数据。不再需要时请删除这些副本以释放磁盘空间。",
 	"settings_backup_points_delete": "删除",
+	"settings_backup_points_delete_confirm_title": "删除此副本？",
+	"settings_backup_points_delete_confirm_body": "恢复之前的数据副本将被永久删除。其他内容保持不变。",
 	"settings_backup_load_failed": "无法加载备份状态。",
 	"settings_backup_unsupported_database": "备份需要默认的 SQLite 数据库。此实例使用其他数据库，请使用该数据库自带的工具进行备份。",
 	"settings_backup_unsupported_storage": "备份需要本地媒体存储。此实例将媒体存储在其他位置，请单独备份该存储。",

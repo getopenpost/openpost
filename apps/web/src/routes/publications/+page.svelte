@@ -10,6 +10,7 @@
 	import PublicationDraftGallery from '$lib/components/publication-draft-gallery.svelte';
 	import PublicationViewSwitch from '$lib/components/publication-view-switch.svelte';
 	import CopyButton from '$lib/components/copy-button.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import ListSearch from '$lib/components/list-search.svelte';
 	import { goto } from '$app/navigation';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
@@ -804,20 +805,17 @@
 {#snippet deliveryDetails(post: ActivityItem, accountDestinations: ActivityDestination[])}
 	{@const summaryParts = deliverySummaryParts(post)}
 	{#if post.destinations?.length && (post.status === 'failed' || summaryParts.length > 0 || post.destinations.some((destination) => destination.status === 'failed') || (activeTab === 'drafts' && post.destinations.length > accountDestinations.length))}
-		<details class="group/delivery mt-1 max-w-2xl rounded-lg" open={post.status === 'failed'}>
-			<summary
-				class="flex min-h-9 cursor-pointer items-center gap-3 rounded-md text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-			>
-				<span class="flex items-center gap-2"
-					><ThemeIcon
-						role="chevron-right"
-						class="size-3.5 transition-transform group-open/delivery:rotate-90"
-					/>{m.activity_delivery_details()}</span
-				>
+		<Disclosure
+			summary={m.activity_delivery_details()}
+			open={post.status === 'failed'}
+			class="mt-1 max-w-2xl rounded-lg"
+			summaryClass="text-xs font-normal text-muted-foreground hover:text-foreground"
+		>
+			{#snippet summaryEnd()}
 				{#if summaryParts.length}
-					<span class="text-muted-foreground">{summaryParts.join(' · ')}</span>
+					<span class="font-normal text-muted-foreground">{summaryParts.join(' · ')}</span>
 				{/if}
-			</summary>
+			{/snippet}
 			<div
 				class={[
 					'border-t px-3',
@@ -867,7 +865,7 @@
 					{/each}
 				</div>
 			</div>
-		</details>
+		</Disclosure>
 	{/if}
 {/snippet}
 
@@ -1322,12 +1320,11 @@
 					m.activity_empty_failed_body()
 				)}
 				{#if failedJobs.length > 0}
-					<details class="mt-6 border-t pt-4">
-						<summary
-							class="cursor-pointer text-sm font-medium text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-						>
-							{m.activity_technical_details({ count: failedJobsPage.total })}
-						</summary>
+					<Disclosure
+						summary={m.activity_technical_details({ count: failedJobsPage.total })}
+						class="mt-6 border-t pt-4"
+						summaryClass="text-destructive"
+					>
 						<p class="mt-2 max-w-2xl text-xs leading-5 text-muted-foreground">
 							{m.activity_technical_details_description()}
 						</p>
@@ -1374,7 +1371,7 @@
 								</Button>
 							{/if}
 						</div>
-					</details>
+					</Disclosure>
 				{/if}
 			</TabsContent>
 			<TabsContent value="drafts">

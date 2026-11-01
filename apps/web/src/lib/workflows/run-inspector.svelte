@@ -21,6 +21,7 @@
 	import { engagementDetailQueryOptions } from '@openpost/query-catalog';
 	import { inboxQueryAPI } from '$lib/query/inbox';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -205,42 +206,44 @@
 										: undefined
 							)
 					: ''}
-			<details
-				class="rounded-lg border bg-card p-3"
+			<Disclosure
+				summary={step.name}
+				boxed
+				class="bg-card"
+				summaryClass="px-3 py-2"
 				open={step.state === 'failed' || step.state === 'awaiting_approval'}
 			>
-				<summary
-					class="cursor-pointer text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:py-3"
-					>{step.name}
-					<span class="ml-2 font-normal text-muted-foreground">{runStateLabel(step.state)}</span
-					></summary
-				>
-				{#if usage.success}<p class="mt-2 text-xs text-muted-foreground">
-						{m.workflows_usage_tokens({
-							count: usage.data.total_tokens
-						})}{#if usage.data.cost_usd != null}
-							· {m.workflows_usage_cost({ amount: usage.data.cost_usd.toFixed(6) })}{/if}
-					</p>{/if}
-				{#if step.error}<p class="mt-3 text-sm text-destructive">{step.error}</p>{/if}
-				{#if postID}<Button
-						class="mt-3"
-						size="sm"
-						variant="outline"
-						href={`/publications/${encodeURIComponent(postID)}`}>{m.workflows_edit()}</Button
-					>{/if}
-				<div class="mt-3 space-y-3">
-					{#each [{ label: m.workflows_inputs(), data: step.inputs }, { label: m.workflows_outputs(), data: step.output }] as item}<div
-						>
-							<h4 class="mb-1 text-xs font-medium text-muted-foreground">{item.label}</h4>
-							<pre
-								class="max-h-64 overflow-auto rounded-md bg-muted p-3 text-xs break-all whitespace-pre-wrap">{JSON.stringify(
-									item.data ?? {},
-									null,
-									2
-								)}</pre>
-						</div>{/each}
+				{#snippet summaryEnd()}
+					<span class="text-xs font-normal text-muted-foreground">{runStateLabel(step.state)}</span>
+				{/snippet}
+				<div class="px-3 pb-3">
+					{#if usage.success}<p class="mt-2 text-xs text-muted-foreground">
+							{m.workflows_usage_tokens({
+								count: usage.data.total_tokens
+							})}{#if usage.data.cost_usd != null}
+								· {m.workflows_usage_cost({ amount: usage.data.cost_usd.toFixed(6) })}{/if}
+						</p>{/if}
+					{#if step.error}<p class="mt-3 text-sm text-destructive">{step.error}</p>{/if}
+					{#if postID}<Button
+							class="mt-3"
+							size="sm"
+							variant="outline"
+							href={`/publications/${encodeURIComponent(postID)}`}>{m.workflows_edit()}</Button
+						>{/if}
+					<div class="mt-3 space-y-3">
+						{#each [{ label: m.workflows_inputs(), data: step.inputs }, { label: m.workflows_outputs(), data: step.output }] as item}<div
+							>
+								<h4 class="mb-1 text-xs font-medium text-muted-foreground">{item.label}</h4>
+								<pre
+									class="max-h-64 overflow-auto rounded-md bg-muted p-3 text-xs break-all whitespace-pre-wrap">{JSON.stringify(
+										item.data ?? {},
+										null,
+										2
+									)}</pre>
+							</div>{/each}
+					</div>
 				</div>
-			</details>
+			</Disclosure>
 		{/each}
 		{#if !run.steps?.length}<p class="text-sm text-muted-foreground">
 				{m.workflows_no_step_data()}

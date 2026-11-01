@@ -3055,6 +3055,8 @@
 	"settings_backup_points_title": "Önceki veriler",
 	"settings_backup_points_body": "Her geri yükleme, değiştirdiği verileri saklar. Disk alanı açmak için artık gerekmeyen bu kopyaları silin.",
 	"settings_backup_points_delete": "Sil",
+	"settings_backup_points_delete_confirm_title": "Bu kopya silinsin mi?",
+	"settings_backup_points_delete_confirm_body": "Geri yüklemeden önceki verilerin kopyası kalıcı olarak silinir. Başka hiçbir şey değişmez.",
 	"settings_backup_load_failed": "Yedekleme durumu yüklenemedi.",
 	"settings_backup_unsupported_database": "Yedekler varsayılan SQLite veritabanını gerektirir. Bu örnek başka bir veritabanı kullanıyor; onu kendi araçlarıyla yedekleyin.",
 	"settings_backup_unsupported_storage": "Yedekler yerel medya depolamasını gerektirir. Bu örnek medyayı başka bir yerde saklıyor; o depolamayı ayrıca yedekleyin.",

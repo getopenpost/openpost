@@ -3055,6 +3055,8 @@
 	"settings_backup_points_title": "Dados anteriores",
 	"settings_backup_points_body": "Cada restauro mantém os dados que substituiu. Elimine estas cópias quando já não forem precisas para libertar espaço em disco.",
 	"settings_backup_points_delete": "Eliminar",
+	"settings_backup_points_delete_confirm_title": "Eliminar esta cópia?",
+	"settings_backup_points_delete_confirm_body": "A cópia dos dados de antes do restauro é eliminada permanentemente. Nada mais muda.",
 	"settings_backup_load_failed": "Não foi possível carregar o estado das cópias de segurança.",
 	"settings_backup_unsupported_database": "As cópias requerem a base de dados SQLite predefinida. Esta instância usa outra base de dados; faça a cópia com as respetivas ferramentas.",
 	"settings_backup_unsupported_storage": "As cópias requerem armazenamento multimédia local. Esta instância guarda o multimédia noutro local; faça a cópia desse armazenamento em separado.",

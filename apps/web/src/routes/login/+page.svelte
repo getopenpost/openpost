@@ -9,6 +9,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import PasswordField from '$lib/components/password-field.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -452,9 +453,8 @@
 			</Button>
 		</form>
 
-		<details class="mt-5 rounded-lg border border-border/70 px-4 py-3">
-			<summary class="cursor-pointer text-sm font-medium">{m.auth_sso_work_account()}</summary>
-			<form onsubmit={discoverSSO} class="mt-3 space-y-3">
+		<Disclosure summary={m.auth_sso_work_account()} boxed class="mt-5 border-border/70">
+			<form onsubmit={discoverSSO} class="mt-3 space-y-3 px-4 pb-4">
 				<div class="space-y-2">
 					<Label for="sso-email">{m.auth_sso_work_email()}</Label>
 					<Input
@@ -475,7 +475,7 @@
 					{m.auth_sso_find_provider()}
 				</Button>
 			</form>
-		</details>
+		</Disclosure>
 
 		<p class="mt-6 text-center text-sm text-muted-foreground">
 			{m.auth_login_no_account()}

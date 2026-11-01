@@ -3055,6 +3055,8 @@
 	"settings_backup_points_title": "이전 데이터",
 	"settings_backup_points_body": "복원할 때마다 교체된 데이터가 보관됩니다. 더 이상 필요 없으면 이 사본을 삭제해 디스크 공간을 확보하세요.",
 	"settings_backup_points_delete": "삭제",
+	"settings_backup_points_delete_confirm_title": "이 사본을 삭제하시겠습니까?",
+	"settings_backup_points_delete_confirm_body": "복원 전 데이터 사본이 영구적으로 삭제됩니다. 다른 항목은 변경되지 않습니다.",
 	"settings_backup_load_failed": "백업 상태를 불러오지 못했습니다.",
 	"settings_backup_unsupported_database": "백업에는 기본 SQLite 데이터베이스가 필요합니다. 이 인스턴스는 다른 데이터베이스를 사용하므로 해당 도구로 백업하세요.",
 	"settings_backup_unsupported_storage": "백업에는 로컬 미디어 저장소가 필요합니다. 이 인스턴스는 미디어를 다른 곳에 저장하므로 해당 저장소를 따로 백업하세요.",

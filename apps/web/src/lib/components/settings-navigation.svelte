@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
 	import * as Select from '$lib/components/ui/select';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		getSettingsDestinations,
@@ -97,18 +98,17 @@
 		{#each visibleGroups as group (group.id)}
 			<div class="mb-5 last:mb-0">
 				{#if group.id === 'advanced'}
-					<details open={activeDestination?.group === 'advanced'}>
-						<summary
-							class="mb-1 flex min-h-9 cursor-pointer items-center rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-navigation-hover"
-						>
-							{group.label}
-						</summary>
+					<Disclosure
+						summary={group.label}
+						open={activeDestination?.group === 'advanced'}
+						summaryClass="mb-1 min-h-9 rounded-md px-3 text-xs text-muted-foreground hover:bg-navigation-hover"
+					>
 						<div class="space-y-0.5">
 							{#each group.destinations as destination (destination.id)}
 								{@render destinationLink(destination)}
 							{/each}
 						</div>
-					</details>
+					</Disclosure>
 				{:else}
 					<p class="mb-1 px-3 text-xs font-medium text-muted-foreground">{group.label}</p>
 					<div class="space-y-0.5">

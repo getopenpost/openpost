@@ -5,6 +5,7 @@
 	import AppSelect from '$lib/components/app-select.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { getCurrentLocale, onLocaleChange } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
 	import {
@@ -566,12 +567,10 @@
 			{canApply}
 		/>
 
-		<details class="border-t border-border pt-4">
-			<summary
-				class="min-h-11 cursor-pointer py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring"
-				>{m.theme_library_organization_default()}</summary
-			>
-
+		<Disclosure
+			summary={m.theme_library_organization_default()}
+			class="border-t border-border pt-4"
+		>
 			<div class="py-4">
 				<div class="flex items-start justify-between gap-4">
 					<div>
@@ -630,7 +629,7 @@
 					</button>
 				</div>
 			</div>
-		</details>
+		</Disclosure>
 	</section>
 
 	<ThemeLibraryCreateDialog

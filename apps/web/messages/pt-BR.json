@@ -3091,6 +3091,8 @@
 	"settings_backup_points_title": "Dados anteriores",
 	"settings_backup_points_body": "Cada restauração mantém os dados que substituiu. Exclua essas cópias quando não precisar mais delas para liberar espaço em disco.",
 	"settings_backup_points_delete": "Excluir",
+	"settings_backup_points_delete_confirm_title": "Excluir esta cópia?",
+	"settings_backup_points_delete_confirm_body": "A cópia dos dados de antes da restauração é excluída permanentemente. Nada mais muda.",
 	"settings_backup_load_failed": "Não foi possível carregar o status dos backups.",
 	"settings_backup_unsupported_database": "Os backups exigem o banco de dados SQLite padrão. Esta instância usa outro banco; faça o backup com as ferramentas dele.",
 	"settings_backup_unsupported_storage": "Os backups exigem armazenamento de mídia local. Esta instância guarda a mídia em outro lugar; faça o backup desse armazenamento separadamente.",

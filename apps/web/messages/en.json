@@ -3098,6 +3098,8 @@
 	"settings_backup_points_title": "Previous data",
 	"settings_backup_points_body": "Each restore keeps the data it replaced. Delete these copies when you no longer need them to free disk space.",
 	"settings_backup_points_delete": "Delete",
+	"settings_backup_points_delete_confirm_title": "Delete this copy?",
+	"settings_backup_points_delete_confirm_body": "The copy of the data from before the restore is deleted permanently. Nothing else changes.",
 	"settings_backup_load_failed": "Could not load the backup status.",
 	"settings_backup_unsupported_database": "Backups need the default SQLite database. This instance uses another database, so back it up with your database tools.",
 	"settings_backup_unsupported_storage": "Backups need local media storage. This instance stores media elsewhere, so back that storage up separately.",

@@ -32,6 +32,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import AccountDataCard from '$lib/components/account-data-card.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
@@ -1540,20 +1541,17 @@
 			{/if}
 		</div>
 
-		<details class="group rounded-lg border" data-testid="email-change-card">
-			<summary
-				class="flex cursor-pointer list-none items-center justify-between p-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-			>
-				<div>
-					<h3 class="font-medium">{m.settings_change_email()}</h3>
-					<p class="mt-1 text-sm leading-6 text-muted-foreground">
-						{m.settings_change_email_description()}
-					</p>
-				</div>
-				<span class="ml-4 shrink-0 text-xs text-muted-foreground group-open:hidden"
+		<Disclosure
+			summary={m.settings_change_email()}
+			description={m.settings_change_email_description()}
+			boxed
+			data-testid="email-change-card"
+		>
+			{#snippet summaryEnd()}
+				<span class="text-xs font-normal text-muted-foreground group-open:hidden"
 					>{m.common_edit()}</span
 				>
-			</summary>
+			{/snippet}
 			<div class="border-t p-4">
 				<div class="mb-4 rounded-md border bg-muted/20 px-3 py-2">
 					<p class="text-xs text-muted-foreground">
@@ -1658,26 +1656,20 @@
 					<InlineNotice tone="error" message={emailChangeError} class="mt-4" />
 				{/if}
 			</div>
-		</details>
+		</Disclosure>
 
-		<details class="group rounded-lg border p-4">
-			<summary
-				class="flex cursor-pointer list-none items-center justify-between focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-			>
-				<div>
-					<h3 class="flex items-center gap-2 font-medium">
-						<ThemeIcon role="key" class="h-4 w-4 text-muted-foreground" />
-						{m.settings_linked_identities()}
-					</h3>
-					<p class="mt-1 text-sm text-muted-foreground">
-						{m.settings_linked_identities_body()}
-					</p>
-				</div>
-				<span class="ml-4 shrink-0 text-xs text-muted-foreground group-open:hidden"
+		<Disclosure
+			summary={m.settings_linked_identities()}
+			description={m.settings_linked_identities_body()}
+			icon="key"
+			boxed
+		>
+			{#snippet summaryEnd()}
+				<span class="text-xs font-normal text-muted-foreground group-open:hidden"
 					>{m.common_edit()}</span
 				>
-			</summary>
-			<div class="pt-4">
+			{/snippet}
+			<div class="px-4 pt-4 pb-4">
 				<InlineNotice tone="info" message={m.settings_linked_identities_boundary()} class="mb-4" />
 
 				{#if passwordReauthUsable && (linkedIdentities.length || unlinkedProviders.length)}
@@ -1754,7 +1746,7 @@
 					</p>
 				{/if}
 			</div>
-		</details>
+		</Disclosure>
 
 		<div class="grid gap-4 lg:grid-cols-2">
 			<div class="rounded-lg border p-4" data-testid="authenticator-security-card">
@@ -1839,26 +1831,25 @@
 				{:else}
 					<div class="space-y-3">
 						{#if !totpSetupChallengeId && recoveryCodeFlow !== 'setup'}
-							<details
-								class="rounded-md border bg-muted/20 px-3 py-3"
+							<Disclosure
+								summary={m.settings_totp_setup_steps_label()}
+								boxed
+								class="bg-muted/20"
 								data-testid="totp-setup-steps"
 							>
-								<summary
-									class="cursor-pointer list-none text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-								>
-									{m.settings_totp_setup_steps_label()}
-								</summary>
-								<ol
-									class="mt-2 list-decimal space-y-1.5 pl-5 text-sm leading-5 text-muted-foreground marker:font-medium marker:text-foreground"
-								>
-									<li>{m.settings_totp_setup_step_choose()}</li>
-									<li>{m.settings_totp_setup_step_reauth()}</li>
-									<li>{m.settings_totp_setup_step_add()}</li>
-									<li>{m.settings_totp_setup_step_code()}</li>
-									<li>{m.settings_totp_setup_step_recovery()}</li>
-									<li>{m.settings_totp_setup_step_complete()}</li>
-								</ol>
-							</details>
+								<div class="px-4 pb-4">
+									<ol
+										class="mt-2 list-decimal space-y-1.5 pl-5 text-sm leading-5 text-muted-foreground marker:font-medium marker:text-foreground"
+									>
+										<li>{m.settings_totp_setup_step_choose()}</li>
+										<li>{m.settings_totp_setup_step_reauth()}</li>
+										<li>{m.settings_totp_setup_step_add()}</li>
+										<li>{m.settings_totp_setup_step_code()}</li>
+										<li>{m.settings_totp_setup_step_recovery()}</li>
+										<li>{m.settings_totp_setup_step_complete()}</li>
+									</ol>
+								</div>
+							</Disclosure>
 						{:else}
 							<div
 								class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground"

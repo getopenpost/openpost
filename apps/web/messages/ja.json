@@ -3055,6 +3055,8 @@
 	"settings_backup_points_title": "以前のデータ",
 	"settings_backup_points_body": "復元のたびに、置き換えられたデータが保持されます。不要になったらこれらのコピーを削除してディスク容量を空けてください。",
 	"settings_backup_points_delete": "削除",
+	"settings_backup_points_delete_confirm_title": "このコピーを削除しますか？",
+	"settings_backup_points_delete_confirm_body": "復元前のデータのコピーは完全に削除されます。他のデータは変更されません。",
 	"settings_backup_load_failed": "バックアップの状態を読み込めませんでした。",
 	"settings_backup_unsupported_database": "バックアップには標準のSQLiteデータベースが必要です。このインスタンスは別のデータベースを使用しているため、そのツールでバックアップしてください。",
 	"settings_backup_unsupported_storage": "バックアップにはローカルのメディアストレージが必要です。このインスタンスはメディアを別の場所に保存しているため、そのストレージを個別にバックアップしてください。",

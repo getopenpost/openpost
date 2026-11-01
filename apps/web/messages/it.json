@@ -3091,6 +3091,8 @@
 	"settings_backup_points_title": "Dati precedenti",
 	"settings_backup_points_body": "Ogni ripristino conserva i dati che ha sostituito. Elimina queste copie quando non ti servono più per liberare spazio su disco.",
 	"settings_backup_points_delete": "Elimina",
+	"settings_backup_points_delete_confirm_title": "Eliminare questa copia?",
+	"settings_backup_points_delete_confirm_body": "La copia dei dati precedenti al ripristino viene eliminata per sempre. Nient'altro cambia.",
 	"settings_backup_load_failed": "Impossibile caricare lo stato dei backup.",
 	"settings_backup_unsupported_database": "I backup richiedono il database SQLite predefinito. Questa istanza usa un altro database: fanne il backup con i suoi strumenti.",
 	"settings_backup_unsupported_storage": "I backup richiedono l'archiviazione locale dei media. Questa istanza salva i media altrove: esegui il backup di quell'archivio separatamente.",

@@ -5,6 +5,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { z } from 'zod';
 	import ColorPicker from './color-picker.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	const embedFieldSchema = z.strictObject({
@@ -127,9 +128,8 @@
 				/>
 			</div>
 		</div>
-		<details class="space-y-3 rounded-md border p-3">
-			<summary class="cursor-pointer text-sm font-medium">{m.compose_embed_more()}</summary>
-			<div class="grid gap-3 pt-3 sm:grid-cols-2">
+		<Disclosure summary={m.compose_embed_more()} boxed class="rounded-md" summaryClass="px-3 py-2">
+			<div class="grid gap-3 px-3 pt-3 pb-3 sm:grid-cols-2">
 				<div class="sm:col-span-2">
 					<label class="text-xs font-medium" for={`${id}-url`}>{m.compose_link_url()}</label>
 					<Input
@@ -340,7 +340,7 @@
 						>{m.compose_embed_add_field()}</Button
 					>{/if}
 			</div>
-		</details>
+		</Disclosure>
 		<Button
 			type="button"
 			variant="ghost"

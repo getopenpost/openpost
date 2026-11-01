@@ -15,6 +15,7 @@
 	import { workflowQueryAPI } from '$lib/query/workflows';
 	import { queryAPI } from '$lib/query/api';
 	import { readQueryErrorMessage } from '$lib/query/error-message';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { saveWorkflow, deleteWorkflow, type Workflow, type Definition } from '$lib/workflows/api';
 	import { templates, commentTemplates, sourceLabel, runStateLabel } from '$lib/workflows/catalog';
@@ -366,10 +367,11 @@
 					accounts={accountsQuery.data}
 				/>{/if}
 		{:else}
-			<details class="rounded-lg border p-4" bind:open={repostHistoryOpen}>
-				<summary class="min-h-11 cursor-pointer text-sm font-medium">{m.repost_heading()}</summary
-				>{#if repostHistoryOpen}<RepostHistory {workspaceID} />{/if}
-			</details>
+			<Disclosure summary={m.repost_heading()} boxed bind:open={repostHistoryOpen}>
+				<div class="px-4 pb-4">
+					{#if repostHistoryOpen}<RepostHistory {workspaceID} />{/if}
+				</div>
+			</Disclosure>
 			<div
 				bind:this={runList}
 				role="region"

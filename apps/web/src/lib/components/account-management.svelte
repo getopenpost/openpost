@@ -28,6 +28,7 @@
 	import TelegramConnectionDialog from '$lib/components/telegram-connection-dialog.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import {
@@ -1916,23 +1917,19 @@
 								{/if}
 							{/if}
 							{#if setupRequiredProviders.length > 0}
-								<details
-									class="mt-4 rounded-lg border bg-muted/10"
-									ontoggle={(e) =>
-										(setupRequiredOpen = (e.currentTarget as HTMLDetailsElement).open)}
+								<Disclosure
+									summary={`${m.accounts_provider_admin_required()} · ${setupRequiredProviders.length}`}
+									bind:open={setupRequiredOpen}
+									boxed
+									class="mt-4 bg-muted/10"
 								>
-									<summary
-										class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-									>
-										<span
-											>{m.accounts_provider_admin_required()} · {setupRequiredProviders.length}</span
-										>
-										<span class="text-xs text-muted-foreground"
+									{#snippet summaryEnd()}
+										<span class="text-xs font-normal text-muted-foreground"
 											>{setupRequiredOpen
 												? m.accounts_provider_admin_hide()
 												: m.accounts_provider_admin_show()}</span
 										>
-									</summary>
+									{/snippet}
 									<div class="border-t px-3 py-3">
 										<p class="mb-3 text-xs text-muted-foreground">
 											{viewerIsInstanceAdmin
@@ -1992,7 +1989,7 @@
 											{/each}
 										</div>
 									</div>
-								</details>
+								</Disclosure>
 							{/if}
 						{/if}
 					</div>
@@ -2244,16 +2241,7 @@
 						{/key}
 					{/if}
 
-					<details class="group rounded-lg border bg-muted/10">
-						<summary
-							class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium marker:hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-						>
-							{m.accounts_developer_shortcut()}
-							<ThemeIcon
-								role="chevron-down"
-								class="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
-							/>
-						</summary>
+					<Disclosure summary={m.accounts_developer_shortcut()} boxed class="bg-muted/10">
 						<div class="space-y-3 border-t px-3 py-3">
 							<p class="text-xs leading-5 text-muted-foreground">
 								{m.accounts_shortcut_example()}
@@ -2276,7 +2264,7 @@
 								</p>
 							</div>
 						</div>
-					</details>
+					</Disclosure>
 
 					{#if editAccountError}
 						<InlineNotice

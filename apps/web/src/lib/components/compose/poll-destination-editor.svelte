@@ -3,6 +3,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Select from '$lib/components/ui/select';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import PollContentFields from './poll-content-fields.svelte';
@@ -143,14 +144,11 @@
 			>
 		{:else if choice.mode === 'text'}
 			<InlineNotice message={m.compose_poll_text_notice()} />
-			<details>
-				<summary class="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground"
-					>{m.compose_poll_text_preview()}</summary
-				>
+			<Disclosure summary={m.compose_poll_text_preview()} summaryClass="text-muted-foreground">
 				<p class="text-sm break-words whitespace-pre-wrap">
 					{resolvePollPreview(value, destination.id, destination.fields, destination.body, {}).body}
 				</p>
-			</details>
+			</Disclosure>
 		{/if}
 		{#if choice.mode === 'text' || choice.mode === 'omit'}<Button
 				variant="ghost"

@@ -7,6 +7,7 @@
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import MediaPicker from '$lib/components/media-picker.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { queryImageEditorBrandKit } from '$lib/query/image-editor';
 	import type { ImageEditorBrandKit } from '$lib/image-editor/types';
@@ -230,13 +231,17 @@
 
 {#if workspaceCtx.currentWorkspace?.role === 'admin'}
 	<section id="workspace-danger" class="scroll-mt-24">
-		<details class="group rounded-lg border border-destructive/30">
-			<summary
-				class="flex cursor-pointer list-none items-center justify-between p-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-			>
-				<span class="text-sm font-medium text-destructive">{m.settings_danger_zone()}</span>
-				<span class="text-xs text-muted-foreground group-open:hidden">{m.common_edit()}</span>
-			</summary>
+		<Disclosure
+			summary={m.settings_danger_zone()}
+			boxed
+			class="border-destructive/30"
+			summaryClass="text-destructive"
+		>
+			{#snippet summaryEnd()}
+				<span class="text-xs font-normal text-muted-foreground group-open:hidden"
+					>{m.common_edit()}</span
+				>
+			{/snippet}
 			<div class="border-t p-4">
 				<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div>
@@ -248,7 +253,7 @@
 					</Button>
 				</div>
 			</div>
-		</details>
+		</Disclosure>
 	</section>
 {/if}
 

@@ -393,7 +393,7 @@ test.describe("product screenshot capture", () => {
       }
       await page.setViewportSize(captureViewport);
 
-      await page.goto("/settings?tab=accounts");
+      await page.goto("/accounts");
       await expect(page.getByRole("heading", { name: "Connected accounts" })).toBeVisible();
       await expect(page.getByText("@rodrgds").first()).toBeVisible();
       await capture(page, `accounts-${captureScheme}.png`, [
@@ -654,7 +654,7 @@ test.describe("product screenshot capture", () => {
           ],
         }),
       );
-      await page.goto("/settings?tab=accounts");
+      await page.goto("/accounts");
       await expect(page.getByRole("heading", { name: "Connected accounts" })).toBeVisible();
       await page.addStyleTag({
         content: `*, *::before, *::after { animation: none !important; transition: none !important; }`,

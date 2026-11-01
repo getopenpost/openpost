@@ -92,7 +92,7 @@ func videoMetadata(media OutboundMedia) map[string]int64 {
 		metadata["height"] = int64(media.Height)
 	}
 	if media.DurationMS > 0 {
-		metadata["duration"] = (media.DurationMS + 999) / 1000
+		metadata["duration"] = (media.DurationMS-1)/1000 + 1
 	}
 	return metadata
 }

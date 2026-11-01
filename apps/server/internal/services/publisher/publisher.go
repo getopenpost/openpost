@@ -575,6 +575,7 @@ func (s *Service) publishRendition(
 			Size:             media.Size,
 			Width:            media.Width,
 			Height:           media.Height,
+			DurationMS:       media.DurationMS,
 			OriginalFilename: media.OriginalFilename,
 		})
 	}
@@ -899,6 +900,7 @@ func (s *Service) publishRenditionSegments(
 				Size:             media.Size,
 				Width:            media.Width,
 				Height:           media.Height,
+				DurationMS:       media.DurationMS,
 				OriginalFilename: media.OriginalFilename,
 			})
 		}
@@ -2290,6 +2292,9 @@ func (s *Service) renditionUploadRequest(ctx context.Context, rendition *models.
 		MimeType:    media.MimeType,
 		Filename:    firstNonEmptyPublisherString(media.OriginalFilename, storageKey),
 		Size:        media.Size,
+		Width:       media.Width,
+		Height:      media.Height,
+		DurationMS:  media.DurationMS,
 		Title:       firstNonEmptyPublisherString(rendition.Title, firstContentLine(rendition.Body)),
 		Description: strings.TrimSpace(firstNonEmptyPublisherString(rendition.Description, rendition.Body)),
 		Settings:    settings,

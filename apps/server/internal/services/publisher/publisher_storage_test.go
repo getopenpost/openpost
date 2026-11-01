@@ -209,3 +209,67 @@ func TestPublishProviderPassesVideoSizeToDirectMediaPublisher(t *testing.T) {
 	require.Equal(t, 1920, provider.media[0].Height)
 	require.Equal(t, int64(46863), provider.media[0].DurationMS)
 }
+
+func TestRenditionUploadRequestPreservesVideoMetadata(t *testing.T) {
+	for _, openReader := range []bool{true, false} {
+		service := &Service{storage: &fakePublisherStorage{body: "video"}}
+		req, closeReaders, err := service.renditionUploadRequest(t.Context(), &models.Rendition{}, models.MediaAttachment{
+			FilePath: "video.mp4", MimeType: "video/mp4", Size: 5,
+			Width: 1080, Height: 1920, DurationMS: 46863,
+		}, nil, openReader)
+		require.NoError(t, err)
+		closeReaders()
+		require.Equal(t, 1080, req.Width)
+		require.Equal(t, 1920, req.Height)
+		require.Equal(t, int64(46863), req.DurationMS)
+	}
+}
+
+func TestPublicationPublishingPreservesAnalyzedMediaMetadata(t *testing.T) {
+	for _, segmented := range []bool{false, true} {
+		name := "post"
+		if segmented {
+			name = "thread segment"
+		}
+		t.Run(name, func(t *testing.T) {
+			adapter := &fakePublisherAdapter{}
+			srv := newPublisherLifecycleTestServer(t, adapter)
+			srv.service.SetStorage(&fakePublisherStorage{body: "fixture-video"})
+			ctx := t.Context()
+			for _, model := range []any{(*models.RenditionMediaDelivery)(nil), (*models.RenditionMediaDeliveryRelation)(nil), (*models.PublicationSegmentMedia)(nil)} {
+				_, err := srv.db.NewCreateTable().Model(model).IfNotExists().Exec(ctx)
+				require.NoError(t, err)
+			}
+			_, err := srv.db.NewInsert().Model(&models.MediaAttachment{
+				ID: "video", WorkspaceID: "ws-1", OriginalFilename: "video.mp4", FilePath: "media/video.mp4",
+				MimeType: "video/mp4", Size: 13, ProcessingStatus: "ready", AnalysisStatus: "ready",
+				Width: 1080, Height: 1920, DurationMS: 46863,
+			}).Exec(ctx)
+			require.NoError(t, err)
+			_, err = srv.db.NewInsert().Model(&models.RenditionMedia{RenditionID: "rendition-1", MediaID: "video", Role: "attachment"}).Exec(ctx)
+			require.NoError(t, err)
+			if segmented {
+				_, err = srv.db.NewInsert().Model(&models.PublicationSegment{
+					ID: "source", PublicationID: "publication-1", Body: "Video", SettingsJSON: "{}",
+				}).Exec(ctx)
+				require.NoError(t, err)
+				_, err = srv.db.NewInsert().Model(&models.RenditionSegment{
+					ID: "segment", RenditionID: "rendition-1", PublicationSegmentID: "source",
+					Body: "Video", SettingsJSON: "{}", Status: models.RenditionStatusDraft,
+				}).Exec(ctx)
+				require.NoError(t, err)
+				_, err = srv.db.NewInsert().Model(&models.RenditionSegmentMedia{
+					RenditionSegmentID: "segment", MediaID: "video", Role: "attachment", SettingsJSON: "{}",
+				}).Exec(ctx)
+				require.NoError(t, err)
+			}
+			jobCtx, payload := srv.authorizedPublicationJob(t)
+			require.NoError(t, srv.service.HandlePublishPublicationJob(jobCtx, payload))
+			require.NotNil(t, adapter.lastRequest)
+			require.Equal(t, []platform.MediaItem{{
+				ID: "video", MimeType: "video/mp4", Size: 13, OriginalFilename: "video.mp4",
+				Width: 1080, Height: 1920, DurationMS: 46863,
+			}}, adapter.lastRequest.Media)
+		})
+	}
+}

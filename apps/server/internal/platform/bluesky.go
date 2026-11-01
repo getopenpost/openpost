@@ -1283,11 +1283,15 @@ func (b *BlueskyAdapter) attachVideoToRecord(record map[string]interface{}, req 
 	if len(req.MediaAltTexts) > 0 {
 		altText = req.MediaAltTexts[0]
 	}
-	record["embed"] = map[string]interface{}{
+	embed := map[string]interface{}{
 		bskyRecordTypeField: "app.bsky.embed.video",
 		jsonFieldVideo:      blob,
 		"alt":               altText,
 	}
+	if ratio := blueskyMediaAspectRatio(req.Media, 0); ratio != nil {
+		embed["aspectRatio"] = ratio
+	}
+	record["embed"] = embed
 	return nil
 }
 
@@ -1302,10 +1306,14 @@ func (b *BlueskyAdapter) attachImagesToRecord(record map[string]interface{}, req
 		if i < len(req.MediaAltTexts) {
 			altText = req.MediaAltTexts[i]
 		}
-		images = append(images, map[string]interface{}{
+		image := map[string]interface{}{
 			"alt":   altText,
 			"image": blob,
-		})
+		}
+		if ratio := blueskyMediaAspectRatio(req.Media, i); ratio != nil {
+			image["aspectRatio"] = ratio
+		}
+		images = append(images, image)
 	}
 	if len(images) > 0 {
 		record["embed"] = map[string]interface{}{
@@ -1314,6 +1322,13 @@ func (b *BlueskyAdapter) attachImagesToRecord(record map[string]interface{}, req
 		}
 	}
 	return nil
+}
+
+func blueskyMediaAspectRatio(media []MediaItem, index int) map[string]int {
+	if index >= len(media) || media[index].Width <= 0 || media[index].Height <= 0 {
+		return nil
+	}
+	return map[string]int{"width": media[index].Width, "height": media[index].Height}
 }
 
 func attachReplyToRecord(record map[string]interface{}, replyToID string) {

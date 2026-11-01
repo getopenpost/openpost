@@ -3,6 +3,7 @@ package telegram
 import (
 	"encoding/json"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -62,6 +63,12 @@ func TestSendVideoIncludesSizeFields(t *testing.T) {
 			name: "video with analysis results", kind: "video", method: "sendVideo",
 			media: OutboundMedia{Type: "video", Filename: "short.mp4", Width: 1080, Height: 1920, DurationMS: 46863},
 			want:  map[string]string{"width": "1080", "height": "1920", "duration": "47"},
+		},
+		{
+			name: "large positive duration cannot wrap negative", kind: "video", method: "sendVideo",
+			media:  OutboundMedia{Type: "video", Filename: "short.mp4", DurationMS: math.MaxInt64},
+			want:   map[string]string{"duration": "9223372036854776"},
+			absent: []string{"width", "height"},
 		},
 		{
 			name: "video without analysis results", kind: "video", method: "sendVideo",

@@ -260,7 +260,7 @@ it('keeps immutable run layout read-only and separate from device-local editor p
 	await userEvent.keyboard('{Enter}{ArrowRight}');
 	const moved = { x: baseline.x + 5, y: baseline.y };
 	await expect.poll(() => nodePosition(node)).toEqual(moved);
-	await screen.getByRole('button', { name: 'Runs', exact: true }).click();
+	await screen.getByRole('tab', { name: 'Runs', exact: true }).click();
 	await screen.getByRole('button', { name: /^Completed/ }).click();
 	const runNode = screen.container.querySelector<HTMLElement>(
 		'.svelte-flow__node[data-id="parse"]'
@@ -269,7 +269,7 @@ it('keeps immutable run layout read-only and separate from device-local editor p
 	await focusCanvasNode(runNode);
 	await userEvent.keyboard('{Enter}{ArrowRight}');
 	await expect.poll(() => nodePosition(runNode)).toEqual(baseline);
-	await screen.getByRole('button', { name: 'Editor', exact: true }).click();
+	await screen.getByRole('tab', { name: 'Editor', exact: true }).click();
 	const editedNode = screen.container.querySelector<HTMLElement>(
 		'.svelte-flow__node[data-id="parse"]'
 	)!;
@@ -425,7 +425,7 @@ it.each(
 			{ initial, accounts: [], connections: [] },
 			{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
 		);
-		await screen.getByRole('button', { name: 'Runs', exact: true }).click();
+		await screen.getByRole('tab', { name: 'Runs', exact: true }).click();
 		await screen.getByRole('button', { name: /^Queued/ }).click();
 		await expect.element(screen.getByText('Workflow revision 1 · Test node')).toBeVisible();
 		await expect.element(screen.getByText('Completed', { exact: true }).last()).toBeVisible();
@@ -499,7 +499,7 @@ it.each(
 			{ initial, accounts: [], connections: [] },
 			{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
 		);
-		await screen.getByRole('button', { name: 'Runs', exact: true }).click();
+		await screen.getByRole('tab', { name: 'Runs', exact: true }).click();
 		await screen.getByRole('button', { name: /^Cancelled/ }).click();
 		await expect
 			.element(
@@ -634,7 +634,7 @@ it.each(['test', 'preview'] as const)(
 		else {
 			await page.getByRole('button', { name: 'Back to canvas', exact: true }).click();
 			await screen.getByRole('button', { name: 'Run preview', exact: true }).click();
-			await screen.getByRole('button', { name: 'Editor', exact: true }).click();
+			await screen.getByRole('tab', { name: 'Editor', exact: true }).click();
 			await screen.getByRole('button', { name: /^Parse sample / }).click();
 		}
 		const output = page.getByRole('region', { name: 'Output', exact: true });
@@ -692,7 +692,7 @@ it.each([
 				wrapperProps: { client: queryClient }
 			}
 		);
-		await screen.getByRole('button', { name: 'Runs', exact: true }).click();
+		await screen.getByRole('tab', { name: 'Runs', exact: true }).click();
 		const card = screen.getByRole('button', { name: /^Completed/ });
 		await expect.element(card).toBeVisible();
 		await expect.element(card.getByText(label, { exact: true })).toBeVisible();

@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { appBranding } from '$lib/app-branding.svelte';
 	import { publicationMasonry } from '$lib/publication-masonry';
+	import { publicationPreviewMedia } from '$lib/publication-preview';
+	import { getAuthenticatedMediaURL } from '$lib/media-url';
+	import MediaPreviewImage from '$lib/components/media-preview-image.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Label } from '$lib/components/ui/label';
 	import BatchScheduleDialog from '$lib/components/batch-schedule-dialog.svelte';
@@ -29,6 +32,7 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PublicationDeliveryCard from '$lib/components/publication-delivery-card.svelte';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
+	import SocialAccountAvatar from '$lib/components/social-account-avatar.svelte';
 	import { deliveryRecoveryAction, deliveryStateLabel } from '$lib/delivery-presentation';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
@@ -103,6 +107,7 @@
 	let dataRequestSequence = 0;
 	let destinationActionSequence = 0;
 	const failureDismissalToastIDs = new Set<string | number>();
+	const missingRowMedia = new SvelteSet<string>();
 	const inventoryView = $derived(page.url.searchParams.get('view') === 'grid' ? 'grid' : 'list');
 	const requestedTab = page.url.searchParams.get('tab');
 	let activeTab = $state<ActivityTab>(
@@ -549,16 +554,29 @@
 		return destination.delivery?.state || destination.status;
 	}
 
-	function destinationSummary(post: ActivityItem) {
+	function deliverySummaryParts(post: ActivityItem): string[] {
 		const destinations = post.destinations ?? [];
-		return m.activity_delivery_summary({
-			published: destinations.filter((destination) =>
-				['success', 'published', 'live'].includes(destinationState(destination))
-			).length,
-			failed: destinations.filter((destination) =>
-				['failed', 'rejected', 'manual_resolution'].includes(destinationState(destination))
-			).length
-		});
+		const published = destinations.filter((destination) =>
+			['success', 'published', 'live'].includes(destinationState(destination))
+		).length;
+		const failed = destinations.filter((destination) =>
+			['failed', 'rejected', 'manual_resolution'].includes(destinationState(destination))
+		).length;
+		const parts: string[] = [];
+		if (published > 0) parts.push(m.activity_delivery_published_count({ count: published }));
+		if (failed > 0) parts.push(m.activity_delivery_failed_count({ count: failed }));
+		return parts;
+	}
+
+	function statusBadgeLabel(post: ActivityItem): string {
+		const label = statusLabel(post);
+		const tabLabels: Record<ActivityTab, string> = {
+			scheduled: m.activity_tab_scheduled(),
+			published: m.activity_tab_published(),
+			failed: m.activity_tab_failed(),
+			drafts: m.activity_tab_drafts()
+		};
+		return label === tabLabels[activeTab] ? '' : label;
 	}
 
 	function buildDeliveryReport(post: ActivityItem) {
@@ -782,14 +800,115 @@
 	});
 </script>
 
+{#snippet deliveryDetails(post: ActivityItem, accountDestinations: ActivityDestination[])}
+	{@const summaryParts = deliverySummaryParts(post)}
+	{#if post.destinations?.length && (activeTab !== 'drafts' || post.destinations.length > accountDestinations.length || post.destinations.some((destination) => destination.status === 'failed'))}
+		<details
+			class="group/delivery mt-2 max-w-2xl rounded-lg border bg-background/60"
+			open={post.status === 'failed'}
+		>
+			<summary
+				class="flex min-h-11 cursor-pointer items-center justify-between gap-3 px-3 py-2 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+			>
+				<span class="flex items-center gap-2"
+					><ThemeIcon
+						role="chevron-right"
+						class="size-3.5 transition-transform group-open/delivery:rotate-90"
+					/>{m.activity_delivery_details()}</span
+				>
+				{#if summaryParts.length}
+					<span class="text-muted-foreground">{summaryParts.join(' · ')}</span>
+				{/if}
+			</summary>
+			<div
+				class={[
+					'border-t px-3',
+					post.status === 'failed'
+						? 'border-destructive/15 bg-destructive/[0.035]'
+						: 'border-border bg-card/50'
+				]}
+			>
+				{#if post.status === 'failed'}
+					<div
+						class="flex flex-wrap items-center justify-between gap-2 border-b border-destructive/10 px-3 py-2"
+					>
+						<div class="ml-auto flex items-center gap-1">
+							<CopyButton
+								variant="ghost"
+								size="sm"
+								class="h-8 text-xs"
+								value={buildDeliveryReport(post)}
+								scopeKey={`${workspaceCtx.currentWorkspace?.id}:${post.id}`}
+								label={m.activity_copy_report()}
+								successLabel={m.activity_report_copied()}
+								errorMessage={m.activity_report_copy_failed()}
+								fallbackLabel={m.activity_copy_report()}
+							/>
+							<Button
+								variant="ghost"
+								size="sm"
+								class="h-8 text-xs"
+								onclick={() => dismissFailedPost(post)}
+							>
+								{m.activity_dismiss_failed()}
+							</Button>
+						</div>
+					</div>
+				{/if}
+				<div class="divide-y divide-border/70 px-3">
+					{#each post.destinations as destination (destination.id)}
+						<PublicationDeliveryCard
+							rendition={destination}
+							destinationLabel={destinationName(destination)}
+							variant="compact"
+							retrying={retryingDestination ===
+								`${post.id}:${destination.social_account_id}:${destination.target_key}`}
+							onRetry={() => runDestinationAction(post, destination)}
+							onManualResolution={() => runDestinationAction(post, destination)}
+						/>
+					{/each}
+				</div>
+			</div>
+		</details>
+	{/if}
+{/snippet}
+
+{#snippet destinationMarks(post: ActivityItem, accountDestinations: ActivityDestination[])}
+	{#if post.destinations?.length}
+		<span class="hidden shrink-0 items-center gap-1 sm:flex">
+			<span class="sr-only">{m.calendar_account_count({ count: accountDestinations.length })}</span>
+			<span class="flex items-center -space-x-1.5" aria-hidden="true">
+				{#each accountDestinations.slice(0, 4) as destination (destination.social_account_id)}
+					{@const account = destinationAccount(destination)}
+					<span class="rounded-full ring-2 ring-background" title={destinationName(destination)}>
+						<SocialAccountAvatar
+							name={destinationName(destination)}
+							platform={destination.platform}
+							avatarUrl={account?.account_avatar_url}
+							size="sm"
+						/>
+					</span>
+				{/each}
+				{#if accountDestinations.length > 4}
+					<span
+						class="flex size-6 items-center justify-center rounded-full border border-border bg-muted text-xs font-medium text-muted-foreground ring-2 ring-background"
+					>
+						+{accountDestinations.length - 4}
+					</span>
+				{/if}
+			</span>
+		</span>
+	{/if}
+{/snippet}
+
 {#snippet postList(items: ActivityItem[], emptyTitle: string, emptyDescription: string)}
 	{#if items.length === 0}
 		<EmptyState
 			themeIconRole="file"
 			title={searchTerm ? m.posts_search_results({ count: 0, query: searchTerm }) : emptyTitle}
 			description={searchTerm ? undefined : emptyDescription}
-			actionLabel={searchTerm ? m.posts_clear_search() : undefined}
-			onAction={searchTerm ? () => (searchQuery = '') : undefined}
+			actionLabel={searchTerm ? m.posts_clear_search() : m.activity_new_post()}
+			onAction={searchTerm ? () => (searchQuery = '') : () => ui.startNewPost()}
 			variant="muted"
 		/>
 	{:else if activeTab === 'drafts' && inventoryView === 'grid'}
@@ -821,181 +940,220 @@
 							'overflow-hidden rounded-xl border bg-card text-card-foreground'
 					]}
 				>
-					<div class="flex items-start gap-3 sm:gap-4">
-						{#if activeTab === 'drafts' && selecting}
-							<Label
-								for={`post-select-${post.id}`}
-								class="flex min-h-11 min-w-11 shrink-0 items-center justify-center"
-								><Checkbox
-									id={`post-select-${post.id}`}
-									aria-label={m.batch_select_post()}
-									checked={selectedIds.includes(post.id)}
-									disabled={!selectedIds.includes(post.id) && selectedIds.length >= 20}
-									onCheckedChange={(checked) => {
-										selectedIds =
-											checked === true
-												? [...selectedIds, post.id]
-												: selectedIds.filter((id) => id !== post.id);
-									}}
-								/></Label
-							>
-						{:else if activeTab !== 'drafts'}
-							<div
-								class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border bg-muted/50"
-							>
-								{#if statusIconValue.kind === 'protected'}
-									<ProtectedIcon
-										icon={statusIconValue.role}
-										class={`size-4 ${statusClass(post)}`}
-									/>
-								{:else}
-									<ThemeIcon role={statusIconValue.role} class={`size-4 ${statusClass(post)}`} />
-								{/if}
-							</div>
-						{/if}
-						<div class="min-w-0 flex-1">
-							<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-								{#if activeTab !== 'drafts'}<span class={['font-medium', statusClass(post)]}
-										>{statusLabel(post)}</span
-									>{/if}
-								<span class="text-muted-foreground">
-									{formatDateTime(publicationActivityOccurrence(post))}
-								</span>
-								{#if post.publication.review_state === 'pending'}<span>{m.review_pending()}</span>
-								{:else if post.publication.review_state === 'needs_review'}<span
-										>{m.review_needs_review()}</span
-									>
-								{:else if post.publication.review_state === 'changes_requested'}<span
-										class="text-destructive">{m.review_changes_requested()}</span
-									>
-								{:else if post.publication.review_state === 'approved'}<span
-										>{m.review_approved()}</span
-									>{/if}
-								{#if post.isThread}
-									<span class="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-										{threadPostCount(post.postCount)}
-									</span>
-								{/if}
-							</div>
-							<a
-								href={resolveAppPath(post.href)}
-								dir="auto"
-								class="mt-1.5 block max-w-[72ch] rounded-sm text-sm leading-6 text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-							>
-								{truncate(postText(post))}
-							</a>
-							{#if post.destinations?.length}
-								<div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-									{#each accountDestinations.slice(0, 4) as destination (destination.social_account_id)}
-										{@const account = destinationAccount(destination)}
-										<span
-											class="inline-flex max-w-52 items-center gap-1.5 rounded-md border bg-background px-2 py-1"
-										>
-											<SocialAccountIdentity
-												name={destinationName(destination)}
-												platform={destination.platform}
-												avatarUrl={account?.account_avatar_url}
-												size="sm"
-												showPlatform={false}
-												class="gap-1.5 text-xs"
-											/>
-										</span>
-									{/each}
-									{#if accountDestinations.length > 4}
-										<span class="rounded-full bg-muted px-2 py-1"
-											>+{accountDestinations.length - 4}</span
-										>
+					{#if inventoryView === 'grid'}
+						<div class="flex items-start gap-3 sm:gap-4">
+							{#if activeTab === 'drafts' && selecting}
+								<Label
+									for={`post-select-${post.id}`}
+									class="flex min-h-11 min-w-11 shrink-0 items-center justify-center"
+									><Checkbox
+										id={`post-select-${post.id}`}
+										aria-label={m.batch_select_post()}
+										checked={selectedIds.includes(post.id)}
+										disabled={!selectedIds.includes(post.id) && selectedIds.length >= 20}
+										onCheckedChange={(checked) => {
+											selectedIds =
+												checked === true
+													? [...selectedIds, post.id]
+													: selectedIds.filter((id) => id !== post.id);
+										}}
+									/></Label
+								>
+							{:else if activeTab !== 'drafts'}
+								<div
+									class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border bg-muted/50"
+								>
+									{#if statusIconValue.kind === 'protected'}
+										<ProtectedIcon
+											icon={statusIconValue.role}
+											class={`size-4 ${statusClass(post)}`}
+										/>
+									{:else}
+										<ThemeIcon role={statusIconValue.role} class={`size-4 ${statusClass(post)}`} />
 									{/if}
 								</div>
 							{/if}
-							{#if post.destinations?.length && (activeTab !== 'drafts' || post.destinations.length > accountDestinations.length || post.destinations.some((destination) => destination.status === 'failed'))}
-								<details
-									class="group/delivery mt-3 max-w-2xl rounded-lg border bg-background/60"
-									open={post.status === 'failed'}
-								>
-									<summary
-										class="flex min-h-11 cursor-pointer items-center justify-between gap-3 px-3 py-2 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-									>
-										<span class="flex items-center gap-2"
-											><ThemeIcon
-												role="chevron-right"
-												class="size-3.5 transition-transform group-open/delivery:rotate-90"
-											/>{m.activity_delivery_details()}</span
+							<div class="min-w-0 flex-1">
+								<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+									{#if activeTab !== 'drafts'}<span class={['font-medium', statusClass(post)]}
+											>{statusLabel(post)}</span
+										>{/if}
+									<span class="text-muted-foreground">
+										{formatDateTime(publicationActivityOccurrence(post))}
+									</span>
+									{#if post.publication.review_state === 'pending'}<span>{m.review_pending()}</span>
+									{:else if post.publication.review_state === 'needs_review'}<span
+											>{m.review_needs_review()}</span
 										>
-										<span class="text-muted-foreground">{destinationSummary(post)}</span>
-									</summary>
-									<div
-										class={[
-											'border-t px-3',
-											post.status === 'failed'
-												? 'border-destructive/15 bg-destructive/[0.035]'
-												: 'border-border bg-card/50'
-										]}
-									>
-										{#if post.status === 'failed'}
-											<div
-												class="flex flex-wrap items-center justify-between gap-2 border-b border-destructive/10 px-3 py-2"
+									{:else if post.publication.review_state === 'changes_requested'}<span
+											class="text-destructive">{m.review_changes_requested()}</span
+										>
+									{:else if post.publication.review_state === 'approved'}<span
+											>{m.review_approved()}</span
+										>{/if}
+									{#if post.isThread}
+										<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+											{threadPostCount(post.postCount)}
+										</span>
+									{/if}
+								</div>
+								<a
+									href={resolveAppPath(post.href)}
+									dir="auto"
+									class="mt-1.5 block max-w-[72ch] rounded-sm text-sm leading-6 text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+								>
+									{truncate(postText(post))}
+								</a>
+								{#if post.destinations?.length}
+									<div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+										{#each accountDestinations.slice(0, 4) as destination (destination.social_account_id)}
+											{@const account = destinationAccount(destination)}
+											<span
+												class="inline-flex max-w-52 items-center gap-1.5 rounded-md border bg-background px-2 py-1"
 											>
-												<div class="ml-auto flex items-center gap-1">
-													<CopyButton
-														variant="ghost"
-														size="sm"
-														class="h-8 text-xs"
-														value={buildDeliveryReport(post)}
-														scopeKey={`${workspaceCtx.currentWorkspace?.id}:${post.id}`}
-														label={m.activity_copy_report()}
-														successLabel={m.activity_report_copied()}
-														errorMessage={m.activity_report_copy_failed()}
-														fallbackLabel={m.activity_copy_report()}
-													/>
-													<Button
-														variant="ghost"
-														size="sm"
-														class="h-8 text-xs"
-														onclick={() => dismissFailedPost(post)}
-													>
-														{m.activity_dismiss_failed()}
-													</Button>
-												</div>
-											</div>
-										{/if}
-										<div class="divide-y divide-border/70 px-3">
-											{#each post.destinations as destination (destination.id)}
-												<PublicationDeliveryCard
-													rendition={destination}
-													destinationLabel={destinationName(destination)}
-													variant="compact"
-													retrying={retryingDestination ===
-														`${post.id}:${destination.social_account_id}:${destination.target_key}`}
-													onRetry={() => runDestinationAction(post, destination)}
-													onManualResolution={() => runDestinationAction(post, destination)}
+												<SocialAccountIdentity
+													name={destinationName(destination)}
+													platform={destination.platform}
+													avatarUrl={account?.account_avatar_url}
+													size="sm"
+													showPlatform={false}
+													class="gap-1.5 text-xs"
 												/>
-											{/each}
-										</div>
+											</span>
+										{/each}
+										{#if accountDestinations.length > 4}
+											<span class="rounded-full bg-muted px-2 py-1"
+												>+{accountDestinations.length - 4}</span
+											>
+										{/if}
 									</div>
-								</details>
+								{/if}
+								{@render deliveryDetails(post, accountDestinations)}
+							</div>
+							{#if activeTab !== 'drafts'}
+								<Button
+									variant="ghost"
+									size="sm"
+									class="min-h-10 shrink-0"
+									onclick={() => goto(resolveAppPath(post.href))}
+									aria-label={post.status === 'published' || post.status === 'publishing'
+										? m.activity_view_post({ title: truncate(postText(post), 40) })
+										: m.activity_edit_post({ title: truncate(postText(post), 40) })}
+								>
+									{#if post.status === 'published' || post.status === 'publishing'}
+										<ThemeIcon role="eye" class="size-4 sm:mr-1.5" />
+										<span class="hidden sm:inline">{m.activity_view_details()}</span>
+									{:else}
+										<ThemeIcon role="edit" class="size-4 sm:mr-1.5" />
+										<span class="hidden sm:inline">{m.common_edit()}</span>
+									{/if}
+								</Button>
 							{/if}
 						</div>
-						{#if activeTab !== 'drafts'}
-							<Button
-								variant="ghost"
-								size="sm"
-								class="min-h-10 shrink-0"
-								onclick={() => goto(resolveAppPath(post.href))}
-								aria-label={post.status === 'published' || post.status === 'publishing'
-									? m.activity_view_post({ title: truncate(postText(post), 40) })
-									: m.activity_edit_post({ title: truncate(postText(post), 40) })}
+					{:else}
+						{@const rowMedia = publicationPreviewMedia(post.publication)}
+						<div class="flex min-h-11 items-center gap-3">
+							{#if activeTab === 'drafts' && selecting}
+								<Label
+									for={`post-select-${post.id}`}
+									class="flex min-h-11 min-w-11 shrink-0 items-center justify-center"
+									><Checkbox
+										id={`post-select-${post.id}`}
+										aria-label={m.batch_select_post()}
+										checked={selectedIds.includes(post.id)}
+										disabled={!selectedIds.includes(post.id) && selectedIds.length >= 20}
+										onCheckedChange={(checked) => {
+											selectedIds =
+												checked === true
+													? [...selectedIds, post.id]
+													: selectedIds.filter((id) => id !== post.id);
+										}}
+									/></Label
+								>
+							{:else if rowMedia && !missingRowMedia.has(rowMedia.id)}
+								<span
+									class="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted"
+								>
+									{#if rowMedia.poster_thumbnail_url}
+										<img
+											src={getAuthenticatedMediaURL(rowMedia.poster_thumbnail_url)}
+											alt=""
+											loading="lazy"
+											class="size-full object-cover"
+											onerror={() => missingRowMedia.add(rowMedia.id)}
+										/>
+									{:else}
+										<MediaPreviewImage
+											mediaId={rowMedia.id}
+											alt=""
+											class="size-full object-cover"
+											onMissing={() => missingRowMedia.add(rowMedia.id)}
+										/>
+									{/if}
+								</span>
+							{/if}
+							<a
+								href={resolveAppPath(post.href)}
+								dir="auto"
+								class="min-w-0 flex-1 truncate rounded-sm text-sm font-medium text-foreground focus-visible:outline-2 focus-visible:outline-ring"
 							>
-								{#if post.status === 'published' || post.status === 'publishing'}
-									<ThemeIcon role="eye" class="size-4 sm:mr-1.5" />
-									<span class="hidden sm:inline">{m.activity_view_details()}</span>
-								{:else}
-									<ThemeIcon role="edit" class="size-4 sm:mr-1.5" />
-									<span class="hidden sm:inline">{m.common_edit()}</span>
-								{/if}
-							</Button>
-						{/if}
-					</div>
+								{truncate(postText(post), 140)}
+							</a>
+							{#if post.isThread}
+								<span class="hidden shrink-0 text-xs text-muted-foreground sm:inline">
+									{threadPostCount(post.postCount)}
+								</span>
+							{/if}
+							{#if post.publication.review_state === 'pending'}
+								<span class="hidden shrink-0 text-xs text-muted-foreground sm:inline"
+									>{m.review_pending()}</span
+								>
+							{:else if post.publication.review_state === 'needs_review'}
+								<span class="hidden shrink-0 text-xs text-muted-foreground sm:inline"
+									>{m.review_needs_review()}</span
+								>
+							{:else if post.publication.review_state === 'changes_requested'}
+								<span class="shrink-0 text-xs text-destructive">{m.review_changes_requested()}</span
+								>
+							{:else if post.publication.review_state === 'approved'}
+								<span class="hidden shrink-0 text-xs text-muted-foreground sm:inline"
+									>{m.review_approved()}</span
+								>
+							{/if}
+							{@render destinationMarks(post, accountDestinations)}
+							{#if statusBadgeLabel(post)}
+								<span
+									class={`shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium ${statusClass(post)}`}
+								>
+									{statusBadgeLabel(post)}
+								</span>
+							{/if}
+							<time
+								datetime={publicationActivityOccurrence(post)}
+								class="hidden shrink-0 text-xs text-muted-foreground sm:inline"
+							>
+								{formatDateTime(publicationActivityOccurrence(post))}
+							</time>
+							{#if activeTab !== 'drafts'}
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									class="shrink-0"
+									onclick={() => goto(resolveAppPath(post.href))}
+									aria-label={post.status === 'published' || post.status === 'publishing'
+										? m.activity_view_post({ title: truncate(postText(post), 40) })
+										: m.activity_edit_post({ title: truncate(postText(post), 40) })}
+								>
+									{#if post.status === 'published' || post.status === 'publishing'}
+										<ThemeIcon role="eye" class="size-4" />
+									{:else}
+										<ThemeIcon role="edit" class="size-4" />
+									{/if}
+								</Button>
+							{/if}
+						</div>
+						{@render deliveryDetails(post, accountDestinations)}
+					{/if}
 				</article>
 			{/each}
 		</div>
@@ -1016,21 +1174,21 @@
 		loadingMessage={offlinePaused ? m.app_offline_title() : m.common_loading()}
 	>
 		{#snippet navigation()}
-			<div class="mb-3"><PublicationViewSwitch view={inventoryView} /></div>
-			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<TabsList
-					class="no-scrollbar w-full justify-start overflow-x-auto overflow-y-hidden sm:w-auto"
+					class="no-scrollbar w-full justify-start overflow-x-auto overflow-y-hidden lg:w-auto"
 				>
 					<TabsTrigger class="sm:px-3" value="scheduled">{m.activity_tab_scheduled()}</TabsTrigger>
 					<TabsTrigger class="sm:px-3" value="published">{m.activity_tab_published()}</TabsTrigger>
 					<TabsTrigger class="sm:px-3" value="failed">{m.activity_tab_failed()}</TabsTrigger>
 					<TabsTrigger class="sm:px-3" value="drafts">{m.activity_tab_drafts()}</TabsTrigger>
 				</TabsList>
-				<div class="flex w-full items-center gap-2 sm:w-auto">
+				<div class="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
+					<PublicationViewSwitch view={inventoryView} />
 					<ListSearch
 						bind:value={searchQuery}
 						label={m.engagement_search_posts()}
-						class="flex-1 sm:w-64"
+						class="min-w-0 flex-1 sm:w-56"
 					/>
 					<Button
 						variant="outline"
@@ -1109,6 +1267,17 @@
 		{/if}
 		{#if currentViewLoaded}
 			<TabsContent value="scheduled">
+				{#if scheduledPosts.length > 0}
+					<div class="mb-3 flex justify-end">
+						<a
+							href={resolveAppPath('/settings?tab=schedule')}
+							class="inline-flex min-h-11 items-center gap-1.5 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:min-h-9"
+						>
+							<ThemeIcon role="calendar" class="size-3.5" />
+							{m.settings_schedule()}
+						</a>
+					</div>
+				{/if}
 				{@render postList(
 					scheduledPosts,
 					m.activity_empty_scheduled_title(),

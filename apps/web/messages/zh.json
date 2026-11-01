@@ -1812,6 +1812,8 @@
 	"activity_destination_skipped": "未尝试",
 	"activity_delivery_details": "投递详情",
 	"activity_delivery_summary": "已发布 {published}，失败 {failed}",
+	"activity_delivery_published_count": "已发布 {count} 条",
+	"activity_delivery_failed_count": "失败 {count} 条",
 	"activity_failure_reason": "原因：{reason}",
 	"activity_retry_destination": "重试账号",
 	"activity_retry_queued": "OpenPost 将重试此账号。",

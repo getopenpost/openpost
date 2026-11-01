@@ -1848,6 +1848,8 @@
 	"activity_destination_skipped": "Non tentato",
 	"activity_delivery_details": "Dettagli di consegna",
 	"activity_delivery_summary": "{published} pubblicati, {failed} non riusciti",
+	"activity_delivery_published_count": "{count} pubblicati",
+	"activity_delivery_failed_count": "{count} non riusciti",
 	"activity_failure_reason": "Motivo: {reason}",
 	"activity_retry_destination": "Riprova l'account",
 	"activity_retry_queued": "OpenPost riproverà con questo account.",

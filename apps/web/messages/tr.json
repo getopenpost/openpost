@@ -1812,6 +1812,8 @@
 	"activity_destination_skipped": "Denenmedi",
 	"activity_delivery_details": "Teslimat ayrıntıları",
 	"activity_delivery_summary": "{published} yayınlandı, {failed} başarısız oldu",
+	"activity_delivery_published_count": "{count} yayınlandı",
+	"activity_delivery_failed_count": "{count} başarısız",
 	"activity_failure_reason": "Neden: {reason}",
 	"activity_retry_destination": "Hesabı yeniden dene",
 	"activity_retry_queued": "OpenPost bu hesabı yeniden deneyecek.",

@@ -1822,6 +1822,8 @@
 	"activity_destination_skipped": "Попыток не было",
 	"activity_delivery_details": "Сведения об отправке",
 	"activity_delivery_summary": "Опубликовано: {published}, с ошибками: {failed}",
+	"activity_delivery_published_count": "Опубликовано: {count}",
+	"activity_delivery_failed_count": "Не удалось: {count}",
 	"activity_failure_reason": "Причина: {reason}",
 	"activity_retry_destination": "Повторить для аккаунта",
 	"activity_retry_queued": "OpenPost повторит попытку для этого аккаунта.",

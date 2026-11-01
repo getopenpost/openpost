@@ -1812,6 +1812,8 @@
 	"activity_destination_skipped": "Não tentada",
 	"activity_delivery_details": "Detalhes da entrega",
 	"activity_delivery_summary": "{published} publicadas, {failed} falhadas",
+	"activity_delivery_published_count": "{count} publicadas",
+	"activity_delivery_failed_count": "{count} falhadas",
 	"activity_failure_reason": "Motivo: {reason}",
 	"activity_retry_destination": "Tentar novamente nesta conta",
 	"activity_retry_queued": "O OpenPost vai tentar novamente nesta conta.",

@@ -1812,6 +1812,8 @@
 	"activity_destination_skipped": "시도하지 않음",
 	"activity_delivery_details": "전달 정보",
 	"activity_delivery_summary": "발행 {published}개, 실패 {failed}개",
+	"activity_delivery_published_count": "{count}개 게시됨",
+	"activity_delivery_failed_count": "{count}개 실패",
 	"activity_failure_reason": "이유: {reason}",
 	"activity_retry_destination": "계정 다시 시도",
 	"activity_retry_queued": "OpenPost가 이 계정을 다시 시도합니다.",

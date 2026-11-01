@@ -6,7 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
-- Telegram videos now keep their aspect ratio. Publishing sends the analyzed width, height and duration with `sendVideo` and `sendMediaGroup`, because Telegram showed a video without them in a square frame.
+- Telegram videos now keep their aspect ratio. Publishing sends the analyzed width, height and duration with `sendVideo` and `sendMediaGroup`, because Telegram showed a video without them in a square frame. A video without analysis results is sent as before.
 
 ## [7.35.4] - 2026-10-30
 

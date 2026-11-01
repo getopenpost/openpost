@@ -97,6 +97,17 @@ func videoMetadata(media OutboundMedia) map[string]int64 {
 	return metadata
 }
 
+func mediaGroupItem(index int, media OutboundMedia, caption string) map[string]any {
+	item := map[string]any{"type": media.Type, "media": "attach://media_" + strconv.Itoa(index)}
+	if index == 0 && caption != "" {
+		item["caption"] = caption
+	}
+	for name, value := range videoMetadata(media) {
+		item[name] = value
+	}
+	return item
+}
+
 type OutboundRequest struct {
 	Kind                string
 	ChatID              string
@@ -184,14 +195,7 @@ func (api *HTTPBotAPI) Send(ctx context.Context, request OutboundRequest) ([]Mes
 	if request.Kind == "media_group" {
 		items := make([]map[string]any, 0, len(request.Media))
 		for index, media := range request.Media {
-			item := map[string]any{"type": media.Type, "media": "attach://media_" + strconv.Itoa(index)}
-			if index == 0 && request.Caption != "" {
-				item["caption"] = request.Caption
-			}
-			for name, value := range videoMetadata(media) {
-				item[name] = value
-			}
-			items = append(items, item)
+			items = append(items, mediaGroupItem(index, media, request.Caption))
 		}
 		encoded, err := json.Marshal(items)
 		if err != nil {

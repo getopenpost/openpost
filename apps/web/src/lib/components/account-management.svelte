@@ -362,6 +362,16 @@
 		connectionProviderEntries.filter((provider) => !providerNeedsAdminSetup(provider))
 	);
 	let setupRequiredProviders = $derived(connectionProviderEntries.filter(providerNeedsAdminSetup));
+	let providerSearch = $state('');
+	let visibleProviders = $derived.by(() => {
+		const query = providerSearch.trim().toLowerCase();
+		if (!query) return directProviders;
+		return directProviders.filter(
+			(provider) =>
+				providerTitle(provider).toLowerCase().includes(query) ||
+				providerDescription(provider).toLowerCase().includes(query)
+		);
+	});
 	let discordBotConfigured = $derived(
 		providerEntries
 			.find((provider) => provider.platform === 'discord')
@@ -1822,17 +1832,35 @@
 							<PageLoading layout="grid" label={m.common_loading()} items={4} />
 						{:else if providersReady && providerEntries.length > 0}
 							{#if directProviders.length > 0}
-								<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-									{#each directProviders as provider (providerKey(provider))}
-										<div
-											data-testid={`provider-card-${providerTestID(provider)}`}
-											class="group flex h-full min-h-28 flex-col rounded-lg border bg-card p-4 transition-all hover:shadow-sm {providerCanConnect(
-												provider
-											)
-												? ''
-												: 'bg-muted/20'}"
-										>
-											<div class="flex items-start gap-3">
+								<div class="mb-4 sm:max-w-72">
+									<Input
+										type="search"
+										value={providerSearch}
+										oninput={(event) => (providerSearch = event.currentTarget.value)}
+										placeholder={m.accounts_search_providers()}
+										aria-label={m.accounts_search_providers()}
+										class="h-11 sm:h-9"
+										data-testid="provider-search"
+									/>
+								</div>
+								{#if visibleProviders.length === 0}
+									<p class="py-6 text-center text-sm text-muted-foreground">
+										{m.accounts_no_providers_match()}
+									</p>
+								{:else}
+									<ul
+										class="divide-y overflow-hidden rounded-lg border bg-card"
+										data-testid="provider-list"
+									>
+										{#each visibleProviders as provider (providerKey(provider))}
+											<li
+												data-testid={`provider-card-${providerTestID(provider)}`}
+												class="flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-navigation-hover {providerCanConnect(
+													provider
+												)
+													? ''
+													: 'opacity-75'}"
+											>
 												<div
 													class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full {getPlatformColor(
 														provider.platform
@@ -1861,31 +1889,31 @@
 													{#if provider.status !== 'planned' && !providerReadiness(provider).quiet}
 														<p
 															data-testid={`provider-readiness-${providerTestID(provider)}`}
-															class="mt-1 text-xs leading-5 text-muted-foreground"
+															class="mt-0.5 text-xs leading-5 text-muted-foreground"
 														>
 															{providerReadinessMessage(provider)}
 														</p>
 													{/if}
 												</div>
-											</div>
-											<Button
-												variant="outline"
-												class="mt-3 min-h-11 self-end sm:min-h-9"
-												onclick={() => handleProviderAction(provider)}
-												size="sm"
-												disabled={!providerActionEnabled(provider)}
-											>
-												{#if connectingInstallationID === provider.installation_id}
-													<ProtectedIcon
-														icon="loading"
-														class="size-4 animate-spin motion-reduce:animate-none"
-													/>
-												{/if}
-												{providerActionLabel(provider)}
-											</Button>
-										</div>
-									{/each}
-								</div>
+												<Button
+													variant={providerCanConnect(provider) ? 'outline' : 'ghost'}
+													class="min-h-11 shrink-0 sm:min-h-9"
+													onclick={() => handleProviderAction(provider)}
+													size="sm"
+													disabled={!providerActionEnabled(provider)}
+												>
+													{#if connectingInstallationID === provider.installation_id}
+														<ProtectedIcon
+															icon="loading"
+															class="size-4 animate-spin motion-reduce:animate-none"
+														/>
+													{/if}
+													{providerActionLabel(provider)}
+												</Button>
+											</li>
+										{/each}
+									</ul>
+								{/if}
 							{/if}
 							{#if setupRequiredProviders.length > 0}
 								<details

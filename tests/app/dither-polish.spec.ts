@@ -1,7 +1,13 @@
 import { expectBalancedDitherButton } from "../helpers/dither-button";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import { authenticatePage, createPublication, createWorkspace, registerUser } from "./helpers";
+import {
+  assignBuiltInTheme,
+  authenticatePage,
+  createPublication,
+  createWorkspace,
+  registerUser,
+} from "./helpers";
 import { themeColorContrastRatio } from "@openpost/ui/themes/validation";
 
 // Keep the visual sweep on network assets. PWA lifecycle has its own browser suite.
@@ -14,6 +20,7 @@ test("Dither keeps the app's main routes usable on desktop and phones", async ({
   test.setTimeout(180_000);
   const { token } = await registerUser(request, `dither-polish-${randomUUID()}@example.com`);
   const workspace = await createWorkspace(request, token, "Dither studio");
+  await assignBuiltInTheme(request, token, workspace.id, "dither");
   await createPublication(request, token, workspace.id, "A small release with clearer controls.");
   await authenticatePage(page, token);
   const errors: string[] = [];
@@ -68,25 +75,6 @@ test("Dither keeps the app's main routes usable on desktop and phones", async ({
           ? page.getByRole("button", { name: "Start recording", exact: true })
           : page.getByRole("heading").first(),
       ).toBeVisible();
-      if (path === "/" && width === 1440) {
-        const newPost = page.getByTestId("sidebar-new-post");
-        const newPostMenu = page.getByTestId("sidebar-new-post-menu");
-        await expect
-          .poll(async () => {
-            const [main, menu] = await Promise.all([
-              newPost.boundingBox(),
-              newPostMenu.boundingBox(),
-            ]);
-            return Boolean(
-              main &&
-              menu &&
-              main.height > 0 &&
-              Math.round(main.height) === Math.round(menu.height) &&
-              Math.round(menu.width) === Math.round(menu.height),
-            );
-          })
-          .toBe(true);
-      }
       await page.evaluate(() => document.fonts.ready);
       if (path === "/quick-cut") {
         await expect(

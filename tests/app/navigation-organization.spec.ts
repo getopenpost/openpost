@@ -14,16 +14,15 @@ test("navigation separates work, workspace management, and personal preferences"
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/publications");
   const workNavigation = page.getByTestId("sidebar-workspace-navigation");
-  for (const name of ["Posts", "Inbox", "Analytics", "Media"]) {
+  for (const name of ["Home", "Posts", "Inbox", "Analytics"]) {
     await expect(workNavigation.getByRole("button", { name, exact: true })).toBeVisible();
   }
-  await expect(page.getByTestId("sidebar-new-post-menu")).toHaveAccessibleName("Editors");
+  const makeNavigation = page.getByTestId("sidebar-make-navigation");
+  for (const name of ["Ideas", "Studio", "Media", "Automations"]) {
+    await expect(makeNavigation.getByRole("button", { name, exact: true })).toBeVisible();
+  }
+  await expect(page.getByTestId("sidebar-new-post")).toHaveAccessibleName("New post");
   await page.screenshot({ path: testInfo.outputPath("navigation-before.png") });
-  await page.getByTestId("sidebar-new-post-menu").click();
-  await expect(page.getByRole("menuitem", { name: "New image", exact: true })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "New video", exact: true })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("creation-menu.png") });
-  await page.keyboard.press("Escape");
   await page.getByTestId("profile-menu-trigger").click();
   await expect(page.getByRole("menuitem", { name: "Settings", exact: true })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Profile & security", exact: true })).toHaveCount(
@@ -64,7 +63,7 @@ test("navigation separates work, workspace management, and personal preferences"
   const collapse = page.getByRole("button", { name: "Toggle sidebar", exact: true });
   await collapse.focus();
   await page.keyboard.press("Enter");
-  for (const name of ["Posts", "Inbox", "Analytics", "Media"]) {
+  for (const name of ["Home", "Posts", "Inbox", "Analytics", "Media"]) {
     await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
   }
   await page.getByRole("button", { name: "Media", exact: true }).focus();
@@ -128,10 +127,12 @@ for (const width of [1440, 1280, 390, 320]) {
       await expect(dialog).not.toBeVisible();
       if (width >= 768) {
         const workNavigation = page.getByTestId("sidebar-workspace-navigation");
-        for (const name of ["Posts", "Inbox", "Analytics", "Media"]) {
+        for (const name of ["Home", "Posts", "Inbox", "Analytics"]) {
           await expect(workNavigation.getByRole("button", { name, exact: true })).toBeVisible();
         }
-        const media = workNavigation.getByRole("button", { name: "Media", exact: true });
+        const media = page
+          .getByTestId("sidebar-make-navigation")
+          .getByRole("button", { name: "Media", exact: true });
         await expect(media).toBeVisible();
         const idle = await media.evaluate((element) => getComputedStyle(element).backgroundColor);
         await media.hover();
@@ -178,9 +179,11 @@ test("mobile menus preserve keyboard focus and expose editor creation", async ({
   await page.keyboard.press("Enter");
   await expect(profile).toBeFocused();
   await page.keyboard.press("Escape");
+  await nav.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Studio", exact: true }).click();
+  await expect(page).toHaveURL(/\/studio$/);
   await nav.getByRole("button", { name: "New", exact: true }).click();
-  await page.getByRole("menuitem", { name: "New image", exact: true }).click();
-  await expect(page).toHaveURL(/\/image-editor$/);
+  await expect(page).toHaveURL(/\/$/);
 });
 
 for (const width of [390, 1440]) {
@@ -255,6 +258,14 @@ test("short desktop keeps navigation and contextual draft resume reachable", asy
   expect(response.ok(), await response.text()).toBeTruthy();
   await authenticatePage(page, auth.token);
   await page.setViewportSize({ width: 1280, height: 600 });
+  await page.goto("/publications");
+  await page.getByTestId("profile-menu-trigger").click();
+  await page.getByRole("menuitem", { name: "Preferences", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Preferences", exact: true })
+    .getByRole("checkbox", { name: "Show drafts in the sidebar", exact: true })
+    .check();
+  await page.keyboard.press("Escape");
   await page.goto("/");
   const planner = page.getByTestId("desktop-sidebar-planner");
   const viewAll = planner.getByRole("button", { name: "View all", exact: true });
@@ -270,8 +281,7 @@ test("short desktop keeps navigation and contextual draft resume reachable", asy
   expect(draftBounds!.y + draftBounds!.height).toBeLessThanOrEqual(
     contentBounds!.y + contentBounds!.height,
   );
-  await expect(page.getByTestId("sidebar-calendar-month")).toBeVisible();
-  for (const name of ["Posts", "Inbox", "Analytics", "Media"])
+  for (const name of ["Home", "Posts", "Inbox", "Analytics"])
     await expect(
       page.getByTestId("sidebar-workspace-navigation").getByRole("button", { name, exact: true }),
     ).toBeInViewport();
@@ -285,145 +295,56 @@ test("short desktop keeps navigation and contextual draft resume reachable", asy
   await expect(planner).toBeVisible();
 });
 
-test("sidebar calendar is optional and remembers its visibility", async ({
-  page,
-  request,
-  browser,
-}, info) => {
-  const auth = await registerUser(request, `sidebar-calendar-${randomUUID()}@example.com`);
-  await createWorkspace(request, auth.token, "Calendar preference");
+test("drafts fill the sidebar on every workspace page", async ({ page, request }, testInfo) => {
+  const auth = await registerUser(request, `nav-drafts-${randomUUID()}@example.com`);
+  const workspace = await createWorkspace(request, auth.token, "Draft navigation");
+  for (let index = 1; index <= 12; index++) {
+    await createPublication(request, auth.token, workspace.id, `Sidebar draft ${index}`);
+  }
   await authenticatePage(page, auth.token);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/publications?tab=drafts");
-  const calendar = page.getByTestId("sidebar-rolling-calendar");
-  await expect(calendar).toBeVisible();
-  const openPreferences = async () => {
-    await page.getByTestId("profile-menu-trigger").click();
-    await page.getByRole("menuitem", { name: "Preferences", exact: true }).click();
-  };
-  await openPreferences();
-  const toggle = page.getByRole("checkbox", { name: "Sidebar calendar", exact: true });
-  await expect(toggle).toBeChecked();
-  await toggle.uncheck();
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.goto("/publications");
+  await expect(page.getByTestId("sidebar-draft-list")).toHaveCount(0);
+  await page.getByTestId("profile-menu-trigger").click();
+  await page.getByRole("menuitem", { name: "Preferences", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Preferences", exact: true });
+  const preference = dialog.getByRole("checkbox", { name: "Show drafts in the sidebar" });
+  await expect(preference).not.toBeChecked();
+  await preference.click();
   await page.keyboard.press("Escape");
-  await expect(calendar).toHaveCount(0);
   await page.reload();
-  await expect(calendar).toHaveCount(0);
-  await openPreferences();
-  await toggle.check();
-  await page.keyboard.press("Escape");
-  await expect(calendar).toBeVisible();
-  await page.reload();
-  await expect(calendar).toBeVisible();
-  const touch = await browser.newContext({
-    hasTouch: true,
-    viewport: { width: 1440, height: 900 },
-    storageState: await page.context().storageState(),
-  });
-  try {
-    const touchPage = await touch.newPage();
-    await touchPage.goto(page.url());
-    await expect(touchPage.getByTestId("sidebar-rolling-calendar")).toBeHidden();
-    const shortcut = touchPage
-      .getByRole("region", { name: "Calendar", exact: true })
-      .getByRole("link", { name: "Calendar", exact: true });
-    await expect(shortcut).toBeVisible();
-    expect((await shortcut.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    await shortcut.click();
-    await expect(touchPage).toHaveURL(/\/calendar$/);
-  } finally {
-    await touch.close();
+  const drafts = page.getByTestId("sidebar-draft-list");
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  for (const route of ["/", "/publications", "/inbox/engagement", "/analytics", "/media"]) {
+    await page.goto(route);
+    await expect(drafts.getByRole("link")).toHaveCount(12);
+    // The planner sections own the horizontal inset; the content region must not pad them again.
+    const draftsInset = await page.locator('[data-sidebar="content"]').evaluate((content) => {
+      const bounds = content.getBoundingClientRect();
+      const link = content.querySelector('[data-testid="sidebar-draft-list"] a');
+      return link ? Math.round(link.getBoundingClientRect().x - bounds.x) : -1;
+    });
+    expect(draftsInset).toBe(8);
+    const visibleCount = await drafts.getByRole("link").evaluateAll((links) => {
+      const viewport = links[0].closest("ul")!.getBoundingClientRect();
+      return links.filter((link) => {
+        const bounds = link.getBoundingClientRect();
+        return bounds.top >= viewport.top && bounds.bottom <= viewport.bottom;
+      }).length;
+    });
+    expect(visibleCount).toBeGreaterThan(3);
   }
-  for (const width of [1440, 390, 320]) {
-    for (const scheme of ["light", "dark"] as const) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      if (width === 1440) await expect(calendar).toBeVisible();
-      else await expect(calendar).toHaveCount(0);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-        false,
-      );
-      await page.screenshot({
-        path: info.outputPath(`sidebar-calendar-${width}-${scheme}.png`),
-        animations: "disabled",
-      });
-    }
-  }
+  await page.screenshot({ path: testInfo.outputPath("sidebar-drafts.png") });
   await page.setViewportSize({ width: 1280, height: 600 });
-  for (const name of ["Posts", "Inbox", "Analytics", "Media"])
-    await expect(
-      page.getByTestId("sidebar-workspace-navigation").getByRole("button", { name, exact: true }),
-    ).toBeInViewport();
-  const today = calendar.locator('button[aria-current="date"]');
-  await today.focus();
-  await page.keyboard.press("ArrowRight");
-  await page.keyboard.press("Enter");
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await openPreferences();
-  await toggle.uncheck();
-  await page.keyboard.press("Escape");
-  await expect(calendar).toHaveCount(0);
-  await page.reload();
-  await expect(calendar).toHaveCount(0);
+  await drafts.getByRole("link").last().scrollIntoViewIfNeeded();
+  await expect(drafts.getByRole("link").last()).toBeInViewport();
+  const lastDraft = await drafts.getByRole("link").last().boundingBox();
+  const sidebarContent = await page.locator('[data-sidebar="content"]').boundingBox();
+  expect(lastDraft!.y).toBeGreaterThanOrEqual(sidebarContent!.y);
+  expect(lastDraft!.y + lastDraft!.height).toBeLessThanOrEqual(
+    sidebarContent!.y + sidebarContent!.height,
+  );
+  await expect(page.getByRole("button", { name: "Media", exact: true })).toBeInViewport();
+  expect(errors).toEqual([]);
 });
-
-for (const calendar of [true, false]) {
-  test(`drafts fill the sidebar on every workspace page with calendar ${calendar}`, async ({
-    page,
-    request,
-  }, testInfo) => {
-    const auth = await registerUser(request, `nav-drafts-${randomUUID()}@example.com`);
-    const workspace = await createWorkspace(request, auth.token, "Draft navigation");
-    for (let index = 1; index <= 12; index++) {
-      await createPublication(request, auth.token, workspace.id, `Sidebar draft ${index}`);
-    }
-    await authenticatePage(page, auth.token);
-    await page.setViewportSize({ width: 1440, height: 1100 });
-    await page.goto("/publications");
-    await expect(page.getByTestId("sidebar-draft-list").getByRole("link")).toHaveCount(12);
-    await page.getByTestId("profile-menu-trigger").click();
-    await page.getByRole("menuitem", { name: "Preferences", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "Preferences", exact: true });
-    const preference = dialog.getByRole("checkbox", { name: "Sidebar calendar" });
-    await expect(preference).toBeChecked();
-    if (!calendar) await preference.click();
-    await page.keyboard.press("Escape");
-    await page.reload();
-    const drafts = page.getByTestId("sidebar-draft-list");
-    const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(error.message));
-    for (const route of ["/", "/publications", "/inbox/engagement", "/analytics", "/media"]) {
-      await page.goto(route);
-      await expect(page.getByTestId("sidebar-rolling-calendar")).toHaveCount(calendar ? 1 : 0);
-      await expect(drafts.getByRole("link")).toHaveCount(12);
-      // The planner sections own the horizontal inset; the content region must not pad them again.
-      const draftsInset = await page.locator('[data-sidebar="content"]').evaluate((content) => {
-        const bounds = content.getBoundingClientRect();
-        const link = content.querySelector('[data-testid="sidebar-draft-list"] a');
-        return link ? Math.round(link.getBoundingClientRect().x - bounds.x) : -1;
-      });
-      expect(draftsInset).toBe(8);
-      const visibleCount = await drafts.getByRole("link").evaluateAll((links) => {
-        const viewport = links[0].closest("ul")!.getBoundingClientRect();
-        return links.filter((link) => {
-          const bounds = link.getBoundingClientRect();
-          return bounds.top >= viewport.top && bounds.bottom <= viewport.bottom;
-        }).length;
-      });
-      expect(visibleCount).toBeGreaterThan(3);
-    }
-    await page.screenshot({ path: testInfo.outputPath(`sidebar-calendar-${calendar}.png`) });
-    await page.setViewportSize({ width: 1280, height: 600 });
-    await drafts.getByRole("link").last().scrollIntoViewIfNeeded();
-    await expect(drafts.getByRole("link").last()).toBeInViewport();
-    const lastDraft = await drafts.getByRole("link").last().boundingBox();
-    const sidebarContent = await page.locator('[data-sidebar="content"]').boundingBox();
-    expect(lastDraft!.y).toBeGreaterThanOrEqual(sidebarContent!.y);
-    expect(lastDraft!.y + lastDraft!.height).toBeLessThanOrEqual(
-      sidebarContent!.y + sidebarContent!.height,
-    );
-    await expect(page.getByRole("button", { name: "Media", exact: true })).toBeInViewport();
-    expect(errors).toEqual([]);
-  });
-}

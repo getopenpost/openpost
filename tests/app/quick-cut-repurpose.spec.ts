@@ -142,6 +142,7 @@ test("Repurpose reviews real source clips and creates independent editable proje
   await expect(
     page.getByRole("button", { name: "Source 1 · study-sos-demo.mp4", exact: true }),
   ).toBeVisible({ timeout: 90_000 });
+  await page.getByRole("button", { name: "Cleanup", exact: true }).click();
   await expect(page.getByRole("button", { name: "Find clips", exact: true })).toBeEnabled();
   await page.screenshot({ path: testInfo.outputPath("cuts-before-review.png") });
   await page.getByRole("button", { name: "Find clips", exact: true }).click();

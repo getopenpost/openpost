@@ -22,14 +22,11 @@ test("signed-in Image Editor defaults new projects to workspace storage", async 
 
   await page.goto("/image-editor");
 
-  const storage = page.getByRole("group", { name: "Save new projects to", exact: true });
-  await expect(
-    storage.getByRole("button", { name: "OpenPost cloud", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(storage.getByRole("button", { name: "This device", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "false",
-  );
+  const storage = page.getByRole("button", { name: "Save new projects to", exact: true });
+  await expect(storage).toContainText("OpenPost cloud");
+  await storage.click();
+  await page.getByRole("option", { name: "This device", exact: true }).click();
+  await expect(storage).toContainText("This device");
 });
 
 test("Video Editor creates after folder choice and recovers from cancellation", async ({
@@ -61,6 +58,7 @@ test("Video Editor creates after folder choice and recovers from cancellation", 
   await page.getByRole("button", { name: /Shorts, TikTok and Reels/ }).click();
   await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/);
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
+  await page.locator("[data-project-details]").click();
   await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue("Untitled project");
   await page.reload();
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();

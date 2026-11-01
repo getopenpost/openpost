@@ -48,7 +48,7 @@ test("Edit fields preview preserves escaping and whole-value types through execu
   await expect.poll(async () => JSON.parse(await preview.innerText())).toEqual(expected);
   await page.getByRole("button", { name: "Test node", exact: true }).click();
   const output = page.getByRole("region", { name: "Output", exact: true });
-  await output.getByRole("button", { name: "JSON", exact: true }).click();
+  await output.getByRole("tab", { name: "JSON", exact: true }).click();
   await expect
     .poll(async () => JSON.parse(await output.locator("pre").innerText()))
     .toEqual(expected);
@@ -57,7 +57,7 @@ test("Edit fields preview preserves escaping and whole-value types through execu
       await page.setViewportSize({ width, height: 844 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);
-      await page.getByRole("button", { name: "Configure", exact: true }).click();
+      await page.getByRole("tab", { name: "Configure", exact: true }).click();
       await expect.poll(async () => JSON.parse(await preview.innerText())).toEqual(expected);
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))

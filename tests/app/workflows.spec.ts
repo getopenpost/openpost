@@ -123,7 +123,7 @@ test("workflow editor saves, previews without writes, and approves a native draf
   });
   expect(publications.ok()).toBeTruthy();
   expect(await publications.json()).toEqual([]);
-  await page.getByRole("button", { name: "Editor", exact: true }).click();
+  await page.getByRole("tab", { name: "Editor", exact: true }).click();
   await page.getByRole("button", { name: "Test data", exact: true }).click();
   await page.getByText("Live", { exact: true }).click();
   await page.getByRole("button", { name: "Run live", exact: true }).click();
@@ -350,7 +350,7 @@ test.describe("workflow touch controls", () => {
     await expect(zoom).toBeVisible();
     expect((await zoom.boundingBox())?.height).toBeGreaterThanOrEqual(44);
     await addStep(page, "Create draft");
-    await page.getByRole("button", { name: "Output", exact: true }).click();
+    await page.getByRole("tab", { name: "Output", exact: true }).click();
     await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.getByRole("button", { name: "More actions", exact: true }).click();
@@ -445,7 +445,7 @@ test("node testing preserves structured variables and leaves later steps untouch
   await expect(output.getByText("First article", { exact: true })).toBeVisible({
     timeout: 30000,
   });
-  await output.getByRole("button", { name: "Table", exact: true }).click();
+  await output.getByRole("tab", { name: "Table", exact: true }).click();
   await expect(output.getByRole("cell", { name: "First article", exact: true })).toBeVisible();
   await expect(output.getByRole("cell", { name: "Second article", exact: true })).toBeVisible();
   for (const [name, expected] of [
@@ -682,7 +682,7 @@ test("canvas context actions, organization, and recipes preserve an editable wor
   const picker = page.getByRole("complementary", {
     name: "What happens next?",
   });
-  await picker.getByRole("button", { name: "Recipes", exact: true }).click();
+  await picker.getByRole("tab", { name: "Recipes", exact: true }).click();
   await picker.getByRole("button", { name: /^Write a draft with AI/ }).click();
   await expect(page.getByLabel("System message", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Steps", exact: true })).toHaveCount(0);

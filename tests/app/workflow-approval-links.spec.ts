@@ -125,7 +125,7 @@ test("approval links select their workspace before loading a run, including same
   await expect(page.locator("summary").filter({ hasText: "Second approval marker" })).toHaveCount(
     0,
   );
-  await page.getByRole("button", { name: "Runs", exact: true }).first().click();
+  await page.getByRole("tab", { name: "Runs", exact: true }).first().click();
   await expect(page.locator(`#workflow-run-${first.run.id}`)).toBeVisible();
   // Opening the same notification again must apply its destination again.
   await followApprovalLink(second.href);

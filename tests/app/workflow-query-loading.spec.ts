@@ -49,7 +49,7 @@ test("workflow tabs read only their data and distinguish failed history from an 
       json: { detail: "History temporarily unavailable" },
     });
   });
-  await page.getByRole("button", { name: "Runs", exact: true }).click();
+  await page.getByRole("tab", { name: "Runs", exact: true }).click();
   await expect(page.getByTestId("page-loading")).toBeVisible();
   await expect(page.getByText("No runs yet", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Start from a template", exact: true }).click();
@@ -57,7 +57,7 @@ test("workflow tabs read only their data and distinguish failed history from an 
     page.getByRole("button", { name: "Use template", exact: true }).first(),
   ).toBeVisible();
   await expect(page.getByTestId("page-loading")).toHaveCount(0);
-  await page.getByRole("button", { name: "Runs", exact: true }).click();
+  await page.getByRole("tab", { name: "Runs", exact: true }).click();
   release();
   await expect(page.getByRole("alert")).toContainText("History temporarily unavailable");
   await expect(page.getByText("No runs yet", { exact: true })).toHaveCount(0);
@@ -69,14 +69,14 @@ test("workflow tabs read only their data and distinguish failed history from an 
     path.endsWith("workflow-run-summaries"),
   ).length;
   await page.goto(`/workflows/${workflow.id}`);
-  await expect(page.getByRole("button", { name: "Runs", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Runs", exact: true })).toBeVisible();
   expect(unrelatedReads.filter((path) => path.endsWith("workflow-run-summaries"))).toHaveLength(
     readsBeforeEditor,
   );
   await page.route("**/api/v1/workflow-run-summaries?**", async (route) => {
     await route.fulfill({ status: 503, json: { detail: "Editor history unavailable" } });
   });
-  await page.getByRole("button", { name: "Runs", exact: true }).click();
+  await page.getByRole("tab", { name: "Runs", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Editor history unavailable");
   await expect(
     page.getByText("Preview a workflow to inspect its steps without making changes.", {

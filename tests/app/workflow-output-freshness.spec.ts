@@ -55,7 +55,7 @@ for (const mode of ["test", "preview"] as const) {
       await page.getByRole("button", { name: /^Audit parse / }).click();
     }
     async function openDraftNode() {
-      await page.getByRole("button", { name: "Editor", exact: true }).click();
+      await page.getByRole("tab", { name: "Editor", exact: true }).click();
       await page.getByRole("button", { name: /^Audit parse / }).click();
     }
     async function execute() {
@@ -73,7 +73,7 @@ for (const mode of ["test", "preview"] as const) {
     }
     const output = page.getByRole("region", { name: "Output", exact: true });
     async function checkOutput(value: number) {
-      await output.getByRole("button", { name: "JSON", exact: true }).click();
+      await output.getByRole("tab", { name: "JSON", exact: true }).click();
       await expect
         .poll(async () => JSON.parse(await output.locator("pre").innerText()))
         .toEqual({ data: { value } });
@@ -120,7 +120,7 @@ for (const mode of ["test", "preview"] as const) {
         await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
         if (colorScheme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
         else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
-        if (width < 1024) await page.getByRole("button", { name: "Output", exact: true }).click();
+        if (width < 1024) await page.getByRole("tab", { name: "Output", exact: true }).click();
         await expect(output.getByText(warning, { exact: true })).toBeVisible();
         await page.screenshot({
           path: testInfo.outputPath(`outdated-${width}-${colorScheme}.png`),
@@ -128,7 +128,7 @@ for (const mode of ["test", "preview"] as const) {
       }
     }
     await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-    await page.getByRole("button", { name: "Runs", exact: true }).click();
+    await page.getByRole("tab", { name: "Runs", exact: true }).click();
     await page
       .locator('.svelte-flow__node[data-id="parse"]')
       .getByRole("button", { name: /^Audit parse / })
@@ -143,7 +143,7 @@ for (const mode of ["test", "preview"] as const) {
     await expect(output.getByText(warning, { exact: true })).toHaveCount(0);
     expect(await (await request.get(runURL, { headers })).json()).toEqual(original);
     await page.reload();
-    await page.getByRole("button", { name: "Runs", exact: true }).click();
+    await page.getByRole("tab", { name: "Runs", exact: true }).click();
     const historicCard = page.getByRole("button", { name: /^Completed/ }).last();
     for (const width of [320, 390, 1280]) {
       for (const colorScheme of ["light", "dark"] as const) {

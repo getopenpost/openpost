@@ -73,13 +73,13 @@ test("failed HTTP JSON output exposes safe metadata instead of an empty-output i
       await page.reload();
       await page
         .locator("[data-workflow-editor] > header")
-        .getByRole("button", { name: "Runs", exact: true })
+        .getByRole("tab", { name: "Runs", exact: true })
         .click();
       await page.locator("aside button").filter({ hasText: "Failed" }).click();
       const node = page.getByRole("button", { name: /^Audit JSON diagnosis / });
       await node.focus();
       await node.press("Enter");
-      if (width < 1024) await page.getByRole("button", { name: "Output", exact: true }).click();
+      if (width < 1024) await page.getByRole("tab", { name: "Output", exact: true }).click();
       const output = page.getByRole("region", { name: "Output", exact: true });
       await expect(output).toContainText(message);
       await expect(output.getByText("502", { exact: true })).toBeVisible();

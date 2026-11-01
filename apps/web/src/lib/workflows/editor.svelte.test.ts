@@ -509,10 +509,18 @@ it.each(
 				)
 			)
 			.toBeVisible();
-		await expect.element(screen.getByText(/^Parse sample\s+Completed$/)).toBeVisible();
-		const waiting = screen.getByText(/^Wait\s+Waiting$/);
-		await expect.element(waiting).toBeVisible();
-		waiting.element().focus();
+		const stepSummaries = () =>
+			Array.from(document.querySelectorAll('summary'), (summary) =>
+				summary.textContent?.replace(/\s+/g, ' ').trim()
+			);
+		await vi.waitFor(() =>
+			expect(stepSummaries()).toEqual(
+				expect.arrayContaining(['Parse sample Completed', 'Wait Waiting'])
+			)
+		);
+		Array.from(document.querySelectorAll('summary'))
+			.find((summary) => summary.textContent?.replace(/\s+/g, ' ').trim() === 'Wait Waiting')
+			?.focus();
 		await userEvent.keyboard('{Enter}');
 		await expect.element(screen.getByText(/"minutes": 1/)).toBeVisible();
 		await expect
@@ -638,7 +646,7 @@ it.each(['test', 'preview'] as const)(
 			await screen.getByRole('button', { name: /^Parse sample / }).click();
 		}
 		const output = page.getByRole('region', { name: 'Output', exact: true });
-		await output.getByRole('button', { name: 'JSON', exact: true }).click();
+		await output.getByRole('tab', { name: 'JSON', exact: true }).click();
 		expect(JSON.parse(output.element().querySelector('pre')!.textContent!)).toEqual({
 			data: { value: 1 }
 		});

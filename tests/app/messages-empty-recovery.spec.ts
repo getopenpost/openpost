@@ -142,8 +142,9 @@ test("Messages distinguishes archived filters from account setup and clears them
   ).toBeVisible();
   await page.getByRole("link", { name: "Open account details", exact: true }).focus();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/settings\?tab=accounts$/);
-  await expect(page.getByRole("heading", { name: "Social accounts", exact: true })).toBeVisible();
+  // Accounts is its own destination now; the old settings link redirects there.
+  await expect(page).toHaveURL(/\/accounts$/);
+  await expect(page.getByRole("heading", { name: "Accounts", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: /@Audit messages.*Bluesky/ })).toBeVisible();
   const featuresAfter = await request.get(featuresURL, { headers });
   expect(featuresAfter.ok()).toBe(true);

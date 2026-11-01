@@ -238,14 +238,15 @@
 					{m.workflows_connection_basic_help()}
 				</p>{/if}
 		</div>
-		<div class="flex gap-2">
-			<Button type="submit" disabled={busy}>{m.workflows_save_connection()}</Button><Button
-				variant="ghost"
+		<Dialog.Footer>
+			<Button
+				variant="outline"
 				onclick={() => {
 					adding = false;
 					token = '';
 				}}>{m.common_cancel()}</Button
 			>
-		</div>
+			<Button type="submit" disabled={busy}>{m.workflows_save_connection()}</Button>
+		</Dialog.Footer>
 	</form>
 {/snippet}

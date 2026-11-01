@@ -50,3 +50,55 @@ func TestAnalyzeStreamingMicrophoneWebM(t *testing.T) {
 		t.Fatalf("microphone metadata: %+v", result)
 	}
 }
+
+func TestAnalyzeAnamorphicVideoDisplayDimensions(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+	filename := filepath.Join(t.TempDir(), "anamorphic.mp4")
+	// PAL 4:3 video stores 720x576 samples, with each pixel 16:15 as wide
+	// as it is tall. Its square-pixel display dimensions are 768x576.
+	output, err := exec.CommandContext(ctx, "ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=720x576:r=25", "-vf", "setsar=16/15", "-t", "1", "-c:v", "libx264", filename).CombinedOutput()
+	if err != nil {
+		t.Fatalf("create anamorphic video: %v: %s", err, output)
+	}
+	rotated := filepath.Join(t.TempDir(), "rotated.mp4")
+	output, err = exec.CommandContext(ctx, "ffmpeg", "-v", "error", "-display_rotation:v:0", "90", "-i", filename, "-c", "copy", rotated).CombinedOutput()
+	if err != nil {
+		t.Fatalf("rotate anamorphic video: %v: %s", err, output)
+	}
+	for _, tc := range []struct {
+		name          string
+		filename      string
+		width, height int
+		aspect        string
+	}{
+		{"landscape", filename, 768, 576, "4:3"},
+		{"rotated portrait", rotated, 576, 768, "3:4"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := (FFmpegAnalyzer{}).Analyze(ctx, Input{Filename: tc.filename, MIMEType: "video/mp4"})
+			if err != nil {
+				t.Fatalf("analyze anamorphic video: %v", err)
+			}
+			if result.Width != tc.width || result.Height != tc.height || result.AspectRatio != tc.aspect {
+				t.Fatalf("display geometry = %dx%d (%s), want %dx%d (%s)", result.Width, result.Height, result.AspectRatio, tc.width, tc.height, tc.aspect)
+			}
+		})
+	}
+}
+
+func TestDisplayDimensionsWithUnknownOrInvalidSampleAspectRatio(t *testing.T) {
+	for _, ratio := range []string{"", "N/A", "0:1", "1:0", "-1:1", "1:2:3", "invalid:1", "1:4294967296", "4294967295:1"} {
+		t.Run(ratio, func(t *testing.T) {
+			stream := probeStream{Width: 720, Height: 576, SampleAspectRatio: ratio}
+			// An excessive but parseable ratio must not overflow int conversion.
+			if ratio == "4294967295:1" {
+				stream.Width = int(^uint(0) >> 1)
+			}
+			width, height := displayDimensions(&stream)
+			if width != stream.Width || height != stream.Height {
+				t.Fatalf("display dimensions = %dx%d, want encoded %dx%d", width, height, stream.Width, stream.Height)
+			}
+		})
+	}
+}

@@ -137,6 +137,7 @@
 	"analytics_measured_count": "{count} mesurés",
 	"analytics_account_coverage": "{measured} comptes mesurés sur {total}",
 	"analytics_destination_coverage": "{measured} destinations mesurées sur {total}",
+	"analytics_period_lead": "Affichage de {range} sur {accounts} comptes et {destinations} destinations.",
 	"analytics_previous_period": " par rapport à la période précédente",
 	"analytics_unavailable_metrics": "Indisponibles pour cette sélection : {metrics}",
 	"analytics_insights_title": "Points clés mesurés",

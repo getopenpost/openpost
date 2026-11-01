@@ -137,6 +137,7 @@
 	"analytics_measured_count": "{count} ölçüldü",
 	"analytics_account_coverage": "{total} hesaptan {measured} ölçüldü",
 	"analytics_destination_coverage": "{total} hedeften {measured} ölçüldü",
+	"analytics_period_lead": "{range} için {accounts} hesap ve {destinations} hedef gösteriliyor.",
 	"analytics_previous_period": " önceki döneme göre",
 	"analytics_unavailable_metrics": "Bu seçim için kullanılamıyor: {metrics}",
 	"analytics_insights_title": "Ölçülen içgörüler",

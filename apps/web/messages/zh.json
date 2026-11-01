@@ -137,6 +137,7 @@
 	"analytics_measured_count": "已测量 {count} 个",
 	"analytics_account_coverage": "共 {total} 个账号，已测量 {measured} 个",
 	"analytics_destination_coverage": "共 {total} 个发布目标，已测量 {measured} 个",
+	"analytics_period_lead": "显示 {range}，覆盖 {accounts} 个账户和 {destinations} 个目的地。",
 	"analytics_previous_period": "与上一周期对比",
 	"analytics_unavailable_metrics": "当前选项不可用：{metrics}",
 	"analytics_insights_title": "实测洞察",

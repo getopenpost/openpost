@@ -137,6 +137,7 @@
 	"analytics_measured_count": "{count}件を測定済み",
 	"analytics_account_coverage": "{total}件中{measured}件のアカウントを測定済み",
 	"analytics_destination_coverage": "{total}件中{measured}件の宛先を測定済み",
+	"analytics_period_lead": "{accounts} 個のアカウントと {destinations} 個の宛先における {range} を表示しています。",
 	"analytics_previous_period": "（前期間比）",
 	"analytics_unavailable_metrics": "この選択では利用できません: {metrics}",
 	"analytics_insights_title": "測定済みインサイト",

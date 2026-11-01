@@ -137,6 +137,7 @@
 	"analytics_measured_count": "{count}개 측정됨",
 	"analytics_account_coverage": "측정된 계정 {total}개 중 {measured}개",
 	"analytics_destination_coverage": "측정된 도착지 {total}개 중 {measured}개",
+	"analytics_period_lead": "{accounts}개 계정과 {destinations}개 대상에 대한 {range}을(를) 표시합니다.",
 	"analytics_previous_period": " 이전 기간 대비",
 	"analytics_unavailable_metrics": "이 선택에서는 사용할 수 없음: {metrics}",
 	"analytics_insights_title": "측정된 인사이트",

@@ -111,6 +111,7 @@
 	"analytics_measured_count": "Измерено: {count}",
 	"analytics_account_coverage": "Измерено аккаунтов: {measured} из {total}",
 	"analytics_destination_coverage": "Измерено площадок: {measured} из {total}",
+	"analytics_period_lead": "Показаны данные за {range} по {accounts} аккаунтам и {destinations} направлениям.",
 	"analytics_previous_period": " по сравнению с прошлым периодом",
 	"analytics_unavailable_metrics": "Недоступно для этой выборки: {metrics}",
 	"analytics_insights_title": "Выводы по измерениям",

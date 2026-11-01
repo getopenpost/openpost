@@ -137,6 +137,7 @@
 	"analytics_measured_count": "{count} medidas",
 	"analytics_account_coverage": "{measured} de {total} cuentas medidas",
 	"analytics_destination_coverage": "{measured} de {total} destinos medidos",
+	"analytics_period_lead": "Mostrando {range} en {accounts} cuentas y {destinations} destinos.",
 	"analytics_previous_period": " vs periodo anterior",
 	"analytics_unavailable_metrics": "No disponibles para esta selección: {metrics}",
 	"analytics_insights_title": "Métricas medidas",

@@ -7,7 +7,7 @@ it('distinguishes unavailable metrics from measured zero and formats updated tot
 		value: null,
 		locale: 'en-US'
 	});
-	await expect.element(screen.getByText('—', { exact: true })).toBeVisible();
+	await expect.element(screen.getByText('-', { exact: true })).toBeVisible();
 	await screen.rerender({ value: 0, locale: 'en-US' });
 	await expect.element(screen.getByRole('img', { name: '0', exact: true })).toBeVisible();
 	await screen.rerender({ value: 1240, locale: 'en-US' });
@@ -15,5 +15,5 @@ it('distinguishes unavailable metrics from measured zero and formats updated tot
 	await screen.rerender({ value: 1234567, locale: 'pt-PT' });
 	await expect.element(screen.getByRole('img', { name: '1,2 M', exact: true })).toBeVisible();
 	await screen.rerender({ value: null, locale: 'pt-PT' });
-	await expect.element(screen.getByText('—', { exact: true })).toBeVisible();
+	await expect.element(screen.getByText('-', { exact: true })).toBeVisible();
 });

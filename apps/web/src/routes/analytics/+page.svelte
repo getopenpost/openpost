@@ -559,13 +559,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	}
 
 	function metricValue(metric: MetricSummary) {
-		return metric.measured > 0 ? formatNumber(metric.value) : '—';
-	}
-
-	function coverageLabel(measured: number, denominator: number, unit: 'account' | 'destination') {
-		return unit === 'account'
-			? m.analytics_account_coverage({ measured, total: denominator })
-			: m.analytics_destination_coverage({ measured, total: denominator });
+		return metric.measured > 0 ? formatNumber(metric.value) : '-';
 	}
 
 	function contentStatus(item: AnalyticsContent) {
@@ -1058,10 +1052,40 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				</InlineNotice>
 			{/if}
 
+			<div class="space-y-1">
+				<p class="text-sm text-foreground">
+					{m.analytics_period_lead({
+						range: rangeLabel,
+						accounts: scopedAccounts.length,
+						destinations: destinationCount
+					})}
+				</p>
+				{#if displayedSummary}
+					<p class="text-xs text-muted-foreground">
+						{m.analytics_destination_coverage({
+							measured: displayedSummary.engagement?.measured ?? 0,
+							total: destinationCount
+						})}
+						·
+						{m.analytics_account_coverage({
+							measured: displayedSummary.followers?.measured ?? 0,
+							total: scopedAccounts.length
+						})}
+					</p>
+				{/if}
+			</div>
+
 			<section aria-label={m.analytics_title()}>
 				<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 					{#each featuredSummaryMetrics as item (item.key)}
-						<div class="min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground">
+						<button
+							type="button"
+							class="min-w-0 rounded-xl border border-border bg-card p-4 text-left text-card-foreground transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+							class:border-primary={chartMetric === item.key}
+							aria-pressed={chartMetric === item.key}
+							onclick={() => (chartMetric = item.key as ChartMetric)}
+							data-testid="analytics-tile-{item.key}"
+						>
 							<div class="flex items-start justify-between gap-3">
 								<div class="flex items-center gap-2 text-sm text-muted-foreground">
 									{#if item.key === 'followers'}
@@ -1087,10 +1111,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 							<p class="mt-5 text-3xl font-semibold tracking-[-0.03em] tabular-nums">
 								<AnalyticsNumber value={item.metric.measured > 0 ? item.metric.value : null} />
 							</p>
-							<p class="mt-1 text-xs text-muted-foreground">
-								{coverageLabel(item.metric.measured, item.denominator, item.unit)}
-							</p>
-						</div>
+						</button>
 					{/each}
 					<div class="min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground">
 						<div class="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1099,9 +1120,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 						</div>
 						<p class="mt-5 text-3xl font-semibold tracking-[-0.03em] tabular-nums">
 							<AnalyticsNumber value={overview?.publication_total ?? 0} />
-						</p>
-						<p class="mt-1 text-xs text-muted-foreground">
-							{m.analytics_output_count({ count: displayedSummary?.published ?? 0 })}
 						</p>
 					</div>
 				</div>
@@ -1123,35 +1141,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				class="min-w-0 rounded-xl border border-border bg-card text-card-foreground"
 				aria-label={chartTitle}
 			>
-				<div class="flex flex-wrap items-center justify-between gap-2 border-b border-border p-3">
-					<div class="contents">
-						<div
-							class="flex min-h-11 max-w-full items-center gap-1 rounded-md border border-border p-1 sm:min-h-9"
-							role="group"
-							aria-label={m.analytics_chart_metric_label()}
-						>
-							{#each ['visibility', 'engagement', 'followers'] as metric (metric)}
-								<button
-									type="button"
-									class={[
-										'min-h-11 flex-auto rounded-sm px-1.5 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:min-h-7 sm:px-2.5 [@media(pointer:coarse)]:min-h-11',
-										chartMetric === metric
-											? 'bg-secondary text-secondary-foreground'
-											: 'text-muted-foreground hover:text-foreground'
-									]}
-									aria-pressed={chartMetric === metric}
-									onclick={() => (chartMetric = metric as ChartMetric)}
-								>
-									{metric === 'visibility'
-										? m.analytics_visibility()
-										: metric === 'engagement'
-											? m.analytics_summary_engagement()
-											: m.analytics_summary_followers()}
-								</button>
-							{/each}
-						</div>
-					</div>
-				</div>
 				<div class="p-2 pt-3 sm:p-4">
 					<AnalyticsPerformanceChart
 						points={chartPoints}
@@ -1414,7 +1403,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											<span class="font-medium tabular-nums"
 												>{hasEngagementMeasurement(item)
 													? formatNumber(item.engagement)
-													: '—'}</span
+													: '-'}</span
 											>
 										</div>
 										<div
@@ -1424,7 +1413,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 												>{m.analytics_visibility()}</span
 											>
 											<span class="font-medium tabular-nums"
-												>{item.visibility ? formatNumber(item.visibility.value) : '—'}</span
+												>{item.visibility ? formatNumber(item.visibility.value) : '-'}</span
 											>
 										</div>
 										<div class="analytics-published hidden text-sm text-muted-foreground">

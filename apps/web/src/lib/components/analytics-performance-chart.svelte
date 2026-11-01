@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { components } from '$lib/api/types';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
-	import ChartBar from '@openpost/ui/components/chart/chart-bar.svelte';
 	import { formatSocialAccountName } from '$lib/utils';
 
 	type DailyPoint = components['schemas']['DailyBreakdownPoint'];
@@ -206,7 +205,6 @@
 					{#each points as point, index (point.date)}
 						<g
 							class="analytics-day"
-							data-dither-interaction
 							data-chart-active={activeDate ? activeDate === point.date : undefined}
 							role="button"
 							tabindex="0"
@@ -224,22 +222,25 @@
 							onblur={() => (focusedDate = '')}
 						>
 							{#each positiveSegments(point) as segment (`positive-${segment.item.key}`)}
-								<ChartBar
+								<rect
+									data-analytics-bar
 									x={x(index)}
 									y={y(segment.end)}
 									width={barWidth}
 									height={Math.max(1, y(segment.start) - y(segment.end))}
 									fill={segmentColor(segment.item)}
+									rx="2"
 								/>
 							{/each}
 							{#each negativeSegments(point) as segment (`negative-${segment.item.key}`)}
-								<ChartBar
+								<rect
+									data-analytics-bar
 									x={x(index)}
-									direction="up"
 									y={y(segment.start)}
 									width={barWidth}
 									height={Math.max(1, y(segment.end) - y(segment.start))}
 									fill={segmentColor(segment.item)}
+									rx="2"
 								/>
 							{/each}
 							<rect

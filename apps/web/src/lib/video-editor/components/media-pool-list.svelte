@@ -436,7 +436,6 @@
 
 	function placeMedia(media: MediaMetadata): void {
 		mediaPlacement.begin(mediaDragData('media', media.id, media.fileName));
-		showToast(m.video_editor_media_placement_instruction(), 'info');
 	}
 
 	function groupLabel(kind: MediaLibraryKind): string {
@@ -895,7 +894,6 @@
 
 	function placeSequence(sequence: SubComposition): void {
 		mediaPlacement.begin(mediaDragData('composition', sequence.id, sequence.name));
-		showToast(m.video_editor_media_placement_instruction(), 'info');
 	}
 
 	function duplicateComposition(sequence: SubComposition): void {

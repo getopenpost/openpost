@@ -457,7 +457,7 @@
 				<div class="grid grid-cols-3 gap-2">
 					<label
 						data-state={includeScreen ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-field-border px-3 py-2 data-[state=checked]:border-navigation-active data-[state=checked]:bg-navigation-active data-[state=checked]:text-navigation-active-foreground"
+						class="flex min-h-11 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-field-border px-3 py-2 data-[state=checked]:border-navigation-active data-[state=checked]:bg-navigation-active data-[state=checked]:text-navigation-active-foreground"
 					>
 						<Checkbox
 							bind:checked={includeScreen}
@@ -465,11 +465,11 @@
 								recorderPreferences.set('includeScreen', checked === true)}
 							aria-label={m.record_source_screen()}
 						/>
-						<span class="text-sm">{m.record_source_screen()}</span>
+						<span class="truncate text-sm">{m.record_source_screen()}</span>
 					</label>
 					<label
 						data-state={includeCamera ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-field-border px-3 py-2 data-[state=checked]:border-navigation-active data-[state=checked]:bg-navigation-active data-[state=checked]:text-navigation-active-foreground"
+						class="flex min-h-11 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-field-border px-3 py-2 data-[state=checked]:border-navigation-active data-[state=checked]:bg-navigation-active data-[state=checked]:text-navigation-active-foreground"
 					>
 						<Checkbox
 							bind:checked={includeCamera}
@@ -477,11 +477,11 @@
 								recorderPreferences.set('includeCamera', checked === true)}
 							aria-label={m.record_source_camera()}
 						/>
-						<span class="text-sm">{m.record_source_camera()}</span>
+						<span class="truncate text-sm">{m.record_source_camera()}</span>
 					</label>
 					<label
 						data-state={includeMic ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-field-border px-3 py-2 data-[state=checked]:border-navigation-active data-[state=checked]:bg-navigation-active data-[state=checked]:text-navigation-active-foreground"
+						class="flex min-h-11 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-field-border px-3 py-2 data-[state=checked]:border-navigation-active data-[state=checked]:bg-navigation-active data-[state=checked]:text-navigation-active-foreground"
 					>
 						<Checkbox
 							bind:checked={includeMic}
@@ -489,7 +489,7 @@
 								recorderPreferences.set('includeMicrophone', checked === true)}
 							aria-label={m.record_source_audio()}
 						/>
-						<span class="text-sm">{m.record_source_audio()}</span>
+						<span class="truncate text-sm">{m.record_source_audio()}</span>
 					</label>
 				</div>
 

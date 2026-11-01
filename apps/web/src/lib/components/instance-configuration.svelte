@@ -12,6 +12,7 @@
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -512,23 +513,20 @@
 	</div>
 {:else}
 	<div class="space-y-6" data-testid="instance-configuration">
-		<div
-			class="flex max-w-full gap-2 overflow-x-auto pb-1"
-			role="group"
-			aria-label={m.settings_configuration_sections()}
+		<Tabs.Root
+			value={activeSection}
+			onValueChange={(next) => (activeSection = next as SectionID)}
+			class="max-w-full"
 		>
-			{#each sections as section (section.id)}
-				<Button
-					variant={activeSection === section.id ? 'secondary' : 'ghost'}
-					size="sm"
-					class="shrink-0"
-					aria-pressed={activeSection === section.id}
-					onclick={() => (activeSection = section.id)}
-				>
-					{section.label}
-				</Button>
-			{/each}
-		</div>
+			<Tabs.List
+				class="max-w-full overflow-x-auto"
+				aria-label={m.settings_configuration_sections()}
+			>
+				{#each sections as section (section.id)}
+					<Tabs.Trigger value={section.id}>{section.label}</Tabs.Trigger>
+				{/each}
+			</Tabs.List>
+		</Tabs.Root>
 
 		{#if error}
 			<InlineNotice

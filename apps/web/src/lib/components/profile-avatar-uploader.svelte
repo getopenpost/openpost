@@ -2,6 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
 	import CameraCapture from '$lib/components/camera-capture.svelte';
@@ -236,26 +237,22 @@
 			<Dialog.Description>{m.avatar_upload_description()}</Dialog.Description>
 		</Dialog.Header>
 
-		<div class="flex gap-1 border-b px-4 py-2">
-			<Button
-				variant={mode === 'device' ? 'secondary' : 'ghost'}
-				size="sm"
-				class="min-h-11 sm:min-h-9"
-				onclick={() => (mode = 'device')}
-			>
-				<ThemeIcon role="upload" />
-				{m.media_upload_device()}
-			</Button>
-			<Button
-				variant={mode === 'camera' ? 'secondary' : 'ghost'}
-				size="sm"
-				class="min-h-11 sm:min-h-9"
-				onclick={() => (mode = 'camera')}
-			>
-				<ThemeIcon role="camera" />
-				{m.media_camera()}
-			</Button>
-		</div>
+		<Tabs.Root
+			value={mode}
+			onValueChange={(next) => (mode = next as typeof mode)}
+			class="border-b px-4 py-2"
+		>
+			<Tabs.List class="w-full">
+				<Tabs.Trigger value="device">
+					<ThemeIcon role="upload" />
+					{m.media_upload_device()}
+				</Tabs.Trigger>
+				<Tabs.Trigger value="camera">
+					<ThemeIcon role="camera" />
+					{m.media_camera()}
+				</Tabs.Trigger>
+			</Tabs.List>
+		</Tabs.Root>
 
 		<div class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
 			{#if mode === 'camera'}

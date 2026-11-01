@@ -34,6 +34,7 @@
 	import { matchesAccountSearch } from './account-picker/search';
 	import AccountPickerSelectAll from './account-picker/select-all.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Popover from '$lib/components/ui/popover';
@@ -937,25 +938,32 @@
 			{/if}
 
 			<div class="grid min-h-0 flex-1 gap-5 overflow-y-auto md:grid-cols-[12rem_minmax(0,1fr)]">
-				<nav class="max-h-64 space-y-1 overflow-y-auto" aria-label={m.social_set_manage()}>
-					{#each sets as set (set.id)}
-						<Button
-							multiline
-							type="button"
-							variant={editorId === set.id ? 'secondary' : 'ghost'}
-							class="h-auto min-h-11 w-full justify-start px-3 py-2 text-left"
-							onclick={() => startEditing(set)}
-						>
-							<span class="min-w-0 truncate">{set.name}</span>
-							{#if set.is_default}
-								<span class="ml-auto text-xs text-muted-foreground">{m.social_set_default()}</span>
-							{/if}
-						</Button>
-					{/each}
+				<div class="max-h-64 space-y-1 overflow-y-auto">
+					<Tabs.Root
+						orientation="vertical"
+						value={editorId}
+						onValueChange={(next) => {
+							const set = sets.find((item) => item.id === next);
+							if (set) startEditing(set);
+						}}
+					>
+						<Tabs.List class="gap-1" aria-label={m.social_set_manage()}>
+							{#each sets as set (set.id)}
+								<Tabs.Trigger value={set.id}>
+									<span class="min-w-0 flex-1 truncate">{set.name}</span>
+									{#if set.is_default}
+										<span class="shrink-0 text-xs text-muted-foreground"
+											>{m.social_set_default()}</span
+										>
+									{/if}
+								</Tabs.Trigger>
+							{/each}
+						</Tabs.List>
+					</Tabs.Root>
 					<Button type="button" variant="outline" class="mt-2 h-11 w-full" onclick={startNewSet}>
 						{m.social_set_new()}
 					</Button>
-				</nav>
+				</div>
 
 				<div class="min-w-0 space-y-5">
 					<div class="space-y-2">

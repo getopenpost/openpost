@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import type { MediaUploadResult } from '$lib/media-upload-client';
 	import { ThemeIcon } from '$lib/themes/icons';
@@ -86,42 +87,31 @@
 			<Dialog.Description>{m.media_upload_description_custom()}</Dialog.Description>
 		</Dialog.Header>
 
-		<div
-			class="flex shrink-0 gap-1 overflow-x-auto border-b px-4 py-2"
-			role="group"
-			aria-label={m.media_source()}
-		>
-			<Button
-				variant={source === 'device' ? 'secondary' : 'ghost'}
-				size="sm"
-				class="min-h-11 shrink-0 sm:min-h-9"
-				onclick={() => (source = 'device')}
+		<div class="flex shrink-0 items-center gap-2 border-b px-4 py-2">
+			<Tabs.Root
+				value={source}
+				onValueChange={(next) => (source = next as SourceMode)}
+				class="min-w-0 flex-1 overflow-x-auto"
 			>
-				<ThemeIcon role="upload" />
-				{m.media_upload_device()}
-			</Button>
-			{#if accept.some((item) => item === 'image/*' || item.startsWith('image/'))}
-				<Button
-					variant={source === 'camera' ? 'secondary' : 'ghost'}
-					size="sm"
-					class="min-h-11 shrink-0 sm:min-h-9"
-					onclick={() => (source = 'camera')}
-				>
-					<ThemeIcon role="camera" />
-					{m.media_camera()}
-				</Button>
-			{/if}
-			{#if canUseStock}
-				<Button
-					variant={source === 'stock' ? 'secondary' : 'ghost'}
-					size="sm"
-					class="min-h-11 shrink-0 sm:min-h-9"
-					onclick={() => (source = 'stock')}
-				>
-					<ThemeIcon role="image" />
-					{m.stock_media()}
-				</Button>
-			{/if}
+				<Tabs.List class="max-w-full" aria-label={m.media_source()}>
+					<Tabs.Trigger value="device">
+						<ThemeIcon role="upload" />
+						{m.media_upload_device()}
+					</Tabs.Trigger>
+					{#if accept.some((item) => item === 'image/*' || item.startsWith('image/'))}
+						<Tabs.Trigger value="camera">
+							<ThemeIcon role="camera" />
+							{m.media_camera()}
+						</Tabs.Trigger>
+					{/if}
+					{#if canUseStock}
+						<Tabs.Trigger value="stock">
+							<ThemeIcon role="image" />
+							{m.stock_media()}
+						</Tabs.Trigger>
+					{/if}
+				</Tabs.List>
+			</Tabs.Root>
 			{#if showLibrary}
 				<Button
 					variant="ghost"

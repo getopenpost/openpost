@@ -73,7 +73,10 @@ test("Dither keeps the app's main routes usable on desktop and phones", async ({
       await expect(
         path === "/record"
           ? page.getByRole("button", { name: "Start recording", exact: true })
-          : page.getByRole("heading").first(),
+          : path === "/"
+            ? // The composer canvas is title-less; its editor is the sentinel.
+              page.getByRole("textbox", { name: "Post text", exact: true })
+            : page.getByRole("heading").first(),
       ).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
       if (path === "/quick-cut") {

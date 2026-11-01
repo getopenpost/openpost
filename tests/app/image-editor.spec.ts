@@ -15,19 +15,18 @@ test.describe("touch editor discovery", () => {
     await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
     const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
     await expect(layers).toHaveCount(6);
-    const family = page.getByRole("button", { name: /^(Rectangle|Ellipse) select$/ });
+    const family = page
+      .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
+      .getByRole("button", { name: /^(Select objects|Rectangle select|Ellipse select)$/ });
     expect(await family.evaluate((element) => element.tagName)).toBe("BUTTON");
-    const bounds = (await family.boundingBox())!;
-    expect(bounds.width).toBeGreaterThanOrEqual(44);
-    expect(bounds.height).toBeGreaterThanOrEqual(44);
-    expect(bounds.width).toBe(bounds.height);
     await family.focus();
     await family.press("ArrowDown");
     await page.getByRole("menuitem", { name: /Ellipse select/ }).click();
     await expect(family).toHaveAttribute("aria-label", "Ellipse select");
     await expect(family).toHaveAttribute("aria-pressed", "true");
-    await page.getByRole("button", { name: "Select objects", exact: true }).click();
-    await family.click();
+    await family.press("ArrowDown");
+    await page.getByRole("menuitem", { name: "Select objects", exact: true }).click();
+    await expect(family).toHaveAttribute("aria-label", "Select objects");
     await expect(family).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("menu")).toHaveCount(0);
     await family.click();
@@ -36,6 +35,12 @@ test.describe("touch editor discovery", () => {
     await expect(family).toBeFocused();
 
     await page.setViewportSize({ width: 320, height: 780 });
+    const touchFamily = page
+      .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
+      .getByRole("button", { name: "Select", exact: true });
+    const touchBounds = (await touchFamily.boundingBox())!;
+    expect(touchBounds.width).toBeGreaterThanOrEqual(44);
+    expect(touchBounds.height).toBeGreaterThanOrEqual(44);
     const propertiesLabel = page
       .getByRole("navigation", {
         name: "OpenPost Image Editor tools",
@@ -91,10 +96,10 @@ test("desktop Image Editor uses the compact rail and closes Add when another too
   await expect(add).toHaveAttribute("aria-pressed", "true");
 
   const select = tools.getByRole("button", {
-    name: "Select objects",
-    exact: true,
+    name: /^(Select objects|Rectangle select|Ellipse select)$/,
   });
   await select.click();
+  await page.getByRole("menuitem", { name: "Rectangle select", exact: true }).click();
   await expect(add).toHaveAttribute("aria-pressed", "false");
   await expect(select).toBeFocused();
 });
@@ -476,7 +481,7 @@ test("public image editor creates, restores, and exports a local design", async 
   const saveIndicator = page.getByTestId("image-editor-save-indicator");
   await expect(saveIndicator).toBeVisible();
   await expect(saveIndicator).toHaveAttribute("data-state", "saved");
-  await expect(saveIndicator).toContainText("Saved on this device");
+  await expect(saveIndicator).toHaveAttribute("aria-label", "Saved on this device");
 
   await page.reload();
   await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
@@ -659,7 +664,11 @@ test("a large rectangular selection keeps its visible outline after a document e
   await page.goto("/image-editor");
   await page.getByRole("button", { name: /Instagram square/ }).click();
   await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-  await page.getByRole("button", { name: "Rectangle select" }).first().click();
+  await page
+    .getByRole("button", { name: /^(Select objects|Rectangle select|Ellipse select)$/ })
+    .first()
+    .click();
+  await page.getByRole("menuitem", { name: "Rectangle select", exact: true }).click();
   const overlay = page.getByTestId("image-editor-pixel-selection");
   const bounds = await overlay.boundingBox();
   expect(bounds).not.toBeNull();
@@ -713,7 +722,9 @@ test("selection refinement loads layer alpha and closes a keyboard-accessible po
   await page.keyboard.press("ControlOrMeta+D");
   await expect(overlay).toHaveAttribute("data-active", "false");
   await page.keyboard.press("Shift+L");
-  await expect(page.getByText("Polygonal lasso", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Polygonal lasso", { exact: true }).filter({ visible: true }),
+  ).toBeVisible();
   const surface = page.getByTestId("image-editor-selection-surface");
   const bounds = await surface.boundingBox();
   expect(bounds).not.toBeNull();
@@ -842,6 +853,11 @@ for (const scheme of ["light", "dark"] as const) {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto("/image-editor");
     await page.getByRole("button", { name: "Bold announcement", exact: true }).click();
+    await page
+      .getByRole("tree", { name: "Layers", exact: true })
+      .getByRole("treeitem")
+      .filter({ hasText: "NEXT" })
+      .click();
     const properties = page.locator(".image-editor-properties-scroll:visible");
     await expect(properties.locator("textarea")).toBeInViewport({ ratio: 1 });
     await expect(

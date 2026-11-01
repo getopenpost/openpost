@@ -13,6 +13,7 @@ test("compact Image menu groups commands with keyboard and touch return paths", 
   await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
   const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
   await expect(layers).toHaveCount(6);
+  await layers.first().click();
   await page.setViewportSize({ width: 320, height: 740 });
   const more = page.getByRole("banner").getByRole("button", { name: "More actions", exact: true });
   await more.tap();

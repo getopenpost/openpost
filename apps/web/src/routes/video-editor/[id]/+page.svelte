@@ -2716,6 +2716,22 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator />
 					<DropdownMenu.Label>{m.image_editor_view()}</DropdownMenu.Label>
+					<DropdownMenu.Item
+						data-layout-toggle="expand-column-left"
+						onclick={() => toggleExpandSidebar('left')}
+					>
+						{leftSidebarFullColumn
+							? m.video_editor_restore_panel_layout()
+							: m.video_editor_expand_assets_column()}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item
+						data-layout-toggle="expand-column-right"
+						onclick={() => toggleExpandSidebar('right')}
+					>
+						{rightSidebarFullColumn
+							? m.video_editor_restore_panel_layout()
+							: m.video_editor_expand_tools_column()}
+					</DropdownMenu.Item>
 					<DropdownMenu.Item onclick={() => changeEditorWorkspace('edit')}>
 						{m.video_editor_workspace_edit()}
 					</DropdownMenu.Item>

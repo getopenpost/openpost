@@ -21,8 +21,7 @@
 	import { executeQueryCachePlan } from '$lib/query/cache-plan';
 	import { queryClient } from '$lib/query/client';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
-	import { ui } from '$lib/stores/ui.svelte';
-	import FeedbackDialog from '$lib/components/feedback-dialog.svelte';
+	import { sidebarPreferences } from '$lib/stores/sidebar-preferences.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
@@ -63,6 +62,7 @@
 	let purchaseChoice = $state.raw<PurchaseChoice | null>(null);
 	let choiceErrorCode = $state<PurchaseChoiceErrorCode | null>(null);
 	let purchaseChoiceRequired = $state(true);
+	let workStyle = $state('');
 	let onboardingLoadSequence = 0;
 	let onboardingSubmissionSequence = 0;
 	let purchaseChoiceRequestSequence = 0;
@@ -251,6 +251,12 @@
 		}
 	}
 
+	function chooseWorkStyle(value: string) {
+		workStyle = value;
+		// Writing-first also shows Drafts in the sidebar; the business choice keeps the defaults.
+		if (value === 'write') sidebarPreferences.applyWritingFirstDefaults();
+	}
+
 	async function confirmWelcome(event: SubmitEvent) {
 		event.preventDefault();
 		if (isSubmitting || (purchaseChoiceRequired && !purchaseChoice) || !workspaceName.trim())
@@ -372,6 +378,34 @@
 			<PurchaseChoiceError code={choiceErrorCode} />
 		{:else if purchaseChoiceRequired ? purchaseChoice : true}
 			<form class="space-y-6" onsubmit={confirmWelcome}>
+				<fieldset class="space-y-2">
+					<legend class="text-sm font-medium">{m.onboarding_work_style_heading()}</legend>
+					<RadioGroup.Root
+						name="work_style"
+						class="grid gap-2"
+						onValueChange={(value) => chooseWorkStyle(value)}
+					>
+						<label
+							class={[
+								'flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2',
+								workStyle === 'write' ? 'border-primary bg-primary/5' : 'border-border'
+							]}
+						>
+							<RadioGroup.Item value="write" aria-label={m.onboarding_work_style_write()} />
+							<span class="min-w-0 flex-1 font-medium">{m.onboarding_work_style_write()}</span>
+						</label>
+						<label
+							class={[
+								'flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2',
+								workStyle === 'business' ? 'border-primary bg-primary/5' : 'border-border'
+							]}
+						>
+							<RadioGroup.Item value="business" aria-label={m.onboarding_work_style_business()} />
+							<span class="min-w-0 flex-1 font-medium">{m.onboarding_work_style_business()}</span>
+						</label>
+					</RadioGroup.Root>
+				</fieldset>
+
 				<div class="space-y-2">
 					<label for="workspace-name" class="text-sm font-medium"
 						>{m.onboarding_workspace_name()}</label
@@ -470,19 +504,5 @@
 				</Button>
 			</form>
 		{/if}
-		<div class="rounded-lg border bg-muted/35 p-4">
-			<p class="flex items-center gap-2 text-sm font-medium">
-				<ThemeIcon role="feedback" class="size-4 text-primary" />
-				{m.onboarding_feedback_title()}
-			</p>
-			<p class="mt-1 text-sm leading-6 text-muted-foreground">
-				{m.onboarding_feedback_body()}
-			</p>
-			<Button variant="outline" class="mt-3" onclick={() => ui.openFeedback()}>
-				{m.feedback_open()}
-			</Button>
-		</div>
 	</div>
 </StandaloneShell>
-
-<FeedbackDialog />

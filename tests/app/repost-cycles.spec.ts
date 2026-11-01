@@ -61,14 +61,14 @@ for (const viewport of [
     await expect(page).toHaveURL(/\/workflows\/reposts/);
     const settings = page.getByTestId("repost-automation-settings");
     await expect(settings).toBeVisible();
-    await page.getByRole("button", { name: "Runs", exact: true }).click();
+    await page.getByRole("tab", { name: "Runs", exact: true }).click();
     await page.getByText("Original launch rule", { exact: true }).click();
     await expect(page.getByText("Waiting · 1/2", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Open post", exact: true })).toHaveAttribute(
       "href",
       "/publications/existing-publication",
     );
-    await page.getByRole("button", { name: "Configure", exact: true }).click();
+    await page.getByRole("tab", { name: "Configure", exact: true }).click();
     await page.screenshot({
       path: testInfo.outputPath("repost-cycle-before.png"),
       fullPage: true,

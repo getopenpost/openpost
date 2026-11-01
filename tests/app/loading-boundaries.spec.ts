@@ -135,9 +135,6 @@ for (const width of [1280, 390, 320]) {
           fullPage: true,
         });
         await expect(page.getByTestId("settings-navigation")).toBeVisible();
-        await expect(
-          page.getByRole("heading", { name: "Security", exact: true }).first(),
-        ).toBeVisible();
         expect(
           await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
         ).toBeLessThanOrEqual(1);
@@ -154,6 +151,10 @@ for (const width of [1280, 390, 320]) {
         release();
       }
       await expect(page.getByTestId("page-loading")).toHaveCount(0);
+      // Panel content only renders after its section download completes.
+      await expect(
+        page.getByRole("heading", { name: "Active sessions", exact: true }),
+      ).toBeVisible();
       await expect(page.getByTestId("settings-navigation")).toBeVisible();
       await page.screenshot({
         path: testInfo.outputPath("settings-section-settled.png"),

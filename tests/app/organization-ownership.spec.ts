@@ -88,7 +88,7 @@ test("owner nominates a successor and acceptance flips the roles", async ({ page
   );
   await authenticatePage(page, auth.token);
   await page.goto(`/settings?tab=ownership&organization=${organizationID}`);
-  await expect(page.getByRole("heading", { name: "Ownership", level: 1 })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Nominate successor" })).toBeVisible();
   await page.getByLabel("Successor").click();
   await page.getByRole("option", { name: new RegExp(nomineeEmail) }).click();
   await page.getByLabel("Enter Ownership browser proof to confirm").fill("Ownership browser proof");

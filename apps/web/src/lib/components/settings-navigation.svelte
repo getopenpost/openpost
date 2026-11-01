@@ -97,7 +97,7 @@
 		{#each visibleGroups as group (group.id)}
 			<div class="mb-5 last:mb-0">
 				{#if group.id === 'advanced'}
-					<details open={activeGroup === 'advanced'}>
+					<details open={activeDestination?.group === 'advanced'}>
 						<summary
 							class="mb-1 flex min-h-9 cursor-pointer items-center rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-navigation-hover"
 						>

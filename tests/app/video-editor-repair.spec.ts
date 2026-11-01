@@ -553,6 +553,8 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await expect(dialog.getByRole("link", { name: "Download Screen", exact: true })).toHaveCount(0, {
     timeout: 30_000,
   });
+  await dialog.getByRole("button", { name: "Close", exact: true }).first().click();
+  await expect(dialog).toHaveCount(0);
   await expectProjectSummary(page, "Clips: 3");
 });
 

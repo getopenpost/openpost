@@ -137,7 +137,7 @@ test("optimizes attachments automatically and fits one network while keeping bot
   );
   await useOriginal("Use original image 1");
   await originalStarted;
-  await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
+  await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
   releaseOriginal();
   await (await originalLoaded).finished();
   await page.evaluate(
@@ -237,7 +237,7 @@ test("optimizes attachments automatically and fits one network while keeping bot
         .segments[0].media.map((m: { id: string }) => m.id),
     )
     .toEqual([originals[0].id, originals[1].id]);
-  await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
+  await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
   expect((await read()).segments[0].media[0].alt_text).toBe("Orange original");
   // A relink is an authored decision, even when its effective IDs do not change.
   const staleCreated = await request.post("/api/v1/publications", {
@@ -331,7 +331,7 @@ test("optimizes attachments automatically and fits one network while keeping bot
   });
   await page.setViewportSize({ width: 1280, height: 1000 });
   await page.goto(`/publications/${bluePost.id}?workspace_id=${workspace.id}`);
-  await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
+  await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
   const blueCaptionStarted = page.waitForRequest("**/api/v1/media/*/alt-text/generate");
   await add("pending-blue.png");
   await blueCaptionStarted;

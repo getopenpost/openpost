@@ -83,7 +83,7 @@ test("YouTube settings explain required video before fields are resolved", async
       await expect(dialog).toHaveCount(0);
       await expect(settings).toBeFocused();
     }
-  const shared = composerDestinations(page).getByRole("button", { name: "All", exact: true });
+  const shared = composerDestinations(page).getByRole("tab", { name: "All", exact: true });
   await shared.focus();
   await shared.press("Enter");
   const add = page

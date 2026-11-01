@@ -17,7 +17,10 @@
 
 	let { accounts, activeAccountId, onActivate, accountLabel, issueCountFor, isCustomFor }: Props =
 		$props();
-	let tabsElement: HTMLElement | undefined = $state();
+	// `bind:ref` must never start as `undefined`: the TabsList wrapper declares a
+	// `null` fallback for `ref`, and Svelte rejects binding `undefined` to a prop
+	// with a fallback (props_invalid_value), which unmounts this whole section.
+	let tabsElement: HTMLElement | null = $state(null);
 
 	const activeTabIsCustom = $derived.by(() => {
 		const account = accounts.find((account) => account.id === activeAccountId);
@@ -35,7 +38,8 @@
 		void tick().then(() => {
 			if (activeAccountId !== accountId || activeTabIsCustom !== custom) return;
 			const tabs = tabsElement;
-			const selected = tabs?.querySelector<HTMLElement>('[data-active="true"]');
+			// bits-ui exposes the selected tab through `data-state`, not `data-active`.
+			const selected = tabs?.querySelector<HTMLElement>('[data-state="active"]');
 			if (!tabs || !selected) return;
 			const tabBounds = selected.getBoundingClientRect();
 			const viewport = tabs.getBoundingClientRect();

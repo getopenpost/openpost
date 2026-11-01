@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { queryClient } from '$lib/query/client';
 	import { imageEditorErrorMessage } from '$lib/image-editor/animation-error-message';
 	import { appBranding } from '$lib/app-branding.svelte';
 	import { onMount } from 'svelte';
@@ -72,16 +73,21 @@
 	const cloudDesigns = $derived(
 		workspaceID ? (cloudDesignsQuery.data?.pages.flatMap((page) => page.designs) ?? []) : []
 	);
-	const trashedDesignsQuery = createInfiniteQuery(() =>
+	const trashedDesignsOptions = $derived(
 		imageEditorDesignCatalogQueryOptions<WebImageEditorQueryData>(
 			imageEditorQueryAPI,
 			workspaceID,
 			{ limit: 24, trashed: true }
 		)
 	);
+	const trashedDesignsQuery = createInfiniteQuery(() => trashedDesignsOptions);
 	const trashedDesigns = $derived(
 		workspaceID ? (trashedDesignsQuery.data?.pages.flatMap((page) => page.designs) ?? []) : []
 	);
+	// A delete prunes every cached list, so the trash list restarts from the server.
+	function reloadTrashedDesigns() {
+		return queryClient.resetQueries({ queryKey: trashedDesignsOptions.queryKey, exact: true });
+	}
 	let restoring = $state('');
 	async function restoreDesign(id: string): Promise<void> {
 		if (restoring || !workspaceID) return;
@@ -327,7 +333,7 @@
 		const target = pendingDelete;
 		if (target.workspaceID) {
 			await deleteImageEditorDesign(target.workspaceID, target.id);
-			if (workspaceID === target.workspaceID) await trashedDesignsQuery.refetch();
+			if (workspaceID === target.workspaceID) await reloadTrashedDesigns();
 		} else {
 			await deleteGuestImageEditorDesign(target.id);
 			recentDesigns = recentDesigns.filter((design) => design.id !== target.id);
@@ -642,7 +648,7 @@
 					aria-expanded={trashOpen}
 					onclick={() => {
 						trashOpen = !trashOpen;
-						if (trashOpen && workspaceID) void trashedDesignsQuery.refetch();
+						if (trashOpen && workspaceID) void reloadTrashedDesigns();
 					}}
 				>
 					<ThemeIcon

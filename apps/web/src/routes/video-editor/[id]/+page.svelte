@@ -3001,32 +3001,58 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												>
 													{@render leftPanelIcon(option, 'size-3.5')}
 													{option.label}
+													{#if option.value === 'ai' && agentConnectionStatus !== 'disconnected'}
+														<span
+															class="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-[var(--video-editor-focus)] {agentConnectionStatus ===
+															'working'
+																? 'motion-safe:animate-pulse'
+																: ''}"
+															aria-hidden="true"
+															data-agent-dot
+														></span>
+													{/if}
 												</button>
 											{/each}
 										</div>
 										{#if leftPanel === 'media'}
 											<div
-												class="grid grid-cols-2 gap-1 border-b border-[var(--video-editor-border)] p-1"
+												class="flex shrink-0 items-stretch gap-1 border-b border-[var(--video-editor-border)] px-2"
 											>
 												<button
 													type="button"
-													class:active={mediaPanelView === 'project'}
-													class="flex min-h-8 items-center justify-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
+													class="relative flex min-h-8 items-center gap-1.5 px-2 text-xs {mediaPanelView ===
+													'project'
+														? 'text-[var(--video-editor-text)]'
+														: 'text-[var(--video-editor-muted)]'} focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 													aria-pressed={mediaPanelView === 'project'}
 													onclick={() => (mediaPanelView = 'project')}
 												>
 													<ProtectedIcon icon="editor-media" class="size-3.5" />
 													{m.video_editor_media_tab()}
+													{#if mediaPanelView === 'project'}
+														<span
+															class="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-navigation-active"
+															aria-hidden="true"
+														></span>
+													{/if}
 												</button>
 												<button
 													type="button"
-													class:active={mediaPanelView === 'scenes'}
-													class="flex min-h-8 items-center justify-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
+													class="relative flex min-h-8 items-center gap-1.5 px-2 text-xs {mediaPanelView ===
+													'scenes'
+														? 'text-[var(--video-editor-text)]'
+														: 'text-[var(--video-editor-muted)]'} focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 													aria-pressed={mediaPanelView === 'scenes'}
 													onclick={() => (mediaPanelView = 'scenes')}
 												>
 													<ProtectedIcon icon="editor-scenes" class="size-3.5" />
 													{m.video_editor_scenes()}
+													{#if mediaPanelView === 'scenes'}
+														<span
+															class="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-navigation-active"
+															aria-hidden="true"
+														></span>
+													{/if}
 												</button>
 											</div>
 										{/if}

@@ -484,7 +484,7 @@
 				<div class="grid grid-cols-3 gap-2">
 					<label
 						data-state={includeScreen ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[var(--video-editor-focus)] data-[state=checked]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))]"
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-field-border px-3 py-2 data-[state=checked]:border-navigation-active data-[state=checked]:bg-navigation-active data-[state=checked]:text-navigation-active-foreground"
 					>
 						<Checkbox
 							bind:checked={includeScreen}
@@ -496,7 +496,7 @@
 					</label>
 					<label
 						data-state={includeCamera ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[var(--video-editor-focus)] data-[state=checked]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))]"
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-field-border px-3 py-2 data-[state=checked]:border-navigation-active data-[state=checked]:bg-navigation-active data-[state=checked]:text-navigation-active-foreground"
 					>
 						<Checkbox
 							bind:checked={includeCamera}
@@ -508,7 +508,7 @@
 					</label>
 					<label
 						data-state={includeMic ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[var(--video-editor-focus)] data-[state=checked]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))]"
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-field-border px-3 py-2 data-[state=checked]:border-navigation-active data-[state=checked]:bg-navigation-active data-[state=checked]:text-navigation-active-foreground"
 					>
 						<Checkbox
 							bind:checked={includeMic}

@@ -4684,7 +4684,7 @@
 			<Button
 				variant="ghost"
 				size="icon"
-				class="size-7 rounded data-[active=true]:bg-[var(--video-editor-selection)] data-[active=true]:text-[var(--video-editor-selection-text)]"
+				class="size-7 rounded data-[active=true]:bg-navigation-active data-[active=true]:text-navigation-active-foreground"
 				data-active={timelineStore.snapEnabled}
 				aria-pressed={timelineStore.snapEnabled}
 				aria-label={timelineStore.snapEnabled

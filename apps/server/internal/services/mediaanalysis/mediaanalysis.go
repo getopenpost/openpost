@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -82,20 +83,21 @@ type FFmpegAnalyzer struct {
 }
 
 type probeStream struct {
-	CodecType      string `json:"codec_type"`
-	CodecName      string `json:"codec_name"`
-	Profile        string `json:"profile"`
-	PixelFormat    string `json:"pix_fmt"`
-	Width          int    `json:"width"`
-	Height         int    `json:"height"`
-	AvgFrameRate   string `json:"avg_frame_rate"`
-	Duration       string `json:"duration"`
-	BitRate        string `json:"bit_rate"`
-	Channels       int    `json:"channels"`
-	ColorSpace     string `json:"color_space"`
-	ColorTransfer  string `json:"color_transfer"`
-	ColorPrimaries string `json:"color_primaries"`
-	Tags           struct {
+	CodecType         string `json:"codec_type"`
+	CodecName         string `json:"codec_name"`
+	Profile           string `json:"profile"`
+	PixelFormat       string `json:"pix_fmt"`
+	Width             int    `json:"width"`
+	Height            int    `json:"height"`
+	SampleAspectRatio string `json:"sample_aspect_ratio"`
+	AvgFrameRate      string `json:"avg_frame_rate"`
+	Duration          string `json:"duration"`
+	BitRate           string `json:"bit_rate"`
+	Channels          int    `json:"channels"`
+	ColorSpace        string `json:"color_space"`
+	ColorTransfer     string `json:"color_transfer"`
+	ColorPrimaries    string `json:"color_primaries"`
+	Tags              struct {
 		Rotate string `json:"rotate"`
 	} `json:"tags"`
 	SideData []struct {
@@ -231,7 +233,7 @@ func (a FFmpegAnalyzer) probe(ctx context.Context, filename string) (probeOutput
 		probeCtx,
 		ffprobe,
 		"-v", "error",
-		"-show_entries", "format=format_name,duration,bit_rate:stream=codec_type,codec_name,profile,pix_fmt,width,height,avg_frame_rate,duration,bit_rate,channels,color_space,color_transfer,color_primaries:stream_tags=rotate:stream_side_data=rotation",
+		"-show_entries", "format=format_name,duration,bit_rate:stream=codec_type,codec_name,profile,pix_fmt,width,height,sample_aspect_ratio,avg_frame_rate,duration,bit_rate,channels,color_space,color_transfer,color_primaries:stream_tags=rotate:stream_side_data=rotation",
 		"-of", "json",
 		filename,
 	)
@@ -317,8 +319,30 @@ func primaryStreams(streams []probeStream) (*probeStream, *probeStream) {
 	return videoStream, audioStream
 }
 
+// displayDimensions reports square-pixel geometry after rotation. The scaled
+// dimension rounds to whole pixels, with at most half a pixel of error;
+// ratios of very narrow streams can remain approximate.
 func displayDimensions(videoStream *probeStream) (int, int) {
 	width, height := videoStream.Width, videoStream.Height
+	// Sample aspect ratio describes pixel width relative to pixel height.
+	// Normalize to square pixels before applying the display rotation.
+	if parts := strings.Split(videoStream.SampleAspectRatio, ":"); len(parts) == 2 && width > 0 {
+		numerator, numeratorErr := strconv.ParseUint(parts[0], 10, 32)
+		denominator, denominatorErr := strconv.ParseUint(parts[1], 10, 32)
+		if numeratorErr == nil && denominatorErr == nil && numerator > 0 && denominator > 0 {
+			scaledWidth := float64(width) * float64(numerator) / float64(denominator)
+			if scaledWidth < 1 {
+				// Keep whole-pixel dimensions for very narrow streams by
+				// expanding height instead of rounding a fractional width.
+				displayHeight := math.Round(float64(height) * float64(denominator) / float64(numerator))
+				if displayHeight >= 1 && displayHeight < float64(int(^uint(0)>>1)) {
+					height = int(displayHeight)
+				}
+			} else if displayWidth := math.Round(scaledWidth); displayWidth < float64(int(^uint(0)>>1)) {
+				width = int(displayWidth)
+			}
+		}
+	}
 	rotation := streamRotation(videoStream.Tags.Rotate, videoStream.SideData)
 	if rotation == 90 || rotation == 270 {
 		width, height = height, width

@@ -70,10 +70,42 @@ type Message struct {
 }
 
 type OutboundMedia struct {
-	Type     string
-	MimeType string
-	Filename string
-	Reader   io.Reader
+	Type       string
+	MimeType   string
+	Filename   string
+	Reader     io.Reader
+	Width      int
+	Height     int
+	DurationMS int64
+}
+
+// videoMetadata returns the Bot API size fields of a video. Telegram shows a
+// video sent without width and height in a square frame. Media without analysis
+// results has no known size, so those fields are left out.
+func videoMetadata(media OutboundMedia) map[string]int64 {
+	metadata := map[string]int64{}
+	if media.Type != "video" {
+		return metadata
+	}
+	if media.Width > 0 && media.Height > 0 {
+		metadata["width"] = int64(media.Width)
+		metadata["height"] = int64(media.Height)
+	}
+	if media.DurationMS > 0 {
+		metadata["duration"] = (media.DurationMS-1)/1000 + 1
+	}
+	return metadata
+}
+
+func mediaGroupItem(index int, media OutboundMedia, caption string) map[string]any {
+	item := map[string]any{"type": media.Type, "media": "attach://media_" + strconv.Itoa(index)}
+	if index == 0 && caption != "" {
+		item["caption"] = caption
+	}
+	for name, value := range videoMetadata(media) {
+		item[name] = value
+	}
+	return item
 }
 
 type OutboundRequest struct {
@@ -163,11 +195,7 @@ func (api *HTTPBotAPI) Send(ctx context.Context, request OutboundRequest) ([]Mes
 	if request.Kind == "media_group" {
 		items := make([]map[string]any, 0, len(request.Media))
 		for index, media := range request.Media {
-			item := map[string]any{"type": media.Type, "media": "attach://media_" + strconv.Itoa(index)}
-			if index == 0 && request.Caption != "" {
-				item["caption"] = request.Caption
-			}
-			items = append(items, item)
+			items = append(items, mediaGroupItem(index, media, request.Caption))
 		}
 		encoded, err := json.Marshal(items)
 		if err != nil {
@@ -178,6 +206,9 @@ func (api *HTTPBotAPI) Send(ctx context.Context, request OutboundRequest) ([]Mes
 		fields[request.Kind] = "attach://media_0"
 		if request.Caption != "" {
 			fields["caption"] = request.Caption
+		}
+		for name, value := range videoMetadata(request.Media[0]) {
+			fields[name] = strconv.FormatInt(value, 10)
 		}
 	}
 	var messages []Message

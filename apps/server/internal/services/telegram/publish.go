@@ -223,7 +223,10 @@ func telegramPublishPlan(accountID string, req *platform.PublishRequest, media [
 		if kind == "document" {
 			documentCount++
 		}
-		outbound = append(outbound, OutboundMedia{Type: kind, MimeType: item.MimeType, Filename: item.Filename, Reader: item.Reader})
+		outbound = append(outbound, OutboundMedia{
+			Type: kind, MimeType: item.MimeType, Filename: item.Filename, Reader: item.Reader,
+			Width: item.Width, Height: item.Height, DurationMS: item.DurationMS,
+		})
 	}
 	if len(outbound) > 1 && documentCount != 0 && documentCount != len(outbound) {
 		return nil, ErrInvalidPublish

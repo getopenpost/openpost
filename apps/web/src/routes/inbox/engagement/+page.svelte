@@ -949,10 +949,7 @@
 			variant="ghost"
 			size="sm"
 			onclick={() => void markAllMatchingRead()}
-			disabled={!workspaceId ||
-				!workspaceCtx.currentWorkspace?.can_edit ||
-				Boolean(actionInFlight) ||
-				items.length === 0}
+			disabled={!workspaceId || !workspaceCtx.currentWorkspace?.can_edit || Boolean(actionInFlight)}
 		>
 			<ThemeIcon role="check" class="size-4" />
 			{m.engagement_mark_all_read()}

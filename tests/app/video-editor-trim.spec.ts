@@ -123,12 +123,15 @@ for (const scheme of ["light", "dark"] as const) {
       await page.keyboard.press("Home");
       for (let i = 0; i < 30; i++) await page.keyboard.press("ArrowRight");
       await page.screenshot({ path: testInfo.outputPath(`trim-before-${scheme}.png`) });
-      const trimStart = page.getByRole("button", { name: "Trim start to playhead", exact: true });
+      const clipOverflow = page.getByRole("button", {
+        name: "lisbon-tram.png: More actions",
+        exact: true,
+      });
+      await clipOverflow.click();
+      const trimStart = page.getByRole("menuitem", { name: "Trim start to playhead", exact: true });
       await expect(trimStart).toBeEnabled();
       const original = (await clips.first().boundingBox())!;
-      await trimStart.focus();
-      await expect(trimStart).toBeFocused();
-      await trimStart.press("Enter");
+      await trimStart.click();
       await expect
         .poll(async () => (await clips.first().boundingBox())!.width)
         .toBeLessThan(original.width);
@@ -138,16 +141,11 @@ for (const scheme of ["light", "dark"] as const) {
         .toBeCloseTo(original.width, 0);
       for (const width of [1280, 390, 320]) {
         await page.setViewportSize({ width, height: 844 });
-        if (width < 768)
-          await page
-            .getByRole("navigation", { name: "Editor panels" })
-            .getByRole("button", { name: "Properties", exact: true })
-            .click();
-        await trimStart.scrollIntoViewIfNeeded();
-        await expect(trimStart).toBeInViewport();
+        await clipOverflow.scrollIntoViewIfNeeded();
+        await expect(clipOverflow).toBeInViewport();
         if (scheme === "dark")
-          expect((await trimStart.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-        expect(await trimStart.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+          expect((await clipOverflow.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        expect(await clipOverflow.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
           width,
         );
@@ -162,7 +160,7 @@ for (const scheme of ["light", "dark"] as const) {
       for (const width of [390, 320]) {
         await page.setViewportSize({ width, height: 844 });
         const panels = page.getByRole("navigation", { name: "Editor panels" });
-        await panels.getByRole("button", { name: "Assets", exact: true }).click();
+        await panels.getByRole("button", { name: "Media", exact: true }).click();
         const sourceCard = page.getByRole("button", {
           name: "Source: lisbon-tram.png",
           exact: true,
@@ -172,7 +170,7 @@ for (const scheme of ["light", "dark"] as const) {
           await sourceCard.focus();
           await sourceCard.press("Enter");
         }
-        await expect(panels.getByRole("button", { name: "Program", exact: true })).toHaveAttribute(
+        await expect(panels.getByRole("button", { name: "Timeline", exact: true })).toHaveAttribute(
           "aria-pressed",
           "true",
         );

@@ -279,11 +279,11 @@
 
 <div class="@container/transform flex flex-col gap-2" data-testid="clip-transform-panel">
 	<section
-		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
+		class="border-t border-[var(--video-editor-border)]"
 		data-testid="clip-transform-section"
 	>
 		<h3
-			class="flex h-[25px] items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+			class="flex h-[25px] items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-xs font-medium text-[var(--video-editor-muted)]"
 		>
 			<ProtectedIcon icon="editor-move" class="size-3.5 text-[var(--video-editor-muted)]" />
 			{m.video_editor_property_transform()}
@@ -471,7 +471,7 @@
 			</EditorDisclosure>
 
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-				<span class="text-[10px] font-medium text-[var(--video-editor-muted)]"
+				<span class="text-xs font-medium text-[var(--video-editor-muted)]"
 					>{m.video_editor_property_flip()}</span
 				>
 				<div class="grid grid-cols-2 gap-1">
@@ -480,27 +480,33 @@
 						disabled={locked}
 						size="sm"
 						variant="ghost"
-						class="h-[var(--editor-22,22px)] justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
+						class="h-[var(--editor-22,22px)] justify-center border border-[var(--video-editor-border)] px-2 aria-pressed:bg-[var(--video-editor-selection)] aria-pressed:text-[var(--video-editor-selection-text)]"
 						aria-pressed={items.every((item) => item.transform?.flipHorizontal === true)}
-						onclick={() => toggleFlip('flipHorizontal')}>{m.video_editor_property_flip_x()}</Button
+						aria-label={m.video_editor_property_flip_x()}
+						title={m.video_editor_property_flip_x()}
+						onclick={() => toggleFlip('flipHorizontal')}
 					>
+						<ProtectedIcon icon="editor-flip-horizontal" class="size-3.5" />
+					</Button>
 					<Button
 						type="button"
 						disabled={locked}
 						size="sm"
 						variant="ghost"
-						class="h-[var(--editor-22,22px)] justify-center border border-[var(--video-editor-border)] px-2 text-[10px]"
+						class="h-[var(--editor-22,22px)] justify-center border border-[var(--video-editor-border)] px-2 aria-pressed:bg-[var(--video-editor-selection)] aria-pressed:text-[var(--video-editor-selection-text)]"
 						aria-pressed={items.every((item) => item.transform?.flipVertical === true)}
-						onclick={() => toggleFlip('flipVertical')}>{m.video_editor_property_flip_y()}</Button
+						aria-label={m.video_editor_property_flip_y()}
+						title={m.video_editor_property_flip_y()}
+						onclick={() => toggleFlip('flipVertical')}
 					>
+						<ProtectedIcon icon="editor-flip-vertical" class="size-3.5" />
+					</Button>
 				</div>
 			</div>
 		</div>
 	</section>
 
-	<section
-		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
-	>
+	<section class="border-t border-[var(--video-editor-border)]">
 		<EditorDisclosure
 			label={m.video_editor_property_appearance()}
 			summary={items.some(

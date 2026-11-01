@@ -96,11 +96,11 @@
 
 {#if items.length > 0}
 	<section
-		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
+		class="border-t border-[var(--video-editor-border)]"
 		data-testid="animated-image-playback-section"
 	>
 		<h3
-			class="flex h-8 items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-xs font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+			class="flex h-8 items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-xs font-medium text-[var(--video-editor-muted)]"
 		>
 			<ProtectedIcon icon="editor-speed" class="size-3.5 text-[var(--video-editor-muted)]" />
 			{m.video_editor_clip_playback()}

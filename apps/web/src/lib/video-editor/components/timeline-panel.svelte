@@ -68,6 +68,10 @@
 		unlinkItems
 	} from '$lib/video-editor/timeline/actions/items';
 	import {
+		canTrimItemToPlayhead,
+		trimItemToPlayhead
+	} from '$lib/video-editor/timeline/actions/trim-playhead';
+	import {
 		clearGeneratedItemDragData,
 		getGeneratedItemDragData,
 		type GeneratedItemDragData
@@ -4652,6 +4656,23 @@
 		if (clearableKeyframeCount === 0) return;
 		clearKeyframesDialogOpen = true;
 	}
+
+	const canTrimSelectedStart = $derived(
+		selectedItem ? canTrimItemToPlayhead(selectedItem.id, 'start') : false
+	);
+	const canTrimSelectedEnd = $derived(
+		selectedItem ? canTrimItemToPlayhead(selectedItem.id, 'end') : false
+	);
+
+	function trimSelectedToPlayhead(edge: 'start' | 'end'): void {
+		if (!selectedItem) return;
+		if (trimItemToPlayhead(selectedItem.id, edge)) onedit();
+	}
+
+	function trimContextItemToPlayhead(edge: 'start' | 'end'): void {
+		if (!contextPrimaryItem) return;
+		if (trimItemToPlayhead(contextPrimaryItem.id, edge)) onedit();
+	}
 </script>
 
 <svelte:window onkeydown={onPanelKeydown} />
@@ -4790,6 +4811,19 @@
 						{/snippet}
 					</DropdownMenu.Trigger>
 					<DropdownMenu.Content class="video-editor-theme w-60" align="end">
+						<DropdownMenu.Item
+							disabled={!canTrimSelectedStart}
+							onclick={() => trimSelectedToPlayhead('start')}
+						>
+							{m.video_editor_trim_start_playhead()}
+						</DropdownMenu.Item>
+						<DropdownMenu.Item
+							disabled={!canTrimSelectedEnd}
+							onclick={() => trimSelectedToPlayhead('end')}
+						>
+							{m.video_editor_trim_end_playhead()}
+						</DropdownMenu.Item>
+						<DropdownMenu.Separator />
 						<DropdownMenu.Item
 							disabled={bentoEligibleIds.length < 2}
 							onclick={() => (bentoLayoutOpen = true)}
@@ -6039,6 +6073,20 @@
 							onclick={() => oncreatecompound(contextItems.map((item) => item.id))}
 						>
 							{m.video_editor_create_compound()}
+						</ContextMenu.Item>
+					{/if}
+					{#if contextPrimaryItem && ['video', 'audio', 'image', 'composition'].includes(contextPrimaryItem.type)}
+						<ContextMenu.Item
+							disabled={!canTrimItemToPlayhead(contextPrimaryItem.id, 'start')}
+							onclick={() => trimContextItemToPlayhead('start')}
+						>
+							{m.video_editor_trim_start_playhead()}
+						</ContextMenu.Item>
+						<ContextMenu.Item
+							disabled={!canTrimItemToPlayhead(contextPrimaryItem.id, 'end')}
+							onclick={() => trimContextItemToPlayhead('end')}
+						>
+							{m.video_editor_trim_end_playhead()}
 						</ContextMenu.Item>
 					{/if}
 					{#if hasContextEditTools}

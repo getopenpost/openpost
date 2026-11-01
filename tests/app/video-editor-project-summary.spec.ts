@@ -4,6 +4,8 @@ import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 async function openProjectDetails(page: Page): Promise<void> {
   await page.locator("[data-project-details]").click();
   await expect(page.locator("[data-project-summary]")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-project-summary]")).toHaveCount(0);
 }
 
 test("project summary labels stay grammatical through clip creation, Undo and saved reload", async ({

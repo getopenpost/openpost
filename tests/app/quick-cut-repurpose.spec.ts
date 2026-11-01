@@ -265,7 +265,6 @@ test("Repurpose reviews real source clips and creates independent editable proje
   ).not.toBeChecked();
   await page.getByRole("link", { name: "Open clip project", exact: true }).click();
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.locator("[data-project-details]").click();
   await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue(
     "A simpler workflow",
   );

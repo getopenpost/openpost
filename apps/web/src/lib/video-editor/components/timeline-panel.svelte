@@ -4813,13 +4813,13 @@
 					<DropdownMenu.Content class="video-editor-theme w-60" align="end">
 						<DropdownMenu.Item
 							disabled={!canTrimSelectedStart}
-							onclick={() => trimSelectedToPlayhead('start')}
+							onSelect={() => trimSelectedToPlayhead('start')}
 						>
 							{m.video_editor_trim_start_playhead()}
 						</DropdownMenu.Item>
 						<DropdownMenu.Item
 							disabled={!canTrimSelectedEnd}
-							onclick={() => trimSelectedToPlayhead('end')}
+							onSelect={() => trimSelectedToPlayhead('end')}
 						>
 							{m.video_editor_trim_end_playhead()}
 						</DropdownMenu.Item>
@@ -6078,13 +6078,13 @@
 					{#if contextPrimaryItem && ['video', 'audio', 'image', 'composition'].includes(contextPrimaryItem.type)}
 						<ContextMenu.Item
 							disabled={!canTrimItemToPlayhead(contextPrimaryItem.id, 'start')}
-							onclick={() => trimContextItemToPlayhead('start')}
+							onSelect={() => trimContextItemToPlayhead('start')}
 						>
 							{m.video_editor_trim_start_playhead()}
 						</ContextMenu.Item>
 						<ContextMenu.Item
 							disabled={!canTrimItemToPlayhead(contextPrimaryItem.id, 'end')}
-							onclick={() => trimContextItemToPlayhead('end')}
+							onSelect={() => trimContextItemToPlayhead('end')}
 						>
 							{m.video_editor_trim_end_playhead()}
 						</ContextMenu.Item>

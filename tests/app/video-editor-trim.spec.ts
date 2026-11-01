@@ -219,3 +219,63 @@ for (const scheme of ["light", "dark"] as const) {
     });
   });
 }
+
+test("clip overflow trims the second half after splitting and trimming the first", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "no-preference" });
+  await createProject(page, "Split overflow");
+  const bytes = (
+    await readFile(
+      fileURLToPath(new URL("./fixtures/product-screenshots/study-sos-demo.mp4", import.meta.url)),
+    )
+  ).toString("base64");
+  await page.evaluate(async (bytes) => {
+    const root = await navigator.storage.getDirectory();
+    const handle = await root.getFileHandle("study-sos-demo.mp4", { create: true });
+    const writable = await handle.createWritable();
+    await writable.write(Uint8Array.from(atob(bytes), (c) => c.charCodeAt(0)));
+    await writable.close();
+    Object.defineProperty(window, "showOpenFilePicker", {
+      configurable: true,
+      value: async () => [handle],
+    });
+  }, bytes);
+  await page.getByRole("button", { name: "Import media", exact: true }).click();
+  await page
+    .getByRole("button", { name: "More actions for study-sos-demo.mp4", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "Add at playhead", exact: true }).click();
+  const clips = page.locator("[data-timeline-item-id]");
+  await expect(clips).toHaveCount(1);
+  const firstID = await clips.first().getAttribute("data-timeline-item-id");
+  const first = page.locator(`[data-timeline-item-id="${firstID}"]`);
+  const seek = async (frame: number) => {
+    const ruler = page.getByRole("slider", { name: "Timeline playhead", exact: true });
+    await ruler.focus();
+    await ruler.press("Home");
+    for (let n = 0; n < Math.floor(frame / 10); n++) await ruler.press("Shift+ArrowRight");
+    for (let n = 0; n < frame % 10; n++) await ruler.press("ArrowRight");
+  };
+  await seek(180);
+  await first.getByRole("button", { name: /Drag to move/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: /Split at playhead/ }).click();
+  await expect(clips).toHaveCount(2);
+  const second = clips.last();
+  await first.getByRole("button", { name: /Drag to move/ }).click();
+  await seek(165);
+  const more = page.getByRole("button", { name: "study-sos-demo.mp4: More actions", exact: true });
+  await more.click();
+  await page.getByRole("menuitem", { name: "Trim end to playhead", exact: true }).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await second.getByRole("button", { name: /Drag to move/ }).click();
+  await seek(195);
+  const before = (await second.boundingBox())!;
+  await more.click();
+  await page.getByRole("menuitem", { name: "Trim start to playhead", exact: true }).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect.poll(async () => (await second.boundingBox())!.width).toBeLessThan(before.width);
+  await page.screenshot({ path: testInfo.outputPath("second-trim.png") });
+});

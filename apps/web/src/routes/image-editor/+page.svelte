@@ -640,7 +640,10 @@
 					size="sm"
 					class="-ml-2"
 					aria-expanded={trashOpen}
-					onclick={() => (trashOpen = !trashOpen)}
+					onclick={() => {
+						trashOpen = !trashOpen;
+						if (trashOpen && workspaceID) void trashedDesignsQuery.refetch();
+					}}
 				>
 					<ThemeIcon
 						role="chevron-right"

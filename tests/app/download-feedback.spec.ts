@@ -74,7 +74,10 @@ test("Video Editor distinguishes verified project media from its frame download 
   await page.getByRole("menuitem", { name: "Save current frame", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-requested-download", /\.png$/);
   const file = await page.locator("html").getAttribute("data-requested-download");
+  await page.locator("[data-project-details]").click();
   await expect(page.locator("[data-project-summary]")).toContainText(/(?:1 media|Media: 1)/);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-project-summary]")).toHaveCount(0);
   await expect(
     page.getByText(`Saved ${file} to project media. Download started.`, { exact: true }).first(),
   ).toBeVisible({ timeout: 5000 });

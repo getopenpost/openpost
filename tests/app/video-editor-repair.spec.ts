@@ -4,6 +4,26 @@ import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
 const CLOUD_SAVE_TIMEOUT_MS = 15_000;
 
+async function openRecorder(page: Page): Promise<void> {
+  const assetsPanel = page.getByRole("complementary", { name: "Assets", exact: true });
+  if (!(await assetsPanel.isVisible())) {
+    await page
+      .getByRole("navigation", { name: "Editor panels", exact: true })
+      .getByRole("button", { name: "Assets", exact: true })
+      .click();
+  }
+  await assetsPanel.getByRole("button", { name: "More ways to add media", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Record", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Recorder", exact: true })).toBeVisible();
+}
+
+async function expectProjectSummary(page: Page, expected: string | RegExp): Promise<void> {
+  await page.locator("[data-project-details]").click();
+  await expect(page.locator("[data-project-summary]")).toContainText(expected);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-project-summary]")).toHaveCount(0);
+}
+
 test("header history actions close after the selected command becomes disabled", async ({
   page,
   request,
@@ -18,8 +38,7 @@ test("header history actions close after the selected command becomes disabled",
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   const header = page.getByRole("banner");
   const more = header.getByRole("button", { name: "More actions", exact: true });
-  const summary = page.locator("[data-project-summary]");
-  await expect(summary).toContainText("Clips: 1");
+  await expectProjectSummary(page, "Clips: 1");
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
@@ -33,9 +52,9 @@ test("header history actions close after the selected command becomes disabled",
           await action.focus();
           await action.press("Enter");
         }
-        await expect(summary).toContainText(command === "Undo" ? "Clips: 0" : "Clips: 1");
         await expect(page.getByRole("menu")).toHaveCount(0);
         if (width !== 1280) await expect(more).toBeFocused();
+        await expectProjectSummary(page, command === "Undo" ? "Clips: 0" : "Clips: 1");
       }
       await page.screenshot({ path: testInfo.outputPath(`history-menu-${scheme}-${width}.png`) });
     }
@@ -49,7 +68,7 @@ test("header history actions close after the selected command becomes disabled",
     "saved",
   );
   await page.reload();
-  await expect(summary).toContainText("Clips: 1");
+  await expectProjectSummary(page, "Clips: 1");
   expect(errors).toEqual([]);
 });
 
@@ -89,7 +108,6 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
   const controls = [
     header.getByRole("button", { name: "Undo", exact: true }),
     header.getByRole("button", { name: "Redo", exact: true }),
-    header.getByRole("button", { name: "Record screen", exact: true }),
     header.getByRole("button", { name: "More actions", exact: true }),
     header.getByRole("button", { name: "Export", exact: true }),
   ];
@@ -156,7 +174,7 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
     .click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await newProject(page, "Text proof");
-  await expect(page.locator("[data-project-summary]")).toContainText("Clips: 0");
+  await expectProjectSummary(page, "Clips: 0");
   expect(errors).toEqual([]);
 });
 
@@ -423,8 +441,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
     await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
     for (const width of [1440, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.locator("header").getByRole("button", { name: "More actions" }).click();
-      await page.getByRole("menuitem", { name: "Record screen" }).click();
+      await openRecorder(page);
       const dialog = page.getByRole("dialog", { name: "Recorder", exact: true });
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole("button", { name: "Microphone", exact: true })).toBeVisible();
@@ -442,8 +459,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
     }
   }
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.locator("header").getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Record screen" }).click();
+  await openRecorder(page);
   const dialog = page.getByRole("dialog", { name: "Recorder", exact: true });
   await dialog.getByRole("checkbox", { name: "Microphone", exact: true }).uncheck();
   await dialog.getByText("Advanced", { exact: true }).click();
@@ -453,7 +469,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await waitForRecording(dialog);
   await dialog.getByRole("button", { name: "Stop recording" }).click();
   await expect(dialog).not.toBeVisible({ timeout: 30000 });
-  await expect(page.locator("[data-project-summary]")).toContainText("Clips: 1");
+  await expectProjectSummary(page, "Clips: 1");
   await page.keyboard.press("ControlOrMeta+s");
   await expect(page.locator('header [role="status"][data-state]')).toHaveAttribute(
     "data-state",
@@ -462,13 +478,12 @@ test("recording setup fits both themes and imports a real streaming WebM", async
       timeout: 15000,
     },
   );
-  await page.locator("header").getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Record screen" }).click();
+  await openRecorder(page);
   await dialog.getByRole("button", { name: "Start recording" }).click();
   await waitForRecording(dialog);
   await page.evaluate(() => window.dispatchEvent(new Event("test-stop-sharing")));
   await expect(dialog).not.toBeVisible({ timeout: 30000 });
-  await expect(page.locator("[data-project-summary]")).toContainText("Clips: 2");
+  await expectProjectSummary(page, "Clips: 2");
   const uploadRoute = /\/api\/v1\/media\/upload(?:-session)?(?:\?|$)/;
   await page.route(uploadRoute, (route) =>
     route.fulfill({
@@ -477,8 +492,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
       body: JSON.stringify({ detail: "Deliberate upload failure" }),
     }),
   );
-  await page.locator("header").getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Record screen" }).click();
+  await openRecorder(page);
   await dialog.getByRole("button", { name: "Start recording" }).click();
   await waitForRecording(dialog);
   await dialog.getByRole("button", { name: "Stop recording" }).click();
@@ -509,7 +523,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
     await expect(dialog.getByRole("status")).toHaveAttribute("aria-busy", "true");
     await expect(dialog.getByRole("status")).toContainText("Saving");
     await expect(dialog.getByRole("link", { name: "Download Screen", exact: true })).toHaveCount(0);
-    await expect(page.locator("[data-project-summary]")).toContainText("Clips: 2");
+    await expectProjectSummary(page, "Clips: 2");
   } finally {
     releaseRecoveryUpload();
   }
@@ -517,7 +531,7 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await expect(dialog.getByRole("link", { name: "Download Screen", exact: true })).toHaveCount(0, {
     timeout: 30_000,
   });
-  await expect(page.locator("[data-project-summary]")).toContainText("Clips: 3");
+  await expectProjectSummary(page, "Clips: 3");
 });
 
 test("editing text over a background does not leave the old lettering underneath", async ({

@@ -46,9 +46,6 @@
 	let dropIndicator = $derived(
 		imageEditorLayerDropIndicator(items, pointerTargetID, pointerTargetPosition, pointerDraggingID)
 	);
-	let reorderLayer = $derived(
-		editor.activePage?.layers.find((layer) => layer.id === editor.selectedLayerIDs.at(-1))
-	);
 
 	$effect(() => {
 		const selectedID = editor.selectedLayerIDs.at(-1);
@@ -403,32 +400,6 @@
 					{m.image_editor_selected_count({ count: editor.selectedLayerIDs.length })}
 				</span>
 			{/if}
-			{#if reorderLayer}
-				<Button
-					variant="ghost"
-					size="icon-xs"
-					disabled={!editor.canEdit || editor.isLayerLocked(reorderLayer.id)}
-					aria-label={m.image_editor_move_layer_up({ name: reorderLayer.name })}
-					title={m.image_editor_move_layer_up({ name: reorderLayer.name })}
-					onclick={() => {
-						editor.reorderLayer(reorderLayer.id, 'forward');
-					}}
-				>
-					<ThemeIcon role="arrow-up" />
-				</Button>
-				<Button
-					variant="ghost"
-					size="icon-xs"
-					disabled={!editor.canEdit || editor.isLayerLocked(reorderLayer.id)}
-					aria-label={m.image_editor_move_layer_down({ name: reorderLayer.name })}
-					title={m.image_editor_move_layer_down({ name: reorderLayer.name })}
-					onclick={() => {
-						editor.reorderLayer(reorderLayer.id, 'backward');
-					}}
-				>
-					<ThemeIcon role="arrow-down" />
-				</Button>
-			{/if}
 			<Button
 				variant="ghost"
 				size="icon-xs"
@@ -495,6 +466,7 @@
 										: 'hover:bg-muted'} {pointerDraggingID === layer.id && pointerDragActive
 										? 'opacity-60'
 										: ''}"
+									class:layer-row-focused={focusedLayerID === layer.id}
 									style:padding-left={`${item.depth * 14 + 4}px`}
 									onfocus={() => {
 										focusedLayerID = layer.id;
@@ -610,7 +582,8 @@
 										tabindex={-1}
 										variant="ghost"
 										size="icon-xs"
-										class="[@media(pointer:coarse)]:size-11"
+										class="image-editor-layer-action [@media(pointer:coarse)]:size-11"
+										data-state-active={!layer.visible || undefined}
 										aria-label={layer.visible
 											? m.image_editor_hide_layer({ name: layer.name })
 											: m.image_editor_show_layer({ name: layer.name })}
@@ -629,7 +602,8 @@
 										tabindex={-1}
 										variant="ghost"
 										size="icon-xs"
-										class="[@media(pointer:coarse)]:size-11"
+										class="image-editor-layer-action [@media(pointer:coarse)]:size-11"
+										data-state-active={layer.locked || undefined}
 										aria-label={layer.locked
 											? m.image_editor_unlock_layer({ name: layer.name })
 											: m.image_editor_lock_layer({ name: layer.name })}
@@ -820,10 +794,26 @@
 		box-shadow: inset 0 0 0 2px var(--primary);
 	}
 
+	.image-editor-layer-action {
+		opacity: 0;
+		transition: opacity 120ms ease-out;
+	}
+
+	.image-editor-layer-row:hover .image-editor-layer-action,
+	.image-editor-layer-row:focus-within .image-editor-layer-action,
+	.image-editor-layer-row.layer-row-focused .image-editor-layer-action,
+	.image-editor-layer-action[data-state-active] {
+		opacity: 1;
+	}
+
 	@media (pointer: coarse) {
 		.image-editor-layer-row {
 			min-height: 48px;
 			contain-intrinsic-size: 48px;
+		}
+
+		.image-editor-layer-action {
+			opacity: 1;
 		}
 
 		.image-editor-layer-grip {

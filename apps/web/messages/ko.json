@@ -10366,5 +10366,6 @@
 	"onboarding_work_style_heading": "주로 어떻게 일하시나요?",
 	"onboarding_work_style_write": "주로 글을 씁니다",
 	"onboarding_work_style_business": "사업을 운영합니다",
-	"image_editor_autosave": "변경 사항은 자동으로 저장됩니다"
+	"image_editor_autosave": "변경 사항은 자동으로 저장됩니다",
+	"image_editor_text_alignment": "정렬"
 }

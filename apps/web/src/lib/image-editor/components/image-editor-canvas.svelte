@@ -2731,7 +2731,7 @@
 			>
 				{#if editor.showRulers}
 					<div
-						class="absolute -top-6 left-0 z-40 h-6 w-full cursor-s-resize overflow-hidden border-b border-[var(--editor-border)] bg-[var(--editor-panel)] text-[var(--editor-muted)] shadow-sm"
+						class="absolute -top-6 -left-px z-40 h-6 w-[calc(100%+2px)] cursor-s-resize overflow-hidden border-b border-[var(--editor-border)] bg-[var(--editor-panel)] text-[var(--editor-muted)] shadow-sm"
 						role="button"
 						tabindex="0"
 						aria-label={m.image_editor_add_vertical_guide()}
@@ -2757,7 +2757,7 @@
 						{/each}
 					</div>
 					<div
-						class="absolute top-0 -left-6 z-40 h-full w-6 cursor-e-resize overflow-hidden border-r border-[var(--editor-border)] bg-[var(--editor-panel)] text-[var(--editor-muted)] shadow-sm"
+						class="absolute -top-px -left-6 z-40 h-[calc(100%+2px)] w-6 cursor-e-resize overflow-hidden border-r border-[var(--editor-border)] bg-[var(--editor-panel)] text-[var(--editor-muted)] shadow-sm"
 						role="button"
 						tabindex="0"
 						aria-label={m.image_editor_add_horizontal_guide()}

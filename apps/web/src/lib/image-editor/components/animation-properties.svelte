@@ -158,7 +158,7 @@
 </script>
 
 {#if animation || /\.gif$/i.test(layer.name)}
-	<section class="space-y-3 border-t pt-4" aria-label={m.image_editor_animation()}>
+	<section class="space-y-2 border-t pt-4" aria-label={m.image_editor_animation()}>
 		<h3 class="text-xs font-medium">{m.image_editor_animation()}</h3>
 		{#if !animation}
 			<Button
@@ -232,48 +232,51 @@
 					</button>
 				{/each}
 			</div>
-			<label class="grid gap-1 text-xs">
-				<span>{m.image_editor_animation_duration()}</span>
-				<Input
-					type="number"
-					min={20}
-					max={10000}
-					step={10}
-					value={animation.frames[selected]?.duration_ms ?? 100}
-					{disabled}
-					onchange={(event) => {
-						const duration_ms = Number(event.currentTarget.value);
-						update({
-							...animation!,
-							frames: animation!.frames.map((frame, index) =>
-								index === selected ? { ...frame, duration_ms } : frame
-							)
-						});
-					}}
-				/>
-			</label>
-			<div class="flex flex-wrap gap-2">
-				<Button
-					variant="outline"
-					size="sm"
-					disabled={disabled || animation.frames.length >= IMAGE_EDITOR_ANIMATION_LIMITS.maxFrames}
-					onclick={() => {
-						const frames = [...animation!.frames];
-						frames.splice(selected + 1, 0, { ...frames[selected] });
-						update({ ...animation!, frames });
-						select(selected + 1);
-					}}>{m.image_editor_animation_duplicate()}</Button
-				>
-				<Button
-					variant="outline"
-					size="sm"
-					disabled={disabled || animation.frames.length === 1}
-					onclick={() =>
-						update({
-							...animation!,
-							frames: animation!.frames.filter((_, index) => index !== selected)
-						})}>{m.image_editor_animation_delete()}</Button
-				>
+			<div class="grid grid-cols-2 gap-2">
+				<label class="grid gap-1 text-xs">
+					<span>{m.image_editor_animation_duration()}</span>
+					<Input
+						type="number"
+						min={20}
+						max={10000}
+						step={10}
+						value={animation.frames[selected]?.duration_ms ?? 100}
+						{disabled}
+						onchange={(event) => {
+							const duration_ms = Number(event.currentTarget.value);
+							update({
+								...animation!,
+								frames: animation!.frames.map((frame, index) =>
+									index === selected ? { ...frame, duration_ms } : frame
+								)
+							});
+						}}
+					/>
+				</label>
+				<div class="grid grid-cols-2 items-end gap-1">
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={disabled ||
+							animation.frames.length >= IMAGE_EDITOR_ANIMATION_LIMITS.maxFrames}
+						onclick={() => {
+							const frames = [...animation!.frames];
+							frames.splice(selected + 1, 0, { ...frames[selected] });
+							update({ ...animation!, frames });
+							select(selected + 1);
+						}}>{m.image_editor_animation_duplicate()}</Button
+					>
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={disabled || animation.frames.length === 1}
+						onclick={() =>
+							update({
+								...animation!,
+								frames: animation!.frames.filter((_, index) => index !== selected)
+							})}>{m.image_editor_animation_delete()}</Button
+					>
+				</div>
 			</div>
 			<label class="flex min-h-11 items-center gap-2 text-xs">
 				<Checkbox
@@ -283,7 +286,6 @@
 				/>
 				{m.image_editor_animation_loop()}
 			</label>
-			<p class="text-xs text-muted-foreground">{m.image_editor_animation_help()}</p>
 		{/if}
 		{#if loading}<p role="status" class="text-xs text-muted-foreground">
 				{m.image_editor_animation_loading()}

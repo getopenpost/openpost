@@ -10366,5 +10366,6 @@
 	"onboarding_work_style_heading": "Wie arbeitest du meistens?",
 	"onboarding_work_style_write": "Ich schreibe meistens",
 	"onboarding_work_style_business": "Ich führe ein Unternehmen",
-	"image_editor_autosave": "Änderungen werden automatisch gespeichert"
+	"image_editor_autosave": "Änderungen werden automatisch gespeichert",
+	"image_editor_text_alignment": "Ausrichtung"
 }

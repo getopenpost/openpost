@@ -319,6 +319,9 @@ func primaryStreams(streams []probeStream) (*probeStream, *probeStream) {
 	return videoStream, audioStream
 }
 
+// displayDimensions reports square-pixel geometry after rotation. The scaled
+// dimension rounds to whole pixels, with at most half a pixel of error;
+// ratios of very narrow streams can remain approximate.
 func displayDimensions(videoStream *probeStream) (int, int) {
 	width, height := videoStream.Width, videoStream.Height
 	// Sample aspect ratio describes pixel width relative to pixel height.

@@ -112,6 +112,7 @@ func TestProbeResultWithSubpixelDisplayWidth(t *testing.T) {
 		{"1:4", 2, 8},
 		{"1:3", 2, 6},
 		{"1:2", 1, 2},
+		{"2:5", 2, 5},
 	} {
 		t.Run(tc.sar, func(t *testing.T) {
 			result, _, err := resultFromProbe(probeOutput{Streams: []probeStream{{

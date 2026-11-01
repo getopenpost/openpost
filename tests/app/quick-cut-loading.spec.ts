@@ -169,7 +169,7 @@ test("leaving Quick Cut cancels a source whose processing module is still loadin
   });
   await page.goto("/studio");
   await page.waitForLoadState("networkidle");
-  await page.getByRole("link", { name: "Quick Cut", exact: true }).click();
+  await page.getByRole("link", { name: /Quick Cut/ }).click();
   await expect(page).toHaveURL(/\/quick-cut$/);
   await page.waitForLoadState("networkidle");
   let release!: () => void;
@@ -198,7 +198,7 @@ test("leaving Quick Cut cancels a source whose processing module is still loadin
     await held;
     await page.goBack();
     await expect(page).toHaveURL(/\/studio$/);
-    await page.getByRole("link", { name: "Image Editor", exact: true }).click();
+    await page.getByRole("link", { name: /Image Editor/ }).click();
     await expect(page).toHaveURL(/\/image-editor$/);
     const delivered = page.waitForResponse(heldURL);
     release();

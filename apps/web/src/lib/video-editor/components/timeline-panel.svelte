@@ -4668,8 +4668,7 @@
 			});
 		}}
 	>
-		<span class="text-xs text-[var(--video-editor-muted)]">{m.video_editor_timeline()}</span>
-		<div class="flex items-center gap-0.5 border-l border-[var(--video-editor-border)] pl-2">
+		<div class="flex items-center gap-0.5 pl-0.5">
 			<Button
 				variant="ghost"
 				size="icon"
@@ -4820,13 +4819,6 @@
 						</DropdownMenu.Item>
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
-				<span
-					class="mr-2 max-w-40 truncate rounded bg-[var(--video-editor-control)] px-2 py-0.5 text-xs"
-				>
-					{selectedItemIds.length > 1
-						? m.video_editor_items_selected({ count: selectedItemIds.length })
-						: selectedItem.label}
-				</span>
 				<Button
 					variant="ghost"
 					size="icon"

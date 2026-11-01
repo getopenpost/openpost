@@ -257,12 +257,14 @@ test("Repurpose reviews real source clips and creates independent editable proje
   await expect(
     page.getByRole("button", { name: "Source 1 · study-sos-demo.mp4", exact: true }),
   ).toBeVisible({ timeout: 90_000 });
+  await page.getByRole("button", { name: "Cleanup", exact: true }).click();
   await page.getByRole("button", { name: "Find clips", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Start", exact: true })).toHaveValue("00:00.10");
   await expect(
     page.getByRole("checkbox", { name: "Include Customers save time", exact: true }),
   ).not.toBeChecked();
   await page.getByRole("link", { name: "Open clip project", exact: true }).click();
+  await page.locator("[data-project-details]").click();
   await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue(
     "A simpler workflow",
   );
@@ -270,8 +272,9 @@ test("Repurpose reviews real source clips and creates independent editable proje
   await expect(
     page.getByRole("button", { name: "Source 1 · study-sos-demo.mp4", exact: true }),
   ).toBeVisible({ timeout: 90_000 });
+  await page.getByRole("button", { name: "Cleanup", exact: true }).click();
   await page.getByRole("button", { name: "Find clips", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Find clips", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /Find (clips|again)/ })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Create transcript", exact: true })).toHaveCount(0);
   expect(pageErrors).toEqual([]);
 });

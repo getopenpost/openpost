@@ -329,33 +329,6 @@
 			<Logo class="h-5 w-auto" />
 			<span class="text-sm font-semibold">{m.record_title()}</span>
 		</a>
-		{#if cloudWorkspaceId}
-			<div
-				class="flex flex-wrap items-center gap-2"
-				role="group"
-				aria-label={m.editor_storage_destination()}
-			>
-				<span class="text-xs text-muted-foreground">{m.editor_storage_destination()}</span>
-				<div
-					class="flex items-center gap-1 rounded-lg border border-[var(--video-editor-border)] p-1"
-				>
-					<Button
-						size="sm"
-						variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
-						aria-pressed={storageMode === 'cloud'}
-						disabled={captureBusy}
-						onclick={() => chooseStorage('cloud')}>{m.editor_storage_choice_cloud()}</Button
-					>
-					<Button
-						size="sm"
-						variant={storageMode === 'local' ? 'secondary' : 'ghost'}
-						aria-pressed={storageMode === 'local'}
-						disabled={captureBusy}
-						onclick={() => chooseStorage('local')}>{m.editor_storage_choice_local()}</Button
-					>
-				</div>
-			</div>
-		{/if}
 	</header>
 
 	<main class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-4">
@@ -566,6 +539,39 @@
 				</div>
 
 				<Disclosure label={m.record_more_options()} class="border-t border-b-0 pt-1">
+					{#if cloudWorkspaceId}
+						<div
+							class="flex flex-wrap items-center gap-2 pb-2"
+							role="group"
+							aria-label={m.editor_storage_destination()}
+						>
+							<span class="text-xs">{m.editor_storage_destination()}</span>
+							<div
+								class="flex items-center gap-1 rounded-lg border border-[var(--video-editor-border)] p-1"
+							>
+								<Button
+									size="sm"
+									variant="ghost"
+									class={storageMode === 'cloud'
+										? 'bg-navigation-active text-navigation-active-foreground hover:bg-navigation-active'
+										: ''}
+									aria-pressed={storageMode === 'cloud'}
+									disabled={captureBusy}
+									onclick={() => chooseStorage('cloud')}>{m.editor_storage_choice_cloud()}</Button
+								>
+								<Button
+									size="sm"
+									variant="ghost"
+									class={storageMode === 'local'
+										? 'bg-navigation-active text-navigation-active-foreground hover:bg-navigation-active'
+										: ''}
+									aria-pressed={storageMode === 'local'}
+									disabled={captureBusy}
+									onclick={() => chooseStorage('local')}>{m.editor_storage_choice_local()}</Button
+								>
+							</div>
+						</div>
+					{/if}
 					<div class="grid gap-3 pt-2 sm:grid-cols-3">
 						<div class="flex flex-col gap-1 text-xs">
 							<span>{m.video_editor_export_resolution()}</span>

@@ -463,10 +463,15 @@
 		bind:heading={pageHeading}
 	>
 		{#snippet utility()}
-			{#if !authState.isAuthenticated}<Button
-					href="/login?redirect=%2Fimage-editor"
+			{#if authState.isAuthenticated}<Button
+					href={resolveAppPath('/studio')}
 					variant="ghost"
-					size="sm">{m.landing_sign_in()}</Button
+					size="sm"
+				>
+					<ThemeIcon role="chevron-left" class="size-4" />
+					{m.editor_back_to_studio()}
+				</Button>{:else}<Button href="/login?redirect=%2Fimage-editor" variant="ghost" size="sm"
+					>{m.landing_sign_in()}</Button
 				>{/if}
 		{/snippet}
 		{#snippet actions()}
@@ -506,13 +511,6 @@
 				onchange={() => void openImage()}
 			/>
 		{/snippet}
-
-		{#if authState.isAuthenticated}
-			<Button href={resolveAppPath('/studio')} variant="ghost" size="sm" class="mb-4 -ml-2">
-				<ThemeIcon role="chevron-left" class="size-4" />
-				{m.editor_back_to_studio()}
-			</Button>
-		{/if}
 
 		{#if error}
 			<InlineNotice tone="error" message={error} class="mt-6 max-w-3xl" />

@@ -458,7 +458,7 @@
 												type="button"
 												class="min-w-0 rounded border border-border p-1 text-left text-xs focus-visible:outline-2 focus-visible:outline-ring {selected?.id ===
 												run.id
-													? 'bg-accent text-accent-foreground'
+													? 'bg-navigation-active text-navigation-active-foreground'
 													: 'hover:bg-muted'}"
 												aria-pressed={selected?.id === run.id}
 												title={run.prompt}

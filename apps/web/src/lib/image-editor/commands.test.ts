@@ -3,6 +3,7 @@ import {
 	imageEditorCommandForKeyboardEvent,
 	imageEditorCommandsForCompactMenu,
 	imageEditorCommandsForRail,
+	imageEditorCommandsForRailSlot,
 	imageEditorShortcutLabel,
 	IMAGE_EDITOR_COMMANDS
 } from './commands';
@@ -94,6 +95,50 @@ describe('OpenPost Image Editor command registry', () => {
 	it('keeps one primary command per rail slot', () => {
 		const rail = imageEditorCommandsForRail();
 		expect(new Set(rail.map((command) => command.railSlot)).size).toBe(rail.length);
+	});
+
+	it('limits the tool rail to eight slots led by Add', () => {
+		const rail = imageEditorCommandsForRail();
+		expect(rail).toHaveLength(7);
+		expect(rail.map((command) => command.railSlot)).toEqual([
+			'select',
+			'crop',
+			'text',
+			'shape',
+			'draw',
+			'eyedropper',
+			'view'
+		]);
+	});
+
+	it('keeps every select, draw, and view variant inside its slot flyout', () => {
+		expect(imageEditorCommandsForRailSlot('select').map((command) => command.tool)).toEqual([
+			'select',
+			'marquee',
+			'ellipse_marquee',
+			'lasso',
+			'polygonal_lasso',
+			'magic_wand'
+		]);
+		expect(imageEditorCommandsForRailSlot('draw').map((command) => command.tool)).toEqual([
+			'pencil',
+			'eraser',
+			'magic_eraser',
+			'bucket',
+			'gradient'
+		]);
+		expect(imageEditorCommandsForRailSlot('view').map((command) => command.tool)).toEqual([
+			'hand',
+			'zoom'
+		]);
+	});
+
+	it('keeps every tool command in a rail slot', () => {
+		const toolCommands = IMAGE_EDITOR_COMMANDS.filter((command) => command.tool);
+		for (const command of toolCommands) {
+			expect(command.railSlot).toBeDefined();
+			expect(imageEditorCommandsForRailSlot(command.railSlot!)).toContain(command);
+		}
 	});
 
 	it('keeps Edit, Layer, Select, and Tools reachable from the compact menu', () => {

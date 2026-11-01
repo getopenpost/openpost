@@ -162,12 +162,14 @@
 		imageEditorCommandsForCompactMenu,
 		imageEditorCommandsForMobileGroup,
 		imageEditorCommandsForRail,
+		imageEditorCommandsForRailSlot,
 		imageEditorShortcutLabel,
 		IMAGE_EDITOR_COMPACT_MENU_CATEGORIES,
 		IMAGE_EDITOR_COMMANDS,
 		type ImageEditorCompactMenuCategory,
 		type ImageEditorCommandDescriptor,
-		type ImageEditorCommandID
+		type ImageEditorCommandID,
+		type ImageEditorCommandRailSlot
 	} from '../commands';
 	import {
 		createImageEditorProjectArchive,
@@ -487,10 +489,18 @@
 	let templateCategory = $state<string>(m.image_editor_workspace_category());
 	let templateTargetID = $state('new');
 	let workspaceTemplates = $state<ImageEditorTemplate[]>([]);
-	let marqueeSlotTool = $state<'marquee' | 'ellipse_marquee'>('marquee');
-	let lassoSlotTool = $state<'lasso' | 'polygonal_lasso'>('lasso');
-	let fillSlotTool = $state<'bucket' | 'gradient'>('bucket');
-	let eraserSlotTool = $state<'eraser' | 'magic_eraser'>('eraser');
+	type SelectSlotTool = Extract<
+		ImageEditorTool,
+		'select' | 'marquee' | 'ellipse_marquee' | 'lasso' | 'polygonal_lasso' | 'magic_wand'
+	>;
+	type DrawSlotTool = Extract<
+		ImageEditorTool,
+		'pencil' | 'eraser' | 'magic_eraser' | 'bucket' | 'gradient'
+	>;
+	type ViewSlotTool = Extract<ImageEditorTool, 'hand' | 'zoom'>;
+	let selectSlotTool = $state<SelectSlotTool>('select');
+	let drawSlotTool = $state<DrawSlotTool>('pencil');
+	let viewSlotTool = $state<ViewSlotTool>('hand');
 	let shapeSlotKind = $state<'rectangle' | 'rounded_rectangle' | 'ellipse' | 'line'>('rectangle');
 	let mobileSelectTool = $state<ImageEditorTool>('select');
 	let mobileDrawTool = $state<ImageEditorTool>('pencil');
@@ -2073,10 +2083,9 @@
 		}
 		if (['text', 'pencil', 'bucket', 'gradient'].includes(tool)) mobileDrawTool = tool;
 		if (['crop', 'eraser', 'magic_eraser'].includes(tool)) mobileRetouchTool = tool;
-		if (isMarqueeTool(tool)) marqueeSlotTool = tool;
-		if (isLassoTool(tool)) lassoSlotTool = tool;
-		if (isFillTool(tool)) fillSlotTool = tool;
-		if (isEraserTool(tool)) eraserSlotTool = tool;
+		if (isSelectSlotTool(tool)) selectSlotTool = tool;
+		if (isDrawSlotTool(tool)) drawSlotTool = tool;
+		if (isViewSlotTool(tool)) viewSlotTool = tool;
 		if (tool === 'text') {
 			editor.addText();
 			queueMicrotask(() => {
@@ -3082,47 +3091,52 @@
 		['tool_zoom', { kind: 'theme', role: 'layout' }]
 	]);
 	const fallbackToolGlyph: ToolGlyph = { kind: 'protected', role: 'editor-select' };
-	const tools = imageEditorCommandsForRail().map((command) => ({
-		command,
-		key: command.tool!,
-		label: commandLabel(command.id),
-		icon: commandIcons.get(command.id) ?? fallbackToolGlyph
+	const railSlots = imageEditorCommandsForRail().map((command) => ({
+		slot: command.railSlot!,
+		command
 	}));
 
 	function mobileToolCommands(group: 'select' | 'draw' | 'retouch') {
 		return imageEditorCommandsForMobileGroup(group);
 	}
 
-	function railSlotCommands(slot: ImageEditorCommandDescriptor['railSlot']) {
-		return IMAGE_EDITOR_COMMANDS.filter((command) => command.railSlot === slot);
+	function railSlotCommands(slot: ImageEditorCommandRailSlot) {
+		return imageEditorCommandsForRailSlot(slot);
+	}
+
+	type RailFamilySlot = 'select' | 'draw' | 'view';
+
+	function railSlotTool(slot: RailFamilySlot): ImageEditorTool {
+		if (slot === 'select') return selectSlotTool;
+		if (slot === 'draw') return drawSlotTool;
+		return viewSlotTool;
+	}
+
+	function railSlotActive(slot: RailFamilySlot, tool: ImageEditorTool): boolean {
+		return railSlotCommands(slot).some((command) => command.tool === tool);
 	}
 
 	function commandTool(command: ImageEditorCommandDescriptor): ImageEditorTool {
 		return command.tool ?? 'select';
 	}
 
-	function isMarqueeTool(
-		tool: ImageEditorTool
-	): tool is Extract<ImageEditorTool, 'marquee' | 'ellipse_marquee'> {
-		return tool === 'marquee' || tool === 'ellipse_marquee';
+	function isSelectSlotTool(tool: ImageEditorTool): tool is SelectSlotTool {
+		return [
+			'select',
+			'marquee',
+			'ellipse_marquee',
+			'lasso',
+			'polygonal_lasso',
+			'magic_wand'
+		].includes(tool);
 	}
 
-	function isLassoTool(
-		tool: ImageEditorTool
-	): tool is Extract<ImageEditorTool, 'lasso' | 'polygonal_lasso'> {
-		return tool === 'lasso' || tool === 'polygonal_lasso';
+	function isDrawSlotTool(tool: ImageEditorTool): tool is DrawSlotTool {
+		return ['pencil', 'eraser', 'magic_eraser', 'bucket', 'gradient'].includes(tool);
 	}
 
-	function isFillTool(
-		tool: ImageEditorTool
-	): tool is Extract<ImageEditorTool, 'bucket' | 'gradient'> {
-		return tool === 'bucket' || tool === 'gradient';
-	}
-
-	function isEraserTool(
-		tool: ImageEditorTool
-	): tool is Extract<ImageEditorTool, 'eraser' | 'magic_eraser'> {
-		return tool === 'eraser' || tool === 'magic_eraser';
+	function isViewSlotTool(tool: ImageEditorTool): tool is ViewSlotTool {
+		return tool === 'hand' || tool === 'zoom';
 	}
 </script>
 
@@ -3134,6 +3148,39 @@
 	{:else}
 		<ProtectedIcon icon={glyph.role} />
 	{/if}
+{/snippet}
+
+{#snippet railSlotFamily(slot: RailFamilySlot, layout: 'rail' | 'bottom')}
+	{@const commands = railSlotCommands(slot)}
+	{@const current = commands.find((command) => command.tool === railSlotTool(slot)) ?? commands[0]!}
+	{@const CurrentIcon = commandIcons.get(current.id) ?? fallbackToolGlyph}
+	<ToolFamilyButton
+		label={commandLabel(current.id)}
+		active={railSlotActive(slot, editor.activeTool)}
+		disabled={!commandEnabled(current.id)}
+		shortcut={layout === 'rail' ? commandShortcut(current.id) : ''}
+		{layout}
+		onclick={() => executeEditorCommand(current.id)}
+	>
+		{#snippet icon()}
+			{@render toolGlyph(CurrentIcon)}
+			{#if layout === 'bottom'}
+				<span class="max-w-full truncate">{commandLabel(current.id)}</span>
+			{/if}
+		{/snippet}
+		{#snippet menu()}
+			{#each commands as command (command.id)}
+				{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
+				<DropdownMenu.Item
+					onclick={() => executeEditorCommand(command.id)}
+					disabled={!commandEnabled(command.id)}
+				>
+					{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
+					<span class="ml-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
+				</DropdownMenu.Item>
+			{/each}
+		{/snippet}
+	</ToolFamilyButton>
 {/snippet}
 
 <svelte:window
@@ -3794,92 +3841,16 @@
 				</Tooltip.Trigger>
 				<Tooltip.Content side="right">{m.image_editor_add()}</Tooltip.Content>
 			</Tooltip.Root>
-			{#each tools as tool (tool.key)}
-				{@const ToolIcon = commandIcons.get(tool.command.id) ?? fallbackToolGlyph}
-				{#if tool.key === 'select'}
-					<Tooltip.Root>
-						<Tooltip.Trigger>
-							{#snippet child({ props })}
-								<Button
-									{...props}
-									variant={editor.activeTool === 'select' ? 'secondary' : 'ghost'}
-									size="icon-sm"
-									onclick={() => executeEditorCommand(tool.command.id)}
-									aria-label={commandLabel(tool.command.id)}
-									aria-pressed={editor.activeTool === 'select'}
-									disabled={!commandEnabled(tool.command.id)}
-									title={commandDisabledReason(tool.command.id) || undefined}
-								>
-									<ProtectedIcon icon="editor-select" />
-								</Button>
-							{/snippet}
-						</Tooltip.Trigger>
-						<Tooltip.Content side="right">{commandTooltip(tool.command.id)}</Tooltip.Content>
-					</Tooltip.Root>
-				{:else if tool.key === 'marquee'}
-					{@const marqueeCommand =
-						marqueeSlotTool === 'ellipse_marquee' ? 'tool_ellipse_marquee' : 'tool_marquee'}
+			{#each railSlots as railSlot (railSlot.slot)}
+				{#if railSlot.slot === 'select' || railSlot.slot === 'draw' || railSlot.slot === 'view'}
+					{@render railSlotFamily(railSlot.slot, 'rail')}
+				{:else if railSlot.slot === 'shape'}
 					<ToolFamilyButton
-						label={commandLabel(marqueeCommand)}
-						active={isMarqueeTool(editor.activeTool)}
-						disabled={!commandEnabled(marqueeCommand)}
-						shortcut={commandShortcut(marqueeCommand)}
-						onclick={() => executeEditorCommand(marqueeCommand)}
-					>
-						{#snippet icon()}
-							<ProtectedIcon
-								icon={marqueeSlotTool === 'ellipse_marquee'
-									? 'editor-marquee-ellipse'
-									: 'editor-marquee'}
-							/>
-						{/snippet}
-						{#snippet menu()}
-							{#each railSlotCommands('pixel_select') as command (command.id)}
-								{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
-								<DropdownMenu.Item
-									onclick={() => executeEditorCommand(command.id)}
-									disabled={!commandEnabled(command.id)}
-								>
-									{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
-									<span class="ml-auto text-xs text-muted-foreground"
-										>{commandShortcut(command.id)}</span
-									>
-								</DropdownMenu.Item>
-							{/each}
-						{/snippet}
-					</ToolFamilyButton>
-				{:else if tool.key === 'lasso'}
-					{@const lassoCommand =
-						lassoSlotTool === 'polygonal_lasso' ? 'tool_polygonal_lasso' : 'tool_lasso'}
-					<ToolFamilyButton
-						label={commandLabel(lassoCommand)}
-						active={isLassoTool(editor.activeTool)}
-						disabled={!commandEnabled(lassoCommand)}
-						shortcut={commandShortcut(lassoCommand)}
-						onclick={() => executeEditorCommand(lassoCommand)}
-					>
-						{#snippet icon()}<ProtectedIcon icon="editor-lasso" />{/snippet}
-						{#snippet menu()}
-							{#each railSlotCommands('lasso') as command (command.id)}
-								<DropdownMenu.Item
-									onclick={() => executeEditorCommand(command.id)}
-									disabled={!commandEnabled(command.id)}
-								>
-									<ProtectedIcon icon="editor-lasso" />{commandLabel(command.id)}
-									<span class="ml-auto text-xs text-muted-foreground"
-										>{commandShortcut(command.id)}</span
-									>
-								</DropdownMenu.Item>
-							{/each}
-						{/snippet}
-					</ToolFamilyButton>
-				{:else if tool.key === 'shape'}
-					<ToolFamilyButton
-						label={commandLabel(tool.command.id)}
+						label={commandLabel(railSlot.command.id)}
 						active={editor.activeTool === 'shape'}
-						disabled={!commandEnabled(tool.command.id)}
-						shortcut={commandShortcut(tool.command.id)}
-						onclick={() => executeEditorCommand(tool.command.id)}
+						disabled={!commandEnabled(railSlot.command.id)}
+						shortcut={commandShortcut(railSlot.command.id)}
+						onclick={() => executeEditorCommand(railSlot.command.id)}
 					>
 						{#snippet icon()}
 							{#if shapeSlotKind === 'line'}
@@ -3912,82 +3883,30 @@
 							</DropdownMenu.Item>
 						{/snippet}
 					</ToolFamilyButton>
-				{:else if tool.key === 'bucket'}
-					{@const fillCommand = fillSlotTool === 'gradient' ? 'tool_gradient' : 'tool_bucket'}
-					<ToolFamilyButton
-						label={commandLabel(fillCommand)}
-						active={isFillTool(editor.activeTool)}
-						disabled={!commandEnabled(fillCommand)}
-						shortcut={commandShortcut(fillCommand)}
-						onclick={() => executeEditorCommand(fillCommand)}
-					>
-						{#snippet icon()}
-							<ProtectedIcon icon={fillSlotTool === 'gradient' ? 'editor-blend' : 'editor-fill'} />
-						{/snippet}
-						{#snippet menu()}
-							{#each railSlotCommands('fill') as command (command.id)}
-								{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
-								<DropdownMenu.Item
-									onclick={() => executeEditorCommand(command.id)}
-									disabled={!commandEnabled(command.id)}
-								>
-									{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
-									<span class="ml-auto text-xs text-muted-foreground"
-										>{commandShortcut(command.id)}</span
-									>
-								</DropdownMenu.Item>
-							{/each}
-						{/snippet}
-					</ToolFamilyButton>
-				{:else if tool.key === 'eraser'}
-					{@const eraseCommand =
-						eraserSlotTool === 'magic_eraser' ? 'tool_magic_eraser' : 'tool_eraser'}
-					<ToolFamilyButton
-						label={commandLabel(eraseCommand)}
-						active={isEraserTool(editor.activeTool)}
-						disabled={!commandEnabled(eraseCommand)}
-						shortcut={commandShortcut(eraseCommand)}
-						onclick={() => executeEditorCommand(eraseCommand)}
-					>
-						{#snippet icon()}
-							<ProtectedIcon
-								icon={eraserSlotTool === 'magic_eraser' ? 'editor-effects' : 'editor-erase'}
-							/>
-						{/snippet}
-						{#snippet menu()}
-							{#each railSlotCommands('erase') as command (command.id)}
-								{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
-								<DropdownMenu.Item
-									onclick={() => executeEditorCommand(command.id)}
-									disabled={!commandEnabled(command.id)}
-								>
-									{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
-									<span class="ml-auto text-xs text-muted-foreground"
-										>{commandShortcut(command.id)}</span
-									>
-								</DropdownMenu.Item>
-							{/each}
-						{/snippet}
-					</ToolFamilyButton>
 				{:else}
+					{@const ToolIcon = commandIcons.get(railSlot.command.id) ?? fallbackToolGlyph}
 					<Tooltip.Root>
 						<Tooltip.Trigger>
 							{#snippet child({ props })}
 								<Button
 									{...props}
-									variant={editor.activeTool === tool.key ? 'secondary' : 'ghost'}
+									variant={editor.activeTool === commandTool(railSlot.command)
+										? 'secondary'
+										: 'ghost'}
 									size="icon-sm"
-									onclick={() => executeEditorCommand(tool.command.id)}
-									aria-label={commandLabel(tool.command.id)}
-									aria-pressed={editor.activeTool === tool.key}
-									disabled={!commandEnabled(tool.command.id)}
-									title={commandDisabledReason(tool.command.id) || undefined}
+									onclick={() => executeEditorCommand(railSlot.command.id)}
+									aria-label={commandLabel(railSlot.command.id)}
+									aria-pressed={editor.activeTool === commandTool(railSlot.command)}
+									disabled={!commandEnabled(railSlot.command.id)}
+									title={commandDisabledReason(railSlot.command.id) || undefined}
 								>
 									{@render toolGlyph(ToolIcon)}
 								</Button>
 							{/snippet}
 						</Tooltip.Trigger>
-						<Tooltip.Content side="right">{commandTooltip(tool.command.id)}</Tooltip.Content>
+						<Tooltip.Content side="right">
+							{commandTooltip(railSlot.command.id)}
+						</Tooltip.Content>
 					</Tooltip.Root>
 				{/if}
 			{/each}
@@ -4289,28 +4208,16 @@
 			<ThemeIcon role="layout" />
 			{m.image_editor_add()}
 		</Button>
-		{#each tools as tool (tool.key)}
-			{@const ToolIcon = commandIcons.get(tool.command.id) ?? fallbackToolGlyph}
-			{#if tool.key === 'select'}
-				<Button
-					variant={editor.activeTool === 'select' ? 'secondary' : 'ghost'}
-					class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
-					onclick={() => executeEditorCommand(tool.command.id)}
-					aria-label={commandLabel(tool.command.id)}
-					aria-pressed={editor.activeTool === 'select'}
-					disabled={!commandEnabled(tool.command.id)}
-					title={commandDisabledReason(tool.command.id) || undefined}
-				>
-					<ProtectedIcon icon="editor-select" />
-					{m.image_editor_select()}
-				</Button>
-			{:else if tool.key === 'shape'}
+		{#each railSlots as railSlot (railSlot.slot)}
+			{#if railSlot.slot === 'select' || railSlot.slot === 'draw' || railSlot.slot === 'view'}
+				{@render railSlotFamily(railSlot.slot, 'bottom')}
+			{:else if railSlot.slot === 'shape'}
 				<ToolFamilyButton
-					label={commandLabel(tool.command.id)}
+					label={commandLabel(railSlot.command.id)}
 					active={editor.activeTool === 'shape'}
-					disabled={!commandEnabled(tool.command.id)}
+					disabled={!commandEnabled(railSlot.command.id)}
 					layout="bottom"
-					onclick={() => executeEditorCommand(tool.command.id)}
+					onclick={() => executeEditorCommand(railSlot.command.id)}
 				>
 					{#snippet icon()}
 						{#if shapeSlotKind === 'line'}
@@ -4322,7 +4229,7 @@
 						{:else}
 							<ProtectedIcon icon="editor-shape-rectangle" />
 						{/if}
-						<span class="max-w-full truncate">{tool.label}</span>
+						<span class="max-w-full truncate">{commandLabel(railSlot.command.id)}</span>
 					{/snippet}
 					{#snippet menu()}
 						<DropdownMenu.Item onclick={() => insertShape('rectangle')}>
@@ -4344,136 +4251,17 @@
 						</DropdownMenu.Item>
 					{/snippet}
 				</ToolFamilyButton>
-			{:else if tool.key === 'marquee'}
-				{@const marqueeCommand =
-					marqueeSlotTool === 'ellipse_marquee' ? 'tool_ellipse_marquee' : 'tool_marquee'}
-				<ToolFamilyButton
-					label={commandLabel(marqueeCommand)}
-					active={isMarqueeTool(editor.activeTool)}
-					disabled={!commandEnabled(marqueeCommand)}
-					layout="bottom"
-					onclick={() => executeEditorCommand(marqueeCommand)}
-				>
-					{#snippet icon()}
-						<ProtectedIcon
-							icon={marqueeSlotTool === 'ellipse_marquee'
-								? 'editor-marquee-ellipse'
-								: 'editor-marquee'}
-						/>
-						<span class="max-w-full truncate">{m.image_editor_pixels()}</span>
-					{/snippet}
-					{#snippet menu()}
-						{#each railSlotCommands('pixel_select') as command (command.id)}
-							{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
-							<DropdownMenu.Item
-								onclick={() => executeEditorCommand(command.id)}
-								disabled={!commandEnabled(command.id)}
-							>
-								{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
-								<span class="ml-auto text-xs text-muted-foreground"
-									>{commandShortcut(command.id)}</span
-								>
-							</DropdownMenu.Item>
-						{/each}
-					{/snippet}
-				</ToolFamilyButton>
-			{:else if tool.key === 'lasso'}
-				{@const lassoCommand =
-					lassoSlotTool === 'polygonal_lasso' ? 'tool_polygonal_lasso' : 'tool_lasso'}
-				<ToolFamilyButton
-					label={commandLabel(lassoCommand)}
-					active={isLassoTool(editor.activeTool)}
-					disabled={!commandEnabled(lassoCommand)}
-					layout="bottom"
-					onclick={() => executeEditorCommand(lassoCommand)}
-				>
-					{#snippet icon()}
-						<ProtectedIcon icon="editor-lasso" />
-						<span class="max-w-full truncate">{m.image_editor_lasso_select()}</span>
-					{/snippet}
-					{#snippet menu()}
-						{#each railSlotCommands('lasso') as command (command.id)}
-							<DropdownMenu.Item
-								onclick={() => executeEditorCommand(command.id)}
-								disabled={!commandEnabled(command.id)}
-							>
-								<ProtectedIcon icon="editor-lasso" />{commandLabel(command.id)}
-								<span class="ml-auto text-xs text-muted-foreground"
-									>{commandShortcut(command.id)}</span
-								>
-							</DropdownMenu.Item>
-						{/each}
-					{/snippet}
-				</ToolFamilyButton>
-			{:else if tool.key === 'bucket'}
-				{@const fillCommand = fillSlotTool === 'gradient' ? 'tool_gradient' : 'tool_bucket'}
-				<ToolFamilyButton
-					label={commandLabel(fillCommand)}
-					active={isFillTool(editor.activeTool)}
-					disabled={!commandEnabled(fillCommand)}
-					layout="bottom"
-					onclick={() => executeEditorCommand(fillCommand)}
-				>
-					{#snippet icon()}
-						<ProtectedIcon icon={fillSlotTool === 'gradient' ? 'editor-blend' : 'editor-fill'} />
-						<span class="max-w-full truncate">{m.image_editor_fill()}</span>
-					{/snippet}
-					{#snippet menu()}
-						{#each railSlotCommands('fill') as command (command.id)}
-							{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
-							<DropdownMenu.Item
-								onclick={() => executeEditorCommand(command.id)}
-								disabled={!commandEnabled(command.id)}
-							>
-								{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
-								<span class="ml-auto text-xs text-muted-foreground"
-									>{commandShortcut(command.id)}</span
-								>
-							</DropdownMenu.Item>
-						{/each}
-					{/snippet}
-				</ToolFamilyButton>
-			{:else if tool.key === 'eraser'}
-				{@const eraseCommand =
-					eraserSlotTool === 'magic_eraser' ? 'tool_magic_eraser' : 'tool_eraser'}
-				<ToolFamilyButton
-					label={commandLabel(eraseCommand)}
-					active={isEraserTool(editor.activeTool)}
-					disabled={!commandEnabled(eraseCommand)}
-					layout="bottom"
-					onclick={() => executeEditorCommand(eraseCommand)}
-				>
-					{#snippet icon()}
-						<ProtectedIcon
-							icon={eraserSlotTool === 'magic_eraser' ? 'editor-effects' : 'editor-erase'}
-						/>
-						<span class="max-w-full truncate">{m.image_editor_erase()}</span>
-					{/snippet}
-					{#snippet menu()}
-						{#each railSlotCommands('erase') as command (command.id)}
-							{@const CommandIcon = commandIcons.get(command.id) ?? fallbackToolGlyph}
-							<DropdownMenu.Item
-								onclick={() => executeEditorCommand(command.id)}
-								disabled={!commandEnabled(command.id)}
-							>
-								{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
-								<span class="ml-auto text-xs text-muted-foreground"
-									>{commandShortcut(command.id)}</span
-								>
-							</DropdownMenu.Item>
-						{/each}
-					{/snippet}
-				</ToolFamilyButton>
 			{:else}
+				{@const ToolIcon = commandIcons.get(railSlot.command.id) ?? fallbackToolGlyph}
 				<Button
-					variant={editor.activeTool === tool.key ? 'secondary' : 'ghost'}
+					variant={editor.activeTool === commandTool(railSlot.command) ? 'secondary' : 'ghost'}
 					class="h-12 w-16 shrink-0 snap-start flex-col gap-0 px-0 text-xs md:h-12"
-					onclick={() => executeEditorCommand(tool.command.id)}
-					disabled={!commandEnabled(tool.command.id)}
-					title={commandDisabledReason(tool.command.id) || undefined}
+					onclick={() => executeEditorCommand(railSlot.command.id)}
+					disabled={!commandEnabled(railSlot.command.id)}
+					title={commandDisabledReason(railSlot.command.id) || undefined}
 				>
 					{@render toolGlyph(ToolIcon)}
-					{tool.label}
+					{commandLabel(railSlot.command.id)}
 				</Button>
 			{/if}
 		{/each}
@@ -4497,7 +4285,51 @@
 </div>
 
 <Sheet.Root
-	open={mobileSheet !== null}
+	open={mobileSheet === 'properties'}
+	onOpenChange={(open) => {
+		if (open) return;
+		mobileSheet = null;
+	}}
+>
+	<Sheet.Content
+		side="bottom"
+		modal={false}
+		showCloseButton={false}
+		class="max-h-[62dvh] w-full! rounded-t-2xl p-0"
+	>
+		<Sheet.Header class="sr-only">
+			<Sheet.Title>{m.image_editor_properties()}</Sheet.Title>
+			<Sheet.Description>{m.image_editor_editing_controls()}</Sheet.Description>
+		</Sheet.Header>
+		<div class="relative max-h-[62dvh] overflow-y-auto">
+			<Sheet.Close>
+				{#snippet child({ props })}
+					<Button
+						{...props}
+						variant="ghost"
+						size="icon-sm"
+						class="absolute top-0 right-1 z-20 [@media(pointer:coarse)]:size-11"
+						aria-label={m.common_close()}
+					>
+						<ThemeIcon role="close" />
+					</Button>
+				{/snippet}
+			</Sheet.Close>
+			<PropertiesPanel
+				onAIEdit={$auth.user && editor.canEdit
+					? () => {
+							mobileSheet = null;
+							imageAIStudio?.openFor('edit');
+						}
+					: undefined}
+				onOpenMedia={openBackgroundMediaPicker}
+				colorWorkspace={activeEditorWorkspace === 'color'}
+			/>
+		</div>
+	</Sheet.Content>
+</Sheet.Root>
+<Sheet.Root
+	open={mobileSheet === 'assets' || mobileSheet === 'layers'}
 	onOpenChange={(open) => {
 		if (open) return;
 		mobileSheet = null;
@@ -4513,11 +4345,7 @@
 	>
 		<Sheet.Header class="sr-only">
 			<Sheet.Title
-				>{mobileSheet === 'assets'
-					? m.image_editor_add()
-					: mobileSheet === 'layers'
-						? m.image_editor_layers()
-						: m.image_editor_properties()}</Sheet.Title
+				>{mobileSheet === 'assets' ? m.image_editor_add() : m.image_editor_layers()}</Sheet.Title
 			>
 			<Sheet.Description>{m.image_editor_editing_controls()}</Sheet.Description>
 		</Sheet.Header>
@@ -4551,17 +4379,6 @@
 				</div>
 			{:else if mobileSheet === 'layers'}
 				<LayerTree />
-			{:else if mobileSheet === 'properties'}
-				<PropertiesPanel
-					onAIEdit={$auth.user && editor.canEdit
-						? () => {
-								mobileSheet = null;
-								imageAIStudio?.openFor('edit');
-							}
-						: undefined}
-					onOpenMedia={openBackgroundMediaPicker}
-					colorWorkspace={activeEditorWorkspace === 'color'}
-				/>
 			{/if}
 		</div>
 	</Sheet.Content>

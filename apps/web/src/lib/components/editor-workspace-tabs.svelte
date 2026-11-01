@@ -68,7 +68,7 @@
 			aria-controls={panelId ?? `${idPrefix}-panel-${workspace.id}`}
 			aria-label={workspace.label}
 			tabindex={value === workspace.id ? 0 : -1}
-			class="flex h-11 min-w-11 items-center justify-center gap-1.5 rounded px-2 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-selected:bg-accent aria-selected:text-accent-foreground sm:px-3 md:h-7 md:min-w-8 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
+			class="flex h-11 min-w-11 items-center justify-center gap-1.5 rounded px-2 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-selected:bg-navigation-active aria-selected:text-navigation-active-foreground sm:px-3 md:h-7 md:min-w-8 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
 			onclick={() => selectWorkspace(workspace.id)}
 			onkeydown={(event) => handleKeydown(event, index)}
 		>

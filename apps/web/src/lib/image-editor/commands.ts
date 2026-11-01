@@ -86,18 +86,12 @@ export type ImageEditorCommandAvailability =
 export type ImageEditorCommandMobileGroup = 'select' | 'draw' | 'retouch';
 export type ImageEditorCommandRailSlot =
 	| 'select'
-	| 'pixel_select'
-	| 'lasso'
-	| 'magic_select'
 	| 'crop'
-	| 'eyedropper'
 	| 'text'
 	| 'shape'
-	| 'pencil'
-	| 'fill'
-	| 'erase'
-	| 'hand'
-	| 'zoom';
+	| 'draw'
+	| 'eyedropper'
+	| 'view';
 
 export interface ImageEditorCommandShortcut {
 	key: string;
@@ -465,7 +459,7 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		availability: 'editable',
 		tool: 'marquee',
 		mobileGroup: 'select',
-		railSlot: 'pixel_select'
+		railSlot: 'select'
 	},
 	{
 		id: 'tool_ellipse_marquee',
@@ -474,7 +468,7 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		availability: 'editable',
 		tool: 'ellipse_marquee',
 		mobileGroup: 'select',
-		railSlot: 'pixel_select'
+		railSlot: 'select'
 	},
 	{
 		id: 'tool_lasso',
@@ -483,7 +477,7 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		availability: 'editable',
 		tool: 'lasso',
 		mobileGroup: 'select',
-		railSlot: 'lasso'
+		railSlot: 'select'
 	},
 	{
 		id: 'tool_polygonal_lasso',
@@ -492,7 +486,7 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		availability: 'editable',
 		tool: 'polygonal_lasso',
 		mobileGroup: 'select',
-		railSlot: 'lasso'
+		railSlot: 'select'
 	},
 	{
 		id: 'tool_magic_wand',
@@ -501,7 +495,7 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		availability: 'editable',
 		tool: 'magic_wand',
 		mobileGroup: 'select',
-		railSlot: 'magic_select'
+		railSlot: 'select'
 	},
 	{
 		id: 'tool_pencil',
@@ -510,7 +504,7 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		availability: 'editable',
 		tool: 'pencil',
 		mobileGroup: 'draw',
-		railSlot: 'pencil'
+		railSlot: 'draw'
 	},
 	{
 		id: 'tool_eraser',
@@ -519,7 +513,7 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		availability: 'editable',
 		tool: 'eraser',
 		mobileGroup: 'retouch',
-		railSlot: 'erase'
+		railSlot: 'draw'
 	},
 	{
 		id: 'tool_magic_eraser',
@@ -528,7 +522,7 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		availability: 'editable',
 		tool: 'magic_eraser',
 		mobileGroup: 'retouch',
-		railSlot: 'erase'
+		railSlot: 'draw'
 	},
 	{
 		id: 'tool_bucket',
@@ -537,7 +531,7 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		availability: 'editable',
 		tool: 'bucket',
 		mobileGroup: 'draw',
-		railSlot: 'fill'
+		railSlot: 'draw'
 	},
 	{
 		id: 'tool_gradient',
@@ -546,7 +540,7 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		availability: 'editable',
 		tool: 'gradient',
 		mobileGroup: 'draw',
-		railSlot: 'fill'
+		railSlot: 'draw'
 	},
 	{
 		id: 'tool_eyedropper',
@@ -564,7 +558,7 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		availability: 'always',
 		tool: 'hand',
 		mobileGroup: 'select',
-		railSlot: 'hand'
+		railSlot: 'view'
 	},
 	{
 		id: 'tool_zoom',
@@ -573,7 +567,7 @@ export const IMAGE_EDITOR_COMMANDS: readonly ImageEditorCommandDescriptor[] = [
 		availability: 'always',
 		tool: 'zoom',
 		mobileGroup: 'select',
-		railSlot: 'zoom'
+		railSlot: 'view'
 	}
 ] as const;
 
@@ -622,6 +616,12 @@ export function imageEditorCommandsForRail(): ImageEditorCommandDescriptor[] {
 		seen.add(command.railSlot);
 		return true;
 	});
+}
+
+export function imageEditorCommandsForRailSlot(
+	slot: ImageEditorCommandRailSlot
+): ImageEditorCommandDescriptor[] {
+	return IMAGE_EDITOR_COMMANDS.filter((command) => command.railSlot === slot);
 }
 
 export function imageEditorCommandForKeyboardEvent(

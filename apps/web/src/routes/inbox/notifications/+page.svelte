@@ -272,7 +272,6 @@
 
 <PageContainer
 	title={m.notifications_heading()}
-	description={workspaceName ? m.notifications_description({ workspace: workspaceName }) : ''}
 	themeIconRole="notification"
 	loading={initialLoading}
 	loadingLayout="list"

@@ -71,7 +71,6 @@
 >
 <PageContainer
 	title={m.workflows_connections()}
-	description={m.workflows_connections_help()}
 	themeIconRole="link"
 	loading={query.isPending && !query.error}
 >

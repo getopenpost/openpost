@@ -17,6 +17,7 @@
 	import { createQuery } from '@tanstack/svelte-query';
 	import { feedbackConfigQueryOptions } from '@openpost/query-catalog';
 	import { feedbackQueryAPI } from '$lib/query/feedback';
+	import Disclosure from '$lib/components/disclosure.svelte';
 
 	type FeedbackCategory = 'bug' | 'idea' | 'question';
 
@@ -401,17 +402,17 @@
 						{/each}
 					</ul>
 					{#if includeDiagnostics && diagnosticsPreview}
-						<details class="rounded-md bg-muted/45 p-2 text-xs">
-							<summary class="cursor-pointer font-medium">
-								{m.feedback_diagnostics_preview()}
-							</summary>
+						<Disclosure
+							summary={m.feedback_diagnostics_preview()}
+							class="rounded-md bg-muted/45 p-2 text-xs"
+						>
 							<pre
 								class="mt-2 max-h-40 overflow-auto break-all whitespace-pre-wrap">{JSON.stringify(
 									diagnosticsPreview,
 									null,
 									2
 								)}</pre>
-						</details>
+						</Disclosure>
 					{/if}
 				</div>
 

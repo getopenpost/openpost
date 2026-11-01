@@ -16,6 +16,7 @@
 	import Choice from './choice.svelte';
 	import type { Source } from './api';
 	import { m } from '$lib/paraglide/messages';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	let {
 		source,
 		accounts,
@@ -182,10 +183,7 @@
 		/>
 		<p class="text-xs text-muted-foreground">{m.workflows_comment_keywords_help()}</p>
 	</div>
-	<details class="space-y-4">
-		<summary class="min-h-11 cursor-pointer py-2 text-sm font-medium"
-			>{m.workflows_configure()}</summary
-		>
+	<Disclosure summary={m.workflows_configure()} class="space-y-4">
 		<div class="space-y-2">
 			<Label for="comment-exclude">{m.workflows_comment_exclude()}</Label><Input
 				id="comment-exclude"
@@ -240,5 +238,5 @@
 				onCheckedChange={(checked) => onchange({ ...source, top_level_only: checked })}
 			/>{m.workflows_comment_top_level()}</label
 		>
-	</details>
+	</Disclosure>
 </div>

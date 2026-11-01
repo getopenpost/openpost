@@ -10,6 +10,7 @@
 	import InlineNotice from './inline-notice.svelte';
 	import { Button } from './ui/button';
 	import { m } from '$lib/paraglide/messages';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	let { item }: { item: components['schemas']['EngagementItem'] } = $props();
 	let expanded = $state(false),
 		busy = $state(false),
@@ -71,15 +72,12 @@
 
 {#if item.kind === 'comment' && item.platform !== 'x'}
 	<div class="mt-3 space-y-3">
-		{#if item.automation_state}<details class="space-y-3" bind:open={expanded}>
-				<summary class="min-h-11 cursor-pointer py-2 text-sm font-medium">{stateLabel}</summary
-				>{#if expanded}{#if replies.isError}<InlineNotice
-							tone="error"
-							message={m.workflows_load_failed()}
-						/>{/if}{#each replies.data ?? [] as reply (reply.id)}<CommentReplyReview
-							{reply}
-						/>{/each}{/if}
-			</details>{/if}
+		{#if item.automation_state}<Disclosure summary={stateLabel} bind:open={expanded}>
+				{#if replies.isError}<InlineNotice
+						tone="error"
+						message={m.workflows_load_failed()}
+					/>{/if}{#each replies.data ?? [] as reply (reply.id)}<CommentReplyReview {reply} />{/each}
+			</Disclosure>{/if}
 		{#if error}<InlineNotice tone="error" message={error} />{/if}
 		{#if canEdit}<div class="flex flex-wrap gap-2">
 				{#if canAdmin}<Button variant="ghost" size="sm" href={link}

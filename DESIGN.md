@@ -1,50 +1,50 @@
 ---
 name: OpenPost
-description: Themeable publishing workspace with semantic actions, protected product identity, and precise shared chrome.
+description: Calm publishing workspace with one warm accent, a dithered signature, semantic themes, and uniform shared chrome.
 colors:
-  primary: "oklch(0.55 0.155 45)"
-  primary-dark-theme: "oklch(0.66 0.14 45)"
-  canvas: "oklch(0.985 0.002 80)"
-  canvas-dark: "oklch(0.145 0.008 55)"
+  primary: "oklch(0.45 0.125 45)"
+  primary-dark-theme: "oklch(0.76 0.115 45)"
+  canvas: "oklch(0.993 0.0015 80)"
+  canvas-dark: "oklch(0.175 0.005 80)"
   surface: "oklch(1 0 0)"
-  surface-dark: "oklch(0.2 0.01 50)"
-  ink: "oklch(0.2 0.01 50)"
-  ink-dark: "oklch(0.92 0.005 85)"
-  muted-ink: "oklch(0.52 0.015 55)"
-  muted-ink-dark: "oklch(0.65 0.015 55)"
-  border: "oklch(0.9 0.005 80)"
-  border-dark: "oklch(0.25 0.015 55)"
-  danger: "oklch(0.57 0.22 25)"
-  danger-dark: "oklch(0.6 0.2 25)"
-  success-ink: "oklch(0.42 0.12 160)"
-  success-ink-dark: "oklch(0.75 0.13 155)"
+  surface-dark: "oklch(0.205 0.005 80)"
+  ink: "oklch(0.24 0.008 80)"
+  ink-dark: "oklch(0.95 0.004 80)"
+  muted-ink: "oklch(0.47 0.01 80)"
+  muted-ink-dark: "oklch(0.75 0.007 80)"
+  border: "oklch(0.915 0.004 80)"
+  border-dark: "oklch(0.3 0.006 80)"
+  danger: "oklch(0.53 0.19 25)"
+  danger-dark: "oklch(0.66 0.19 25)"
+  success-ink: "oklch(0.37 0.09 155)"
+  success-ink-dark: "oklch(0.82 0.11 155)"
 typography:
   wordmark:
-    fontFamily: "Manrope Variable, Manrope, Geist Variable, Geist, system-ui, sans-serif"
+    fontFamily: "Manrope Variable, Manrope, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 600
     lineHeight: 1
     letterSpacing: "-0.02em"
   display:
-    fontFamily: "Geist Variable, Geist, system-ui, sans-serif"
+    fontFamily: "Manrope Variable, Manrope, system-ui, sans-serif"
     fontSize: "clamp(2.25rem, 7vw, 3.75rem)"
     fontWeight: 600
     lineHeight: 1.04
     letterSpacing: "-0.025em"
   app-title:
-    fontFamily: "Geist Variable, Geist, system-ui, sans-serif"
+    fontFamily: "Manrope Variable, Manrope, system-ui, sans-serif"
     fontSize: "1.25rem"
     fontWeight: 600
     lineHeight: 1.4
     letterSpacing: "-0.025em"
   body:
-    fontFamily: "Geist Variable, Geist, system-ui, sans-serif"
+    fontFamily: "Manrope Variable, Manrope, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.5
   metadata:
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-    fontSize: "0.75rem"
+    fontSize: "0.8125rem"
     fontWeight: 500
     lineHeight: 1.5
   docs-table:
@@ -69,7 +69,7 @@ spacing:
 components:
   button-primary:
     backgroundColor: "{colors.primary}"
-    textColor: "{colors.canvas}"
+    textColor: "{colors.surface}"
     typography: "{typography.body}"
     rounded: "{rounded.md}"
     padding: "0 0.75rem"
@@ -92,17 +92,19 @@ components:
 
 ## Overview
 
-**Default authenticated app theme: Dither. Marketing keeps its original public palette with Dither texture. Recovery and documentation theme: Workshop.**
+**Default authenticated app theme: Calm. Public entry pages and anonymous profiles use Calm too. Marketing keeps its original public palette with Dither texture. Recovery and documentation theme: Workshop.**
 
-OpenPost is a focused working environment: every control has a clear job, related information stays aligned, and operational state is easy to scan. Organizations without saved theme settings start with Dither, using restrained orange-brown controls, warm paper or charcoal, Geist, and ordered pixel textures in both schemes. Saved organization and workspace choices take precedence. Marketing preserves its original green, blue, and lilac public palette, with the Dither texture applied as a restrained visual effect. Workshop remains the complete fallback and documentation reference.
+`docs/specs/calm-ux.md` is the binding contract for shared grammar and navigation. Where this document and that contract differ, the contract wins.
 
-The authenticated app stays compact and predictable. Marketing keeps its original spacious public layout, colorful authored panels, shared neutral controls, and sparse Dither texture. Documentation uses Fumadocs with separate Guides, Self-hosting, and API reference navigation, sharing the product palette, assets, and direct voice. Workshop provides equal light and dark expressions. Other families may support one or both schemes. When a family does not support the effective scheme, the complete Workshop scheme renders instead. Themes never mix token fragments.
+OpenPost is a calm working environment for solo founders and creators who do not want to waste time, and it must still work for small teams and agencies. Each screen answers one question. Organizations without saved theme settings start with Calm: near-white paper or soft charcoal, Manrope, soft dividers, and one warm accent. Dither is the signature material that ties the product together, on focal and primary actions, charts, progress, skeletons, empty states, and brand moments. Saved organization and workspace choices take precedence. Dither and Dither Moss remain selectable themes. Marketing preserves its green, blue, and lilac public palette, with Dither as a restrained visual effect. Workshop remains the complete fallback and documentation reference.
+
+The authenticated app stays focused and predictable. Marketing keeps its spacious public layout, colorful authored panels, shared neutral controls, and sparse Dither texture. Documentation uses Fumadocs with separate Guides, Self-hosting, and API reference navigation, sharing the product palette, assets, and direct voice. Every built-in family supports its declared schemes completely. When a family does not support the effective scheme, the complete Workshop scheme renders instead. Themes never mix token fragments.
 
 **Key Characteristics:**
 
-- Compact working layouts across theme families.
+- Calm working layouts across theme families, with one job per screen.
 - Thin structural borders and tonal layers instead of decorative shadows.
-- Each theme's focal color marks action and selection; semantic colors preserve status meaning.
+- One filled accent action per screen, carrying the dither signature. Selected navigation and view states are neutral. Semantic colors preserve status meaning.
 - Compact app hierarchy with more spacious public and reading surfaces.
 - Consistent page, loading, empty, notice, toast, and destructive patterns.
 
@@ -116,7 +118,7 @@ README lockups keep the exact outlined wordmark and three solid Converge modules
 
 ## Colors
 
-The frontmatter tokens and values below define Workshop, the complete fallback and documentation reference. Warm neutrals carry most of that family; orange is a scarce product signal. Dither's app palette is defined in `apps/web/src/lib/themes/builtins/dither.ts`. Custom themes replace complete semantic roles rather than overriding isolated CSS values.
+The frontmatter tokens define Calm, the default app theme, owned by `packages/ui/src/lib/themes/builtins/calm.ts`. Neutrals carry the interface and the warm accent stays scarce. The named colors below belong to Workshop, the complete fallback and documentation reference. Dither's palette is in `packages/ui/src/lib/themes/builtins/dither.ts`. Custom themes replace complete semantic roles rather than overriding isolated CSS values.
 
 ### Primary
 
@@ -132,7 +134,7 @@ The frontmatter tokens and values below define Workshop, the complete fallback a
 - **Failure Red** (`danger`, `danger-dark`): Destructive actions and genuine error state only.
 - **Success Green** (`success-ink`, `success-ink-dark`): Confirmed success text and icons.
 
-**The One Signal Rule.** In Workshop, orange marks the next action or current selection. It is not a background decoration and should remain visually scarce. Every theme assigns the same semantic jobs to its own action, focus, and selection roles.
+**The One Signal Rule.** The accent marks the next action, not decoration. In Calm, focal and primary share it, so a screen never shows two competing fills, and selected navigation uses neutral `navigation-active`. Every theme assigns the same semantic jobs to its own action, focus, and selection roles.
 
 **The Complete Scheme Rule.** A supported scheme is incomplete until its contrast, borders, hover state, focus state, reduced-motion behavior, and browser surfaces work together. A single-scheme family is valid, but its unsupported scheme must fall back to complete Workshop rather than improvise an inversion.
 
@@ -169,15 +171,15 @@ Organization themes are versioned visual documents. They may control semantic co
 
 ## Typography
 
-**Wordmark Font:** Manrope Variable Semibold (with Manrope, Geist, and system sans fallbacks)
+**Calm Font:** Manrope Variable for the wordmark, display, titles, and interface text, with system sans fallbacks. It carries Cyrillic; Japanese, Korean, and Chinese use system fallbacks.
 
-**Workshop Display Font:** Geist Variable (with Geist and system sans fallbacks)
-
-**Workshop Body Font:** Geist Variable (with Geist and system sans fallbacks)
+**Workshop Font:** Geist Variable.
 
 **Label/Mono Font:** the platform UI monospace stack
 
-**Character:** Manrope gives the protected OpenPost wordmark a clean, softly rounded shape that matches the Converge mark. Workshop uses Geist for compact product UI. Other families may select an approved local type recipe, while the app-scale hierarchy and readable measure stay fixed. Monospace is a functional accent for identifiers, timestamps, counts, tokens, handles, and queue data; it is not a general “technical” costume.
+**Character:** Manrope is friendly and softly rounded, matching the Converge mark. Other families may select an approved local type recipe, while the app-scale hierarchy and readable measure stay fixed. Monospace is a functional accent for identifiers, timestamps, counts, tokens, handles, and queue data; it is not a general "technical" costume.
+
+**Size floor:** `text-sm` (14px) is for controls and body; `text-xs` is 13px and the minimum outside editors. Editors set `data-density="editor"` and keep a 12px `text-xs`. Avoid arbitrary sizes under 13px outside editors. Use sentence case, not uppercase tracked labels.
 
 ### Hierarchy
 
@@ -194,9 +196,9 @@ Organization themes are versioned visual documents. They may control semantic co
 
 ## Layout
 
-The app uses a centered content column up to 72rem with 1rem mobile gutters, 1.5rem tablet gutters, and 2rem large-screen gutters. Theme density may adjust bounded internal gaps, but it cannot remove safe gutters or change route structure. Shared page containers establish the route rhythm. Page headers switch from stacked to split action layout through a 44rem container query so they respond to available content width rather than the viewport alone.
+The app uses a centered content column up to 68rem in Calm (72rem in Workshop) with 1rem mobile gutters, 1.5rem tablet gutters, and 2rem large-screen gutters. Theme density may adjust bounded internal gaps, but it cannot remove safe gutters or change route structure. Shared page containers establish the route rhythm. Page headers switch from stacked to split action layout through a 44rem container query so they respond to available content width rather than the viewport alone.
 
-Public pages use a wider 78rem frame and larger responsive section spacing. Documentation keeps a reading-first column and conventional sidebar. Mobile app navigation respects safe-area insets, keeps the primary compose action distinct, and leaves enough bottom clearance for content. Coarse-pointer controls have a minimum 44px target.
+Public pages use a wider 78rem frame and larger responsive section spacing. Documentation keeps a reading-first column and conventional sidebar. Mobile app navigation respects safe-area insets, labels every tab, keeps New distinct, and leaves enough bottom clearance for content. Coarse-pointer controls have a minimum 44px target.
 
 Use the established 4px spacing family, but vary it by hierarchy: tight within controls and metadata groups, moderate within sections, generous between major public-page ideas. Prefer `gap` for sibling relationships.
 
@@ -204,7 +206,7 @@ Use the established 4px spacing family, but vary it by hierarchy: tight within c
 
 OpenPost Image Editor is an immersive, task-specific workspace inside OpenPost rather than a general design product. Its chrome uses the resolved semantic theme. The central pasteboard, page boundary, selection handles, transparency grid, and direct-manipulation glyphs use protected editor roles so authored work remains legible in every theme.
 
-Desktop uses a compact menu bar, tool rail, asset pane, one active canvas, Layers and Properties panes, and an ordered page strip. Each persistent side or bottom pane has an accessible resize seam and a stable reset size. Phones use the same document model with a short top bar, a horizontal bottom tool rail, one contextual sheet at a time, a full-height Layers sheet, and a collapsible page strip. Coarse-pointer actions remain at least 44px. Two-finger input pans or zooms the canvas; one-finger input transforms the selected layer.
+Desktop uses one header row with the File, Edit, Layer, Select, Tools, View, and Help menus inline beside the title, an eight-slot tool rail (Add, Select, Crop, Text, Shape, Draw, Eyedropper, View), an asset pane, one active canvas, Layers and Properties panes, and an ordered page strip. Save state is a quiet icon with a tooltip; agent connection is a dot on the assistant button. Rulers default off. Layer eye and lock controls appear on hover or focus, or when active, and always on coarse pointers. Properties keeps text content and formatting together, with Transform, Layer, and Effects collapsed after them. Each persistent side or bottom pane has an accessible resize seam and a stable reset size. Phones use the same document model with a short top bar, a horizontal bottom tool rail, one contextual sheet at a time, a full-height Layers sheet, a non-modal Properties sheet that leaves the canvas visible and interactive, and a collapsible page strip. Coarse-pointer actions remain at least 44px. Two-finger input pans or zooms the canvas; one-finger input transforms the selected layer.
 
 Each tool family uses one rail button with an internal corner indicator. A click activates the remembered variant; clicking the active tool, right-clicking, or pressing ArrowDown or ArrowRight opens its attached menu. Do not add a separate narrow chevron target beside the rail. Expanded pages occupy the ordered thumbnail strip; collapsed pages use its compact status row. Tool options stay in one scrollable row, with essential actions first, so wrapping controls cannot expand across the artwork. The narrow-screen More menu uses the same command registry as desktop menus. Color keeps a live canvas above its non-modal control dock on phones. Desktop Color uses a compact Layers pane so grading controls receive the available height; Edit and Color retain separate pane sizes.
 
@@ -212,9 +214,9 @@ The DOM-based Layers tree and Properties controls are the accessible equivalents
 
 ### OpenPost Video Editor
 
-OpenPost Video Editor uses a four-zone editing model: compact project controls at the top, a fixed tool rail with one full-height content pane on the left, one dominant preview in the center, and selection-specific inspector tabs on the right. The timeline begins beside the left content pane and owns playback position; its ruler is the seek control, so a second progress slider must not compete with it. Each persistent side or bottom pane has an accessible resize seam and a stable reset size. Semantic selection and focal roles mark the active family, property tab, playhead, and Export action. Waveforms, timeline state, canvas bounds, and media keep protected editor roles.
+OpenPost Video Editor uses a four-zone editing model: one quiet header row at the top, where the project title opens its details and save state is an icon, a fixed tool rail with one full-height content pane on the left, one dominant preview in the center, and selection-specific inspector tabs on the right. The timeline begins beside the left content pane and owns playback position; its ruler is the seek control, so a second progress slider must not compete with it. Each persistent side or bottom pane has an accessible resize seam and a stable reset size. Semantic selection and focal roles mark the active family, property tab, playhead, and Export action. Waveforms, timeline state, canvas bounds, and media keep protected editor roles.
 
-Keep inspector settings contextual. Selection exposes Properties, Animation, Effects, and Transcript only where applicable. Properties leads with content, geometry, and audio gain; anchor, appearance, crop, playback, pitch, and advanced audio settings use named disclosures. Mark modified appearance, crop, and playback groups so their state remains visible when closed. Scene detection belongs in selected-clip actions. Phones replace both side panels with one bottom tool dock and one contextual sheet while preserving the same timeline and project document. Quick Cut remains the explicit stream-copy path and Full Editor remains the composed edit path.
+Editors share `editor-header.svelte`, and their start pages return to Studio. Recorder is one centered setup card with secondary settings under More options. Quick Cut keeps one source row above the preview, with mark, remove, keep, loop, and zoom in the transport row and Find clips in Cleanup. Placement hints appear inline in the timeline status during an active placement, never as floating coachmarks. Keep inspector settings contextual. Selection exposes Properties, Animation, Effects, and Transcript only where applicable. Properties leads with content, geometry, and audio gain; anchor, appearance, crop, playback, pitch, and advanced audio settings use named disclosures. Mark modified appearance, crop, and playback groups so their state remains visible when closed. Scene detection belongs in selected-clip actions. Phones replace both side panels with one bottom tool dock and one contextual sheet while preserving the same timeline and project document. Quick Cut remains the explicit stream-copy path and Full Editor remains the composed edit path.
 
 Video Editor property diamonds add or remove a key at the playhead. Fill the diamond only at an authored key, and keep animated properties accented between keys. Auto-key is a separate mode. Capture values before expressions and additive motion, in the property lane's units; inspectors display the current animated value and edit through the timeline actions.
 
@@ -257,11 +259,13 @@ Workshop uses a 12px base corner, 10px controls, 12px cards, and 14–16px promi
 
 ### Dither material
 
-Dither pairs orange-brown actions at hue 45 with warm paper or charcoal at neutral hue 50, Geist, and outlined navigation. Use `oklch(0.4 0.13 45)` for light focal actions and `oklch(0.76 0.14 45)` for dark focal actions. Broad backgrounds remain neutral. Dither Moss uses green actions, warm neutrals, DM Sans, and tonal navigation. Both support light and dark appearance within OpenPost's compact layout.
+Dither is OpenPost's signature and the one texture across the product. Never remove it from the surfaces below without an explicit brand decision.
+
+Calm applies it to focal and primary buttons, chart fills, progress, skeletons, empty-state halos, and brand moments such as the Home greeting. Ordinary and quiet buttons stay plain so secondary actions never look disabled, and tool buttons inside editors stay plain. Its focal accent is `oklch(0.45 0.125 45)` in light and `oklch(0.76 0.115 45)` in dark, which keeps text at 4.5:1 over the texture. The Dither theme itself pairs orange-brown actions at hue 45 with warm paper or charcoal and Geist, and textures ordinary buttons too. Dither Moss uses green actions, warm neutrals, DM Sans, and tonal navigation.
 
 Ordered Bayer textures sit behind button labels, along card bottoms, inside chart bars, and over shared skeletons and progress fills. Text, focus rings, and chart value boundaries stay solid. Charts retain semantic series colors, labels, and keyboard interaction. Forced-colors mode removes visible decoration. Native clients use the same palette and shape tokens with the shared Bayer renderer.
 
-Shared empty states place an original static SVG wave field in a 120px by 64px symbol area behind a solid 40px icon tile. The field is decorative and hidden from assistive technology. Progress meters use the theme's small corner radius, while loading previews use the real Skeleton and ProgressMeter components. Existing reduced-motion behavior stays intact.
+Shared empty states place a static dithered halo in a 120px by 64px symbol area behind a solid 40px icon tile. The field is decorative and hidden from assistive technology. Progress meters use the theme's small corner radius, while loading previews use the real Skeleton and ProgressMeter components. Existing reduced-motion behavior stays intact.
 
 `@openpost/dither` owns the Bayer thresholds, native-resolution SVG masks, and DOM lifecycle for Svelte and React. Every surface uses 2 CSS pixel cells. Buttons raise density on hover, keyboard focus, and press while keeping their two colors fixed; animation stops when settled and snaps with reduced motion. Preserve the Dither Kit source attribution in the package `NOTICE.md`. Marketing panels and the documentation app link share this renderer while retaining their palettes. Native filled actions and icon buttons use the DOM-free `@openpost/dither/paint` renderer, with 2-point Bayer cells, 160ms interaction transitions, and no idle animation. Native material endpoints stay between 1.18:1 and 1.8:1, with labels at 4.5:1 across rest and press.
 
@@ -276,7 +280,7 @@ Custom Dither button recipes must meet the text and texture contrast ranges in e
 ### Buttons
 
 - **Shape:** Compact medium corners with a 36px desktop height and 44px coarse-pointer target.
-- **Focal:** The strongest theme action treatment, used for one clear next action in a local group.
+- **Focal:** The strongest theme action treatment, used for one clear next action on a screen. The sidebar New post counts, so most pages use outline or ghost for their own actions.
 - **Primary / Ordinary / Quiet:** Decrease emphasis without changing the action's meaning. A neutral ordinary action must remain distinct from a focal action.
 - **Hover / Focus:** Use the theme's complete state recipe, retain a visible semantic focus ring, and keep motion compatible with reduced-motion preferences.
 - **Secondary / Outline / Ghost:** Use tonal fill, a full hairline border, or hover-only fill according to hierarchy. Destructive buttons use a quiet red tint until interaction.
@@ -304,13 +308,13 @@ Custom Dither button recipes must meet the text and texture contrast ranges in e
 
 ### Navigation
 
-Desktop sidebars, public top navigation, and mobile bottom navigation share compact labels and a clear active state. Active app navigation uses the theme's selected recipe; public navigation stays quiet until hover. Mobile labels remain readable without horizontal overflow, and menus must render above drawers and sheets.
+The app sidebar runs logo, workspace switcher, notifications, and New post, then Home, Posts, Inbox, Analytics, then Ideas, Studio, Media, Automations, with Accounts, Settings, and profile in the footer. There is no desktop More menu. Phones use Home, Posts, New, Inbox, and More, all labelled. `/` stays the composer URL; app entry follows the device landing preference. Settings uses a left rail grouped into You, Workspace, Plan, and a collapsed Advanced. Desktop sidebars, public top navigation, and mobile bottom navigation share compact labels and a clear active state. Active app navigation uses the theme's selected recipe; public navigation stays quiet until hover. Mobile labels remain readable without horizontal overflow, and menus must render above drawers and sheets.
 
 The marketing desktop header uses the shared Shadcn-svelte `NavigationMenu` for direct links and grouped resources. Its mobile header stays a compact disclosure menu with 44px targets rather than forcing desktop flyouts into a phone viewport.
 
 ### Shared Page Chrome
 
-Authenticated routes use `PageContainer`, `PageHeader`, `SectionHeader`, and content-shaped `PageLoading` recipes. Empty, notice, toast, error, and destructive-confirmation states use the shared primitives so hierarchy and feedback do not drift between routes.
+Authenticated routes use `PageContainer`, `PageHeader`, `SectionHeader`, and content-shaped `PageLoading` recipes. Page titles equal their navigation label, and descriptions appear only to report state. Tabs have one idiom: shared `Tabs` for in-page views and `PageTabs` for route tabs, both on the theme recipe and on their own full-width row. A segmented switch is only for two or three representations of the same data, such as List, Grid, and Calendar. `Disclosure` owns expandable sections. Refresh is icon-only with a tooltip. `InlineNotice` appears only when the reader can act; success uses a toast. Empty, notice, toast, error, and destructive-confirmation states use the shared primitives so hierarchy and feedback do not drift between routes.
 
 ### Recovery states
 
@@ -323,7 +327,7 @@ Use the shared recovery layout and semantic action roles across framework and st
 ### Do:
 
 - **Do** reuse semantic theme variables and verify every change in light and dark.
-- **Do** keep Workshop orange, or another theme's focal treatment, rare enough that the next action remains obvious.
+- **Do** keep the focal treatment rare enough that the next action remains obvious, and keep Dither on the surfaces it belongs to.
 - **Do** use shared page and feedback primitives before creating route-specific chrome.
 - **Do** preserve touch targets, safe areas, responsive overflow, keyboard focus, and reduced-motion behavior.
 - **Do** keep provider state and operational outcomes compact but explicit.
@@ -338,7 +342,7 @@ Use the shared recovery layout and semantic action roles across framework and st
 
 Documentation uses neutral white and charcoal reading surfaces with muted blue links. Orange stays in the product mark.
 
-App page titles use the theme’s typeface, weight, and tracking with `data-app-title`, capped at 1.25rem and a 1.4 line height. List and Calendar share the Posts header and view switch in page navigation. Narrow Calendar layouts keep a compact month or week date picker with the selected day's posts below it; List owns status tabs, search, and recovery. Calendar's secondary workspace, platform, and status filters sit behind Filters. Public profiles use the viewer’s saved Workspace theme after direct navigation or reload, and Dither for anonymous visits. Activity intensity derives from the active primary color.
+App page titles use the theme’s typeface, weight, and tracking with `data-app-title`, capped at 1.25rem and a 1.4 line height. List and Calendar share the Posts header and view switch in page navigation. Narrow Calendar layouts keep a compact month or week date picker with the selected day's posts below it; List owns status tabs, search, and recovery. Calendar's secondary workspace, platform, and status filters sit behind Filters. Public profiles use the viewer’s saved Workspace theme after direct navigation or reload, and Calm for anonymous visits. Activity intensity derives from the active primary color.
 
 ### Social sharing images
 

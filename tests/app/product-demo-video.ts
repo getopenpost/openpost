@@ -176,9 +176,7 @@ export async function videoEditorDemo(page: Page) {
         await second.getByRole("button", { name: /Drag to move/ }).click();
         await seek(195);
         await timelineMore().click();
-        await page
-          .getByRole("menuitem", { name: "Trim start to playhead", exact: true })
-          .click({ force: true });
+        await page.getByRole("menuitem", { name: "Trim start to playhead", exact: true }).click();
         const left = (await footage.boundingBox())!;
         const right = (await second.boundingBox())!;
         await page.mouse.move(right.x + 48, right.y + right.height / 2);
@@ -209,7 +207,7 @@ export async function videoEditorDemo(page: Page) {
       run: async () => {
         await footage.getByRole("button", { name: /Drag to move/ }).click();
         await page
-          .getByRole("tablist", { name: "Assets", exact: true })
+          .getByRole("tablist", { name: "Effects", exact: true })
           .getByRole("tab", { name: "Effects", exact: true })
           .click();
         const search = page.getByRole("searchbox", { name: "Search effects", exact: true });

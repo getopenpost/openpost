@@ -27,6 +27,7 @@
 	import { publicationView, isPublicationListTab } from '$lib/stores/publication-view.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Tabs, TabsList, TabsTrigger, TabsContent } from '$lib/components/ui/tabs';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -1188,18 +1189,26 @@
 						label={m.engagement_search_posts()}
 						class="min-w-0 flex-1 sm:w-56"
 					/>
-					<Button
-						variant="outline"
-						size="icon-sm"
-						aria-label={m.common_refresh()}
-						onclick={() => loadData()}
-						disabled={loading}
-					>
-						<ThemeIcon
-							role="refresh"
-							class={`size-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`}
-						/>
-					</Button>
+					<Tooltip.Root>
+						<Tooltip.Trigger>
+							{#snippet child({ props })}
+								<Button
+									{...props}
+									variant="outline"
+									size="icon-sm"
+									aria-label={m.common_refresh()}
+									onclick={() => loadData()}
+									disabled={loading}
+								>
+									<ThemeIcon
+										role="refresh"
+										class={`size-4 ${loading ? 'animate-spin motion-reduce:animate-none' : ''}`}
+									/>
+								</Button>
+							{/snippet}
+						</Tooltip.Trigger>
+						<Tooltip.Content><p class="text-sm">{m.common_refresh()}</p></Tooltip.Content>
+					</Tooltip.Root>
 				</div>
 			</div>
 		{/snippet}

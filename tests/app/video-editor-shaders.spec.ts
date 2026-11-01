@@ -79,8 +79,9 @@ async function createShaderProject(
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
     timeout: 15_000,
   });
+  await page.locator("[data-project-details]").click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Shader proof");
-  await page.getByRole("textbox", { name: "Project name" }).press("Tab");
+  await page.keyboard.press("Escape");
   await page
     .getByRole("navigation", { name: "Assets", exact: true })
     .getByRole("tab", { name: "Backgrounds", exact: true })

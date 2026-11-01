@@ -2496,35 +2496,38 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			>
 				<ThemeIcon role="chevron-left" class="size-5" />
 			</a>
-			<EditorTitleInput
-				value={displayedProject?.name ?? ''}
-				ariaLabel={m.video_editor_project_name()}
-				class="hidden h-8 w-full max-w-48 min-w-0 text-sm md:block"
-				disabled={!displayedProject}
-				onchange={(value) => editorSession.renameProject(value)}
-			/>
-			{#if projectSummary}
+			{#if displayedProject}
 				<Popover.Root>
 					<Popover.Trigger>
 						{#snippet child({ props })}
 							<Button
 								{...props}
 								variant="ghost"
-								size="icon-xs"
-								class="hidden shrink-0 text-[var(--video-editor-muted)] md:inline-flex"
-								aria-label={m.video_editor_project_details()}
+								size="sm"
+								class="h-8 max-w-16 min-w-0 truncate px-2 text-sm font-medium text-[var(--video-editor-text)] hover:bg-[var(--video-editor-control)] sm:max-w-28 md:max-w-48"
+								title={m.video_editor_project_details()}
+								data-project-details
 							>
-								<ProtectedIcon icon="info" class="size-3.5" />
+								{displayedProject.name}
 							</Button>
 						{/snippet}
 					</Popover.Trigger>
 					<Popover.Content side="bottom" align="start" class="video-editor-theme w-64">
-						<p
-							class="text-xs leading-relaxed text-[var(--video-editor-text)] tabular-nums"
-							data-project-summary
-						>
-							{projectSummary}
-						</p>
+						<EditorTitleInput
+							value={displayedProject.name}
+							ariaLabel={m.video_editor_project_name()}
+							class="mb-2 w-full"
+							onchange={(value) => editorSession.renameProject(value)}
+						/>
+						{#if projectSummary}
+							<p
+								class="text-xs leading-relaxed text-[var(--video-editor-text)] tabular-nums"
+								data-project-summary
+								title={projectSummary}
+							>
+								{projectSummary}
+							</p>
+						{/if}
 					</Popover.Content>
 				</Popover.Root>
 			{/if}

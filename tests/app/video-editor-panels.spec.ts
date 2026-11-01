@@ -709,8 +709,9 @@ test("Motion uses authored duration in its summary, transport, and export", asyn
     .getByRole("toolbar", { name: "Layer tools" })
     .getByRole("button", { name: "Text", exact: true })
     .click();
-  await page.getByRole("button", { name: "Project details", exact: true }).click();
+  await page.locator("[data-project-details]").click();
   await expect(page.getByText(/320×240 · 30 fps · 0:12 · Clips: 1/)).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(
     page.getByRole("img", { name: "00:00:00:00 / 00:00:12:00", exact: true }),
   ).toBeVisible();

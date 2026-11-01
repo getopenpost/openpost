@@ -5,7 +5,7 @@
 	type Props = {
 		/** Heading level. Section groups default to h2; sub-groups use h3 without flattening hierarchy. */
 		level?: 2 | 3 | 4;
-		/** Default section size, or the compact uppercase size for dense editor panels. */
+		/** Default section size, or the compact size for dense editor panels. */
 		size?: 'section' | 'compact';
 		/** Forwarded so existing section aria-labelledby wiring keeps working. */
 		id?: string;
@@ -17,7 +17,7 @@
 
 	const sizeClass = $derived(
 		size === 'compact'
-			? 'text-xs font-semibold tracking-wider text-muted-foreground uppercase'
+			? 'text-xs font-semibold text-muted-foreground'
 			: 'text-base leading-6 font-semibold'
 	);
 </script>

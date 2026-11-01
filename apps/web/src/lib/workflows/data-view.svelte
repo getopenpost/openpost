@@ -135,7 +135,7 @@
 			>
 				<div class="flex items-baseline gap-2">
 					<code class="min-w-0 text-xs font-medium break-all">{field.path}</code><span
-						class="shrink-0 text-[10px] text-muted-foreground">{field.type}</span
+						class="shrink-0 text-xs text-muted-foreground">{field.type}</span
 					>
 				</div>
 				{#if field.value === null || typeof field.value !== 'object'}<p

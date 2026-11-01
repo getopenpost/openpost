@@ -506,7 +506,7 @@
 
 		<div class="mb-4 grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
 			<div class="rounded-lg border bg-muted/20 p-4">
-				<p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+				<p class="text-xs font-medium text-muted-foreground">
 					{m.settings_current_plan()}
 				</p>
 				<div class="mt-2 flex flex-wrap items-end gap-x-3 gap-y-1">
@@ -538,7 +538,7 @@
 			</div>
 
 			<div class="rounded-lg border bg-muted/20 p-4">
-				<p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+				<p class="text-xs font-medium text-muted-foreground">
 					{m.settings_usage_month()}
 				</p>
 				{#if monthlyBillingUsageRows.length}

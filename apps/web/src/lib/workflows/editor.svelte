@@ -555,7 +555,7 @@
 			maxlength={100}
 			oninput={(event) => change((next) => (next.name = event.currentTarget.value))}
 		/>
-		{#if !inspector}<span class="shrink-0 text-[11px] text-muted-foreground" aria-live="polite"
+		{#if !inspector}<span class="shrink-0 text-xs text-muted-foreground" aria-live="polite"
 				>{saving ? m.workflows_saving() : dirty ? m.workflows_unsaved() : m.workflows_saved()}</span
 			>{/if}
 		<div class="col-span-3 flex flex-wrap items-center justify-between gap-2 sm:contents">
@@ -898,7 +898,7 @@
 										? sourceLabel(inspectedDefinition.source.kind)
 										: inspectedStep?.name}</span
 							>{/if}
-						<span class="shrink-0 px-2 text-[11px] text-muted-foreground sm:px-0" aria-live="polite"
+						<span class="shrink-0 px-2 text-xs text-muted-foreground sm:px-0" aria-live="polite"
 							>{saving
 								? m.workflows_saving()
 								: dirty

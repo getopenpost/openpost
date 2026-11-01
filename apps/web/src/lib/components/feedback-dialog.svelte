@@ -369,7 +369,7 @@
 							>
 								<ThemeIcon role="close" class="size-4" />
 							</Button>
-							<p class="px-2 py-1 text-right text-[0.6875rem] text-muted-foreground">
+							<p class="px-2 py-1 text-right text-xs text-muted-foreground">
 								{Math.ceil(screenshotBytes / 1024)} KB
 							</p>
 						</div>

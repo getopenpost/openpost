@@ -1307,7 +1307,7 @@
 		aria-labelledby="recovery-codes-title"
 	>
 		<div class="space-y-1">
-			<p class="text-xs font-medium tracking-wide text-amber-700 uppercase dark:text-amber-300">
+			<p class="text-xs font-medium text-amber-700 dark:text-amber-300">
 				{recoveryCodeFlow === 'setup'
 					? m.settings_totp_setup_step_recovery()
 					: m.settings_recovery_codes_regenerate_title()}

@@ -135,7 +135,7 @@
 		class="!size-3 !border-2 !border-background !bg-muted-foreground"
 	/>
 	{#if info.branch}<span
-			class="pointer-events-none absolute -right-7 rounded-sm bg-background px-0.5 text-[10px] text-muted-foreground"
+			class="pointer-events-none absolute -right-7 rounded-sm bg-background px-0.5 text-xs text-muted-foreground"
 			style={`top:${port === 'then' ? 25 : 75}%;transform:translateY(-50%)`}
 			>{port === 'then' ? m.workflows_yes() : m.workflows_no()}</span
 		>{/if}

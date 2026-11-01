@@ -412,7 +412,7 @@
 								<div class="mt-2 flex flex-wrap items-center gap-2">
 									<span
 										class={[
-											'rounded-sm px-1.5 py-0.5 text-[11px] font-medium capitalize',
+											'rounded-sm px-1.5 py-0.5 text-xs font-medium capitalize',
 											getStatusColor(post.status)
 										]}>{statusLabel(post.status)}</span
 									>
@@ -445,7 +445,7 @@
 											{/each}
 											{#if hiddenDestinationCount > 0}
 												<span
-													class="flex size-6 items-center justify-center rounded-full border border-border bg-muted text-[10px] font-medium text-muted-foreground ring-2 ring-background"
+													class="flex size-6 items-center justify-center rounded-full border border-border bg-muted text-xs font-medium text-muted-foreground ring-2 ring-background"
 												>
 													+{hiddenDestinationCount}
 												</span>

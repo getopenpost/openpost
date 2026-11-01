@@ -652,15 +652,11 @@
 		<div class="hidden overflow-x-auto rounded-xl border xl:block">
 			<div class="min-w-[680px]">
 				<div class="grid grid-cols-[120px_repeat(7,minmax(56px,1fr))_52px] border-b bg-muted/30">
-					<div
-						class="px-4 py-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-					>
+					<div class="px-4 py-3 text-xs font-semibold text-muted-foreground">
 						{m.settings_time()}
 					</div>
 					{#each dayOrder as dayIndex (dayIndex)}
-						<div
-							class="px-2 py-3 text-center text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-						>
+						<div class="px-2 py-3 text-center text-xs font-semibold text-muted-foreground">
 							{localizedWeekday(dayIndex)}
 						</div>
 					{/each}

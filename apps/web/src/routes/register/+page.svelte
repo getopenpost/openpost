@@ -316,7 +316,7 @@
 	>
 		{#if hostedSignup}
 			<div
-				class="mb-5 grid grid-cols-3 gap-2 border-y py-3 text-center text-[11px] leading-4 text-muted-foreground"
+				class="mb-5 grid grid-cols-3 gap-2 border-y py-3 text-center text-xs leading-4 text-muted-foreground"
 			>
 				<span>{m.auth_register_proof_trial()}</span>
 				<span>{m.auth_register_proof_channels()}</span>

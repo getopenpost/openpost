@@ -342,7 +342,7 @@
 													>{draft.title}</span
 												>
 												<span
-													class="flex items-center gap-1 text-[11px] leading-4 text-sidebar-foreground/70"
+													class="flex items-center gap-1 text-xs leading-4 text-sidebar-foreground/70"
 												>
 													<span>{formatDraftTimestamp(draft.createdAt)}</span>
 													{#if draft.isThread}

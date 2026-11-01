@@ -14,9 +14,9 @@
 	let publicManifest = $state.raw<ThemeManifest | null>(null);
 	$effect(() => {
 		if (!publicDefault || publicManifest) return;
-		void import('$lib/themes/builtins/dither')
-			.then(({ ditherTheme }) => {
-				publicManifest = ditherTheme;
+		void import('$lib/themes/builtins/calm')
+			.then(({ calmTheme }) => {
+				publicManifest = calmTheme;
 			})
 			.catch((error) =>
 				captureClientException(error, {

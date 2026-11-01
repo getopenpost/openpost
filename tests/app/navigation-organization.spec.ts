@@ -182,7 +182,7 @@ test("mobile menus preserve keyboard focus and expose editor creation", async ({
   await nav.getByRole("button", { name: "More", exact: true }).click();
   await page.getByRole("menuitem", { name: "Studio", exact: true }).click();
   await expect(page).toHaveURL(/\/studio$/);
-  await nav.getByRole("button", { name: "New", exact: true }).click();
+  await nav.getByRole("button", { name: "New post", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
 });
 
@@ -275,12 +275,14 @@ test("short desktop keeps navigation and contextual draft resume reachable", asy
     exact: true,
   });
   await expect(draft).toBeVisible();
+  await draft.scrollIntoViewIfNeeded();
   const draftBounds = await draft.boundingBox();
   const contentBounds = await page.locator('[data-sidebar="content"]').boundingBox();
   expect(draftBounds!.y).toBeGreaterThanOrEqual(contentBounds!.y);
   expect(draftBounds!.y + draftBounds!.height).toBeLessThanOrEqual(
     contentBounds!.y + contentBounds!.height,
   );
+  await page.locator('[data-sidebar="content"]').evaluate((content) => content.scrollTo(0, 0));
   for (const name of ["Home", "Posts", "Inbox", "Analytics"])
     await expect(
       page.getByTestId("sidebar-workspace-navigation").getByRole("button", { name, exact: true }),

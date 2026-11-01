@@ -301,7 +301,9 @@
 					actionLabel={m.workflows_templates()}
 					onAction={() => (tab = 'templates')}
 				/>{/if}
-			<Button variant="ghost" href="/workflows/reposts">{m.repost_heading()}</Button>
+			<a class="text-sm font-medium text-link hover:underline" href="/workflows/reposts"
+				>{m.repost_heading()}</a
+			>
 		{:else if tab === 'templates'}
 			{#if replyTemplate}{#key replyTemplate}<CommentCampaignSetup
 						template={replyTemplate}

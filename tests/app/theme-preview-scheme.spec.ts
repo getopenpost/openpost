@@ -42,10 +42,10 @@ for (const width of [1280, 390, 320]) {
       expect(await page.evaluate(() => localStorage.getItem("mode-watcher-mode"))).toBe(initial);
       await page.screenshot({ path: info.outputPath(`scheme-switched-${width}-${initial}.png`) });
       await page.getByRole("button", { name: "Stop testing", exact: true }).click();
-      await expect(page.locator("html")).toHaveAttribute("data-theme-id", "dither");
+      await expect(page.locator("html")).toHaveAttribute("data-theme-id", "calm");
       await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", initial);
       await page.reload();
-      await expect(page.locator("html")).toHaveAttribute("data-theme-id", "dither");
+      await expect(page.locator("html")).toHaveAttribute("data-theme-id", "calm");
       await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", initial);
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
         false,

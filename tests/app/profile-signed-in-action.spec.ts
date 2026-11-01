@@ -74,6 +74,6 @@ test("public profile header sends signed-in viewers to their own profile setting
   await expect(
     page.locator("header").getByRole("link", { name: "Profile", exact: true }),
   ).toHaveCount(0);
-  await expect(page.locator("html")).toHaveAttribute("data-theme-id", "dither");
+  await expect(page.locator("html")).toHaveAttribute("data-theme-id", "calm");
   expect(errors).toEqual([]);
 });

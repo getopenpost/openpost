@@ -1076,7 +1076,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			</div>
 
 			<section aria-label={m.analytics_title()}>
-				<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+				<div
+					class="grid grid-cols-2 gap-3 sm:grid-cols-4"
+					role="group"
+					aria-label={m.analytics_chart_metric_label()}
+				>
 					{#each featuredSummaryMetrics as item (item.key)}
 						<button
 							type="button"

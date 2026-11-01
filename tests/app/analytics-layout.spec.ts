@@ -440,14 +440,14 @@ for (const [themeID, scheme] of [
           expect(bounds.rightInset).toBeGreaterThanOrEqual(4);
           if (width < 768) expect(bounds.height).toBeGreaterThanOrEqual(44);
         }
-        const engagement = metrics.getByRole("button", { name: "Engagement", exact: true });
+        const engagement = metrics.getByRole("button", { name: /^Engagement/ });
         await engagement.focus();
         await engagement.press("Enter");
         await expect(engagement).toHaveAttribute("aria-pressed", "true");
         await expect(
           page.getByRole("img", { name: "Daily engagement", exact: true }),
         ).toBeVisible();
-        const views = metrics.getByRole("button", { name: "Visibility", exact: true });
+        const views = metrics.getByRole("button", { name: /^Visibility/ });
         await views.focus();
         await views.press("Enter");
         await expect(views).toHaveAttribute("aria-pressed", "true");
@@ -457,7 +457,7 @@ for (const [themeID, scheme] of [
         if (themeID === "dither") {
           const figure = page.getByRole("figure", { name: "Visibility" });
           const day = figure.getByRole("button").nth(width < 768 ? 6 : 15);
-          const bar = day.locator("[data-chart-fill]").first();
+          const bar = day.locator("[data-analytics-bar]").first();
           const before = await bar.evaluate((el: SVGRectElement) => ({
             x: el.x.baseVal.value,
             y: el.y.baseVal.value,

@@ -265,8 +265,8 @@
 </script>
 
 {#if loadingDrafts || drafts.length > 0 || draftsError}
-	<div class="flex min-h-20 flex-1 flex-col" data-testid="desktop-sidebar-planner">
-		<section class="flex min-h-0 flex-1 flex-col px-2 pt-2">
+	<div class="flex min-h-20 flex-1 flex-col overflow-hidden" data-testid="desktop-sidebar-planner">
+		<section class="flex min-h-0 flex-1 flex-col pt-2">
 			<div class="mb-1 flex h-7 shrink-0 items-center justify-between px-2">
 				<div class="flex items-center gap-1.5">
 					<span

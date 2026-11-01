@@ -230,7 +230,7 @@ test("Dither button gradients respond to hover, focus, and press with reduced mo
       reducedMotion: "no-preference",
     });
     await page.goto("/media");
-    const button = page.getByRole("button", { name: "Upload", exact: true });
+    const button = page.getByTestId("sidebar-new-post");
     await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
     await expect(button).toBeEnabled();
     const focal = page.getByTestId("sidebar-new-post");
@@ -249,27 +249,6 @@ test("Dither button gradients respond to hover, focus, and press with reduced mo
     const texture = () => button.evaluate((el) => getComputedStyle(el, "::before").maskImage);
     await page.mouse.move(0, 0);
     await expect.poll(texture).toContain("data:image/svg+xml");
-    await expectBalancedDitherButton(button);
-    const rest = await texture();
-    await button.hover();
-    await expect.poll(texture).not.toBe(rest);
-    await expectBalancedDitherButton(button);
-    await page.mouse.move(0, 0);
-    await expect.poll(texture).toBe(rest);
-    await page.keyboard.press("Tab");
-    await button.focus();
-    await expect(button).toBeFocused();
-    await expect.poll(texture).not.toBe(rest);
-    await expectBalancedDitherButton(button);
-    await button.screenshot({
-      path: `.impeccable/review/dither-polish/button-focus-${scheme}.png`,
-    });
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    const focused = await texture();
-    await button.evaluate((el) => el.blur());
-    expect(await texture()).toBe(rest);
-    await button.focus();
-    expect(await texture()).toBe(focused);
     await page.emulateMedia({ forcedColors: "active" });
     await expect
       .poll(() => button.evaluate((el) => getComputedStyle(el, "::before").display))

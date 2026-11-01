@@ -440,6 +440,12 @@ for (const width of [1280, 390, 320]) {
             return settled.segments[0].settings.poll.destinations[late.id]?.mode;
           })
           .toBe("omit");
+        // The server can commit before the composer processes its save response.
+        await expect(page.getByTestId("composer-save-indicator")).toHaveAttribute(
+          "data-state",
+          /^(saved|idle)$/,
+        );
+        settled = await (await request.get(`/api/v1/publications/${saved.id}`, { headers })).json();
         const importedPoll = settled.segments[0].settings.poll;
         const imported = await request.put(`/api/v1/publications/${saved.id}`, {
           headers,
@@ -499,6 +505,10 @@ for (const width of [1280, 390, 320]) {
             return custom?.multiple === false && custom?.hide_totals === false;
           })
           .toBe(true);
+        await expect(page.getByTestId("composer-save-indicator")).toHaveAttribute(
+          "data-state",
+          /^(saved|idle)$/,
+        );
         const resolved = await (
           await request.get(`/api/v1/publications/${saved.id}`, { headers })
         ).json();

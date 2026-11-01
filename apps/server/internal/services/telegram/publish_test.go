@@ -128,3 +128,18 @@ func TestTelegramVerifiedChatPublishesTextImageAndVideoWithAcceptedReceipts(t *t
 		})
 	}
 }
+
+func TestTelegramPublishPlanCarriesVideoSize(t *testing.T) {
+	steps, err := telegramPublishPlan("-100123", &platform.PublishRequest{Content: "Launch update"}, []platform.UploadMediaRequest{{
+		MimeType: "video/mp4", Filename: "launch.mp4", Size: 11, Reader: strings.NewReader("video-bytes"),
+		Width: 1080, Height: 1920, DurationMS: 46863,
+	}})
+
+	require.NoError(t, err)
+	require.Len(t, steps, 1)
+	require.Len(t, steps[0].request.Media, 1)
+	media := steps[0].request.Media[0]
+	require.Equal(t, 1080, media.Width)
+	require.Equal(t, 1920, media.Height)
+	require.Equal(t, int64(46863), media.DurationMS)
+}

@@ -1933,10 +1933,13 @@ func (s *Service) publishProvider(
 		}
 		readers = append(readers, reader)
 		inputs = append(inputs, platform.UploadMediaRequest{
-			MimeType: item.MimeType,
-			Filename: firstNonEmptyPublisherString(item.OriginalFilename, filepath.Base(item.FilePath)),
-			Size:     item.Size,
-			Reader:   reader,
+			MimeType:   item.MimeType,
+			Filename:   firstNonEmptyPublisherString(item.OriginalFilename, filepath.Base(item.FilePath)),
+			Size:       item.Size,
+			Reader:     reader,
+			Width:      item.Width,
+			Height:     item.Height,
+			DurationMS: item.DurationMS,
 		})
 	}
 	defer closeReaders()

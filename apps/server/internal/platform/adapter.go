@@ -160,6 +160,9 @@ type UploadMediaRequest struct {
 	MimeType          string
 	Filename          string
 	Size              int64
+	Width             int
+	Height            int
+	DurationMS        int64
 	Title             string
 	Description       string
 	Settings          map[string]interface{}

@@ -183,3 +183,29 @@ func TestResumableUploadReadsStoredMediaAtRequestedOffsets(t *testing.T) {
 	require.Equal(t, media, uploader.uploaded)
 	require.Equal(t, []int64{0, chunkSize}, storage.offsets)
 }
+
+type capturingDirectPublisher struct {
+	platform.Publisher
+	media []platform.UploadMediaRequest
+}
+
+func (c *capturingDirectPublisher) PublishWithMedia(_ context.Context, _, _ string, _ *platform.PublishRequest, media []platform.UploadMediaRequest) (platform.PublishResult, error) {
+	c.media = media
+	return platform.PublishResult{}, nil
+}
+
+func TestPublishProviderPassesVideoSizeToDirectMediaPublisher(t *testing.T) {
+	provider := &capturingDirectPublisher{}
+	service := &Service{storage: &fakePublisherStorage{body: "fixture-video"}}
+
+	_, err := service.publishProvider(t.Context(), provider, "token", "account", &platform.PublishRequest{}, []models.MediaAttachment{{
+		FilePath: "media/video.mp4", OriginalFilename: "video.mp4", MimeType: "video/mp4", Size: 13,
+		Width: 1080, Height: 1920, DurationMS: 46863,
+	}})
+
+	require.NoError(t, err)
+	require.Len(t, provider.media, 1)
+	require.Equal(t, 1080, provider.media[0].Width)
+	require.Equal(t, 1920, provider.media[0].Height)
+	require.Equal(t, int64(46863), provider.media[0].DurationMS)
+}

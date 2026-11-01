@@ -233,6 +233,18 @@
 		let scheduleViewportResize = () => {};
 		void (async () => {
 			await tick();
+			// The viewport node, document and page can attach after the canvas
+			// during the same mount. Waiting keeps the editor from getting stuck
+			// on the "Preparing canvas" state with no error and no retry.
+			let attempts = 0;
+			while (!(viewport && editor.document && editor.activePage)) {
+				if (disposed) return;
+				if (attempts++ >= 240) {
+					canvasError = m.image_editor_canvas_failed();
+					return;
+				}
+				await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+			}
 			const viewportElement = viewport;
 			if (!viewportElement || !editor.document || !editor.activePage) return;
 			canvasError = '';

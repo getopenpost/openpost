@@ -10367,5 +10367,6 @@
 	"onboarding_work_style_write": "Escrevo na maior parte do tempo",
 	"onboarding_work_style_business": "Faço a gestão de um negócio",
 	"image_editor_autosave": "As alterações são guardadas automaticamente",
-	"image_editor_text_alignment": "Alinhamento"
+	"image_editor_text_alignment": "Alinhamento",
+	"editor_back_to_studio": "Voltar ao Studio"
 }

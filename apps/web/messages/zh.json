@@ -10367,5 +10367,6 @@
 	"onboarding_work_style_write": "我主要以写作为主",
 	"onboarding_work_style_business": "我在经营一门生意",
 	"image_editor_autosave": "更改会自动保存",
-	"image_editor_text_alignment": "对齐"
+	"image_editor_text_alignment": "对齐",
+	"editor_back_to_studio": "返回 Studio"
 }

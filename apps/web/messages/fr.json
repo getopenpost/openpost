@@ -10367,5 +10367,6 @@
 	"onboarding_work_style_write": "J'écris surtout",
 	"onboarding_work_style_business": "Je dirige une entreprise",
 	"image_editor_autosave": "Les changements sont enregistrés automatiquement",
-	"image_editor_text_alignment": "Alignement"
+	"image_editor_text_alignment": "Alignement",
+	"editor_back_to_studio": "Retour à Studio"
 }

@@ -9,6 +9,7 @@
 		active,
 		disabled = false,
 		layout = 'rail',
+		shortcut = '',
 		onclick,
 		icon,
 		menu
@@ -17,6 +18,7 @@
 		active: boolean;
 		disabled?: boolean;
 		layout?: 'rail' | 'bottom';
+		shortcut?: string;
 		onclick: () => void;
 		icon: Snippet;
 		menu: Snippet;
@@ -62,7 +64,7 @@
 				aria-pressed={active}
 				aria-haspopup="menu"
 				aria-expanded={open}
-				title={`${label} · ${m.image_editor_more_actions()}`}
+				title={[label, shortcut, m.image_editor_more_actions()].filter(Boolean).join(' · ')}
 				{disabled}
 				onclick={handleClick}
 				onkeydown={handleKeydown}

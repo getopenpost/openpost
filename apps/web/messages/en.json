@@ -10367,5 +10367,6 @@
 	"onboarding_work_style_write": "I mostly write",
 	"onboarding_work_style_business": "I run a business",
 	"image_editor_autosave": "Changes save automatically",
-	"image_editor_text_alignment": "Alignment"
+	"image_editor_text_alignment": "Alignment",
+	"editor_back_to_studio": "Back to Studio"
 }

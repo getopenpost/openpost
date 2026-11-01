@@ -10367,5 +10367,6 @@
 	"onboarding_work_style_write": "В основном пишу",
 	"onboarding_work_style_business": "Веду бизнес",
 	"image_editor_autosave": "Изменения сохраняются автоматически",
-	"image_editor_text_alignment": "Выравнивание"
+	"image_editor_text_alignment": "Выравнивание",
+	"editor_back_to_studio": "Вернуться в Studio"
 }

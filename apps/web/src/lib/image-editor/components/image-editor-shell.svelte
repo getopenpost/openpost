@@ -3823,6 +3823,7 @@
 						label={commandLabel(marqueeCommand)}
 						active={isMarqueeTool(editor.activeTool)}
 						disabled={!commandEnabled(marqueeCommand)}
+						shortcut={commandShortcut(marqueeCommand)}
 						onclick={() => executeEditorCommand(marqueeCommand)}
 					>
 						{#snippet icon()}
@@ -3854,6 +3855,7 @@
 						label={commandLabel(lassoCommand)}
 						active={isLassoTool(editor.activeTool)}
 						disabled={!commandEnabled(lassoCommand)}
+						shortcut={commandShortcut(lassoCommand)}
 						onclick={() => executeEditorCommand(lassoCommand)}
 					>
 						{#snippet icon()}<ProtectedIcon icon="editor-lasso" />{/snippet}
@@ -3876,6 +3878,7 @@
 						label={commandLabel(tool.command.id)}
 						active={editor.activeTool === 'shape'}
 						disabled={!commandEnabled(tool.command.id)}
+						shortcut={commandShortcut(tool.command.id)}
 						onclick={() => executeEditorCommand(tool.command.id)}
 					>
 						{#snippet icon()}
@@ -3915,6 +3918,7 @@
 						label={commandLabel(fillCommand)}
 						active={isFillTool(editor.activeTool)}
 						disabled={!commandEnabled(fillCommand)}
+						shortcut={commandShortcut(fillCommand)}
 						onclick={() => executeEditorCommand(fillCommand)}
 					>
 						{#snippet icon()}
@@ -3942,6 +3946,7 @@
 						label={commandLabel(eraseCommand)}
 						active={isEraserTool(editor.activeTool)}
 						disabled={!commandEnabled(eraseCommand)}
+						shortcut={commandShortcut(eraseCommand)}
 						onclick={() => executeEditorCommand(eraseCommand)}
 					>
 						{#snippet icon()}
@@ -4504,7 +4509,7 @@
 		showCloseButton={mobileSheet === 'layers'}
 		class={mobileSheet === 'layers'
 			? 'h-dvh! w-full! p-0 sm:max-w-sm!'
-			: 'max-h-[82dvh] w-full! rounded-t-2xl p-0'}
+			: 'max-h-[62dvh] w-full! rounded-t-2xl p-0'}
 	>
 		<Sheet.Header class="sr-only">
 			<Sheet.Title
@@ -4517,7 +4522,7 @@
 			<Sheet.Description>{m.image_editor_editing_controls()}</Sheet.Description>
 		</Sheet.Header>
 		<div
-			class={mobileSheet === 'layers' ? 'h-full pt-14' : 'relative max-h-[82dvh] overflow-y-auto'}
+			class={mobileSheet === 'layers' ? 'h-full pt-14' : 'relative max-h-[62dvh] overflow-y-auto'}
 		>
 			{#if mobileSheet !== 'layers'}
 				<Sheet.Close>

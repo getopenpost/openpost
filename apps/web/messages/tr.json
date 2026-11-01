@@ -10367,5 +10367,6 @@
 	"onboarding_work_style_write": "Çoğunlukla yazı yazıyorum",
 	"onboarding_work_style_business": "Bir işletme yönetiyorum",
 	"image_editor_autosave": "Değişiklikler otomatik olarak kaydedilir",
-	"image_editor_text_alignment": "Hizalama"
+	"image_editor_text_alignment": "Hizalama",
+	"editor_back_to_studio": "Studio'ya dön"
 }

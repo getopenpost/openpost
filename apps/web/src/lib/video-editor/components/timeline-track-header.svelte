@@ -76,7 +76,7 @@
 	} = $props();
 
 	const controlClass =
-		'size-6 rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:ring-2 focus-visible:ring-[var(--video-editor-focus)] data-[active=true]:bg-[var(--video-editor-selection)] data-[active=true]:text-[var(--video-editor-selection-text)]';
+		'size-6 rounded text-[var(--video-editor-muted)] opacity-0 transition-opacity hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] hover:opacity-100 focus-visible:opacity-100 group-focus-within/header:opacity-100 group-hover/header:opacity-100 data-[active=true]:bg-[var(--video-editor-selection)] data-[active=true]:text-[var(--video-editor-selection-text)] data-[active=true]:opacity-100 [@media(pointer:coarse)]:opacity-100';
 	const menuItemClass =
 		'flex h-10 w-full items-center justify-start gap-2 rounded px-2.5 text-left text-sm hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-[oklch(0.66_0.14_45)] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active=true]:bg-muted';
 	let editingName = $state(false);
@@ -175,14 +175,16 @@
 />
 
 <div
-	class="flex size-full min-w-0 flex-col justify-center gap-0.5 border-r border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 [@media(pointer:coarse)]:flex-row [@media(pointer:coarse)]:items-center"
+	class="group/header flex size-full min-w-0 flex-row items-center gap-1 border-r border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-1.5"
 	class:ring-1={selected}
 	class:ring-inset={selected}
 	class:ring-[oklch(0.66_0.14_45)]={selected}
 	data-track-header={track.id}
 >
 	<div
-		class="flex min-w-0 items-center gap-1 [@media(pointer:coarse)]:flex-1 {child ? 'pl-3' : ''}"
+		class="flex min-w-0 flex-1 items-center gap-1 [@media(pointer:coarse)]:min-h-11 {child
+			? 'pl-3'
+			: ''}"
 	>
 		{#if track.isGroup}
 			<Button
@@ -238,11 +240,11 @@
 			{itemCount}
 		</span>
 	</div>
-	<div class="relative flex flex-nowrap items-center gap-0.5">
+	<div class="relative flex shrink-0 flex-nowrap items-center gap-0.5">
 		<Button
 			variant="ghost"
 			size="icon"
-			class="{controlClass} [@media(pointer:coarse)]:hidden"
+			class={controlClass}
 			data-track-primary-control
 			data-active={!effectiveTrack.visible}
 			disabled={inheritedVisible}
@@ -264,7 +266,7 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="{controlClass} [@media(pointer:coarse)]:hidden"
+			class={controlClass}
 			data-track-primary-control
 			data-active={effectiveTrack.locked}
 			disabled={inheritedLocked}
@@ -283,11 +285,12 @@
 					class="size-3.5"
 				/>{/if}
 		</Button>
-		<div bind:this={moreMenu} class="relative size-6 shrink-0 [@media(pointer:coarse)]:size-11">
+		<div bind:this={moreMenu} class="relative size-6 shrink-0">
 			<button
 				bind:this={moreButton}
 				type="button"
-				class="flex size-6 cursor-pointer list-none items-center justify-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:ring-2 focus-visible:ring-[var(--video-editor-focus)] focus-visible:outline-none [&::-webkit-details-marker]:hidden [@media(pointer:coarse)]:size-11"
+				class="flex size-6 shrink-0 cursor-pointer list-none items-center justify-center rounded text-[var(--video-editor-muted)] opacity-0 transition-opacity group-focus-within/header:opacity-100 group-hover/header:opacity-100 hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] hover:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 [&::-webkit-details-marker]:hidden [@media(pointer:coarse)]:opacity-100"
+				class:opacity-100={selected}
 				data-track-primary-control
 				aria-expanded={moreOpen}
 				aria-haspopup="menu"

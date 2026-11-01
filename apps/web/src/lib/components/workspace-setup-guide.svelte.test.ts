@@ -15,21 +15,21 @@ describe('WorkspaceSetupGuide', () => {
 		queryClient.clear();
 	});
 
-	it('shows the server-projected progress and action while reusing cached reads', async () => {
+	it('shows the server-projected progress and checklist while reusing cached reads', async () => {
 		mocks.get.mockResolvedValue({
 			data: {
 				visible: true,
 				activated: false,
 				completed_steps: 3,
 				total_steps: 4,
-				next_step: 'publication',
-				next_action: 'create_publication',
-				action_href: '/',
+				next_step: 'destination',
+				next_action: 'connect_destination',
+				action_href: '/settings?tab=accounts',
 				steps: [
 					{ id: 'workspace', completed: true },
-					{ id: 'destination', completed: true },
+					{ id: 'destination', completed: false },
 					{ id: 'composition', completed: true },
-					{ id: 'publication', completed: false }
+					{ id: 'publication', completed: true }
 				]
 			}
 		});
@@ -40,10 +40,13 @@ describe('WorkspaceSetupGuide', () => {
 		const guide = screen.getByTestId('workspace-setup-guide-home');
 		await expect.element(guide).toBeVisible();
 		await expect.element(guide).toHaveTextContent('3 of 4 complete');
-		await expect.element(guide).toHaveTextContent('Schedule or submit your first post');
+		await expect.element(guide).toHaveTextContent('Finish setting up this Workspace');
+		await expect.element(guide).toHaveTextContent('Workspace');
+		await expect.element(guide).toHaveTextContent('Composition');
+		await expect.element(guide).toHaveTextContent('Post');
 		await expect
-			.element(screen.getByRole('link', { name: 'Create a post' }))
-			.toHaveAttribute('href', '/');
+			.element(screen.getByRole('link', { name: 'Destination' }))
+			.toHaveAttribute('href', '/accounts');
 		expect(mocks.get).toHaveBeenCalledWith('/workspaces/{id}/setup', {
 			params: { path: { id: 'workspace-1' } },
 			signal: expect.any(AbortSignal)

@@ -8580,12 +8580,12 @@
           "mutedInk": "oklch(0.47 0.01 80)",
           "border": "oklch(0.915 0.004 80)",
           "input": "oklch(0.8 0.006 80)",
-          "focus": "oklch(0.46 0.125 45)",
+          "focus": "oklch(0.5 0.13 45)",
           "selection": "oklch(0.95 0.018 45)",
           "selectionInk": "oklch(0.24 0.008 80)",
-          "caret": "oklch(0.53 0.135 45)",
+          "caret": "oklch(0.45 0.125 45)",
           "link": "oklch(0.47 0.125 45)",
-          "brand": "oklch(0.53 0.135 45)",
+          "brand": "oklch(0.45 0.125 45)",
           "brandInk": "oklch(0.995 0.002 85)",
           "workspace": "oklch(0.95 0.018 45)",
           "workspaceInk": "oklch(0.24 0.008 80)",
@@ -8599,14 +8599,14 @@
           "warningInk": "oklch(0.42 0.09 75)",
           "info": "oklch(0.95 0.025 255)",
           "infoInk": "oklch(0.42 0.13 255)",
-          "actionFocal": "oklch(0.53 0.135 45)",
+          "actionFocal": "oklch(0.45 0.125 45)",
           "actionFocalInk": "oklch(0.995 0.002 85)",
-          "actionFocalHover": "oklch(0.48 0.13 45)",
-          "actionFocalActive": "oklch(0.44 0.12 45)",
-          "actionPrimary": "oklch(0.53 0.135 45)",
+          "actionFocalHover": "oklch(0.41 0.115 45)",
+          "actionFocalActive": "oklch(0.37 0.1 45)",
+          "actionPrimary": "oklch(0.45 0.125 45)",
           "actionPrimaryInk": "oklch(0.995 0.002 85)",
-          "actionPrimaryHover": "oklch(0.48 0.13 45)",
-          "actionPrimaryActive": "oklch(0.44 0.12 45)",
+          "actionPrimaryHover": "oklch(0.41 0.115 45)",
+          "actionPrimaryActive": "oklch(0.37 0.1 45)",
           "actionOrdinary": "oklch(1 0 0)",
           "actionOrdinaryInk": "oklch(0.24 0.008 80)",
           "actionOrdinaryBorder": "oklch(0.8 0.006 80)",
@@ -8801,7 +8801,7 @@
           "canvasTreatment": "plain"
         },
         "components": {
-          "button": "solid",
+          "button": "dither",
           "link": "plain",
           "tabs": "underline",
           "navigation": "quiet",
@@ -8824,7 +8824,7 @@
           "emptyState": "plain",
           "loadingState": "skeleton",
           "editorChrome": "neutral",
-          "decoration": "none"
+          "decoration": "dither"
         }
       },
       "dark": {
@@ -8843,7 +8843,7 @@
           "caret": "oklch(0.76 0.115 45)",
           "link": "oklch(0.8 0.1 45)",
           "brand": "oklch(0.76 0.115 45)",
-          "brandInk": "oklch(0.17 0.02 45)",
+          "brandInk": "oklch(0.13 0.015 45)",
           "workspace": "oklch(0.29 0.03 45)",
           "workspaceInk": "oklch(0.95 0.004 80)",
           "overlay": "color-mix(in oklch, oklch(0.95 0.004 80) 12%, transparent)",
@@ -8857,11 +8857,11 @@
           "info": "oklch(0.27 0.05 255)",
           "infoInk": "oklch(0.83 0.1 255)",
           "actionFocal": "oklch(0.76 0.115 45)",
-          "actionFocalInk": "oklch(0.17 0.02 45)",
+          "actionFocalInk": "oklch(0.13 0.015 45)",
           "actionFocalHover": "oklch(0.82 0.1 45)",
           "actionFocalActive": "oklch(0.87 0.08 45)",
           "actionPrimary": "oklch(0.76 0.115 45)",
-          "actionPrimaryInk": "oklch(0.17 0.02 45)",
+          "actionPrimaryInk": "oklch(0.13 0.015 45)",
           "actionPrimaryHover": "oklch(0.82 0.1 45)",
           "actionPrimaryActive": "oklch(0.87 0.08 45)",
           "actionOrdinary": "oklch(0.205 0.005 80)",
@@ -9058,7 +9058,7 @@
           "canvasTreatment": "plain"
         },
         "components": {
-          "button": "solid",
+          "button": "dither",
           "link": "plain",
           "tabs": "underline",
           "navigation": "quiet",
@@ -9081,7 +9081,7 @@
           "emptyState": "plain",
           "loadingState": "skeleton",
           "editorChrome": "neutral",
-          "decoration": "none"
+          "decoration": "dither"
         }
       }
     },

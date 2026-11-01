@@ -1174,16 +1174,14 @@
 		loadingMessage={offlinePaused ? m.app_offline_title() : m.common_loading()}
 	>
 		{#snippet navigation()}
-			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-				<TabsList
-					class="no-scrollbar w-full justify-start overflow-x-auto overflow-y-hidden lg:w-auto"
-				>
-					<TabsTrigger class="sm:px-3" value="scheduled">{m.activity_tab_scheduled()}</TabsTrigger>
-					<TabsTrigger class="sm:px-3" value="published">{m.activity_tab_published()}</TabsTrigger>
-					<TabsTrigger class="sm:px-3" value="failed">{m.activity_tab_failed()}</TabsTrigger>
-					<TabsTrigger class="sm:px-3" value="drafts">{m.activity_tab_drafts()}</TabsTrigger>
+			<div class="flex flex-col gap-3">
+				<TabsList class="no-scrollbar">
+					<TabsTrigger value="scheduled">{m.activity_tab_scheduled()}</TabsTrigger>
+					<TabsTrigger value="published">{m.activity_tab_published()}</TabsTrigger>
+					<TabsTrigger value="failed">{m.activity_tab_failed()}</TabsTrigger>
+					<TabsTrigger value="drafts">{m.activity_tab_drafts()}</TabsTrigger>
 				</TabsList>
-				<div class="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
+				<div class="flex w-full flex-wrap items-center gap-2">
 					<PublicationViewSwitch view={inventoryView} />
 					<ListSearch
 						bind:value={searchQuery}

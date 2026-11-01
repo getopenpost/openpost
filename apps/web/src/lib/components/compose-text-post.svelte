@@ -8435,7 +8435,7 @@
 														hasText={Boolean(posts[0]?.content.trim())}
 														building={buildingPost}
 														disabled={!canBuildPost}
-														ideateLabel={m.compose_ai_ideate()}
+														ideateLabel={m.nav_ideas()}
 														buildLabel={generationUndo
 															? m.compose_ai_build_again()
 															: m.compose_ai_build()}

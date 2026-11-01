@@ -457,7 +457,7 @@ for (const [themeID, scheme] of [
         if (themeID === "dither") {
           const figure = page.getByRole("figure", { name: "Visibility" });
           const day = figure.getByRole("button").nth(width < 768 ? 6 : 15);
-          const bar = day.locator("[data-analytics-bar]").first();
+          const bar = day.locator("[data-chart-fill]").first();
           const before = await bar.evaluate((el: SVGRectElement) => ({
             x: el.x.baseVal.value,
             y: el.y.baseVal.value,

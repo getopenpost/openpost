@@ -60,8 +60,8 @@
 		class={[
 			'flex min-h-10 items-center rounded-md px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:min-h-11',
 			active === destination.id
-				? 'bg-accent text-foreground'
-				: 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+				? 'bg-navigation-active text-navigation-active-foreground'
+				: 'text-muted-foreground hover:bg-navigation-hover hover:text-foreground'
 		]}
 		aria-current={active === destination.id ? 'page' : undefined}
 	>
@@ -96,12 +96,27 @@
 	<nav class="hidden lg:block" aria-label={m.settings_groups_label()}>
 		{#each visibleGroups as group (group.id)}
 			<div class="mb-5 last:mb-0">
-				<p class="mb-1 px-3 text-xs font-medium text-muted-foreground">{group.label}</p>
-				<div class="space-y-0.5">
-					{#each group.destinations as destination (destination.id)}
-						{@render destinationLink(destination)}
-					{/each}
-				</div>
+				{#if group.id === 'advanced'}
+					<details open={activeGroup === 'advanced'}>
+						<summary
+							class="mb-1 flex min-h-9 cursor-pointer items-center rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-navigation-hover"
+						>
+							{group.label}
+						</summary>
+						<div class="space-y-0.5">
+							{#each group.destinations as destination (destination.id)}
+								{@render destinationLink(destination)}
+							{/each}
+						</div>
+					</details>
+				{:else}
+					<p class="mb-1 px-3 text-xs font-medium text-muted-foreground">{group.label}</p>
+					<div class="space-y-0.5">
+						{#each group.destinations as destination (destination.id)}
+							{@render destinationLink(destination)}
+						{/each}
+					</div>
+				{/if}
 			</div>
 		{/each}
 	</nav>

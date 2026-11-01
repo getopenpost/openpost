@@ -26,7 +26,6 @@
 	import CompatConnectDialog from '$lib/components/compat-connect-dialog.svelte';
 	import FediverseConnectDialog from '$lib/components/fediverse-connect-dialog.svelte';
 	import TelegramConnectionDialog from '$lib/components/telegram-connection-dialog.svelte';
-	import WorkspaceSetupGuide from '$lib/components/workspace-setup-guide.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
@@ -1615,13 +1614,6 @@
 					variant="muted"
 				/>
 			{:else}
-				{#if selectedWorkspaceId && canEditWorkspace}
-					<WorkspaceSetupGuide
-						workspaceID={selectedWorkspaceId}
-						context="accounts"
-						wrapperClass="mb-6"
-					/>
-				{/if}
 				{#if error}
 					<InlineNotice
 						tone="error"
@@ -1633,25 +1625,25 @@
 				{/if}
 
 				<!-- Connected Accounts -->
-				<div class="mb-10">
-					<SectionHeader
-						title={m.accounts_connected_channels()}
-						description={accountsLoadError && !accountsReady
-							? undefined
-							: m.accounts_connection_summary({
-									count: accounts.length,
-									workspace: selectedWorkspaceName
-								})}
-						class="mb-4"
-					>
-						{#snippet actions()}
-							{#if canEditWorkspace}
-								<Button variant="outline" href={links.createPublicationHref} size="sm"
-									>{m.accounts_create_post()}</Button
-								>
-							{/if}
-						{/snippet}
-					</SectionHeader>
+				<div class={accountsReady && accounts.length === 0 ? '' : 'mb-10'}>
+					{#if !(accountsReady && accounts.length === 0)}<SectionHeader
+							title={m.accounts_connected_channels()}
+							description={accountsLoadError && !accountsReady
+								? undefined
+								: m.accounts_connection_summary({
+										count: accounts.length,
+										workspace: selectedWorkspaceName
+									})}
+							class="mb-4"
+						>
+							{#snippet actions()}
+								{#if canEditWorkspace}
+									<Button variant="outline" href={links.createPublicationHref} size="sm"
+										>{m.accounts_create_post()}</Button
+									>
+								{/if}
+							{/snippet}
+						</SectionHeader>{/if}
 
 					{#if accountsLoadError}
 						<div data-testid="accounts-load-error">
@@ -1671,15 +1663,6 @@
 					{/if}
 					{#if accountsLoading && !accountsReady}
 						<PageLoading layout="grid" label={m.common_loading()} items={3} />
-					{:else if accountsReady && accounts.length === 0}
-						<EmptyState
-							themeIconRole="users"
-							title={m.accounts_empty_title()}
-							description={m.accounts_empty_body()}
-							variant="muted"
-							size="md"
-							headingLevel={3}
-						/>
 					{:else if accountsReady}
 						<div
 							class="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 xl:grid-cols-3"

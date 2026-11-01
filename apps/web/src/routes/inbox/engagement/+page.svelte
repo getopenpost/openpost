@@ -874,9 +874,6 @@
 	loadingItems={6}
 >
 	{#snippet actions()}
-		<Button href="/grow" variant="ghost" size="sm" data-testid="inbox-find-people">
-			{m.grow_find_people()}
-		</Button>
 		{#if recoveryGroups.length > 0}
 			<Popover.Root>
 				<Popover.Trigger>
@@ -949,7 +946,8 @@
 			</Popover.Root>
 		{/if}
 		<Button
-			variant="outline"
+			variant="ghost"
+			size="sm"
 			onclick={() => void markAllMatchingRead()}
 			disabled={!workspaceId ||
 				!workspaceCtx.currentWorkspace?.can_edit ||
@@ -961,6 +959,9 @@
 		</Button>
 		<Button
 			variant="outline"
+			size="icon-sm"
+			aria-label={m.engagement_refresh()}
+			title={m.engagement_refresh()}
 			onclick={refresh}
 			disabled={refreshing || !workspaceId || engagementAllDisabled}
 			data-testid="engagement-refresh"
@@ -969,7 +970,6 @@
 				role="refresh"
 				class={refreshing ? 'size-4 animate-spin motion-reduce:animate-none' : 'size-4'}
 			/>
-			{m.engagement_refresh()}
 		</Button>
 	{/snippet}
 
@@ -1106,6 +1106,15 @@
 						</div>
 					</Popover.Content>
 				</Popover.Root>
+				<Button
+					href="/grow"
+					variant="ghost"
+					size="sm"
+					class="ms-auto"
+					data-testid="inbox-find-people"
+				>
+					{m.grow_find_people()}
+				</Button>
 				{#if total}
 					<span class="ms-auto text-sm text-muted-foreground">{total}</span>
 				{/if}

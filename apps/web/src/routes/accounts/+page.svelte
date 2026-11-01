@@ -119,7 +119,7 @@
 </svelte:head>
 
 <PageContainer
-	title={m.accounts_heading()}
+	title={m.sidebar_accounts()}
 	themeIconRole="users"
 	loading={accountsLoading}
 	loadingMessage={m.common_loading()}

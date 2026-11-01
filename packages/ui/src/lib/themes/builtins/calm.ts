@@ -14,10 +14,10 @@ function calmScheme(appearance: ThemeScheme) {
   const sunken = dark ? `oklch(0.15 0.005 ${neutralHue})` : `oklch(0.972 0.003 ${neutralHue})`;
   const border = dark ? `oklch(0.3 0.006 ${neutralHue})` : `oklch(0.915 0.004 ${neutralHue})`;
   const fieldBorder = dark ? `oklch(0.42 0.007 ${neutralHue})` : `oklch(0.8 0.006 ${neutralHue})`;
-  const accent = dark ? `oklch(0.76 0.115 ${accentHue})` : `oklch(0.53 0.135 ${accentHue})`;
-  const accentInk = dark ? `oklch(0.17 0.02 ${accentHue})` : "oklch(0.995 0.002 85)";
-  const accentHover = dark ? `oklch(0.82 0.1 ${accentHue})` : `oklch(0.48 0.13 ${accentHue})`;
-  const accentActive = dark ? `oklch(0.87 0.08 ${accentHue})` : `oklch(0.44 0.12 ${accentHue})`;
+  const accent = dark ? `oklch(0.76 0.115 ${accentHue})` : `oklch(0.45 0.125 ${accentHue})`;
+  const accentInk = dark ? `oklch(0.13 0.015 ${accentHue})` : "oklch(0.995 0.002 85)";
+  const accentHover = dark ? `oklch(0.82 0.1 ${accentHue})` : `oklch(0.41 0.115 ${accentHue})`;
+  const accentActive = dark ? `oklch(0.87 0.08 ${accentHue})` : `oklch(0.37 0.1 ${accentHue})`;
   const selection = dark ? `oklch(0.29 0.03 ${accentHue})` : `oklch(0.95 0.018 ${accentHue})`;
   const navigationActive = dark
     ? `oklch(0.26 0.006 ${neutralHue})`
@@ -36,7 +36,7 @@ function calmScheme(appearance: ThemeScheme) {
         border,
         input: fieldBorder,
         fieldBorder,
-        focus: dark ? `oklch(0.8 0.11 ${accentHue})` : `oklch(0.46 0.125 ${accentHue})`,
+        focus: dark ? `oklch(0.8 0.11 ${accentHue})` : `oklch(0.5 0.13 ${accentHue})`,
         caret: accent,
         link: dark ? `oklch(0.8 0.1 ${accentHue})` : `oklch(0.47 0.125 ${accentHue})`,
         selection,
@@ -95,7 +95,7 @@ function calmScheme(appearance: ThemeScheme) {
       elevation: { card: "none", focalAction: "none" },
       shell: { contentMaxWidth: "68rem", sidebarWidth: "15rem" },
       components: {
-        button: "solid",
+        button: "dither",
         card: "outlined",
         navigation: "quiet",
         tabs: "underline",
@@ -103,7 +103,7 @@ function calmScheme(appearance: ThemeScheme) {
         select: "outlined",
         badge: "tonal",
         toolbar: "flat",
-        decoration: "none",
+        decoration: "dither",
       },
     },
     appearance,

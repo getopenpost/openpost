@@ -2082,7 +2082,7 @@
 	"workspace_setup_name_workspace": "このワークスペースに名前を付ける",
 	"workspace_setup_connect_destination": "アカウントを連携",
 	"workspace_setup_create_publication": "投稿を作成",
-	"workspace_setup_workspace": "ワークスペース",
+	"workspace_setup_workspace": "ワークスペースに名前を付ける",
 	"workspace_setup_subscription": "プラン",
 	"workspace_setup_destination": "アカウントを連携",
 	"workspace_setup_composition": "投稿を書く",

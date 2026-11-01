@@ -17,14 +17,14 @@ OpenPost serves solo founders and creators who do not want to waste time. Small 
 - Type: Manrope. `text-sm` (14px) for controls and body; `text-xs` is 13px and the minimum outside editors. Editors set `data-density="editor"` and keep 12px. Never use arbitrary sizes under 13px outside editors.
 - Sentence case. No uppercase tracking labels.
 - Separate regions with spacing and one soft border, never nested cards. Cards are for groups that act as one object.
-- Solid fills for charts and buttons. Dither appears only in brand moments such as onboarding completion, never on controls or data.
+- Dither is the OpenPost signature and ties the product together: focal and primary buttons, charts, progress, skeletons, empty states, and brand moments. Ordinary and quiet buttons stay plain so secondary actions never look disabled.
 - Motion is short and purposeful: 160ms to 240ms ease-out, respecting reduced motion, no idle animation.
 - Touch targets stay 44px on coarse pointers. Keep visible focus in both schemes.
 
 ## Shared grammar
 
 - `PageContainer`: title equals the navigation label. `description` only when it reports state. Default to none.
-- One tab idiom: underline `Tabs` for peer views. Use a segmented view switch only for two or three representations of the same data, such as List and Calendar. Tabs never clip; phones scroll them or use a select.
+- One tab idiom: underline `Tabs` for peer views, or `PageTabs` when each tab is a route. Both share the theme recipe and sit on their own full-width row. Use a segmented view switch only for two or three representations of the same data, such as List and Calendar. Tabs never clip; phones scroll them or use a select.
 - Filters: one row, with search and a single filter popover. Do not stack navigation, filter, and sort rows.
 - `InlineNotice`: error and warning that need action. Success goes through toast. Info rarely.
 - `EmptyState`: one short title, at most one line of help, and an action when one exists.
@@ -47,5 +47,5 @@ Find people lives under Inbox. Reposts lives under Automations. Posting schedule
 - **Composer**: spacious canvas, live preview beside it on wide screens by default, one primary action. Disabled actions explain themselves.
 - **Posts**: one header row, single-line rows, about ten per screen, no zero counters.
 - **Inbox**: title Inbox, Unread default, search plus one filter popover, All, Comments, Messages, Reviews.
-- **Analytics**: one sentence, three tiles that switch the chart, one coverage line, dashes for unmeasured.
+- **Analytics**: one sentence, tiles that switch the dithered chart, one coverage line, dashes for unmeasured.
 - **Settings**: left rail. You, Workspace, Plan, Advanced. Organization and Instance scopes stay under Advanced and appear only for people who can use them. Branding merges into one page. Accounts is its own destination.

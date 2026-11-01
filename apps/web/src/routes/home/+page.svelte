@@ -9,6 +9,7 @@
 	import NeedsYouSection from '$lib/components/home/needs-you-section.svelte';
 	import QuickActions from '$lib/components/home/quick-actions.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import DitherGradient from '$lib/components/dither/dither-gradient.svelte';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import WorkspaceSetupGuide from '$lib/components/workspace-setup-guide.svelte';
 	import { getLocaleTag } from '$lib/i18n';
@@ -187,8 +188,17 @@
 	<title>{m.nav_home()} · {appBranding.profile.display_name}</title>
 </svelte:head>
 
-<PageContainer title={m.nav_home()} themeIconRole="home" description={greeting || undefined}>
+<PageContainer title={m.nav_home()} themeIconRole="home">
 	<div class="space-y-6">
+		{#if greeting}
+			<section
+				class="relative isolate overflow-hidden rounded-xl border bg-card px-6 py-8"
+				data-testid="home-greeting"
+			>
+				<DitherGradient direction="right" opacity={0.32} />
+				<p class="relative text-2xl font-semibold tracking-tight">{greeting}</p>
+			</section>
+		{/if}
 		{#if readError}
 			<InlineNotice tone="error" message={readError}>
 				{#snippet actions()}

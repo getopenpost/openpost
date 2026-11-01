@@ -112,7 +112,6 @@
 
 	const activeSettingsDestination = $derived(getSettingsDestination(activeSettingsTab));
 	const settingsLoadingVariant = $derived(activeSettingsDestination.loadingVariant);
-	const activeSettingsTitle = $derived(activeSettingsDestination.title);
 	const workspaceSettingsRequired = $derived(
 		activeSettingsTab === 'general' || activeSettingsTab === 'schedule'
 	);
@@ -184,7 +183,7 @@
 
 <div class="settings-page">
 	<PageContainer
-		title={activeSettingsTitle}
+		title={m.sidebar_settings()}
 		themeIconRole="settings"
 		loading={settingsLoading}
 		loadingMessage={workspaceSettingsInitialLoading

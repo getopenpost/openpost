@@ -104,15 +104,26 @@ func TestDisplayDimensionsWithUnknownOrInvalidSampleAspectRatio(t *testing.T) {
 }
 
 func TestProbeResultWithSubpixelDisplayWidth(t *testing.T) {
-	result, _, err := resultFromProbe(probeOutput{Streams: []probeStream{{
-		CodecType: "video", Width: 2, Height: 2, SampleAspectRatio: "1:8", Duration: "1",
-	}}})
-	if err != nil {
-		t.Fatalf("analyze narrow stream: %v", err)
-	}
-	// The display width is one quarter of a pixel at the encoded height.
-	// Expanding the display height preserves the 1:8 ratio with whole pixels.
-	if result.Width != 2 || result.Height != 16 || result.AspectRatio != "1:8" {
-		t.Fatalf("display geometry = %dx%d (%s), want 2x16 (1:8)", result.Width, result.Height, result.AspectRatio)
+	for _, tc := range []struct {
+		sar           string
+		width, height int
+	}{
+		{"1:8", 2, 16},
+		{"1:4", 2, 8},
+		{"1:3", 2, 6},
+		{"1:2", 1, 2},
+	} {
+		t.Run(tc.sar, func(t *testing.T) {
+			result, _, err := resultFromProbe(probeOutput{Streams: []probeStream{{
+				CodecType: "video", Width: 2, Height: 2, SampleAspectRatio: tc.sar, Duration: "1",
+			}}})
+			if err != nil {
+				t.Fatalf("analyze narrow stream: %v", err)
+			}
+			// Below one display pixel, expand height to retain whole-pixel geometry.
+			if result.Width != tc.width || result.Height != tc.height || result.AspectRatio != tc.sar {
+				t.Fatalf("display geometry = %dx%d (%s), want %dx%d (%s)", result.Width, result.Height, result.AspectRatio, tc.width, tc.height, tc.sar)
+			}
+		})
 	}
 }

@@ -18,6 +18,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import EditorHeader from '$lib/components/editor-header.svelte';
 	import SaveIndicator from '$lib/components/save-indicator.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as Popover from '$lib/components/ui/popover';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { ProtectedIcon, ThemeIcon, type ProtectedIconRole } from '$lib/themes/icons';
 	import type { ThemeIconRole } from '$lib/themes/contracts';
@@ -2502,6 +2503,31 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				disabled={!displayedProject}
 				onchange={(value) => editorSession.renameProject(value)}
 			/>
+			{#if projectSummary}
+				<Popover.Root>
+					<Popover.Trigger>
+						{#snippet child({ props })}
+							<Button
+								{...props}
+								variant="ghost"
+								size="icon-xs"
+								class="hidden shrink-0 text-[var(--video-editor-muted)] md:inline-flex"
+								aria-label={m.video_editor_project_details()}
+							>
+								<ProtectedIcon icon="info" class="size-3.5" />
+							</Button>
+						{/snippet}
+					</Popover.Trigger>
+					<Popover.Content side="bottom" align="start" class="video-editor-theme w-64">
+						<p
+							class="text-xs leading-relaxed text-[var(--video-editor-text)] tabular-nums"
+							data-project-summary
+						>
+							{projectSummary}
+						</p>
+					</Popover.Content>
+				</Popover.Root>
+			{/if}
 		{/snippet}
 		{#snippet workspaces()}
 			<div>
@@ -2596,7 +2622,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				type="button"
 				variant="ghost"
 				size="icon-sm"
-				class="hidden size-8 xl:inline-flex [@media(pointer:coarse)]:size-11"
+				class="hidden sm:inline-flex"
 				disabled={!commandHistory.canUndo}
 				aria-label={m.video_editor_undo()}
 				title={m.video_editor_undo()}
@@ -2608,7 +2634,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				type="button"
 				variant="ghost"
 				size="icon-sm"
-				class="hidden size-8 xl:inline-flex [@media(pointer:coarse)]:size-11"
+				class="hidden sm:inline-flex"
 				disabled={!commandHistory.canRedo}
 				aria-label={m.video_editor_redo()}
 				title={m.video_editor_redo()}
@@ -2616,59 +2642,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			>
 				<ThemeIcon role="redo" />
 			</Button>
-			<Button
-				type="button"
-				disabled={!displayedProject}
-				variant="outline"
-				size="icon-sm"
-				class="hidden 2xl:inline-flex 2xl:w-auto 2xl:px-2.5"
-				aria-label={m.video_editor_record_screen()}
-				title={m.video_editor_record_screen()}
-				onclick={() => (recordingOpen = true)}
-			>
-				<ProtectedIcon icon="editor-record" class="size-3.5" />
-				<span class="hidden lg:inline">{m.video_editor_record()}</span>
-			</Button>
 			{#if displayedProject}
 				<div class="hidden 2xl:block"><PreviewDiagnosticsPanel /></div>
 			{/if}
-			{#if cloudStorage}
-				<Button
-					type="button"
-					disabled={!displayedProject}
-					variant="ghost"
-					size="icon-xs"
-					class="hidden 2xl:inline-flex"
-					aria-label={m.video_editor_history()}
-					title={m.video_editor_history()}
-					onclick={() => (historyOpen = true)}
-				>
-					<ThemeIcon role="history" class="size-3.5" />
-				</Button>
-			{/if}
-			<Button
-				type="button"
-				disabled={!displayedProject}
-				variant="ghost"
-				size="icon-xs"
-				class="hidden 2xl:inline-flex"
-				aria-label={m.video_editor_settings_title()}
-				title={m.video_editor_settings_title()}
-				onclick={() => (settingsOpen = true)}
-			>
-				<ThemeIcon role="settings" class="size-3.5" />
-			</Button>
-			<Button
-				type="button"
-				variant="ghost"
-				size="icon-xs"
-				class="hidden 2xl:inline-flex"
-				aria-label={m.feedback_open()}
-				title={m.feedback_open()}
-				onclick={() => ui.openFeedback()}
-			>
-				<ThemeIcon role="feedback" class="size-3.5" />
-			</Button>
 			{#if renderProject}
 				{#key renderProject.id}
 					<RenderQueueController
@@ -2711,11 +2687,21 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{m.video_editor_redo()}
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator />
+					<DropdownMenu.Item onclick={() => ui.openFeedback()}>
+						{m.feedback_open()}
+					</DropdownMenu.Item>
 					<DropdownMenu.Item
 						disabled={speechCleanupItemIds.length === 0}
 						onclick={() => openSpeechCleanup('recording')}
 					>
 						{m.recording_cleanup_action()}
+					</DropdownMenu.Item>
+					<DropdownMenu.Separator />
+					<DropdownMenu.Item onclick={handleAddText}>
+						{m.video_editor_add_text()}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onclick={handleAddAdjustmentLayer}>
+						{m.video_editor_add_adjustment_layer()}
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator />
 					<DropdownMenu.Label>{m.video_editor_sequences()}</DropdownMenu.Label>
@@ -2739,11 +2725,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					<DropdownMenu.Item onclick={() => changeEditorWorkspace('motion')}>
 						{m.video_editor_workspace_motion()}
 					</DropdownMenu.Item>
-					<DropdownMenu.Separator />
-					<DropdownMenu.Item class="2xl:hidden" onclick={() => (recordingOpen = true)}>
-						{m.video_editor_record_screen()}
-					</DropdownMenu.Item>
-					<DropdownMenu.Separator class="2xl:hidden" />
+
 					{#if cloudStorage}
 						<DropdownMenu.Item onclick={() => (historyOpen = true)}>
 							{m.video_editor_history()}
@@ -2786,16 +2768,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			/>
 		{/snippet}
 	</EditorHeader>
-	{#if projectSummary}
-		<div
-			class="flex h-[25px] shrink-0 items-center gap-2 overflow-hidden border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-3 text-[11px] whitespace-nowrap text-[var(--video-editor-muted)] tabular-nums"
-			data-project-summary
-			title={projectSummary}
-		>
-			{projectSummary}
-		</div>
-	{/if}
-
 	{#if sourceImportBusy}<p role="status" class="px-3 py-2 text-sm">{m.editors_loading()}</p>{/if}
 	{#if sourceImportError}<div
 			role="alert"
@@ -2922,7 +2894,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																	{...props}
 																	variant={leftPanel === option.value ? 'secondary' : 'ghost'}
 																	size="icon-sm"
-																	class="text-[var(--video-editor-muted)] data-[active=true]:text-[var(--video-editor-focus)]"
+																	class="relative text-[var(--video-editor-muted)] data-[active=true]:text-[var(--video-editor-focus)]"
 																	data-active={leftPanel === option.value}
 																	data-left-panel-tab={option.value}
 																	data-tab-orientation="vertical"
@@ -2936,6 +2908,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																		moveLeftPanelFocus(event, option.value, 'vertical')}
 																>
 																	{@render leftPanelIcon(option)}
+																	{#if option.value === 'ai' && agentConnectionStatus !== 'disconnected'}
+																		<span
+																			class="absolute top-1 right-1 size-1.5 rounded-full bg-[var(--video-editor-focus)] {agentConnectionStatus ===
+																			'working'
+																				? 'motion-safe:animate-pulse'
+																				: ''}"
+																			aria-hidden="true"
+																		></span>
+																	{/if}
 																</Button>
 															{/snippet}
 														</Tooltip.Trigger>
@@ -2963,37 +2944,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												</Button>
 											</div>
 										{/if}
-										<div
-											class="flex shrink-0 flex-col items-center border-t border-[var(--video-editor-border)] py-2"
-										>
-											<DropdownMenu.Root>
-												<DropdownMenu.Trigger>
-													{#snippet child({ props })}
-														<Button
-															{...props}
-															size="icon-sm"
-															variant="ghost"
-															aria-label={m.image_editor_add_layer()}
-															title={m.image_editor_add_layer()}
-														>
-															<ThemeIcon role="add" />
-														</Button>
-													{/snippet}
-												</DropdownMenu.Trigger>
-												<DropdownMenu.Content
-													class="video-editor-theme w-52"
-													side="right"
-													align="end"
-												>
-													<DropdownMenu.Item onclick={handleAddText}>
-														{m.video_editor_add_text()}
-													</DropdownMenu.Item>
-													<DropdownMenu.Item onclick={handleAddAdjustmentLayer}>
-														{m.video_editor_add_adjustment_layer()}
-													</DropdownMenu.Item>
-												</DropdownMenu.Content>
-											</DropdownMenu.Root>
-										</div>
 									</nav>
 									<div class="flex min-w-0 flex-1 flex-col {leftSidebarRail ? 'lg:hidden' : ''}">
 										<div
@@ -3008,19 +2958,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												<Button
 													size="icon-xs"
 													variant="ghost"
-													aria-label={leftSidebarFullColumn
-														? m.video_editor_restore_panel_layout()
-														: m.video_editor_expand_assets_column()}
-													title={`${leftSidebarFullColumn ? m.video_editor_restore_panel_layout() : m.video_editor_expand_assets_column()} (${formatShortcutBinding(keyboardShortcuts.bindings.EXPAND_LEFT_SIDEBAR)})`}
-													aria-pressed={leftSidebarFullColumn}
-													data-layout-toggle="expand-column-left"
-													onclick={() => toggleExpandSidebar('left')}
-												>
-													<ThemeIcon role={leftSidebarFullColumn ? 'chevron-up' : 'chevron-down'} />
-												</Button>
-												<Button
-													size="icon-xs"
-													variant="ghost"
 													aria-label={m.video_editor_collapse_assets_panel()}
 													title={`${m.video_editor_collapse_assets_panel()} (${formatShortcutBinding(keyboardShortcuts.bindings.TOGGLE_LEFT_SIDEBAR)})`}
 													aria-expanded={!leftSidebarCollapsed}
@@ -3030,30 +2967,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												>
 													<ThemeIcon role="chevron-left" />
 												</Button>
-											</div>
-											<div class="lg:hidden">
-												<DropdownMenu.Root>
-													<DropdownMenu.Trigger>
-														{#snippet child({ props })}
-															<Button
-																{...props}
-																size="icon-sm"
-																variant="ghost"
-																aria-label={m.image_editor_add_layer()}
-															>
-																<ThemeIcon role="add" />
-															</Button>
-														{/snippet}
-													</DropdownMenu.Trigger>
-													<DropdownMenu.Content class="video-editor-theme w-52" align="end">
-														<DropdownMenu.Item onclick={handleAddText}>
-															{m.video_editor_add_text()}
-														</DropdownMenu.Item>
-														<DropdownMenu.Item onclick={handleAddAdjustmentLayer}>
-															{m.video_editor_add_adjustment_layer()}
-														</DropdownMenu.Item>
-													</DropdownMenu.Content>
-												</DropdownMenu.Root>
 											</div>
 										</div>
 										<div
@@ -3155,6 +3068,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 													onsourceopen={openSourceMonitor}
 													onextractsubtitles={openEmbeddedSubtitlePicker}
 													onimport={handleImport}
+													onrecord={() => (recordingOpen = true)}
 													importProjectAsset={cloudStorage
 														? importCloudEditorProjectAsset
 														: undefined}
@@ -3409,19 +3323,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										{editInspectorHeading}
 									</h2>
 									<div class="hidden shrink-0 items-center gap-1 lg:flex">
-										<Button
-											size="icon-xs"
-											variant="ghost"
-											aria-label={rightSidebarFullColumn
-												? m.video_editor_restore_panel_layout()
-												: m.video_editor_expand_tools_column()}
-											title={`${rightSidebarFullColumn ? m.video_editor_restore_panel_layout() : m.video_editor_expand_tools_column()} (${formatShortcutBinding(keyboardShortcuts.bindings.EXPAND_RIGHT_SIDEBAR)})`}
-											aria-pressed={rightSidebarFullColumn}
-											data-layout-toggle="expand-column-right"
-											onclick={() => toggleExpandSidebar('right')}
-										>
-											<ThemeIcon role={rightSidebarFullColumn ? 'chevron-up' : 'chevron-down'} />
-										</Button>
 										<Button
 											size="icon-xs"
 											variant="ghost"

@@ -10365,5 +10365,6 @@
 	"home_needs_disconnected": "{count} account sono disconnessi",
 	"onboarding_work_style_heading": "Come lavori principalmente?",
 	"onboarding_work_style_write": "Scrivo soprattutto",
-	"onboarding_work_style_business": "Gestisco un'attività"
+	"onboarding_work_style_business": "Gestisco un'attività",
+	"image_editor_autosave": "Le modifiche vengono salvate automaticamente"
 }

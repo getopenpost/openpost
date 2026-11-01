@@ -10365,5 +10365,6 @@
 	"home_needs_disconnected": "{count} contas estão desconectadas",
 	"onboarding_work_style_heading": "Como você trabalha na maior parte do tempo?",
 	"onboarding_work_style_write": "Eu escrevo na maior parte do tempo",
-	"onboarding_work_style_business": "Eu administro um negócio"
+	"onboarding_work_style_business": "Eu administro um negócio",
+	"image_editor_autosave": "As alterações são salvas automaticamente"
 }

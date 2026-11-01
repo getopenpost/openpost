@@ -10365,5 +10365,6 @@
 	"home_needs_disconnected": "{count} accounts are disconnected",
 	"onboarding_work_style_heading": "How do you mostly work?",
 	"onboarding_work_style_write": "I mostly write",
-	"onboarding_work_style_business": "I run a business"
+	"onboarding_work_style_business": "I run a business",
+	"image_editor_autosave": "Changes save automatically"
 }

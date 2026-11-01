@@ -23,7 +23,6 @@
 	} from '../raster-operations';
 	import { renderImageEditorPage } from '../static-renderer';
 	import { cropRasterResult } from '../raster-result';
-	import SaveIndicator from '$lib/components/save-indicator.svelte';
 	import EditorMenubar from '$lib/components/editor-menubar.svelte';
 	import EditorHeader from '$lib/components/editor-header.svelte';
 	import EditorTitleInput from '$lib/components/editor-title-input.svelte';
@@ -282,8 +281,6 @@
 	let coverPreviewMediaID = '';
 	let exportDialogOpen = $state(false);
 	let exportToastVisible = $state(false);
-	let firstEditHintVisible = $state(false);
-	let firstEditActionLabel = $state<string | undefined>();
 	let helpDialogOpen = $state(false);
 	type CompactMenuSection = ImageEditorCompactMenuCategory | 'file' | 'view' | 'help';
 	const compactMenuSections: readonly CompactMenuSection[] = [
@@ -882,34 +879,6 @@
 			toolPreferencesReady = true;
 		}
 		try {
-			firstEditActionLabel =
-				window.innerWidth < 1024 ? m.image_editor_open_properties() : undefined;
-			if (!localStorage.getItem('openpost-image-editor-first-edit-v1')) {
-				const textLayers =
-					editor.activePage?.layers.filter(
-						(layer) => layer.type === 'text' && Boolean(layer.text?.text.trim())
-					) ?? [];
-				const editableTextLayers = textLayers.filter(
-					(layer) => (layer.text?.text.trim().length ?? 0) > 2
-				);
-				const firstTextLayer = (
-					editableTextLayers.length > 0 ? editableTextLayers : textLayers
-				).reduce<ImageEditorLayer | undefined>(
-					(largest, layer) =>
-						!largest || (layer.text?.font_size ?? 0) > (largest.text?.font_size ?? 0)
-							? layer
-							: largest,
-					undefined
-				);
-				if (firstTextLayer) {
-					editor.selectLayer(firstTextLayer.id);
-					firstEditHintVisible = true;
-				}
-			}
-		} catch {
-			// First-edit guidance is optional when browser storage is unavailable.
-		}
-		try {
 			editor.setRecentColors(
 				parseImageEditorRecentColors(
 					localStorage.getItem('openpost-image-editor-recent-colors-v1') || '[]'
@@ -1037,20 +1006,6 @@
 		};
 	});
 
-	function dismissFirstEditHint(): void {
-		firstEditHintVisible = false;
-		try {
-			localStorage.setItem('openpost-image-editor-first-edit-v1', '1');
-		} catch {
-			// The hint may return when browser storage is unavailable.
-		}
-	}
-
-	function openFirstEditProperties(): void {
-		if (window.innerWidth < 1024) mobileSheet = 'properties';
-		dismissFirstEditHint();
-	}
-
 	function openProperties(): void {
 		if (activeEditorWorkspace !== 'color') {
 			mobileSheet = 'properties';
@@ -1065,6 +1020,14 @@
 				)
 				?.focus();
 		});
+	}
+
+	function saveStateIconLabel(): string {
+		if (editor.saveState === 'saving') return m.common_saving();
+		if (editor.saveState === 'saved')
+			return guestMode ? m.image_editor_public_saved_device() : m.video_editor_saved_cloud();
+		if (editor.saveState === 'idle') return m.image_editor_autosave();
+		return editor.saveMessage;
 	}
 
 	function toggleInspectorPanel(): void {
@@ -1147,7 +1110,6 @@
 
 	function handleWindowResize(): void {
 		desktopViewportWidth = window.innerWidth;
-		firstEditActionLabel = window.innerWidth < 1024 ? m.image_editor_open_properties() : undefined;
 		constrainDesktopPanelWidths();
 		constrainLayersPanelHeightFromDom();
 		requestAnimationFrame(() => {
@@ -3218,6 +3180,164 @@
 				onchange={(value) =>
 					editor.mutate('Rename design', (document) => (document.title = value), 'document-title')}
 			/>
+			<EditorMenubar class="hidden min-w-0 shrink-0 lg:flex" ariaLabel={m.image_editor_menus()}>
+				<Menubar.Menu value="file">
+					<Menubar.Trigger>{m.image_editor_file()}</Menubar.Trigger>
+					<Menubar.Content class="min-w-48">
+						{#each imageEditorCommandsForCategory('file').filter(commandVisible) as command (command.id)}
+							{#if command.separatorBefore}<Menubar.Separator />{/if}
+							<Menubar.Item
+								onSelect={() => executeEditorCommand(command.id)}
+								disabled={!commandEnabled(command.id)}
+								title={commandDisabledReason(command.id) || undefined}
+							>
+								{#if command.id === 'save'}<ThemeIcon role="save" />{/if}
+								{#if command.id === 'export_design'}<ThemeIcon role="download" />{/if}
+								{commandMenuLabel(command.id)}
+								{#if commandShortcut(command.id)}
+									<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
+								{/if}
+							</Menubar.Item>
+						{/each}
+					</Menubar.Content>
+				</Menubar.Menu>
+				<Menubar.Menu value="edit">
+					<Menubar.Trigger>{m.image_editor_edit()}</Menubar.Trigger>
+					<Menubar.Content class="min-w-44">
+						{#each imageEditorCommandsForCategory('edit') as command (command.id)}
+							{#if command.separatorBefore}<Menubar.Separator />{/if}
+							<Menubar.Item
+								onSelect={() => executeEditorCommand(command.id)}
+								disabled={!commandEnabled(command.id)}
+								title={commandDisabledReason(command.id) || undefined}
+							>
+								{commandMenuLabel(command.id)}
+								<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
+							</Menubar.Item>
+						{/each}
+					</Menubar.Content>
+				</Menubar.Menu>
+				<Menubar.Menu value="layer">
+					<Menubar.Trigger>{m.image_editor_layer()}</Menubar.Trigger>
+					<Menubar.Content class="min-w-48">
+						{#each imageEditorCommandsForCategory('layer') as command (command.id)}
+							{#if command.separatorBefore}<Menubar.Separator />{/if}
+							<Menubar.Item
+								onSelect={() => executeEditorCommand(command.id)}
+								disabled={!commandEnabled(command.id)}
+								title={commandDisabledReason(command.id) || undefined}
+							>
+								{#if command.id === 'group'}<ProtectedIcon icon="editor-group" />{/if}
+								{#if command.id === 'ungroup'}<ProtectedIcon icon="editor-ungroup" />{/if}
+								{#if command.id === 'remove_background'}<ProtectedIcon icon="editor-effects" />{/if}
+								{commandLabel(command.id)}
+								<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
+							</Menubar.Item>
+						{/each}
+						<Menubar.Separator />
+						<p class="max-w-64 px-2 py-1.5 text-xs text-muted-foreground">
+							{m.image_editor_raster_help()}
+						</p>
+					</Menubar.Content>
+				</Menubar.Menu>
+				<Menubar.Menu value="select">
+					<Menubar.Trigger>{m.image_editor_select()}</Menubar.Trigger>
+					<Menubar.Content class="min-w-48">
+						{#each imageEditorCommandsForCategory('select') as command (command.id)}
+							{#if command.separatorBefore}<Menubar.Separator />{/if}
+							<Menubar.Item
+								onSelect={() => executeEditorCommand(command.id)}
+								disabled={!commandEnabled(command.id)}
+								title={commandDisabledReason(command.id) || undefined}
+							>
+								{commandLabel(command.id)}
+								<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
+							</Menubar.Item>
+						{/each}
+					</Menubar.Content>
+				</Menubar.Menu>
+				<Menubar.Menu value="tools">
+					<Menubar.Trigger>{m.image_editor_tools_menu()}</Menubar.Trigger>
+					<Menubar.Content class="min-w-52">
+						{#each imageEditorCommandsForCategory('tools') as command (command.id)}
+							<Menubar.Item
+								onSelect={() => executeEditorCommand(command.id)}
+								disabled={!commandEnabled(command.id)}
+								title={commandDisabledReason(command.id) || undefined}
+							>
+								{commandLabel(command.id)}
+								<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
+							</Menubar.Item>
+						{/each}
+					</Menubar.Content>
+				</Menubar.Menu>
+				<Menubar.Menu value="view">
+					<Menubar.Trigger>{m.image_editor_view()}</Menubar.Trigger>
+					<Menubar.Content class="min-w-48">
+						{#each imageEditorCommandsForCategory('view').filter((command) => (command.menuOrder ?? 0) <= 60) as command (command.id)}
+							{#if command.separatorBefore}<Menubar.Separator />{/if}
+							<Menubar.CheckboxItem
+								checked={commandChecked(command.id)}
+								onCheckedChange={(checked) => setCommandChecked(command.id, checked)}
+							>
+								{commandLabel(command.id)}
+								{#if command.id === 'toggle_snapping'}
+									<Menubar.Shortcut>{shortcutModifier} drag</Menubar.Shortcut>
+								{/if}
+							</Menubar.CheckboxItem>
+						{/each}
+						<Menubar.Sub>
+							<Menubar.SubTrigger>{m.image_editor_grid_spacing()}</Menubar.SubTrigger>
+							<Menubar.SubContent>
+								{#each [10, 25, 50, 100, 200] as size (size)}
+									<Menubar.Item
+										onclick={() => {
+											editor.gridSize = size;
+											storeViewPreferences();
+										}}
+									>
+										{size} px{editor.gridSize === size ? ' ✓' : ''}
+									</Menubar.Item>
+								{/each}
+							</Menubar.SubContent>
+						</Menubar.Sub>
+						{#each imageEditorCommandsForCategory('view').filter((command) => (command.menuOrder ?? 0) > 60) as command (command.id)}
+							{#if command.separatorBefore}<Menubar.Separator />{/if}
+							{#if command.id === 'focus_canvas'}
+								<Menubar.CheckboxItem
+									checked={commandChecked(command.id)}
+									onCheckedChange={(checked) => setCommandChecked(command.id, checked)}
+								>
+									{commandLabel(command.id)}
+									<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
+								</Menubar.CheckboxItem>
+							{:else}
+								<Menubar.Item
+									onSelect={() => executeEditorCommand(command.id)}
+									disabled={!commandEnabled(command.id)}
+									title={commandDisabledReason(command.id) || undefined}
+								>
+									{commandLabel(command.id)}
+									{#if commandShortcut(command.id)}
+										<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
+									{/if}
+								</Menubar.Item>
+							{/if}
+						{/each}
+					</Menubar.Content>
+				</Menubar.Menu>
+				<Menubar.Menu value="help">
+					<Menubar.Trigger>{m.image_editor_help()}</Menubar.Trigger>
+					<Menubar.Content class="min-w-48">
+						{#each imageEditorCommandsForCategory('help') as command (command.id)}
+							<Menubar.Item onSelect={() => executeEditorCommand(command.id)}>
+								<ThemeIcon role="help" />
+								{commandLabel(command.id)}
+							</Menubar.Item>
+						{/each}
+					</Menubar.Content>
+				</Menubar.Menu>
+			</EditorMenubar>
 		{/snippet}
 		{#snippet workspaces()}
 			<EditorWorkspaceTabs
@@ -3265,46 +3385,29 @@
 					workspaceId={editor.workspaceID}
 					projectId={editor.id}
 					sessionId={agentSessionID}
+					status={agentConnectionStatus}
 				/>
 			{/if}
-			{#if agentConnectionStatus !== 'disconnected'}
-				<span
-					class="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
-					role="status"
-					aria-live="polite"
-				>
-					<span
-						class="size-1.5 rounded-full bg-current {agentConnectionStatus === 'working'
-							? 'motion-safe:animate-pulse'
-							: ''}"
-					></span>
-					<span class="sr-only lg:not-sr-only">
-						{agentConnectionStatus === 'working'
-							? m.editor_agent_status_working()
-							: m.editor_agent_status_connected()}
-					</span>
-				</span>
-			{/if}
-			{#if ['local', 'offline', 'conflict', 'error'].includes(editor.saveState)}
-				<div
-					class="hidden max-w-52 min-w-24 items-center gap-1.5 px-2 text-xs text-muted-foreground sm:flex"
-					title={editor.saveMessage}
-				>
-					<span class="size-1.5 shrink-0 rounded-full bg-warning-foreground"></span>
-					<span role="status" class="line-clamp-2">{editor.saveMessage}</span>
-				</div>
-			{:else}
-				<SaveIndicator
-					saving={editor.saveState === 'saving'}
-					saved={editor.saveState === 'saved'}
-					savingLabel={m.common_saving()}
-					savedLabel={guestMode
-						? m.image_editor_public_saved_device()
-						: m.video_editor_saved_cloud()}
-					class="max-sm:mr-2 max-sm:px-0"
-					testId="image-editor-save-indicator"
-				/>
-			{/if}
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				class="relative size-8 shrink-0 [@media(pointer:coarse)]:size-11"
+				title={editor.saveMessage || saveStateIconLabel()}
+				aria-label={editor.saveMessage || saveStateIconLabel()}
+				data-testid="image-editor-save-indicator"
+				data-state={editor.saveState}
+				role="status"
+			>
+				{#if editor.saveState === 'saving'}
+					<ThemeIcon role="refresh" class="motion-safe:animate-spin" />
+				{:else if editor.saveState === 'saved'}
+					<ThemeIcon role="check" class="text-success-foreground" />
+				{:else if editor.saveState === 'error' || editor.saveState === 'conflict'}
+					<ThemeIcon role="save" class="text-destructive" />
+				{:else}
+					<ThemeIcon role="save" class="text-warning-foreground" />
+				{/if}
+			</Button>
 
 			<div class="flex items-center gap-2">
 				<Button
@@ -3498,166 +3601,6 @@
 			<span>{editor.saveMessage}</span>
 		</div>
 	{/if}
-	<div class="hidden shrink-0 border-b bg-card px-3 lg:block">
-		<EditorMenubar class="ml-1" ariaLabel={m.image_editor_menus()}>
-			<Menubar.Menu value="file">
-				<Menubar.Trigger>{m.image_editor_file()}</Menubar.Trigger>
-				<Menubar.Content class="min-w-48">
-					{#each imageEditorCommandsForCategory('file').filter(commandVisible) as command (command.id)}
-						{#if command.separatorBefore}<Menubar.Separator />{/if}
-						<Menubar.Item
-							onSelect={() => executeEditorCommand(command.id)}
-							disabled={!commandEnabled(command.id)}
-							title={commandDisabledReason(command.id) || undefined}
-						>
-							{#if command.id === 'save'}<ThemeIcon role="save" />{/if}
-							{#if command.id === 'export_design'}<ThemeIcon role="download" />{/if}
-							{commandMenuLabel(command.id)}
-							{#if commandShortcut(command.id)}
-								<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
-							{/if}
-						</Menubar.Item>
-					{/each}
-				</Menubar.Content>
-			</Menubar.Menu>
-			<Menubar.Menu value="edit">
-				<Menubar.Trigger>{m.image_editor_edit()}</Menubar.Trigger>
-				<Menubar.Content class="min-w-44">
-					{#each imageEditorCommandsForCategory('edit') as command (command.id)}
-						{#if command.separatorBefore}<Menubar.Separator />{/if}
-						<Menubar.Item
-							onSelect={() => executeEditorCommand(command.id)}
-							disabled={!commandEnabled(command.id)}
-							title={commandDisabledReason(command.id) || undefined}
-						>
-							{commandMenuLabel(command.id)}
-							<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
-						</Menubar.Item>
-					{/each}
-				</Menubar.Content>
-			</Menubar.Menu>
-			<Menubar.Menu value="layer">
-				<Menubar.Trigger>{m.image_editor_layer()}</Menubar.Trigger>
-				<Menubar.Content class="min-w-48">
-					{#each imageEditorCommandsForCategory('layer') as command (command.id)}
-						{#if command.separatorBefore}<Menubar.Separator />{/if}
-						<Menubar.Item
-							onSelect={() => executeEditorCommand(command.id)}
-							disabled={!commandEnabled(command.id)}
-							title={commandDisabledReason(command.id) || undefined}
-						>
-							{#if command.id === 'group'}<ProtectedIcon icon="editor-group" />{/if}
-							{#if command.id === 'ungroup'}<ProtectedIcon icon="editor-ungroup" />{/if}
-							{#if command.id === 'remove_background'}<ProtectedIcon icon="editor-effects" />{/if}
-							{commandLabel(command.id)}
-							<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
-						</Menubar.Item>
-					{/each}
-					<Menubar.Separator />
-					<p class="max-w-64 px-2 py-1.5 text-xs text-muted-foreground">
-						{m.image_editor_raster_help()}
-					</p>
-				</Menubar.Content>
-			</Menubar.Menu>
-			<Menubar.Menu value="select">
-				<Menubar.Trigger>{m.image_editor_select()}</Menubar.Trigger>
-				<Menubar.Content class="min-w-48">
-					{#each imageEditorCommandsForCategory('select') as command (command.id)}
-						{#if command.separatorBefore}<Menubar.Separator />{/if}
-						<Menubar.Item
-							onSelect={() => executeEditorCommand(command.id)}
-							disabled={!commandEnabled(command.id)}
-							title={commandDisabledReason(command.id) || undefined}
-						>
-							{commandLabel(command.id)}
-							<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
-						</Menubar.Item>
-					{/each}
-				</Menubar.Content>
-			</Menubar.Menu>
-			<Menubar.Menu value="tools">
-				<Menubar.Trigger>{m.image_editor_tools_menu()}</Menubar.Trigger>
-				<Menubar.Content class="min-w-52">
-					{#each imageEditorCommandsForCategory('tools') as command (command.id)}
-						<Menubar.Item
-							onSelect={() => executeEditorCommand(command.id)}
-							disabled={!commandEnabled(command.id)}
-							title={commandDisabledReason(command.id) || undefined}
-						>
-							{commandLabel(command.id)}
-							<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
-						</Menubar.Item>
-					{/each}
-				</Menubar.Content>
-			</Menubar.Menu>
-			<Menubar.Menu value="view">
-				<Menubar.Trigger>{m.image_editor_view()}</Menubar.Trigger>
-				<Menubar.Content class="min-w-48">
-					{#each imageEditorCommandsForCategory('view').filter((command) => (command.menuOrder ?? 0) <= 60) as command (command.id)}
-						{#if command.separatorBefore}<Menubar.Separator />{/if}
-						<Menubar.CheckboxItem
-							checked={commandChecked(command.id)}
-							onCheckedChange={(checked) => setCommandChecked(command.id, checked)}
-						>
-							{commandLabel(command.id)}
-							{#if command.id === 'toggle_snapping'}
-								<Menubar.Shortcut>{shortcutModifier} drag</Menubar.Shortcut>
-							{/if}
-						</Menubar.CheckboxItem>
-					{/each}
-					<Menubar.Sub>
-						<Menubar.SubTrigger>{m.image_editor_grid_spacing()}</Menubar.SubTrigger>
-						<Menubar.SubContent>
-							{#each [10, 25, 50, 100, 200] as size (size)}
-								<Menubar.Item
-									onclick={() => {
-										editor.gridSize = size;
-										storeViewPreferences();
-									}}
-								>
-									{size} px{editor.gridSize === size ? ' ✓' : ''}
-								</Menubar.Item>
-							{/each}
-						</Menubar.SubContent>
-					</Menubar.Sub>
-					{#each imageEditorCommandsForCategory('view').filter((command) => (command.menuOrder ?? 0) > 60) as command (command.id)}
-						{#if command.separatorBefore}<Menubar.Separator />{/if}
-						{#if command.id === 'focus_canvas'}
-							<Menubar.CheckboxItem
-								checked={commandChecked(command.id)}
-								onCheckedChange={(checked) => setCommandChecked(command.id, checked)}
-							>
-								{commandLabel(command.id)}
-								<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
-							</Menubar.CheckboxItem>
-						{:else}
-							<Menubar.Item
-								onSelect={() => executeEditorCommand(command.id)}
-								disabled={!commandEnabled(command.id)}
-								title={commandDisabledReason(command.id) || undefined}
-							>
-								{commandLabel(command.id)}
-								{#if commandShortcut(command.id)}
-									<Menubar.Shortcut>{commandShortcut(command.id)}</Menubar.Shortcut>
-								{/if}
-							</Menubar.Item>
-						{/if}
-					{/each}
-				</Menubar.Content>
-			</Menubar.Menu>
-			<Menubar.Menu value="help">
-				<Menubar.Trigger>{m.image_editor_help()}</Menubar.Trigger>
-				<Menubar.Content class="min-w-48">
-					{#each imageEditorCommandsForCategory('help') as command (command.id)}
-						<Menubar.Item onSelect={() => executeEditorCommand(command.id)}>
-							<ThemeIcon role="help" />
-							{commandLabel(command.id)}
-						</Menubar.Item>
-					{/each}
-				</Menubar.Content>
-			</Menubar.Menu>
-		</EditorMenubar>
-	</div>
 
 	{#if !editor.canEdit}
 		<div class="border-b bg-muted px-3 py-2 text-center text-xs">
@@ -5251,16 +5194,6 @@
 		onDismiss={() => (exportToastVisible = false)}
 		actionLabel={guestMode ? m.image_editor_public_save_openpost() : undefined}
 		onAction={guestMode ? saveToOpenPost : undefined}
-	/>
-{/if}
-
-{#if firstEditHintVisible}
-	<AppToast
-		message={m.image_editor_first_edit_hint()}
-		dismissLabel={m.common_dismiss()}
-		onDismiss={dismissFirstEditHint}
-		actionLabel={firstEditActionLabel}
-		onAction={firstEditActionLabel ? openFirstEditProperties : undefined}
 	/>
 {/if}
 

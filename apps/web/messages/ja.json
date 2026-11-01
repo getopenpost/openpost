@@ -10365,5 +10365,6 @@
 	"home_needs_disconnected": "{count}つのアカウントが切断されています",
 	"onboarding_work_style_heading": "主にどのように作業しますか？",
 	"onboarding_work_style_write": "主に書き仕事です",
-	"onboarding_work_style_business": "ビジネスを運営しています"
+	"onboarding_work_style_business": "ビジネスを運営しています",
+	"image_editor_autosave": "変更は自動的に保存されます"
 }

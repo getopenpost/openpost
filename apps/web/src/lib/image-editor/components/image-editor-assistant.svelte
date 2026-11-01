@@ -9,14 +9,23 @@
 	let {
 		workspaceId,
 		projectId,
-		sessionId
+		sessionId,
+		status = 'disconnected'
 	}: {
 		workspaceId: string;
 		projectId: string;
 		sessionId: string | null;
+		status?: 'connected' | 'disconnected' | 'working';
 	} = $props();
 	let open = $state(false);
 	let mounted = $state(false);
+	const statusLabel = $derived(
+		status === 'working'
+			? m.editor_agent_status_working()
+			: status === 'connected'
+				? m.editor_agent_status_connected()
+				: m.video_editor_agent_assistant()
+	);
 </script>
 
 <Sheet.Root
@@ -32,11 +41,20 @@
 				{...props}
 				variant={open ? 'secondary' : 'ghost'}
 				size="icon-sm"
-				class="size-8 shrink-0 [@media(pointer:coarse)]:size-11"
-				title={m.video_editor_agent_assistant()}
-				aria-label={m.video_editor_agent_assistant()}
+				class="relative size-8 shrink-0 [@media(pointer:coarse)]:size-11"
+				title={statusLabel}
+				aria-label={statusLabel}
 			>
 				<ThemeIcon role="assistant" />
+				{#if status !== 'disconnected'}
+					<span
+						class="absolute right-1.5 bottom-1.5 size-1.5 rounded-full bg-success-foreground {status ===
+						'working'
+							? 'motion-safe:animate-pulse'
+							: ''}"
+						aria-hidden="true"
+					></span>
+				{/if}
 			</Button>
 		{/snippet}
 	</Sheet.Trigger>

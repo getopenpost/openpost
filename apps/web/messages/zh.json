@@ -10365,5 +10365,6 @@
 	"home_needs_disconnected": "{count} 个账号已断开连接",
 	"onboarding_work_style_heading": "你平时主要怎么工作？",
 	"onboarding_work_style_write": "我主要以写作为主",
-	"onboarding_work_style_business": "我在经营一门生意"
+	"onboarding_work_style_business": "我在经营一门生意",
+	"image_editor_autosave": "更改会自动保存"
 }

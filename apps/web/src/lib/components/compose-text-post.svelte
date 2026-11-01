@@ -1225,7 +1225,8 @@
 	const activeVariantAccount = $derived(
 		activeVariantAccountId ? (accounts.find((a) => a.id === activeVariantAccountId) ?? null) : null
 	);
-	const sidePreviewAccount = $derived(activeVariantAccount ?? selectedAccounts[0] ?? null);
+	// Account tabs already render their own preview, so the side panel serves the shared view.
+	const sidePreviewAccount = $derived(activeVariantAccount ? null : (selectedAccounts[0] ?? null));
 	const activeVariantIsUnsynced = $derived(
 		activeVariantAccountId ? variants.has(activeVariantAccountId) : false
 	);

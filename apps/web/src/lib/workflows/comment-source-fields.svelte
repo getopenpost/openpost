@@ -85,7 +85,6 @@
 </script>
 
 <div class="space-y-4">
-	<p class="text-sm text-muted-foreground">{m.workflows_comment_source_help()}</p>
 	<div class="space-y-2">
 		<Label for="comment-account">{m.accounts_heading()}</Label><Choice
 			id="comment-account"

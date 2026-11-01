@@ -432,10 +432,6 @@
 				placeholder="••••••••"
 			/>
 
-			<p class="text-sm leading-6 text-muted-foreground">
-				{m.auth_login_session_notice()}
-			</p>
-
 			{#if authConfiguration?.password_reset_enabled}
 				<div class="-mt-2 text-right">
 					<a

@@ -209,13 +209,8 @@
 	}
 </script>
 
-<svelte:head><title>{m.workflows_title()} · {appBranding.profile.display_name}</title></svelte:head>
-<PageContainer
-	title={m.workflows_title()}
-	description={m.workflows_subtitle()}
-	themeIconRole="repeat"
-	loading={loading && !error}
->
+<svelte:head><title>{m.nav_automations()} · {appBranding.profile.display_name}</title></svelte:head>
+<PageContainer title={m.nav_automations()} themeIconRole="repeat" loading={loading && !error}>
 	{#snippet actions()}<Button
 			disabled={busy || !workspaceID || workspaceCtx.currentWorkspace?.role === 'viewer'}
 			onclick={() => create()}><ThemeIcon role="add" class="size-4" />{m.workflows_new()}</Button

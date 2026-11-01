@@ -718,7 +718,6 @@
 				<div class="rounded-xl border border-dashed px-5 py-12 text-center">
 					<ThemeIcon role="repeat" class="mx-auto size-6 text-muted-foreground" />
 					<h3 class="mt-3 font-medium">{m.repost_empty_heading()}</h3>
-					<p class="mx-auto mt-1 max-w-lg text-sm text-muted-foreground">{m.repost_empty_body()}</p>
 					{#if settings.can_manage}
 						<Button class="mt-4" onclick={() => addPolicy()} disabled={targetAccounts.length === 0}>
 							<ThemeIcon role="add" class="size-4" />

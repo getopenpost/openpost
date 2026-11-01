@@ -15,6 +15,7 @@ test.describe("touch editor discovery", () => {
     await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
     const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
     await expect(layers).toHaveCount(6);
+    await layers.first().click();
     const family = page
       .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
       .getByRole("button", { name: /^(Select objects|Rectangle select|Ellipse select)$/ });

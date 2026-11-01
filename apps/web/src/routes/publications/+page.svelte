@@ -933,9 +933,10 @@
 				]}
 				<article
 					class={[
-						'group min-w-0 p-3 hover:bg-muted/30 sm:p-4',
-						inventoryView === 'grid' &&
-							'overflow-hidden rounded-xl border bg-card text-card-foreground'
+						'group min-w-0 hover:bg-muted/30',
+						inventoryView === 'grid'
+							? 'overflow-hidden rounded-xl border bg-card p-3 text-card-foreground sm:p-4'
+							: 'px-3 py-1.5 sm:px-4'
 					]}
 				>
 					{#if inventoryView === 'grid'}

@@ -1130,6 +1130,8 @@ textarea[data-fabric="textarea"] {
 
   [data-theme-tabs="underline"] [data-slot="tabs-list"] {
     width: 100%;
+    height: auto !important;
+    min-height: 2.75rem;
     justify-content: flex-start;
     gap: 0.25rem;
     padding: 0;
@@ -1143,7 +1145,7 @@ textarea[data-fabric="textarea"] {
 
   [data-theme-tabs="underline"] [data-slot="tabs-trigger"] {
     flex: none;
-    min-height: 2.75rem;
+    height: 2.75rem !important;
     padding-inline: 0.75rem;
     border: 0;
     border-radius: 0;

@@ -1098,6 +1098,14 @@
     min-width: 44px;
   }
 
+  /* These controls keep their drawn size; each expands its hit area with a pseudo-element. */
+  [data-slot="checkbox"],
+  [data-slot="radio-group-item"],
+  [data-slot="switch"] {
+    min-width: 0;
+    min-height: 0;
+  }
+
   button,
   a,
   [data-slot="button"],

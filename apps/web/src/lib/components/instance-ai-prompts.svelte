@@ -293,7 +293,7 @@
 </script>
 
 <div class="space-y-6" data-testid="instance-ai-prompts">
-	<InlineNotice tone="info" message={m.settings_ai_prompts_intro()} />
+	<p class="text-sm text-muted-foreground">{m.settings_ai_prompts_intro()}</p>
 	{#if error && loaded}
 		<InlineNotice tone="warning" message={error}>
 			{#snippet actions()}

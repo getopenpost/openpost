@@ -545,7 +545,7 @@
 	<InlineNotice tone="error" message={apiTokenError} class="mb-4" />
 {/if}
 
-<div class="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_220px_220px_190px_auto]">
+<div class="mb-4 grid gap-3 sm:grid-cols-2">
 	<div class="space-y-2">
 		<Label for="api-token-name">{m.settings_token_name()}</Label>
 		<Input

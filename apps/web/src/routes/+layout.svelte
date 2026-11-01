@@ -560,7 +560,7 @@
 </svelte:head>
 
 <QueryClientProvider client={queryClient}>
-	<ThemeAppShell publicDefault={isPublicRoute} />
+	<ThemeAppShell publicDefault={isPublicRoute || isOrganizationOwnershipSettingsRoute($page.url)} />
 	<AppBrandingRuntime
 		enabled={!isPreviewRoute &&
 			!isPublicProfileRoute &&

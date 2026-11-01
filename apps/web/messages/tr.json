@@ -2255,6 +2255,8 @@
 	"compose_editing_post": "{status} gönderi düzenleniyor",
 	"compose_clear_schedule": "Planı temizle",
 	"compose_preview": "Önizleme",
+	"compose_hide_preview": "Önizlemeyi gizle",
+	"compose_publish_needs_destination": "Yayınlamadan önce bir hedef bağlayın.",
 	"compose_preview_account": "{account} önizlemesi",
 	"compose_hide": "Gizle",
 	"compose_show_preview": "Önizlemeyi göster",

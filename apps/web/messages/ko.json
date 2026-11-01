@@ -2255,6 +2255,8 @@
 	"compose_editing_post": "{status} 게시물 편집 중",
 	"compose_clear_schedule": "일정 지우기",
 	"compose_preview": "미리보기",
+	"compose_hide_preview": "미리보기 숨기기",
+	"compose_publish_needs_destination": "게시하기 전에 대상을 연결하세요.",
 	"compose_preview_account": "{account} 미리보기",
 	"compose_hide": "숨기기",
 	"compose_show_preview": "미리보기 표시",

@@ -2298,6 +2298,8 @@
 	"compose_editing_post": "Editing {status} post",
 	"compose_clear_schedule": "Clear schedule",
 	"compose_preview": "Preview",
+	"compose_hide_preview": "Hide preview",
+	"compose_publish_needs_destination": "Connect a destination before publishing.",
 	"compose_preview_account": "Preview {account}",
 	"compose_hide": "Hide",
 	"compose_show_preview": "Show preview",

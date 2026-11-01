@@ -2268,6 +2268,8 @@
 	"compose_editing_post": "Редактирование: {status}",
 	"compose_clear_schedule": "Убрать время публикации",
 	"compose_preview": "Предпросмотр",
+	"compose_hide_preview": "Скрыть предпросмотр",
+	"compose_publish_needs_destination": "Подключите адресат перед публикацией.",
 	"compose_preview_account": "Предпросмотр для {account}",
 	"compose_hide": "Скрыть",
 	"compose_show_preview": "Показать предпросмотр",

@@ -2255,6 +2255,8 @@
 	"compose_editing_post": "Editando una publicación {status}",
 	"compose_clear_schedule": "Borrar programación",
 	"compose_preview": "Vista previa",
+	"compose_hide_preview": "Ocultar vista previa",
+	"compose_publish_needs_destination": "Conecta un destino antes de publicar.",
 	"compose_preview_account": "Vista previa de {account}",
 	"compose_hide": "Ocultar",
 	"compose_show_preview": "Mostrar vista previa",

@@ -2255,6 +2255,8 @@
 	"compose_editing_post": "{status}-Beitrag wird bearbeitet",
 	"compose_clear_schedule": "Planung löschen",
 	"compose_preview": "Vorschau",
+	"compose_hide_preview": "Vorschau ausblenden",
+	"compose_publish_needs_destination": "Verbinde ein Ziel, bevor du veröffentlichst.",
 	"compose_preview_account": "{account}-Vorschau",
 	"compose_hide": "Ausblenden",
 	"compose_show_preview": "Vorschau anzeigen",

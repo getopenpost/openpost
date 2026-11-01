@@ -2255,6 +2255,8 @@
 	"compose_editing_post": "{status}の投稿を編集中",
 	"compose_clear_schedule": "予約を解除",
 	"compose_preview": "プレビュー",
+	"compose_hide_preview": "プレビューを非表示",
+	"compose_publish_needs_destination": "公開する前に投稿先を接続してください。",
 	"compose_preview_account": "{account}をプレビュー",
 	"compose_hide": "非表示",
 	"compose_show_preview": "プレビューを表示",

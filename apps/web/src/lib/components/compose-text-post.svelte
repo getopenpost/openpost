@@ -430,6 +430,35 @@
 	let linkUrl = $state('');
 	let composerSettingsOpen = $state(false);
 	let pollEditorPostKey = $state<string | null>(null);
+	const sidePreviewStorageKey = 'openpost-composer-side-preview';
+	let sidePreviewVisible = $state(true);
+	let wideLayout = $state(false);
+
+	$effect(() => {
+		// The side preview is remembered per device; wide containers show it by default.
+		try {
+			sidePreviewVisible = localStorage.getItem(sidePreviewStorageKey) !== 'off';
+		} catch {
+			sidePreviewVisible = true;
+		}
+	});
+
+	$effect(() => {
+		const query = window.matchMedia('(min-width: 1280px)');
+		const update = () => (wideLayout = query.matches);
+		update();
+		query.addEventListener('change', update);
+		return () => query.removeEventListener('change', update);
+	});
+
+	function toggleSidePreview() {
+		sidePreviewVisible = !sidePreviewVisible;
+		try {
+			localStorage.setItem(sidePreviewStorageKey, sidePreviewVisible ? 'on' : 'off');
+		} catch {
+			// Storage is optional; the choice still applies to this session.
+		}
+	}
 
 	async function openVersionHistory() {
 		composerSettingsOpen = false;
@@ -1176,6 +1205,18 @@
 			capabilityReadinessKnown &&
 			selectedAccounts.every((account) => accountReadiness(account, 'publish_scheduled').canProceed)
 	);
+	const scheduleDisabledReason = $derived(
+		selectedAccounts.length === 0
+			? m.compose_schedule_needs_destination()
+			: canSchedulePublication
+				? m.common_loading()
+				: m.compose_publishing_issues()
+	);
+	const publishDisabledReason = $derived(
+		selectedAccounts.length === 0
+			? m.compose_publish_needs_destination()
+			: m.compose_publishing_issues()
+	);
 	const canSaveEditedPost = $derived(
 		hasContent &&
 			selectedAccountIds.length > 0 &&
@@ -1184,6 +1225,7 @@
 	const activeVariantAccount = $derived(
 		activeVariantAccountId ? (accounts.find((a) => a.id === activeVariantAccountId) ?? null) : null
 	);
+	const sidePreviewAccount = $derived(activeVariantAccount ?? selectedAccounts[0] ?? null);
 	const activeVariantIsUnsynced = $derived(
 		activeVariantAccountId ? variants.has(activeVariantAccountId) : false
 	);
@@ -7615,6 +7657,9 @@
 						canOpenSchedule={selectedWorkspaceSettingsReady}
 						canQuickSchedule={canSchedulePublication && selectedWorkspaceSettingsReady}
 						canPublish={canPublishNow}
+						quickScheduleDisabledReason={scheduleDisabledReason}
+						{scheduleDisabledReason}
+						{publishDisabledReason}
 						onSchedule={openScheduleDialog}
 						onQuickSchedule={quickSchedule}
 						onPublish={() => publish(true)}
@@ -7697,6 +7742,32 @@
 					<Tooltip.Content><p class="text-sm">{m.compose_post_settings()}</p></Tooltip.Content>
 				</Tooltip.Root>
 
+				<Tooltip.Root>
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<Button
+								{...props}
+								variant="ghost"
+								size="icon"
+								class="hidden text-muted-foreground xl:inline-flex"
+								onclick={toggleSidePreview}
+								aria-label={sidePreviewVisible
+									? m.compose_hide_preview()
+									: m.compose_show_preview()}
+								aria-pressed={sidePreviewVisible}
+								data-testid="composer-side-preview-toggle"
+							>
+								<ThemeIcon role="eye" class="size-4" />
+							</Button>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content>
+						<p class="text-sm">
+							{sidePreviewVisible ? m.compose_hide_preview() : m.compose_show_preview()}
+						</p>
+					</Tooltip.Content>
+				</Tooltip.Root>
+
 				{#if isEditMode && !autoSavesDraft}
 					<Button
 						type="button"
@@ -7737,6 +7808,9 @@
 						canOpenSchedule={selectedWorkspaceSettingsReady}
 						canQuickSchedule={canSchedulePublication && selectedWorkspaceSettingsReady}
 						canPublish={canPublishNow}
+						quickScheduleDisabledReason={scheduleDisabledReason}
+						{scheduleDisabledReason}
+						{publishDisabledReason}
 						onSchedule={openScheduleDialog}
 						onQuickSchedule={quickSchedule}
 						onPublish={() => publish(true)}
@@ -8449,6 +8523,33 @@
 				{/if}
 			</div>
 		</div>
+		{#if wideLayout && sidePreviewVisible && sidePreviewAccount}
+			{@const sidePreviewModel = previewForAccount(sidePreviewAccount)}
+			<aside
+				class="flex w-[22rem] shrink-0 flex-col border-l bg-muted/20"
+				aria-label={m.compose_preview()}
+				data-testid="composer-side-preview"
+			>
+				<div
+					class="flex shrink-0 items-center justify-between gap-2 border-b bg-background/60 px-4 py-3"
+				>
+					<p class="min-w-0 truncate text-sm font-medium">{m.compose_preview()}</p>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						class="shrink-0 text-muted-foreground"
+						onclick={toggleSidePreview}
+						aria-label={m.compose_hide_preview()}
+						data-testid="composer-side-preview-hide"
+					>
+						<ThemeIcon role="close" class="size-4" />
+					</Button>
+				</div>
+				<div class="min-h-0 flex-1 overflow-y-auto p-4">
+					<ComposerPreview model={sidePreviewModel} />
+				</div>
+			</aside>
+		{/if}
 	</div>
 </div>
 

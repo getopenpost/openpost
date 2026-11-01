@@ -2255,6 +2255,8 @@
 	"compose_editing_post": "正在编辑{status}帖子",
 	"compose_clear_schedule": "清除排期",
 	"compose_preview": "预览",
+	"compose_hide_preview": "隐藏预览",
+	"compose_publish_needs_destination": "发布前请先连接目标。",
 	"compose_preview_account": "预览 {account}",
 	"compose_hide": "隐藏",
 	"compose_show_preview": "显示预览",

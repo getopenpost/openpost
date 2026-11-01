@@ -2291,6 +2291,8 @@
 	"compose_editing_post": "Modifica del post {status}",
 	"compose_clear_schedule": "Rimuovi la pianificazione",
 	"compose_preview": "Anteprima",
+	"compose_hide_preview": "Nascondi anteprima",
+	"compose_publish_needs_destination": "Collega una destinazione prima di pubblicare.",
 	"compose_preview_account": "Anteprima {account}",
 	"compose_hide": "Nascondi",
 	"compose_show_preview": "Mostra anteprima",

@@ -2255,6 +2255,8 @@
 	"compose_editing_post": "Modification du post {status}",
 	"compose_clear_schedule": "Effacer la programmation",
 	"compose_preview": "Aperçu",
+	"compose_hide_preview": "Masquer l'aperçu",
+	"compose_publish_needs_destination": "Connectez une destination avant de publier.",
 	"compose_preview_account": "Aperçu de {account}",
 	"compose_hide": "Masquer",
 	"compose_show_preview": "Afficher l’aperçu",

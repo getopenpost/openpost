@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Tabs, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { appBranding } from '$lib/app-branding.svelte';
 	import { page } from '$app/state';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -22,16 +23,14 @@
 			<Button href="/workflows" variant="ghost"
 				><ThemeIcon role="arrow-left" class="size-4" />{m.workflows_back()}</Button
 			>
-			<div class="flex gap-2">
-				<Button
-					variant={tab === 'configure' ? 'secondary' : 'ghost'}
-					onclick={() => (tab = 'configure')}>{m.workflows_configure()}</Button
-				><Button variant={tab === 'runs' ? 'secondary' : 'ghost'} onclick={() => (tab = 'runs')}
-					>{m.workflows_runs()}</Button
-				>
-			</div>
 		</div>
 	{/snippet}
+	<Tabs value={tab} onValueChange={(value) => (tab = value as typeof tab)} class="mb-5">
+		<TabsList class="no-scrollbar">
+			<TabsTrigger value="configure">{m.workflows_configure()}</TabsTrigger>
+			<TabsTrigger value="runs">{m.workflows_runs()}</TabsTrigger>
+		</TabsList>
+	</Tabs>
 	<div hidden={tab !== 'configure'}>
 		<RepostAutomationSettings
 			{workspaceID}

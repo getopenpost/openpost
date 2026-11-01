@@ -803,13 +803,10 @@
 
 {#snippet deliveryDetails(post: ActivityItem, accountDestinations: ActivityDestination[])}
 	{@const summaryParts = deliverySummaryParts(post)}
-	{#if post.destinations?.length && (activeTab !== 'drafts' || post.destinations.length > accountDestinations.length || post.destinations.some((destination) => destination.status === 'failed'))}
-		<details
-			class="group/delivery mt-2 max-w-2xl rounded-lg border bg-background/60"
-			open={post.status === 'failed'}
-		>
+	{#if post.destinations?.length && (post.status === 'failed' || summaryParts.length > 0 || post.destinations.some((destination) => destination.status === 'failed') || (activeTab === 'drafts' && post.destinations.length > accountDestinations.length))}
+		<details class="group/delivery mt-1 max-w-2xl rounded-lg" open={post.status === 'failed'}>
 			<summary
-				class="flex min-h-11 cursor-pointer items-center justify-between gap-3 px-3 py-2 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+				class="flex min-h-9 cursor-pointer items-center gap-3 rounded-md text-xs text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 			>
 				<span class="flex items-center gap-2"
 					><ThemeIcon
@@ -1274,17 +1271,6 @@
 		{/if}
 		{#if currentViewLoaded}
 			<TabsContent value="scheduled">
-				{#if scheduledPosts.length > 0}
-					<div class="mb-3 flex justify-end">
-						<a
-							href={resolveAppPath('/settings?tab=schedule')}
-							class="inline-flex min-h-11 items-center gap-1.5 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:min-h-9"
-						>
-							<ThemeIcon role="calendar" class="size-3.5" />
-							{m.settings_schedule()}
-						</a>
-					</div>
-				{/if}
 				{@render postList(
 					scheduledPosts,
 					m.activity_empty_scheduled_title(),

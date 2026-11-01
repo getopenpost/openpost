@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Tabs, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { appBranding } from '$lib/app-branding.svelte';
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
@@ -216,19 +217,27 @@
 			disabled={busy || !workspaceID || workspaceCtx.currentWorkspace?.role === 'viewer'}
 			onclick={() => create()}><ThemeIcon role="add" class="size-4" />{m.workflows_new()}</Button
 		>{/snippet}
-	{#snippet navigation()}<div class="flex flex-wrap gap-2 border-b pb-3">
-			{#each [{ id: 'workflows', label: m.workflows_your_workflows() }, { id: 'runs', label: m.workflows_runs() }, { id: 'templates', label: m.workflows_templates() }] as item}<Button
-					variant={tab === item.id ? 'secondary' : 'ghost'}
-					size="sm"
-					onclick={() => {
-						tab = item.id as typeof tab;
-						selectedRun = '';
-					}}>{item.label}</Button
-				>{/each}
-			<Button size="sm" variant="ghost" href="/workflows/connections"
-				>{m.workflows_connections()}</Button
-			>
-		</div>{/snippet}
+	{#snippet navigation()}
+		<Tabs
+			value={tab}
+			onValueChange={(value) => {
+				tab = value as typeof tab;
+				selectedRun = '';
+			}}
+		>
+			<TabsList class="no-scrollbar">
+				<TabsTrigger value="workflows">{m.workflows_your_workflows()}</TabsTrigger>
+				<TabsTrigger value="runs">{m.workflows_runs()}</TabsTrigger>
+				<TabsTrigger value="templates">{m.workflows_templates()}</TabsTrigger>
+				<a
+					href="/workflows/connections"
+					data-slot="tabs-trigger"
+					class="relative inline-flex min-h-11 items-center justify-center text-muted-foreground hover:text-foreground"
+					>{m.workflows_connections()}</a
+				>
+			</TabsList>
+		</Tabs>
+	{/snippet}
 	<div class="space-y-6">
 		{#if error}<InlineNotice tone="error" message={error} />{/if}
 		{#each visibleQueries.filter((query) => query.error) as query}<InlineNotice

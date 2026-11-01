@@ -489,11 +489,6 @@
     box-shadow: none;
   }
 
-  /* Calm reserves the signature texture for the actions that lead a screen. */
-  [data-theme-id="calm"] [data-dither-button][data-action-intent="ordinary"] {
-    --dither-button-visible: none;
-  }
-
   [data-theme-card="dither"] [data-slot="card"] {
     position: relative;
     isolation: isolate;
@@ -1175,4 +1170,10 @@ textarea[data-fabric="textarea"] {
   [data-theme-tabs="underline"] [data-slot="tabs-trigger"][data-state="active"]::after {
     opacity: 1;
   }
+}
+
+/* Calm reserves the signature texture for the actions that lead a screen.
+   The shared dither rules are unlayered, so this override must be too. */
+[data-theme-id="calm"] [data-dither-button][data-action-intent="ordinary"] {
+  --dither-button-visible: none;
 }

@@ -51,6 +51,8 @@ export async function videoEditorDemo(page: Page) {
   };
   let footage: Locator;
   const assets = page.getByRole("navigation", { name: "Assets", exact: true });
+  const timelineMore = () =>
+    page.getByRole("button", { name: "study-sos-demo.mp4: More actions", exact: true });
   const trimEnd = async (name: string, frame: number) => {
     await clip(name)
       .getByRole("button", { name: /Drag to move/ })
@@ -78,8 +80,11 @@ export async function videoEditorDemo(page: Page) {
       seconds: 4,
       hold: 1200,
       run: async () => {
-        await assets.getByRole("button", { name: "More", exact: true }).click();
-        await page.getByRole("menuitem", { name: "Backgrounds", exact: true }).click();
+        await assets.getByRole("tab", { name: "Elements", exact: true }).click();
+        await page
+          .getByRole("tablist", { name: "Elements", exact: true })
+          .getByRole("tab", { name: "Backgrounds", exact: true })
+          .click();
         await page.getByRole("searchbox", { name: "Search backgrounds" }).fill("Sunset mesh");
         await page.getByRole("button", { name: "Sunset mesh", exact: true }).click();
         await trimEnd("Sunset mesh", 60);
@@ -91,7 +96,10 @@ export async function videoEditorDemo(page: Page) {
       seconds: 4,
       hold: 1200,
       run: async () => {
-        await page.getByRole("button", { name: "Add layer", exact: true }).click();
+        await page
+          .getByRole("banner")
+          .getByRole("button", { name: "More actions", exact: true })
+          .click();
         await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
         const inspector = page.locator("#video-editor-tools-panel");
         await inspector.locator("textarea").fill("STUDY SOS");
@@ -127,7 +135,7 @@ export async function videoEditorDemo(page: Page) {
       hold: 1200,
       run: async () => {
         await seek(60);
-        await assets.getByRole("tab", { name: "Media pool", exact: true }).click();
+        await assets.getByRole("tab", { name: "Media", exact: true }).click();
         await page.getByRole("button", { name: "Import media", exact: true }).click();
         await page.getByRole("button", { name: /Place on timeline: study-sos-demo\.mp4/ }).click();
         await expect(page.locator("[data-media-placement-status]")).toBeVisible();
@@ -163,10 +171,14 @@ export async function videoEditorDemo(page: Page) {
         const second = clip("study-sos-demo.mp4").last();
         await footage.getByRole("button", { name: /Drag to move/ }).click();
         await seek(165);
-        await page.getByRole("button", { name: "Trim end to playhead", exact: true }).click();
+        await timelineMore().click();
+        await page.getByRole("menuitem", { name: "Trim end to playhead", exact: true }).click();
         await second.getByRole("button", { name: /Drag to move/ }).click();
         await seek(195);
-        await page.getByRole("button", { name: "Trim start to playhead", exact: true }).click();
+        await timelineMore().click();
+        await page
+          .getByRole("menuitem", { name: "Trim start to playhead", exact: true })
+          .click({ force: true });
         const left = (await footage.boundingBox())!;
         const right = (await second.boundingBox())!;
         await page.mouse.move(right.x + 48, right.y + right.height / 2);
@@ -180,7 +192,11 @@ export async function videoEditorDemo(page: Page) {
             return Math.abs(a.x + a.width - b.x);
           })
           .toBeLessThanOrEqual(4);
-        await page.getByRole("tab", { name: "Transition", exact: true }).click();
+        await assets.getByRole("tab", { name: "Effects", exact: true }).click();
+        await page
+          .getByRole("tablist", { name: "Effects", exact: true })
+          .getByRole("tab", { name: "Transition", exact: true })
+          .click();
         await page.getByRole("button", { name: "Cross dissolve", exact: true }).click();
         await expect(page.locator("[data-transition-id]")).toHaveCount(1);
         await seek(165);

@@ -361,7 +361,7 @@ test.describe("product screenshot capture", () => {
       await page.goto(`/analytics?workspace=${workspace.id}`);
       await expect(page.getByRole("heading", { name: "Analytics", level: 1 })).toBeVisible();
       await expect(page.getByRole("img", { name: "6.9K", exact: true }).first()).toBeVisible();
-      const dailyViewsChart = page.getByRole("img", { name: "Daily views" });
+      const dailyViewsChart = page.getByRole("img", { name: "Visibility" });
       await expect(dailyViewsChart).toBeVisible();
       await expect
         .poll(() =>
@@ -420,7 +420,6 @@ test.describe("product screenshot capture", () => {
       await page.goto(`/image-editor/new?workspace=${workspace.id}`);
       await capture(page, `image-start-${captureScheme}.png`, [
         page.getByRole("heading", { name: "Choose a format" }),
-        page.locator("summary", { hasText: "Custom size" }),
       ]);
       await page.getByText("Custom size", { exact: true }).first().click();
       await page.getByRole("spinbutton", { name: "Width" }).fill("1500");
@@ -462,7 +461,7 @@ test.describe("product screenshot capture", () => {
         name: "Brightness",
       });
       await brightnessSlider.press("End");
-      await expect(brightnessSlider).toHaveAttribute("aria-valuenow", "1");
+      await expect(brightnessSlider).toHaveAttribute("aria-valuenow", "100");
       await brightnessSlider.scrollIntoViewIfNeeded();
       await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
         "data-state",
@@ -655,7 +654,7 @@ test.describe("product screenshot capture", () => {
         }),
       );
       await page.goto("/accounts");
-      await expect(page.getByRole("heading", { name: "Connected accounts" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Add an account" })).toBeVisible();
       await page.addStyleTag({
         content: `*, *::before, *::after { animation: none !important; transition: none !important; }`,
       });

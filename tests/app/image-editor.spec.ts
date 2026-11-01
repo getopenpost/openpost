@@ -25,7 +25,7 @@ test.describe("touch editor discovery", () => {
     await expect(family).toHaveAttribute("aria-label", "Ellipse select");
     await expect(family).toHaveAttribute("aria-pressed", "true");
     await family.press("ArrowDown");
-    await page.getByRole("menuitem", { name: "Select objects", exact: true }).click();
+    await page.getByRole("menuitem", { name: /^Select objects/ }).click();
     await expect(family).toHaveAttribute("aria-label", "Select objects");
     await expect(family).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("menu")).toHaveCount(0);
@@ -99,7 +99,7 @@ test("desktop Image Editor uses the compact rail and closes Add when another too
     name: /^(Select objects|Rectangle select|Ellipse select)$/,
   });
   await select.click();
-  await page.getByRole("menuitem", { name: "Rectangle select", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Rectangle select/ }).click();
   await expect(add).toHaveAttribute("aria-pressed", "false");
   await expect(select).toBeFocused();
 });
@@ -668,7 +668,7 @@ test("a large rectangular selection keeps its visible outline after a document e
     .getByRole("button", { name: /^(Select objects|Rectangle select|Ellipse select)$/ })
     .first()
     .click();
-  await page.getByRole("menuitem", { name: "Rectangle select", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Rectangle select/ }).click();
   const overlay = page.getByTestId("image-editor-pixel-selection");
   const bounds = await overlay.boundingBox();
   expect(bounds).not.toBeNull();

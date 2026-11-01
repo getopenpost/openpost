@@ -1142,9 +1142,7 @@ test("MCP edits a layered image through the open design controller", async ({
   ).toHaveLength(1);
   await page.screenshot({ path: testInfo.outputPath("image-after-light.png") });
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(
-    page.locator('span[role="status"]').filter({ hasText: "Agent connected" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Agent connected", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("image-phone-390-light.png") });
   await page.setViewportSize({ width: 320, height: 720 });
   await page.screenshot({ path: testInfo.outputPath("image-phone-320-light.png") });

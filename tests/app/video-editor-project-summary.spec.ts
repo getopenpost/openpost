@@ -25,8 +25,8 @@ test("project summary labels stay grammatical through clip creation, Undo and sa
   await expect(summary).toHaveText("1920×1080 · 30 fps · 0:00 · Clips: 0 · Media: 0 · Issues: 0");
   for (const count of [1, 2]) {
     await page
-      .getByRole("complementary", { name: "Assets", exact: true })
-      .getByRole("button", { name: "Add layer", exact: true })
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
       .click();
     await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
     await expect(clips).toHaveCount(count);

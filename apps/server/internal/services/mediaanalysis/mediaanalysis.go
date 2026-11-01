@@ -328,7 +328,14 @@ func displayDimensions(videoStream *probeStream) (int, int) {
 		denominator, denominatorErr := strconv.ParseUint(parts[1], 10, 32)
 		if numeratorErr == nil && denominatorErr == nil && numerator > 0 && denominator > 0 {
 			displayWidth := math.Round(float64(width) * float64(numerator) / float64(denominator))
-			if displayWidth >= 1 && displayWidth < float64(int(^uint(0)>>1)) {
+			if displayWidth < 1 {
+				// Keep whole-pixel dimensions for very narrow streams by
+				// expanding height instead of rounding width down to zero.
+				displayHeight := math.Round(float64(height) * float64(denominator) / float64(numerator))
+				if displayHeight >= 1 && displayHeight < float64(int(^uint(0)>>1)) {
+					height = int(displayHeight)
+				}
+			} else if displayWidth < float64(int(^uint(0)>>1)) {
 				width = int(displayWidth)
 			}
 		}

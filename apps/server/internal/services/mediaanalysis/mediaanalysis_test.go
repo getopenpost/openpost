@@ -102,3 +102,17 @@ func TestDisplayDimensionsWithUnknownOrInvalidSampleAspectRatio(t *testing.T) {
 		})
 	}
 }
+
+func TestProbeResultWithSubpixelDisplayWidth(t *testing.T) {
+	result, _, err := resultFromProbe(probeOutput{Streams: []probeStream{{
+		CodecType: "video", Width: 2, Height: 2, SampleAspectRatio: "1:8", Duration: "1",
+	}}})
+	if err != nil {
+		t.Fatalf("analyze narrow stream: %v", err)
+	}
+	// The display width is one quarter of a pixel at the encoded height.
+	// Expanding the display height preserves the 1:8 ratio with whole pixels.
+	if result.Width != 2 || result.Height != 16 || result.AspectRatio != "1:8" {
+		t.Fatalf("display geometry = %dx%d (%s), want 2x16 (1:8)", result.Width, result.Height, result.AspectRatio)
+	}
+}

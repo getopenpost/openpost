@@ -804,7 +804,7 @@
 
 {#snippet deliveryDetails(post: ActivityItem, accountDestinations: ActivityDestination[])}
 	{@const summaryParts = deliverySummaryParts(post)}
-	{#if post.destinations?.length && (post.status === 'failed' || summaryParts.length > 0 || post.destinations.some((destination) => destination.status === 'failed') || (activeTab === 'drafts' && post.destinations.length > accountDestinations.length))}
+	{#if post.destinations?.length && (post.status === 'failed' || summaryParts.length > 0 || post.destinations.some((destination) => destination.status === 'failed') || post.destinations.length > accountDestinations.length)}
 		<Disclosure
 			summary={m.activity_delivery_details()}
 			open={post.status === 'failed'}

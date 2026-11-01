@@ -524,12 +524,8 @@
 	class="mb-4"
 />
 
-{#if apiTokenScope === 'api:read'}
-	<InlineNotice tone="info" message={m.settings_token_scope_api_read_boundary()} class="mb-4" />
-{:else if apiTokenScope === 'api:write'}
+{#if apiTokenScope === 'api:write'}
 	<InlineNotice tone="warning" message={m.settings_token_scope_api_write_boundary()} class="mb-4" />
-{:else if apiTokenScope === 'mcp:read'}
-	<InlineNotice tone="info" message={m.settings_token_scope_mcp_read_boundary()} class="mb-4" />
 {:else if apiTokenScope === 'mcp:full'}
 	<InlineNotice tone="warning" message={m.settings_token_scope_mcp_full_boundary()} class="mb-4" />
 {/if}

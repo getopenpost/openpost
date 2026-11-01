@@ -181,7 +181,6 @@
 				onChange={(color) => (workspaceCtx.settings.color = color)}
 			/>
 		</div>
-		<p class="text-sm text-muted-foreground">{m.settings_workspace_color_description()}</p>
 	</div>
 	<div class="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
 		<div>

@@ -546,20 +546,23 @@ for (const scheme of ["light", "dark"] as const) {
     for (const width of [1024, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       if (width < 1024) {
-        for (const name of ["Assets", "Properties", "Program"]) {
-          const tab = page
-            .getByRole("navigation", { name: "Editor panels" })
-            .getByRole("button", { name, exact: true });
+        const dock = page.getByRole("navigation", { name: "Editor panels" });
+        for (const [name, expected] of [
+          ["Media", assets],
+          ["Text", assets],
+          ["Effects", assets],
+          ["Properties", tools],
+          ["Timeline", preview],
+        ] as const) {
+          const tab = dock.getByRole("button", { name, exact: true });
           await tab.click();
           await expect(tab).toHaveAttribute("aria-pressed", "true");
-          await expect(
-            name === "Assets" ? assets : name === "Properties" ? tools : preview,
-          ).toBeVisible();
+          await expect(expected).toBeVisible();
         }
-        const dock = await page.getByRole("navigation", { name: "Editor panels" }).boundingBox();
+        const dockBox = await dock.boundingBox();
         const timeline = await footer.boundingBox();
-        expect(dock!.y).toBeGreaterThan((await preview.boundingBox())!.y);
-        expect(dock!.y + dock!.height).toBeLessThanOrEqual(timeline!.y);
+        expect(dockBox!.y).toBeGreaterThan((await preview.boundingBox())!.y);
+        expect(dockBox!.y).toBeGreaterThanOrEqual(timeline!.y + timeline!.height - 1);
       }
       await expect(preview).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
@@ -649,10 +652,17 @@ for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
     await createProject(page, "Readable transcript");
-    await page.getByRole("tab", { name: "Transcript", exact: true }).click();
+    await page.getByRole("tab", { name: "Captions", exact: true }).click();
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 });
-      await page.getByRole("button", { name: "Assets", exact: true }).click();
+      await page
+        .getByRole("navigation", { name: "Editor panels", exact: true })
+        .getByRole("button", { name: "Media", exact: true })
+        .click();
+      await page
+        .getByRole("tablist", { name: "Assets", exact: true })
+        .getByRole("tab", { name: "Captions", exact: true })
+        .click();
       const transcript = page.getByRole("region", { name: "Transcript", exact: true });
       await expect(transcript).toBeVisible();
       const assetsBounds = (await page.locator("#video-editor-assets-panel").boundingBox())!;
@@ -687,7 +697,10 @@ for (const scheme of ["light", "dark"] as const) {
       await options.press("Enter");
       await expect(options).toHaveAttribute("aria-expanded", "false");
       await page.screenshot({ path: testInfo.outputPath(`transcript-${width}-${scheme}.png`) });
-      await page.getByRole("button", { name: "Program", exact: true }).click();
+      await page
+        .getByRole("navigation", { name: "Editor panels", exact: true })
+        .getByRole("button", { name: "Timeline", exact: true })
+        .click();
       await expect(page.getByRole("button", { name: "Play", exact: true })).toBeInViewport({
         ratio: 1,
       });
@@ -735,10 +748,15 @@ test("panel content stays inside the editor when the window is short", async ({
     { width: 320, height: 568 },
   ]) {
     await page.setViewportSize(size);
-    if (size.width < 1024) await page.getByRole("button", { name: "Assets", exact: true }).click();
+    if (size.width < 1024)
+      await page
+        .getByRole("navigation", { name: "Editor panels", exact: true })
+        .getByRole("button", { name: "Media", exact: true })
+        .click();
     const assets = page.getByRole("complementary", { name: "Assets", exact: true });
-    for (const name of ["Media pool", "Text", "Transcript", "Transition", "Effects", "Create"]) {
-      await assets.getByRole("tab", { name, exact: true }).click();
+    const assetTabs = page.getByRole("tablist", { name: "Assets", exact: true });
+    for (const name of ["Media", "Text", "Captions", "Effects", "Elements", "Library"]) {
+      await assetTabs.getByRole("tab", { name, exact: true }).click();
       await assets.locator("button:visible").last().focus();
       const geometry = await page.evaluate(() => ({
         height: innerHeight,
@@ -759,7 +777,7 @@ test("panel content stays inside the editor when the window is short", async ({
         geometry.overviewBottom > geometry.timelineBottom + 1 ||
         geometry.documentHeight > geometry.height + 1 ||
         Math.abs(geometry.headerTop) > 1 ||
-        Math.abs(geometry.timelineBottom - geometry.height) > 1
+        geometry.timelineBottom > geometry.height + 1
       ) {
         failures.push(`${size.width}x${size.height} ${name}: ${JSON.stringify(geometry)}`);
         await page.screenshot({ path: testInfo.outputPath(`overflow-${size.width}-${name}.png`) });

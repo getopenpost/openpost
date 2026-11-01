@@ -84,6 +84,10 @@ async function createShaderProject(
   await page.keyboard.press("Escape");
   await page
     .getByRole("navigation", { name: "Assets", exact: true })
+    .getByRole("tab", { name: "Elements", exact: true })
+    .click();
+  await page
+    .getByRole("tablist", { name: "Elements", exact: true })
     .getByRole("tab", { name: "Backgrounds", exact: true })
     .click();
   await page.getByRole("searchbox", { name: "Search backgrounds" }).fill(preset);
@@ -138,10 +142,18 @@ test("shader clips preserve edits, seek and export an MP4", async ({ page }) => 
   const projectURL = page.url();
   await page.goto("/video-editor");
   await page.goto(projectURL);
-  await page
-    .getByRole("navigation", { name: "Assets", exact: true })
-    .getByRole("tab", { name: "Backgrounds", exact: true })
-    .click();
+  const restoredSearch = page.getByRole("searchbox", { name: "Search backgrounds", exact: true });
+  if (!(await restoredSearch.isVisible())) {
+    await page
+      .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("tab", { name: "Elements", exact: true })
+      .click();
+    await page
+      .getByRole("tablist", { name: "Elements", exact: true })
+      .getByRole("tab", { name: "Backgrounds", exact: true })
+      .click();
+  }
+  await expect(restoredSearch).toBeVisible();
   await expect(canvas).toBeVisible();
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Export", exact: true }).click();
@@ -179,7 +191,7 @@ for (const scheme of ["light", "dark"] as const) {
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       const panels = page.getByRole("navigation", { name: "Editor panels" });
-      for (const name of ["Assets", "Properties", "Program"]) {
+      for (const name of ["Media", "Properties", "Timeline"]) {
         await panels.getByRole("button", { name, exact: true }).click();
         await expect(panels.getByRole("button", { name, exact: true })).toHaveAttribute(
           "aria-pressed",
@@ -188,7 +200,7 @@ for (const scheme of ["light", "dark"] as const) {
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
           width,
         );
-        if (name === "Assets") {
+        if (name === "Media") {
           for (const preset of ["Aurora", "Warp", "God rays", "Static radial gradient"]) {
             await page.getByRole("searchbox", { name: "Search backgrounds" }).fill(preset);
             const tile = page.getByRole("button", { name: preset, exact: true });
@@ -218,7 +230,7 @@ for (const scheme of ["light", "dark"] as const) {
       if (width < 1440) {
         await page
           .getByRole("navigation", { name: "Editor panels" })
-          .getByRole("button", { name: "Assets", exact: true })
+          .getByRole("button", { name: "Media", exact: true })
           .click();
       }
       await page

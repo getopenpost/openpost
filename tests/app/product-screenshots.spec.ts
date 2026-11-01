@@ -600,7 +600,7 @@ test.describe("product screenshot capture", () => {
       await expect(effectsBrowser).toBeVisible();
       await capture(page, `video-effects-${captureScheme}.png`, [effectsBrowser]);
 
-      await assetTabs.getByRole("tab", { name: "Transcript", exact: true }).click();
+      await assetTabs.getByRole("tab", { name: "Captions", exact: true }).click();
       const transcriptPanel = page.getByRole("region", { name: "Transcript" });
       await expect(transcriptPanel).toBeVisible();
       await capture(page, `video-transcript-${captureScheme}.png`, [transcriptPanel]);

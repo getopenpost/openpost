@@ -46,6 +46,10 @@ test("background and effect catalogs compile only the active preview", async ({ 
     );
   await page
     .getByRole("navigation", { name: "Assets", exact: true })
+    .getByRole("tab", { name: "Elements", exact: true })
+    .click();
+  await page
+    .getByRole("tablist", { name: "Elements", exact: true })
     .getByRole("tab", { name: "Backgrounds", exact: true })
     .click();
   const backgrounds = page.getByRole("searchbox", { name: "Search backgrounds" });

@@ -235,7 +235,17 @@ async function reviewVideoPanelStates(
   await captureVideoState(page, theme, "assistant");
 
   for (const panel of ["Stock", "Text", "Effects", "Transition"] as const) {
-    await assets.getByRole("tab", { name: panel, exact: true }).click();
+    if (panel === "Stock") {
+      await assets.getByRole("tab", { name: "Media", exact: true }).click();
+    }
+    if (panel === "Transition") {
+      await page
+        .getByRole("tablist", { name: "Effects", exact: true })
+        .getByRole("tab", { name: "Transition", exact: true })
+        .click();
+    } else {
+      await assets.getByRole("tab", { name: panel, exact: true }).click();
+    }
     await captureVideoState(page, theme, panel.toLowerCase());
     if (panel === "Text") {
       await assets.getByRole("button", { name: "Add text", exact: true }).click();

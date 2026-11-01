@@ -331,7 +331,14 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
   await page.screenshot({ path: testInfo.outputPath("assistant-desktop-light.png") });
   const desktopViewport = page.viewportSize()!;
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Assets", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Editor panels", exact: true })
+    .getByRole("button", { name: "Media", exact: true })
+    .click();
+  await page
+    .getByRole("tablist", { name: "Assets", exact: true })
+    .getByRole("tab", { name: "Create", exact: true })
+    .click();
   const preferencesButton = chat.getByRole("button", {
     name: "Preferences",
     exact: true,
@@ -362,7 +369,10 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
   await preferencesButton.press("Enter");
   await expect(memory).toBeHidden();
   await page.setViewportSize(desktopViewport);
-  await page.getByRole("tab", { name: "Media pool", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Assets", exact: true })
+    .getByRole("tab", { name: "Media", exact: true })
+    .click();
 
   const bytes = (
     await readFile(
@@ -780,7 +790,10 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
     "connected",
   );
   await page.screenshot({ path: testInfo.outputPath("video-phone-320-dark.png") });
-  await page.getByRole("button", { name: "Assets", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Editor panels", exact: true })
+    .getByRole("button", { name: "Media", exact: true })
+    .click();
   await page.locator('[data-left-panel-tab="ai"]:visible').click();
   await chat.getByRole("button", { name: "Preferences", exact: true }).click();
   await expect(memory.getByText("Use simple captions", { exact: true })).toBeVisible();

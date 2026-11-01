@@ -9,7 +9,7 @@ async function openRecorder(page: Page): Promise<void> {
   if (!(await assetsPanel.isVisible())) {
     await page
       .getByRole("navigation", { name: "Editor panels", exact: true })
-      .getByRole("button", { name: "Assets", exact: true })
+      .getByRole("button", { name: "Media", exact: true })
       .click();
   }
   await assetsPanel.getByRole("button", { name: "More ways to add media", exact: true }).click();
@@ -547,6 +547,10 @@ test("editing text over a background does not leave the old lettering underneath
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   await page
     .getByRole("navigation", { name: "Assets", exact: true })
+    .getByRole("tab", { name: "Elements", exact: true })
+    .click();
+  await page
+    .getByRole("tablist", { name: "Elements", exact: true })
     .getByRole("tab", { name: "Backgrounds", exact: true })
     .click();
   await page.getByRole("button", { name: "Ocean mesh", exact: true }).click();

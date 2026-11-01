@@ -35,8 +35,18 @@ for (const width of [390, 320]) {
         await page.setViewportSize({ width: 1280, height: 800 });
         await createProject(page, "Touch timer library");
         await page.setViewportSize({ width, height: 844 });
-        await page.getByRole("button", { name: "Assets", exact: true }).click();
-        await page.getByRole("tab", { name: "Timers", exact: true }).click();
+        await page
+          .getByRole("navigation", { name: "Editor panels", exact: true })
+          .getByRole("button", { name: "Media", exact: true })
+          .click();
+        await page
+          .getByRole("tablist", { name: "Assets", exact: true })
+          .getByRole("tab", { name: "Elements", exact: true })
+          .click();
+        await page
+          .getByRole("tablist", { name: "Elements", exact: true })
+          .getByRole("tab", { name: "Timers", exact: true })
+          .click();
         const ringCard = page.getByRole("button", { name: "Ring", exact: true }).last();
         const cardBounds = await ringCard.boundingBox();
         const previewBounds = await ringCard.locator("canvas").boundingBox();
@@ -95,8 +105,25 @@ for (const scheme of ["light", "dark"] as const) {
     await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
     await page.setViewportSize({ width: 1280, height: 800 });
     await createProject(page, "Contextual library favorites");
+    const openPanel = async (tab: string) => {
+      const rail = page.getByRole("navigation", { name: "Assets", exact: true });
+      if (tab === "Transition") {
+        await page
+          .getByRole("tablist", { name: "Effects", exact: true })
+          .getByRole("tab", { name: "Transition", exact: true })
+          .click();
+      } else if (tab === "Timers") {
+        await rail.getByRole("tab", { name: "Elements", exact: true }).click();
+        await page
+          .getByRole("tablist", { name: "Elements", exact: true })
+          .getByRole("tab", { name: "Timers", exact: true })
+          .click();
+      } else {
+        await rail.getByRole("tab", { name: tab, exact: true }).click();
+      }
+    };
     for (const tab of ["Effects", "Transition", "Text", "Timers"]) {
-      await page.getByRole("tab", { name: tab, exact: true }).click();
+      await openPanel(tab);
       const hearts = page.getByRole("button", { name: /^Favorite / });
       const heart = hearts.first();
       const card = heart.locator("..");
@@ -159,6 +186,10 @@ for (const scheme of ["light", "dark"] as const) {
     const projectURL = page.url();
     await page
       .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("tab", { name: "Elements", exact: true })
+      .click();
+    await page
+      .getByRole("tablist", { name: "Elements", exact: true })
       .getByRole("tab", { name: "Timers", exact: true })
       .click();
     const ringCard = page.getByRole("button", { name: "Ring", exact: true });
@@ -371,6 +402,10 @@ for (const style of ["Bomb", "Tomato"] as const) {
     await createProject(page, `${style} timer`);
     await page
       .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("tab", { name: "Elements", exact: true })
+      .click();
+    await page
+      .getByRole("tablist", { name: "Elements", exact: true })
       .getByRole("tab", { name: "Timers", exact: true })
       .click();
     await page.getByRole("button", { name: style, exact: true }).click();

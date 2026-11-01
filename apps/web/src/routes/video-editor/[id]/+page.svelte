@@ -501,9 +501,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	$effect(() => {
 		if (!displayedProject || editorSession.loading) return;
 		if (restoredPanelProject !== displayedProject.id) {
-			leftPanel =
-				leftPanelOptions.find((option) => option.value === editorSession.restoredLeftPanel)
-					?.value ?? 'media';
+			const restored = editorSession.restoredLeftPanel as LeftPanel;
+			if (allLeftPanels.includes(restored)) {
+				const restoredGroup = leftGroupForPanel(restored);
+				leftPanel = restored;
+				if (restoredGroup !== 'ai')
+					leftGroupPanel = { ...leftGroupPanel, [restoredGroup]: restored };
+			} else {
+				leftPanel = 'media';
+			}
 			restoredPanelProject = displayedProject.id;
 		}
 		editorSession.rememberActiveSequence(sequenceStore.activeSequenceId, leftPanel);
@@ -547,6 +553,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		| 'lottie'
 		| 'transcript'
 		| 'ai';
+	type LeftRailGroup = 'media' | 'text' | 'transcript' | 'effects' | 'elements' | 'library';
 	type LeftPanelOption = {
 		value: LeftPanel;
 		label: string;
@@ -554,7 +561,58 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		| { iconKind: 'protected'; icon: ProtectedIconRole }
 		| { iconKind: 'theme'; icon: ThemeIconRole }
 	);
+	type LeftRailOption = {
+		value: LeftRailGroup;
+		label: string;
+	} & (
+		| { iconKind: 'protected'; icon: ProtectedIconRole }
+		| { iconKind: 'theme'; icon: ThemeIconRole }
+	);
 	let leftPanel = $state<LeftPanel>('media');
+	const defaultLeftGroupPanels: Record<LeftRailGroup, LeftPanel> = {
+		media: 'media',
+		text: 'text',
+		transcript: 'transcript',
+		effects: 'effects',
+		elements: 'shapes',
+		library: 'library'
+	};
+	let leftGroupPanel = $state<Record<LeftRailGroup, LeftPanel>>({ ...defaultLeftGroupPanels });
+
+	const allLeftPanels: LeftPanel[] = [
+		'library',
+		'timers',
+		'media',
+		'stock',
+		'text',
+		'shapes',
+		'backgrounds',
+		'stickers',
+		'effects',
+		'transitions',
+		'lottie',
+		'transcript',
+		'ai'
+	];
+
+	function leftGroupForPanel(panel: LeftPanel): LeftRailGroup | 'ai' {
+		switch (panel) {
+			case 'stock':
+				return 'media';
+			case 'transitions':
+				return 'effects';
+			case 'shapes':
+			case 'backgrounds':
+			case 'stickers':
+			case 'lottie':
+			case 'timers':
+				return 'elements';
+			case 'ai':
+				return 'ai';
+			default:
+				return panel;
+		}
+	}
 	let stockPanelMounted = $state(false);
 	let assistantPanelMounted = $state(false);
 	$effect(() => {
@@ -734,7 +792,26 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		openLeftPanel(panel);
 	}
 
+	function toggleLeftGroup(group: LeftRailGroup): void {
+		if (leftGroupForPanel(leftPanel) === group && !leftSidebarRail) {
+			toggleLeftSidebar();
+			return;
+		}
+		openLeftPanel(leftGroupPanel[group]);
+	}
+
+	function activateLeftOption(value: string): void {
+		if (value === 'ai') toggleLeftPanel('ai');
+		else toggleLeftGroup(value as LeftRailGroup);
+	}
+
+	function openLeftGroup(group: LeftRailGroup): void {
+		openLeftPanel(leftGroupPanel[group]);
+	}
+
 	function openLeftPanel(panel: LeftPanel): void {
+		const group = leftGroupForPanel(panel);
+		if (group !== 'ai') leftGroupPanel = { ...leftGroupPanel, [group]: panel };
 		leftPanel = panel;
 		expandLeftSidebar();
 	}
@@ -772,18 +849,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			.length
 	);
 	const showSourceMonitor = $derived(activeWorkspace === 'edit' && sourceMediaId !== null);
-	const primaryLeftPanelOptions = $derived<LeftPanelOption[]>([
+	const primaryLeftPanelOptions = $derived<LeftRailOption[]>([
 		{
 			value: 'media',
-			label: m.video_editor_media_pool(),
+			label: m.video_editor_tool_media(),
 			iconKind: 'protected',
 			icon: 'editor-media'
-		},
-		{
-			value: 'stock',
-			label: m.video_editor_stock_assets(),
-			iconKind: 'theme',
-			icon: 'search'
 		},
 		{
 			value: 'text',
@@ -793,15 +864,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		},
 		{
 			value: 'transcript',
-			label: m.video_editor_transcript(),
+			label: m.video_editor_tool_captions(),
 			iconKind: 'protected',
 			icon: 'editor-captions'
-		},
-		{
-			value: 'transitions',
-			label: m.video_editor_transition(),
-			iconKind: 'protected',
-			icon: 'editor-transitions'
 		},
 		{
 			value: 'effects',
@@ -810,31 +875,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			icon: 'editor-effects'
 		},
 		{
-			value: 'shapes',
-			// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- The generated message key names the user-facing Shapes tool.
-			label: m.video_editor_shapes(),
+			value: 'elements',
+			// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- The generated message key names the user-facing Elements tool.
+			label: m.video_editor_tool_elements(),
 			iconKind: 'protected',
 			icon: 'editor-shapes'
 		},
-		{
-			value: 'backgrounds',
-			label: m.video_editor_backgrounds_title(),
-			iconKind: 'protected',
-			icon: 'editor-backgrounds'
-		},
-		{
-			value: 'stickers',
-			label: m.video_editor_stickers(),
-			iconKind: 'protected',
-			icon: 'editor-stickers'
-		},
-		{
-			value: 'lottie',
-			label: m.video_editor_animations(),
-			iconKind: 'protected',
-			icon: 'editor-animation'
-		},
-		{ value: 'timers', label: m.video_editor_timers(), iconKind: 'theme', icon: 'time' },
 		{ value: 'library', label: m.video_editor_library(), iconKind: 'theme', icon: 'favorite' }
 	]);
 	const utilityLeftPanelOptions = $derived<LeftPanelOption[]>([
@@ -847,19 +893,61 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	]);
 	const leftPanelOptions = $derived([...primaryLeftPanelOptions, ...utilityLeftPanelOptions]);
 	const railPanelOptions = $derived(primaryLeftPanelOptions);
-	const leftPanelHeading = $derived(
-		leftPanelOptions.find((option) => option.value === leftPanel)?.label ?? m.video_editor_assets()
-	);
+	const leftPanelHeading = $derived.by(() => {
+		const group = leftGroupForPanel(leftPanel);
+		if (group === 'ai') return m.video_editor_local_ai();
+		return (
+			primaryLeftPanelOptions.find((option) => option.value === group)?.label ??
+			m.video_editor_assets()
+		);
+	});
+	type LeftGroupTab = { panel: LeftPanel; label: string; view?: 'project' | 'scenes' };
+	const leftGroupTabs = $derived.by((): LeftGroupTab[] => {
+		switch (leftGroupForPanel(leftPanel)) {
+			case 'media':
+				return [
+					{ panel: 'media', view: 'project', label: m.video_editor_media_tab() },
+					{ panel: 'media', view: 'scenes', label: m.video_editor_scenes() },
+					{ panel: 'stock', label: m.video_editor_stock_assets() }
+				];
+			case 'effects':
+				return [
+					{ panel: 'effects', label: m.video_editor_effects() },
+					{ panel: 'transitions', label: m.video_editor_transition() }
+				];
+			case 'elements':
+				return [
+					{ panel: 'shapes', label: m.video_editor_shapes() },
+					{ panel: 'backgrounds', label: m.video_editor_backgrounds_title() },
+					{ panel: 'stickers', label: m.video_editor_stickers() },
+					{ panel: 'lottie', label: m.video_editor_animations() },
+					{ panel: 'timers', label: m.video_editor_timers() }
+				];
+			default:
+				return [];
+		}
+	});
+
+	function leftGroupTabActive(tab: LeftGroupTab): boolean {
+		if (tab.panel === 'media')
+			return leftPanel === 'media' && mediaPanelView === (tab.view ?? 'project');
+		return leftPanel === tab.panel;
+	}
+
+	function openLeftGroupTab(tab: LeftGroupTab): void {
+		if (tab.panel === 'media') mediaPanelView = tab.view ?? 'project';
+		openLeftPanel(tab.panel);
+	}
 	const selectedLeftPanelItemIds = $derived(
 		selectedItemIds.length > 0 ? selectedItemIds : selectedItemId ? [selectedItemId] : []
 	);
 
 	function moveLeftPanelFocus(
 		event: KeyboardEvent,
-		value: LeftPanel,
+		value: string,
 		orientation: 'horizontal' | 'vertical'
 	): void {
-		const options =
+		const options: { value: string }[] =
 			orientation === 'vertical'
 				? [...railPanelOptions, ...utilityLeftPanelOptions]
 				: leftPanelOptions;
@@ -883,7 +971,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		const next = options[nextIndex];
 		if (!next) return;
 		event.preventDefault();
-		leftPanel = next.value;
+		if (next.value === 'ai') {
+			if (leftPanel !== 'ai') openLeftPanel('ai');
+		} else {
+			const group = next.value as LeftRailGroup;
+			if (leftGroupForPanel(leftPanel) !== group) openLeftPanel(leftGroupPanel[group]);
+		}
 		if (orientation === 'vertical') expandLeftSidebar();
 		requestAnimationFrame(() => {
 			document
@@ -901,7 +994,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		if (selectedItemId) {
 			return timelineStore.itemById.get(selectedItemId)?.label.trim() || m.video_editor_clip();
 		}
-		return m.video_editor_tools();
+		return displayedProject?.name.trim() || m.video_editor_shortcuts_section_project();
 	});
 	const selectedTranscriptionJob = $derived(
 		selectedItemId ? transcriptionService.jobForItem(selectedItemId) : undefined
@@ -2455,7 +2548,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	<title>{editorSession.project?.name ?? appBranding.title(m.video_editor_title())}</title>
 </svelte:head>
 
-{#snippet leftPanelIcon(option: LeftPanelOption, className?: string)}
+{#snippet leftPanelIcon(option: LeftPanelOption | LeftRailOption, className?: string)}
 	{#if option.iconKind === 'protected'}
 		<ProtectedIcon icon={option.icon} class={className} />
 	{:else}
@@ -2504,7 +2597,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 								{...props}
 								variant="ghost"
 								size="sm"
-								class="h-8 max-w-16 min-w-0 truncate px-2 text-sm font-medium text-[var(--video-editor-text)] hover:bg-[var(--video-editor-control)] sm:max-w-28 md:max-w-48"
+								class="hidden h-8 max-w-16 min-w-0 truncate px-2 text-sm font-medium text-[var(--video-editor-text)] hover:bg-[var(--video-editor-control)] sm:inline-flex sm:max-w-28 md:max-w-48"
 								title={m.video_editor_project_details()}
 								data-project-details
 							>
@@ -2844,7 +2937,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									: 'lg:row-span-1'} lg:flex lg:h-auto lg:min-h-0 {leftSidebarRail
 									? 'lg:w-11 lg:overflow-hidden'
 									: 'lg:w-auto'} lg:border-r lg:border-b-0 {mobileEditPane === 'assets'
-									? 'flex'
+									? 'fixed inset-x-0 bottom-14 z-40 max-h-[72dvh] flex-none overflow-hidden rounded-t-xl border-t border-b-0 shadow-2xl lg:relative lg:inset-auto lg:z-auto lg:max-h-none lg:flex-1 lg:overflow-visible lg:rounded-none lg:border-t-0 lg:border-b lg:shadow-none'
 									: 'hidden'}"
 								aria-label={m.video_editor_assets()}
 							>
@@ -2868,18 +2961,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 															{#snippet child({ props })}
 																<Button
 																	{...props}
-																	variant={leftPanel === option.value ? 'secondary' : 'ghost'}
+																	variant={leftGroupForPanel(leftPanel) === option.value
+																		? 'secondary'
+																		: 'ghost'}
 																	size="icon-sm"
 																	class="shrink-0 text-[var(--video-editor-muted)] data-[active=true]:text-[var(--video-editor-focus)]"
-																	data-active={leftPanel === option.value}
+																	data-active={leftGroupForPanel(leftPanel) === option.value}
 																	data-left-panel-tab={option.value}
 																	data-tab-orientation="vertical"
 																	role="tab"
-																	tabindex={leftPanel === option.value ? 0 : -1}
+																	tabindex={leftGroupForPanel(leftPanel) === option.value ? 0 : -1}
 																	aria-controls="video-editor-left-tool-panel"
 																	aria-label={option.label}
-																	aria-selected={leftPanel === option.value}
-																	onclick={() => toggleLeftPanel(option.value)}
+																	aria-selected={leftGroupForPanel(leftPanel) === option.value}
+																	onclick={() => toggleLeftGroup(option.value)}
 																	onkeydown={(event) =>
 																		moveLeftPanelFocus(event, option.value, 'vertical')}
 																>
@@ -2987,15 +3082,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											{#each leftPanelOptions as option (option.value)}
 												<button
 													type="button"
-													class:active={leftPanel === option.value}
-													class="relative flex min-h-8 shrink-0 items-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
+													class:active={leftGroupForPanel(leftPanel) === option.value}
+													class="relative flex min-h-8 shrink-0 items-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-navigation-active [&.active]:text-navigation-active-foreground [@media(pointer:coarse)]:min-h-11"
 													data-left-panel-tab={option.value}
 													data-tab-orientation="horizontal"
 													role="tab"
-													tabindex={leftPanel === option.value ? 0 : -1}
+													tabindex={leftGroupForPanel(leftPanel) === option.value ? 0 : -1}
 													aria-controls="video-editor-left-tool-panel"
-													aria-selected={leftPanel === option.value}
-													onclick={() => (leftPanel = option.value)}
+													aria-selected={leftGroupForPanel(leftPanel) === option.value}
+													onclick={() => activateLeftOption(option.value)}
 													onkeydown={(event) =>
 														moveLeftPanelFocus(event, option.value, 'horizontal')}
 												>
@@ -3014,46 +3109,34 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												</button>
 											{/each}
 										</div>
-										{#if leftPanel === 'media'}
+										{#if leftGroupTabs.length > 1}
 											<div
-												class="flex shrink-0 items-stretch gap-1 border-b border-[var(--video-editor-border)] px-2"
+												class="flex shrink-0 items-stretch gap-1 overflow-x-auto border-b border-[var(--video-editor-border)] px-2"
+												role="tablist"
+												aria-label={leftPanelHeading}
 											>
-												<button
-													type="button"
-													class="relative flex min-h-8 items-center gap-1.5 px-2 text-xs {mediaPanelView ===
-													'project'
-														? 'text-[var(--video-editor-text)]'
-														: 'text-[var(--video-editor-muted)]'} focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
-													aria-pressed={mediaPanelView === 'project'}
-													onclick={() => (mediaPanelView = 'project')}
-												>
-													<ProtectedIcon icon="editor-media" class="size-3.5" />
-													{m.video_editor_media_tab()}
-													{#if mediaPanelView === 'project'}
-														<span
-															class="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-navigation-active"
-															aria-hidden="true"
-														></span>
-													{/if}
-												</button>
-												<button
-													type="button"
-													class="relative flex min-h-8 items-center gap-1.5 px-2 text-xs {mediaPanelView ===
-													'scenes'
-														? 'text-[var(--video-editor-text)]'
-														: 'text-[var(--video-editor-muted)]'} focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
-													aria-pressed={mediaPanelView === 'scenes'}
-													onclick={() => (mediaPanelView = 'scenes')}
-												>
-													<ProtectedIcon icon="editor-scenes" class="size-3.5" />
-													{m.video_editor_scenes()}
-													{#if mediaPanelView === 'scenes'}
-														<span
-															class="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-navigation-active"
-															aria-hidden="true"
-														></span>
-													{/if}
-												</button>
+												{#each leftGroupTabs as tab (tab.label)}
+													<button
+														type="button"
+														class="relative flex min-h-8 shrink-0 items-center gap-1.5 px-2 text-xs {leftGroupTabActive(
+															tab
+														)
+															? 'text-[var(--video-editor-text)]'
+															: 'text-[var(--video-editor-muted)]'} focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+														role="tab"
+														data-left-group-tab={tab.panel}
+														aria-selected={leftGroupTabActive(tab)}
+														onclick={() => openLeftGroupTab(tab)}
+													>
+														{tab.label}
+														{#if leftGroupTabActive(tab)}
+															<span
+																class="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-navigation-active"
+																aria-hidden="true"
+															></span>
+														{/if}
+													</button>
+												{/each}
 											</div>
 										{/if}
 										<div
@@ -3198,9 +3281,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{/if}
 
 						<div
-							class="{activeWorkspace === 'edit' && mobileEditPane === 'assets'
-								? 'hidden lg:flex'
-								: 'flex'} min-h-0 w-full min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
+							class="flex min-h-0 w-full min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
 							'edit'
 								? 'lg:col-start-2 lg:row-start-1'
 								: ''}"
@@ -3313,7 +3394,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									: 'lg:row-span-1'} lg:flex lg:h-auto {rightSidebarRail
 									? 'lg:w-11 lg:overflow-hidden'
 									: 'lg:w-auto'} lg:border-t-0 lg:border-l {mobileEditPane === 'tools'
-									? 'flex'
+									? 'fixed inset-x-0 bottom-14 z-40 max-h-[72dvh] flex-none overflow-hidden rounded-t-xl border-t border-b-0 border-l-0 shadow-2xl lg:relative lg:inset-auto lg:z-auto lg:max-h-none lg:flex-1 lg:overflow-visible lg:rounded-none lg:border-t-0 lg:border-l lg:shadow-none'
 									: 'hidden'}"
 								aria-label={m.video_editor_tools()}
 							>
@@ -3626,43 +3707,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							/>
 						</div>
 					{/if}
-					{#if activeWorkspace === 'edit'}
-						<nav
-							class="grid shrink-0 grid-cols-3 border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1 lg:hidden"
-							aria-label={m.video_editor_mobile_panels()}
-						>
-							<button
-								type="button"
-								class:active={mobileEditPane === 'assets'}
-								class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-								aria-controls="video-editor-assets-panel"
-								aria-pressed={mobileEditPane === 'assets'}
-								onclick={() => (mobileEditPane = 'assets')}
-							>
-								{m.video_editor_assets()}
-							</button>
-							<button
-								type="button"
-								class:active={mobileEditPane === 'program'}
-								class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-								aria-controls="video-editor-program-panel"
-								aria-pressed={mobileEditPane === 'program'}
-								onclick={() => (mobileEditPane = 'program')}
-							>
-								{m.video_editor_program_monitor()}
-							</button>
-							<button
-								type="button"
-								class:active={mobileEditPane === 'tools'}
-								class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-								aria-controls="video-editor-tools-panel"
-								aria-pressed={mobileEditPane === 'tools'}
-								onclick={() => (mobileEditPane = 'tools')}
-							>
-								{m.video_editor_inspector()}
-							</button>
-						</nav>
-					{/if}
 					{#if activeWorkspace !== 'color' && !(activeWorkspace === 'motion' && !activeMotionComposition)}
 						<footer
 							class="relative flex shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)] {activeWorkspace ===
@@ -3749,6 +3793,82 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 								{/if}
 							</div>
 						</footer>
+					{/if}
+					{#if activeWorkspace === 'edit'}
+						<nav
+							class="flex shrink-0 items-stretch gap-0.5 border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-1 pt-1 lg:hidden"
+							aria-label={m.video_editor_mobile_panels()}
+						>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'assets' &&
+									leftGroupForPanel(leftPanel) === 'media'}
+								class="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded px-1 text-[10px] text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-navigation-active [&.active]:text-navigation-active-foreground"
+								aria-controls="video-editor-assets-panel"
+								aria-pressed={mobileEditPane === 'assets' &&
+									leftGroupForPanel(leftPanel) === 'media'}
+								onclick={() => {
+									mobileEditPane = 'assets';
+									openLeftGroup('media');
+								}}
+							>
+								<ProtectedIcon icon="editor-media" class="size-4" />
+								{m.video_editor_tool_media()}
+							</button>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'assets' &&
+									leftGroupForPanel(leftPanel) === 'text'}
+								class="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded px-1 text-[10px] text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-navigation-active [&.active]:text-navigation-active-foreground"
+								aria-controls="video-editor-assets-panel"
+								aria-pressed={mobileEditPane === 'assets' &&
+									leftGroupForPanel(leftPanel) === 'text'}
+								onclick={() => {
+									mobileEditPane = 'assets';
+									openLeftGroup('text');
+								}}
+							>
+								<ProtectedIcon icon="editor-text" class="size-4" />
+								{m.video_editor_tool_text()}
+							</button>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'assets' &&
+									leftGroupForPanel(leftPanel) === 'effects'}
+								class="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded px-1 text-[10px] text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-navigation-active [&.active]:text-navigation-active-foreground"
+								aria-controls="video-editor-assets-panel"
+								aria-pressed={mobileEditPane === 'assets' &&
+									leftGroupForPanel(leftPanel) === 'effects'}
+								onclick={() => {
+									mobileEditPane = 'assets';
+									openLeftGroup('effects');
+								}}
+							>
+								<ProtectedIcon icon="editor-effects" class="size-4" />
+								{m.video_editor_effects()}
+							</button>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'tools'}
+								class="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded px-1 text-[10px] text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-navigation-active [&.active]:text-navigation-active-foreground"
+								aria-controls="video-editor-tools-panel"
+								aria-pressed={mobileEditPane === 'tools'}
+								onclick={() => (mobileEditPane = 'tools')}
+							>
+								<ThemeIcon role="settings" class="size-4" />
+								{m.video_editor_inspector()}
+							</button>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'program'}
+								class="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded px-1 text-[10px] text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-navigation-active [&.active]:text-navigation-active-foreground"
+								aria-pressed={mobileEditPane === 'program'}
+								onclick={() => (mobileEditPane = 'program')}
+							>
+								<ProtectedIcon icon="editor-transitions" class="size-4" />
+								{m.video_editor_timeline()}
+							</button>
+						</nav>
 					{/if}
 				</div>
 			</div>

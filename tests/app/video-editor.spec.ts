@@ -304,7 +304,13 @@ test("transition feedback explains the single-clip requirement", async ({ page }
     .getByRole("button", { name: /Drag to move/ })
     .click({ modifiers: ["Shift"] });
   await expect(page.getByRole("heading", { name: "2 clips selected" })).toBeVisible();
-  await page.getByRole("tab", { name: "Transition", exact: true }).click();
+  if (!(await page.locator('[data-left-group-tab="transitions"]:visible').count())) {
+    await page
+      .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("tab", { name: "Effects", exact: true })
+      .click();
+  }
+  await page.locator('[data-left-group-tab="transitions"]:visible').click();
   await page.getByRole("button", { name: "Cross dissolve", exact: true }).click();
   await expect(
     page.getByText("Select one clip to add a transition.", { exact: true }),
@@ -426,8 +432,9 @@ test("Stock and Create keep working state while another tool is open", async ({
   await page.setViewportSize({ width: 1280, height: 500 });
   expect(providerRequests).toBe(0);
   const leftPanelTab = (value: string) => page.locator(`[data-left-panel-tab="${value}"]:visible`);
+  const leftGroupTab = (value: string) => page.locator(`[data-left-group-tab="${value}"]:visible`);
 
-  await leftPanelTab("stock").click();
+  await leftGroupTab("stock").click();
   await expect.poll(() => providerRequests).toBe(1);
   const query = page.getByRole("textbox", { name: "Search stock media", exact: true });
   await query.fill("Lisbon rooftops");
@@ -442,9 +449,9 @@ test("Stock and Create keep working state while another tool is open", async ({
   });
   const stockScrollTop = await stockPanel.evaluate((element) => element.scrollTop);
   expect(stockScrollTop).toBeGreaterThan(0);
-  await leftPanelTab("media").click();
+  await leftGroupTab("media").click();
   await expect(query).toBeHidden();
-  await leftPanelTab("stock").click();
+  await leftGroupTab("stock").click();
   expect(await stockPanel.evaluate((element) => element.scrollTop)).toBe(stockScrollTop);
   expect(providerRequests).toBe(1);
   await expect(query).toHaveValue("Lisbon rooftops");

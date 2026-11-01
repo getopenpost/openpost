@@ -35,8 +35,8 @@
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { Input } from '$lib/components/ui/input';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as Popover from '$lib/components/ui/popover';
 	import * as Select from '$lib/components/ui/select';
-	import { Slider } from '$lib/components/ui/slider';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import { canExtractEmbeddedSubtitles } from '$lib/video-editor/media/embedded-subtitle-service';
 	import type { MediaMetadata, ProjectAssetImporter } from '$lib/video-editor/media/types';
@@ -1150,6 +1150,120 @@
 					<ThemeIcon role="link" class="size-3.5" />
 				</Button>
 			{/if}
+			<Popover.Root>
+				<Popover.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							type="button"
+							variant="outline"
+							size="icon-xs"
+							aria-label={m.video_editor_media_view()}
+							title={m.video_editor_media_view()}
+							data-media-view-options
+						>
+							<ThemeIcon role="settings" class="size-3.5" />
+						</Button>
+					{/snippet}
+				</Popover.Trigger>
+				<Popover.Content align="end" class="video-editor-theme w-56 space-y-2">
+					<div class="space-y-1">
+						<span class="block px-1 text-[10px] text-muted-foreground">
+							{m.video_editor_media_filter()}
+						</span>
+						<Select.Root type="single" value={filter} onValueChange={changeFilter}>
+							<Select.Trigger
+								aria-label={m.video_editor_media_filter()}
+								class="h-[25px]! w-full! rounded-md! border-field-border! bg-field! px-1.5! py-0! text-[10px]! text-field-foreground! shadow-none! hover:translate-y-0! hover:bg-field-hover! aria-expanded:translate-y-0!"
+							>
+								{filter === 'all'
+									? m.video_editor_media_filter_all()
+									: filter === 'video'
+										? m.video_editor_media_filter_video()
+										: filter === 'audio'
+											? m.video_editor_media_filter_audio()
+											: filter === 'image'
+												? m.video_editor_media_filter_image()
+												: m.video_editor_media_filter_lottie()}
+							</Select.Trigger>
+							<Select.Content
+								class="video-editor-theme rounded-md! border-border! bg-popover! text-popover-foreground! shadow-lg!"
+							>
+								<Select.Item value="all">{m.video_editor_media_filter_all()}</Select.Item>
+								<Select.Item value="video">{m.video_editor_media_filter_video()}</Select.Item>
+								<Select.Item value="audio">{m.video_editor_media_filter_audio()}</Select.Item>
+								<Select.Item value="image">{m.video_editor_media_filter_image()}</Select.Item>
+								<Select.Item value="lottie">{m.video_editor_media_filter_lottie()}</Select.Item>
+							</Select.Content>
+						</Select.Root>
+					</div>
+					<div class="space-y-1">
+						<span class="block px-1 text-[10px] text-muted-foreground">
+							{m.video_editor_media_sort()}
+						</span>
+						<Select.Root type="single" value={sort} onValueChange={changeSort}>
+							<Select.Trigger
+								aria-label={m.video_editor_media_sort()}
+								class="h-[25px]! w-full! rounded-md! border-field-border! bg-field! px-1.5! py-0! text-[10px]! text-field-foreground! shadow-none! hover:translate-y-0! hover:bg-field-hover! aria-expanded:translate-y-0!"
+							>
+								{sort === 'added'
+									? m.video_editor_media_sort_added()
+									: sort === 'name'
+										? m.video_editor_media_sort_name()
+										: sort === 'duration'
+											? m.video_editor_media_sort_duration()
+											: m.video_editor_media_sort_size()}
+							</Select.Trigger>
+							<Select.Content
+								class="video-editor-theme rounded-md! border-border! bg-popover! text-popover-foreground! shadow-lg!"
+							>
+								<Select.Item value="added">{m.video_editor_media_sort_added()}</Select.Item>
+								<Select.Item value="name">{m.video_editor_media_sort_name()}</Select.Item>
+								<Select.Item value="duration">{m.video_editor_media_sort_duration()}</Select.Item>
+								<Select.Item value="size">{m.video_editor_media_sort_size()}</Select.Item>
+							</Select.Content>
+						</Select.Root>
+					</div>
+					<div class="flex items-center justify-between gap-2" data-editor-shortcuts-disabled>
+						<span class="px-1 text-[10px] text-muted-foreground">{m.video_editor_media_view()}</span
+						>
+						<div
+							class="flex shrink-0 overflow-hidden rounded-md border border-border bg-muted"
+							role="group"
+							aria-label={m.video_editor_media_view()}
+						>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-xs"
+								class="size-7! rounded-none! {assetViewMode === 'grid'
+									? 'bg-selection text-selection-foreground'
+									: ''}"
+								aria-label={m.media_grid_view()}
+								title={m.media_grid_view()}
+								aria-pressed={assetViewMode === 'grid'}
+								onclick={() => editorSettings.set('mediaLibraryViewMode', 'grid')}
+							>
+								<ThemeIcon role="layout" class="size-3.5" />
+							</Button>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon-xs"
+								class="size-7! rounded-none! {assetViewMode === 'list'
+									? 'bg-selection text-selection-foreground'
+									: ''}"
+								aria-label={m.media_compact_view()}
+								title={m.media_compact_view()}
+								aria-pressed={assetViewMode === 'list'}
+								onclick={() => editorSettings.set('mediaLibraryViewMode', 'list')}
+							>
+								<ThemeIcon role="layout" class="size-3.5" />
+							</Button>
+						</div>
+					</div>
+				</Popover.Content>
+			</Popover.Root>
 		</div>
 		{#if mediaRecovery.scanning}
 			<div
@@ -1182,106 +1296,6 @@
 				<ThemeIcon role="chevron-right" class="size-3.5 shrink-0" />
 			</button>
 		{/if}
-		<div class="grid grid-cols-2 gap-1.5">
-			<div class="min-w-0">
-				<Select.Root type="single" value={filter} onValueChange={changeFilter}>
-					<Select.Trigger
-						aria-label={m.video_editor_media_filter()}
-						class="h-[25px]! w-full! rounded-md! border-field-border! bg-field! px-1.5! py-0! text-[10px]! text-field-foreground! shadow-none! hover:translate-y-0! hover:bg-field-hover! aria-expanded:translate-y-0!"
-					>
-						{filter === 'all'
-							? m.video_editor_media_filter_all()
-							: filter === 'video'
-								? m.video_editor_media_filter_video()
-								: filter === 'audio'
-									? m.video_editor_media_filter_audio()
-									: filter === 'image'
-										? m.video_editor_media_filter_image()
-										: m.video_editor_media_filter_lottie()}
-					</Select.Trigger>
-					<Select.Content
-						class="video-editor-theme rounded-md! border-border! bg-popover! text-popover-foreground! shadow-lg!"
-					>
-						<Select.Item value="all">{m.video_editor_media_filter_all()}</Select.Item>
-						<Select.Item value="video">{m.video_editor_media_filter_video()}</Select.Item>
-						<Select.Item value="audio">{m.video_editor_media_filter_audio()}</Select.Item>
-						<Select.Item value="image">{m.video_editor_media_filter_image()}</Select.Item>
-						<Select.Item value="lottie">{m.video_editor_media_filter_lottie()}</Select.Item>
-					</Select.Content>
-				</Select.Root>
-			</div>
-			<div class="min-w-0">
-				<Select.Root type="single" value={sort} onValueChange={changeSort}>
-					<Select.Trigger
-						aria-label={m.video_editor_media_sort()}
-						class="h-[25px]! w-full! rounded-md! border-field-border! bg-field! px-1.5! py-0! text-[10px]! text-field-foreground! shadow-none! hover:translate-y-0! hover:bg-field-hover! aria-expanded:translate-y-0!"
-					>
-						{sort === 'added'
-							? m.video_editor_media_sort_added()
-							: sort === 'name'
-								? m.video_editor_media_sort_name()
-								: sort === 'duration'
-									? m.video_editor_media_sort_duration()
-									: m.video_editor_media_sort_size()}
-					</Select.Trigger>
-					<Select.Content
-						class="video-editor-theme rounded-md! border-border! bg-popover! text-popover-foreground! shadow-lg!"
-					>
-						<Select.Item value="added">{m.video_editor_media_sort_added()}</Select.Item>
-						<Select.Item value="name">{m.video_editor_media_sort_name()}</Select.Item>
-						<Select.Item value="duration">{m.video_editor_media_sort_duration()}</Select.Item>
-						<Select.Item value="size">{m.video_editor_media_sort_size()}</Select.Item>
-					</Select.Content>
-				</Select.Root>
-			</div>
-		</div>
-		<div class="flex min-w-0 items-center justify-end gap-2" data-editor-shortcuts-disabled>
-			{#if assetViewMode === 'grid'}
-				<Slider
-					class="min-w-12 flex-1"
-					min={1}
-					max={5}
-					step={1}
-					value={assetGridSize}
-					ariaLabel={m.video_editor_media_card_size()}
-					onValueChange={(value) => editorSettings.set('mediaLibraryItemSize', value)}
-				/>
-			{/if}
-			<div
-				class="flex shrink-0 overflow-hidden rounded-md border border-border bg-muted"
-				role="group"
-				aria-label={m.video_editor_media_view()}
-			>
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon-xs"
-					class="size-7! rounded-none! {assetViewMode === 'grid'
-						? 'bg-selection text-selection-foreground'
-						: ''}"
-					aria-label={m.media_grid_view()}
-					title={m.media_grid_view()}
-					aria-pressed={assetViewMode === 'grid'}
-					onclick={() => editorSettings.set('mediaLibraryViewMode', 'grid')}
-				>
-					<ThemeIcon role="layout" class="size-3.5" />
-				</Button>
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon-xs"
-					class="size-7! rounded-none! {assetViewMode === 'list'
-						? 'bg-selection text-selection-foreground'
-						: ''}"
-					aria-label={m.media_compact_view()}
-					title={m.media_compact_view()}
-					aria-pressed={assetViewMode === 'list'}
-					onclick={() => editorSettings.set('mediaLibraryViewMode', 'list')}
-				>
-					<ThemeIcon role="layout" class="size-3.5" />
-				</Button>
-			</div>
-		</div>
 		{#if selectedAssetCount > 0}
 			<div
 				class="flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-muted px-1.5 py-1"
@@ -1451,7 +1465,7 @@
 													{...props}
 													variant="ghost"
 													size="icon-xs"
-													class="size-8! text-muted-foreground opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus:opacity-100 sm:size-7! [@media(pointer:coarse)]:size-11!"
+													class="size-8! text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-accent-foreground focus:opacity-100 sm:size-7! [@media(pointer:coarse)]:size-11! [@media(pointer:coarse)]:opacity-100"
 													aria-label={`${m.video_editor_sequence_options()}: ${sequence.name}`}
 												>
 													<ThemeIcon role="more-horizontal" class="size-3.5" />
@@ -1649,7 +1663,7 @@
 														{...props}
 														variant="ghost"
 														size="icon-xs"
-														class="size-8! text-muted-foreground opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus:opacity-100 sm:size-7! [@media(pointer:coarse)]:size-11! {assetViewMode ===
+														class="size-8! text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-accent-foreground focus:opacity-100 sm:size-7! [@media(pointer:coarse)]:size-11! [@media(pointer:coarse)]:opacity-100 {assetViewMode ===
 														'grid'
 															? 'justify-self-center'
 															: ''}"
@@ -1838,7 +1852,7 @@
 									{/if}
 									<button
 										type="button"
-										class="flex size-11 shrink-0 items-center justify-center rounded text-muted-foreground opacity-70 hover:bg-accent hover:text-accent-foreground hover:opacity-100 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30 sm:size-7 {assetViewMode ===
+										class="flex size-11 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-accent-foreground focus:opacity-100 focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-30 sm:size-7 [@media(pointer:coarse)]:opacity-100 {assetViewMode ===
 										'grid'
 											? 'justify-self-center'
 											: ''}"

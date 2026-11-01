@@ -37,6 +37,8 @@ test("Inbox platform filter announces its selected platform and keyboard reset",
       writes.push(`${req.method()} ${new URL(req.url()).pathname}`);
   });
   await page.goto("/inbox/engagement");
+  // The platform filter lives in the Filters popover on the calm Inbox surface.
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
   const platform = page.getByRole("button").filter({ hasText: /All platforms|LinkedIn|Bluesky/ });
   await expect(platform).toHaveAccessibleName("All platforms");
   await platform.click();

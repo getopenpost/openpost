@@ -18,7 +18,7 @@ test("theme thumbnails keep each palette paired while switching schemes", async 
   await page.setViewportSize({ width: 390, height: 1000 });
   await page.goto("/settings?tab=appearance");
   await expect(
-    page.getByRole("heading", { name: "Appearance", exact: true }).first(),
+    page.locator('[data-theme-library-card="dither"] [data-dither-button="always"]'),
   ).toBeVisible();
 
   const button = page.locator('[data-theme-library-card="dither"] [data-dither-button="always"]');

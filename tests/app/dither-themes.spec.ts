@@ -19,7 +19,7 @@ test("Dither themes render readable controls and charts at desktop and phone wid
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/settings?tab=appearance");
-  await expect(page.getByRole("heading", { name: "Appearance", exact: true }).first()).toBeVisible({
+  await expect(page.locator("[data-theme-library-card]").first()).toBeVisible({
     timeout: 30_000,
   });
   await page.getByRole("button", { name: "Test Workshop", exact: true }).click();
@@ -109,7 +109,7 @@ test("Dither themes apply, survive reload, and restore Workshop", async ({ page,
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/settings?tab=appearance");
-  await expect(page.getByRole("heading", { name: "Appearance", exact: true }).first()).toBeVisible({
+  await expect(page.locator("[data-theme-library-card]").first()).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.locator("html")).toHaveAttribute("data-theme-id", "calm");

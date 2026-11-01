@@ -29,7 +29,7 @@ test("workflow tabs read only their data and distinguish failed history from an 
   await page.goto("/workflows");
   await expect(page.getByRole("link", { name: /Visible workflow/ })).toBeVisible();
   expect(unrelatedReads).toEqual([]);
-  await page.getByRole("button", { name: "Start from a template", exact: true }).click();
+  await page.getByRole("tab", { name: "Start from a template", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Use template", exact: true }).first(),
   ).toBeVisible();
@@ -52,7 +52,7 @@ test("workflow tabs read only their data and distinguish failed history from an 
   await page.getByRole("tab", { name: "Runs", exact: true }).click();
   await expect(page.getByTestId("page-loading")).toBeVisible();
   await expect(page.getByText("No runs yet", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Start from a template", exact: true }).click();
+  await page.getByRole("tab", { name: "Start from a template", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Use template", exact: true }).first(),
   ).toBeVisible();

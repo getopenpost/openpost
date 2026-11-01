@@ -43,7 +43,7 @@ async function addStep(page: import("@playwright/test").Page, name: string) {
   await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(name);
 }
 async function releaseTemplate(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: "Start from a template", exact: true }).first().click();
+  await page.getByRole("tab", { name: "Start from a template", exact: true }).click();
   await page
     .getByRole("heading", { name: "Announce a GitHub release", exact: true })
     .locator("..")
@@ -55,7 +55,7 @@ async function releaseTemplate(page: import("@playwright/test").Page) {
 
 test("template graphs stay centered when their cards resize", async ({ page }) => {
   await openWorkflows(page);
-  await page.getByRole("button", { name: "Start from a template", exact: true }).first().click();
+  await page.getByRole("tab", { name: "Start from a template", exact: true }).click();
   const card = page
     .getByRole("heading", { name: "Announce a GitHub release", exact: true })
     .locator("../..");
@@ -341,7 +341,11 @@ test.describe("workflow touch controls", () => {
     await openWorkflows(page);
     await page.getByRole("button", { name: "New workflow", exact: true }).click();
     for (const label of ["Add step", "Editor", "Publish workflow", "Run preview"]) {
-      const control = page.getByRole("button", { name: label, exact: true }).first();
+      const control = (
+        label === "Editor"
+          ? page.getByRole("tab", { name: label, exact: true })
+          : page.getByRole("button", { name: label, exact: true })
+      ).first();
       await expect(control).toBeVisible();
       const bounds = await control.boundingBox();
       expect(bounds?.height).toBeGreaterThanOrEqual(44);

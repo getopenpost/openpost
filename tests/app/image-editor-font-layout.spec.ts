@@ -86,12 +86,11 @@ test("live font changes preserve saved multiline canvas layout", async ({
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       );
     });
-    const image = sharp(await canvas.screenshot());
-    const size = await image.metadata();
-    if (!size.width || !size.height) throw new Error("Canvas screenshot dimensions unavailable");
-    // This fixture's three text lines occupy the upper half; exclude the floating view toolbar.
-    const rendered = await image
-      .extract({ left: 0, top: 0, width: size.width, height: Math.floor(size.height / 2) })
+    // Read the full artwork without CSS scaling or the floating view toolbar.
+    const png = await canvas.evaluate((element: HTMLCanvasElement) =>
+      element.toDataURL("image/png"),
+    );
+    const rendered = await sharp(Buffer.from(png.split(",")[1], "base64"))
       .ensureAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
@@ -101,6 +100,13 @@ test("live font changes preserve saved multiline canvas layout", async ({
       hash: createHash("sha256").update(rendered.data).digest("hex"),
     };
   };
+  // Selection controls are painted into Fabric's lower canvas too. Compare
+  // artwork in the same unselected state as a freshly opened design.
+  await page.keyboard.press("ControlOrMeta+d");
+  await expect(page.getByRole("treeitem", { name: /Multiline text/ })).toHaveAttribute(
+    "aria-selected",
+    "false",
+  );
   const live = await pixels();
   await canvas.screenshot({ path: testInfo.outputPath("font-live.png") });
   await page.reload();

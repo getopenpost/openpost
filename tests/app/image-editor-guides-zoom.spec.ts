@@ -8,9 +8,12 @@ test("Select allows ruler guide dragging, one undo and persisted keyboard recove
   await page.getByRole("button", { name: "New project", exact: true }).click();
   await page.getByRole("menubar").getByRole("menuitem", { name: "View", exact: true }).click();
   const rulers = page.getByRole("menuitemcheckbox", { name: "Rulers", exact: true });
-  if ((await rulers.getAttribute("aria-checked")) !== "true") await rulers.click();
-  await rulers.focus();
-  await page.keyboard.press("Escape");
+  if ((await rulers.getAttribute("aria-checked")) !== "true") {
+    await rulers.click();
+  } else {
+    await rulers.focus();
+    await page.keyboard.press("Escape");
+  }
   await expect(page.getByRole("menu")).toHaveCount(0);
   const stage = page.getByTestId("image-editor-stage");
   const vertical = page.getByRole("button", { name: "Drag to add a vertical guide", exact: true });

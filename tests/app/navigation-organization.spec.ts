@@ -44,7 +44,7 @@ test("navigation separates work, workspace management, and personal preferences"
   await page.keyboard.press("Escape");
   await page.getByTestId("workspace-menu-trigger").click();
   await page.getByRole("menuitem", { name: "Connected accounts", exact: true }).click();
-  await expect(page).toHaveURL(/settings\?tab=accounts/);
+  await expect(page).toHaveURL(/\/accounts$/);
   await page.goto("/publications");
   await page
     .getByRole("navigation", { name: "Post view" })

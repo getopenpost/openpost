@@ -61,10 +61,7 @@ test("Video Editor distinguishes verified project media from its frame download 
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
   await page.getByRole("tab", { name: "Edit", exact: true }).click();
-  await page
-    .getByRole("complementary", { name: "Assets", exact: true })
-    .getByRole("button", { name: "Add layer", exact: true })
-    .click();
+  await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
   await page

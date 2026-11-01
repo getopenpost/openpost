@@ -320,6 +320,7 @@
 						type="button"
 						disabled={locked}
 						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
+						data-property-affordance
 						aria-label={m.video_editor_property_reset_position()}
 						onclick={() => reset(() => ({ x: 0, y: 0 }))}
 					>
@@ -361,6 +362,7 @@
 						type="button"
 						disabled={locked}
 						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
+						data-property-affordance
 						aria-label={m.video_editor_property_reset_size()}
 						onclick={resetSize}
 					>
@@ -406,6 +408,7 @@
 						type="button"
 						disabled={locked}
 						class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
+						data-property-affordance
 						aria-label={m.video_editor_property_reset_rotation()}
 						onclick={() => reset(() => ({ rotation: 0 }))}
 					>
@@ -457,6 +460,7 @@
 							type="button"
 							disabled={locked}
 							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
+							data-property-affordance
 							aria-label={m.video_editor_property_reset_anchor()}
 							onclick={() =>
 								reset((item) => ({
@@ -556,6 +560,7 @@
 							type="button"
 							disabled={locked}
 							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
+							data-property-affordance
 							aria-label={m.video_editor_property_reset_opacity()}
 							onclick={() => reset(() => ({ opacity: 1 }))}
 						>
@@ -594,6 +599,7 @@
 							type="button"
 							disabled={locked}
 							class="grid size-[22px] shrink-0 place-items-center rounded text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:size-11"
+							data-property-affordance
 							aria-label={m.video_editor_property_reset_radius()}
 							onclick={() => reset(() => ({ cornerRadius: 0 }))}
 						>

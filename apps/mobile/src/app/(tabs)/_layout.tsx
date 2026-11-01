@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { inboxSummaryQueryOptions } from "@openpost/query-catalog";
 import { mobileInboxAPI } from "@/lib/inbox/api";
-import { useWorkspaceId } from "@/lib/queries";
+import { useWorkspaceCapabilities, useWorkspaceId } from "@/lib/queries";
 import { InboxSessionBoundary } from "@/components/inbox/session-boundary";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useColors } from "@/components/ui";
@@ -18,6 +18,7 @@ export default function TabLayout() {
 function NativeTabLayout() {
   const colors = useColors();
   const workspaceId = useWorkspaceId() ?? "";
+  const canEdit = Boolean(useWorkspaceCapabilities()?.can_edit);
   const summary = useQuery({
     ...inboxSummaryQueryOptions(mobileInboxAPI, workspaceId),
     refetchInterval: 60_000,
@@ -74,7 +75,7 @@ function NativeTabLayout() {
         <NativeTabs.Trigger.Label>Posts</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon renderingMode="template" src={drafts} />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="new">
+      <NativeTabs.Trigger name="new" hidden={!canEdit}>
         <NativeTabs.Trigger.Label>New</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="plus" md="add" />
       </NativeTabs.Trigger>

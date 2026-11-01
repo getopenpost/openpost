@@ -3,7 +3,7 @@
 import { registerRootComponent } from "expo";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import AnalyticsScreen from "../../src/app/(tabs)/analytics";
+import AnalyticsScreen from "../../src/app/analytics";
 import { NativeThemeRuntime } from "../../src/theme";
 import { loadServer } from "../../src/lib/server";
 import { loadToken, loadWorkspaceId } from "../../src/lib/api/token-store";

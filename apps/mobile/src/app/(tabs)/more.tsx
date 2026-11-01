@@ -10,6 +10,18 @@ export default function MoreScreen() {
       <WorkspaceHeader />
       <ScrollView contentContainerStyle={{ padding: spacing.large, gap: 12 }}>
         <Button
+          title="Analytics"
+          icon="analytics"
+          intent="ordinary"
+          onPress={() => router.push("/analytics")}
+        />
+        <Button
+          title="Media"
+          icon="gallery"
+          intent="ordinary"
+          onPress={() => router.push("/media")}
+        />
+        <Button
           title="Video Projects"
           icon="videoProjects"
           intent="ordinary"

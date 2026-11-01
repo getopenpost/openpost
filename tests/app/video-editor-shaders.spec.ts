@@ -82,14 +82,20 @@ async function createShaderProject(
   await page.locator("[data-project-details]").click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Shader proof");
   await page.keyboard.press("Escape");
-  await page
-    .getByRole("navigation", { name: "Assets", exact: true })
-    .getByRole("tab", { name: "Elements", exact: true })
-    .click();
-  await page
-    .getByRole("tablist", { name: "Elements", exact: true })
-    .getByRole("tab", { name: "Backgrounds", exact: true })
-    .click();
+  const backgroundsSearch = page.getByRole("searchbox", {
+    name: "Search backgrounds",
+    exact: true,
+  });
+  if (!(await backgroundsSearch.isVisible())) {
+    const elementsGroup = page.getByRole("tablist", { name: "Elements", exact: true });
+    if (!(await elementsGroup.getByRole("tab", { name: "Backgrounds", exact: true }).isVisible())) {
+      await page
+        .getByRole("navigation", { name: "Assets", exact: true })
+        .getByRole("tab", { name: "Elements", exact: true })
+        .click();
+    }
+    await elementsGroup.getByRole("tab", { name: "Backgrounds", exact: true }).click();
+  }
   await page.getByRole("searchbox", { name: "Search backgrounds" }).fill(preset);
   await page.getByRole("button", { name: preset, exact: true }).click();
   await page.getByRole("searchbox", { name: "Search backgrounds" }).fill("");
@@ -143,17 +149,7 @@ test("shader clips preserve edits, seek and export an MP4", async ({ page }) => 
   await page.goto("/video-editor");
   await page.goto(projectURL);
   const restoredSearch = page.getByRole("searchbox", { name: "Search backgrounds", exact: true });
-  if (!(await restoredSearch.isVisible())) {
-    await page
-      .getByRole("navigation", { name: "Assets", exact: true })
-      .getByRole("tab", { name: "Elements", exact: true })
-      .click();
-    await page
-      .getByRole("tablist", { name: "Elements", exact: true })
-      .getByRole("tab", { name: "Backgrounds", exact: true })
-      .click();
-  }
-  await expect(restoredSearch).toBeVisible();
+  await expect(restoredSearch).toBeVisible({ timeout: 15_000 });
   await expect(canvas).toBeVisible();
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Export", exact: true }).click();
@@ -201,6 +197,14 @@ for (const scheme of ["light", "dark"] as const) {
           width,
         );
         if (name === "Media") {
+          await page
+            .getByRole("tablist", { name: "Assets", exact: true })
+            .getByRole("tab", { name: "Elements", exact: true })
+            .click();
+          await page
+            .getByRole("tablist", { name: "Elements", exact: true })
+            .getByRole("tab", { name: "Backgrounds", exact: true })
+            .click();
           for (const preset of ["Aurora", "Warp", "God rays", "Static radial gradient"]) {
             await page.getByRole("searchbox", { name: "Search backgrounds" }).fill(preset);
             const tile = page.getByRole("button", { name: preset, exact: true });

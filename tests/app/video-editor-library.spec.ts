@@ -312,7 +312,18 @@ for (const scheme of ["light", "dark"] as const) {
     await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 });
-      await page.getByRole("button", { name: "Assets", exact: true }).click();
+      await page
+        .getByRole("navigation", { name: "Editor panels", exact: true })
+        .getByRole("button", { name: "Media", exact: true })
+        .click();
+      await page
+        .getByRole("tablist", { name: "Assets", exact: true })
+        .getByRole("tab", { name: "Elements", exact: true })
+        .click();
+      await page
+        .getByRole("tablist", { name: "Elements", exact: true })
+        .getByRole("tab", { name: "Timers", exact: true })
+        .click();
       await expect(
         page.getByRole("button", { name: "My rest timer", exact: true }).first(),
       ).toBeVisible();

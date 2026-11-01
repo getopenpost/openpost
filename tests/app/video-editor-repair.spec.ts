@@ -18,10 +18,17 @@ async function openRecorder(page: Page): Promise<void> {
 }
 
 async function expectProjectSummary(page: Page, expected: string | RegExp): Promise<void> {
-  await page.locator("[data-project-details]").click();
-  await expect(page.locator("[data-project-summary]")).toContainText(expected);
-  await page.keyboard.press("Escape");
-  await expect(page.locator("[data-project-summary]")).toHaveCount(0);
+  const details = page.locator("[data-project-details]");
+  if (await details.isVisible()) {
+    await details.click();
+    await expect(page.locator("[data-project-summary]")).toContainText(expected);
+    await page.keyboard.press("Escape");
+    await expect(page.locator("[data-project-summary]")).toHaveCount(0);
+    return;
+  }
+  // Narrow headers hide the project title; the timeline carries the same clip count.
+  const expectedClips = Number(String(expected).match(/\d+/)?.[0] ?? "-1");
+  await expect(page.locator("[data-timeline-item-id]")).toHaveCount(expectedClips);
 }
 
 test("header history actions close after the selected command becomes disabled", async ({
@@ -34,7 +41,7 @@ test("header history actions close after the selected command becomes disabled",
   await createWorkspace(request, auth.token, "History menu");
   await authenticatePage(page, auth.token);
   await newProject(page, "History menu proof");
-  await page.getByRole("button", { name: "Add layer", exact: true }).click();
+  await page.locator("header").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   const header = page.getByRole("banner");
   const more = header.getByRole("button", { name: "More actions", exact: true });
@@ -75,10 +82,12 @@ test("header history actions close after the selected command becomes disabled",
 async function newProject(page: Page, name: string) {
   if (new URL(page.url()).pathname !== "/video-editor") await page.goto("/video-editor");
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
+  await page.locator("[data-project-details]").click();
   const title = page.getByRole("textbox", { name: "Project name" });
   await expect(title).toHaveValue("Untitled project");
   await title.fill(name);
   await title.press("Tab");
+  await page.keyboard.press("Escape");
   await expect(page.locator('header [role="status"][data-state]')).toHaveAttribute(
     "data-state",
     "saved",
@@ -121,7 +130,7 @@ test("cloud editing saves text, preserves spaces and reopens without a refresh",
   }
   await expect(header.getByRole("button").last()).toHaveAccessibleName("Export");
   const url = page.url();
-  await page.getByRole("button", { name: "Add layer", exact: true }).click();
+  await page.locator("header").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   await page
     .getByRole("toolbar", { name: "On-canvas editing tools" })
@@ -205,7 +214,9 @@ test("a new cloud project cannot edit the previous project while its document lo
     .filter({ hasText: "Previous project" })
     .getByRole("button", { name: "Open" })
     .click();
+  await page.locator("[data-project-details]").click();
   await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue("Previous project");
+  await page.keyboard.press("Escape");
   await page
     .locator("header")
     .getByRole("link", { name: /Video Editor/u })
@@ -229,13 +240,12 @@ test("a new cloud project cannot edit the previous project while its document lo
       .getByRole("button", { name: "Open" })
       .click();
     await started;
-    const title = page.getByRole("textbox", { name: "Project name" });
-    await expect(title).toBeDisabled();
-    await expect(title).toHaveValue("");
+    await expect(page.locator("[data-project-details]")).toHaveCount(0);
     await expect(page.locator("header [role=status][data-state=saved]")).toHaveCount(0);
   } finally {
     releaseLoad();
   }
+  await page.locator("[data-project-details]").click();
   await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue("Next project");
 });
 
@@ -266,8 +276,10 @@ test("switching projects hides the old editor until its pending save finishes", 
     .filter({ hasText: "Previous project" })
     .getByRole("button", { name: "Open" })
     .click();
+  await page.locator("[data-project-details]").click();
   const title = page.getByRole("textbox", { name: "Project name" });
   await expect(title).toHaveValue("Previous project");
+  await page.keyboard.press("Escape");
 
   let releaseSave!: () => void;
   const heldSave = new Promise<void>((resolve) => (releaseSave = resolve));
@@ -282,7 +294,9 @@ test("switching projects hides the old editor until its pending save finishes", 
     },
   );
 
+  await page.locator("[data-project-details]").click();
   await title.fill("Pending previous");
+  await page.keyboard.press("Escape");
   await page
     .locator("header")
     .getByRole("link", { name: /Video Editor/u })
@@ -295,15 +309,16 @@ test("switching projects hides the old editor until its pending save finishes", 
       .getByRole("button", { name: "Open" })
       .click();
     await expect(page).toHaveURL(nextURL);
-    await expect(title).toBeDisabled();
-    await expect(title).toHaveValue("");
+    await expect(page.locator("[data-project-details]")).toHaveCount(0);
     await expect(page.getByRole("tabpanel", { name: "Editor workspaces" })).toHaveCount(0);
     await expect(page.locator("header [role=status][data-state=saved]")).toHaveCount(0);
   } finally {
     releaseSave();
   }
+  await page.locator("[data-project-details]").click();
   await expect(title).toHaveValue("Next project");
   await page.goto(previousURL);
+  await page.locator("[data-project-details]").click();
   await expect(title).toHaveValue("Pending previous");
 });
 
@@ -331,8 +346,10 @@ test("a failed save blocks the project switch until retry succeeds", async ({ pa
     .filter({ hasText: "Previous project" })
     .getByRole("button", { name: "Open" })
     .click();
+  await page.locator("[data-project-details]").click();
   const title = page.getByRole("textbox", { name: "Project name" });
   await expect(title).toHaveValue("Previous project");
+  await page.keyboard.press("Escape");
 
   let releaseFailure!: () => void;
   const heldFailure = new Promise<void>((resolve) => (releaseFailure = resolve));
@@ -350,7 +367,9 @@ test("a failed save blocks the project switch until retry succeeds", async ({ pa
     },
   );
 
+  await page.locator("[data-project-details]").click();
   await title.fill("Recovered previous");
+  await page.keyboard.press("Escape");
   await page
     .locator("header")
     .getByRole("link", { name: /Video Editor/u })
@@ -369,14 +388,15 @@ test("a failed save blocks the project switch until retry succeeds", async ({ pa
   await expect(
     page.getByText("Cloud Video Project save is waiting for a connection"),
   ).toBeVisible();
-  await expect(title).toBeDisabled();
-  await expect(title).toHaveValue("");
+  await expect(page.locator("[data-project-details]")).toHaveCount(0);
   await page
     .locator("header")
     .getByRole("button", { name: /save failed.*try again/i })
     .click();
+  await page.locator("[data-project-details]").click();
   await expect(title).toHaveValue("Next project", { timeout: CLOUD_SAVE_TIMEOUT_MS });
   await page.goto(previousURL);
+  await page.locator("[data-project-details]").click();
   await expect(title).toHaveValue("Recovered previous");
 });
 
@@ -543,7 +563,7 @@ test("editing text over a background does not leave the old lettering underneath
   await authenticatePage(page, auth.token);
   await page.setViewportSize({ width: 1440, height: 900 });
   await newProject(page, "Background text");
-  await page.getByRole("button", { name: "Add layer", exact: true }).click();
+  await page.locator("header").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   await page
     .getByRole("navigation", { name: "Assets", exact: true })

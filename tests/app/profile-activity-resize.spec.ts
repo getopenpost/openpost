@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
@@ -9,7 +10,7 @@ test("profile resizing keeps recent activity visible and older dates keyboard re
   request,
 }, testInfo) => {
   const { token } = await registerUser(request, `profile-resize-${randomUUID()}@example.com`);
-  await createWorkspace(request, token, "Profile resizing");
+  const workspace = await createWorkspace(request, token, "Profile resizing");
   const headers = { Authorization: `Bearer ${token}` };
   const saved = await request.patch("/api/v1/auth/profile", {
     headers,
@@ -21,6 +22,28 @@ test("profile resizing keeps recent activity visible and older dates keyboard re
   });
   expect(saved.ok(), await saved.text()).toBe(true);
   const identity = await (await request.get("/api/v1/auth/me", { headers })).json();
+  // The public profile hides the activity section while every publishing stat is
+  // zero, so the scroller needs at least one published post to render.
+  const publication = await request.post("/api/v1/publications", {
+    headers,
+    data: {
+      workspace_id: workspace.id,
+      title: "Profile activity source",
+      content_profile: "short_text",
+      source_text: "A published post keeps the activity section visible.",
+      segments: [{ body: "A published post keeps the activity section visible." }],
+      renditions: [],
+    },
+  });
+  expect(publication.ok(), await publication.text()).toBe(true);
+  const created = await publication.json();
+  const database = `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`;
+  execFileSync("sqlite3", [
+    "-cmd",
+    ".timeout 5000",
+    database,
+    `UPDATE publications SET status='published', actual_run_at=datetime('now') WHERE id='${created.id}';`,
+  ]);
   await authenticatePage(page, token);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));

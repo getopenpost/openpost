@@ -272,7 +272,7 @@
 					<span
 						bind:this={draftDeleteReturnFocus}
 						tabindex="-1"
-						class="text-xs font-medium tracking-[0.1em] text-sidebar-foreground/70 uppercase outline-none"
+						class="text-xs font-medium text-sidebar-foreground/70 outline-none"
 						>{m.sidebar_drafts()}</span
 					>
 				</div>

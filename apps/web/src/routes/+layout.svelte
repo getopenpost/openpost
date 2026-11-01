@@ -30,7 +30,7 @@
 	import { Toaster } from '$lib/components/ui/sonner';
 	import { setUnsavedChanges, UnsavedChangesContext } from '$lib/unsaved-changes.svelte';
 	import { initializeAppTelemetry } from '$lib/telemetry';
-	import { isOrganizationOwnershipSettingsRoute } from '$lib/app-navigation';
+	import { isEditorRoute, isOrganizationOwnershipSettingsRoute } from '$lib/app-navigation';
 	import PublicHome from './_components/PublicHome.svelte';
 	import TelemetryConsent from '$lib/components/telemetry-consent.svelte';
 	import { QueryClientProvider } from '@tanstack/svelte-query';
@@ -112,6 +112,10 @@
 
 	let authState = $derived($auth);
 	let currentPath = $derived($page.url.pathname);
+	$effect(() => {
+		if (isEditorRoute(currentPath)) document.documentElement.dataset.density = 'editor';
+		else delete document.documentElement.dataset.density;
+	});
 	let isPreviewRoute = $derived(currentPath === '/preview');
 	let isPublicProfileRoute = $derived(currentPath.startsWith('/u/'));
 	$effect(() => {

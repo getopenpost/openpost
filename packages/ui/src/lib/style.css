@@ -5,6 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --text-xs: var(--app-text-xs);
   --font-sans: var(--theme-font-sans);
   --font-brand: var(--theme-font-brand);
   --font-display: var(--theme-font-display);
@@ -102,6 +103,13 @@
 }
 
 @layer base {
+  :root {
+    --app-text-xs: 0.8125rem;
+  }
+  /* Editors are dense workstations; their panels keep the compact scale. */
+  [data-density="editor"] {
+    --app-text-xs: 0.75rem;
+  }
   * {
     @apply border-border outline-ring/50;
     border-style: var(--theme-border-style);

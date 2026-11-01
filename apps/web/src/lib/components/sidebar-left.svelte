@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { appBranding } from '$lib/app-branding.svelte';
-	import SidebarCalendar from '$lib/components/sidebar-calendar.svelte';
 	import { sidebarPreferences } from '$lib/stores/sidebar-preferences.svelte';
 	import { publicationView } from '$lib/stores/publication-view.svelte';
 	import { ideate } from '$lib/post-builder/ideate.svelte';
@@ -15,6 +14,8 @@
 	import { m } from '$lib/paraglide/messages';
 	import {
 		isNavigationItemActive,
+		makeNavigation,
+		overviewNavigation,
 		primaryNavigation,
 		type PrimaryNavigationItem
 	} from '$lib/app-navigation';
@@ -47,52 +48,48 @@
 	);
 	const userAvatarURL = $derived(authState.user?.avatar_url ?? '');
 	const userInitials = $derived(initials(userDisplayName || authState.user?.email || 'User'));
-	const navigationItems = $derived(
-		primaryNavigation.map((item) => ({
-			...item,
-			label: navigationLabel(item.id),
-			icon: navigationIcon(item.id)
-		}))
+	const withPresentation = (item: PrimaryNavigationItem) => ({
+		...item,
+		label: navigationLabel(item.id),
+		icon: navigationIcon(item.id)
+	});
+	const overviewItems = $derived(overviewNavigation.map(withPresentation));
+	const makeItems = $derived(
+		makeNavigation
+			.filter((item) => item.id !== 'ideate' || workspaceCtx.currentWorkspace?.can_edit)
+			.map(withPresentation)
 	);
-	const workspaceNavigationItems = $derived(
-		navigationItems.filter((item) =>
-			['publications', 'communications', 'analytics', 'media'].includes(item.id)
-		)
+	const footerItems = $derived(
+		primaryNavigation
+			.filter((item) => item.id === 'accounts' || item.id === 'settings')
+			.map(withPresentation)
 	);
-	const sidebarNavigationItems = $derived(workspaceNavigationItems);
-	const moreNavigationItems = $derived(
-		navigationItems.filter(
-			(item) =>
-				['ideate', 'growth', 'editors', 'workflows'].includes(item.id) &&
-				(item.id !== 'ideate' || workspaceCtx.currentWorkspace?.can_edit)
-		)
+	const showDrafts = $derived(
+		sidebarPreferences.draftsVisible && !sidebar.isMobile && sidebar.state === 'expanded'
 	);
-	const showDesktopPlanner = $derived(!sidebar.isMobile && sidebar.state === 'expanded');
-	const showPlannerCalendar = $derived(showDesktopPlanner && sidebarPreferences.calendarVisible);
-	const showPlannerChrome = $derived(showDesktopPlanner || showPlannerCalendar);
 
 	function navigationIcon(id: PrimaryNavigationItem['id']): ThemeIconRole {
 		switch (id) {
+			case 'home':
+				return 'home';
 			case 'new':
 				return 'compose';
-			case 'calendar':
-				return 'calendar';
 			case 'publications':
 				return 'publications';
 			case 'analytics':
 				return 'analytics';
 			case 'ideate':
 				return 'sparkles';
-			case 'growth':
-				return 'growth';
 			case 'communications':
 				return 'communications';
 			case 'media':
 				return 'media';
 			case 'workflows':
 				return 'repeat';
-			case 'editors':
+			case 'studio':
 				return 'editors';
+			case 'accounts':
+				return 'organization';
 			default:
 				return 'settings';
 		}
@@ -100,26 +97,26 @@
 
 	function navigationLabel(id: PrimaryNavigationItem['id']) {
 		switch (id) {
+			case 'home':
+				return m.nav_home();
 			case 'new':
 				return m.sidebar_new_post();
-			case 'calendar':
-				return m.sidebar_calendar();
 			case 'publications':
 				return m.sidebar_activity();
 			case 'analytics':
 				return m.sidebar_analytics();
 			case 'ideate':
-				return m.compose_ai_ideate();
-			case 'growth':
-				return m.sidebar_grow();
+				return m.nav_ideas();
 			case 'communications':
 				return m.sidebar_communications();
 			case 'media':
 				return m.sidebar_media();
 			case 'workflows':
-				return m.workflows_title();
-			case 'editors':
-				return m.editors_title();
+				return m.nav_automations();
+			case 'studio':
+				return m.nav_studio();
+			case 'accounts':
+				return m.sidebar_accounts();
 			case 'settings':
 				return m.sidebar_settings();
 		}
@@ -169,15 +166,15 @@
 	}
 </script>
 
-{#snippet workspaceNavigation()}
+{#snippet navigationList(items: ReturnType<typeof withPresentation>[], testId: string)}
 	<Sidebar.Group class="shrink-0 p-0">
 		<Sidebar.GroupContent>
-			<Sidebar.Menu class="gap-0.5" data-testid="sidebar-workspace-navigation">
-				{#each sidebarNavigationItems as item (item.id)}
+			<Sidebar.Menu class="gap-0.5" data-testid={testId}>
+				{#each items as item (item.id)}
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton
 							isActive={isSidebarNavigationItemActive(item)}
-							class="h-10 text-sm [@media(pointer:coarse)]:h-11"
+							class="h-9 text-sm [@media(pointer:coarse)]:h-11"
 							tooltipContent={item.label}
 							onclick={() => navigate(item.href)}
 						>
@@ -192,133 +189,82 @@
 {/snippet}
 
 <Sidebar.Root collapsible="icon" class="pt-[env(safe-area-inset-top)]">
-	<Sidebar.Header class="gap-2 border-b border-sidebar-border p-2" data-testid="app-sidebar">
-		<div class="flex items-center gap-2 group-data-[collapsible=icon]:flex-col">
+	<Sidebar.Header class="gap-2 p-2" data-testid="app-sidebar">
+		<div class="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
 			<a
-				href={resolve('/')}
-				class="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+				href={resolve('/home')}
+				class="flex size-9 shrink-0 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
 				aria-label={m.app_branding_home({ name: appBranding.profile.display_name })}
 				data-testid="sidebar-home-brand"
 			>
-				<Logo width={26} height={26} showText={sidebar.state !== 'collapsed'} decorative />
+				<Logo width={24} height={24} showText={false} decorative />
 			</a>
-			<div class="ms-auto flex shrink-0 items-center gap-0.5">
-				{#if sidebar.state !== 'collapsed'}<NotificationBell compact />{/if}
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<button
-								{...props}
-								type="button"
-								class="inline-flex size-8 items-center justify-center rounded-md hover:bg-navigation-hover focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none data-[state=open]:bg-sidebar-accent"
-								aria-label={`${m.sidebar_switch_workspace()}: ${currentWorkspaceName}`}
-								title={m.sidebar_switch_workspace()}
-								data-testid="workspace-menu-trigger"
-							>
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<button
+							{...props}
+							type="button"
+							class="flex min-h-9 min-w-0 flex-1 items-center gap-1 rounded-md px-1.5 text-start group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center hover:bg-navigation-hover focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none data-[state=open]:bg-navigation-hover"
+							aria-label={`${m.sidebar_switch_workspace()}: ${currentWorkspaceName}`}
+							title={m.sidebar_switch_workspace()}
+							data-testid="workspace-menu-trigger"
+						>
+							{#if sidebar.state === 'collapsed'}
 								<Avatar.Root class="size-7 rounded-md">
 									{#if currentWorkspaceAvatarURL}
 										<Avatar.Image src={currentWorkspaceAvatarURL} alt={currentWorkspaceName} />
 									{/if}
 									<Avatar.Fallback
-										class="rounded-md bg-sidebar-accent text-[10px] font-semibold text-sidebar-foreground"
+										class="rounded-md bg-sidebar-accent text-xs font-semibold text-sidebar-foreground"
 									>
 										{currentWorkspaceInitials}
 									</Avatar.Fallback>
 								</Avatar.Root>
-								<span class="sr-only">{currentWorkspaceName}</span>
-							</button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content class="w-64" side="right" align="start" sideOffset={6}>
-						<WorkspaceMenuItems
-							onCreate={openCreateWorkspace}
-							onSelect={() => sidebar.setOpenMobile(false)}
-						/>
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
-			</div>
+							{:else}
+								<span class="min-w-0 flex-1 truncate text-sm font-semibold"
+									>{currentWorkspaceName}</span
+								>
+								<ThemeIcon role="chevron-down" class="size-4 shrink-0 text-sidebar-foreground/60" />
+							{/if}
+						</button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content class="w-64" side="bottom" align="start" sideOffset={6}>
+					<WorkspaceMenuItems
+						onCreate={openCreateWorkspace}
+						onSelect={() => sidebar.setOpenMobile(false)}
+					/>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+			<NotificationBell compact />
 		</div>
 
-		{#if workspaceCtx.currentWorkspace?.can_edit}<div
-				class="flex items-stretch gap-1 group-data-[collapsible=icon]:flex-col"
+		{#if workspaceCtx.currentWorkspace?.can_edit}
+			<Button
+				href={resolve('/')}
+				variant="focal"
+				size="sm"
+				class="w-full gap-2 group-data-[collapsible=icon]:px-0"
+				aria-label={m.sidebar_new_post()}
+				data-testid="sidebar-new-post"
+				onclick={handleNewPostClick}
 			>
-				<Button
-					href={resolve('/')}
-					variant="focal"
-					size="sm"
-					class="min-w-0 flex-1 gap-2 group-data-[collapsible=icon]:px-0"
-					aria-label={m.sidebar_new_post()}
-					data-testid="sidebar-new-post"
-					onclick={handleNewPostClick}
-				>
-					<ThemeIcon role="compose" class="size-4" />
-					{#if sidebar.state !== 'collapsed'}<span>{m.sidebar_new_post()}</span>{/if}
-				</Button>
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}<Button
-								{...props}
-								variant="outline"
-								size="icon-sm"
-								class="px-0"
-								aria-label={m.editors_title()}
-								data-testid="sidebar-new-post-menu"
-								><ThemeIcon role="chevron-down" class="size-4" /></Button
-							>{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content align="start">
-						<DropdownMenu.Item onclick={() => navigate('/image-editor')}
-							><ThemeIcon role="image" class="size-4" />{m.editors_new_image()}</DropdownMenu.Item
-						>
-						<DropdownMenu.Item onclick={() => navigate('/video-editor')}
-							><ThemeIcon role="video" class="size-4" />{m.editors_new_video()}</DropdownMenu.Item
-						>
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
-			</div>
+				<ThemeIcon role="compose" class="size-4" />
+				{#if sidebar.state !== 'collapsed'}<span>{m.sidebar_new_post()}</span>{/if}
+			</Button>
 		{/if}
 	</Sidebar.Header>
 
-	<Sidebar.Content class={showPlannerChrome ? 'overflow-y-auto pt-2' : 'px-2 py-3'}>
-		{#if !showPlannerCalendar}
-			<div class={showPlannerChrome ? 'px-2 pb-3' : ''}>
-				{@render workspaceNavigation()}
-			</div>
-		{/if}
-		{#if showPlannerCalendar}<SidebarCalendar />{/if}
-		{#if showDesktopPlanner}<SidebarPlanner onNavigate={navigate} />{/if}
+	<Sidebar.Content class="gap-4 overflow-y-auto px-2 py-2">
+		{@render navigationList(overviewItems, 'sidebar-workspace-navigation')}
+		{@render navigationList(makeItems, 'sidebar-make-navigation')}
+		{#if showDrafts}<SidebarPlanner onNavigate={navigate} />{/if}
 	</Sidebar.Content>
 
-	<Sidebar.Footer class="border-t border-sidebar-border p-2" data-testid="sidebar-workspace-footer">
-		{#if showPlannerCalendar}{@render workspaceNavigation()}{/if}
-		<DropdownMenu.Root>
-			<DropdownMenu.Trigger>
-				{#snippet child({ props })}<Sidebar.MenuButton
-						{...props}
-						class="h-9 [@media(pointer:coarse)]:h-11"
-						tooltipContent={m.sidebar_more()}
-						isActive={moreNavigationItems.some(isSidebarNavigationItemActive)}
-						><ThemeIcon role="more-horizontal" class="size-4" /><span>{m.sidebar_more()}</span
-						></Sidebar.MenuButton
-					>{/snippet}
-			</DropdownMenu.Trigger>
-			<DropdownMenu.Content side="right" align="end" class="w-52">
-				{#each moreNavigationItems as item (item.id)}
-					<DropdownMenu.Item
-						class="min-h-9 gap-3 [@media(pointer:coarse)]:min-h-11"
-						onclick={() => navigate(item.href)}
-						><ThemeIcon role={item.icon} class="size-4" />{item.label}</DropdownMenu.Item
-					>
-				{/each}
-			</DropdownMenu.Content>
-		</DropdownMenu.Root>
-		<Sidebar.Menu
-			class={showDesktopPlanner ? 'border-t border-sidebar-border pt-1' : ''}
-			data-testid="sidebar-secondary-navigation"
-		>
-			{#if sidebar.state === 'collapsed'}
-				<NotificationBell />
-			{/if}
+	<Sidebar.Footer class="p-2" data-testid="sidebar-workspace-footer">
+		{@render navigationList(footerItems, 'sidebar-footer-navigation')}
+		<Sidebar.Menu data-testid="sidebar-secondary-navigation">
 			<Sidebar.MenuItem>
 				<DropdownMenu.Root bind:open={profileMenuOpen}>
 					<DropdownMenu.Trigger>

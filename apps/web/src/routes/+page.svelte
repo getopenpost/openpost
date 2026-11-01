@@ -1,11 +1,22 @@
 <script lang="ts">
 	import { appBranding } from '$lib/app-branding.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
-	import { goto } from '$app/navigation';
+	import { goto, onNavigate } from '$app/navigation';
+	import { page } from '$app/state';
 	import { resolveAppPath } from '$lib/app-path';
 	import ComposeShell from '$lib/components/compose-shell.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { sidebarPreferences } from '$lib/stores/sidebar-preferences.svelte';
+
+	const openComposer = sidebarPreferences.shouldOpenComposer(page.url.search !== '');
+	if (openComposer) sidebarPreferences.requestComposer();
+	$effect(() => {
+		if (!openComposer) void goto(resolveAppPath('/home'), { replaceState: true });
+	});
+	onNavigate(({ to }) => {
+		if (to?.url.pathname !== '/') sidebarPreferences.leaveComposer();
+	});
 
 	let handoffSelected = $state(false);
 	$effect(() => {
@@ -28,7 +39,7 @@
 			/>
 		</div>
 	{/if}
-	{#if workspaceCtx.currentWorkspace?.can_edit}<ComposeShell
+	{#if openComposer && workspaceCtx.currentWorkspace?.can_edit}<ComposeShell
 			onHandoffSelected={() => (handoffSelected = true)}
 		/>{/if}
 </div>

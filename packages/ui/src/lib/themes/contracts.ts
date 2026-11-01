@@ -32,6 +32,7 @@ export const THEME_FAMILY_IDS = [
   "posthog",
   "dither",
   "dither-moss",
+  "calm",
 ] as const;
 export type ThemeFamilyId = (typeof THEME_FAMILY_IDS)[number];
 

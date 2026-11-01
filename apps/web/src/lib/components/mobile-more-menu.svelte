@@ -2,7 +2,8 @@
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { tick } from 'svelte';
 	import { ideate } from '$lib/post-builder/ideate.svelte';
-	import { primaryNavigation } from '$lib/app-navigation';
+	import { primaryNavigation, type PrimaryNavigationItem } from '$lib/app-navigation';
+	import type { ThemeIconRole } from '$lib/themes';
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
 	import { ui } from '$lib/stores/ui.svelte';
@@ -13,10 +14,36 @@
 	import AccountPreferencesMenu from './account-preferences-menu.svelte';
 	const destinations = $derived(
 		primaryNavigation.filter((item) =>
-			['ideate', 'analytics', 'growth', 'editors', 'workflows'].includes(item.id)
+			['analytics', 'ideate', 'studio', 'media', 'workflows', 'accounts', 'settings'].includes(
+				item.id
+			)
 		)
 	);
 	let { onNavigate }: { onNavigate: () => void } = $props();
+
+	function itemIcon(id: PrimaryNavigationItem['id']): ThemeIconRole {
+		const roles: Partial<Record<PrimaryNavigationItem['id'], ThemeIconRole>> = {
+			analytics: 'analytics',
+			ideate: 'sparkles',
+			studio: 'editors',
+			media: 'media',
+			workflows: 'repeat',
+			accounts: 'organization'
+		};
+		return roles[id] ?? 'settings';
+	}
+
+	function itemLabel(id: PrimaryNavigationItem['id']) {
+		const labels: Partial<Record<PrimaryNavigationItem['id'], () => string>> = {
+			analytics: m.sidebar_analytics,
+			ideate: m.nav_ideas,
+			studio: m.nav_studio,
+			media: m.sidebar_media,
+			workflows: m.nav_automations,
+			accounts: m.sidebar_accounts
+		};
+		return (labels[id] ?? m.sidebar_settings)();
+	}
 	let section = $state<'main' | 'workspace' | 'profile'>('main');
 	let backItem = $state<HTMLDivElement | null>(null);
 	let workspaceItem = $state<HTMLDivElement | null>(null);
@@ -62,26 +89,7 @@
 				}
 				goto(resolveAppPath(item.href));
 			}}
-			><ThemeIcon
-				role={item.id === 'ideate'
-					? 'sparkles'
-					: item.id === 'workflows'
-						? 'repeat'
-						: item.id === 'analytics'
-							? 'analytics'
-							: item.id === 'growth'
-								? 'growth'
-								: 'editors'}
-				class="size-4"
-			/>{item.id === 'ideate'
-				? m.compose_ai_ideate()
-				: item.id === 'workflows'
-					? m.workflows_title()
-					: item.id === 'analytics'
-						? m.sidebar_analytics()
-						: item.id === 'growth'
-							? m.sidebar_grow()
-							: m.editors_title()}</DropdownMenu.Item
+			><ThemeIcon role={itemIcon(item.id)} class="size-4" />{itemLabel(item.id)}</DropdownMenu.Item
 		>
 	{/each}
 	<DropdownMenu.Separator />

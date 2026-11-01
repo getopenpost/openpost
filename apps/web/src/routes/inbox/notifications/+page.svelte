@@ -106,7 +106,11 @@
 				? (notificationList.querySelector<HTMLElement>(
 						'[data-notification-id] button:not(:disabled)'
 					) ??
-					notificationList.querySelector<HTMLElement>('[aria-pressed="true"]') ??
+					// The read filter is a tab list now; its active tab replaces the
+					// pressed-state button this fallback used to target.
+					notificationList.querySelector<HTMLElement>(
+						'[data-slot="tabs-trigger"][data-state="active"]'
+					) ??
 					notificationList)
 				: focused;
 			if (next instanceof HTMLElement && next.isConnected) next.focus();

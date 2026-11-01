@@ -140,7 +140,8 @@ test("ordinary start page opens workspace templates with their pages and editabl
   );
   expect(savedTemplate.document.title).toBe("Template source");
   await page.goto("/image-editor");
-  await page.getByRole("button", { name: "This device", exact: true }).click();
+  await page.getByRole("button", { name: "Save new projects to", exact: true }).click();
+  await page.getByRole("option", { name: "This device", exact: true }).click();
   await expect(workspaceCard).toBeVisible();
   await page.getByRole("button", { name: "Quick announcement", exact: true }).click();
   await expect(page).toHaveURL(/\/image-editor\/local_design_/);

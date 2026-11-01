@@ -369,7 +369,17 @@ for (const scheme of ["light", "dark"] as const) {
         probe.style.backgroundColor = "var(--action-ordinary-hover)";
         const hover = getComputedStyle(probe).backgroundColor;
         probe.remove();
-        return { actual: getComputedStyle(element).backgroundColor, neutral, hover };
+        let surface: Element | null = element;
+        let actual = "rgba(0, 0, 0, 0)";
+        while (surface) {
+          const background = getComputedStyle(surface).backgroundColor;
+          if (background !== "rgba(0, 0, 0, 0)") {
+            actual = background;
+            break;
+          }
+          surface = surface.parentElement;
+        }
+        return { actual, neutral, hover };
       });
       expect(colors.actual).toBe(colors.neutral);
       expect(colors.actual).not.toBe(colors.hover);
@@ -782,6 +792,12 @@ test("panel content stays inside the editor when the window is short", async ({
         failures.push(`${size.width}x${size.height} ${name}: ${JSON.stringify(geometry)}`);
         await page.screenshot({ path: testInfo.outputPath(`overflow-${size.width}-${name}.png`) });
       }
+    }
+    if (size.width < 1024) {
+      await page
+        .getByRole("navigation", { name: "Editor panels", exact: true })
+        .getByRole("button", { name: "Timeline", exact: true })
+        .click();
     }
     await page.getByRole("button", { name: "Add marker", exact: true }).click();
     for (const name of ["Audio mixer", "Beat markers"]) {

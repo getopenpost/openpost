@@ -2597,7 +2597,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 								{...props}
 								variant="ghost"
 								size="sm"
-								class="hidden h-8 max-w-16 min-w-0 truncate px-2 text-sm font-medium text-[var(--video-editor-text)] hover:bg-[var(--video-editor-control)] sm:inline-flex sm:max-w-28 md:max-w-48"
+								class="hidden h-8 max-w-16 min-w-0 truncate px-2 text-sm font-medium text-[var(--video-editor-text)] hover:bg-[var(--video-editor-control)] md:inline-flex md:max-w-48"
 								title={m.video_editor_project_details()}
 								data-project-details
 							>
@@ -2937,8 +2937,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									: 'lg:row-span-1'} lg:flex lg:h-auto lg:min-h-0 {leftSidebarRail
 									? 'lg:w-11 lg:overflow-hidden'
 									: 'lg:w-auto'} lg:border-r lg:border-b-0 {mobileEditPane === 'assets'
-									? 'fixed inset-x-0 bottom-14 z-40 max-h-[72dvh] flex-none overflow-hidden rounded-t-xl border-t border-b-0 shadow-2xl lg:relative lg:inset-auto lg:z-auto lg:max-h-none lg:flex-1 lg:overflow-visible lg:rounded-none lg:border-t-0 lg:border-b lg:shadow-none'
+									? 'flex'
 									: 'hidden'}"
+								class:editor-panel-sheet={mobileEditPane === 'assets'}
 								aria-label={m.video_editor_assets()}
 							>
 								<div class="flex min-h-0 flex-1">
@@ -3124,7 +3125,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 															? 'text-[var(--video-editor-text)]'
 															: 'text-[var(--video-editor-muted)]'} focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 														role="tab"
-														data-left-group-tab={tab.panel}
+														data-left-group-tab={tab.view ?? tab.panel}
 														aria-selected={leftGroupTabActive(tab)}
 														onclick={() => openLeftGroupTab(tab)}
 													>
@@ -3394,8 +3395,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									: 'lg:row-span-1'} lg:flex lg:h-auto {rightSidebarRail
 									? 'lg:w-11 lg:overflow-hidden'
 									: 'lg:w-auto'} lg:border-t-0 lg:border-l {mobileEditPane === 'tools'
-									? 'fixed inset-x-0 bottom-14 z-40 max-h-[72dvh] flex-none overflow-hidden rounded-t-xl border-t border-b-0 border-l-0 shadow-2xl lg:relative lg:inset-auto lg:z-auto lg:max-h-none lg:flex-1 lg:overflow-visible lg:rounded-none lg:border-t-0 lg:border-l lg:shadow-none'
+									? 'flex'
 									: 'hidden'}"
+								class:editor-panel-sheet={mobileEditPane === 'tools'}
 								aria-label={m.video_editor_tools()}
 							>
 								{#if !rightSidebarRail}
@@ -3796,7 +3798,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					{/if}
 					{#if activeWorkspace === 'edit'}
 						<nav
-							class="flex shrink-0 items-stretch gap-0.5 border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-1 pt-1 lg:hidden"
+							class="relative z-30 flex shrink-0 items-stretch gap-0.5 border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-1 pt-1 lg:hidden"
 							aria-label={m.video_editor_mobile_panels()}
 						>
 							<button
@@ -3924,3 +3926,22 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 />
 
 <FeedbackDialog />
+
+<style>
+	/* Phone sheets: panels float above the always-visible preview and timeline,
+	   stacking above the bottom tab bar, until the layout reaches lg. */
+	@media (max-width: 1023px) {
+		.editor-panel-sheet {
+			position: fixed;
+			inset-inline: 0;
+			bottom: 3.5rem;
+			z-index: 45;
+			max-height: 72dvh;
+			overflow: hidden;
+			border-top: 1px solid var(--video-editor-border);
+			border-bottom: none;
+			border-radius: 0.75rem 0.75rem 0 0;
+			box-shadow: 0 -6px 24px rgb(0 0 0 / 0.2);
+		}
+	}
+</style>

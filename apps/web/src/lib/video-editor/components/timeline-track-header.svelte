@@ -76,7 +76,7 @@
 	} = $props();
 
 	const controlClass =
-		'size-6 rounded text-[var(--video-editor-muted)] opacity-0 transition-opacity hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] hover:opacity-100 focus-visible:opacity-100 group-focus-within/header:opacity-100 group-hover/header:opacity-100 data-[active=true]:bg-[var(--video-editor-selection)] data-[active=true]:text-[var(--video-editor-selection-text)] data-[active=true]:opacity-100 [@media(pointer:coarse)]:opacity-100';
+		'h-6 w-0 overflow-hidden rounded data-[active=true]:w-6 text-[var(--video-editor-muted)] opacity-0 transition-opacity group-focus-within/header:w-6 group-hover/header:w-6 [@media(pointer:coarse)]:w-6 hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] hover:opacity-100 focus-visible:opacity-100 group-focus-within/header:opacity-100 group-hover/header:opacity-100 data-[active=true]:bg-[var(--video-editor-selection)] data-[active=true]:text-[var(--video-editor-selection-text)] data-[active=true]:opacity-100 [@media(pointer:coarse)]:opacity-100';
 	const menuItemClass =
 		'flex h-10 w-full items-center justify-start gap-2 rounded px-2.5 text-left text-sm hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-[oklch(0.66_0.14_45)] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active=true]:bg-muted';
 	let editingName = $state(false);
@@ -285,7 +285,13 @@
 					class="size-3.5"
 				/>{/if}
 		</Button>
-		<div bind:this={moreMenu} class="relative size-6 shrink-0">
+		<div
+			bind:this={moreMenu}
+			class={[
+				'relative h-6 shrink-0 group-focus-within/header:w-6 group-hover/header:w-6 [@media(pointer:coarse)]:w-6',
+				selected || moreOpen ? 'w-6' : 'w-0'
+			]}
+		>
 			<button
 				bind:this={moreButton}
 				type="button"

@@ -729,9 +729,7 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
   ).toBe(false);
   await page.screenshot({ path: testInfo.outputPath("video-after-light.png") });
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(
-    page.locator('span[role="status"]').filter({ hasText: "Agent connected" }),
-  ).toBeVisible();
+  await expect(page.locator('[data-left-panel-tab="ai"]:visible [data-agent-dot]')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("video-phone-390-light.png") });
   await page.setViewportSize({ width: 320, height: 720 });
   await page.screenshot({ path: testInfo.outputPath("video-phone-320-light.png") });

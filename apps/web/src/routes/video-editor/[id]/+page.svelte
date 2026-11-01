@@ -2571,22 +2571,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				<span class="hidden 2xl:inline">{m.recording_cleanup_action()}</span>
 			</Button>
 			{#if agentConnectionStatus !== 'disconnected'}
-				<span
-					class="inline-flex items-center gap-1.5 text-xs text-[var(--video-editor-text-muted)]"
-					role="status"
-					aria-live="polite"
+				<span class="sr-only" role="status"
+					>{agentConnectionStatus === 'working'
+						? m.editor_agent_status_working()
+						: m.editor_agent_status_connected()}</span
 				>
-					<span
-						class="size-1.5 rounded-full bg-current {agentConnectionStatus === 'working'
-							? 'motion-safe:animate-pulse'
-							: ''}"
-					></span>
-					<span class="sr-only lg:not-sr-only">
-						{agentConnectionStatus === 'working'
-							? m.editor_agent_status_working()
-							: m.editor_agent_status_connected()}
-					</span>
-				</span>
 			{/if}
 			{#if editorSession.saveError}
 				<Button
@@ -2931,6 +2920,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																				? 'motion-safe:animate-pulse'
 																				: ''}"
 																			aria-hidden="true"
+																			data-agent-dot
 																		></span>
 																	{/if}
 																</Button>
@@ -2995,7 +2985,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												<button
 													type="button"
 													class:active={leftPanel === option.value}
-													class="flex min-h-8 shrink-0 items-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
+													class="relative flex min-h-8 shrink-0 items-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
 													data-left-panel-tab={option.value}
 													data-tab-orientation="horizontal"
 													role="tab"

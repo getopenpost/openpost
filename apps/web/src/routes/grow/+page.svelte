@@ -676,7 +676,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 <PageContainer
 	title={m.grow_title()}
-	description={m.grow_description()}
 	themeIconRole="growth"
 	loading={initialLoading}
 	loadingLayout="grid"
@@ -704,6 +703,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	{/snippet}
 
 	{#snippet navigation()}
+		<Button
+			href="/inbox/engagement"
+			variant="ghost"
+			size="sm"
+			class="-ms-2"
+			data-testid="grow-back-to-inbox"
+		>
+			<ThemeIcon role="arrow-left" class="size-4" />
+			{m.communications_navigation()}
+		</Button>
 		{#if showAccountSelector}
 			<div class="flex flex-wrap items-center gap-3">
 				<label for="grow-account-select" class="text-sm font-medium">{m.grow_for_label()}</label>

@@ -1,20 +1,32 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
 	import { goto } from '$app/navigation';
-	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 
+	type InboxTab = 'all' | 'comments' | 'messages' | 'reviews';
+
 	interface Props {
-		active: 'engagement' | 'messages' | 'notifications';
+		active: InboxTab;
 	}
 
 	let { active }: Props = $props();
 
-	function navigate(
-		event: MouseEvent,
-		href: '/inbox/engagement' | '/inbox/messages' | '/inbox/notifications'
-	) {
+	const tabs: { id: InboxTab; href: string; label: () => string }[] = [
+		{ id: 'all', href: '/inbox/engagement', label: m.common_all },
+		{
+			id: 'comments',
+			href: '/inbox/engagement?kind=comment',
+			label: m.engagement_activity_comments
+		},
+		{ id: 'messages', href: '/inbox/messages', label: m.messages_heading },
+		{
+			id: 'reviews',
+			href: '/inbox/engagement?kind=review',
+			label: m.engagement_activity_reviews
+		}
+	];
+
+	function navigate(event: MouseEvent, href: string) {
 		if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
 			return;
 		event.preventDefault();
@@ -27,49 +39,20 @@
 	aria-label={m.communications_navigation()}
 	data-testid="communications-navigation"
 >
-	<a
-		href={resolve('/inbox/engagement' as '/')}
-		data-cuelume-toggle="toggle"
-		onclick={(event) => navigate(event, '/inbox/engagement')}
-		class={[
-			'flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors',
-			active === 'engagement'
-				? 'border-primary text-foreground'
-				: 'border-transparent text-muted-foreground hover:text-foreground'
-		]}
-		aria-current={active === 'engagement' ? 'page' : undefined}
-	>
-		<ThemeIcon role="communications" class="size-4" />
-		{m.engagement_heading()}
-	</a>
-	<a
-		href={resolve('/inbox/messages' as '/')}
-		data-cuelume-toggle="toggle"
-		onclick={(event) => navigate(event, '/inbox/messages')}
-		class={[
-			'flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors',
-			active === 'messages'
-				? 'border-primary text-foreground'
-				: 'border-transparent text-muted-foreground hover:text-foreground'
-		]}
-		aria-current={active === 'messages' ? 'page' : undefined}
-	>
-		<ThemeIcon role="mail" class="size-4" />
-		{m.messages_heading()}
-	</a>
-	<a
-		href={resolve('/inbox/notifications' as '/')}
-		data-cuelume-toggle="toggle"
-		onclick={(event) => navigate(event, '/inbox/notifications')}
-		class={[
-			'flex min-h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors',
-			active === 'notifications'
-				? 'border-primary text-foreground'
-				: 'border-transparent text-muted-foreground hover:text-foreground'
-		]}
-		aria-current={active === 'notifications' ? 'page' : undefined}
-	>
-		<ThemeIcon role="notification" class="size-4" />
-		{m.notifications_heading()}
-	</a>
+	{#each tabs as tab (tab.id)}
+		<a
+			href={resolveAppPath(tab.href)}
+			data-cuelume-toggle="toggle"
+			onclick={(event) => navigate(event, tab.href)}
+			class={[
+				'flex min-h-11 shrink-0 items-center border-b-2 px-3 text-sm font-medium transition-colors',
+				active === tab.id
+					? 'border-primary text-foreground'
+					: 'border-transparent text-muted-foreground hover:text-foreground'
+			]}
+			aria-current={active === tab.id ? 'page' : undefined}
+		>
+			{tab.label()}
+		</a>
+	{/each}
 </nav>

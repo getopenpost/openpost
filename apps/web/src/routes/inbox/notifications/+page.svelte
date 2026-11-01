@@ -15,7 +15,6 @@
 	import { notificationTopicIcon, notificationTopicLabel } from '$lib/notification-topics';
 	import { presentNotification, isSafeLocalNotificationHref } from '$lib/notification-presentation';
 	import PageContainer from '$lib/components/page-container.svelte';
-	import CommunicationsNavigation from '$lib/components/communications-navigation.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import NotificationMutes from '$lib/components/notification-mutes.svelte';
@@ -278,9 +277,6 @@
 	loadingLayout="list"
 	loadingItems={6}
 >
-	{#snippet navigation()}
-		<CommunicationsNavigation active="notifications" />
-	{/snippet}
 	{#snippet actions()}
 		<div class="flex flex-wrap gap-2">
 			<Button

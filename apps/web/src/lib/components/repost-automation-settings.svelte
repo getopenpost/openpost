@@ -23,6 +23,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import * as Select from '$lib/components/ui/select';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -420,6 +421,25 @@
 		themeIconRole="repeat"
 	>
 		{#snippet actions()}
+			<Tooltip.Root>
+				<Tooltip.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							variant="ghost"
+							size="icon-sm"
+							class="min-h-11 min-w-11 text-muted-foreground sm:min-h-9 sm:min-w-9"
+							aria-label={m.repost_native_notice()}
+						>
+							<ThemeIcon role="notification" class="size-4" />
+						</Button>
+					{/snippet}
+				</Tooltip.Trigger>
+				<Tooltip.Content class="max-w-72">
+					<p class="text-sm">{m.repost_native_notice()}</p>
+					<p class="mt-1 text-sm text-muted-foreground">{m.workflows_reposts_preserved()}</p>
+				</Tooltip.Content>
+			</Tooltip.Root>
 			{#if settings?.can_manage}
 				<Button variant="outline" size="sm" onclick={() => addPolicy()} disabled={loading}>
 					<ThemeIcon role="add" class="size-4" />
@@ -428,17 +448,6 @@
 			{/if}
 		{/snippet}
 	</SectionHeader>
-
-	<InlineNotice tone="info">
-		<p>{m.repost_native_notice()}</p>
-		<details class="mt-1">
-			<summary
-				class="min-h-11 cursor-pointer py-3 text-current/75 focus-visible:outline-2 focus-visible:outline-ring"
-				>{m.workflows_details()}</summary
-			>
-			<p class="text-current/75">{m.workflows_reposts_preserved()}</p>
-		</details>
-	</InlineNotice>
 
 	{#if loadError && settings}
 		<InlineNotice tone="error" message={loadError}>

@@ -507,7 +507,8 @@
 			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
 				cancel: [{ queryKey: inboxQueryKeys.engagementRoot(view.workspaceID) }],
 				reconcile: () => {
-					if (state.archived !== undefined || (state.read && view.unreadOnly)) {
+					// Replying or liking marks an item read without pulling it out from under the person.
+					if (state.archived !== undefined || (state.read && view.unreadOnly && announce)) {
 						updateEngagementData(view.queryKey, (page) => ({
 							...page,
 							items: (page.items ?? []).filter((candidate) => candidate.id !== item.id),

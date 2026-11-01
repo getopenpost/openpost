@@ -42,10 +42,10 @@ describe('WorkspaceSetupGuide', () => {
 		await expect.element(guide).toHaveTextContent('3 of 4 complete');
 		await expect.element(guide).toHaveTextContent('Finish setting up this Workspace');
 		await expect.element(guide).toHaveTextContent('Workspace');
-		await expect.element(guide).toHaveTextContent('Composition');
-		await expect.element(guide).toHaveTextContent('Post');
+		await expect.element(guide).toHaveTextContent('Write something');
+		await expect.element(guide).toHaveTextContent('Publish a post');
 		await expect
-			.element(screen.getByRole('link', { name: 'Destination' }))
+			.element(screen.getByRole('link', { name: 'Connect an account' }))
 			.toHaveAttribute('href', '/accounts');
 		expect(mocks.get).toHaveBeenCalledWith('/workspaces/{id}/setup', {
 			params: { path: { id: 'workspace-1' } },

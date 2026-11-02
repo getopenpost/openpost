@@ -21,7 +21,7 @@ OpenPost uses the Threads API and its own OAuth callback. A Threads app is confi
    https://post.example.com/api/v1/accounts/threads/callback
    ```
 
-3. Configure access for `threads_basic`, `threads_content_publish`, `threads_manage_replies`, `threads_manage_insights`, and `threads_location_tagging`. OpenPost requests these during authorization. Complete Meta's review for features and users beyond the app's test roles.
+3. Configure access for `threads_basic`, `threads_content_publish`, `threads_read_replies`, `threads_manage_replies`, `threads_manage_mentions`, `threads_manage_insights`, and `threads_location_tagging`. OpenPost requests these during authorization. `threads_read_replies` and `threads_manage_replies` support comment and reply features; `threads_manage_mentions` supports the mentions inbox. Complete Meta's review for features and users beyond the app's test roles.
 4. For a development app, open **App roles → Roles**, add the Threads account as a **Threads Tester**, and send the invitation. Sign in to that Threads account, open **Settings → Account → Website permissions → Invites**, and accept it. The account must accept the invitation before it can authorize the app.
 5. Copy the Threads app's **App ID** and **App Secret** from its settings.
 

@@ -42,8 +42,43 @@ if verify_media; then
 fi
 
 echo 'Media capability check failed; installing Ubuntu FFmpeg.' >&2
+# Runner mirror+file sources can select a slow Azure mirror. Override sources
+# only for these apt invocations; leave the runner's managed source files intact.
+if [[ "$(lsb_release -is)" != Ubuntu ]]; then
+  echo 'Media tool installation requires an Ubuntu runner.' >&2
+  exit 1
+fi
+codename="$(lsb_release -cs)"
+if [[ ! "$codename" =~ ^[a-z]+$ ]]; then
+  echo 'Invalid Ubuntu release codename.' >&2
+  exit 1
+fi
+archive=https://archive.ubuntu.com/ubuntu
+security=https://security.ubuntu.com/ubuntu
+case "$(dpkg --print-architecture)" in
+  amd64|i386) ;;
+  *) archive=https://ports.ubuntu.com/ubuntu-ports; security="$archive" ;;
+esac
+cat > "$fixture_dir/ubuntu.sources" <<EOF
+Types: deb
+URIs: $archive
+Suites: $codename $codename-updates $codename-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: $security
+Suites: $codename-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+EOF
 # Do not let repository mirrors or package locks consume the test job budget.
-apt_options=(-o Acquire::Retries=0 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o DPkg::Lock::Timeout=30)
+apt_options=(
+  -o "Dir::Etc::sourcelist=$fixture_dir/ubuntu.sources" -o Dir::Etc::sourceparts=-
+  -o APT::Update::Error-Mode=any
+  -o Acquire::Retries=0 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20
+  -o DPkg::Lock::Timeout=30
+)
 timeout --kill-after=10s 60s sudo -n apt-get "${apt_options[@]}" update
 timeout --kill-after=10s 180s sudo -n env DEBIAN_FRONTEND=noninteractive \
   apt-get "${apt_options[@]}" install --yes --no-install-recommends ffmpeg

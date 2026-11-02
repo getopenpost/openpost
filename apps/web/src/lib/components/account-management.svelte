@@ -1851,7 +1851,7 @@
 									</p>
 								{:else}
 									<ul
-										class="divide-y overflow-hidden rounded-lg border bg-card"
+										class="@container divide-y overflow-hidden rounded-lg border bg-card"
 										data-testid="provider-list"
 									>
 										{#each visibleProviders as provider (providerKey(provider))}
@@ -1859,7 +1859,7 @@
 												data-testid={`provider-card-${providerTestID(provider)}`}
 												class="flex min-h-16 gap-3 px-4 py-3 transition-colors hover:bg-navigation-hover {provider.platform ===
 												'youtube'
-													? 'flex-col items-start'
+													? 'flex-col items-start @min-[28rem]:flex-row @min-[28rem]:items-center'
 													: 'items-center'} {providerCanConnect(provider) ||
 												provider.platform === 'youtube'
 													? ''
@@ -1905,7 +1905,7 @@
 												<Button
 													variant={providerCanConnect(provider) ? 'outline' : 'ghost'}
 													class="min-h-11 shrink-0 sm:min-h-9 {provider.platform === 'youtube'
-														? 'self-end'
+														? 'self-end @min-[28rem]:self-center'
 														: ''}"
 													onclick={() => handleProviderAction(provider)}
 													size="sm"

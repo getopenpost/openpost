@@ -65,6 +65,9 @@ for (const scheme of ["light", "dark"] as const) {
       expect(geometry.top).toBeGreaterThanOrEqual(geometry.cardTop);
       expect(geometry.bottom).toBeLessThanOrEqual(geometry.cardBottom);
       expect(geometry.color).toBe("rgb(255, 0, 51)");
+      if (width === 1440) {
+        expect(geometry.cardBottom - geometry.cardTop).toBeLessThan(250);
+      }
       await expect(page.getByText("YouTube", { exact: true }).first()).toBeVisible();
       const screenshot = await card.screenshot();
       await info.attach("YouTube connection card", { body: screenshot, contentType: "image/png" });

@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/usage"
@@ -70,11 +72,38 @@ func (s *Service) reserveProviderPublishCost(
 	return providerCostReservation{enabled: result.Enabled, operationKey: operationKey}, nil
 }
 
+// Each uncached lookup is a new provider request, including retries after an
+// ambiguous response. Price all requested users before I/O, as analytics does.
+func (s *Service) reserveTaggedUserLookupCost(ctx context.Context, workspaceID string, units int64) (providerCostReservation, error) {
+	if s == nil || s.usage == nil {
+		return providerCostReservation{}, nil
+	}
+	key := "tagged-users:" + uuid.NewString()
+	result, err := s.usage.ReserveProviderCost(ctx, usage.ProviderCostEventInput{
+		WorkspaceID: workspaceID, Provider: usage.ProviderX, Operation: usage.XOperationUserRead,
+		OperationKey: key, Units: units, OccurredAt: time.Now().UTC(),
+	})
+	if err != nil {
+		return providerCostReservation{}, fmt.Errorf("reserving hosted user lookup cost: %w", err)
+	}
+	return providerCostReservation{enabled: result.Enabled, operationKey: key}, nil
+}
+
+func (s *Service) settleTaggedUserLookupCost(ctx context.Context, reservation providerCostReservation, lookupErr error) {
+	var httpErr *platform.HTTPError
+	definiteFailure := errors.As(lookupErr, &httpErr) && httpErr.StatusCode >= http.StatusBadRequest && httpErr.StatusCode < http.StatusInternalServerError
+	s.settleProviderCost(ctx, reservation, lookupErr, definiteFailure)
+}
+
 func (s *Service) settleProviderPublishCost(
 	ctx context.Context,
 	reservation providerCostReservation,
 	publishErr error,
 ) {
+	s.settleProviderCost(ctx, reservation, publishErr, isDefiniteUnbilledProviderFailure(publishErr))
+}
+
+func (s *Service) settleProviderCost(ctx context.Context, reservation providerCostReservation, providerErr error, definiteFailure bool) {
 	if !reservation.enabled || s == nil || s.usage == nil {
 		return
 	}
@@ -84,9 +113,9 @@ func (s *Service) settleProviderPublishCost(
 
 	var err error
 	switch {
-	case publishErr == nil:
+	case providerErr == nil:
 		_, err = s.usage.ConfirmProviderCost(settleCtx, reservation.operationKey)
-	case isDefiniteUnbilledProviderFailure(publishErr):
+	case definiteFailure:
 		err = s.usage.ReleaseProviderCost(settleCtx, reservation.operationKey)
 	default:
 		err = s.usage.MarkProviderCostUnknown(settleCtx, reservation.operationKey)
@@ -96,7 +125,7 @@ func (s *Service) settleProviderPublishCost(
 		// retryable publish. The durable reservation remains conservative and
 		// startup reconciliation keeps it visible as unresolved exposure.
 		log.Printf("[Publisher] hosted provider cost settlement failed: %v", err)
-		if publishErr == nil {
+		if providerErr == nil {
 			_ = s.usage.MarkProviderCostUnknown(settleCtx, reservation.operationKey)
 		}
 	}

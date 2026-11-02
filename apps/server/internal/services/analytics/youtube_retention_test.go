@@ -202,3 +202,34 @@ func TestYouTubeRetirementPostgresPreservesOtherWorkspace(t *testing.T) {
 	require.Empty(t, account.AccountAvatarURL)
 	require.Equal(t, dataretention.RetiredYouTubeIdentity("pg-ws", "channel-id"), account.AccountID)
 }
+
+func TestYouTubeExpiredSelectionsAndUnlinkedRevokedGrantsAreCleared(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	now := time.Now().UTC()
+	for _, model := range []any{&models.User{ID: "user", Email: "selection@example.com"}, &models.User{ID: "other", Email: "other-selection@example.com"}, &models.Workspace{ID: "other-workspace", OrganizationID: "organization-1", Name: "Other"}} {
+		_, err := db.NewInsert().Model(model).Exec(t.Context())
+		require.NoError(t, err)
+	}
+	for _, grant := range []*models.OAuthGrant{{ID: "orphan-revoked", WorkspaceID: "workspace-1", Provider: "youtube", ProviderSubject: "old-channel", ValidationStatus: "revoked", AccessTokenEnc: []byte("old-token"), AuthorizationEvidence: `{"channel":"old-channel"}`}, {ID: "other-revoked", WorkspaceID: "other-workspace", Provider: "youtube", ProviderSubject: "other-channel", ValidationStatus: "revoked", AccessTokenEnc: []byte{}}} {
+		_, err := db.NewInsert().Model(grant).Exec(t.Context())
+		require.NoError(t, err)
+	}
+	for _, selection := range []*models.OAuthAccountSelection{{ID: "expired-youtube", UserID: "user", WorkspaceID: "workspace-1", Platform: "youtube", AccessTokenEnc: []byte("secret"), OptionsJSON: `[{"id":"old-channel"}]`, ExpiresAt: now.Add(-time.Minute)}, {ID: "live-youtube", UserID: "user", WorkspaceID: "workspace-1", Platform: "youtube", AccessTokenEnc: []byte{}, ExpiresAt: now.Add(time.Minute)}, {ID: "other-workspace", UserID: "other", WorkspaceID: "other-workspace", Platform: "youtube", AccessTokenEnc: []byte{}, ExpiresAt: now.Add(-time.Minute)}} {
+		_, err := db.NewInsert().Model(selection).Exec(t.Context())
+		require.NoError(t, err)
+	}
+	require.NoError(t, dataretention.ClearRevokedYouTubeMetadata(t.Context(), db, now, "workspace-1"))
+	var grant models.OAuthGrant
+	require.NoError(t, db.NewSelect().Model(&grant).Where("id = ?", "orphan-revoked").Scan(t.Context()))
+	require.Empty(t, grant.ProviderSubject)
+	require.Empty(t, grant.AccessTokenEnc)
+	require.Equal(t, "{}", grant.AuthorizationEvidence)
+	require.NoError(t, db.NewSelect().Model(&grant).Where("id = ?", "other-revoked").Scan(t.Context()))
+	require.Equal(t, "other-channel", grant.ProviderSubject)
+	count, err := db.NewSelect().Model((*models.OAuthAccountSelection)(nil)).Where("id = ?", "expired-youtube").Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count)
+	count, err = db.NewSelect().Model((*models.OAuthAccountSelection)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+}

@@ -136,6 +136,29 @@ func ClearRevokedYouTubeMetadata(ctx context.Context, db bun.IDB, now time.Time,
 			return err
 		}
 	}
+	return clearYouTubeAuthorizationCaches(ctx, db, now, workspaceID)
+}
+
+// Abandoned selections and grants can outlive their destination rows. Clear
+// their fetched channel information without relying on an account join.
+func clearYouTubeAuthorizationCaches(ctx context.Context, db bun.IDB, now time.Time, workspaceID string) error {
+	selections := db.NewDelete().Model((*models.OAuthAccountSelection)(nil)).
+		Where("platform = ? AND expires_at <= ?", "youtube", now)
+	grants := db.NewUpdate().Model((*models.OAuthGrant)(nil)).
+		Set("provider_subject = ''").Set("authorization_evidence_json = '{}'").
+		Set("access_token_encrypted = ?", []byte{}).Set("refresh_token_encrypted = ?", []byte{}).
+		Set("access_token_expires_at = NULL").Set("refresh_token_expires_at = NULL").
+		Where("provider = ? AND (validation_status = ? OR revoked_at IS NOT NULL)", "youtube", "revoked")
+	if workspaceID != "" {
+		selections = selections.Where("workspace_id = ?", workspaceID)
+		grants = grants.Where("workspace_id = ?", workspaceID)
+	}
+	if _, err := selections.Exec(ctx); err != nil {
+		return fmt.Errorf("expire YouTube channel selections: %w", err)
+	}
+	if _, err := grants.Exec(ctx); err != nil {
+		return fmt.Errorf("redact revoked YouTube grants: %w", err)
+	}
 	return nil
 }
 

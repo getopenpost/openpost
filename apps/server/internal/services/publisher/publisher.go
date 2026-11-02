@@ -2571,12 +2571,12 @@ func (s *Service) createPublicationResultNotifications(
 }
 
 type publicationNotificationResult struct {
-	accounts         map[string]models.SocialAccount
-	successful       []string
-	failed           []string
-	failedAccountIDs []string
-	retryable        bool
-	reconnect        bool
+	accounts            map[string]models.SocialAccount
+	successful          []string
+	failed              []string
+	reconnectAccountIDs []string
+	retryable           bool
+	reconnect           bool
 }
 
 func collectPublicationNotificationResult(
@@ -2596,10 +2596,10 @@ func collectPublicationNotificationResult(
 		}
 	}
 	result := publicationNotificationResult{
-		accounts:         make(map[string]models.SocialAccount, len(accounts)),
-		successful:       make([]string, 0, len(renditions)),
-		failed:           make([]string, 0, len(renditions)),
-		failedAccountIDs: make([]string, 0, len(renditions)),
+		accounts:            make(map[string]models.SocialAccount, len(accounts)),
+		successful:          make([]string, 0, len(renditions)),
+		failed:              make([]string, 0, len(renditions)),
+		reconnectAccountIDs: make([]string, 0, len(renditions)),
 	}
 	for _, account := range accounts {
 		result.accounts[account.ID] = account
@@ -2617,9 +2617,11 @@ func (result *publicationNotificationResult) addRendition(rendition models.Rendi
 		result.successful = append(result.successful, label)
 	case models.RenditionStatusFailed:
 		result.failed = append(result.failed, label)
-		result.failedAccountIDs = append(result.failedAccountIDs, rendition.SocialAccountID)
 		result.retryable = result.retryable || rendition.ErrorRetryable
-		result.reconnect = result.reconnect || rendition.ErrorAction == FailureActionReconnect
+		if rendition.ErrorAction == FailureActionReconnect {
+			result.reconnect = true
+			result.reconnectAccountIDs = append(result.reconnectAccountIDs, rendition.SocialAccountID)
+		}
 	}
 }
 
@@ -2638,7 +2640,7 @@ func (s *Service) createReconnectNotifications(
 	result publicationNotificationResult,
 	renditions []models.Rendition,
 ) error {
-	for _, accountID := range result.failedAccountIDs {
+	for _, accountID := range result.reconnectAccountIDs {
 		account := result.accounts[accountID]
 		if account.ID == "" {
 			continue
@@ -2688,7 +2690,7 @@ func (s *Service) recordCredentialFailureTransition(ctx context.Context, db bun.
 	result, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).
 		Set("credential_failure_generation = credential_failure_generation + 1").
 		Where("id = ?", accountID).
-		Where("(preflight_failure = '' OR preflight_failure IS NULL)").
+		Where("COALESCE(preflight_failure, '') IN ('', 'unknown', 'unsupported')").
 		Exec(ctx)
 	if err != nil {
 		return err

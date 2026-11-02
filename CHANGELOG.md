@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.37.1] - 2026-11-02
+
+### Fixed
+
+- Restore official YouTube icons in public channel navigation and cards, and keep the account connection row compact while preserving the artwork's colors, proportions and clear space.
+
 ## [7.37.0] - 2026-11-02
 
 ### Fixed

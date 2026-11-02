@@ -388,7 +388,7 @@ test("the native screenshot artifact includes the galleries displayed in the REA
   const uploadedFiles = new Set(globSync(upload.with.path.trim().split(/\r?\n/u)));
   const readme = readFileSync("README.md", "utf8");
   const galleries = [
-    ...readme.matchAll(/(?:srcset|src)="\.\/(assets\/screenshots\/mobile-gallery-[^"]+)"/gu),
+    ...readme.matchAll(/\.\/(assets\/screenshots\/mobile-(?:[\w-]+-)?gallery-[\w-]+\.png)/gu),
   ];
   assert.ok(galleries.length > 0, "the README must identify its native galleries");
   for (const [, gallery] of galleries) {

@@ -1,8 +1,29 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-10-12",
+  "reviewed_on": "2026-11-02",
   "scope": "This register records material changes to the official hosted-service legal documents. Spelling, formatting, and link corrections that do not change meaning are not separate entries.",
   "entries": [
+    {
+      "document": "privacy",
+      "version": "2026-11-02",
+      "effective_date": "2026-11-02",
+      "url": "https://openpo.st/privacy",
+      "changes": [
+        "Specified the YouTube channel, video, playlist, publication, analytics, comment, and authorization information accessed and stored, with each category's purpose and recipients.",
+        "Explained how to request deletion of stored YouTube data, revoke access in OpenPost or Google security settings, and distinguish service deletion from deleting content on YouTube.",
+        "Linked YouTube export retention conditions and stated the seven-day direct-revocation or deletion-request deadline and the 30-day Google-revocation deadline. Described provider-cache expiry, profile refresh and the bounded NAS recovery-copy window."
+      ]
+    },
+    {
+      "document": "terms",
+      "version": "2026-11-02",
+      "effective_date": "2026-11-02",
+      "url": "https://openpo.st/terms",
+      "changes": [
+        "Required recipients of exported YouTube API data, including CSV reports, to delete or refresh it within 30 calendar days of its last fetch or refresh from YouTube; downloading or copying does not restart that period.",
+        "Applied authorization, revocation, user-deletion, current-data display, and downstream-recipient obligations to exported copies outside OpenPost."
+      ]
+    },
     {
       "document": "privacy",
       "version": "2026-10-12",

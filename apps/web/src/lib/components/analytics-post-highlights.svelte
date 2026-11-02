@@ -33,7 +33,11 @@
 					class="flex min-w-0 flex-wrap items-center gap-3 p-3"
 					data-testid="analytics-highlight"
 				>
-					<PlatformIcon platform={item.platform} class="size-4 shrink-0" />
+					{#if item.platform === 'youtube'}
+						<span class="shrink-0 text-xs text-muted-foreground">YouTube</span>
+					{:else}
+						<PlatformIcon platform={item.platform} class="size-4 shrink-0" />
+					{/if}
 					<div class="min-w-0 flex-1 basis-40">
 						{#if item.reference.publication_id}<a
 								class="line-clamp-2 text-sm font-medium hover:underline focus-visible:ring-2 focus-visible:ring-ring"

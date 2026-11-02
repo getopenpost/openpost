@@ -11,8 +11,7 @@ export const postizSocialLogos = {
 	pixelfed: 'Pixelfed.svg',
 	threads: 'Threads.svg',
 	tiktok: 'TikTok.svg',
-	x: 'X.svg',
-	youtube: 'Youtube.svg'
+	x: 'X.svg'
 } as const;
 
 export type PostizSocialLogo = keyof typeof postizSocialLogos;

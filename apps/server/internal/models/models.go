@@ -1194,16 +1194,17 @@ type OAuthGrant struct {
 type SocialAccount struct {
 	bun.BaseModel `bun:"table:social_accounts"`
 
-	ID               string `bun:",pk" json:"id"`
-	WorkspaceID      string `bun:",notnull" json:"workspace_id"`
-	Slug             string `bun:",notnull" json:"slug"`
-	Alias            string `bun:",notnull,default:''" json:"alias,omitempty"`
-	Platform         string `bun:",notnull" json:"platform"` // 'x', 'threads', 'linkedin', 'mastodon', 'bluesky', 'instagram', 'facebook', 'youtube', 'tiktok'
-	AccountID        string `bun:",notnull" json:"account_id"`
-	AccountUsername  string `json:"account_username"`
-	AccountAvatarURL string `json:"account_avatar_url"`
-	InstanceURL      string `json:"instance_url"` // Used for Mastodon domains and Bluesky PDS
-	OAuthGrantID     string `bun:"oauth_grant_id,notnull,default:''" json:"oauth_grant_id,omitempty"`
+	ID               string    `bun:",pk" json:"id"`
+	WorkspaceID      string    `bun:",notnull" json:"workspace_id"`
+	Slug             string    `bun:",notnull" json:"slug"`
+	Alias            string    `bun:",notnull,default:''" json:"alias,omitempty"`
+	Platform         string    `bun:",notnull" json:"platform"` // 'x', 'threads', 'linkedin', 'mastodon', 'bluesky', 'instagram', 'facebook', 'youtube', 'tiktok'
+	AccountID        string    `bun:",notnull" json:"account_id"`
+	AccountUsername  string    `json:"account_username"`
+	AccountAvatarURL string    `json:"account_avatar_url"`
+	ProfileFetchedAt time.Time `bun:"profile_fetched_at,nullzero" json:"-"`
+	InstanceURL      string    `json:"instance_url"` // Used for Mastodon domains and Bluesky PDS
+	OAuthGrantID     string    `bun:"oauth_grant_id,notnull,default:''" json:"oauth_grant_id,omitempty"`
 
 	// Deprecated credential mirrors remain only for rolling migration and old
 	// test fixtures. Runtime credential reads and writes use OAuthGrant.

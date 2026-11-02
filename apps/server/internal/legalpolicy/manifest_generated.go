@@ -4,12 +4,12 @@ package legalpolicy
 const (
 	SchemaVersion = 1
 
-	TermsVersion       = "2026-08-05"
-	TermsEffectiveDate = "2026-08-05"
+	TermsVersion       = "2026-11-02"
+	TermsEffectiveDate = "2026-11-02"
 	TermsURL           = "https://openpo.st/terms"
 
-	PrivacyVersion       = "2026-10-12"
-	PrivacyEffectiveDate = "2026-10-12"
+	PrivacyVersion       = "2026-11-02"
+	PrivacyEffectiveDate = "2026-11-02"
 	PrivacyURL           = "https://openpo.st/privacy"
 
 	RefundsVersion            = "2026-08-05"

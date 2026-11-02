@@ -1,4 +1,6 @@
 {
+	"analytics_export_youtube_retention": "Les données téléchargées de l’API YouTube doivent être actualisées ou supprimées dans les 30 jours suivant leur dernière récupération auprès de YouTube, même si elles sont copiées ou partagées.",
+	"analytics_export_youtube_terms": "Conditions d’exportation YouTube",
 	"publishing_setting_publish_at": "Date de publication sur YouTube",
 	"compose_setting_unset": "Non renseigné",
 	"compose_setting_yes": "Oui",

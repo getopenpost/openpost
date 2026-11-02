@@ -1,4 +1,6 @@
 {
+	"analytics_export_youtube_retention": "Os dados da API do YouTube descarregados têm de ser atualizados ou eliminados no prazo de 30 dias após a última obtenção no YouTube, mesmo que sejam copiados ou partilhados.",
+	"analytics_export_youtube_terms": "Termos de exportação do YouTube",
 	"publishing_setting_publish_at": "Data de publicação no YouTube",
 	"compose_setting_unset": "Não especificado",
 	"compose_setting_yes": "Sim",

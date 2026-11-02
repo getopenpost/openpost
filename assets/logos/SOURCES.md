@@ -1,6 +1,12 @@
-# Deployment platform logo sources
+# Platform logo sources
 
 Brand names and logos belong to their respective owners.
+
+`youtube.svg` preserves the paths, colors and clear space of the official full-color
+icon downloaded from [YouTube's brand site](https://brand.youtube/youtube-icon/) on
+2 November 2026. The supplied Illustrator artwork was converted to SVG without
+changing its geometry. Compact controls use text attribution; `YouTubeBrand`
+renders the mark at the published 100px minimum painted height.
 
 | Asset           | Source                                                                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

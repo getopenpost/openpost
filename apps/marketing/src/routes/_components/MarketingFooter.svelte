@@ -114,10 +114,16 @@
 					{#each platforms.filter( (platform) => getChannelStory(platform.slug) ) as platform (platform.slug)}
 						<a
 							href={resolve(`/platforms/${platform.slug}`)}
-							class="focus-ring inline-flex size-11 items-center justify-center rounded-md text-muted-foreground/75 transition-colors hover:text-primary"
+							class="focus-ring inline-flex min-h-11 items-center justify-center rounded-md text-muted-foreground/75 transition-colors hover:text-primary {platform.slug ===
+							'youtube'
+								? 'col-span-2 px-2 text-sm font-medium'
+								: 'size-11'}"
 							aria-label={`${platform.name} guide`}
 						>
-							<PlatformIcon platform={platform.short} class="size-4" />
+							{#if platform.slug === 'youtube'}YouTube{:else}<PlatformIcon
+									platform={platform.short}
+									class="size-4"
+								/>{/if}
 						</a>
 					{/each}
 				</div>

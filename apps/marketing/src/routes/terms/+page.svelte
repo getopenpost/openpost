@@ -77,6 +77,50 @@
 			By using OpenPost's YouTube integration, you also agree to the
 			<a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a>.
 		</p>
+		<h3 id="youtube-data-exports" class="scroll-mt-24">YouTube data exports</h3>
+		<p>
+			If you download, receive, or use YouTube API data from OpenPost, including an analytics CSV,
+			account export, or API response, you must comply with the
+			<a
+				href="https://developers.google.com/youtube/terms/developer-policies#refreshing-storing-and-displaying-api-data"
+				>YouTube API Services Developer Policies on refreshing, storing, and displaying API data</a
+			>. These obligations apply to copies you hold outside OpenPost and to anyone you authorize to
+			receive them. An export does not grant ownership of YouTube API data or permission for
+			unrestricted storage, use, or sharing.
+		</p>
+		<ul>
+			<li>
+				Keep YouTube API data only as needed for the authorized purpose. You must delete or refresh
+				each exported item within 30 calendar days of its last fetch or refresh from YouTube.
+				Downloading, copying, or forwarding an export does not restart that period. If you cannot
+				establish the last fetch or refresh date, delete the data. This export condition applies to
+				statistics and historical reports as well as other YouTube API data.
+			</li>
+			<li>
+				A refresh must retrieve current data through an authorized YouTube API access path. Do not
+				refresh after authorization ends or keep a resource that has been deleted or is no longer
+				accessible under that authorization. Delete the affected exported data instead.
+			</li>
+			<li>
+				Delete exported user data as soon as possible and within seven calendar days of the user's
+				deletion request, account deletion, or revocation through OpenPost. If the user revokes
+				access through Google account permissions, delete data obtained under that consent as soon
+				as possible and within 30 calendar days of revocation. These shorter deletion triggers take
+				precedence over a remaining storage or refresh period.
+			</li>
+			<li>
+				Use reasonable efforts to keep copies consistent with YouTube. Display the latest data
+				available to you, and clearly identify historical data by its reporting period or retrieval
+				date. Share authorized data only with the authorizing user or their expressly approved
+				agents, and require every recipient to follow these same storage, refresh, deletion, and use
+				restrictions.
+			</li>
+		</ul>
+		<p>
+			OpenPost cannot recall downloaded files or automatically refresh or delete copies outside its
+			service. You are responsible for those copies and for passing on applicable deletion and
+			revocation requests. Deleting an export does not delete content stored by YouTube.
+		</p>
 
 		<h2>5. Your content</h2>
 		<p>

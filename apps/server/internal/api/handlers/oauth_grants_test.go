@@ -11,10 +11,12 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
+	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/tokenmanager"
+	"github.com/openpost/backend/internal/services/youtubeprofile"
 	"github.com/stretchr/testify/require"
 )
 
@@ -192,4 +194,65 @@ func TestDisconnectDestinationAndRevokeSharedGrantHaveDistinctImpact(t *testing.
 		Count(ctx)
 	require.NoError(t, err)
 	require.Zero(t, pending)
+}
+
+func TestYouTubeRevocationCommitsBeforeRetryableCleanup(t *testing.T) {
+	for _, failure := range []string{"retention", "queue"} {
+		t.Run(failure, func(t *testing.T) {
+			db := newAnalyticsHandlerTestDB(t, "revoke-ws")
+			ctx := t.Context()
+			now := time.Now().UTC()
+			_, err := db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "revoke-ws", UserID: "user-1", Role: models.WorkspaceRoleAdmin}).Exec(ctx)
+			require.NoError(t, err)
+			encryptor := crypto.NewTokenEncryptor("test-key")
+			token, err := encryptor.Encrypt("provider-access")
+			require.NoError(t, err)
+			grant := &models.OAuthGrant{ID: "revoke-youtube", WorkspaceID: "revoke-ws", Provider: "youtube", ProviderSubject: "channel", AccessTokenEnc: token, ValidationStatus: "valid", TokenVersion: 1}
+			_, err = db.NewInsert().Model(grant).Exec(ctx)
+			require.NoError(t, err)
+			account := &models.SocialAccount{ID: "revoke-channel", WorkspaceID: "revoke-ws", Platform: "youtube", Slug: "channel", AccountID: "channel", AccountUsername: "Channel", OAuthGrantID: grant.ID, AccessTokenEnc: []byte{}, IsActive: true, ProfileFetchedAt: now}
+			_, err = db.NewInsert().Model(account).Exec(ctx)
+			require.NoError(t, err)
+			_, err = db.NewInsert().Model(&models.AnalyticsAccountSnapshot{ID: "revoke-snapshot", WorkspaceID: "revoke-ws", SocialAccountID: account.ID, Platform: "youtube", MetricsJSON: `{"views":10}`, CapturedAt: now}).Exec(ctx)
+			require.NoError(t, err)
+			trigger := `CREATE TRIGGER fail_youtube_retention BEFORE DELETE ON analytics_account_snapshots BEGIN SELECT RAISE(ABORT,'temporary cleanup failure'); END`
+			if failure == "queue" {
+				trigger = `CREATE TRIGGER fail_youtube_retention BEFORE INSERT ON jobs BEGIN SELECT RAISE(ABORT,'temporary job receipt failure'); END`
+			}
+			_, err = db.ExecContext(ctx, trigger)
+			require.NoError(t, err)
+			adapter := &authorizationRevokingAdapter{}
+			handler := NewOAuthHandler(db, encryptor, map[string]platform.Adapter{"youtube": adapter}, testAuthenticator{}, false, "https://app.openpost.test")
+			e := echo.New()
+			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			handler.RevokeAccountGrant(api)
+			response := oauthSelectionRequest(t, e, http.MethodDelete, "/api/v1/accounts/revoke-channel/grant", nil, true)
+			require.Equal(t, http.StatusNoContent, response.Code, response.Body.String())
+			require.Equal(t, "provider-access", adapter.token)
+			require.NoError(t, db.NewSelect().Model(grant).WherePK().Scan(ctx))
+			require.Equal(t, "revoked", grant.ValidationStatus)
+			require.Empty(t, grant.AccessTokenEnc)
+			require.NoError(t, db.NewSelect().Model(account).WherePK().Scan(ctx))
+			require.False(t, account.IsActive)
+			count, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ? AND status = ?", jobregistry.TypeYouTubeProfileSweep, "pending").Count(ctx)
+			require.NoError(t, err)
+			if failure == "queue" {
+				require.Zero(t, count)
+				var remaining int
+				remaining, err = db.NewSelect().Model((*models.AnalyticsAccountSnapshot)(nil)).Where("id = ?", "revoke-snapshot").Count(ctx)
+				require.NoError(t, err)
+				require.Zero(t, remaining, "queue failure cannot prevent inline cleanup")
+			} else {
+				require.Positive(t, count, "cleanup must remain durable after a transient retention error")
+			}
+			_, err = db.ExecContext(ctx, "DROP TRIGGER fail_youtube_retention")
+			require.NoError(t, err)
+			require.NoError(t, youtubeprofile.NewService(db, nil, nil).HandleJob(ctx, jobregistry.TypeYouTubeProfileSweep, "{}"))
+			require.NoError(t, db.NewSelect().Model(account).WherePK().Scan(ctx))
+			require.Empty(t, account.AccountUsername)
+			count, err = db.NewSelect().Model((*models.AnalyticsAccountSnapshot)(nil)).Where("id = ?", "revoke-snapshot").Count(ctx)
+			require.NoError(t, err)
+			require.Zero(t, count, "the durable cleanup can finish after the original request returns")
+		})
+	}
 }

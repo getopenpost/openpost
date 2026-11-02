@@ -14,6 +14,7 @@ import (
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/dataretention"
 	"github.com/uptrace/bun"
 )
 
@@ -193,12 +194,9 @@ type OverviewOptions struct {
 var ErrInvalidOverviewCursor = errors.New("invalid analytics overview cursor")
 
 func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, days int, options OverviewOptions) (Overview, error) {
-	if err := ValidateRange(days, options.From, options.To); err != nil {
-		return Overview{}, err
-	}
 	options = normalizeOverviewOptions(options)
-	if options.Unpaged && options.Cursor != "" {
-		return Overview{}, ErrInvalidOverviewCursor
+	if err := s.admitOverviewRead(ctx, workspaceID, days, options); err != nil {
+		return Overview{}, err
 	}
 	now := s.now()
 	if options.Cursor != "" {
@@ -945,4 +943,16 @@ func selectedFollowerSummary(accounts []AccountOverview) MetricSummary {
 		addFollowerSummary(&result, account)
 	}
 	return result
+}
+
+// admitOverviewRead validates the requested read and removes expired provider
+// copies before they can enter a report or export projection.
+func (s *Service) admitOverviewRead(ctx context.Context, workspaceID string, days int, options OverviewOptions) error {
+	if err := ValidateRange(days, options.From, options.To); err != nil {
+		return err
+	}
+	if options.Unpaged && options.Cursor != "" {
+		return ErrInvalidOverviewCursor
+	}
+	return dataretention.PurgeYouTube(ctx, s.db, s.now(), workspaceID, "")
 }

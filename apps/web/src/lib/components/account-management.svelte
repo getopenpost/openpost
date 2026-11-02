@@ -1,4 +1,5 @@
 <script lang="ts">
+	import YouTubeBrand from './youtube-brand.svelte';
 	import XMessagingSettings from '$lib/components/x-messaging-settings.svelte';
 	import { onDestroy } from 'svelte';
 	import { createQuery } from '@tanstack/svelte-query';
@@ -1839,7 +1840,7 @@
 							<PageLoading layout="grid" label={m.common_loading()} items={4} />
 						{:else if providersReady && providerEntries.length > 0}
 							{#if directProviders.length > 0}
-								<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+								<div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-3">
 									{#each directProviders as provider (providerKey(provider))}
 										<div
 											data-testid={`provider-card-${providerTestID(provider)}`}
@@ -1849,13 +1850,20 @@
 												? ''
 												: 'bg-muted/20'}"
 										>
-											<div class="flex items-start gap-3">
+											<div
+												class={provider.platform === 'youtube'
+													? 'flex flex-col items-start gap-3'
+													: 'flex items-start gap-3'}
+											>
 												<div
-													class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full {getPlatformColor(
-														provider.platform
-													)}"
+													class={provider.platform === 'youtube'
+														? 'flex shrink-0 items-center justify-center'
+														: `flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${getPlatformColor(provider.platform)}`}
 												>
-													<PlatformIcon platform={provider.platform} class="h-4 w-4 text-white" />
+													{#if provider.platform === 'youtube'}<YouTubeBrand />{:else}<PlatformIcon
+															platform={provider.platform}
+															class="h-4 w-4 text-white"
+														/>{/if}
 												</div>
 												<div class="min-w-0 flex-1">
 													<div class="flex flex-wrap items-center gap-2">
@@ -1927,22 +1935,31 @@
 												? m.accounts_provider_admin_enable_self()
 												: m.accounts_provider_admin_enable()}
 										</p>
-										<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+										<div
+											class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-3"
+										>
 											{#each setupRequiredProviders as provider (providerKey(provider))}
 												<div
 													data-testid={`provider-card-${providerTestID(provider)}`}
-													class="flex h-full min-h-28 flex-col rounded-lg border bg-card p-4 opacity-75"
+													class={provider.platform === 'youtube'
+														? 'flex h-full min-h-28 flex-col rounded-lg border bg-card p-4'
+														: 'flex h-full min-h-28 flex-col rounded-lg border bg-card p-4 opacity-75'}
 												>
-													<div class="flex items-start gap-3">
+													<div
+														class={provider.platform === 'youtube'
+															? 'flex flex-col items-start gap-3'
+															: 'flex items-start gap-3'}
+													>
 														<div
-															class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full {getPlatformColor(
-																provider.platform
-															)}"
+															class={provider.platform === 'youtube'
+																? 'flex shrink-0 items-center justify-center'
+																: `flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${getPlatformColor(provider.platform)}`}
 														>
-															<PlatformIcon
-																platform={provider.platform}
-																class="h-4 w-4 text-white"
-															/>
+															{#if provider.platform === 'youtube'}<YouTubeBrand
+																/>{:else}<PlatformIcon
+																	platform={provider.platform}
+																	class="h-4 w-4 text-white"
+																/>{/if}
 														</div>
 														<div class="min-w-0 flex-1">
 															<div class="flex flex-wrap items-center gap-2">

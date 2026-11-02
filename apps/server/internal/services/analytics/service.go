@@ -18,6 +18,7 @@ import (
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/dataretention"
 	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/providerwrite"
@@ -173,6 +174,12 @@ func (s *Service) RefreshWorkspace(ctx context.Context, workspaceID string) (int
 }
 
 func (s *Service) handleSweep(ctx context.Context) error {
+	if err := s.ScheduleSweep(ctx, s.now().Add(sweepInterval)); err != nil {
+		return err
+	}
+	if err := dataretention.PurgeYouTube(ctx, s.db, s.now(), "", ""); err != nil {
+		return err
+	}
 	var workspaces []string
 	if err := s.db.NewSelect().
 		Model((*models.SocialAccount)(nil)).
@@ -186,9 +193,6 @@ func (s *Service) handleSweep(ctx context.Context) error {
 		if _, err := s.enqueueWorkspace(ctx, workspaceID, false); err != nil {
 			sweepErr = errors.Join(sweepErr, err)
 		}
-	}
-	if err := s.ScheduleSweep(ctx, s.now().Add(sweepInterval)); err != nil {
-		sweepErr = errors.Join(sweepErr, err)
 	}
 	return sweepErr
 }

@@ -177,7 +177,11 @@
 									size="sm"
 								/>
 								<span>{settingLabel(setting)}</span>
-								<span class="sr-only">{accountContextLabel(account)}</span>
+								<span
+									class={account.platform === 'youtube'
+										? 'text-xs text-muted-foreground'
+										: 'sr-only'}>{accountContextLabel(account)}</span
+								>
 							</label>
 						{:else}
 							<label

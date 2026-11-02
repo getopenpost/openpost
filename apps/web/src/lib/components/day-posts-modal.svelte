@@ -434,13 +434,19 @@
 														) ||
 															account.slug)) ||
 													destination.platform}
-												<span title={destinationName} class="shrink-0">
+												<span
+													title={destinationName}
+													class="inline-flex shrink-0 items-center gap-1"
+												>
 													<SocialAccountAvatar
 														name={destinationName}
 														platform={destination.platform}
 														avatarUrl={account?.account_avatar_url ?? ''}
 														size="sm"
 													/>
+													{#if destination.platform === 'youtube'}
+														<span class="text-xs text-muted-foreground">YouTube</span>
+													{/if}
 												</span>
 											{/each}
 											{#if hiddenDestinationCount > 0}

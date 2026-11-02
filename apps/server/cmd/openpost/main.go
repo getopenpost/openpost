@@ -39,6 +39,7 @@ import (
 	operationallogging "github.com/openpost/backend/internal/operational/logging"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/queue"
+	"github.com/openpost/backend/internal/services/accountavatar"
 	accountpreflightservice "github.com/openpost/backend/internal/services/accountpreflight"
 	"github.com/openpost/backend/internal/services/aiprompts"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
@@ -98,6 +99,7 @@ import (
 	"github.com/openpost/backend/internal/services/waitlist"
 	"github.com/openpost/backend/internal/services/workflows"
 	"github.com/openpost/backend/internal/services/workspaceteam"
+	"github.com/openpost/backend/internal/services/youtubeprofile"
 	"github.com/openpost/backend/internal/telemetry"
 )
 
@@ -592,6 +594,7 @@ func main() {
 	publishSvc.SetProviderReadiness(providerReadinessService)
 	publishSvc.SetTelemetry(telemetryRecorder)
 
+	youtubeProfileService := youtubeprofile.NewService(db, tokenManager, nil)
 	analyticsService := analyticsservice.NewService(db, tokenManager)
 	analyticsService.SetCursorSigningKey(cfg.JWTSecret)
 	analyticsService.SetUsage(usageService)
@@ -644,6 +647,7 @@ func main() {
 	for name, adapter := range providers {
 		tokenManager.SetProvider(name, adapter)
 		publishSvc.SetProvider(name, adapter)
+		youtubeProfileService.SetProvider(name, adapter)
 		analyticsService.SetProvider(name, adapter)
 		postImportService.SetProvider(name, adapter)
 		if engagementAdapter, ok := adapter.(platform.EngagementAdapter); ok {
@@ -679,6 +683,7 @@ func main() {
 		fatalfWithDiagnostics(diagnosticsReporter, "failed to initialize media storage: %v", err)
 	}
 	publishSvc.SetStorage(storage)
+	youtubeProfileService.SetAvatarCache(accountavatar.New(storage))
 	publicMediaVerifier := publicurl.NewMediaVerifier(cfg.MediaURL, storage, mediaSigner)
 	videoProcessingService := videoprocessing.NewService(db, storage, mediaanalysis.FFmpegAnalyzer{})
 	mediaHandler := handlers.NewMediaHandler(db, storage, authService, authenticator, mediaSigner)
@@ -842,6 +847,7 @@ func main() {
 		worker.SetWorkflowService(workflowService)
 		worker.SetFeedbackService(feedbackService)
 		worker.SetAnalyticsService(analyticsService)
+		worker.SetYouTubeProfileService(youtubeProfileService)
 		worker.SetBillingService(billingService)
 		worker.SetWaitlistService(waitlistService)
 		worker.SetBotIngressService(botIngressService)
@@ -875,6 +881,9 @@ func main() {
 		}
 		if err := videoProcessingService.EnqueuePendingAnalysis(context.Background()); err != nil {
 			fatalfWithDiagnostics(diagnosticsReporter, "failed to schedule pending video analysis: %v", err)
+		}
+		if err := youtubeProfileService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
+			fatalfWithDiagnostics(diagnosticsReporter, "failed to schedule YouTube profile refresh: %v", err)
 		}
 		if err := analyticsService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
 			fatalfWithDiagnostics(diagnosticsReporter, "failed to schedule analytics collection: %v", err)
@@ -1036,6 +1045,7 @@ func main() {
 			tokenManager.SetProvider,
 			func(name string, adapter platform.Adapter) { publishSvc.SetProvider(name, adapter) },
 			analyticsService.SetProvider,
+			youtubeProfileService.SetProvider,
 			postImportService.SetProvider,
 			func(name string, adapter platform.Adapter) {
 				if engagementAdapter, ok := adapter.(platform.EngagementAdapter); ok {

@@ -1,3 +1,4 @@
+import { NativeText } from "@/components/native-text";
 import { SvgXml } from "react-native-svg";
 import platformMarks from "@/lib/platform-marks.json";
 import { ThemeIcon } from "@/components/theme-icon";
@@ -11,6 +12,7 @@ export function PlatformIcon({ platform, size = 22 }: { platform: string; size?:
     .split(":")[0]
     .toLowerCase()
     .replace(/^twitter$/, "x");
+  if (key === "youtube") return <NativeText>YouTube</NativeText>;
   const xml = marks[key];
   if (!xml) return <ThemeIcon role="account" size={size} />;
   return (

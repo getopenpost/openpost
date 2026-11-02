@@ -14,6 +14,8 @@ const (
 	TypeStorageDelete           = "storage_delete"
 	TypeFeedbackDelivery        = "deliver_feedback"
 	TypeWaitlistNotification    = "waitlist_notification"
+	TypeYouTubeProfileSweep     = "youtube_profile_sweep"
+	TypeYouTubeProfileAccount   = "youtube_profile_account"
 	TypeAnalyticsSweep          = "analytics_sweep"
 	TypeAnalyticsAccount        = "analytics_account_sync"
 	TypeAnalyticsRendition      = "analytics_rendition_sync"
@@ -60,6 +62,7 @@ const (
 	ExecuteStorageDelete         ExecutionKind = "storage_delete"
 	ExecuteFeedback              ExecutionKind = "feedback"
 	ExecuteWaitlist              ExecutionKind = "waitlist"
+	ExecuteYouTubeProfile        ExecutionKind = "youtube_profile"
 	ExecuteAnalytics             ExecutionKind = "analytics"
 	ExecuteBilling               ExecutionKind = "billing"
 	ExecuteEngagement            ExecutionKind = "engagement"
@@ -116,8 +119,10 @@ type Definition struct {
 }
 
 var definitions = map[string]Definition{
-	TypeWaitlistNotification: definition(TypeWaitlistNotification, 10, ExecuteWaitlist, FailureDefault, RecoveryRequeue),
-	TypePublishPublication:   definition(TypePublishPublication, 3, ExecutePublishPublication, FailurePublish, RecoveryReconcilePublication),
+	TypeYouTubeProfileSweep:   providerReadDefinition(TypeYouTubeProfileSweep, 5, ExecuteYouTubeProfile, RecoveryRequeue, "YouTube profile refresh failed.", ""),
+	TypeYouTubeProfileAccount: providerReadDefinition(TypeYouTubeProfileAccount, 5, ExecuteYouTubeProfile, RecoveryRequeue, "YouTube profile refresh failed.", ""),
+	TypeWaitlistNotification:  definition(TypeWaitlistNotification, 10, ExecuteWaitlist, FailureDefault, RecoveryRequeue),
+	TypePublishPublication:    definition(TypePublishPublication, 3, ExecutePublishPublication, FailurePublish, RecoveryReconcilePublication),
 	TypeRefreshToken: providerReadDefinition(TypeRefreshToken, 5, ExecuteRefreshToken, RecoveryRequeue,
 		"Token refresh failed. OpenPost will retry when the failure is temporary.", ""),
 	TypeMediaCleanup: {

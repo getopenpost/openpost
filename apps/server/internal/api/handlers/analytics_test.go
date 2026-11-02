@@ -14,10 +14,12 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
+	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
 	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
 )
 
 type analyticsHandlerAdapter struct {
@@ -43,16 +45,7 @@ func (analyticsHandlerTokenSource) GetValidAccessToken(context.Context, string) 
 }
 
 func TestAnalyticsOverviewRejectsStaleCursor(t *testing.T) {
-	db := createHandlerTestDB(
-		t,
-		(*models.WorkspaceMember)(nil),
-		(*models.SocialAccount)(nil),
-		(*models.Publication)(nil),
-		(*models.Rendition)(nil),
-		(*models.AnalyticsAccountSnapshot)(nil),
-		(*models.AnalyticsRenditionSnapshot)(nil),
-		(*models.AnalyticsSyncState)(nil),
-	)
+	db := newAnalyticsHandlerTestDB(t, "ws-1")
 	ctx := t.Context()
 	now := time.Now().UTC()
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "ws-1", UserID: "user-1", Role: models.WorkspaceRoleViewer}).Exec(ctx)
@@ -70,7 +63,7 @@ func TestAnalyticsOverviewRejectsStaleCursor(t *testing.T) {
 	require.NoError(t, err)
 	renditions := []models.Rendition{
 		{ID: "rendition-1", PublicationID: "publication-1", TargetKey: "post", SocialAccountID: "account-1", Platform: "youtube", Profile: "short_video", Status: models.RenditionStatusPublished, CreatedAt: now, UpdatedAt: now},
-		{ID: "rendition-2", PublicationID: "publication-1", TargetKey: "post", SocialAccountID: "account-1", Platform: "youtube", Profile: "short_video", Status: models.RenditionStatusPublished, CreatedAt: now, UpdatedAt: now},
+		{ID: "rendition-2", PublicationID: "publication-1", TargetKey: "short_video", SocialAccountID: "account-1", Platform: "youtube", Profile: "short_video", Status: models.RenditionStatusPublished, CreatedAt: now, UpdatedAt: now},
 	}
 	_, err = db.NewInsert().Model(&renditions).Exec(ctx)
 	require.NoError(t, err)
@@ -105,6 +98,9 @@ func TestAnalyticsOverviewRejectsStaleCursor(t *testing.T) {
 
 	inserted := renditions[0]
 	inserted.ID = "rendition-3"
+	inserted.PublicationID = "publication-3"
+	_, err = db.NewInsert().Model(&models.Publication{ID: inserted.PublicationID, WorkspaceID: "ws-1", CreatedByID: "user-1", Title: "Another launch", Intent: "post", ContentProfile: models.ContentProfileShortText, SourceText: "Another launch", Status: models.PublicationStatusPublished, ActualRunAt: now, CreatedAt: now, UpdatedAt: now}).Exec(ctx)
+	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&inserted).Exec(ctx)
 	require.NoError(t, err)
 	insertedResponse := get("?workspace_id=ws-1&days=30&limit=1&cursor=" + first.ContentNextCursor)
@@ -116,14 +112,7 @@ func TestAnalyticsOverviewRejectsStaleCursor(t *testing.T) {
 }
 
 func TestAnalyticsRepurposeRequiresEditorAndKeepsOpaqueReferencesWorkspaceScoped(t *testing.T) {
-	db := createHandlerTestDB(
-		t,
-		(*models.WorkspaceMember)(nil),
-		(*models.SocialAccount)(nil),
-		(*models.Publication)(nil),
-		(*models.Rendition)(nil),
-		(*models.AnalyticsRenditionSnapshot)(nil),
-	)
+	db := newAnalyticsHandlerTestDB(t, "ws-1")
 	ctx := t.Context()
 	now := time.Now().UTC()
 	member := models.WorkspaceMember{WorkspaceID: "ws-1", UserID: "user-1", Role: models.WorkspaceRoleViewer}
@@ -179,17 +168,7 @@ func TestAnalyticsRepurposeRequiresEditorAndKeepsOpaqueReferencesWorkspaceScoped
 }
 
 func TestAnalyticsOverviewAllowsViewerButRefreshRequiresEditor(t *testing.T) {
-	db := createHandlerTestDB(
-		t,
-		(*models.WorkspaceMember)(nil),
-		(*models.SocialAccount)(nil),
-		(*models.Publication)(nil),
-		(*models.Rendition)(nil),
-		(*models.AnalyticsAccountSnapshot)(nil),
-		(*models.AnalyticsRenditionSnapshot)(nil),
-		(*models.AnalyticsSyncState)(nil),
-		(*models.Job)(nil),
-	)
+	db := newAnalyticsHandlerTestDB(t, "ws-1")
 	ctx := context.Background()
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{
 		WorkspaceID: "ws-1",
@@ -251,7 +230,7 @@ func TestAnalyticsOverviewAllowsViewerButRefreshRequiresEditor(t *testing.T) {
 }
 
 func TestAnalyticsOverviewFiltersSeveralAccountsAndBindsCursorToTheSet(t *testing.T) {
-	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil), (*models.Publication)(nil), (*models.Rendition)(nil), (*models.AnalyticsAccountSnapshot)(nil), (*models.AnalyticsRenditionSnapshot)(nil), (*models.AnalyticsSyncState)(nil))
+	db := newAnalyticsHandlerTestDB(t, "selected", "other")
 	ctx := t.Context()
 	now := time.Now().UTC()
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "selected", UserID: "user-1", Role: models.WorkspaceRoleViewer}).Exec(ctx)
@@ -326,4 +305,23 @@ func TestAnalyticsOverviewFiltersSeveralAccountsAndBindsCursorToTheSet(t *testin
 	require.Zero(t, foreign.Summary.Followers.Measured)
 	require.Empty(t, foreign.Performance)
 	require.Empty(t, foreign.FollowerSeries)
+}
+
+// Analytics reports read through retention owners, so endpoint fixtures use the
+// production schema rather than a partial table list that can bypass cleanup.
+func newAnalyticsHandlerTestDB(t *testing.T, workspaceIDs ...string) *bun.DB {
+	t.Helper()
+	db, err := database.InitDB(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	require.NoError(t, database.CreateSchema(db))
+	for _, model := range []any{&models.User{ID: "user-1", Email: "analytics@example.com"}, &models.Organization{ID: "analytics-org", Name: "Analytics"}} {
+		_, err := db.NewInsert().Model(model).Exec(t.Context())
+		require.NoError(t, err)
+	}
+	for _, id := range workspaceIDs {
+		_, err := db.NewInsert().Model(&models.Workspace{ID: id, OrganizationID: "analytics-org", Name: id}).Exec(t.Context())
+		require.NoError(t, err)
+	}
+	return db
 }

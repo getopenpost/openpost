@@ -130,7 +130,11 @@
 								? formatSocialAccountName(account.account_username, account.platform, account.alias)
 								: destination.platform}
 						>
-							<PlatformIcon platform={destination.platform} class="size-3.5 shrink-0" />
+							{#if destination.platform === 'youtube'}
+								<span class="shrink-0">YouTube</span>
+							{:else}
+								<PlatformIcon platform={destination.platform} class="size-3.5 shrink-0" />
+							{/if}
 							{#if account}<span class="max-w-24 truncate"
 									>{formatSocialAccountName(
 										account.account_username,

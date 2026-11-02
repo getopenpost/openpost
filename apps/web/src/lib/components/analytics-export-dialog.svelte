@@ -84,6 +84,13 @@
 	// Empty selections mean "everything", so the default export needs no setup.
 	let selectedAccounts = $state<string[]>([]);
 	let selectedMetrics = $state<string[]>([]);
+	const includesYouTube = $derived(
+		accounts.some(
+			(account) =>
+				account.platform === 'youtube' &&
+				(selectedAccounts.length === 0 || selectedAccounts.includes(account.id))
+		)
+	);
 	let exporting = $state(false);
 	let error = $state('');
 
@@ -193,6 +200,17 @@
 			>
 		</Dialog.Header>
 		<div class="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1" data-testid="analytics-export-form">
+			{#if includesYouTube}
+				<InlineNotice tone="info">
+					<p>{m.analytics_export_youtube_retention()}</p>
+					<a
+						href="https://openpo.st/terms#youtube-data-exports"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="underline underline-offset-2">{m.analytics_export_youtube_terms()}</a
+					>
+				</InlineNotice>
+			{/if}
 			<div class="space-y-2">
 				<Label id="analytics-export-format-label">{m.analytics_export_format()}</Label>
 				<div

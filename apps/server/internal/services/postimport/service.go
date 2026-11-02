@@ -15,6 +15,7 @@ import (
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/dataretention"
 	"github.com/uptrace/bun"
 )
 
@@ -244,7 +245,7 @@ func (s *Service) Status(ctx context.Context, workspaceID, accountID string) (*m
 }
 
 // ListImported serves the imported library from stored rows only. It makes
-// no provider calls and never touches analytics tables.
+// no provider calls. Expired YouTube API caches are cleared before reading.
 func (s *Service) ListImported(ctx context.Context, workspaceID, accountID string, limit int) ([]models.ImportedPost, error) {
 	posts, _, err := s.ListImportedPage(ctx, workspaceID, accountID, "", limit)
 	return posts, err
@@ -256,6 +257,9 @@ type importedPostCursor struct {
 }
 
 func (s *Service) ListImportedPage(ctx context.Context, workspaceID, accountID, cursor string, limit int) ([]models.ImportedPost, string, error) {
+	if err := dataretention.PurgeYouTube(ctx, s.db, s.now(), workspaceID, ""); err != nil {
+		return nil, "", err
+	}
 	limit = min(max(1, limit), 100)
 	var posts []models.ImportedPost
 	query := s.db.NewSelect().Model(&posts).

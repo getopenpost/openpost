@@ -3,11 +3,14 @@ package account_saver
 import (
 	"context"
 	"log"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/accountavatar"
+	"github.com/uptrace/bun"
 )
 
 // Fetch before taking database locks. An unavailable picture must not prevent
@@ -58,6 +61,11 @@ func (s *AccountSaver) deleteUnusedAvatars(ctx context.Context, urls []string) {
 // Called after reloading under the connection fence, so a failed download
 // inherits the latest committed photo rather than the pre-download snapshot.
 func (s *AccountSaver) reconcileAccountAvatar(account, existing *models.SocialAccount, cachedURL string) string {
+	// A new YouTube profile cannot renew the retention age of a photo that
+	// could not be fetched. The connection transaction queues the old object.
+	if account.Platform == "youtube" && !account.ProfileFetchedAt.IsZero() {
+		return existing.AccountAvatarURL
+	}
 	if s.avatars == nil {
 		return ""
 	}
@@ -66,4 +74,14 @@ func (s *AccountSaver) reconcileAccountAvatar(account, existing *models.SocialAc
 		return ""
 	}
 	return existing.AccountAvatarURL
+}
+
+func (s *AccountSaver) retirePreviousAccountAvatar(ctx context.Context, db bun.IDB, account, existing *models.SocialAccount, cachedURL string) (string, error) {
+	retiredAvatar := s.reconcileAccountAvatar(account, existing, cachedURL)
+	if account.Platform == "youtube" && accountavatar.IsCached(retiredAvatar) && retiredAvatar != account.AccountAvatarURL {
+		if _, err := jobregistry.EnqueueStorageDeletes(ctx, db, []string{filepath.Base(retiredAvatar)}); err != nil {
+			return "", err
+		}
+	}
+	return retiredAvatar, nil
 }

@@ -235,11 +235,11 @@ func exportMetricColumns(metrics []string) []string {
 
 func exportPostsTable(content []ContentOverview, metrics []string, location *time.Location) ExportTable {
 	table := ExportTable{
-		Columns: append([]string{"Published at", "Title", "Platform", "Account", "Format", "URL", "Engagement"}, exportMetricColumns(metrics)...),
+		Columns: append(append([]string{"Published at", "Title", "Platform", "Account", "Format", "URL", "Engagement"}, exportMetricColumns(metrics)...), "Last fetched at (UTC)"),
 		Rows:    [][]any{},
 	}
 	for _, item := range content {
-		row := make([]any, 0, 7+len(metrics))
+		row := make([]any, 0, 8+len(metrics))
 		row = append(row,
 			item.PublishedAt.In(location).Format("2006-01-02 15:04"),
 			firstNonEmpty(item.Title, item.Excerpt), item.Platform, item.Username, item.ContentProfile, item.ExternalURL,
@@ -248,9 +248,17 @@ func exportPostsTable(content []ContentOverview, metrics []string, location *tim
 		for _, key := range metrics {
 			row = append(row, exportContentMetricValue(item, key))
 		}
+		row = append(row, exportFetchedAt(item.CollectedAt))
 		table.Rows = append(table.Rows, row)
 	}
 	return table
+}
+
+func exportFetchedAt(at time.Time) any {
+	if at.IsZero() {
+		return nil
+	}
+	return at.UTC().Format(time.RFC3339Nano)
 }
 
 func exportEngagement(item ContentOverview) any {
@@ -291,11 +299,28 @@ func exportContentMetricValue(item ContentOverview, key string) any {
 }
 
 type exportBucket struct {
-	key, label  string
-	posts       int
-	engagement  int64
-	measuredEng bool
-	metrics     map[string]int64
+	key, label   string
+	posts        int
+	engagement   int64
+	measuredEng  bool
+	metrics      map[string]int64
+	oldestFetch  time.Time
+	unknownFetch bool
+}
+
+func (bucket *exportBucket) includeFetchedAt(at time.Time) {
+	if at.IsZero() {
+		bucket.unknownFetch = true
+	} else if at.Before(bucket.oldestFetch) {
+		bucket.oldestFetch = at
+	}
+}
+
+func (bucket *exportBucket) fetchedAtCell() any {
+	if bucket.unknownFetch {
+		return nil
+	}
+	return exportFetchedAt(bucket.oldestFetch)
 }
 
 func exportGroupedTable(content []ContentOverview, metrics []string, groupBy string, location *time.Location) ExportTable {
@@ -304,10 +329,11 @@ func exportGroupedTable(content []ContentOverview, metrics []string, groupBy str
 		key, label := exportGroupKey(item, groupBy, location)
 		bucket := buckets[key]
 		if bucket == nil {
-			bucket = &exportBucket{key: key, label: label, metrics: map[string]int64{}}
+			bucket = &exportBucket{key: key, label: label, metrics: map[string]int64{}, oldestFetch: item.CollectedAt}
 			buckets[key] = bucket
 		}
 		bucket.posts++
+		bucket.includeFetchedAt(item.CollectedAt)
 		if engagement, ok := exportEngagement(item).(int64); ok {
 			bucket.engagement += engagement
 			bucket.measuredEng = true
@@ -347,7 +373,7 @@ func exportGroupedTable(content []ContentOverview, metrics []string, groupBy str
 		ExportGroupPlatform: "Platform", ExportGroupAccount: "Account",
 	}[groupBy]
 	table := ExportTable{
-		Columns: append([]string{title, "Posts", "Engagement"}, exportMetricColumns(metrics)...),
+		Columns: append(append([]string{title, "Posts", "Engagement"}, exportMetricColumns(metrics)...), "Oldest fetch at (UTC)"),
 		Rows:    [][]any{},
 	}
 	for _, bucket := range ordered {
@@ -362,6 +388,7 @@ func exportGroupedTable(content []ContentOverview, metrics []string, groupBy str
 				row = append(row, nil)
 			}
 		}
+		row = append(row, bucket.fetchedAtCell())
 		table.Rows = append(table.Rows, row)
 	}
 	return table

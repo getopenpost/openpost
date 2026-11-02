@@ -1397,13 +1397,21 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											data-testid="analytics-row-destinations"
 										>
 											<span
-												class="flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-background"
+												class={item.platform === 'youtube'
+													? 'flex shrink-0 items-center justify-center'
+													: 'flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-background'}
 											>
-												<PlatformIcon platform={item.platform} class="size-3.5" />
+												{#if item.platform === 'youtube'}
+													<span class="text-xs">YouTube</span>
+												{:else}
+													<PlatformIcon platform={item.platform} class="size-3.5" />
+												{/if}
 											</span>
-											<span class="min-w-0">
-												<span class="block truncate text-xs">{renditionName(item)}</span>
-											</span>
+											{#if item.platform !== 'youtube' || renditionName(item) !== 'YouTube'}
+												<span class="min-w-0">
+													<span class="block truncate text-xs">{renditionName(item)}</span>
+												</span>
+											{/if}
 										</div>
 										<div
 											class="analytics-metric analytics-engagement flex items-baseline justify-between gap-2 text-sm"

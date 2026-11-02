@@ -157,7 +157,7 @@ Run OpenPost with Docker Compose. The default setup uses one container with SQLi
   <img src="./assets/postiz-socials/Linkedin.svg" alt="LinkedIn" width="32" height="32">
   <img src="./assets/postiz-socials/X.svg" alt="X" width="32" height="32">
   <img src="./assets/postiz-socials/TikTok.svg" alt="TikTok" width="32" height="32">
-  <img src="./assets/postiz-socials/Youtube.svg" alt="YouTube" width="32" height="32">
+  <a href="https://www.youtube.com/">YouTube</a>
   <img src="./assets/postiz-socials/Threads.svg" alt="Threads" width="32" height="32">
   <img src="./assets/postiz-socials/Bluesky.svg" alt="Bluesky" width="32" height="32">
   <img src="./assets/postiz-socials/Mastodon.svg" alt="Mastodon" width="32" height="32">

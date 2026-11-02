@@ -17,6 +17,7 @@ import (
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/dataretention"
 	"github.com/openpost/backend/internal/services/lifecycle"
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/organizationguard"
@@ -1275,17 +1276,20 @@ func (s *Service) ListEngagement(ctx context.Context, actor Actor, input Query) 
 }
 
 func (s *Service) listEngagement(ctx context.Context, input Query) (Page, error) {
+	if err := dataretention.PurgeYouTube(ctx, s.db, s.now(), input.WorkspaceID, ""); err != nil {
+		return Page{}, err
+	}
 	if input.Limit <= 0 || input.Limit > 100 {
 		input.Limit = 50
 	}
-	query := s.db.NewSelect().Model((*models.EngagementItem)(nil)).Where("workspace_id = ?", input.WorkspaceID)
+	query := s.db.NewSelect().Model((*models.EngagementItem)(nil)).Where("workspace_id = ?", input.WorkspaceID).Where("(platform <> ? OR last_seen_at > ?)", "youtube", s.now().Add(-dataretention.YouTubeCacheAge))
 	query = engagementFilters(query, input.Platform, input.AccountID, input.PublicationID, input.Kind, input.UnreadOnly, input.Archived)
 	count, err := query.Count(ctx)
 	if err != nil {
 		return Page{}, err
 	}
 	var items []models.EngagementItem
-	query = s.db.NewSelect().Model(&items).Where("workspace_id = ?", input.WorkspaceID)
+	query = s.db.NewSelect().Model(&items).Where("workspace_id = ?", input.WorkspaceID).Where("(platform <> ? OR last_seen_at > ?)", "youtube", s.now().Add(-dataretention.YouTubeCacheAge))
 	query = engagementFilters(query, input.Platform, input.AccountID, input.PublicationID, input.Kind, input.UnreadOnly, input.Archived)
 	if input.Cursor != nil {
 		query = query.Where(

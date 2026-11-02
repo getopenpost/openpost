@@ -12,7 +12,6 @@
 	import linkedin from '../../../../../assets/logos/linkedin.svg?raw';
 	import instagram from '../../../../../assets/logos/instagram.svg?raw';
 	import facebook from '../../../../../assets/logos/facebook.svg?raw';
-	import youtube from '../../../../../assets/logos/youtube.svg?raw';
 	import tiktok from '../../../../../assets/logos/tiktok.svg?raw';
 	import pinterest from '../../../../../assets/logos/pinterest.svg?raw';
 	import telegram from '../../../../../assets/logos/telegram.svg?raw';
@@ -40,7 +39,6 @@
 		['linkedin', linkedin],
 		['instagram', instagram],
 		['facebook', facebook],
-		['youtube', youtube],
 		['tiktok', tiktok],
 		['pinterest', pinterest],
 		['telegram', telegram]
@@ -55,6 +53,6 @@
 {#if svg}
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 	{@html svg}
-{:else}
+{:else if platformKey !== 'youtube'}
 	<ThemeIcon role="plugin" class={className} aria-hidden="true" />
 {/if}

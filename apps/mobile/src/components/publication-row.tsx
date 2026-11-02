@@ -77,7 +77,7 @@ export function PublicationRow({
           {title}
         </NativeText>
         <BodyText numberOfLines={2}>{detail}</BodyText>
-        <View style={{ flexDirection: "row", gap: 6 }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
           {destinations.map((rendition) => {
             const account = accounts.data?.find(
               (candidate) => candidate.id === rendition.social_account_id,
@@ -86,22 +86,36 @@ export function PublicationRow({
               return <PlatformIcon key={rendition.id} platform={rendition.platform!} size={18} />;
             }
             return (
-              <AccountAvatar
+              <View
                 key={rendition.id}
-                name={
-                  account
-                    ? accountHandle(
-                        account.account_username,
-                        platformLabel(rendition.platform!),
-                        rendition.platform!,
-                        account.alias,
-                      )
-                    : platformLabel(rendition.platform!)
-                }
-                platform={rendition.platform!}
-                avatarUrl={account?.account_avatar_url}
-                size={28}
-              />
+                style={{ flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%" }}
+              >
+                <AccountAvatar
+                  name={
+                    account
+                      ? accountHandle(
+                          account.account_username,
+                          platformLabel(rendition.platform!),
+                          rendition.platform!,
+                          account.alias,
+                        )
+                      : platformLabel(rendition.platform!)
+                  }
+                  platform={rendition.platform!}
+                  avatarUrl={account?.account_avatar_url}
+                  size={28}
+                />
+                {platformLabel(rendition.platform!) === "YouTube" ? (
+                  <NativeText
+                    style={[
+                      typography.labelMedium,
+                      { color: colors.onSurfaceVariant, flexShrink: 1 },
+                    ]}
+                  >
+                    YouTube
+                  </NativeText>
+                ) : null}
+              </View>
             );
           })}
         </View>

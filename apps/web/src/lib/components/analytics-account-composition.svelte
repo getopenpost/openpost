@@ -93,11 +93,7 @@
 								size="sm"
 								class="shrink-0"
 							/>{/if}
-						<span class="truncate"
-							>{slice.account?.platform === 'youtube'
-								? `YouTube · ${slice.label}`
-								: slice.label}</span
-						>
+						<span class="truncate">{slice.label}</span>
 					</dt>
 					<dd class="shrink-0 tabular-nums" title={String(slice.value)}>
 						{formatValue(slice.value)}

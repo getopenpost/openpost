@@ -11,7 +11,7 @@ import {
 } from "./product-capture-fixtures";
 
 for (const scheme of ["light", "dark"] as const) {
-  for (const width of [320, 1440]) {
+  for (const width of [320, 768, 800, 1440]) {
     test(`YouTube attribution fits ${width}px in ${scheme}`, async ({ page, request }, info) => {
       await page.setViewportSize({ width, height: 1000 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
@@ -40,14 +40,28 @@ for (const scheme of ["light", "dark"] as const) {
         const mark = svg.querySelector("path")! as SVGGraphicsElement;
         const matrix = (svg as SVGGraphicsElement).getScreenCTM()!;
         const box = svg.getBoundingClientRect();
+        const cardBox = svg
+          .closest('[data-testid="provider-card-youtube"]')!
+          .getBoundingClientRect();
         return {
           paintedHeight: mark.getBBox().height * matrix.d,
           right: box.right,
+          left: box.left,
+          top: box.top,
+          bottom: box.bottom,
+          cardLeft: cardBox.left,
+          cardRight: cardBox.right,
+          cardTop: cardBox.top,
+          cardBottom: cardBox.bottom,
           color: getComputedStyle(mark).fill,
         };
       });
       expect(geometry.paintedHeight).toBeGreaterThanOrEqual(100);
       expect(geometry.right).toBeLessThanOrEqual(width);
+      expect(geometry.left).toBeGreaterThanOrEqual(geometry.cardLeft);
+      expect(geometry.right).toBeLessThanOrEqual(geometry.cardRight);
+      expect(geometry.top).toBeGreaterThanOrEqual(geometry.cardTop);
+      expect(geometry.bottom).toBeLessThanOrEqual(geometry.cardBottom);
       expect(geometry.color).toBe("rgb(255, 0, 51)");
       await expect(page.getByText("YouTube", { exact: true }).first()).toBeVisible();
       const screenshot = await card.screenshot();
@@ -65,6 +79,9 @@ for (const scheme of ["light", "dark"] as const) {
       await expect(
         page.locator("#composer-destination-account-youtube [data-slot=social-account-platform]"),
       ).toBeVisible();
+      await expect(
+        page.locator("#composer-destination-account-youtube [data-slot=social-account-platform]"),
+      ).toHaveText("· YouTube");
     });
   }
 }

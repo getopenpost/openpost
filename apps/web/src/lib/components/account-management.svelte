@@ -1840,7 +1840,7 @@
 							<PageLoading layout="grid" label={m.common_loading()} items={4} />
 						{:else if providersReady && providerEntries.length > 0}
 							{#if directProviders.length > 0}
-								<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+								<div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-3">
 									{#each directProviders as provider (providerKey(provider))}
 										<div
 											data-testid={`provider-card-${providerTestID(provider)}`}
@@ -1935,7 +1935,9 @@
 												? m.accounts_provider_admin_enable_self()
 												: m.accounts_provider_admin_enable()}
 										</p>
-										<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+										<div
+											class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-3"
+										>
 											{#each setupRequiredProviders as provider (providerKey(provider))}
 												<div
 													data-testid={`provider-card-${providerTestID(provider)}`}

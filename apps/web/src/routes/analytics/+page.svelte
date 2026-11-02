@@ -1407,9 +1407,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 													<PlatformIcon platform={item.platform} class="size-3.5" />
 												{/if}
 											</span>
-											<span class="min-w-0">
-												<span class="block truncate text-xs">{renditionName(item)}</span>
-											</span>
+											{#if item.platform !== 'youtube' || renditionName(item) !== 'YouTube'}
+												<span class="min-w-0">
+													<span class="block truncate text-xs">{renditionName(item)}</span>
+												</span>
+											{/if}
 										</div>
 										<div
 											class="analytics-metric analytics-engagement flex items-baseline justify-between gap-2 text-sm"

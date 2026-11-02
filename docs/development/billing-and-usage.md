@@ -54,7 +54,11 @@ The X guardrail is active only when both conditions are true:
 1. `OPENPOST_EDITION=cloud`
 2. An X adapter is configured
 
-Publication reservations use a hashed key derived from the workspace, durable job execution, subject, and request phase. Analytics reservations use a fresh request key after checking the stored daily cadence. Both store the provider, priced operation, units, unit price, estimated cost, and UTC occurrence time. They do not store post text, provider tokens, or provider response bodies.
+Publication reservations use a hashed key derived from the workspace, durable job execution, subject, and request phase. Analytics reservations use a fresh request key after checking the stored daily cadence.
+
+Tagged-user resolution reserves the X user-read cost before looking up deduplicated, uncached handles. Cached handles and numeric IDs do not trigger reads. Lookups use the same user-read price as analytics. Partial or ambiguous responses keep the reservation as unresolved exposure.
+
+All reservations store the provider, priced operation, units, unit price, estimated cost, and UTC occurrence time. They do not store post text, provider tokens, or provider response bodies.
 
 The default per-workspace budget is $5.00 per UTC month. A request that would make confirmed cost plus reservations exceed the budget is rejected before the provider call. `0` blocks all hosted X publishing and analytics reads. Prices and budgets use millionths of a US dollar so calculations stay integer-only:
 

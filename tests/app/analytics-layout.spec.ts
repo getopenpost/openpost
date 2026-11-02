@@ -440,14 +440,14 @@ for (const [themeID, scheme] of [
           expect(bounds.rightInset).toBeGreaterThanOrEqual(4);
           if (width < 768) expect(bounds.height).toBeGreaterThanOrEqual(44);
         }
-        const engagement = metrics.getByRole("button", { name: "Engagement", exact: true });
+        const engagement = metrics.getByRole("button", { name: /^Engagement/ });
         await engagement.focus();
         await engagement.press("Enter");
         await expect(engagement).toHaveAttribute("aria-pressed", "true");
         await expect(
           page.getByRole("img", { name: "Daily engagement", exact: true }),
         ).toBeVisible();
-        const views = metrics.getByRole("button", { name: "Visibility", exact: true });
+        const views = metrics.getByRole("button", { name: /^Visibility/ });
         await views.focus();
         await views.press("Enter");
         await expect(views).toHaveAttribute("aria-pressed", "true");

@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
 	import * as Select from '$lib/components/ui/select';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		getSettingsDestinations,
@@ -22,22 +23,22 @@
 	const activeDestination = $derived(
 		allDestinations.find((destination) => destination.id === active) ?? allDestinations[0]
 	);
-	const activeGroup = $derived(activeDestination?.group ?? 'workspace');
 	const activeLabel = $derived(activeDestination?.label ?? m.settings_general());
 	const visibleGroups = $derived(
 		(
 			[
-				{ id: 'personal', label: m.settings_personal() },
+				{ id: 'you', label: m.settings_group_you() },
 				{ id: 'workspace', label: m.settings_workspace() },
-				{ id: 'organization', label: m.settings_organization() },
-				...(showInstance ? [{ id: 'instance', label: m.settings_instance() } as const] : [])
+				{ id: 'plan', label: m.settings_group_plan() },
+				{ id: 'advanced', label: m.settings_group_advanced() }
 			] as const
-		).map((group) => ({
-			...group,
-			destinations: destinationsInGroup(group.id)
-		}))
+		)
+			.map((group) => ({
+				...group,
+				destinations: destinationsInGroup(group.id)
+			}))
+			.filter((group) => group.destinations.length > 0)
 	);
-	const activeGroupDestinations = $derived(destinationsInGroup(activeGroup));
 
 	function destinationsInGroup(group: SettingsDestinationGroup) {
 		return allDestinations.filter((destination) => destination.group === group);
@@ -58,10 +59,10 @@
 		data-settings-tab={destination.id}
 		data-cuelume-toggle="toggle"
 		class={[
-			'flex min-h-10 items-center rounded-md px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+			'flex min-h-10 items-center rounded-md px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:min-h-11',
 			active === destination.id
-				? 'bg-accent text-foreground'
-				: 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+				? 'bg-navigation-active text-navigation-active-foreground'
+				: 'text-muted-foreground hover:bg-navigation-hover hover:text-foreground'
 		]}
 		aria-current={active === destination.id ? 'page' : undefined}
 	>
@@ -70,7 +71,7 @@
 {/snippet}
 
 <div class="min-w-0" data-testid="settings-navigation">
-	<div class="md:hidden">
+	<div class="lg:hidden">
 		<Select.Root
 			type="single"
 			value={active}
@@ -93,28 +94,30 @@
 		</Select.Root>
 	</div>
 
-	<div class="hidden md:block">
-		<nav class="flex min-h-11 gap-1 border-b" aria-label={m.settings_groups_label()}>
-			{#each visibleGroups as group (group.id)}
-				<a
-					href={resolveAppPath(destinationHref(group.destinations[0].id))}
-					data-cuelume-toggle="toggle"
-					class={[
-						'relative flex min-h-11 items-center px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-						activeGroup === group.id
-							? 'text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary'
-							: 'text-muted-foreground hover:text-foreground'
-					]}
-					aria-current={activeGroup === group.id ? 'true' : undefined}
-				>
-					{group.label}
-				</a>
-			{/each}
-		</nav>
-		<nav class="flex flex-wrap gap-1 pt-3" aria-label={m.settings_pages_label()}>
-			{#each activeGroupDestinations as destination (destination.id)}
-				{@render destinationLink(destination)}
-			{/each}
-		</nav>
-	</div>
+	<nav class="hidden lg:block" aria-label={m.settings_groups_label()}>
+		{#each visibleGroups as group (group.id)}
+			<div class="mb-5 last:mb-0">
+				{#if group.id === 'advanced'}
+					<Disclosure
+						summary={group.label}
+						open={activeDestination?.group === 'advanced'}
+						summaryClass="mb-1 min-h-9 rounded-md px-3 text-xs text-muted-foreground hover:bg-navigation-hover"
+					>
+						<div class="space-y-0.5">
+							{#each group.destinations as destination (destination.id)}
+								{@render destinationLink(destination)}
+							{/each}
+						</div>
+					</Disclosure>
+				{:else}
+					<p class="mb-1 px-3 text-xs font-medium text-muted-foreground">{group.label}</p>
+					<div class="space-y-0.5">
+						{#each group.destinations as destination (destination.id)}
+							{@render destinationLink(destination)}
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/each}
+	</nav>
 </div>

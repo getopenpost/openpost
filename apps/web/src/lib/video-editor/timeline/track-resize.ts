@@ -1,7 +1,8 @@
 import type { TimelineTrack } from '../project/types';
 
-export const MIN_TRACK_HEIGHT = 48;
+export const MIN_TRACK_HEIGHT = 44;
 export const MAX_TRACK_HEIGHT = 140;
+const COMPACT_TRACK_HEIGHT = 44;
 
 const TRACK_HEIGHT_ARROW_STEP = 4;
 const TRACK_HEIGHT_SHIFT_STEP = 12;
@@ -45,7 +46,7 @@ export function clampTrackHeight(height: number): number {
 }
 
 export function defaultTrackHeight(track: Pick<TimelineTrack, 'kind'>): number {
-	return track.kind === 'audio' ? 72 : 96;
+	return COMPACT_TRACK_HEIGHT;
 }
 
 export function resizeTrackInList(

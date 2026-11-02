@@ -3,8 +3,8 @@ import { join, relative } from 'node:path';
 import { expect, it } from 'vitest';
 
 // Review check for issue #374 (pending spinners ignore prefers-reduced-motion):
-// every spin animation class outside the shared indicator must carry
-// `motion-reduce:animate-none` so continuous spin stops under reduced motion
+// every spin animation class outside the shared indicator must either use
+// `motion-safe:` or carry `motion-reduce:animate-none` so continuous spin stops under reduced motion
 // while the pending state stays announced via aria-busy / status regions.
 // Only the shared ActivityIndicator owner may spin without that guard: it
 // uses its own keyframes with a `prefers-reduced-motion: reduce` media query
@@ -31,7 +31,19 @@ function collectFiles(root: string): string[] {
 	return files;
 }
 
-it('guards every animate-spin outside the shared indicator with motion-reduce:animate-none', () => {
+function hasUnguardedSpin(line: string): boolean {
+	if (line.includes('motion-reduce:animate-none')) return false;
+	return [...line.matchAll(/(?<![\w-])(?:[\w-]+:)*!?animate-spin\b/g)].some(
+		([utility]) => !utility.split(':').includes('motion-safe')
+	);
+}
+
+it('guards every animate-spin outside the shared indicator against reduced motion', () => {
+	expect(hasUnguardedSpin('class="animate-spin"')).toBe(true);
+	expect(hasUnguardedSpin('class="motion-safe:animate-spin"')).toBe(false);
+	expect(hasUnguardedSpin('class="hover:motion-safe:animate-spin"')).toBe(false);
+	expect(hasUnguardedSpin('class="animate-spin motion-reduce:animate-none"')).toBe(false);
+	expect(hasUnguardedSpin('class="motion-safe:animate-spin animate-spin"')).toBe(true);
 	const offenders: string[] = [];
 	for (const root of scannedRoots) {
 		for (const file of collectFiles(root)) {
@@ -39,7 +51,7 @@ it('guards every animate-spin outside the shared indicator with motion-reduce:an
 			if (/\.(test|spec)\.[^.]+$/.test(file)) continue;
 			const lines = readFileSync(file, 'utf8').split('\n');
 			lines.forEach((line, index) => {
-				if (line.includes('animate-spin') && !line.includes('motion-reduce:animate-none')) {
+				if (hasUnguardedSpin(line)) {
 					offenders.push(`${relative(repoRoot, file)}:${index + 1}:${line.trim()}`);
 				}
 			});

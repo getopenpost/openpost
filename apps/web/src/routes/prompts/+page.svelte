@@ -317,7 +317,6 @@
 
 <PageContainer
 	title={m.prompts_title()}
-	description={m.prompts_description()}
 	themeIconRole="idea"
 	loading={routeLoading}
 	loadingMessage={m.common_loading()}

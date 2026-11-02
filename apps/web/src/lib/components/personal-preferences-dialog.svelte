@@ -13,7 +13,10 @@
 	import AppSelect from './app-select.svelte';
 	import { getCurrentLocale, localeLabels, switchLocale } from '$lib/i18n';
 	import { locales, type Locale } from '$lib/paraglide/runtime';
-	import { sidebarPreferences } from '$lib/stores/sidebar-preferences.svelte';
+	import {
+		sidebarPreferences,
+		type LandingPreference
+	} from '$lib/stores/sidebar-preferences.svelte';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -59,14 +62,27 @@
 					onValueChange={(value) => switchLocale(value as Locale)}
 				/>
 			</div>
+			<div class="grid gap-2">
+				<Label for="preferences-landing">{m.personal_landing()}</Label>
+				<AppSelect
+					id="preferences-landing"
+					class="min-h-11 w-full"
+					value={sidebarPreferences.landing}
+					options={[
+						{ value: 'home', label: m.nav_home() },
+						{ value: 'compose', label: m.sidebar_new_post() }
+					]}
+					onValueChange={(value) => sidebarPreferences.setLanding(value as LandingPreference)}
+				/>
+			</div>
 			<div class="flex min-h-11 items-center justify-between gap-3">
-				<Label class="flex min-h-11 flex-1 items-center" for="preferences-sidebar-calendar"
-					>{m.personal_sidebar_calendar()}</Label
+				<Label class="flex min-h-11 flex-1 items-center" for="preferences-sidebar-drafts"
+					>{m.personal_sidebar_drafts()}</Label
 				>
 				<Checkbox
-					id="preferences-sidebar-calendar"
-					checked={sidebarPreferences.calendarVisible}
-					onCheckedChange={(checked) => sidebarPreferences.setCalendarVisible(checked === true)}
+					id="preferences-sidebar-drafts"
+					checked={sidebarPreferences.draftsVisible}
+					onCheckedChange={(checked) => sidebarPreferences.setDraftsVisible(checked === true)}
 				/>
 			</div>
 			<div class="flex min-h-11 items-center justify-between gap-3">

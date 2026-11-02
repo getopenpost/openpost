@@ -22,9 +22,7 @@ test("Appearance does not download every settings panel", async ({ page, request
   await createWorkspace(request, token, "Settings performance");
   await authenticatePage(page, token);
   await page.goto("/settings?tab=appearance");
-  await expect(
-    page.getByRole("heading", { name: "Appearance", exact: true }).first(),
-  ).toBeVisible();
+  await expect(page.locator("[data-theme-library-card]").first()).toBeVisible();
   await page.waitForLoadState("networkidle");
   const scriptBytes = await downloadedScriptBytes(page);
   expect(scriptBytes).toBeGreaterThan(0);

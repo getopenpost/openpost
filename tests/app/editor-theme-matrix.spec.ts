@@ -92,10 +92,7 @@ async function createVideoProject(page: Page): Promise<string> {
   await page.getByRole("textbox", { name: "Project name" }).fill("Theme matrix");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
-  await page
-    .getByRole("complementary", { name: "Assets" })
-    .getByRole("button", { name: "Add layer" })
-    .click();
+  await page.locator("header").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   return page.url();
 }
@@ -209,7 +206,7 @@ async function captureColorPickerState(
 ): Promise<void> {
   if (!captureScreenshots) return;
   const assets = page.getByRole("complementary", { name: "Assets" });
-  await assets.getByRole("button", { name: "Add layer" }).click();
+  await page.locator("header").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   const picker = page.getByRole("button", { name: "Text color" }).first();
   await expect(picker).toBeVisible({ timeout: 10_000 });
@@ -235,7 +232,17 @@ async function reviewVideoPanelStates(
   await captureVideoState(page, theme, "assistant");
 
   for (const panel of ["Stock", "Text", "Effects", "Transition"] as const) {
-    await assets.getByRole("tab", { name: panel, exact: true }).click();
+    if (panel === "Stock") {
+      await assets.getByRole("tab", { name: "Media", exact: true }).click();
+    }
+    if (panel === "Transition") {
+      await page
+        .getByRole("tablist", { name: "Effects", exact: true })
+        .getByRole("tab", { name: "Transition", exact: true })
+        .click();
+    } else {
+      await assets.getByRole("tab", { name: panel, exact: true }).click();
+    }
     await captureVideoState(page, theme, panel.toLowerCase());
     if (panel === "Text") {
       await assets.getByRole("button", { name: "Add text", exact: true }).click();

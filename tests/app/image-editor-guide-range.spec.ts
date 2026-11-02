@@ -81,7 +81,7 @@ test("guide dialog retains invalid positions and admits the selected page axis r
   expect(await renderedGuideError()).toBeLessThanOrEqual(1 / 32);
   const saveStatus = page.getByRole("banner").locator('[role="status"][data-state]');
   await expect(saveStatus).toHaveAttribute("data-state", "saved");
-  await expect(saveStatus).toContainText("Saved on this device");
+  await expect(saveStatus).toHaveAttribute("aria-label", "Saved on this device");
   await page.reload();
   await expect(vertical).toHaveAccessibleName(/Vertical guide at 541 pixels/);
   expect(await renderedGuideError()).toBeLessThanOrEqual(1 / 32);

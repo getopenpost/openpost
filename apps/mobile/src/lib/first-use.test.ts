@@ -15,9 +15,9 @@ describe("first-use recovery", () => {
       "setup",
     );
 
-    // Active destination: enter the app.
+    // Active destination: enter the app on Home, matching the web landing default.
     const ready = destinationState([{ is_active: true }], "https://openpost.example.com");
     expect(ready.kind).toBe("ready");
-    if (ready.kind === "ready") expect(ready.route).toBe("/(tabs)/posts");
+    if (ready.kind === "ready") expect(ready.route).toBe("/(tabs)/home");
   });
 });

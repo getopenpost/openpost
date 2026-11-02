@@ -45,6 +45,7 @@ var builtInOrder = []string{
 	"quizlet",
 	"dither",
 	"dither-moss",
+	"calm",
 }
 
 func builtInVersion(family BuiltInFamily) int {

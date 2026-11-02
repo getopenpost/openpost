@@ -58,15 +58,17 @@ async function createProject(
   }
   await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
+  await page.locator("[data-project-details]").click();
   const projectName = page.getByRole("textbox", { name: "Project name" });
-  if ((await projectName.inputValue()) !== name) await projectName.fill(name);
+  if ((await projectName.inputValue()) !== name) {
+    await projectName.fill(name);
+    await projectName.press("Tab");
+  }
+  await page.keyboard.press("Escape");
 }
 
 async function addTextItem(page: Page): Promise<void> {
-  await page
-    .getByRole("complementary", { name: "Assets" })
-    .getByRole("button", { name: "Add layer" })
-    .click();
+  await page.locator("header").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
 }
 
@@ -236,6 +238,9 @@ test("sequence switches synchronize tracks, preview, and selection", async ({ pa
     ).toBeVisible();
   };
   const inspectorHeading = page.locator("#video-editor-tools-panel h2");
+  const projectNameHeading = (
+    (await page.locator("[data-project-details]").textContent()) ?? ""
+  ).trim();
 
   await expectTimeline("switch-proof-main", "Main slate");
   await page.locator('[data-timeline-item-id="switch-proof-main"] button').first().click();
@@ -243,21 +248,21 @@ test("sequence switches synchronize tracks, preview, and selection", async ({ pa
 
   await page.getByRole("button", { name: "Alpha sequence", exact: true }).click();
   await expectTimeline("switch-proof-alpha-item", "Alpha slate");
-  await expect(inspectorHeading).toHaveText("Edit");
+  await expect(inspectorHeading).toHaveText(projectNameHeading);
   await page.locator('[data-timeline-item-id="switch-proof-alpha-item"] button').first().click();
   await expect(inspectorHeading).toHaveText("Alpha slate");
 
   await page.getByRole("button", { name: "Beta sequence", exact: true }).click();
   await expect(page.locator('[data-timeline-item-id="switch-proof-beta-wrapper"]')).toBeVisible();
   await expect(page.locator('[data-preview-item="switch-proof-beta-wrapper"]')).toBeVisible();
-  await expect(inspectorHeading).toHaveText("Edit");
+  await expect(inspectorHeading).toHaveText(projectNameHeading);
   await page
     .locator('[data-timeline-item-id="switch-proof-beta-wrapper"]')
     .getByRole("button", { name: /^Nested compound\. Drag to move/u })
     .dblclick();
   await expect(page.getByRole("button", { name: "Nested compound", exact: true })).toBeVisible();
   await expectTimeline("switch-proof-compound-item", "Compound slate");
-  await expect(inspectorHeading).toHaveText("Edit");
+  await expect(inspectorHeading).toHaveText(projectNameHeading);
 
   await page.getByRole("button", { name: "Alpha sequence", exact: true }).click();
   await expectTimeline("switch-proof-alpha-item", "Alpha slate");
@@ -304,7 +309,13 @@ test("transition feedback explains the single-clip requirement", async ({ page }
     .getByRole("button", { name: /Drag to move/ })
     .click({ modifiers: ["Shift"] });
   await expect(page.getByRole("heading", { name: "2 clips selected" })).toBeVisible();
-  await page.getByRole("tab", { name: "Transition", exact: true }).click();
+  if (!(await page.locator('[data-left-group-tab="transitions"]:visible').count())) {
+    await page
+      .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("tab", { name: "Effects", exact: true })
+      .click();
+  }
+  await page.locator('[data-left-group-tab="transitions"]:visible').click();
   await page.getByRole("button", { name: "Cross dissolve", exact: true }).click();
   await expect(
     page.getByText("Select one clip to add a transition.", { exact: true }),
@@ -426,8 +437,9 @@ test("Stock and Create keep working state while another tool is open", async ({
   await page.setViewportSize({ width: 1280, height: 500 });
   expect(providerRequests).toBe(0);
   const leftPanelTab = (value: string) => page.locator(`[data-left-panel-tab="${value}"]:visible`);
+  const leftGroupTab = (value: string) => page.locator(`[data-left-group-tab="${value}"]:visible`);
 
-  await leftPanelTab("stock").click();
+  await leftGroupTab("stock").click();
   await expect.poll(() => providerRequests).toBe(1);
   const query = page.getByRole("textbox", { name: "Search stock media", exact: true });
   await query.fill("Lisbon rooftops");
@@ -442,9 +454,9 @@ test("Stock and Create keep working state while another tool is open", async ({
   });
   const stockScrollTop = await stockPanel.evaluate((element) => element.scrollTop);
   expect(stockScrollTop).toBeGreaterThan(0);
-  await leftPanelTab("media").click();
+  await leftGroupTab("project").click();
   await expect(query).toBeHidden();
-  await leftPanelTab("stock").click();
+  await leftGroupTab("stock").click();
   expect(await stockPanel.evaluate((element) => element.scrollTop)).toBe(stockScrollTop);
   expect(providerRequests).toBe(1);
   await expect(query).toHaveValue("Lisbon rooftops");

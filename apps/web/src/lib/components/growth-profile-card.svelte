@@ -164,7 +164,7 @@
 							<Avatar.Image src={mu.AvatarURL} alt="" />
 						{/if}
 						<Avatar.Fallback
-							class="rounded-full bg-muted text-[10px] font-medium text-muted-foreground"
+							class="rounded-full bg-muted text-xs font-medium text-muted-foreground"
 						>
 							{(mu.DisplayName || mu.Handle || '?').slice(0, 1).toUpperCase()}
 						</Avatar.Fallback>

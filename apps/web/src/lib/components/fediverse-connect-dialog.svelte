@@ -160,7 +160,7 @@
 						onDismiss={() => onErrorDismiss()}
 					/>
 				{/if}
-				<div class="flex justify-end gap-2">
+				<Dialog.Footer>
 					<Dialog.Close>
 						{#snippet child({ props })}
 							<Button {...props} variant="outline" type="button">{m.common_cancel()}</Button>
@@ -169,7 +169,7 @@
 					<Button type="submit" disabled={loading}>
 						{loading ? m.common_connecting() : m.common_connect()}
 					</Button>
-				</div>
+				</Dialog.Footer>
 			</form>
 		{/if}
 	</Dialog.Content>

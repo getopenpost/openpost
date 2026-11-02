@@ -3,10 +3,6 @@
 	import { sequenceStore } from '../sequences/sequence-store.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
-	import {
-		canTrimItemToPlayhead,
-		trimItemToPlayhead
-	} from '$lib/video-editor/timeline/actions/trim-playhead';
 	import { Input } from '$lib/components/ui/input';
 	import AppSelect, { type AppSelectOption } from '$lib/components/app-select.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
@@ -22,7 +18,6 @@
 	import LottiePropertiesPanel from './lottie-properties-panel.svelte';
 	import TextPropertiesPanel from './text-properties-panel.svelte';
 	import SubtitlePropertiesPanel from './subtitle-properties-panel.svelte';
-	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import CompositionControlOverrides from './composition-control-overrides.svelte';
 	import { resolveAnimatedItemLocalAt } from '$lib/video-editor/timeline/animated-properties';
 	import { findLinkedAudioCompanion } from '$lib/video-editor/audio/transition-crossfade';
@@ -64,13 +59,6 @@
 		onbrowsetextstyles?: () => void;
 	} = $props();
 	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
-	const canTrimStart = $derived(itemId ? canTrimItemToPlayhead(itemId, 'start') : false);
-	const canTrimEnd = $derived(itemId ? canTrimItemToPlayhead(itemId, 'end') : false);
-	function trimToPlayhead(edge: 'start' | 'end'): void {
-		if (!itemId) return;
-		editorSession.pausePlayback();
-		if (trimItemToPlayhead(itemId, edge)) onedit();
-	}
 
 	const audioItems = $derived.by(() => {
 		const selectedIds = itemIds.length > 0 ? itemIds : itemId ? [itemId] : [];
@@ -299,34 +287,6 @@
 
 {#if item}
 	<div class="flex flex-col gap-3" role="group" aria-label={m.video_editor_clip_properties()}>
-		{#if ['video', 'audio', 'image', 'composition'].includes(item.type)}
-			<div
-				class="grid grid-cols-1 gap-1"
-				role="group"
-				aria-label={m.video_editor_trim_to_playhead()}
-			>
-				<Button
-					multiline
-					size="xs"
-					variant="outline"
-					class="h-auto min-h-8 py-1 whitespace-normal [@media(pointer:coarse)]:min-h-11"
-					disabled={!canTrimStart}
-					onclick={() => trimToPlayhead('start')}
-				>
-					{m.video_editor_trim_start_playhead()}
-				</Button>
-				<Button
-					multiline
-					size="xs"
-					variant="outline"
-					class="h-auto min-h-8 py-1 whitespace-normal [@media(pointer:coarse)]:min-h-11"
-					disabled={!canTrimEnd}
-					onclick={() => trimToPlayhead('end')}
-				>
-					{m.video_editor_trim_end_playhead()}
-				</Button>
-			</div>
-		{/if}
 		{#if item.type === 'adjustment'}
 			<p class="text-xs leading-relaxed text-muted-foreground">
 				{m.video_editor_adjustment_layer_hint()}
@@ -360,10 +320,7 @@
 						/>
 					</label>
 				</div>
-				<EditorDisclosure
-					label={m.video_editor_advanced()}
-					class="mt-2 rounded-md border border-border bg-muted/40"
-				>
+				<EditorDisclosure label={m.video_editor_advanced()} class="mt-2">
 					<div class="border-t border-border p-2">
 						<div class="grid grid-cols-2 gap-1">
 							{#each textAdvancedFields as field (field.property)}
@@ -448,7 +405,7 @@
 					summary={noise.enabled
 						? m.video_editor_audio_noise_applied({ amount: String(noise.amount) })
 						: m.video_editor_audio_noise_bypassed()}
-					class="rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-control)]"
+					class="mt-2 border-t border-[var(--video-editor-border)]"
 				>
 					{#snippet actions()}
 						<HintButton
@@ -514,7 +471,7 @@
 
 			{#if audioItem}
 				<EditorDisclosure label={m.video_editor_advanced()}>
-					<details class="mt-2 rounded-md border border-border bg-muted/40">
+					<details class="mt-2">
 						<summary
 							class="flex min-h-[25px] cursor-pointer list-none items-center justify-between px-2 text-[10px] text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring"
 							title={m.video_editor_audio_fade_shape_description()}

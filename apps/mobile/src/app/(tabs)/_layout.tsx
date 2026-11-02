@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { inboxSummaryQueryOptions } from "@openpost/query-catalog";
 import { mobileInboxAPI } from "@/lib/inbox/api";
-import { useWorkspaceId } from "@/lib/queries";
+import { useWorkspaceCapabilities, useWorkspaceId } from "@/lib/queries";
 import { InboxSessionBoundary } from "@/components/inbox/session-boundary";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { useColors } from "@/components/ui";
@@ -18,6 +18,7 @@ export default function TabLayout() {
 function NativeTabLayout() {
   const colors = useColors();
   const workspaceId = useWorkspaceId() ?? "";
+  const canEdit = Boolean(useWorkspaceCapabilities()?.can_edit);
   const summary = useQuery({
     ...inboxSummaryQueryOptions(mobileInboxAPI, workspaceId),
     refetchInterval: 60_000,
@@ -26,9 +27,7 @@ function NativeTabLayout() {
   const theme = useNativeTheme();
   const drafts = resolveNativeThemeNavigationIcon(theme.manifest, "drafts");
   const inbox = resolveNativeThemeNavigationIcon(theme.manifest, "inbox");
-  const media = resolveNativeThemeNavigationIcon(theme.manifest, "media");
   const more = resolveNativeThemeNavigationIcon(theme.manifest, "more");
-  const analytics = resolveNativeThemeNavigationIcon(theme.manifest, "analytics");
   const navigation = navigationPresentation(theme.manifest);
   const label = theme.manifest.typography.labelMedium;
 
@@ -66,9 +65,19 @@ function NativeTabLayout() {
       shadowColor={navigation.shadowColor}
       tintColor={navigation.selectedColor}
     >
+      {/* The phone navigation mirrors the web Calm contract: Home, Posts, New,
+          Inbox, More, all labelled. Analytics and Media live under More. */}
+      <NativeTabs.Trigger name="home">
+        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="house" md="home" />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="posts">
         <NativeTabs.Trigger.Label>Posts</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon renderingMode="template" src={drafts} />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="new" hidden={!canEdit}>
+        <NativeTabs.Trigger.Label>New</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="plus" md="add" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="inbox">
         <NativeTabs.Trigger.Label>Inbox</NativeTabs.Trigger.Label>
@@ -78,14 +87,6 @@ function NativeTabLayout() {
           </NativeTabs.Trigger.Badge>
         ) : null}
         <NativeTabs.Trigger.Icon renderingMode="template" src={inbox} />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="analytics">
-        <NativeTabs.Trigger.Label>Analytics</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon renderingMode="template" src={analytics} />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="media">
-        <NativeTabs.Trigger.Label>Media</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon renderingMode="template" src={media} />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="more">
         <NativeTabs.Trigger.Label>More</NativeTabs.Trigger.Label>

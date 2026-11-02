@@ -4,6 +4,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import MediaTagFilter from '$lib/components/media-tag-filter.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import type { MediaTag } from '$lib/media-tags';
 	import { m } from '$lib/paraglide/messages';
@@ -137,10 +138,7 @@
 				/>
 			</div>
 		{/if}
-		<details class="border-y py-1">
-			<summary class="flex min-h-11 cursor-pointer items-center text-sm font-medium">
-				{m.media_dimensions_date()}
-			</summary>
+		<Disclosure summary={m.media_dimensions_date()} class="border-y py-1">
 			<div class="grid gap-3 pb-3 sm:grid-cols-2">
 				<div class="grid grid-cols-2 gap-2">
 					<label class="grid gap-1 text-xs font-medium">
@@ -213,7 +211,7 @@
 					</label>
 				</div>
 			</div>
-		</details>
+		</Disclosure>
 		{#if widthInvalid || heightInvalid}
 			<p id={`${fieldId}-dimensions-error`} role="alert" class="text-sm text-destructive">
 				{m.media_dimensions_range_invalid()}

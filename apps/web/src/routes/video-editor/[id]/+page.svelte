@@ -18,6 +18,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import EditorHeader from '$lib/components/editor-header.svelte';
 	import SaveIndicator from '$lib/components/save-indicator.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as Popover from '$lib/components/ui/popover';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { ProtectedIcon, ThemeIcon, type ProtectedIconRole } from '$lib/themes/icons';
 	import type { ThemeIconRole } from '$lib/themes/contracts';
@@ -500,9 +501,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	$effect(() => {
 		if (!displayedProject || editorSession.loading) return;
 		if (restoredPanelProject !== displayedProject.id) {
-			leftPanel =
-				leftPanelOptions.find((option) => option.value === editorSession.restoredLeftPanel)
-					?.value ?? 'media';
+			const restored = allLeftPanels.find((panel) => panel === editorSession.restoredLeftPanel);
+			if (restored) {
+				const restoredGroup = leftGroupForPanel(restored);
+				leftPanel = restored;
+				if (restoredGroup !== 'ai')
+					leftGroupPanel = { ...leftGroupPanel, [restoredGroup]: restored };
+			} else {
+				leftPanel = 'media';
+			}
 			restoredPanelProject = displayedProject.id;
 		}
 		editorSession.rememberActiveSequence(sequenceStore.activeSequenceId, leftPanel);
@@ -546,6 +553,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		| 'lottie'
 		| 'transcript'
 		| 'ai';
+	type LeftRailGroup = 'media' | 'text' | 'transcript' | 'effects' | 'elements' | 'library';
 	type LeftPanelOption = {
 		value: LeftPanel;
 		label: string;
@@ -553,7 +561,58 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		| { iconKind: 'protected'; icon: ProtectedIconRole }
 		| { iconKind: 'theme'; icon: ThemeIconRole }
 	);
+	type LeftRailOption = {
+		value: LeftRailGroup;
+		label: string;
+	} & (
+		| { iconKind: 'protected'; icon: ProtectedIconRole }
+		| { iconKind: 'theme'; icon: ThemeIconRole }
+	);
 	let leftPanel = $state<LeftPanel>('media');
+	const defaultLeftGroupPanels = {
+		media: 'media',
+		text: 'text',
+		transcript: 'transcript',
+		effects: 'effects',
+		elements: 'shapes',
+		library: 'library'
+	} satisfies Record<LeftRailGroup, LeftPanel>;
+	let leftGroupPanel = $state<Record<LeftRailGroup, LeftPanel>>({ ...defaultLeftGroupPanels });
+
+	const allLeftPanels: LeftPanel[] = [
+		'library',
+		'timers',
+		'media',
+		'stock',
+		'text',
+		'shapes',
+		'backgrounds',
+		'stickers',
+		'effects',
+		'transitions',
+		'lottie',
+		'transcript',
+		'ai'
+	];
+
+	function leftGroupForPanel(panel: LeftPanel): LeftRailGroup | 'ai' {
+		switch (panel) {
+			case 'stock':
+				return 'media';
+			case 'transitions':
+				return 'effects';
+			case 'shapes':
+			case 'backgrounds':
+			case 'stickers':
+			case 'lottie':
+			case 'timers':
+				return 'elements';
+			case 'ai':
+				return 'ai';
+			default:
+				return panel;
+		}
+	}
 	let stockPanelMounted = $state(false);
 	let assistantPanelMounted = $state(false);
 	$effect(() => {
@@ -733,7 +792,26 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		openLeftPanel(panel);
 	}
 
+	function toggleLeftGroup(group: LeftRailGroup): void {
+		if (leftGroupForPanel(leftPanel) === group && !leftSidebarRail) {
+			toggleLeftSidebar();
+			return;
+		}
+		openLeftPanel(leftGroupPanel[group]);
+	}
+
+	function activateLeftOption(value: LeftRailGroup | 'ai'): void {
+		if (value === 'ai') toggleLeftPanel('ai');
+		else toggleLeftGroup(value);
+	}
+
+	function openLeftGroup(group: LeftRailGroup): void {
+		openLeftPanel(leftGroupPanel[group]);
+	}
+
 	function openLeftPanel(panel: LeftPanel): void {
+		const group = leftGroupForPanel(panel);
+		if (group !== 'ai') leftGroupPanel = { ...leftGroupPanel, [group]: panel };
 		leftPanel = panel;
 		expandLeftSidebar();
 	}
@@ -771,18 +849,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			.length
 	);
 	const showSourceMonitor = $derived(activeWorkspace === 'edit' && sourceMediaId !== null);
-	const primaryLeftPanelOptions = $derived<LeftPanelOption[]>([
+	const primaryLeftPanelOptions = $derived<LeftRailOption[]>([
 		{
 			value: 'media',
-			label: m.video_editor_media_pool(),
+			label: m.video_editor_tool_media(),
 			iconKind: 'protected',
 			icon: 'editor-media'
-		},
-		{
-			value: 'stock',
-			label: m.video_editor_stock_assets(),
-			iconKind: 'theme',
-			icon: 'search'
 		},
 		{
 			value: 'text',
@@ -792,15 +864,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		},
 		{
 			value: 'transcript',
-			label: m.video_editor_transcript(),
+			label: m.video_editor_tool_captions(),
 			iconKind: 'protected',
 			icon: 'editor-captions'
-		},
-		{
-			value: 'transitions',
-			label: m.video_editor_transition(),
-			iconKind: 'protected',
-			icon: 'editor-transitions'
 		},
 		{
 			value: 'effects',
@@ -809,53 +875,76 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			icon: 'editor-effects'
 		},
 		{
-			value: 'shapes',
-			// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- The generated message key names the user-facing Shapes tool.
-			label: m.video_editor_shapes(),
+			value: 'elements',
+			label: m.video_editor_tool_elements(),
 			iconKind: 'protected',
 			icon: 'editor-shapes'
 		},
-		{
-			value: 'backgrounds',
-			label: m.video_editor_backgrounds_title(),
-			iconKind: 'protected',
-			icon: 'editor-backgrounds'
-		},
-		{
-			value: 'stickers',
-			label: m.video_editor_stickers(),
-			iconKind: 'protected',
-			icon: 'editor-stickers'
-		},
-		{
-			value: 'lottie',
-			label: m.video_editor_animations(),
-			iconKind: 'protected',
-			icon: 'editor-animation'
-		},
-		{ value: 'timers', label: m.video_editor_timers(), iconKind: 'theme', icon: 'time' },
 		{ value: 'library', label: m.video_editor_library(), iconKind: 'theme', icon: 'favorite' }
 	]);
-	const utilityLeftPanelOptions = $derived<LeftPanelOption[]>([
+	const utilityLeftPanelOptions = $derived([
 		{
 			value: 'ai',
 			label: m.video_editor_local_ai(),
 			iconKind: 'theme',
 			icon: 'sparkles'
 		}
-	]);
+	] satisfies LeftPanelOption[]);
 	const leftPanelOptions = $derived([...primaryLeftPanelOptions, ...utilityLeftPanelOptions]);
 	const railPanelOptions = $derived(primaryLeftPanelOptions);
-	const leftPanelHeading = $derived(
-		leftPanelOptions.find((option) => option.value === leftPanel)?.label ?? m.video_editor_assets()
-	);
+	const leftPanelHeading = $derived.by(() => {
+		const group = leftGroupForPanel(leftPanel);
+		if (group === 'ai') return m.video_editor_local_ai();
+		return (
+			primaryLeftPanelOptions.find((option) => option.value === group)?.label ??
+			m.video_editor_assets()
+		);
+	});
+	type LeftGroupTab = { panel: LeftPanel; label: string; view?: 'project' | 'scenes' };
+	const leftGroupTabs = $derived.by((): LeftGroupTab[] => {
+		switch (leftGroupForPanel(leftPanel)) {
+			case 'media':
+				return [
+					{ panel: 'media', view: 'project', label: m.video_editor_media_tab() },
+					{ panel: 'media', view: 'scenes', label: m.video_editor_scenes() },
+					{ panel: 'stock', label: m.video_editor_stock_assets() }
+				];
+			case 'effects':
+				return [
+					{ panel: 'effects', label: m.video_editor_effects() },
+					{ panel: 'transitions', label: m.video_editor_transition() }
+				];
+			case 'elements':
+				return [
+					// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- This generated message names geometric drawing elements, not an object structure.
+					{ panel: 'shapes', label: m.video_editor_shapes() },
+					{ panel: 'backgrounds', label: m.video_editor_backgrounds_title() },
+					{ panel: 'stickers', label: m.video_editor_stickers() },
+					{ panel: 'lottie', label: m.video_editor_animations() },
+					{ panel: 'timers', label: m.video_editor_timers() }
+				];
+			default:
+				return [];
+		}
+	});
+
+	function leftGroupTabActive(tab: LeftGroupTab): boolean {
+		if (tab.panel === 'media')
+			return leftPanel === 'media' && mediaPanelView === (tab.view ?? 'project');
+		return leftPanel === tab.panel;
+	}
+
+	function openLeftGroupTab(tab: LeftGroupTab): void {
+		if (tab.panel === 'media') mediaPanelView = tab.view ?? 'project';
+		openLeftPanel(tab.panel);
+	}
 	const selectedLeftPanelItemIds = $derived(
 		selectedItemIds.length > 0 ? selectedItemIds : selectedItemId ? [selectedItemId] : []
 	);
 
 	function moveLeftPanelFocus(
 		event: KeyboardEvent,
-		value: LeftPanel,
+		value: LeftRailGroup | 'ai',
 		orientation: 'horizontal' | 'vertical'
 	): void {
 		const options =
@@ -882,7 +971,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		const next = options[nextIndex];
 		if (!next) return;
 		event.preventDefault();
-		leftPanel = next.value;
+		if (next.value === 'ai') {
+			if (leftPanel !== 'ai') openLeftPanel('ai');
+		} else {
+			const group = next.value;
+			if (leftGroupForPanel(leftPanel) !== group) openLeftPanel(leftGroupPanel[group]);
+		}
 		if (orientation === 'vertical') expandLeftSidebar();
 		requestAnimationFrame(() => {
 			document
@@ -900,7 +994,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		if (selectedItemId) {
 			return timelineStore.itemById.get(selectedItemId)?.label.trim() || m.video_editor_clip();
 		}
-		return m.video_editor_tools();
+		return displayedProject?.name.trim() || m.video_editor_shortcuts_section_project();
 	});
 	const selectedTranscriptionJob = $derived(
 		selectedItemId ? transcriptionService.jobForItem(selectedItemId) : undefined
@@ -2454,7 +2548,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	<title>{editorSession.project?.name ?? appBranding.title(m.video_editor_title())}</title>
 </svelte:head>
 
-{#snippet leftPanelIcon(option: LeftPanelOption, className?: string)}
+{#snippet leftPanelIcon(option: LeftPanelOption | LeftRailOption, className?: string)}
 	{#if option.iconKind === 'protected'}
 		<ProtectedIcon icon={option.icon} class={className} />
 	{:else}
@@ -2495,13 +2589,41 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			>
 				<ThemeIcon role="chevron-left" class="size-5" />
 			</a>
-			<EditorTitleInput
-				value={displayedProject?.name ?? ''}
-				ariaLabel={m.video_editor_project_name()}
-				class="hidden h-8 w-full max-w-48 min-w-0 text-sm md:block"
-				disabled={!displayedProject}
-				onchange={(value) => editorSession.renameProject(value)}
-			/>
+			{#if displayedProject}
+				<Popover.Root>
+					<Popover.Trigger>
+						{#snippet child({ props })}
+							<Button
+								{...props}
+								variant="ghost"
+								size="sm"
+								class="hidden h-8 max-w-16 min-w-0 truncate px-2 text-sm font-medium text-[var(--video-editor-text)] hover:bg-[var(--video-editor-control)] md:inline-flex md:max-w-48"
+								title={m.video_editor_project_details()}
+								data-project-details
+							>
+								{displayedProject.name}
+							</Button>
+						{/snippet}
+					</Popover.Trigger>
+					<Popover.Content side="bottom" align="start" class="video-editor-theme w-64">
+						<EditorTitleInput
+							value={displayedProject.name}
+							ariaLabel={m.video_editor_project_name()}
+							class="mb-2 w-full"
+							onchange={(value) => editorSession.renameProject(value)}
+						/>
+						{#if projectSummary}
+							<p
+								class="text-xs leading-relaxed text-[var(--video-editor-text)] tabular-nums"
+								data-project-summary
+								title={projectSummary}
+							>
+								{projectSummary}
+							</p>
+						{/if}
+					</Popover.Content>
+				</Popover.Root>
+			{/if}
 		{/snippet}
 		{#snippet workspaces()}
 			<div>
@@ -2545,22 +2667,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				<span class="hidden 2xl:inline">{m.recording_cleanup_action()}</span>
 			</Button>
 			{#if agentConnectionStatus !== 'disconnected'}
-				<span
-					class="inline-flex items-center gap-1.5 text-xs text-[var(--video-editor-text-muted)]"
-					role="status"
-					aria-live="polite"
+				<span class="sr-only" role="status"
+					>{agentConnectionStatus === 'working'
+						? m.editor_agent_status_working()
+						: m.editor_agent_status_connected()}</span
 				>
-					<span
-						class="size-1.5 rounded-full bg-current {agentConnectionStatus === 'working'
-							? 'motion-safe:animate-pulse'
-							: ''}"
-					></span>
-					<span class="sr-only lg:not-sr-only">
-						{agentConnectionStatus === 'working'
-							? m.editor_agent_status_working()
-							: m.editor_agent_status_connected()}
-					</span>
-				</span>
 			{/if}
 			{#if editorSession.saveError}
 				<Button
@@ -2596,7 +2707,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				type="button"
 				variant="ghost"
 				size="icon-sm"
-				class="hidden size-8 xl:inline-flex [@media(pointer:coarse)]:size-11"
+				class="hidden sm:inline-flex"
 				disabled={!commandHistory.canUndo}
 				aria-label={m.video_editor_undo()}
 				title={m.video_editor_undo()}
@@ -2608,7 +2719,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				type="button"
 				variant="ghost"
 				size="icon-sm"
-				class="hidden size-8 xl:inline-flex [@media(pointer:coarse)]:size-11"
+				class="hidden sm:inline-flex"
 				disabled={!commandHistory.canRedo}
 				aria-label={m.video_editor_redo()}
 				title={m.video_editor_redo()}
@@ -2616,59 +2727,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			>
 				<ThemeIcon role="redo" />
 			</Button>
-			<Button
-				type="button"
-				disabled={!displayedProject}
-				variant="outline"
-				size="icon-sm"
-				class="hidden 2xl:inline-flex 2xl:w-auto 2xl:px-2.5"
-				aria-label={m.video_editor_record_screen()}
-				title={m.video_editor_record_screen()}
-				onclick={() => (recordingOpen = true)}
-			>
-				<ProtectedIcon icon="editor-record" class="size-3.5" />
-				<span class="hidden lg:inline">{m.video_editor_record()}</span>
-			</Button>
 			{#if displayedProject}
 				<div class="hidden 2xl:block"><PreviewDiagnosticsPanel /></div>
 			{/if}
-			{#if cloudStorage}
-				<Button
-					type="button"
-					disabled={!displayedProject}
-					variant="ghost"
-					size="icon-xs"
-					class="hidden 2xl:inline-flex"
-					aria-label={m.video_editor_history()}
-					title={m.video_editor_history()}
-					onclick={() => (historyOpen = true)}
-				>
-					<ThemeIcon role="history" class="size-3.5" />
-				</Button>
-			{/if}
-			<Button
-				type="button"
-				disabled={!displayedProject}
-				variant="ghost"
-				size="icon-xs"
-				class="hidden 2xl:inline-flex"
-				aria-label={m.video_editor_settings_title()}
-				title={m.video_editor_settings_title()}
-				onclick={() => (settingsOpen = true)}
-			>
-				<ThemeIcon role="settings" class="size-3.5" />
-			</Button>
-			<Button
-				type="button"
-				variant="ghost"
-				size="icon-xs"
-				class="hidden 2xl:inline-flex"
-				aria-label={m.feedback_open()}
-				title={m.feedback_open()}
-				onclick={() => ui.openFeedback()}
-			>
-				<ThemeIcon role="feedback" class="size-3.5" />
-			</Button>
 			{#if renderProject}
 				{#key renderProject.id}
 					<RenderQueueController
@@ -2711,11 +2772,21 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{m.video_editor_redo()}
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator />
+					<DropdownMenu.Item onclick={() => ui.openFeedback()}>
+						{m.feedback_open()}
+					</DropdownMenu.Item>
 					<DropdownMenu.Item
 						disabled={speechCleanupItemIds.length === 0}
 						onclick={() => openSpeechCleanup('recording')}
 					>
 						{m.recording_cleanup_action()}
+					</DropdownMenu.Item>
+					<DropdownMenu.Separator />
+					<DropdownMenu.Item onclick={handleAddText}>
+						{m.video_editor_add_text()}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onclick={handleAddAdjustmentLayer}>
+						{m.video_editor_add_adjustment_layer()}
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator />
 					<DropdownMenu.Label>{m.video_editor_sequences()}</DropdownMenu.Label>
@@ -2730,6 +2801,22 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					</DropdownMenu.Item>
 					<DropdownMenu.Separator />
 					<DropdownMenu.Label>{m.image_editor_view()}</DropdownMenu.Label>
+					<DropdownMenu.Item
+						data-layout-toggle="expand-column-left"
+						onclick={() => toggleExpandSidebar('left')}
+					>
+						{leftSidebarFullColumn
+							? m.video_editor_restore_panel_layout()
+							: m.video_editor_expand_assets_column()}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item
+						data-layout-toggle="expand-column-right"
+						onclick={() => toggleExpandSidebar('right')}
+					>
+						{rightSidebarFullColumn
+							? m.video_editor_restore_panel_layout()
+							: m.video_editor_expand_tools_column()}
+					</DropdownMenu.Item>
 					<DropdownMenu.Item onclick={() => changeEditorWorkspace('edit')}>
 						{m.video_editor_workspace_edit()}
 					</DropdownMenu.Item>
@@ -2739,11 +2826,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					<DropdownMenu.Item onclick={() => changeEditorWorkspace('motion')}>
 						{m.video_editor_workspace_motion()}
 					</DropdownMenu.Item>
-					<DropdownMenu.Separator />
-					<DropdownMenu.Item class="2xl:hidden" onclick={() => (recordingOpen = true)}>
-						{m.video_editor_record_screen()}
-					</DropdownMenu.Item>
-					<DropdownMenu.Separator class="2xl:hidden" />
+
 					{#if cloudStorage}
 						<DropdownMenu.Item onclick={() => (historyOpen = true)}>
 							{m.video_editor_history()}
@@ -2786,16 +2869,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			/>
 		{/snippet}
 	</EditorHeader>
-	{#if projectSummary}
-		<div
-			class="flex h-[25px] shrink-0 items-center gap-2 overflow-hidden border-b border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-3 text-[11px] whitespace-nowrap text-[var(--video-editor-muted)] tabular-nums"
-			data-project-summary
-			title={projectSummary}
-		>
-			{projectSummary}
-		</div>
-	{/if}
-
 	{#if sourceImportBusy}<p role="status" class="px-3 py-2 text-sm">{m.editors_loading()}</p>{/if}
 	{#if sourceImportError}<div
 			role="alert"
@@ -2866,6 +2939,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									: 'lg:w-auto'} lg:border-r lg:border-b-0 {mobileEditPane === 'assets'
 									? 'flex'
 									: 'hidden'}"
+								class:editor-panel-sheet={mobileEditPane === 'assets'}
 								aria-label={m.video_editor_assets()}
 							>
 								<div class="flex min-h-0 flex-1">
@@ -2888,18 +2962,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 															{#snippet child({ props })}
 																<Button
 																	{...props}
-																	variant={leftPanel === option.value ? 'secondary' : 'ghost'}
+																	variant={leftGroupForPanel(leftPanel) === option.value
+																		? 'secondary'
+																		: 'ghost'}
 																	size="icon-sm"
 																	class="shrink-0 text-[var(--video-editor-muted)] data-[active=true]:text-[var(--video-editor-focus)]"
-																	data-active={leftPanel === option.value}
+																	data-active={leftGroupForPanel(leftPanel) === option.value}
 																	data-left-panel-tab={option.value}
 																	data-tab-orientation="vertical"
 																	role="tab"
-																	tabindex={leftPanel === option.value ? 0 : -1}
+																	tabindex={leftGroupForPanel(leftPanel) === option.value ? 0 : -1}
 																	aria-controls="video-editor-left-tool-panel"
 																	aria-label={option.label}
-																	aria-selected={leftPanel === option.value}
-																	onclick={() => toggleLeftPanel(option.value)}
+																	aria-selected={leftGroupForPanel(leftPanel) === option.value}
+																	onclick={() => toggleLeftGroup(option.value)}
 																	onkeydown={(event) =>
 																		moveLeftPanelFocus(event, option.value, 'vertical')}
 																>
@@ -2922,7 +2998,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																	{...props}
 																	variant={leftPanel === option.value ? 'secondary' : 'ghost'}
 																	size="icon-sm"
-																	class="text-[var(--video-editor-muted)] data-[active=true]:text-[var(--video-editor-focus)]"
+																	class="relative text-[var(--video-editor-muted)] data-[active=true]:text-[var(--video-editor-focus)]"
 																	data-active={leftPanel === option.value}
 																	data-left-panel-tab={option.value}
 																	data-tab-orientation="vertical"
@@ -2936,6 +3012,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																		moveLeftPanelFocus(event, option.value, 'vertical')}
 																>
 																	{@render leftPanelIcon(option)}
+																	{#if option.value === 'ai' && agentConnectionStatus !== 'disconnected'}
+																		<span
+																			class="absolute top-1 right-1 size-1.5 rounded-full bg-[var(--video-editor-focus)] {agentConnectionStatus ===
+																			'working'
+																				? 'motion-safe:animate-pulse'
+																				: ''}"
+																			aria-hidden="true"
+																			data-agent-dot
+																		></span>
+																	{/if}
 																</Button>
 															{/snippet}
 														</Tooltip.Trigger>
@@ -2963,37 +3049,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												</Button>
 											</div>
 										{/if}
-										<div
-											class="flex shrink-0 flex-col items-center border-t border-[var(--video-editor-border)] py-2"
-										>
-											<DropdownMenu.Root>
-												<DropdownMenu.Trigger>
-													{#snippet child({ props })}
-														<Button
-															{...props}
-															size="icon-sm"
-															variant="ghost"
-															aria-label={m.image_editor_add_layer()}
-															title={m.image_editor_add_layer()}
-														>
-															<ThemeIcon role="add" />
-														</Button>
-													{/snippet}
-												</DropdownMenu.Trigger>
-												<DropdownMenu.Content
-													class="video-editor-theme w-52"
-													side="right"
-													align="end"
-												>
-													<DropdownMenu.Item onclick={handleAddText}>
-														{m.video_editor_add_text()}
-													</DropdownMenu.Item>
-													<DropdownMenu.Item onclick={handleAddAdjustmentLayer}>
-														{m.video_editor_add_adjustment_layer()}
-													</DropdownMenu.Item>
-												</DropdownMenu.Content>
-											</DropdownMenu.Root>
-										</div>
 									</nav>
 									<div class="flex min-w-0 flex-1 flex-col {leftSidebarRail ? 'lg:hidden' : ''}">
 										<div
@@ -3008,19 +3063,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												<Button
 													size="icon-xs"
 													variant="ghost"
-													aria-label={leftSidebarFullColumn
-														? m.video_editor_restore_panel_layout()
-														: m.video_editor_expand_assets_column()}
-													title={`${leftSidebarFullColumn ? m.video_editor_restore_panel_layout() : m.video_editor_expand_assets_column()} (${formatShortcutBinding(keyboardShortcuts.bindings.EXPAND_LEFT_SIDEBAR)})`}
-													aria-pressed={leftSidebarFullColumn}
-													data-layout-toggle="expand-column-left"
-													onclick={() => toggleExpandSidebar('left')}
-												>
-													<ThemeIcon role={leftSidebarFullColumn ? 'chevron-up' : 'chevron-down'} />
-												</Button>
-												<Button
-													size="icon-xs"
-													variant="ghost"
 													aria-label={m.video_editor_collapse_assets_panel()}
 													title={`${m.video_editor_collapse_assets_panel()} (${formatShortcutBinding(keyboardShortcuts.bindings.TOGGLE_LEFT_SIDEBAR)})`}
 													aria-expanded={!leftSidebarCollapsed}
@@ -3030,30 +3072,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 												>
 													<ThemeIcon role="chevron-left" />
 												</Button>
-											</div>
-											<div class="lg:hidden">
-												<DropdownMenu.Root>
-													<DropdownMenu.Trigger>
-														{#snippet child({ props })}
-															<Button
-																{...props}
-																size="icon-sm"
-																variant="ghost"
-																aria-label={m.image_editor_add_layer()}
-															>
-																<ThemeIcon role="add" />
-															</Button>
-														{/snippet}
-													</DropdownMenu.Trigger>
-													<DropdownMenu.Content class="video-editor-theme w-52" align="end">
-														<DropdownMenu.Item onclick={handleAddText}>
-															{m.video_editor_add_text()}
-														</DropdownMenu.Item>
-														<DropdownMenu.Item onclick={handleAddAdjustmentLayer}>
-															{m.video_editor_add_adjustment_layer()}
-														</DropdownMenu.Item>
-													</DropdownMenu.Content>
-												</DropdownMenu.Root>
 											</div>
 										</div>
 										<div
@@ -3065,47 +3083,61 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 											{#each leftPanelOptions as option (option.value)}
 												<button
 													type="button"
-													class:active={leftPanel === option.value}
-													class="flex min-h-8 shrink-0 items-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
+													class:active={leftGroupForPanel(leftPanel) === option.value}
+													class="relative flex min-h-8 shrink-0 items-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-navigation-active [&.active]:text-navigation-active-foreground [@media(pointer:coarse)]:min-h-11"
 													data-left-panel-tab={option.value}
 													data-tab-orientation="horizontal"
 													role="tab"
-													tabindex={leftPanel === option.value ? 0 : -1}
+													tabindex={leftGroupForPanel(leftPanel) === option.value ? 0 : -1}
 													aria-controls="video-editor-left-tool-panel"
-													aria-selected={leftPanel === option.value}
-													onclick={() => (leftPanel = option.value)}
+													aria-selected={leftGroupForPanel(leftPanel) === option.value}
+													onclick={() => activateLeftOption(option.value)}
 													onkeydown={(event) =>
 														moveLeftPanelFocus(event, option.value, 'horizontal')}
 												>
 													{@render leftPanelIcon(option, 'size-3.5')}
 													{option.label}
+													{#if option.value === 'ai' && agentConnectionStatus !== 'disconnected'}
+														<span
+															class="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-[var(--video-editor-focus)] {agentConnectionStatus ===
+															'working'
+																? 'motion-safe:animate-pulse'
+																: ''}"
+															aria-hidden="true"
+															data-agent-dot
+														></span>
+													{/if}
 												</button>
 											{/each}
 										</div>
-										{#if leftPanel === 'media'}
+										{#if leftGroupTabs.length > 1}
 											<div
-												class="grid grid-cols-2 gap-1 border-b border-[var(--video-editor-border)] p-1"
+												class="flex shrink-0 items-stretch gap-1 overflow-x-auto border-b border-[var(--video-editor-border)] px-2"
+												role="tablist"
+												aria-label={leftPanelHeading}
 											>
-												<button
-													type="button"
-													class:active={mediaPanelView === 'project'}
-													class="flex min-h-8 items-center justify-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
-													aria-pressed={mediaPanelView === 'project'}
-													onclick={() => (mediaPanelView = 'project')}
-												>
-													<ProtectedIcon icon="editor-media" class="size-3.5" />
-													{m.video_editor_media_tab()}
-												</button>
-												<button
-													type="button"
-													class:active={mediaPanelView === 'scenes'}
-													class="flex min-h-8 items-center justify-center gap-1.5 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)]"
-													aria-pressed={mediaPanelView === 'scenes'}
-													onclick={() => (mediaPanelView = 'scenes')}
-												>
-													<ProtectedIcon icon="editor-scenes" class="size-3.5" />
-													{m.video_editor_scenes()}
-												</button>
+												{#each leftGroupTabs as tab (tab.label)}
+													<button
+														type="button"
+														class="relative flex min-h-8 shrink-0 items-center gap-1.5 px-2 text-xs {leftGroupTabActive(
+															tab
+														)
+															? 'text-[var(--video-editor-text)]'
+															: 'text-[var(--video-editor-muted)]'} focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+														role="tab"
+														data-left-group-tab={tab.view ?? tab.panel}
+														aria-selected={leftGroupTabActive(tab)}
+														onclick={() => openLeftGroupTab(tab)}
+													>
+														{tab.label}
+														{#if leftGroupTabActive(tab)}
+															<span
+																class="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-navigation-active"
+																aria-hidden="true"
+															></span>
+														{/if}
+													</button>
+												{/each}
 											</div>
 										{/if}
 										<div
@@ -3155,6 +3187,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 													onsourceopen={openSourceMonitor}
 													onextractsubtitles={openEmbeddedSubtitlePicker}
 													onimport={handleImport}
+													onrecord={() => (recordingOpen = true)}
 													importProjectAsset={cloudStorage
 														? importCloudEditorProjectAsset
 														: undefined}
@@ -3249,9 +3282,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						{/if}
 
 						<div
-							class="{activeWorkspace === 'edit' && mobileEditPane === 'assets'
-								? 'hidden lg:flex'
-								: 'flex'} min-h-0 w-full min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
+							class="flex min-h-0 w-full min-w-0 flex-1 bg-[var(--video-editor-canvas)] {activeWorkspace ===
 							'edit'
 								? 'lg:col-start-2 lg:row-start-1'
 								: ''}"
@@ -3366,6 +3397,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									: 'lg:w-auto'} lg:border-t-0 lg:border-l {mobileEditPane === 'tools'
 									? 'flex'
 									: 'hidden'}"
+								class:editor-panel-sheet={mobileEditPane === 'tools'}
 								aria-label={m.video_editor_tools()}
 							>
 								{#if !rightSidebarRail}
@@ -3409,19 +3441,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 										{editInspectorHeading}
 									</h2>
 									<div class="hidden shrink-0 items-center gap-1 lg:flex">
-										<Button
-											size="icon-xs"
-											variant="ghost"
-											aria-label={rightSidebarFullColumn
-												? m.video_editor_restore_panel_layout()
-												: m.video_editor_expand_tools_column()}
-											title={`${rightSidebarFullColumn ? m.video_editor_restore_panel_layout() : m.video_editor_expand_tools_column()} (${formatShortcutBinding(keyboardShortcuts.bindings.EXPAND_RIGHT_SIDEBAR)})`}
-											aria-pressed={rightSidebarFullColumn}
-											data-layout-toggle="expand-column-right"
-											onclick={() => toggleExpandSidebar('right')}
-										>
-											<ThemeIcon role={rightSidebarFullColumn ? 'chevron-up' : 'chevron-down'} />
-										</Button>
 										<Button
 											size="icon-xs"
 											variant="ghost"
@@ -3690,43 +3709,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							/>
 						</div>
 					{/if}
-					{#if activeWorkspace === 'edit'}
-						<nav
-							class="grid shrink-0 grid-cols-3 border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-1 lg:hidden"
-							aria-label={m.video_editor_mobile_panels()}
-						>
-							<button
-								type="button"
-								class:active={mobileEditPane === 'assets'}
-								class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-								aria-controls="video-editor-assets-panel"
-								aria-pressed={mobileEditPane === 'assets'}
-								onclick={() => (mobileEditPane = 'assets')}
-							>
-								{m.video_editor_assets()}
-							</button>
-							<button
-								type="button"
-								class:active={mobileEditPane === 'program'}
-								class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-								aria-controls="video-editor-program-panel"
-								aria-pressed={mobileEditPane === 'program'}
-								onclick={() => (mobileEditPane = 'program')}
-							>
-								{m.video_editor_program_monitor()}
-							</button>
-							<button
-								type="button"
-								class:active={mobileEditPane === 'tools'}
-								class="h-8 rounded px-2 text-xs text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))] [&.active]:text-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
-								aria-controls="video-editor-tools-panel"
-								aria-pressed={mobileEditPane === 'tools'}
-								onclick={() => (mobileEditPane = 'tools')}
-							>
-								{m.video_editor_inspector()}
-							</button>
-						</nav>
-					{/if}
 					{#if activeWorkspace !== 'color' && !(activeWorkspace === 'motion' && !activeMotionComposition)}
 						<footer
 							class="relative flex shrink-0 flex-col overflow-hidden border-t border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)] {activeWorkspace ===
@@ -3814,6 +3796,82 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							</div>
 						</footer>
 					{/if}
+					{#if activeWorkspace === 'edit'}
+						<nav
+							class="relative z-30 flex shrink-0 items-stretch gap-0.5 border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-1 pt-1 lg:hidden"
+							aria-label={m.video_editor_mobile_panels()}
+						>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'assets' &&
+									leftGroupForPanel(leftPanel) === 'media'}
+								class="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded px-1 text-[10px] text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-navigation-active [&.active]:text-navigation-active-foreground"
+								aria-controls="video-editor-assets-panel"
+								aria-pressed={mobileEditPane === 'assets' &&
+									leftGroupForPanel(leftPanel) === 'media'}
+								onclick={() => {
+									mobileEditPane = 'assets';
+									openLeftGroup('media');
+								}}
+							>
+								<ProtectedIcon icon="editor-media" class="size-4" />
+								{m.video_editor_tool_media()}
+							</button>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'assets' &&
+									leftGroupForPanel(leftPanel) === 'text'}
+								class="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded px-1 text-[10px] text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-navigation-active [&.active]:text-navigation-active-foreground"
+								aria-controls="video-editor-assets-panel"
+								aria-pressed={mobileEditPane === 'assets' &&
+									leftGroupForPanel(leftPanel) === 'text'}
+								onclick={() => {
+									mobileEditPane = 'assets';
+									openLeftGroup('text');
+								}}
+							>
+								<ProtectedIcon icon="editor-text" class="size-4" />
+								{m.video_editor_tool_text()}
+							</button>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'assets' &&
+									leftGroupForPanel(leftPanel) === 'effects'}
+								class="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded px-1 text-[10px] text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-navigation-active [&.active]:text-navigation-active-foreground"
+								aria-controls="video-editor-assets-panel"
+								aria-pressed={mobileEditPane === 'assets' &&
+									leftGroupForPanel(leftPanel) === 'effects'}
+								onclick={() => {
+									mobileEditPane = 'assets';
+									openLeftGroup('effects');
+								}}
+							>
+								<ProtectedIcon icon="editor-effects" class="size-4" />
+								{m.video_editor_effects()}
+							</button>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'tools'}
+								class="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded px-1 text-[10px] text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-navigation-active [&.active]:text-navigation-active-foreground"
+								aria-controls="video-editor-tools-panel"
+								aria-pressed={mobileEditPane === 'tools'}
+								onclick={() => (mobileEditPane = 'tools')}
+							>
+								<ThemeIcon role="settings" class="size-4" />
+								{m.video_editor_inspector()}
+							</button>
+							<button
+								type="button"
+								class:active={mobileEditPane === 'program'}
+								class="flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded px-1 text-[10px] text-[var(--video-editor-muted)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [&.active]:bg-navigation-active [&.active]:text-navigation-active-foreground"
+								aria-pressed={mobileEditPane === 'program'}
+								onclick={() => (mobileEditPane = 'program')}
+							>
+								<ProtectedIcon icon="editor-transitions" class="size-4" />
+								{m.video_editor_timeline()}
+							</button>
+						</nav>
+					{/if}
 				</div>
 			</div>
 		{/key}
@@ -3868,3 +3926,22 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 />
 
 <FeedbackDialog />
+
+<style>
+	/* Phone sheets: panels float above the always-visible preview and timeline,
+	   stacking above the bottom tab bar, until the layout reaches lg. */
+	@media (max-width: 1023px) {
+		.editor-panel-sheet {
+			position: fixed;
+			inset-inline: 0;
+			bottom: 3.5rem;
+			z-index: 45;
+			max-height: 72dvh;
+			overflow: hidden;
+			border-top: 1px solid var(--video-editor-border);
+			border-bottom: none;
+			border-radius: 0.75rem 0.75rem 0 0;
+			box-shadow: 0 -6px 24px rgb(0 0 0 / 0.2);
+		}
+	}
+</style>

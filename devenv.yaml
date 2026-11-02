@@ -1,4 +1,7 @@
+require_version: ">=2.4"
 inputs:
+  devenv:
+    url: github:cachix/devenv/b904dcb51fe48c30db250038241507f60752f222?dir=src/modules
   nixpkgs:
     url: github:cachix/devenv-nixpkgs/rolling
 imports:

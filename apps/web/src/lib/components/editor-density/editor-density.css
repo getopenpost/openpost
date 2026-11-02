@@ -68,3 +68,18 @@
 		width: 2.75rem;
 	}
 }
+
+/* Inspector rows stay quiet: keyframe and reset controls appear with the row.
+   Opacity keeps the layout stable, and authored keys stay visible. */
+@media (hover: hover) and (pointer: fine) {
+	[data-property-affordance]:not([data-keyed]) {
+		opacity: 0;
+		transition: opacity 120ms ease-out;
+	}
+
+	*:hover > [data-property-affordance],
+	*:focus-within > [data-property-affordance],
+	[data-property-affordance]:focus-visible {
+		opacity: 1;
+	}
+}

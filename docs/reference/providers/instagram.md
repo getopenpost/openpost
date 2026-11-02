@@ -6,19 +6,19 @@ description: Configure Meta OAuth and publish images, carousels, Stories, and Re
 
 This page is for operators configuring Instagram and users connecting a professional account.
 
-Instagram professional publishing uses Meta OAuth, asks the user to choose a Business or Creator account connected to a Facebook Page, and stores the selected Page access token.
+Instagram supports Business and Creator accounts through either direct Instagram Login or Facebook Login. Direct Instagram Login does not require a Facebook Page. Facebook Login discovers the professional account through a Page and stores its Page access token.
 
 ## Requirements
 
-- Meta developer app with Facebook Login configured
-- Instagram Business or Creator account connected to a Facebook Page
+- Meta developer app configured for the selected login method
+- Instagram Business or Creator account. Only Facebook Login requires a linked Facebook Page.
 - OAuth redirect URL:
 
 ```text
 https://your-domain.com/api/v1/accounts/instagram/callback
 ```
 
-- App permissions:
+- Facebook Login permissions:
   - `business_management`
   - `instagram_basic`
   - `instagram_content_publish`
@@ -30,6 +30,8 @@ https://your-domain.com/api/v1/accounts/instagram/callback
   - `pages_read_user_content`
   - `pages_manage_metadata`
 - Public `OPENPOST_MEDIA_URL` or S3/R2 public media URL for image and Reel video posts
+
+Direct Instagram Login uses `instagram_business_basic`, `instagram_business_content_publish`, `instagram_business_manage_comments`, `instagram_business_manage_messages`, and `instagram_business_manage_insights`. Configure its independent Instagram credentials with `connection_mode: "instagram_login"`. See the [Instagram setup guide](https://openpo.st/docs/self-hosting/integrations/instagram) for both methods.
 
 ## Configuration
 
@@ -49,7 +51,7 @@ If `redirect_uri` is omitted, OpenPost derives it from `OPENPOST_APP_URL`.
 
 ## Current Scope
 
-- Connects a selected Instagram Business or Creator account behind a Facebook Page.
+- Connects an Instagram Business or Creator account directly or through a linked Facebook Page.
 - Publishes a single image URL with a caption.
 - Publishes a single video URL as a Reel.
 - Lets you choose a Reel cover frame or upload a separate cover image from destination settings.
@@ -75,15 +77,18 @@ Caption limits come from the capability catalogue. Meta documents publishing in 
 
 - No text-only Instagram posts.
 - Media URLs must be public HTTPS URLs.
-- Account discovery currently uses Pages returned by the authenticated Meta user.
+- Facebook Login discovers accounts through Pages returned by the authenticated Meta user. Direct Instagram Login uses the professional account returned by Instagram.
 - Live-account verification is still recommended before relying on production Instagram publishing.
 
 ## Analytics
 
-Analytics is an optional feature per connected Instagram account. It starts off for a new account. Enable it after connection or in Account details. OpenPost collects account followers and media count plus post likes, comments, and the views, reach, saves, and shares that Meta returns for the media type when enabled. Reconnect accounts created before `instagram_manage_insights` was added. Disabling Analytics stops future Instagram analytics collection without deleting stored metrics or revoking authorization.
+Analytics is an optional feature per connected Instagram account. It starts off for a new account. Enable it after connection or in Account details. OpenPost collects account followers and media count plus post likes, comments, and the views, reach, saves, and shares that Meta returns for the media type when enabled. Analytics requires `instagram_manage_insights` for Facebook Login or `instagram_business_manage_insights` for direct Instagram Login. Reconnect after adding or approving the relevant permission. Disabling Analytics stops future Instagram analytics collection without deleting stored metrics or revoking authorization.
 
 ## Troubleshooting
 
 - `facebook account has no connected instagram business accounts` usually means the Meta user has no eligible Pages with connected Instagram professional accounts, lacks full control of the Page, or the app lacks the required scopes. Business Portfolio Pages require `business_management` for discovery.
 - Media publish failures usually mean the media URL is not public HTTPS or Meta cannot fetch it.
-- Permission errors usually require Meta app review for the Instagram and Page permissions above.
+- Permission errors may require Meta app review for the permissions of the selected login method. Page permissions apply only to Facebook Login.
+- Graph error `100/33` means Meta cannot access an object or perform the requested operation. It does not prove that a Page or post was deleted. Check Instagram before retrying a failed or uncertain delivery. If the post is live, do not publish it again.
+- A `100/33` response from the final publish request keeps the saved container pending for status reconciliation. OpenPost confirms publication from the container status without sending another publish request. An unreadable container remains unresolved rather than being guessed as published.
+- Direct messages require their own per-account opt-in and the message-management permission for the selected login method. A person must message the professional account first. The `/inbox/changes` endpoint reads stored inbox updates; its server errors are separate from provider collection failures.

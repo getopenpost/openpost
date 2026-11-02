@@ -140,9 +140,7 @@
 			</p>
 		</div>
 
-		<div
-			class="rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-3"
-		>
+		<div class="pt-3">
 			<div class="mb-2 flex items-center justify-between gap-2">
 				<h3 class="text-xs font-medium">{m.video_editor_project_canvas_dimensions()}</h3>
 				<span class="font-mono text-[10px] text-[var(--video-editor-muted)]"
@@ -211,9 +209,7 @@
 			</div>
 		</div>
 
-		<div
-			class="rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-3"
-		>
+		<div class="mt-3 border-t border-[var(--video-editor-border)] pt-3">
 			<h3 class="mb-2 text-xs font-medium">{m.video_editor_project_canvas_background()}</h3>
 			<div class="flex items-center gap-2">
 				<ColorPicker

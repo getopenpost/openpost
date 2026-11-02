@@ -819,7 +819,7 @@
 </script>
 
 <svelte:head>
-	<title>{m.messages_heading()} · {appBranding.profile.display_name}</title>
+	<title>{m.communications_navigation()} · {appBranding.profile.display_name}</title>
 </svelte:head>
 
 {#if toast}
@@ -929,8 +929,7 @@
 {/snippet}
 
 <PageContainer
-	title={m.messages_heading()}
-	description={m.messages_description()}
+	title={m.communications_navigation()}
 	themeIconRole="inbox"
 	loading={initialLoading}
 	loadingLayout="list"

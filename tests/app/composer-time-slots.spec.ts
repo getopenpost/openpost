@@ -280,8 +280,10 @@ test.describe("schedule history on touch screens", () => {
           const bodyBounds = await page.getByTestId("schedule-dialog-body").boundingBox();
           expect(postBounds).not.toBeNull();
           expect(bodyBounds).not.toBeNull();
+          // The 13px body text uses fractional line heights, so a fully scrolled
+          // last item can still sit a fraction of a pixel past the body edge.
           expect(postBounds!.y + postBounds!.height).toBeLessThanOrEqual(
-            bodyBounds!.y + bodyBounds!.height,
+            bodyBounds!.y + bodyBounds!.height + 1,
           );
           await expect(
             dialog.getByRole("button", { name: "Cancel", exact: true }),

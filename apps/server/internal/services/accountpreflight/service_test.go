@@ -274,7 +274,7 @@ func preflightNotificationRows(t *testing.T, db *bun.DB, userID string) []models
 	var rows []models.UserNotification
 	require.NoError(t, db.NewSelect().Model(&rows).
 		Where("user_id = ?", userID).
-		Order("created_at ASC, id ASC").
+		OrderExpr("created_at ASC, id ASC").
 		Scan(t.Context()))
 	return rows
 }
@@ -367,4 +367,34 @@ func TestCredentialFailureTransitionDeduplicatesConnectorWhoIsAdmin(t *testing.T
 	requirePreflightNotifications(t, db, "admin-1", 1, "the connector who is also an admin is notified once")
 	requirePreflightNotifications(t, db, "admin-2", 1, "other administrators are notified once")
 	requirePreflightNotifications(t, db, "user-1", 1, "the publication creator keeps the scheduled-at-risk warning")
+}
+
+func TestTransientChecksDoNotHideOrRepeatCredentialFailureNotifications(t *testing.T) {
+	db := preflightTestDB(t)
+	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
+	seedPreflightCandidate(t, db, now.Add(100*time.Minute))
+	seedPreflightReconnectRecipients(t, db, "connector-1")
+	service := NewService(db, preflightTokens{}, notifications.NewService(db))
+	transient := &platform.HTTPError{StatusCode: 503}
+	authentication := &platform.HTTPError{StatusCode: 401, Code: "invalid_token"}
+	steps := []struct {
+		err        error
+		generation int64
+		failure    string
+	}{
+		{transient, 0, "unknown"},
+		{authentication, 1, "authentication"},
+		{transient, 1, "authentication"},
+		{authentication, 1, "authentication"},
+		{nil, 1, ""},
+		{authentication, 2, "authentication"},
+	}
+	for index, step := range steps {
+		service.now = func() time.Time { return now.Add(time.Duration(index) * (checkCadence + time.Minute)) }
+		service.SetProvider("x", &preflightAdapter{err: step.err})
+		require.NoError(t, service.HandleJob(t.Context(), JobType))
+		requirePreflightAccountState(t, db, step.generation, step.failure)
+		requirePreflightNotifications(t, db, "connector-1", int(step.generation), "one notification per confirmed credential break")
+		requirePreflightNotifications(t, db, "admin-1", int(step.generation), "one notification per confirmed credential break")
+	}
 }

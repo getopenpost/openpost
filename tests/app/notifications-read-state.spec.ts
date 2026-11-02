@@ -33,18 +33,18 @@ test("notification status, count and filters agree after reading and reload", as
   await page.screenshot({ path: before, fullPage: true });
   await testInfo.attach("before-read", { path: before, contentType: "image/png" });
   await expect(row).toHaveAttribute("data-unread", "true");
-  const filters = page.getByRole("group", { name: "Filter notifications by read status" });
-  await filters.getByRole("button", { name: "Unread", exact: true }).click();
+  const filters = page.getByRole("tablist", { name: "Filter notifications by read status" });
+  await filters.getByRole("tab", { name: "Unread", exact: true }).click();
   await expect(row).toBeVisible();
   await row.getByRole("button", { name: "Mark as read", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(inbox.getByText("0 unread notifications", { exact: true })).toBeVisible();
   await expect(row).toBeHidden();
-  await expect(filters.getByRole("button", { name: "Unread", exact: true })).toBeFocused();
+  await expect(filters.getByRole("tab", { name: "Unread", exact: true })).toBeFocused();
   await expect(
     page.getByRole("heading", { name: "No notifications match this filter" }),
   ).toBeVisible();
-  await filters.getByRole("button", { name: "Read", exact: true }).click();
+  await filters.getByRole("tab", { name: "Read", exact: true }).click();
   await expect(row).toHaveAttribute("data-unread", "false");
 
   for (const scheme of ["light", "dark"] as const) {
@@ -57,9 +57,9 @@ test("notification status, count and filters agree after reading and reload", as
       else await expect(page.locator("html")).not.toHaveClass(/dark/);
       await expect(row).toBeHidden();
       await expect(inbox.getByText("0 unread notifications", { exact: true })).toBeVisible();
-      await filters.getByRole("button", { name: "Unread", exact: true }).click();
+      await filters.getByRole("tab", { name: "Unread", exact: true }).click();
       await expect(row).toBeHidden();
-      await filters.getByRole("button", { name: "Read", exact: true }).click();
+      await filters.getByRole("tab", { name: "Read", exact: true }).click();
       await expect(row).toBeVisible();
       const screenshot = testInfo.outputPath(`notification-read-${width}-${scheme}.png`);
       await page.screenshot({ path: screenshot, fullPage: true });
@@ -95,12 +95,12 @@ test("opening an engagement clears it from the active inbox and preserves read h
   await row.getByRole("button", { name: "Open notification", exact: true }).click();
   await expect(page).toHaveURL(/\/inbox\/engagement$/);
   await page.goto("/inbox/notifications");
-  await expect(page.getByRole("button", { name: "Unread", exact: true })).toHaveAttribute(
-    "aria-pressed",
+  await expect(page.getByRole("tab", { name: "Unread", exact: true })).toHaveAttribute(
+    "aria-selected",
     "true",
   );
   await expect(row).toBeHidden();
-  await page.getByRole("button", { name: "Read", exact: true }).click();
+  await page.getByRole("tab", { name: "Read", exact: true }).click();
   await expect(row).toHaveAttribute("data-unread", "false");
   await page.reload();
   await expect(row).toBeHidden();

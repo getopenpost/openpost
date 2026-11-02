@@ -1364,19 +1364,9 @@
 	);
 
 	const descriptionText = $derived.by(() => {
-		if (totalCount > 0) {
-			let text: string = m.media_storage_summary({
-				count: totalCount,
-				size: formatSize(storageUsage.used_bytes)
-			});
-			if (filter === 'unused') {
-				text += ` (${m.media_unused_suffix({ count: totalCount })})`;
-			}
-			return text;
-		}
 		if (lifecycleView === 'temporary') return m.media_lifecycle_temporary_body();
 		if (lifecycleView === 'trash') return m.media_lifecycle_trash_body();
-		return m.media_lifecycle_library_body();
+		return totalCount > 0 ? undefined : m.media_lifecycle_library_body();
 	});
 </script>
 
@@ -1418,7 +1408,7 @@
 			<Button variant="outline" href={resolveAppPath('/templates')}
 				><ThemeIcon role="editors" class="size-4" />{m.templates_title()}</Button
 			>
-			<Button class="gap-2" onclick={() => (uploadDialogOpen = true)}>
+			<Button variant="outline" class="gap-2" onclick={() => (uploadDialogOpen = true)}>
 				<ThemeIcon role="add" class="size-4" />
 				{m.media_picker_add_media()}
 			</Button>

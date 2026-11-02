@@ -13,10 +13,7 @@ test("Program shuttle runs outside Source and focused playhead sliders keep thei
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
   await expect(page).toHaveURL(/\/video-editor\/[\da-f-]+\?storage=cloud/);
   await page.getByRole("tab", { name: "Edit", exact: true }).click();
-  await page
-    .getByRole("complementary", { name: "Assets", exact: true })
-    .getByRole("button", { name: "Add layer", exact: true })
-    .click();
+  await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   const program = page.getByRole("application", { name: "Program", exact: true });
   const position = page.getByRole("slider", { name: "Timeline playhead", exact: true });

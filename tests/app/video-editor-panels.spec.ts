@@ -58,7 +58,7 @@ test("animation application settings survive inspector tab switches without crea
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1280, height: 720 });
   await createProject(page, "Animation application settings");
-  await page.getByRole("button", { name: "Add layer", exact: true }).click();
+  await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   await page.keyboard.press("ControlOrMeta+s");
   await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
@@ -134,7 +134,10 @@ for (const scheme of ["light", "dark"] as const) {
     await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
     await page.setViewportSize({ width: 1280, height: 720 });
     await createProject(page, "Focused Color layout");
-    await page.getByRole("button", { name: "Add layer", exact: true }).click();
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
     await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
     await page.getByRole("tab", { name: "Color", exact: true }).click();
     await expect(page.getByRole("slider", { name: "Lift color wheel", exact: true })).toBeVisible();
@@ -295,7 +298,7 @@ test("text content is immediately editable without scrolling past transforms or 
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1280, height: 720 });
   await createProject(page, "Text inspector priority");
-  await page.getByRole("button", { name: "Add layer", exact: true }).click();
+  await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   const inspector = page.locator("#video-editor-tools-panel");
   const content = inspector.locator("textarea");
@@ -325,6 +328,7 @@ test("sidebar columns leave the preview visible and bound the timeline", async (
   await createProject(page, "Panel layout");
   const preview = page.locator("#video-editor-program-panel");
 
+  await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).click();
   await page.locator('[data-layout-toggle="expand-column-right"]').click();
   await expect(preview).toBeVisible();
   const tools = await page.locator("#video-editor-tools-panel").boundingBox();
@@ -349,8 +353,8 @@ for (const scheme of ["light", "dark"] as const) {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await createProject(page, "Neutral properties");
     await page
-      .getByRole("complementary", { name: "Assets" })
-      .getByRole("button", { name: "Add layer" })
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
       .click();
     await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
     const panels = page.getByTestId("clip-transform-panel").locator("section");
@@ -365,7 +369,17 @@ for (const scheme of ["light", "dark"] as const) {
         probe.style.backgroundColor = "var(--action-ordinary-hover)";
         const hover = getComputedStyle(probe).backgroundColor;
         probe.remove();
-        return { actual: getComputedStyle(element).backgroundColor, neutral, hover };
+        let surface: Element | null = element;
+        let actual = "rgba(0, 0, 0, 0)";
+        while (surface) {
+          const background = getComputedStyle(surface).backgroundColor;
+          if (background !== "rgba(0, 0, 0, 0)") {
+            actual = background;
+            break;
+          }
+          surface = surface.parentElement;
+        }
+        return { actual, neutral, hover };
       });
       expect(colors.actual).toBe(colors.neutral);
       expect(colors.actual).not.toBe(colors.hover);
@@ -415,8 +429,8 @@ for (const scheme of ["light", "dark"] as const) {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await createProject(page, "Panel transitions");
     await page
-      .getByRole("complementary", { name: "Assets" })
-      .getByRole("button", { name: "Add layer" })
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
       .click();
     await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
     await expect(page.locator("[data-program-monitor]")).toBeVisible();
@@ -424,8 +438,13 @@ for (const scheme of ["light", "dark"] as const) {
     const tools = page.locator("#video-editor-tools-panel");
     const preview = page.locator("#video-editor-program-panel");
     const footer = page.locator("footer");
-    const leftDock = page.locator('[data-layout-toggle="expand-column-left"]');
-    const rightDock = page.locator('[data-layout-toggle="expand-column-right"]');
+    async function toggleDock(attribute: string) {
+      await page
+        .getByRole("banner")
+        .getByRole("button", { name: "More actions", exact: true })
+        .click();
+      await page.locator(`[data-layout-toggle="${attribute}"]`).click();
+    }
     const player = await preview.locator("[data-program-monitor]").elementHandle();
     async function assertLayout(leftFull: boolean, rightFull: boolean) {
       await expect(preview).toBeVisible();
@@ -442,6 +461,19 @@ for (const scheme of ["light", "dark"] as const) {
         expect(t.y + t.height).toBeCloseTo(rightFull ? f.y + f.height : f.y, 0);
       }).toPass({ timeout: 3000 });
       expect(await player!.evaluate((node) => node.isConnected)).toBe(true);
+    }
+    async function assertFullColumns() {
+      await page
+        .getByRole("banner")
+        .getByRole("button", { name: "More actions", exact: true })
+        .click();
+      await expect(page.locator('[data-layout-toggle="expand-column-left"]')).toHaveText(
+        "Place panel above timeline",
+      );
+      await expect(page.locator('[data-layout-toggle="expand-column-right"]')).toHaveText(
+        "Place panel above timeline",
+      );
+      await page.keyboard.press("Escape");
     }
     await assertLayout(true, false);
     const resize = page.getByRole("separator", { name: "Assets", exact: true });
@@ -460,13 +492,13 @@ for (const scheme of ["light", "dark"] as const) {
       .poll(async () => (await footer.boundingBox())!.height)
       .toBeGreaterThan(beforeHeight + 30);
     for (let repeat = 0; repeat < 2; repeat++) {
-      await rightDock.click();
+      await toggleDock("expand-column-right");
       await assertLayout(true, true);
-      await leftDock.click();
+      await toggleDock("expand-column-left");
       await assertLayout(false, true);
-      await rightDock.click();
+      await toggleDock("expand-column-right");
       await assertLayout(false, false);
-      await leftDock.click();
+      await toggleDock("expand-column-left");
       await assertLayout(true, false);
       await page.locator('[data-layout-toggle="collapse-left"]').click();
       await assertLayout(true, false);
@@ -476,9 +508,8 @@ for (const scheme of ["light", "dark"] as const) {
       await page.locator('[data-layout-toggle="expand-right"]').click();
       expect((await assets.boundingBox())!.width).toBeCloseTo(resizedWidth, 0);
     }
-    await rightDock.focus();
-    await page.keyboard.press("Enter");
-    await expect(rightDock).toBeFocused();
+    await page.locator("[data-program-monitor]").focus();
+    await page.keyboard.press("ControlOrMeta+Alt+ArrowRight");
     await assertLayout(true, true);
     await page.evaluate(async () => {
       await document.fonts.ready;
@@ -507,13 +538,12 @@ for (const scheme of ["light", "dark"] as const) {
       "false",
     );
     await assertLayout(true, false);
-    await rightDock.click();
+    await toggleDock("expand-column-right");
     await page.reload();
     await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(rightDock).toHaveAttribute("aria-pressed", "true");
-    await expect(leftDock).toHaveAttribute("aria-pressed", "true");
+    await assertFullColumns();
     expect((await assets.boundingBox())!.width).toBeCloseTo(resizedWidth, 0);
     for (const workspace of ["Color", "Motion", "Edit"]) {
       await page
@@ -522,24 +552,27 @@ for (const scheme of ["light", "dark"] as const) {
         .click();
       await expect(page.locator("#editor-workspace-panel")).toBeVisible();
     }
-    await expect(rightDock).toHaveAttribute("aria-pressed", "true");
+    await assertFullColumns();
     for (const width of [1024, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       if (width < 1024) {
-        for (const name of ["Assets", "Properties", "Program"]) {
-          const tab = page
-            .getByRole("navigation", { name: "Editor panels" })
-            .getByRole("button", { name, exact: true });
+        const dock = page.getByRole("navigation", { name: "Editor panels" });
+        for (const [name, expected] of [
+          ["Media", assets],
+          ["Text", assets],
+          ["Effects", assets],
+          ["Properties", tools],
+          ["Timeline", preview],
+        ] as const) {
+          const tab = dock.getByRole("button", { name, exact: true });
           await tab.click();
           await expect(tab).toHaveAttribute("aria-pressed", "true");
-          await expect(
-            name === "Assets" ? assets : name === "Properties" ? tools : preview,
-          ).toBeVisible();
+          await expect(expected).toBeVisible();
         }
-        const dock = await page.getByRole("navigation", { name: "Editor panels" }).boundingBox();
+        const dockBox = await dock.boundingBox();
         const timeline = await footer.boundingBox();
-        expect(dock!.y).toBeGreaterThan((await preview.boundingBox())!.y);
-        expect(dock!.y + dock!.height).toBeLessThanOrEqual(timeline!.y);
+        expect(dockBox!.y).toBeGreaterThan((await preview.boundingBox())!.y);
+        expect(dockBox!.y).toBeGreaterThanOrEqual(timeline!.y + timeline!.height - 1);
       }
       await expect(preview).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
@@ -556,7 +589,7 @@ test("Color palettes explain their action and landscape workspaces retain a usab
 }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await createProject(page, "Palette and landscape review");
-  await page.getByRole("button", { name: "Add layer", exact: true }).click();
+  await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   await page.getByRole("tab", { name: "Color", exact: true }).click();
   for (const palette of ["Secondary Qualifier", "Power Window", "3D LUT"]) {
@@ -629,10 +662,17 @@ for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
     await createProject(page, "Readable transcript");
-    await page.getByRole("tab", { name: "Transcript", exact: true }).click();
+    await page.getByRole("tab", { name: "Captions", exact: true }).click();
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 });
-      await page.getByRole("button", { name: "Assets", exact: true }).click();
+      await page
+        .getByRole("navigation", { name: "Editor panels", exact: true })
+        .getByRole("button", { name: "Media", exact: true })
+        .click();
+      await page
+        .getByRole("tablist", { name: "Assets", exact: true })
+        .getByRole("tab", { name: "Captions", exact: true })
+        .click();
       const transcript = page.getByRole("region", { name: "Transcript", exact: true });
       await expect(transcript).toBeVisible();
       const assetsBounds = (await page.locator("#video-editor-assets-panel").boundingBox())!;
@@ -667,7 +707,10 @@ for (const scheme of ["light", "dark"] as const) {
       await options.press("Enter");
       await expect(options).toHaveAttribute("aria-expanded", "false");
       await page.screenshot({ path: testInfo.outputPath(`transcript-${width}-${scheme}.png`) });
-      await page.getByRole("button", { name: "Program", exact: true }).click();
+      await page
+        .getByRole("navigation", { name: "Editor panels", exact: true })
+        .getByRole("button", { name: "Timeline", exact: true })
+        .click();
       await expect(page.getByRole("button", { name: "Play", exact: true })).toBeInViewport({
         ratio: 1,
       });
@@ -689,7 +732,9 @@ test("Motion uses authored duration in its summary, transport, and export", asyn
     .getByRole("toolbar", { name: "Layer tools" })
     .getByRole("button", { name: "Text", exact: true })
     .click();
+  await page.locator("[data-project-details]").click();
   await expect(page.getByText(/320×240 · 30 fps · 0:12 · Clips: 1/)).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(
     page.getByRole("img", { name: "00:00:00:00 / 00:00:12:00", exact: true }),
   ).toBeVisible();
@@ -713,10 +758,15 @@ test("panel content stays inside the editor when the window is short", async ({
     { width: 320, height: 568 },
   ]) {
     await page.setViewportSize(size);
-    if (size.width < 1024) await page.getByRole("button", { name: "Assets", exact: true }).click();
+    if (size.width < 1024)
+      await page
+        .getByRole("navigation", { name: "Editor panels", exact: true })
+        .getByRole("button", { name: "Media", exact: true })
+        .click();
     const assets = page.getByRole("complementary", { name: "Assets", exact: true });
-    for (const name of ["Media pool", "Text", "Transcript", "Transition", "Effects", "Create"]) {
-      await assets.getByRole("tab", { name, exact: true }).click();
+    const assetTabs = page.getByRole("tablist", { name: "Assets", exact: true });
+    for (const name of ["Media", "Text", "Captions", "Effects", "Elements", "Library"]) {
+      await assetTabs.getByRole("tab", { name, exact: true }).click();
       await assets.locator("button:visible").last().focus();
       const geometry = await page.evaluate(() => ({
         height: innerHeight,
@@ -737,11 +787,17 @@ test("panel content stays inside the editor when the window is short", async ({
         geometry.overviewBottom > geometry.timelineBottom + 1 ||
         geometry.documentHeight > geometry.height + 1 ||
         Math.abs(geometry.headerTop) > 1 ||
-        Math.abs(geometry.timelineBottom - geometry.height) > 1
+        geometry.timelineBottom > geometry.height + 1
       ) {
         failures.push(`${size.width}x${size.height} ${name}: ${JSON.stringify(geometry)}`);
         await page.screenshot({ path: testInfo.outputPath(`overflow-${size.width}-${name}.png`) });
       }
+    }
+    if (size.width < 1024) {
+      await page
+        .getByRole("navigation", { name: "Editor panels", exact: true })
+        .getByRole("button", { name: "Timeline", exact: true })
+        .click();
     }
     await page.getByRole("button", { name: "Add marker", exact: true }).click();
     for (const name of ["Audio mixer", "Beat markers"]) {

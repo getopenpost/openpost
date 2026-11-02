@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strings"
 )
 
 type metaMessageView struct {
@@ -55,6 +56,20 @@ type metaMessageView struct {
 // posts and story replies or mentions arrive in their own fields beside a
 // message without text, so they must be requested to show any content.
 const metaMessageFields = "id,from,message,created_time,attachments,shares,story"
+
+func validInstagramLoginCursor(cursor string) bool {
+	if len(cursor) > 4096 {
+		return false
+	}
+	return strings.IndexFunc(cursor, func(r rune) bool {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			return false
+		default:
+			return !strings.ContainsRune("_-/+=", r)
+		}
+	}) == -1
+}
 
 func (m metaMessageView) provider(accountID string) ProviderMessage {
 	// Graph returns offsets without a colon, such as 2026-10-26T21:01:00+0000.
@@ -109,15 +124,41 @@ func (m metaMessagingAdapter) history(ctx context.Context, token string, input F
 		limit = 100
 	}
 	query := url.Values{"limit": {fmt.Sprint(limit)}, "fields": {metaMessageFields}}
-	if input.Cursor != "" {
+	path := url.PathEscape(input.ConversationID) + "/messages"
+	instagramLogin := m.instagram && m.platformParam == ""
+	if instagramLogin {
+		// Instagram Login exposes messages as a field on the conversation node.
+		// Facebook Login's Messenger Conversations API uses the /messages edge.
+		path = url.PathEscape(input.ConversationID)
+		query.Del("limit")
+		messagesField := fmt.Sprintf("messages.limit(%d)", limit)
+		if input.Cursor != "" {
+			if !validInstagramLoginCursor(input.Cursor) {
+				return FetchMessageHistoryResult{}, fmt.Errorf("invalid Instagram Login message cursor")
+			}
+			messagesField = fmt.Sprintf("messages.after(%s).limit(%d)", input.Cursor, limit)
+			query.Del("after")
+		}
+		query.Set("fields", messagesField+"{"+metaMessageFields+"}")
+	}
+	if input.Cursor != "" && !instagramLogin {
 		query.Set("after", input.Cursor)
 	}
-	body, err := DoRequest(ctx, http.MethodGet, m.graphURL(url.PathEscape(input.ConversationID)+"/messages")+"?"+query.Encode(), nil, map[string]string{headerAuthorization: bearerPrefix + token})
+	body, err := DoRequest(ctx, http.MethodGet, m.graphURL(path)+"?"+query.Encode(), nil, map[string]string{headerAuthorization: bearerPrefix + token})
 	if err != nil {
 		return FetchMessageHistoryResult{}, err
 	}
 	var response struct {
-		Data   []metaMessageView `json:"data"`
+		Data     []metaMessageView `json:"data"`
+		Messages struct {
+			Data   []metaMessageView `json:"data"`
+			Paging struct {
+				Next    string `json:"next"`
+				Cursors struct {
+					After string `json:"after"`
+				} `json:"cursors"`
+			} `json:"paging"`
+		} `json:"messages"`
 		Paging struct {
 			Next    string `json:"next"`
 			Cursors struct {
@@ -129,6 +170,10 @@ func (m metaMessagingAdapter) history(ctx context.Context, token string, input F
 		return FetchMessageHistoryResult{}, fmt.Errorf("decoding Meta history: %w", err)
 	}
 	result := FetchMessageHistoryResult{}
+	if instagramLogin {
+		response.Data = response.Messages.Data
+		response.Paging = response.Messages.Paging
+	}
 	if response.Paging.Next != "" {
 		result.NextCursor = response.Paging.Cursors.After
 	}

@@ -72,9 +72,7 @@
 	aria-label={m.video_editor_background_inspector()}
 >
 	<div class="flex items-center gap-1">
-		<h3
-			class="flex-1 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
-		>
+		<h3 class="flex-1 text-xs font-medium text-[var(--video-editor-muted)]">
 			{m.video_editor_backgrounds_title()}
 		</h3>
 		<HintButton

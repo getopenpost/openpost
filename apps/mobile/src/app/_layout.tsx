@@ -245,6 +245,8 @@ function ThemedApplication() {
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="analytics" options={{ title: "Analytics", headerBackTitle: "Back" }} />
+        <Stack.Screen name="media" options={{ title: "Media", headerBackTitle: "Back" }} />
         <Stack.Screen
           name="appearance"
           options={{ title: "Appearance", headerBackTitle: "Back" }}

@@ -82,7 +82,7 @@
 					onDismiss={() => onErrorDismiss()}
 				/>
 			{/if}
-			<div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+			<Dialog.Footer>
 				<Dialog.Close>
 					{#snippet child({ props })}
 						<Button {...props} variant="outline" type="button">{m.common_cancel()}</Button>
@@ -91,7 +91,7 @@
 				<Button type="submit" disabled={loading}>
 					{loading ? m.accounts_discord_verifying() : m.common_connect()}
 				</Button>
-			</div>
+			</Dialog.Footer>
 		</form>
 	</Dialog.Content>
 </Dialog.Root>

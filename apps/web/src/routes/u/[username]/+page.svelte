@@ -84,7 +84,15 @@
 	const topPlatforms = $derived(profile?.top_platforms ?? []);
 	const topWorkspaces = $derived(profile?.top_workspaces ?? []);
 	const visibleFields = $derived(profile?.visible_fields ?? []);
-	const showsActivity = $derived(visibleFields.includes('activity'));
+	const hasPublishingStats = $derived.by(() => {
+		const lifetime = profile?.lifetime_posts ?? 0;
+		const peak = profile?.peak_posts ?? 0;
+		const activeDays = profile?.active_days ?? 0;
+		const currentStreak = profile?.current_streak ?? 0;
+		const longestStreak = profile?.longest_streak ?? 0;
+		return lifetime > 0 || peak > 0 || activeDays > 0 || currentStreak > 0 || longestStreak > 0;
+	});
+	const showsActivity = $derived(visibleFields.includes('activity') && hasPublishingStats);
 	const showsPlatforms = $derived(visibleFields.includes('platforms'));
 	const showsWorkspaces = $derived(visibleFields.includes('workspaces'));
 	const initials = $derived.by(() => {

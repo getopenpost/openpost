@@ -11,6 +11,7 @@ import { defineConfig, searchForWorkspaceRoot, type Plugin, type PluginOption } 
 import { postHogSourceMaps } from '../../scripts/posthog-source-maps.ts';
 import { paraglideFastDeclarationsPlugin } from '../../scripts/paraglide-declarations.mjs';
 import { phonemizerRuntimePlugin } from './src/lib/build/phonemizer-runtime.ts';
+import { devProxy } from './dev-proxy.ts';
 
 // FMT-03 (#393): src/lib/paraglide has one writer and one declared option set.
 // The Vite plugin must pass identical options to the `generate:i18n` script:
@@ -39,7 +40,6 @@ const paraglideDeclarationsPlugin = paraglideFastDeclarationsPlugin({
 }) as PluginOption;
 const usesPrecompiledParaglide = process.env.OPENPOST_PARAGLIDE_PRECOMPILED === '1';
 const isVitest = process.env.VITEST === 'true';
-const apiProxyTimeoutMs = 120_000;
 const sourceMaps = postHogSourceMaps('app');
 const frontendRoot = fileURLToPath(new URL('.', import.meta.url));
 const dependencyRoots = [
@@ -252,20 +252,7 @@ export default defineConfig(({ isSsrBuild }) => ({
 		fs: {
 			allow: [searchForWorkspaceRoot(frontendRoot), ...dependencyRoots]
 		},
-		proxy: {
-			'/api': {
-				target: 'http://localhost:8080',
-				changeOrigin: false,
-				timeout: apiProxyTimeoutMs,
-				proxyTimeout: apiProxyTimeoutMs
-			},
-			'^/media/[^/]+': {
-				target: 'http://localhost:8080'
-			},
-			'^/avatars/[^/]+': {
-				target: 'http://localhost:8080'
-			}
-		}
+		proxy: devProxy(process.env.OPENPOST_DEV_BACKEND_URL)
 	},
 	worker: {
 		format: 'es',

@@ -41,14 +41,14 @@
 
 	function iconFor(id: (typeof items)[number]['id']): ThemeIconRole {
 		switch (id) {
+			case 'home':
+				return 'home';
 			case 'analytics':
 				return 'analytics';
 			case 'communications':
 				return 'communications';
 			case 'publications':
 				return 'publications';
-			case 'media':
-				return 'media';
 			default:
 				return 'add';
 		}
@@ -56,6 +56,8 @@
 
 	function labelFor(id: (typeof items)[number]['id']) {
 		switch (id) {
+			case 'home':
+				return m.nav_home();
 			case 'analytics':
 				return m.sidebar_analytics();
 			case 'new':
@@ -64,8 +66,6 @@
 				return m.sidebar_communications();
 			case 'publications':
 				return m.sidebar_activity();
-			case 'media':
-				return m.sidebar_media();
 			default:
 				return '';
 		}
@@ -93,36 +93,15 @@
 			{@const active = isNavigationItemActive(item, pathname)}
 			<li>
 				{#if item.id === 'new'}
-					<DropdownMenu.Root>
-						<DropdownMenu.Trigger>
-							{#snippet child({ props })}
-								<button
-									{...props}
-									type="button"
-									class="flex min-h-11 w-full items-center justify-center rounded-md text-primary focus-visible:ring-2 focus-visible:ring-ring"
-									aria-label={m.sidebar_new()}><ThemeIcon role="add" class="size-6" /></button
-								>
-							{/snippet}
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Content side="top" align="center" class="w-[min(18rem,calc(100vw-2rem))]">
-							<DropdownMenu.Item class="min-h-11 gap-3" onclick={() => navigate(item)}
-								><ThemeIcon
-									role="compose"
-									class="size-4"
-								/>{m.sidebar_new_post()}</DropdownMenu.Item
-							>
-							<DropdownMenu.Item
-								class="min-h-11 gap-3"
-								onclick={() => goto(resolveAppPath('/image-editor'))}
-								><ThemeIcon role="image" class="size-4" />{m.editors_new_image()}</DropdownMenu.Item
-							>
-							<DropdownMenu.Item
-								class="min-h-11 gap-3"
-								onclick={() => goto(resolveAppPath('/video-editor'))}
-								><ThemeIcon role="video" class="size-4" />{m.editors_new_video()}</DropdownMenu.Item
-							>
-						</DropdownMenu.Content>
-					</DropdownMenu.Root>
+					<button
+						type="button"
+						class="flex min-h-[var(--theme-touch-target)] w-full flex-col items-center justify-center gap-0.5 rounded-md text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+						onclick={() => navigate(item)}
+						aria-label={m.sidebar_new_post()}
+					>
+						<ThemeIcon role="add" class="size-5" />
+						<span class="text-xs leading-none font-medium">{labelFor(item.id)}</span>
+					</button>
 				{:else}
 					<button
 						type="button"
@@ -130,15 +109,15 @@
 						data-active={active}
 						data-cuelume-toggle="tick"
 						class={[
-							'flex min-h-[var(--theme-touch-target)] w-full items-center justify-center rounded-md px-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-							active ? 'bg-accent text-foreground' : 'text-muted-foreground'
+							'flex min-h-[var(--theme-touch-target)] w-full flex-col items-center justify-center gap-0.5 rounded-md px-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+							active ? 'text-foreground' : 'text-muted-foreground'
 						]}
 						onclick={() => navigate(item)}
 						aria-current={active ? 'page' : undefined}
-						aria-label={labelFor(item.id)}
 					>
-						<span class="flex size-7 items-center justify-center"
-							><ThemeIcon role={icon} class="size-5" /></span
+						<ThemeIcon role={icon} class="size-5" />
+						<span class="max-w-full truncate text-xs leading-none font-medium"
+							>{labelFor(item.id)}</span
 						>
 					</button>
 				{/if}
@@ -154,15 +133,15 @@
 							data-theme-navigation-item
 							data-active={moreActive}
 							class={[
-								'flex min-h-[var(--theme-touch-target)] w-full items-center justify-center rounded-md px-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-								moreActive ? 'bg-accent text-foreground' : 'text-muted-foreground'
+								'flex min-h-[var(--theme-touch-target)] w-full flex-col items-center justify-center gap-0.5 rounded-md px-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+								moreActive ? 'text-foreground' : 'text-muted-foreground'
 							]}
 							aria-current={moreActive ? 'page' : undefined}
-							aria-label={m.sidebar_more()}
 						>
-							<span class="flex size-7 items-center justify-center">
-								<ThemeIcon role="menu" class="size-5" />
-							</span>
+							<ThemeIcon role="menu" class="size-5" />
+							<span class="max-w-full truncate text-xs leading-none font-medium"
+								>{m.sidebar_more()}</span
+							>
 						</button>
 					{/snippet}
 				</DropdownMenu.Trigger>

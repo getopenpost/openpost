@@ -161,7 +161,7 @@ test("draft gallery keeps content, selection and search without repeated row chr
   await expect(gallery.getByText("Delivery details", { exact: true })).toHaveCount(0);
   await expect(gallery.getByText("Draft", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Showing 3 of 3 results", { exact: true })).toHaveCount(0);
-  await expect(page.getByTestId("desktop-sidebar-planner")).toBeVisible();
+  await expect(page.getByTestId("desktop-sidebar-planner")).toHaveCount(0);
   await expect
     .poll(() =>
       gallery

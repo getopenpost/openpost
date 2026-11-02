@@ -11,6 +11,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
@@ -29,6 +30,7 @@
 		type BackupSummary
 	} from '$lib/instance-backup';
 	import { getLocaleTag } from '$lib/i18n';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { formatBytes as formatByteSize } from '$lib/byte-size';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon } from '$lib/themes/icons';
@@ -52,6 +54,8 @@
 	let progress = $state(0);
 	let confirmOpen = $state(false);
 	let confirmText = $state('');
+	let deleteConfirmOpen = $state(false);
+	let pendingRestorePoint = $state('');
 	let fileInput = $state<HTMLInputElement | null>(null);
 	let uploadAbort: AbortController | null = null;
 	let restartAbort: AbortController | null = null;
@@ -174,13 +178,23 @@
 		}
 	}
 
-	async function removeRestorePoint(name: string) {
-		actionError = '';
+	function requestRestorePointDelete(name: string) {
+		pendingRestorePoint = name;
+		deleteConfirmOpen = true;
+	}
+
+	async function confirmRestorePointDelete(): Promise<DestructiveActionOutcome> {
+		const name = pendingRestorePoint;
+		if (!name) return { ok: false };
 		try {
 			await deleteRestorePoint(name);
 			await refresh();
+			return { ok: true };
 		} catch (cause) {
-			actionError = failureMessage(cause instanceof InstanceBackupError ? cause.code : 'unknown');
+			return {
+				ok: false,
+				message: failureMessage(cause instanceof InstanceBackupError ? cause.code : 'unknown')
+			};
 		}
 	}
 
@@ -295,10 +309,10 @@
 								<span class="text-muted-foreground">· {formatBytes(point.bytes)}</span>
 							</span>
 							<Button
-								variant="outline"
+								variant="destructive"
 								size="sm"
 								disabled={busy}
-								onclick={() => removeRestorePoint(point.name)}
+								onclick={() => requestRestorePointDelete(point.name)}
 							>
 								{m.settings_backup_points_delete()}
 							</Button>
@@ -353,3 +367,10 @@
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
+
+<DestructiveConfirmDialog
+	bind:open={deleteConfirmOpen}
+	title={m.settings_backup_points_delete_confirm_title()}
+	description={m.settings_backup_points_delete_confirm_body()}
+	onConfirm={confirmRestorePointDelete}
+/>

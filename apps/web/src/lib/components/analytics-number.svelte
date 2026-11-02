@@ -11,7 +11,7 @@
 </script>
 
 {#if value === null}
-	<span>—</span>
+	<span>-</span>
 {:else}
 	<NumberFlow
 		{value}

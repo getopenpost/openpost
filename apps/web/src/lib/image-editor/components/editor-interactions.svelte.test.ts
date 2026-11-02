@@ -357,8 +357,6 @@ it('keeps a locked ancestor child selectable while rejecting keyboard and pointe
 		expect(editor.selectedLayerIDs).toEqual(['Child']);
 		expect(changed).not.toHaveBeenCalled();
 		await expect.element(screen.getByRole('button', { name: 'Reorder Child' })).toBeDisabled();
-		await expect.element(screen.getByRole('button', { name: 'Move Child up' })).toBeDisabled();
-		await expect.element(screen.getByRole('button', { name: 'Move Child down' })).toBeDisabled();
 		await screen.getByRole('button', { name: 'Unlock Group', exact: true }).click();
 		await child.click();
 		await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
@@ -388,7 +386,7 @@ it('moves across visible siblings in one step without counting a group child as 
 	const editor = setup();
 	const screen = await render(Fixture, { editor });
 	await screen.getByRole('treeitem', { name: /Other/ }).click();
-	await screen.getByRole('button', { name: 'Move Other up' }).click();
+	await userEvent.keyboard('{Alt>}{ArrowUp}{/Alt}');
 	const visibleOrder = () =>
 		[...screen.container.querySelectorAll<HTMLElement>('[role="treeitem"]')].map(
 			(row) => row.dataset.imageEditorLayerId
@@ -398,7 +396,7 @@ it('moves across visible siblings in one step without counting a group child as 
 	await expect.poll(visibleOrder).toEqual(['Group', 'Child', 'Other']);
 	expect(editor.canUndo).toBe(false);
 	await screen.getByRole('treeitem', { name: /Group, group/ }).click();
-	await screen.getByRole('button', { name: 'Move Group down' }).click();
+	await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
 	await expect.poll(visibleOrder).toEqual(['Other', 'Group', 'Child']);
 	editor.ungroupSelected();
 	await expect.poll(visibleOrder).toEqual(['Other', 'Child']);
@@ -406,7 +404,7 @@ it('moves across visible siblings in one step without counting a group child as 
 	await expect.poll(visibleOrder).toEqual(['Other', 'Group', 'Child']);
 	editor.undo();
 	await screen.getByRole('treeitem', { name: /Child/ }).click();
-	await screen.getByRole('button', { name: 'Move Child down' }).click();
+	await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
 	expect(editor.canUndo).toBe(false);
 	await expect.poll(visibleOrder).toEqual(['Group', 'Child', 'Other']);
 });

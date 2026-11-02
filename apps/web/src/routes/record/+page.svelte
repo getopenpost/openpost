@@ -3,6 +3,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { Disclosure } from '$lib/components/editor-density';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import Logo from '$lib/components/Logo.svelte';
@@ -328,33 +329,6 @@
 			<Logo class="h-5 w-auto" />
 			<span class="text-sm font-semibold">{m.record_title()}</span>
 		</a>
-		{#if cloudWorkspaceId}
-			<div
-				class="flex flex-wrap items-center gap-2"
-				role="group"
-				aria-label={m.editor_storage_destination()}
-			>
-				<span class="text-xs text-muted-foreground">{m.editor_storage_destination()}</span>
-				<div
-					class="flex items-center gap-1 rounded-lg border border-[var(--video-editor-border)] p-1"
-				>
-					<Button
-						size="sm"
-						variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
-						aria-pressed={storageMode === 'cloud'}
-						disabled={captureBusy}
-						onclick={() => chooseStorage('cloud')}>{m.editor_storage_choice_cloud()}</Button
-					>
-					<Button
-						size="sm"
-						variant={storageMode === 'local' ? 'secondary' : 'ghost'}
-						aria-pressed={storageMode === 'local'}
-						disabled={captureBusy}
-						onclick={() => chooseStorage('local')}>{m.editor_storage_choice_local()}</Button
-					>
-				</div>
-			</div>
-		{/if}
 	</header>
 
 	<main class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-4">
@@ -476,15 +450,14 @@
 
 		{#if !captureBusy}
 			<!-- Selection -->
-			<fieldset class="space-y-3 rounded-lg border border-[var(--video-editor-border)] p-3">
-				<legend
-					class="px-1 text-xs font-semibold tracking-widest text-[var(--video-editor-muted)] uppercase"
-					>{m.video_editor_recording_sources_description()}</legend
-				>
-				<div class="grid gap-2 sm:grid-cols-3">
+			<fieldset
+				class="mx-auto w-full max-w-xl space-y-3 rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-4"
+			>
+				<legend class="sr-only">{m.record_source_label()}</legend>
+				<div class="grid grid-cols-3 gap-2">
 					<label
 						data-state={includeScreen ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[var(--video-editor-focus)] data-[state=checked]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))]"
+						class="flex min-h-11 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-field-border px-3 py-2 data-[state=checked]:border-navigation-active data-[state=checked]:bg-navigation-active data-[state=checked]:text-navigation-active-foreground"
 					>
 						<Checkbox
 							bind:checked={includeScreen}
@@ -492,11 +465,11 @@
 								recorderPreferences.set('includeScreen', checked === true)}
 							aria-label={m.record_source_screen()}
 						/>
-						<span class="text-sm">{m.record_source_screen()}</span>
+						<span class="truncate text-sm">{m.record_source_screen()}</span>
 					</label>
 					<label
 						data-state={includeCamera ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[var(--video-editor-focus)] data-[state=checked]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))]"
+						class="flex min-h-11 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-field-border px-3 py-2 data-[state=checked]:border-navigation-active data-[state=checked]:bg-navigation-active data-[state=checked]:text-navigation-active-foreground"
 					>
 						<Checkbox
 							bind:checked={includeCamera}
@@ -504,11 +477,11 @@
 								recorderPreferences.set('includeCamera', checked === true)}
 							aria-label={m.record_source_camera()}
 						/>
-						<span class="text-sm">{m.record_source_camera()}</span>
+						<span class="truncate text-sm">{m.record_source_camera()}</span>
 					</label>
 					<label
 						data-state={includeMic ? 'checked' : 'unchecked'}
-						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[var(--video-editor-focus)] data-[state=checked]:bg-[color-mix(in_oklch,var(--video-editor-focus)_18%,var(--video-editor-control))]"
+						class="flex min-h-11 min-w-0 cursor-pointer items-center gap-2 rounded-md border border-field-border px-3 py-2 data-[state=checked]:border-navigation-active data-[state=checked]:bg-navigation-active data-[state=checked]:text-navigation-active-foreground"
 					>
 						<Checkbox
 							bind:checked={includeMic}
@@ -516,7 +489,7 @@
 								recorderPreferences.set('includeMicrophone', checked === true)}
 							aria-label={m.record_source_audio()}
 						/>
-						<span class="text-sm">{m.record_source_audio()}</span>
+						<span class="truncate text-sm">{m.record_source_audio()}</span>
 					</label>
 				</div>
 
@@ -565,8 +538,41 @@
 					{/if}
 				</div>
 
-				{#if includeScreen || includeCamera}
-					<div class="grid gap-3 sm:grid-cols-3">
+				<Disclosure label={m.record_more_options()} class="border-t border-b-0 pt-1">
+					{#if cloudWorkspaceId}
+						<div
+							class="flex flex-wrap items-center gap-2 pb-2"
+							role="group"
+							aria-label={m.editor_storage_destination()}
+						>
+							<span class="text-xs">{m.editor_storage_destination()}</span>
+							<div
+								class="flex items-center gap-1 rounded-lg border border-[var(--video-editor-border)] p-1"
+							>
+								<Button
+									size="sm"
+									variant="ghost"
+									class={storageMode === 'cloud'
+										? 'bg-navigation-active text-navigation-active-foreground hover:bg-navigation-active'
+										: ''}
+									aria-pressed={storageMode === 'cloud'}
+									disabled={captureBusy}
+									onclick={() => chooseStorage('cloud')}>{m.editor_storage_choice_cloud()}</Button
+								>
+								<Button
+									size="sm"
+									variant="ghost"
+									class={storageMode === 'local'
+										? 'bg-navigation-active text-navigation-active-foreground hover:bg-navigation-active'
+										: ''}
+									aria-pressed={storageMode === 'local'}
+									disabled={captureBusy}
+									onclick={() => chooseStorage('local')}>{m.editor_storage_choice_local()}</Button
+								>
+							</div>
+						</div>
+					{/if}
+					<div class="grid gap-3 pt-2 sm:grid-cols-3">
 						<div class="flex flex-col gap-1 text-xs">
 							<span>{m.video_editor_export_resolution()}</span>
 							<AppSelect
@@ -615,90 +621,90 @@
 							</div>
 						{/if}
 					</div>
-				{/if}
 
-				{#if includeScreen}
-					<label class="flex min-h-11 items-center gap-1.5 text-sm">
-						<Checkbox
-							bind:checked={includeSystemAudio}
-							onCheckedChange={(checked) =>
-								recorderPreferences.set('includeSystemAudio', checked === true)}
-						/>
-						{m.record_system_audio()}
-						<span class="text-xs text-[var(--video-editor-muted)]"
-							>({m.video_editor_system_audio_caveat()})</span
-						>
-					</label>
-				{/if}
+					{#if includeScreen}
+						<label class="flex min-h-11 items-center gap-1.5 text-sm">
+							<Checkbox
+								bind:checked={includeSystemAudio}
+								onCheckedChange={(checked) =>
+									recorderPreferences.set('includeSystemAudio', checked === true)}
+							/>
+							{m.record_system_audio()}
+							<span class="text-xs text-[var(--video-editor-muted)]"
+								>({m.video_editor_system_audio_caveat()})</span
+							>
+						</label>
+					{/if}
 
-				<div class="grid gap-3 sm:grid-cols-2">
-					<div class="flex flex-col gap-1 text-xs">
-						<span>{m.video_editor_record_countdown()}</span>
-						<AppSelect
-							value={countdown}
-							ariaLabel={m.video_editor_record_countdown()}
-							options={[
-								{ value: '0', label: m.video_editor_record_countdown_off() },
-								{
-									value: '3',
-									label: m.video_editor_record_seconds({ seconds: 3 })
-								},
-								{
-									value: '5',
-									label: m.video_editor_record_seconds({ seconds: 5 })
-								},
-								{
-									value: '10',
-									label: m.video_editor_record_seconds({ seconds: 10 })
-								}
-							]}
-							onValueChange={(value) => {
-								countdown = value;
-								recorderPreferences.set(
-									'countdownSeconds',
-									value === '10' ? 10 : value === '5' ? 5 : value === '3' ? 3 : 0
-								);
-							}}
-							class="h-11"
-						/>
+					<div class="grid gap-3 sm:grid-cols-2">
+						<div class="flex flex-col gap-1 text-xs">
+							<span>{m.video_editor_record_countdown()}</span>
+							<AppSelect
+								value={countdown}
+								ariaLabel={m.video_editor_record_countdown()}
+								options={[
+									{ value: '0', label: m.video_editor_record_countdown_off() },
+									{
+										value: '3',
+										label: m.video_editor_record_seconds({ seconds: 3 })
+									},
+									{
+										value: '5',
+										label: m.video_editor_record_seconds({ seconds: 5 })
+									},
+									{
+										value: '10',
+										label: m.video_editor_record_seconds({ seconds: 10 })
+									}
+								]}
+								onValueChange={(value) => {
+									countdown = value;
+									recorderPreferences.set(
+										'countdownSeconds',
+										value === '10' ? 10 : value === '5' ? 5 : value === '3' ? 3 : 0
+									);
+								}}
+								class="h-11"
+							/>
+						</div>
+						<div class="flex flex-col gap-1 text-xs">
+							<span>{m.video_editor_record_planned()}</span>
+							<AppSelect
+								value={plannedMinutes}
+								ariaLabel={m.video_editor_record_planned()}
+								options={[
+									{
+										value: '2',
+										label: m.video_editor_record_minutes({ minutes: 2 })
+									},
+									{
+										value: '5',
+										label: m.video_editor_record_minutes({ minutes: 5 })
+									},
+									{
+										value: '15',
+										label: m.video_editor_record_minutes({ minutes: 15 })
+									},
+									{
+										value: '30',
+										label: m.video_editor_record_minutes({ minutes: 30 })
+									}
+								]}
+								onValueChange={(value) => {
+									plannedMinutes = value;
+									recorderPreferences.set(
+										'plannedMinutes',
+										value === '30' ? 30 : value === '15' ? 15 : value === '2' ? 2 : 5
+									);
+								}}
+								class="h-11"
+							/>
+						</div>
 					</div>
-					<div class="flex flex-col gap-1 text-xs">
-						<span>{m.video_editor_record_planned()}</span>
-						<AppSelect
-							value={plannedMinutes}
-							ariaLabel={m.video_editor_record_planned()}
-							options={[
-								{
-									value: '2',
-									label: m.video_editor_record_minutes({ minutes: 2 })
-								},
-								{
-									value: '5',
-									label: m.video_editor_record_minutes({ minutes: 5 })
-								},
-								{
-									value: '15',
-									label: m.video_editor_record_minutes({ minutes: 15 })
-								},
-								{
-									value: '30',
-									label: m.video_editor_record_minutes({ minutes: 30 })
-								}
-							]}
-							onValueChange={(value) => {
-								plannedMinutes = value;
-								recorderPreferences.set(
-									'plannedMinutes',
-									value === '30' ? 30 : value === '15' ? 15 : value === '2' ? 2 : 5
-								);
-							}}
-							class="h-11"
-						/>
-					</div>
-				</div>
-				<p class="text-xs text-[var(--video-editor-muted)]">
-					{m.video_editor_record_estimate({ size: plannedEstimate })}
-				</p>
+					<p class="text-xs text-[var(--video-editor-muted)]">
+						{m.video_editor_record_estimate({ size: plannedEstimate })}
+					</p>
+				</Disclosure>
 			</fieldset>
 
 			<Button class="mx-auto min-h-11 min-w-36" disabled={!hasSelection} onclick={handleStart}>

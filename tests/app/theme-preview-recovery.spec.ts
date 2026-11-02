@@ -34,7 +34,7 @@ test("testing a lower theme card brings its sample into view on every layout", a
         })
         .toBe(true);
       await page.getByRole("button", { name: "Stop testing", exact: true }).click();
-      await expect(page.locator("html")).toHaveAttribute("data-theme-id", "dither");
+      await expect(page.locator("html")).toHaveAttribute("data-theme-id", "calm");
     }
   expect(writes).toEqual([]);
 });

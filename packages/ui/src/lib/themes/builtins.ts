@@ -26,6 +26,7 @@ import { columnTheme } from "./builtins/column.js";
 import { duolingoTheme } from "./builtins/duolingo.js";
 import { ditherTheme, ditherMossTheme } from "./builtins/dither.js";
 import { quizletTheme } from "./builtins/quizlet.js";
+import { calmTheme } from "./builtins/calm.js";
 
 export const WORKSHOP_FALLBACK_THEME: ThemeManifest = workshopTheme;
 
@@ -56,6 +57,7 @@ export const BUILT_IN_THEMES: readonly ThemeManifest[] = [
   quizletTheme,
   ditherTheme,
   ditherMossTheme,
+  calmTheme,
 ];
 
 const builtInThemesById = new Map(BUILT_IN_THEMES.map((item) => [item.id, item]));

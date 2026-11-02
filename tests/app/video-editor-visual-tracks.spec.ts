@@ -24,6 +24,10 @@ test("a background moves between visual tracks with undo, cancel and persistence
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
   await page
     .getByRole("navigation", { name: "Assets", exact: true })
+    .getByRole("tab", { name: "Elements", exact: true })
+    .click();
+  await page
+    .getByRole("tablist", { name: "Elements", exact: true })
     .getByRole("tab", { name: "Backgrounds", exact: true })
     .click();
   await page.getByRole("searchbox", { name: "Search backgrounds" }).fill("Sunset mesh");
@@ -32,7 +36,10 @@ test("a background moves between visual tracks with undo, cancel and persistence
   const destination = page.locator('[data-track="track-video-overlay"]');
   const clip = page.locator("[data-timeline-item-id]");
   await expect(source.locator("[data-timeline-item-id]")).toHaveCount(1);
-  await page.getByRole("tab", { name: "Backgrounds", exact: true }).focus();
+  await page
+    .getByRole("tablist", { name: "Elements", exact: true })
+    .getByRole("tab", { name: "Backgrounds", exact: true })
+    .focus();
   await page.keyboard.press("ControlOrMeta+z");
   await expect(clip).toHaveCount(0);
   await page.keyboard.press("ControlOrMeta+Shift+z");

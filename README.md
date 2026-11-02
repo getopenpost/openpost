@@ -70,14 +70,14 @@
   <a href="https://openpo.st/#features">See all features</a>
 </p>
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./assets/screenshots/mobile-gallery-dark.png">
-    <img src="./assets/screenshots/mobile-gallery-light.png" alt="OpenPost on iOS: Drafts, Inbox, Ideate, Calendar, and Analytics, each shown in a labelled phone mockup" width="100%">
-  </picture>
-</p>
-
 ## What you can do
+
+Home shows upcoming posts and the replies, failures, and connections that need your attention.
+Use Posts to switch between the list and calendar, and Studio to open the image editor,
+video editor, Quick Cut, or Recorder. Choose New post in your profile's Preferences
+to open the app on the composer instead.
+
+Demos and linked screenshots use sample data.
 
 - <img src="./assets/brand/features/accounts.svg" alt="" width="24" height="24" align="top"> **[Connect accounts](https://openpo.st/docs/guides/accounts).** Manage your social connections in one workspace. Each provider keeps its own capabilities and publishing limits.
 - <img src="./assets/brand/features/compose.svg" alt="" width="24" height="24" align="top"> **[Compose for each platform](https://openpo.st/docs/guides/publishing).** Write posts and threads, then adjust the text and media for each account. Preview each version before publishing. Save account groups as Social Sets to reuse them.

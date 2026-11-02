@@ -112,7 +112,7 @@
 	<Dialog.Content aria-busy={pending} showCloseButton={false} class="sm:max-w-md">
 		<form onsubmit={createWorkspace} class="space-y-4">
 			<Dialog.Header>
-				<Dialog.Title>{m.onboarding_submit()}</Dialog.Title>
+				<Dialog.Title>{m.workspace_create_submit()}</Dialog.Title>
 				<Dialog.Description>{m.onboarding_workspace_hint()}</Dialog.Description>
 			</Dialog.Header>
 
@@ -145,7 +145,7 @@
 							icon="loading"
 							class="size-4 animate-spin motion-reduce:animate-none"
 						/>{/if}
-					{m.onboarding_submit()}
+					{m.workspace_create_submit()}
 				</Button>
 			</Dialog.Footer>
 		</form>

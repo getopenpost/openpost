@@ -158,7 +158,7 @@ test("every built-in renders its supported scheme without overflow", async ({ pa
 
   await loginAsFreshUser(request, page);
   await page.goto("/settings?tab=appearance");
-  await expect(page.getByRole("heading", { name: "Appearance" }).first()).toBeVisible({
+  await expect(page.locator("[data-theme-library-card]").first()).toBeVisible({
     timeout: 20_000,
   });
   await page.waitForLoadState("networkidle").catch(() => undefined);
@@ -210,7 +210,7 @@ test("a published organization theme remains visible and assignable after all bu
 
   await authenticatePage(page, token);
   await page.goto("/settings?tab=appearance");
-  await expect(page.getByRole("heading", { name: "Appearance" }).first()).toBeVisible({
+  await expect(page.locator("[data-theme-library-card]").first()).toBeVisible({
     timeout: 20_000,
   });
   const themeRow = page.getByText(name, { exact: true }).locator("../../..");

@@ -14,7 +14,7 @@ const FirstCommentSettingKey = "first_comment"
 // comment setting. Capability-gated: only listed providers declare it.
 func SupportsFirstComment(provider string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case providerLinkedIn, providerFacebook, providerInstagram, providerYouTube:
+	case providerLinkedIn, providerFacebook, providerInstagram, providerYouTube, providerDevNull:
 		return true
 	default:
 		return false
@@ -35,6 +35,14 @@ func FirstCommentMessage(provider string, settings map[string]interface{}) strin
 // before calling it and must never republish the parent when it fails.
 type FirstCommentPoster interface {
 	PostFirstComment(ctx context.Context, accessToken, accountID, externalID, message string) (string, error)
+}
+
+func (d *DevNullAdapter) PostFirstComment(ctx context.Context, accessToken, accountID, externalID, message string) (string, error) {
+	message, target, err := requireFirstComment(message, externalID)
+	if err != nil {
+		return "", err
+	}
+	return d.ReplyToComment(ctx, accessToken, accountID, target, message)
 }
 
 func requireFirstComment(message, externalID string) (string, string, error) {

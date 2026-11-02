@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 
 /**
@@ -19,26 +19,52 @@ export function useRememberedView<T extends string>({
   select: (value: T) => void;
   value: T;
 } {
-  const [value, setValue] = useState<T>(allowedValues[0]);
-  const [ready, setReady] = useState(false);
+  const defaultValue = allowedValues[0];
+  const [state, setState] = useState({
+    key,
+    epoch: 0,
+    value: defaultValue,
+    ready: false,
+  });
+  if (state.key !== key) {
+    setState({ key, epoch: state.epoch + 1, value: defaultValue, ready: false });
+  }
+  const epoch = state.epoch;
+  // Reject callbacks from an earlier visit, including when the key is reused.
+  const activeEpoch = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    activeEpoch.current = epoch;
+    return () => {
+      activeEpoch.current = null;
+    };
+  }, [epoch]);
+  const ready = state.key === key && state.ready;
+  const value = state.key === key ? state.value : defaultValue;
   useEffect(() => {
     let active = true;
     void SecureStore.getItemAsync(key)
+      .catch(() => null)
       .then((stored) => {
-        if (active && allowedValues.includes(stored as T)) setValue(stored as T);
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (active) setReady(true);
+        if (!active) return;
+        setState({
+          key,
+          epoch,
+          value: allowedValues.includes(stored as T) ? (stored as T) : defaultValue,
+          ready: true,
+        });
       });
     return () => {
       active = false;
     };
-  }, [allowedValues, key]);
-  function select(next: T) {
-    setValue(next);
-    if (!ready) return;
-    void SecureStore.setItemAsync(key, next).catch(() => onPersistError?.());
-  }
+  }, [allowedValues, defaultValue, epoch, key]);
+  const select = useCallback(
+    (next: T) => {
+      if (activeEpoch.current !== epoch) return;
+      setState((current) => (current.key === key ? { ...current, value: next } : current));
+      if (!ready) return;
+      void SecureStore.setItemAsync(key, next).catch(() => onPersistError?.());
+    },
+    [epoch, key, onPersistError, ready],
+  );
   return { ready, select, value };
 }

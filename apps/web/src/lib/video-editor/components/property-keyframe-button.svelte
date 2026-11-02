@@ -60,6 +60,8 @@
 
 <button
 	type="button"
+	data-property-affordance
+	data-keyed={animated || undefined}
 	class:active={animated}
 	class="grid size-6 shrink-0 place-items-center rounded text-[var(--video-editor-muted)] transition-colors hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] disabled:opacity-35 [&.active]:text-[var(--video-editor-primary)] [@media(pointer:coarse)]:size-11"
 	aria-label={title}

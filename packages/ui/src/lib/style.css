@@ -5,6 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --text-xs: var(--app-text-xs);
   --font-sans: var(--theme-font-sans);
   --font-brand: var(--theme-font-brand);
   --font-display: var(--theme-font-display);
@@ -102,6 +103,13 @@
 }
 
 @layer base {
+  :root {
+    --app-text-xs: 0.8125rem;
+  }
+  /* Editors are dense workstations; their panels keep the compact scale. */
+  [data-density="editor"] {
+    --app-text-xs: 0.75rem;
+  }
   * {
     @apply border-border outline-ring/50;
     border-style: var(--theme-border-style);
@@ -1090,6 +1098,14 @@
     min-width: 44px;
   }
 
+  /* These controls keep their drawn size; each expands its hit area with a pseudo-element. */
+  [data-slot="checkbox"],
+  [data-slot="radio-group-item"],
+  [data-slot="switch"] {
+    min-width: 0;
+    min-height: 0;
+  }
+
   button,
   a,
   [data-slot="button"],
@@ -1121,20 +1137,53 @@ textarea[data-fabric="textarea"] {
   }
 
   [data-theme-tabs="underline"] [data-slot="tabs-list"] {
+    width: 100%;
+    height: auto !important;
+    min-height: 2.75rem;
+    justify-content: flex-start;
+    gap: 0.25rem;
+    padding: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
     border-radius: 0;
     background: transparent;
+    box-shadow: inset 0 -1px 0 var(--border);
+    scrollbar-width: none;
   }
 
   [data-theme-tabs="underline"] [data-slot="tabs-trigger"] {
+    flex: none;
+    height: 2.75rem !important;
+    padding-inline: 0.75rem;
+    border: 0;
     border-radius: 0;
     background: transparent;
+    font-size: 0.875rem;
+    font-weight: 500;
   }
 
   [data-theme-tabs="underline"] [data-slot="tabs-trigger"][data-state="active"] {
     background: transparent;
+    color: var(--foreground);
+  }
+
+  [data-theme-tabs="underline"] [data-slot="tabs-trigger"]::after {
+    position: absolute;
+    inset: auto 0 0;
+    height: 2px;
+    background: var(--primary);
+    content: "";
+    opacity: 0;
+    transition: opacity var(--theme-motion-selection-duration, 160ms);
   }
 
   [data-theme-tabs="underline"] [data-slot="tabs-trigger"][data-state="active"]::after {
     opacity: 1;
   }
+}
+
+/* Calm reserves the signature texture for the actions that lead a screen.
+   The shared dither rules are unlayered, so this override must be too. */
+[data-theme-id="calm"] [data-dither-button][data-action-intent="ordinary"] {
+  --dither-button-visible: none;
 }

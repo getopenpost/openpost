@@ -72,7 +72,9 @@ test("ordinary start page opens workspace templates with their pages and editabl
   expect(templateResponse.ok()).toBe(true);
   await authenticatePage(page, auth.token);
   await page.goto("/image-editor");
-  await expect(page.getByRole("button", { name: "OpenPost cloud", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Save new projects to", exact: true }),
+  ).toContainText("OpenPost cloud");
   await expect(
     page.getByRole("heading", { name: "Workspace templates", exact: true }),
   ).toBeVisible();
@@ -80,7 +82,8 @@ test("ordinary start page opens workspace templates with their pages and editabl
   const showAll = page.getByRole("button", { name: /Show all .* templates/ });
   if (await showAll.isVisible()) await showAll.click();
   const workspaceCard = page.getByRole("button", { name: /^Audit workspace template/ });
-  await page.getByRole("button", { name: "This device", exact: true }).click();
+  await page.getByRole("button", { name: "Save new projects to", exact: true }).click();
+  await page.getByRole("option", { name: "This device", exact: true }).click();
   await expect(workspaceCard).toBeVisible();
   await expect(workspaceCard).toHaveAccessibleName(
     "Audit workspace template: Create design, Saved to OpenPost",
@@ -101,10 +104,9 @@ test("ordinary start page opens workspace templates with their pages and editabl
     }
   }
   await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(page.getByRole("button", { name: "This device", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expect(
+    page.getByRole("button", { name: "Save new projects to", exact: true }),
+  ).toContainText("This device");
   await workspaceCard.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/image-editor\/[0-9a-f-]{36}$/);
@@ -138,7 +140,8 @@ test("ordinary start page opens workspace templates with their pages and editabl
   );
   expect(savedTemplate.document.title).toBe("Template source");
   await page.goto("/image-editor");
-  await page.getByRole("button", { name: "This device", exact: true }).click();
+  await page.getByRole("button", { name: "Save new projects to", exact: true }).click();
+  await page.getByRole("option", { name: "This device", exact: true }).click();
   await expect(workspaceCard).toBeVisible();
   await page.getByRole("button", { name: "Quick announcement", exact: true }).click();
   await expect(page).toHaveURL(/\/image-editor\/local_design_/);
@@ -172,9 +175,10 @@ for (const scheme of ["light", "dark"] as const) {
       };
     });
     await page.getByRole("textbox", { name: "Design title" }).fill("Unsaved changes");
-    await expect(
-      page.getByRole("banner").getByText("Save unavailable for this test"),
-    ).toBeVisible();
+    await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+      "aria-label",
+      "Save unavailable for this test",
+    );
     expect(
       await page.evaluate(() => {
         const event = new Event("beforeunload", { cancelable: true });
@@ -188,7 +192,7 @@ for (const scheme of ["light", "dark"] as const) {
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 800 });
       await expect(
-        page.getByRole("status").filter({ hasText: "Save unavailable for this test" }).last(),
+        page.locator('[role="status"][aria-label="Save unavailable for this test"]').last(),
       ).toBeVisible();
       await expect(
         page.getByRole("button", {
@@ -387,6 +391,7 @@ test("cloud design trash restores the same saved design", async ({ page, request
   await dialog.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByRole("link", { name: /Restore this design/ })).toHaveCount(0);
   const trash = page.getByRole("region", { name: "Trash", exact: true });
+  await trash.getByRole("button", { name: "Trash", exact: true }).click();
   await expect(trash.getByText("Restore this design", { exact: true })).toBeVisible();
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
@@ -403,6 +408,7 @@ test("cloud design trash restores the same saved design", async ({ page, request
     }
   }
   await page.reload();
+  await trash.getByRole("button", { name: "Trash", exact: true }).click();
   await trash.getByRole("button", { name: "Restore", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(trash.getByText("Restore this design", { exact: true })).toHaveCount(0);

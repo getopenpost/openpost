@@ -17,11 +17,11 @@
 
 <dl class="grid min-w-32 grid-cols-2 gap-3">
 	<div>
-		<dt class="text-[11px] text-muted-foreground">{primaryLabel}</dt>
+		<dt class="text-xs text-muted-foreground">{primaryLabel}</dt>
 		<dd class="mt-0.5 text-sm font-medium tabular-nums">{formatNumber(primaryValue)}</dd>
 	</div>
 	<div>
-		<dt class="text-[11px] text-muted-foreground">{secondaryLabel}</dt>
+		<dt class="text-xs text-muted-foreground">{secondaryLabel}</dt>
 		<dd class="mt-0.5 text-sm font-medium tabular-nums">{formatNumber(secondaryValue)}</dd>
 	</div>
 </dl>

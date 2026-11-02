@@ -97,8 +97,8 @@ func (server *reconnectNotificationServer) finalizeWithReconnectFailure(
 		accounts: map[string]models.SocialAccount{
 			"account-1": {ID: "account-1", WorkspaceID: "ws-1", Platform: "x", AccountUsername: "Founder", Slug: "x-account"},
 		},
-		failedAccountIDs: failedAccountIDs,
-		reconnect:        true,
+		reconnectAccountIDs: failedAccountIDs,
+		reconnect:           true,
 	}
 	return server.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 		return server.service.createReconnectNotifications(txCtx, tx, publication, result, nil)
@@ -110,7 +110,7 @@ func reconnectNotificationRows(t *testing.T, db *bun.DB, userID string) []models
 	var rows []models.UserNotification
 	require.NoError(t, db.NewSelect().Model(&rows).
 		Where("user_id = ?", userID).
-		Order("created_at ASC, id ASC").
+		OrderExpr("created_at ASC, id ASC").
 		Scan(t.Context()))
 	return rows
 }
@@ -148,4 +148,47 @@ func TestCreateReconnectNotificationsClaimsCredentialGenerationOnce(t *testing.T
 	require.NoError(t, server.db.NewSelect().Model(&account).Where("id = ?", "account-1").Scan(ctx))
 	require.Equal(t, int64(1), account.CredentialFailureGeneration, "one claim per credential break")
 	require.Equal(t, FailureReconnectRequired, account.PreflightFailure, "the claimed break marks the account unhealthy")
+}
+
+func TestPublicationReconnectNotificationsExcludeOtherFailedAccounts(t *testing.T) {
+	server := newReconnectNotificationServer(t)
+	ctx := t.Context()
+	healthy := models.SocialAccount{
+		ID: "account-2", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "healthy",
+		Slug: "healthy", AccessTokenEnc: []byte("test-token"), IsActive: true,
+	}
+	_, err := server.db.NewInsert().Model(&healthy).Exec(ctx)
+	require.NoError(t, err)
+	renditions := []models.Rendition{
+		{SocialAccountID: "account-1", Status: models.RenditionStatusFailed, ErrorAction: FailureActionReconnect, ErrorKind: FailureAuthExpired},
+		{SocialAccountID: healthy.ID, Status: models.RenditionStatusFailed, ErrorAction: FailureActionEdit, ErrorKind: FailureValidation},
+	}
+	publication := &models.Publication{ID: "mixed-publication", WorkspaceID: "ws-1", CreatedByID: "creator-1"}
+	require.NoError(t, server.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		return server.service.createPublicationResultNotifications(ctx, tx, publication, models.PublicationStatusFailed, renditions)
+	}))
+	var account models.SocialAccount
+	require.NoError(t, server.db.NewSelect().Model(&account).Where("id = ?", healthy.ID).Scan(ctx))
+	require.Empty(t, account.PreflightFailure, "content errors must not invalidate credentials")
+	require.Zero(t, account.CredentialFailureGeneration)
+	for _, recipient := range []string{"creator-1", "admin-1"} {
+		for _, row := range reconnectNotificationRows(t, server.db, recipient) {
+			require.NotContains(t, row.DedupKey, "account-2", "only the broken account needs attention")
+		}
+	}
+	require.Len(t, reconnectNotificationRows(t, server.db, "connector-1"), 1)
+}
+
+func TestPublicationCredentialFailureAfterTransientCheck(t *testing.T) {
+	for _, previous := range []string{"unknown", "unsupported"} {
+		t.Run(previous, func(t *testing.T) {
+			server := newReconnectNotificationServer(t)
+			_, err := server.db.NewUpdate().Model((*models.SocialAccount)(nil)).
+				Set("preflight_failure = ?", previous).Where("id = ?", "account-1").Exec(t.Context())
+			require.NoError(t, err)
+			require.NoError(t, server.finalizeWithReconnectFailure(t.Context(), "publication-1", []string{"account-1"}))
+			require.Len(t, reconnectNotificationRows(t, server.db, "connector-1"), 1)
+			require.Len(t, reconnectNotificationRows(t, server.db, "admin-1"), 1)
+		})
+	}
 }

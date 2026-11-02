@@ -27,9 +27,9 @@
 	import CompatConnectDialog from '$lib/components/compat-connect-dialog.svelte';
 	import FediverseConnectDialog from '$lib/components/fediverse-connect-dialog.svelte';
 	import TelegramConnectionDialog from '$lib/components/telegram-connection-dialog.svelte';
-	import WorkspaceSetupGuide from '$lib/components/workspace-setup-guide.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import {
@@ -364,6 +364,16 @@
 		connectionProviderEntries.filter((provider) => !providerNeedsAdminSetup(provider))
 	);
 	let setupRequiredProviders = $derived(connectionProviderEntries.filter(providerNeedsAdminSetup));
+	let providerSearch = $state('');
+	let visibleProviders = $derived.by(() => {
+		const query = providerSearch.trim().toLowerCase();
+		if (!query) return directProviders;
+		return directProviders.filter(
+			(provider) =>
+				providerTitle(provider).toLowerCase().includes(query) ||
+				providerDescription(provider).toLowerCase().includes(query)
+		);
+	});
 	let discordBotConfigured = $derived(
 		providerEntries
 			.find((provider) => provider.platform === 'discord')
@@ -1616,13 +1626,6 @@
 					variant="muted"
 				/>
 			{:else}
-				{#if selectedWorkspaceId && canEditWorkspace}
-					<WorkspaceSetupGuide
-						workspaceID={selectedWorkspaceId}
-						context="accounts"
-						wrapperClass="mb-6"
-					/>
-				{/if}
 				{#if error}
 					<InlineNotice
 						tone="error"
@@ -1634,25 +1637,25 @@
 				{/if}
 
 				<!-- Connected Accounts -->
-				<div class="mb-10">
-					<SectionHeader
-						title={m.accounts_connected_channels()}
-						description={accountsLoadError && !accountsReady
-							? undefined
-							: m.accounts_connection_summary({
-									count: accounts.length,
-									workspace: selectedWorkspaceName
-								})}
-						class="mb-4"
-					>
-						{#snippet actions()}
-							{#if canEditWorkspace}
-								<Button href={links.createPublicationHref} size="sm"
-									>{m.accounts_create_post()}</Button
-								>
-							{/if}
-						{/snippet}
-					</SectionHeader>
+				<div class={accountsReady && accounts.length === 0 ? '' : 'mb-10'}>
+					{#if !(accountsReady && accounts.length === 0)}<SectionHeader
+							title={m.accounts_connected_channels()}
+							description={accountsLoadError && !accountsReady
+								? undefined
+								: m.accounts_connection_summary({
+										count: accounts.length,
+										workspace: selectedWorkspaceName
+									})}
+							class="mb-4"
+						>
+							{#snippet actions()}
+								{#if canEditWorkspace}
+									<Button variant="outline" href={links.createPublicationHref} size="sm"
+										>{m.accounts_create_post()}</Button
+									>
+								{/if}
+							{/snippet}
+						</SectionHeader>{/if}
 
 					{#if accountsLoadError}
 						<div data-testid="accounts-load-error">
@@ -1672,15 +1675,6 @@
 					{/if}
 					{#if accountsLoading && !accountsReady}
 						<PageLoading layout="grid" label={m.common_loading()} items={3} />
-					{:else if accountsReady && accounts.length === 0}
-						<EmptyState
-							themeIconRole="users"
-							title={m.accounts_empty_title()}
-							description={m.accounts_empty_body()}
-							variant="muted"
-							size="md"
-							headingLevel={3}
-						/>
 					{:else if accountsReady}
 						<div
 							class="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2 xl:grid-cols-3"
@@ -1840,20 +1834,36 @@
 							<PageLoading layout="grid" label={m.common_loading()} items={4} />
 						{:else if providersReady && providerEntries.length > 0}
 							{#if directProviders.length > 0}
-								<div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-3">
-									{#each directProviders as provider (providerKey(provider))}
-										<div
-											data-testid={`provider-card-${providerTestID(provider)}`}
-											class="group flex h-full min-h-28 flex-col rounded-lg border bg-card p-4 transition-all hover:shadow-sm {providerCanConnect(
-												provider
-											)
-												? ''
-												: 'bg-muted/20'}"
-										>
-											<div
-												class={provider.platform === 'youtube'
-													? 'flex flex-col items-start gap-3'
-													: 'flex items-start gap-3'}
+								<div class="mb-4 sm:max-w-72">
+									<Input
+										type="search"
+										value={providerSearch}
+										oninput={(event) => (providerSearch = event.currentTarget.value)}
+										placeholder={m.accounts_search_providers()}
+										aria-label={m.accounts_search_providers()}
+										class="h-11 sm:h-9"
+										data-testid="provider-search"
+									/>
+								</div>
+								{#if visibleProviders.length === 0}
+									<p class="py-6 text-center text-sm text-muted-foreground">
+										{m.accounts_no_providers_match()}
+									</p>
+								{:else}
+									<ul
+										class="@container divide-y overflow-hidden rounded-lg border bg-card"
+										data-testid="provider-list"
+									>
+										{#each visibleProviders as provider (providerKey(provider))}
+											<li
+												data-testid={`provider-card-${providerTestID(provider)}`}
+												class="flex min-h-16 gap-3 px-4 py-3 transition-colors hover:bg-navigation-hover {provider.platform ===
+												'youtube'
+													? 'flex-col items-start @min-[28rem]:flex-row @min-[28rem]:items-center'
+													: 'items-center'} {providerCanConnect(provider) ||
+												provider.platform === 'youtube'
+													? ''
+													: 'opacity-75'}"
 											>
 												<div
 													class={provider.platform === 'youtube'
@@ -1886,49 +1896,48 @@
 													{#if provider.status !== 'planned' && !providerReadiness(provider).quiet}
 														<p
 															data-testid={`provider-readiness-${providerTestID(provider)}`}
-															class="mt-1 text-xs leading-5 text-muted-foreground"
+															class="mt-0.5 text-xs leading-5 text-muted-foreground"
 														>
 															{providerReadinessMessage(provider)}
 														</p>
 													{/if}
 												</div>
-											</div>
-											<Button
-												class="mt-3 min-h-11 self-end sm:min-h-9"
-												onclick={() => handleProviderAction(provider)}
-												size="sm"
-												disabled={!providerActionEnabled(provider)}
-											>
-												{#if connectingInstallationID === provider.installation_id}
-													<ProtectedIcon
-														icon="loading"
-														class="size-4 animate-spin motion-reduce:animate-none"
-													/>
-												{/if}
-												{providerActionLabel(provider)}
-											</Button>
-										</div>
-									{/each}
-								</div>
+												<Button
+													variant={providerCanConnect(provider) ? 'outline' : 'ghost'}
+													class="min-h-11 shrink-0 sm:min-h-9 {provider.platform === 'youtube'
+														? 'self-end @min-[28rem]:self-center'
+														: ''}"
+													onclick={() => handleProviderAction(provider)}
+													size="sm"
+													disabled={!providerActionEnabled(provider)}
+												>
+													{#if connectingInstallationID === provider.installation_id}
+														<ProtectedIcon
+															icon="loading"
+															class="size-4 animate-spin motion-reduce:animate-none"
+														/>
+													{/if}
+													{providerActionLabel(provider)}
+												</Button>
+											</li>
+										{/each}
+									</ul>
+								{/if}
 							{/if}
 							{#if setupRequiredProviders.length > 0}
-								<details
-									class="mt-4 rounded-lg border bg-muted/10"
-									ontoggle={(e) =>
-										(setupRequiredOpen = (e.currentTarget as HTMLDetailsElement).open)}
+								<Disclosure
+									summary={`${m.accounts_provider_admin_required()} · ${setupRequiredProviders.length}`}
+									bind:open={setupRequiredOpen}
+									boxed
+									class="mt-4 bg-muted/10"
 								>
-									<summary
-										class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-									>
-										<span
-											>{m.accounts_provider_admin_required()} · {setupRequiredProviders.length}</span
-										>
-										<span class="text-xs text-muted-foreground"
+									{#snippet summaryEnd()}
+										<span class="text-xs font-normal text-muted-foreground"
 											>{setupRequiredOpen
 												? m.accounts_provider_admin_hide()
 												: m.accounts_provider_admin_show()}</span
 										>
-									</summary>
+									{/snippet}
 									<div class="border-t px-3 py-3">
 										<p class="mb-3 text-xs text-muted-foreground">
 											{viewerIsInstanceAdmin
@@ -1997,7 +2006,7 @@
 											{/each}
 										</div>
 									</div>
-								</details>
+								</Disclosure>
 							{/if}
 						{/if}
 					</div>
@@ -2249,16 +2258,7 @@
 						{/key}
 					{/if}
 
-					<details class="group rounded-lg border bg-muted/10">
-						<summary
-							class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium marker:hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-						>
-							{m.accounts_developer_shortcut()}
-							<ThemeIcon
-								role="chevron-down"
-								class="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none"
-							/>
-						</summary>
+					<Disclosure summary={m.accounts_developer_shortcut()} boxed class="bg-muted/10">
 						<div class="space-y-3 border-t px-3 py-3">
 							<p class="text-xs leading-5 text-muted-foreground">
 								{m.accounts_shortcut_example()}
@@ -2281,7 +2281,7 @@
 								</p>
 							</div>
 						</div>
-					</details>
+					</Disclosure>
 
 					{#if editAccountError}
 						<InlineNotice

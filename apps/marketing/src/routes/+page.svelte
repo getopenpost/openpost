@@ -101,6 +101,9 @@
 		text-align: center;
 		margin-bottom: 40px;
 	}
+	.hero-intro h1 {
+		max-width: none;
+	}
 	h1 span {
 		color: var(--marketing-soft-ink);
 	}
@@ -125,7 +128,7 @@
 	}
 	.trial-note {
 		margin-top: 12px;
-		font-size: 12px;
+		font-size: 13px;
 		color: var(--muted-foreground);
 	}
 	.text-link {

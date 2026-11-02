@@ -50,7 +50,7 @@ test("empty active schedule history explains timing without activating or runnin
         await page.reload();
         await page
           .locator("[data-workflow-editor] > header")
-          .getByRole("button", { name: "Runs", exact: true })
+          .getByRole("tab", { name: "Runs", exact: true })
           .click();
         await expect(
           page.getByText(
@@ -66,7 +66,7 @@ test("empty active schedule history explains timing without activating or runnin
         await page.screenshot({ path: info.outputPath(`timer-${width}-${scheme}.png`) });
       }
     await page.goto("/workflows");
-    await page.getByRole("button", { name: "Runs", exact: true }).click();
+    await page.getByRole("tab", { name: "Runs", exact: true }).click();
     await expect(
       page.getByText("Runs appear here when an active workflow's published trigger fires.", {
         exact: true,
@@ -94,7 +94,7 @@ test("empty active schedule history explains timing without activating or runnin
     await page.goto(`/workflows/${workflow.id}`);
     await page
       .locator("[data-workflow-editor] > header")
-      .getByRole("button", { name: "Runs", exact: true })
+      .getByRole("tab", { name: "Runs", exact: true })
       .click();
     await expect(
       page.getByText("Runs appear here when an active workflow's published trigger fires.", {
@@ -122,7 +122,7 @@ test("empty active schedule history explains timing without activating or runnin
   await page.reload();
   await page
     .locator("[data-workflow-editor] > header")
-    .getByRole("button", { name: "Runs", exact: true })
+    .getByRole("tab", { name: "Runs", exact: true })
     .click();
   await expect(
     page.getByText("Preview a workflow to inspect its steps without making changes.", {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Tabs, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { appBranding } from '$lib/app-branding.svelte';
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
@@ -14,6 +15,7 @@
 	import { workflowQueryAPI } from '$lib/query/workflows';
 	import { queryAPI } from '$lib/query/api';
 	import { readQueryErrorMessage } from '$lib/query/error-message';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { saveWorkflow, deleteWorkflow, type Workflow, type Definition } from '$lib/workflows/api';
 	import { templates, commentTemplates, sourceLabel, runStateLabel } from '$lib/workflows/catalog';
@@ -209,30 +211,34 @@
 	}
 </script>
 
-<svelte:head><title>{m.workflows_title()} · {appBranding.profile.display_name}</title></svelte:head>
-<PageContainer
-	title={m.workflows_title()}
-	description={m.workflows_subtitle()}
-	themeIconRole="repeat"
-	loading={loading && !error}
->
+<svelte:head><title>{m.nav_automations()} · {appBranding.profile.display_name}</title></svelte:head>
+<PageContainer title={m.nav_automations()} themeIconRole="repeat" loading={loading && !error}>
 	{#snippet actions()}<Button
+			variant="outline"
 			disabled={busy || !workspaceID || workspaceCtx.currentWorkspace?.role === 'viewer'}
 			onclick={() => create()}><ThemeIcon role="add" class="size-4" />{m.workflows_new()}</Button
 		>{/snippet}
-	{#snippet navigation()}<div class="flex flex-wrap gap-2 border-b pb-3">
-			{#each [{ id: 'workflows', label: m.workflows_your_workflows() }, { id: 'runs', label: m.workflows_runs() }, { id: 'templates', label: m.workflows_templates() }] as item}<Button
-					variant={tab === item.id ? 'secondary' : 'ghost'}
-					size="sm"
-					onclick={() => {
-						tab = item.id as typeof tab;
-						selectedRun = '';
-					}}>{item.label}</Button
-				>{/each}
-			<Button size="sm" variant="ghost" href="/workflows/connections"
-				>{m.workflows_connections()}</Button
-			>
-		</div>{/snippet}
+	{#snippet navigation()}
+		<Tabs
+			value={tab}
+			onValueChange={(value) => {
+				tab = value as typeof tab;
+				selectedRun = '';
+			}}
+		>
+			<TabsList class="no-scrollbar">
+				<TabsTrigger value="workflows">{m.workflows_your_workflows()}</TabsTrigger>
+				<TabsTrigger value="runs">{m.workflows_runs()}</TabsTrigger>
+				<TabsTrigger value="templates">{m.workflows_templates()}</TabsTrigger>
+				<a
+					href="/workflows/connections"
+					data-slot="tabs-trigger"
+					class="relative inline-flex min-h-11 items-center justify-center text-muted-foreground hover:text-foreground"
+					>{m.workflows_connections()}</a
+				>
+			</TabsList>
+		</Tabs>
+	{/snippet}
 	<div class="space-y-6">
 		{#if error}<InlineNotice tone="error" message={error} />{/if}
 		{#each visibleQueries.filter((query) => query.error) as query}<InlineNotice
@@ -305,7 +311,9 @@
 					actionLabel={m.workflows_templates()}
 					onAction={() => (tab = 'templates')}
 				/>{/if}
-			<Button variant="ghost" href="/workflows/reposts">{m.repost_heading()}</Button>
+			<a class="text-sm font-medium text-link hover:underline" href="/workflows/reposts"
+				>{m.repost_heading()}</a
+			>
 		{:else if tab === 'templates'}
 			{#if replyTemplate}{#key replyTemplate}<CommentCampaignSetup
 						template={replyTemplate}
@@ -359,10 +367,11 @@
 					accounts={accountsQuery.data}
 				/>{/if}
 		{:else}
-			<details class="rounded-lg border p-4" bind:open={repostHistoryOpen}>
-				<summary class="min-h-11 cursor-pointer text-sm font-medium">{m.repost_heading()}</summary
-				>{#if repostHistoryOpen}<RepostHistory {workspaceID} />{/if}
-			</details>
+			<Disclosure summary={m.repost_heading()} boxed bind:open={repostHistoryOpen}>
+				<div class="px-4 pb-4">
+					{#if repostHistoryOpen}<RepostHistory {workspaceID} />{/if}
+				</div>
+			</Disclosure>
 			<div
 				bind:this={runList}
 				role="region"

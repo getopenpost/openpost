@@ -30,7 +30,9 @@ for (const width of [1280, 390, 320]) {
       await page.setViewportSize({ width, height: 844 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.goto("/inbox/engagement");
+      await page.getByRole("button", { name: "Filters", exact: true }).click();
       await page.getByRole("checkbox", { name: "Archived", exact: true }).check();
+      await page.keyboard.press("Escape");
       const button = page.getByRole("button", { name: "Mark all matching read", exact: true });
       await expect(button).toBeEnabled();
       await page.screenshot({

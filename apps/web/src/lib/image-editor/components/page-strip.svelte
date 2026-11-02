@@ -269,7 +269,7 @@
 					aria-describedby={hintID}
 					type="button"
 					draggable={editor.canEdit}
-					class="flex h-[72px] w-24 shrink-0 flex-col overflow-hidden rounded-md border bg-card text-left {page.id ===
+					class="flex h-14 w-20 shrink-0 flex-col overflow-hidden rounded-md border bg-card text-left {page.id ===
 					editor.activePageID
 						? 'ring-2 ring-primary'
 						: ''} {externalDropPageID === page.id ? 'bg-primary/10 ring-2 ring-primary' : ''}"
@@ -301,13 +301,10 @@
 						/>
 					</span>
 					<span
-						class="w-full border-t px-1.5 py-0.5 text-[10px] leading-3"
-						title={`${pageSize.width} × ${pageSize.height} px`}
+						class="flex w-full shrink-0 items-center justify-center border-t px-1 py-0.5 text-[10px] leading-3 tabular-nums"
+						title={displayPageName(page.name, index)}
 					>
-						<span class="block truncate">{index + 1}. {displayPageName(page.name, index)}</span>
-						<span class="block text-muted-foreground tabular-nums"
-							>{pageSize.width}×{pageSize.height}</span
-						>
+						{index + 1}
 					</span>
 				</button>
 			{/each}
@@ -456,7 +453,7 @@
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
 			</div>
-			<div class="ml-auto hidden gap-1 sm:flex">
+			<div class="ml-auto hidden items-center gap-1 sm:flex">
 				<Button
 					variant="ghost"
 					size="icon-xs"
@@ -468,26 +465,6 @@
 				>
 					<ThemeIcon role="edit" />
 				</Button>
-				<Button
-					variant="ghost"
-					size="icon-xs"
-					class="size-8 lg:size-7 [@media(pointer:coarse)]:size-11"
-					aria-label={m.interaction_reorder_previous()}
-					title={m.interaction_reorder_previous()}
-					disabled={!editor.canEdit ||
-						pages.findIndex((page) => page.id === editor.activePageID) <= 0}
-					onclick={() => moveActivePage(-1)}><ThemeIcon role="arrow-left" /></Button
-				>
-				<Button
-					variant="ghost"
-					size="icon-xs"
-					class="size-8 lg:size-7 [@media(pointer:coarse)]:size-11"
-					aria-label={m.interaction_reorder_next()}
-					title={m.interaction_reorder_next()}
-					disabled={!editor.canEdit ||
-						pages.findIndex((page) => page.id === editor.activePageID) >= pages.length - 1}
-					onclick={() => moveActivePage(1)}><ThemeIcon role="arrow-right" /></Button
-				>
 
 				{@render pageActionButtons('size-8 md:size-8 lg:size-7 [@media(pointer:coarse)]:size-11')}
 			</div>
@@ -495,7 +472,7 @@
 		{#if expanded && editor.document}
 			<div
 				bind:this={strip}
-				class="no-scrollbar flex h-24 shrink-0 items-center gap-2 overflow-x-auto px-3 py-2 lg:h-auto lg:min-h-0 lg:flex-1"
+				class="no-scrollbar flex h-20 shrink-0 items-center gap-2 overflow-x-auto px-3 py-2 lg:h-auto lg:min-h-0 lg:flex-1"
 			>
 				{@render pageGrid()}
 			</div>
@@ -505,28 +482,10 @@
 			class="flex h-[26px] items-center gap-0.5 px-1 [@media(pointer:coarse)]:h-11"
 			data-testid="page-status-row"
 		>
-			<Button
-				variant="ghost"
-				size="icon-xs"
-				class="size-[22px] [@media(pointer:coarse)]:size-11"
-				aria-label={m.interaction_reorder_previous()}
-				title={m.interaction_reorder_previous()}
-				disabled={!editor.canEdit || activeIndex <= 0}
-				onclick={() => moveActivePage(-1)}><ThemeIcon role="arrow-left" /></Button
-			>
 			<span
 				class="min-w-0 flex-1 truncate text-center font-mono text-[11px] text-muted-foreground tabular-nums"
 				role="status"
 				title={activePageLabel}>{activeIndex + 1}/{pages.length}</span
-			>
-			<Button
-				variant="ghost"
-				size="icon-xs"
-				class="size-[22px] [@media(pointer:coarse)]:size-11"
-				aria-label={m.interaction_reorder_next()}
-				title={m.interaction_reorder_next()}
-				disabled={!editor.canEdit || activeIndex >= pages.length - 1}
-				onclick={() => moveActivePage(1)}><ThemeIcon role="arrow-right" /></Button
 			>
 			<Button
 				type="button"

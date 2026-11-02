@@ -303,7 +303,7 @@
 
 	<span
 		role="img"
-		class="voiceover-secondary shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums sm:px-2"
+		class="voiceover-secondary shrink-0 font-mono text-xs whitespace-nowrap tabular-nums"
 		aria-label={`${timecode} / ${durationTimecode}`}
 	>
 		{#if $timelinePreviewScrub.frame !== null}<span class="mr-1 text-muted-foreground"

@@ -44,8 +44,10 @@ async function createProject(
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u, { timeout: 30_000 });
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
+  await page.locator("[data-project-details]").click();
   const projectName = page.getByRole("textbox", { name: "Project name" });
   if ((await projectName.inputValue()) !== name) await projectName.fill(name);
+  await page.keyboard.press("Escape");
 }
 
 test.use({ hasTouch: true });

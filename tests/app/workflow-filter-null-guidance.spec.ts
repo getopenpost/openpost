@@ -68,7 +68,7 @@ test("Filter distinguishes present null from absent and allows correction", asyn
   await items.fill('[{"id":"recovered","value":2}]');
   await page.getByRole("button", { name: "Test node", exact: true }).click();
   await expect(output.getByText("recovered", { exact: true })).toBeVisible();
-  await output.getByRole("button", { name: "JSON", exact: true }).click();
+  await output.getByRole("tab", { name: "JSON", exact: true }).click();
   await expect
     .poll(async () => JSON.parse(await output.locator("pre").innerText()))
     .toEqual({ count: 1, items: [{ id: "recovered", value: 2 }] });

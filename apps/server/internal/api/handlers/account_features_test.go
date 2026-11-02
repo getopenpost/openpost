@@ -110,6 +110,37 @@ func seedAccount(t *testing.T, db *bun.DB, id, workspaceID, grantedScopes string
 	require.NoError(t, err)
 }
 
+func TestDevNullEngagementCanBeEnabledWithoutReconnect(t *testing.T) {
+	srv := newAccountFeaturesTestServer(t, map[string]platform.Adapter{"devnull": platform.NewDevNullAdapter("")})
+	seedAccount(t, srv.db, "devnull-account", "ws-1", "")
+	_, err := srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("platform = ?", "devnull").Where("id = ?", "devnull-account").Exec(t.Context())
+	require.NoError(t, err)
+	resp := srv.request(t, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=devnull-account", nil)
+	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+	var features []FeatureStateResponse
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &features))
+	for _, feature := range features {
+		if feature.Feature == "engagement" {
+			require.True(t, feature.Supported)
+			require.Equal(t, "available", feature.Availability)
+			require.Empty(t, feature.MissingScopes)
+		}
+	}
+	resp = srv.request(t, http.MethodPost, "/api/v1/account-features", map[string]any{
+		"workspace_id": "ws-1",
+		"choices":      []map[string]any{{"account_id": "devnull-account", "feature": "engagement", "enabled": true}},
+	})
+	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &features))
+	var enabled bool
+	for _, feature := range features {
+		if feature.Feature == "engagement" {
+			enabled = feature.EffectiveEnabled
+		}
+	}
+	require.True(t, enabled, "existing SSH connections must allow enabling comments and replies")
+}
+
 func TestYouTubeEngagementRequiresCommentPermission(t *testing.T) {
 	t.Parallel()
 	srv := newAccountFeaturesTestServer(t, map[string]platform.Adapter{

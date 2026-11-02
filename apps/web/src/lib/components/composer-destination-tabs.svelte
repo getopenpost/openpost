@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
+	import { Tabs, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { m } from '$lib/paraglide/messages';
 	import { getPlatformName } from '$lib/utils';
 	import type { SocialAccount } from '$lib/api/client';
@@ -16,12 +17,19 @@
 
 	let { accounts, activeAccountId, onActivate, accountLabel, issueCountFor, isCustomFor }: Props =
 		$props();
-	let tabsElement: HTMLDivElement | undefined = $state();
+	// `bind:ref` must never start as `undefined`: the TabsList wrapper declares a
+	// `null` fallback for `ref`, and Svelte rejects binding `undefined` to a prop
+	// with a fallback (props_invalid_value), which unmounts this whole section.
+	let tabsElement: HTMLElement | null = $state(null);
 
 	const activeTabIsCustom = $derived.by(() => {
 		const account = accounts.find((account) => account.id === activeAccountId);
 		return account ? isCustomFor(account) : false;
 	});
+
+	function activate(value: string) {
+		onActivate(value === 'all' ? null : value);
+	}
 
 	$effect(() => {
 		const accountId = activeAccountId;
@@ -30,7 +38,8 @@
 		void tick().then(() => {
 			if (activeAccountId !== accountId || activeTabIsCustom !== custom) return;
 			const tabs = tabsElement;
-			const selected = tabs?.querySelector<HTMLElement>('[aria-pressed="true"]');
+			// bits-ui exposes the selected tab through `data-state`, not `data-active`.
+			const selected = tabs?.querySelector<HTMLElement>('[data-state="active"]');
 			if (!tabs || !selected) return;
 			const tabBounds = selected.getBoundingClientRect();
 			const viewport = tabs.getBoundingClientRect();
@@ -41,62 +50,49 @@
 	});
 </script>
 
-<div
-	bind:this={tabsElement}
-	class="destination-tabs-scrollbar flex min-w-0 flex-1 gap-1 overflow-x-auto pb-px"
-	role="group"
-	aria-label={m.compose_destination_tabs()}
->
-	<button
-		id="composer-destination-all"
-		type="button"
-		aria-pressed={!activeAccountId}
-		class="min-h-11 max-w-full shrink-0 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
-		class:border-foreground={!activeAccountId}
-		class:border-transparent={Boolean(activeAccountId)}
-		class:text-muted-foreground={Boolean(activeAccountId)}
-		onclick={() => onActivate(null)}
+<Tabs value={activeAccountId ?? 'all'} onValueChange={activate} class="flex min-w-0 flex-1">
+	<TabsList
+		bind:ref={tabsElement}
+		class="destination-tabs-scrollbar w-full min-w-0 justify-start gap-1 overflow-x-auto"
+		aria-label={m.compose_destination_tabs()}
 	>
-		{m.compose_all_channels()}
-	</button>
-	{#each accounts as account (account.id)}
-		{@const issueCount = issueCountFor(account)}
-		{@const custom = isCustomFor(account)}
-		<button
-			id="composer-destination-{account.id}"
-			type="button"
-			aria-pressed={activeAccountId === account.id}
-			aria-label={custom
-				? `${accountLabel(account)}, ${getPlatformName(account.platform)}, ${m.compose_custom_state()}`
-				: `${accountLabel(account)}, ${getPlatformName(account.platform)}`}
-			class="flex min-h-11 max-w-full shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
-			class:border-foreground={activeAccountId === account.id}
-			class:border-transparent={activeAccountId !== account.id}
-			class:text-muted-foreground={activeAccountId !== account.id}
-			onclick={() => onActivate(account.id)}
-		>
-			<SocialAccountIdentity
-				class="max-w-52"
-				name={accountLabel(account)}
-				platform={account.platform}
-				avatarUrl={account.account_avatar_url}
-				size="sm"
-				compactOnMobile
-				showPlatform={false}
-			/>
-			{#if custom}
-				<span
-					class="size-1.5 shrink-0 rounded-full bg-primary"
-					aria-hidden="true"
-					title={m.compose_custom_state()}
-					data-testid="composer-destination-custom"
-				></span>
-			{/if}
-			{#if issueCount > 0}
-				<span class="rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive"
-					>{issueCount}</span
-				>
-			{/if}
-		</button>
-	{/each}
-</div>
+		<TabsTrigger id="composer-destination-all" value="all" class="max-w-full shrink-0 grow-0 px-3">
+			{m.compose_all_channels()}
+		</TabsTrigger>
+		{#each accounts as account (account.id)}
+			{@const issueCount = issueCountFor(account)}
+			{@const custom = isCustomFor(account)}
+			<TabsTrigger
+				id="composer-destination-{account.id}"
+				value={account.id}
+				class="max-w-full shrink-0 grow-0 gap-1.5 px-3"
+				aria-label={custom
+					? `${accountLabel(account)}, ${getPlatformName(account.platform)}, ${m.compose_custom_state()}`
+					: `${accountLabel(account)}, ${getPlatformName(account.platform)}`}
+			>
+				<SocialAccountIdentity
+					class="max-w-52"
+					name={accountLabel(account)}
+					platform={account.platform}
+					avatarUrl={account.account_avatar_url}
+					size="sm"
+					compactOnMobile
+					showPlatform={false}
+				/>
+				{#if custom}
+					<span
+						class="size-1.5 shrink-0 rounded-full bg-primary"
+						aria-hidden="true"
+						title={m.compose_custom_state()}
+						data-testid="composer-destination-custom"
+					></span>
+				{/if}
+				{#if issueCount > 0}
+					<span class="rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive"
+						>{issueCount}</span
+					>
+				{/if}
+			</TabsTrigger>
+		{/each}
+	</TabsList>
+</Tabs>

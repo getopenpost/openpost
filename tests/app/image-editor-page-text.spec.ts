@@ -205,13 +205,10 @@ test("cloud autosave keeps the canvas text cursor and accepts continued typing",
   await page.keyboard.insertText("Hello 👩🏽‍💻");
   const response = await saved;
   expect(response.ok()).toBe(true);
-  await expect(
-    page
-      .getByRole("banner")
-      .getByText("Saved to OpenPost", { exact: true })
-      .filter({ visible: true })
-      .first(),
-  ).toBeVisible();
+  await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+    "data-state",
+    "saved",
+  );
   const designID = new URL(page.url()).pathname.split("/").at(-1)!;
   await expect
     .poll(

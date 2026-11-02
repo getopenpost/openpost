@@ -331,7 +331,14 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
   await page.screenshot({ path: testInfo.outputPath("assistant-desktop-light.png") });
   const desktopViewport = page.viewportSize()!;
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Assets", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Editor panels", exact: true })
+    .getByRole("button", { name: "Media", exact: true })
+    .click();
+  await page
+    .getByRole("tablist", { name: "Assets", exact: true })
+    .getByRole("tab", { name: "Create", exact: true })
+    .click();
   const preferencesButton = chat.getByRole("button", {
     name: "Preferences",
     exact: true,
@@ -362,7 +369,10 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
   await preferencesButton.press("Enter");
   await expect(memory).toBeHidden();
   await page.setViewportSize(desktopViewport);
-  await page.getByRole("tab", { name: "Media pool", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Assets", exact: true })
+    .getByRole("tab", { name: "Media", exact: true })
+    .click();
 
   const bytes = (
     await readFile(
@@ -729,9 +739,7 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
   ).toBe(false);
   await page.screenshot({ path: testInfo.outputPath("video-after-light.png") });
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(
-    page.locator('span[role="status"]').filter({ hasText: "Agent connected" }),
-  ).toBeVisible();
+  await expect(page.locator('[data-left-panel-tab="ai"]:visible [data-agent-dot]')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("video-phone-390-light.png") });
   await page.setViewportSize({ width: 320, height: 720 });
   await page.screenshot({ path: testInfo.outputPath("video-phone-320-light.png") });
@@ -782,7 +790,10 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
     "connected",
   );
   await page.screenshot({ path: testInfo.outputPath("video-phone-320-dark.png") });
-  await page.getByRole("button", { name: "Assets", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Editor panels", exact: true })
+    .getByRole("button", { name: "Media", exact: true })
+    .click();
   await page.locator('[data-left-panel-tab="ai"]:visible').click();
   await chat.getByRole("button", { name: "Preferences", exact: true }).click();
   await expect(memory.getByText("Use simple captions", { exact: true })).toBeVisible();
@@ -882,13 +893,16 @@ test("MCP edits a layered image through the open design controller", async ({
   expect(revealed.request.result.view_state_only).toBe(true);
 
   // Chat controls must not dispatch canvas shortcuts against the selected layer.
-  await page.getByRole("button", { name: "Assistant", exact: true }).click();
+  const assistant = page.getByRole("button", {
+    name: /^(Assistant|Agent connected|Agent editing)$/,
+  });
+  await assistant.click();
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Delete");
   const afterChatKeys = await mcpTool(request, token, "image_inspect", scope);
   expect(afterChatKeys.request.result.revision).toBe(edit.request.result.after_revision);
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("button", { name: "Assistant", exact: true })).toBeFocused();
+  await expect(assistant).toBeFocused();
 
   const styled = await mcpTool(request, token, "image_edit", {
     ...scope,
@@ -1128,9 +1142,7 @@ test("MCP edits a layered image through the open design controller", async ({
   ).toHaveLength(1);
   await page.screenshot({ path: testInfo.outputPath("image-after-light.png") });
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(
-    page.locator('span[role="status"]').filter({ hasText: "Agent connected" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Agent connected", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("image-phone-390-light.png") });
   await page.setViewportSize({ width: 320, height: 720 });
   await page.screenshot({ path: testInfo.outputPath("image-phone-320-light.png") });

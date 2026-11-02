@@ -3,9 +3,11 @@ import {
   analyticsOverviewQueryOptions,
   type AnalyticsFilters,
   calendarPublicationsQueryOptions,
+  failedJobsQueryOptions,
   publicationDetailQueryOptions,
   workspaceAccountsQueryOptions,
   workspaceListQueryOptions,
+  workspaceSetupQueryOptions,
   workspaceSocialSetsQueryOptions,
   type SocialAccount,
   type Workspace,
@@ -179,6 +181,21 @@ export function useAccounts(enabled = true) {
     ...accountsOptions(workspaceId ?? ""),
     enabled: enabled && Boolean(workspaceId),
   });
+}
+
+export function useFailedJobs(limit: number) {
+  const workspaceId = useWorkspaceId();
+  return useQuery(failedJobsQueryOptions(mobileQueryAPI, workspaceId ?? "", { limit }));
+}
+
+export function useWorkspaceSetup() {
+  const workspaceId = useWorkspaceId();
+  return useQuery(workspaceSetupQueryOptions(mobileQueryAPI, workspaceId ?? ""));
+}
+
+export function useDisconnectedAccounts() {
+  const accounts = useAccounts();
+  return (accounts.data ?? []).filter((account) => !account.is_active).length;
 }
 
 export function useSocialSets(enabled = true) {

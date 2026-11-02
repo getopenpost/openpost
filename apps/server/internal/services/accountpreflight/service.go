@@ -225,9 +225,9 @@ func firstPreflightValue(values ...string) string {
 
 // recordConfirmedFailure stores a confirmed credential failure and claims the
 // account's credential failure generation when this check transitions the
-// account from healthy to failing. The claim and the stored failure state
-// commit atomically, so a concurrent producer can never also observe a
-// healthy account and notify the same break twice. A losing caller still
+// account from healthy or unconfirmed to a confirmed failure. The claim and
+// the stored failure state commit atomically, so a concurrent producer cannot
+// observe a healthy account and notify the same break twice. A losing caller still
 // records the failure state; only the claim winner reports the transition.
 // A later successful recordCheck resets preflight_failure, so the next
 // failure claims a fresh generation.
@@ -238,7 +238,7 @@ func (s *Service) recordConfirmedFailure(ctx context.Context, accountID string, 
 		result, err := tx.NewUpdate().Model((*models.SocialAccount)(nil)).
 			Set("credential_failure_generation = credential_failure_generation + 1").
 			Where("id = ?", accountID).
-			Where("(preflight_failure = '' OR preflight_failure IS NULL)").
+			Where("COALESCE(preflight_failure, '') IN ('', 'unknown', 'unsupported')").
 			Exec(ctx)
 		if err != nil {
 			return err
@@ -296,8 +296,14 @@ func (s *Service) recordCheck(ctx context.Context, accountID string, now time.Ti
 func recordCheckWithDB(ctx context.Context, db bun.IDB, accountID string, now time.Time, failure string, success bool) error {
 	query := db.NewUpdate().Model((*models.SocialAccount)(nil)).
 		Set("preflight_checked_at = ?", now).
-		Set("preflight_failure = ?", failure).
 		Where("id = ?", accountID)
+	if !success && (failure == "unknown" || failure == "unsupported") {
+		// An inconclusive check cannot heal confirmed broken credentials. Keep
+		// that episode claimed until a successful provider check resets it.
+		query = query.Set("preflight_failure = CASE WHEN COALESCE(preflight_failure, '') IN ('', 'unknown', 'unsupported') THEN ? ELSE preflight_failure END", failure)
+	} else {
+		query = query.Set("preflight_failure = ?", failure)
+	}
 	if success {
 		query = query.Set("preflight_success_at = ?", now)
 	}

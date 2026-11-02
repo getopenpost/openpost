@@ -189,7 +189,7 @@ for (const width of [1280, 390, 320])
       const frame = page.getByTestId("composer-account-preview");
       await expect(frame).toHaveCount(0);
       await page.screenshot({ path: info.outputPath("shared-editor.png") });
-      const lastAccountTab = composerDestinations(page).getByRole("button", {
+      const lastAccountTab = composerDestinations(page).getByRole("tab", {
         name: /@previewx, X/,
       });
       await lastAccountTab.click();
@@ -201,7 +201,7 @@ for (const width of [1280, 390, 320])
         tabsBounds!.x + tabsBounds!.width + 1,
       );
       await composerDestinations(page)
-        .getByRole("button", { name: /@previewsky, Bluesky/ })
+        .getByRole("tab", { name: /@previewsky, Bluesky/ })
         .click();
       await expect(frame).toBeVisible();
       await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveCount(0);
@@ -232,22 +232,22 @@ for (const width of [1280, 390, 320])
         .toEqual({ bodyOverride: shared, mediaInherited: false });
       await page.reload();
       await composerDestinations(page)
-        .getByRole("button", { name: /@previewsky, Bluesky/ })
+        .getByRole("tab", { name: /@previewsky, Bluesky/ })
         .click();
       await expect(sharedControl).toHaveAttribute("aria-pressed", "false");
-      await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
+      await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
       await page.getByRole("textbox", { name: "Post text", exact: true }).fill(`${shared} updated`);
       await composerDestinations(page)
-        .getByRole("button", { name: /@previewsky, Bluesky/ })
+        .getByRole("tab", { name: /@previewsky, Bluesky/ })
         .click();
       await expectPostText(skyText, shared);
       await sharedControl.click();
       await expect(sharedControl).toHaveAttribute("aria-pressed", "true");
       await expectPostText(skyText, `${shared} updated`);
-      await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
+      await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
       await page.getByRole("textbox", { name: "Post text", exact: true }).fill(shared);
       await composerDestinations(page)
-        .getByRole("button", { name: /@previewsky, Bluesky/ })
+        .getByRole("tab", { name: /@previewsky, Bluesky/ })
         .click();
       await expectPostText(skyText, shared);
 
@@ -278,7 +278,7 @@ for (const width of [1280, 390, 320])
       await expect(page.getByRole("button", { name: "Use shared", exact: true })).toHaveCount(0);
       const navigation = page.getByRole("region", { name: "Destinations", exact: true });
       const rowItems = [
-        composerDestinations(page).getByRole("button", { name: /@previewsky, Bluesky/ }),
+        composerDestinations(page).getByRole("tab", { name: /@previewsky, Bluesky/ }),
         sharedControl,
         page.getByRole("button", { name: "Full preview", exact: true }),
         page
@@ -317,10 +317,10 @@ for (const width of [1280, 390, 320])
           url: "https://account.example/new",
           title: "A Bluesky headline",
         });
-      await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
+      await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
       await expectPostText(page.getByRole("textbox", { name: "Post text", exact: true }), shared);
       await composerDestinations(page)
-        .getByRole("button", { name: /Preview person, LinkedIn/ })
+        .getByRole("tab", { name: /Preview person, LinkedIn/ })
         .click();
       if (width === 320)
         await expect(frame.getByText("legacy.example", { exact: true }).first()).toBeVisible();
@@ -347,7 +347,7 @@ for (const width of [1280, 390, 320])
         .toBe("An independent article");
       await page.goto(url);
       await composerDestinations(page)
-        .getByRole("button", { name: /@previewsky, Bluesky/ })
+        .getByRole("tab", { name: /@previewsky, Bluesky/ })
         .click();
       await expectPostText(
         frame.getByRole("textbox", { name: "Post text", exact: true }),
@@ -409,7 +409,7 @@ for (const width of [1280, 390, 320])
         .toBe("A Bluesky headline");
 
       await composerDestinations(page)
-        .getByRole("button", { name: /@previewx, X/ })
+        .getByRole("tab", { name: /@previewx, X/ })
         .click();
       await page.getByRole("button", { name: "Add poll", exact: true }).click();
       const pollDialog = page.getByRole("dialog", {
@@ -448,12 +448,12 @@ for (const width of [1280, 390, 320])
           custom: "For this account only?",
           sky: "omit",
         });
-      await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
+      await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
       await expect(
         page.getByTestId("shared-poll-editor").getByText("Use this?", { exact: true }),
       ).toBeVisible();
       await composerDestinations(page)
-        .getByRole("button", { name: /@previewx, X/ })
+        .getByRole("tab", { name: /@previewx, X/ })
         .click();
       const accessibility = await new AxeBuilder({ page })
         .include('[data-testid="composer-account-preview"]')

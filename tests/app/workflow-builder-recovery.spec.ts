@@ -82,11 +82,11 @@ test("failed native Builder output opens its authorized read-only build record",
       await page.reload();
       await page
         .locator("[data-workflow-editor] > header")
-        .getByRole("button", { name: "Runs", exact: true })
+        .getByRole("tab", { name: "Runs", exact: true })
         .click();
       await page.locator("aside button").filter({ hasText: "Failed" }).click();
       await page.getByRole("button", { name: /^Audit failed build / }).click();
-      if (width < 1024) await page.getByRole("button", { name: "Output", exact: true }).click();
+      if (width < 1024) await page.getByRole("tab", { name: "Output", exact: true }).click();
       const inspect = page.getByRole("button", { name: "Inspect build", exact: true });
       await expect(inspect).toBeVisible();
       await inspect.focus();

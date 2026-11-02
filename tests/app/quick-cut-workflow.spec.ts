@@ -142,9 +142,8 @@ test("Quick Cut keeps earlier cuts, supports undo, markers, and exports the edit
   await page.getByRole("button", { name: /^Mark in/ }).click();
   await seek(page, 3);
   await page.getByRole("button", { name: /^Mark out/ }).click();
-  await expect(
-    page.getByText("Keep only this selection, or remove it from your edit.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove selection", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Keep selection", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Remove selection", exact: true }).click();
   await expect(page.getByRole("button", { name: "Segment 2", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Segment 2", exact: true }).click();
@@ -434,12 +433,12 @@ for (const scheme of ["light", "dark"] as const) {
       await expect(page.locator("video")).toBeVisible();
       await expect(page.getByRole("textbox", { name: "Mark in 1" })).toBeVisible();
       const markIn = page.getByRole("button", { name: /^Mark in/ });
-      const toolbar = page.getByRole("toolbar").filter({ has: markIn });
-      await toolbar.scrollIntoViewIfNeeded();
-      const toolbarBounds = await toolbar.boundingBox();
+      const transport = markIn.locator("..");
+      await transport.scrollIntoViewIfNeeded();
+      const transportBounds = await transport.boundingBox();
       const buttonBounds = await markIn.boundingBox();
-      expect(toolbarBounds!.height).toBeGreaterThanOrEqual(buttonBounds!.height);
-      const visibleToolbar = await toolbar.locator("..").boundingBox();
+      expect(transportBounds!.height).toBeGreaterThanOrEqual(buttonBounds!.height);
+      const visibleToolbar = await transport.locator("..").boundingBox();
       expect(visibleToolbar!.height).toBeGreaterThanOrEqual(buttonBounds!.height);
       const range = page.getByText("00:01.00 → 00:05.00", { exact: true });
       const bounds = await range.boundingBox();

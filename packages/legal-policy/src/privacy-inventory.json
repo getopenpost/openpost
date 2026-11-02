@@ -565,6 +565,30 @@
       "source_refs": ["apps/web/src/lib/stores/sidebar-preferences.svelte.ts"]
     },
     {
+      "id": "local-composer-side-preview",
+      "technology": "localStorage",
+      "owner": "OpenPost composer",
+      "identifier_kind": "exact",
+      "identifier": "openpost-composer-side-preview",
+      "purpose": "Keeps the user's choice to show or hide the wide-screen post preview. It stores only an on/off preference.",
+      "scope": "Application origin and current browser profile.",
+      "duration": "Until the preference is changed or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["apps/web/src/lib/components/compose-text-post.svelte"]
+    },
+    {
+      "id": "session-composer-open",
+      "technology": "sessionStorage",
+      "owner": "OpenPost sidebar preferences",
+      "identifier_kind": "exact",
+      "identifier": "openpost-composer-open",
+      "purpose": "Keeps an explicitly opened composer available in the current tab instead of redirecting to the user's default start page. It does not store post content.",
+      "scope": "Application origin in the current browser tab.",
+      "duration": "Until the user leaves the composer, clears site data, or the browser ends the tab session.",
+      "necessity": "functional",
+      "source_refs": ["apps/web/src/lib/stores/sidebar-preferences.svelte.ts"]
+    },
+    {
       "id": "local-theme-name",
       "technology": "localStorage",
       "owner": "mode-watcher theme runtime",

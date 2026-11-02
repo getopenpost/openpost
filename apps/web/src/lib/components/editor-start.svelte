@@ -1,12 +1,10 @@
 <script lang="ts">
-	import { appBranding } from '$lib/app-branding.svelte';
 	import type { Snippet } from 'svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import LanguageSwitcher from '$lib/components/language-switcher.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	let {
-		kind,
 		title,
 		description,
 		actions,
@@ -14,7 +12,6 @@
 		children,
 		heading = $bindable()
 	}: {
-		kind: 'image' | 'video' | 'quick-cut';
 		title: string;
 		description: string;
 		actions: Snippet;
@@ -27,29 +24,12 @@
 <header class="border-b bg-background">
 	<div class="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
 		<a
-			href="/"
-			class="flex min-h-11 items-center rounded-md focus-visible:outline-2 focus-visible:outline-ring"
-			aria-label={m.app_branding_home({ name: appBranding.profile.display_name })}
+			href="/studio"
+			class="flex min-h-11 items-center gap-1 rounded-md px-1 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+			aria-label={m.nav_studio()}
 		>
 			<Logo width={112} height={33} />
 		</a>
-		<nav class="flex items-center gap-1" aria-label={m.editors_title()}>
-			<a
-				href="/image-editor"
-				aria-current={kind === 'image' ? 'page' : undefined}
-				class="editor-link">{m.editor_start_image_title()}</a
-			>
-			<a
-				href="/video-editor"
-				aria-current={kind === 'video' ? 'page' : undefined}
-				class="editor-link">{m.editor_start_video_title()}</a
-			>
-			<a
-				href="/quick-cut"
-				aria-current={kind === 'quick-cut' ? 'page' : undefined}
-				class="editor-link">{m.quick_cut_title()}</a
-			>
-		</nav>
 		<div class="ml-auto flex flex-wrap items-center gap-2">
 			<LanguageSwitcher compact />
 			{#if utility}{@render utility()}{/if}
@@ -76,24 +56,3 @@
 	</div>
 	{@render children()}
 </main>
-
-<style>
-	.editor-link {
-		display: inline-flex;
-		align-items: center;
-		min-height: 44px;
-		padding: 8px 10px;
-		border-radius: var(--radius-md);
-		font-size: 13px;
-		color: var(--muted-foreground);
-	}
-	.editor-link[aria-current],
-	.editor-link:hover {
-		background: var(--muted);
-		color: var(--foreground);
-	}
-	.editor-link:focus-visible {
-		outline: 2px solid var(--ring);
-		outline-offset: 2px;
-	}
-</style>

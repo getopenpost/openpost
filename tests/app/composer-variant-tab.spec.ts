@@ -97,9 +97,7 @@ for (const width of [1280, 390]) {
 
       await expect(firstTab.getByTestId("composer-destination-custom")).toBeVisible();
       await expect(secondTab.getByTestId("composer-destination-custom")).toHaveCount(0);
-      await expect(
-        composerDestinations(page).getByRole("button", { name: /custom/ }),
-      ).toBeVisible();
+      await expect(composerDestinations(page).getByRole("tab", { name: /custom/ })).toBeVisible();
 
       const tabs = composerDestinations(page);
       await tabs.screenshot({ path: testInfo.outputPath("variant-tabs.png") });

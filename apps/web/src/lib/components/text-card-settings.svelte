@@ -12,6 +12,7 @@
 	import TextCardPreview from './text-card-preview.svelte';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Label } from '$lib/components/ui/label';
+	import Disclosure from '$lib/components/disclosure.svelte';
 
 	let {
 		account,
@@ -73,11 +74,7 @@
 			{defaults}
 			identity={textCardIdentityForAccount(account)}
 		/>
-		<details class="group">
-			<summary
-				class="cursor-pointer py-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-				>{m.text_card_customize()}</summary
-			>
+		<Disclosure summary={m.text_card_customize()}>
 			<div class="grid gap-4 pt-2 sm:grid-cols-2">
 				<div class="space-y-2">
 					<Label for="text-card-appearance">{m.text_card_appearance()}</Label>
@@ -131,6 +128,6 @@
 					/><Label for="text-card-shadow">{m.image_editor_drop_shadow()}</Label>
 				</div>
 			</div>
-		</details>
+		</Disclosure>
 	{/if}
 </section>

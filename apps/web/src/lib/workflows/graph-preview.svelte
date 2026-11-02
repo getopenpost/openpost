@@ -70,7 +70,7 @@
 		{/each}
 	</svg>
 	{#if hiddenCount}<span
-			class="absolute top-2 right-2 rounded-md border bg-card px-1.5 py-0.5 text-[11px] text-muted-foreground"
+			class="absolute top-2 right-2 rounded-md border bg-card px-1.5 py-0.5 text-xs text-muted-foreground"
 			>+{hiddenCount}</span
 		>{/if}
 </div>

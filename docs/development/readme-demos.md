@@ -1,10 +1,11 @@
 # Refresh the README demos
 
 The README has three scripted captures of the real OpenPost interface: publishing,
-thumbnail design, and video editing. Run them against the local browser-test app:
+thumbnail design, and video editing. From the repository root, with the project
+development environment active, run them against the local browser-test app:
 
 ```sh
-devenv shell -- bun run capture:product-demos
+timeout 600 bun run capture:product-demos
 ```
 
 This builds the frontend, starts an isolated test server, creates disposable users,
@@ -21,14 +22,15 @@ or live publishing. No social account credentials are needed.
 
 ## Outputs and limits
 
-Raw WebM recordings, lossless PNG frames, compressed MP4 copies and the exported
-thumbnail go into ignored `tmp/product-demos/`. The encoder writes the three README GIFs to
-`assets/demos/`. Each GIF must stay below 2,000,000 bytes. The encoding command fails
+Raw WebM recordings, lossless PNG frames, encoding intermediates and the exported
+thumbnail go into ignored `tmp/product-demos/`. The encoder writes the three README GIFs,
+matching MP4 videos and WebVTT captions to `assets/demos/`.
+Each GIF must stay below 2,000,000 bytes. The encoding command fails
 when a clip exceeds that budget. Check the entire loop before keeping its output.
 
 ```sh
 # Re-encode existing footage without running the browser again.
-devenv shell -- bun scripts/encode-product-demos.mjs
+timeout 600 bun scripts/encode-product-demos.mjs
 ```
 
 The publishing GIF uses the original 1280px width so it stays sharp across the
@@ -45,6 +47,18 @@ Captions use the repository's Geist font in a band below the app. Keep them shor
 and readable when the README scales down on a phone. They must not cover editor
 controls or the timeline. Gifsicle removes redundant pixels without further
 quality loss. Cut idle time and unnecessary steps before reducing resolution.
+
+The captured app uses its Calm theme and Manrope font. Reach the editors through
+Studio, and keep scripted actions aligned with the editor rail, inspector tabs,
+and timeline menus rather than bypassing them. After a UI change, refresh the
+reduced-motion stills and their optimized WebP versions as well:
+
+```sh
+timeout 600 bun run capture:product-screenshots
+```
+
+That command also updates the shared public asset copies. Inspect the generated
+stills alongside the demos before committing them.
 
 Keep the publishing demo near the introduction and the smaller editor demos beside
 their feature descriptions below the feature list. Each demo uses one still-image

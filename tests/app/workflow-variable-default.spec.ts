@@ -52,7 +52,7 @@ test("the normal array picker replaces the list default and persists a usable ty
   await page.getByRole("button", { name: /^Audit parse / }).click();
   await page.getByRole("button", { name: "Test node", exact: true }).click();
   const output = page.getByRole("region", { name: "Output", exact: true });
-  await output.getByRole("button", { name: "JSON", exact: true }).click();
+  await output.getByRole("tab", { name: "JSON", exact: true }).click();
   await expect
     .poll(async () => JSON.parse(await output.locator("pre").innerText()))
     .toEqual({ data: items });
@@ -73,7 +73,7 @@ test("the normal array picker replaces the list default and persists a usable ty
   await expect(field.locator(".workflow-token")).toHaveAttribute("aria-label", "parse.data");
   await expect.poll(async () => JSON.parse(await field.locator("pre").innerText())).toEqual(items);
   await page.getByRole("button", { name: "Test node", exact: true }).click();
-  await output.getByRole("button", { name: "JSON", exact: true }).click();
+  await output.getByRole("tab", { name: "JSON", exact: true }).click();
   await expect
     .poll(async () => JSON.parse(await output.locator("pre").innerText()))
     .toEqual({ items: [items[1], items[0]], count: 2 });
@@ -84,7 +84,7 @@ test("the normal array picker replaces the list default and persists a usable ty
     for (const colorScheme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 850 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      if (width < 1024) await page.getByRole("button", { name: "Configure", exact: true }).click();
+      if (width < 1024) await page.getByRole("tab", { name: "Configure", exact: true }).click();
       await expect(field.locator(".workflow-token")).toBeVisible();
       await page.screenshot({
         path: testInfo.outputPath(`typed-list-${width}-${colorScheme}.png`),

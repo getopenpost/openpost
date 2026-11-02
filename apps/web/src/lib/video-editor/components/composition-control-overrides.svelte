@@ -61,7 +61,7 @@
 	<section
 		class="rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2.5"
 	>
-		<h3 class="text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase">
+		<h3 class="text-xs font-medium text-[var(--video-editor-muted)]">
 			{m.video_editor_motion_overrides_title()}
 		</h3>
 		<p class="mt-1 text-[10px] leading-4 text-[var(--video-editor-muted)]">

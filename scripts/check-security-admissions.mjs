@@ -17,10 +17,10 @@ import path from "node:path";
 // graph pins those consumers; reject first-party imports so it cannot become
 // a runtime helper without re-review. The Go image carries no Node packages.
 const reviewedArtifacts = {
-  // Re-reviewed after the CLI wrapper 0.1.25 bump. Only that workspace version
-  // changed; registry versions, legacy Zod/deepmerge parents, and editor
-  // boundaries are unchanged.
-  "bun.lock": "f01608f6f583026858880c5c1e7e3259f24b04749be940e3688915ff44e87cc9",
+  // Re-reviewed after declaring the existing UI and query-core imports at
+  // their consuming workspaces. The locked package and patch resolutions are
+  // byte-identical; legacy Zod/deepmerge parents and editor boundaries stay unchanged.
+  "bun.lock": "ce179158bcf6a2ea52f0e8692e6c56b0dad6e010b2a0b8b4602f2091fe8b2166",
   "apps/web/src/lib/image-editor/background-removal.worker.ts":
     "06f3aaf6c78d574c1d2538903e8bf34cf70032801824d8988a9ba2d2435749d5",
 };

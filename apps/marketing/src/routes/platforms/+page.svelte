@@ -55,6 +55,9 @@
 		text-align: center;
 		margin-bottom: 56px;
 	}
+	h1 {
+		max-width: none;
+	}
 	header p {
 		margin: 28px auto 0;
 		max-width: 65ch;

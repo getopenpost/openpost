@@ -226,7 +226,7 @@ test("account media controls preserve shared attachments and survive reload", as
   await tab(1).click();
   await expect(green).toHaveCount(0);
   await expect(orange().locator("img")).toHaveAttribute("alt", "Shared orange photo");
-  await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
+  await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
   const sharedOrange = page.locator(`[data-composer-media-id="${media[0].id}"]`);
   await sharedOrange.getByRole("button", { name: "Alt text", exact: true }).click();
   await sharedOrange

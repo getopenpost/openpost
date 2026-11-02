@@ -108,5 +108,17 @@ for (const { name, width, fps, colors } of demos) {
       `${name}.gif is ${(size / 1e6).toFixed(2)} MB, over the 2 MB README budget. Shorten the capture or tune the encoding and inspect it again.`,
     );
   await copyFile(optimized, join(outputDirectory, `${name}.gif`));
+  await copyFile(join(sourceDirectory, `${name}.mp4`), join(outputDirectory, `${name}.mp4`));
+  const timestamp = (seconds) => {
+    const milliseconds = Math.round(seconds * 1000);
+    return `${String(Math.floor(milliseconds / 3_600_000)).padStart(2, "0")}:${String(Math.floor(milliseconds / 60_000) % 60).padStart(2, "0")}:${String(Math.floor(milliseconds / 1000) % 60).padStart(2, "0")}.${String(milliseconds % 1000).padStart(3, "0")}`;
+  };
+  let captionStart = 0;
+  const subtitles = scenes.map((scene) => {
+    const from = captionStart;
+    captionStart += scene.seconds;
+    return `${timestamp(from)} --> ${timestamp(captionStart)}\n${scene.title}`;
+  });
+  await writeFile(join(outputDirectory, `${name}.vtt`), `WEBVTT\n\n${subtitles.join("\n\n")}\n`);
   console.log(`${name}.gif: ${(size / 1e6).toFixed(2)} MB`);
 }

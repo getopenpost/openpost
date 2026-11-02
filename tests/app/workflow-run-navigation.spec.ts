@@ -101,7 +101,7 @@ test("Saved run snapshots remain usable while switching and returning to the lis
   const completed = cards.filter({ hasText: "Completed" });
   const failed = cards.filter({ hasText: "Failed" });
   const back = page.locator("main").getByRole("button", { name: "Runs", exact: true });
-  await header.getByRole("button", { name: "Runs", exact: true }).click();
+  await header.getByRole("tab", { name: "Runs", exact: true }).click();
   await completed.click();
   await expect(page.getByRole("button", { name: /^Audit first snapshot / })).toBeVisible();
   await failed.click();
@@ -137,11 +137,11 @@ test("Saved run snapshots remain usable while switching and returning to the lis
     }
   }
   await page.reload();
-  await header.getByRole("button", { name: "Runs", exact: true }).click();
+  await header.getByRole("tab", { name: "Runs", exact: true }).click();
   await completed.click();
   await expect(page.getByRole("button", { name: /^Audit first snapshot / })).toBeVisible();
   await back.click();
-  await header.getByRole("button", { name: "Editor", exact: true }).click();
+  await header.getByRole("tab", { name: "Editor", exact: true }).click();
   await expect(page.getByRole("button", { name: /^Audit second snapshot / })).toBeVisible();
   expect(errors).toEqual([]);
 });

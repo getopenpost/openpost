@@ -8,6 +8,7 @@
 -->
 <script lang="ts">
 	import { countUTF8Bytes } from '@openpost/platform-text';
+	import { page } from '$app/state';
 	import EngagementReview from '$lib/components/engagement-review.svelte';
 	import EngagementAutomation from '$lib/components/engagement-automation.svelte';
 	import { appBranding } from '$lib/app-branding.svelte';
@@ -54,6 +55,7 @@
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Input } from '$lib/components/ui/input';
 	import * as Popover from '$lib/components/ui/popover';
 	import * as Select from '$lib/components/ui/select';
 	import { Textarea } from '$lib/components/ui/textarea';
@@ -76,10 +78,13 @@
 
 	let refreshing = $state(false);
 	let refreshSequence = 0;
-	let unreadOnly = $state(false);
+	let unreadOnly = $state(true);
 	let archived = $state(false);
 	let platformFilter = $state('');
 	let kindFilter = $state<'' | 'comment' | 'mention' | 'review'>('');
+	let searchInput = $state('');
+	let searchQuery = $state('');
+	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	let selectedPublication = $state.raw<Publication | null>(null);
 	let publicationSearch = $state('');
 	let publicationQuerySearch = $state('');
@@ -112,6 +117,7 @@
 		platform: platformFilter,
 		accountId: queryAccountFilter,
 		publicationId: queryPublicationFilter,
+		search: searchQuery || undefined,
 		unreadOnly,
 		archived,
 		limit: 100
@@ -307,12 +313,15 @@
 	onMount(() => void workspaceCtx.initialize());
 	onDestroy(() => {
 		if (publicationSearchTimer) clearTimeout(publicationSearchTimer);
+		if (searchTimer) clearTimeout(searchTimer);
 	});
 
 	$effect(() => {
 		if (workspaceId && workspaceId !== publicationWorkspaceId) {
 			if (publicationSearchTimer) clearTimeout(publicationSearchTimer);
 			publicationSearchTimer = undefined;
+			if (searchTimer) clearTimeout(searchTimer);
+			searchTimer = undefined;
 			refreshSequence++;
 			refreshing = false;
 			actionInFlight = '';
@@ -327,7 +336,15 @@
 			accountFilter = '';
 			publicationSearch = '';
 			publicationQuerySearch = '';
+			searchInput = '';
+			searchQuery = '';
 		}
+	});
+
+	$effect(() => {
+		const kind = page.url.searchParams.get('kind');
+		const nextKind = kind === 'comment' || kind === 'review' ? kind : '';
+		if (kindFilter !== nextKind) kindFilter = nextKind;
 	});
 
 	$effect(() => {
@@ -345,6 +362,16 @@
 		publicationSearchTimer = setTimeout(() => {
 			if (workspaceId === requestedWorkspaceId) publicationQuerySearch = search;
 			publicationSearchTimer = undefined;
+		}, 250);
+	}
+
+	function searchInbox(value: string) {
+		searchInput = value;
+		if (searchTimer) clearTimeout(searchTimer);
+		const requestedWorkspaceId = workspaceId;
+		searchTimer = setTimeout(() => {
+			if (workspaceId === requestedWorkspaceId) searchQuery = value.trim();
+			searchTimer = undefined;
 		}, 250);
 	}
 
@@ -480,7 +507,8 @@
 			const reconciled = await reconcileQueryMutation(queryClient, view.session, {
 				cancel: [{ queryKey: inboxQueryKeys.engagementRoot(view.workspaceID) }],
 				reconcile: () => {
-					if (state.archived !== undefined || (state.read && view.unreadOnly)) {
+					// Replying or liking marks an item read without pulling it out from under the person.
+					if (state.archived !== undefined || (state.read && view.unreadOnly && announce)) {
 						updateEngagementData(view.queryKey, (page) => ({
 							...page,
 							items: (page.items ?? []).filter((candidate) => candidate.id !== item.id),
@@ -826,7 +854,7 @@
 </script>
 
 <svelte:head>
-	<title>{m.engagement_heading()} · {appBranding.profile.display_name}</title>
+	<title>{m.communications_navigation()} · {appBranding.profile.display_name}</title>
 </svelte:head>
 
 {#if toast}
@@ -839,8 +867,7 @@
 {/if}
 
 <PageContainer
-	title={m.engagement_heading()}
-	description={m.engagement_description()}
+	title={m.communications_navigation()}
 	themeIconRole="communications"
 	loading={initialLoading}
 	loadingLayout="list"
@@ -919,7 +946,19 @@
 			</Popover.Root>
 		{/if}
 		<Button
+			variant="ghost"
+			size="sm"
+			onclick={() => void markAllMatchingRead()}
+			disabled={!workspaceId || !workspaceCtx.currentWorkspace?.can_edit || Boolean(actionInFlight)}
+		>
+			<ThemeIcon role="check" class="size-4" />
+			{m.engagement_mark_all_read()}
+		</Button>
+		<Button
 			variant="outline"
+			size="icon-sm"
+			aria-label={m.engagement_refresh()}
+			title={m.engagement_refresh()}
 			onclick={refresh}
 			disabled={refreshing || !workspaceId || engagementAllDisabled}
 			data-testid="engagement-refresh"
@@ -928,144 +967,155 @@
 				role="refresh"
 				class={refreshing ? 'size-4 animate-spin motion-reduce:animate-none' : 'size-4'}
 			/>
-			{m.engagement_refresh()}
 		</Button>
 	{/snippet}
 
 	{#snippet navigation()}
-		<div class="space-y-5">
-			<CommunicationsNavigation active="engagement" />
-			<div class="flex flex-wrap items-center gap-3">
-				<Select.Root
-					type="single"
-					value={kindFilter || 'all'}
-					onValueChange={(value) => {
-						kindFilter =
-							value === 'comment' || value === 'mention' || value === 'review' ? value : '';
-					}}
-				>
-					<Select.Trigger class="h-11 w-44 sm:h-9" aria-label={m.engagement_activity_type()}
-						>{kindFilter === 'comment'
-							? m.engagement_activity_comments()
-							: kindFilter === 'mention'
-								? m.engagement_activity_mentions()
-								: kindFilter === 'review'
-									? m.engagement_activity_reviews()
-									: m.engagement_activity_all()}</Select.Trigger
-					>
-					<Select.Content>
-						<Select.Item value="all">{m.engagement_activity_all()}</Select.Item>
-						<Select.Item value="comment">{m.engagement_activity_comments()}</Select.Item>
-						<Select.Item value="mention">{m.engagement_activity_mentions()}</Select.Item>
-						<Select.Item value="review">{m.engagement_activity_reviews()}</Select.Item>
-					</Select.Content>
-				</Select.Root>
-				<Select.Root
-					type="single"
-					value={platformFilter || 'all'}
-					onValueChange={(value) => {
-						platformFilter = value === 'all' ? '' : value;
-						const selectedAccount = accounts.find((account) => account.id === accountFilter);
-						if (selectedAccount && platformFilter && selectedAccount.platform !== platformFilter) {
-							accountFilter = '';
-						}
-					}}
-				>
-					<Select.Trigger class="h-11 w-44 sm:h-9">
-						{platformFilter ? getPlatformName(platformFilter) : m.engagement_all_platforms()}
-					</Select.Trigger>
-					<Select.Content>
-						<Select.Item value="all">{m.engagement_all_platforms()}</Select.Item>
-						{#each knownPlatforms as provider (provider)}
-							<Select.Item value={provider}>{getPlatformName(provider)}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-				<Select.Root
-					type="single"
-					value={accountFilter || 'all'}
-					onValueChange={(value) => (accountFilter = value === 'all' ? '' : value)}
-				>
-					<Select.Trigger
-						class="h-11 w-60 sm:h-9"
-						aria-label={accountFilterLabel(
-							accounts.find((account) => account.id === accountFilter)
-						)}
-					>
-						{#if accountFilter}
-							{@const selectedAccount = accounts.find((account) => account.id === accountFilter)}
-							{#if selectedAccount}
-								<SocialAccountIdentity
-									name={accountName(selectedAccount)}
-									platform={selectedAccount.platform}
-									avatarUrl={selectedAccount.account_avatar_url}
-									size="sm"
-								/>
-							{:else}
-								{m.engagement_all_accounts()}
-							{/if}
-						{:else}
-							{m.engagement_all_accounts()}
-						{/if}
-					</Select.Trigger>
-					<Select.Content class="w-72 max-w-[calc(100vw-1rem)]">
-						<Select.Item value="all" class="min-h-11">{m.engagement_all_accounts()}</Select.Item>
-						{#each accounts.filter((account) => !platformFilter || account.platform === platformFilter) as account (account.id)}
-							<Select.Item value={account.id} class="min-h-12 py-2">
-								<SocialAccountIdentity
-									name={accountName(account)}
-									platform={account.platform}
-									avatarUrl={account.account_avatar_url}
-								/>
-							</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-				<DestinationOptionCombobox
-					id="engagement-publication-filter"
-					value={publicationFilter}
-					label={m.engagement_all_posts()}
-					placeholder={m.engagement_all_posts()}
-					searchPlaceholder={m.engagement_search_posts()}
-					emptyLabel={m.engagement_no_posts_found()}
-					loadingLabel={m.common_loading()}
-					options={publicationOptions}
-					loading={publicationLoading}
-					hasMore={Boolean(publicationCursor)}
-					loadMoreLabel={m.engagement_load_older_posts()}
-					error={publicationError}
-					retryLabel={m.common_retry()}
-					class="max-w-80 min-w-52 sm:h-9"
-					onValueChange={selectPublication}
-					onSearch={searchPublications}
-					onLoadMore={() => void publicationQuery.fetchNextPage()}
-					onRetry={() => void publicationQuery.refetch()}
-				/>
-				<label class="flex min-h-11 items-center gap-2 text-sm">
-					<Checkbox bind:checked={unreadOnly} />
-					{m.engagement_unread_only()}
-				</label>
-				<label class="flex min-h-11 items-center gap-2 text-sm">
-					<Checkbox bind:checked={archived} />
-					{m.engagement_archived()}
-				</label>
+		<div class="space-y-3">
+			<CommunicationsNavigation
+				active={kindFilter === 'comment' ? 'comments' : kindFilter === 'review' ? 'reviews' : 'all'}
+			/>
+			<div class="flex min-w-0 flex-wrap items-center gap-2">
+				<div class="min-w-0 flex-1 sm:max-w-72">
+					<Input
+						type="search"
+						value={searchInput}
+						oninput={(event) => searchInbox(event.currentTarget.value)}
+						placeholder={m.engagement_search_placeholder()}
+						aria-label={m.engagement_search_placeholder()}
+						class="h-11 sm:h-9"
+						data-testid="engagement-search"
+					/>
+				</div>
+				<Popover.Root>
+					<Popover.Trigger>
+						{#snippet child({ props })}
+							<Button {...props} variant="outline" class="h-11 sm:h-9">
+								{m.engagement_filter_button()}
+								{#if platformFilter || accountFilter || publicationFilter || archived || !unreadOnly}
+									<span class="size-1.5 rounded-full bg-primary" aria-hidden="true"></span>
+								{/if}
+							</Button>
+						{/snippet}
+					</Popover.Trigger>
+					<Popover.Content align="end" class="w-80 max-w-[calc(100vw-1rem)]">
+						<div class="grid gap-4">
+							<Select.Root
+								type="single"
+								value={platformFilter || 'all'}
+								onValueChange={(value) => {
+									platformFilter = value === 'all' ? '' : value;
+									const selectedAccount = accounts.find((account) => account.id === accountFilter);
+									if (
+										selectedAccount &&
+										platformFilter &&
+										selectedAccount.platform !== platformFilter
+									) {
+										accountFilter = '';
+									}
+								}}
+							>
+								<Select.Trigger class="h-11 w-full sm:h-9">
+									{platformFilter ? getPlatformName(platformFilter) : m.engagement_all_platforms()}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="all">{m.engagement_all_platforms()}</Select.Item>
+									{#each knownPlatforms as provider (provider)}
+										<Select.Item value={provider}>{getPlatformName(provider)}</Select.Item>
+									{/each}
+								</Select.Content>
+							</Select.Root>
+							<Select.Root
+								type="single"
+								value={accountFilter || 'all'}
+								onValueChange={(value) => (accountFilter = value === 'all' ? '' : value)}
+							>
+								<Select.Trigger
+									class="h-11 w-full sm:h-9"
+									aria-label={accountFilterLabel(
+										accounts.find((account) => account.id === accountFilter)
+									)}
+								>
+									{#if accountFilter}
+										{@const selectedAccount = accounts.find(
+											(account) => account.id === accountFilter
+										)}
+										{#if selectedAccount}
+											<SocialAccountIdentity
+												name={accountName(selectedAccount)}
+												platform={selectedAccount.platform}
+												avatarUrl={selectedAccount.account_avatar_url}
+												size="sm"
+											/>
+										{:else}
+											{m.engagement_all_accounts()}
+										{/if}
+									{:else}
+										{m.engagement_all_accounts()}
+									{/if}
+								</Select.Trigger>
+								<Select.Content class="w-72 max-w-[calc(100vw-1rem)]">
+									<Select.Item value="all" class="min-h-11">
+										{m.engagement_all_accounts()}
+									</Select.Item>
+									{#each accounts.filter((account) => !platformFilter || account.platform === platformFilter) as account (account.id)}
+										<Select.Item value={account.id} class="min-h-12 py-2">
+											<SocialAccountIdentity
+												name={accountName(account)}
+												platform={account.platform}
+												avatarUrl={account.account_avatar_url}
+											/>
+										</Select.Item>
+									{/each}
+								</Select.Content>
+							</Select.Root>
+							<DestinationOptionCombobox
+								id="engagement-publication-filter"
+								value={publicationFilter}
+								label={m.engagement_all_posts()}
+								placeholder={m.engagement_all_posts()}
+								searchPlaceholder={m.engagement_search_posts()}
+								emptyLabel={m.engagement_no_posts_found()}
+								loadingLabel={m.common_loading()}
+								options={publicationOptions}
+								loading={publicationLoading}
+								hasMore={Boolean(publicationCursor)}
+								loadMoreLabel={m.engagement_load_older_posts()}
+								error={publicationError}
+								retryLabel={m.common_retry()}
+								class="max-w-80 min-w-52 sm:h-9"
+								onValueChange={selectPublication}
+								onSearch={searchPublications}
+								onLoadMore={() => void publicationQuery.fetchNextPage()}
+								onRetry={() => void publicationQuery.refetch()}
+							/>
+							<label class="flex min-h-11 items-center gap-2 text-sm">
+								<Checkbox bind:checked={unreadOnly} />
+								{m.engagement_unread_only()}
+							</label>
+							<label
+								class="flex min-h-11 items-center gap-2 text-sm"
+								title={m.engagement_archive_help()}
+							>
+								<Checkbox bind:checked={archived} />
+								{m.engagement_archived()}
+							</label>
+						</div>
+					</Popover.Content>
+				</Popover.Root>
 				<Button
-					variant="outline"
+					href="/grow"
+					variant="ghost"
 					size="sm"
-					disabled={!workspaceId ||
-						!workspaceCtx.currentWorkspace?.can_edit ||
-						Boolean(actionInFlight)}
-					onclick={() => void markAllMatchingRead()}
+					class="ms-auto"
+					data-testid="inbox-find-people"
 				>
-					<ThemeIcon role="check" class="size-4" />
-					{m.engagement_mark_all_read()}
+					{m.grow_find_people()}
 				</Button>
-				<span class="ms-auto text-sm text-muted-foreground">{total}</span>
+				{#if total}
+					<span class="ms-auto text-sm text-muted-foreground">{total}</span>
+				{/if}
 			</div>
-			<p class="-mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
-				{m.engagement_archive_help()}
-				{m.engagement_shared_read_help()}
-			</p>
 		</div>
 	{/snippet}
 
@@ -1138,12 +1188,32 @@
 				</p>
 			{/if}
 		{:else if engagementQuery.data && items.length === 0 && !error}
-			<EmptyState
-				themeIconRole="communications"
-				title={m.engagement_empty_title()}
-				description={m.engagement_empty_description()}
-				variant="muted"
-			/>
+			{#if accounts.length === 0}
+				<EmptyState
+					themeIconRole="communications"
+					title={m.engagement_empty_title()}
+					description={m.engagement_empty_description()}
+					actionLabel={m.analytics_no_accounts_action()}
+					actionHref="/settings?tab=accounts"
+					variant="muted"
+				/>
+			{:else if unreadOnly}
+				<EmptyState
+					themeIconRole="communications"
+					title={m.engagement_empty_title()}
+					description={m.engagement_empty_description()}
+					actionLabel={m.engagement_empty_show_all()}
+					onAction={() => (unreadOnly = false)}
+					variant="muted"
+				/>
+			{:else}
+				<EmptyState
+					themeIconRole="communications"
+					title={m.engagement_empty_title()}
+					description={m.engagement_empty_description()}
+					variant="muted"
+				/>
+			{/if}
 		{:else if items.length > 0}
 			<div
 				class="space-y-4 transition-opacity"

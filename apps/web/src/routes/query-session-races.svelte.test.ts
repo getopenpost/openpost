@@ -75,7 +75,7 @@ function cachedMessages(conversationID: string) {
 
 function cachedEngagement(itemID: string) {
 	const data = queryClient.getQueryData<InfiniteData<EngagementPageData>>(
-		inboxQueryKeys.engagement(workspace.id, { limit: 100 })
+		inboxQueryKeys.engagement(workspace.id, { limit: 100, unreadOnly: true })
 	);
 	return data?.pages.flatMap((page) => page.items ?? []).find((item) => item.id === itemID);
 }
@@ -472,6 +472,7 @@ describe('route mutation sessions', () => {
 		await vi.waitFor(() =>
 			expect(publicationQueries.some(({ workspaceID }) => workspaceID === workspace.id)).toBe(true)
 		);
+		await screen.getByRole('button', { name: 'Filters', exact: true }).click();
 		await screen.getByRole('combobox', { name: 'All posts' }).click();
 		await screen.getByPlaceholder('Search posts').fill('old workspace search');
 		workspaceCtx.currentWorkspace = workspaceB;

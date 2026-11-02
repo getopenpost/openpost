@@ -102,7 +102,20 @@ func (y *YouTubeAdapter) exchangeToken(ctx context.Context, values map[string]st
 }
 
 func (y *YouTubeAdapter) GetProfile(ctx context.Context, accessToken string) (*UserProfile, error) {
-	return fetchGoogleUserProfile(ctx, accessToken, "youtube google profile")
+	// YouTube grants request YouTube scopes only. Resolve the connected identity
+	// from the authorized channel list instead of Google UserInfo, which needs
+	// separate OpenID profile scopes that this integration intentionally omits.
+	channels, err := y.listChannels(ctx, accessToken)
+	if err != nil {
+		return nil, err
+	}
+	channel := channels[0]
+	return &UserProfile{
+		ID:          channel.ID,
+		Username:    firstNonEmptyString(channel.Snippet.CustomURL, channel.Snippet.Title, channel.ID),
+		DisplayName: channel.Snippet.Title,
+		AvatarURL:   channel.Snippet.Thumbnails.Default.URL,
+	}, nil
 }
 
 func (y *YouTubeAdapter) RefreshAccountMetadata(ctx context.Context, accessToken string, input AccountMetadataRequest) (*UserProfile, error) {

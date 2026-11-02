@@ -943,9 +943,27 @@ func safeError(err error) (string, string, int) {
 func storedAttemptError(attempt *models.ProviderWriteAttempt) error {
 	err := errors.New("provider write definitely failed")
 	if attempt.ErrorHTTPStatus > 0 {
-		err = &platform.HTTPError{StatusCode: attempt.ErrorHTTPStatus, Code: attempt.SafeErrorCode}
+		code, subcode := splitStoredProviderErrorCode(attempt.SafeErrorCode)
+		err = &platform.HTTPError{StatusCode: attempt.ErrorHTTPStatus, Code: code, Subcode: subcode}
 	}
 	return &OutcomeError{Kind: attempt.Status, Err: err}
+}
+
+// safeError stores a provider subcode in the existing code column using this
+// delimiter. Restore it for replayed errors so downstream classifiers see the
+// same bounded HTTPError fields they saw before persistence. Ambiguous or
+// malformed legacy values remain an opaque Code.
+func splitStoredProviderErrorCode(value string) (string, string) {
+	const delimiter = ":subcode:"
+	if len(value) > 96 || strings.Count(value, delimiter) != 1 {
+		return value, ""
+	}
+	index := strings.LastIndex(value, delimiter)
+	code, subcode := value[:index], value[index+len(delimiter):]
+	if !safeStateValue.MatchString(code) || code == "" || !safeStateValue.MatchString(subcode) || subcode == "" {
+		return value, ""
+	}
+	return code, subcode
 }
 
 func idempotentRetryAvailable(attempt *models.ProviderWriteAttempt, now time.Time) bool {

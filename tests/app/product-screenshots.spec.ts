@@ -361,7 +361,7 @@ test.describe("product screenshot capture", () => {
       await page.goto(`/analytics?workspace=${workspace.id}`);
       await expect(page.getByRole("heading", { name: "Analytics", level: 1 })).toBeVisible();
       await expect(page.getByRole("img", { name: "6.9K", exact: true }).first()).toBeVisible();
-      const dailyViewsChart = page.getByRole("img", { name: "Daily views" });
+      const dailyViewsChart = page.getByRole("img", { name: "Visibility" });
       await expect(dailyViewsChart).toBeVisible();
       await expect
         .poll(() =>
@@ -393,7 +393,7 @@ test.describe("product screenshot capture", () => {
       }
       await page.setViewportSize(captureViewport);
 
-      await page.goto("/settings?tab=accounts");
+      await page.goto("/accounts");
       await expect(page.getByRole("heading", { name: "Connected accounts" })).toBeVisible();
       await expect(page.getByText("@rodrgds").first()).toBeVisible();
       await capture(page, `accounts-${captureScheme}.png`, [
@@ -420,7 +420,6 @@ test.describe("product screenshot capture", () => {
       await page.goto(`/image-editor/new?workspace=${workspace.id}`);
       await capture(page, `image-start-${captureScheme}.png`, [
         page.getByRole("heading", { name: "Choose a format" }),
-        page.locator("summary", { hasText: "Custom size" }),
       ]);
       await page.getByText("Custom size", { exact: true }).first().click();
       await page.getByRole("spinbutton", { name: "Width" }).fill("1500");
@@ -462,7 +461,8 @@ test.describe("product screenshot capture", () => {
         name: "Brightness",
       });
       await brightnessSlider.press("End");
-      await expect(brightnessSlider).toHaveAttribute("aria-valuenow", "1");
+      await brightnessSlider.press("Tab");
+      await expect(brightnessSlider).toHaveAttribute("aria-valuenow", "100");
       await brightnessSlider.scrollIntoViewIfNeeded();
       await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
         "data-state",
@@ -492,8 +492,10 @@ test.describe("product screenshot capture", () => {
         .getByTestId("image-editor-page-strip")
         .getByRole("button", { name: "Expand pages", exact: true })
         .click();
-      await page.getByRole("button", { name: "Add page" }).click();
-      await expect(page.locator(".template-preview-frame img")).toHaveCount(2);
+      await page.getByRole("button", { name: "Duplicate page", exact: true }).click();
+      await expect(
+        page.getByTestId("image-editor-page-strip").getByRole("button", { name: /^Page \d+:/ }),
+      ).toHaveCount(2);
       await captureDetail(
         page.getByTestId("image-editor-page-strip"),
         `image-pages-detail-${captureScheme}.png`,
@@ -502,9 +504,17 @@ test.describe("product screenshot capture", () => {
       await page.getByRole("button", { name: "Export", exact: true }).click();
       const exportDialog = page.getByRole("dialog", { name: "Export design" });
       await expect(exportDialog).toBeVisible();
+      await expect(
+        exportDialog.getByRole("img", { name: "Encoded export preview", exact: true }),
+      ).toBeVisible({ timeout: 30_000 });
       await captureDetail(exportDialog, `image-export-detail-${captureScheme}.png`);
       await page.keyboard.press("Escape");
 
+      await page
+        .getByTestId("image-editor-page-strip")
+        .getByRole("button", { name: /^Page 1:/ })
+        .click();
+      await logoLayer.click();
       // The placed logo is an image layer, so the Layer menu offers background removal.
       await page.getByRole("menuitem", { name: "Layer" }).click();
       const removeBackgroundItem = page.getByRole("menuitem", {
@@ -590,8 +600,36 @@ test.describe("product screenshot capture", () => {
       await capture(page, `video-color-${captureScheme}.png`, [colorWorkspace]);
 
       await workspaceTabs.getByRole("tab", { name: "Motion" }).click();
-      const motionPanel = page.getByRole("region", { name: "Motion", exact: true });
+      await page.getByRole("button", { name: "New composition", exact: true }).click();
+      const compositionDialog = page.getByRole("dialog", { name: "New composition", exact: true });
+      await compositionDialog
+        .getByRole("textbox", { name: "Name", exact: true })
+        .fill("Study SOS title");
+      await compositionDialog.getByRole("button", { name: "Create", exact: true }).click();
+      await page
+        .getByRole("toolbar", { name: "Layer tools", exact: true })
+        .getByRole("button", { name: "Text", exact: true })
+        .click();
+      const motionPanel = page.getByRole("complementary", { name: "Motion", exact: true });
       await expect(motionPanel).toBeVisible();
+      await motionPanel.getByRole("textbox", { name: "Text", exact: true }).fill("STUDY SOS");
+      await motionPanel.getByRole("textbox", { name: "Text", exact: true }).press("Tab");
+      const titleRaster = programMonitor
+        .getByRole("img", { name: "STUDY SOS", exact: true })
+        .locator("canvas");
+      await expect
+        .poll(
+          () =>
+            titleRaster.evaluate((canvas: HTMLCanvasElement) => {
+              const context = canvas.getContext("2d");
+              if (!context || canvas.width === 0 || canvas.height === 0) return false;
+              return context
+                .getImageData(0, 0, canvas.width, canvas.height)
+                .data.some((value, index) => index % 4 === 3 && value > 0);
+            }),
+          { timeout: 15_000 },
+        )
+        .toBe(true);
       await capture(page, `video-motion-${captureScheme}.png`, [motionPanel]);
 
       await workspaceTabs.getByRole("tab", { name: "Edit" }).click();
@@ -600,7 +638,7 @@ test.describe("product screenshot capture", () => {
       await expect(effectsBrowser).toBeVisible();
       await capture(page, `video-effects-${captureScheme}.png`, [effectsBrowser]);
 
-      await assetTabs.getByRole("tab", { name: "Transcript", exact: true }).click();
+      await assetTabs.getByRole("tab", { name: "Captions", exact: true }).click();
       const transcriptPanel = page.getByRole("region", { name: "Transcript" });
       await expect(transcriptPanel).toBeVisible();
       await capture(page, `video-transcript-${captureScheme}.png`, [transcriptPanel]);
@@ -612,14 +650,14 @@ test.describe("product screenshot capture", () => {
       await page.keyboard.press("Escape");
 
       await page.goto("/settings?tab=general");
-      await expect(page.getByRole("heading", { name: "General", level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
       await expect(page.locator('[data-settings-tab="general"]')).toHaveAttribute(
         "aria-current",
         "page",
       );
       if (captureScheme === "dark") {
         await capture(page, "settings-dark.png", [
-          page.getByRole("heading", { name: "General", level: 1 }),
+          page.getByRole("heading", { name: "Settings", level: 1 }),
           page.getByRole("button", { name: "Save changes" }),
         ]);
       }
@@ -654,8 +692,8 @@ test.describe("product screenshot capture", () => {
           ],
         }),
       );
-      await page.goto("/settings?tab=accounts");
-      await expect(page.getByRole("heading", { name: "Connected accounts" })).toBeVisible();
+      await page.goto("/accounts");
+      await expect(page.getByRole("heading", { name: "Add an account" })).toBeVisible();
       await page.addStyleTag({
         content: `*, *::before, *::after { animation: none !important; transition: none !important; }`,
       });

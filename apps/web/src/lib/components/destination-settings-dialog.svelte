@@ -6,6 +6,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { countPlatformText, YOUTUBE_DESCRIPTION_MAX_BYTES } from '@openpost/platform-text';
 	import AppSelect from './app-select.svelte';
 	import DestinationOptionCombobox from './destination-option-combobox.svelte';
@@ -1027,10 +1028,11 @@
 			{/if}
 
 			{#if unavailableSettings.length > 0}
-				<details class="border-t pt-3">
-					<summary class="min-h-11 cursor-pointer py-2 text-sm text-muted-foreground">
-						{m.accounts_provider_unavailable()} ({unavailableSettings.length})
-					</summary>
+				<Disclosure
+					summary={`${m.accounts_provider_unavailable()} (${unavailableSettings.length})`}
+					summaryClass="text-muted-foreground"
+					class="border-t pt-3"
+				>
 					<ul class="space-y-3 pb-2">
 						{#each unavailableSettings as setting (setting.key)}
 							<li>
@@ -1039,7 +1041,7 @@
 							</li>
 						{/each}
 					</ul>
-				</details>
+				</Disclosure>
 			{/if}
 		</div>
 

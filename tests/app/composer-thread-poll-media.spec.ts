@@ -136,7 +136,7 @@ test("media on a follow-up preserves the first post's native poll", async ({
       await page.goto(`/publications/${saved.id}`);
       await expect(poll.getByText("Which option?", { exact: true })).toBeVisible();
       await composerDestinations(page)
-        .getByRole("button", { name: /@auditpoll,/ })
+        .getByRole("tab", { name: /@auditpoll,/ })
         .click();
       const version = poll.getByRole("button", {
         name: "Poll version",
@@ -154,7 +154,7 @@ test("media on a follow-up preserves the first post's native poll", async ({
       await page.screenshot({
         path: testInfo.outputPath(`poll-${width}-${scheme}.png`),
       });
-      await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
+      await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
     }
   }
   // Moving the same photo onto the poll's own post must still be refused.
@@ -165,7 +165,7 @@ test("media on a follow-up preserves the first post's native poll", async ({
     .click();
   await attachPhoto(0);
   await composerDestinations(page)
-    .getByRole("button", { name: /@auditpoll,/ })
+    .getByRole("tab", { name: /@auditpoll,/ })
     .click();
   await expect(
     poll.getByText("Remove media from this destination or choose a text version of the poll.", {
@@ -188,7 +188,7 @@ test("media on a follow-up preserves the first post's native poll", async ({
   await page.screenshot({
     path: testInfo.outputPath("same-post-media-guard.png"),
   });
-  await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
+  await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
   await page
     .getByRole("region", { name: "Drop zone for post 1", exact: true })
     .getByRole("button", { name: "Remove media", exact: true })

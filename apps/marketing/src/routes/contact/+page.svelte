@@ -58,11 +58,14 @@
 	header {
 		text-align: center;
 	}
+	h1 {
+		max-width: none;
+	}
 	header p {
 		font-size: 18px;
 		line-height: 1.7;
 		color: var(--muted-foreground);
-		margin-top: 28px;
+		margin: 28px auto 0;
 	}
 	.contact-options {
 		display: grid;
@@ -110,6 +113,7 @@
 	small {
 		display: block;
 		margin-top: 12px;
+		font-size: 13px;
 		line-height: 1.6;
 	}
 	.contact-more {

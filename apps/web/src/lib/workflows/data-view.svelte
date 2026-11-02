@@ -2,6 +2,7 @@
 	/* oxlint-disable anti-slop/no-runtime-typeof, anti-slop/no-unknown-parameters -- The inspector renders arbitrary source and node-output JSON, preserving each value's actual type instead of imposing a node schema. */
 	import type { Snippet } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import Choice from './choice.svelte';
 	import { appendReferencePath } from './reference-path';
@@ -135,7 +136,7 @@
 			>
 				<div class="flex items-baseline gap-2">
 					<code class="min-w-0 text-xs font-medium break-all">{field.path}</code><span
-						class="shrink-0 text-[10px] text-muted-foreground">{field.type}</span
+						class="shrink-0 text-xs text-muted-foreground">{field.type}</span
 					>
 				</div>
 				{#if field.value === null || typeof field.value !== 'object'}<p
@@ -153,18 +154,12 @@
 			<h2 class="text-sm font-medium">{label}</h2>
 			{#if status}<span class="text-xs text-muted-foreground" role="status">{status}</span>{/if}
 		</div>
-		<div class="flex" aria-label={label}>
-			{#each ['schema', 'table', 'json'] as tab}<Button
-					size="sm"
-					variant={mode === tab ? 'secondary' : 'ghost'}
-					aria-pressed={mode === tab}
-					onclick={() => (mode = tab as typeof mode)}
-					>{tab === 'schema'
-						? m.workflows_schema()
-						: tab === 'table'
-							? m.workflows_table()
-							: m.workflows_json()}</Button
-				>{/each}
-		</div>
+		<Tabs.Root value={mode} onValueChange={(next) => (mode = next as typeof mode)}>
+			<Tabs.List aria-label={label}>
+				<Tabs.Trigger value="schema">{m.workflows_schema()}</Tabs.Trigger>
+				<Tabs.Trigger value="table">{m.workflows_table()}</Tabs.Trigger>
+				<Tabs.Trigger value="json">{m.workflows_json()}</Tabs.Trigger>
+			</Tabs.List>
+		</Tabs.Root>
 	</header>
 {/snippet}

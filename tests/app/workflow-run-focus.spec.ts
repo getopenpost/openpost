@@ -60,7 +60,7 @@ test("Workspace run history restores keyboard focus to the originating card", as
   page.on("pageerror", (error) => errors.push(error.message));
   await authenticatePage(page, auth.token);
   await page.goto("/workflows");
-  await page.getByRole("button", { name: "Runs", exact: true }).click();
+  await page.getByRole("tab", { name: "Runs", exact: true }).click();
   const card = page.getByRole("button").filter({ hasText: "Audit originating run" });
   for (const width of [1280, 390, 320]) {
     for (const colorScheme of ["light", "dark"] as const) {

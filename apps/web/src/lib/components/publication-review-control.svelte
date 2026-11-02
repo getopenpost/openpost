@@ -9,6 +9,7 @@
 		type Publication
 	} from '@openpost/query-catalog';
 	import { publicationReviewQueryAPI } from '$lib/query/publication-reviews';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { workspaceSettingsQueryAPI } from '$lib/query/workspace-settings';
 	import { queryAPI } from '$lib/query/api';
 	import { queryClient } from '$lib/query/client';
@@ -240,8 +241,7 @@
 				{:else if canEdit && post.status === 'scheduled'}<p class="text-sm">
 						{m.review_cancel_schedule()}
 					</p>{/if}
-				{#if (reviews.data?.length ?? 0) > 0}<details>
-						<summary class="cursor-pointer text-sm">{m.review_history()}</summary>
+				{#if (reviews.data?.length ?? 0) > 0}<Disclosure summary={m.review_history()}>
 						<div class="mt-3 grid gap-4">
 							{#each reviews.data ?? [] as review (review.id)}<article
 									class="space-y-2 border-t pt-3"
@@ -255,16 +255,15 @@
 											{m.review_previous_version()}
 										</p>{/if}
 									<p class="text-sm whitespace-pre-wrap">{review.feedback || review.note}</p>
-									<details>
-										<summary class="cursor-pointer text-sm">{m.review_submitted_version()}</summary
-										><PublicationReviewPreview
+									<Disclosure summary={m.review_submitted_version()}>
+										<PublicationReviewPreview
 											publication={review.snapshot}
 											accounts={accounts.data ?? []}
 										/>
-									</details>
+									</Disclosure>
 								</article>{/each}
 						</div>
-					</details>{/if}
+					</Disclosure>{/if}
 			{/if}
 		</div>
 	</Dialog.Content>

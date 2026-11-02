@@ -41,10 +41,7 @@
 <section class="rounded-lg border bg-muted/20 p-4" aria-labelledby="purchase-choice-title">
 	<div class="flex items-start justify-between gap-4">
 		<div>
-			<p
-				id="purchase-choice-title"
-				class="text-xs font-medium tracking-wide text-muted-foreground uppercase"
-			>
+			<p id="purchase-choice-title" class="text-xs font-medium text-muted-foreground">
 				{m.purchase_choice_heading()}
 			</p>
 			<p class="mt-1 font-semibold">OpenPost {choice.plan_name}</p>

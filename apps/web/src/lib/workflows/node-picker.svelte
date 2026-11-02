@@ -6,6 +6,7 @@
 	import type { Step, Source } from './api';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	let {
@@ -91,13 +92,11 @@
 					aria-label={m.workflows_search_nodes()}
 				/>
 			</div>
-			<div class="flex flex-wrap gap-1 border-b px-3 pb-3">
-				{#each groups as entry}<Button
-						size="sm"
-						variant={group === entry.id ? 'secondary' : 'ghost'}
-						onclick={() => (group = entry.id)}>{entry.label}</Button
-					>{/each}
-			</div>
+			<Tabs.Root value={group} onValueChange={(next) => (group = next)} class="border-b px-3 pb-3">
+				<Tabs.List class="max-w-full flex-wrap">
+					{#each groups as entry}<Tabs.Trigger value={entry.id}>{entry.label}</Tabs.Trigger>{/each}
+				</Tabs.List>
+			</Tabs.Root>
 			<div class="min-h-0 flex-1 overflow-y-auto p-2">
 				{#if group === 'recipes'}
 					{#each recipeEntries as entry}

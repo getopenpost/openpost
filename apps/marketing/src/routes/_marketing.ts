@@ -29,9 +29,9 @@ export const siteUrl = 'https://openpo.st';
 export const discordCommunityUrl = 'https://discord.com/invite/u2QwukmY4W';
 export const supportEmail = 'openpost@rgo.pt';
 export const supportMailUrl = `mailto:${supportEmail}`;
-export const demoVideoUrl = 'https://www.youtube.com/watch?v=_mZf3HzQaN8';
+export const demoVideoUrl = 'https://www.youtube.com/watch?v=eiwOnwxanTQ';
 export const demoVideoEmbedUrl =
-	'https://www.youtube-nocookie.com/embed/_mZf3HzQaN8?autoplay=1&rel=0';
+	'https://www.youtube-nocookie.com/embed/eiwOnwxanTQ?autoplay=1&rel=0';
 
 type NavigationSurface = 'primary' | 'resources' | 'mobile' | 'footer';
 type ResourceGroup = 'Learn' | 'OpenPost';
@@ -150,6 +150,19 @@ const navigationRegistry: readonly MarketingNavigationItem[] = [
 		surfaces: ['footer']
 	},
 	{ label: 'GitHub source', href: githubUrl, footerGroup: 'More', surfaces: ['footer'] },
+	{
+		label: 'YouTube',
+		href: 'https://www.youtube.com/@GetOpenPost',
+		footerGroup: 'More',
+		surfaces: ['footer']
+	},
+	{ label: 'X', href: 'https://x.com/GetOpenPost', footerGroup: 'More', surfaces: ['footer'] },
+	{
+		label: 'Bluesky',
+		href: 'https://bsky.app/profile/openpo.st',
+		footerGroup: 'More',
+		surfaces: ['footer']
+	},
 	{
 		label: 'Self-hosting guide',
 		href: selfHostingDocsUrl,

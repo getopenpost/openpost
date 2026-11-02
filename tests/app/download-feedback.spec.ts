@@ -61,10 +61,7 @@ test("Video Editor distinguishes verified project media from its frame download 
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
   await page.getByRole("tab", { name: "Edit", exact: true }).click();
-  await page
-    .getByRole("complementary", { name: "Assets", exact: true })
-    .getByRole("button", { name: "Add layer", exact: true })
-    .click();
+  await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
   await page
@@ -74,7 +71,10 @@ test("Video Editor distinguishes verified project media from its frame download 
   await page.getByRole("menuitem", { name: "Save current frame", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-requested-download", /\.png$/);
   const file = await page.locator("html").getAttribute("data-requested-download");
+  await page.locator("[data-project-details]").click();
   await expect(page.locator("[data-project-summary]")).toContainText(/(?:1 media|Media: 1)/);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-project-summary]")).toHaveCount(0);
   await expect(
     page.getByText(`Saved ${file} to project media. Download started.`, { exact: true }).first(),
   ).toBeVisible({ timeout: 5000 });

@@ -289,22 +289,29 @@ func fetchMetaInsightsWithPeriod(
 	period string,
 ) (metaInsightsResponse, error) {
 	response, err := requestMetaInsights(ctx, endpoint, accessToken, metrics, period)
-	if err == nil || len(metrics) < 2 || !isBadRequest(err) {
+	if err == nil || len(metrics) < 2 || !isMetaInsightParameterError(err) {
 		return response, err
 	}
 
 	// Meta insight availability varies by content type. Retry the batch one
 	// metric at a time so one unsupported counter does not hide valid ones.
 	combined := metaInsightsResponse{}
+	succeeded := false
 	for _, metric := range metrics {
 		item, itemErr := requestMetaInsights(ctx, endpoint, accessToken, []string{metric}, period)
 		if itemErr != nil {
-			if isBadRequest(itemErr) {
+			if isMetaInsightParameterError(itemErr) {
 				continue
 			}
 			return metaInsightsResponse{}, itemErr
 		}
+		succeeded = true
 		combined.Data = append(combined.Data, item.Data...)
+	}
+	// Code 100 also covers invalid parameters unrelated to metrics. If no
+	// request succeeded, preserve the original failure instead of empty success.
+	if !succeeded {
+		return metaInsightsResponse{}, err
 	}
 	return combined, nil
 }
@@ -325,6 +332,11 @@ func requestMetaInsights(
 	}
 	body, err := DoRequest(ctx, http.MethodGet, endpoint+"?"+query.Encode(), nil, nil)
 	if err != nil {
+		if !isMetaInsightParameterError(err) {
+			// Graph often uses HTTP 400 for token, permission, and rate-limit
+			// failures. Preserve their recovery status for the analytics service.
+			err = normalizeMetaPublishError(err)
+		}
 		return metaInsightsResponse{}, err
 	}
 	var response metaInsightsResponse
@@ -334,9 +346,12 @@ func requestMetaInsights(
 	return response, nil
 }
 
-func isBadRequest(err error) bool {
+func isMetaInsightParameterError(err error) bool {
 	var providerErr *HTTPError
-	return errors.As(err, &providerErr) && providerErr.StatusCode == http.StatusBadRequest
+	// Invalid parameters use Graph code 100 without a subcode. Keep
+	// subcoded errors visible: code 100/subcode 33, for example, means the
+	// requested object is unavailable, not that this metric can be skipped.
+	return errors.As(err, &providerErr) && providerErr.StatusCode == http.StatusBadRequest && providerErr.Code == "100" && providerErr.Subcode == ""
 }
 
 func addMetaInsights(target AnalyticsValues, response metaInsightsResponse) {

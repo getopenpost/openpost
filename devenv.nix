@@ -5,8 +5,47 @@
   ...
 }:
 
+let
+  worktreeId = builtins.substring 0 12 (builtins.hashString "sha256" (toString config.git.root));
+  appHost = "openpost-${worktreeId}.localhost";
+  backendPort = toString config.processes.backend.ports.http.value;
+in
 {
   dotenv.enable = true;
+
+  process.proxy.enable = true;
+  processes = {
+    backend = {
+      ports.http.allocate = 8080;
+      proxy.hostname = "openpost-api-${worktreeId}.localhost";
+      env = {
+        OPENPOST_PORT = backendPort;
+        OPENPOST_APP_URL = "http://${appHost}";
+        OPENPOST_PUBLIC_URL = "http://${appHost}";
+        OPENPOST_DATABASE_URL = "";
+        OPENPOST_DATABASE_URL_FILE = "";
+        DATABASE_URL = "";
+        DATABASE_URL_FILE = "";
+        OPENPOST_DATABASE_PATH = "file:${config.git.root}/.devenv/state/parallel-dev/openpost.db?cache=shared&mode=rwc";
+        OPENPOST_STORAGE_DRIVER = "local";
+        OPENPOST_MEDIA_PATH = "${config.git.root}/.devenv/state/parallel-dev/media";
+      };
+      exec = ''
+        mkdir -p "${config.git.root}/.devenv/state/parallel-dev"
+        cd "${config.git.root}/apps/server"
+        go run -tags dev ./cmd/openpost
+      '';
+    };
+    frontend = {
+      ports.http.allocate = 5173;
+      proxy.hostname = appHost;
+      env.OPENPOST_DEV_BACKEND_URL = "http://127.0.0.1:${backendPort}";
+      exec = ''
+        cd "${config.git.root}/apps/web"
+        bun run dev --host 127.0.0.1 --port ${toString config.processes.frontend.ports.http.value} --strictPort
+      '';
+    };
+  };
 
   packages = [
     pkgs.git
@@ -27,12 +66,14 @@
   # be resumed after a Hermes reboot without relying on /tmp or global state.
   # enterShell remaps linked worktrees to the primary checkout's same state
   # directory so temporary worktrees do not duplicate multi-gigabyte caches.
-  env.GOCACHE = "${config.git.root}/.devenv/state/go-build";
-  env.GOMODCACHE = "${config.git.root}/.devenv/state/go-mod";
-  # The module files pin the security-patched Go point release. Let the go
-  # command fetch that toolchain when nixpkgs trails the upstream patch.
-  env.GOTOOLCHAIN = lib.mkForce "auto";
-  env.BUN_INSTALL_CACHE_DIR = "${config.git.root}/.devenv/state/bun-cache";
+  env = {
+    GOCACHE = "${config.git.root}/.devenv/state/go-build";
+    GOMODCACHE = "${config.git.root}/.devenv/state/go-mod";
+    # The module files pin the security-patched Go point release. Let the go
+    # command fetch that toolchain when nixpkgs trails the upstream patch.
+    GOTOOLCHAIN = lib.mkForce "auto";
+    BUN_INSTALL_CACHE_DIR = "${config.git.root}/.devenv/state/bun-cache";
+  };
 
   scripts = {
     clean.exec = ''

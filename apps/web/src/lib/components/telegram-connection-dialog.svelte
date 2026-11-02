@@ -131,12 +131,12 @@
 					</p>
 				</div>
 				{#if error}<InlineNotice tone="error" message={error} />{/if}
-				<div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+				<Dialog.Footer>
 					<Button variant="outline" type="button" onclick={onClose}>{m.common_cancel()}</Button>
 					<Button class="min-h-11 sm:min-h-9" type="submit" disabled={pending}
 						>{pending ? m.common_loading() : m.accounts_telegram_generate()}</Button
 					>
-				</div>
+				</Dialog.Footer>
 			</form>
 		{/if}
 	</Dialog.Content>

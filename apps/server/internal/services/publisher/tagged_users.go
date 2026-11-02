@@ -36,7 +36,13 @@ func (s *Service) resolveRenditionTaggedUsers(ctx context.Context, workspaceID s
 		return fmt.Errorf("x tagged users %s cannot be resolved to user IDs by this publisher; use X user IDs", strings.Join(handles, ", "))
 	}
 	resolved, err := s.userResolutions.Resolve(ctx, workspaceID, "x", handles, func(resolveCtx context.Context, missing []string) (map[string]string, error) {
-		return resolver.ResolveTaggedUsernames(resolveCtx, token, missing)
+		reservation, err := s.reserveTaggedUserLookupCost(resolveCtx, workspaceID, int64(len(missing)))
+		if err != nil {
+			return nil, err
+		}
+		resolved, lookupErr := resolver.ResolveTaggedUsernames(resolveCtx, token, missing)
+		s.settleTaggedUserLookupCost(resolveCtx, reservation, lookupErr)
+		return resolved, lookupErr
 	})
 	if err != nil {
 		// The "required" wording classifies this as a validation failure so

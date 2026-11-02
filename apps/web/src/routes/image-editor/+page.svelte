@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { queryClient } from '$lib/query/client';
 	import { imageEditorErrorMessage } from '$lib/image-editor/animation-error-message';
 	import { appBranding } from '$lib/app-branding.svelte';
 	import { onMount } from 'svelte';
@@ -23,6 +24,7 @@
 	import { migrateGuestImageEditorDesign } from '$lib/image-editor/guest-migration';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { Button } from '$lib/components/ui/button';
+	import AppSelect from '$lib/components/app-select.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
@@ -56,6 +58,7 @@
 
 	let authState = $derived($auth);
 	let storageChoice = $state<'cloud' | 'local' | null>(null);
+	let trashOpen = $state(false);
 	const workspaceID = $derived(
 		authState.isAuthenticated ? (workspaceCtx.currentWorkspace?.id ?? '') : ''
 	);
@@ -70,16 +73,21 @@
 	const cloudDesigns = $derived(
 		workspaceID ? (cloudDesignsQuery.data?.pages.flatMap((page) => page.designs) ?? []) : []
 	);
-	const trashedDesignsQuery = createInfiniteQuery(() =>
+	const trashedDesignsOptions = $derived(
 		imageEditorDesignCatalogQueryOptions<WebImageEditorQueryData>(
 			imageEditorQueryAPI,
 			workspaceID,
 			{ limit: 24, trashed: true }
 		)
 	);
+	const trashedDesignsQuery = createInfiniteQuery(() => trashedDesignsOptions);
 	const trashedDesigns = $derived(
 		workspaceID ? (trashedDesignsQuery.data?.pages.flatMap((page) => page.designs) ?? []) : []
 	);
+	// A delete prunes every cached list, so the trash list restarts from the server.
+	function reloadTrashedDesigns() {
+		return queryClient.resetQueries({ queryKey: trashedDesignsOptions.queryKey, exact: true });
+	}
 	let restoring = $state('');
 	async function restoreDesign(id: string): Promise<void> {
 		if (restoring || !workspaceID) return;
@@ -325,7 +333,7 @@
 		const target = pendingDelete;
 		if (target.workspaceID) {
 			await deleteImageEditorDesign(target.workspaceID, target.id);
-			if (workspaceID === target.workspaceID) await trashedDesignsQuery.refetch();
+			if (workspaceID === target.workspaceID) await reloadTrashedDesigns();
 		} else {
 			await deleteGuestImageEditorDesign(target.id);
 			recentDesigns = recentDesigns.filter((design) => design.id !== target.id);
@@ -455,19 +463,33 @@
 
 <div class="image-editor-theme min-h-dvh bg-background text-foreground">
 	<EditorStart
-		kind="image"
 		title={m.editor_start_image_title()}
 		description={m.editor_start_image_description()}
 		bind:heading={pageHeading}
 	>
 		{#snippet utility()}
-			{#if !authState.isAuthenticated}<Button
-					href="/login?redirect=%2Fimage-editor"
+			{#if authState.isAuthenticated}<Button
+					href={resolveAppPath('/studio')}
 					variant="ghost"
-					size="sm">{m.landing_sign_in()}</Button
+					size="sm"
+				>
+					<ThemeIcon role="chevron-left" class="size-4" />
+					{m.editor_back_to_studio()}
+				</Button>{:else}<Button href="/login?redirect=%2Fimage-editor" variant="ghost" size="sm"
+					>{m.landing_sign_in()}</Button
 				>{/if}
 		{/snippet}
 		{#snippet actions()}
+			{#if workspaceID}<AppSelect
+					value={storageMode}
+					ariaLabel={m.editor_storage_destination()}
+					onValueChange={(value) => (storageChoice = value as 'cloud' | 'local')}
+					options={[
+						{ value: 'cloud', label: m.editor_storage_choice_cloud() },
+						{ value: 'local', label: m.editor_storage_choice_local() }
+					]}
+					class="h-8 w-36 text-xs"
+				/>{/if}
 			<Button
 				onclick={() => blankPreset && startPreset(blankPreset)}
 				disabled={Boolean(creating) || !enabled || !blankPreset}
@@ -494,26 +516,6 @@
 				onchange={() => void openImage()}
 			/>
 		{/snippet}
-
-		<div
-			class="mb-6 flex flex-wrap items-center gap-2"
-			role="group"
-			aria-label={m.editor_storage_destination()}
-		>
-			<span class="text-xs text-muted-foreground">{m.editor_storage_destination()}</span>
-			{#if workspaceID}<Button
-					size="sm"
-					variant={storageMode === 'cloud' ? 'secondary' : 'ghost'}
-					aria-pressed={storageMode === 'cloud'}
-					onclick={() => (storageChoice = 'cloud')}>{m.editor_storage_choice_cloud()}</Button
-				>{/if}
-			<Button
-				size="sm"
-				variant={storageMode === 'local' ? 'secondary' : 'ghost'}
-				aria-pressed={storageMode === 'local'}
-				onclick={() => (storageChoice = 'local')}>{m.editor_storage_choice_local()}</Button
-			>
-		</div>
 
 		{#if error}
 			<InlineNotice tone="error" message={error} class="mt-6 max-w-3xl" />
@@ -637,47 +639,62 @@
 			</section>
 		{/if}
 		{#if workspaceID}
-			<section class="mt-10 mb-10" aria-labelledby="image-trash-heading">
-				<SectionHeading level={2} size="section" id="image-trash-heading">
+			<section class="mt-10 mb-10" aria-label={m.media_lifecycle_trash()}>
+				<Button
+					variant="ghost"
+					size="sm"
+					class="-ml-2"
+					aria-expanded={trashOpen}
+					onclick={() => {
+						trashOpen = !trashOpen;
+						if (trashOpen && workspaceID) void reloadTrashedDesigns();
+					}}
+				>
+					<ThemeIcon
+						role="chevron-right"
+						class="size-4 transition-transform {trashOpen ? 'rotate-90' : ''}"
+					/>
 					{m.media_lifecycle_trash()}
-				</SectionHeading>
-				<p class="mt-1 text-sm text-muted-foreground">
-					{m.image_editor_trash_restore_independent()}
-				</p>
-				{#if trashedDesignsQuery.isPending}<p
-						role="status"
-						class="mt-3 text-sm text-muted-foreground"
-					>
-						{m.common_loading()}
-					</p>{/if}
-				{#if trashedDesignsQuery.isError}<InlineNotice
-						tone="error"
-						message={m.image_editor_public_load_failed()}
-					>
-						{#snippet actions()}<Button
-								variant="outline"
-								onclick={() => void trashedDesignsQuery.refetch()}>{m.common_retry()}</Button
-							>{/snippet}
-					</InlineNotice>{/if}
-				<div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-					{#each trashedDesigns as design (design.id)}
-						<div class="flex min-w-0 items-center gap-3 rounded-xl border bg-card p-3">
-							<p class="min-w-0 flex-1 text-sm font-medium break-words">{design.title}</p>
-							{#if workspaceCtx.currentWorkspace?.can_edit}<Button
+				</Button>
+				{#if trashOpen}
+					<p class="mt-1 text-sm text-muted-foreground">
+						{m.image_editor_trash_restore_independent()}
+					</p>
+					{#if trashedDesignsQuery.isPending}<p
+							role="status"
+							class="mt-3 text-sm text-muted-foreground"
+						>
+							{m.common_loading()}
+						</p>{/if}
+					{#if trashedDesignsQuery.isError}<InlineNotice
+							tone="error"
+							message={m.image_editor_public_load_failed()}
+						>
+							{#snippet actions()}<Button
 									variant="outline"
-									disabled={Boolean(restoring)}
-									onclick={() => void restoreDesign(design.id)}>{m.image_editor_restore()}</Button
-								>{/if}
-						</div>
-					{/each}
-				</div>
-				{#if trashedDesignsQuery.hasNextPage}<Button
-						class="mt-3"
-						variant="outline"
-						disabled={trashedDesignsQuery.isFetchingNextPage}
-						onclick={() => void trashedDesignsQuery.fetchNextPage()}
-						>{m.editors_load_more_designs()}</Button
-					>{/if}
+									onclick={() => void trashedDesignsQuery.refetch()}>{m.common_retry()}</Button
+								>{/snippet}
+						</InlineNotice>{/if}
+					<div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+						{#each trashedDesigns as design (design.id)}
+							<div class="flex min-w-0 items-center gap-3 rounded-xl border bg-card p-3">
+								<p class="min-w-0 flex-1 text-sm font-medium break-words">{design.title}</p>
+								{#if workspaceCtx.currentWorkspace?.can_edit}<Button
+										variant="outline"
+										disabled={Boolean(restoring)}
+										onclick={() => void restoreDesign(design.id)}>{m.image_editor_restore()}</Button
+									>{/if}
+							</div>
+						{/each}
+					</div>
+					{#if trashedDesignsQuery.hasNextPage}<Button
+							class="mt-3"
+							variant="outline"
+							disabled={trashedDesignsQuery.isFetchingNextPage}
+							onclick={() => void trashedDesignsQuery.fetchNextPage()}
+							>{m.editors_load_more_designs()}</Button
+						>{/if}
+				{/if}
 			</section>
 		{/if}
 

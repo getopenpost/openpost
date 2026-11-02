@@ -8,14 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/accountavatar"
@@ -261,7 +259,7 @@ func assembleSaveAccountRecords(inputs []SaveAccountInput, existingAccounts []*m
 		account.AccountUsername = input.AccountUsername
 		account.ProfileFetchedAt = input.ProfileFetchedAt
 		accountAvatarURL := strings.TrimSpace(input.AccountAvatarURL)
-		if accountAvatarURL == "" && existing != nil && !(input.PlatformName == "youtube" && !input.ProfileFetchedAt.IsZero()) {
+		if accountAvatarURL == "" && existing != nil && (input.PlatformName != "youtube" || input.ProfileFetchedAt.IsZero()) {
 			accountAvatarURL = existing.AccountAvatarURL
 		}
 		account.AccountAvatarURL = accountAvatarURL
@@ -291,13 +289,9 @@ func (s *AccountSaver) persistSaveAccounts(ctx context.Context, first SaveAccoun
 			return err
 		}
 		var amount int64
-		var active []models.SocialAccount
-		if err := tx.NewSelect().Model(&active).Where("workspace_id = ? AND is_active = ?", first.WorkspaceID, true).Scan(txCtx); err != nil {
+		used, err := activeAccountSlugs(txCtx, tx, first.WorkspaceID)
+		if err != nil {
 			return err
-		}
-		used := make(map[string]string, len(active))
-		for _, account := range active {
-			used[account.Slug] = account.ID
 		}
 		for index, account := range accounts {
 			existing, err := findExistingAccountWithDB(txCtx, tx, SaveAccountInput{WorkspaceID: account.WorkspaceID, PlatformName: account.Platform, AccountID: account.AccountID, InstanceURL: account.InstanceURL})
@@ -308,13 +302,11 @@ func (s *AccountSaver) persistSaveAccounts(ctx context.Context, first SaveAccoun
 				amount++
 			}
 			if existing != nil {
-				retiredAvatar := s.reconcileAccountAvatar(account, existing, cachedAvatars[index])
-				retiredAvatars = append(retiredAvatars, retiredAvatar)
-				if account.Platform == "youtube" && accountavatar.IsCached(retiredAvatar) && retiredAvatar != account.AccountAvatarURL {
-					if _, err := jobregistry.EnqueueStorageDeletes(txCtx, tx, []string{filepath.Base(retiredAvatar)}); err != nil {
-						return err
-					}
+				retiredAvatar, err := s.retirePreviousAccountAvatar(txCtx, tx, account, existing, cachedAvatars[index])
+				if err != nil {
+					return err
 				}
+				retiredAvatars = append(retiredAvatars, retiredAvatar)
 				account.ID = existing.ID
 				account.CreatedAt = existing.CreatedAt
 				account.IsNewlyInserted = false
@@ -325,10 +317,8 @@ func (s *AccountSaver) persistSaveAccounts(ctx context.Context, first SaveAccoun
 			}
 			used[account.Slug] = account.ID
 		}
-		if amount > 0 {
-			if err := s.checkSocialAccountQuotaWithDB(txCtx, tx, first.UserID, first.WorkspaceID, amount); err != nil {
-				return err
-			}
+		if err := s.checkSocialAccountQuotaWithDB(txCtx, tx, first.UserID, first.WorkspaceID, amount); err != nil {
+			return err
 		}
 		for _, prepared := range preparedGrants {
 			if err := persistAuthorizationGrant(txCtx, tx, prepared); err != nil {
@@ -338,6 +328,18 @@ func (s *AccountSaver) persistSaveAccounts(ctx context.Context, first SaveAccoun
 		return persistSaveAccountRows(txCtx, tx, first, accounts, isExisting, now)
 	})
 	return retiredAvatars, err
+}
+
+func activeAccountSlugs(ctx context.Context, db bun.IDB, workspaceID string) (map[string]string, error) {
+	var active []models.SocialAccount
+	if err := db.NewSelect().Model(&active).Where("workspace_id = ? AND is_active = ?", workspaceID, true).Scan(ctx); err != nil {
+		return nil, err
+	}
+	used := make(map[string]string, len(active))
+	for _, account := range active {
+		used[account.Slug] = account.ID
+	}
+	return used, nil
 }
 
 func persistSaveAccountRows(txCtx context.Context, tx bun.Tx, first SaveAccountInput, accounts []*models.SocialAccount, isExisting []bool, now time.Time) error {
@@ -827,6 +829,9 @@ func (s *AccountSaver) checkSocialAccountQuota(ctx context.Context, userID, work
 	return s.checkSocialAccountQuotaWithDB(ctx, s.db, userID, workspaceID, amount)
 }
 func (s *AccountSaver) checkSocialAccountQuotaWithDB(ctx context.Context, db bun.IDB, userID, workspaceID string, amount int64) error {
+	if amount <= 0 {
+		return nil
+	}
 	current, err := db.NewSelect().
 		Model((*models.SocialAccount)(nil)).
 		Where("workspace_id = ?", workspaceID).

@@ -75,7 +75,7 @@ func TestYouTubeDisconnectPurgesFreshCacheAndPreservesReceipts(t *testing.T) {
 	require.Empty(t, item.AuthorName)
 	require.NoError(t, db.NewSelect().Model(&notification).WherePK().Scan(ctx))
 	require.NotContains(t, notification.PayloadJSON, "Fetched author", "notifications must not retain fetched author data")
-	require.Equal(t, "remote-comment", item.RemoteID)
+	require.Equal(t, "retired:"+item.ID, item.RemoteID, "receipts retain only the local operation identity")
 	require.False(t, item.LastSeenAt.After(now.Add(-dataretention.YouTubeCacheAge)))
 	var jobID string
 	require.NoError(t, db.NewSelect().Table("engagement_operations").Column("job_id").Where("item_id = ?", item.ID).Scan(ctx, &jobID))

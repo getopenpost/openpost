@@ -1,10 +1,11 @@
 package migrations
 
 import (
-	"github.com/stretchr/testify/require"
-	"github.com/uptrace/bun"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
 )
 
 func TestProfileFetchedAtMigration(t *testing.T) {

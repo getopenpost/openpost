@@ -69,7 +69,7 @@ func PurgeYouTube(ctx context.Context, db bun.IDB, now time.Time, workspaceID, a
 		}
 	}
 	// Keep comment operation receipts stable. Delete ordinary fetched comments;
-	// receipt-backed items retain only their identity and authored operation state.
+	// receipt-backed items retain only their local identity and authored operation state.
 	items := db.NewSelect().Model((*models.EngagementItem)(nil)).Column("id").Where("platform = ?", "youtube")
 	if workspaceID != "" {
 		items = items.Where("workspace_id = ?", workspaceID)
@@ -95,6 +95,8 @@ func PurgeYouTube(ctx context.Context, db bun.IDB, now time.Time, workspaceID, a
 		return fmt.Errorf("clear YouTube automation source cache: %w", err)
 	}
 	q := db.NewUpdate().Model((*models.EngagementItem)(nil)).Where("id IN (?)", items).
+		Set("remote_id = ? || id", "retired:").Set("native_remote_id = ''").
+		Set("parent_remote_id = ''").Set("conversation_remote_id = ''").Set("remote_created_at = NULL").
 		Set("author_remote_id = ''").Set("author_name = ''").Set("author_handle = ''").Set("author_avatar_url = ''").
 		Set("body = ''").Set("attachments_json = '[]'").Set("subject_json = '{}'").
 		Set("can_reply = ?", false).Set("can_hide = ?", false).Set("can_delete = ?", false).
@@ -176,29 +178,9 @@ func retireYouTubeAccount(ctx context.Context, db bun.IDB, now time.Time, worksp
 	if err != nil {
 		return err
 	}
-	if account.IsActive && account.OAuthGrantID != "" {
-		var grant models.OAuthGrant
-		if err := db.NewSelect().Model(&grant).Where("id = ? AND workspace_id = ?", account.OAuthGrantID, workspaceID).Scan(ctx); err != nil {
-			return err
-		}
-		if grant.ValidationStatus == "refresh_failed" {
-			result, err := db.NewUpdate().Model((*models.OAuthGrant)(nil)).
-				Set("validation_status = 'revoked'").Set("revoked_at = ?", now).
-				Set("revocation_reason = 'youtube_profile_expired'").
-				Set("access_token_encrypted = ?", []byte{}).Set("refresh_token_encrypted = ?", []byte{}).
-				Set("access_token_expires_at = NULL").Set("refresh_token_expires_at = NULL").
-				Set("token_version = token_version + 1").Set("refresh_lease_owner = ''").Set("refresh_lease_expires_at = NULL").
-				Where("id = ? AND workspace_id = ? AND token_version = ? AND validation_status = ?", grant.ID, workspaceID, grant.TokenVersion, "refresh_failed").Exec(ctx)
-			if err != nil {
-				return err
-			}
-			n, err := result.RowsAffected()
-			if err != nil || n == 0 {
-				return err
-			}
-		} else if grant.ValidationStatus != "revoked" {
-			return nil
-		}
+	allowed, err := authorizeYouTubeRetirement(ctx, db, now, account)
+	if err != nil || !allowed {
+		return err
 	}
 	if err := PurgeYouTube(ctx, db, now, workspaceID, accountID); err != nil {
 		return err
@@ -230,4 +212,36 @@ func retireYouTubeAccount(ctx context.Context, db bun.IDB, now time.Time, worksp
 		Set("slug = ?", "youtube-"+account.ID).Set("access_token_encrypted = ?", []byte{}).Set("refresh_token_encrypted = ?", []byte{}).Set("token_expires_at = NULL").
 		Where("id = ? AND workspace_id = ? AND (is_active = ? OR oauth_grant_id IN (SELECT id FROM oauth_grants WHERE validation_status = ?))", accountID, workspaceID, false, "revoked").Exec(ctx)
 	return err
+}
+
+// authorizeYouTubeRetirement fences a deadline-based retirement against a
+// successful concurrent credential rotation. Inactive destinations do not
+// revoke a shared grant that other destinations still need.
+func authorizeYouTubeRetirement(ctx context.Context, db bun.IDB, now time.Time, account models.SocialAccount) (bool, error) {
+	if !account.IsActive || account.OAuthGrantID == "" {
+		return true, nil
+	}
+	var grant models.OAuthGrant
+	if err := db.NewSelect().Model(&grant).Where("id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).Scan(ctx); err != nil {
+		return false, err
+	}
+	if grant.ValidationStatus == "refresh_failed" {
+		result, err := db.NewUpdate().Model((*models.OAuthGrant)(nil)).
+			Set("validation_status = 'revoked'").Set("revoked_at = ?", now).
+			Set("revocation_reason = 'youtube_profile_expired'").
+			Set("access_token_encrypted = ?", []byte{}).Set("refresh_token_encrypted = ?", []byte{}).
+			Set("access_token_expires_at = NULL").Set("refresh_token_expires_at = NULL").
+			Set("token_version = token_version + 1").Set("refresh_lease_owner = ''").Set("refresh_lease_expires_at = NULL").
+			Where("id = ? AND workspace_id = ? AND token_version = ? AND validation_status = ?", grant.ID, account.WorkspaceID, grant.TokenVersion, "refresh_failed").Exec(ctx)
+		if err != nil {
+			return false, err
+		}
+		n, err := result.RowsAffected()
+		if err != nil || n == 0 {
+			return false, err
+		}
+	} else if grant.ValidationStatus != "revoked" {
+		return false, nil
+	}
+	return true, nil
 }

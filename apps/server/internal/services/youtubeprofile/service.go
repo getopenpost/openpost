@@ -72,30 +72,39 @@ func (s *Service) enqueue(ctx context.Context, kind, workspace, accountID string
 	return err
 }
 func (s *Service) HandleJob(ctx context.Context, kind, payload string) error {
-	if kind == jobregistry.TypeYouTubeProfileSweep {
-		// Queue the next sweep first so provider outages cannot stop retention work.
-		if err := s.ScheduleSweep(ctx, s.now().Add(sweepInterval)); err != nil {
-			return err
-		}
-		if err := dataretention.ClearRevokedYouTubeMetadata(ctx, s.db, s.now(), ""); err != nil {
-			return err
-		}
-		if err := dataretention.PurgeYouTube(ctx, s.db, s.now(), "", ""); err != nil {
-			return err
-		}
-		var accounts []models.SocialAccount
-		if err := s.db.NewSelect().Model(&accounts).Where("platform = ? AND is_active = ?", "youtube", true).Where("profile_fetched_at IS NULL OR profile_fetched_at <= ?", s.now().Add(-RefreshAge)).Scan(ctx); err != nil {
-			return err
-		}
-		var result error
-		for _, a := range accounts {
-			result = errors.Join(result, s.enqueue(ctx, jobregistry.TypeYouTubeProfileAccount, a.WorkspaceID, a.ID, s.now()))
-		}
-		return result
-	}
-	if kind != jobregistry.TypeYouTubeProfileAccount {
+	switch kind {
+	case jobregistry.TypeYouTubeProfileSweep:
+		return s.handleSweep(ctx)
+	case jobregistry.TypeYouTubeProfileAccount:
+		return s.handleAccountJob(ctx, payload)
+	default:
 		return fmt.Errorf("unsupported YouTube profile job %q", kind)
 	}
+}
+
+func (s *Service) handleSweep(ctx context.Context) error {
+	// Queue the next sweep first so provider outages cannot stop retention work.
+	if err := s.ScheduleSweep(ctx, s.now().Add(sweepInterval)); err != nil {
+		return err
+	}
+	if err := dataretention.ClearRevokedYouTubeMetadata(ctx, s.db, s.now(), ""); err != nil {
+		return err
+	}
+	if err := dataretention.PurgeYouTube(ctx, s.db, s.now(), "", ""); err != nil {
+		return err
+	}
+	var accounts []models.SocialAccount
+	if err := s.db.NewSelect().Model(&accounts).Where("platform = ? AND is_active = ?", "youtube", true).Where("profile_fetched_at IS NULL OR profile_fetched_at <= ?", s.now().Add(-RefreshAge)).Scan(ctx); err != nil {
+		return err
+	}
+	var result error
+	for _, a := range accounts {
+		result = errors.Join(result, s.enqueue(ctx, jobregistry.TypeYouTubeProfileAccount, a.WorkspaceID, a.ID, s.now()))
+	}
+	return result
+}
+
+func (s *Service) handleAccountJob(ctx context.Context, payload string) error {
 	var input struct {
 		AccountID string `json:"account_id"`
 	}
@@ -112,6 +121,10 @@ func (s *Service) HandleJob(ctx context.Context, kind, payload string) error {
 	if !account.ProfileFetchedAt.IsZero() && account.ProfileFetchedAt.After(s.now().Add(-RefreshAge)) {
 		return nil
 	}
+	return s.refreshAuthorizedAccount(ctx, account)
+}
+
+func (s *Service) refreshAuthorizedAccount(ctx context.Context, account models.SocialAccount) error {
 	s.mu.RLock()
 	adapter := s.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
 	s.mu.RUnlock()
@@ -120,20 +133,30 @@ func (s *Service) HandleJob(ctx context.Context, kind, payload string) error {
 	}
 	// Capture before token acquisition. A refresh or reconnect that rotates the
 	// grant makes a later failure from this attempt obsolete.
-	var version int64
-	if account.OAuthGrantID != "" {
-		if err := s.db.NewSelect().Model((*models.OAuthGrant)(nil)).Column("token_version").Where("id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).Scan(ctx, &version); err != nil {
-			return err
-		}
+	version, err := s.grantVersion(ctx, account)
+	if err != nil {
+		return err
 	}
 	token, err := s.tokens.GetValidAccessToken(ctx, account.ID)
 	if err != nil {
 		return errors.Join(err, dataretention.RetireYouTubeAccount(ctx, s.db, s.now(), account.WorkspaceID, account.ID))
 	}
-	err = s.Refresh(ctx, account, adapter, token)
-	if err == nil {
-		return nil
+	if err := s.Refresh(ctx, account, adapter, token); err != nil {
+		return s.handleRefreshFailure(ctx, account, version, err)
 	}
+	return nil
+}
+
+func (s *Service) grantVersion(ctx context.Context, account models.SocialAccount) (int64, error) {
+	if account.OAuthGrantID == "" {
+		return 0, nil
+	}
+	var version int64
+	err := s.db.NewSelect().Model((*models.OAuthGrant)(nil)).Column("token_version").Where("id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).Scan(ctx, &version)
+	return version, err
+}
+
+func (s *Service) handleRefreshFailure(ctx context.Context, account models.SocialAccount, version int64, err error) error {
 	var providerError *platform.HTTPError
 	if errors.As(err, &providerError) && providerError.StatusCode == 401 && account.OAuthGrantID != "" {
 		if markErr := s.recordAuthorizationFailure(ctx, account, version); markErr != nil {
@@ -146,29 +169,51 @@ func (s *Service) HandleJob(ctx context.Context, kind, payload string) error {
 // Refresh also owns explicit profile refreshes, sharing the same identity and
 // authorization fences with background work. Only a successful fetch renews age.
 func (s *Service) Refresh(ctx context.Context, account models.SocialAccount, adapter platform.Adapter, token string) error {
+	profile, err := fetchProfile(ctx, account, adapter, token)
+	if err != nil {
+		return err
+	}
+	fetchedAt := s.now()
+	avatar, err := s.cacheAvatar(ctx, account.ID, profile.AvatarURL)
+	if err != nil {
+		return err
+	}
+	err = s.persistProfile(ctx, account, profile.Username, avatar, fetchedAt)
+	if err != nil && s.avatars != nil && accountavatar.IsCached(avatar) {
+		// Failed publication of the new cache still requires durable object cleanup.
+		_, cleanupErr := jobregistry.EnqueueStorageDeletes(ctx, s.db, []string{filepath.Base(avatar)})
+		return errors.Join(err, cleanupErr)
+	}
+	return err
+}
+
+func fetchProfile(ctx context.Context, account models.SocialAccount, adapter platform.Adapter, token string) (*platform.UserProfile, error) {
 	refresher, ok := adapter.(platform.AccountMetadataRefresher)
 	if !ok {
-		return platform.ErrAccountMetadataRefreshUnsupported
+		return nil, platform.ErrAccountMetadataRefreshUnsupported
 	}
 	state := map[string]string{}
 	_ = json.Unmarshal([]byte(account.CapabilityState), &state)
 	profile, err := refresher.RefreshAccountMetadata(ctx, token, platform.AccountMetadataRequest{AccountID: account.AccountID, CapabilityState: state})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if profile == nil || profile.ID != account.AccountID {
-		return ErrIdentityChanged
+		return nil, ErrIdentityChanged
 	}
-	fetchedAt := s.now()
-	avatar := profile.AvatarURL
-	if s.avatars != nil && avatar != "" {
-		avatar, err = s.avatars.CacheAvatar(ctx, account.ID, avatar)
-		if err != nil {
-			return err
-		}
+	return profile, nil
+}
+
+func (s *Service) cacheAvatar(ctx context.Context, accountID, avatar string) (string, error) {
+	if s.avatars == nil || avatar == "" {
+		return avatar, nil
 	}
-	err = organizationguard.WithWorkspace(ctx, s.db, account.WorkspaceID, func(ctx context.Context, db bun.IDB) error {
-		q := db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("account_username = ?", profile.Username).Set("account_avatar_url = ?", avatar).Set("profile_fetched_at = ?", fetchedAt).
+	return s.avatars.CacheAvatar(ctx, accountID, avatar)
+}
+
+func (s *Service) persistProfile(ctx context.Context, account models.SocialAccount, username, avatar string, fetchedAt time.Time) error {
+	return organizationguard.WithWorkspace(ctx, s.db, account.WorkspaceID, func(ctx context.Context, db bun.IDB) error {
+		q := db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("account_username = ?", username).Set("account_avatar_url = ?", avatar).Set("profile_fetched_at = ?", fetchedAt).
 			Where("id = ? AND workspace_id = ? AND account_id = ? AND oauth_grant_id = ? AND is_active = ?", account.ID, account.WorkspaceID, account.AccountID, account.OAuthGrantID, true).
 			Where("account_username = ? AND account_avatar_url = ?", account.AccountUsername, account.AccountAvatarURL)
 		if !account.ProfileFetchedAt.IsZero() {
@@ -196,12 +241,6 @@ func (s *Service) Refresh(ctx context.Context, account models.SocialAccount, ada
 		}
 		return nil
 	})
-	if err != nil && s.avatars != nil && accountavatar.IsCached(avatar) {
-		// Failed publication of the new cache still requires durable object cleanup.
-		_, cleanupErr := jobregistry.EnqueueStorageDeletes(ctx, s.db, []string{filepath.Base(avatar)})
-		return errors.Join(err, cleanupErr)
-	}
-	return err
 }
 
 // recordAuthorizationFailure records only the credential version used by this

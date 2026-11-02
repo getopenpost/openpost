@@ -2845,20 +2845,7 @@ func (h *OAuthHandler) RefreshAccountMetadata(api huma.API) {
 
 func (h *OAuthHandler) refreshAccountProfile(ctx context.Context, account models.SocialAccount, adapter platform.Adapter, accessToken string) (models.SocialAccount, error) {
 	if account.Platform == "youtube" {
-		service := youtubeprofile.NewService(h.db, h.tokenSource, h.accountAvatars)
-		if err := service.Refresh(ctx, account, adapter, accessToken); err != nil {
-			if errors.Is(err, youtubeprofile.ErrIdentityChanged) {
-				return models.SocialAccount{}, huma.Error409Conflict("the provider returned a different account identity; reconnect this account instead")
-			}
-			if errors.Is(err, youtubeprofile.ErrAccountChanged) {
-				return models.SocialAccount{}, huma.Error409Conflict("the account changed while its profile was refreshing; try again")
-			}
-			if errors.Is(err, platform.ErrAccountMetadataRefreshUnsupported) {
-				return models.SocialAccount{}, huma.Error501NotImplemented("profile refresh is unavailable for this account type")
-			}
-			return models.SocialAccount{}, huma.Error502BadGateway("the provider profile could not be refreshed")
-		}
-		return h.fetchUpdatedAccount(ctx, account.ID)
+		return h.refreshYouTubeAccountProfile(ctx, account, adapter, accessToken)
 	}
 	profile, err := refreshProviderAccountMetadata(ctx, adapter, accessToken, account)
 	if err != nil {
@@ -2893,6 +2880,23 @@ func (h *OAuthHandler) refreshAccountProfile(ctx context.Context, account models
 	}
 	if cachedAvatarURL != "" && account.AccountAvatarURL != cachedAvatarURL {
 		_ = h.accountAvatars.Delete(ctx, account.AccountAvatarURL)
+	}
+	return h.fetchUpdatedAccount(ctx, account.ID)
+}
+
+func (h *OAuthHandler) refreshYouTubeAccountProfile(ctx context.Context, account models.SocialAccount, adapter platform.Adapter, accessToken string) (models.SocialAccount, error) {
+	service := youtubeprofile.NewService(h.db, h.tokenSource, h.accountAvatars)
+	if err := service.Refresh(ctx, account, adapter, accessToken); err != nil {
+		if errors.Is(err, youtubeprofile.ErrIdentityChanged) {
+			return models.SocialAccount{}, huma.Error409Conflict("the provider returned a different account identity; reconnect this account instead")
+		}
+		if errors.Is(err, youtubeprofile.ErrAccountChanged) {
+			return models.SocialAccount{}, huma.Error409Conflict("the account changed while its profile was refreshing; try again")
+		}
+		if errors.Is(err, platform.ErrAccountMetadataRefreshUnsupported) {
+			return models.SocialAccount{}, huma.Error501NotImplemented("profile refresh is unavailable for this account type")
+		}
+		return models.SocialAccount{}, huma.Error502BadGateway("the provider profile could not be refreshed")
 	}
 	return h.fetchUpdatedAccount(ctx, account.ID)
 }
@@ -3098,29 +3102,12 @@ func (h *OAuthHandler) DisconnectAccount(api huma.API) {
 					return err
 				}
 			}
-			lockResult, err := tx.NewUpdate().Model((*models.OAuthGrant)(nil)).
-				Set("updated_at = updated_at").
-				Where("id = ? AND workspace_id = ? AND revoked_at IS NULL", account.OAuthGrantID, account.WorkspaceID).
-				Exec(txCtx)
-			if err != nil {
+			if err := lockActiveAccountGrant(txCtx, tx, account); err != nil {
 				return err
-			}
-			locked, err := lockResult.RowsAffected()
-			if err != nil {
-				return err
-			}
-			if locked != 1 {
-				return sql.ErrNoRows
 			}
 
-			activeDestinations, err := tx.NewSelect().Model((*models.SocialAccount)(nil)).
-				Where("oauth_grant_id = ? AND workspace_id = ? AND is_active = ?", account.OAuthGrantID, account.WorkspaceID, true).
-				Count(txCtx)
-			if err != nil {
+			if err := requireOtherActiveGrantDestination(txCtx, tx, account); err != nil {
 				return err
-			}
-			if activeDestinations <= 1 {
-				return errLastGrantDestination
 			}
 
 			result, err := tx.NewUpdate().Model((*models.SocialAccount)(nil)).
@@ -3156,6 +3143,37 @@ func (h *OAuthHandler) DisconnectAccount(api huma.API) {
 	})
 }
 
+func requireOtherActiveGrantDestination(ctx context.Context, db bun.IDB, account models.SocialAccount) error {
+	activeDestinations, err := db.NewSelect().Model((*models.SocialAccount)(nil)).
+		Where("oauth_grant_id = ? AND workspace_id = ? AND is_active = ?", account.OAuthGrantID, account.WorkspaceID, true).
+		Count(ctx)
+	if err != nil {
+		return err
+	}
+	if activeDestinations <= 1 {
+		return errLastGrantDestination
+	}
+	return nil
+}
+
+func lockActiveAccountGrant(ctx context.Context, db bun.IDB, account models.SocialAccount) error {
+	lockResult, err := db.NewUpdate().Model((*models.OAuthGrant)(nil)).
+		Set("updated_at = updated_at").
+		Where("id = ? AND workspace_id = ? AND revoked_at IS NULL", account.OAuthGrantID, account.WorkspaceID).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	locked, err := lockResult.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if locked != 1 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "revoke-account-grant",
@@ -3183,76 +3201,9 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 				}
 			}
 			if account.OAuthGrantID == "" {
-				_, err := tx.NewUpdate().Model((*models.SocialAccount)(nil)).
-					Set("is_active = ?", false).
-					Set("access_token_encrypted = ?", []byte{}).
-					Set("refresh_token_encrypted = ?", []byte{}).
-					Set("token_expires_at = NULL").
-					Set("error_message = ?", "Provider authorization revoked").
-					Where("id = ?", account.ID).
-					Exec(txCtx)
-				if err != nil {
-					return err
-				}
-				if account.Platform == "youtube" {
-					return dataretention.RetireYouTubeAccount(txCtx, tx, now, account.WorkspaceID, account.ID)
-				}
-				return nil
+				return revokeLegacyAccountGrant(txCtx, tx, account, now)
 			}
-
-			result, err := tx.NewUpdate().Model((*models.OAuthGrant)(nil)).
-				Set("access_token_encrypted = ?", []byte{}).
-				Set("refresh_token_encrypted = ?", []byte{}).
-				Set("access_token_expires_at = NULL").
-				Set("refresh_token_expires_at = NULL").
-				Set("token_version = token_version + 1").
-				Set("refresh_lease_owner = ''").
-				Set("refresh_lease_expires_at = NULL").
-				Set("revoked_by_id = ?", userID).
-				Set("revocation_reason = ?", "user_revoked").
-				Set("revoked_at = ?", now).
-				Set("validation_status = ?", "revoked").
-				Set("updated_at = ?", now).
-				Where("id = ? AND workspace_id = ? AND revoked_at IS NULL", account.OAuthGrantID, account.WorkspaceID).
-				Exec(txCtx)
-			if err != nil {
-				return err
-			}
-			rows, err := result.RowsAffected()
-			if err != nil {
-				return err
-			}
-			if rows == 0 {
-				var exists int
-				if err := tx.NewSelect().Model((*models.OAuthGrant)(nil)).
-					ColumnExpr("COUNT(*)").
-					Where("id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).
-					Scan(txCtx, &exists); err != nil {
-					return err
-				}
-				if exists == 0 {
-					return sql.ErrNoRows
-				}
-			}
-			if _, err := tx.NewUpdate().Model((*models.SocialAccount)(nil)).
-				Set("is_active = ?", false).
-				Set("error_message = ?", "Provider authorization revoked").
-				Where("oauth_grant_id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).
-				Exec(txCtx); err != nil {
-				return err
-			}
-			if account.Platform == "youtube" {
-				var accounts []models.SocialAccount
-				if err := tx.NewSelect().Model(&accounts).Where("oauth_grant_id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).Scan(txCtx); err != nil {
-					return err
-				}
-				for _, linked := range accounts {
-					if err := dataretention.RetireYouTubeAccount(txCtx, tx, now, linked.WorkspaceID, linked.ID); err != nil {
-						return err
-					}
-				}
-			}
-			return tokenmanager.CancelGrantRefreshJobs(txCtx, tx, account.OAuthGrantID)
+			return revokeSharedAccountGrant(txCtx, tx, account, userID, now)
 		}); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, huma.Error404NotFound("provider grant not found")
@@ -3261,6 +3212,80 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 		}
 		return nil, nil
 	})
+}
+
+func revokeLegacyAccountGrant(ctx context.Context, db bun.IDB, account models.SocialAccount, now time.Time) error {
+	_, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).
+		Set("is_active = ?", false).
+		Set("access_token_encrypted = ?", []byte{}).
+		Set("refresh_token_encrypted = ?", []byte{}).
+		Set("token_expires_at = NULL").
+		Set("error_message = ?", "Provider authorization revoked").
+		Where("id = ?", account.ID).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if account.Platform == "youtube" {
+		return dataretention.RetireYouTubeAccount(ctx, db, now, account.WorkspaceID, account.ID)
+	}
+	return nil
+}
+
+func revokeSharedAccountGrant(ctx context.Context, db bun.IDB, account models.SocialAccount, userID string, now time.Time) error {
+	result, err := db.NewUpdate().Model((*models.OAuthGrant)(nil)).
+		Set("access_token_encrypted = ?", []byte{}).
+		Set("refresh_token_encrypted = ?", []byte{}).
+		Set("access_token_expires_at = NULL").
+		Set("refresh_token_expires_at = NULL").
+		Set("token_version = token_version + 1").
+		Set("refresh_lease_owner = ''").
+		Set("refresh_lease_expires_at = NULL").
+		Set("revoked_by_id = ?", userID).
+		Set("revocation_reason = ?", "user_revoked").
+		Set("revoked_at = ?", now).
+		Set("validation_status = ?", "revoked").
+		Set("updated_at = ?", now).
+		Where("id = ? AND workspace_id = ? AND revoked_at IS NULL", account.OAuthGrantID, account.WorkspaceID).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		var exists int
+		if err := db.NewSelect().Model((*models.OAuthGrant)(nil)).
+			ColumnExpr("COUNT(*)").
+			Where("id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).
+			Scan(ctx, &exists); err != nil {
+			return err
+		}
+		if exists == 0 {
+			return sql.ErrNoRows
+		}
+	}
+	if _, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).
+		Set("is_active = ?", false).
+		Set("error_message = ?", "Provider authorization revoked").
+		Where("oauth_grant_id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).
+		Exec(ctx); err != nil {
+		return err
+	}
+	if account.Platform == "youtube" {
+		var accounts []models.SocialAccount
+		if err := db.NewSelect().Model(&accounts).Where("oauth_grant_id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).Scan(ctx); err != nil {
+			return err
+		}
+		for _, linked := range accounts {
+			if err := dataretention.RetireYouTubeAccount(ctx, db, now, linked.WorkspaceID, linked.ID); err != nil {
+				return err
+			}
+		}
+	}
+	return tokenmanager.CancelGrantRefreshJobs(ctx, db, account.OAuthGrantID)
 }
 
 func (h *OAuthHandler) revokeProviderAuthorization(ctx context.Context, account models.SocialAccount) error {

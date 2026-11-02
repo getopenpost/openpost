@@ -572,12 +572,12 @@
 
 	function statusBadgeLabel(post: ActivityItem): string {
 		const label = statusLabel(post);
-		const tabLabels: Record<ActivityTab, string> = {
+		const tabLabels = {
 			scheduled: m.activity_tab_scheduled(),
 			published: m.activity_tab_published(),
 			failed: m.activity_tab_failed(),
 			drafts: m.activity_tab_drafts()
-		};
+		} satisfies Record<ActivityTab, string>;
 		return label === tabLabels[activeTab] ? '' : label;
 	}
 

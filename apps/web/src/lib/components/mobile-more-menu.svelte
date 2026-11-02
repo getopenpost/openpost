@@ -22,27 +22,41 @@
 	let { onNavigate }: { onNavigate: () => void } = $props();
 
 	function itemIcon(id: PrimaryNavigationItem['id']): ThemeIconRole {
-		const roles: Partial<Record<PrimaryNavigationItem['id'], ThemeIconRole>> = {
-			analytics: 'analytics',
-			ideate: 'sparkles',
-			studio: 'editors',
-			media: 'media',
-			workflows: 'repeat',
-			accounts: 'organization'
-		};
-		return roles[id] ?? 'settings';
+		switch (id) {
+			case 'analytics':
+				return 'analytics';
+			case 'ideate':
+				return 'sparkles';
+			case 'studio':
+				return 'editors';
+			case 'media':
+				return 'media';
+			case 'workflows':
+				return 'repeat';
+			case 'accounts':
+				return 'organization';
+			default:
+				return 'settings';
+		}
 	}
 
 	function itemLabel(id: PrimaryNavigationItem['id']) {
-		const labels: Partial<Record<PrimaryNavigationItem['id'], () => string>> = {
-			analytics: m.sidebar_analytics,
-			ideate: m.nav_ideas,
-			studio: m.nav_studio,
-			media: m.sidebar_media,
-			workflows: m.nav_automations,
-			accounts: m.sidebar_accounts
-		};
-		return (labels[id] ?? m.sidebar_settings)();
+		switch (id) {
+			case 'analytics':
+				return m.sidebar_analytics();
+			case 'ideate':
+				return m.nav_ideas();
+			case 'studio':
+				return m.nav_studio();
+			case 'media':
+				return m.sidebar_media();
+			case 'workflows':
+				return m.nav_automations();
+			case 'accounts':
+				return m.sidebar_accounts();
+			default:
+				return m.sidebar_settings();
+		}
 	}
 	let section = $state<'main' | 'workspace' | 'profile'>('main');
 	let backItem = $state<HTMLDivElement | null>(null);

@@ -501,8 +501,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	$effect(() => {
 		if (!displayedProject || editorSession.loading) return;
 		if (restoredPanelProject !== displayedProject.id) {
-			const restored = editorSession.restoredLeftPanel as LeftPanel;
-			if (allLeftPanels.includes(restored)) {
+			const restored = allLeftPanels.find((panel) => panel === editorSession.restoredLeftPanel);
+			if (restored) {
 				const restoredGroup = leftGroupForPanel(restored);
 				leftPanel = restored;
 				if (restoredGroup !== 'ai')
@@ -569,14 +569,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		| { iconKind: 'theme'; icon: ThemeIconRole }
 	);
 	let leftPanel = $state<LeftPanel>('media');
-	const defaultLeftGroupPanels: Record<LeftRailGroup, LeftPanel> = {
+	const defaultLeftGroupPanels = {
 		media: 'media',
 		text: 'text',
 		transcript: 'transcript',
 		effects: 'effects',
 		elements: 'shapes',
 		library: 'library'
-	};
+	} satisfies Record<LeftRailGroup, LeftPanel>;
 	let leftGroupPanel = $state<Record<LeftRailGroup, LeftPanel>>({ ...defaultLeftGroupPanels });
 
 	const allLeftPanels: LeftPanel[] = [
@@ -800,9 +800,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		openLeftPanel(leftGroupPanel[group]);
 	}
 
-	function activateLeftOption(value: string): void {
+	function activateLeftOption(value: LeftRailGroup | 'ai'): void {
 		if (value === 'ai') toggleLeftPanel('ai');
-		else toggleLeftGroup(value as LeftRailGroup);
+		else toggleLeftGroup(value);
 	}
 
 	function openLeftGroup(group: LeftRailGroup): void {
@@ -876,21 +876,20 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		},
 		{
 			value: 'elements',
-			// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- The generated message key names the user-facing Elements tool.
 			label: m.video_editor_tool_elements(),
 			iconKind: 'protected',
 			icon: 'editor-shapes'
 		},
 		{ value: 'library', label: m.video_editor_library(), iconKind: 'theme', icon: 'favorite' }
 	]);
-	const utilityLeftPanelOptions = $derived<LeftPanelOption[]>([
+	const utilityLeftPanelOptions = $derived([
 		{
 			value: 'ai',
 			label: m.video_editor_local_ai(),
 			iconKind: 'theme',
 			icon: 'sparkles'
 		}
-	]);
+	] satisfies LeftPanelOption[]);
 	const leftPanelOptions = $derived([...primaryLeftPanelOptions, ...utilityLeftPanelOptions]);
 	const railPanelOptions = $derived(primaryLeftPanelOptions);
 	const leftPanelHeading = $derived.by(() => {
@@ -917,6 +916,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				];
 			case 'elements':
 				return [
+					// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- This generated message names geometric drawing elements, not an object structure.
 					{ panel: 'shapes', label: m.video_editor_shapes() },
 					{ panel: 'backgrounds', label: m.video_editor_backgrounds_title() },
 					{ panel: 'stickers', label: m.video_editor_stickers() },
@@ -944,10 +944,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	function moveLeftPanelFocus(
 		event: KeyboardEvent,
-		value: string,
+		value: LeftRailGroup | 'ai',
 		orientation: 'horizontal' | 'vertical'
 	): void {
-		const options: { value: string }[] =
+		const options =
 			orientation === 'vertical'
 				? [...railPanelOptions, ...utilityLeftPanelOptions]
 				: leftPanelOptions;
@@ -974,7 +974,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		if (next.value === 'ai') {
 			if (leftPanel !== 'ai') openLeftPanel('ai');
 		} else {
-			const group = next.value as LeftRailGroup;
+			const group = next.value;
 			if (leftGroupForPanel(leftPanel) !== group) openLeftPanel(leftGroupPanel[group]);
 		}
 		if (orientation === 'vertical') expandLeftSidebar();

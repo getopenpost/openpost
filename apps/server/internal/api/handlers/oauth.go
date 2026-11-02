@@ -1268,12 +1268,7 @@ func (h *OAuthHandler) finishOAuthCallback(ctx context.Context, input *OAuthCall
 
 	profile, err := session.adapter.GetProfile(ctx, tokenResp.AccessToken)
 	if err != nil {
-		if isCompatOAuthProvider(input.Platform) {
-			logAccountConnectionError(input.Platform, "compat_profile_fetch_failed", err)
-			profile = &platform.UserProfile{ID: input.Platform + "-user", Username: ""}
-		} else {
-			return h.redirectWithOAuthFailure(input.Platform, "profile_fetch_failed", err, session.workspaceID)
-		}
+		return h.redirectWithOAuthFailure(input.Platform, "profile_fetch_failed", err, session.workspaceID)
 	}
 
 	return h.saveAccountAndRedirect(
@@ -1725,7 +1720,7 @@ func (h *OAuthHandler) exchangeCompatCode(ctx context.Context, provider string, 
 	profile, err := adapter.GetProfile(ctx, tokenResp.AccessToken)
 	if err != nil {
 		logAccountConnectionError(provider, "compat_profile_fetch_failed", err)
-		profile = &platform.UserProfile{ID: provider + "-user", Username: ""}
+		return nil, huma.Error500InternalServerError("Provider profile lookup failed")
 	}
 
 	if err := h.requireProviderConnectionCompletion(

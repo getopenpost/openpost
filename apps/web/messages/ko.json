@@ -1,4 +1,6 @@
 {
+	"analytics_export_youtube_retention": "다운로드한 YouTube API 데이터는 복사하거나 공유한 경우에도 YouTube에서 마지막으로 가져온 날부터 30일 이내에 갱신하거나 삭제해야 합니다.",
+	"analytics_export_youtube_terms": "YouTube 내보내기 약관",
 	"publishing_setting_publish_at": "YouTube 공개 시간",
 	"compose_setting_unset": "지정하지 않음",
 	"compose_setting_yes": "예",

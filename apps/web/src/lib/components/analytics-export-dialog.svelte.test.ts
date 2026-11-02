@@ -55,9 +55,10 @@ it('requests the chosen format, grouping and filters, then closes', async () => 
 });
 
 it('starts an export with every account selected on the analytics page', async () => {
-	const requestExport = vi
-		.fn()
-		.mockResolvedValue({ data: new Blob(['report']), response: new Response(null) });
+	const requestExport = vi.fn().mockResolvedValue({
+		data: new Blob(['report']),
+		response: new Response(null)
+	});
 	const screen = await render(AnalyticsExportDialog, {
 		open: true,
 		workspaceId: 'workspace',
@@ -70,6 +71,13 @@ it('starts an export with every account selected on the analytics page', async (
 		metrics: ['views'],
 		requestExport
 	});
+	const exportTerms = screen.getByRole('link', {
+		name: 'YouTube export terms'
+	});
+	await expect.element(exportTerms).toBeVisible();
+	await screen.getByRole('checkbox', { name: 'second, YouTube', exact: true }).click();
+	await expect.element(exportTerms).not.toBeInTheDocument();
+	await screen.getByRole('checkbox', { name: 'second, YouTube', exact: true }).click();
 	await screen.getByRole('button', { name: 'Download' }).click();
 	await vi.waitFor(() =>
 		expect(requestExport).toHaveBeenCalledWith(
@@ -106,12 +114,18 @@ it.each([390, 320])('keeps long account identities inside the form at %ipx', asy
 			workspaceId: 'ws-1',
 			days: 30,
 			accounts: [
-				{ id: 'studio', username: 'A company with a longer account name', platform: 'linkedin' }
+				{
+					id: 'studio',
+					username: 'A company with a longer account name',
+					platform: 'linkedin'
+				}
 			],
 			metrics: ['views']
 		});
 		const checkbox = screen
-			.getByRole('checkbox', { name: 'A company with a longer account name, LinkedIn' })
+			.getByRole('checkbox', {
+				name: 'A company with a longer account name, LinkedIn'
+			})
 			.element();
 		const row = checkbox.closest('label');
 		if (!row) throw new Error('Expected an account selection row');

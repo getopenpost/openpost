@@ -1,4 +1,6 @@
 {
+	"analytics_export_youtube_retention": "Heruntergeladene YouTube-API-Daten müssen innerhalb von 30 Tagen nach dem letzten Abruf von YouTube aktualisiert oder gelöscht werden, auch wenn sie kopiert oder geteilt werden.",
+	"analytics_export_youtube_terms": "YouTube-Exportbedingungen",
 	"publishing_setting_publish_at": "YouTube-Veröffentlichungszeit",
 	"compose_setting_unset": "Nicht angegeben",
 	"compose_setting_yes": "Ja",

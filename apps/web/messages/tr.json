@@ -1,4 +1,6 @@
 {
+	"analytics_export_youtube_retention": "İndirilen YouTube API verileri, kopyalansa veya paylaşılsa bile YouTube’dan son alındıkları tarihten itibaren 30 gün içinde yenilenmeli veya silinmelidir.",
+	"analytics_export_youtube_terms": "YouTube dışa aktarma koşulları",
 	"publishing_setting_publish_at": "YouTube yayınlanma zamanı",
 	"compose_setting_unset": "Belirtilmedi",
 	"compose_setting_yes": "Evet",

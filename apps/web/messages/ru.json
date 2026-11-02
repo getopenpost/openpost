@@ -1,4 +1,6 @@
 {
+	"analytics_export_youtube_retention": "Скачанные данные API YouTube необходимо обновить или удалить в течение 30 дней после последнего получения с YouTube, даже если они скопированы или переданы другим.",
+	"analytics_export_youtube_terms": "Условия экспорта данных YouTube",
 	"publishing_setting_publish_at": "Время публикации в YouTube",
 	"compose_setting_unset": "Не указано",
 	"compose_setting_yes": "Да",

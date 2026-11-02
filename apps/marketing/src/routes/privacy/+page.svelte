@@ -239,11 +239,11 @@
 			facts, and the human production-access boundary.
 		</p>
 
-		<h2>6. Google and YouTube API data</h2>
+		<h2 id="youtube-api-data">6. Google and YouTube API data</h2>
 		<p>
-			If you connect YouTube, OpenPost uses Google API data only to provide the connection,
-			video-publishing, and channel or video analytics features you request. That use and transfer
-			comply with the
+			If you connect YouTube, OpenPost uses Google API data only to provide the connection, video
+			publishing, channel or video analytics, native-post imports, and comment features you request.
+			That use and transfer comply with the
 			<a href="https://developers.google.com/terms/api-services-user-data-policy"
 				>Google API Services User Data Policy</a
 			>, including its Limited Use requirements. OpenPost does not use Google user data for ads,
@@ -253,9 +253,82 @@
 			OpenPost uses YouTube API Services. Google's handling of information is described in the
 			<a href="https://policies.google.com/privacy">Google Privacy Policy</a>.
 		</p>
+		<h3>Information accessed, collected, and stored</h3>
 		<p>
-			You can disconnect a YouTube account in OpenPost and revoke access from your
-			<a href="https://myaccount.google.com/permissions">Google account permissions</a>.
+			Depending on your permissions and the features you enable, OpenPost accesses and stores the
+			following information through the YouTube Data API and YouTube Analytics API:
+		</p>
+		<ul>
+			<li>
+				Channel identity and profile information, including channel ID, channel name, custom URL or
+				handle, profile image URL, and subscriber count. We use these to identify the channel you
+				connect, display its profile, and show available account information.
+			</li>
+			<li>
+				Video and playlist information, including video IDs and links, playlist IDs and names, the
+				uploads-playlist ID, public video titles, descriptions, publication times, and privacy or
+				processing status. We use these to offer playlist choices, import eligible public posts when
+				enabled, and associate publishing results and comments with the correct video.
+			</li>
+			<li>
+				Publication records, including the video ID and URL returned by YouTube, upload and
+				processing state, and the title, description, video, thumbnail, captions, playlist choice,
+				schedule, visibility, audience, and other publishing settings you submit. We store these to
+				publish your content, resume interrupted uploads, and show delivery outcomes. The video,
+				thumbnail, and caption files you supply are uploaded to YouTube for your selected action.
+				Native-post imports retrieve metadata, not copies of videos from YouTube.
+			</li>
+			<li>
+				Channel and video metrics, including subscriber and video counts, views, likes, and comment
+				counts. Date-bound Analytics reports can include views, estimated watch time, average view
+				duration and percentage viewed, subscribers gained and lost, likes, comments, and shares. We
+				store normalized metric values, source, retrieval time, and reporting periods to display
+				your account and post performance and produce requested reports or CSV exports.
+			</li>
+			<li>
+				Comments and replies, including text, comment and parent IDs, associated video, author
+				channel ID, display name and profile image URL, publication time, and moderation state. We
+				store these for enabled inbox collection, to show conversations, and to send or moderate
+				comments when you request those actions.
+			</li>
+			<li>
+				Authorization information, including granted scopes, encrypted access and refresh tokens,
+				token expiry, and connection status. We use these to maintain the connection and perform
+				authorized actions. OpenPost does not receive or store your Google or YouTube password.
+			</li>
+		</ul>
+		<p>
+			This information is processed by the Hosted service and the infrastructure providers named in
+			the <a href={resolve('/trust')}>Hosted service trust register</a>. Authorized workspace
+			members can access the connected channel's content and results according to their roles. Your
+			requested uploads, replies, and moderation actions send the relevant content and identifiers
+			to YouTube. Exported YouTube data remains subject to the
+			<a href={resolve('/terms') + '#youtube-data-exports'}>YouTube data export conditions</a>,
+			including deletion or refresh within 30 calendar days of the last fetch or refresh from
+			YouTube. Downloading a file does not restart that period.
+		</p>
+		<h3 id="youtube-data-deletion">Storage, deletion, and access revocation</h3>
+		<p>
+			The retention schedule below describes the records OpenPost keeps and their deletion triggers.
+			Access and refresh tokens are encrypted in the service database and retained for the
+			authorized connection until revoked or removed. Disconnecting a single destination stops its
+			use but can leave a shared authorization grant in place.
+		</p>
+		<p>
+			You can disconnect a YouTube account or revoke its grant in OpenPost. You can also revoke
+			OpenPost's access on the
+			<a href="https://security.google.com/settings/security/permissions"
+				>Google security settings page</a
+			>. To request deletion of stored YouTube data without deleting your OpenPost account, or to
+			ask a privacy question, contact <a href="mailto:openpost@rgo.pt">openpost@rgo.pt</a> and identify
+			the connected channel and workspace. You can also request account deletion from account settings.
+		</p>
+		<p>
+			We delete data covered by a YouTube data-deletion request or a grant revocation made through
+			OpenPost as soon as possible and within seven calendar days. Data obtained under consent
+			revoked through Google security settings must be deleted as soon as possible and within 30
+			calendar days of revocation. Deleting data stored by OpenPost does not delete videos,
+			comments, or other data stored by YouTube. Use YouTube's own controls to delete that content.
 		</p>
 
 		<h2>7. Retention and deletion</h2>

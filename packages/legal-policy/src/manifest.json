@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "terms": {
-    "version": "2026-08-05",
-    "effective_date": "2026-08-05",
+    "version": "2026-11-02",
+    "effective_date": "2026-11-02",
     "url": "https://openpo.st/terms",
     "requires_acceptance": true
   },
   "privacy": {
-    "version": "2026-10-12",
-    "effective_date": "2026-10-12",
+    "version": "2026-11-02",
+    "effective_date": "2026-11-02",
     "url": "https://openpo.st/privacy",
     "requires_acceptance": true
   },

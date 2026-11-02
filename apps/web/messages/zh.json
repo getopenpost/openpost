@@ -1,4 +1,6 @@
 {
+	"analytics_export_youtube_retention": "下载的 YouTube API 数据必须在上次从 YouTube 获取后 30 天内刷新或删除，即使数据已被复制或共享。",
+	"analytics_export_youtube_terms": "YouTube 导出条款",
 	"publishing_setting_publish_at": "YouTube 发布时间",
 	"compose_setting_unset": "未指定",
 	"compose_setting_yes": "是",

@@ -1,4 +1,6 @@
 {
+	"analytics_export_youtube_retention": "ダウンロードした YouTube API データは、コピーや共有を行った場合も、YouTube から最後に取得してから30日以内に更新または削除する必要があります。",
+	"analytics_export_youtube_terms": "YouTube データのエクスポート条件",
 	"publishing_setting_publish_at": "YouTubeでの公開日時",
 	"compose_setting_unset": "未指定",
 	"compose_setting_yes": "はい",

@@ -58,6 +58,11 @@ func (s *AccountSaver) deleteUnusedAvatars(ctx context.Context, urls []string) {
 // Called after reloading under the connection fence, so a failed download
 // inherits the latest committed photo rather than the pre-download snapshot.
 func (s *AccountSaver) reconcileAccountAvatar(account, existing *models.SocialAccount, cachedURL string) string {
+	// A new YouTube profile cannot renew the retention age of a photo that
+	// could not be fetched. The connection transaction queues the old object.
+	if account.Platform == "youtube" && !account.ProfileFetchedAt.IsZero() {
+		return existing.AccountAvatarURL
+	}
 	if s.avatars == nil {
 		return ""
 	}

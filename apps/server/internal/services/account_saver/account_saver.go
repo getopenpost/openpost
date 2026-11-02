@@ -8,16 +8,19 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/accountavatar"
 	"github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/services/dataretention"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/openpost/backend/internal/services/tokenmanager"
@@ -44,6 +47,7 @@ type SaveAccountInput struct {
 	AccountID             string
 	AccountUsername       string
 	AccountAvatarURL      string
+	ProfileFetchedAt      time.Time
 	InstanceURL           string
 	Token                 *platform.TokenResult
 	CapabilityState       map[string]string
@@ -255,8 +259,9 @@ func assembleSaveAccountRecords(inputs []SaveAccountInput, existingAccounts []*m
 		account.Platform = input.PlatformName
 		account.AccountID = input.AccountID
 		account.AccountUsername = input.AccountUsername
+		account.ProfileFetchedAt = input.ProfileFetchedAt
 		accountAvatarURL := strings.TrimSpace(input.AccountAvatarURL)
-		if accountAvatarURL == "" && existing != nil {
+		if accountAvatarURL == "" && existing != nil && !(input.PlatformName == "youtube" && !input.ProfileFetchedAt.IsZero()) {
 			accountAvatarURL = existing.AccountAvatarURL
 		}
 		account.AccountAvatarURL = accountAvatarURL
@@ -303,7 +308,13 @@ func (s *AccountSaver) persistSaveAccounts(ctx context.Context, first SaveAccoun
 				amount++
 			}
 			if existing != nil {
-				retiredAvatars = append(retiredAvatars, s.reconcileAccountAvatar(account, existing, cachedAvatars[index]))
+				retiredAvatar := s.reconcileAccountAvatar(account, existing, cachedAvatars[index])
+				retiredAvatars = append(retiredAvatars, retiredAvatar)
+				if account.Platform == "youtube" && accountavatar.IsCached(retiredAvatar) && retiredAvatar != account.AccountAvatarURL {
+					if _, err := jobregistry.EnqueueStorageDeletes(txCtx, tx, []string{filepath.Base(retiredAvatar)}); err != nil {
+						return err
+					}
+				}
 				account.ID = existing.ID
 				account.CreatedAt = existing.CreatedAt
 				account.IsNewlyInserted = false
@@ -341,7 +352,7 @@ func persistSaveAccountRows(txCtx context.Context, tx bun.Tx, first SaveAccountI
 			Model(account).
 			Column(
 				"workspace_id", "slug", "platform", "account_id", "account_username",
-				"account_avatar_url", "instance_url", "oauth_grant_id", "access_token_encrypted",
+				"account_avatar_url", "profile_fetched_at", "instance_url", "oauth_grant_id", "access_token_encrypted",
 				"refresh_token_encrypted", "token_expires_at", "granted_scopes",
 				"capability_state_json", "capability_checked_at", "is_active", "error_message",
 			).
@@ -641,9 +652,13 @@ func findExistingAccountWithDB(ctx context.Context, db bun.IDB, input SaveAccoun
 		Model((*models.SocialAccount)(nil)).
 		Where("workspace_id = ?", input.WorkspaceID).
 		Where("platform = ?", input.PlatformName).
-		Where("account_id = ?", input.AccountID).
 		Order("is_active DESC", "created_at DESC").
 		Limit(1)
+	if input.PlatformName == "youtube" {
+		query = query.Where("account_id IN (?, ?)", input.AccountID, dataretention.RetiredYouTubeIdentity(input.WorkspaceID, input.AccountID))
+	} else {
+		query = query.Where("account_id = ?", input.AccountID)
+	}
 	if platform.IsInstanceScopedProvider(input.PlatformName) {
 		query = query.Where("instance_url = ?", input.InstanceURL)
 	}

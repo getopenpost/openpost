@@ -40,6 +40,7 @@ import (
 	"github.com/openpost/backend/internal/services/videoprocessing"
 	"github.com/openpost/backend/internal/services/waitlist"
 	"github.com/openpost/backend/internal/services/workflows"
+	"github.com/openpost/backend/internal/services/youtubeprofile"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect"
@@ -108,6 +109,10 @@ func (w *BackgroundWorker) SetFeedbackService(service *feedback.Service) {
 		}
 		return w.feedback.HandleDeliveryJob(ctx, job.Payload)
 	}
+}
+
+func (w *BackgroundWorker) SetYouTubeProfileService(service *youtubeprofile.Service) {
+	w.executors[jobregistry.ExecuteYouTubeProfile] = func(ctx context.Context, job *models.Job) error { return service.HandleJob(ctx, job.Type, job.Payload) }
 }
 
 func (w *BackgroundWorker) SetAnalyticsService(service *analyticsservice.Service) {

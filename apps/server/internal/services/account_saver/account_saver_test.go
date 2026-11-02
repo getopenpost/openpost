@@ -2,6 +2,7 @@ package account_saver
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -514,4 +515,42 @@ func (c *avatarCacheStub) CacheAvatar(context.Context, string, string) (string, 
 func (c *avatarCacheStub) Delete(_ context.Context, url string) error {
 	c.deleted = append(c.deleted, url)
 	return nil
+}
+
+func TestYouTubeConnectionPersistsActualProfileFetchTime(t *testing.T) {
+	db := createTestDB(t)
+	saver := NewAccountSaver(db, crypto.NewTokenEncryptor("test-secret-key-for-testing-only"))
+	seedWorkspaceMember(t, db, "youtube-workspace", "youtube-user")
+	fetched := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+	input := SaveAccountInput{Actor: accountSaverActor("youtube-user"), UserID: "youtube-user", WorkspaceID: "youtube-workspace", PlatformName: "youtube", AccountID: "channel", AccountUsername: "Channel", AccountAvatarURL: "/avatars/avatar_account_old.png", ProfileFetchedAt: fetched, Token: &platform.TokenResult{AccessToken: "token"}}
+	account, err := saver.SaveAccountFromInput(t.Context(), input)
+	require.NoError(t, err)
+	var stored models.SocialAccount
+	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", account.ID).Scan(t.Context()))
+	require.Equal(t, fetched, stored.ProfileFetchedAt.UTC())
+	input.ProfileFetchedAt = fetched.Add(time.Hour)
+	input.AccountAvatarURL = ""
+	_, err = saver.SaveAccountFromInput(t.Context(), input)
+	require.NoError(t, err)
+	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", account.ID).Scan(t.Context()))
+	require.Equal(t, input.ProfileFetchedAt, stored.ProfileFetchedAt.UTC())
+	require.Empty(t, stored.AccountAvatarURL, "a fresh profile must not renew an unfetched old photo")
+	deletionCount, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", "storage_delete").Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, deletionCount)
+}
+
+func TestYouTubeReconnectRestoresRetiredDestinationIdentity(t *testing.T) {
+	db := createTestDB(t)
+	seedWorkspaceMember(t, db, "youtube-reconnect", "youtube-user")
+	digest := sha256.Sum256([]byte("youtube-reconnect" + "\x00" + "channel"))
+	retired := &models.SocialAccount{ID: "original-destination", WorkspaceID: "youtube-reconnect", Slug: "retired", Platform: "youtube", AccountID: fmt.Sprintf("retired-youtube:%x", digest), AccessTokenEnc: []byte{}, IsActive: false}
+	_, err := db.NewInsert().Model(retired).Exec(t.Context())
+	require.NoError(t, err)
+	saver := NewAccountSaver(db, crypto.NewTokenEncryptor("test-secret-key-for-testing-only"))
+	restored, err := saver.SaveAccountFromInput(t.Context(), SaveAccountInput{Actor: accountSaverActor("youtube-user"), UserID: "youtube-user", WorkspaceID: "youtube-reconnect", PlatformName: "youtube", AccountID: "channel", AccountUsername: "Channel", ProfileFetchedAt: time.Now().UTC(), Token: &platform.TokenResult{AccessToken: "new-consent"}})
+	require.NoError(t, err)
+	require.Equal(t, retired.ID, restored.ID, "reconsent must restore the destination referenced by existing drafts")
+	require.Equal(t, "channel", restored.AccountID)
+	require.True(t, restored.IsActive)
 }

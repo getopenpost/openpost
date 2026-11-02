@@ -33,6 +33,7 @@ import (
 	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/tokenmanager"
+	"github.com/openpost/backend/internal/services/youtubeprofile"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
 )
@@ -2411,6 +2412,7 @@ func (h *OAuthHandler) collectAccountSaveInputs(ctx context.Context, pending *mo
 			AccountID:             selected.AccountID,
 			AccountUsername:       selected.AccountUsername,
 			AccountAvatarURL:      selected.AccountAvatarURL,
+			ProfileFetchedAt:      time.Now().UTC(),
 			InstanceURL:           selectedAccountInstanceURL(pending.Platform, selected.InstanceURL, pending.InstanceURL),
 			Token:                 selected.Token,
 			CapabilityState:       selected.CapabilityState,
@@ -2842,6 +2844,22 @@ func (h *OAuthHandler) RefreshAccountMetadata(api huma.API) {
 }
 
 func (h *OAuthHandler) refreshAccountProfile(ctx context.Context, account models.SocialAccount, adapter platform.Adapter, accessToken string) (models.SocialAccount, error) {
+	if account.Platform == "youtube" {
+		service := youtubeprofile.NewService(h.db, h.tokenSource, h.accountAvatars)
+		if err := service.Refresh(ctx, account, adapter, accessToken); err != nil {
+			if errors.Is(err, youtubeprofile.ErrIdentityChanged) {
+				return models.SocialAccount{}, huma.Error409Conflict("the provider returned a different account identity; reconnect this account instead")
+			}
+			if errors.Is(err, youtubeprofile.ErrAccountChanged) {
+				return models.SocialAccount{}, huma.Error409Conflict("the account changed while its profile was refreshing; try again")
+			}
+			if errors.Is(err, platform.ErrAccountMetadataRefreshUnsupported) {
+				return models.SocialAccount{}, huma.Error501NotImplemented("profile refresh is unavailable for this account type")
+			}
+			return models.SocialAccount{}, huma.Error502BadGateway("the provider profile could not be refreshed")
+		}
+		return h.fetchUpdatedAccount(ctx, account.ID)
+	}
 	profile, err := refreshProviderAccountMetadata(ctx, adapter, accessToken, account)
 	if err != nil {
 		if errors.Is(err, platform.ErrAccountMetadataRefreshUnsupported) {
@@ -3075,6 +3093,11 @@ func (h *OAuthHandler) DisconnectAccount(api huma.API) {
 		}
 
 		err = h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+			if account.Platform == "youtube" {
+				if err := organizationguard.LockWorkspace(txCtx, tx, account.WorkspaceID); err != nil {
+					return err
+				}
+			}
 			lockResult, err := tx.NewUpdate().Model((*models.OAuthGrant)(nil)).
 				Set("updated_at = updated_at").
 				Where("id = ? AND workspace_id = ? AND revoked_at IS NULL", account.OAuthGrantID, account.WorkspaceID).
@@ -3115,7 +3138,7 @@ func (h *OAuthHandler) DisconnectAccount(api huma.API) {
 				return sql.ErrNoRows
 			}
 			if account.Platform == "youtube" {
-				return dataretention.PurgeYouTube(txCtx, tx, time.Now().UTC(), account.WorkspaceID, account.ID)
+				return dataretention.RetireYouTubeAccount(txCtx, tx, time.Now().UTC(), account.WorkspaceID, account.ID)
 			}
 			return nil
 		})
@@ -3154,6 +3177,11 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 		}
 		now := time.Now().UTC()
 		if err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+			if account.Platform == "youtube" {
+				if err := organizationguard.LockWorkspace(txCtx, tx, account.WorkspaceID); err != nil {
+					return err
+				}
+			}
 			if account.OAuthGrantID == "" {
 				_, err := tx.NewUpdate().Model((*models.SocialAccount)(nil)).
 					Set("is_active = ?", false).
@@ -3167,7 +3195,7 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 					return err
 				}
 				if account.Platform == "youtube" {
-					return dataretention.PurgeYouTube(txCtx, tx, now, account.WorkspaceID, account.ID)
+					return dataretention.RetireYouTubeAccount(txCtx, tx, now, account.WorkspaceID, account.ID)
 				}
 				return nil
 			}
@@ -3219,7 +3247,7 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 					return err
 				}
 				for _, linked := range accounts {
-					if err := dataretention.PurgeYouTube(txCtx, tx, now, linked.WorkspaceID, linked.ID); err != nil {
+					if err := dataretention.RetireYouTubeAccount(txCtx, tx, now, linked.WorkspaceID, linked.ID); err != nil {
 						return err
 					}
 				}

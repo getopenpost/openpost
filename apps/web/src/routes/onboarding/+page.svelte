@@ -253,8 +253,8 @@
 
 	function chooseWorkStyle(value: string) {
 		workStyle = value;
-		// Writing-first also shows Drafts in the sidebar; the business choice keeps the defaults.
-		if (value === 'write') sidebarPreferences.applyWritingFirstDefaults();
+		// Writing-first also shows Drafts in the sidebar; the overview choice keeps the defaults.
+		if (value === 'compose') sidebarPreferences.applyWritingFirstDefaults();
 	}
 
 	async function confirmWelcome(event: SubmitEvent) {
@@ -388,20 +388,30 @@
 						<label
 							class={[
 								'flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2',
-								workStyle === 'write' ? 'border-primary bg-primary/5' : 'border-border'
+								workStyle === 'compose' ? 'border-primary bg-primary/5' : 'border-border'
 							]}
 						>
-							<RadioGroup.Item value="write" aria-label={m.onboarding_work_style_write()} />
-							<span class="min-w-0 flex-1 font-medium">{m.onboarding_work_style_write()}</span>
+							<RadioGroup.Item value="compose" aria-label={m.onboarding_work_style_write()} />
+							<span class="min-w-0 flex-1">
+								<span class="block font-medium">{m.onboarding_work_style_write()}</span>
+								<span class="block text-xs leading-5 text-muted-foreground"
+									>{m.onboarding_work_style_write_hint()}</span
+								>
+							</span>
 						</label>
 						<label
 							class={[
 								'flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2',
-								workStyle === 'business' ? 'border-primary bg-primary/5' : 'border-border'
+								workStyle === 'home' ? 'border-primary bg-primary/5' : 'border-border'
 							]}
 						>
-							<RadioGroup.Item value="business" aria-label={m.onboarding_work_style_business()} />
-							<span class="min-w-0 flex-1 font-medium">{m.onboarding_work_style_business()}</span>
+							<RadioGroup.Item value="home" aria-label={m.onboarding_work_style_business()} />
+							<span class="min-w-0 flex-1">
+								<span class="block font-medium">{m.onboarding_work_style_business()}</span>
+								<span class="block text-xs leading-5 text-muted-foreground"
+									>{m.onboarding_work_style_business_hint()}</span
+								>
+							</span>
 						</label>
 					</RadioGroup.Root>
 				</fieldset>

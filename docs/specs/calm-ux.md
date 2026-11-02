@@ -43,7 +43,7 @@ Find people lives under Inbox. Reposts lives under Automations. Posting schedule
 ## Surfaces
 
 - **Home**: what is going out, what needs you (failed posts, replies, approvals, disconnected accounts), how it is going in one sentence, and quick actions. Setup checklist lives here until complete. Ends with a closure line such as "You're covered until Thursday."
-- **Onboarding**: one question about how the person works, connect one account inline, write the first post. Keep the draft through connection. No plan card, no feedback box.
+- **Onboarding**: one question about what you want to see when you open the app, each choice explained in one line, connect one account inline, write the first post. Keep the draft through connection. No plan card, no feedback box.
 - **Composer**: spacious canvas, live preview beside it on wide screens by default, one primary action. Disabled actions explain themselves.
 - **Posts**: one header row, single-line rows, about ten per screen, no zero counters.
 - **Inbox**: title Inbox, Unread default, search plus one filter popover, All, Comments, Messages, Reviews.

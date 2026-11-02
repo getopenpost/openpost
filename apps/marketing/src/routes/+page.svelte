@@ -47,7 +47,9 @@
 				<a
 					href={`/platforms/${platform.slug}`}
 					aria-label={`${platform.name} publishing guide`}
-					class="focus-ring"><PostizSocialLogo platform={platform.slug} /></a
+					class="focus-ring"
+					class:youtube-text={platform.slug === 'youtube'}
+					><PostizSocialLogo platform={platform.slug} /></a
 				>
 			{/each}
 		</div>
@@ -162,6 +164,10 @@
 		width: 44px;
 		height: 44px;
 		border-radius: 6px;
+	}
+	.platform-marks a.youtube-text {
+		width: auto;
+		padding-inline: 8px;
 	}
 	.platform-marks :global(img) {
 		width: 27px;

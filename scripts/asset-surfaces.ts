@@ -167,7 +167,6 @@ export const assetSurfaceManifest = {
     "postiz-socials/Threads.svg",
     "postiz-socials/TikTok.svg",
     "postiz-socials/X.svg",
-    "postiz-socials/Youtube.svg",
     "screenshots/image-editor-light.webp",
     "screenshots/image-editor-dark.webp",
     "screenshots/video-editor-light.webp",

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -95,6 +96,89 @@ func TestClassifiedRejectionOverridesPendingCheckpoint(t *testing.T) {
 	require.Equal(t, "provider_rejected", attempt.SafeErrorClass)
 	require.Equal(t, "100", attempt.SafeErrorCode)
 	require.Equal(t, http.StatusBadRequest, attempt.ErrorHTTPStatus)
+}
+
+func TestStoredMetaFailureReconstructsCodeAndSubcodeForReplay(t *testing.T) {
+	db := newProviderWriteTestDB(t)
+	service := New(db)
+	input := providerWriteTestInput(t, "stored-meta-subcode")
+	pending := platform.PublishResult{
+		SubmissionState:   platform.PublishSubmissionPending,
+		ProviderState:     "publish",
+		ProviderReference: "meta-write-1",
+		RetrySafety:       platform.PublishRetryReconcileOnly,
+	}
+	sendCalls := 0
+	send := func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		sendCalls++
+		require.NoError(t, control.Begin(pending))
+		require.NoError(t, control.Checkpoint(pending))
+		return pending, nil
+	}
+	_, err := service.Execute(t.Context(), input, send, nil)
+	require.Error(t, err)
+
+	metaFailure := &platform.HTTPError{
+		StatusCode: http.StatusBadRequest,
+		Code:       "meta:nonexistent:100:33",
+		Subcode:    "33",
+	}
+	_, err = service.Execute(t.Context(), input, send, func(context.Context, string) (platform.PublishResult, error) {
+		return platform.PublishResult{SubmissionState: platform.PublishSubmissionRejected}, metaFailure
+	})
+	require.Error(t, err)
+	attempt := latestProviderWriteAttempt(t, db, input.OperationID)
+	require.Equal(t, StatusDefiniteFailure, attempt.Status)
+	require.Equal(t, "meta:nonexistent:100:33:subcode:33", attempt.SafeErrorCode)
+
+	_, err = service.Execute(t.Context(), input, func(context.Context, *Control) (platform.PublishResult, error) {
+		sendCalls++
+		return platform.PublishResult{}, nil
+	}, nil)
+	var replayed *platform.HTTPError
+	require.ErrorAs(t, err, &replayed)
+	require.Equal(t, "meta:nonexistent:100:33", replayed.Code)
+	require.Equal(t, "33", replayed.Subcode)
+	require.Equal(t, http.StatusBadRequest, replayed.StatusCode)
+	require.Equal(t, 1, sendCalls, "a never-retry Meta rejection must not be sent again")
+}
+
+func TestSplitStoredProviderErrorCodeLeavesUnboundedOrAmbiguousLegacyValuesOpaque(t *testing.T) {
+	for _, value := range []string{
+		"legacy:provider:code",
+		"meta:subcode:old:subcode:33",
+		strings.Repeat("x", 97) + ":subcode:33",
+		"meta:nonexistent:100:33:subcode:bad value",
+	} {
+		code, subcode := splitStoredProviderErrorCode(value)
+		require.Equal(t, value, code)
+		require.Empty(t, subcode)
+	}
+}
+
+func TestAcceptedCheckpointSurvivesLaterMeta10033ErrorWithoutReplay(t *testing.T) {
+	db := newProviderWriteTestDB(t)
+	service := New(db)
+	input := providerWriteTestInput(t, "accepted-meta-error")
+	var calls atomic.Int32
+	result, err := service.Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		calls.Add(1)
+		require.NoError(t, control.Begin(platform.PublishResult{ProviderState: "publish", RetrySafety: platform.PublishRetryNever}))
+		accepted := platform.AcceptedPublishResult("external-accepted")
+		require.NoError(t, control.Checkpoint(accepted))
+		return accepted, &platform.HTTPError{StatusCode: http.StatusBadRequest, Code: "meta:nonexistent:100:33", Subcode: "33"}
+	}, nil)
+	require.NoError(t, err)
+	require.Equal(t, "external-accepted", result.ExternalID)
+
+	result, err = service.Execute(t.Context(), input, func(context.Context, *Control) (platform.PublishResult, error) {
+		calls.Add(1)
+		return platform.PublishResult{}, nil
+	}, nil)
+	require.NoError(t, err)
+	require.Equal(t, "external-accepted", result.ExternalID)
+	require.Equal(t, int32(1), calls.Load())
+	require.Equal(t, StatusAccepted, latestProviderWriteAttempt(t, db, input.OperationID).Status)
 }
 
 func TestAcceptedWriteWithoutNativeIDFailsAmbiguousForManualResolution(t *testing.T) {

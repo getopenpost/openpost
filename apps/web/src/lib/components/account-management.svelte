@@ -1857,11 +1857,9 @@
 										{#each visibleProviders as provider (providerKey(provider))}
 											<li
 												data-testid={`provider-card-${providerTestID(provider)}`}
-												class="flex min-h-16 gap-3 px-4 py-3 transition-colors hover:bg-navigation-hover {provider.platform ===
-												'youtube'
-													? 'flex-col items-start @min-[28rem]:flex-row @min-[28rem]:items-center'
-													: 'items-center'} {providerCanConnect(provider) ||
-												provider.platform === 'youtube'
+												class="flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-navigation-hover {providerCanConnect(
+													provider
+												) || provider.platform === 'youtube'
 													? ''
 													: 'opacity-75'}"
 											>
@@ -1904,9 +1902,7 @@
 												</div>
 												<Button
 													variant={providerCanConnect(provider) ? 'outline' : 'ghost'}
-													class="min-h-11 shrink-0 sm:min-h-9 {provider.platform === 'youtube'
-														? 'self-end @min-[28rem]:self-center'
-														: ''}"
+													class="min-h-11 shrink-0 sm:min-h-9"
 													onclick={() => handleProviderAction(provider)}
 													size="sm"
 													disabled={!providerActionEnabled(provider)}
@@ -1954,11 +1950,7 @@
 														? 'flex h-full min-h-28 flex-col rounded-lg border bg-card p-4'
 														: 'flex h-full min-h-28 flex-col rounded-lg border bg-card p-4 opacity-75'}
 												>
-													<div
-														class={provider.platform === 'youtube'
-															? 'flex flex-col items-start gap-3'
-															: 'flex items-start gap-3'}
-													>
+													<div class="flex items-start gap-3">
 														<div
 															class={provider.platform === 'youtube'
 																? 'flex shrink-0 items-center justify-center'

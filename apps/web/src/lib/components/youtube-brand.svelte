@@ -1,10 +1,10 @@
 <script lang="ts">
 	import youtube from '../../../../../assets/logos/youtube.svg?raw';
-	// The official asset includes triangle-width clear space. At these dimensions
-	// the painted icon is over 100px high, the current digital minimum.
+	// The official asset includes triangle-width clear space. At
+	// 56×48, the painted icon is about 26px high, above the audit’s 20dp minimum.
 	const svg = youtube.replace(
 		'<svg ',
-		'<svg style="width:218px;height:187px;min-width:218px;min-height:187px;max-width:none;flex-shrink:0" '
+		'<svg style="width:56px;height:48px;min-width:56px;min-height:48px;max-width:none;flex-shrink:0" '
 	);
 </script>
 

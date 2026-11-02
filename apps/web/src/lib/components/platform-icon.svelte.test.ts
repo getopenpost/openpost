@@ -6,10 +6,13 @@ import '../../routes/layout.css';
 
 describe('YouTube attribution', () => {
 	it('omits the logo from compact provider icons', () => {
-		const screen = render(PlatformIcon, { platform: 'youtube', class: 'size-3' });
+		const screen = render(PlatformIcon, {
+			platform: 'youtube',
+			class: 'size-3'
+		});
 		expect(screen.container.querySelector('svg')).toBeNull();
 	});
-	it('links the official full-color mark at its 100px painted digital minimum', () => {
+	it('links the official full-color mark at the audit minimum with a compact footprint and triangle-width clear space', () => {
 		const screen = render(YouTubeBrand);
 		const svg = screen.container.querySelector('svg')!;
 		const paths = svg.querySelectorAll('path');
@@ -19,9 +22,23 @@ describe('YouTube attribution', () => {
 		expect(getComputedStyle(paths[0]).fill).toBe('rgb(255, 0, 51)');
 		expect(getComputedStyle(paths[1]).fill).toBe('rgb(255, 255, 255)');
 		const scale = svg.getScreenCTM()!.a;
-		expect(paths[0].getBBox().height * scale).toBeGreaterThanOrEqual(100);
-		expect(
-			(svg.getBoundingClientRect().width - paths[0].getBBox().width * scale) / 2
-		).toBeGreaterThanOrEqual(37);
+		const mark = paths[0].getBBox();
+		const triangle = paths[1].getBBox();
+		const viewBox = svg.viewBox.baseVal;
+		const paintedHeight = mark.height * scale;
+		expect(paintedHeight).toBeGreaterThanOrEqual(20);
+		expect(paintedHeight).toBeLessThanOrEqual(28);
+		expect(svg.getBoundingClientRect().width / svg.getBoundingClientRect().height).toBeCloseTo(
+			viewBox.width / viewBox.height,
+			2
+		);
+		for (const margin of [
+			mark.x,
+			mark.y,
+			viewBox.width - mark.x - mark.width,
+			viewBox.height - mark.y - mark.height
+		]) {
+			expect(margin).toBeGreaterThanOrEqual(triangle.width - 0.01);
+		}
 	});
 });

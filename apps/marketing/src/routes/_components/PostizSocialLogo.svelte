@@ -1,4 +1,5 @@
 <script lang="ts">
+	import youtubeIcon from '../../../../../assets/logos/youtube.svg?url';
 	import { postizSocialLogoSource, type PostizSocialLogo } from './postiz-social-logos';
 
 	let {
@@ -9,7 +10,15 @@
 </script>
 
 {#if platform === 'youtube'}
-	<span class={className} data-youtube-text>YouTube</span>
+	<img
+		class={['youtube-brand', className]}
+		src={youtubeIcon}
+		{alt}
+		width={56}
+		height={48}
+		loading="lazy"
+		decoding="async"
+	/>
 {:else}
 	<img
 		class={className}
@@ -22,11 +31,14 @@
 {/if}
 
 <style>
-	[data-youtube-text] {
-		display: inline-block;
-		white-space: nowrap;
-		font-size: 14px;
-		line-height: 1.4;
-		font-weight: 600;
+	/* Preserve the official clear space around the audit's roughly 26px painted icon. */
+	.youtube-brand {
+		width: 56px;
+		height: 48px;
+		min-width: 56px;
+		min-height: 48px;
+		max-width: none;
+		flex-shrink: 0;
+		object-fit: contain;
 	}
 </style>

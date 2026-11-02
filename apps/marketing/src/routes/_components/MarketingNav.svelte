@@ -20,6 +20,7 @@
 	import Clapperboard from '@lucide/svelte/icons/clapperboard';
 	import Images from '@lucide/svelte/icons/images';
 	import { mode, toggleMode } from 'mode-watcher';
+	import PostizSocialLogo from './PostizSocialLogo.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { Button } from '@openpost/ui/components/button';
 	import * as NavigationMenu from '@openpost/ui/components/navigation-menu';
@@ -153,9 +154,14 @@
 												class="group/platform-link focus-ring min-h-14 w-full gap-3 rounded-lg px-3 py-2.5"
 											>
 												<span
-													class="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background text-foreground"
+													class="flex h-12 w-14 shrink-0 items-center justify-center rounded-lg bg-background text-foreground"
+													class:border={platform.slug !== 'youtube'}
 												>
-													<PlatformIcon platform={platform.slug} class="size-[1.15rem]" />
+													{#if platform.slug === 'youtube'}
+														<PostizSocialLogo platform="youtube" />
+													{:else}
+														<PlatformIcon platform={platform.slug} class="size-6" />
+													{/if}
 												</span>
 												<span class="min-w-0 flex-1">
 													<span class="block text-sm font-semibold text-foreground"

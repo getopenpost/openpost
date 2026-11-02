@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
+	import PostizSocialLogo from '../_components/PostizSocialLogo.svelte';
 	import HeroAccent from '../_components/HeroAccent.svelte';
 	import { platforms } from '../_marketing';
 	import { getChannelStory } from './_stories';
@@ -29,7 +30,12 @@
 				class:blue={index % 3 === 2}
 			>
 				<div class="channel-heading">
-					<PlatformIcon platform={platform.short} class="size-8" /><ArrowUpRight size={22} />
+					{#if platform.slug === 'youtube'}
+						<PostizSocialLogo platform="youtube" />
+					{:else}
+						<PlatformIcon platform={platform.short} class="size-8" />
+					{/if}
+					<ArrowUpRight size={22} />
 				</div>
 				<h2>{platform.name}</h2>
 				<p>{platform.story.title}</p>
@@ -77,6 +83,8 @@
 	}
 	.channel-heading {
 		display: flex;
+		min-height: 48px;
+		align-items: center;
 		justify-content: space-between;
 	}
 	.channel h2 {

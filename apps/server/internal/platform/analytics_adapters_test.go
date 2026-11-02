@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -279,4 +280,65 @@ func TestAnalyticsHelpersKeepMissingMetricsDistinctFromMeasuredZero(t *testing.T
 	subtractOwnReplies(values, 1)
 	require.Contains(t, values, MetricComments)
 	require.Zero(t, values[MetricComments])
+}
+
+func TestMetaInsightFallbackPreservesProviderFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name                string
+		status              int
+		body, code, subcode string
+		wantStatus          int
+	}{
+		{"permission", 400, `{"error":{"code":200}}`, "meta:permission:200", "", 403},
+		{"token", 400, `{"error":{"code":190}}`, "meta:token_expired:190", "", 401},
+		{"rate limit", 400, `{"error":{"code":4}}`, "meta:rate_limit:4", "", 429},
+		{"unavailable object", 400, `{"error":{"code":100,"error_subcode":33}}`, "meta:nonexistent:100:33", "33", 400},
+		{"unknown", 400, `{}`, "", "", 400},
+		{"forbidden", 403, `{"error":{"code":100}}`, "meta:100", "", 403},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			originalClient := httpClient
+			t.Cleanup(func() { httpClient = originalClient })
+			calls := 0
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				calls++
+				return jsonResponseWithStatus(req, tc.status, tc.body), nil
+			})}
+			_, err := fetchMetaInsightsWithPeriod(t.Context(), "https://graph.facebook.com/post/insights", "token", []string{"views", "reach"}, "lifetime")
+			var providerErr *HTTPError
+			require.ErrorAs(t, err, &providerErr)
+			require.Equal(t, tc.code, providerErr.Code)
+			require.Equal(t, tc.subcode, providerErr.Subcode)
+			require.Equal(t, tc.wantStatus, providerErr.StatusCode)
+			require.Equal(t, 1, calls)
+		})
+	}
+}
+
+func TestMetaInsightFallbackKeepsSupportedMetricsAndRejectsEntirelyInvalidRequests(t *testing.T) {
+	for _, supported := range []bool{false, true} {
+		t.Run(fmt.Sprint(supported), func(t *testing.T) {
+			originalClient := httpClient
+			t.Cleanup(func() { httpClient = originalClient })
+			calls := 0
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				calls++
+				if supported && req.URL.Query().Get("metric") == "reach" {
+					return jsonResponse(req, `{"data":[{"name":"reach","values":[{"value":7}]}]}`), nil
+				}
+				return jsonResponseWithStatus(req, http.StatusBadRequest, `{"error":{"code":100}}`), nil
+			})}
+			response, err := fetchMetaInsightsWithPeriod(t.Context(), "https://graph.facebook.com/post/insights", "token", []string{"views", "reach"}, "lifetime")
+			require.Equal(t, 3, calls)
+			if supported {
+				require.NoError(t, err)
+				require.Len(t, response.Data, 1)
+				require.Equal(t, "reach", response.Data[0].Name)
+			} else {
+				var providerErr *HTTPError
+				require.ErrorAs(t, err, &providerErr)
+				require.Equal(t, "100", providerErr.Code)
+			}
+		})
+	}
 }

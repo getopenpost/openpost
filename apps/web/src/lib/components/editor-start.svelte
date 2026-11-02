@@ -5,7 +5,6 @@
 	import { m } from '$lib/paraglide/messages';
 
 	let {
-		kind,
 		title,
 		description,
 		actions,
@@ -13,7 +12,6 @@
 		children,
 		heading = $bindable()
 	}: {
-		kind: 'image' | 'video' | 'quick-cut';
 		title: string;
 		description: string;
 		actions: Snippet;

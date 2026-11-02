@@ -690,7 +690,6 @@
 	class="video-editor-theme flex min-h-dvh flex-col bg-[var(--video-editor-canvas)] text-[var(--video-editor-text)]"
 >
 	<EditorStart
-		kind="video"
 		title={m.editor_start_video_title()}
 		description={m.editor_start_video_description()}
 	>

@@ -2,7 +2,7 @@ import type { TimelineTrack } from '../project/types';
 
 export const MIN_TRACK_HEIGHT = 44;
 export const MAX_TRACK_HEIGHT = 140;
-export const COMPACT_TRACK_HEIGHT = 44;
+const COMPACT_TRACK_HEIGHT = 44;
 
 const TRACK_HEIGHT_ARROW_STEP = 4;
 const TRACK_HEIGHT_SHIFT_STEP = 12;

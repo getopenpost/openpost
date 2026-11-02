@@ -2008,11 +2008,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	{/if}
 	<main class="quick-cut-main">
 		{#if sources.length === 0}
-			<EditorStart
-				kind="quick-cut"
-				title={m.quick_cut_title()}
-				description={m.quick_cut_empty_body()}
-			>
+			<EditorStart title={m.quick_cut_title()} description={m.quick_cut_empty_body()}>
 				{#snippet actions()}
 					<Button disabled={importingSource || openingProjectId !== null} onclick={openFiles}
 						><ThemeIcon role="add" />{m.quick_cut_open_multiple()}</Button

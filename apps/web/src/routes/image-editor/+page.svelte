@@ -463,7 +463,6 @@
 
 <div class="image-editor-theme min-h-dvh bg-background text-foreground">
 	<EditorStart
-		kind="image"
 		title={m.editor_start_image_title()}
 		description={m.editor_start_image_description()}
 		bind:heading={pageHeading}

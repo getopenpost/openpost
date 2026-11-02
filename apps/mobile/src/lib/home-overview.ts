@@ -34,7 +34,7 @@ function plural(count: number, one: string, many: (count: number) => string): st
   return count === 1 ? one : many(count);
 }
 
-export function dayLabel(date: Date): string {
+function dayLabel(date: Date): string {
   return date.toLocaleDateString("en", { weekday: "long" });
 }
 

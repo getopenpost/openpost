@@ -141,7 +141,9 @@
 				<span class="inline-flex shrink-0 items-center" aria-hidden="true">
 					<PlatformIcon platform={platformKey} class="size-3.5" />
 				</span>
-				<span class="sr-only">{platformName}</span>
+				<span class={platformKey === 'youtube' ? 'text-xs text-muted-foreground' : 'sr-only'}
+					>{platformName}</span
+				>
 			</div>
 			<p class="truncate text-xs leading-4 text-muted-foreground" title={handle}>{handle}</p>
 		</div>

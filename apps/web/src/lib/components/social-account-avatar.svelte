@@ -1,7 +1,7 @@
 <script lang="ts">
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import * as Avatar from '$lib/components/ui/avatar';
-	import { cn, getPlatformColor } from '$lib/utils';
+	import { cn, getPlatformColor, getPlatformKey } from '$lib/utils';
 	import { monogramFor } from '@openpost/ui/components/avatar/monogram.js';
 
 	interface Props {
@@ -62,19 +62,22 @@
 				/>
 			{/if}
 			<Avatar.Fallback class={avatarLoaded ? 'invisible' : ''}>{fallback}</Avatar.Fallback>
-			<span
-				class={cn(
-					'absolute -right-0.5 -bottom-0.5 z-10 flex items-center justify-center rounded-full text-white ring-2 ring-background',
-					getPlatformColor(platform),
-					size === 'sm'
-						? 'size-3 [&_svg]:size-2'
-						: size === 'lg'
-							? 'size-4 [&_svg]:size-2.5'
-							: 'size-3.5 [&_svg]:size-2.5'
-				)}
-			>
-				<PlatformIcon {platform} />
-			</span>
+			<!-- YouTube attribution belongs in the adjacent provider label, never a tiny badge. -->
+			{#if getPlatformKey(platform) !== 'youtube'}
+				<span
+					class={cn(
+						'absolute -right-0.5 -bottom-0.5 z-10 flex items-center justify-center rounded-full text-white ring-2 ring-background',
+						getPlatformColor(platform),
+						size === 'sm'
+							? 'size-3 [&_svg]:size-2'
+							: size === 'lg'
+								? 'size-4 [&_svg]:size-2.5'
+								: 'size-3.5 [&_svg]:size-2.5'
+					)}
+				>
+					<PlatformIcon {platform} />
+				</span>
+			{/if}
 		</span>
 	{/snippet}
 </Avatar.Root>

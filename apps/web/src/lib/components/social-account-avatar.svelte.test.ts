@@ -3,6 +3,15 @@ import { render } from 'vitest-browser-svelte';
 import SocialAccountAvatar from './social-account-avatar.svelte';
 
 describe('social account avatar', () => {
+	it('keeps the account identity without an undersized YouTube badge', () => {
+		const screen = render(SocialAccountAvatar, {
+			name: 'Channel',
+			platform: 'youtube',
+			size: 'sm'
+		});
+		expect(screen.container.querySelector('svg')).toBeNull();
+		expect(screen.container.textContent).toContain('CH');
+	});
 	it('loads the provider photo lazily without sending a referrer', async () => {
 		const screen = await render(SocialAccountAvatar, {
 			name: 'Rodrigo',

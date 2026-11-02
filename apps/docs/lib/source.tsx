@@ -8,7 +8,6 @@ import { docsPath } from "@openpost/social-images";
 const providerIcons: Record<string, string> = {
   linkedin: docsPath("/assets/logos/linkedin.svg"),
   x: docsPath("/assets/logos/x.svg"),
-  youtube: docsPath("/assets/logos/youtube.svg"),
   tiktok: docsPath("/assets/logos/tiktok.svg"),
   pinterest: docsPath("/assets/logos/pinterest.svg"),
   facebook: docsPath("/assets/logos/facebook.svg"),

@@ -1,3 +1,0 @@
-### Added
-
-- Instagram destinations now enforce Meta's 1000-character alt-text maximum on image posts, including carousel image children. Scheduling, publishing, and API or MCP submissions that project longer alt text onto an Instagram image destination fail readiness and publish validation with a clear message instead of silently truncating. Alt text on Reels, Stories, and video carousel children is never sent to Meta and stays unvalidated. The Instagram destination settings dialog caps the alt-text input at the limit and shows the provider hint; the media library and other destinations keep accepting longer descriptions.

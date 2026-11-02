@@ -4,6 +4,117 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.37.0] - 2026-11-02
+
+### Fixed
+
+- Instagram keeps ambiguous `media_publish` errors pending for read-only reconciliation, including Story sequence progress, rather than permitting another publish request.
+- Instagram does not send a publish request for a container already reported as published, even when a later status read is inconsistent.
+- Direct Instagram Login reads older messages through the conversation node and retains its nested pagination cursor.
+- Graph `100/33` guidance describes inaccessible objects and unsupported actions without claiming that a Facebook Page was deleted or asking users to republish a live post.
+- Instagram server diagnostics identify the failed Graph operation and endpoint template, a bounded object ID, and safe provider codes without logging tokens, captions, media URLs, or response bodies.
+- Replayed delivery errors restore their separate provider code and subcode, retaining Meta recovery classification without sending a rejected write again.
+- Publishing through a Discord bot token that the server rejects now reports an administrator action ("update the Discord bot token in the server settings") instead of asking the account owner to reconnect their Discord authorization, which could not fix the problem.
+- Mastodon and Pixelfed connections reject failed profile lookups instead of saving an account with a placeholder identity. This applies to OAuth callbacks and pasted authorization codes.
+- When Instagram accepts a post but the publish response is lost, resuming the destination now recovers the published post's ID by matching the account's recent published media against the authored caption and media type. Post links and analytics work again instead of recording an accepted post with no external ID; ambiguous or empty-caption cases keep the previous behavior rather than guessing.
+- The MCP local media upload widget now resolves the host-exposed tool name before calling the upload-ticket tool, so it works behind MCP gateways that prefix tool names (such as Cloudflare MCP Server Portals) and falls back to the direct connection name when the host does not report one. Failures now show a clear message instead of a silent error.
+- Meta analytics preserve permission, token, rate-limit, and unavailable-object errors instead of treating them as missing metrics. Requests where every metric fails also retain their error.
+- Restored centered headlines on the homepage, Contact, and Channels pages.
+- Enforced the Hosted X spending limit before looking up photo-tag handles, including accounting for uncached lookups.
+- Limited reconnect notifications to accounts with confirmed credential failures, and kept temporary provider outages from hiding or repeating those alerts.
+- Kept mobile Posts view preferences scoped to the active Workspace while its saved preference loads.
+- The Video Editor color picker samples the first paused preview frame immediately, so picking a color works even when the preview renders before the normal sampling interval has elapsed.
+- Telegram video posts and albums retain their analyzed dimensions instead of appearing square.
+- Bluesky image and video posts include known aspect ratios, including media attached to quote posts. Publishing retains analyzed dimensions and duration through direct, ordinary, resumable, and thread uploads.
+- TikTok connections with Display API disabled now request only basic profile fields. Connections also recover from HTTP scope denials for optional username access without hiding invalid-token failures.
+- YouTube profile checks use the authorized channel API without requiring Google profile or email permissions.
+- Provider setup guides match the requested TikTok, YouTube, and Threads scopes.
+- Consume published direct changelog entries so later release announcements no longer repeat old fixes, while preserving notes added after the release tag.
+- Phones: the workspace shell now defines the mobile bottom navigation's height and clearance variables, so page content no longer slides under the semi-transparent fixed nav and shows through behind its passive icons.
+- Image Editor: the Line tool no longer shows a remove (×) glyph, the tablet ellipse marquee no longer shows a pending (clock) glyph, and the desktop "More" menu can no longer open phone-style sheets stacked over the persistent panes.
+- Image Editor: "Resize page" and "Rename page" no longer share the same pencil icon.
+- Video Editor: the transcript inspector tab no longer scrolls inside its own nested box within the scrolling inspector.
+- Recorder: the local-space estimate no longer adds a "plus 20% working headroom" clause on top of a figure that already includes it.
+- Composer: the schedule dialog announces failed time parsing to screen readers, the post-publish feedback uses the shared success notice, and the publication link respects base-path deployments.
+- Publications: status and analytics delta colors use semantic theme tokens so organization themes render correctly; the failed-load state keeps the page chrome; loading defaults to the localized message everywhere.
+- Media library: the active-filter count badge no longer spends the focal action color on a passive chip.
+- Marketing: hero headings step down again on phones, so accented phrases such as "For your next post." and "Choose for the job." stay inside 320px screens.
+- Image Editor: the phone "More actions" Layer section explains destructive rasterizing again, matching the desktop menu.
+- Docs: the copy button announces "Copied" after copying, and the 404 figure includes screen-reader context; marketing FAQs share one keyboard focus treatment; the image dropzone limit hint derives from the actual limit; the media converter dropzone shows drag feedback.
+- Developers: removed 10 duplicate byte-size formatters and consolidated media-duration formatting and editor control-height tokens onto their shared owners.
+- Video analysis now accounts for non-square pixels before rotation, so anamorphic videos retain their display aspect ratio in publishing metadata and media validation.
+- Video Editor clip menus close after trimming, so the next clip can be trimmed without reopening a stale menu.
+- X destinations with "Tag people" now validate photo tags before publishing: at most 10 people per post, entries must be X handles or numeric user IDs, and tags require a photo attachment. OpenPost resolves handles to numeric X user IDs when publishing and caches the result per workspace, so retries do not repeat paid lookups. Over-limit lists are rejected at authoring readiness as well.
+- Clarify which YouTube data OpenPost accesses and stores, how users can request deletion, and the refresh or deletion duties that apply to downloaded reports and shared copies. Include source-fetch dates in post and grouped exports.
+- Expire cached YouTube analytics, imports and comments before their 30-day deadline, and clear those caches when a destination is disconnected or its grant revoked. Refresh authorized channel profiles independently of analytics, expire stale profiles and abandoned channel selections, and remove copied notification data, cached avatars and revoked authorization metadata.
+- Use current official YouTube artwork at its minimum display size on connection cards, with text attribution in compact controls instead of undersized marks.
+- Keep revocations effective when cleanup retries, preserve comment operation receipts across reconnection, and fence expired import cursors without changing account opt-in or activation.
+
+### Changed
+
+- When a connected account's credentials break, OpenPost now notifies the person who connected the account and the workspace administrators once per failure, in addition to the per-post failure notification for the post's author. Repeated failures for the same broken account no longer create a separate notification for every scheduled post.
+- Simplified Analytics on web and mobile by removing recommendation cards and repeated explanations. Web reporting actions use compact labelled icons, and audience by account appears directly after the trend chart.
+- Analytics reuses the shared account picker with multiple-account and Social Set selection. Totals, charts, rankings, and export defaults follow the same selection while preserving Visibility and provider-specific measurements.
+- Refresh the README, product screenshots, and demos for the Calm interface.
+- New default Calm theme with Manrope, softer surfaces, and a single warm accent. Saved themes are unchanged.
+- Rebuilt navigation around Home, Posts, Inbox, Analytics, Ideas, Studio, Media, Automations, and Accounts, with labelled phone tabs. The app now opens on Home; choose New post under Preferences to open on the composer and show Drafts in the sidebar.
+- Rebuilt Home, onboarding, Posts, Inbox, Analytics, and Settings around one clear job per screen. The composer shows a live preview on wide screens. Accounts is now its own page, and Brand merges Brand kit and App branding.
+- The Image Editor tool rail now fits eight slots: Add, Select (move, marquee, lasso, and magic select variants), Crop, Text, Shape, Draw (pencil, eraser, magic eraser, fill, gradient), Eyedropper, and View (hand, zoom). Every tool keeps its shortcut and stays reachable from its slot's flyout.
+- The Image Editor Edit/Color mode switch and the AI studio's selected states use the same neutral selected color as sidebar navigation instead of the peach selection tint.
+- Back to Studio on the Image Editor start page is now a quiet link at the very top of the page, above the title.
+- Properties on phone-sized screens is now a non-modal bottom sheet without a scrim, so the canvas stays visible and interactive while adjusting properties.
+- Onboarding now asks what you want to do when you open OpenPost instead of how you mostly work. The choices are "Write a new post" (opens the composer and shows Drafts in the sidebar) and "See what's going on" (opens Home with your schedule, inbox, and results), each with a one-line explanation.
+- Settings, composer, workflows, and theme screens now use one shared disclosure control for expandable rows, so chevrons, focus styles, and touch targets stay consistent.
+- Deleting a previous-data restore point in instance backup settings asks for confirmation first.
+- Rebuilt the Reddit post preview around the real card chrome: community and author line with `r/` and `u/` labels, a horizontal vote pill with the score between the arrows, comment and share/save actions, and Reddit's typography, colors, and card border in both schemes.
+- Matched the Lemmy and PieFed post cards to their real interfaces: comment count first, then the compact upvote/score/downvote group, with the published time, community, and creator line placed like the source UI.
+- Rebuilt the Pinterest preview on the real Pin closeup: on wide containers the image sits beside a details column with react, share, and more actions, the red Save button, title, description, author row with Follow, and a comments section; the full page shell adds the related Pins column next to the closeup.
+- Gave TikTok photo posts their own photo-mode chrome: one progress dot per slide at the bottom center instead of the video progress bar.
+- Added the channel view count to the Telegram message footer, matching the Telegram web channel preview.
+- Rebuilt the PeerTube preview on the real watch page: stats line under the title, labeled Like/Dislike/Support/Share/Download actions, the channel row with Subscribe, a "No comments." state, and a page shell with the Other videos rail instead of the generic sidebar.
+- Polished the Pixelfed status card against the real web app: handle header with the time and place line, caption above the action row, pill-shaped actions, and Pixelfed's own fonts, colors, radius, and shadow.
+- Aligned the Facebook post preview with Facebook's own CSS tokens: the real system font stack, the #0866FF rebrand blue, borderless 8px cards with the verified base shadow, exact 15px message typography, and the engagement and action bar metrics in both schemes.
+- Aligned the Discord message preview with the client's documented variable palette: 16px/1.375 message body, corrected text and hover colors in both schemes, the real floating action toolbar, and 4px attachment and embed radii with the verified 400x300 inline cap.
+- Rebuilt the Bluesky card on the real social-app palette and metrics: Inter type, pure-black dark theme, 15px posts with the real content-warning hider, media radii, action row, and hover washes.
+- Rebuilt the Mastodon card on the current indigo flavor design: Inter type, 700px feed metrics, accent-alpha borders and washes, the callout content warning, and the redesigned split action bar; the page shell follows the same palette and column width.
+- Aligned the Instagram card with the production web app: the Optimistic product font, 470px feed metrics, 4px radius, the real Stories ring (production five-stop gradient with the band-and-gap geometry, fixed for every ring consumer), and the current dark background.
+- Aligned the YouTube watch card with the live watch page: 20px/400 title, the joined like/dislike pill with its divider, 36px action pills, the description box and Sort-by chip, the signed-out channel row without the bell, and the icon-only guide rail on the page shell.
+- Aligned the X card with the live client: the Chirp font stack, 15px posts and name row, 12px cell padding, 18.75px action icons with the verified per-action hover tints, and the lights-out palette; the page shell follows the same tokens.
+- Aligned the Threads card with the live app: 15px/600 usernames, 15px/1.4 bodies, 13px timestamps, and the verified system font stack.
+- Aligned the LinkedIn card with LinkedIn's own tokens: the real cool-gray surfaces and hairlines, 14px/600 names with 12px metadata, the #378fe9 like dot, the teal Author pill on replies, 12px comment typography, and the real two-row engagement layout with the count line above the divider; the page shell follows the palette.
+- Aligned the Google Business card with Google's tokens: Google Sans and Google Sans Text, the resting #1a73e8 action blue (not the pressed state), 14px/500 weight rules, and the corrected dark palette; the page shell follows with real hairlines and fonts, and event ranges use the real dash separator.
+- Hardened every phone shell from visual review: bottom navigation now pins to the frame bottom across the X, Bluesky, LinkedIn, Facebook, Instagram, YouTube, and TikTok shells, the Reddit feed spans the full phone width, Facebook gained its missing mobile navigation, and the composer Post button, channel headers, and dark covers render correctly in both schemes.
+- Built out the /dev/null preview from the real dev-null.sh interface: the commit card now shows the commit hash chip, star/quote/reply actions, and the site's Geist theme in both schemes, and the full page preview renders the real Log layout with the icon rail, the bordered commit column, and the GitHub sign-in aside instead of the generic fallback.
+- Video Editor: clip actions now have one canonical home per surface. The top-bar overflow "Clip" section is gone (Split, delete, and ripple delete stay in the timeline and inspector clip menus), "Add crossfade" is available from the timeline clip context menu, and empty timeline space offers Add track like the toolbar and track menus do.
+- Video Editor: double-clicking a timeline marker now opens its details instead of deleting it; delete stays on the explicit button and context menu.
+- Video Editor: modified Appearance, Crop, Playback, Anchor, and Corner pin groups are now marked "Modified" instead of the meaningless "Active" when collapsed.
+- Video Editor: the phone inspector pane toggle is now labeled "Properties" so it no longer collides with the "Edit" workspace tab.
+- Video Editor: phones now switch panes from one bottom dock above the timeline instead of stacked top tabs, the desktop tool rail shows every content panel without an overflow menu, and the source monitor no longer floats over the preview.
+- Video Editor: audio EQ, effects, ducking, and noise reduction sit beside the other audio controls in Properties instead of nested inside Advanced.
+- Video Editor: the audio EQ, effects, and ducking panels use the editor's shared disclosure and toggle controls, one consistent on/off pill style, and editor theme tokens instead of mixed app-theme styles; the mixer drawer no longer shows a duplicated "Track EQ" header, and fader drags announce their value to screen readers.
+- Video Editor: every content browser has search (shapes, timers, and text templates join effects, stickers, backgrounds, and scenes), and the scrub fields across color, transform, crop, and playback share one numeric-scrub control with PageUp/PageDown and Home/End keyboard support, unit suffixes, and display scaling. Speech cleanup, transitions, text motion, motion presets, local music, and settings sliders use the shared rows, and the Image Editor's color sliders use them instead of a private component.
+- Editors and start pages: the storage destination choice now reads "OpenPost cloud" / "This device" instead of the past-tense status strings; the Recorder keeps the toggle visible and labeled while recording.
+- Quick Cut: panels use the shared editor disclosure and scrub controls, the empty state says to open a video (there is no create action), and playback shortcuts plus Escape keep working in repurpose mode.
+- Image Editor: the tablet tool rail now behaves like the desktop rail (click activates the remembered variant; menus open on repeat click and arrow keys), the page strip is resizable with a stable reset, and touch targets meet the 44px minimum.
+- Image Editor: properties sliders (opacity, rotation, curve, adjustments, lens) share the standard editor slider row with typed and scrubbable values.
+- Image Editor: Color workspace adjustment and wheel-ring controls use the standard editor slider row (one label, track, value field, and reset line), keeping the mixed-value placeholder, reset buttons, and 0-100 display scale.
+- Composer and workspace copy now use the product terms consistently: "variant" instead of "rendition" or "account versions", and "account" instead of "channel" for connectable destinations.
+- Message catalog: trailing "..." normalized to "…", labels no longer end with periods, and the video editor agent error prefix no longer apologizes. Broken machine-generated Quick Cut translations ("Cut in", "Cut export" shown as literal text in French, Portuguese, Spanish, German, and Japanese) are replaced with correct translations, and Quick Cut strings that silently dropped their second sentence are restored across nine locales.
+- Posts and Media share one search control and the same tabbed filter chrome; status and delta colors follow semantic theme tokens.
+- Mobile: Media tab shows the standard full-page error state on first-load failure, More drill-ins use the native stack header, empty states fall back to a fitting icon, and the media placeholder and drawer scrim follow the theme.
+- Public site: one heading system and section rhythm across marketing pages, shared FAQ keyboard focus, dropzone drag feedback, and limits derived from the actual configured size.
+
+### Added
+
+- Read and answer dev/null comments and nested replies from Inbox using existing SSH connections.
+- Add an automatic first comment to dev/null posts.
+- Instagram destinations now enforce Meta's 1000-character alt-text maximum on image posts, including carousel image children. Scheduling, publishing, and API or MCP submissions that project longer alt text onto an Instagram image destination fail readiness and publish validation with a clear message instead of silently truncating. Alt text on Reels, Stories, and video carousel children is never sent to Meta and stays unvalidated. The Instagram destination settings dialog caps the alt-text input at the limit and shows the provider hint; the media library and other destinations keep accepting longer descriptions.
+- Instagram connections through Facebook Login now support Meta's Unified Login for newly created Meta apps: provider app entries accept a `config_id`, and the consent dialog is built from the Facebook Login for Business configuration instead of explicit scopes. Apps created before Meta's change keep working unchanged; end-to-end verification against a fresh Meta app is tracked separately (#495).
+
+### Improved
+
+- Run development servers from multiple checkouts with separate local URLs, ports, databases, and media.
+
 ## [7.35.4] - 2026-10-30
 
 ### Fixed

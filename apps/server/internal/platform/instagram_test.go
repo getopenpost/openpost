@@ -682,6 +682,30 @@ func TestInstagramResumePublishDoesNotReplayAmbiguousSubmission(t *testing.T) {
 	}
 }
 
+func TestInstagramResumePublish10033StaysPendingWithoutAuthoritativeStatus(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	original := httpClient
+	t.Cleanup(func() { httpClient = original })
+	var requests []string
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests = append(requests, req.Method+" "+req.URL.Path)
+		if req.URL.Path != "/v25.0/container-1" || req.Method != http.MethodGet {
+			t.Fatalf("unconfirmed publish must not write: %s %s", req.Method, req.URL.String())
+		}
+		return jsonResponseWithStatus(req, http.StatusBadRequest, `{"error":{"message":"Object does not exist","code":100,"error_subcode":33}}`), nil
+	})}
+	result, err := NewInstagramLoginAdapter("", "", "").ResumePublish(t.Context(), "token", "ig-1", &PublishRequest{}, "ig1:p:container-1")
+	if err == nil {
+		t.Fatal("expected the container status error to remain visible")
+	}
+	if result.SubmissionState != PublishSubmissionPending || result.ProviderReference != "ig1:p:container-1" || result.RetrySafety != PublishRetryReconcileOnly {
+		t.Fatalf("missing authoritative status must remain pending, got %#v", result)
+	}
+	if strings.Join(requests, ",") != "GET /v25.0/container-1" {
+		t.Fatalf("pending reconciliation must not republish: %v", requests)
+	}
+}
+
 func TestInstagramResumePublishCompletesStorySequence(t *testing.T) {
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient
@@ -863,5 +887,140 @@ func TestInstagramResumeStoryCreateCheckpointRecreatesContainer(t *testing.T) {
 	}
 	if result.SubmissionState != PublishSubmissionPending || result.ProviderReference != "ig1:s:0:-:container-2" {
 		t.Fatalf("unexpected resumed create result: %#v", result)
+	}
+}
+
+func TestInstagramPublish10033AfterPublishIntentRemainsPending(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	original := httpClient
+	t.Cleanup(func() { httpClient = original })
+	var requests []string
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests = append(requests, req.Method+" "+req.URL.Path)
+		switch req.URL.Path {
+		case "/v25.0/ig-1/media":
+			return jsonResponse(req, `{"id":"container-1"}`), nil
+		case "/v25.0/container-1":
+			return jsonResponse(req, `{"status_code":"FINISHED"}`), nil
+		case "/v25.0/ig-1/media_publish":
+			return jsonResponseWithStatus(req, http.StatusBadRequest, `{"error":{"message":"Object does not exist","code":100,"error_subcode":33}}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+	var checkpoints []PublishResult
+	req := &PublishRequest{Content: "Launch", PlatformMediaIDs: []string{"https://media.example/photo.jpg"}, Media: []MediaItem{{MimeType: "image/jpeg"}}}
+	req.SetWriteFence(nil, func(result PublishResult) error { checkpoints = append(checkpoints, result); return nil })
+	result, err := NewInstagramLoginAdapter("", "", "").Publish(t.Context(), "token", "ig-1", req)
+	if err == nil {
+		t.Fatal("expected the provider error to remain visible")
+	}
+	if result.SubmissionState != PublishSubmissionPending || result.ProviderReference != "ig1:p:container-1" || result.RetrySafety != PublishRetryReconcileOnly {
+		t.Fatalf("ambiguous publish result must remain pending and fenced, got %#v", result)
+	}
+	if len(checkpoints) < 2 || checkpoints[len(checkpoints)-1].ProviderReference != "ig1:p:container-1" {
+		t.Fatalf("publish intent checkpoint was not retained: %#v", checkpoints)
+	}
+	if strings.Join(requests, ",") != "POST /v25.0/ig-1/media,GET /v25.0/container-1,POST /v25.0/ig-1/media_publish" {
+		t.Fatalf("unexpected write sequence: %v", requests)
+	}
+	requests = nil
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests = append(requests, req.Method+" "+req.URL.Path)
+		switch req.URL.Path {
+		case "/v25.0/container-1":
+			return jsonResponse(req, `{"status_code":"PUBLISHED"}`), nil
+		case "/v25.0/ig-1/media":
+			return jsonResponse(req, `{"data":[{"id":"published-1","caption":"Launch","media_type":"IMAGE"}]}`), nil
+		default:
+			t.Fatalf("reconciliation must not write: %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+	result, err = NewInstagramLoginAdapter("", "", "").ResumePublish(t.Context(), "token", "ig-1", req, result.ProviderReference)
+	if err != nil || result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != "published-1" {
+		t.Fatalf("authoritative PUBLISHED status should confirm the post: %#v, %v", result, err)
+	}
+	if strings.Join(requests, ",") != "GET /v25.0/container-1,GET /v25.0/ig-1/media" {
+		t.Fatalf("resume must only read provider state: %v", requests)
+	}
+}
+
+func TestInstagramStoryPublish10033KeepsSequenceCheckpoint(t *testing.T) {
+	original := httpClient
+	t.Cleanup(func() { httpClient = original })
+	var requests []string
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests = append(requests, req.Method+" "+req.URL.Path)
+		switch req.URL.Path {
+		case "/v25.0/ig-1/media":
+			return jsonResponse(req, `{"id":"container-1"}`), nil
+		case "/v25.0/container-1":
+			return jsonResponse(req, `{"status_code":"FINISHED"}`), nil
+		case "/v25.0/ig-1/media_publish":
+			return jsonResponseWithStatus(req, http.StatusBadRequest, `{"error":{"message":"Object unavailable","code":100,"error_subcode":33}}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.Path)
+			return nil, nil
+		}
+	})}
+	req := &PublishRequest{Profile: "story", PlatformMediaIDs: []string{"https://media.example/one.jpg", "https://media.example/two.jpg"}, Media: []MediaItem{{MimeType: "image/jpeg"}, {MimeType: "image/jpeg"}}}
+	result, err := NewInstagramLoginAdapter("", "", "").Publish(t.Context(), "token", "ig-1", req)
+	if err == nil {
+		t.Fatal("expected ambiguous provider response")
+	}
+	if result.SubmissionState != PublishSubmissionPending || result.ProviderReference != "ig1:t:0:-:container-1" || result.RetrySafety != PublishRetryReconcileOnly {
+		t.Fatalf("ambiguous story publish lost its sequence: %#v", result)
+	}
+	if strings.Join(requests, ",") != "POST /v25.0/ig-1/media,GET /v25.0/container-1,POST /v25.0/ig-1/media_publish" {
+		t.Fatalf("unexpected writes: %v", requests)
+	}
+}
+
+func TestInstagramAlreadyPublishedContainerDoesNotPublishAgain(t *testing.T) {
+	for _, profile := range []string{"post", "story"} {
+		t.Run(profile, func(t *testing.T) {
+			original := httpClient
+			t.Cleanup(func() { httpClient = original })
+			var requests []string
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				requests = append(requests, req.Method+" "+req.URL.Path)
+				switch req.URL.Path {
+				case "/v25.0/ig-1/media":
+					return jsonResponse(req, `{"id":"container-1"}`), nil
+				case "/v25.0/container-1":
+					return jsonResponse(req, `{"status_code":"PUBLISHED"}`), nil
+				default:
+					t.Fatalf("must not publish an already published container: %s %s", req.Method, req.URL.Path)
+					return nil, nil
+				}
+			})}
+			req := &PublishRequest{Profile: profile, PlatformMediaIDs: []string{"https://media.example/one.jpg"}, Media: []MediaItem{{MimeType: "image/jpeg"}}}
+			result, _ := NewInstagramLoginAdapter("", "", "").Publish(t.Context(), "token", "ig-1", req)
+			if result.SubmissionState != PublishSubmissionPending || result.RetrySafety != PublishRetryReconcileOnly {
+				t.Fatalf("expected read-only reconciliation, got %#v", result)
+			}
+			if strings.Join(requests, ",") != "POST /v25.0/ig-1/media,GET /v25.0/container-1" {
+				t.Fatalf("unexpected requests: %v", requests)
+			}
+			wantReference := "ig1:p:container-1"
+			if profile == "story" {
+				wantReference = "ig1:t:0:-:container-1"
+			}
+			if result.ProviderReference != wantReference {
+				t.Fatalf("lost published state: %#v", result)
+			}
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if req.Method != "GET" || req.URL.Path != "/v25.0/container-1" {
+					t.Fatalf("must not repeat publish on resume: %s %s", req.Method, req.URL.Path)
+				}
+				return jsonResponse(req, `{"status_code":"FINISHED"}`), nil
+			})}
+			resumed, resumeErr := NewInstagramLoginAdapter("", "", "").ResumePublish(t.Context(), "token", "ig-1", req, result.ProviderReference)
+			if resumeErr != nil || resumed.SubmissionState != PublishSubmissionPending {
+				t.Fatalf("must remain read-only when status is inconsistent: %#v %v", resumed, resumeErr)
+			}
+		})
 	}
 }

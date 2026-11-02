@@ -67,7 +67,7 @@ func TestClassifyMetaFailuresUseDistinctRecoveryActions(t *testing.T) {
 		{"checkpoint", &platform.HTTPError{StatusCode: 401, Code: "meta:checkpoint:190:459", Subcode: "459"}, FailureReconnectRequired, false, FailureActionReconnect, "security check"},
 		{"instagram checkpoint", &platform.HTTPError{StatusCode: 401, Code: "meta:checkpoint:instagram"}, FailureReconnectRequired, false, FailureActionReconnect, "instagram.com"},
 		{"lost page role", &platform.HTTPError{StatusCode: 403, Code: "meta:missing_page_role:190:492", Subcode: "492"}, FailurePermission, false, FailureActionReconnect, "role on this Page"},
-		{"missing object never retries", &platform.HTTPError{StatusCode: 400, Code: "meta:nonexistent:100:33", Subcode: "33"}, FailureValidation, false, FailureActionEdit, "no longer exists"},
+		{"missing object never retries", &platform.HTTPError{StatusCode: 400, Code: "meta:nonexistent:100:33", Subcode: "33"}, FailureValidation, false, FailureActionEdit, "cannot access"},
 		{"silent audio retries", &platform.HTTPError{StatusCode: 400, Code: "meta:media_silent_audio:2207082"}, FailureProviderProcessing, true, FailureActionRetry, "volume to 0"},
 		{"exhausted container propagation retry stays local", &platform.HTTPError{StatusCode: 400, Code: "meta:media_not_ready:9004:2207052"}, FailureProviderProcessing, false, FailureActionRetry, "safe creation step"},
 		{"format rejection", &platform.HTTPError{StatusCode: 400, Code: "meta:media_format:2207085"}, FailureValidation, false, FailureActionEdit, "format, duration"},

@@ -213,7 +213,7 @@ func TestMetaFailureMessagesAreCurated(t *testing.T) {
 		"meta:checkpoint:190:459":                "security check",
 		"meta:checkpoint:instagram":              "instagram.com",
 		"meta:missing_page_role:190:492":         "role on this Page",
-		"meta:nonexistent:100:33":                "no longer exists",
+		"meta:nonexistent:100:33":                "cannot access",
 		"meta:media_silent_audio:2207082":        "volume to 0",
 		"meta:media_format:2207085":              "format, duration",
 		"meta:media_rejected:2207042":            "25 posts per day",

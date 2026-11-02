@@ -11,8 +11,39 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDevNullPostFirstCommentUsesSignedReply(t *testing.T) {
+	_, key := devNullTestSigner(t)
+	const parent = "01a14c0f-6e52-4b1c-9a1d-2f4b5c6d7e8f"
+	const reply = "01a14c0f-6e52-4b1c-9a1d-2f4b5c6d7e90"
+	var calls int
+	server := newProviderTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		require.Equal(t, "/api/cli/commits", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+		require.NotEmpty(t, r.Header.Get("X-SSH-Signature"))
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		parts := strings.SplitN(string(body), "\n", 4)
+		require.Len(t, parts, 4)
+		require.Equal(t, parent, parts[2])
+		require.Equal(t, "Details about the launch", parts[3])
+		w.WriteHeader(http.StatusCreated)
+		_, _ = io.WriteString(w, "Committed: https://dev-null.sh/@testuser/commits/"+reply+"\n")
+	}))
+	t.Cleanup(server.Close)
+	adapter := NewDevNullAdapter(server.URL)
+	id, err := adapter.PostFirstComment(t.Context(), devNullCredential("testuser", key), "account", parent, "Details about the launch")
+	require.NoError(t, err)
+	require.Contains(t, id, reply)
+	for _, invalid := range []struct{ target, message string }{{"", "Valid reply"}, {parent, " "}, {"invalid", "Valid reply"}} {
+		_, err := adapter.PostFirstComment(t.Context(), devNullCredential("testuser", key), "account", invalid.target, invalid.message)
+		require.Error(t, err)
+	}
+	require.Equal(t, 1, calls, "invalid follow-ups must not publish top-level commits")
+}
+
 func TestSupportsFirstCommentIsCapabilityGated(t *testing.T) {
-	for _, provider := range []string{"linkedin", "facebook", "instagram", "youtube"} {
+	for _, provider := range []string{"linkedin", "facebook", "instagram", "youtube", "devnull"} {
 		require.True(t, SupportsFirstComment(provider), "%s must support first comments", provider)
 	}
 	for _, provider := range []string{"x", "threads", "tiktok", "bluesky"} {

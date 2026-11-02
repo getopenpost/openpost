@@ -2671,10 +2671,12 @@ func piefedSettings() []SettingField {
 
 // devnullSettings returns the composer settings for dev/null. The CLI commit
 // contract takes only body text, an optional reply reference, and images:
-// link cards unfurl server-side from the first URL, so OpenPost sends no
-// provider settings and the composer stays a plain text field.
+// link cards unfurl server-side from the first URL. A first comment uses the
+// same signed reply contract after the parent commit has been published.
 func devnullSettings() []SettingField {
-	return []SettingField{}
+	return []SettingField{
+		{Key: "first_comment", Label: "First comment", Type: "textarea", Control: "follow_up", Scope: SettingScopeSegment},
+	}
 }
 
 func blueskySettings() []SettingField {

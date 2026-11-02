@@ -11,6 +11,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDevNullFirstCommentAvailableAcrossPublishingFormats(t *testing.T) {
+	for _, profile := range []string{models.ContentProfileShortText, models.ContentProfileThread, models.ContentProfileLinkShare, models.ContentProfileImagePost} {
+		capability, ok := Find(ProviderDevNull, profile)
+		require.True(t, ok)
+		var found bool
+		for _, field := range capability.Settings {
+			if field.Key == platform.FirstCommentSettingKey {
+				found = true
+				require.Equal(t, "follow_up", field.Control)
+				require.Equal(t, SettingScopeSegment, field.Scope)
+			}
+		}
+		require.True(t, found, "%s must expose its follow-up comment", profile)
+	}
+}
+
 func TestInstagramAltTextLimitAgreesAcrossAuthoringAndProviderValidation(t *testing.T) {
 	require.Equal(t, 1000, providerlimits.InstagramAltTextMaxCharacters, "canonical Instagram alt text limit")
 	image := func(altText string) MediaItem {

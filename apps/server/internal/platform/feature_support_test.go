@@ -85,7 +85,7 @@ func TestSupportsEngagementSeededDefaults(t *testing.T) {
 		"mastodon": true, "pixelfed": true, "peertube": true, "lemmy": true,
 		"piefed": true, "bluesky": true, "x": true, "youtube": true,
 		"tiktok": false, "pinterest": false, "telegram": false,
-		"discord": false, "googlebusiness": false, "devnull": false,
+		"discord": false, "googlebusiness": false, "devnull": true,
 		"unknown": false, "": false,
 	} {
 		if got := SupportsEngagement(provider); got != want {

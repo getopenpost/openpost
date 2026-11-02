@@ -324,11 +324,13 @@
 			the connected channel and workspace. You can also request account deletion from account settings.
 		</p>
 		<p>
-			We delete data covered by a YouTube data-deletion request or a grant revocation made through
-			OpenPost as soon as possible and within seven calendar days. Data obtained under consent
-			revoked through Google security settings must be deleted as soon as possible and within 30
-			calendar days of revocation. Deleting data stored by OpenPost does not delete videos,
-			comments, or other data stored by YouTube. Use YouTube's own controls to delete that content.
+			YouTube analytics, imported metadata, and fetched comment caches expire after 22 days. Channel
+			profiles are refreshed after 21 days, or their stale name and image are cleared. We delete
+			data covered by a YouTube data-deletion request or a grant revocation made through OpenPost as
+			soon as possible and within seven calendar days. Data obtained under consent revoked through
+			Google security settings must be deleted as soon as possible and within 30 calendar days of
+			revocation. Deleting data stored by OpenPost does not delete videos, comments, or other data
+			stored by YouTube. Use YouTube's own controls to delete that content.
 		</p>
 
 		<h2>7. Retention and deletion</h2>
@@ -343,12 +345,12 @@
 			Deletion can be delayed when you must first transfer shared ownership, cancel active billing,
 			or preserve the last required instance administrator. Primary account and personal workspace
 			data are removed when deletion completes. The Hosted service makes daily database and media
-			recovery copies in root-restricted operator storage. Routine database dumps and changed or
-			deleted media versions are pruned by a daily job after they become more than 14 days old. A
-			copy can therefore remain until the next daily run. Operator-created repair or incident
-			snapshots follow a separate review and are kept only while needed for recovery, security,
-			legal duties, fraud prevention, or enforcing legal rights. OpenPost does not add a separate
-			application-level encryption layer to each backup artifact.
+			recovery copies in restricted operator storage on a private NAS. At most seven successful
+			database and media snapshots are retained. An independent hourly cleanup removes OpenPost
+			snapshots older than six days, including when a new backup fails. Operator-created repair or
+			incident snapshots follow a separate review and are kept only while needed for recovery,
+			security, legal duties, fraud prevention, or enforcing legal rights. OpenPost does not add a
+			separate application-level encryption layer to each backup artifact.
 		</p>
 		<p><strong>Retention schedule reviewed:</strong> {inventoryReviewedOn}</p>
 

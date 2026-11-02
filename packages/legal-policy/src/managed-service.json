@@ -20,7 +20,7 @@
       "provider": "Hetzner Online GmbH",
       "location": "Falkenstein, Germany (FSN1)",
       "data": "Daily PostgreSQL dumps, a synchronized media copy, and retained changed or deleted media versions.",
-      "retention": "Routine database dumps and changed or deleted media versions are pruned by the next daily run after they are more than 14 days old. Operator-created repair or incident snapshots are reviewed separately and kept only while needed for recovery, security, legal duties, fraud prevention, or legal claims.",
+      "retention": "At most seven successful database and media snapshots are retained on a private NAS. An independent hourly job removes OpenPost snapshots older than six days, including when new backups fail. Operator-created repair or incident snapshots are reviewed separately and kept only while needed for recovery, security, legal duties, fraud prevention, or legal claims.",
       "protection": "Recovery files are root-owned and not served by the application. OpenPost does not add a separate application-level encryption layer to each artifact. A weekly restore drill validates the latest database copy and the media inventory."
     },
     {

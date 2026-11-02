@@ -19,6 +19,7 @@ import (
 
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/connectors"
+	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	account_saver "github.com/openpost/backend/internal/services/account_saver"
@@ -3195,26 +3196,63 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 		}
 		now := time.Now().UTC()
 		if err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-			if account.Platform == "youtube" {
-				if err := organizationguard.LockWorkspace(txCtx, tx, account.WorkspaceID); err != nil {
-					return err
-				}
-			}
-			if account.OAuthGrantID == "" {
-				return revokeLegacyAccountGrant(txCtx, tx, account, now)
-			}
-			return revokeSharedAccountGrant(txCtx, tx, account, userID, now)
+			return persistAccountGrantRevocation(txCtx, tx, account, userID, now)
 		}); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, huma.Error404NotFound("provider grant not found")
 			}
 			return nil, huma.Error500InternalServerError("failed to revoke provider grant")
 		}
+		h.cleanupRevokedYouTubeData(ctx, account, now)
 		return nil, nil
 	})
 }
 
-func revokeLegacyAccountGrant(ctx context.Context, db bun.IDB, account models.SocialAccount, now time.Time) error {
+// Commit local revocation before attempting cleanup. The revoked grant itself
+// remains discoverable by the independent hourly retention sweep.
+func persistAccountGrantRevocation(ctx context.Context, db bun.IDB, account models.SocialAccount, userID string, now time.Time) error {
+	if account.Platform == "youtube" {
+		if err := organizationguard.LockWorkspace(ctx, db, account.WorkspaceID); err != nil {
+			return err
+		}
+	}
+	var err error
+	if account.OAuthGrantID == "" {
+		err = revokeLegacyAccountGrant(ctx, db, account)
+	} else {
+		err = revokeSharedAccountGrant(ctx, db, account, userID, now)
+	}
+	return err
+}
+
+func enqueueYouTubeRevocationCleanup(ctx context.Context, db bun.IDB, account models.SocialAccount, now time.Time) error {
+	job, err := jobregistry.NewJob(jobregistry.TypeYouTubeProfileSweep, "{}", now)
+	if err != nil {
+		return err
+	}
+	identity := account.OAuthGrantID
+	if identity == "" {
+		identity = account.ID
+	}
+	job.ScopeID = "youtube-profile"
+	job.DedupeKey = "revoked:" + identity
+	_, err = db.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(ctx)
+	return err
+}
+
+func (h *OAuthHandler) cleanupRevokedYouTubeData(ctx context.Context, account models.SocialAccount, now time.Time) {
+	if account.Platform != "youtube" {
+		return
+	}
+	if err := enqueueYouTubeRevocationCleanup(ctx, h.db, account, now); err != nil {
+		log.Printf("YouTube cleanup receipt deferred to periodic sweep account=%s", account.ID)
+	}
+	if err := dataretention.ClearRevokedYouTubeMetadata(ctx, h.db, now, account.WorkspaceID); err != nil {
+		log.Printf("YouTube data cleanup deferred to durable retry account=%s", account.ID)
+	}
+}
+
+func revokeLegacyAccountGrant(ctx context.Context, db bun.IDB, account models.SocialAccount) error {
 	_, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).
 		Set("is_active = ?", false).
 		Set("access_token_encrypted = ?", []byte{}).
@@ -3225,9 +3263,6 @@ func revokeLegacyAccountGrant(ctx context.Context, db bun.IDB, account models.So
 		Exec(ctx)
 	if err != nil {
 		return err
-	}
-	if account.Platform == "youtube" {
-		return dataretention.RetireYouTubeAccount(ctx, db, now, account.WorkspaceID, account.ID)
 	}
 	return nil
 }
@@ -3273,17 +3308,6 @@ func revokeSharedAccountGrant(ctx context.Context, db bun.IDB, account models.So
 		Where("oauth_grant_id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).
 		Exec(ctx); err != nil {
 		return err
-	}
-	if account.Platform == "youtube" {
-		var accounts []models.SocialAccount
-		if err := db.NewSelect().Model(&accounts).Where("oauth_grant_id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).Scan(ctx); err != nil {
-			return err
-		}
-		for _, linked := range accounts {
-			if err := dataretention.RetireYouTubeAccount(ctx, db, now, linked.WorkspaceID, linked.ID); err != nil {
-				return err
-			}
-		}
 	}
 	return tokenmanager.CancelGrantRefreshJobs(ctx, db, account.OAuthGrantID)
 }

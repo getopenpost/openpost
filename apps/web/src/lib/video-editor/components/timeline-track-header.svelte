@@ -285,10 +285,11 @@
 					class="size-3.5"
 				/>{/if}
 		</Button>
+		<!-- The collapsed menu control must not intercept clips beyond the track header. -->
 		<div
 			bind:this={moreMenu}
 			class={[
-				'relative h-6 shrink-0 group-focus-within/header:w-6 group-hover/header:w-6 [@media(pointer:coarse)]:w-6',
+				'relative h-6 shrink-0 overflow-hidden group-focus-within/header:w-6 group-focus-within/header:overflow-visible group-hover/header:w-6 group-hover/header:overflow-visible [@media(pointer:coarse)]:w-6 [@media(pointer:coarse)]:overflow-visible',
 				selected || moreOpen ? 'w-6' : 'w-0'
 			]}
 		>

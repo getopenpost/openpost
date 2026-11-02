@@ -91,7 +91,7 @@
 {#if onCreate}
 	<DropdownMenu.Item class={touchSize ? 'min-h-11' : ''} onclick={createWorkspace}>
 		<ThemeIcon role="add" class="mr-2 size-4 text-muted-foreground" />
-		{m.onboarding_submit()}
+		{m.workspace_create_submit()}
 	</DropdownMenu.Item>
 {/if}
 {#if showSettings}

@@ -68,6 +68,10 @@
 		unlinkItems
 	} from '$lib/video-editor/timeline/actions/items';
 	import {
+		canTrimItemToPlayhead,
+		trimItemToPlayhead
+	} from '$lib/video-editor/timeline/actions/trim-playhead';
+	import {
 		clearGeneratedItemDragData,
 		getGeneratedItemDragData,
 		type GeneratedItemDragData
@@ -4652,6 +4656,23 @@
 		if (clearableKeyframeCount === 0) return;
 		clearKeyframesDialogOpen = true;
 	}
+
+	const canTrimSelectedStart = $derived(
+		selectedItem ? canTrimItemToPlayhead(selectedItem.id, 'start') : false
+	);
+	const canTrimSelectedEnd = $derived(
+		selectedItem ? canTrimItemToPlayhead(selectedItem.id, 'end') : false
+	);
+
+	function trimSelectedToPlayhead(edge: 'start' | 'end'): void {
+		if (!selectedItem) return;
+		if (trimItemToPlayhead(selectedItem.id, edge)) onedit();
+	}
+
+	function trimContextItemToPlayhead(edge: 'start' | 'end'): void {
+		if (!contextPrimaryItem) return;
+		if (trimItemToPlayhead(contextPrimaryItem.id, edge)) onedit();
+	}
 </script>
 
 <svelte:window onkeydown={onPanelKeydown} />
@@ -4668,8 +4689,7 @@
 			});
 		}}
 	>
-		<span class="text-xs text-[var(--video-editor-muted)]">{m.video_editor_timeline()}</span>
-		<div class="flex items-center gap-0.5 border-l border-[var(--video-editor-border)] pl-2">
+		<div class="flex items-center gap-0.5 pl-0.5">
 			<Button
 				variant="ghost"
 				size="icon"
@@ -4684,7 +4704,7 @@
 			<Button
 				variant="ghost"
 				size="icon"
-				class="size-7 rounded data-[active=true]:bg-[var(--video-editor-selection)] data-[active=true]:text-[var(--video-editor-selection-text)]"
+				class="size-7 rounded data-[active=true]:bg-navigation-active data-[active=true]:text-navigation-active-foreground"
 				data-active={timelineStore.snapEnabled}
 				aria-pressed={timelineStore.snapEnabled}
 				aria-label={timelineStore.snapEnabled
@@ -4792,6 +4812,19 @@
 					</DropdownMenu.Trigger>
 					<DropdownMenu.Content class="video-editor-theme w-60" align="end">
 						<DropdownMenu.Item
+							disabled={!canTrimSelectedStart}
+							onSelect={() => trimSelectedToPlayhead('start')}
+						>
+							{m.video_editor_trim_start_playhead()}
+						</DropdownMenu.Item>
+						<DropdownMenu.Item
+							disabled={!canTrimSelectedEnd}
+							onSelect={() => trimSelectedToPlayhead('end')}
+						>
+							{m.video_editor_trim_end_playhead()}
+						</DropdownMenu.Item>
+						<DropdownMenu.Separator />
+						<DropdownMenu.Item
 							disabled={bentoEligibleIds.length < 2}
 							onclick={() => (bentoLayoutOpen = true)}
 						>
@@ -4820,13 +4853,6 @@
 						</DropdownMenu.Item>
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
-				<span
-					class="mr-2 max-w-40 truncate rounded bg-[var(--video-editor-control)] px-2 py-0.5 text-xs"
-				>
-					{selectedItemIds.length > 1
-						? m.video_editor_items_selected({ count: selectedItemIds.length })
-						: selectedItem.label}
-				</span>
 				<Button
 					variant="ghost"
 					size="icon"
@@ -6047,6 +6073,20 @@
 							onclick={() => oncreatecompound(contextItems.map((item) => item.id))}
 						>
 							{m.video_editor_create_compound()}
+						</ContextMenu.Item>
+					{/if}
+					{#if contextPrimaryItem && ['video', 'audio', 'image', 'composition'].includes(contextPrimaryItem.type)}
+						<ContextMenu.Item
+							disabled={!canTrimItemToPlayhead(contextPrimaryItem.id, 'start')}
+							onSelect={() => trimContextItemToPlayhead('start')}
+						>
+							{m.video_editor_trim_start_playhead()}
+						</ContextMenu.Item>
+						<ContextMenu.Item
+							disabled={!canTrimItemToPlayhead(contextPrimaryItem.id, 'end')}
+							onSelect={() => trimContextItemToPlayhead('end')}
+						>
+							{m.video_editor_trim_end_playhead()}
 						</ContextMenu.Item>
 					{/if}
 					{#if hasContextEditTools}

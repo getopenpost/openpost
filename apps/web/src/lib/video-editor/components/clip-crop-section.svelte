@@ -178,10 +178,7 @@
 </script>
 
 {#if items.length > 0}
-	<section
-		class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
-		data-testid="clip-crop-section"
-	>
+	<section class="border-t border-[var(--video-editor-border)]" data-testid="clip-crop-section">
 		<EditorDisclosure
 			label={m.video_editor_crop()}
 			summary={items.some(

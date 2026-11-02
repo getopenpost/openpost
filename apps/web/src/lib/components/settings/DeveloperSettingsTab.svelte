@@ -524,12 +524,8 @@
 	class="mb-4"
 />
 
-{#if apiTokenScope === 'api:read'}
-	<InlineNotice tone="info" message={m.settings_token_scope_api_read_boundary()} class="mb-4" />
-{:else if apiTokenScope === 'api:write'}
+{#if apiTokenScope === 'api:write'}
 	<InlineNotice tone="warning" message={m.settings_token_scope_api_write_boundary()} class="mb-4" />
-{:else if apiTokenScope === 'mcp:read'}
-	<InlineNotice tone="info" message={m.settings_token_scope_mcp_read_boundary()} class="mb-4" />
 {:else if apiTokenScope === 'mcp:full'}
 	<InlineNotice tone="warning" message={m.settings_token_scope_mcp_full_boundary()} class="mb-4" />
 {/if}
@@ -549,7 +545,7 @@
 	<InlineNotice tone="error" message={apiTokenError} class="mb-4" />
 {/if}
 
-<div class="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_220px_220px_190px_auto]">
+<div class="mb-4 grid gap-3 sm:grid-cols-2">
 	<div class="space-y-2">
 		<Label for="api-token-name">{m.settings_token_name()}</Label>
 		<Input

@@ -6,12 +6,15 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { m } from '$lib/paraglide/messages';
+	import type { Snippet } from 'svelte';
 	import { hasRegisteredImageEditorTextFont } from '../fonts';
 	import { useImageEditor } from '../editor.svelte';
 	import { textGraphemeOffset, textRunStyleAt, type ImageEditorTextEdit } from '../text-runs';
+	import { ProtectedIcon, type ProtectedIconRole } from '$lib/themes/icons';
 
 	const editor = useImageEditor();
 	const textScopeID = $props.id();
+	let { children }: { children?: Snippet } = $props();
 	let layer = $derived(editor.selectedLayers[0] ?? null);
 	let layerLocked = $derived(layer ? editor.isLayerLocked(layer.id) : false);
 	let textRange = $derived(
@@ -229,7 +232,10 @@
 					type="number"
 					aria-describedby={textRange ? textScopeID : undefined}
 					min="1"
-					value={layer.text.font_size}
+					step="0.1"
+					value={layer.text.font_size === undefined
+						? undefined
+						: Math.round(layer.text.font_size * 10) / 10}
 					disabled={!editor.canEdit || layerLocked}
 					oninput={(event) =>
 						editor.updateLayer(
@@ -269,12 +275,19 @@
 				onCommit={(value) => editor.rememberColor(value)}
 			/>
 		</label>
-		<div class="grid grid-cols-3 gap-1">
-			{#each ['left', 'center', 'right'] as alignment (alignment)}
+		<div
+			class="inline-flex w-fit items-center rounded-md border bg-background p-0.5"
+			role="group"
+			aria-label={m.image_editor_text_alignment()}
+		>
+			{#each [['left', 'editor-align-left'], ['center', 'editor-align-center-horizontal'], ['right', 'editor-align-right']] as [alignment, icon] (alignment)}
 				<Button
-					variant={layer.text.align === alignment ? 'secondary' : 'outline'}
-					size="sm"
+					variant={layer.text.align === alignment ? 'secondary' : 'ghost'}
+					size="icon-xs"
+					class="size-6 rounded-sm"
 					aria-pressed={layer.text.align === alignment}
+					aria-label={alignmentLabel(alignment)}
+					title={alignmentLabel(alignment)}
 					disabled={!editor.canEdit || layerLocked}
 					onclick={() =>
 						editor.updateLayer(layer.id, {
@@ -282,10 +295,13 @@
 								...layer.text!,
 								align: alignment as 'left' | 'center' | 'right'
 							}
-						})}>{alignmentLabel(alignment)}</Button
+						})}
 				>
+					<ProtectedIcon icon={icon as ProtectedIconRole} class="size-3.5" />
+				</Button>
 			{/each}
 		</div>
+		{@render children?.()}
 		{#if applicationFeedback}
 			<p class="rounded-md border bg-muted/40 px-2.5 py-2 text-xs" role="status">
 				{applicationFeedback}

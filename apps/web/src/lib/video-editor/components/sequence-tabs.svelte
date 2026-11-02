@@ -101,7 +101,7 @@
 		type="button"
 		class="flex shrink-0 items-center gap-1.5 rounded px-2.5 py-1 focus-visible:outline-2 focus-visible:outline-ring {sequenceStore.activeSequenceId ===
 		null
-			? 'bg-selection text-selection-foreground'
+			? 'bg-navigation-active text-navigation-active-foreground'
 			: 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}"
 		onclick={() => activate(null)}
 	>
@@ -116,7 +116,7 @@
 					role="group"
 					aria-label={tab.name}
 					class="group flex shrink-0 items-center rounded {sequenceStore.activeSequenceId === tab.id
-						? 'bg-selection text-selection-foreground'
+						? 'bg-navigation-active text-navigation-active-foreground'
 						: 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}"
 					draggable="true"
 					ondragstart={() => (draggedId = tab.id)}

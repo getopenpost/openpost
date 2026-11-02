@@ -28,7 +28,7 @@ Unaudited Direct Post apps can publish only with `SELF_ONLY` visibility, and the
    ```
 
 3. Enable the posting modes you need. OpenPost requests `user.info.basic`, `video.publish` for Direct Post, and `video.upload` for inbox upload. Verify ownership of the media domain or URL prefix in the portal.
-4. For Display API features, obtain `user.info.profile`, `user.info.stats`, and `video.list`. Without approval, set `OPENPOST_DISABLE_TIKTOK_DISPLAY_API=true`. Publishing still works, but usernames, analytics, and public video ID reconciliation are unavailable.
+4. For Display API features, obtain `user.info.profile`, `user.info.stats`, and `video.list`. Without approval, set `OPENPOST_DISABLE_TIKTOK_DISPLAY_API=true`. OpenPost then requests only `user.info.basic`, `video.publish`, and `video.upload`. Basic identity still works, including the account's display name and avatar; username, analytics, and public video ID reconciliation need the Display API scopes.
 5. Submit the app and its scopes for review where TikTok requires it. Copy the **Client Key** and **Client Secret** from the app settings.
 
 TikTok documents [app registration](https://developers.tiktok.com/docs/en/getting-started-create-an-app), [Direct Post setup](https://developers.tiktok.com/docs/en/content-posting-api-get-started), and [media URL verification](https://developers.tiktok.com/docs/en/content-posting-api-media-transfer-guide).

@@ -514,7 +514,7 @@ test("selected mentions survive edits, undo, copying, thread saves and reloads",
   const saved = await read();
   expect(saved.segments[0].body).toBe("🚀 Hello ");
   expect(saved.segments[1].body).toBe("Thread tail");
-  await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
+  await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
   await editors.nth(1).click();
   await editors.nth(1).press("ControlOrMeta+a");
   await editors.nth(1).evaluate((element, copied) => {

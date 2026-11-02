@@ -36,7 +36,6 @@ import { trendBars } from "@/lib/analytics-chart";
 import { DitherPanel } from "@/components/dither-panel";
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
 import { BodyText, Button, ContentTitle, EmptyState, Screen } from "@/components/ui";
-import { WorkspaceHeader } from "@/components/workspace-header";
 import { analyticsAccountOptions } from "@/lib/analytics-accounts";
 import { DestinationChooser } from "@/components/destination-chooser";
 import { accountHandle, platformLabel } from "@/lib/format";
@@ -174,7 +173,6 @@ function AnalyticsDashboard() {
     });
   return (
     <Screen>
-      <WorkspaceHeader />
       <View
         style={{
           paddingHorizontal: spacing.large,

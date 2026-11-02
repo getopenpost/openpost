@@ -27,7 +27,8 @@ test("organization branding saves, previews, reloads and stays separate from pub
   await expect(page.getByTestId("sidebar-home-brand")).toHaveAccessibleName("Studio Social home", {
     timeout: 20000,
   });
-  await expect(page.getByTestId("sidebar-home-brand")).toContainText("Studio Social");
+  // The calm sidebar shows the logo only; the brand name lives in the
+  // accessible name and the document title.
   await expect(page).toHaveTitle("Settings - Studio Social");
   const logo = page.getByTestId("sidebar-home-brand").locator("img");
   await expect(logo).toBeVisible();

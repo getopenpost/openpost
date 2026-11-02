@@ -296,7 +296,7 @@ export class ImageEditorController {
 	panX = $state(0);
 	panY = $state(0);
 	snappingEnabled = $state(true);
-	showRulers = $state(true);
+	showRulers = $state(false);
 	showGuides = $state(true);
 	showGrid = $state(false);
 	snapToGrid = $state(false);

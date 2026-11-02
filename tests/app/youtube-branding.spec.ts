@@ -33,7 +33,9 @@ for (const scheme of ["light", "dark"] as const) {
         logoMediaID: media,
         scheme,
       });
-      await page.goto("/settings?tab=accounts");
+      await page.goto("/accounts");
+      await page.getByTestId("provider-search").fill("YouTube");
+      await expect(page.getByTestId("provider-list").locator("li")).toHaveCount(1);
       const card = page.getByTestId("provider-card-youtube");
       await expect(card.getByRole("link", { name: "YouTube", exact: true })).toBeVisible();
       const geometry = await card.locator("svg").evaluate((svg) => {

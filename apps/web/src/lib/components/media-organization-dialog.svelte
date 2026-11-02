@@ -172,19 +172,17 @@
 					<span>{editingId ? m.media_rename_tag() : m.media_new_tag()}</span>
 					<Input bind:value={name} maxlength={64} placeholder={m.media_tag_name()} />
 				</label>
-				<div class="flex gap-2">
-					<Button type="submit" size="sm" disabled={saving || !name.trim()}>
+				<div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+					{#if editingId}
+						<Button type="button" variant="outline" onclick={resetForm}>{m.common_cancel()}</Button>
+					{/if}
+					<Button type="submit" disabled={saving || !name.trim()}>
 						{#if saving}<ProtectedIcon
 								icon="loading"
 								class="animate-spin motion-reduce:animate-none"
 							/>{/if}
 						{editingId ? m.common_save() : m.media_create_tag()}
 					</Button>
-					{#if editingId}
-						<Button type="button" variant="ghost" size="sm" onclick={resetForm}
-							>{m.common_cancel()}</Button
-						>
-					{/if}
 				</div>
 			</form>
 		</div>

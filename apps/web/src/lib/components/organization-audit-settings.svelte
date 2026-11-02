@@ -479,7 +479,7 @@
 </script>
 
 <div class="space-y-6" data-testid={scope.testID}>
-	<InlineNotice tone="info" message={scope.privacyNotice} />
+	<p class="text-sm text-muted-foreground">{scope.privacyNotice}</p>
 	{#if instanceWide}
 		<div class="max-w-md space-y-2">
 			<Label for="instance-audit-organization">{m.settings_audit_organization()}</Label>

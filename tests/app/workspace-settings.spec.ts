@@ -12,7 +12,8 @@ test("workspace image settings upload a device image and save it", async ({ page
   await authenticatePage(page, auth.token);
   await page.goto(`/settings?tab=general&workspace=${workspace.id}`);
 
-  await expect(page.getByRole("heading", { name: "General", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Change image", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Change image", exact: true }).click();
 
   const dialog = page.getByRole("dialog", { name: "Workspace image" });

@@ -17,6 +17,9 @@
 		canOpenSchedule?: boolean;
 		canQuickSchedule?: boolean;
 		canPublish?: boolean;
+		quickScheduleDisabledReason?: string;
+		scheduleDisabledReason?: string;
+		publishDisabledReason?: string;
 		class?: string;
 		onSchedule: () => void;
 		onQuickSchedule: () => void | Promise<void>;
@@ -36,6 +39,9 @@
 		canOpenSchedule = true,
 		canQuickSchedule = true,
 		canPublish = true,
+		quickScheduleDisabledReason = '',
+		scheduleDisabledReason = '',
+		publishDisabledReason = '',
 		class: className = '',
 		onSchedule,
 		onQuickSchedule,
@@ -57,7 +63,7 @@
 		onclick={onQuickSchedule}
 		label={quickScheduleLabel}
 		icon="calendar"
-		title={quickScheduleLabel}
+		title={canQuickSchedule ? quickScheduleLabel : quickScheduleDisabledReason}
 		announce={false}
 		data-testid="composer-primary-delivery-action"
 	/>
@@ -80,11 +86,19 @@
 			{/snippet}
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Content class="w-56" align="end">
-			<DropdownMenu.Item disabled={!canOpenSchedule} onclick={onSchedule}>
+			<DropdownMenu.Item
+				disabled={!canOpenSchedule}
+				title={canOpenSchedule ? undefined : scheduleDisabledReason}
+				onclick={onSchedule}
+			>
 				<ThemeIcon role="calendar" class="size-4" />
 				{scheduleLabel}
 			</DropdownMenu.Item>
-			<DropdownMenu.Item disabled={!canPublish} onclick={onPublish}>
+			<DropdownMenu.Item
+				disabled={!canPublish}
+				title={canPublish ? undefined : publishDisabledReason}
+				onclick={onPublish}
+			>
 				<ThemeIcon role="send" class="size-4" />
 				{publishLabel}
 			</DropdownMenu.Item>

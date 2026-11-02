@@ -1,36 +1,17 @@
 {
-	"_doc": "Recordings for the launch film soundtrack. mix.py downloads each preview, checks its sha256, and trims it. Every licence was read on the sound's own page (licence_seen). The music is CC BY 4.0: publish its credit line with the film. Effects are CC0.",
+	"_doc": "Recordings for the launch film soundtrack. mix.py downloads each file, checks its sha256, and trims it. Every licence was read on the sound's own page (licence_seen). The music is CC BY 3.0: publish its credit line with the film. Effects are CC0.",
 	"music": {
-		"id": 13264,
-		"title": "Sascha Ende - Mainstream Music 2025 Vol. 10.mp3",
-		"author": "Sascha Ende (ende.app)",
-		"page": "https://ende.app/en/song/13264-mainstream-music-2025-vol-10",
-		"preview": "https://ende.app/storage/mp3low/378676de-9ccb-4e8f-995e-599a8fe7ea73.mp3",
-		"licence": "CC BY 4.0",
-		"sha256": "ba2d8a9174e117d3e33f769d35e74e1155a908167c6271b2e0100f033e40bcfc",
-		"licence_seen": "['ende.app/standard-license'] on https://ende.app/en/song/13264-mainstream-music-2025-vol-10 (2026-10-27)",
-		"credit": "\"Mainstream Music 2025 Vol. 10\" by Sascha Ende (https://ende.app/en/song/13264-mainstream-music-2025-vol-10), licensed under CC BY 4.0 (https://ende.app/en/standard-license). Edited: one cut into the drop at the logo and a faded tail.",
-		"edit": [
-			{
-				"label": "pickup and intro: source bars 0-3.5",
-				"from": 0.0,
-				"to": 8.3925,
-				"at": 0.0
-			},
-			{
-				"label": "the drop, then the groove through the product: source bars 5-30.75",
-				"from": 11.205,
-				"to": 59.49,
-				"at": 8.3925
-			},
-			{
-				"label": "tail under the logo with fade: source bars 30.75-33",
-				"from": 59.49,
-				"to": 63.95,
-				"at": 56.67,
-				"fade_out": 1.4
-			}
-		]
+		"id": 61129,
+		"title": "Dances With Koalas",
+		"author": "Coruscate, featuring Calyman and Psubhashish",
+		"page": "https://ccmixter.org/files/Coruscate/61129",
+		"preview": "https://ccmixter.org/content/Coruscate/Coruscate_-_Dances_With_Koalas_3.mp3",
+		"licence": "CC BY 3.0",
+		"sha256": "d8a5cb2f7f03dd81513a1d835200541fe9fa099c64b916eb6dc3ca2938a76e34",
+		"licence_seen": "['creativecommons.org/licenses/by/3.0'] on https://ccmixter.org/files/Coruscate/61129 (2026-10-30)",
+		"credit": "\"Dances With Koalas\" by Coruscate (https://ccmixter.org/files/Coruscate/61129), featuring Calyman and Psubhashish, licensed under CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/). Rearranged to picture: stems separated, cut, filtered and layered with a sub and kick.",
+		"bpm": 120,
+		"grid_origin": 0.5535
 	},
 	"effects": {
 		"click": [
@@ -44,6 +25,19 @@
 				"sha256": "a8a632ad2fb4808f79046ee1de572b16b203bd2fcf9bb3c71fed3b70375892cd",
 				"trim": [0.104, 0.24],
 				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/aphom000/sounds/687108/ (2026-10-27)"
+			}
+		],
+		"chime": [
+			{
+				"id": 611113,
+				"title": "bell ding 1.wav",
+				"author": "5ro4",
+				"page": "https://freesound.org/people/5ro4/sounds/611113/",
+				"preview": "https://cdn.freesound.org/previews/611/611113_1629501-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "65d37c4fb8f2eded41ffd66df6a30f02abf5c5344fc9127e9c246d16cf4f731c",
+				"trim": [0.052, 0.62],
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/5ro4/sounds/611113/ (2026-10-27)"
 			}
 		],
 		"tick": [
@@ -172,19 +166,6 @@
 				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/KoimeMatsuchiya/sounds/872227/ (2026-10-27)"
 			}
 		],
-		"error": [
-			{
-				"id": 336495,
-				"title": "LowHit_01.wav",
-				"author": "Faulkin",
-				"page": "https://freesound.org/people/Faulkin/sounds/336495/",
-				"preview": "https://cdn.freesound.org/previews/336/336495_5866833-hq.mp3",
-				"licence": "CC0 1.0",
-				"sha256": "904644cbc128d9ce853d7e39c66b67b8204b0a7c513648e613f832230fbf6b24",
-				"trim": [0.017, 0.145],
-				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/Faulkin/sounds/336495/ (2026-10-27)"
-			}
-		],
 		"riser": [
 			{
 				"id": 110218,
@@ -222,6 +203,97 @@
 					[20.61, 20.66],
 					[20.991, 21.125]
 				]
+			}
+		],
+		"plop": [
+			{
+				"id": 166325,
+				"title": "Water_drop_9.wav by deleted_user_2104797",
+				"author": "deleted_user_2104797",
+				"page": "https://freesound.org/people/deleted_user_2104797/sounds/166325/",
+				"preview": "https://cdn.freesound.org/previews/166/166325_2104797-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "0d24064886fd9d8e65daf5c1618a15ec6b59c408be02ef4100458cffc06d74d4",
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/deleted_user_2104797/sounds/166325/ (2026-10-30)",
+				"trim": [0.214, 0.382]
+			}
+		],
+		"splash": [
+			{
+				"id": 442773,
+				"title": "Big Water Splash by qubodup",
+				"author": "qubodup",
+				"page": "https://freesound.org/people/qubodup/sounds/442773/",
+				"preview": "https://cdn.freesound.org/previews/442/442773_71257-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "b8227adae409996ceee3481c7057ceda717575fa7569cec5d9d0ee1b94a8fe33",
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/qubodup/sounds/442773/ (2026-10-30)",
+				"trim": [0.0, 2.143]
+			}
+		],
+		"bubbles": [
+			{
+				"id": 393819,
+				"title": "Underwater Ambience by Kinoton",
+				"author": "Kinoton",
+				"page": "https://freesound.org/people/Kinoton/sounds/393819/",
+				"preview": "https://cdn.freesound.org/previews/393/393819_2247456-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "f41f16df09df126b57c7e05036b495a8269a0237ef84d96080588cebc7d9a6f0",
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/Kinoton/sounds/393819/ (2026-10-30)",
+				"trim": [0.0, 12.0]
+			}
+		],
+		"ambience": [
+			{
+				"id": 504641,
+				"title": "Underwater Ambience by Fission9",
+				"author": "Fission9",
+				"page": "https://freesound.org/people/Fission9/sounds/504641/",
+				"preview": "https://cdn.freesound.org/previews/504/504641_9395330-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "aa3f3fd878136e326498cd9a9fd40a4655a5bf2f9761af5f5559ee4eee1b7429",
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/Fission9/sounds/504641/ (2026-10-30)",
+				"trim": [0.0, 12.0]
+			}
+		],
+		"boom": [
+			{
+				"id": 165109,
+				"title": "Low Movie Boom.mp3 by rickeyc",
+				"author": "rickeyc",
+				"page": "https://freesound.org/people/rickeyc/sounds/165109/",
+				"preview": "https://cdn.freesound.org/previews/165/165109_2306150-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "4b5daaadf22b80e05d4f19b0a79fe347ec3a6468f4a8f93f0d6f7b788713fc89",
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/rickeyc/sounds/165109/ (2026-10-30)",
+				"trim": [6.14, 9.34]
+			}
+		],
+		"surfacing": [
+			{
+				"id": 161717,
+				"title": "waterFLOSH.wav by PPWEISS",
+				"author": "PPWEISS",
+				"page": "https://freesound.org/people/PPWEISS/sounds/161717/",
+				"preview": "https://cdn.freesound.org/previews/161/161717_720116-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "2d650db5c7df18bd78cd4d1662def8fa5f8189e06d923deda0a729063a4b502d",
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/PPWEISS/sounds/161717/ (2026-10-30)",
+				"trim": [0.0, 3.2]
+			}
+		],
+		"slam": [
+			{
+				"id": 814977,
+				"title": "Closing large metal door-002 by AudioPapkin",
+				"author": "AudioPapkin",
+				"page": "https://freesound.org/people/AudioPapkin/sounds/814977/",
+				"preview": "https://cdn.freesound.org/previews/814/814977_8698658-hq.mp3",
+				"licence": "CC0 1.0",
+				"sha256": "ec9849a86fa4c4c1aca763e4ddc76723c5050752665c220a68bb20f1c9eeb922",
+				"licence_seen": "['creativecommons.org/publicdomain/zero/1.0'] on https://freesound.org/people/AudioPapkin/sounds/814977/ (2026-10-30)",
+				"trim": [0.137, 1.337]
 			}
 		]
 	}

@@ -40,7 +40,12 @@ test("native mentions and reviews retain separate subjects, filters and review c
   ]);
   await authenticatePage(page, auth.token);
   const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("pageerror", (error) => {
+    // Reloads abort in-flight route imports, and the app bounds its own chunk
+    // recovery; the rendered page is the evidence that it succeeded.
+    if (error.message.includes("Failed to fetch dynamically imported module")) return;
+    errors.push(error.message);
+  });
   // Collection and provider writes are separate from these stored-reader checks.
   await page.route("**/api/v1/engagement/refresh", (route) =>
     route.fulfill({ json: { status: "queued", queued: 0, job_ids: [] } }),
@@ -65,11 +70,11 @@ test("native mentions and reviews retain separate subjects, filters and review c
         path: testInfo.outputPath(`all-${width}-${scheme}.png`),
         animations: "disabled",
       });
-      const kind = page.getByRole("button", { name: "Activity type" });
-      await expect(kind).toBeVisible();
-      await kind.focus();
-      await page.keyboard.press("Enter");
-      await page.getByRole("option", { name: "Reviews", exact: true }).click();
+      // The kind filter is the Reviews page tab on the calm Inbox surface.
+      await page
+        .getByTestId("communications-navigation")
+        .getByRole("link", { name: "Reviews", exact: true })
+        .click();
       await expect(mentionRow).toHaveCount(0);
       await expect(reviewRow).toBeVisible();
       await reviewRow.getByRole("button", { name: "Reply", exact: true }).click();

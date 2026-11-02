@@ -1206,7 +1206,7 @@
 	{#snippet tinyAccountAvatar(account: AccountBadge)}
 		{@const monogram = accountMonogram(account.label)}
 		<span
-			class="relative flex size-4 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-[8px] font-semibold text-muted-foreground ring-1 ring-background"
+			class="relative flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs font-semibold text-muted-foreground ring-1 ring-background"
 			title={`${platformLabel(account.platform)} ${account.label}`}
 			aria-hidden="true"
 		>
@@ -1771,7 +1771,7 @@
 													>
 												</span>
 												<span
-													class="flex w-full min-w-0 items-center gap-1 text-[11px] leading-3 text-current/80"
+													class="flex w-full min-w-0 items-center gap-1 text-xs leading-3 text-current/80"
 												>
 													{#if item.accounts.length > 0}
 														<!-- Decorative avatar stack: the button label already announces the account count. -->
@@ -1781,16 +1781,14 @@
 															{/each}
 															{#if item.accounts.length > 3}
 																<span
-																	class="flex size-4 items-center justify-center rounded-full border border-border bg-muted text-[8px] font-medium text-muted-foreground ring-1 ring-background"
+																	class="flex size-5 items-center justify-center rounded-full border border-border bg-muted text-xs font-medium text-muted-foreground ring-1 ring-background"
 																>
 																	+{item.accounts.length - 3}
 																</span>
 															{/if}
 														</span>
 													{/if}
-													<time
-														class="shrink-0 text-[11px] font-medium text-current/75 tabular-nums"
-													>
+													<time class="shrink-0 text-xs font-medium text-current/75 tabular-nums">
 														{formatTime(item.occursAt)}
 													</time>
 													{#if activeWorkspaceIds.length > 1}
@@ -2026,7 +2024,7 @@
 										{/each}
 										{#if item.accounts.length > 5}
 											<span
-												class="flex size-6 items-center justify-center rounded-full border border-border bg-muted text-[10px] font-medium text-muted-foreground ring-2 ring-background"
+												class="flex size-6 items-center justify-center rounded-full border border-border bg-muted text-xs font-medium text-muted-foreground ring-2 ring-background"
 											>
 												{m.calendar_more_accounts({ count: item.accounts.length - 5 })}
 											</span>

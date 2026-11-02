@@ -10,6 +10,7 @@
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { Tabs, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import MediaTagFilter from '$lib/components/media-tag-filter.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
@@ -502,79 +503,59 @@
 		role="group"
 		aria-label={m.media_source()}
 	>
-		<div
-			class="flex min-w-0 flex-1 gap-1 overflow-x-auto"
-			role="tablist"
-			aria-label={m.media_source()}
+		<Tabs
+			value={pickerMode}
+			onValueChange={(value) => void selectPickerMode(value as typeof pickerMode)}
+			class="min-w-0 flex-1"
 		>
-			<Button
-				variant={pickerMode === 'library' ? 'secondary' : 'ghost'}
-				size="sm"
-				class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
-				role="tab"
-				aria-selected={pickerMode === 'library'}
-				onclick={() => {
-					selectPickerMode('library');
-				}}
+			<TabsList
+				class="w-full min-w-0 justify-start gap-1 overflow-x-auto"
+				aria-label={m.media_source()}
 			>
-				<ThemeIcon role="media" />
-				{m.media_picker_library()}
-			</Button>
-			<Button
-				variant={pickerMode === 'device' ? 'secondary' : 'ghost'}
-				size="sm"
-				class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
-				role="tab"
-				aria-selected={pickerMode === 'device'}
-				disabled={actionLoading || selectedIDs.length >= maxSelection}
-				onclick={() => selectPickerMode('device')}
-			>
-				<ThemeIcon role="upload" />
-				{m.media_upload_device()}
-			</Button>
-			{#if !useCompactNavigation && canUseCamera}
-				<Button
-					variant={pickerMode === 'camera' ? 'secondary' : 'ghost'}
-					size="sm"
-					class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
-					role="tab"
-					aria-selected={pickerMode === 'camera'}
+				<TabsTrigger value="library" class="min-h-11 shrink-0 grow-0 px-3 sm:min-h-0">
+					<ThemeIcon role="media" />
+					{m.media_picker_library()}
+				</TabsTrigger>
+				<TabsTrigger
+					value="device"
+					class="min-h-11 shrink-0 grow-0 px-3 sm:min-h-0"
 					disabled={actionLoading || selectedIDs.length >= maxSelection}
-					onclick={() => selectPickerMode('camera')}
 				>
-					<ThemeIcon role="camera" />
-					{m.media_camera()}
-				</Button>
-			{/if}
-			{#if !useCompactNavigation && canUseStock}
-				<Button
-					variant={pickerMode === 'stock' ? 'secondary' : 'ghost'}
-					size="sm"
-					class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
-					role="tab"
-					aria-selected={pickerMode === 'stock'}
-					disabled={actionLoading || selectedIDs.length >= maxSelection}
-					onclick={() => selectPickerMode('stock')}
-				>
-					<ThemeIcon role="image" />
-					{m.stock_media()}
-				</Button>
-			{/if}
-			{#if !useCompactNavigation && canUseMeme}
-				<Button
-					variant={pickerMode === 'meme' ? 'secondary' : 'ghost'}
-					size="sm"
-					class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
-					role="tab"
-					aria-selected={pickerMode === 'meme'}
-					disabled={actionLoading || selectedIDs.length >= maxSelection}
-					onclick={() => selectPickerMode('meme')}
-				>
-					<ProtectedIcon icon="editor-emoji" />
-					{m.media_picker_meme()}
-				</Button>
-			{/if}
-		</div>
+					<ThemeIcon role="upload" />
+					{m.media_upload_device()}
+				</TabsTrigger>
+				{#if !useCompactNavigation && canUseCamera}
+					<TabsTrigger
+						value="camera"
+						class="min-h-11 shrink-0 grow-0 px-3 sm:min-h-0"
+						disabled={actionLoading || selectedIDs.length >= maxSelection}
+					>
+						<ThemeIcon role="camera" />
+						{m.media_camera()}
+					</TabsTrigger>
+				{/if}
+				{#if !useCompactNavigation && canUseStock}
+					<TabsTrigger
+						value="stock"
+						class="min-h-11 shrink-0 grow-0 px-3 sm:min-h-0"
+						disabled={actionLoading || selectedIDs.length >= maxSelection}
+					>
+						<ThemeIcon role="image" />
+						{m.stock_media()}
+					</TabsTrigger>
+				{/if}
+				{#if !useCompactNavigation && canUseMeme}
+					<TabsTrigger
+						value="meme"
+						class="min-h-11 shrink-0 grow-0 px-3 sm:min-h-0"
+						disabled={actionLoading || selectedIDs.length >= maxSelection}
+					>
+						<ProtectedIcon icon="editor-emoji" />
+						{m.media_picker_meme()}
+					</TabsTrigger>
+				{/if}
+			</TabsList>
+		</Tabs>
 		{#if !useCompactNavigation && showCreate && mimeTypeAllowed('image')}
 			<Button
 				variant="ghost"

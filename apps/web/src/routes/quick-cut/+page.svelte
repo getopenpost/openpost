@@ -2141,58 +2141,6 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				</InlineNotice>
 			{/if}
 
-			{#if panel !== 'repurpose'}
-				<div class="quick-cut-toolbar">
-					<ToolbarGroup
-						ariaLabel={m.quick_cut_tools()}
-						class="h-auto min-w-0 flex-wrap border-0 bg-transparent"
-					>
-						<Button
-							size="sm"
-							disabled={!project || !cloudWorkspaceId || !$auth.user?.id || exporting}
-							onclick={() => {
-								videoEl?.pause();
-								stopPreview();
-								panel = 'repurpose';
-							}}>{m.repurpose_find()}</Button
-						>
-						<Button size="sm" variant="outline" onclick={markIn}>
-							{m.quick_cut_in()}<kbd class="text-muted-foreground"
-								>{shortcutLabel(keyboardShortcuts.bindings.MARK_IN)}</kbd
-							>
-						</Button>
-						<Button size="sm" variant="outline" onclick={markOut}>
-							{m.quick_cut_out()}<kbd class="text-muted-foreground"
-								>{shortcutLabel(keyboardShortcuts.bindings.MARK_OUT)}</kbd
-							>
-						</Button>
-						<Button
-							size="sm"
-							variant="secondary"
-							disabled={!selectionReady || exporting}
-							onclick={removeSelection}>{m.quick_cut_remove_selection()}</Button
-						>
-						<Button
-							size="sm"
-							variant={selectionReady ? 'default' : 'ghost'}
-							disabled={!selectionReady || exporting}
-							onclick={addSegment}>{m.quick_cut_keep_selection()}</Button
-						>
-					</ToolbarGroup>
-				</div>
-				<div
-					class="flex min-h-7 shrink-0 flex-wrap items-center gap-x-3 border-b px-3 py-1 text-xs text-muted-foreground"
-					role="status"
-				>
-					{#if selectionReady && inPoint && outPoint}
-						<span class="font-mono whitespace-nowrap tabular-nums"
-							>{formatTimecode(inPoint.time)} → {formatTimecode(outPoint.time)}</span
-						>
-						<span>{m.quick_cut_selection_ready()}</span>
-					{:else if inPoint}<span>{m.quick_cut_selection_end()}</span>
-					{:else}<span>{m.quick_cut_selection_start()}</span>{/if}
-				</div>
-			{/if}
 			<div class="source-strip">
 				<SourceBar
 					{sources}
@@ -2311,7 +2259,63 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 							<span class="font-mono text-xs tabular-nums"
 								>{formatTimecode(currentTime)} / {formatTimecode(activeSource?.duration ?? 0)}</span
 							>
-							<div class="ml-auto flex items-center gap-1">
+							<div class="flex flex-wrap items-center gap-1">
+								<Button size="sm" variant="outline" onclick={markIn}>
+									{m.quick_cut_in()}<kbd class="text-muted-foreground"
+										>{shortcutLabel(keyboardShortcuts.bindings.MARK_IN)}</kbd
+									>
+								</Button>
+								<Button size="sm" variant="outline" onclick={markOut}>
+									{m.quick_cut_out()}<kbd class="text-muted-foreground"
+										>{shortcutLabel(keyboardShortcuts.bindings.MARK_OUT)}</kbd
+									>
+								</Button>
+								<Button
+									size="sm"
+									variant="secondary"
+									disabled={!selectionReady || exporting}
+									onclick={removeSelection}>{m.quick_cut_remove_selection()}</Button
+								>
+								<Button
+									size="sm"
+									variant={selectionReady ? 'default' : 'ghost'}
+									disabled={!selectionReady || exporting}
+									onclick={addSegment}>{m.quick_cut_keep_selection()}</Button
+								>
+							</div>
+							<div class="ml-auto flex flex-wrap items-center gap-1">
+								<Button
+									size="sm"
+									variant="ghost"
+									aria-pressed={loopMode !== 'off'}
+									onclick={toggleLoopMode}
+								>
+									{m.quick_cut_loop_label()}: {loopMode === 'off'
+										? m.quick_cut_loop_off()
+										: loopMode === 'all'
+											? m.quick_cut_loop_all()
+											: m.quick_cut_loop_segment()}
+								</Button>
+								<Button
+									size="icon-sm"
+									variant="outline"
+									aria-label={m.quick_cut_zoom_out()}
+									disabled={timelineViewport.zoom <= 1}
+									onclick={() => zoomTimeline(0.5)}>−</Button
+								>
+								<Button
+									size="sm"
+									variant="ghost"
+									aria-label={m.quick_cut_zoom_reset()}
+									onclick={resetTimelineZoom}>{Math.round(timelineViewport.zoom * 100)}%</Button
+								>
+								<Button
+									size="icon-sm"
+									variant="outline"
+									aria-label={m.quick_cut_zoom_in()}
+									disabled={timelineViewport.zoom >= 32}
+									onclick={() => zoomTimeline(2)}>+</Button
+								>
 								<Button
 									size="sm"
 									variant="ghost"
@@ -2439,6 +2443,19 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 										onseek={seekTo}
 									/>{/key}
 							{:else if panel === 'cleanup' && activeSource}
+								{#if project && cloudWorkspaceId && $auth.user?.id}
+									<Button
+										size="sm"
+										variant="outline"
+										class="mb-3 w-full"
+										disabled={exporting}
+										onclick={() => {
+											videoEl?.pause();
+											stopPreview();
+											panel = 'repurpose';
+										}}>{m.repurpose_find()}</Button
+									>
+								{/if}
 								{#key `${activeSource.id}:${activeSource.selectedAudioTrackIndices?.join(',')}`}<CleanupPanel
 										source={activeSource}
 										disabled={exporting}
@@ -2591,38 +2608,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 								aria-label={m.quick_cut_add_marker()}
 								onclick={addMarker}><ProtectedIcon icon="editor-marker" class="size-3.5" /></Button
 							>
-							<Button
-								size="sm"
-								variant="ghost"
-								aria-pressed={loopMode !== 'off'}
-								onclick={toggleLoopMode}
-							>
-								{m.quick_cut_loop_label()}: {loopMode === 'off'
-									? m.quick_cut_loop_off()
-									: loopMode === 'all'
-										? m.quick_cut_loop_all()
-										: m.quick_cut_loop_segment()}
-							</Button>
-							<Button
-								size="icon-sm"
-								variant="outline"
-								aria-label={m.quick_cut_zoom_out()}
-								disabled={timelineViewport.zoom <= 1}
-								onclick={() => zoomTimeline(0.5)}>−</Button
-							>
-							<Button
-								size="sm"
-								variant="ghost"
-								aria-label={m.quick_cut_zoom_reset()}
-								onclick={resetTimelineZoom}>{Math.round(timelineViewport.zoom * 100)}%</Button
-							>
-							<Button
-								size="icon-sm"
-								variant="outline"
-								aria-label={m.quick_cut_zoom_in()}
-								disabled={timelineViewport.zoom >= 32}
-								onclick={() => zoomTimeline(2)}>+</Button
-							>
+							> > >
 						</ToolbarGroup>
 					</div>
 				</div>

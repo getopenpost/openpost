@@ -82,10 +82,12 @@ it('opens export settings from the advertised shortcut without starting a render
 		}
 	);
 	await expect.poll(() => editorSession.project?.id).toBe(project.id);
+	await screen.getByTitle('Project details').click();
 	await screen
 		.getByRole('textbox', { name: 'Project name', exact: true })
 		.fill('Saved header project');
 	await userEvent.keyboard('{Tab}');
+	await userEvent.keyboard('{Escape}');
 	await editorSession.flushAutosave();
 	expect((await getProject(project.id))?.name).toBe('Saved header project');
 	const header = screen.getByRole('banner');

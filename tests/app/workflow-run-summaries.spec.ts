@@ -64,7 +64,7 @@ test("run cards load summaries and recover a failed full snapshot without losing
   });
   await authenticatePage(page, auth.token);
   await page.goto("/workflows");
-  await page.getByRole("button", { name: "Runs", exact: true }).click();
+  await page.getByRole("tab", { name: "Runs", exact: true }).click();
   const card = page.getByRole("button", { name: /Summary payload audit/ });
   await expect(card).toBeVisible();
   expect(fullReads).toEqual([]);

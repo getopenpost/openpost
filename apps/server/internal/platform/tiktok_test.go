@@ -142,48 +142,69 @@ func mustParseQuery(t *testing.T, raw string) url.Values {
 }
 
 func TestTikTokGetProfileFallsBackToBasicFieldsWithoutDisplayGrant(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		switch req.URL.String() {
-		case tiktokUserInfoURL:
-			return jsonResponse(req, `{"data":{},"error":{"code":"scope_not_authorized","message":"scope not authorized","log_id":"log"}}`), nil
-		case tiktokUserInfoBasicURL:
-			return jsonResponse(req, `{"data":{"user":{"open_id":"open-1","display_name":"Creator","avatar_url":"https://cdn.tiktok.example/avatar.jpg"}},"error":{"code":"ok","message":"","log_id":"log"}}`), nil
-		default:
-			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
-			return nil, nil
-		}
-	})}
-
-	profile, err := NewTikTokAdapter("client-key", "client-secret", "https://app.example/callback").GetProfile(context.Background(), "access")
-	if err != nil {
-		t.Fatalf("GetProfile with basic grant returned error: %v", err)
-	}
-	if profile.ID != "open-1" || profile.DisplayName != "Creator" {
-		t.Fatalf("unexpected degraded profile: %#v", profile)
-	}
-	if profile.CapabilityState["tiktok_display_profile"] != "unavailable" {
-		t.Fatalf("expected degraded display capability state, got %#v", profile.CapabilityState)
+	for _, status := range []int{http.StatusOK, http.StatusUnauthorized, http.StatusForbidden} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			originalClient := httpClient
+			t.Cleanup(func() { httpClient = originalClient })
+			calls := 0
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				calls++
+				switch req.URL.String() {
+				case "https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name,username":
+					require.Equal(t, 1, calls)
+					return jsonResponseWithStatus(req, status, `{"data":{},"error":{"code":"scope_not_authorized","message":"scope not authorized","log_id":"log"}}`), nil
+				case "https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name":
+					require.Equal(t, 2, calls)
+					return jsonResponse(req, `{"data":{"user":{"open_id":"open-1","display_name":"Creator","avatar_url":"https://cdn.tiktok.example/avatar.jpg"}},"error":{"code":"ok"}}`), nil
+				default:
+					t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+					return nil, nil
+				}
+			})}
+			profile, err := NewTikTokAdapter("key", "secret", "https://app.example/callback").GetProfile(t.Context(), "access")
+			require.NoError(t, err)
+			require.Equal(t, 2, calls)
+			require.Equal(t, "open-1", profile.ID)
+			require.Equal(t, "Creator", profile.DisplayName)
+			require.Equal(t, "unavailable", profile.CapabilityState["tiktok_display_profile"])
+		})
 	}
 }
 
-func TestTikTokGetProfileStillFailsForDeadToken(t *testing.T) {
+func TestTikTokGetProfileWithoutDisplayAPIRequestsOnlyBasicIdentity(t *testing.T) {
 	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
+	t.Cleanup(func() { httpClient = originalClient })
 	calls := 0
 	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		calls++
-		return jsonResponse(req, `{"data":{},"error":{"code":"access_token_invalid","message":"invalid token","log_id":"log"}}`), nil
+		require.Equal(t, "GET", req.Method)
+		require.Equal(t, "https://open.tiktokapis.com/v2/user/info/", req.URL.Scheme+"://"+req.URL.Host+req.URL.Path)
+		require.Equal(t, "open_id,union_id,avatar_url,display_name", req.URL.Query().Get("fields"))
+		return jsonResponse(req, `{"data":{"user":{"open_id":"open-1","display_name":"Creator"}},"error":{"code":"ok"}}`), nil
 	})}
+	adapter := NewTikTokAdapterWithCapabilities("key", "secret", "https://app.example/callback", TikTokMinimalScopeCapabilities())
+	profile, err := adapter.GetProfile(t.Context(), "access")
+	require.NoError(t, err)
+	require.Equal(t, 1, calls)
+	require.Equal(t, "open-1", profile.ID)
+	require.Equal(t, "Creator", profile.DisplayName)
+	require.Equal(t, "unavailable", profile.CapabilityState["tiktok_display_profile"])
+}
 
-	if _, err := NewTikTokAdapter("client-key", "client-secret", "https://app.example/callback").GetProfile(context.Background(), "access"); err == nil {
-		t.Fatalf("expected dead-token profile error")
-	}
-	if calls != 1 {
-		t.Fatalf("dead token must not trigger a basic-fields retry, got %d calls", calls)
+func TestTikTokGetProfileStillFailsForDeadToken(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusUnauthorized} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			originalClient := httpClient
+			t.Cleanup(func() { httpClient = originalClient })
+			calls := 0
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				calls++
+				return jsonResponseWithStatus(req, status, `{"data":{},"error":{"code":"access_token_invalid","message":"invalid token","log_id":"log"}}`), nil
+			})}
+			_, err := NewTikTokAdapter("key", "secret", "https://app.example/callback").GetProfile(t.Context(), "access")
+			require.Error(t, err)
+			require.Equal(t, 1, calls, "dead token must not trigger a basic-fields retry")
+		})
 	}
 }
 

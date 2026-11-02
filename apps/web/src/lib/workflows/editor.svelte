@@ -36,6 +36,7 @@
 		runStateLabel,
 		sourceLabel
 	} from './catalog';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import Canvas from './canvas.svelte';
 	import { duplicateStep } from './operations';
 	import { recipeSteps } from './recipes';
@@ -55,6 +56,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Label } from '$lib/components/ui/label';
@@ -555,27 +557,23 @@
 			maxlength={100}
 			oninput={(event) => change((next) => (next.name = event.currentTarget.value))}
 		/>
-		{#if !inspector}<span class="shrink-0 text-[11px] text-muted-foreground" aria-live="polite"
+		{#if !inspector}<span class="shrink-0 text-xs text-muted-foreground" aria-live="polite"
 				>{saving ? m.workflows_saving() : dirty ? m.workflows_unsaved() : m.workflows_saved()}</span
 			>{/if}
 		<div class="col-span-3 flex flex-wrap items-center justify-between gap-2 sm:contents">
 			<div class="flex items-center gap-1 sm:ml-auto">
-				<Button
-					variant={panel !== 'runs' ? 'secondary' : 'ghost'}
-					size="sm"
-					onclick={() => {
-						panel = 'configure';
+				<Tabs.Root
+					value={panel === 'runs' ? 'runs' : 'editor'}
+					onValueChange={(next) => {
+						panel = next === 'runs' ? 'runs' : 'configure';
 						inspector = false;
-					}}>{m.workflows_editor()}</Button
+					}}
 				>
-				<Button
-					variant={panel === 'runs' ? 'secondary' : 'ghost'}
-					size="sm"
-					onclick={() => {
-						panel = 'runs';
-						inspector = false;
-					}}>{m.workflows_runs()}</Button
-				>
+					<Tabs.List>
+						<Tabs.Trigger value="editor">{m.workflows_editor()}</Tabs.Trigger>
+						<Tabs.Trigger value="runs">{m.workflows_runs()}</Tabs.Trigger>
+					</Tabs.List>
+				</Tabs.Root>
 				<Button
 					variant="ghost"
 					size="icon-sm"
@@ -898,7 +896,7 @@
 										? sourceLabel(inspectedDefinition.source.kind)
 										: inspectedStep?.name}</span
 							>{/if}
-						<span class="shrink-0 px-2 text-[11px] text-muted-foreground sm:px-0" aria-live="polite"
+						<span class="shrink-0 px-2 text-xs text-muted-foreground sm:px-0" aria-live="polite"
 							>{saving
 								? m.workflows_saving()
 								: dirty
@@ -923,18 +921,17 @@
 				{#if error}<div id="workflow-inspector-error" class="border-b p-3">
 						<InlineNotice tone="error" message={error} />
 					</div>{/if}
-				<div class="flex border-b p-1 lg:hidden">
-					{#each ['input', 'configure', 'output'] as tab}<Button
-							size="sm"
-							variant={dataTab === tab ? 'secondary' : 'ghost'}
-							onclick={() => (dataTab = tab as typeof dataTab)}
-							>{tab === 'input'
-								? m.workflows_input()
-								: tab === 'output'
-									? m.workflows_output()
-									: m.workflows_configure()}</Button
-						>{/each}
-				</div>
+				<Tabs.Root
+					value={dataTab}
+					onValueChange={(next) => (dataTab = next as typeof dataTab)}
+					class="border-b lg:hidden"
+				>
+					<Tabs.List class="w-full">
+						<Tabs.Trigger value="input">{m.workflows_input()}</Tabs.Trigger>
+						<Tabs.Trigger value="configure">{m.workflows_configure()}</Tabs.Trigger>
+						<Tabs.Trigger value="output">{m.workflows_output()}</Tabs.Trigger>
+					</Tabs.List>
+				</Tabs.Root>
 				<div
 					class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)_minmax(0,1fr)]"
 				>
@@ -975,8 +972,7 @@
 									disabled={!canEdit || busy || saving}
 									onclick={() => action('preview')}>{m.workflows_run_preview()}</Button
 								>
-								<details class="border-t pt-4">
-									<summary class="cursor-pointer text-sm font-medium">{m.workflows_live()}</summary>
+								<Disclosure summary={m.workflows_live()} class="border-t pt-4">
 									<p class="my-3 text-sm leading-6 text-muted-foreground">
 										{m.workflows_live_help()}
 									</p>
@@ -985,7 +981,7 @@
 										disabled={!canAdmin || busy || saving}
 										onclick={() => action('live')}>{m.workflows_run_live()}</Button
 									>
-								</details>
+								</Disclosure>
 							</div>
 						{:else if panel === 'runs'}<DataView
 								label={m.workflows_configure()}

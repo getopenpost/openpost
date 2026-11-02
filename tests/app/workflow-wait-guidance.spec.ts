@@ -36,7 +36,7 @@ test("Wait empty output directs to its available preview and displays the skippe
     for (const colorScheme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 850 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      if (width < 1024) await page.getByRole("button", { name: "Output", exact: true }).click();
+      if (width < 1024) await page.getByRole("tab", { name: "Output", exact: true }).click();
       await expect(
         page.getByText("Run preview to see this node's sample output.", { exact: true }),
       ).toBeVisible();
@@ -52,7 +52,7 @@ test("Wait empty output directs to its available preview and displays the skippe
   await expect(page.getByText("This is a preview.", { exact: false })).toBeVisible();
   await page.getByRole("button", { name: /^Audit Wait / }).click();
   const output = page.getByRole("region", { name: "Output", exact: true });
-  await output.getByRole("button", { name: "JSON", exact: true }).click();
+  await output.getByRole("tab", { name: "JSON", exact: true }).click();
   await expect
     .poll(async () => Object.keys(JSON.parse(await output.locator("pre").innerText())))
     .toEqual(["until"]);

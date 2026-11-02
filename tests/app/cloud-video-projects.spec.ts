@@ -27,6 +27,7 @@ test("Cloud Video Projects are the signed-in default with recovery on desktop an
   await expect(page.getByRole("heading", { name: "Choose your editing workspace" })).toBeVisible();
 
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
+  await page.locator("[data-project-details]").click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Cross-device launch");
   await page.getByRole("textbox", { name: "Project name" }).press("Tab");
   await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
@@ -140,6 +141,7 @@ test("lists a saved Cloud Video Project after returning from the editor", async 
   await authenticatePage(page, auth.token);
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
+  await page.locator("[data-project-details]").click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Return to project");
   await page.getByRole("textbox", { name: "Project name" }).press("Tab");
   await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
@@ -228,6 +230,7 @@ test("saving a conflicting local edit as a copy retains its media and opens with
   });
   expect(remote.ok()).toBe(true);
   expect(await remote.json()).toMatchObject({ outcome: "applied" });
+  await page.locator("[data-project-details]").click();
   await page.getByRole("textbox", { name: "Project name" }).fill("Local version");
   await page.getByRole("textbox", { name: "Project name" }).press("Tab");
   await page.getByRole("button", { name: "This project changed elsewhere", exact: true }).click();
@@ -252,14 +255,12 @@ test("saving a conflicting local edit as a copy retains its media and opens with
     ),
   ).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/video-editor/${projectId}\\?`));
-  await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue("Local version");
+  await expect(page.locator("[data-project-details]")).toContainText("Local version");
   await page.unroute("**/api/v1/video-projects");
   await history.getByRole("button", { name: "Save local edit as a copy", exact: true }).click();
   await expect(page).not.toHaveURL(new RegExp(`/video-editor/${projectId}\\?`));
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue(
-    "Local version copy",
-  );
+  await expect(page.locator("[data-project-details]")).toContainText("Local version copy");
   await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
   const copyId = new URL(page.url()).pathname.split("/").at(-1)!;
   expect(copyId).not.toBe(projectId);
@@ -276,6 +277,7 @@ test("saving a conflicting local edit as a copy retains its media and opens with
     status: "ready",
   });
   await page.reload();
+  await page.locator("[data-project-details]").click();
   await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue(
     "Local version copy",
   );

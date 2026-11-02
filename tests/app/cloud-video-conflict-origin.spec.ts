@@ -12,6 +12,7 @@ test("Cloud conflicts identify this browser and another device without presentin
   await authenticatePage(page, auth.token);
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
+  await page.locator("[data-project-details]").click();
   await page
     .getByRole("textbox", { name: "Project name", exact: true })
     .fill("Cloud origin fixture");
@@ -20,6 +21,7 @@ test("Cloud conflicts identify this browser and another device without presentin
     "data-state",
     "saved",
   );
+  await page.keyboard.press("Escape");
   const id = new URL(page.url()).pathname.split("/").at(-1)!;
   const headers = { Authorization: `Bearer ${auth.token}` };
   const get = await request.get(`/api/v1/video-projects/${id}?workspace_id=${workspace.id}`, {

@@ -49,7 +49,7 @@ test("Merge explains nested replacement before execution", async ({ page, reques
       await page.setViewportSize({ width, height: 844 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);
-      await page.getByRole("button", { name: "Configure", exact: true }).click();
+      await page.getByRole("tab", { name: "Configure", exact: true }).click();
       await expect(guidance).toBeVisible();
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
@@ -63,7 +63,7 @@ test("Merge explains nested replacement before execution", async ({ page, reques
   await page.getByRole("button", { name: "Test node", exact: true }).click();
   const output = page.getByRole("region", { name: "Output", exact: true });
   await expect(output.getByText("right", { exact: true })).toBeVisible();
-  await output.getByRole("button", { name: "JSON", exact: true }).click();
+  await output.getByRole("tab", { name: "JSON", exact: true }).click();
   await expect
     .poll(async () => JSON.parse(await output.locator("pre").innerText()))
     .toEqual({

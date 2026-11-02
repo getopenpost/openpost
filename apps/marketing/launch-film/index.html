@@ -5,6 +5,90 @@
 		<title>OpenPost launch film</title>
 		<link rel="icon" href="data:," />
 		<style>
+			#stage {
+				display: block;
+				width: 1920px;
+				height: 1080px;
+			}
+			/* Surfaces are real DOM, drawn into WebGL through HTML-in-Canvas and never shown directly. */
+			.surface {
+				position: absolute;
+				left: 0;
+				top: 0;
+				overflow: hidden;
+				color: var(--ink);
+				font-family: 'Geist', sans-serif;
+				-webkit-font-smoothing: antialiased;
+				contain: strict;
+			}
+			.surface.sheet {
+				background: var(--surface);
+			}
+			.type-line {
+				display: flex;
+				align-items: center;
+				white-space: pre;
+				font-weight: 600;
+				letter-spacing: -0.045em;
+				line-height: 1;
+			}
+			.type-line i {
+				display: inline-block;
+				flex: none;
+				width: 0.055em;
+				height: 1.02em;
+				margin-left: 0.04em;
+				border-radius: 2px;
+				background: currentColor;
+			}
+			.chip {
+				position: absolute;
+				display: flex;
+				align-items: center;
+				gap: 16px;
+				width: 500px;
+				height: 112px;
+				padding: 0 24px;
+				border-radius: 20px;
+				background: var(--surface);
+				border: 1px solid var(--line);
+				font-size: 28px;
+				font-weight: 600;
+				letter-spacing: -0.015em;
+				white-space: nowrap;
+				overflow: hidden;
+			}
+			.chip img {
+				width: 56px;
+				height: 56px;
+				flex: none;
+				border-radius: 14px;
+			}
+			.chip small {
+				display: block;
+				margin-top: 2px;
+				font-size: 20px;
+				font-weight: 400;
+				letter-spacing: 0;
+				color: var(--muted);
+			}
+			.chip.alert small {
+				color: var(--red);
+			}
+			.chip .count {
+				margin-left: auto;
+				min-width: 40px;
+				height: 40px;
+				padding: 0 12px;
+				display: grid;
+				place-items: center;
+				border-radius: 999px;
+				background: var(--red);
+				color: #fff;
+				font-size: 21px;
+				font-weight: 600;
+			}
+
 			@font-face {
 				font-family: 'Geist';
 				src: url('/assets/brand/fonts/Geist-Regular.ttf');
@@ -19,6 +103,21 @@
 				font-family: 'Manrope';
 				src: url('/assets/brand/fonts/Manrope-Variable.ttf');
 				font-weight: 200 800;
+			}
+			@font-face {
+				font-family: 'Geist Mono';
+				src: url('/node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2');
+				font-weight: 100 900;
+			}
+			@font-face {
+				font-family: 'Inter';
+				src: url('./todoist/Inter.ttf');
+				font-weight: 100 900;
+			}
+			@font-face {
+				font-family: 'Shantell Sans';
+				src: url('./todoist/ShantellSans.ttf');
+				font-weight: 300 800;
 			}
 
 			/* Film palette adapted from the app's light Dither theme. */
@@ -52,47 +151,6 @@
 				background: #000;
 			}
 
-			#stage {
-				position: relative;
-				width: 1920px;
-				height: 1080px;
-				overflow: hidden;
-				background: var(--paper);
-				color: var(--ink);
-				font-family: 'Geist', sans-serif;
-				-webkit-font-smoothing: antialiased;
-				perspective: 2400px;
-			}
-
-			/* Scenes stack by z-index (titles stay on top); each keeps its own perspective. */
-			.layer {
-				position: absolute;
-				inset: 0;
-				perspective: 2400px;
-				perspective-origin: 960px 540px;
-			}
-			.world {
-				position: absolute;
-				inset: 0;
-				transform-style: preserve-3d;
-			}
-
-			.box {
-				position: absolute;
-				transform-origin: 50% 50%;
-			}
-
-			#glow {
-				position: absolute;
-				left: 0;
-				top: 0;
-				width: 480px;
-				height: 270px;
-				transform: scale(4);
-				transform-origin: 0 0;
-				image-rendering: pixelated;
-			}
-
 			.icon {
 				width: 1em;
 				height: 1em;
@@ -104,39 +162,6 @@
 				align-items: center;
 			}
 
-			/* Kinetic titles: one centred line on the title row. */
-			.title {
-				z-index: 30;
-				left: 0;
-				width: 1920px;
-				text-align: center;
-				font-weight: 600;
-				font-size: 74px;
-				line-height: 1.1;
-				letter-spacing: -0.04em;
-				white-space: nowrap;
-			}
-			/* A soft paper band keeps titles readable over moving UI; it fades with the title. */
-			.title::before {
-				content: '';
-				position: absolute;
-				left: 0;
-				right: 0;
-				top: -84px;
-				height: 260px;
-				z-index: -1;
-				opacity: var(--band, 0);
-				background: linear-gradient(
-					180deg,
-					rgb(251 248 244 / 92%) 0%,
-					rgb(251 248 244 / 85%) 55%,
-					rgb(251 248 244 / 0%) 100%
-				);
-			}
-			.title .word {
-				display: inline-block;
-				white-space: pre;
-			}
 			.accent {
 				color: var(--mark);
 			}
@@ -285,7 +310,7 @@
 				box-shadow: 0 10px 28px rgb(43 38 33 / 14%);
 			}
 
-			/* The launch image the founder designs (sample product: Lumen). */
+			/* The launch image, in Todoist's own language (a sample, not affiliated). */
 			.art {
 				position: absolute;
 				left: 0;
@@ -294,88 +319,264 @@
 				height: 628px;
 				transform-origin: 0 0;
 				overflow: hidden;
-				color: #f4fbff;
-				background: radial-gradient(120% 140% at 85% 110%, #3fb7c9 0%, #18607a 38%, #0d2a3f 75%);
+				color: #25221e;
+				background: #fffdfc;
+				font-family: 'Inter', sans-serif;
 			}
-			.art .glow {
+			.art .waves {
 				position: absolute;
 				inset: 0;
-				width: 1200px;
-				height: 628px;
-				image-rendering: pixelated;
+				width: 100%;
+				height: 100%;
 			}
-			.art .brand {
+			.art .logo {
 				position: absolute;
-				left: 84px;
-				top: 76px;
-				display: flex;
-				align-items: center;
-				gap: 16px;
-				font-family: 'Manrope', sans-serif;
-				font-weight: 700;
-				font-size: 38px;
-				letter-spacing: -0.02em;
-			}
-			.art .brand i {
-				width: 44px;
-				height: 44px;
-				border-radius: 12px;
-				background: linear-gradient(135deg, #b8f3ff, #45c3d6);
+				left: 62px;
+				top: 50px;
+				width: 200px;
+				height: 50px;
 			}
 			.art .headline {
 				position: absolute;
-				left: 80px;
-				top: 180px;
-				font-family: 'Manrope', sans-serif;
+				left: 58px;
+				top: 142px;
 				font-weight: 800;
-				font-size: 136px;
-				line-height: 0.92;
-				letter-spacing: -0.055em;
-				transform-origin: 0 50%;
+				font-size: 100px;
+				line-height: 1.07;
+				letter-spacing: -0.045em;
+				white-space: nowrap;
+			}
+			.art .hot {
+				color: #e44332;
+			}
+			/* The image editor's recolour sweeps through the line; --sweep is unset everywhere else. */
+			.art .hot {
+				background: linear-gradient(90deg, #e44332 var(--sweep, 100%), #25221e 0);
+				-webkit-background-clip: text;
+				background-clip: text;
+				-webkit-text-fill-color: transparent;
 			}
 			.art .tag {
 				position: absolute;
-				left: 86px;
-				top: 470px;
-				font-size: 38px;
-				font-weight: 600;
-				color: rgb(244 251 255 / 82%);
+				left: 62px;
+				top: 372px;
+				font-size: 31px;
+				font-weight: 500;
+				letter-spacing: -0.012em;
+				color: #5c5650;
 			}
-			.art .device {
+			.art .note {
 				position: absolute;
-				left: 740px;
-				top: 120px;
-				width: 380px;
-				height: 400px;
-				border-radius: 28px;
-				background: rgb(255 255 255 / 10%);
-				border: 2px solid rgb(255 255 255 / 30%);
-				box-shadow: 0 30px 80px rgb(0 0 0 / 30%);
-				padding: 28px;
-				display: flex;
-				flex-direction: column;
-				gap: 16px;
+				left: 640px;
+				top: 92px;
+				font-family: 'Shantell Sans', cursive;
+				font-size: 36px;
+				font-weight: 500;
+				color: #e44332;
+				transform: rotate(-6deg);
 			}
-			.art .device span {
+			.art .phone {
+				position: absolute;
+				left: 586px;
+				top: 34px;
+				width: 660px;
+			}
+			.art .quick {
+				position: absolute;
+				left: 52px;
+				top: 452px;
+				width: 560px;
+				height: 120px;
+				border-radius: 29px;
+				overflow: hidden;
+				box-shadow: 0 18px 44px rgb(120 60 30 / 24%);
+			}
+			.art .quick img {
+				position: absolute;
+				left: -35px;
+				top: -220px;
+				width: 629px;
+			}
+			.promise-line {
+				position: absolute;
+				left: 0;
+				top: 62px;
+				white-space: pre;
+				font-size: 136px;
+				font-weight: 600;
+				letter-spacing: -0.04em;
+				line-height: 148px;
+			}
+			.promise-line.word-mode {
+				top: 90px;
+				line-height: 240px;
+			}
+			.promise-b {
+				color: var(--mark);
+			}
+			.promise-word {
+				font-family: 'Manrope', sans-serif;
+				font-size: 196px;
+				letter-spacing: -0.035em;
+			}
+			.promise-line i {
+				display: inline-block;
+				width: 0.045em;
+				height: 0.92em;
+				margin-left: 0.04em;
+				vertical-align: -0.14em;
+				border-radius: 3px;
+				background: var(--mark);
+			}
+			.promise-line.word-mode i {
+				font-size: 196px;
+			}
+			.build-progress {
+				margin-top: 16px;
+				height: 7px;
+				border-radius: 4px;
+				background: var(--sunken);
+				overflow: hidden;
+			}
+			.build-progress i {
 				display: block;
-				height: 18px;
-				border-radius: 9px;
-				background: rgb(255 255 255 / 55%);
+				height: 100%;
+				width: 0;
+				border-radius: 4px;
+				background: linear-gradient(90deg, #c9631f, #e9a066);
 			}
-			.art .device b {
+			.build-status {
+				margin-left: auto;
+				padding: 6px 16px;
+				border-radius: 999px;
+				font-size: 21px;
+				font-weight: 600;
+				letter-spacing: 0;
+				background: var(--selection);
+				color: var(--focal);
+			}
+			.build-row {
 				display: flex;
 				align-items: center;
-				gap: 10px;
-				margin-top: auto;
-				font-size: 26px;
+				gap: 16px;
+				height: 78px;
+				padding: 0 14px;
+				border-radius: 16px;
+				font-size: 29px;
+				white-space: nowrap;
+			}
+			.build-work {
+				margin-left: auto;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+			.build-work img {
+				border-radius: 10px;
+			}
+			.build-pill {
+				padding: 5px 12px;
+				border-radius: 999px;
+				background: #fff;
+				border: 1px solid var(--line);
+				color: var(--focal);
+				font-size: 18px;
 				font-weight: 600;
 			}
-			.art .device b em {
-				width: 16px;
-				height: 16px;
-				border-radius: 50%;
-				background: #7ef0a8;
-				box-shadow: 0 0 18px #7ef0a8;
+			.build-stream {
+				font-size: 23px;
+				color: var(--muted);
+			}
+			.tick {
+				flex: none;
+				overflow: visible;
+			}
+			.tick .ring {
+				fill: none;
+				stroke-width: 4;
+				stroke-linecap: round;
+				transform-origin: 20px 20px;
+			}
+			.tick .disc {
+				fill: #2f8f57;
+				transform-origin: 20px 20px;
+			}
+			.tick .stroke {
+				fill: none;
+				stroke: #fff;
+				stroke-width: 4.5;
+				stroke-linecap: round;
+				stroke-linejoin: round;
+				stroke-dasharray: 1;
+			}
+			.post-count {
+				display: inline-flex;
+				align-items: center;
+				gap: 12px;
+				height: 62px;
+				padding: 0 20px 0 14px;
+				border-radius: 999px;
+				border: 2px solid;
+				font-size: 30px;
+				font-weight: 600;
+				font-variant-numeric: tabular-nums;
+			}
+			.post-word {
+				position: absolute;
+				left: 0;
+				top: 0;
+				font-size: 44px;
+				line-height: 57px;
+				letter-spacing: -0.012em;
+				white-space: nowrap;
+				transform-origin: 0 0;
+			}
+			.post-word.over {
+				background: #fbdcd8;
+				box-shadow:
+					-6px 0 0 #fbdcd8,
+					6px 0 0 #fbdcd8;
+			}
+			.post-perfected {
+				display: inline-flex;
+				align-items: center;
+				gap: 12px;
+				height: 56px;
+				padding: 0 24px;
+				border-radius: 28px;
+				color: #fffaf6;
+				font-size: 28px;
+				font-weight: 600;
+				letter-spacing: -0.015em;
+				transform-origin: 0 50%;
+			}
+			.url-line {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				height: 80px;
+				font-family: 'Geist Mono', monospace;
+				font-size: 46px;
+				font-weight: 500;
+				letter-spacing: -0.02em;
+				line-height: 80px;
+				white-space: pre;
+			}
+			.url-slot {
+				display: inline-block;
+				width: 1ch;
+			}
+			.team-line {
+				height: 200px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				white-space: pre;
+				font-size: 104px;
+				font-weight: 400;
+				letter-spacing: -0.03em;
+				color: #e9fbff;
+				text-shadow: 0 2px 30px rgb(3 30 40 / 60%);
 			}
 
 			.selection {
@@ -553,6 +754,13 @@
 				height: 64px;
 				filter: drop-shadow(0 8px 14px rgb(0 0 0 / 28%));
 				transform-origin: 8px 6px;
+			}
+			.label {
+				position: absolute;
+				right: 44px;
+				bottom: 32px;
+				font-size: 17px;
+				color: rgb(43 38 33 / 42%);
 			}
 			/* Rebuilt app scenes. Every visible UI element belongs to the animation. */
 			.flow-viewport {
@@ -821,7 +1029,7 @@
 		</style>
 	</head>
 	<body>
-		<main id="stage" aria-label="OpenPost launch film"></main>
+		<canvas id="stage" width="1920" height="1080" layoutsubtree="true"></canvas>
 		<script type="module" src="./film.js"></script>
 	</body>
 </html>

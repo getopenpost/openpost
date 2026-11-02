@@ -8,13 +8,14 @@ import {
   registerUser,
 } from "./helpers";
 
-test("the default Dither workspace keeps real app controls usable in both schemes", async ({
+test("an assigned Dither workspace keeps real app controls usable in both schemes", async ({
   page,
   request,
 }) => {
   test.setTimeout(180_000);
   const { token } = await registerUser(request, `dither-default-${randomUUID()}@example.com`);
   const workspace = await createWorkspace(request, token, "Dither studio");
+  await assignBuiltInTheme(request, token, workspace.id, "dither");
   const publication = "A smaller release, with clearer controls and fewer repeated steps.";
   await createPublication(request, token, workspace.id, publication);
   await authenticatePage(page, token);

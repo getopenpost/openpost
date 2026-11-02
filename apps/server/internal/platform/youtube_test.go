@@ -54,6 +54,54 @@ func TestYouTubeGenerateAuthURL(t *testing.T) {
 	}
 }
 
+func TestYouTubeGetProfileUsesGrantedYouTubeReadScope(t *testing.T) {
+	originalClient := httpClient
+	t.Cleanup(func() { httpClient = originalClient })
+	requests := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests++
+		if req.URL.Path != "/youtube/v3/channels" {
+			t.Fatalf("unexpected profile endpoint %s", req.URL)
+		}
+		if req.Header.Get(headerAuthorization) != "Bearer channel-token" {
+			t.Fatalf("unexpected authorization header %q", req.Header.Get(headerAuthorization))
+		}
+		return jsonResponse(req, `{"items":[{"id":"channel-1","snippet":{"title":"Founder channel","customUrl":"@founder","thumbnails":{"default":{"url":"https://yt.example/avatar.jpg"}}}}]}`), nil
+	})}
+
+	profile, err := NewYouTubeAdapter("client", "secret", "https://app.example/callback").GetProfile(t.Context(), "channel-token")
+	if err != nil {
+		t.Fatalf("GetProfile returned error: %v", err)
+	}
+	if profile.ID != "channel-1" || profile.Username != "@founder" || profile.DisplayName != "Founder channel" {
+		t.Fatalf("unexpected YouTube profile: %#v", profile)
+	}
+	if requests != 1 {
+		t.Fatalf("GetProfile made %d requests, want exactly one authorized channel lookup", requests)
+	}
+}
+
+func TestYouTubeGetProfileRejectsAccountsWithoutChannels(t *testing.T) {
+	originalClient := httpClient
+	t.Cleanup(func() { httpClient = originalClient })
+	requests := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests++
+		if req.URL.Path != "/youtube/v3/channels" {
+			t.Fatalf("unexpected profile endpoint %s", req.URL)
+		}
+		return jsonResponse(req, `{"items":[]}`), nil
+	})}
+
+	profile, err := NewYouTubeAdapter("client", "secret", "https://app.example/callback").GetProfile(t.Context(), "channel-token")
+	if err == nil || !strings.Contains(err.Error(), "no YouTube channels") {
+		t.Fatalf("GetProfile error = %v, want no-channels error", err)
+	}
+	if profile != nil || requests != 1 {
+		t.Fatalf("GetProfile returned profile %#v after %d requests, want nil after one channel lookup", profile, requests)
+	}
+}
+
 func TestYouTubeAnalyticsSupportRequiresReconnectForOldGrants(t *testing.T) {
 	support := NewYouTubeAdapter("", "", "").AnalyticsSupport()
 	oldGrant := "https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/youtube.readonly"

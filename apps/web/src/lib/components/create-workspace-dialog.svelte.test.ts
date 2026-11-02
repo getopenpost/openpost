@@ -76,7 +76,7 @@ describe('CreateWorkspaceDialog selection', () => {
 
 		const screen = await render(CreateWorkspaceDialog, { open: true });
 		await screen.getByRole('textbox', { name: 'Workspace name' }).fill('Project X');
-		await screen.getByRole('button', { name: 'Create Workspace and continue' }).click();
+		await screen.getByRole('button', { name: 'Create workspace' }).click();
 
 		await vi.waitFor(() => expect(postMock).toHaveBeenCalled());
 		// SAFETY: deferred<never> models the pending client promise; the cast bridges the

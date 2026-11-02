@@ -167,7 +167,10 @@ test("leaving Quick Cut cancels a source whose processing module is still loadin
       return createObjectURL(blob);
     };
   });
-  await page.goto("/quick-cut");
+  await page.goto("/studio");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("link", { name: /Quick Cut/ }).click();
+  await expect(page).toHaveURL(/\/quick-cut$/);
   await page.waitForLoadState("networkidle");
   let release!: () => void;
   const released = new Promise<void>((resolve) => {
@@ -193,7 +196,9 @@ test("leaving Quick Cut cancels a source whose processing module is still loadin
     await page.getByRole("button", { name: "Open videos", exact: true }).click();
     await (await chooser).setFiles("tests/app/fixtures/product-screenshots/study-sos-demo.mp4");
     await held;
-    await page.getByRole("link", { name: "Image Editor", exact: true }).click();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/studio$/);
+    await page.getByRole("link", { name: /Image Editor/ }).click();
     await expect(page).toHaveURL(/\/image-editor$/);
     const delivered = page.waitForResponse(heldURL);
     release();

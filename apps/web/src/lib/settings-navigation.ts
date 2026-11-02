@@ -1,6 +1,6 @@
 import { m } from '$lib/paraglide/messages';
 
-export type SettingsDestinationGroup = 'personal' | 'workspace' | 'organization' | 'instance';
+export type SettingsDestinationGroup = 'you' | 'workspace' | 'plan' | 'advanced';
 export type SettingsLoadingVariant = 'profile' | 'cards' | 'list' | 'form';
 
 interface SettingsDestinationContext {
@@ -12,39 +12,41 @@ interface SettingsDestinationDefinition {
 	group: SettingsDestinationGroup;
 	label: () => string;
 	title?: () => string;
-	description: (context: SettingsDestinationContext) => string;
 	loadingVariant: SettingsLoadingVariant;
 	aliases?: readonly string[];
+	/** Only instance admins can reach this destination. */
+	instanceAdminOnly?: boolean;
+	/**
+	 * The destination lives elsewhere now. It never renders inside Settings;
+	 * `settingsTabRedirect` sends visitors to its current home.
+	 */
+	moved?: boolean;
 }
 
 const settingsDestinationDefinitions = [
 	{
 		id: 'profile',
-		group: 'personal',
+		group: 'you',
 		label: m.settings_profile,
-		description: m.settings_profile_description,
 		loadingVariant: 'profile',
 		aliases: ['account']
 	},
 	{
 		id: 'notifications',
-		group: 'personal',
+		group: 'you',
 		label: m.notifications_settings,
-		description: m.notifications_settings_description,
 		loadingVariant: 'cards'
 	},
 	{
 		id: 'security',
-		group: 'personal',
+		group: 'you',
 		label: m.settings_security,
-		description: m.settings_account_security_body,
 		loadingVariant: 'cards'
 	},
 	{
 		id: 'developer',
-		group: 'personal',
+		group: 'you',
 		label: m.settings_developer,
-		description: m.settings_developer_description,
 		loadingVariant: 'list',
 		aliases: ['tokens']
 	},
@@ -52,47 +54,20 @@ const settingsDestinationDefinitions = [
 		id: 'general',
 		group: 'workspace',
 		label: m.settings_general,
-		description: ({ workspaceName }: SettingsDestinationContext) =>
-			m.settings_general_description({
-				workspace: workspaceName || m.settings_workspace()
-			}),
 		loadingVariant: 'form',
 		aliases: ['workspace', 'media']
 	},
 	{
 		id: 'brand',
 		group: 'workspace',
-		label: m.app_branding_kit,
-		description: m.media_brand_description,
-		loadingVariant: 'form'
-	},
-	{
-		id: 'app-branding',
-		group: 'workspace',
-		label: m.app_branding_title,
-		description: m.app_branding_description,
-		loadingVariant: 'form'
-	},
-	{
-		id: 'accounts',
-		group: 'workspace',
-		label: m.accounts_heading,
-		description: m.accounts_description,
-		loadingVariant: 'list',
-		aliases: ['social-accounts']
-	},
-	{
-		id: 'reposts',
-		group: 'workspace',
-		label: m.settings_reposts,
-		description: m.settings_reposts_description,
-		loadingVariant: 'list'
+		label: m.settings_brand,
+		loadingVariant: 'form',
+		aliases: ['app-branding']
 	},
 	{
 		id: 'schedule',
 		group: 'workspace',
 		label: m.settings_schedule,
-		description: m.settings_schedule_description,
 		loadingVariant: 'list'
 	},
 	{
@@ -100,80 +75,98 @@ const settingsDestinationDefinitions = [
 		group: 'workspace',
 		label: m.settings_members,
 		title: m.settings_team_members,
-		description: m.settings_members_description,
 		loadingVariant: 'cards',
 		aliases: ['team']
 	},
 	{
 		id: 'plan',
-		group: 'organization',
+		group: 'plan',
 		label: m.settings_plan,
-		description: m.settings_plan_description,
 		loadingVariant: 'cards',
 		aliases: ['billing', 'organization']
 	},
 	{
 		id: 'appearance',
-		group: 'organization',
+		group: 'advanced',
 		label: m.settings_appearance,
-		description: () => m.app_branding_appearance_description(),
 		loadingVariant: 'cards'
 	},
 	{
 		id: 'sso',
-		group: 'organization',
+		group: 'advanced',
 		label: m.settings_sso,
-		description: m.settings_sso_description,
 		loadingVariant: 'cards'
 	},
 	{
 		id: 'audit',
-		group: 'organization',
+		group: 'advanced',
 		label: m.settings_audit_title,
-		description: m.settings_audit_description,
 		loadingVariant: 'cards'
 	},
 	{
 		id: 'ownership',
-		group: 'organization',
+		group: 'advanced',
 		label: m.settings_ownership_heading,
-		description: m.settings_ownership_body,
 		loadingVariant: 'form'
 	},
 	{
 		id: 'instance',
-		group: 'instance',
+		group: 'advanced',
 		label: m.settings_instance,
-		description: m.settings_instance_description,
-		loadingVariant: 'list'
+		loadingVariant: 'list',
+		instanceAdminOnly: true
 	},
 	{
 		id: 'configuration',
-		group: 'instance',
+		group: 'advanced',
 		label: m.settings_configuration,
-		description: m.settings_configuration_description,
-		loadingVariant: 'list'
+		loadingVariant: 'list',
+		instanceAdminOnly: true
 	},
 	{
 		id: 'ai-prompts',
-		group: 'instance',
+		group: 'advanced',
 		label: m.settings_ai_prompts,
-		description: m.settings_ai_prompts_description,
-		loadingVariant: 'form'
+		loadingVariant: 'form',
+		instanceAdminOnly: true
 	},
 	{
 		id: 'users',
-		group: 'instance',
+		group: 'advanced',
 		label: m.settings_instance_users,
-		description: m.settings_instance_users_page_description,
-		loadingVariant: 'list'
+		loadingVariant: 'list',
+		instanceAdminOnly: true
 	},
 	{
 		id: 'instance-audit',
-		group: 'instance',
+		group: 'advanced',
 		label: m.settings_instance_audit_title,
-		description: m.settings_instance_audit_description,
-		loadingVariant: 'form'
+		loadingVariant: 'form',
+		instanceAdminOnly: true
+	},
+	// Destinations that moved out of Settings. They stay addressable so old
+	// `?tab=` URLs and aliases keep resolving, then redirect.
+	{
+		id: 'app-branding',
+		group: 'workspace',
+		label: m.app_branding_title,
+		loadingVariant: 'form',
+		moved: true
+	},
+	{
+		id: 'accounts',
+		group: 'workspace',
+		label: m.accounts_heading,
+		loadingVariant: 'list',
+		aliases: ['social-accounts'],
+		moved: true
+	},
+	{
+		id: 'reposts',
+		group: 'workspace',
+		label: m.settings_reposts,
+		loadingVariant: 'list',
+		moved: true
 	}
 ] as const satisfies readonly SettingsDestinationDefinition[];
 
@@ -186,31 +179,29 @@ export interface SettingsDestination {
 	group: SettingsDestinationGroup;
 	label: string;
 	title: string;
-	description: string;
 	loadingVariant: SettingsLoadingVariant;
 }
 
 export function getSettingsDestinations(
 	includeInstance: boolean,
-	context: SettingsDestinationContext = {},
+	_context: SettingsDestinationContext = {},
 	includeHostedBilling = true
 ): SettingsDestination[] {
 	return settingsDestinationDefinitions
 		.filter(
 			(destination) =>
-				(includeInstance || destination.group !== 'instance') &&
+				!('moved' in destination && destination.moved) &&
+				(includeInstance ||
+					!('instanceAdminOnly' in destination && destination.instanceAdminOnly)) &&
 				(includeHostedBilling || destination.id !== 'plan')
 		)
-		.map((destination) => resolveSettingsDestination(destination, context));
+		.map((destination) => resolveSettingsDestination(destination));
 }
 
-export function getSettingsDestination(
-	id: SettingsDestinationID,
-	context: SettingsDestinationContext = {}
-): SettingsDestination {
+export function getSettingsDestination(id: SettingsDestinationID): SettingsDestination {
 	const destination = settingsDestinationDefinitions.find((candidate) => candidate.id === id);
 	if (!destination) throw new Error(`Unknown settings destination: ${id}`);
-	return resolveSettingsDestination(destination, context);
+	return resolveSettingsDestination(destination);
 }
 
 export function normalizeSettingsTab(
@@ -223,22 +214,38 @@ export function normalizeSettingsTab(
 		const aliases: readonly string[] = 'aliases' in candidate ? candidate.aliases : [];
 		return candidate.id === value || aliases.includes(value);
 	});
-	if (!destination || (!includeInstance && destination.group === 'instance')) return 'general';
+	if (
+		!destination ||
+		(!includeInstance && 'instanceAdminOnly' in destination && destination.instanceAdminOnly)
+	)
+		return 'general';
 	if (!includeHostedBilling && destination.id === 'plan') return 'general';
 	return destination.id;
 }
 
-function resolveSettingsDestination(
-	destination: DeclaredSettingsDestination,
-	context: SettingsDestinationContext
-): SettingsDestination {
+/**
+ * Where a moved destination now lives, or null when the tab renders in
+ * Settings. Query parameters survive the move so deep links and OAuth
+ * callbacks keep working.
+ */
+export function settingsTabRedirect(id: SettingsDestinationID, url: URL): string | null {
+	if (id === 'accounts') {
+		const params = new URLSearchParams(url.searchParams);
+		params.delete('tab');
+		const search = params.toString();
+		return `/accounts${search ? `?${search}` : ''}${url.hash}`;
+	}
+	if (id === 'reposts') return '/workflows/reposts';
+	return null;
+}
+
+function resolveSettingsDestination(destination: DeclaredSettingsDestination): SettingsDestination {
 	const label = destination.label();
 	return {
 		id: destination.id,
 		group: destination.group,
 		label,
 		title: 'title' in destination ? destination.title() : label,
-		description: destination.description(context),
 		loadingVariant: destination.loadingVariant
 	};
 }

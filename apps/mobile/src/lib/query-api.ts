@@ -8,6 +8,8 @@ import {
   type PublicationBuild,
   type VoiceProfileQueryAPI,
   type PublicationReview,
+  type WorkspaceSetup,
+  type WorkspaceSettingsQueryAPI,
 } from "@openpost/query-catalog";
 
 import { api, captureApiRequestIdentity, settleApiUnauthorized, type Api } from "./api/client";
@@ -20,9 +22,11 @@ type MobileQueryAPI = AppBrandingQueryAPI &
     | "listAccounts"
     | "listActivityPublications"
     | "listCalendarPublications"
+    | "listFailedJobs"
     | "listSocialSets"
     | "listWorkspaces"
   > &
+  Pick<WorkspaceSettingsQueryAPI, "getWorkspaceSetup"> &
   Pick<VideoProjectQueryAPI, "listVideoProjectSummaries"> &
   AnalyticsQueryAPI &
   VoiceProfileQueryAPI & {
@@ -201,6 +205,37 @@ export function createMobileQueryAPI(getTransport: () => QueryTransport): Mobile
           getTransport().GET("/accounts", {
             signal: requestSignal,
             params: { query: { workspace_id: workspaceId } },
+          }),
+      });
+      return data;
+    },
+    async listFailedJobs(workspaceId, page, signal) {
+      const { data, response } = await queryGET({
+        signal,
+        fallback: "Could not load failed posts",
+        request: (requestSignal) =>
+          getTransport().GET("/jobs", {
+            signal: requestSignal,
+            params: {
+              query: {
+                workspace_id: workspaceId,
+                status: "failed",
+                limit: page.limit,
+                cursor: page.cursor || undefined,
+              },
+            },
+          }),
+      });
+      return queryPage(data, response);
+    },
+    async getWorkspaceSetup(workspaceId, signal): Promise<WorkspaceSetup> {
+      const { data } = await queryGET({
+        signal,
+        fallback: "Could not load workspace setup",
+        request: (requestSignal) =>
+          getTransport().GET("/workspaces/{id}/setup", {
+            signal: requestSignal,
+            params: { path: { id: workspaceId } },
           }),
       });
       return data;

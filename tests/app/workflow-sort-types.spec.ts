@@ -66,7 +66,7 @@ test("Sort explains mixed fields and recovers with numeric fields", async ({
   await page.getByRole("button", { name: "Test node", exact: true }).click();
   await expect(output.getByText("N2", { exact: true })).toBeVisible();
   await expect(output.getByText("N10", { exact: true })).toBeVisible();
-  await output.getByRole("button", { name: "JSON", exact: true }).click();
+  await output.getByRole("tab", { name: "JSON", exact: true }).click();
   await expect
     .poll(async () => JSON.parse(await output.locator("pre").innerText()))
     .toEqual({

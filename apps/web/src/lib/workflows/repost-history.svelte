@@ -5,6 +5,7 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
 	let { workspaceID }: { workspaceID: string } = $props();
@@ -35,18 +36,13 @@
 {:else}
 	<div class="divide-y rounded-lg border bg-card">
 		{#each query.data.executions as run (run.id)}
-			<details class="p-4">
-				<summary
-					class="min-h-11 cursor-pointer text-sm focus-visible:outline-2 focus-visible:outline-ring"
-				>
-					<span class="font-medium">{run.policy_name || m.composer_repost_custom()}</span>
-					<span class="ml-2 text-muted-foreground"
-						>{status(run.status)} · {run.current_stage}/{run.total_stages}</span
-					>
-					<span class="mt-1 block text-xs text-muted-foreground"
-						>{new Date(run.created_at).toLocaleString()}</span
-					>
-				</summary>
+			<Disclosure class="p-4" summary={run.policy_name || m.composer_repost_custom()}>
+				{#snippet summaryEnd()}
+					<span class="flex flex-col items-end text-xs font-normal text-muted-foreground">
+						<span>{status(run.status)} · {run.current_stage}/{run.total_stages}</span>
+						<span>{new Date(run.created_at).toLocaleString()}</span>
+					</span>
+				{/snippet}
 				<div class="mt-3 space-y-3 text-sm">
 					<p>
 						{query.data.accounts?.find((account) => account.id === run.target_account_id)
@@ -73,18 +69,18 @@
 					<Button variant="outline" href={`/publications/${run.publication_id}`}
 						>{m.workflows_review_post()}</Button
 					>
-					<details>
-						<summary class="min-h-11 cursor-pointer text-xs text-muted-foreground"
-							>{m.workflows_details()}</summary
-						>
+					<Disclosure
+						summary={m.workflows_details()}
+						summaryClass="text-xs font-normal text-muted-foreground"
+					>
 						<pre class="max-h-64 overflow-auto rounded-md bg-muted p-3 text-xs">{JSON.stringify(
 								{ rule: run.rule, history: run.history },
 								null,
 								2
 							)}</pre>
-					</details>
+					</Disclosure>
 				</div>
-			</details>
+			</Disclosure>
 		{/each}
 	</div>
 {/if}

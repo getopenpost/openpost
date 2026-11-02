@@ -3,6 +3,7 @@ import { createDefaultTracks } from '../../project/defaults';
 import { commandHistory } from '../commands/command-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import { ensureOpenTrackForRange } from './track-placement';
+import { MIN_TRACK_HEIGHT } from '../track-resize';
 import {
 	addTrack,
 	createTrackGroup,
@@ -133,7 +134,7 @@ describe('timeline track actions', () => {
 		toggleTrackVisibility(groupId);
 		const stored = timelineStore.tracks.find((track) => track.id === captionTrack.id)!;
 		expect(stored.visible).toBe(true);
-		expect(stored.height).toBe(48);
+		expect(stored.height).toBe(MIN_TRACK_HEIGHT);
 	});
 
 	it('groups non-contiguous tracks into one ordered block and undoes atomically', () => {

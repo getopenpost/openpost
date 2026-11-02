@@ -287,7 +287,7 @@ for (const width of [1280, 390, 320]) {
         await expect(poll.getByRole("button", { name: "Edit poll", exact: true })).toBeFocused();
         await expect(poll.getByText("Would you use this?", { exact: true })).toBeVisible();
         await composerDestinations(page)
-          .getByRole("button", { name: /@pollx,/ })
+          .getByRole("tab", { name: /@pollx,/ })
           .click();
         await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
         const custom = poll.getByTestId("preview-poll-editor");
@@ -299,7 +299,7 @@ for (const width of [1280, 390, 320]) {
         await expect(poll.getByText("Usarias isto?", { exact: true })).toBeVisible();
         await expect(poll.getByRole("checkbox")).toHaveCount(0);
         await composerDestinations(page)
-          .getByRole("button", { name: /polllinkedin,/ })
+          .getByRole("tab", { name: /polllinkedin,/ })
           .click();
         await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
         const linkedinDialog = poll.getByTestId("preview-poll-editor");
@@ -330,7 +330,7 @@ for (const width of [1280, 390, 320]) {
         ).toBeDisabled();
         await linkedinDialog.getByRole("button", { name: "Cancel", exact: true }).click();
         await composerDestinations(page)
-          .getByRole("button", { name: /@pollmastodon,/ })
+          .getByRole("tab", { name: /@pollmastodon,/ })
           .click();
         await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
         await poll
@@ -352,10 +352,10 @@ for (const width of [1280, 390, 320]) {
         await expect(poll.getByRole("button", { name: "Poll version", exact: true })).toContainText(
           "Custom poll",
         );
-        await composerDestinations(page).getByRole("button", { name: "All", exact: true }).click();
+        await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
         await expect(poll.getByText("Would you use this?", { exact: true })).toBeVisible();
         await composerDestinations(page)
-          .getByRole("button", { name: /@pollsky,/ })
+          .getByRole("tab", { name: /@pollsky,/ })
           .click();
         await expect(poll.getByRole("button", { name: "Poll version", exact: true })).toContainText(
           "Text version",
@@ -384,7 +384,7 @@ for (const width of [1280, 390, 320]) {
           .toBe("Usarias isto?");
         await page.goto(`/publications/${saved.id}`);
         await composerDestinations(page)
-          .getByRole("button", { name: /@pollx,/ })
+          .getByRole("tab", { name: /@pollx,/ })
           .click();
         await expect(poll.getByText("Usarias isto?", { exact: true })).toBeVisible();
         const late = {
@@ -475,7 +475,7 @@ for (const width of [1280, 390, 320]) {
         expect(imported.ok(), await imported.text()).toBe(true);
         await page.goto(`/publications/${saved.id}`);
         await composerDestinations(page)
-          .getByRole("button", { name: /@pollx,/ })
+          .getByRole("tab", { name: /@pollx,/ })
           .click();
         await expect(poll.getByText(/does not support the selected voting options/)).toBeVisible();
         await poll.getByRole("button", { name: "Edit poll", exact: true }).click();

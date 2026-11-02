@@ -24,6 +24,7 @@
 	} from '$lib/query/authorization-boundary';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { resolveAppPath } from '$lib/app-path';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -844,10 +845,11 @@
 						{#if !accountIds.length && !accounts.isPending}
 							<p class="text-sm text-muted-foreground">{m.compose_select_account()}</p>
 						{/if}
-						<details class="border-t">
-							<summary class="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground"
-								>{m.ideate_options()}</summary
-							>
+						<Disclosure
+							summary={m.ideate_options()}
+							summaryClass="text-muted-foreground"
+							class="border-t"
+						>
 							<div class="grid gap-3 pb-3">
 								<label class="grid gap-1.5 text-sm font-medium"
 									>{m.ideate_voice_profile()}<AppSelect
@@ -884,7 +886,7 @@
 									/></label
 								>
 							</div>
-						</details>
+						</Disclosure>
 						<div
 							class="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between"
 						>

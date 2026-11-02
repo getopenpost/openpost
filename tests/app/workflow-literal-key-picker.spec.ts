@@ -85,7 +85,7 @@ test("literal dotted keys and nested paths remain distinct picker references", a
     for (const colorScheme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 844 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      await page.getByRole("button", { name: "Configure", exact: true }).click();
+      await page.getByRole("tab", { name: "Configure", exact: true }).click();
       await field.getByRole("button", { name: "Insert variable", exact: true }).click();
       await expect(page.getByRole("option").filter({ hasText: 'source["a.b"]' })).toBeVisible();
       await expect(page.getByRole("option").filter({ hasText: "source.a.b" })).toBeVisible();

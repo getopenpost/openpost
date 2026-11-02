@@ -15,7 +15,6 @@
 	import { notificationTopicIcon, notificationTopicLabel } from '$lib/notification-topics';
 	import { presentNotification, isSafeLocalNotificationHref } from '$lib/notification-presentation';
 	import PageContainer from '$lib/components/page-container.svelte';
-	import CommunicationsNavigation from '$lib/components/communications-navigation.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import NotificationMutes from '$lib/components/notification-mutes.svelte';
@@ -23,6 +22,7 @@
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { Button } from '$lib/components/ui/button';
+	import * as Tabs from '$lib/components/ui/tabs';
 
 	type NotificationAction = NonNullable<Notification['actions']>[number];
 	type ReadFilter = 'all' | 'unread' | 'read';
@@ -106,7 +106,11 @@
 				? (notificationList.querySelector<HTMLElement>(
 						'[data-notification-id] button:not(:disabled)'
 					) ??
-					notificationList.querySelector<HTMLElement>('[aria-pressed="true"]') ??
+					// The read filter is a tab list now; its active tab replaces the
+					// pressed-state button this fallback used to target.
+					notificationList.querySelector<HTMLElement>(
+						'[data-slot="tabs-trigger"][data-state="active"]'
+					) ??
 					notificationList)
 				: focused;
 			if (next instanceof HTMLElement && next.isConnected) next.focus();
@@ -272,15 +276,11 @@
 
 <PageContainer
 	title={m.notifications_heading()}
-	description={workspaceName ? m.notifications_description({ workspace: workspaceName }) : ''}
 	themeIconRole="notification"
 	loading={initialLoading}
 	loadingLayout="list"
 	loadingItems={6}
 >
-	{#snippet navigation()}
-		<CommunicationsNavigation active="notifications" />
-	{/snippet}
 	{#snippet actions()}
 		<div class="flex flex-wrap gap-2">
 			<Button
@@ -344,36 +344,17 @@
 					</Button>
 				</div>
 
-				<div
-					class="mb-5 flex flex-wrap gap-2"
-					role="group"
-					aria-label={m.notifications_filter_label()}
+				<Tabs.Root
+					value={readFilter}
+					onValueChange={(next) => (readFilter = next as ReadFilter)}
+					class="mb-5"
 				>
-					<Button
-						variant={readFilter === 'all' ? 'secondary' : 'ghost'}
-						size="sm"
-						aria-pressed={readFilter === 'all'}
-						onclick={() => (readFilter = 'all')}
-					>
-						{m.common_all()}
-					</Button>
-					<Button
-						variant={readFilter === 'unread' ? 'secondary' : 'ghost'}
-						size="sm"
-						aria-pressed={readFilter === 'unread'}
-						onclick={() => (readFilter = 'unread')}
-					>
-						{m.notifications_filter_unread()}
-					</Button>
-					<Button
-						variant={readFilter === 'read' ? 'secondary' : 'ghost'}
-						size="sm"
-						aria-pressed={readFilter === 'read'}
-						onclick={() => (readFilter = 'read')}
-					>
-						{m.notifications_filter_read()}
-					</Button>
-				</div>
+					<Tabs.List aria-label={m.notifications_filter_label()}>
+						<Tabs.Trigger value="all">{m.common_all()}</Tabs.Trigger>
+						<Tabs.Trigger value="unread">{m.notifications_filter_unread()}</Tabs.Trigger>
+						<Tabs.Trigger value="read">{m.notifications_filter_read()}</Tabs.Trigger>
+					</Tabs.List>
+				</Tabs.Root>
 
 				{#if filteredNotifications.length === 0}
 					<EmptyState

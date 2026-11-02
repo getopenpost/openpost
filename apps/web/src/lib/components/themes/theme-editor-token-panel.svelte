@@ -2,6 +2,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
 	import ColorPicker from '$lib/components/color-picker.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import DitherGradient from '$lib/components/dither/dither-gradient.svelte';
 	import { convert } from '@asamuzakjp/css-color';
 	import { themeAccentHue } from './theme-editor-accent';
@@ -164,39 +165,46 @@
 			</section>
 		{/if}
 		{#each colorGroups as group (group.id)}
-			<details
-				class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
+			<Disclosure
+				summary={group.label}
+				boxed
+				class="rounded-[var(--theme-radius-md,var(--radius))] border-border bg-card"
+				summaryClass="px-3 py-2"
+				data-theme-disclosure
 				open={group.id === 'foundation'}
 			>
-				<summary data-theme-disclosure class="cursor-pointer text-sm font-semibold"
-					>{group.label}</summary
-				>
-				<p class="mt-1 text-xs leading-relaxed text-muted-foreground">{group.description}</p>
-				<div class="mt-3 grid gap-3">
-					{#each group.fields as field (field)}
-						<div class="grid gap-1.5 text-xs font-medium">
-							<label for={`theme-color-${field}`}>{themeEditorTokenLabel(field, locale)}</label>
-							<span class="flex items-center gap-2">
-								<ColorPicker
-									label={m.brand_choose_color({ name: themeEditorTokenLabel(field, locale) })}
-									value={convert.colorToHex(manifest.colors[field]) ?? '#000000'}
-									swatchColor={manifest.colors[field]}
-									variant="swatch"
-									live={false}
-									onChange={(value) =>
-										onUpdateValue('colors', field, themePickerColor(manifest.colors[field], value))}
-								/>
-								<Input
-									id={`theme-color-${field}`}
-									value={manifest.colors[field]}
-									oninput={(event) => onUpdateValue('colors', field, event.currentTarget.value)}
-									class="font-mono"
-								/>
-							</span>
-						</div>
-					{/each}
+				<div class="px-3 pb-3">
+					<p class="mt-1 text-xs leading-relaxed text-muted-foreground">{group.description}</p>
+					<div class="mt-3 grid gap-3">
+						{#each group.fields as field (field)}
+							<div class="grid gap-1.5 text-xs font-medium">
+								<label for={`theme-color-${field}`}>{themeEditorTokenLabel(field, locale)}</label>
+								<span class="flex items-center gap-2">
+									<ColorPicker
+										label={m.brand_choose_color({ name: themeEditorTokenLabel(field, locale) })}
+										value={convert.colorToHex(manifest.colors[field]) ?? '#000000'}
+										swatchColor={manifest.colors[field]}
+										variant="swatch"
+										live={false}
+										onChange={(value) =>
+											onUpdateValue(
+												'colors',
+												field,
+												themePickerColor(manifest.colors[field], value)
+											)}
+									/>
+									<Input
+										id={`theme-color-${field}`}
+										value={manifest.colors[field]}
+										oninput={(event) => onUpdateValue('colors', field, event.currentTarget.value)}
+										class="font-mono"
+									/>
+								</span>
+							</div>
+						{/each}
+					</div>
 				</div>
-			</details>
+			</Disclosure>
 		{/each}
 	</div>
 {:else if panel === 'typography'}
@@ -208,79 +216,85 @@
 				)
 				.map((font) => font.weight)
 				.sort((left, right) => left - right)}
-			<details
-				class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
+			<Disclosure
+				summary={themeEditorTokenLabel(role, locale)}
+				boxed
+				class="rounded-[var(--theme-radius-md,var(--radius))] border-border bg-card"
+				summaryClass="px-3 py-2"
+				data-theme-disclosure
 				open={role === 'body'}
 			>
-				<summary data-theme-disclosure class="cursor-pointer text-sm font-semibold"
-					>{themeEditorTokenLabel(role, locale)}</summary
-				>
-				<div class="mt-3 grid gap-3">
-					<label class="grid gap-1.5 text-xs font-medium">
-						{m.theme_editor_family()}
-						<Select.Root
-							value={manifest.typography[role].family}
-							onValueChange={(value: string) => value && onUpdateFontFamily(role, value)}
-						>
-							<Select.Trigger class="w-full">{manifest.typography[role].family}</Select.Trigger>
-							<Select.Content>
-								{#each BUNDLED_THEME_FONT_IDS as fontID (fontID)}
-									{@const bundledFont = BUNDLED_THEME_FONTS[fontID]}
-									<Select.Item value={bundledFont.family}>{bundledFont.label}</Select.Item>
-								{/each}
-								{#each [...new Set(theme.fonts
-											.filter((font) => font.style === 'normal')
-											.map((font) => font.family))] as family (family)}
-									<Select.Item value={family}
-										>{m.theme_editor_uploaded_family({ family })}</Select.Item
-									>
-								{/each}
-							</Select.Content>
-						</Select.Root>
-						<span class="font-normal text-muted-foreground"
-							>{manifest.typography[role].fallbacks.join(', ')}</span
-						>
-					</label>
-					<div class="grid grid-cols-2 gap-3">
+				<div class="px-3 pb-3">
+					<div class="mt-3 grid gap-3">
 						<label class="grid gap-1.5 text-xs font-medium">
-							{m.theme_editor_weight()}
-							{#if uploadedWeights.length > 0}
-								<Select.Root
-									value={String(manifest.typography[role].weight)}
-									onValueChange={(value: string) =>
-										value && onUpdateTypography(role, 'weight', Number(value))}
-								>
-									<Select.Trigger class="w-full">{manifest.typography[role].weight}</Select.Trigger>
-									<Select.Content>
-										{#each uploadedWeights as weight (weight)}
-											<Select.Item value={String(weight)}>{weight}</Select.Item>
-										{/each}
-									</Select.Content>
-								</Select.Root>
-							{:else}
-								<Input
-									type="number"
-									min="100"
-									max="900"
-									step="100"
-									value={manifest.typography[role].weight}
-									oninput={(event) =>
-										onUpdateTypography(role, 'weight', Number(event.currentTarget.value))}
-								/>
-							{/if}
+							{m.theme_editor_family()}
+							<Select.Root
+								value={manifest.typography[role].family}
+								onValueChange={(value: string) => value && onUpdateFontFamily(role, value)}
+							>
+								<Select.Trigger class="w-full">{manifest.typography[role].family}</Select.Trigger>
+								<Select.Content>
+									{#each BUNDLED_THEME_FONT_IDS as fontID (fontID)}
+										{@const bundledFont = BUNDLED_THEME_FONTS[fontID]}
+										<Select.Item value={bundledFont.family}>{bundledFont.label}</Select.Item>
+									{/each}
+									{#each [...new Set(theme.fonts
+												.filter((font) => font.style === 'normal')
+												.map((font) => font.family))] as family (family)}
+										<Select.Item value={family}
+											>{m.theme_editor_uploaded_family({ family })}</Select.Item
+										>
+									{/each}
+								</Select.Content>
+							</Select.Root>
+							<span class="font-normal text-muted-foreground"
+								>{manifest.typography[role].fallbacks.join(', ')}</span
+							>
 						</label>
-						{#each typographyFields as field (field[0])}
+						<div class="grid grid-cols-2 gap-3">
 							<label class="grid gap-1.5 text-xs font-medium">
-								{field[1]()}
-								<Input
-									value={String(manifest.typography[role][field[0]])}
-									oninput={(event) => onUpdateTypography(role, field[0], event.currentTarget.value)}
-								/>
+								{m.theme_editor_weight()}
+								{#if uploadedWeights.length > 0}
+									<Select.Root
+										value={String(manifest.typography[role].weight)}
+										onValueChange={(value: string) =>
+											value && onUpdateTypography(role, 'weight', Number(value))}
+									>
+										<Select.Trigger class="w-full"
+											>{manifest.typography[role].weight}</Select.Trigger
+										>
+										<Select.Content>
+											{#each uploadedWeights as weight (weight)}
+												<Select.Item value={String(weight)}>{weight}</Select.Item>
+											{/each}
+										</Select.Content>
+									</Select.Root>
+								{:else}
+									<Input
+										type="number"
+										min="100"
+										max="900"
+										step="100"
+										value={manifest.typography[role].weight}
+										oninput={(event) =>
+											onUpdateTypography(role, 'weight', Number(event.currentTarget.value))}
+									/>
+								{/if}
 							</label>
-						{/each}
+							{#each typographyFields as field (field[0])}
+								<label class="grid gap-1.5 text-xs font-medium">
+									{field[1]()}
+									<Input
+										value={String(manifest.typography[role][field[0]])}
+										oninput={(event) =>
+											onUpdateTypography(role, field[0], event.currentTarget.value)}
+									/>
+								</label>
+							{/each}
+						</div>
 					</div>
 				</div>
-			</details>
+			</Disclosure>
 		{/each}
 	</div>
 {:else if panel === 'spacing'}
@@ -358,37 +372,40 @@
 {:else if panel === 'motion'}
 	<div class="space-y-3">
 		{#each THEME_MOTION_RECIPE_KEYS as recipe (recipe)}
-			<details
-				class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
+			<Disclosure
+				summary={themeEditorTokenLabel(recipe, locale)}
+				boxed
+				class="rounded-[var(--theme-radius-md,var(--radius))] border-border bg-card"
+				summaryClass="px-3 py-2"
+				data-theme-disclosure
 				open={recipe === 'press'}
 			>
-				<summary data-theme-disclosure class="cursor-pointer text-sm font-semibold"
-					>{themeEditorTokenLabel(recipe, locale)}</summary
-				>
-				<div class="mt-3 grid grid-cols-2 gap-3">
-					{#each motionFields as field (field[0])}
+				<div class="px-3 pb-3">
+					<div class="mt-3 grid grid-cols-2 gap-3">
+						{#each motionFields as field (field[0])}
+							<label class="grid gap-1.5 text-xs font-medium">
+								{field[1]()}
+								<Input
+									value={String(manifest.motion[recipe][field[0]])}
+									oninput={(event) => onUpdateMotion(recipe, field[0], event.currentTarget.value)}
+								/>
+							</label>
+						{/each}
 						<label class="grid gap-1.5 text-xs font-medium">
-							{field[1]()}
+							{m.theme_editor_opacity()}
 							<Input
-								value={String(manifest.motion[recipe][field[0]])}
-								oninput={(event) => onUpdateMotion(recipe, field[0], event.currentTarget.value)}
+								type="number"
+								min="0"
+								max="1"
+								step="0.05"
+								value={manifest.motion[recipe].opacity}
+								oninput={(event) =>
+									onUpdateMotion(recipe, 'opacity', Number(event.currentTarget.value))}
 							/>
 						</label>
-					{/each}
-					<label class="grid gap-1.5 text-xs font-medium">
-						{m.theme_editor_opacity()}
-						<Input
-							type="number"
-							min="0"
-							max="1"
-							step="0.05"
-							value={manifest.motion[recipe].opacity}
-							oninput={(event) =>
-								onUpdateMotion(recipe, 'opacity', Number(event.currentTarget.value))}
-						/>
-					</label>
+					</div>
 				</div>
-			</details>
+			</Disclosure>
 		{/each}
 		<p class="text-xs leading-relaxed text-muted-foreground">
 			{m.theme_editor_reduced_motion({
@@ -430,38 +447,41 @@
 {:else if panel === 'components'}
 	<div class="space-y-3">
 		{#each componentGroups as group (group.id)}
-			<details
-				class="rounded-[var(--theme-radius-md,var(--radius))] border border-border bg-card p-3"
+			<Disclosure
+				summary={group.label}
+				boxed
+				class="rounded-[var(--theme-radius-md,var(--radius))] border-border bg-card"
+				summaryClass="px-3 py-2"
+				data-theme-disclosure
 				open={group.id === 'actions-navigation'}
 			>
-				<summary data-theme-disclosure class="cursor-pointer text-sm font-semibold"
-					>{group.label}</summary
-				>
-				<p class="mt-1 text-xs leading-relaxed text-muted-foreground">{group.description}</p>
-				<div class="mt-3 grid gap-3">
-					{#each group.fields as field (field)}
-						<label class="grid gap-1.5 text-xs font-medium">
-							{themeEditorTokenLabel(field, locale)}
-							<Select.Root
-								value={String(manifest.components[field])}
-								onValueChange={(value: string) => {
-									if (isOption(THEME_COMPONENT_RECIPE_OPTIONS[field], value))
-										onUpdateValue('components', field, value);
-								}}
-							>
-								<Select.Trigger class="w-full"
-									>{themeEditorValueLabel(manifest.components[field], locale)}</Select.Trigger
+				<div class="px-3 pb-3">
+					<p class="mt-1 text-xs leading-relaxed text-muted-foreground">{group.description}</p>
+					<div class="mt-3 grid gap-3">
+						{#each group.fields as field (field)}
+							<label class="grid gap-1.5 text-xs font-medium">
+								{themeEditorTokenLabel(field, locale)}
+								<Select.Root
+									value={String(manifest.components[field])}
+									onValueChange={(value: string) => {
+										if (isOption(THEME_COMPONENT_RECIPE_OPTIONS[field], value))
+											onUpdateValue('components', field, value);
+									}}
 								>
-								<Select.Content>
-									{#each THEME_COMPONENT_RECIPE_OPTIONS[field] as value (value)}
-										<Select.Item {value}>{themeEditorValueLabel(value, locale)}</Select.Item>
-									{/each}
-								</Select.Content>
-							</Select.Root>
-						</label>
-					{/each}
+									<Select.Trigger class="w-full"
+										>{themeEditorValueLabel(manifest.components[field], locale)}</Select.Trigger
+									>
+									<Select.Content>
+										{#each THEME_COMPONENT_RECIPE_OPTIONS[field] as value (value)}
+											<Select.Item {value}>{themeEditorValueLabel(value, locale)}</Select.Item>
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							</label>
+						{/each}
+					</div>
 				</div>
-			</details>
+			</Disclosure>
 		{/each}
 	</div>
 {:else}

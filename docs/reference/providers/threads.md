@@ -12,7 +12,7 @@ Threads supports text, single media, replies, and 2-20 item media carousels, but
 - `THREADS_CLIENT_SECRET`
 - Callback URL: `https://your-domain.com/api/v1/accounts/threads/callback`
 - Public `OPENPOST_MEDIA_URL`
-- Scopes: `threads_basic`, `threads_content_publish`, `threads_manage_replies`, `threads_manage_insights`, `threads_location_tagging`
+- Requested scopes: `threads_basic`, `threads_content_publish`, `threads_read_replies`, `threads_manage_replies`, `threads_manage_mentions`, `threads_manage_insights`, `threads_location_tagging`
 
 ## Important requirement
 
@@ -28,7 +28,7 @@ For a carousel, OpenPost prepares each media item before it publishes the full c
 
 ## Comments
 
-Comments and replies is an optional feature per connected Threads account. It starts off for a new account. Enable it after connection or in Account details. OpenPost can list replies, send replies, and hide replies when enabled. The Threads API path in OpenPost does not delete replies. Threads does not support Direct messages in OpenPost, and Grow is not available for Threads. Disabling Comments and replies stops future Threads comment collection and reply actions without deleting stored replies or revoking authorization. Availability depends on provider support, required scopes, and plan access as distinct facts.
+Comments and replies is an optional feature per connected Threads account. It starts off for a new account. Enable it after connection or in Account details. OpenPost can list replies, send replies, and hide replies when enabled. Reading replies needs `threads_read_replies`; reply actions need `threads_manage_replies`. The Threads API path in OpenPost does not delete replies. Threads does not support Direct messages in OpenPost, and Grow is not available for Threads. Disabling Comments and replies stops future Threads comment collection and reply actions without deleting stored replies or revoking authorization. Availability depends on provider support, required scopes, and plan access as distinct facts.
 
 ## Analytics
 

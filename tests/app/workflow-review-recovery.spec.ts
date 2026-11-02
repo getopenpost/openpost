@@ -94,7 +94,7 @@ test("stale approval explains the changed post and refreshes the displayed revis
       await page.reload();
       await page
         .locator("[data-workflow-editor] > header")
-        .getByRole("button", { name: "Runs", exact: true })
+        .getByRole("tab", { name: "Runs", exact: true })
         .click();
       await page.locator("aside button").filter({ hasText: "Needs approval" }).click();
       const approval = page.locator("section").filter({
@@ -163,7 +163,7 @@ test("review destinations show resolved account names and each distinct content 
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.reload();
-      await page.getByRole("button", { name: "Runs", exact: true }).click();
+      await page.getByRole("tab", { name: "Runs", exact: true }).click();
       await page.getByRole("button").filter({ hasText: "Audit pending review" }).click();
       const approval = page.locator("section").filter({
         has: page.getByRole("heading", { name: "Review post", exact: true }),

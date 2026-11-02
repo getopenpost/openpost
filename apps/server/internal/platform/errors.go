@@ -172,8 +172,8 @@ var metaExactMappings = map[metaCodeKey]metaMapping{
 	// The Facebook user no longer has a role on the Page. Only a Page admin
 	// granting a role plus a reconnect can fix it.
 	{code: "190", subcode: "492"}: {status: http.StatusForbidden, code: "meta:missing_page_role:190:492"},
-	// The targeted Page or post no longer exists. Terminal: retrying the
-	// same publish can never succeed.
+	// Graph cannot access this object or perform the requested operation.
+	// This can reflect permissions or object availability, not only deletion.
 	{code: "100", subcode: "33"}: {status: http.StatusBadRequest, code: metaUnavailableTargetCode},
 }
 
@@ -230,7 +230,7 @@ var metaFailureMessages = map[string]string{
 	"meta:checkpoint:190:459":                "Facebook asked for a security check. Log in at facebook.com, complete it, then reconnect this account and try again.",
 	"meta:checkpoint:instagram":              "Instagram asked for a login check. Log in at instagram.com, follow its instructions, then reconnect this account.",
 	"meta:missing_page_role:190:492":         "Your Facebook user no longer has a role on this Page. Ask a Page admin to grant you a role, then reconnect this account.",
-	metaUnavailableTargetCode:                "The Facebook Page or post this was targeting no longer exists. Reconnect this account and schedule again.",
+	metaUnavailableTargetCode:                "Meta cannot access this object or perform this action. Check the account permissions and the object in Instagram or Facebook. If the post is already live, do not publish it again.",
 	"meta:media_silent_audio:2207082":        "Instagram could not process this video. If you attached audio to a video that has no sound track, set the original video volume to 0 and try again.",
 	"meta:media_format:2207085":              "Instagram could not process the video. Check the video format, duration, and resolution, then try again.",
 	"meta:media_not_ready:9004:2207052":      "Instagram did not finish preparing the media container. OpenPost retried the safe creation step. You can try again later.",

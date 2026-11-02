@@ -1,3 +1,4 @@
+import { sidebarPreferences } from './sidebar-preferences.svelte';
 import { type DateValue } from '@internationalized/date';
 import { SvelteSet } from 'svelte/reactivity';
 import {
@@ -120,6 +121,7 @@ export class UIState {
 		}
 		this.activeComposerDraftId = null;
 		this.composerResetCounter++;
+		sidebarPreferences.requestComposer();
 		return true;
 	}
 

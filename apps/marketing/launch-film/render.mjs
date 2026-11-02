@@ -1,12 +1,10 @@
 // Renders the launch film: bun apps/marketing/launch-film/render.mjs [--stills 1,8,14] [--from s --to s]
-// Frames come from film.js, captured in Chromium and encoded with FFmpeg. Each frame averages
-// --blur subframes across a 180-degree shutter, so fast moves blur and still UI stays sharp.
+// film.js draws each frame on the GPU, averaging --samples renders across the shutter and lens.
 // A full render then mixes the soundtrack on the film's cues (mix.py) and muxes the film.
-// --artwork <file.png> writes the sample launch image that the UI capture uploads.
 import { chromium } from '@playwright/test';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, extname, join, normalize } from 'node:path';
+import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -18,10 +16,11 @@ const { values } = parseArgs({
 		from: { type: 'string' },
 		to: { type: 'string' },
 		fps: { type: 'string' },
-		blur: { type: 'string' },
-		artwork: { type: 'string' }
+		samples: { type: 'string' },
+		out: { type: 'string' }
 	}
 });
+const samples = Number(values.samples ?? 32);
 
 const types = {
 	'.html': 'text/html',
@@ -32,24 +31,66 @@ const types = {
 	'.ttf': 'font/ttf',
 	'.json': 'application/json'
 };
+
+let sink = null;
 const server = Bun.serve({
 	port: 0,
+	idleTimeout: 0,
 	async fetch(request) {
 		const path = decodeURIComponent(new URL(request.url).pathname);
+		if (request.method === 'POST' && path === '/frame') {
+			const frame = new Uint8Array(await request.arrayBuffer());
+			if (!sink.write(frame)) await new Promise((resolve) => sink.once('drain', resolve));
+			return new Response('ok');
+		}
 		const relative = normalize(path.endsWith('/') ? `${path}index.html` : path).slice(1);
 		if (relative.startsWith('..')) return new Response('Forbidden', { status: 403 });
 		const file = Bun.file(join(root, relative));
 		if (!(await file.exists())) return new Response('Not found', { status: 404 });
 		return new Response(file, {
-			headers: { 'content-type': types[extname(relative)] ?? 'application/octet-stream' }
+			headers: {
+				'content-type': types[extname(relative)] ?? 'application/octet-stream'
+			}
 		});
 	}
 });
 
-function encoder(output, args) {
-	const process = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args, output], {
-		stdio: ['pipe', 'inherit', 'inherit']
-	});
+function encoder(output, fps) {
+	const process = spawn(
+		'ffmpeg',
+		[
+			'-hide_banner',
+			'-loglevel',
+			'error',
+			'-y',
+			'-f',
+			'image2pipe',
+			'-framerate',
+			String(fps),
+			'-c:v',
+			'mjpeg',
+			'-i',
+			'-',
+			'-vf',
+			'scale=out_color_matrix=bt709:out_range=tv,format=yuv420p',
+			'-c:v',
+			'libx264',
+			'-preset',
+			'medium',
+			'-crf',
+			'17',
+			'-colorspace',
+			'bt709',
+			'-color_primaries',
+			'bt709',
+			'-color_trc',
+			'bt709',
+			'-movflags',
+			'+faststart',
+			output
+		],
+		{ stdio: ['pipe', 'inherit', 'inherit'] }
+	);
 	const finished = new Promise((resolve, reject) => {
 		process.on('error', reject);
 		process.on('close', (code) =>
@@ -59,13 +100,23 @@ function encoder(output, args) {
 	return { stdin: process.stdin, finished };
 }
 
-const browser = await chromium.launch({ channel: 'chromium' });
+// The film draws live DOM into WebGL: Metal for speed and HTML-in-Canvas for the surfaces.
+const browser = await chromium.launch({
+	channel: 'chromium',
+	args: [
+		'--use-angle=metal',
+		'--ignore-gpu-blocklist',
+		'--enable-blink-features=CanvasDrawElement',
+		'--enable-features=CanvasDrawElement'
+	]
+});
 let film;
 try {
-	const page = await browser.newPage({
+	const context = await browser.newContext({
 		viewport: { width: 1920, height: 1080 },
-		deviceScaleFactor: values.artwork ? 2 : 1
+		deviceScaleFactor: 2
 	});
+	const page = await context.newPage();
 	const errors = [];
 	page.on('pageerror', (error) => errors.push(error.message));
 	page.on('requestfailed', (request) => errors.push(`${request.url()} failed`));
@@ -75,8 +126,7 @@ try {
 	page.on('console', (message) => {
 		if (message.type() === 'error') errors.push(message.text());
 	});
-	const query = values.artwork ? '?artwork' : '';
-	await page.goto(`http://127.0.0.1:${server.port}/apps/marketing/launch-film/${query}`);
+	await page.goto(`http://127.0.0.1:${server.port}/apps/marketing/launch-film/`);
 	await page
 		.waitForFunction(() => window.film, null, { timeout: 30_000 })
 		.catch((error) => {
@@ -87,68 +137,55 @@ try {
 		fps: window.film.FPS,
 		duration: window.film.DURATION,
 		bpm: window.film.BPM,
-		sections: window.film.sections
+		bar: window.film.BAR,
+		sections: window.film.sections,
+		score: window.film.score
 	}));
-	const seek = (t) => page.evaluate((time) => window.film.seek(time), t);
-	const stage = page.locator('#stage');
-
-	if (values.artwork) {
-		await mkdir(dirname(values.artwork), { recursive: true });
-		await page.locator('#artwork').screenshot({ path: values.artwork });
-	} else if (values.stills) {
-		await mkdir(join(outputDirectory, 'stills'), { recursive: true });
-		await writeFile(join(outputDirectory, 'cues.json'), JSON.stringify(film, null, 2));
+	await mkdir(join(outputDirectory, 'stills'), { recursive: true });
+	await writeFile(join(outputDirectory, 'cues.json'), JSON.stringify(film, null, 2));
+	if (values.stills) {
+		const stage = page.locator('#stage');
 		for (const t of values.stills.split(',').map(Number)) {
-			await seek(t);
-			await stage.screenshot({ path: join(outputDirectory, 'stills', `${t.toFixed(2)}.png`) });
+			await page.evaluate(([time, n]) => window.film.seek(time, { samples: n }), [t, samples]);
+			await stage.screenshot({
+				path: join(outputDirectory, 'stills', `${t.toFixed(2)}.png`)
+			});
 		}
 	} else {
-		await mkdir(outputDirectory, { recursive: true });
-		await writeFile(join(outputDirectory, 'cues.json'), JSON.stringify(film, null, 2));
 		const fps = Number(values.fps ?? film.fps);
-		const subframes = Math.max(1, Number(values.blur ?? 3));
-		const shutter = 0.5 / fps;
 		const from = Number(values.from ?? 0);
 		const to = Number(values.to ?? film.duration);
-		const output = join(outputDirectory, 'picture.mp4');
-		const video = encoder(output, [
-			'-f',
-			'image2pipe',
-			'-framerate',
-			String(fps * subframes),
-			'-c:v',
-			'mjpeg',
-			'-i',
-			'-',
-			'-vf',
-			`tmix=frames=${subframes},select='eq(mod(n\\,${subframes})\\,${subframes - 1})',setpts=N/(${fps}*TB)`,
-			'-r',
-			String(fps),
-			'-c:v',
-			'libx264',
-			'-preset',
-			'slow',
-			'-crf',
-			'15',
-			'-pix_fmt',
-			'yuv420p',
-			'-movflags',
-			'+faststart'
-		]);
+		const output = values.out ?? join(outputDirectory, 'picture.mp4');
+		const video = encoder(output, fps);
+		sink = video.stdin;
 		const frames = Math.round((to - from) * fps);
+		const started = Date.now();
 		for (let frame = 0; frame < frames; frame++) {
-			for (let sub = 0; sub < subframes; sub++) {
-				await seek(from + frame / fps + (sub * shutter) / subframes);
-				const image = await stage.screenshot({ type: 'jpeg', quality: 96 });
-				if (!video.stdin.write(image))
-					await new Promise((resolve) => video.stdin.once('drain', resolve));
+			await page.evaluate(
+				async ([time, n]) => {
+					await window.film.seek(time, { samples: n });
+					const image = await new Promise((resolve) =>
+						document.getElementById('stage').toBlob(resolve, 'image/jpeg', 0.98)
+					);
+					const response = await fetch('/frame', {
+						method: 'POST',
+						body: image
+					});
+					if (!response.ok) throw new Error('Frame upload failed');
+				},
+				[from + frame / fps, samples]
+			);
+			if (errors.length) throw new Error(errors.join('\n'));
+			if (frame % 60 === 0) {
+				const rate = (frame + 1) / ((Date.now() - started) / 1000);
+				process.stdout.write(
+					`\r${(frame / fps).toFixed(0)}s / ${(to - from).toFixed(0)}s  ${rate.toFixed(1)} fps\n`
+				);
 			}
-			if (frame % fps === 0)
-				process.stdout.write(`\r${(frame / fps).toFixed(0)}s / ${(to - from).toFixed(0)}s`);
 		}
 		video.stdin.end();
 		await video.finished;
-		process.stdout.write(`\nwrote ${output}\n`);
+		process.stdout.write(`wrote ${output}\n`);
 	}
 	if (errors.length) throw new Error(errors.join('\n'));
 } finally {
@@ -162,7 +199,7 @@ function run(command, args) {
 	if (result.status !== 0) throw new Error(`${command} ${args[0]} failed (${result.status})`);
 }
 
-if (!values.stills && !values.artwork && !values.from && !values.to) {
+if (!values.stills && !values.from && !values.to) {
 	const work = 'tmp/launch-film';
 	run('uv', ['run', 'apps/marketing/launch-film/mix.py', work]);
 	// AAC adds up to ~1 dB of overshoot; the master keeps a -1.5 dBTP ceiling for it.

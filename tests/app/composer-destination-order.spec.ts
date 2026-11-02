@@ -166,7 +166,7 @@ test("composer destination order survives edits, reload and inventory return", a
       ).toEqual(expectedIDs);
       await tabs.last().focus();
       await page.keyboard.press("Enter");
-      await expect(tabs.last()).toHaveAttribute("aria-pressed", "true");
+      await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
       await page.screenshot({
         path: testInfo.outputPath(`order-${width}-${scheme}.png`),
       });

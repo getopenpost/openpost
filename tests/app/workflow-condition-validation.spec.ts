@@ -54,7 +54,7 @@ test("Condition test explains the visible field and preserves older output as hi
     for (const scheme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      const configure = page.getByRole("button", { name: "Configure", exact: true });
+      const configure = page.getByRole("tab", { name: "Configure", exact: true });
       if (width < 1024) await configure.click();
       await page.getByLabel("Compare with", { exact: true }).fill("");
       const admission = page.getByRole("button", { name: "Test node", exact: true });
@@ -69,7 +69,7 @@ test("Condition test explains the visible field and preserves older output as hi
       await page.screenshot({
         path: testInfo.outputPath(`condition-invalid-${width}-${scheme}.png`),
       });
-      if (width < 1024) await page.getByRole("button", { name: "Output", exact: true }).click();
+      if (width < 1024) await page.getByRole("tab", { name: "Output", exact: true }).click();
       await expect(output).toContainText("Configuration or test data changed since this result.");
       await expect(output.getByText("Completed", { exact: true })).toBeVisible();
       if (width < 1024) await configure.click();

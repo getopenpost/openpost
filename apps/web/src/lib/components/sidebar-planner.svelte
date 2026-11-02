@@ -265,14 +265,14 @@
 </script>
 
 {#if loadingDrafts || drafts.length > 0 || draftsError}
-	<div class="flex min-h-20 flex-1 flex-col" data-testid="desktop-sidebar-planner">
-		<section class="flex min-h-0 flex-1 flex-col px-2 pt-2">
+	<div class="flex min-h-20 flex-1 flex-col overflow-hidden" data-testid="desktop-sidebar-planner">
+		<section class="flex min-h-0 flex-1 flex-col pt-2">
 			<div class="mb-1 flex h-7 shrink-0 items-center justify-between px-2">
 				<div class="flex items-center gap-1.5">
 					<span
 						bind:this={draftDeleteReturnFocus}
 						tabindex="-1"
-						class="text-xs font-medium tracking-[0.1em] text-sidebar-foreground/70 uppercase outline-none"
+						class="text-xs font-medium text-sidebar-foreground/70 outline-none"
 						>{m.sidebar_drafts()}</span
 					>
 				</div>
@@ -342,7 +342,7 @@
 													>{draft.title}</span
 												>
 												<span
-													class="flex items-center gap-1 text-[11px] leading-4 text-sidebar-foreground/70"
+													class="flex items-center gap-1 text-xs leading-4 text-sidebar-foreground/70"
 												>
 													<span>{formatDraftTimestamp(draft.createdAt)}</span>
 													{#if draft.isThread}

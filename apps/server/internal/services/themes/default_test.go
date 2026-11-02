@@ -6,20 +6,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnconfiguredOrganizationUsesDitherAndKeepsSavedChoices(t *testing.T) {
+func TestUnconfiguredOrganizationUsesCalmAndKeepsSavedChoices(t *testing.T) {
 	service, _ := newThemeTestService(t)
 	actor := Actor{UserID: "admin-1"}
 
 	for _, scheme := range []ColorScheme{SchemeLight, SchemeDark} {
 		resolved, err := service.Resolve(t.Context(), actor, ResolveInput{WorkspaceID: "workspace-1", Scheme: scheme})
 		require.NoError(t, err)
-		require.Equal(t, "dither", resolved.ID)
+		require.Equal(t, "calm", resolved.ID)
 		require.Equal(t, scheme, resolved.Scheme)
 		require.Equal(t, FallbackNone, resolved.FallbackReason)
 	}
 	settings, err := service.Settings(t.Context(), actor, "workspace-1")
 	require.NoError(t, err)
-	require.Equal(t, "dither", settings.OrganizationDefault.ID)
+	require.Equal(t, "calm", settings.OrganizationDefault.ID)
 
 	_, err = service.SetOrganizationSettings(t.Context(), actor, OrganizationSettingsInput{
 		OrganizationID: "org-1", DefaultReference: builtInReference(BuiltIns()["workshop"]),

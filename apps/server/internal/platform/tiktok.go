@@ -182,24 +182,24 @@ func (t *TikTokAdapter) exchangeToken(ctx context.Context, values map[string]str
 }
 
 func (t *TikTokAdapter) GetProfile(ctx context.Context, accessToken string) (*UserProfile, error) {
-	profile, apiCode, err := t.fetchTikTokProfile(ctx, accessToken, tiktokUserInfoURL)
-	if err == nil {
-		return profile, nil
+	endpoint := tiktokUserInfoBasicURL
+	if t.capabilities.Profile {
+		endpoint = tiktokUserInfoURL
 	}
-	// The username field needs the Display API profile scope, which TikTok
-	// no longer offers to new apps. A scope-denied full lookup must not
-	// block connect: retry with the always-granted Login Kit identity
-	// fields and leave the username empty.
-	if isTikTokScopeDeniedCode(apiCode) {
-		if degraded, _, fallbackErr := t.fetchTikTokProfile(ctx, accessToken, tiktokUserInfoBasicURL); fallbackErr == nil {
-			if degraded.CapabilityState == nil {
-				degraded.CapabilityState = map[string]string{}
-			}
-			degraded.CapabilityState[tiktokCapabilityStateDisplayProfile] = "unavailable"
-			return degraded, nil
-		}
+	profile, apiCode, err := t.fetchTikTokProfile(ctx, accessToken, endpoint)
+	// Username enrichment is optional even when the installation requests it.
+	// Retry only scope denials, never expired tokens or other provider failures.
+	if err != nil && endpoint == tiktokUserInfoURL && isTikTokScopeDeniedCode(apiCode) {
+		endpoint = tiktokUserInfoBasicURL
+		profile, _, err = t.fetchTikTokProfile(ctx, accessToken, endpoint)
 	}
-	return nil, err
+	if err != nil {
+		return nil, err
+	}
+	if endpoint == tiktokUserInfoBasicURL {
+		profile.CapabilityState = map[string]string{tiktokCapabilityStateDisplayProfile: "unavailable"}
+	}
+	return profile, nil
 }
 
 func (t *TikTokAdapter) fetchTikTokProfile(ctx context.Context, accessToken, endpoint string) (*UserProfile, string, error) {
@@ -207,6 +207,10 @@ func (t *TikTokAdapter) fetchTikTokProfile(ctx context.Context, accessToken, end
 		headerAuthorization: bearerPrefix + accessToken,
 	})
 	if err != nil {
+		var providerErr *HTTPError
+		if errors.As(err, &providerErr) {
+			return nil, providerErr.Code, fmt.Errorf("tiktok profile: %w", err)
+		}
 		return nil, "", fmt.Errorf("tiktok profile: %w", err)
 	}
 
@@ -895,9 +899,9 @@ const (
 // TikTokScopeCapabilities selects which TikTok capability families an
 // installation authorizes. Publishing needs the identity scope plus the
 // Content Posting scope of every enabled posting mode; the Display API
-// families (profile enrichment, analytics, discovery) are optional. TikTok
-// no longer offers Display API to new apps, so the minimal publishing set
-// must keep connect and publish working on its own.
+// families (profile enrichment, analytics, discovery) are optional. Apps
+// without Display API approval use the minimal publishing set to connect
+// and publish.
 type TikTokScopeCapabilities struct {
 	DirectPost  bool
 	InboxUpload bool

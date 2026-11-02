@@ -7,6 +7,7 @@
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import MediaPicker from '$lib/components/media-picker.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { queryImageEditorBrandKit } from '$lib/query/image-editor';
 	import type { ImageEditorBrandKit } from '$lib/image-editor/types';
@@ -181,27 +182,11 @@
 				onChange={(color) => (workspaceCtx.settings.color = color)}
 			/>
 		</div>
-		<p class="text-sm text-muted-foreground">{m.settings_workspace_color_description()}</p>
-	</div>
-	<div class="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-		<div>
-			<p class="text-sm font-medium">{m.settings_connected_channels()}</p>
-			<p class="text-sm text-muted-foreground">{m.settings_connected_channels_body()}</p>
-		</div>
-		<Button variant="outline" onclick={() => goto(resolve('/settings?tab=accounts' as '/'))}>
-			{m.settings_manage_accounts()}
-		</Button>
 	</div>
 </section>
 
 <section id="date-time" class="scroll-mt-24 space-y-4">
-	<SectionHeader title={m.settings_date_time()} themeIconRole="time" class="mb-4">
-		{#snippet actions()}
-			<span class="rounded-full border px-2 py-1 text-xs text-muted-foreground">
-				{m.settings_workspace_scope()}
-			</span>
-		{/snippet}
-	</SectionHeader>
+	<SectionHeader title={m.settings_date_time()} themeIconRole="time" class="mb-4" />
 	<div class="grid gap-4 sm:grid-cols-2">
 		<div class="space-y-2">
 			<label class="text-sm font-medium" for="timezone-select">{m.settings_timezone()}</label>
@@ -224,7 +209,6 @@
 					{/each}
 				</Select.Content>
 			</Select.Root>
-			<p class="text-sm text-muted-foreground">{m.settings_timezone_body()}</p>
 		</div>
 		<div class="space-y-2">
 			<label class="text-sm font-medium" for="week-start-select">{m.settings_week_starts()}</label>
@@ -241,20 +225,23 @@
 					<Select.Item value="1">{m.settings_monday()}</Select.Item>
 				</Select.Content>
 			</Select.Root>
-			<p class="text-sm text-muted-foreground">{m.settings_week_start_body()}</p>
 		</div>
 	</div>
 </section>
 
 {#if workspaceCtx.currentWorkspace?.role === 'admin'}
 	<section id="workspace-danger" class="scroll-mt-24">
-		<details class="group rounded-lg border border-destructive/30">
-			<summary
-				class="flex cursor-pointer list-none items-center justify-between p-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-			>
-				<span class="text-sm font-medium text-destructive">{m.settings_danger_zone()}</span>
-				<span class="text-xs text-muted-foreground group-open:hidden">{m.common_edit()}</span>
-			</summary>
+		<Disclosure
+			summary={m.settings_danger_zone()}
+			boxed
+			class="border-destructive/30"
+			summaryClass="text-destructive"
+		>
+			{#snippet summaryEnd()}
+				<span class="text-xs font-normal text-muted-foreground group-open:hidden"
+					>{m.common_edit()}</span
+				>
+			{/snippet}
 			<div class="border-t p-4">
 				<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div>
@@ -266,7 +253,7 @@
 					</Button>
 				</div>
 			</div>
-		</details>
+		</Disclosure>
 	</section>
 {/if}
 

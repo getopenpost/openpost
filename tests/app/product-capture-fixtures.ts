@@ -676,6 +676,7 @@ function analyticsFixture() {
       followers: { value: 6901, delta: 157, measured: 5 },
       follower_scope: "account_wide",
       engagement: { value: 33, measured: 1 },
+      visibility: { value: 12480, measured: 8 },
       views: {
         value: viewTrend.reduce((total, point) => total + point.value, 0),
         measured: 12,
@@ -700,6 +701,7 @@ function analyticsFixture() {
       })),
       engagement: engagementTrend,
       views: viewTrend,
+      visibility: viewTrend,
     },
     accounts: connectedAccounts.map((account, index) => ({
       id: account.id,

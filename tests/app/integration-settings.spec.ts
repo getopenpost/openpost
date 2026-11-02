@@ -69,7 +69,7 @@ for (const width of [1440, 390, 320]) {
       page.on("pageerror", (error) => errors.push(error.message));
       await openDiscordPublication(page, request, width, scheme);
       await composerDestinations(page)
-        .getByRole("button", { name: /^Test server/ })
+        .getByRole("tab", { name: /^Test server/ })
         .click();
       await openComposerPlatformSettings(page);
       const dialog = page.getByRole("dialog", { name: "Discord settings", exact: true });
@@ -177,7 +177,7 @@ for (const width of [1440, 390, 320]) {
       await page.goto("/");
       await expect(page.getByTestId("composer-account-control")).toContainText("Launch updates");
       await composerDestinations(page)
-        .getByRole("button", { name: /^Test server/ })
+        .getByRole("tab", { name: /^Test server/ })
         .click();
       await openComposerPlatformSettings(page);
       await expect(dialog.getByRole("combobox", { name: "Channel", exact: true })).toContainText(

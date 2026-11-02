@@ -25,6 +25,7 @@
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import AsyncActionButton from '$lib/components/async-action-button.svelte';
+	import Disclosure from '$lib/components/disclosure.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import { resolveAppPath } from '$lib/app-path';
@@ -506,7 +507,7 @@
 
 		<div class="mb-4 grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
 			<div class="rounded-lg border bg-muted/20 p-4">
-				<p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+				<p class="text-xs font-medium text-muted-foreground">
 					{m.settings_current_plan()}
 				</p>
 				<div class="mt-2 flex flex-wrap items-end gap-x-3 gap-y-1">
@@ -538,7 +539,7 @@
 			</div>
 
 			<div class="rounded-lg border bg-muted/20 p-4">
-				<p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+				<p class="text-xs font-medium text-muted-foreground">
 					{m.settings_usage_month()}
 				</p>
 				{#if monthlyBillingUsageRows.length}
@@ -680,12 +681,11 @@
 	{/if}
 {/if}
 
-<details class="border-t pt-4" open={!hasActiveBillingPlan}>
-	<summary
-		class="cursor-pointer text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-	>
-		{hasActiveBillingPlan ? m.settings_compare_plan() : m.settings_choose_plan()}
-	</summary>
+<Disclosure
+	class="border-t pt-4"
+	open={!hasActiveBillingPlan}
+	summary={hasActiveBillingPlan ? m.settings_compare_plan() : m.settings_choose_plan()}
+>
 	<div class="mt-4 grid gap-3 lg:grid-cols-3">
 		<p class="text-sm text-muted-foreground lg:col-span-3">
 			{m.settings_plan_price_estimate_note()}
@@ -736,7 +736,7 @@
 			</article>
 		{/each}
 	</div>
-</details>
+</Disclosure>
 
 {#if billingError}
 	<InlineNotice tone="error" message={billingError} class="mt-4" />

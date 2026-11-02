@@ -2,6 +2,7 @@ import { afterEach, expect, it } from 'vitest';
 import { addGeneratedSubtitleItem } from './transcribe-action';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { createDefaultTracks } from '../project/defaults';
+import { MIN_TRACK_HEIGHT } from '../timeline/track-resize';
 import { ItemRasterizer } from '../media/item-rasterizer';
 import { collectSubtitleCues } from './subtitle-export';
 
@@ -31,7 +32,7 @@ it('places new captions above the top video on a compact track', () => {
 	const track = timelineStore.tracks.find((track) => track.id === caption.trackId)!;
 	const videoTrack = timelineStore.tracks.find((track) => track.id === 'track-video-overlay')!;
 	expect(track.order).toBeLessThan(videoTrack.order);
-	expect(track.height).toBe(48);
+	expect(track.height).toBe(MIN_TRACK_HEIGHT);
 });
 
 it('renders generated captions at the speech position when the source starts later in the timeline', () => {

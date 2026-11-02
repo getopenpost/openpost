@@ -271,10 +271,7 @@ test("a cached local video project reopens and exports offline", async ({ page, 
   await page.getByRole("textbox", { name: "Project name" }).fill("Offline video proof");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
-  await page
-    .getByRole("complementary", { name: "Assets" })
-    .getByRole("button", { name: "Add layer" })
-    .click();
+  await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).click();
   await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   await page.locator("header").getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Save", exact: true }).click();

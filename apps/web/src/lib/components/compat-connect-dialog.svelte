@@ -73,7 +73,7 @@
 					onDismiss={() => onErrorDismiss()}
 				/>
 			{/if}
-			<div class="flex flex-wrap justify-end gap-2">
+			<Dialog.Footer>
 				<Dialog.Close>
 					{#snippet child({ props })}
 						<Button {...props} class="min-h-11 sm:min-h-9" variant="outline" type="button">
@@ -87,7 +87,7 @@
 				<Button class="min-h-11 sm:min-h-9" type="submit" disabled={loading}>
 					{loading ? m.common_connecting() : m.common_connect()}
 				</Button>
-			</div>
+			</Dialog.Footer>
 		</form>
 	</Dialog.Content>
 </Dialog.Root>

@@ -29,7 +29,7 @@ export async function record(page: Page, name: string, scenes: Scene[]) {
   const captureFrame = async () => {
     const file = `${name}-frames/${String(frames.length).padStart(5, "0")}.png`;
     frames.push({ file, at: performance.now(), scene: sceneIndex, phase });
-    await page.screenshot({ path: join(outputDirectory, file) });
+    await page.screenshot({ path: join(outputDirectory, file), timeout: 60_000 });
   };
   const captureFrames = (async () => {
     while (capturing) {
@@ -53,7 +53,7 @@ export async function record(page: Page, name: string, scenes: Scene[]) {
         await page.waitForTimeout(scene.hold ?? 1800);
       });
     }
-    await page.screenshot({ path: join(outputDirectory, `${name}-last.png`) });
+    await page.screenshot({ path: join(outputDirectory, `${name}-last.png`), timeout: 60_000 });
   } finally {
     capturing = false;
     await captureFrames;

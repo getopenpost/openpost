@@ -143,6 +143,7 @@
 	import ComposerValidationMenu from './composer-validation-menu.svelte';
 	import DestinationSettingsDialog from './destination-settings-dialog.svelte';
 	import InlineNotice from './inline-notice.svelte';
+	import Disclosure from './disclosure.svelte';
 	import TextCardPreview from './text-card-preview.svelte';
 	import {
 		supportsTextCards,
@@ -430,6 +431,35 @@
 	let linkUrl = $state('');
 	let composerSettingsOpen = $state(false);
 	let pollEditorPostKey = $state<string | null>(null);
+	const sidePreviewStorageKey = 'openpost-composer-side-preview';
+	let sidePreviewVisible = $state(true);
+	let wideLayout = $state(false);
+
+	$effect(() => {
+		// The side preview is remembered per device; wide containers show it by default.
+		try {
+			sidePreviewVisible = localStorage.getItem(sidePreviewStorageKey) !== 'off';
+		} catch {
+			sidePreviewVisible = true;
+		}
+	});
+
+	$effect(() => {
+		const query = window.matchMedia('(min-width: 1280px)');
+		const update = () => (wideLayout = query.matches);
+		update();
+		query.addEventListener('change', update);
+		return () => query.removeEventListener('change', update);
+	});
+
+	function toggleSidePreview() {
+		sidePreviewVisible = !sidePreviewVisible;
+		try {
+			localStorage.setItem(sidePreviewStorageKey, sidePreviewVisible ? 'on' : 'off');
+		} catch {
+			// Storage is optional; the choice still applies to this session.
+		}
+	}
 
 	async function openVersionHistory() {
 		composerSettingsOpen = false;
@@ -1176,6 +1206,18 @@
 			capabilityReadinessKnown &&
 			selectedAccounts.every((account) => accountReadiness(account, 'publish_scheduled').canProceed)
 	);
+	const scheduleDisabledReason = $derived(
+		selectedAccounts.length === 0
+			? m.compose_schedule_needs_destination()
+			: canSchedulePublication
+				? m.common_loading()
+				: m.compose_publishing_issues()
+	);
+	const publishDisabledReason = $derived(
+		selectedAccounts.length === 0
+			? m.compose_publish_needs_destination()
+			: m.compose_publishing_issues()
+	);
 	const canSaveEditedPost = $derived(
 		hasContent &&
 			selectedAccountIds.length > 0 &&
@@ -1184,6 +1226,8 @@
 	const activeVariantAccount = $derived(
 		activeVariantAccountId ? (accounts.find((a) => a.id === activeVariantAccountId) ?? null) : null
 	);
+	// Account tabs already render their own preview, so the side panel serves the shared view.
+	const sidePreviewAccount = $derived(activeVariantAccount ? null : (selectedAccounts[0] ?? null));
 	const activeVariantIsUnsynced = $derived(
 		activeVariantAccountId ? variants.has(activeVariantAccountId) : false
 	);
@@ -7615,6 +7659,9 @@
 						canOpenSchedule={selectedWorkspaceSettingsReady}
 						canQuickSchedule={canSchedulePublication && selectedWorkspaceSettingsReady}
 						canPublish={canPublishNow}
+						quickScheduleDisabledReason={scheduleDisabledReason}
+						{scheduleDisabledReason}
+						{publishDisabledReason}
 						onSchedule={openScheduleDialog}
 						onQuickSchedule={quickSchedule}
 						onPublish={() => publish(true)}
@@ -7697,6 +7744,32 @@
 					<Tooltip.Content><p class="text-sm">{m.compose_post_settings()}</p></Tooltip.Content>
 				</Tooltip.Root>
 
+				<Tooltip.Root>
+					<Tooltip.Trigger>
+						{#snippet child({ props })}
+							<Button
+								{...props}
+								variant="ghost"
+								size="icon"
+								class="hidden text-muted-foreground xl:inline-flex"
+								onclick={toggleSidePreview}
+								aria-label={sidePreviewVisible
+									? m.compose_hide_preview()
+									: m.compose_show_preview()}
+								aria-pressed={sidePreviewVisible}
+								data-testid="composer-side-preview-toggle"
+							>
+								<ThemeIcon role="eye" class="size-4" />
+							</Button>
+						{/snippet}
+					</Tooltip.Trigger>
+					<Tooltip.Content>
+						<p class="text-sm">
+							{sidePreviewVisible ? m.compose_hide_preview() : m.compose_show_preview()}
+						</p>
+					</Tooltip.Content>
+				</Tooltip.Root>
+
 				{#if isEditMode && !autoSavesDraft}
 					<Button
 						type="button"
@@ -7737,6 +7810,9 @@
 						canOpenSchedule={selectedWorkspaceSettingsReady}
 						canQuickSchedule={canSchedulePublication && selectedWorkspaceSettingsReady}
 						canPublish={canPublishNow}
+						quickScheduleDisabledReason={scheduleDisabledReason}
+						{scheduleDisabledReason}
+						{publishDisabledReason}
 						onSchedule={openScheduleDialog}
 						onQuickSchedule={quickSchedule}
 						onPublish={() => publish(true)}
@@ -7973,10 +8049,7 @@
 				{/if}
 
 				{#if visibleAIStrategies.length > 0}
-					<details>
-						<summary class="min-h-11 cursor-pointer py-3 text-sm text-muted-foreground"
-							>{m.compose_ai_strategy_label()}</summary
-						>
+					<Disclosure summary={m.compose_ai_strategy_label()} summaryClass="text-muted-foreground">
 						<div
 							class="mb-3 flex gap-2 overflow-x-auto border-y py-3"
 							aria-label={m.compose_ai_strategy_label()}
@@ -8002,7 +8075,7 @@
 								</div>
 							{/each}
 						</div>
-					</details>
+					</Disclosure>
 				{/if}
 
 				{#if textCardAccounts.length && !textCardNoticeDismissed}
@@ -8360,7 +8433,7 @@
 														hasText={Boolean(posts[0]?.content.trim())}
 														building={buildingPost}
 														disabled={!canBuildPost}
-														ideateLabel={m.compose_ai_ideate()}
+														ideateLabel={m.nav_ideas()}
 														buildLabel={generationUndo
 															? m.compose_ai_build_again()
 															: m.compose_ai_build()}
@@ -8449,6 +8522,33 @@
 				{/if}
 			</div>
 		</div>
+		{#if wideLayout && sidePreviewVisible && sidePreviewAccount}
+			{@const sidePreviewModel = previewForAccount(sidePreviewAccount)}
+			<aside
+				class="flex w-[22rem] shrink-0 flex-col border-l bg-muted/20"
+				aria-label={m.compose_preview()}
+				data-testid="composer-side-preview"
+			>
+				<div
+					class="flex shrink-0 items-center justify-between gap-2 border-b bg-background/60 px-4 py-3"
+				>
+					<p class="min-w-0 truncate text-sm font-medium">{m.compose_preview()}</p>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						class="shrink-0 text-muted-foreground"
+						onclick={toggleSidePreview}
+						aria-label={m.compose_hide_preview()}
+						data-testid="composer-side-preview-hide"
+					>
+						<ThemeIcon role="close" class="size-4" />
+					</Button>
+				</div>
+				<div class="min-h-0 flex-1 overflow-y-auto p-4">
+					<ComposerPreview model={sidePreviewModel} />
+				</div>
+			</aside>
+		{/if}
 	</div>
 </div>
 
@@ -8546,10 +8646,11 @@
 						placeholder={m.compose_ai_context_change_placeholder()}
 					/>
 				</label>
-				<details class="sm:col-span-2">
-					<summary class="min-h-8 cursor-pointer text-xs font-medium text-muted-foreground">
-						{m.compose_ai_context_add()}
-					</summary>
+				<Disclosure
+					summary={m.compose_ai_context_add()}
+					summaryClass="text-xs text-muted-foreground"
+					class="sm:col-span-2"
+				>
 					<div class="mt-2 grid gap-3 sm:grid-cols-2">
 						<label class="grid gap-1.5 text-xs font-medium">
 							{m.compose_ai_context_notes()}
@@ -8583,7 +8684,7 @@
 							</p>
 						{/if}
 					</div>
-				</details>
+				</Disclosure>
 			</div>
 		{/if}
 	{/snippet}

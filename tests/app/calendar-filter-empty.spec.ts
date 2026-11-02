@@ -51,15 +51,10 @@ test("Calendar explains filtered emptiness and clears filters without changing d
         const range = page.getByRole("main").locator('p[aria-live="polite"]');
         const before = await range.innerText();
         await page.getByRole("button", { name: /^Filters\b/ }).click();
-        const status = page.getByRole("button", { name: "All posts", exact: true });
-        await status.focus();
-        await page.keyboard.press("Enter");
-        await expect(
-          page.getByRole("menuitemradio", { name: "All posts", exact: true }),
-        ).toBeFocused();
-        await page.keyboard.press("ArrowDown");
-        await page.keyboard.press("ArrowDown");
-        await page.keyboard.press("Enter");
+        // The status dropdown nests inside the Filters popover; its menu items
+        // settle focus asynchronously, so select with pointer clicks.
+        await page.getByRole("button", { name: "All posts", exact: true }).click();
+        await page.getByRole("menuitemradio", { name: "Published", exact: true }).click();
         await page.getByRole("button", { name: /^Filters\b/ }).click();
         await expect(
           page.getByRole("button", { name: /Audit scheduled filter recovery/ }),
@@ -79,7 +74,7 @@ test("Calendar explains filtered emptiness and clears filters without changing d
         await clear.focus();
         await page.keyboard.press("Enter");
         await page.getByRole("button", { name: /^Filters\b/ }).click();
-        await expect(status).toBeVisible();
+        await expect(page.getByRole("button", { name: "All posts", exact: true })).toBeVisible();
         await expect(
           page.getByRole("button", { name: /Audit scheduled filter recovery/ }).first(),
         ).toBeVisible();

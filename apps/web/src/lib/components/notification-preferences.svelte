@@ -311,8 +311,6 @@
 			<p class="text-sm text-muted-foreground">
 				{m.notifications_email_recipient({ email: emailAddress })}
 			</p>
-		{:else}
-			<InlineNotice tone="warning" message={m.notifications_email_unavailable()} />
 		{/if}
 
 		<div class="grid gap-4 rounded-lg border bg-muted/20 p-4 sm:grid-cols-2">

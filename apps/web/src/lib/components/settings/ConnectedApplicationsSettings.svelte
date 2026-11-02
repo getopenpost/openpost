@@ -111,7 +111,7 @@
 						</Button>
 					</div>
 					<div class="mt-4 space-y-2 border-t pt-3">
-						<p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+						<p class="text-xs font-medium text-muted-foreground">
 							{m.settings_connected_workspaces()}
 						</p>
 						{#each installation.workspace_ids ?? [] as workspaceID (workspaceID)}

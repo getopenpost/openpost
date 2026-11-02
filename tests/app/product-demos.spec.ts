@@ -232,7 +232,7 @@ for (const name of ["publishing", "image-editor", "video-editor"] as const) {
             await expect(
               page.getByRole("heading", { name: "Analytics", exact: true }),
             ).toBeVisible();
-            await expect(page.getByRole("img", { name: "Daily views" })).toBeVisible();
+            await expect(page.getByRole("img", { name: "Visibility" })).toBeVisible();
           },
           hold: 3000,
         },
@@ -241,9 +241,7 @@ for (const name of ["publishing", "image-editor", "video-editor"] as const) {
           seconds: 5,
           run: async () => {
             await page.getByRole("button", { name: "Inbox", exact: true }).click();
-            await expect(
-              page.getByRole("heading", { name: "Engagement", exact: true }),
-            ).toBeVisible();
+            await expect(page.getByRole("heading", { name: "Inbox", exact: true })).toBeVisible();
           },
           hold: 3000,
         },

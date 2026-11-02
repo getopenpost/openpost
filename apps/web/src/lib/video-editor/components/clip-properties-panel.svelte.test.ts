@@ -14,6 +14,7 @@ import { m } from '$lib/paraglide/messages';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 import { createDefaultTracks } from '$lib/video-editor/project/defaults';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
+import { trimItemToPlayhead } from '$lib/video-editor/timeline/actions/trim-playhead';
 import ClipPropertiesPanel from './clip-properties-panel.svelte';
 import TextTemplateBrowser from './text-template-browser.svelte';
 
@@ -348,7 +349,7 @@ it('marks collapsed appearance and crop groups when only keyframes change those 
 		.toHaveAttribute('aria-expanded', 'false');
 });
 
-it('retains the surviving source phase when trimming a compound start through Properties', async () => {
+it('retains the surviving source phase when trimming a compound start through the timeline trim action', async () => {
 	const project = createBlankProject('Compound trim source phase');
 	project.metadata = { ...project.metadata, width: 64, height: 64, fps: 30 };
 	const tracks = createDefaultTracks();
@@ -426,9 +427,7 @@ it('retains the surviving source phase when trimming a compound start through Pr
 	const root = await navigator.storage.getDirectory();
 	const dir = `compound-trim-${crypto.randomUUID()}`;
 	try {
-		const trim = screen.getByRole('button', { name: 'Trim start to playhead', exact: true });
-		await trim.element().focus();
-		await userEvent.keyboard('{Enter}');
+		expect(trimItemToPlayhead('wrapper', 'start')).toBe(true);
 		await expectSurvivingBlue();
 		expect(timelineStore.itemById.get('wrapper')).toMatchObject({
 			from: 30,

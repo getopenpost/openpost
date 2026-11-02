@@ -260,7 +260,7 @@
 									>
 										<span class="min-w-0"
 											><span class="block truncate">{ref.label}</span><span
-												class="block truncate text-[11px] text-muted-foreground">{ref.value}</span
+												class="block truncate text-xs text-muted-foreground">{ref.value}</span
 											></span
 										>
 									</Command.Item>

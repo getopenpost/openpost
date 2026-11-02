@@ -257,11 +257,9 @@
 
 {#if audioItems.length > 0}
 	<div class="flex flex-col gap-2" data-testid="clip-audio-core-section">
-		<section
-			class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
-		>
+		<section class="border-t border-[var(--video-editor-border)]">
 			<h3
-				class="flex h-[25px] items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-[10px] font-semibold tracking-wider text-[var(--video-editor-muted)] uppercase"
+				class="flex h-[25px] items-center gap-2 border-b border-[var(--video-editor-border)] px-2.5 text-xs font-medium text-[var(--video-editor-muted)]"
 			>
 				<ThemeIcon role="audio" class="size-3.5 text-[var(--video-editor-muted)]" />
 				{m.video_editor_property_audio()}
@@ -299,9 +297,7 @@
 				)}
 			</div>
 		</section>
-		<section
-			class="overflow-hidden rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)]"
-		>
+		<section class="border-t border-[var(--video-editor-border)]">
 			<EditorDisclosure label={m.video_editor_audio_pitch()}>
 				<div class="divide-y divide-[var(--video-editor-border)]">
 					{@render control(

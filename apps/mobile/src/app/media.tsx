@@ -3,7 +3,6 @@ import { FlatList, RefreshControl, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { mediaListQueryOptions } from "@openpost/query-catalog";
 import { Screen, BodyText, Button, ContentTitle, EmptyState, TextField } from "@/components/ui";
-import { WorkspaceHeader } from "@/components/workspace-header";
 import { MediaImage } from "@/components/media-image";
 import { Segments } from "@/components/segments";
 import { DelayedQueryPlaceholder, InitialQueryError, QueryNotice } from "@/components/query-state";
@@ -29,7 +28,6 @@ export default function MediaScreen() {
   const hasMediaData = media.data !== undefined;
   return (
     <Screen>
-      <WorkspaceHeader />
       <View style={{ paddingHorizontal: spacing.large, paddingBottom: 12, gap: 12 }}>
         <TextField
           accessibilityLabel="Search media library"

@@ -66,10 +66,12 @@ it('keeps saved feedback and workspace tabs disjoint with narrow touch controls'
 		}
 	);
 	await expect.poll(() => editorSession.project?.id).toBe(project.id);
+	await screen.getByTitle('Project details').click();
 	await screen
 		.getByRole('textbox', { name: 'Project name', exact: true })
 		.fill('Saved header project');
 	await userEvent.keyboard('{Tab}');
+	await userEvent.keyboard('{Escape}');
 	await editorSession.flushAutosave();
 	expect((await getProject(project.id))?.name).toBe('Saved header project');
 	const header = screen.getByRole('banner');

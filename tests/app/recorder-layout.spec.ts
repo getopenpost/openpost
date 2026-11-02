@@ -16,8 +16,10 @@ test("Recorder keeps its identity and save controls usable on phones", async ({
     ]);
   await page.goto("/record");
   const header = page.locator("header");
-  const local = header.getByRole("button", { name: "This device", exact: true });
-  const cloud = header.getByRole("button", { name: "OpenPost cloud", exact: true });
+  await page.getByRole("button", { name: "More options", exact: true }).click();
+  const storage = page.getByRole("group", { name: "Save new projects to", exact: true });
+  const local = storage.getByRole("button", { name: "This device", exact: true });
+  const cloud = storage.getByRole("button", { name: "OpenPost cloud", exact: true });
   for (const width of [390, 360, 320]) {
     await page.setViewportSize({ width, height: 900 });
     for (const colorScheme of ["light", "dark"] as const) {

@@ -13,12 +13,14 @@ test("Cloud history can inspect a saved version without restoring or changing th
   await page.goto("/video-editor");
   await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
   const title = page.getByRole("textbox", { name: "Project name", exact: true });
+  await page.locator("[data-project-details]").click();
   await title.fill("Earlier launch cut");
   await title.press("Tab");
   await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
     "data-state",
     "saved",
   );
+  await page.keyboard.press("Escape");
   const projectId = new URL(page.url()).pathname.split("/").at(-1)!;
   const openHistory = async () => {
     await page.locator("header").getByRole("button", { name: "More actions" }).click();
@@ -35,12 +37,14 @@ test("Cloud history can inspect a saved version without restoring or changing th
     .locator('[data-slot="dialog-footer"]')
     .getByRole("button", { name: "Close", exact: true })
     .click();
+  await page.locator("[data-project-details]").click();
   await title.fill("Current launch cut");
   await title.press("Tab");
   await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
     "data-state",
     "saved",
   );
+  await page.keyboard.press("Escape");
   const read = async () => {
     const response = await request.get(
       `/api/v1/video-projects/${projectId}?workspace_id=${workspace.id}`,
@@ -74,7 +78,7 @@ test("Cloud history can inspect a saved version without restoring or changing th
   expect(rename.ok()).toBe(true);
   expect((await rename.json()).outcome).toBe("applied");
   await page.reload();
-  await expect(title).toHaveValue("Current launch cut");
+  await expect(page.locator("[data-project-details]")).toContainText("Current launch cut");
   const before = await read();
   history = await openHistory();
   const row = history
@@ -117,7 +121,7 @@ test("Cloud history can inspect a saved version without restoring or changing th
     .getByRole("button", { name: "Close", exact: true })
     .click();
   await page.setViewportSize({ width: 1280, height: 850 });
-  await expect(title).toHaveValue("Current launch cut");
+  await expect(page.locator("[data-project-details]")).toContainText("Current launch cut");
   await page.reload();
   history = await openHistory();
   await history

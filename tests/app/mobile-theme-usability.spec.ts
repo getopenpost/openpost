@@ -28,7 +28,7 @@ test("phone theme testing, assignment, appearance, and chrome stay usable", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   await login(request, page);
   await page.goto("/settings?tab=appearance");
-  await expect(page.getByRole("heading", { name: "Appearance" }).first()).toBeVisible();
+  await expect(page.locator('[data-theme-library-card="midnight"]')).toBeVisible();
 
   const midnightCard = page.locator('[data-theme-library-card="midnight"]');
   await midnightCard.scrollIntoViewIfNeeded();
@@ -52,11 +52,14 @@ test("phone theme testing, assignment, appearance, and chrome stay usable", asyn
     .toBe("midnight");
 
   const navigation = page.locator('[data-slot="mobile-bottom-nav"]');
+  // The calm phone navigation labels every destination visibly.
   const newAction = navigation.getByRole("button", { name: "New" });
   await expect(newAction).toBeVisible();
-  expect((await newAction.textContent())?.trim()).toBe("");
-  for (const label of ["Inbox", "Posts", "Media", "More"]) {
-    expect((await navigation.getByRole("button", { name: label }).textContent())?.trim()).toBe("");
+  expect((await newAction.textContent())?.trim()).toBe("New");
+  for (const label of ["Home", "Inbox", "Posts", "More"]) {
+    expect((await navigation.getByRole("button", { name: label }).textContent())?.trim()).toBe(
+      label,
+    );
   }
   const navigationBounds = await navigation.boundingBox();
   expect(navigationBounds).not.toBeNull();

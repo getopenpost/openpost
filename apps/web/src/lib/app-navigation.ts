@@ -1,15 +1,15 @@
 export type PrimaryNavigationItem = {
 	id:
+		| 'home'
 		| 'new'
-		| 'calendar'
 		| 'publications'
 		| 'communications'
-		| 'growth'
-		| 'ideate'
 		| 'analytics'
+		| 'ideate'
+		| 'studio'
 		| 'media'
-		| 'editors'
 		| 'workflows'
+		| 'accounts'
 		| 'settings';
 	label: string;
 	href: string;
@@ -19,36 +19,47 @@ export type PrimaryNavigationItem = {
 
 export type AppRouteFamily =
 	| 'ideate'
+	| 'home'
 	| 'root'
-	| 'calendar'
 	| 'publications'
 	| 'communications'
 	| 'growth'
 	| 'analytics'
 	| 'media'
-	| 'editors'
+	| 'studio'
 	| 'workflows'
+	| 'accounts'
 	| 'settings'
 	| 'local-editors';
 
 export const appRouteFamilies = {
+	home: ['/home'],
 	root: ['/'],
-	calendar: ['/calendar'],
 	publications: ['/publications', '/calendar'],
-	communications: ['/inbox'],
+	communications: ['/inbox', '/grow'],
 	growth: ['/grow'],
-	ideate: ['/ideate', '/voice-profiles'],
+	ideate: ['/ideate'],
 	workflows: ['/workflows'],
 	analytics: ['/analytics'],
 	media: ['/media'],
-	editors: ['/image-editor', '/video-editor'],
+	studio: [
+		'/studio',
+		'/image-editor',
+		'/video-editor',
+		'/quick-cut',
+		'/record',
+		'/templates',
+		'/prompts',
+		'/voice-profiles'
+	],
+	accounts: ['/accounts'],
 	settings: ['/settings'],
 	'local-editors': ['/video-editor', '/quick-cut', '/record']
 } satisfies Record<AppRouteFamily, readonly string[]>;
 
 export const primaryNavigation: PrimaryNavigationItem[] = [
+	{ id: 'home', label: 'Home', href: '/home', family: 'home', mobile: true },
 	{ id: 'new', label: 'New post', href: '/', family: 'root', mobile: true },
-	{ id: 'calendar', label: 'Calendar', href: '/calendar', family: 'calendar', mobile: true },
 	{
 		id: 'publications',
 		label: 'Posts',
@@ -61,33 +72,40 @@ export const primaryNavigation: PrimaryNavigationItem[] = [
 		label: 'Inbox',
 		href: '/inbox/engagement',
 		family: 'communications',
+		mobile: true
+	},
+	{ id: 'analytics', label: 'Analytics', href: '/analytics', family: 'analytics', mobile: false },
+	{ id: 'ideate', label: 'Ideas', href: '/ideate', family: 'ideate', mobile: false },
+	{ id: 'studio', label: 'Studio', href: '/studio', family: 'studio', mobile: false },
+	{ id: 'media', label: 'Media', href: '/media', family: 'media', mobile: false },
+	{
+		id: 'workflows',
+		label: 'Automations',
+		href: '/workflows',
+		family: 'workflows',
 		mobile: false
 	},
 	{
-		id: 'growth',
-		label: 'Grow',
-		href: '/grow',
-		family: 'growth',
+		id: 'accounts',
+		label: 'Accounts',
+		href: '/accounts',
+		family: 'accounts',
 		mobile: false
 	},
-	{
-		id: 'analytics',
-		label: 'Analytics',
-		href: '/analytics',
-		family: 'analytics',
-		mobile: false
-	},
-	{ id: 'ideate', label: 'Ideate', href: '/ideate', family: 'ideate', mobile: false },
-	{ id: 'media', label: 'Media', href: '/media', family: 'media', mobile: true },
-	{ id: 'workflows', label: 'Workflows', href: '/workflows', family: 'workflows', mobile: false },
 	{ id: 'settings', label: 'Settings', href: '/settings', family: 'settings', mobile: false }
 ];
 
-const mobileNavigationOrder = ['publications', 'communications', 'new', 'media'] as const;
+const overviewNavigationIds = ['home', 'publications', 'communications', 'analytics'] as const;
+const makeNavigationIds = ['ideate', 'studio', 'media', 'workflows'] as const;
+const mobileNavigationOrder = ['home', 'publications', 'new', 'communications'] as const;
 
-export const mobileNavigation = mobileNavigationOrder.map((id) =>
-	primaryNavigation.find((item) => item.id === id)!
-);
+function navigationItems(ids: readonly PrimaryNavigationItem['id'][]) {
+	return ids.map((id) => primaryNavigation.find((item) => item.id === id)!);
+}
+
+export const overviewNavigation = navigationItems(overviewNavigationIds);
+export const makeNavigation = navigationItems(makeNavigationIds);
+export const mobileNavigation = navigationItems(mobileNavigationOrder);
 
 export function isNavigationItemActive(item: PrimaryNavigationItem, pathname: string): boolean {
 	return isAppRouteInFamily(pathname, item.family);
@@ -103,16 +121,16 @@ export function isLocalEditorRoute(pathname: string): boolean {
 	return isAppRouteInFamily(pathname, 'local-editors');
 }
 
-export function isMoreNavigationRoute(pathname: string): boolean {
+export function isEditorRoute(pathname: string): boolean {
 	return (
-		isAppRouteInFamily(pathname, 'ideate') ||
-		isAppRouteInFamily(pathname, 'workflows') ||
-		isAppRouteInFamily(pathname, 'growth') ||
-		isAppRouteInFamily(pathname, 'analytics') ||
-		isAppRouteInFamily(pathname, 'editors') ||
-		isAppRouteInFamily(pathname, 'settings') ||
-		isLocalEditorRoute(pathname)
+		isLocalEditorRoute(pathname) ||
+		pathname === '/image-editor' ||
+		pathname.startsWith('/image-editor/')
 	);
+}
+
+export function isMoreNavigationRoute(pathname: string): boolean {
+	return !mobileNavigation.some((item) => isNavigationItemActive(item, pathname));
 }
 
 export function isOrganizationOwnershipSettingsRoute(url: URL): boolean {

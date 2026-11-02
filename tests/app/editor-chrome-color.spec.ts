@@ -50,8 +50,8 @@ async function createVideoProject(page: Page, name = "Shared editor chrome"): Pr
 }
 
 async function verifySequenceAutoBalance(page: Page, errors: string[]): Promise<void> {
-  await page.getByRole("button", { name: "Add layer" }).click();
-  await page.getByRole("menuitem", { name: "Add text" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   await expect(page.getByRole("application", { name: "Program" }).getByRole("img")).toBeVisible();
   const editTab = page.getByRole("tab", { name: "Edit", exact: true });
   const colorTab = page.getByRole("tab", { name: "Color", exact: true });
@@ -81,8 +81,8 @@ async function verifySequenceAutoBalance(page: Page, errors: string[]): Promise<
   await page.getByRole("tab", { name: "Primaries", exact: true }).click();
 
   await editTab.click();
-  await page.getByRole("button", { name: "Add layer" }).click();
-  await page.getByRole("menuitem", { name: "Add text" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "More actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
   const timelineItems = page.locator("[data-timeline-item-id]");
   await expect(timelineItems).toHaveCount(2);
   await timelineItems

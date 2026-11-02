@@ -61,7 +61,7 @@ test("public profiles retain the viewer's theme on direct entry and reload", asy
   }
   await page.context().clearCookies();
   await page.goto(`/u/${identity.username}`);
-  await expect(page.locator("html")).toHaveAttribute("data-theme-id", "dither");
+  await expect(page.locator("html")).toHaveAttribute("data-theme-id", "calm");
   await expect(page.getByRole("heading", { name: "Publishing record", exact: true })).toBeVisible();
 });
 
@@ -84,7 +84,7 @@ test("anonymous app entry uses the default Dither theme", async ({ page }) => {
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.goto("/login");
-    await expect(page.locator("html")).toHaveAttribute("data-theme-id", "dither");
+    await expect(page.locator("html")).toHaveAttribute("data-theme-id", "calm");
     await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
     await expect(page.getByRole("button", { name: "Sign In", exact: true })).toBeVisible();
   }

@@ -420,6 +420,8 @@
 	/* The shadcn Content ships md:w-auto; the destinations panel needs a real width. */
 	:global(.platform-menu.platform-menu) {
 		width: min(46rem, calc(100vw - 2rem));
+		max-height: calc(100dvh - 7rem);
+		overflow-y: auto;
 	}
 
 	:global(.resource-menu.resource-menu) {

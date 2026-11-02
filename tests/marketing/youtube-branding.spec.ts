@@ -113,3 +113,26 @@ for (const colorScheme of ["light", "dark"] as const) {
     });
   }
 }
+
+for (const colorScheme of ["light", "dark"] as const) {
+  test(`Channels menu stays reachable at 700px height in ${colorScheme} @desktop`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width: 1440, height: 700 });
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    await page.goto("/");
+    await dismissTelemetryConsent(page);
+    await page.getByRole("button", { name: "Channels", exact: true }).click();
+    const panel = page.locator(".platform-menu");
+    await expect(panel).toBeVisible();
+    const bounds = await panel.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect.soft(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect.soft(bounds!.y + bounds!.height).toBeLessThanOrEqual(700);
+    const lastChannel = panel.locator('a[href^="/platforms/"]').last();
+    await lastChannel.scrollIntoViewIfNeeded();
+    await expect.soft(lastChannel).toBeInViewport({ ratio: 1 });
+    expect.soft(await panel.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+    await page.screenshot({ path: info.outputPath("channels-short-window.png") });
+  });
+}

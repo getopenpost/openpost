@@ -2,6 +2,7 @@ import type { components } from '@openpost/api-contract';
 import {
 	OpenPostQueryError,
 	type InboxQueryAPI,
+	type InboxSummaryQueryAPI,
 	type JobStatusQueryAPI,
 	type InboxUpdateAPI,
 	type XMessagingQueryAPI,
@@ -25,8 +26,22 @@ export class InboxMessageQueryError extends OpenPostQueryError {
 	}
 }
 
-export function createInboxQueryAPI(transport: QueryTransport): InboxQueryAPI & JobStatusQueryAPI {
+export function createInboxQueryAPI(
+	transport: QueryTransport
+): InboxQueryAPI & InboxSummaryQueryAPI & JobStatusQueryAPI {
 	return {
+		async getInboxSummary(workspaceId, signal) {
+			const { data } = await queryGET({
+				signal,
+				fallback: 'Could not load Inbox summary.',
+				request: (requestSignal) =>
+					transport.GET('/inbox/summary', {
+						params: { query: { workspace_id: workspaceId } },
+						signal: requestSignal
+					})
+			});
+			return data;
+		},
 		async getJob(_workspaceId, jobId, signal) {
 			const { data } = await queryGET({
 				signal,

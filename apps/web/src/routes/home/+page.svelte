@@ -13,8 +13,7 @@
 	import PageContainer from '$lib/components/page-container.svelte';
 	import WorkspaceSetupGuide from '$lib/components/workspace-setup-guide.svelte';
 	import { getLocaleTag } from '$lib/i18n';
-	import { queryGET } from '$lib/query/transport';
-	import { client } from '$lib/api/client';
+	import { inboxQueryAPI } from '$lib/query/inbox';
 	import { queryAPI } from '$lib/query/api';
 	import { schedulingQueryAPI } from '$lib/query/scheduling';
 	import { analyticsQueryAPI } from '$lib/query/analytics';
@@ -27,8 +26,7 @@
 		failedJobsQueryOptions,
 		inboxSummaryQueryOptions,
 		schedulingPublicationsQueryOptions,
-		workspaceAccountsQueryOptions,
-		type InboxSummary
+		workspaceAccountsQueryOptions
 	} from '@openpost/query-catalog';
 	import type { components } from '$lib/api/types';
 
@@ -55,23 +53,6 @@
 		return clock.date.add({ days: HORIZON_DAYS }).toDate(viewerTimeZone).toISOString();
 	});
 
-	// The web inbox adapter owns engagement reads; the summary is a distinct read, so
-	// this page injects its own transport into the shared catalog option.
-	const inboxSummaryQueryAPI = {
-		async getInboxSummary(workspaceId: string, signal: AbortSignal): Promise<InboxSummary> {
-			const { data } = await queryGET({
-				signal,
-				fallback: m.home_load_failed(),
-				request: (requestSignal) =>
-					client.GET('/inbox/summary', {
-						params: { query: { workspace_id: workspaceId } },
-						signal: requestSignal
-					})
-			});
-			return data;
-		}
-	};
-
 	const scheduledQuery = createQuery(() =>
 		schedulingPublicationsQueryOptions(schedulingQueryAPI, workspaceID, {
 			calendarFrom,
@@ -82,7 +63,7 @@
 	const failedQuery = createQuery(() =>
 		failedJobsQueryOptions(queryAPI, workspaceID, { limit: 5 })
 	);
-	const inboxQuery = createQuery(() => inboxSummaryQueryOptions(inboxSummaryQueryAPI, workspaceID));
+	const inboxQuery = createQuery(() => inboxSummaryQueryOptions(inboxQueryAPI, workspaceID));
 	const accountsQuery = createQuery(() => workspaceAccountsQueryOptions(queryAPI, workspaceID));
 	const analyticsQuery = createInfiniteQuery(() =>
 		analyticsOverviewQueryOptions(analyticsQueryAPI, workspaceID, { days: 7, limit: 50 })

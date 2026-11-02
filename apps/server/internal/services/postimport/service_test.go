@@ -12,6 +12,7 @@ import (
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/dataretention"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -609,4 +610,72 @@ func TestNativeImportDefersUnresolvedInstagramPublication(t *testing.T) {
 	service.now = func() time.Time { return now.Add(20 * time.Minute) }
 	require.NoError(t, service.SyncAccount(t.Context(), account.WorkspaceID, account.ID))
 	require.Equal(t, 1, countImported(t, db, account.ID))
+}
+
+func TestYouTubeCursorPurgeFencesInflightImportWithoutChangingOptIn(t *testing.T) {
+	db := newPostImportTestDB(t)
+	account := seedPostImportAccount(t, db, "youtube", "channel", "")
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	service := NewService(db, &stubTokenSource{token: "token"})
+	reader := &nativeReaderFixture{}
+	service.SetProvider("youtube", reader)
+	service.now = func() time.Time { return now }
+	state, err := service.Enable(t.Context(), account.WorkspaceID, account.ID)
+	require.NoError(t, err)
+	originalID, watermark := state.ID, state.ImportWatermark
+	_, err = db.NewUpdate().Model((*models.PostImportState)(nil)).Set("cursor = ?", "playlist=old&page=old").Where("id = ?", state.ID).Exec(t.Context())
+	require.NoError(t, err)
+	reader.read = func(context.Context, platform.NativePostRequest) (platform.NativePostPage, error) {
+		require.NoError(t, dataretention.PurgeYouTube(t.Context(), db, now, account.WorkspaceID, account.ID))
+		return platform.NativePostPage{NextCursor: "playlist=old&page=late", Coverage: platform.NativePostPartial, Items: []platform.NativePostItem{{ProviderPostID: "late-video", Origin: platform.ImportedPostOriginExternal, Text: "Late fetched data", PublishedAt: now.Add(time.Minute)}}}, nil
+	}
+	require.NoError(t, service.SyncAccount(t.Context(), account.WorkspaceID, account.ID))
+	after := loadImportState(t, db, account.ID)
+	require.Empty(t, after.Cursor)
+	require.NotEqual(t, originalID, after.ID, "retire the checkpoint identity so in-flight updates cannot restore API data")
+	require.True(t, after.Enabled)
+	require.True(t, watermark.Equal(after.ImportWatermark))
+	require.Zero(t, countImported(t, db, account.ID), "a stale page must not restore fetched rows")
+	state.Cursor = "playlist=old&page=stale-save"
+	require.ErrorIs(t, service.saveState(t.Context(), state), errImportChanged)
+	require.ErrorIs(t, service.persistBudget(t.Context(), state, now), errImportChanged)
+}
+
+func TestYouTubeCursorExpiryUsesCycleAgeAndPreservesAuthoredImportChoice(t *testing.T) {
+	for _, tc := range []struct {
+		name, provider, cursor string
+		age                    time.Duration
+		enabled, expires       bool
+	}{
+		{"old cursor despite fresh attempt", "youtube", "playlist=old&page=old", dataretention.YouTubeCacheAge, true, true},
+		{"disabled choice", "youtube", "playlist=disabled", dataretention.YouTubeCacheAge, false, true},
+		{"fresh cursor", "youtube", "playlist=fresh", dataretention.YouTubeCacheAge - time.Hour, true, false},
+		{"other provider", "bluesky", "other-provider-cursor", 100 * 24 * time.Hour, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := newPostImportTestDB(t)
+			account := seedPostImportAccount(t, db, "youtube", "channel", "")
+			now := time.Now().UTC().Truncate(time.Microsecond)
+			watermark := now.Add(-200 * 24 * time.Hour)
+			state := models.PostImportState{ID: "checkpoint", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: tc.provider, Enabled: true, Cursor: tc.cursor, ImportWatermark: watermark, CycleStartedAt: now.Add(-tc.age), LastSuccessAt: now.Add(-100 * 24 * time.Hour), ReadBudgetUsed: 4, CreatedAt: watermark, UpdatedAt: now}
+			_, err := db.NewInsert().Model(&state).Exec(t.Context())
+			require.NoError(t, err)
+			_, err = db.NewUpdate().Model((*models.PostImportState)(nil)).Set("enabled = ?", tc.enabled).Where("id = ?", state.ID).Exec(t.Context())
+			require.NoError(t, err)
+			require.NoError(t, dataretention.PurgeYouTube(t.Context(), db, now, account.WorkspaceID, ""))
+			after := loadImportState(t, db, account.ID)
+			require.Equal(t, tc.enabled, after.Enabled)
+			require.True(t, watermark.Equal(after.ImportWatermark))
+			require.Equal(t, 4, after.ReadBudgetUsed, "retention cannot refund provider requests")
+			require.True(t, state.LastSuccessAt.Equal(after.LastSuccessAt))
+			if tc.expires {
+				require.Empty(t, after.Cursor)
+				require.NotEqual(t, state.ID, after.ID)
+				require.True(t, after.CycleStartedAt.IsZero())
+			} else {
+				require.Equal(t, tc.cursor, after.Cursor)
+				require.Equal(t, state.ID, after.ID)
+			}
+		})
+	}
 }

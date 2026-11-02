@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/accountavatar"
@@ -22,8 +23,8 @@ import (
 // OpenPost does not rely on the longer authorized-statistics exception.
 const YouTubeCacheAge = 22 * 24 * time.Hour
 
-// RetiredYouTubeIdentity permits an authenticated reconnect to restore the same
-// local destination without retaining the channel ID after access is revoked.
+// RetiredYouTubeIdentity lets a reconnect restore the same local destination or
+// comment without retaining its provider identifier after access is revoked.
 func RetiredYouTubeIdentity(workspaceID, channelID string) string {
 	if strings.HasPrefix(channelID, "retired-youtube:") {
 		return channelID
@@ -68,6 +69,13 @@ func PurgeYouTube(ctx context.Context, db bun.IDB, now time.Time, workspaceID, a
 			return fmt.Errorf("purge YouTube cache: %w", err)
 		}
 	}
+	if err := clearYouTubeImportCursors(ctx, db, now, workspaceID, accountID); err != nil {
+		return err
+	}
+	return purgeYouTubeComments(ctx, db, cutoff, workspaceID, accountID)
+}
+
+func purgeYouTubeComments(ctx context.Context, db bun.IDB, cutoff time.Time, workspaceID, accountID string) error {
 	// Keep comment operation receipts stable. Delete ordinary fetched comments;
 	// receipt-backed items retain only their local identity and authored operation state.
 	items := db.NewSelect().Model((*models.EngagementItem)(nil)).Column("id").Where("platform = ?", "youtube")
@@ -78,6 +86,18 @@ func PurgeYouTube(ctx context.Context, db bun.IDB, now time.Time, workspaceID, a
 		items = items.Where("social_account_id = ?", accountID)
 	} else {
 		items = items.Where("last_seen_at <= ?", cutoff)
+	}
+	var retired []models.EngagementItem
+	if err := db.NewSelect().Model(&retired).Column("id", "workspace_id", "remote_id").Where("id IN (?)", items).Scan(ctx); err != nil {
+		return fmt.Errorf("find YouTube comment identities to retire: %w", err)
+	}
+	for _, item := range retired {
+		if _, err := db.NewUpdate().Model((*models.EngagementItem)(nil)).
+			Set("remote_id = ?", RetiredYouTubeIdentity(item.WorkspaceID, item.RemoteID)).
+			Where("id = ? AND workspace_id = ? AND remote_id = ?", item.ID, item.WorkspaceID, item.RemoteID).
+			Where("id IN (?)", items).Exec(ctx); err != nil {
+			return fmt.Errorf("retire YouTube comment identity: %w", err)
+		}
 	}
 	// Notification payloads copy fetched author names. Keep notification IDs and
 	// read state, but remove that copy before unreferenced comment rows disappear.
@@ -95,7 +115,7 @@ func PurgeYouTube(ctx context.Context, db bun.IDB, now time.Time, workspaceID, a
 		return fmt.Errorf("clear YouTube automation source cache: %w", err)
 	}
 	q := db.NewUpdate().Model((*models.EngagementItem)(nil)).Where("id IN (?)", items).
-		Set("remote_id = ? || id", "retired:").Set("native_remote_id = ''").
+		Set("native_remote_id = ''").
 		Set("parent_remote_id = ''").Set("conversation_remote_id = ''").Set("remote_created_at = NULL").
 		Set("author_remote_id = ''").Set("author_name = ''").Set("author_handle = ''").Set("author_avatar_url = ''").
 		Set("body = ''").Set("attachments_json = '[]'").Set("subject_json = '{}'").
@@ -109,6 +129,40 @@ func PurgeYouTube(ctx context.Context, db bun.IDB, now time.Time, workspaceID, a
 		Where("NOT EXISTS (SELECT 1 FROM engagement_operations AS op WHERE op.item_id = engagement_item.id)").
 		Where("NOT EXISTS (SELECT 1 FROM engagement_automation_replies AS reply WHERE reply.item_id = engagement_item.id)").Exec(ctx); err != nil {
 		return fmt.Errorf("purge YouTube comments: %w", err)
+	}
+	return nil
+}
+
+// Replacing the checkpoint's local identity fences commitPage, saveState and
+// budget writes that still hold the previous primary key. The enabled choice
+// and activation watermark are authored state and must not move for retention.
+func clearYouTubeImportCursors(ctx context.Context, db bun.IDB, now time.Time, workspaceID, accountID string) error {
+	var states []models.PostImportState
+	q := db.NewSelect().Model(&states).Where("platform = ?", "youtube")
+	if workspaceID != "" {
+		q = q.Where("workspace_id = ?", workspaceID)
+	}
+	if accountID != "" {
+		q = q.Where("social_account_id = ?", accountID)
+	} else {
+		// Attempts and budget reservations update updated_at without refreshing
+		// the cursor. Its original cycle start bounds that retained API data.
+		q = q.Where("cursor <> '' AND COALESCE(cycle_started_at, created_at) <= ?", now.Add(-YouTubeCacheAge))
+	}
+	if err := q.Scan(ctx); err != nil {
+		return fmt.Errorf("find YouTube import cursors: %w", err)
+	}
+	for _, state := range states {
+		update := db.NewUpdate().Model((*models.PostImportState)(nil)).
+			Set("id = ?", uuid.NewString()).Set("cursor = ''").Set("cycle_started_at = NULL").
+			Set("failure_code = ''").Set("failure_message = ''").Set("next_eligible_at = NULL").Set("updated_at = ?", now).
+			Where("id = ? AND workspace_id = ?", state.ID, state.WorkspaceID)
+		if accountID == "" {
+			update = update.Where("cursor <> '' AND COALESCE(cycle_started_at, created_at) <= ?", now.Add(-YouTubeCacheAge))
+		}
+		if _, err := update.Exec(ctx); err != nil {
+			return fmt.Errorf("clear YouTube import cursor: %w", err)
+		}
 	}
 	return nil
 }

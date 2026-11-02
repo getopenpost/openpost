@@ -75,7 +75,7 @@ func TestYouTubeDisconnectPurgesFreshCacheAndPreservesReceipts(t *testing.T) {
 	require.Empty(t, item.AuthorName)
 	require.NoError(t, db.NewSelect().Model(&notification).WherePK().Scan(ctx))
 	require.NotContains(t, notification.PayloadJSON, "Fetched author", "notifications must not retain fetched author data")
-	require.Equal(t, "retired:"+item.ID, item.RemoteID, "receipts retain only the local operation identity")
+	require.Equal(t, dataretention.RetiredYouTubeIdentity(account.WorkspaceID, "remote-comment"), item.RemoteID, "receipts retain an opaque reconnect identity")
 	require.False(t, item.LastSeenAt.After(now.Add(-dataretention.YouTubeCacheAge)))
 	var jobID string
 	require.NoError(t, db.NewSelect().Table("engagement_operations").Column("job_id").Where("item_id = ?", item.ID).Scan(ctx, &jobID))
@@ -181,7 +181,7 @@ func TestYouTubeExternalRevocationExpiresAfterProfileDeadline(t *testing.T) {
 }
 
 func TestYouTubeRetirementPostgresPreservesOtherWorkspace(t *testing.T) {
-	db := analyticsSnapshotTestDB(t, "postgres", (*models.Organization)(nil), (*models.Workspace)(nil), (*models.SocialAccount)(nil), (*models.OAuthGrant)(nil), (*models.UserNotification)(nil), (*models.AnalyticsAccountSnapshot)(nil), (*models.AnalyticsSyncState)(nil), (*models.ImportedPost)(nil), (*models.EngagementItem)(nil), (*models.Rendition)(nil), (*models.RenditionSegment)(nil), (*models.ProviderWriteAttempt)(nil), (*models.ProviderDelivery)(nil), (*models.Job)(nil))
+	db := analyticsSnapshotTestDB(t, "postgres", (*models.Organization)(nil), (*models.Workspace)(nil), (*models.SocialAccount)(nil), (*models.OAuthGrant)(nil), (*models.UserNotification)(nil), (*models.AnalyticsAccountSnapshot)(nil), (*models.AnalyticsSyncState)(nil), (*models.ImportedPost)(nil), (*models.PostImportState)(nil), (*models.EngagementItem)(nil), (*models.Rendition)(nil), (*models.RenditionSegment)(nil), (*models.ProviderWriteAttempt)(nil), (*models.ProviderDelivery)(nil), (*models.Job)(nil))
 	_, err := db.ExecContext(t.Context(), "CREATE TABLE engagement_operations (item_id TEXT); CREATE TABLE engagement_automation_replies (item_id TEXT, item_body TEXT)")
 	require.NoError(t, err)
 	now := time.Now().UTC()

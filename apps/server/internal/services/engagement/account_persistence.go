@@ -12,6 +12,7 @@ import (
 	"github.com/openpost/backend/internal/inboxactivity"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/dataretention"
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/uptrace/bun"
@@ -268,10 +269,27 @@ func retainRecentReviewReceipt(review *inboxactivity.ReviewContext, existing mod
 	review.OwnerReply = old
 }
 
-func findEngagementIdentity(ctx context.Context, db bun.IDB, account models.SocialAccount, remoteID string) (models.EngagementItem, error) {
+func findEngagementIdentity(ctx context.Context, db bun.Tx, account models.SocialAccount, remoteID string) (models.EngagementItem, error) {
 	var existing models.EngagementItem
-	err := db.NewSelect().Model(&existing).Where("social_account_id=? AND platform=?", account.ID, account.Platform).
-		Where("(native_remote_id=? OR remote_id=?)", inboxactivity.NativeIdentity(account.Platform, remoteID), remoteID).
-		OrderExpr("CASE WHEN rendition_id IS NOT NULL THEN 0 ELSE 1 END").Order("created_at ASC", "id ASC").Limit(1).Scan(ctx)
+	query := db.NewSelect().Model(&existing).Where("social_account_id=? AND platform=?", account.ID, account.Platform)
+	retired := ""
+	if account.Platform == "youtube" {
+		retired = dataretention.RetiredYouTubeIdentity(account.WorkspaceID, remoteID)
+		query = query.Where("(native_remote_id=? OR remote_id=? OR remote_id=?)", inboxactivity.NativeIdentity(account.Platform, remoteID), remoteID, retired)
+	} else {
+		query = query.Where("(native_remote_id=? OR remote_id=?)", inboxactivity.NativeIdentity(account.Platform, remoteID), remoteID)
+	}
+	err := query.OrderExpr("CASE WHEN rendition_id IS NOT NULL THEN 0 ELSE 1 END").Order("created_at ASC", "id ASC").Limit(1).Scan(ctx)
+	if err == nil && retired != "" && existing.RemoteID == retired {
+		// Restore the provider key inside the caller's persistence transaction.
+		// saveEngagementItem upserts by (account, remote_id), so its insert must
+		// conflict with this existing row while preserving the local primary key.
+		if _, err := db.NewUpdate().Model((*models.EngagementItem)(nil)).
+			Set("remote_id = ?", remoteID).
+			Where("id = ? AND workspace_id = ? AND remote_id = ?", existing.ID, account.WorkspaceID, retired).Exec(ctx); err != nil {
+			return existing, err
+		}
+		existing.RemoteID = remoteID
+	}
 	return existing, err
 }

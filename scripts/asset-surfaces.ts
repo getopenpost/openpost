@@ -47,7 +47,6 @@ export const assetSurfaceManifest = {
     "brand/features/workspaces.svg",
     "logos/linkedin.svg",
     "logos/x.svg",
-    "logos/youtube.svg",
     "logos/tiktok.svg",
     "logos/pinterest.svg",
     "logos/facebook.svg",

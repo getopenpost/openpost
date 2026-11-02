@@ -179,3 +179,26 @@ func TestYouTubeExternalRevocationExpiresAfterProfileDeadline(t *testing.T) {
 	require.Empty(t, grant.AccessTokenEnc)
 	require.Empty(t, grant.RefreshTokenEnc)
 }
+
+func TestYouTubeRetirementPostgresPreservesOtherWorkspace(t *testing.T) {
+	db := analyticsSnapshotTestDB(t, "postgres", (*models.Organization)(nil), (*models.Workspace)(nil), (*models.SocialAccount)(nil), (*models.OAuthGrant)(nil), (*models.UserNotification)(nil), (*models.AnalyticsAccountSnapshot)(nil), (*models.AnalyticsSyncState)(nil), (*models.ImportedPost)(nil), (*models.EngagementItem)(nil), (*models.Rendition)(nil), (*models.RenditionSegment)(nil), (*models.ProviderWriteAttempt)(nil), (*models.ProviderDelivery)(nil), (*models.Job)(nil))
+	_, err := db.ExecContext(t.Context(), "CREATE TABLE engagement_operations (item_id TEXT); CREATE TABLE engagement_automation_replies (item_id TEXT, item_body TEXT)")
+	require.NoError(t, err)
+	now := time.Now().UTC()
+	for _, model := range []any{&models.Organization{ID: "pg-org", Name: "Review"}, &models.Workspace{ID: "pg-ws", OrganizationID: "pg-org", Name: "Review"}, &models.SocialAccount{ID: "pg-account", WorkspaceID: "pg-ws", Slug: "youtube", Platform: "youtube", AccountID: "channel-id", AccountUsername: "Fetched profile", AccountAvatarURL: "/avatars/avatar_pg.png", AccessTokenEnc: []byte{}, IsActive: false, ProfileFetchedAt: now}, &models.EngagementItem{ID: "pg-comment", WorkspaceID: "pg-ws", SocialAccountID: "pg-account", Platform: "youtube", RemoteID: "remote-comment", AuthorName: "Fetched author", LastSeenAt: now}, &models.UserNotification{ID: "pg-notification", UserID: "user", WorkspaceID: "pg-ws", Href: "/inbox/engagement?item=pg-comment", PayloadJSON: `{"author_name":"Fetched author"}`}, &models.UserNotification{ID: "other-notification", UserID: "other-user", WorkspaceID: "other-ws", Href: "/inbox/engagement?item=pg-comment", PayloadJSON: `{"author_name":"Other workspace"}`}} {
+		_, err := db.NewInsert().Model(model).Exec(t.Context())
+		require.NoError(t, err)
+	}
+	_, err = db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("is_active = ?", false).Where("id = ?", "pg-account").Exec(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, dataretention.RetireYouTubeAccount(t.Context(), db, now, "pg-ws", "pg-account"))
+	var notifications []models.UserNotification
+	require.NoError(t, db.NewSelect().Model(&notifications).Order("id").Scan(t.Context()))
+	require.Equal(t, `{"author_name":"Other workspace"}`, notifications[0].PayloadJSON)
+	require.Equal(t, "{}", notifications[1].PayloadJSON)
+	var account models.SocialAccount
+	require.NoError(t, db.NewSelect().Model(&account).Where("id = ?", "pg-account").Scan(t.Context()))
+	require.Empty(t, account.AccountUsername)
+	require.Empty(t, account.AccountAvatarURL)
+	require.Equal(t, dataretention.RetiredYouTubeIdentity("pg-ws", "channel-id"), account.AccountID)
+}

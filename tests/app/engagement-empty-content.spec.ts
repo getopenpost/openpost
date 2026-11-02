@@ -131,7 +131,10 @@ test("stored empty replies explain missing content without claiming deletion or 
     }
   }
   const after = await request.get(endpoint, { headers });
-  expect(await after.json()).toEqual(stored);
+  const current = await after.json();
+  // Background feed health can change independently of these stored replies.
+  expect(current.items).toEqual(stored.items);
+  expect(current.total).toBe(stored.total);
   expect(writes).toEqual([]);
   expect(errors).toEqual([]);
 });

@@ -3230,7 +3230,7 @@
 			<EditorMenubar class="hidden min-w-0 shrink-0 lg:flex" ariaLabel={m.image_editor_menus()}>
 				<Menubar.Menu value="file">
 					<Menubar.Trigger>{m.image_editor_file()}</Menubar.Trigger>
-					<Menubar.Content class="min-w-48">
+					<Menubar.Content class="min-w-48 data-[state=closed]:hidden">
 						{#each imageEditorCommandsForCategory('file').filter(commandVisible) as command (command.id)}
 							{#if command.separatorBefore}<Menubar.Separator />{/if}
 							<Menubar.Item

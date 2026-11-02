@@ -69,6 +69,10 @@ for (const recovery of ["Reload server version", "Save my version as a copy"] as
       await expect(conflict).toHaveCount(0);
       await expect(staleTitle).toHaveValue(pendingTitle);
       await expect(staleStrip.getByRole("button", { name: /Page 1: Page 1,/ })).toBeVisible();
+      // Keep closing-menu teardown overlapping the resize, including on fast machines.
+      const animationSession = await secondContext.newCDPSession(stale);
+      await animationSession.send("Animation.enable");
+      await animationSession.send("Animation.setPlaybackRate", { playbackRate: 0.1 });
       await stale.getByRole("menuitem", { name: "File", exact: true }).click();
       await stale.getByRole("menuitem", { name: /^Save\s+(?:⌘|Ctrl)/ }).click();
       await expect(conflict).toBeVisible();
@@ -76,8 +80,15 @@ for (const recovery of ["Reload server version", "Save my version as a copy"] as
       expect(await stale.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
         320,
       );
+      const bounds = await conflict.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320);
+      await animationSession.send("Animation.setPlaybackRate", { playbackRate: 1 });
+      await conflict.evaluate(async (element) => {
+        await Promise.all(element.getAnimations().map((animation) => animation.finished));
+      });
       await stale.screenshot({ path: testInfo.outputPath("conflict-narrow-dark.png") });
-      await stale.setViewportSize({ width: 1280, height: 850 });
       const copySaved = stale.waitForResponse(
         (response) =>
           response.request().method() === "PATCH" &&
@@ -95,6 +106,7 @@ for (const recovery of ["Reload server version", "Save my version as a copy"] as
       expect(savedCopy.id).not.toBe(sourceID);
       expect(savedCopy.revision).toBeGreaterThan(1);
       await expect(conflict).toHaveCount(0);
+      await stale.setViewportSize({ width: 1280, height: 850 });
       const original = await readSource();
       expect(original.document.title).toBe("Server baseline");
       expect(original.document.pages[0].name).toBe("Server updated page");

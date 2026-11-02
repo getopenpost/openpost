@@ -102,12 +102,12 @@ func TestExportGroupedTableKeepsUnmeasuredMetricsEmpty(t *testing.T) {
 
 	table := exportGroupedTable(content, []string{"views", "likes", "visibility"}, ExportGroupPlatform, time.UTC)
 
-	require.Equal(t, []string{"Platform", "Posts", "Engagement", "Views", "Likes", "Visibility"}, table.Columns)
+	require.Equal(t, []string{"Platform", "Posts", "Engagement", "Views", "Likes", "Visibility", "Oldest fetch at (UTC)"}, table.Columns)
 	require.Equal(t, [][]any{
-		{"x", 2, int64(15), int64(150), int64(0), int64(275)},
-		{"bluesky", 1, nil, nil, nil, nil},
-		{"threads", 1, nil, int64(7), nil, int64(7)},
-		{"youtube", 2, nil, int64(11), nil, int64(11)},
+		{"x", 2, int64(15), int64(150), int64(0), int64(275), nil},
+		{"bluesky", 1, nil, nil, nil, nil, nil},
+		{"threads", 1, nil, int64(7), nil, int64(7), nil},
+		{"youtube", 2, nil, int64(11), nil, int64(11), nil},
 	}, table.Rows, "a measured zero stays 0 and an unmeasured value stays empty")
 	posts := exportPostsTable(content, []string{"visibility"}, time.UTC)
 	require.Equal(t, []any{int64(200), int64(75), nil, int64(7), int64(11), int64(0)}, []any{posts.Rows[0][7], posts.Rows[1][7], posts.Rows[2][7], posts.Rows[3][7], posts.Rows[4][7], posts.Rows[5][7]})
@@ -144,7 +144,7 @@ func TestExportGroupedTableDoesNotSumAverages(t *testing.T) {
 		{Platform: "youtube", Metrics: platform.AnalyticsValues{"average_view_percentage": 8000}, MetricMetadata: metadata},
 	}
 	table := exportGroupedTable(content, []string{"average_view_percentage"}, ExportGroupPlatform, time.UTC)
-	require.Equal(t, [][]any{{"youtube", 2, nil, nil}}, table.Rows, "an average cannot be summed or averaged without its weights")
+	require.Equal(t, [][]any{{"youtube", 2, nil, nil, nil}}, table.Rows, "an average cannot be summed or averaged without its weights")
 	posts := exportPostsTable(content, []string{"average_view_percentage"}, time.UTC)
 	require.Equal(t, int64(8000), posts.Rows[0][7], "per-post source values remain available")
 }
@@ -159,4 +159,32 @@ func TestExportEngagementRequiresCompatibleProjection(t *testing.T) {
 	require.Equal(t, int64(0), posts.Rows[1][6], "compatible measured zero remains zero")
 	grouped := exportGroupedTable(content, nil, ExportGroupPlatform, time.UTC)
 	require.Equal(t, int64(0), grouped.Rows[0][2], "only compatible lifetime engagement contributes")
+}
+
+func TestExportSourceFetchTimesStayUTCAndDoNotBecomeGenerationTimes(t *testing.T) {
+	local := time.FixedZone("UTC+2", 2*60*60)
+	oldest := time.Date(2026, 10, 1, 16, 30, 12, 0, local)
+	newest := oldest.Add(24 * time.Hour)
+	content := []ContentOverview{
+		{Platform: "youtube", CollectedAt: newest, Metrics: platform.AnalyticsValues{"views": 5}},
+		{Platform: "youtube", CollectedAt: oldest, Metrics: platform.AnalyticsValues{"views": 7}},
+		{Platform: "bluesky", Metrics: platform.AnalyticsValues{"views": 3}},
+	}
+	for i := range content {
+		content[i].MetricMetadata = legacyMetricMetadata(content[i].Metrics, platform.AnalyticsMetricSubjectContent, content[i].Platform)
+	}
+	posts := exportPostsTable(content, []string{"views"}, local)
+	require.Len(t, posts.Rows, 3)
+	require.Equal(t, "Last fetched at (UTC)", posts.Columns[len(posts.Columns)-1])
+	require.Equal(t, "2026-10-02T14:30:12Z", posts.Rows[0][len(posts.Columns)-1])
+	require.Equal(t, "2026-10-01T14:30:12Z", posts.Rows[1][len(posts.Columns)-1])
+	require.Nil(t, posts.Rows[2][len(posts.Columns)-1], "unknown retrieval dates must not imply fresh data")
+	require.Equal(t, int64(5), posts.Rows[0][7], "appending provenance must preserve metric positions")
+	grouped := exportGroupedTable(content, []string{"views"}, ExportGroupPlatform, local)
+	require.Len(t, grouped.Rows, 2)
+	require.Equal(t, "Oldest fetch at (UTC)", grouped.Columns[len(grouped.Columns)-1])
+	require.Equal(t, []any{"youtube", 2, nil, int64(12), "2026-10-01T14:30:12Z"}, grouped.Rows[1])
+	unknown := exportGroupedTable(append(content[:2:2], ContentOverview{Platform: "youtube"}), nil, ExportGroupPlatform, local)
+	require.Len(t, unknown.Rows, 1)
+	require.Nil(t, unknown.Rows[0][len(unknown.Columns)-1], "one unknown source prevents claiming a complete group fetch date")
 }

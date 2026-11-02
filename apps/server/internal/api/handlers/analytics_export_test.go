@@ -29,16 +29,7 @@ func newAnalyticsExportServer(t *testing.T) *echo.Echo {
 
 func newAnalyticsExportServerWithDB(t *testing.T) (*echo.Echo, *bun.DB) {
 	t.Helper()
-	db := createHandlerTestDB(
-		t,
-		(*models.WorkspaceMember)(nil),
-		(*models.SocialAccount)(nil),
-		(*models.Publication)(nil),
-		(*models.Rendition)(nil),
-		(*models.AnalyticsAccountSnapshot)(nil),
-		(*models.AnalyticsRenditionSnapshot)(nil),
-		(*models.AnalyticsSyncState)(nil),
-	)
+	db := newAnalyticsHandlerTestDB(t, "ws-1")
 	ctx := t.Context()
 	now := time.Now().UTC()
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "ws-1", UserID: "user-1", Role: models.WorkspaceRoleViewer}).Exec(ctx)

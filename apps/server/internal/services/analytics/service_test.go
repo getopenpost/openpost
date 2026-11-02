@@ -422,3 +422,19 @@ func TestXAnalyticsReservesReadBudgetBeforeProviderRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "provider_budget_exceeded", state.ErrorCode)
 }
+
+func TestSweepRetentionFailureStillSchedulesNextSweep(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	_, err := db.NewDropTable().Model((*models.AnalyticsAccountSnapshot)(nil)).Exec(t.Context())
+	require.NoError(t, err)
+	now := time.Date(2026, 11, 2, 15, 0, 0, 0, time.UTC)
+	service := NewService(db, nil)
+	service.now = func() time.Time { return now }
+	err = service.HandleJob(t.Context(), JobTypeSweep, "{}")
+	require.ErrorContains(t, err, "purge YouTube cache", "the fixture must reach the retention failure")
+	var queued []models.Job
+	require.NoError(t, db.NewSelect().Model(&queued).Where("type = ?", JobTypeSweep).Scan(t.Context()))
+	require.Len(t, queued, 1, "a failed retention run must leave a durable successor")
+	require.Equal(t, now.Add(15*time.Minute), queued[0].RunAt.UTC())
+	require.Equal(t, "pending", queued[0].Status)
+}

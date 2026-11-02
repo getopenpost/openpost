@@ -174,6 +174,9 @@ func (s *Service) RefreshWorkspace(ctx context.Context, workspaceID string) (int
 }
 
 func (s *Service) handleSweep(ctx context.Context) error {
+	if err := s.ScheduleSweep(ctx, s.now().Add(sweepInterval)); err != nil {
+		return err
+	}
 	if err := dataretention.PurgeYouTube(ctx, s.db, s.now(), "", ""); err != nil {
 		return err
 	}
@@ -190,9 +193,6 @@ func (s *Service) handleSweep(ctx context.Context) error {
 		if _, err := s.enqueueWorkspace(ctx, workspaceID, false); err != nil {
 			sweepErr = errors.Join(sweepErr, err)
 		}
-	}
-	if err := s.ScheduleSweep(ctx, s.now().Add(sweepInterval)); err != nil {
-		sweepErr = errors.Join(sweepErr, err)
 	}
 	return sweepErr
 }

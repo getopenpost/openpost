@@ -14,6 +14,7 @@ import (
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/dataretention"
 	"github.com/uptrace/bun"
 )
 
@@ -199,6 +200,9 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 	options = normalizeOverviewOptions(options)
 	if options.Unpaged && options.Cursor != "" {
 		return Overview{}, ErrInvalidOverviewCursor
+	}
+	if err := dataretention.PurgeYouTube(ctx, s.db, s.now(), workspaceID, ""); err != nil {
+		return Overview{}, err
 	}
 	now := s.now()
 	if options.Cursor != "" {

@@ -25,6 +25,7 @@ import (
 	"github.com/openpost/backend/internal/services/accountavatar"
 	"github.com/openpost/backend/internal/services/accountfeatures"
 	"github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/services/dataretention"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/mastodonapps"
 	"github.com/openpost/backend/internal/services/mediastore"
@@ -3113,6 +3114,9 @@ func (h *OAuthHandler) DisconnectAccount(api huma.API) {
 			if updated != 1 {
 				return sql.ErrNoRows
 			}
+			if account.Platform == "youtube" {
+				return dataretention.PurgeYouTube(txCtx, tx, time.Now().UTC(), account.WorkspaceID, account.ID)
+			}
 			return nil
 		})
 		if errors.Is(err, errLastGrantDestination) {
@@ -3159,7 +3163,13 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 					Set("error_message = ?", "Provider authorization revoked").
 					Where("id = ?", account.ID).
 					Exec(txCtx)
-				return err
+				if err != nil {
+					return err
+				}
+				if account.Platform == "youtube" {
+					return dataretention.PurgeYouTube(txCtx, tx, now, account.WorkspaceID, account.ID)
+				}
+				return nil
 			}
 
 			result, err := tx.NewUpdate().Model((*models.OAuthGrant)(nil)).
@@ -3202,6 +3212,17 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 				Where("oauth_grant_id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).
 				Exec(txCtx); err != nil {
 				return err
+			}
+			if account.Platform == "youtube" {
+				var accounts []models.SocialAccount
+				if err := tx.NewSelect().Model(&accounts).Where("oauth_grant_id = ? AND workspace_id = ?", account.OAuthGrantID, account.WorkspaceID).Scan(txCtx); err != nil {
+					return err
+				}
+				for _, linked := range accounts {
+					if err := dataretention.PurgeYouTube(txCtx, tx, now, linked.WorkspaceID, linked.ID); err != nil {
+						return err
+					}
+				}
 			}
 			return tokenmanager.CancelGrantRefreshJobs(txCtx, tx, account.OAuthGrantID)
 		}); err != nil {

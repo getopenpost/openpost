@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/services/dataretention"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 )
 
@@ -20,7 +21,10 @@ func (s *Service) GetEngagement(ctx context.Context, actor Actor, workspaceID, i
 	if err := s.authorize(ctx, workspaceID, actor, workspaceaccess.LevelRead); err != nil {
 		return result, err
 	}
-	if err := s.db.NewSelect().Model(&result.Item).Where("id=? AND workspace_id=?", itemID, workspaceID).Scan(ctx); errors.Is(err, sql.ErrNoRows) {
+	if err := dataretention.PurgeYouTube(ctx, s.db, s.now(), workspaceID, ""); err != nil {
+		return result, err
+	}
+	if err := s.db.NewSelect().Model(&result.Item).Where("id=? AND workspace_id=?", itemID, workspaceID).Where("(platform <> ? OR last_seen_at > ?)", "youtube", s.now().Add(-dataretention.YouTubeCacheAge)).Scan(ctx); errors.Is(err, sql.ErrNoRows) {
 		return result, ErrNotFound
 	} else if err != nil {
 		return result, err

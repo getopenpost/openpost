@@ -11,7 +11,7 @@
       "changes": [
         "Specified the YouTube channel, video, playlist, publication, analytics, comment, and authorization information accessed and stored, with each category's purpose and recipients.",
         "Explained how to request deletion of stored YouTube data, revoke access in OpenPost or Google security settings, and distinguish service deletion from deleting content on YouTube.",
-        "Linked YouTube export retention conditions and stated the seven-day direct-revocation or deletion-request deadline and the 30-day Google-revocation deadline."
+        "Linked YouTube export retention conditions and stated the seven-day direct-revocation or deletion-request deadline and the 30-day Google-revocation deadline. Described provider-cache expiry, profile refresh and the bounded NAS recovery-copy window."
       ]
     },
     {

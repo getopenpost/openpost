@@ -77,7 +77,7 @@
 			By using OpenPost's YouTube integration, you also agree to the
 			<a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a>.
 		</p>
-		<h3 id="youtube-data-exports">YouTube data exports</h3>
+		<h3 id="youtube-data-exports" class="scroll-mt-24">YouTube data exports</h3>
 		<p>
 			If you download, receive, or use YouTube API data from OpenPost, including an analytics CSV,
 			account export, or API response, you must comply with the

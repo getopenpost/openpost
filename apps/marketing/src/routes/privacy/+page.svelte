@@ -239,7 +239,7 @@
 			facts, and the human production-access boundary.
 		</p>
 
-		<h2 id="youtube-api-data">6. Google and YouTube API data</h2>
+		<h2 id="youtube-api-data" class="scroll-mt-24">6. Google and YouTube API data</h2>
 		<p>
 			If you connect YouTube, OpenPost uses Google API data only to provide the connection, video
 			publishing, channel or video analytics, native-post imports, and comment features you request.
@@ -307,7 +307,9 @@
 			including deletion or refresh within 30 calendar days of the last fetch or refresh from
 			YouTube. Downloading a file does not restart that period.
 		</p>
-		<h3 id="youtube-data-deletion">Storage, deletion, and access revocation</h3>
+		<h3 id="youtube-data-deletion" class="scroll-mt-24">
+			Storage, deletion, and access revocation
+		</h3>
 		<p>
 			The retention schedule below describes the records OpenPost keeps and their deletion triggers.
 			Access and refresh tokens are encrypted in the service database and retained for the
@@ -350,7 +352,9 @@
 			snapshots older than six days, including when a new backup fails. Operator-created repair or
 			incident snapshots follow a separate review and are kept only while needed for recovery,
 			security, legal duties, fraud prevention, or enforcing legal rights. OpenPost does not add a
-			separate application-level encryption layer to each backup artifact.
+			separate application-level encryption layer to each backup artifact. Recovery copies
+			containing YouTube API data, including exceptional snapshots, remain subject to the YouTube
+			deletion and refresh deadlines above.
 		</p>
 		<p><strong>Retention schedule reviewed:</strong> {inventoryReviewedOn}</p>
 

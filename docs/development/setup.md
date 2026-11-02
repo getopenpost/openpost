@@ -26,7 +26,7 @@ depend on `/tmp` state. It copies `apps/server/.env.example` only when
 The backend reads `apps/server/.env` with its non-executing dotenv loader. Do not
 `source` or `eval` dotenv files, and do not put credentials in Nix expressions.
 
-Use Devenv only to enter or repair the environment:
+Use Devenv to enter or repair the environment:
 
 ```bash
 devenv shell -- setup
@@ -38,6 +38,15 @@ root:
 ```bash
 bun run dev
 ```
+
+For concurrent checkouts, first run `bun run build -- frontend` in each checkout
+to prepare the backend's frontend artifact. Then use `devenv up -d`. The frontend
+hostname is available from `devenv eval processes.frontend.proxy.hostname`.
+Each checkout gets its own hostname, allocated ports, SQLite database and media
+under `.devenv/state/parallel-dev/`. Stop it with `devenv down`. This isolated
+data is separate from the database used by `bun run dev`. The proxy requires
+devenv 2.4 or newer; on Linux it may request sudo to bind port 80. Provider
+OAuth callbacks must be registered for the displayed URL.
 
 ## Commands
 

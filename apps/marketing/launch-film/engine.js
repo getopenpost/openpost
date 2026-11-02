@@ -952,6 +952,7 @@ export function createEngine(canvas) {
 			unit++;
 		}
 		for (const [name_, value] of Object.entries(uniforms)) {
+			// oxlint-disable-next-line anti-slop/no-runtime-typeof -- WebGL requires distinct scalar and vector calls for these renderer-owned uniforms.
 			if (typeof value === 'number') gl.uniform1f(shader.u(name_), value);
 			else if (value.length === 2) gl.uniform2fv(shader.u(name_), value);
 			else if (value.length === 4) gl.uniform4fv(shader.u(name_), value);

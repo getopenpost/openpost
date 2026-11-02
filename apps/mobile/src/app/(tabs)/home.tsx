@@ -67,9 +67,31 @@ function setupStepWebPath(stepId: string): string {
   return "/settings?tab=plan";
 }
 
+async function openWebApp(path: string) {
+  const server = getServer();
+  if (!server) return;
+  const url = new URL(path, server.baseUrl);
+  try {
+    await WebBrowser.openBrowserAsync(url.toString());
+  } catch {
+    // The web app surface owns its own errors; the tab keeps showing Home.
+  }
+}
+
+function openNeedsYou(kind: HomeNeedsYouKind) {
+  if (kind === "failed") router.push({ pathname: "/(tabs)/posts", params: { view: "queue" } });
+  else if (kind === "disconnected") void openWebApp("/accounts");
+  else router.push("/(tabs)/inbox");
+}
+
+function openSetupStep(stepId: string) {
+  if (setupStepOpensComposer(stepId)) router.push("/drafts");
+  else void openWebApp(setupStepWebPath(stepId));
+}
+
 export default function HomeScreen() {
   const workspaceId = useWorkspaceId();
-  const { colors, spacing, typography, shape } = useNativeTheme().manifest;
+  const { colors, spacing, typography } = useNativeTheme().manifest;
   const today = useMemo(() => new Date(), []);
   // Day-granular bounds keep the query key stable between renders.
   const from = useMemo(() => startOfDay(today), [today]);
@@ -98,34 +120,6 @@ export default function HomeScreen() {
     disconnected,
   });
 
-  const setupSteps = setup.data?.visible ? (setup.data.steps ?? []) : [];
-  const pendingSetup = setupSteps.filter((step) => !step.completed);
-  const completedSetup = setupSteps.filter((step) => step.completed);
-
-  const coldPending = !hasSchedule && scheduled.isPending;
-
-  async function openWebApp(path: string) {
-    const server = getServer();
-    if (!server) return;
-    const url = new URL(path, server.baseUrl);
-    try {
-      await WebBrowser.openBrowserAsync(url.toString());
-    } catch {
-      // The web app surface owns its own errors; the tab keeps showing Home.
-    }
-  }
-
-  function openNeedsYou(kind: HomeNeedsYouKind) {
-    if (kind === "failed") router.push({ pathname: "/(tabs)/posts", params: { view: "queue" } });
-    else if (kind === "disconnected") void openWebApp("/accounts");
-    else router.push("/(tabs)/inbox");
-  }
-
-  function openSetupStep(stepId: string) {
-    if (setupStepOpensComposer(stepId)) router.push("/drafts");
-    else void openWebApp(setupStepWebPath(stepId));
-  }
-
   return (
     <Screen>
       <WorkspaceHeader />
@@ -149,31 +143,7 @@ export default function HomeScreen() {
           />
         }
       >
-        <DelayedQueryPlaceholder
-          pending={coldPending}
-          shape="list"
-          offline={scheduled.fetchStatus === "paused"}
-        />
-        {scheduled.isError && !hasSchedule ? (
-          <InitialQueryError
-            title="Could not load Home"
-            message={
-              scheduled.error instanceof Error
-                ? scheduled.error.message
-                : "Check your connection and try again."
-            }
-            retry={() => void scheduled.refetch()}
-          />
-        ) : null}
-        {scheduled.isError && hasSchedule ? (
-          <QueryNotice
-            message="Could not refresh Home. Current dates remain visible."
-            retry={() => void scheduled.refetch()}
-          />
-        ) : null}
-        {hasSchedule && scheduled.fetchStatus === "paused" ? (
-          <QueryNotice message="You are offline. Current dates remain visible." offline />
-        ) : null}
+        <HomeScheduleFeedback scheduled={scheduled} />
 
         {hasSchedule ? (
           <DitherPanel style={{ paddingHorizontal: spacing.large, paddingVertical: spacing.large }}>
@@ -186,80 +156,9 @@ export default function HomeScreen() {
           </DitherPanel>
         ) : null}
 
-        {pendingSetup.length > 0 ? (
-          <ContentSection>
-            <BodyText>
-              {setup.data?.completed_steps ?? 0} of {setup.data?.total_steps ?? pendingSetup.length}{" "}
-              complete
-            </BodyText>
-            <ContentTitle>Finish setting up this Workspace</ContentTitle>
-            <View style={{ gap: spacing.small }}>
-              {pendingSetup.map((step, index) => (
-                <Pressable
-                  key={step.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={SETUP_STEP_LABELS[step.id] ?? step.id}
-                  onPress={() => openSetupStep(step.id)}
-                  style={({ pressed }) => [styles.stepRow, pressed && { opacity: 0.6 }]}
-                >
-                  <View style={[styles.stepBadge, { backgroundColor: colors.primary }]}>
-                    <NativeText style={[typography.labelMedium, { color: colors.onPrimary }]}>
-                      {index + 1}
-                    </NativeText>
-                  </View>
-                  <BodyText>{SETUP_STEP_LABELS[step.id] ?? step.id}</BodyText>
-                  <ThemeIcon role="disclosure" size={16} tintColor={colors.onSurfaceVariant} />
-                </Pressable>
-              ))}
-              {completedSetup.map((step) => (
-                <View key={step.id} style={[styles.stepRow, { opacity: 0.7 }]}>
-                  <View style={[styles.stepBadge, { backgroundColor: colors.success }]}>
-                    <ThemeIcon role="check" size={12} tintColor={colors.onSuccess} />
-                  </View>
-                  <BodyText>{SETUP_STEP_LABELS[step.id] ?? step.id}</BodyText>
-                </View>
-              ))}
-            </View>
-          </ContentSection>
-        ) : null}
-
-        {hasSchedule && goingOut.length > 0 ? (
-          <ContentSection>
-            <ContentTitle>Going out</ContentTitle>
-            {goingOut.map((post) => (
-              <PublicationRow
-                key={post.id}
-                publication={post.publication}
-                detail={goingOutTime(post.occurrence)}
-                onPress={() =>
-                  router.push({ pathname: "/publications/[id]", params: { id: post.id } })
-                }
-              />
-            ))}
-          </ContentSection>
-        ) : null}
-
-        {needsYou.length > 0 ? (
-          <ContentSection>
-            <ContentTitle>Needs you</ContentTitle>
-            {needsYou.map((row) => (
-              <Pressable
-                key={row.kind}
-                accessibilityRole="button"
-                accessibilityLabel={row.label}
-                onPress={() => openNeedsYou(row.kind)}
-                style={({ pressed }) => [
-                  styles.needsRow,
-                  { borderBottomColor: colors.outlineVariant, borderRadius: shape.medium },
-                  pressed && { opacity: 0.6 },
-                ]}
-              >
-                <BodyText style={{ flex: 1 }}>{row.label}</BodyText>
-                <ThemeIcon role="disclosure" size={16} tintColor={colors.onSurfaceVariant} />
-              </Pressable>
-            ))}
-          </ContentSection>
-        ) : null}
+        <HomeSetupSection setup={setup.data} onSelectStep={openSetupStep} />
+        {hasSchedule ? <HomeGoingOutSection posts={goingOut} /> : null}
+        <HomeNeedsYouSection rows={needsYou} onSelect={openNeedsYou} />
 
         {closure ? (
           <BodyText>{closure}</BodyText>
@@ -268,6 +167,153 @@ export default function HomeScreen() {
         ) : null}
       </ScrollView>
     </Screen>
+  );
+}
+
+function HomeScheduleFeedback({
+  scheduled,
+}: {
+  scheduled: ReturnType<typeof useCalendarPublications>;
+}) {
+  const hasSchedule = scheduled.data !== undefined;
+  const coldPending = !hasSchedule && scheduled.isPending;
+  return (
+    <>
+      <DelayedQueryPlaceholder
+        pending={coldPending}
+        shape="list"
+        offline={scheduled.fetchStatus === "paused"}
+      />
+      {scheduled.isError && !hasSchedule ? (
+        <InitialQueryError
+          title="Could not load Home"
+          message={
+            scheduled.error instanceof Error
+              ? scheduled.error.message
+              : "Check your connection and try again."
+          }
+          retry={() => void scheduled.refetch()}
+        />
+      ) : null}
+      {scheduled.isError && hasSchedule ? (
+        <QueryNotice
+          message="Could not refresh Home. Current dates remain visible."
+          retry={() => void scheduled.refetch()}
+        />
+      ) : null}
+      {hasSchedule && scheduled.fetchStatus === "paused" ? (
+        <QueryNotice message="You are offline. Current dates remain visible." offline />
+      ) : null}
+    </>
+  );
+}
+
+function HomeSetupSection({
+  setup,
+  onSelectStep,
+}: {
+  setup: ReturnType<typeof useWorkspaceSetup>["data"];
+  onSelectStep: (id: string) => void;
+}) {
+  const { colors, spacing, typography } = useNativeTheme().manifest;
+  const steps = setup?.visible ? (setup.steps ?? []) : [];
+  const pendingSetup = steps.filter((step) => !step.completed);
+  const completedSetup = steps.filter((step) => step.completed);
+  return (
+    <>
+      {pendingSetup.length > 0 ? (
+        <ContentSection>
+          <BodyText>
+            {setup?.completed_steps ?? 0} of {setup?.total_steps ?? pendingSetup.length} complete
+          </BodyText>
+          <ContentTitle>Finish setting up this Workspace</ContentTitle>
+          <View style={{ gap: spacing.small }}>
+            {pendingSetup.map((step, index) => (
+              <Pressable
+                key={step.id}
+                accessibilityRole="button"
+                accessibilityLabel={SETUP_STEP_LABELS[step.id] ?? step.id}
+                onPress={() => onSelectStep(step.id)}
+                style={({ pressed }) => [styles.stepRow, pressed && { opacity: 0.6 }]}
+              >
+                <View style={[styles.stepBadge, { backgroundColor: colors.primary }]}>
+                  <NativeText style={[typography.labelMedium, { color: colors.onPrimary }]}>
+                    {index + 1}
+                  </NativeText>
+                </View>
+                <BodyText>{SETUP_STEP_LABELS[step.id] ?? step.id}</BodyText>
+                <ThemeIcon role="disclosure" size={16} tintColor={colors.onSurfaceVariant} />
+              </Pressable>
+            ))}
+            {completedSetup.map((step) => (
+              <View key={step.id} style={[styles.stepRow, { opacity: 0.7 }]}>
+                <View style={[styles.stepBadge, { backgroundColor: colors.success }]}>
+                  <ThemeIcon role="check" size={12} tintColor={colors.onSuccess} />
+                </View>
+                <BodyText>{SETUP_STEP_LABELS[step.id] ?? step.id}</BodyText>
+              </View>
+            ))}
+          </View>
+        </ContentSection>
+      ) : null}
+    </>
+  );
+}
+
+function HomeGoingOutSection({ posts }: { posts: ReturnType<typeof homeScheduledPosts> }) {
+  return (
+    <>
+      {posts.length > 0 ? (
+        <ContentSection>
+          <ContentTitle>Going out</ContentTitle>
+          {posts.map((post) => (
+            <PublicationRow
+              key={post.id}
+              publication={post.publication}
+              detail={goingOutTime(post.occurrence)}
+              onPress={() =>
+                router.push({ pathname: "/publications/[id]", params: { id: post.id } })
+              }
+            />
+          ))}
+        </ContentSection>
+      ) : null}
+    </>
+  );
+}
+
+function HomeNeedsYouSection({
+  rows,
+  onSelect,
+}: {
+  rows: ReturnType<typeof homeNeedsYouRows>;
+  onSelect: (kind: HomeNeedsYouKind) => void;
+}) {
+  const { colors, shape } = useNativeTheme().manifest;
+  return (
+    <>
+      {rows.length > 0 ? (
+        <ContentSection>
+          <ContentTitle>Needs you</ContentTitle>
+          {rows.map((row) => (
+            <Pressable
+              key={row.kind}
+              accessibilityRole="button"
+              accessibilityLabel={row.label}
+              onPress={() => onSelect(row.kind)}
+              style={({ pressed }) => [
+                styles.needsRow,
+                { borderBottomColor: colors.outlineVariant, borderRadius: shape.medium },
+                pressed && { opacity: 0.6 },
+              ]}
+            >
+              <BodyText style={{ flex: 1 }}>{row.label}</BodyText>
+              <ThemeIcon role="disclosure" size={16} tintColor={colors.onSurfaceVariant} />
+            </Pressable>
+          ))}
+        </ContentSection>
+      ) : null}
+    </>
   );
 }
 

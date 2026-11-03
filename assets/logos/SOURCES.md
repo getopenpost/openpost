@@ -5,8 +5,10 @@ Brand names and logos belong to their respective owners.
 `youtube.svg` preserves the paths, colors and clear space of the official full-color
 icon downloaded from [YouTube's brand site](https://brand.youtube/youtube-icon/) on
 2 November 2026. The supplied Illustrator artwork was converted to SVG without
-changing its geometry. Compact controls use text attribution; `YouTubeBrand`
-renders the mark at the published 100px minimum painted height.
+changing its geometry. `YouTubeBrand` and the README render the asset in a 56×48px
+frame, with an approximately 26px painted height, following the audit report's
+20dp minimum. Compact controls use text attribution. The current brand site's
+100px minimum differs from that report and needs clarification from YouTube.
 
 | Asset           | Source                                                                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

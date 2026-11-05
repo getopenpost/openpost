@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   access,
   copyFile,
@@ -95,34 +95,50 @@ async function waitForStarted(packageRoot) {
   throw new Error("The first packager did not start");
 }
 
-test(
-  "concurrent UI builds keep exclusive output access throughout a slow child build",
-  { timeout: 45_000 },
-  async (t) => {
-    const setup = await fixture(t);
-    const first = runBuild(t, setup, { FIXTURE_BUILD_DELAY_MS: String(SLOW_BUILD_MS) });
-    await waitForStarted(setup.packageRoot);
-    const second = runBuild(t, setup);
-    const results = await Promise.all([first, second]);
-    for (const result of results) assert.equal(result.code, 0, result.stderr);
-    const events = (await readFile(path.join(setup.packageRoot, "events"), "utf8"))
-      .trim()
-      .split("\n");
-    assert.equal(events.length, 4);
-    assert.equal(events[0].split(" ")[0], "start");
-    assert.equal(events[1], events[0].replace("start", "end"));
-    assert.equal(events[2].split(" ")[0], "start");
-    assert.equal(events[3], events[2].replace("start", "end"));
-  },
-);
+// Build locking runs in Node. Keep its timers and process lifecycle independent
+// of synchronous fixtures elsewhere in Bun's broad scripts discovery.
+if (process.versions.bun) {
+  test("UI build locking runs under its production Node runtime", { timeout: 60_000 }, () => {
+    const result = spawnSync("node", ["--test", fileURLToPath(import.meta.url)], {
+      stdio: "inherit",
+      timeout: 55_000,
+    });
+    assert.equal(result.status, 0);
+  });
+} else {
+  test(
+    "concurrent UI builds keep exclusive output access throughout a slow child build",
+    { timeout: 45_000 },
+    async (t) => {
+      const setup = await fixture(t);
+      const first = runBuild(t, setup, { FIXTURE_BUILD_DELAY_MS: String(SLOW_BUILD_MS) });
+      await waitForStarted(setup.packageRoot);
+      const second = runBuild(t, setup);
+      const results = await Promise.all([first, second]);
+      for (const result of results) assert.equal(result.code, 0, result.stderr);
+      const events = (await readFile(path.join(setup.packageRoot, "events"), "utf8"))
+        .trim()
+        .split("\n");
+      assert.equal(events.length, 4);
+      assert.equal(events[0].split(" ")[0], "start");
+      assert.equal(events[1], events[0].replace("start", "end"));
+      assert.equal(events[2].split(" ")[0], "start");
+      assert.equal(events[3], events[2].replace("start", "end"));
+    },
+  );
 
-test("failed packaging keeps its output and error visible and allows the next build", async (t) => {
-  const setup = await fixture(t);
-  const failed = await runBuild(t, setup, { FIXTURE_BUILD_FAIL: "1" });
-  assert.notEqual(failed.code, 0);
-  assert.match(failed.stdout, /packager stdout/);
-  assert.match(failed.stderr, /packager stderr/);
-  assert.match(failed.stderr, /fixture packaging failure/);
-  const next = await runBuild(t, setup);
-  assert.equal(next.code, 0, next.stderr);
-});
+  test(
+    "failed packaging keeps its output and error visible and allows the next build",
+    { timeout: 5_000 },
+    async (t) => {
+      const setup = await fixture(t);
+      const failed = await runBuild(t, setup, { FIXTURE_BUILD_FAIL: "1" });
+      assert.notEqual(failed.code, 0);
+      assert.match(failed.stdout, /packager stdout/);
+      assert.match(failed.stderr, /packager stderr/);
+      assert.match(failed.stderr, /fixture packaging failure/);
+      const next = await runBuild(t, setup);
+      assert.equal(next.code, 0, next.stderr);
+    },
+  );
+}

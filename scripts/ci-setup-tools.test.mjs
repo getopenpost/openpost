@@ -6,6 +6,8 @@ import path from "node:path";
 import test from "node:test";
 
 const helper = new URL("./ci-setup-tools.sh", import.meta.url).pathname;
+// The subprocess has a 10-second deadline; allow its exit and cleanup to finish.
+const setupTestOptions = { timeout: 15_000 };
 
 function setup(t, mode, { architecture = "amd64", distro = "Ubuntu", codename = "noble" } = {}) {
   const directory = mkdtempSync(path.join(tmpdir(), "ci-tools-"));
@@ -83,7 +85,7 @@ function setup(t, mode, { architecture = "amd64", distro = "Ubuntu", codename = 
   return { ...result, log: readFileSync(log, "utf8") };
 }
 
-test("checks every fixture format before reusing media tools", (t) => {
+test("checks every fixture format before reusing media tools", setupTestOptions, (t) => {
   const result = setup(t, "ready");
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.log, /encode .*libx264/u);
@@ -100,29 +102,40 @@ test("checks every fixture format before reusing media tools", (t) => {
   assert.doesNotMatch(result.log, /apt /u);
 });
 
-test("unusable installed tools trigger bounded apt and are checked again", (t) => {
-  const result = setup(t, "fallback");
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.log, /apt .*update/u);
-  assert.match(result.log, /apt -n env DEBIAN_FRONTEND=noninteractive apt-get .*install .*ffmpeg/u);
-  assert.match(result.log, /bounded .*180s sudo/u);
-  assert.ok(result.log.lastIndexOf("probe ") > result.log.lastIndexOf("apt "));
-});
+test(
+  "unusable installed tools trigger bounded apt and are checked again",
+  setupTestOptions,
+  (t) => {
+    const result = setup(t, "fallback");
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.log, /apt .*update/u);
+    assert.match(
+      result.log,
+      /apt -n env DEBIAN_FRONTEND=noninteractive apt-get .*install .*ffmpeg/u,
+    );
+    assert.match(result.log, /bounded .*180s sudo/u);
+    assert.ok(result.log.lastIndexOf("probe ") > result.log.lastIndexOf("apt "));
+  },
+);
 
-test("a slow runner mirror is bypassed by isolated signed Ubuntu HTTPS sources", (t) => {
-  const result = setup(t, "runner-mirror-timeout");
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.log, /Dir::Etc::sourceparts=-/u);
-  assert.match(result.log, /URIs: https:\/\/archive\.ubuntu\.com\/ubuntu/u);
-  assert.match(result.log, /URIs: https:\/\/security\.ubuntu\.com\/ubuntu/u);
-  assert.match(result.log, /Suites: noble noble-updates noble-backports/u);
-  assert.match(result.log, /Suites: noble-security/u);
-  assert.match(result.log, /Signed-By: \/usr\/share\/keyrings\/ubuntu-archive-keyring\.gpg/u);
-  assert.doesNotMatch(result.log, /allow-unauthenticated|trusted=yes|Verify-Peer=false/u);
-  assert.ok(result.log.lastIndexOf("probe ") > result.log.lastIndexOf("apt "));
-});
+test(
+  "a slow runner mirror is bypassed by isolated signed Ubuntu HTTPS sources",
+  setupTestOptions,
+  (t) => {
+    const result = setup(t, "runner-mirror-timeout");
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.log, /Dir::Etc::sourceparts=-/u);
+    assert.match(result.log, /URIs: https:\/\/archive\.ubuntu\.com\/ubuntu/u);
+    assert.match(result.log, /URIs: https:\/\/security\.ubuntu\.com\/ubuntu/u);
+    assert.match(result.log, /Suites: noble noble-updates noble-backports/u);
+    assert.match(result.log, /Suites: noble-security/u);
+    assert.match(result.log, /Signed-By: \/usr\/share\/keyrings\/ubuntu-archive-keyring\.gpg/u);
+    assert.doesNotMatch(result.log, /allow-unauthenticated|trusted=yes|Verify-Peer=false/u);
+    assert.ok(result.log.lastIndexOf("probe ") > result.log.lastIndexOf("apt "));
+  },
+);
 
-test("ARM runners keep using the signed official Ubuntu ports archive", (t) => {
+test("ARM runners keep using the signed official Ubuntu ports archive", setupTestOptions, (t) => {
   const result = setup(t, "fallback", { architecture: "arm64" });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.log, /URIs: https:\/\/ports\.ubuntu\.com\/ubuntu-ports/u);
@@ -133,12 +146,16 @@ for (const [options, diagnostic] of [
   [{ distro: "Debian" }, /requires an Ubuntu runner/u],
   [{ codename: "noble invalid" }, /Invalid Ubuntu release codename/u],
 ]) {
-  test(`invalid runner identity cannot select package sources: ${JSON.stringify(options)}`, (t) => {
-    const result = setup(t, "fallback", options);
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, diagnostic);
-    assert.doesNotMatch(result.log, /apt /u);
-  });
+  test(
+    `invalid runner identity cannot select package sources: ${JSON.stringify(options)}`,
+    setupTestOptions,
+    (t) => {
+      const result = setup(t, "fallback", options);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, diagnostic);
+      assert.doesNotMatch(result.log, /apt /u);
+    },
+  );
 }
 
 for (const [mode, diagnostic] of [
@@ -148,9 +165,13 @@ for (const [mode, diagnostic] of [
   ["wrong-codec", /Media tools remain unusable/u],
   ["timeout", /setup deadline exceeded/u],
 ]) {
-  test(`setup fails visibly instead of allowing tests to proceed: ${mode}`, (t) => {
-    const result = setup(t, mode);
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, diagnostic);
-  });
+  test(
+    `setup fails visibly instead of allowing tests to proceed: ${mode}`,
+    setupTestOptions,
+    (t) => {
+      const result = setup(t, mode);
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, diagnostic);
+    },
+  );
 }

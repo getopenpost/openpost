@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.37.2] - 2026-11-05
+
+### Fixed
+
+- Facebook Reels retain their video ID after publishing, so comments and video analytics use the correct Meta object. Pending Reel publishes also recover correctly from existing checkpoints. Previously published Reels with an incorrect stored ID still need their identity corrected.
+- Keep every channel in the public navigation menu reachable on shorter desktop windows with a bounded, scrollable panel.
+- Nightly and manually started package checks compare SDK, CLI, and n8n changes against the latest published release instead of failing with an empty comparison revision.
+- Updated the mobile app to the compatible Expo SDK 57 patch releases while retaining its Swift concurrency compatibility patch. The new Android app version is 0.2.73.
+
 ## [7.37.1] - 2026-11-02
 
 ### Fixed

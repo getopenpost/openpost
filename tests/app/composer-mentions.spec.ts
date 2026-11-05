@@ -117,9 +117,9 @@ for (const joined of [false, true])
       .toBe("Fresh video description");
     if (joined) {
       const description = page.getByRole("textbox", { name: "Description", exact: true });
-      await description.fill("");
-      // fill() changes contenteditable DOM before ProseMirror's observer has
-      // necessarily committed it. Confirm the clear before synthetic paste.
+      await description.press("ControlOrMeta+a");
+      await description.press("Backspace");
+      // Clear through the editor's keyboard transaction before synthetic paste.
       await expect
         .poll(
           async () =>

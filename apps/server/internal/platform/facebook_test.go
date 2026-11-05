@@ -237,9 +237,11 @@ func TestFacebookPublishesHostedVideoThroughRuploadBeforeFinish(t *testing.T) {
 		edge          string
 		finishIDField string
 		finishID      string
+		externalID    string
 	}{
-		{name: "reel", profile: "short_video", outputProfile: "facebook.reel", edge: "video_reels", finishIDField: "id", finishID: "reel-1"},
-		{name: "story", profile: "story", outputProfile: "facebook.story", edge: "video_stories", finishIDField: "post_id", finishID: "story-1"},
+		{name: "reel", profile: "short_video", outputProfile: "facebook.reel", edge: "video_reels", finishIDField: "id", finishID: "reel-1", externalID: "video-1"},
+		{name: "reel post_id", profile: "short_video", outputProfile: "facebook.reel", edge: "video_reels", finishIDField: "post_id", finishID: "reel-1", externalID: "video-1"},
+		{name: "story", profile: "story", outputProfile: "facebook.story", edge: "video_stories", finishIDField: "post_id", finishID: "story-1", externalID: "story-1"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var calls []string
@@ -282,6 +284,9 @@ func TestFacebookPublishesHostedVideoThroughRuploadBeforeFinish(t *testing.T) {
 					if statusCalls == 1 {
 						return jsonResponse(req, `{"status":{"video_status":"uploading","uploading_phase":{"status":"in_progress"},"processing_phase":{"status":"not_started"}}}`), nil
 					}
+					if statusCalls > 2 {
+						return jsonResponse(req, `{"status":{"video_status":"published","publishing_phase":{"status":"complete"}}}`), nil
+					}
 					return jsonResponse(req, `{"status":{"video_status":"upload_complete","uploading_phase":{"status":"complete"},"processing_phase":{"status":"not_started"},"publishing_phase":{"status":"not_started"}}}`), nil
 				default:
 					t.Fatalf("unexpected request %s", req.URL.String())
@@ -311,6 +316,12 @@ func TestFacebookPublishesHostedVideoThroughRuploadBeforeFinish(t *testing.T) {
 			}
 			if !slices.Equal(calls, wantCalls) {
 				t.Fatalf("unexpected request order: %#v", calls)
+			}
+			result, err = NewFacebookAdapter("", "", "").ResumePublish(t.Context(), "page-token", "page-1", &PublishRequest{
+				Profile: test.profile, OutputProfile: test.outputProfile,
+			}, result.ProviderReference)
+			if err != nil || result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != test.externalID {
+				t.Fatalf("confirmed publication external ID = %q, want %q; result=%+v err=%v", result.ExternalID, test.externalID, result, err)
 			}
 		})
 	}

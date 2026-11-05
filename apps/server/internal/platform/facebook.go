@@ -1000,6 +1000,11 @@ func (f *FacebookAdapter) ResumePublish(ctx context.Context, token, pageID strin
 		return pending, &HTTPError{StatusCode: http.StatusBadRequest, Code: "facebook_video_processing_failed"}
 	}
 	if status.PublishingPhase.Status == "complete" || status.VideoStatus == "published" {
+		// Reel comments and video insights use the upload's video ID. The
+		// finish response may instead identify its associated feed post.
+		if req.Profile != "story" && req.OutputProfile != "facebook.story" {
+			publishedID = videoID
+		}
 		result := AcceptedPublishResult(publishedID)
 		result.ProviderReference = reference
 		return result, nil

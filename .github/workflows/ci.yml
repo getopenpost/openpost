@@ -1116,7 +1116,9 @@ jobs:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == schedule || "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            BASE_SHA="$(bun scripts/published-release-tag.mjs)"
+          elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
             # Main candidates compare with the same base as the tag that ships them.
             BASE_SHA="$(bun scripts/published-release-tag.mjs)"
           elif [[ "$BASE_SHA" =~ ^0+$ ]]; then
@@ -1173,7 +1175,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if [[ "$EVENT_NAME" == push && "$GITHUB_REF" == refs/tags/* ]]; then
+          if [[ "$EVENT_NAME" == schedule || "$EVENT_NAME" == workflow_dispatch ]]; then
+            BASE_SHA="$(bun scripts/published-release-tag.mjs)"
+          elif [[ "$EVENT_NAME" == push && "$GITHUB_REF" == refs/tags/* ]]; then
             BASE_SHA="$(bun scripts/published-release-tag.mjs --exclude "$GITHUB_REF_NAME")"
           elif [[ "$EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
             # Main candidates compare with the same base as the tag that ships them.

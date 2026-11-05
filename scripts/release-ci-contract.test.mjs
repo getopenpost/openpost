@@ -268,6 +268,47 @@ test("tag release candidates schedule the application browser suite", () => {
   assert.match(marketingLookup.run, /--prefix "marketing-static-\$\{GITHUB_SHA\}-"/u);
 });
 
+test("nightly and manual package checks compare against the published release", () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "openpost-package-base-"));
+  try {
+    const bun = path.join(directory, "bun");
+    writeFileSync(
+      bun,
+      '#!/bin/sh\nif [ "$1" = scripts/published-release-tag.mjs ]; then echo v7.37.1; else echo "$*"; fi\n',
+    );
+    chmodSync(bun, 0o755);
+    for (const job of ["npm-packages", "n8n"]) {
+      const script = workflowStepScript(
+        ci,
+        job,
+        "Require a package version increase for publishable changes",
+      );
+      for (const event of ["schedule", "workflow_dispatch"]) {
+        const result = spawnSync("bash", ["-e", "-c", script], {
+          env: {
+            ...process.env,
+            PATH: `${directory}:${process.env.PATH}`,
+            EVENT_NAME: event,
+            GITHUB_EVENT_NAME: event,
+            GITHUB_REF: "refs/heads/main",
+            GITHUB_SHA: "candidate",
+            BASE_SHA: "",
+          },
+          encoding: "utf8",
+        });
+        assert.equal(result.status, 0, result.stderr);
+        const checks = result.stdout.trim().split("\n");
+        assert.equal(checks.length, job === "n8n" ? 1 : 2);
+        for (const check of checks) {
+          assert.match(check, /check-version .*--base v7\.37\.1 --head candidate$/u);
+        }
+      }
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("tag n8n version checks use the last published release as their base", () => {
   const step = load(ci).jobs.n8n.steps.find(
     (step) => step.name === "Require a package version increase for publishable changes",

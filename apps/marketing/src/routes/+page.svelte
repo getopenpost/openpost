@@ -12,6 +12,7 @@
 		managedTrialNote
 	} from './_marketing';
 	import HeroAccent from './_components/HeroAccent.svelte';
+	import HeroHorizon from './_components/HeroHorizon.svelte';
 	import ProductDetails from './_components/ProductDetails.svelte';
 	import ProductFeatures from './_components/ProductFeatures.svelte';
 	import Resources from './_components/Resources.svelte';
@@ -21,43 +22,48 @@
 	const shortFaqs = faqs.slice(0, 4);
 </script>
 
-<section class="landing-hero marketing-shell" aria-labelledby="hero-title">
-	<div class="hero-intro">
-		<h1 id="hero-title" class="marketing-title">
-			You build the business.<br /><span>We’ll help you <HeroAccent>share it.</HeroAccent></span>
-		</h1>
-		<p>
-			Write posts, edit your media, and plan what goes out.<br class="desktop-break" /> One workspace
-			for every channel.
-		</p>
-		<div class="hero-actions">
-			<Button href={managedSignupUrl} size="lg" class="landing-cta"
-				>Start your free trial <ArrowRight data-icon="inline-end" /></Button
-			>
-			<a href={demoVideoUrl} class="focus-ring text-link" target="_blank" rel="noreferrer"
-				><Play size={16} /> See it in action</a
-			>
-		</div>
-		<div class="trial-note">{managedTrialNote}</div>
-	</div>
-	<ProductTour />
-	<div class="platform-strip">
-		<div class="platform-marks" aria-label="Explore supported platforms">
-			{#each landingPlatforms as platform (platform.slug)}
-				<a
-					href={`/platforms/${platform.slug}`}
-					aria-label={`${platform.name} publishing guide`}
-					class="focus-ring"
-					class:youtube-text={platform.slug === 'youtube'}
-					><PostizSocialLogo platform={platform.slug} /></a
+<div class="hero-stage">
+	<section class="landing-hero marketing-shell" aria-labelledby="hero-title">
+		<div class="hero-intro">
+			<h1 id="hero-title" class="marketing-title">
+				You build the business.<br /><span>We’ll help you <HeroAccent>share it.</HeroAccent></span>
+			</h1>
+			<p>
+				Write posts, edit your media, and plan what goes out.<br class="desktop-break" /> One workspace
+				for every channel.
+			</p>
+			<div class="hero-actions">
+				<Button href={managedSignupUrl} size="lg" class="landing-cta"
+					>Start your free trial <ArrowRight data-icon="inline-end" /></Button
 				>
-			{/each}
+				<a href={demoVideoUrl} class="focus-ring text-link" target="_blank" rel="noreferrer"
+					><Play size={16} /> See it in action</a
+				>
+			</div>
+			<div class="trial-note">{managedTrialNote}</div>
 		</div>
-		<a href="/platforms" class="focus-ring text-link"
-			>See platform support <ArrowUpRight size={16} /></a
-		>
-	</div>
-</section>
+		<div class="tour-stage">
+			<HeroHorizon />
+			<ProductTour />
+		</div>
+		<div class="platform-strip">
+			<div class="platform-marks" aria-label="Explore supported platforms">
+				{#each landingPlatforms as platform (platform.slug)}
+					<a
+						href={`/platforms/${platform.slug}`}
+						aria-label={`${platform.name} publishing guide`}
+						class="focus-ring"
+						class:youtube-text={platform.slug === 'youtube'}
+						><PostizSocialLogo platform={platform.slug} /></a
+					>
+				{/each}
+			</div>
+			<a href="/platforms" class="focus-ring text-link"
+				>See platform support <ArrowUpRight size={16} /></a
+			>
+		</div>
+	</section>
+</div>
 
 <ProductFeatures />
 
@@ -82,24 +88,20 @@
 	</div>
 </section>
 
-<section class="landing-close section-pad" aria-labelledby="closing-title">
-	<div class="marketing-shell">
-		<h2 id="closing-title" class="section-heading">Make your next post<br />with OpenPost.</h2>
-		<Button href={managedSignupUrl} size="lg" class="landing-cta"
-			>Start your free trial <ArrowRight data-icon="inline-end" /></Button
-		>
-		<div class="trial-note">{managedTrialNote}</div>
-		<a href="/pricing" class="focus-ring text-link">Compare plans <ArrowUpRight size={16} /></a>
-	</div>
-</section>
-
 <style>
+	.hero-stage {
+		overflow-x: clip;
+	}
 	.landing-hero {
 		padding-top: 64px;
 	}
+	.tour-stage {
+		position: relative;
+		isolation: isolate;
+	}
 	.hero-intro {
 		text-align: center;
-		margin-bottom: 40px;
+		margin-bottom: 96px;
 	}
 	.hero-intro h1 {
 		max-width: none;
@@ -215,22 +217,12 @@
 		line-height: 1.75;
 		color: var(--muted-foreground);
 	}
-	.landing-close {
-		text-align: center;
-		background: var(--marketing-section);
-	}
-	.landing-close :global(.landing-cta) {
-		margin-top: 28px;
-	}
-	.landing-close .text-link {
-		margin-top: 12px;
-	}
 	@media (max-width: 760px) {
 		.landing-hero {
 			padding-top: 40px;
 		}
 		.hero-intro {
-			margin-bottom: 28px;
+			margin-bottom: 64px;
 		}
 		.hero-intro > p {
 			font-size: 16px;

@@ -333,7 +333,6 @@ for (const width of [1440, 390, 320]) {
           "features-title",
           "resources-title",
           "stories-title",
-          "closing-title",
         ]) {
           await page.locator(`#${heading}`).scrollIntoViewIfNeeded();
         }

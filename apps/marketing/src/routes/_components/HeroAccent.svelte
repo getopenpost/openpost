@@ -1,67 +1,92 @@
 <script lang="ts">
-	import { ditherSurface } from '@openpost/dither';
+	import { ditherThreshold } from '@openpost/dither/paint';
 	import { onMount } from 'svelte';
+	import { annotate } from 'rough-notation';
 	let { children } = $props();
 	let element: HTMLSpanElement;
-	let shown = $state(false);
+	const MIN_HORIZONTAL_PADDING = 9;
+	const HORIZONTAL_PADDING_RATIO = 0.04;
+	const CELL = 2;
+	// Bayer coverage for the sketched stroke. Dense enough to read as a line, open enough to show pixels.
+	const COVERAGE = 0.56;
+	const patternId = `accent-dither-${Math.random().toString(36).slice(2, 9)}`;
+	const cells = Array.from({ length: 16 }, (_, index) => ({
+		x: index % 4,
+		y: Math.floor(index / 4)
+	}))
+		.filter(({ x, y }) => COVERAGE > ditherThreshold(x, y))
+		.map(({ x, y }) => ({ x: x * CELL, y: y * CELL }));
+
 	onMount(() => {
-		// Reveal once the words are on screen so headings below the fold still draw in.
-		const observer = new IntersectionObserver(
-			([entry]) => {
-				if (!entry?.isIntersecting) return;
-				shown = true;
-				observer.disconnect();
-			},
-			{ threshold: 0.6 }
-		);
-		observer.observe(element);
-		return () => observer.disconnect();
+		// Rough ellipses vary with their radius, so long words need proportional breathing room.
+		const padding = (): [number, number] => [
+			5,
+			Math.max(
+				MIN_HORIZONTAL_PADDING,
+				element.getBoundingClientRect().width * HORIZONTAL_PADDING_RATIO
+			)
+		];
+		const annotation = annotate(element, {
+			type: 'circle',
+			// rough-notation writes this into each path's stroke, so the sketch paints with the Bayer tile.
+			color: `url(#${patternId})`,
+			strokeWidth: 7,
+			padding: padding(),
+			iterations: 2,
+			multiline: false,
+			animate: !matchMedia('(prefers-reduced-motion: reduce)').matches,
+			animationDuration: 700
+		});
+		let disposed = false;
+		const resizeObserver = new ResizeObserver(() => {
+			annotation.padding = padding();
+		});
+		resizeObserver.observe(element);
+		void document.fonts.ready.then(() => {
+			if (!disposed) {
+				annotation.padding = padding();
+				annotation.show();
+			}
+		});
+		return () => {
+			disposed = true;
+			resizeObserver.disconnect();
+			annotation.remove();
+		};
 	});
 </script>
 
-<span class="accent" bind:this={element}
-	>{@render children()}<span
-		class="swash"
-		class:shown
-		use:ditherSurface={{ direction: 'up' }}
-		aria-hidden="true"
-	></span></span
->
+<svg class="accent-defs" width="0" height="0" aria-hidden="true" focusable="false">
+	<pattern
+		id={patternId}
+		width={CELL * 4}
+		height={CELL * 4}
+		patternUnits="userSpaceOnUse"
+		shape-rendering="crispEdges"
+	>
+		{#each cells as cell (`${cell.x}:${cell.y}`)}
+			<rect x={cell.x} y={cell.y} width={CELL} height={CELL} />
+		{/each}
+	</pattern>
+</svg><span bind:this={element}>{@render children()}</span>
 
 <style>
-	.accent {
-		position: relative;
-		isolation: isolate;
+	span {
 		display: inline-block;
 		white-space: nowrap;
 	}
-	.swash {
+	.accent-defs {
 		position: absolute;
-		z-index: -1;
-		left: -0.04em;
-		right: -0.04em;
-		bottom: -0.1em;
-		height: 0.2em;
-		background: var(--marketing-soft-ink);
-		mask-image: var(--dither-mask);
-		mask-size: var(--dither-mask-size, 8px 64px);
-		mask-repeat: repeat-x;
-		clip-path: inset(0 100% 0 0);
-		pointer-events: none;
+		width: 0;
+		height: 0;
+		overflow: hidden;
 	}
-	.swash.shown {
-		clip-path: inset(0 0 0 0);
-		transition: clip-path 560ms steps(14, end);
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.swash.shown {
-			transition: none;
-		}
+	.accent-defs rect {
+		fill: var(--marketing-soft-ink);
 	}
 	@media (forced-colors: active) {
-		.swash {
-			background: CanvasText;
-			mask-image: none;
+		.accent-defs rect {
+			fill: CanvasText;
 		}
 	}
 </style>

@@ -9,7 +9,8 @@
 	const CELL = 2;
 	// Bayer coverage for the sketched stroke. Dense enough to read as a line, open enough to show pixels.
 	const COVERAGE = 0.56;
-	const patternId = `accent-dither-${Math.random().toString(36).slice(2, 9)}`;
+	const uid = $props.id();
+	const patternId = `accent-dither-${uid}`;
 	const cells = Array.from({ length: 16 }, (_, index) => ({
 		x: index % 4,
 		y: Math.floor(index / 4)

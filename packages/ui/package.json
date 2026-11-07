@@ -106,11 +106,6 @@
       "svelte": "./dist/components/separator/index.js",
       "default": "./dist/components/separator/index.js"
     },
-    "./components/chart": {
-      "types": "./dist/components/chart/index.d.ts",
-      "svelte": "./dist/components/chart/index.js",
-      "default": "./dist/components/chart/index.js"
-    },
     "./components/checkbox": {
       "types": "./dist/components/checkbox/index.d.ts",
       "svelte": "./dist/components/checkbox/index.js",
@@ -248,7 +243,6 @@
     "@tiptap/suggestion": "3.32.0",
     "bits-ui": "2.19.0",
     "clsx": "^2.1.1",
-    "layerchart": "2.0.0-next.48",
     "mode-watcher": "^1.1.0",
     "svelte-sonner": "^1.1.1",
     "tabbable": "^6.5.0",

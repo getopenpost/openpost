@@ -1,138 +1,105 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
-import { resolveBuiltInTheme, WebThemeRuntime } from '$lib/themes';
 import AnalyticsPerformanceChart from './analytics-performance-chart.svelte';
 import '../../routes/layout.css';
 
-function geometry(bar: SVGRectElement) {
-	const { x, y, width, height } = bar.getBBox();
-	return { x, y, width, height };
+const base = {
+	label: 'Daily engagement',
+	emptyLabel: 'No engagement',
+	otherLabel: 'Other networks',
+	formatValue: (value: number) => String(value),
+	formatDate: (value: string) => value
+};
+
+/** The accessible data table every chart renders: header cells, then one row per day. */
+function table(root: Element) {
+	const rows = [...root.querySelectorAll('table tr')].map((row) =>
+		[...row.querySelectorAll('th, td')].map((cell) => cell.textContent?.trim() ?? '')
+	);
+	return { header: rows[0] ?? [], body: rows.slice(1) };
 }
 
 describe('AnalyticsPerformanceChart', () => {
-	it('textures both signs without changing values, keyboard inspection, or the restored chart', async () => {
-		const runtime = new WebThemeRuntime({
-			stageFonts: async () => ({ release: () => undefined }),
-			loadAssets: async () => undefined,
-			loadIconPack: async () => undefined,
-			setBrowserSurface: () => () => undefined
+	it('sums posts into one series per network and groups the rest as other networks', async () => {
+		const item = (key: string, platform: string, value: number) => ({
+			key,
+			label: key,
+			platform,
+			value
 		});
 		const screen = render(AnalyticsPerformanceChart, {
+			...base,
+			metric: 'engagement',
 			points: [
 				{
-					date: '2026-09-10',
-					value: 6,
+					date: '2026-09-04',
+					value: 0,
 					items: [
-						{ key: 'gain', label: 'Gained followers', platform: 'x', value: 12 },
-						{ key: 'loss', label: 'Lost followers', platform: 'youtube', value: -6 }
+						item('x-1', 'x', 12),
+						item('x-2', 'x', 10),
+						item('yt-1', 'youtube', 8),
+						item('yt-2', 'youtube', 7),
+						item('threads-1', 'threads', 5),
+						item('bsky-1', 'bluesky', 4),
+						item('masto-1', 'mastodon', 3),
+						item('li-1', 'linkedin', 2)
 					]
 				},
-				{
-					date: '2026-09-11',
-					value: 3,
-					items: [{ key: 'gain-2', label: 'Gained followers', platform: 'x', value: 3 }]
-				}
-			],
-			metric: 'followers',
-			label: 'Daily followers',
-			emptyLabel: 'No followers',
-			otherLabel: 'Other',
-			formatValue: String,
-			formatDate: (date: string) => date
+				{ date: '2026-09-05', value: 0, items: [item('x-3', 'x', 6), item('li-2', 'linkedin', 9)] }
+			]
 		});
-		const figure = screen.getByRole('figure', { name: 'Daily followers' }).element();
-		if (!(figure instanceof HTMLElement)) throw new Error('Chart figure is unavailable');
-		const bars = [...figure.querySelectorAll<SVGRectElement>('[data-chart-fill]')];
-		const original = bars.map(geometry);
-		try {
-			await runtime.apply(resolveBuiltInTheme('dither', 'light'), figure);
-			for (const [index, bar] of bars.entries()) {
-				expect(getComputedStyle(bar).maskImage).toContain('data:image/svg+xml');
-				expect(geometry(bar)).toEqual(original[index]);
-				const encoded = getComputedStyle(bar).maskImage.split(',')[1].replace(/"\)$/, '');
-				const svg = new DOMParser().parseFromString(
-					decodeURIComponent(encoded),
-					'image/svg+xml'
-				).documentElement;
-				expect(Number(svg.getAttribute('height'))).toBeGreaterThanOrEqual(
-					bar.getBoundingClientRect().height
-				);
-				expect(Number(svg.getAttribute('height'))).toBeLessThan(
-					bar.getBoundingClientRect().height + 2
-				);
-				for (const cell of svg.querySelectorAll('rect')) {
-					expect(cell.getAttribute('width')).toBe(cell.getAttribute('height'));
-				}
-			}
-			expect(original[0].height / original[1].height).toBeCloseTo(2);
-			expect(original[0].y + original[0].height).toBeCloseTo(original[1].y);
-			const day = screen.getByRole('button', { name: '2026-09-10, 6 Daily followers' });
-			const dayElement = day.element();
-			if (!(dayElement instanceof SVGElement)) throw new Error('Chart day is unavailable');
-			dayElement.focus();
-			await userEvent.keyboard('{Enter}');
-			await expect.element(screen.getByRole('status')).toHaveTextContent('+6');
-			await expect.element(screen.getByRole('status')).toHaveTextContent('-6');
-			await day.hover();
-			const nextDay = screen.getByRole('button', { name: '2026-09-11, 3 Daily followers' });
-			const nextDayElement = nextDay.element();
-			if (!(nextDayElement instanceof SVGElement)) throw new Error('Chart day is unavailable');
-			nextDayElement.focus();
-			await expect.element(screen.getByRole('status')).toHaveTextContent('2026-09-11');
-			await expect.element(nextDay).toHaveAttribute('data-chart-active', 'true');
-			dayElement.focus();
-			await expect.element(day).toHaveAttribute('data-chart-active', 'true');
-			await userEvent.keyboard('{Escape}');
-			await expect.element(screen.getByRole('status')).not.toBeInTheDocument();
-			await userEvent.keyboard('{Enter}');
-			await expect.element(screen.getByRole('status')).toHaveTextContent('+6');
-			await runtime.apply(resolveBuiltInTheme('workshop', 'light'), figure);
-			expect(bars.map((bar) => getComputedStyle(bar).maskImage)).toEqual(['none', 'none', 'none']);
-			expect(bars.map(geometry)).toEqual(original);
-		} finally {
-			runtime.clear(figure);
-		}
+		const figure = screen.getByTestId('analytics-performance-chart');
+		await expect.element(figure.getByRole('group', { name: 'Daily engagement' })).toBeVisible();
+		const { header, body } = table(figure.element());
+		// Ranked by period total (x 28, youtube 15, linkedin 11, threads 5); bluesky and mastodon become Other.
+		expect(header).toEqual(['Category', 'X', 'YouTube', 'LinkedIn', 'Threads', 'Other networks']);
+		expect(body).toEqual([
+			['2026-09-04', '22', '15', '2', '5', '7'],
+			['2026-09-05', '6', '0', '9', '0', '0']
+		]);
+
+		await userEvent.keyboard('{Tab}');
+		await expect.element(figure.getByRole('group', { name: 'Daily engagement' })).toHaveFocus();
+		await userEvent.keyboard('{Home}');
+		await expect
+			.element(
+				figure.getByText('2026-09-04: X 22, YouTube 15, LinkedIn 2, Threads 5, Other networks 7')
+			)
+			.toBeInTheDocument();
 	});
 
-	it('uses one stable theme series per platform instead of graying most posts', async () => {
-		const screen = await render(AnalyticsPerformanceChart, {
-			props: {
-				points: [
-					{
-						date: '2026-09-04',
-						value: 42,
-						items: [
-							{ key: 'x-1', label: 'First X post', platform: 'x', value: 12 },
-							{ key: 'x-2', label: 'Second X post', platform: 'x', value: 10 },
-							{ key: 'youtube-1', label: 'First video', platform: 'youtube', value: 8 },
-							{ key: 'youtube-2', label: 'Second video', platform: 'youtube', value: 7 },
-							{ key: 'threads-1', label: 'Thread', platform: 'threads', value: 5 }
-						]
-					}
-				],
-				metric: 'engagement',
-				label: 'Daily engagement',
-				emptyLabel: 'No engagement',
-				otherLabel: 'Other',
-				formatValue: (value: number) => String(value),
-				formatDate: (value: string) => value
-			}
+	it('draws account-wide follower totals for the followers metric', async () => {
+		const screen = render(AnalyticsPerformanceChart, {
+			...base,
+			label: 'Followers over time',
+			metric: 'followers',
+			points: [],
+			followerSeries: [
+				{ date: '2026-09-01', value: 120 },
+				{ date: '2026-09-02', value: 118 },
+				{ date: '2026-09-03', value: 131 }
+			]
 		});
+		const figure = screen.getByTestId('analytics-performance-chart');
+		await expect.element(figure.getByRole('group', { name: 'Followers over time' })).toBeVisible();
+		expect(table(figure.element()).body).toEqual([
+			['2026-09-01', '120'],
+			['2026-09-02', '118'],
+			['2026-09-03', '131']
+		]);
+	});
 
-		const fills = screen
-			.getByRole('img', { name: 'Daily engagement' })
-			.element()
-			.querySelectorAll<SVGRectElement>('rect[fill^="var(--analytics-series-"]');
-		const byPlatform = {
-			x: [fills[0]?.getAttribute('fill'), fills[1]?.getAttribute('fill')],
-			youtube: [fills[2]?.getAttribute('fill'), fills[3]?.getAttribute('fill')],
-			threads: fills[4]?.getAttribute('fill')
-		};
-
-		expect(byPlatform.x[0]).toBe(byPlatform.x[1]);
-		expect(byPlatform.youtube[0]).toBe(byPlatform.youtube[1]);
-		expect(new Set([byPlatform.x[0], byPlatform.youtube[0], byPlatform.threads]).size).toBe(3);
-		expect([...fills].some((rect) => rect.getAttribute('fill')?.endsWith('-other)'))).toBe(false);
+	it('says so instead of drawing an empty chart', async () => {
+		const screen = render(AnalyticsPerformanceChart, {
+			...base,
+			metric: 'followers',
+			points: [],
+			followerSeries: [{ date: '2026-09-01', value: 120 }]
+		});
+		await expect.element(screen.getByText('No engagement')).toBeVisible();
+		expect(
+			screen.getByTestId('analytics-performance-chart').element().querySelector('svg')
+		).toBeNull();
 	});
 });

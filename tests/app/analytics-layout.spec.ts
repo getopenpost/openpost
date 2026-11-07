@@ -375,10 +375,11 @@ for (const [themeID, scheme] of [
         await page.keyboard.press("Escape");
         await expect(warnings).toBeFocused();
         await expect(warning).not.toBeVisible();
-        await expect(page.getByRole("img", { name: "100", exact: true })).toBeVisible();
+        const metricGroup = page.getByRole("group", { name: "Chart metric", exact: true });
+        await expect(metricGroup).toContainText("100");
         await page.getByRole("button", { name: /^Reporting window:/ }).click();
         await page.getByRole("button", { name: "7 days", exact: true }).click();
-        await expect(page.getByRole("img", { name: "200", exact: true })).toBeVisible();
+        await expect(metricGroup).toContainText("200");
         let finishRefresh!: () => void;
         const refreshFinished = new Promise<void>((resolve) => {
           finishRefresh = resolve;
@@ -426,13 +427,23 @@ for (const [themeID, scheme] of [
         ).toBe(true);
         for (const metric of await metrics.getByRole("button").all()) {
           const bounds = await metric.evaluate((button) => {
-            const range = document.createRange();
-            range.selectNodeContents(button);
-            const label = range.getBoundingClientRect();
+            // Measure the visible text only; decorative dither surfaces run edge to edge.
+            const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+            let left = Infinity;
+            let right = -Infinity;
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+              if (!node.textContent?.trim()) continue;
+              const range = document.createRange();
+              range.selectNodeContents(node);
+              const rect = range.getBoundingClientRect();
+              if (rect.width === 0) continue;
+              left = Math.min(left, rect.left);
+              right = Math.max(right, rect.right);
+            }
             const control = button.getBoundingClientRect();
             return {
-              leftInset: label.left - control.left,
-              rightInset: control.right - label.right,
+              leftInset: left - control.left,
+              rightInset: control.right - right,
               height: control.height,
             };
           });
@@ -445,42 +456,33 @@ for (const [themeID, scheme] of [
         await engagement.press("Enter");
         await expect(engagement).toHaveAttribute("aria-pressed", "true");
         await expect(
-          page.getByRole("img", { name: "Daily engagement", exact: true }),
+          page.getByRole("group", { name: "Daily engagement", exact: true }),
         ).toBeVisible();
         const views = metrics.getByRole("button", { name: /^Visibility/ });
         await views.focus();
         await views.press("Enter");
         await expect(views).toHaveAttribute("aria-pressed", "true");
         await metrics.screenshot({ path: testInfo.outputPath("metric-controls.png") });
-        await page.getByRole("img", { name: "Visibility" }).scrollIntoViewIfNeeded();
+        await page.getByRole("group", { name: "Visibility", exact: true }).scrollIntoViewIfNeeded();
         await page.screenshot({ path: testInfo.outputPath("chart.png") });
         if (themeID === "dither") {
-          const figure = page.getByRole("figure", { name: "Visibility" });
-          const day = figure.getByRole("button").nth(width < 768 ? 6 : 15);
-          const bar = day.locator("[data-chart-fill]").first();
-          const before = await bar.evaluate((el: SVGRectElement) => ({
-            x: el.x.baseVal.value,
-            y: el.y.baseVal.value,
-            height: el.height.baseVal.value,
-          }));
-          await day.focus();
-          await expect(day).toHaveAttribute("data-chart-active", "true");
-          const tooltip = figure.getByRole("status");
-          await expect(tooltip).toBeVisible();
-          const bounds = (await tooltip.boundingBox())!;
-          const viewport = (await figure.getByTestId("analytics-chart-scroll").boundingBox())!;
-          expect(bounds.x).toBeGreaterThanOrEqual(viewport.x);
-          expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.x + viewport.width);
-          expect(
-            await bar.evaluate((el: SVGRectElement) => ({
-              x: el.x.baseVal.value,
-              y: el.y.baseVal.value,
-              height: el.height.baseVal.value,
-            })),
-          ).toEqual(before);
-          await figure.screenshot({
-            path: `.impeccable/review/dither-polish/analytics-${width}-${scheme}.png`,
-          });
+          // Keyboard scrubbing shows a readout that stays inside the chart at every width.
+          const chart = page.getByRole("group", { name: "Visibility", exact: true });
+          await chart.focus();
+          await chart.press("End");
+          const readout = chart.locator('[data-slot="chart-readout"]');
+          await expect(readout).toHaveCSS("opacity", "1");
+          const bounds = (await readout.boundingBox())!;
+          const frame = (await chart.boundingBox())!;
+          expect(bounds.x).toBeGreaterThanOrEqual(frame.x - 1);
+          expect(bounds.x + bounds.width).toBeLessThanOrEqual(frame.x + frame.width + 1);
+          await chart.press("Home");
+          // The first day is announced with every network's value.
+          await expect(chart.locator("xpath=..").locator('[aria-live="polite"]')).toHaveText(
+            /^\S+ \d+: .+ \d/,
+          );
+          await chart.press("Escape");
+          await expect(readout).toHaveCSS("opacity", "0");
         }
         await section
           .locator("h2")

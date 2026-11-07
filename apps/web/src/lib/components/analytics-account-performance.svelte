@@ -1,18 +1,24 @@
 <script lang="ts">
 	import type { components } from '$lib/api/types';
 	import { Button } from '$lib/components/ui/button';
+	import { Sparkline } from '@openpost/ui/components/dither';
+	import { getLocaleTag } from '$lib/i18n';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import SectionHeading from '$lib/components/section-heading.svelte';
 	import { m } from '$lib/paraglide/messages';
 	type Performance = components['schemas']['AccountPerformance'];
+	type SeriesPoint = components['schemas']['SeriesPoint'];
 	let {
 		items,
 		onselect,
-		formatValue
+		formatValue,
+		followerSeries = () => []
 	}: {
 		items: Performance[];
 		onselect: (id: string) => void;
 		formatValue: (value: number) => string;
+		/** Account-wide follower totals by day, drawn as a trend beside each account. */
+		followerSeries?: (accountID: string) => SeriesPoint[];
 	} = $props();
 </script>
 
@@ -64,6 +70,18 @@
 										>({item.follower_delta >= 0 ? '+' : ''}{formatValue(item.follower_delta)})</span
 									>{/if}
 							</dd>
+							{#if followerSeries(item.account_id).length > 1}
+								<dd class="mt-1.5 w-24 max-w-full">
+									<Sparkline
+										data={followerSeries(item.account_id).map((point) => point.value)}
+										label={m.analytics_followers_over_time()}
+										height={22}
+										color="green"
+										format={formatValue}
+										locale={getLocaleTag()}
+									/>
+								</dd>
+							{/if}
 						</div>
 						<div>
 							<dt class="text-muted-foreground">{m.analytics_distinct_posts()}</dt>

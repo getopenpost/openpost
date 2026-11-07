@@ -11,7 +11,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import type { AnalyticsRangeDays } from '@openpost/query-catalog';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
-	import AnalyticsNumber from '$lib/components/analytics-number.svelte';
 	import AnalyticsExportDialog from '$lib/components/analytics-export-dialog.svelte';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
 	import Disclosure from '$lib/components/disclosure.svelte';
@@ -46,6 +45,8 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import AnalyticsPerformanceChart from '$lib/components/analytics-performance-chart.svelte';
+	import AnalyticsNetworkProfile from '$lib/components/analytics-network-profile.svelte';
+	import { StatCard } from '@openpost/ui/components/dither';
 	import SocialSetControl from '$lib/components/social-set-control.svelte';
 	import AnalyticsAccountPerformance from '$lib/components/analytics-account-performance.svelte';
 	import AnalyticsPostHighlights from '$lib/components/analytics-post-highlights.svelte';
@@ -225,7 +226,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	const chartPoints = $derived(overview?.trends?.[chartMetric] ?? []);
 	const chartTitle = $derived(
 		chartMetric === 'followers'
-			? m.analytics_daily_followers()
+			? m.analytics_followers_over_time()
 			: chartMetric === 'engagement'
 				? m.analytics_daily_engagement()
 				: m.analytics_visibility()
@@ -299,6 +300,21 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			}
 		];
 	});
+	const networkCount = $derived(
+		new Set((overview?.performance ?? []).map((item) => item.platform)).size
+	);
+	function metricTrend(key: string): number[] | undefined {
+		const values =
+			key === 'followers'
+				? (overview?.follower_series ?? []).map((point) => point.value)
+				: (overview?.trends?.[key as 'visibility' | 'engagement'] ?? []).map(
+						(point) => point.value
+					);
+		return values.length > 1 ? values : undefined;
+	}
+	function metricColor(key: string) {
+		return key === 'followers' ? 'green' : key === 'engagement' ? 'purple' : 'ink';
+	}
 	const featuredSummaryMetrics = $derived(
 		['visibility', 'engagement', 'followers'].flatMap((key) =>
 			summaryMetrics.filter((item) => item.key === key)
@@ -957,7 +973,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 					<p>{m.analytics_metric_definitions()}</p>
 					<p>
 						{chartMetric === 'followers'
-							? m.analytics_daily_followers_description()
+							? m.analytics_followers_over_time_description()
 							: chartMetric === 'engagement'
 								? m.analytics_daily_engagement_description()
 								: m.analytics_outcome_period()}
@@ -1078,55 +1094,44 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 
 			<section aria-label={m.analytics_title()}>
 				<div
-					class="grid grid-cols-2 gap-3 sm:grid-cols-4"
+					class="grid grid-cols-2 gap-3 lg:grid-cols-4"
 					role="group"
 					aria-label={m.analytics_chart_metric_label()}
 				>
 					{#each featuredSummaryMetrics as item (item.key)}
-						<button
-							type="button"
-							class="min-w-0 rounded-xl border border-border bg-card p-4 text-left text-card-foreground transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-							class:border-primary={chartMetric === item.key}
-							aria-pressed={chartMetric === item.key}
+						{@const delta = item.metric.delta}
+						<StatCard
+							label={item.label}
+							value={item.metric.measured > 0 ? formatNumber(item.metric.value) : '—'}
+							{delta}
+							deltaText={delta === undefined
+								? undefined
+								: `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${formatNumber(Math.abs(delta))}`}
+							deltaLabel={delta === undefined ? undefined : m.analytics_this_period()}
+							trend={metricTrend(item.key)}
+							color={metricColor(item.key)}
+							pressed={chartMetric === item.key}
 							onclick={() => (chartMetric = item.key as ChartMetric)}
-							data-testid="analytics-tile-{item.key}"
+							testId="analytics-tile-{item.key}"
 						>
-							<div class="flex items-start justify-between gap-3">
-								<div class="flex items-center gap-2 text-sm text-muted-foreground">
-									{#if item.key === 'followers'}
-										<ThemeIcon role="users" class="size-4" />
-									{:else if item.key === 'engagement'}
-										<ThemeIcon role="favorite" class="size-4" />
-									{:else}
-										<ThemeIcon role="eye" class="size-4" />
-									{/if}
-									<span>{item.label}</span>
-								</div>
-								{#if item.metric.delta !== undefined}
-									<span
-										class={[
-											'text-xs font-medium tabular-nums',
-											item.metric.delta >= 0 ? 'text-success-foreground' : 'text-destructive'
-										]}
-									>
-										{item.metric.delta >= 0 ? '+' : ''}{formatNumber(item.metric.delta)}
-									</span>
+							{#snippet icon()}
+								{#if item.key === 'followers'}
+									<ThemeIcon role="users" />
+								{:else if item.key === 'engagement'}
+									<ThemeIcon role="favorite" />
+								{:else}
+									<ThemeIcon role="eye" />
 								{/if}
-							</div>
-							<p class="mt-5 text-3xl font-semibold tracking-[-0.03em] tabular-nums">
-								<AnalyticsNumber value={item.metric.measured > 0 ? item.metric.value : null} />
-							</p>
-						</button>
+							{/snippet}
+						</StatCard>
 					{/each}
-					<div class="min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground">
-						<div class="flex items-center gap-2 text-sm text-muted-foreground">
-							<ThemeIcon role="send" class="size-4" />
-							<span>{m.analytics_distinct_posts()}</span>
-						</div>
-						<p class="mt-5 text-3xl font-semibold tracking-[-0.03em] tabular-nums">
-							<AnalyticsNumber value={overview?.publication_total ?? 0} />
-						</p>
-					</div>
+					<StatCard
+						label={m.analytics_distinct_posts()}
+						value={formatNumber(overview?.publication_total ?? 0)}
+						color="orange"
+					>
+						{#snippet icon()}<ThemeIcon role="send" />{/snippet}
+					</StatCard>
 				</div>
 				{#if secondarySummaryMetrics.length}
 					<p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -1143,42 +1148,76 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			</section>
 
 			<section
-				class="min-w-0 rounded-xl border border-border bg-card text-card-foreground"
-				aria-label={chartTitle}
+				class="min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground sm:p-5"
+				aria-labelledby="analytics-chart-heading"
 			>
-				<div class="p-2 pt-3 sm:p-4">
-					<AnalyticsPerformanceChart
-						points={chartPoints}
-						metric={chartMetric}
-						label={chartTitle}
-						emptyLabel={m.analytics_no_daily_changes()}
-						otherLabel={chartMetric === 'followers'
-							? m.analytics_other_accounts()
-							: m.analytics_other_posts()}
-						formatValue={formatNumber}
-						formatDate={formatShortDate}
-					/>
-				</div>
-			</section>
-
-			<section
-				class="rounded-xl border bg-card p-4 sm:p-5"
-				aria-labelledby="analytics-composition-heading"
-			>
-				<div class="mb-3">
-					<SectionHeading level={2} size="section" id="analytics-composition-heading">
-						{m.analytics_audience_title()}
+				<div class="mb-4">
+					<SectionHeading level={2} size="section" id="analytics-chart-heading">
+						{chartTitle}
 					</SectionHeading>
 				</div>
-				<AnalyticsAccountComposition
-					accounts={scopedAccounts}
+				<AnalyticsPerformanceChart
+					points={chartPoints}
+					followerSeries={overview?.follower_series ?? []}
+					metric={chartMetric}
+					label={chartTitle}
+					emptyLabel={m.analytics_no_daily_changes()}
+					otherLabel={chartMetric === 'followers'
+						? m.analytics_other_accounts()
+						: m.analytics_other_networks()}
 					formatValue={formatNumber}
-					{accountLabel}
+					formatDate={formatShortDate}
 				/>
 			</section>
 
+			<div
+				class="grid gap-6"
+				class:lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]={networkCount >= 2}
+			>
+				<section
+					class="flex min-w-0 flex-col rounded-xl border border-border bg-card p-4 sm:p-5"
+					aria-labelledby="analytics-composition-heading"
+				>
+					<div class="mb-4">
+						<SectionHeading level={2} size="section" id="analytics-composition-heading">
+							{m.analytics_audience_title()}
+						</SectionHeading>
+					</div>
+					<div class="flex flex-1 flex-col justify-center">
+						<AnalyticsAccountComposition
+							accounts={scopedAccounts}
+							formatValue={formatNumber}
+							{accountLabel}
+						/>
+					</div>
+				</section>
+				{#if networkCount >= 2}
+					<section
+						class="flex min-w-0 flex-col rounded-xl border border-border bg-card p-4 sm:p-5"
+						aria-labelledby="analytics-network-heading"
+					>
+						<div class="mb-2">
+							<SectionHeading level={2} size="section" id="analytics-network-heading">
+								{m.analytics_network_profile_title()}
+							</SectionHeading>
+							<p class="mt-1 text-xs text-muted-foreground">
+								{m.analytics_network_profile_description()}
+							</p>
+						</div>
+						<div class="flex flex-1 flex-col justify-center">
+							<AnalyticsNetworkProfile
+								items={overview?.performance ?? []}
+								formatValue={formatNumber}
+							/>
+						</div>
+					</section>
+				{/if}
+			</div>
+
 			<AnalyticsAccountPerformance
 				items={overview?.performance ?? []}
+				followerSeries={(id) =>
+					accounts.find((account) => account.id === id)?.follower_series ?? []}
 				onselect={(id) => selectAccounts([id])}
 				formatValue={formatNumber}
 			/>

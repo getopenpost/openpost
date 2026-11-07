@@ -513,36 +513,13 @@
     pointer-events: none;
   }
 
-  [data-theme-decoration="dither"] :is([data-chart-fill], [data-preview-chart-series]) {
+  [data-theme-decoration="dither"] [data-preview-chart-series] {
     --dither-enabled: 1;
     mask-image: var(--dither-mask, var(--theme-dither-mask));
     mask-size: var(--dither-mask-size, 8px 64px);
     mask-repeat: repeat-x;
     mask-origin: fill-box;
     mask-clip: fill-box;
-  }
-
-  [data-chart-outline] {
-    display: none;
-  }
-
-  [data-theme-decoration="dither"] [data-chart-outline] {
-    display: block;
-  }
-
-  [data-theme-decoration="dither"] :is([data-chart-fill], [data-chart-outline]) {
-    transition:
-      opacity var(--theme-motion-hover-duration) var(--theme-motion-hover-easing),
-      stroke-opacity var(--theme-motion-hover-duration) var(--theme-motion-hover-easing);
-  }
-
-  [data-theme-decoration="dither"] [data-chart-active="false"] [data-chart-fill] {
-    opacity: 0.6;
-  }
-
-  [data-theme-decoration="dither"] [data-chart-active="true"] [data-chart-outline] {
-    stroke-opacity: 1;
-    stroke-width: 1.5;
   }
 
   [data-slot="dither-field"] {
@@ -604,7 +581,7 @@
       display: none;
     }
 
-    [data-theme-decoration="dither"] :is([data-chart-fill], [data-preview-chart-series]) {
+    [data-theme-decoration="dither"] [data-preview-chart-series] {
       mask-image: none;
     }
   }

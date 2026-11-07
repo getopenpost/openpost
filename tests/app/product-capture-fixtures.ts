@@ -720,6 +720,19 @@ function analyticsFixture() {
       follower_series: index === 0 ? followerSeries : [],
       last_synced_at: "2026-08-20T14:18:00Z",
     })),
+    // Sample per-account results, so the network profile and account rows have data to compare.
+    performance: connectedAccounts.map((account, index) => ({
+      account_id: account.id,
+      platform: account.platform,
+      username: `@${account.account_username}`,
+      status: "ok",
+      visibility: { value: [3820, 4910, 1260, 690, 1480, 340][index] ?? 0, measured: 3 },
+      engagement: { value: [214, 168, 51, 22, 97, 9][index] ?? 0, measured: 3 },
+      followers: [4120, 1140, 426, 318, 777, 220][index],
+      follower_delta: [91, 31, 12, 8, 13, 2][index],
+      publication_count: [6, 5, 3, 2, 4, 1][index] ?? 0,
+      published: [6, 5, 3, 2, 4, 1][index] ?? 0,
+    })),
     content: [
       {
         reference: {

@@ -360,18 +360,10 @@ test.describe("product screenshot capture", () => {
 
       await page.goto(`/analytics?workspace=${workspace.id}`);
       await expect(page.getByRole("heading", { name: "Analytics", level: 1 })).toBeVisible();
-      await expect(page.getByRole("img", { name: "6.9K", exact: true }).first()).toBeVisible();
-      const dailyViewsChart = page.getByRole("img", { name: "Visibility" });
+      await expect(page.getByTestId("analytics-tile-followers")).toContainText("6.9K");
+      const dailyViewsChart = page.getByRole("group", { name: "Visibility", exact: true });
       await expect(dailyViewsChart).toBeVisible();
-      await expect
-        .poll(() =>
-          page.getByTestId("analytics-chart-scroll").evaluate((viewport) => {
-            const canvas = viewport.firstElementChild;
-            if (!(canvas instanceof HTMLElement) || viewport.clientWidth === 0) return 0;
-            return canvas.getBoundingClientRect().width / viewport.clientWidth;
-          }),
-        )
-        .toBeGreaterThanOrEqual(0.99);
+      await expect(page.getByTestId("analytics-network-profile")).toBeVisible();
       await capture(page, `analytics-${captureScheme}.png`, [
         page.getByRole("heading", { name: "Audience by account" }),
         dailyViewsChart,

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import type { components } from '$lib/api/types';
-import { resolveBuiltInTheme, WebThemeRuntime } from '$lib/themes';
 import AnalyticsAccountComposition from './analytics-account-composition.svelte';
 import '../../routes/layout.css';
 
@@ -28,7 +27,7 @@ function account(
 }
 
 describe('AnalyticsAccountComposition', () => {
-	it('shows follower totals and named accounts, grouping the remaining audience without changing chart geometry between themes', async () => {
+	it('shows follower totals and named accounts, grouping the remaining audience', async () => {
 		const screen = render(AnalyticsAccountComposition, {
 			accounts: [
 				account('Launch', 40, 'https://example.com/launch.png'),
@@ -42,54 +41,29 @@ describe('AnalyticsAccountComposition', () => {
 			formatValue: String,
 			accountLabel: (value) => value.username
 		});
-		const figure = screen.getByRole('figure', { name: 'Audience by account' }).element();
-		if (!(figure instanceof HTMLElement)) throw new Error('Chart is unavailable');
-		await expect.element(screen.getByText('100', { exact: true })).toBeVisible();
-		const values = [...figure.querySelectorAll('dl > div')].map((row) => [
-			row.querySelector('dt span.truncate')?.textContent?.trim(),
-			row.querySelector('dd')?.textContent?.trim()
+		const group = screen.getByRole('group', { name: 'Audience by account' });
+		const chart = group.getByTestId('analytics-composition-chart');
+		await expect.element(chart).toBeVisible();
+		await expect.element(chart.getByText('100', { exact: true })).toBeVisible();
+		const legend = [...chart.element().querySelectorAll('[aria-pressed]')];
+		const cells = (row: Element) => {
+			const spans = [...row.children];
+			const label = row.querySelector('.truncate') ?? spans[1];
+			return [
+				label?.textContent?.trim(),
+				spans.at(-2)?.textContent?.trim(),
+				spans.at(-1)?.textContent?.trim()
+			];
+		};
+		expect(legend.map(cells)).toEqual([
+			['Launch', '40', '40%'],
+			['Journal', '30', '30%'],
+			['Notes', '20', '20%'],
+			['Studio', '5', '5%'],
+			['Other accounts', '5', '5%']
 		]);
-		expect(values).toEqual([
-			['Launch', '40'],
-			['Journal', '30'],
-			['Notes', '20'],
-			['Studio', '5'],
-			['Other accounts', '5']
-		]);
-		const legendRows = [...figure.querySelectorAll('dl > div')];
-		const launchRow = legendRows[0];
-		expect(launchRow.querySelector('img[src="https://example.com/launch.png"]')).not.toBeNull();
-		expect(
-			launchRow.querySelector('span[style*="--chart-1"]') ??
-				launchRow.querySelector('[style*="--chart"]')
-		).not.toBeNull();
-		const rings = [...figure.querySelectorAll<SVGCircleElement>('[data-chart-ring]')];
-		const geometry = () =>
-			rings.map((ring) => ring.parentElement?.getAttribute('stroke-dasharray'));
-		const original = geometry();
-		const runtime = new WebThemeRuntime({
-			stageFonts: async () => ({ release: () => undefined }),
-			loadAssets: async () => undefined,
-			loadIconPack: async () => undefined,
-			setBrowserSurface: () => () => undefined
-		});
-		try {
-			await runtime.apply(resolveBuiltInTheme('dither', 'light'), figure);
-			const texture = figure.querySelector('[data-dither-ring]');
-			if (!(texture instanceof SVGElement)) throw new Error('Audience chart is unavailable');
-			expect(getComputedStyle(texture).maskImage).toContain('data:image/svg+xml');
-			expect(rings.map((ring) => getComputedStyle(ring).maskImage)).toEqual(Array(5).fill('none'));
-
-			expect(geometry()).toEqual(original);
-			expect(new Set(rings.map((ring) => getComputedStyle(ring).stroke)).size).toBe(5);
-			await runtime.apply(resolveBuiltInTheme('workshop', 'dark'), figure);
-			expect(getComputedStyle(texture).maskImage).toBe('none');
-			expect(rings.map((ring) => getComputedStyle(ring).maskImage)).toEqual(Array(5).fill('none'));
-			expect(geometry()).toEqual(original);
-			await expect.element(screen.getByText('100', { exact: true })).toBeVisible();
-		} finally {
-			runtime.clear(figure);
-		}
+		expect(legend[0]?.querySelector('img[src="https://example.com/launch.png"]')).not.toBeNull();
+		expect(legend[4]?.querySelector('img')).toBeNull();
 	});
 
 	it('explains an empty audience without fabricating chart values', async () => {
@@ -99,6 +73,6 @@ describe('AnalyticsAccountComposition', () => {
 			accountLabel: (value) => value.username
 		});
 		await expect.element(screen.getByText('No audience to display yet.')).toBeVisible();
-		expect(screen.getByRole('figure').element().querySelector('svg')).toBeNull();
+		expect(screen.getByRole('group').element().querySelector('svg')).toBeNull();
 	});
 });

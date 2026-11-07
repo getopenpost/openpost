@@ -113,7 +113,7 @@
 		"@tanstack/table-core": "^8.21.3",
 		"@xyflow/svelte": "1.7.1",
 		"ai-music-js": "0.5.0",
-		"bits-ui": "2.20.4",
+		"bits-ui": "2.19.0",
 		"canvas-confetti": "^1.9.4",
 		"cuelume": "0.2.8",
 		"fabric": "7.4.0",

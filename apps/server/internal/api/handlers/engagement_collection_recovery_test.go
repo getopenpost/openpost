@@ -44,7 +44,7 @@ func TestThreadsEngagementRefreshRequiresReplyReadGrant(t *testing.T) {
 	_, err = db.NewInsert().Model(rendition).Exec(t.Context())
 	require.NoError(t, err)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewEngagementMessagingHandler(testAuthenticator{}, nil, svc).RegisterRoutes(api)
 	srv := &commentsTestServer{echo: e, db: db}
 	refresh := srv.request(t, http.MethodPost, "/api/v1/engagement/refresh", map[string]string{"workspace_id": "ws-1"})
@@ -107,7 +107,7 @@ func TestEngagementCollectionPreservesProviderTimestamps(t *testing.T) {
 				require.NoError(t, err)
 			}
 			e := echo.New()
-			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 			NewEngagementMessagingHandler(testAuthenticator{}, nil, svc).RegisterRoutes(api)
 			srv := &commentsTestServer{echo: e, db: db}
 			for range 2 {
@@ -149,7 +149,7 @@ func TestEngagementRefreshReportsPersistedFailuresAndClearsRecoveredTargets(t *t
 		svc.SetProvider(name, p)
 	}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewEngagementMessagingHandler(testAuthenticator{}, nil, svc).RegisterRoutes(api)
 	srv := &commentsTestServer{echo: e, db: db}
 	var logs bytes.Buffer

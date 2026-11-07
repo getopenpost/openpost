@@ -42,7 +42,7 @@ func TestPublicationMediaSettingsPersistAsObjects(t *testing.T) {
 			if transport == "mcp" {
 				mcpRequireToolSuccess(t, srv, "issue342-create", "create_post", body)
 			} else {
-				api := humaecho.NewWithGroup(srv.echo, srv.echo.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+				api := humaecho.NewV4WithGroup(srv.echo, srv.echo.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 				NewPublicationHandler(srv.db, testAuthenticator{}, nil).RegisterRoutes(api)
 				data, err := json.Marshal(body)
 				require.NoError(t, err)

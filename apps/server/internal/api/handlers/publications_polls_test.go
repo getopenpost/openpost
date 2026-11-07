@@ -22,7 +22,7 @@ func TestPublicationSharedPollPersistsExplicitDestinationVersions(t *testing.T) 
 	seedHandlerAccount(t, db, "bsky-account", "bluesky")
 	seedHandlerAccount(t, db, "legacy-account", "x")
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	h := NewPublicationHandler(db, testAuthenticator{}, nil)
 	h.RegisterRoutes(api)
 	send := func(method, path string, body any) *httptest.ResponseRecorder {

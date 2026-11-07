@@ -96,7 +96,7 @@ func newMCPOAuthTestServer(t *testing.T) *mcpOAuthTestServer {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	tokenService := apitokens.NewService(db)
 	authenticator := mcpOAuthTestAuthenticator{tokens: tokenService}
 	oauthService := mcpoauth.NewService(db, tokenService)
@@ -222,7 +222,7 @@ func TestOAuthDynamicClientRegistrationIsPolicyControlled(t *testing.T) {
 		(*models.ExternalApplication)(nil),
 	)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	tokens := apitokens.NewService(db)
 	external := externalapps.NewService(db, tokens, "https://app.openpost.test")
 	handler := NewMCPOAuthHandler(mcpoauth.NewService(db, tokens), mcpOAuthTestAuthenticator{tokens: tokens}, "https://app.openpost.test")

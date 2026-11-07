@@ -71,7 +71,7 @@ func newOwnershipHandlerTestWithReauth(t *testing.T, reauthAvailable bool) (*ech
 	}
 	service := organizationownership.NewService(db, nil, reauthService)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	NewOrganizationOwnershipHandler(service, auth).RegisterRoutes(api)
 	return e, service, reauth, db
 }

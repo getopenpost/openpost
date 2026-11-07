@@ -43,7 +43,7 @@ func TestOIDCSignupRequiresTheHostedPurchaseChoiceBeforeRedirecting(t *testing.T
 	authHandler := NewAuthHandler(nil, auth.NewService("oidc-choice-secret"), nil, nil, nil, false)
 	authHandler.SetPurchaseChoices(choiceService, true)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewOIDCHandler(nil, authHandler, nil).registerPublicRoutes(api)
 
 	missing := jsonRequest(
@@ -168,7 +168,7 @@ func TestPasswordReauthenticationRejectsPasswordDisabledByRequiredSSO(t *testing
 	require.False(t, profile.PasswordUsable, "required SSO disables password step-up")
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewOIDCHandler(identityService, authHandler, passwordReauthTestAuthenticator{}).RegisterRoutes(api)
 
 	response := jsonRequest(t, e, http.MethodPost, "/api/v1/auth/reauth/password", map[string]string{
@@ -219,7 +219,7 @@ func TestLinkedIdentitiesExposeProviderActivityWithoutHidingDisabledLinks(t *tes
 	identityService := identity.NewService(db, nil, identity.Config{})
 	authHandler.SetIdentityService(identityService)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewOIDCHandler(identityService, authHandler, passwordReauthTestAuthenticator{}).RegisterRoutes(api)
 
 	response := jsonRequest(t, e, http.MethodGet, "/api/v1/auth/oidc/identities", nil, "web-token")
@@ -242,7 +242,7 @@ func TestOIDCPolicyContractOnlyAdvertisesSupportedAPITokenModes(t *testing.T) {
 	authHandler := NewAuthHandler(db, authService, authenticator, nil, nil, false)
 	identityService := identity.NewService(db, nil, identity.Config{})
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewOIDCHandler(identityService, authHandler, authenticator).registerAdministrationRoutes(api)
 
 	for _, schemaName := range []string{"OIDCPolicyInputBody", "Policy"} {
@@ -272,7 +272,7 @@ func TestOrganizationSSOEmptyListsRemainReadable(t *testing.T) {
 	authenticator := passwordReauthTestAuthenticator{}
 	authHandler := NewAuthHandler(db, auth.NewService("empty-sso-list-test"), authenticator, nil, nil, false)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewOIDCHandler(identity.NewService(db, nil, identity.Config{}), authHandler, authenticator).registerAdministrationRoutes(api)
 	for _, path := range []string{"sso-domains", "identity-audit-events"} {
 		t.Run(path, func(t *testing.T) {

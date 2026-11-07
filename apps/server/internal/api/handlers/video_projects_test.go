@@ -644,7 +644,7 @@ func videoProjectTestServerWithDB(t testing.TB, db *bun.DB) *videoProjectTestSer
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewVideoProjectHandler(db, videoProjectTestAuthenticator{}, nil).RegisterRoutes(api)
 	return &videoProjectTestServer{echo: e, db: db}
 }

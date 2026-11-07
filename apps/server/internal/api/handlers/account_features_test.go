@@ -70,7 +70,7 @@ func newAccountFeaturesTestServer(t *testing.T, providers map[string]platform.Ad
 	}
 	svc := accountfeatures.NewService(db, providers, nil)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewAccountFeaturesHandler(svc, testAuthenticator{})
 	handler.ReadFeatures(api)
 	handler.SaveFeatures(api)
@@ -299,7 +299,7 @@ func TestAccountFeaturesAuthViewerAndCrossWorkspace(t *testing.T) {
 	require.NoError(t, err)
 	svc := accountfeatures.NewService(db, providers, nil)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewAccountFeaturesHandler(svc, testAuthenticator{})
 	handler.ReadFeatures(api)
 	handler.SaveFeatures(api)

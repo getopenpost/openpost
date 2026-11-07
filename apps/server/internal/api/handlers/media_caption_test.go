@@ -106,7 +106,7 @@ func newMediaCaptionTestServer(t *testing.T, captioner imagecaption.Captioner) *
 		"image-1.png":    []byte("original-image-must-not-be-opened"),
 	}}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewMediaHandler(db, storage, nil, testAuthenticator{}, nil)
 	handler.RegisterImageCaptionRoutes(api, captioner)
 

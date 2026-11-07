@@ -74,7 +74,7 @@ func TestRequiredSSOWorkspaceEnumerationUsesCredentialAccess(t *testing.T) {
 		},
 	}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	publicationHandler := NewPublicationHandler(db, authenticator, nil)
 	publicationHandler.RegisterRoutes(api)
 	requestPublications := func(token, path string) *httptest.ResponseRecorder {

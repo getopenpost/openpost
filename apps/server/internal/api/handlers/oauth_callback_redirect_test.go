@@ -226,7 +226,7 @@ func TestXOAuthCallbackDenialPreservesWorkspaceScope(t *testing.T) {
 	xAdapter := platform.NewXAdapter("client-id", "client-secret", "https://app.openpost.test/api/v1/accounts/x/callback")
 	xAdapter.SetRequestStore(newXRequestStore(db, crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")))
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewOAuthHandler(db, crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"), map[string]platform.Adapter{
 		"x": xAdapter,
 	}, testAuthenticator{}, false, "https://app.openpost.test")
@@ -260,7 +260,7 @@ func newOAuthCallbackRedirectTestServer(t *testing.T, providerName string, adapt
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	providerKey := providerName
 	providerConfig := platform.AppConfig{Provider: providerName, ClientID: providerName + "-app"}
 	authParams := url.Values{"workspace_id": {"ws-1"}}

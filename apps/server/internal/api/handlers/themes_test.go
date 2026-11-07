@@ -623,7 +623,7 @@ func newThemeTestServer(t *testing.T) (*echo.Echo, *bun.DB, huma.API) {
 		require.NoError(t, err)
 	}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	storage := mediastore.NewLocalStorage(t.TempDir(), "/theme-assets")
 	NewThemeHandler(db, themeTestAuthenticator{}, storage).RegisterRoutes(api)
 	return e, db, api

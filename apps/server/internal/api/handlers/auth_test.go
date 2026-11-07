@@ -37,7 +37,7 @@ func TestHostedRegistrationRequiresAValidPurchaseChoice(t *testing.T) {
 	recorder := &telemetry.MemoryRecorder{}
 	handler.SetTelemetry(recorder)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.Register(api)
 
 	missing := jsonRequest(t, e, http.MethodPost, "/api/v1/auth/register", map[string]any{
@@ -208,7 +208,7 @@ func TestAuthHandlerListsAndRevokesSessions(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewAuthHandler(
 		db,
 		authService,
@@ -262,7 +262,7 @@ func TestAuthSessionStateReturns503WhenAuthenticationIsUnavailable(t *testing.T)
 
 	db := createHandlerTestDB(t, (*models.User)(nil))
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewAuthHandler(
 		db,
 		nil,

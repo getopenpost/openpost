@@ -62,7 +62,7 @@ func TestPublicationCalendarPreservesAuthoredScheduleAndPublishedOccurrence(t *t
 			_, err = db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin}).Exec(ctx)
 			require.NoError(t, err)
 			e := echo.New()
-			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 			NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 			var got []string
 			for offset := 0; offset < 6; offset += 2 {

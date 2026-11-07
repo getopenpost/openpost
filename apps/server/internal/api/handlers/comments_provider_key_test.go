@@ -74,7 +74,7 @@ func newFederatedCommentsTestDB(t *testing.T) (*bun.DB, map[string]platform.Adap
 func TestListRenditionCommentsUsesInstanceSpecificProvider(t *testing.T) {
 	db, providers, encryptor := newFederatedCommentsTestDB(t)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewCommentHandler(db, testAuthenticator{}, providers, encryptor)
 	handler.SetFeatureGate(alwaysEnabledCommentsGate{})
 	handler.RegisterRoutes(api)
@@ -98,7 +98,7 @@ func TestListRenditionCommentsUsesInstanceSpecificProvider(t *testing.T) {
 func TestReplyToCommentUsesInstanceSpecificProvider(t *testing.T) {
 	db, providers, encryptor := newFederatedCommentsTestDB(t)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewCommentHandler(db, testAuthenticator{}, providers, encryptor)
 	handler.SetFeatureGate(alwaysEnabledCommentsGate{})
 	handler.RegisterRoutes(api)

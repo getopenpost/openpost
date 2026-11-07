@@ -64,7 +64,7 @@ func TestTOTPRecoveryCodeLifecycle(t *testing.T) {
 		false,
 	)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.Login(api)
 	handler.VerifyRecoveryCodeLogin(api)
 	handler.BeginTOTPSetup(api)

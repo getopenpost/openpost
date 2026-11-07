@@ -74,7 +74,7 @@ func newJobsTestServerWithAuthenticator(t *testing.T, authenticator middleware.A
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewJobHandler(db, authenticator).RegisterRoutes(api)
 	return &jobsTestServer{echo: e, db: db}
 }

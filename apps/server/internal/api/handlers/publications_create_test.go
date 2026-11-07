@@ -76,7 +76,7 @@ func TestCreatePublicationIdempotencyReplaysConflictsAndIsolatesTokens(t *testin
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationHandler(db, publicationAPITokenAuthenticator{}, nil).RegisterRoutes(api)
 	body := `{"workspace_id":"workspace-1","title":"Original title","content_profile":"short_text","source_text":"Hello"}`
 	create := func(token, key, requestBody string) *httptest.ResponseRecorder {
@@ -154,7 +154,7 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 
 	create := func(t *testing.T, body string) PublicationResponse {
@@ -425,7 +425,7 @@ func TestDeletePublicationRequiresConfirmationAndRevision(t *testing.T) {
 			require.NoError(t, err)
 
 			e := echo.New()
-			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 			NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 
 			unconfirmed := httptest.NewRequestWithContext(

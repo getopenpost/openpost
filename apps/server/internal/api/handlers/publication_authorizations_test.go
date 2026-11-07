@@ -49,7 +49,7 @@ func TestRESTPublicationAuthorizationCapturesBrowserAPIAndCLIActors(t *testing.T
 			db := newPublicationAuthorizationHandlerDB(t)
 			seedPublicationAuthorizationHandlerFixture(t, db)
 			e := echo.New()
-			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 			handler := newReadyPublicationHandler(t, db, publicationAuthorizationAuthenticator{test.token: test.principal})
 			handler.RegisterRoutes(api)
 			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost,

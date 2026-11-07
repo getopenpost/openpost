@@ -49,7 +49,7 @@ func TestWorkflowHTTPPreviewAndLiveDraftApproval(t *testing.T) {
 	publications := NewPublicationHandler(db, workflowSession{}, nil)
 	service := workflows.NewService(db, NewWorkflowActions(publications, nil, nil), nil)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	NewWorkflowHandler(service, workflowSession{}).RegisterRoutes(api)
 	request := func(method, path string, body any, code int) []byte {
 		data, err := json.Marshal(body)
@@ -229,7 +229,7 @@ func TestPostCreatedSourceHTTPReportsCreationWithoutPublicationTime(t *testing.T
 	require.NoError(t, err)
 	service := workflows.NewService(db, nil, nil)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	NewWorkflowHandler(service, workflowSession{}).RegisterRoutes(api)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/workflow-sources/sample?workspace_id=ws", bytes.NewBufferString(`{"kind":"publication_created"}`))
 	req.Header.Set("Authorization", "Bearer session")

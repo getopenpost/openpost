@@ -34,7 +34,7 @@ func TestMiddlewareAuthenticatesAndProvisionsAProxyUserOnce(t *testing.T) {
 		SharedSecret:  testProxySecret,
 		WorkspaceName: "OpenPost",
 	}))
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handlers.NewAppBootstrapHandler(
 		db,
 		apimiddleware.NewJWTAuthenticator(authService),

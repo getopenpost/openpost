@@ -47,7 +47,7 @@ func TestHostedWaitlistPersistsOnceAndRetriesDiscordWithoutCreatingAnAccount(t *
 	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
 	handler.SetWaitlist(service)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.JoinWaitlist(api)
 	handler.Register(api)
 	handler.Configuration(api)

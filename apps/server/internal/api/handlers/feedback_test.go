@@ -25,7 +25,7 @@ func (feedbackTestDestination) Deliver(context.Context, feedback.Report) error {
 func TestFeedbackHandlerRequiresAuthenticationAndConfiguredDestination(t *testing.T) {
 	e := echo.New()
 	group := e.Group("/api/v1")
-	api := humaecho.NewWithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
 	NewFeedbackHandler(feedback.NewService(nil, feedback.Config{
 		SupportURL: "https://github.com/getopenpost/openpost/issues/new",
 	}, nil), testAuthenticator{}).RegisterRoutes(api)
@@ -71,7 +71,7 @@ func TestFeedbackHandlerQueuesOptionalReportAndRateLimits(t *testing.T) {
 	}, feedbackTestDestination{})
 	e := echo.New()
 	group := e.Group("/api/v1")
-	api := humaecho.NewWithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
 	NewFeedbackHandler(service, testAuthenticator{}).RegisterRoutes(api)
 
 	for attempt := 0; attempt < feedbackRateLimit; attempt++ {
@@ -120,7 +120,7 @@ func TestFeedbackHandlerQueuesOptionalReportAndRateLimits(t *testing.T) {
 func TestFeedbackBodyLimitRejectsOversizedReportsBeforeDecoding(t *testing.T) {
 	e := echo.New()
 	group := e.Group("/api/v1")
-	api := humaecho.NewWithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
 	NewFeedbackHandler(feedback.NewService(nil, feedback.Config{
 		SupportURL: "https://github.com/getopenpost/openpost/issues/new",
 	}, nil), testAuthenticator{}).RegisterRoutes(api)

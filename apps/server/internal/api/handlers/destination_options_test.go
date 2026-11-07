@@ -73,7 +73,7 @@ func TestDestinationOptionsUsesConnectedAccountAndFreshToken(t *testing.T) {
 	adapter := &destinationOptionsTestAdapter{}
 	tokenSource := &destinationOptionsTokenSource{}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewDestinationOptionsHandler(db, testAuthenticator{}, map[string]platform.Adapter{
 		"youtube": adapter,
 	}, tokenSource).RegisterRoutes(api)
@@ -117,7 +117,7 @@ func TestDestinationOptionsUsesDynamicallyRegisteredInstanceAdapter(t *testing.T
 	adapter := &destinationOptionsTestAdapter{}
 	tokenSource := &destinationOptionsTokenSource{}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewDestinationOptionsHandler(db, testAuthenticator{}, map[string]platform.Adapter{
 		"lemmy": platform.NewLemmyAdapter(""),
 	}, tokenSource)
@@ -163,7 +163,7 @@ func TestThreadsLocationOptionsRequireLocationTaggingScope(t *testing.T) {
 	adapter := &destinationOptionsTestAdapter{}
 	tokenSource := &destinationOptionsTokenSource{}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewDestinationOptionsHandler(db, testAuthenticator{}, map[string]platform.Adapter{
 		"threads": adapter,
 	}, tokenSource).RegisterRoutes(api)
@@ -230,7 +230,7 @@ func TestTelegramPublishingOptionsOnlyExposeTheVerifiedAccountChat(t *testing.T)
 
 	tokenSource := &destinationOptionsTokenSource{}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewDestinationOptionsHandler(db, testAuthenticator{}, nil, tokenSource)
 	handler.SetTelegramChatOptions(telegramservice.NewService(db, nil, "openpost_bot", "secret"))
 	handler.RegisterRoutes(api)

@@ -56,7 +56,7 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 	t.Parallel()
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	mastodonAdapter := providerAvailabilityAdapter{instanceURL: "https://masto.pt"}
 	handler := &OAuthHandler{
 		auth: testAuthenticator{},
@@ -145,7 +145,7 @@ func TestTelegramConnectionAvailabilityFollowsReadiness(t *testing.T) {
 	for _, approved := range []bool{false, true} {
 		t.Run(map[bool]string{false: "review missing", true: "review current"}[approved], func(t *testing.T) {
 			e := echo.New()
-			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 			handler := &OAuthHandler{auth: testAuthenticator{}}
 			handler.readiness = oauthConnectionReadiness(t,
 				&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled, approved: approved},

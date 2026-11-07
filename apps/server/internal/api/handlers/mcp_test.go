@@ -837,7 +837,7 @@ func TestPublicationCreationRESTAndMCPPersistTheSameModesAndCapabilities(t *test
 	require.NoError(t, err)
 
 	restEcho := echo.New()
-	api := humaecho.NewWithGroup(restEcho, restEcho.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(restEcho, restEcho.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationHandler(srv.db, testAuthenticator{}, nil).RegisterRoutes(api)
 	scheduledAt := time.Now().UTC().Add(2 * time.Hour).Truncate(time.Second)
 

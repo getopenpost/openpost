@@ -85,7 +85,7 @@ func TestGetAuthURLRegistersDynamicMastodonInstance(t *testing.T) {
 	defer instanceServer.Close()
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	encryptor := crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")
 	providerCatalog := map[string]platform.Adapter{}
 	handler := NewOAuthHandler(db, encryptor, providerCatalog, testAuthenticator{}, false, "https://app.openpost.test")

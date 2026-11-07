@@ -74,12 +74,9 @@ const (
 	maxMemeThumbnailEntries              = 128
 	maxMemeThumbnailCacheBytes     int64 = 32 * 1024 * 1024
 	maxMemeRequestBytes                  = 32 * 1024
-	// Huma rejects a body when the read count reaches MaxBodyBytes, so the
-	// operation limit is one byte above the inclusive application limit.
-	maxMemeHumaBodyBytes    = maxMemeRequestBytes + 1
-	memeThumbnailTTL        = 12 * time.Hour
-	memeCleanupTimeout      = 10 * time.Second
-	memeRecipeSchemaVersion = 1
+	memeThumbnailTTL                     = 12 * time.Hour
+	memeCleanupTimeout                   = 10 * time.Second
+	memeRecipeSchemaVersion              = 1
 )
 
 // Keep the no-match fallback useful and visually varied. The built-in catalog is
@@ -440,7 +437,7 @@ func (h *MemeHandler) RegisterRoutes(api huma.API) {
 		Path:         "/memes/suggestions",
 		Summary:      "Generate meme template and caption suggestions",
 		Tags:         []string{tagMedia},
-		MaxBodyBytes: maxMemeHumaBodyBytes,
+		MaxBodyBytes: maxMemeRequestBytes,
 		Middlewares:  huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 		Errors:       []int{400, 403, 413, 429, 502, 503},
 	}, h.generateSuggestions)
@@ -470,7 +467,7 @@ func (h *MemeHandler) RegisterRoutes(api huma.API) {
 		Path:         "/memes/preview",
 		Summary:      "Render a meme preview without saving it",
 		Tags:         []string{tagMedia},
-		MaxBodyBytes: maxMemeHumaBodyBytes,
+		MaxBodyBytes: maxMemeRequestBytes,
 		Middlewares:  huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 		Errors:       []int{400, 403, 404, 413, 429, 502, 503},
 	}, h.previewMeme)
@@ -481,7 +478,7 @@ func (h *MemeHandler) RegisterRoutes(api huma.API) {
 		Path:         "/memes/render",
 		Summary:      "Render and save a meme",
 		Tags:         []string{tagMedia},
-		MaxBodyBytes: maxMemeHumaBodyBytes,
+		MaxBodyBytes: maxMemeRequestBytes,
 		Middlewares:  huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 		Errors:       []int{400, 403, 404, 413, 429, 500, 502, 503},
 	}, h.renderMeme)

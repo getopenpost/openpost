@@ -46,7 +46,7 @@ func newNotificationTestServerWithAuthenticator(t *testing.T, auth middleware.Au
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewNotificationHandler(db, auth, notificationservice.NewService(db)).RegisterRoutes(api)
 	return &notificationTestServer{echo: e, db: db}
 }

@@ -62,7 +62,7 @@ type humaAuthTestOutput struct {
 
 func newHumaAuthed(authenticator Authenticator, called *bool) *echo.Echo {
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	huma.Register(api, huma.Operation{
 		OperationID: "middleware-auth-test",
 		Method:      http.MethodGet,
@@ -79,7 +79,7 @@ func newHumaAuthed(authenticator Authenticator, called *bool) *echo.Echo {
 
 func newHumaOptionallyAuthed(authenticator Authenticator, called *bool) *echo.Echo {
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	huma.Register(api, huma.Operation{
 		OperationID: "middleware-optional-auth-test",
 		Method:      http.MethodGet,
@@ -545,7 +545,7 @@ func TestTrustedProxyNetworkAssertions(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			called := false
 			e := echo.New()
-			e.Pre(TrustedProxyMiddleware([]string{tc.prefix}))
+			UseTrustedProxies(e, []string{tc.prefix})
 			e.GET("/", func(c echo.Context) error {
 				called = true
 				require.Equal(t, tc.wantIP, c.RealIP())
@@ -572,7 +572,7 @@ func TestTrustedProxyNetworkAssertions(t *testing.T) {
 			t.Run(header+"/"+peer, func(t *testing.T) {
 				called := false
 				e := echo.New()
-				e.Pre(TrustedProxyMiddleware([]string{"10.0.0.0/24"}))
+				UseTrustedProxies(e, []string{"10.0.0.0/24"})
 				e.GET("/", func(c echo.Context) error {
 					called = true
 					require.Equal(t, "http", c.Scheme())

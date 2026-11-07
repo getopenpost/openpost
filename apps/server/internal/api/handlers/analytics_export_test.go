@@ -63,7 +63,7 @@ func newAnalyticsExportServerWithDB(t *testing.T) (*echo.Echo, *bun.DB) {
 
 	service := analyticsservice.NewService(db, analyticsHandlerTokenSource{})
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAnalyticsHandler(db, testAuthenticator{}, service).RegisterRoutes(api)
 	return e, db
 }

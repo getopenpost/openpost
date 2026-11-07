@@ -26,7 +26,7 @@ func TestPublicationClientReviewIsExplicitAndBlocksPublishing(t *testing.T) {
 	h := srv.handler.publicationHandler()
 	h.auth = testAuthenticator{}
 	apiServer := echo.New()
-	api := humaecho.NewWithGroup(apiServer, apiServer.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(apiServer, apiServer.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	h.RegisterRoutes(api)
 	publication, err := h.publicationApplication().Create(ctx, "user-1", CreatePublicationBody{WorkspaceID: "ws-1", SourceText: "A release backed by our source", SocialAccountIDs: []string{"account-1"}})
 	require.NoError(t, err)
@@ -51,7 +51,7 @@ func TestPublicationClientReviewIsExplicitAndBlocksPublishing(t *testing.T) {
 	submitted = history[0]
 	require.Equal(t, "A release backed by our source", submitted.Snapshot.SourceText)
 	clientServer := echo.New()
-	clientAPI := humaecho.NewWithGroup(clientServer, clientServer.Group("/api/v1"), huma.DefaultConfig("Client", "1"))
+	clientAPI := humaecho.NewV4WithGroup(clientServer, clientServer.Group("/api/v1"), huma.DefaultConfig("Client", "1"))
 	NewPublicationHandler(srv.db, reviewClientAuthenticator{}, nil).RegisterRoutes(clientAPI)
 	decisionPath := "/api/v1/publications/" + publication.ID + "/reviews/" + submitted.ID
 	decisionBody := map[string]any{"expected_epoch": 1, "decision": "approved", "feedback": "Looks correct"}

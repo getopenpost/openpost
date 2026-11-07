@@ -22,7 +22,7 @@ func newDeleteWorkspaceTestServer(t *testing.T) *workspaceTestServer {
 	db := newHandlerSchemaTestDB(t)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	authService := auth.NewService("workspace-delete-test")
 	handler := NewWorkspaceHandler(db, testAuthenticator{}, entitlements.NewSelfHostedService())
 	handler.SetSensitiveActionServices(authService, nil)

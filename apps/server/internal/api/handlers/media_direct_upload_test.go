@@ -278,7 +278,7 @@ func newMediaDirectUploadTestServerWithAuthenticator(
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	usageSvc := usage.NewService(db)
 	handler := NewMediaHandler(db, storage, nil, authenticator, nil)
 	handler.SetUsage(usageSvc)
@@ -1210,7 +1210,7 @@ func TestInvalidSignedUploadRetainsAccountingUntilCapabilityExpiry(t *testing.T)
 	handler := NewMediaHandler(base.db, storage, nil, testAuthenticator{}, nil)
 	handler.SetEntitlement(entitlements.NewStaticService(entitlements.PlanSnapshot{Limits: map[entitlements.LimitKey]int64{entitlements.LimitMediaBytesStored: 13}}))
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Tombstone", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Tombstone", "1"))
 	handler.RegisterRoutes(api)
 	srv := &mediaDirectUploadTestServer{echo: e, db: base.db, storage: storage, handler: handler, usage: usage.NewService(base.db)}
 	mediaID := srv.createUploadSession(t, "copy.png", "image/png", 12)

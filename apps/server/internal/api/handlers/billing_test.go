@@ -225,7 +225,7 @@ func TestPurchaseChoiceEndpointCreatesAndRevalidatesCanonicalChoice(t *testing.T
 	})
 	service.SetNowForTest(func() time.Time { return now })
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewBillingHandler(service).RegisterAPIRoutes(api)
 
 	created := jsonRequest(t, e, http.MethodPost, "/api/v1/billing/purchase-choice", map[string]any{
@@ -306,7 +306,7 @@ func newBillingAPITestServerWithPaddleConfig(t *testing.T, client *billingPaddle
 	service.SetPaddleClientForTest(client)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewBillingHandler(service, db, testAuthenticator{})
 	recorder := &telemetry.MemoryRecorder{}
 	handler.SetTelemetry(recorder)

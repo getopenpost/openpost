@@ -23,7 +23,7 @@ func newDeleteOrganizationTestServer(t *testing.T) *workspaceTestServer {
 	t.Helper()
 	db := newHandlerSchemaTestDB(t)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewWorkspaceHandler(db, workspaceTestAuthenticator{
 		"web-token":       {UserID: "user-1", Email: "owner@example.com"},
 		"workspace-token": {UserID: "user-1", Email: "owner@example.com", TokenID: "scoped", WorkspaceID: "workspace-1", Scope: "cli:full"},

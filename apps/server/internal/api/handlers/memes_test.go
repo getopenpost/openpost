@@ -295,7 +295,7 @@ func newMemeHandlerTestServer(t *testing.T, suggester memegeneration.Suggester) 
 	}
 	e := echo.New()
 	group := e.Group("/api/v1")
-	api := humaecho.NewWithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewMemeHandler(db, testAuthenticator{}, mediaHandler, mediaHandler.publicMedia, provider, suggester)
 	handler.RegisterRoutes(api)
 	return &memeHandlerTestServer{

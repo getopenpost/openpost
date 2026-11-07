@@ -91,7 +91,7 @@ func newMCPActivityCredentialAccessTestServer(
 		(*models.MCPToolCall)(nil),
 	)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewMCPActivityHandler(db, authenticator).RegisterRoutes(api)
 	return &mcpActivityTestServer{echo: e, db: db}
 }

@@ -35,7 +35,7 @@ func TestRepurposeHTTPReviewBoundary(t *testing.T) {
 		require.NoError(t, err)
 	}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("test", "1"))
 	NewRepurposeHandler(repurpose.New(db, repurposeGenerator{}, "fixture"), publicationBuildTestAuthenticator{}).RegisterRoutes(api)
 	invoke := func(method, path, token, body string) *httptest.ResponseRecorder {
 		request := httptest.NewRequestWithContext(t.Context(), method, path, bytes.NewBufferString(body))

@@ -29,7 +29,7 @@ func TestComposerResolvesDestinationMedia(t *testing.T) {
 	_, err = db.NewInsert().Model(&models.MediaAttachment{ID: "image", WorkspaceID: "ws", MimeType: "image/jpeg", Size: 1024, Width: 1080, Height: 1080}).Exec(t.Context())
 	require.NoError(t, err)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	NewCapabilityResolverHandler(db, testAuthenticator{}, nil, nil).RegisterRoutes(api)
 	body := `{"account_ids":["x","threads","instagram"],"segments":[{"id":"segment","content":"Photo"}],"account_segments":{"x":[{"id":"segment","content":"Photo","media":[{"media_id":"image"}]}],"threads":[{"id":"segment","content":"Photo","media":[{"media_id":"image"}]}],"instagram":[{"id":"segment","content":"Photo","media":[{"media_id":"image"}]}]}}`
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/capabilities/resolve", bytes.NewBufferString(body))
@@ -65,7 +65,7 @@ func TestComposerKeepsNativePollSettingsForTextSegmentOfMixedThread(t *testing.T
 	_, err = db.NewInsert().Model(&models.MediaAttachment{ID: "image", WorkspaceID: "ws", MimeType: "image/jpeg", Size: 1024, Width: 1080, Height: 1080}).Exec(t.Context())
 	require.NoError(t, err)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	NewCapabilityResolverHandler(db, testAuthenticator{}, map[string]platform.Adapter{
 		capabilities.ProviderX: xCapabilityResolverAdapter{result: platform.XPublishingCapabilities(platform.XSubscriptionTypePremium)},
 	}, capabilityResolverTokenSource{}).RegisterRoutes(api)

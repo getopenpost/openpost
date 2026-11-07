@@ -95,7 +95,7 @@ func newWorkspaceTestServerWithAuthenticator(t *testing.T, entitlement entitleme
 		(*models.APIToken)(nil),
 	)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewWorkspaceHandler(db, authenticator, entitlement)
 	handler.SetFrontendURL("https://app.openpost.test")
 	recorder := &telemetry.MemoryRecorder{}

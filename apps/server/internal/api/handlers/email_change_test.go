@@ -88,7 +88,7 @@ func TestEmailChangeHandlerVerifiesBeforeReplacingAndNotifiesBothAddresses(t *te
 		"https://openpost.example",
 	)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.RegisterRoutes(api)
 
 	begin := jsonRequest(t, e, "POST", "/api/v1/auth/email-change", map[string]any{
@@ -150,7 +150,7 @@ func TestEmailChangeHandlerUsesGenericConflictAndRequiresRecentReauth(t *testing
 		"",
 	)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.RegisterRoutes(api)
 
 	missingReauth := jsonRequest(t, e, "POST", "/api/v1/auth/email-change", map[string]any{

@@ -19,7 +19,7 @@ type registeredOperation struct {
 
 func TestRESTScopeCatalogMatchesRegisteredHumaOperations(t *testing.T) {
 	e := echo.New()
-	humaAPI := humaecho.NewWithGroup(e, e.Group("/api/v1"), OpenAPIConfig("1.0.0"))
+	humaAPI := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), OpenAPIConfig("1.0.0"))
 	RegisterHumaRoutes(humaAPI, RouteDeps{PublicProfilesEnabled: true})
 
 	raw, err := json.Marshal(humaAPI.OpenAPI())

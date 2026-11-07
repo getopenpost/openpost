@@ -27,7 +27,7 @@ func newSystemTestServer(t *testing.T, storages ...mediastore.BlobStorage) (*ech
 	require.NoError(t, err)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	readiness := NewReadiness()
 	var storage mediastore.BlobStorage
 	if len(storages) > 0 {

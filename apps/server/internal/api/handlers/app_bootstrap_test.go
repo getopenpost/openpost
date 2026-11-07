@@ -24,7 +24,7 @@ func TestAppBootstrapReturnsExplicitAnonymousState(t *testing.T) {
 
 	db := createHandlerTestDB(t, (*models.User)(nil))
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAppBootstrapHandler(db, workspaceTestAuthenticator{
 		"stale-token": {UserID: "missing-user", Email: "missing@example.com", SessionID: "stale-session"},
 	}, AccountPolicy{}, nil).RegisterRoutes(api)
@@ -67,7 +67,7 @@ func TestAppBootstrapFailsClosedWhenAuthenticationIsUnavailable(t *testing.T) {
 
 		db := createHandlerTestDB(t, (*models.User)(nil))
 		e := echo.New()
-		api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+		api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 		NewAppBootstrapHandler(
 			db,
 			appBootstrapErrorAuthenticator{err: context.DeadlineExceeded},
@@ -97,7 +97,7 @@ func TestAppBootstrapFailsClosedWhenAuthenticationIsUnavailable(t *testing.T) {
 			nil,
 		)
 		e := echo.New()
-		api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+		api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 		NewAppBootstrapHandler(db, authenticator, AccountPolicy{}, nil).RegisterRoutes(api)
 
 		invalid := getAppBootstrap(t, e, "/api/v1/app/bootstrap", "op_cli_12345678_not-the-secret")
@@ -131,7 +131,7 @@ func TestAppBootstrapFailsClosedWhenAuthenticationIsUnavailable(t *testing.T) {
 		require.NoError(t, db.Close())
 
 		e := echo.New()
-		api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+		api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 		NewAppBootstrapHandler(db, authenticator, AccountPolicy{}, nil).RegisterRoutes(api)
 		response := getAppBootstrap(t, e, "/api/v1/app/bootstrap", token)
 
@@ -157,7 +157,7 @@ func TestAppBootstrapReturnsAuthenticatedStateWithoutAWorkspace(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAppBootstrapHandler(db, workspaceTestAuthenticator{
 		"valid-token": {UserID: user.ID, Email: user.Email, SessionID: "session-1"},
 	}, AccountPolicy{}, nil).RegisterRoutes(api)
@@ -213,7 +213,7 @@ func TestAppBootstrapReturnsPreferredWorkspaceAndSettings(t *testing.T) {
 		"valid-token": middleware.Principal{UserID: user.ID, Email: user.Email, SessionID: "session-1"},
 	}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAppBootstrapHandler(db, authenticator, AccountPolicy{}, nil).RegisterRoutes(api)
 	req := httptest.NewRequestWithContext(
 		t.Context(),
@@ -283,7 +283,7 @@ func TestAppBootstrapPreservesSSOAndWorkspaceTokenBoundaries(t *testing.T) {
 		},
 	}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAppBootstrapHandler(db, authenticator, AccountPolicy{}, nil).RegisterRoutes(api)
 
 	t.Run("browser discovers required SSO but receives no protected settings", func(t *testing.T) {

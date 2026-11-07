@@ -129,7 +129,7 @@ func newBillingCredentialTestServer(
 	)
 	service := billing.NewService(db, "")
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewBillingHandler(service, db, authenticator)
 	handler.SetUsage(usageservice.NewService(db))
 	handler.RegisterAPIRoutes(api)

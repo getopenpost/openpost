@@ -14,10 +14,6 @@ import (
 const feedbackRateLimit = 5
 const maxFeedbackRequestBytes = 2 << 20
 
-// Huma treats reaching MaxBodyBytes as oversized, so add one byte to keep the
-// application limit inclusive.
-const maxFeedbackHumaBodyBytes = maxFeedbackRequestBytes + 1
-
 type FeedbackHandler struct {
 	service *feedback.Service
 	auth    middleware.Authenticator
@@ -74,7 +70,7 @@ func (h *FeedbackHandler) RegisterRoutes(api huma.API) {
 		Summary:      "Queue a user-approved feedback report",
 		Description:  "Only the message and optional screenshot and diagnostics selected by the user are queued.",
 		Tags:         []string{"Feedback"},
-		MaxBodyBytes: maxFeedbackHumaBodyBytes,
+		MaxBodyBytes: maxFeedbackRequestBytes,
 		Middlewares:  huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 		Errors:       []int{400, 413, 429, 503},
 	}, func(ctx context.Context, input *SubmitFeedbackInput) (*SubmitFeedbackOutput, error) {

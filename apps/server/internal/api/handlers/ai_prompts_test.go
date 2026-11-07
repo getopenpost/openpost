@@ -73,7 +73,7 @@ func newAIPromptTestServer(t *testing.T, isAdmin bool, authenticator middleware.
 	require.NoError(t, err)
 	service := aiprompts.NewService(db, servicecrypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"))
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAIPromptHandler(service, db, authenticator).RegisterRoutes(api)
 	return e
 }

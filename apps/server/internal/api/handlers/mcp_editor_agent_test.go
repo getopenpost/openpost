@@ -98,7 +98,7 @@ func TestFreeEditorAssistantHTTPRejectsRequestsBeforeCallingModel(t *testing.T) 
 			}
 			generator := &editorAssistantSequenceGenerator{responses: []editorAssistantDecision{{Kind: "final", Message: "Should not run"}}}
 			e := echo.New()
-			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 			NewEditorAgentAssistantHandler(db, workflowSession{}, entitlements.NewCloudBootstrapService(), generator, "test-model", "cloud").RegisterRoutes(api)
 			body, _ := json.Marshal(map[string]string{
 				"workspace_id": "ws", "session_id": session.ID, "project_id": "project", "prompt": "Make the title blue",
@@ -190,7 +190,7 @@ func TestHostedEditorAssistantHTTPUsesPaidToolLoopAndAccountsUsage(t *testing.T)
 		{Kind: "final", Message: "The editor is at revision current."},
 	}}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	NewEditorAgentAssistantHandler(db, workflowSession{}, entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), generator, "test-model", "cloud").RegisterRoutes(api)
 	body, _ := json.Marshal(map[string]string{
 		"workspace_id": "ws", "session_id": session.ID, "project_id": "project", "prompt": "Check the editor",

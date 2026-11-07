@@ -73,7 +73,7 @@ func testPostImportsLifecycle(t *testing.T, db *bun.DB) {
 		require.NoError(t, err)
 	}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPostImportHandler(db, postimport.NewService(db, nil), testAuthenticator{}).RegisterRoutes(api)
 	request := func(method, path string, body any) *httptest.ResponseRecorder {
 		var data bytes.Buffer

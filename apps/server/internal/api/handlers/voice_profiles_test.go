@@ -155,7 +155,7 @@ func newVoiceProfilesTestServer(t *testing.T) *voiceProfilesTestServer {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewVoiceProfileHandler(db, testAuthenticator{}).RegisterRoutes(api)
 	return &voiceProfilesTestServer{echo: e, db: db}
 }

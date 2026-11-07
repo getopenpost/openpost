@@ -71,7 +71,7 @@ func TestListPublicationEventsIdentifiesExactDestinationAndMarksOlderOutcomesSup
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationHandler(db, testAuthenticator{}, entitlements.NewSelfHostedService()).RegisterRoutes(api)
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/publications/publication-1/events", nil)
 	req.Header.Set("Authorization", "Bearer web-token")
@@ -202,7 +202,7 @@ func testPublicationEventsPaginatesSafeActorAttributedHistory(t *testing.T, db *
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationHandler(db, testAuthenticator{}, entitlements.NewSelfHostedService()).RegisterRoutes(api)
 	get := func(path string) *httptest.ResponseRecorder {
 		req := httptest.NewRequestWithContext(ctx, http.MethodGet, path, nil)

@@ -281,7 +281,7 @@ func TestCredentialFilteredReadOperationsDeclareAuthorizationErrors(t *testing.T
 
 	db := createHandlerTestDB(t, (*models.Prompt)(nil))
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewWorkspaceHandler(db, testAuthenticator{}).ListOrganizations(api)
 	promptHandler := NewPromptHandler(db, testAuthenticator{})
 	promptHandler.ListPrompts(api)
@@ -381,7 +381,7 @@ func newWorkspaceCredentialAccessTestServer(
 		(*models.APIToken)(nil),
 	)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewWorkspaceHandler(db, authenticator, entitlements.NewSelfHostedService())
 	handler.SetFrontendURL("https://app.openpost.test")
 	handler.ListOrganizations(api)

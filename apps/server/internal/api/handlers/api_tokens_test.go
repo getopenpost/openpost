@@ -44,7 +44,7 @@ func TestAPITokenHandlerCreatesWorkspaceScopedToken(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAPITokenHandler(apitokens.NewService(db), testAuthenticator{}, db).RegisterRoutes(api)
 
 	resp := apiTokenRequest(t, e, map[string]any{
@@ -89,7 +89,7 @@ func TestAPITokenHandlerRejectsMissingNameAndUnsafeExpiry(t *testing.T) {
 	}).Exec(context.Background())
 	require.NoError(t, err)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAPITokenHandler(apitokens.NewService(db), testAuthenticator{}, db).RegisterRoutes(api)
 
 	missingName := apiTokenRequest(t, e, map[string]any{"scope": "api:read"})
@@ -110,7 +110,7 @@ func TestAPITokenHandlerAlignsOmittedNullAndCustomExpiry(t *testing.T) {
 	}).Exec(t.Context())
 	require.NoError(t, err)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAPITokenHandler(apitokens.NewService(db), testAuthenticator{}, db).RegisterRoutes(api)
 
 	before := time.Now().UTC()
@@ -158,7 +158,7 @@ func TestAPITokenHandlerRejectsInaccessibleWorkspaceScope(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAPITokenHandler(apitokens.NewService(db), testAuthenticator{}, db).RegisterRoutes(api)
 
 	resp := apiTokenRequest(t, e, map[string]any{
@@ -196,7 +196,7 @@ func TestAPITokenHandlerScopedCallerCannotMintUnscopedToken(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAPITokenHandler(apitokens.NewService(db), mcpScopeAuthenticator{
 		"scoped-token": {
 			UserID:      "user-1",
@@ -229,7 +229,7 @@ func TestWorkspaceBoundCLITokenRetainsAccountLevelTokenManagement(t *testing.T) 
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAPITokenHandler(apitokens.NewService(db), mcpScopeAuthenticator{
 		"bound-cli-token": {
 			UserID: "user-1", Email: "user@example.com", Scope: apitokens.ScopeCLI,

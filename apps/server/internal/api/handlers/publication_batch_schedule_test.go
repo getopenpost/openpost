@@ -23,7 +23,7 @@ func TestBatchSchedulePreviewIsReadOnlyAndConfirmationReplays(t *testing.T) {
 	h := srv.handler.publicationHandler()
 	h.auth = testAuthenticator{}
 	server := echo.New()
-	api := humaecho.NewWithGroup(server, server.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(server, server.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	h.RegisterRoutes(api)
 	post, err := h.publicationApplication().Create(ctx, "user-1", CreatePublicationBody{WorkspaceID: "ws-1", SourceText: "A factual update", SocialAccountIDs: []string{"account-1"}})
 	require.NoError(t, err)
@@ -79,7 +79,7 @@ func TestBatchPreviewReservesMonthlyCapacityAcrossSelection(t *testing.T) {
 	h := srv.handler.publicationHandler()
 	h.auth = testAuthenticator{}
 	server := echo.New()
-	api := humaecho.NewWithGroup(server, server.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(server, server.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	h.RegisterRoutes(api)
 	ctx := t.Context()
 	ids := make([]string, 0, 2)
@@ -138,7 +138,7 @@ func TestBatchScheduleKeepsSeriesApartAndCommitsOnlyCurrentItems(t *testing.T) {
 	h := srv.handler.publicationHandler()
 	h.auth = testAuthenticator{}
 	server := echo.New()
-	api := humaecho.NewWithGroup(server, server.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(server, server.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	h.RegisterRoutes(api)
 	ctx := t.Context()
 	now := time.Now().UTC()
@@ -185,7 +185,7 @@ func TestBatchPreviewRejectedDraftDoesNotConsumeAvailableDate(t *testing.T) {
 	h := srv.handler.publicationHandler()
 	h.auth = testAuthenticator{}
 	server := echo.New()
-	api := humaecho.NewWithGroup(server, server.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(server, server.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	h.RegisterRoutes(api)
 	ctx := t.Context()
 	invalid, err := h.publicationApplication().Create(ctx, "user-1", CreatePublicationBody{WorkspaceID: "ws-1", SourceText: "Destination-specific timing", SocialAccountIDs: []string{"account-1"}})

@@ -327,7 +327,7 @@ func TestSocialSetDefaultsSnapshotIntoNewPublicationWithoutChangingExistingDraft
 	srv := newMCPTestServer(t)
 	ctx := context.Background()
 	server := echo.New()
-	api := humaecho.NewWithGroup(server, server.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(server, server.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationHandler(srv.db, testAuthenticator{}, nil).RegisterRoutes(api)
 	for _, model := range []any{(*models.SocialSet)(nil), (*models.SocialSetAccount)(nil)} {
 		_, err := srv.db.NewCreateTable().Model(model).IfNotExists().Exec(ctx)
@@ -448,7 +448,7 @@ func newSocialSetsTestServer(t *testing.T) *socialSetsTestServer {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	socialSets := NewSocialSetHandler(db, testAuthenticator{})
 	socialSets.RegisterRoutes(api)
 	return &socialSetsTestServer{echo: e, db: db, socialSets: socialSets}

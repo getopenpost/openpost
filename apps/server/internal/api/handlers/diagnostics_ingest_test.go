@@ -19,7 +19,7 @@ import (
 func newIngestTestAPI(ingester *diagnostics.Ingester) *echo.Echo {
 	e := echo.New()
 	group := e.Group("/api/v1")
-	api := humaecho.NewWithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
 	NewIngestHandler(ingester).RegisterRoutes(api)
 	return e
 }

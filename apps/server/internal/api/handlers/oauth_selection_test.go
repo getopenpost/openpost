@@ -126,7 +126,7 @@ func TestOAuthCallbackCreatesAndCompletesAccountSelection(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	encryptor := crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")
 	adapter := &selectionTestAdapter{}
 	handler := NewOAuthHandler(db, encryptor, map[string]platform.Adapter{
@@ -276,7 +276,7 @@ func TestGetAuthURLRejectsMissingSocialAccountEntitlement(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewOAuthHandler(
 		db,
 		crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"),

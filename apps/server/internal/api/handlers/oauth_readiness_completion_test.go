@@ -206,7 +206,7 @@ func TestOAuthCallbackRechecksReadinessBeforeTokenExchange(t *testing.T) {
 	}))
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.GetAuthURL(api)
 	handler.Callback(api)
 
@@ -281,7 +281,7 @@ func TestOAuthCallbackReprovesCertificationInitiatorRole(t *testing.T) {
 	}))
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.GetAuthURL(api)
 	handler.Callback(api)
 	authURLResp := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/facebook/auth-url?workspace_id=ws-1&intent=certification_test", nil, true)
@@ -370,7 +370,7 @@ func TestMastodonOOBRechecksReadinessAfterTokenExchangeBeforeSave(t *testing.T) 
 	}))
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.ExchangeCode(api)
 	resp := oauthSelectionRequest(t, e, http.MethodPost, "/api/v1/accounts/mastodon/exchange", map[string]string{
 		"workspace_id": "ws-1",
@@ -410,7 +410,7 @@ func TestDelayedOAuthSelectionRechecksAfterProviderCallBeforeSave(t *testing.T) 
 	}))
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.GetAuthURL(api)
 	handler.Callback(api)
 	handler.CompleteAccountSelection(api)

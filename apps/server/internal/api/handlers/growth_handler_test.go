@@ -54,7 +54,7 @@ func newGrowthTestServer(t *testing.T) *growthTestServer {
 	svc.SetProvider("bluesky", &fakeGrowthHandlerAdapter{})
 	svc.SetProvider("mastodon:https://mastodon.example", &fakeGrowthHandlerAdapter{})
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	h := NewGrowthHandler(svc, testAuthenticator{})
 	h.SetFeatureGate(alwaysEnabledGrowthGate{})
 	h.RegisterRoutes(api)

@@ -187,7 +187,7 @@ func TestBotPublicationRESTQueueWorkerPublishesSupportedFormats(t *testing.T) {
 				handler := NewPublicationHandler(db, publicationAuthorizationAuthenticator{"web-token": {UserID: "user-1", SessionID: "session-1"}}, nil)
 				handler.SetProviderReadiness(readiness)
 				e := echo.New()
-				api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Local bot delivery", "1.0.0"))
+				api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Local bot delivery", "1.0.0"))
 				handler.RegisterRoutes(api)
 				request := func(method, path string, payload any) *httptest.ResponseRecorder {
 					body, err := json.Marshal(payload)

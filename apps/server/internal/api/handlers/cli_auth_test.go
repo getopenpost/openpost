@@ -103,7 +103,7 @@ func newCLIAuthTestServerWithAuthenticator(
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	tokenService := apitokens.NewService(db)
 	handler := NewCLIAuthHandler(cliauth.NewService(db, tokenService), authenticator, "https://openpost.test")
 	handler.RegisterRoutes(api)

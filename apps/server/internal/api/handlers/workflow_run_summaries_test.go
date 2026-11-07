@@ -28,7 +28,7 @@ func TestWorkflowRunSummariesKeepPayloadsInAuthorizedDetail(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, service.HandleJob(t.Context(), jobregistry.TypeWorkflowRun, `{"run_id":"`+run.ID+`"}`))
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	NewWorkflowHandler(service, workflowSession{}).RegisterRoutes(api)
 	get := func(path string, status int) []byte {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1"+path, nil)
@@ -65,7 +65,7 @@ func (workflowSummaryScopeSession) AuthenticateBearer(_ context.Context, scope s
 func TestWorkflowRunSummariesAllowReadScopes(t *testing.T) {
 	db := workflowHandlerDB(t)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	NewWorkflowHandler(workflows.NewService(db, nil, nil), workflowSummaryScopeSession{}).RegisterRoutes(api)
 	for _, scope := range []string{apitokens.ScopeAPIRead, apitokens.ScopeAPIWrite, apitokens.ScopeMCP} {
 		for _, path := range []string{"/workflow-runs", "/workflow-run-summaries"} {

@@ -155,7 +155,7 @@ func newInstanceAdminTestServer(
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	authService := auth.NewService("instance-admin-test-secret")
 	handler := NewInstanceAdminHandler(
 		db,

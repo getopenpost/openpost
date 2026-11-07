@@ -19,7 +19,7 @@ import (
 
 func TestImageGenerationRequiresSignInEvenWhenProviderIsUnconfigured(t *testing.T) {
 	e := echo.New()
-	api := humaecho.New(e, huma.DefaultConfig("test", "1"))
+	api := humaecho.NewV4(e, huma.DefaultConfig("test", "1"))
 	NewImageGenerationHandler(nil, publicationBuildTestAuthenticator{}).RegisterRoutes(api)
 	for _, request := range []struct {
 		method string

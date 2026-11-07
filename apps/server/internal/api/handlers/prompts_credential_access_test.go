@@ -156,7 +156,7 @@ func newPromptCredentialTestServer(
 		(*models.Prompt)(nil),
 	)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewPromptHandler(db, authenticator)
 	handler.ListPrompts(api)
 	handler.UpdatePrompt(api)

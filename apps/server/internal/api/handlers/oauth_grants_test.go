@@ -63,7 +63,7 @@ func TestProviderRevocationFailureKeepsTheLocalGrantRetryable(t *testing.T) {
 	adapter := &authorizationRevokingAdapter{err: errors.New("provider unavailable")}
 	handler := NewOAuthHandler(db, encryptor, map[string]platform.Adapter{"pinterest": adapter}, testAuthenticator{}, false, "https://app.openpost.test")
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.RevokeAccountGrant(api)
 
 	response := oauthSelectionRequest(t, e, http.MethodDelete, "/api/v1/accounts/account-1/grant", nil, true)
@@ -132,7 +132,7 @@ func TestDisconnectDestinationAndRevokeSharedGrantHaveDistinctImpact(t *testing.
 	require.NoError(t, tokenmanager.ScheduleGrantRefreshJob(ctx, db, grant.ID, grant.AccessTokenExpiresAt))
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewOAuthHandler(db, crypto.NewTokenEncryptor("test-key"), nil, testAuthenticator{}, false, "https://app.openpost.test")
 	handler.ListAccounts(api)
 	handler.DisconnectAccount(api)
@@ -224,7 +224,7 @@ func TestYouTubeRevocationCommitsBeforeRetryableCleanup(t *testing.T) {
 			adapter := &authorizationRevokingAdapter{}
 			handler := NewOAuthHandler(db, encryptor, map[string]platform.Adapter{"youtube": adapter}, testAuthenticator{}, false, "https://app.openpost.test")
 			e := echo.New()
-			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 			handler.RevokeAccountGrant(api)
 			response := oauthSelectionRequest(t, e, http.MethodDelete, "/api/v1/accounts/revoke-channel/grant", nil, true)
 			require.Equal(t, http.StatusNoContent, response.Code, response.Body.String())

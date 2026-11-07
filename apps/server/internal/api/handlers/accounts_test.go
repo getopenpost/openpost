@@ -286,7 +286,7 @@ func newAccountMetadataTestServerWithDatabase(t *testing.T, adapter platform.Ada
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := &OAuthHandler{
 		db: db, auth: testAuthenticator{}, providers: map[string]platform.Adapter{"x": adapter},
 		tokenSource: accountMetadataTokenSource{},

@@ -34,7 +34,7 @@ func TestMentionLookupHonorsCurrentDelegatedAccountGrantsBeforeProviderIO(t *tes
 	adapter := &mentionLookupTestAdapter{target: posttext.MentionTarget{Provider: "bluesky", Kind: "person", ID: "did:plc:ewvi7nxzyoun6zhxrhs64oiz"}}
 	tokens := &destinationOptionsTokenSource{}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	h := NewDestinationOptionsHandler(db, mentionExternalAuthenticator{}, map[string]platform.Adapter{"bluesky": adapter}, tokens)
 	h.RegisterRoutes(api)
 	invoke := func() *httptest.ResponseRecorder {

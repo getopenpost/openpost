@@ -54,7 +54,7 @@ func TestInstagramLoginCallbackKeepsChosenMethodAndCanonicalAccount(t *testing.T
 		&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled},
 		platform.AppConfig{Provider: "instagram", ConnectionMode: "instagram_login", ClientID: "instagram-app", ClientSecret: "secret", RedirectURI: "https://app.example/callback"}))
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.ListProviders(api)
 	handler.GetAuthURL(api)
 	handler.Callback(api)

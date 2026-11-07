@@ -15,10 +15,6 @@ import (
 // metadata only; anything larger is rejected before decoding.
 const maxDiagnosticsRequestBytes = 64 << 10
 
-// Huma treats reaching MaxBodyBytes as oversized, so add one byte to keep the
-// application limit inclusive.
-const maxDiagnosticsHumaBodyBytes = maxDiagnosticsRequestBytes + 1
-
 // DiagnosticsHandler serves the instance-local diagnostics channel. Browsers
 // report to their own OpenPost instance; the instance administrator owns the
 // reporting switch, and only the sanitized diagnostic envelope may leave the
@@ -105,7 +101,7 @@ func (h *DiagnosticsHandler) RegisterRoutes(api huma.API) {
 		Summary:      "Submit a sanitized diagnostic report to this instance",
 		Description:  "Only the allowlisted diagnostic envelope is accepted. User content, credentials, and request bodies are rejected during validation.",
 		Tags:         []string{"Diagnostics"},
-		MaxBodyBytes: maxDiagnosticsHumaBodyBytes,
+		MaxBodyBytes: maxDiagnosticsRequestBytes,
 		Middlewares:  huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 		Errors:       []int{400, 413, 429},
 	}, func(ctx context.Context, input *SubmitDiagnosticsInput) (*SubmitDiagnosticsOutput, error) {

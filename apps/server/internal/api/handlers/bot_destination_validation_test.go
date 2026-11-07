@@ -26,7 +26,7 @@ func TestDiscordChannelRequirementAtComposerBoundary(t *testing.T) {
 				_, err = db.NewInsert().Model(&models.SocialAccount{ID: "account", WorkspaceID: "ws", Platform: "discord", AccessTokenEnc: []byte("installation-reference"), CapabilityState: `{"connection_type":"` + mode + `"}`, IsActive: true}).Exec(t.Context())
 				require.NoError(t, err)
 				e := echo.New()
-				api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+				api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 				NewCapabilityResolverHandler(db, testAuthenticator{}, nil, nil).RegisterRoutes(api)
 				body := `{"account_ids":["account"],"segments":[{"id":"segment-1","content":"Hello"}],"account_settings":{"account":` + settings + `}}`
 				req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/capabilities/resolve", bytes.NewBufferString(body))
@@ -87,7 +87,7 @@ func TestTelegramComposerCompatibilityDoesNotDuplicateReadinessGate(t *testing.T
 	_, err = db.NewInsert().Model(&models.SocialAccount{ID: "account", WorkspaceID: "ws", Platform: "telegram", AccessTokenEnc: []byte("installation-reference"), IsActive: true}).Exec(t.Context())
 	require.NoError(t, err)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	NewCapabilityResolverHandler(db, testAuthenticator{}, nil, nil).RegisterRoutes(api)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/capabilities/resolve", bytes.NewBufferString(`{"account_ids":["account"],"segments":[{"id":"segment-1","content":"Hello Telegram"}],"account_settings":{"account":{"chat_id":"-100test"}}}`))
 	req.Header.Set("Authorization", "Bearer web-token")

@@ -81,7 +81,7 @@ func newPostBuilderTestServer(t *testing.T, builder postgeneration.Builder) *pos
 	_, err = db.NewInsert().Model(&accounts).Exec(t.Context())
 	require.NoError(t, err)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPostBuilderHandler(db, testAuthenticator{}, builder).RegisterRoutes(api)
 	return &postBuilderTestServer{echo: e, db: db}
 }

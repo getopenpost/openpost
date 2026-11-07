@@ -98,7 +98,7 @@ func TestWorkflowBuilderFailureRetainsNativeResultAndSafeRecovery(t *testing.T) 
 	require.NoError(t, err)
 	require.Zero(t, count)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Builder inspection", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Builder inspection", "1"))
 	NewPublicationBuildHandler(db, workflowBuildReadSession{}, nil).RegisterRoutes(api)
 	for _, check := range []struct {
 		method, path, token string

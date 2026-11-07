@@ -19,7 +19,7 @@ func TestSavedMentionLibraryUsesCurrentWorkspacePermissions(t *testing.T) {
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "ws", UserID: "user-1", Role: models.WorkspaceRoleEditor}).Exec(t.Context())
 	require.NoError(t, err)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	RegisterSavedMentionRoutes(api, db, testAuthenticator{})
 	call := func(method, path string, body any) *httptest.ResponseRecorder {
 		var payload bytes.Buffer

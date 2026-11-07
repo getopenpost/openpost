@@ -90,7 +90,7 @@ func newProviderReadinessAdminTestServer(
 	)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewProviderReadinessAdminHandler(db, authenticator, service).RegisterRoutes(api)
 	return &providerReadinessAdminTestServer{
 		echo: e, db: db, appFingerprint: fingerprint, now: time.Now().UTC().Truncate(time.Second),

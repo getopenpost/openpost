@@ -112,7 +112,7 @@ func TestPublicationApplicationKeepsRESTAndMCPUpdateParity(t *testing.T) {
 	mcpPublication := create("MCP publication")
 
 	restEcho := echo.New()
-	api := humaecho.NewWithGroup(restEcho, restEcho.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(restEcho, restEcho.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.RegisterRoutes(api)
 
 	scheduledAt := time.Now().UTC().Add(3 * time.Hour).Truncate(time.Second)
@@ -462,7 +462,7 @@ func TestPublicationTransportsRejectViewerMutations(t *testing.T) {
 	require.NoError(t, err)
 
 	restEcho := echo.New()
-	api := humaecho.NewWithGroup(restEcho, restEcho.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(restEcho, restEcho.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationHandler(srv.db, testAuthenticator{}, nil).RegisterRoutes(api)
 	restUpdate := publicationApplicationRequest(ctx, t, restEcho, http.MethodPut, "/api/v1/publications/"+publicationID, map[string]any{
 		"expected_revision": 1,

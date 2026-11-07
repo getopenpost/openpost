@@ -979,7 +979,7 @@ func TestImageEditorRemoveCheckpointPreservesDesignAndOtherVersions(t *testing.T
 	}
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.RegisterRoutes(api)
 	for _, guard := range []struct {
 		token  string

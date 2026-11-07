@@ -4,7 +4,7 @@
 FROM frontend_artifact AS frontend-builder
 
 # Build stage for backend
-FROM docker.io/library/golang:1.26.10-alpine@sha256:9ce231b28998b32e116927c61aa5c406183061d4f3f2d61b292c88e7f6bdf7ca AS backend-builder
+FROM docker.io/library/golang:1.27.3-alpine@sha256:fa3d596898d9f126af7c01d14ee7597bab3f39cccf392ef36b69fe77cd681f18 AS backend-builder
 
 ARG VERSION=dev
 ARG COMMIT=unknown
@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     cd apps/server && CGO_ENABLED=1 GOOS=linux go build -buildvcs=false -ldflags="-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" -o openpost ./cmd/openpost
 
 # Runtime stage.
-FROM docker.io/library/alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS runtime
+FROM docker.io/library/alpine:3.24.4@sha256:93b41ef40b1677fce8fcc64ff4af09daddfacf5040afde618bc46c1e2d1cc7d4 AS runtime
 
 ARG VERSION=dev
 ARG COMMIT=unknown

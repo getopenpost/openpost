@@ -26,7 +26,7 @@ func TestSavedMentionProjectionRoundTripDoesNotBecomeAnAuthoredOverride(t *testi
 				require.NoError(t, err)
 				seedHandlerAccount(t, db, "x", "x")
 				e := echo.New()
-				api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+				api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 				NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 				call := func(method, path string, body any) *httptest.ResponseRecorder {
 					data, err := json.Marshal(body)
@@ -68,7 +68,7 @@ func TestPublicationMentionIdentitySurvivesLegacyEditsAndCountsInRevisions(t *te
 	require.NoError(t, err)
 	seedHandlerAccount(t, db, "bsky", "bluesky")
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 	send := func(method, path string, body any) *httptest.ResponseRecorder {
 		data, err := json.Marshal(body)
@@ -217,7 +217,7 @@ func TestPublicationMentionValidationSeparatesMetadataFromProviderSettings(t *te
 				profile, output = models.ContentProfileShortText, "linkedin.post"
 			}
 			e := echo.New()
-			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 			NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 			send := func(path string, body any) *httptest.ResponseRecorder {
 				data, err := json.Marshal(body)

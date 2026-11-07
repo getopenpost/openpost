@@ -489,7 +489,7 @@ func TestPublicationBuildCommitHandsReadyPackageToComposerOnce(t *testing.T) {
 func TestPublicationBuildHandlerReturnsUnavailableWithoutApplication(t *testing.T) {
 	server := newPublicationBuildTestServer(t)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationBuildHandler(server.db, publicationBuildTestAuthenticator{}, nil).RegisterRoutes(api)
 
 	request := httptest.NewRequestWithContext(
@@ -617,7 +617,7 @@ func newPublicationBuildTestServer(t *testing.T) *publicationBuildTestServer {
 	})
 	require.NoError(t, err)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewPublicationBuildHandler(db, publicationBuildTestAuthenticator{}, application)
 	handler.now = func() time.Time { return now }
 	handler.RegisterRoutes(api)

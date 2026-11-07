@@ -93,7 +93,7 @@ func TestUpdateScheduledPublicationReschedulesPublishJob(t *testing.T) {
 	oldReceipt := oldReceipts[0]
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	newReadyPublicationHandler(t, db, testAuthenticator{}).RegisterRoutes(api)
 
 	body := bytes.NewBufferString(`{"expected_revision":1,"scheduled_at":"` + newRunAt.Format(time.RFC3339) + `"}`)
@@ -244,7 +244,7 @@ func TestClearScheduledPublicationCancelsJobAndReturnsToDraft(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	newReadyPublicationHandler(t, db, testAuthenticator{}).RegisterRoutes(api)
 
 	req := httptest.NewRequestWithContext(
@@ -375,7 +375,7 @@ func TestProcessingPrimaryJobBlocksClearAndEditsAcrossRESTAndMCP(t *testing.T) {
 	}
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	newReadyPublicationHandler(t, db, testAuthenticator{}).RegisterRoutes(api)
 	requireHTTPConflict := func(path, body string) {
 		t.Helper()
@@ -465,7 +465,7 @@ func TestReschedulePublicationRejectsNonFutureTimeWithoutReplacingJob(t *testing
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	newReadyPublicationHandler(t, db, testAuthenticator{}).RegisterRoutes(api)
 	body := bytes.NewBufferString(`{"expected_revision":1,"scheduled_at":"` + now.Add(-time.Minute).Format(time.RFC3339) + `"}`)
 	req := httptest.NewRequestWithContext(ctx, http.MethodPut, "/api/v1/publications/publication-1", body)
@@ -518,7 +518,7 @@ func TestClearScheduleCancelsOrphanPendingJobWhenPublicationStatusDrifted(t *tes
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	newReadyPublicationHandler(t, db, testAuthenticator{}).RegisterRoutes(api)
 	req := httptest.NewRequestWithContext(ctx, http.MethodPut, "/api/v1/publications/publication-1", bytes.NewBufferString(`{"expected_revision":1,"clear_schedule":true}`))
 	req.Header.Set("Authorization", "Bearer web-token")
@@ -576,7 +576,7 @@ func TestSchedulePublicationRollsBackJobAndStatesTogether(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	newReadyPublicationHandler(t, db, testAuthenticator{}).RegisterRoutes(api)
 	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/publications/publication-1/schedule", bytes.NewBufferString(`{"expected_revision":1}`))
 	req.Header.Set("Authorization", "Bearer web-token")
@@ -634,7 +634,7 @@ func TestSchedulePublicationReturnsEveryDestinationOutcome(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	newReadyPublicationHandler(t, db, testAuthenticator{}).RegisterRoutes(api)
 	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/publications/publication-outcomes/schedule", bytes.NewBufferString(`{"expected_revision":1}`))
 	req.Header.Set("Authorization", "Bearer web-token")
@@ -772,7 +772,7 @@ func TestPublishedPublicationMutationEndpointsPreserveDeliveryState(t *testing.T
 	}
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	newReadyPublicationHandler(t, db, testAuthenticator{}).RegisterRoutes(api)
 
 	for _, request := range requests {
@@ -856,7 +856,7 @@ func TestPublicationActionsRejectProcessingPrimaryJobAcrossRESTAndMCP(t *testing
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	newReadyPublicationHandler(t, db, testAuthenticator{}).RegisterRoutes(api)
 	for _, action := range []string{"schedule", "publish-now"} {
 		req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/publications/publication-1/"+action, bytes.NewBufferString(`{"expected_revision":1}`))

@@ -64,7 +64,7 @@ func TestTelegramConnectionCodeIsWorkspaceBoundAndReturnedOnlyAtIssuance(t *test
 	telegram := telegramservice.NewService(db, issueCodeBotAPI{}, "openpost_bot", "private-webhook-secret")
 	telegram.SetProviderReadiness(issueCodeReadiness{})
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewTelegramConnectionHandler(db, testAuthenticator{}, ingress, telegram, nil).RegisterRoutes(api)
 
 	payload := bytes.NewBufferString(`{"workspace_id":"workspace-1","expected_chat_id":"-1001"}`)

@@ -30,7 +30,7 @@ func TestHumaConfigDescribesCanonicalBaseAuthenticationAndAutomation(t *testing.
 	t.Parallel()
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), OpenAPIConfig("1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), OpenAPIConfig("1.0.0"))
 	RegisterHumaRoutes(api, RouteDeps{PublicProfilesEnabled: true})
 	FinalizeOpenAPIContract(api)
 	document := api.OpenAPI()
@@ -101,7 +101,7 @@ func TestHumaConfigDescribesCanonicalBaseAuthenticationAndAutomation(t *testing.
 func TestAPIReferenceLoadsItsSchemaFromTheServingInstance(t *testing.T) {
 	t.Parallel()
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), OpenAPIConfig("1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), OpenAPIConfig("1.0.0"))
 	FinalizeOpenAPIContract(api)
 	page := systemGET(t, e, "/api/v1/docs")
 	require.Equal(t, http.StatusOK, page.Code)

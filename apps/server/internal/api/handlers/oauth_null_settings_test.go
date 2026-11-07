@@ -16,7 +16,7 @@ func TestLegacyMessagingUpdateAcceptsNullCapabilityState(t *testing.T) {
 		t.Run(state, func(t *testing.T) {
 			e, handler := newNormServer(t, nil)
 			handler.SetAccountFeaturesService(nil)
-			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 			handler.UpdateAccount(api)
 			_, err := handler.db.NewInsert().Model(&models.SocialAccount{
 				ID: "account-null", WorkspaceID: "ws-1", Platform: "facebook", AccountID: "page-1",

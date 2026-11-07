@@ -98,7 +98,7 @@ func TestResolveCapabilitiesTreatsOmittedSegmentsLikeIdenticalOverrides(t *testi
 
 	run := func(body string) string {
 		e := echo.New()
-		api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+		api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 		NewCapabilityResolverHandler(db, testAuthenticator{}, nil, nil).RegisterRoutes(api)
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/capabilities/resolve", bytes.NewBufferString(body))
 		req.Header.Set("Authorization", "Bearer web-token")
@@ -182,7 +182,7 @@ func TestResolveCapabilitiesMatchesSequentialResponse(t *testing.T) {
 
 	run := func(concurrency int) []byte {
 		e := echo.New()
-		api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+		api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 		handler := NewCapabilityResolverHandler(db, testAuthenticator{}, nil, nil)
 		handler.resolveConcurrency = concurrency
 		handler.RegisterRoutes(api)

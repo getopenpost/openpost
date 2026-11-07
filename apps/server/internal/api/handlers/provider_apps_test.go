@@ -51,7 +51,7 @@ func newProviderAppAdminTestServerWithAuthenticator(
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	encryptor := crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")
 	NewProviderAppHandler(providerapps.NewService(db, encryptor), db, authenticator, options...).RegisterRoutes(api)
 	return &providerAppAdminTestServer{echo: e, db: db, encryptor: encryptor}

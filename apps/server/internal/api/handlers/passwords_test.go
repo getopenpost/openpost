@@ -62,7 +62,7 @@ func TestPasswordResetIsNonEnumeratingSingleUseAndRevokesSessions(t *testing.T) 
 
 	sender := &recordingPasswordSender{}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewAuthHandler(db, authService, nil, nil, nil, false)
 	handler.SetPasswordResetSender(sender, "https://app.openpost.test")
 	handler.RequestPasswordReset(api)
@@ -118,7 +118,7 @@ func TestPasswordResetDeliveryFailureKeepsGenericResponseAndRemovesToken(t *test
 
 	sender := &recordingPasswordSender{err: errors.New("mail server unavailable")}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewAuthHandler(db, authService, nil, nil, nil, false)
 	handler.SetPasswordResetSender(sender, "https://app.openpost.test")
 	handler.RequestPasswordReset(api)
@@ -160,7 +160,7 @@ func TestChangePasswordPreservesCurrentSessionAndRevokesOthers(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewAuthHandler(db, authService, middleware.NewJWTAuthenticatorWithSessions(authService, sessionService), nil, nil, false)
 	handler.ChangePassword(api)
 
@@ -182,7 +182,7 @@ func TestRegistrationRequiresAndPersistsCurrentLegalAcceptance(t *testing.T) {
 	db := createHandlerTestDB(t, (*models.User)(nil), (*models.UserSession)(nil))
 	authService := auth.NewService("test-secret")
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewAuthHandler(db, authService, nil, nil, nil, false)
 	handler.SetSessionService(sessions.NewService(db))
 	handler.SetAccountPolicy(AccountPolicy{
@@ -229,7 +229,7 @@ func TestExistingAccountAcceptedOlderPolicyMustAcceptCurrentPolicy(t *testing.T)
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewAuthHandler(
 		db, authService, middleware.NewJWTAuthenticatorWithSessions(authService, sessionService), nil, nil, false,
 	)

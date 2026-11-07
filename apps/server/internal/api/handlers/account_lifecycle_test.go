@@ -60,7 +60,7 @@ func TestAccountDeletionQueuesObjectCleanupWhenImmediateDeletionFails(t *testing
 	require.NoError(t, err)
 	storage := &accountLifecycleStorage{deleteErr: errors.New("storage unavailable")}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAccountLifecycleHandler(
 		db, authService, middleware.NewJWTAuthenticatorWithSessions(authService, sessionService), storage,
 	).RegisterRoutes(api)
@@ -121,7 +121,7 @@ func TestAccountExportOmitsSecretsAndDeletionRemovesPersonalData(t *testing.T) {
 	storage := &accountLifecycleStorage{}
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAccountLifecycleHandler(
 		db,
 		authService,
@@ -272,7 +272,7 @@ func TestAccountDeletionTransfersSharedOrganizationAndPreservesTeamContent(t *te
 	require.NoError(t, err)
 	storage := &accountLifecycleStorage{}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAccountLifecycleHandler(
 		db, authService, middleware.NewJWTAuthenticatorWithSessions(authService, sessionService), storage,
 	).RegisterRoutes(api)

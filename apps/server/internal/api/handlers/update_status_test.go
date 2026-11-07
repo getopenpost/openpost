@@ -99,7 +99,7 @@ func newUpdateStatusTestServer(t *testing.T, isAdmin bool, authenticator middlew
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	service := updatestatus.NewService(updatestatus.Options{
 		Enabled:        false,
 		RunningVersion: "v1.2.3",

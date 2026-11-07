@@ -23,7 +23,7 @@ func TestUpdatePublicationReordersAndReplacesThreadSegments(t *testing.T) {
 			_, err = db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin}).Exec(t.Context())
 			require.NoError(t, err)
 			e := echo.New()
-			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 			NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 			request := func(method, path string, body any) PublicationResponse {
 				t.Helper()

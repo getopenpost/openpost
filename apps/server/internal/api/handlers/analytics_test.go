@@ -70,7 +70,7 @@ func TestAnalyticsOverviewRejectsStaleCursor(t *testing.T) {
 
 	service := analyticsservice.NewService(db, analyticsHandlerTokenSource{})
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAnalyticsHandler(db, testAuthenticator{}, service).RegisterRoutes(api)
 
 	get := func(query string) *httptest.ResponseRecorder {
@@ -137,7 +137,7 @@ func TestAnalyticsRepurposeRequiresEditorAndKeepsOpaqueReferencesWorkspaceScoped
 	require.NoError(t, err)
 	service := analyticsservice.NewService(db, analyticsHandlerTokenSource{})
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAnalyticsHandler(db, testAuthenticator{}, service).RegisterRoutes(api)
 
 	invoke := func(body string) *httptest.ResponseRecorder {
@@ -204,7 +204,7 @@ func TestAnalyticsOverviewAllowsViewerButRefreshRequiresEditor(t *testing.T) {
 	service := analyticsservice.NewService(db, analyticsHandlerTokenSource{})
 	service.SetProvider("x", analyticsHandlerAdapter{})
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAnalyticsHandler(db, testAuthenticator{}, service).RegisterRoutes(api)
 
 	getRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=ws-1&days=30", nil)
@@ -260,7 +260,7 @@ func TestAnalyticsOverviewFiltersSeveralAccountsAndBindsCursorToTheSet(t *testin
 	}
 	service := analyticsservice.NewService(db, analyticsHandlerTokenSource{})
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewAnalyticsHandler(db, testAuthenticator{}, service).RegisterRoutes(api)
 	get := func(query string) (analyticsservice.Overview, int) {
 		request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/analytics?workspace_id=selected&days=30&sort=visibility&"+query, nil)

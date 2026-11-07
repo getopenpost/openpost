@@ -50,7 +50,7 @@ func TestEmailRegistrationRequiresCodeBeforeIssuingSession(t *testing.T) {
 	handler.SetEmailVerification(verification, sender, true)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.Register(api)
 	handler.Login(api)
 	handler.ConfirmEmailVerification(api)
@@ -123,7 +123,7 @@ func TestEmailVerificationResendRotatesCodeAndReportsDeliveryFailure(t *testing.
 	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
 	handler.SetEmailVerification(verification, sender, true)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.ResendEmailVerification(api)
 
 	response := jsonRequest(t, e, http.MethodPost, "/api/v1/auth/email-verification/resend", map[string]any{

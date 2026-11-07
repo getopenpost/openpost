@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net"
+	"net/http"
 	"net/netip"
 	"strings"
 
@@ -9,9 +10,21 @@ import (
 	"github.com/openpost/backend/internal/netguard"
 )
 
-// TrustedProxyMiddleware removes network assertions from direct clients and
-// resolves forwarded clients from right to left through explicitly trusted hops.
-func TrustedProxyMiddleware(cidrs []string) echo.MiddlewareFunc {
+// UseTrustedProxies removes network assertions from direct clients and
+// resolves forwarded clients from right to left through explicitly trusted
+// hops. The middleware leaves at most one validated client in
+// X-Forwarded-For; the extractor makes c.RealIP() read only that value.
+func UseTrustedProxies(e *echo.Echo, cidrs []string) {
+	e.Pre(trustedProxyMiddleware(cidrs))
+	e.IPExtractor = func(req *http.Request) string {
+		if client := req.Header.Get("X-Forwarded-For"); client != "" {
+			return client
+		}
+		return echo.ExtractIPDirect()(req)
+	}
+}
+
+func trustedProxyMiddleware(cidrs []string) echo.MiddlewareFunc {
 	prefixes := make([]netip.Prefix, 0, len(cidrs))
 	for _, cidr := range cidrs {
 		if prefix, err := netguard.ParseTrustedProxyPrefix(cidr); err == nil {

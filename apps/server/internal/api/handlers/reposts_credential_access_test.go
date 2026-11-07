@@ -261,7 +261,7 @@ func newRepostCredentialTestServer(
 	service := repostservice.NewService(db, nil)
 	service.SetProvider("x", &repostCredentialAdapter{})
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewRepostHandler(db, service, authenticator).RegisterRoutes(api)
 	return &repostCredentialTestServer{echo: e, db: db}
 }

@@ -252,7 +252,7 @@ func main() {
 	}
 	readiness := apiroutes.NewReadiness()
 	e := echo.New()
-	e.Pre(apimiddleware.TrustedProxyMiddleware(cfg.TrustedProxyCIDRs))
+	apimiddleware.UseTrustedProxies(e, cfg.TrustedProxyCIDRs)
 	e.Server.ReadHeaderTimeout = 15 * time.Second
 	e.Server.IdleTimeout = 60 * time.Second
 	e.Use(echo.WrapMiddleware(telemetryRecorder.WrapHTTP))
@@ -904,7 +904,7 @@ func main() {
 
 	apiGroup := e.Group("/api/v1")
 	humaConfig := apiroutes.OpenAPIConfig("1.0.0")
-	api := humaecho.NewWithGroup(e, apiGroup, humaConfig)
+	api := humaecho.NewV4WithGroup(e, apiGroup, humaConfig)
 	registerMetaInbox(e, inboxIngress, providerAppConfigs)
 	handlers.NewXMessagingHandler(authenticator, xMessagingService).RegisterWebhook(e)
 	if telegramConnectionService != nil {

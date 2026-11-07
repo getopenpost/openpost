@@ -41,7 +41,7 @@ func newNormServer(t *testing.T, providers map[string]platform.Adapter) (*echo.E
 		providers = map[string]platform.Adapter{}
 	}
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	enc := crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")
 	handler := NewOAuthHandler(db, enc, providers, testAuthenticator{}, false, "https://app.openpost.test")
 	af := accountfeatures.NewService(db, providers, nil)

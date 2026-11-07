@@ -25,7 +25,7 @@ func TestTelemetryObserverCountsRESTMutationResponses(t *testing.T) {
 			recorder := &telemetry.MemoryRecorder{}
 			e := echo.New()
 			e.Use(observeHTTPFailures(recorder, nil))
-			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 			huma.Register(api, huma.Operation{OperationID: "mutation", Method: http.MethodPost, Path: "/publications/{id}", DefaultStatus: status},
 				func(context.Context, *struct {
 					ID string `path:"id"`
@@ -253,7 +253,7 @@ func TestTelemetryObserverCapturesHuma500(t *testing.T) {
 	}))
 	e.Use(observeHTTPFailures(recorder, reporter))
 	installTelemetryErrorHandler(e, recorder, reporter)
-	api := humaecho.New(e, huma.DefaultConfig("Analytics audit", "1"))
+	api := humaecho.NewV4(e, huma.DefaultConfig("Analytics audit", "1"))
 	huma.Register(api, huma.Operation{OperationID: "audit-failure", Method: http.MethodGet, Path: "/audit/failure"},
 		func(context.Context, *struct{}) (*struct{ Body string }, error) {
 			return nil, huma.Error500InternalServerError("fixture failure")

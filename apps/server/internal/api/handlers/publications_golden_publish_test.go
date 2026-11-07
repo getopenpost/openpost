@@ -112,7 +112,7 @@ func testPublicationAPIThroughWorker(t *testing.T, network string) {
 	_, err = db.NewUpdate().Model((*models.OAuthGrant)(nil)).Set("access_token_encrypted = ?", token).Where("provider = ?", network).Exec(t.Context())
 	require.NoError(t, err)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Golden", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Golden", "1.0.0"))
 	handler.RegisterRoutes(api)
 	request := func(method, path, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequestWithContext(t.Context(), method, path, bytes.NewBufferString(body))

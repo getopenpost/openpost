@@ -185,7 +185,7 @@ func TestRetryFailedPublicationRenditionsQueuesOnlyRetryableFailures(t *testing.
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 
 	req := httptest.NewRequestWithContext(
@@ -326,7 +326,7 @@ func TestUpsertPublicationRenditionsPreservesOmittedRenditionsUntilExplicitDelet
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 
 	body := bytes.NewBufferString(`{"expected_revision":1,"renditions":[{"social_account_id":"youtube-account","profile":"short_video","body":"new youtube","title":"New title","description":"New description","settings":{"privacy":"private"}}]}`)
@@ -766,7 +766,7 @@ func TestRetryPublicationRenditionQueuesOnlySafeTransientFailures(t *testing.T) 
 	require.NoError(t, err)
 
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 	retryReq := httptest.NewRequestWithContext(
 		ctx,
@@ -890,7 +890,7 @@ func TestRetryPublicationRenditionPreservesAcceptedWriteIdentityUntilExactTarget
 			require.NoError(t, err)
 
 			e := echo.New()
-			api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 			NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
 			req := httptest.NewRequestWithContext(
 				ctx,

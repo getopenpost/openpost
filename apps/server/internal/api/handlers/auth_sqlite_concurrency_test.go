@@ -55,7 +55,7 @@ func TestRegistrationSurvivesConcurrentSQLiteWriter(t *testing.T) {
 	db.AddQueryHook(hook)
 	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler.Register(api)
 
 	response := jsonRequest(t, e, http.MethodPost, "/api/v1/auth/register", map[string]any{

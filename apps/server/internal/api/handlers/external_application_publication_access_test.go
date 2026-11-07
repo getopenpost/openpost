@@ -66,7 +66,7 @@ func TestExternalApplicationPublicationWritersRequireStoredAccountGrants(t *test
 				_, err = db.NewInsert().Model(&models.ExternalAppAccountGrant{InstallationID: "installation-1", WorkspaceID: "workspace-1", SocialAccountID: "account-2"}).Exec(t.Context())
 				require.NoError(t, err)
 				e := echo.New()
-				api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+				api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 				NewPublicationHandler(db, externalPublicationAuthenticator{}, nil).RegisterRoutes(api)
 				invoke := func() *httptest.ResponseRecorder {
 					req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/publications/publication-1"+tc.path, bytes.NewBufferString(tc.body))

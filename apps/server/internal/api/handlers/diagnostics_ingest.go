@@ -13,10 +13,6 @@ import (
 // metadata only; anything larger is rejected before decoding.
 const maxIngestRequestBytes = 16 << 10
 
-// Huma treats reaching MaxBodyBytes as oversized, so add one byte to keep the
-// application limit inclusive.
-const maxIngestHumaBodyBytes = maxIngestRequestBytes + 1
-
 // IngestHandler serves the official cross-instance diagnostics receiver.
 // Unlike the instance-local report endpoint, this route is unauthenticated:
 // reporting installations have no account on the receiving instance.
@@ -74,7 +70,7 @@ func (h *IngestHandler) RegisterRoutes(api huma.API) {
 		Summary:      "Ingest a cross-instance diagnostic report",
 		Description:  "Public receiver for privacy-limited diagnostic reports sent by OpenPost instances. Strictly validated and quota-limited; accepted reports are forwarded to the maintainer channel.",
 		Tags:         []string{"Diagnostics"},
-		MaxBodyBytes: maxIngestHumaBodyBytes,
+		MaxBodyBytes: maxIngestRequestBytes,
 		Errors:       []int{400, 422, 429, 503},
 	}, func(_ context.Context, input *IngestDiagnosticsInput) (*IngestDiagnosticsOutput, error) {
 		return h.ingest(input)

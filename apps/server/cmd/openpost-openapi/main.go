@@ -12,7 +12,7 @@ import (
 
 func main() {
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), apiroutes.OpenAPIConfig("1.0.0"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), apiroutes.OpenAPIConfig("1.0.0"))
 	apiroutes.RegisterHumaRoutes(api, apiroutes.RouteDeps{})
 	apiroutes.FinalizeOpenAPIContract(api)
 

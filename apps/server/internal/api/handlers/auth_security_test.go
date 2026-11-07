@@ -27,7 +27,7 @@ func TestPasskeyLoginAttemptLimit(t *testing.T) {
 	_, err = db.NewInsert().Model(challenge).Exec(t.Context())
 	require.NoError(t, err)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("test", "1"))
 	handler := NewAuthHandler(db, nil, nil, nil, nil, false)
 	handler.BeginPasskeyLogin(api)
 	for i := 0; i < 11; i++ {
@@ -69,7 +69,7 @@ func TestPasskeyBeginRetryKeepsSameCeremony(t *testing.T) {
 	service, err := mfa.NewService("OpenPost", mfa.RelyingPartyConfig{Name: "OpenPost", ID: "localhost", Origins: []string{"http://localhost"}})
 	require.NoError(t, err)
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("test", "1"))
 	handler := NewAuthHandler(db, nil, nil, nil, service, false)
 	handler.BeginPasskeyLogin(api)
 	var first json.RawMessage
@@ -89,7 +89,7 @@ func TestPasskeyBeginRetryKeepsSameCeremony(t *testing.T) {
 
 func TestAuthLoginRateLimitsAreDeclared(t *testing.T) {
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("test", "1"))
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("test", "1"))
 	h := NewAuthHandler(nil, nil, nil, nil, nil, false)
 	h.Login(api)
 	h.VerifyTOTPLogin(api)

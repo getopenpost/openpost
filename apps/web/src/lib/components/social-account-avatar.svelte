@@ -24,7 +24,12 @@
 		'data-testid': testId
 	}: Props = $props();
 
-	const fallback = $derived(monogramFor(name, handle));
+	const showBadge = $derived(getPlatformKey(platform) !== 'youtube');
+	// At the small size the corner badge covers a second letter, so keep only the first.
+	const fallback = $derived.by(() => {
+		const monogram = monogramFor(name, handle);
+		return size === 'sm' && showBadge ? (Array.from(monogram)[0] ?? monogram) : monogram;
+	});
 
 	let loadedAvatarUrl = $state('');
 	const avatarLoaded = $derived(Boolean(avatarUrl) && loadedAvatarUrl === avatarUrl);
@@ -63,7 +68,7 @@
 			{/if}
 			<Avatar.Fallback class={avatarLoaded ? 'invisible' : ''}>{fallback}</Avatar.Fallback>
 			<!-- YouTube attribution belongs in the adjacent provider label, never a tiny badge. -->
-			{#if getPlatformKey(platform) !== 'youtube'}
+			{#if showBadge}
 				<span
 					class={cn(
 						'absolute -right-0.5 -bottom-0.5 z-10 flex items-center justify-center rounded-full text-white ring-2 ring-background',

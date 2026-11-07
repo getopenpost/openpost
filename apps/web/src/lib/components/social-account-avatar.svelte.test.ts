@@ -12,6 +12,16 @@ describe('social account avatar', () => {
 		expect(screen.container.querySelector('svg')).toBeNull();
 		expect(screen.container.textContent).toContain('CH');
 	});
+	it('keeps a small badged monogram to one letter so the platform badge cannot cover it', () => {
+		const screen = render(SocialAccountAvatar, {
+			name: 'Rodrigo Dias',
+			platform: 'linkedin',
+			size: 'sm'
+		});
+		expect(
+			screen.container.querySelector('[data-slot="avatar-fallback"]')?.textContent?.trim()
+		).toBe('R');
+	});
 	it('loads the provider photo lazily without sending a referrer', async () => {
 		const screen = await render(SocialAccountAvatar, {
 			name: 'Rodrigo',

@@ -18,12 +18,10 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || github.event_name == 'schedule' && 'qualification' || github.ref }}
-  # Superseded feedback can stop. Tags and exhaustive audits stay independent.
+  # Superseded feedback can stop. Tags and nightly audits stay independent.
   cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 env:
-  BUN_VERSION: "1.3.11"
-  NODE_VERSION: "24.19.0"
   GITLEAKS_VERSION: "8.30.1"
   GITLEAKS_LINUX_X64_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
 
@@ -32,12 +30,8 @@ jobs:
     name: Plan affected surfaces
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      actions: read
-      contents: read
     outputs:
       mode: ${{ steps.plan.outputs.mode }}
-      proof_run: ${{ steps.plan.outputs.proof_run }}
       application: ${{ steps.plan.outputs.application }}
       backend: ${{ steps.plan.outputs.backend }}
       frontend: ${{ steps.plan.outputs.frontend }}
@@ -49,7 +43,6 @@ jobs:
       security: ${{ steps.plan.outputs.security }}
       image: ${{ steps.plan.outputs.image }}
       android: ${{ steps.plan.outputs.android }}
-      cache_contract: ${{ steps.plan.outputs.cache_contract }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -58,9 +51,9 @@ jobs:
             /*
             !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: ./.github/actions/setup
         with:
-          bun-version: ${{ env.BUN_VERSION }}
+          install: "false"
       - name: Plan from the fail-closed release surface registry
         id: plan
         shell: bash
@@ -73,59 +66,37 @@ jobs:
           if [[ "$EVENT_NAME" == pull_request ]]; then
             bun scripts/ci-plan.mjs --base "$BASE_SHA" --head "$GITHUB_SHA"
           elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            # A tag reuses the release proof of a green main run for the exact
-            # SHA. Without one, the tag proves the full core product itself.
-            # Distributions follow changes since the last published stable release.
-            tag_name="${GITHUB_REF#refs/tags/}"
-            previous_tag="$(bun scripts/published-release-tag.mjs --exclude "$tag_name")"
+            # Core gates always run; distributions follow changes since the
+            # last published stable release.
+            previous_tag="$(bun scripts/published-release-tag.mjs --exclude "${GITHUB_REF#refs/tags/}")"
             [[ -n "$previous_tag" ]]
-            proof_run="$(bun scripts/release-proof.mjs find --repository "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA")"
-            if [[ -n "$proof_run" ]]; then
-              bun scripts/ci-plan.mjs --reuse "$proof_run" --base "$previous_tag" --head "$GITHUB_SHA"
-            else
-              bun scripts/ci-plan.mjs --release --base "$previous_tag" --head "$GITHUB_SHA"
-            fi
+            bun scripts/ci-plan.mjs --release --base "$previous_tag" --head "$GITHUB_SHA"
           elif [[ "$EVENT_NAME" == schedule || "$EVENT_NAME" == workflow_dispatch ]]; then
-            # Audit all surfaces outside the merge path. This never deploys.
             previous_tag="$(bun scripts/published-release-tag.mjs)"
             [[ -n "$previous_tag" ]]
             bun scripts/ci-plan.mjs --release --full --base "$previous_tag" --head "$GITHUB_SHA"
           elif [[ -n "$BEFORE_SHA" && "$BEFORE_SHA" != 0000000000000000000000000000000000000000 ]] && git cat-file -e "$BEFORE_SHA^{commit}" && git merge-base --is-ancestor "$BEFORE_SHA" "$GITHUB_SHA"; then
             bun scripts/ci-plan.mjs --base "$BEFORE_SHA" --head "$GITHUB_SHA"
           else
-            # Unknown push ancestry must widen checks rather than skip them.
+            # Unknown push ancestry widens checks rather than skipping them.
             bun scripts/ci-plan.mjs --full
           fi
 
-  policy:
-    name: Contracts and policy
+  web-quality:
+    name: Format, policy, lint and types
     needs: plan
-    if: needs.plan.outputs.mode != 'reuse'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Fallow and the secret scan compare changed files against a base.
           fetch-depth: 0
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: ./.github/actions/setup
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: |
-            apps/server/go.sum
-            apps/cli/go.sum
+          go: "true"
+          node: "true"
       - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock', 'apps/mobile/bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-      - run: bash scripts/ci-timing-summary.sh start policy
       - name: Install the pinned secret scanner
         shell: bash
         run: |
@@ -135,185 +106,31 @@ jobs:
             --output "$archive"
           printf '%s  %s\n' "$GITLEAKS_LINUX_X64_SHA256" "$archive" | sha256sum --check --status
           tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
-          chmod +x "$RUNNER_TEMP/gitleaks"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
-      - run: bun install --frozen-lockfile
       - name: Install the standalone mobile app for reachability analysis
         working-directory: apps/mobile
         run: bun install --frozen-lockfile
-      - name: Check formatting, generated contracts, and repository policy
+      - run: bun run format:check
+      - name: Generated contracts and repository policy
         env:
           OPENPOST_SECRET_SCAN_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           OPENPOST_SECRET_SCAN_HEAD: ${{ github.sha }}
-        run: bun run format:check && bun run check -- policy && bun test ./scripts
-      - if: always()
-        run: bash scripts/ci-timing-summary.sh finish policy
+        run: bun run check -- policy && bun test ./scripts
+      - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
+        run: bun run lint -- frontend && bun run lint -- marketing
+      - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
+        run: bun run check -- frontend-marketing
+      - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
+        name: Changed-source dead-code gate
+        env:
+          OPENPOST_FALLOW_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          OPENPOST_FALLOW_CI: "1"
+        run: bun run fallow
+      - if: needs.plan.outputs.security == 'true'
+        run: scripts/security-check.sh
 
-  prioritize-release:
-    name: Prioritize exact-source release qualification
-    needs: plan
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && !contains(github.ref, '-') && needs.plan.outputs.mode == 'release'
-    permissions:
-      actions: write
-      contents: read
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - name: Stop duplicate main work only after tag qualification is planned
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CI_PLAN: ${{ toJSON(needs.plan.outputs) }}
-        run: timeout 120 bun scripts/ci-run-coordination.mjs
-
-  public-build:
-    name: Public artifact contract
-    needs: [plan, marketing-build, docs-build]
-    # Reuse the canonical artifacts when both build jobs ran. A skipped build
-    # job still lets this job prove both surfaces by building them itself.
-    if: >-
-      always() && !cancelled() &&
-      needs.plan.result == 'success' &&
-      needs.plan.outputs.mode != 'reuse' &&
-      (needs.plan.outputs.marketing == 'true' || needs.plan.outputs.documentation == 'true' || needs.plan.outputs.mode == 'release' || needs.plan.outputs.mode == 'full') &&
-      needs.marketing-build.result != 'failure' &&
-      needs.docs-build.result != 'failure'
-    permissions:
-      actions: read
-      contents: read
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
-      VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
-      VITE_POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
-      VITE_OPENPOST_ENVIRONMENT: ${{ github.event_name == 'push' && 'production' || 'ci' }}
-      VITE_OPENPOST_REVISION: ${{ github.sha }}
-      POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
-      POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
-      POSTHOG_SOURCEMAPS_ENABLED: ${{ github.event_name == 'push' && secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24.19.0"
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: |
-            apps/server/go.sum
-            apps/cli/go.sum
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-      # Turbo entries are content-hashed, so a stale restore only costs a miss.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/openpost-turbo
-          key: turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
-            turbo-${{ runner.os }}-${{ github.job }}-
-      - run: bash scripts/ci-timing-summary.sh start public-build
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        with:
-          path: .turbo/docs-inputs
-          key: docs-inputs-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
-          restore-keys: docs-inputs-${{ runner.os }}-${{ github.job }}-
-      - run: bun install --frozen-lockfile
-      - name: Resolve the canonical marketing artifact
-        if: needs.marketing-build.result == 'success'
-        id: marketing-artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          artifact_name="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "marketing-static-${GITHUB_SHA}-")"
-          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        if: needs.marketing-build.result == 'success'
-        with:
-          name: ${{ steps.marketing-artifact.outputs.name }}
-          path: apps/marketing/dist
-      - name: Resolve the canonical documentation artifact
-        if: needs.docs-build.result == 'success'
-        id: docs-artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          artifact_name="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "docs-static-${GITHUB_SHA}-")"
-          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        if: needs.docs-build.result == 'success'
-        with:
-          name: ${{ steps.docs-artifact.outputs.name }}
-          path: apps/docs/out
-      - name: Build only missing public components
-        env:
-          MARKETING_RESULT: ${{ needs.marketing-build.result }}
-          DOCS_RESULT: ${{ needs.docs-build.result }}
-          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
-          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
-        run: |
-          if [ "$MARKETING_RESULT" != success ]; then timeout 600 bun run build -- marketing; fi
-          if [ "$DOCS_RESULT" != success ]; then timeout 600 bun run build -- docs; fi
-          timeout 120 bun scripts/compose-public-site.mjs
-      - name: Seal canonical public candidate before independent rebuild proofs
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')))
-        run: |
-          mkdir -p delivery
-          cp -R dist/public-site delivery/site
-          config=$(bun scripts/public-site-artifact.mjs config)
-          timeout 120 bun scripts/public-site-artifact.mjs seal delivery/site delivery/manifest.json "$GITHUB_SHA" "$config"
-      # Both production sites are proved here, so this job stays out of the
-      # policy aggregate instead of rebuilding them alongside policy checks.
-      # Downloaded artifacts skip the canonical builds but still face the
-      # forced rebuild determinism proof and every assertion.
-      - name: Prove both production artifacts and their agent surfaces
-        env:
-          # Independent rebuilds prove semantics without uploading duplicate symbols.
-          POSTHOG_SOURCEMAPS_ENABLED: "0"
-          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
-          OPENPOST_PUBLIC_ARTIFACTS_PREBUILT: "1"
-          # Match docs-build, which reads repository variables directly.
-          VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
-          VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
-          VITE_POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
-          VITE_OPENPOST_ENVIRONMENT: ${{ github.event_name == 'push' && 'production' || 'ci' }}
-          VITE_OPENPOST_REVISION: ${{ github.sha }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          # Match marketing-build, including its fork pull request fixture.
-          OPENPOST_MARKETING_POSTHOG_PROJECT_TOKEN: ${{ github.event_name == 'pull_request' && 'phc_browser_fixture' || vars.POSTHOG_PROJECT_TOKEN }}
-          OPENPOST_MARKETING_POSTHOG_API_HOST: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4322' || vars.POSTHOG_BROWSER_HOST }}
-          OPENPOST_MARKETING_POSTHOG_UI_HOST: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4322' || vars.POSTHOG_UI_HOST }}
-        # Run the proof directly: the local Turbo task depends on canonical
-        # builds and filters environment variables before the proof starts.
-        run: |
-          bun test ./tests/build/generate-agent-surfaces.test.mjs
-          bun scripts/check-marketing-route-manifest.mjs
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')))
-        with:
-          name: public-site-qualified-${{ github.sha }}-${{ github.run_attempt }}
-          path: delivery
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 90
-      - if: always()
-        run: bash scripts/ci-timing-summary.sh finish public-build
-
-  backend-lint:
-    name: Backend and CLI lint
+  go-quality:
+    name: Go lint and CLI
     needs: plan
     if: needs.plan.outputs.backend == 'true' || needs.plan.outputs.cli == 'true'
     runs-on: ubuntu-latest
@@ -325,102 +142,21 @@ jobs:
             /*
             !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: ./.github/actions/setup
         with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: |
-            apps/server/go.sum
-            apps/cli/go.sum
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+          go: "true"
+          install: "false"
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - run: bash scripts/ci-timing-summary.sh start backend-lint
-      - name: Install the pinned Go linter
-        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-        with:
-          version: v2.11.4
+          version: v2.15.0
           install-only: true
       - if: needs.plan.outputs.backend == 'true'
         run: bun run lint -- backend
       - if: needs.plan.outputs.cli == 'true'
-        run: bun run lint -- cli
-      - if: always()
-        run: bash scripts/ci-timing-summary.sh finish backend-lint
-
-  frontend-quality:
-    name: Svelte lint and checks
-    needs: plan
-    if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Full history: `bun run fallow` audits changed files against a base ref.
-          fetch-depth: 0
-          sparse-checkout: |
-            /*
-            !/apps/web/static/image-editor-models/
-          sparse-checkout-cone-mode: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: |
-            apps/server/go.sum
-            apps/cli/go.sum
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-      # Turbo entries are content-hashed, so a stale restore only costs a miss.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/openpost-turbo
-          key: turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
-            turbo-${{ runner.os }}-${{ github.job }}-
-      - run: bash scripts/ci-timing-summary.sh start frontend-quality
-      - run: bun install --frozen-lockfile
-      - if: needs.plan.outputs.frontend == 'true'
-        run: bun run lint -- frontend
-      - if: needs.plan.outputs.marketing == 'true'
-        run: bun run lint -- marketing
-      - if: needs.plan.outputs.frontend == 'true' && needs.plan.outputs.marketing == 'true'
-        env:
-          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
-        run: bun run check -- frontend-marketing
-      - if: needs.plan.outputs.frontend == 'true' && needs.plan.outputs.marketing != 'true'
-        env:
-          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
-        run: bun run check -- frontend
-      - if: needs.plan.outputs.marketing == 'true' && needs.plan.outputs.frontend != 'true'
-        env:
-          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
-        run: bun run check -- marketing
-      # Changed-source dead-code gate plus advisory complexity report.
-      # Health thresholds never fail this step; unused code still does.
-      - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
-        env:
-          OPENPOST_FALLOW_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-          # Hotspots need historical numstat blobs, which defeats this checkout's blobless clone.
-          OPENPOST_FALLOW_CI: "1"
-        run: bun run fallow
-      - if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: fallow-audit-${{ github.sha }}-${{ github.run_attempt }}
-          path: test-results/fallow/*.json
-          if-no-files-found: ignore
-      - if: always()
-        run: bash scripts/ci-timing-summary.sh finish frontend-quality
+        run: bun run lint -- cli && bun run build -- cli && bun run test -- cli
 
   backend:
-    name: Backend tests (${{ matrix.shard }}/4)
+    name: Backend tests${{ matrix.shard != 'all' && format(' ({0})', matrix.shard) || '' }}
     needs: plan
     if: needs.plan.outputs.backend == 'true'
     runs-on: ubuntu-24.04
@@ -428,9 +164,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # A few packages each run longer than all others combined, so shards
-        # split top-level tests by name rather than by package.
-        shard: [1, 2, 3, 4]
+        # The nightly run adds the race detector and coverage, which is several
+        # times slower, so it splits top-level tests across four shards.
+        shard: ${{ fromJSON(github.event_name == 'schedule' && '["1/4","2/4","3/4","4/4"]' || '["all"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -438,22 +174,18 @@ jobs:
             /*
             !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: ./.github/actions/setup
         with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: apps/server/go.sum
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - name: Verify or install recording analysis tools
-        timeout-minutes: 5
-        run: bash scripts/ci-setup-tools.sh media
+          go: "true"
+          install: "false"
+          media: "true"
       - env:
-          OPENPOST_GO_COVERAGE_FILE: coverage.out
-          OPENPOST_GO_TEST_RACE: "1"
-          OPENPOST_GO_TEST_SHARD: ${{ matrix.shard }}/4
+          OPENPOST_GO_TEST_SHARD: ${{ matrix.shard != 'all' && matrix.shard || '' }}
+          OPENPOST_GO_TEST_RACE: ${{ github.event_name == 'schedule' && '1' || '' }}
+          OPENPOST_GO_COVERAGE_FILE: ${{ github.event_name == 'schedule' && 'coverage.out' || '' }}
         run: bun run test -- backend
-      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+      - if: github.event_name == 'schedule'
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: apps/server/coverage.out
           fail_ci_if_error: false
@@ -478,6 +210,9 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
+    env:
+      # Pinned by pseudo-version; update deliberately, never floating.
+      MINIO_VERSION: v0.0.0-20260212201848-7aac2a2c5b7c
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -485,29 +220,28 @@ jobs:
             /*
             !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: ./.github/actions/setup
         with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: apps/server/go.sum
-      - run: bash scripts/ci-timing-summary.sh start hosted-data-plane
-      - name: Build the pinned S3-compatible server from source
-        run: |
-          # quay.io refuses anonymous pulls from CI runners, so the server is
-          # built from the Go module proxy instead of pulled as an image.
-          # Pinned by pseudo-version; update deliberately, never floating.
-          GOBIN="$RUNNER_TEMP" go install github.com/minio/minio@v0.0.0-20260212201848-7aac2a2c5b7c
+          go: "true"
+          install: "false"
+      - id: minio-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/minio-bin
+          key: minio-${{ runner.os }}-${{ env.MINIO_VERSION }}
+      # quay.io refuses anonymous pulls from CI runners, so the S3-compatible
+      # server is built from the Go module proxy instead of pulled as an image.
+      - if: steps.minio-cache.outputs.cache-hit != 'true'
+        run: GOBIN="$RUNNER_TEMP/minio-bin" go install "github.com/minio/minio@${MINIO_VERSION}"
       - name: Start the S3-compatible service
         env:
           MINIO_ROOT_USER: openpost-ci
           MINIO_ROOT_PASSWORD: openpost-ci-password
         run: |
           mkdir -p "$RUNNER_TEMP/minio-data"
-          "$RUNNER_TEMP/minio" server "$RUNNER_TEMP/minio-data" --address :9000 > apps/server/minio.log 2>&1 &
-          echo $! > "$RUNNER_TEMP/minio.pid"
+          "$RUNNER_TEMP/minio-bin/minio" server "$RUNNER_TEMP/minio-data" --address :9000 > apps/server/minio.log 2>&1 &
           for _ in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:9000/minio/health/ready >/dev/null; then
-              exit 0
-            fi
+            curl --fail --silent http://127.0.0.1:9000/minio/health/ready >/dev/null && exit 0
             sleep 1
           done
           cat apps/server/minio.log
@@ -557,11 +291,7 @@ jobs:
                 exit 1
               }
           done
-      - if: always()
-        run: |
-          kill "$(cat "$RUNNER_TEMP/minio.pid")" 2>/dev/null || true
-          bash scripts/ci-timing-summary.sh finish hosted-data-plane
-      - if: always()
+      - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: hosted-data-plane-${{ github.sha }}-${{ github.run_attempt }}
@@ -569,77 +299,38 @@ jobs:
             apps/server/hosted-data-plane.json
             apps/server/minio.log
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 7
 
   frontend-tests:
     name: Frontend tests (${{ matrix.shard }})
     needs: plan
     if: needs.plan.outputs.frontend == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        # The web package keeps its shards serial on laptops for memory; CI
-        # runs each shard (plus the server project and shared packages) apart.
-        shard: [server, 1/6, 2/6, 3/6, 4/6, 5/6, 6/6, packages]
+        # Unit tests and shared packages run together; component shards run
+        # in Chromium with one worker each.
+        shard: [unit, 1/4, 2/4, 3/4, 4/4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: ./.github/actions/setup
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24.19.0"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-      # Only the shared-packages shard runs Turbo; the web shards run Vitest directly.
-      - if: matrix.shard == 'packages'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/openpost-turbo
-          key: turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
-            turbo-${{ runner.os }}-${{ github.job }}-
-      - run: bun install --frozen-lockfile
-      # Component shards and the server job's browser-tooling fixture launch
-      # channel chromium, so they need the full browser without a separate shell.
-      - name: Install pinned Chromium and system dependencies
-        if: matrix.shard != 'packages'
-        timeout-minutes: 5
+          node: "true"
+          chromium: ${{ matrix.shard == 'unit' && 'shell' || 'full' }}
+      - working-directory: apps/web
         env:
-          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
-        run: bunx --no-install playwright install --with-deps --no-shell chromium
-      # Social-preview package tests launch Playwright's default headless shell.
-      - name: Install pinned Chromium headless shell and system dependencies
-        if: matrix.shard == 'packages'
-        timeout-minutes: 5
-        env:
-          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
-        run: bunx --no-install playwright install --with-deps --only-shell chromium
-      - if: matrix.shard != 'packages'
-        working-directory: apps/web
-        env:
-          # Retain process diagnostics for browser and module-loader failures.
-          DEBUG: pw:browser
+          DEBUG: ${{ matrix.shard != 'unit' && 'pw:browser' || '' }}
         run: |
           bun run sync
-          if [[ "${{ matrix.shard }}" == server ]]; then
-            bun run test:browser-tools
+          if [[ "${{ matrix.shard }}" == unit ]]; then
             bunx vitest run --project server
+            cd ../.. && bunx turbo run test --filter @openpost/query-catalog --filter @openpost/telemetry --filter @openpost/social-preview
           else
             bun run test:browser ${{ matrix.shard }}
           fi
-      - if: matrix.shard == 'packages'
-        env:
-          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
-        run: bunx turbo run test --filter @openpost/query-catalog --filter @openpost/telemetry --filter @openpost/social-preview
-      - name: Retain component browser failure screenshots
-        if: failure() && matrix.shard != 'server' && matrix.shard != 'packages'
+      - if: failure() && matrix.shard != 'unit'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: frontend-browser-failure-${{ strategy.job-index }}-${{ github.sha }}-${{ github.run_attempt }}
@@ -655,30 +346,11 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: ./.github/actions/setup
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24.19.0"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-      # Turbo entries are content-hashed, so a stale restore only costs a miss.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/openpost-turbo
-          key: turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
-            turbo-${{ runner.os }}-${{ github.job }}-
-      - run: bash scripts/ci-timing-summary.sh start frontend-build
-      - run: bun install --frozen-lockfile
+          node: "true"
       - name: Build the canonical application artifact and source maps
         env:
-          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
           POSTHOG_SOURCEMAPS_ENABLED: ${{ github.event_name == 'push' && secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
           POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
           POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
@@ -692,54 +364,50 @@ jobs:
           path: apps/server/cmd/openpost/public
           if-no-files-found: error
           retention-days: 14
-      - if: always()
-        run: bash scripts/ci-timing-summary.sh finish frontend-build
 
-  marketing-build:
-    name: Marketing build
+  public-site:
+    name: Public site build and artifact contract
     needs: plan
-    if: needs.plan.outputs.marketing == 'true' || needs.plan.outputs.application == 'true'
+    if: needs.plan.outputs.marketing == 'true' || needs.plan.outputs.documentation == 'true' || needs.plan.outputs.application == 'true' || needs.plan.outputs.mode != 'filtered'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
+    env:
+      VITE_OPENPOST_ENVIRONMENT: ${{ github.event_name == 'push' && 'production' || 'ci' }}
+      VITE_OPENPOST_REVISION: ${{ github.sha }}
+      POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+      POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+      POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
+      POSTHOG_SOURCEMAPS_ENABLED: ${{ github.event_name == 'push' && secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
+      GITHUB_SHA: ${{ github.sha }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
+      # Fork pull requests cannot read repository variables. The marketing
+      # browser artifact needs analytics enabled against the local fixture.
+      OPENPOST_MARKETING_POSTHOG_PROJECT_TOKEN: ${{ github.event_name == 'pull_request' && 'phc_browser_fixture' || vars.POSTHOG_PROJECT_TOKEN }}
+      OPENPOST_MARKETING_POSTHOG_API_HOST: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4322' || vars.POSTHOG_BROWSER_HOST }}
+      OPENPOST_MARKETING_POSTHOG_UI_HOST: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4322' || vars.POSTHOG_UI_HOST }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: ./.github/actions/setup
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24.19.0"
+          go: "true"
+          node: "true"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-      - run: bun install --frozen-lockfile
-      # Turbo entries are content-hashed, so a stale restore only costs a miss.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/openpost-turbo
-          key: turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
-            turbo-${{ runner.os }}-${{ github.job }}-
-      - name: Build canonical marketing artifact and source maps
+          path: .turbo/docs-inputs
+          key: docs-inputs-${{ runner.os }}-${{ github.sha }}
+          restore-keys: docs-inputs-${{ runner.os }}-
+      - name: Build marketing
         env:
-          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
-          # Fork pull requests cannot read repository variables. Their prebuilt
-          # browser artifact needs analytics enabled against the local fixture.
-          VITE_POSTHOG_PROJECT_TOKEN: ${{ github.event_name == 'pull_request' && 'phc_browser_fixture' || vars.POSTHOG_PROJECT_TOKEN }}
-          VITE_POSTHOG_API_HOST: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4322' || vars.POSTHOG_BROWSER_HOST }}
-          VITE_POSTHOG_UI_HOST: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4322' || vars.POSTHOG_UI_HOST }}
-          VITE_OPENPOST_ENVIRONMENT: ${{ github.event_name == 'push' && 'production' || 'ci' }}
-          VITE_OPENPOST_REVISION: ${{ github.sha }}
-          POSTHOG_SOURCEMAPS_ENABLED: ${{ github.event_name == 'push' && secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
-          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
-          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
-          POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
+          VITE_POSTHOG_PROJECT_TOKEN: ${{ env.OPENPOST_MARKETING_POSTHOG_PROJECT_TOKEN }}
+          VITE_POSTHOG_API_HOST: ${{ env.OPENPOST_MARKETING_POSTHOG_API_HOST }}
+          VITE_POSTHOG_UI_HOST: ${{ env.OPENPOST_MARKETING_POSTHOG_UI_HOST }}
         run: bun run build -- marketing
+      - name: Build documentation
+        env:
+          VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
+          VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
+          VITE_POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
+        run: bun run build -- docs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: marketing-static-${{ github.sha }}-${{ github.run_attempt }}
@@ -747,89 +415,48 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 14
-
-  docs-build:
-    name: Documentation build
-    needs: plan
-    if: needs.plan.outputs.documentation == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          sparse-checkout: |
-            /*
-            !/apps/web/static/image-editor-models/
-          sparse-checkout-cone-mode: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24.19.0"
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: |
-            apps/server/go.sum
-            apps/cli/go.sum
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-        with:
-          path: .turbo/docs-inputs
-          key: docs-inputs-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
-          restore-keys: docs-inputs-${{ runner.os }}-${{ github.job }}-
-      - run: bun install --frozen-lockfile
-      # Turbo entries are content-hashed, so a stale restore only costs a miss.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/openpost-turbo
-          key: turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-${{ github.job }}-${{ hashFiles('bun.lock', 'turbo.json', 'apps/*/turbo.json') }}-
-            turbo-${{ runner.os }}-${{ github.job }}-
-      - name: Build canonical documentation artifact and source maps
+      - run: timeout 120 bun scripts/compose-public-site.mjs
+      - name: Seal the canonical public candidate before rebuild proofs
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')))
+        run: |
+          mkdir -p delivery
+          cp -R dist/public-site delivery/site
+          config=$(bun scripts/public-site-artifact.mjs config)
+          timeout 120 bun scripts/public-site-artifact.mjs seal delivery/site delivery/manifest.json "$GITHUB_SHA" "$config"
+      - name: Prove both production artifacts and their agent surfaces
         env:
-          OPENPOST_TURBO_CACHE_DIR: ${{ runner.temp }}/openpost-turbo
+          # Independent rebuilds prove semantics without uploading duplicate symbols.
+          POSTHOG_SOURCEMAPS_ENABLED: "0"
+          OPENPOST_PUBLIC_ARTIFACTS_PREBUILT: "1"
           VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
           VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
           VITE_POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
-          VITE_OPENPOST_ENVIRONMENT: ${{ github.event_name == 'push' && 'production' || 'ci' }}
-          VITE_OPENPOST_REVISION: ${{ github.sha }}
-          POSTHOG_SOURCEMAPS_ENABLED: ${{ github.event_name == 'push' && secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
-          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
-          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
-          POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-        run: bun run build -- docs
+        run: |
+          bun test ./tests/build/generate-agent-surfaces.test.mjs
+          bun scripts/check-marketing-route-manifest.mjs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')))
         with:
-          name: docs-static-${{ github.sha }}-${{ github.run_attempt }}
-          path: apps/docs/out
-          if-no-files-found: error
+          name: public-site-qualified-${{ github.sha }}-${{ github.run_attempt }}
+          path: delivery
           include-hidden-files: true
-          retention-days: 14
+          if-no-files-found: error
+          retention-days: 90
 
   browser-app:
-    name: Application browser suite (${{ matrix.shard }}/6)
-    strategy:
-      fail-fast: false
-      matrix:
-        # Each shard runs one worker against its own server, so wall time
-        # follows the shard count. This suite is the candidate's longest pole.
-        shard: [1, 2, 3, 4, 5, 6]
-    needs: plan
-    if: needs.plan.outputs.application == 'true'
+    name: Application browser suite (${{ matrix.suite }})
+    needs: [plan, frontend-build]
+    if: ${{ !cancelled() && needs.plan.outputs.application == 'true' && needs.frontend-build.result == 'success' }}
     permissions:
       actions: read
       contents: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each shard runs one worker against its own server.
+        suite: [1/4, 2/4, 3/4, 4/4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -837,65 +464,40 @@ jobs:
             /*
             !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: ./.github/actions/setup
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: apps/server/go.sum
-      - run: bun install --frozen-lockfile
-      # This suite launches channel chromium, so it needs the full browser
-      # build and not the headless shell.
-      - name: Install pinned Chromium and system dependencies
-        timeout-minutes: 5
-        env:
-          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
-        run: bunx --no-install playwright install --with-deps --no-shell chromium
-      - name: Verify or install media fixture tools
-        timeout-minutes: 5
-        run: bash scripts/ci-setup-tools.sh media
-      - name: Resolve the newest canonical application artifact
-        id: frontend-artifact
+          go: "true"
+          chromium: full
+          media: "true"
+      - id: artifact
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          artifact_name="$(bun scripts/ci-artifacts.mjs wait --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --producer "Canonical frontend build" --prefix "frontend-public-${GITHUB_SHA}-")"
-          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
+        run: echo "name=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "frontend-public-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ steps.frontend-artifact.outputs.name }}
+          name: ${{ steps.artifact.outputs.name }}
           path: apps/server/cmd/openpost/public
       - name: Test the canonical application artifact
         env:
           OPENPOST_E2E_PREBUILT: "1"
-          OPENPOST_APP_E2E_SUITE: core
           DEBUG: pw:browser
-          OPENPOST_APP_E2E_SHARD: ${{ matrix.shard }}/6
-          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/openpost-app-timings-${{ matrix.shard }}.json
+          OPENPOST_APP_E2E_SUITE: core
+          OPENPOST_APP_E2E_SHARD: ${{ matrix.suite }}
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/openpost-app-timings.json
         run: bun run test -- e2e-app
-      - name: Summarize application test timings
-        if: always()
-        run: |
-          report="${{ runner.temp }}/openpost-app-timings-${{ matrix.shard }}.json"
-          if [[ -f "$report" ]]; then
-            bun scripts/ci-test-timings.mjs summarize "$report" > "${{ runner.temp }}/openpost-app-timing-summary-${{ matrix.shard }}.json"
-          fi
       - name: Retain application test timings
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: app-test-timings-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/openpost-app-timings-${{ matrix.shard }}.json
-            ${{ runner.temp }}/openpost-app-timing-summary-${{ matrix.shard }}.json
-          if-no-files-found: warn
+          name: app-test-timings-${{ strategy.job-index }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/openpost-app-timings.json
+          if-no-files-found: ignore
           retention-days: 14
       - name: Retain application browser failure diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: browser-app-failure-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_attempt }}
+          name: browser-app-failure-${{ strategy.job-index }}-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             playwright-report
             test-results
@@ -904,13 +506,13 @@ jobs:
 
   browser-handoff:
     name: Application tool handoff suite
-    needs: plan
-    if: needs.plan.outputs.application == 'true'
+    needs: [plan, frontend-build, public-site]
+    if: ${{ !cancelled() && needs.plan.outputs.application == 'true' && needs.frontend-build.result == 'success' && needs.public-site.result == 'success' }}
     permissions:
       actions: read
       contents: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -918,72 +520,35 @@ jobs:
             /*
             !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: ./.github/actions/setup
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: apps/server/go.sum
-      - run: bun install --frozen-lockfile
-      # This suite launches channel chromium, so it needs the full browser
-      # build and not the headless shell.
-      - name: Install pinned Chromium and system dependencies
-        timeout-minutes: 5
-        env:
-          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
-        run: bunx --no-install playwright install --with-deps --no-shell chromium
-      - name: Resolve the newest canonical application artifact
-        id: frontend-artifact
+          go: "true"
+          chromium: full
+      - id: artifacts
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          artifact_name="$(bun scripts/ci-artifacts.mjs wait --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --producer "Canonical frontend build" --prefix "frontend-public-${GITHUB_SHA}-")"
-          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
+          echo "frontend=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "frontend-public-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
+          echo "marketing=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "marketing-static-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ steps.frontend-artifact.outputs.name }}
+          name: ${{ steps.artifacts.outputs.frontend }}
           path: apps/server/cmd/openpost/public
-      - name: Resolve the marketing artifact for tool-to-draft handoffs
-        id: marketing-artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          artifact_name="$(bun scripts/ci-artifacts.mjs wait --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --producer "Marketing build" --prefix "marketing-static-${GITHUB_SHA}-")"
-          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ steps.marketing-artifact.outputs.name }}
+          name: ${{ steps.artifacts.outputs.marketing }}
           path: apps/marketing/dist
-      - name: Test the canonical application artifact
+      - name: Test free-tool draft handoffs
         env:
           OPENPOST_E2E_PREBUILT: "1"
           DEBUG: pw:browser
           OPENPOST_APP_E2E_SUITE: handoff
-          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/openpost-app-timings-handoff.json
         run: bun run test -- e2e-app
-      - name: Summarize application test timings
-        if: always()
-        run: |
-          report="${{ runner.temp }}/openpost-app-timings-handoff.json"
-          if [[ -f "$report" ]]; then
-            bun scripts/ci-test-timings.mjs summarize "$report" > "${{ runner.temp }}/openpost-app-timing-summary-handoff.json"
-          fi
-      - name: Retain application test timings
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: app-test-timings-handoff-${{ github.sha }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/openpost-app-timings-handoff.json
-            ${{ runner.temp }}/openpost-app-timing-summary-handoff.json
-          if-no-files-found: warn
-          retention-days: 14
-      - name: Retain application browser failure diagnostics
+      - name: Retain handoff failure diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: browser-app-failure-handoff-${{ github.sha }}-${{ github.run_attempt }}
+          name: browser-handoff-failure-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             playwright-report
             test-results
@@ -992,7 +557,7 @@ jobs:
 
   browser-marketing:
     name: Marketing browser suite
-    needs: [plan, marketing-build]
+    needs: [plan, public-site]
     if: needs.plan.outputs.marketing == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -1003,64 +568,28 @@ jobs:
             /*
             !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: ./.github/actions/setup
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - name: Resolve the newest canonical marketing artifact
-        id: marketing-artifact
+          chromium: shell
+          media: "true"
+      - id: artifact
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          artifact_name="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "marketing-static-${GITHUB_SHA}-")"
-          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
+        run: echo "name=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "marketing-static-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ steps.marketing-artifact.outputs.name }}
+          name: ${{ steps.artifact.outputs.name }}
           path: apps/marketing/dist
-      - run: bun install --frozen-lockfile
-      # Marketing's Playwright config keeps Playwright's bundled headless shell
-      # (it does not launch channel chromium), so this install must stay as-is.
-      - name: Install pinned Chromium and system dependencies
-        timeout-minutes: 5
-        env:
-          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
-        run: bunx --no-install playwright install --with-deps chromium
-      - name: Verify or install media conversion fixture tools
-        timeout-minutes: 5
-        run: bash scripts/ci-setup-tools.sh media
       - name: Test the marketing artifact
         env:
           OPENPOST_E2E_PREBUILT: "1"
-          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/openpost-marketing-timings.json
         run: bun run test -- e2e
-      - name: Summarize marketing test timings
-        if: always()
-        run: |
-          report="${{ runner.temp }}/openpost-marketing-timings.json"
-          if [[ -f "$report" ]]; then
-            bun scripts/ci-test-timings.mjs summarize "$report" > "${{ runner.temp }}/openpost-marketing-timing-summary.json"
-          else
-            echo "::warning::No marketing Playwright JSON report at ${report}; skipping the timing summary."
-          fi
-      - name: Retain marketing test timings
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: marketing-test-timings-${{ github.sha }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/openpost-marketing-timings.json
-            ${{ runner.temp }}/openpost-marketing-timing-summary.json
-          if-no-files-found: warn
-          retention-days: 14
-      - name: Collect marketing browser diagnostics
+      - name: Retain marketing browser failure diagnostics
         if: failure()
         run: |
           mkdir -p marketing-browser-diagnostics
-          if [ -d "$HOME/.config/.wrangler/logs" ]; then
-            cp -R "$HOME/.config/.wrangler/logs" marketing-browser-diagnostics/wrangler-logs
-          fi
-      - name: Retain marketing browser failure diagnostics
-        if: failure()
+          [ -d "$HOME/.config/.wrangler/logs" ] && cp -R "$HOME/.config/.wrangler/logs" marketing-browser-diagnostics/wrangler-logs || true
+      - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: browser-marketing-failure-${{ github.sha }}-${{ github.run_attempt }}
@@ -1071,221 +600,78 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  cache-contract:
-    name: Frontend cache contract
+  packages:
+    name: npm and n8n packages
     needs: plan
-    if: needs.plan.outputs.cache_contract == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - run: bun install --frozen-lockfile
-      - run: bun run check -- frontend-build-cache
-
-  npm-packages:
-    name: npm SDK and CLI packages
-    needs: plan
-    if: needs.plan.outputs.npm == 'true'
+    if: needs.plan.outputs.npm == 'true' || needs.plan.outputs.n8n == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          sparse-checkout: |
-            /*
-            !/apps/web/static/image-editor-models/
-          sparse-checkout-cone-mode: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: ./.github/actions/setup
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24.19.0"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-      - run: bun install --frozen-lockfile
+          node: "true"
       - name: Require a package version increase for publishable changes
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [[ "$GITHUB_EVENT_NAME" == schedule || "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
-            BASE_SHA="$(bun scripts/published-release-tag.mjs)"
-          elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
-            # Main candidates compare with the same base as the tag that ships them.
-            BASE_SHA="$(bun scripts/published-release-tag.mjs)"
-          elif [[ "$BASE_SHA" =~ ^0+$ ]]; then
-            if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
-              # A new tag has no previous commit in the push event, so compare
-              # the tagged package sources with the previous published release.
-              BASE_SHA="$(bun scripts/published-release-tag.mjs --exclude "$GITHUB_REF_NAME")"
-              echo "Comparing tagged package versions against $BASE_SHA."
-            else
-              echo "Initial repository push has no version base."
-              exit 0
-            fi
-          fi
-          bun scripts/npm-package-release.mjs check-version --package packages/sdk --base "$BASE_SHA" --head "$GITHUB_SHA"
-          bun scripts/npm-package-release.mjs check-version --package packages/cli --base "$BASE_SHA" --head "$GITHUB_SHA"
-      - name: Check, test, and build the packages
-        run: bun scripts/tasks.mjs check npm-packages
-      - name: Inspect the exact SDK npm payload
-        working-directory: packages/sdk
-        run: npm pack --dry-run --ignore-scripts
-      - name: Inspect the exact CLI npm payload
-        working-directory: packages/cli
-        run: npm pack --dry-run --ignore-scripts
-
-  n8n:
-    name: n8n community package
-    needs: plan
-    if: needs.plan.outputs.n8n == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          sparse-checkout: |
-            /*
-            !/apps/web/static/image-editor-models/
-          sparse-checkout-cone-mode: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24.19.0"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
-      - run: bun install --frozen-lockfile
-      - name: Require a package version increase for publishable changes
-        env:
-          EVENT_NAME: ${{ github.event_name }}
+          NPM: ${{ needs.plan.outputs.npm }}
+          N8N: ${{ needs.plan.outputs.n8n }}
           GH_TOKEN: ${{ github.token }}
-          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if [[ "$EVENT_NAME" == schedule || "$EVENT_NAME" == workflow_dispatch ]]; then
-            BASE_SHA="$(bun scripts/published-release-tag.mjs)"
-          elif [[ "$EVENT_NAME" == push && "$GITHUB_REF" == refs/tags/* ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             BASE_SHA="$(bun scripts/published-release-tag.mjs --exclude "$GITHUB_REF_NAME")"
-          elif [[ "$EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
-            # Main candidates compare with the same base as the tag that ships them.
+          elif [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then
+            # Main and nightly candidates compare with the base the next tag ships against.
             BASE_SHA="$(bun scripts/published-release-tag.mjs)"
-          elif [[ "$BASE_SHA" =~ ^0+$ ]]; then
-            echo "Initial repository push has no version base."
-            exit 0
           fi
-          bun scripts/n8n-package-release.mjs check-version --base "$BASE_SHA" --head "$GITHUB_SHA"
-      - name: Check, test, lint, build, and load the package
-        run: bun run check:n8n
-      - name: Inspect the exact npm payload
-        working-directory: packages/n8n-nodes-openpost
-        run: npm pack --dry-run --ignore-scripts
-
-  security:
-    name: Security
-    needs: plan
-    if: needs.plan.outputs.security == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          sparse-checkout: |
-            /*
-            !/apps/web/static/image-editor-models/
-          sparse-checkout-cone-mode: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: |
-            apps/server/go.sum
-            apps/cli/go.sum
-      - run: bun install --frozen-lockfile
-      - run: scripts/security-check.sh
-
-  cli:
-    name: CLI
-    needs: plan
-    if: needs.plan.outputs.cli == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          sparse-checkout: |
-            /*
-            !/apps/web/static/image-editor-models/
-          sparse-checkout-cone-mode: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: apps/cli/go.mod
-          cache-dependency-path: apps/cli/go.sum
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - run: bun run build -- cli
-      - run: bun run test -- cli
+          if [[ "$NPM" == true ]]; then
+            bun scripts/npm-package-release.mjs check-version --package packages/sdk --base "$BASE_SHA" --head "$GITHUB_SHA"
+            bun scripts/npm-package-release.mjs check-version --package packages/cli --base "$BASE_SHA" --head "$GITHUB_SHA"
+          fi
+          if [[ "$N8N" == true ]]; then
+            bun scripts/n8n-package-release.mjs check-version --base "$BASE_SHA" --head "$GITHUB_SHA"
+          fi
+      - if: needs.plan.outputs.npm == 'true'
+        run: |
+          bun scripts/tasks.mjs check npm-packages
+          (cd packages/sdk && npm pack --dry-run --ignore-scripts)
+          (cd packages/cli && npm pack --dry-run --ignore-scripts)
+      - if: needs.plan.outputs.n8n == 'true'
+        run: |
+          bun run check:n8n
+          cd packages/n8n-nodes-openpost && npm pack --dry-run --ignore-scripts
 
   mobile-source:
     name: Native mobile source checks
     needs: plan
-    if: needs.plan.outputs.android == 'true' && needs.plan.outputs.mode != 'reuse'
+    if: needs.plan.outputs.android == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: ./.github/actions/setup
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24.19.0"
+          install: "false"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
-          key: mobile-source-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock') }}
-          restore-keys: mobile-source-${{ runner.os }}-
-      - name: Install the standalone mobile app
+          key: mobile-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock') }}
+          restore-keys: mobile-${{ runner.os }}-
+      - name: Install and check the standalone mobile app
         working-directory: apps/mobile
-        run: bun install --frozen-lockfile
-      - name: Verify the standalone mobile install
-        working-directory: apps/mobile
-        # Bun occasionally leaves registry and file: dependencies unlinked
-        # after a cached install; tsc then fails with dozens of cascading
-        # errors. Show the tree and repair loudly instead of debugging
-        # type noise.
         run: |
-          ls node_modules/@tanstack/ node_modules/@openpost/ || true
-          if ! bun ../../scripts/check-mobile-install.mjs; then
-            rm -rf node_modules
-            bun install --frozen-lockfile --no-cache
-          fi
+          bun install --frozen-lockfile
           bun ../../scripts/check-mobile-install.mjs
-      - name: Check the standalone mobile app
-        working-directory: apps/mobile
-        run: bun run check
+          bun run check
 
   android:
     name: Native mobile Android candidate
     needs: plan
-    if: needs.plan.outputs.android == 'true' && (needs.plan.outputs.mode == 'release' || needs.plan.outputs.mode == 'full')
+    if: needs.plan.outputs.android == 'true' && needs.plan.outputs.mode != 'filtered'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -1296,18 +682,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: ./.github/actions/setup
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24.19.0"
+          node: "true"
+          install: "false"
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           java-version: "21"
           distribution: temurin
-      - name: Install Android SDK components
-        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           packages: >-
             platform-tools
@@ -1322,41 +705,20 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
-          key: android-bun-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock') }}
-          restore-keys: android-bun-${{ runner.os }}-
-      - name: Install the native compiler cache
-        id: ccache-install
-        timeout-minutes: 5
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y ccache
+          key: mobile-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock') }}
+          restore-keys: mobile-${{ runner.os }}-
+      - run: sudo apt-get update && sudo apt-get install --no-install-recommends -y ccache
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/openpost-ccache
           key: android-ccache-ndk27-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock') }}-${{ github.sha }}
-          restore-keys: |
-            android-ccache-ndk27-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock') }}-
-      - name: Configure native compiler cache directory
-        run: echo "CCACHE_DIR=${RUNNER_TEMP}/openpost-ccache" >> "$GITHUB_ENV"
-      - name: Reset compiler cache statistics
-        run: ccache --zero-stats
-      - name: Install the standalone mobile app
+          restore-keys: android-ccache-ndk27-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock') }}-
+      - run: echo "CCACHE_DIR=${RUNNER_TEMP}/openpost-ccache" >> "$GITHUB_ENV"
+      - name: Install the standalone mobile app and check its release identity
         working-directory: apps/mobile
-        run: bun install --frozen-lockfile
-      - name: Verify the standalone mobile install
-        working-directory: apps/mobile
-        # Bun occasionally leaves registry and file: dependencies unlinked
-        # after a cached install; tsc then fails with dozens of cascading
-        # errors. Show the tree and repair loudly instead of debugging
-        # type noise.
         run: |
-          ls node_modules/@tanstack/ node_modules/@openpost/ || true
-          if ! bun ../../scripts/check-mobile-install.mjs; then
-            rm -rf node_modules
-            bun install --frozen-lockfile --no-cache
-          fi
+          bun install --frozen-lockfile
           bun ../../scripts/check-mobile-install.mjs
-      - name: Check the current Android release identity
-        working-directory: apps/mobile
-        run: |
           latest_tag="$(git for-each-ref --count=1 --sort=-version:refname --format='%(refname:short)' 'refs/tags/v*')"
           [[ -n "$latest_tag" ]]
           git show "$latest_tag:apps/mobile/app.json" > previous-release-app.json
@@ -1367,9 +729,6 @@ jobs:
       - name: Build the native Expo Android candidate
         working-directory: apps/mobile
         run: bun run build:android:candidate
-      - name: Report native compiler cache effectiveness
-        if: always() && steps.ccache-install.outcome == 'success'
-        run: ccache --show-stats
       - run: |
           cp apps/mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk openpost-app-android-unsigned.apk
           unzip -t openpost-app-android-unsigned.apk
@@ -1400,76 +759,10 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  candidate-relay:
-    name: Relay proven candidate artifacts
-    needs: plan
-    if: needs.plan.outputs.mode == 'reuse'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          sparse-checkout: scripts
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - name: Resolve the proven artifacts
-        id: proven
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PROOF_RUN: ${{ needs.plan.outputs.proof_run }}
-          ANDROID: ${{ needs.plan.outputs.android }}
-        shell: bash
-        run: |
-          frontend="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${PROOF_RUN}" --prefix "frontend-public-${GITHUB_SHA}-")"
-          android=""
-          if [[ "$ANDROID" == true ]]; then
-            android="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${PROOF_RUN}" --prefix "android-unsigned-${GITHUB_SHA}-")"
-          fi
-          {
-            echo "frontend=$frontend"
-            echo "android=$android"
-          } >> "$GITHUB_OUTPUT"
-      # The tag run republishes the proven bytes under its own run so the
-      # release workflow and image build resolve them exactly as before.
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: ${{ steps.proven.outputs.frontend }}
-          path: proven-frontend
-          run-id: ${{ needs.plan.outputs.proof_run }}
-          github-token: ${{ github.token }}
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: frontend-public-${{ github.sha }}-${{ github.run_attempt }}
-          path: proven-frontend
-          if-no-files-found: error
-          retention-days: 14
-      - if: needs.plan.outputs.android == 'true'
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: ${{ steps.proven.outputs.android }}
-          path: proven-android
-          run-id: ${{ needs.plan.outputs.proof_run }}
-          github-token: ${{ github.token }}
-      - if: needs.plan.outputs.android == 'true'
-        name: Verify the proven Android checksum
-        run: cd proven-android && sha256sum --check openpost-app-android-unsigned.sha256
-      - if: needs.plan.outputs.android == 'true'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: android-unsigned-${{ github.sha }}-${{ github.run_attempt }}
-          path: |
-            proven-android/openpost-app-android-unsigned.apk
-            proven-android/openpost-app-android-unsigned.sha256
-          if-no-files-found: error
-          retention-days: 14
-
   image:
     name: Production image (linux/${{ matrix.arch }})
-    needs: [plan, frontend-build, candidate-relay]
-    if: ${{ !cancelled() && needs.plan.outputs.image == 'true' && (needs.frontend-build.result == 'success' || needs.candidate-relay.result == 'success') }}
+    needs: [plan, frontend-build]
+    if: needs.plan.outputs.image == 'true'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
@@ -1479,6 +772,7 @@ jobs:
           - { arch: amd64, runner: ubuntu-latest }
           - { arch: arm64, runner: ubuntu-24.04-arm }
     permissions:
+      actions: read
       contents: read
       packages: write
     steps:
@@ -1489,23 +783,19 @@ jobs:
             /*
             !/apps/web/static/image-editor-models/
           sparse-checkout-cone-mode: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: ./.github/actions/setup
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - name: Resolve the successful frontend artifact
-        id: frontend-artifact
+          install: "false"
+      - id: artifact
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          artifact_name="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "frontend-public-${GITHUB_SHA}-")"
-          echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
+        run: echo "name=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "frontend-public-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ steps.frontend-artifact.outputs.name }}
+          name: ${{ steps.artifact.outputs.name }}
           path: apps/server/cmd/openpost/public
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: Log in to GHCR
-        if: github.event_name == 'push'
+      - if: github.event_name == 'push'
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
@@ -1521,7 +811,7 @@ jobs:
             bun scripts/release-notes.mjs "$version" >/dev/null
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
-      - name: Build the candidate once
+      - name: Build and smoke the candidate once
         shell: bash
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}-${{ matrix.arch }}"
@@ -1548,8 +838,7 @@ jobs:
           ignore-unfixed: false
           exit-code: 0
           version: v0.70.0
-      - name: Retain image scan reports
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: image-diagnostics-${{ github.sha }}-${{ matrix.arch }}-${{ github.run_attempt }}
           path: |
@@ -1570,7 +859,6 @@ jobs:
           version: v0.70.0
       - name: Publish the validated candidate and record its digest
         if: github.event_name == 'push'
-        id: publish
         shell: bash
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}-${{ matrix.arch }}"
@@ -1586,9 +874,8 @@ jobs:
           fi
           [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "Published candidate did not resolve to a registry digest." >&2; exit 1; }
           printf '%s\n' "$digest" > "image-linux-${{ matrix.arch }}-digest.txt"
-      - name: Retain tested platform digest
+      - if: github.event_name == 'push'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.event_name == 'push'
         with:
           name: image-platform-digest-${{ github.sha }}-${{ matrix.arch }}-${{ github.run_attempt }}
           path: image-linux-${{ matrix.arch }}-digest.txt
@@ -1598,7 +885,7 @@ jobs:
   image-index:
     name: Production image index
     needs: [plan, image]
-    if: ${{ !cancelled() && needs.plan.outputs.image == 'true' && needs.image.result == 'success' && github.event_name == 'push' }}
+    if: needs.plan.outputs.image == 'true' && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -1607,28 +894,29 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - name: Resolve the successful platform artifacts
-        id: platform-artifacts
+          sparse-checkout: |
+            /*
+            !/apps/web/static/image-editor-models/
+          sparse-checkout-cone-mode: false
+      - uses: ./.github/actions/setup
+        with:
+          install: "false"
+      - id: platforms
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          amd64="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "image-platform-digest-${GITHUB_SHA}-amd64-")"
-          arm64="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "image-platform-digest-${GITHUB_SHA}-arm64-")"
-          {
-            echo "amd64=$amd64"
-            echo "arm64=$arm64"
-          } >> "$GITHUB_OUTPUT"
+          for arch in amd64 arm64; do
+            echo "${arch}=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "image-platform-digest-${GITHUB_SHA}-${arch}-")" >> "$GITHUB_OUTPUT"
+          done
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ steps.platform-artifacts.outputs.amd64 }}
+          name: ${{ steps.platforms.outputs.amd64 }}
           path: tested-platforms
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ steps.platform-artifacts.outputs.arm64 }}
+          name: ${{ steps.platforms.outputs.arm64 }}
           path: tested-platforms
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
@@ -1644,21 +932,12 @@ jobs:
           amd64_digest="$(cat tested-platforms/image-linux-amd64-digest.txt)"
           arm64_digest="$(cat tested-platforms/image-linux-arm64-digest.txt)"
           for digest in "$amd64_digest" "$arm64_digest"; do
-            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || {
-              echo "Invalid tested platform digest: $digest" >&2
-              exit 1
-            }
+            [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "Invalid tested platform digest: $digest" >&2; exit 1; }
           done
           candidate="${repository}:sha-${GITHUB_SHA}"
-          docker buildx imagetools create \
-            --tag "$candidate" \
-            "${repository}@${amd64_digest}" \
-            "${repository}@${arm64_digest}"
+          docker buildx imagetools create --tag "$candidate" "${repository}@${amd64_digest}" "${repository}@${arm64_digest}"
           digest="$(docker buildx imagetools inspect "$candidate" | awk '$1 == "Digest:" && !found { print $2; found = 1 }')"
-          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || {
-            echo "Published candidate index did not resolve to a registry digest." >&2
-            exit 1
-          }
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "Published candidate index did not resolve to a registry digest." >&2; exit 1; }
           docker buildx imagetools inspect --raw "$candidate" | jq -e \
             --arg amd64 "$amd64_digest" \
             --arg arm64 "$arm64_digest" '
@@ -1668,10 +947,8 @@ jobs:
               and any($linux[]; .platform.architecture == "arm64" and .digest == $arm64)
             ' >/dev/null
           printf '%s\n' "$digest" > image-digest.txt
-          cp tested-platforms/image-linux-amd64-digest.txt .
-          cp tested-platforms/image-linux-arm64-digest.txt .
-      - name: Retain tested image index
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+          cp tested-platforms/image-linux-amd64-digest.txt tested-platforms/image-linux-arm64-digest.txt .
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: image-digest-${{ github.sha }}-${{ github.run_attempt }}
           path: |
@@ -1687,76 +964,28 @@ jobs:
     needs:
       [
         plan,
-        prioritize-release,
-        policy,
-        public-build,
-        backend-lint,
-        frontend-quality,
+        web-quality,
+        go-quality,
         backend,
         hosted-data-plane,
         frontend-tests,
         frontend-build,
-        marketing-build,
-        docs-build,
+        public-site,
         browser-app,
         browser-handoff,
         browser-marketing,
-        cache-contract,
-        n8n,
-        npm-packages,
-        security,
-        cli,
+        packages,
         mobile-source,
         android,
-        candidate-relay,
         image,
         image-index,
       ]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      actions: read
-      contents: read
+    timeout-minutes: 5
     steps:
-      - name: Write matrix timing summary
-        if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          {
-            echo "## CI job timings"
-            echo
-            echo "| Job | Result | Wall time |"
-            echo "| --- | --- | ---: |"
-            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" \
-              --jq '.jobs[] | select(.completed_at != null) | [.name, .conclusion, .started_at, .completed_at] | @tsv' |
-              while IFS=$'\t' read -r name conclusion started completed; do
-                started_epoch="$(date --date="$started" +%s)"
-                completed_epoch="$(date --date="$completed" +%s)"
-                elapsed="$(( completed_epoch - started_epoch ))"
-                printf '| %s | %s | %dm %02ds |\n' "$name" "$conclusion" "$(( elapsed / 60 ))" "$(( elapsed % 60 ))"
-              done
-          } >> "$GITHUB_STEP_SUMMARY"
       - name: Require every planned check
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
           printf 'Job results: %s\n' "$RESULTS"
           [[ "$RESULTS" != *failure* && "$RESULTS" != *cancelled* ]]
-      # Only a green release-plan main run proves its SHA for a later tag.
-      - name: Record the release proof for this exact revision
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.plan.outputs.mode == 'release'
-        env:
-          PLAN_JSON: ${{ toJSON(needs.plan.outputs) }}
-        run: |
-          jq -n --arg sha "$GITHUB_SHA" --arg run "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" --argjson plan "$PLAN_JSON" \
-            '{sha: $sha, run_id: $run, run_attempt: $attempt, plan: $plan}' > release-proof.json
-          cat release-proof.json
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.plan.outputs.mode == 'release'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release-proof-${{ github.sha }}-${{ github.run_attempt }}
-          path: release-proof.json
-          if-no-files-found: error
-          retention-days: 14

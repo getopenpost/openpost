@@ -3,7 +3,6 @@ import test from "node:test";
 import { spawnSync } from "node:child_process";
 import { balanceAppFiles, appShardFiles, appTestPattern } from "./app-e2e-shards.mjs";
 import { fileURLToPath } from "node:url";
-import { localJobCommand } from "./release-failures.mjs";
 
 test("shard matchers treat URL delimiters and glob characters as literal filename bytes", () => {
   const root = fileURLToPath(new URL("../tests/app/", import.meta.url));
@@ -108,8 +107,6 @@ test(
     const full = inventory("");
     const selected = Array.from({ length: 6 }, (_, index) => {
       const shard = `${index + 1}/6`;
-      const command = localJobCommand(`Application browser suite (${shard})`);
-      assert.ok(command.includes(`OPENPOST_APP_E2E_SUITE=core OPENPOST_APP_E2E_SHARD=${shard}`));
       return inventory(shard);
     }).flat();
     assert.ok(full.length > 100);

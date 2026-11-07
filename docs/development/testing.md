@@ -19,7 +19,7 @@ shared compile cache. Formatting and Go lint still scan their complete requested
 scope. Use `TURBO_FORCE=true bun run check -- frontend` only when diagnosing
 cache behavior, not as the normal feedback loop.
 
-Ordinary pushes use the installed changed-file syntax and formatting hook. Before a release, `bun run release -- check` installs frozen dependencies and runs the shared local preflight: formatting first, then generated/type/policy checks, lint, package and mobile source checks, Go tests, repository regressions, and workspace tests. Workspace tests include Vitest's Chromium component suites. The separate Playwright E2E suites, race checks, platform builds and full release rehearsal remain explicit gates. See [Releases](./releases.md) for the complete local and CI boundaries.
+Ordinary pushes use the installed changed-file syntax and formatting hook. Before a release, `bun run preflight` runs the shared local checks: formatting first, then generated/type/policy checks, lint, package and mobile source checks, Go tests, repository regressions, and workspace tests. Workspace tests include Vitest's Chromium component suites. The separate Playwright E2E suites, race checks, platform builds remain CI gates. See [Releases](./releases.md) for the complete local and CI boundaries.
 
 For a small change, start with the owning test file and scoped check. A cache hit for an unchanged whole workspace does not predict the time after a source edit. Report changed-code timings separately from cached reruns, and measure deployment after local preparation.
 

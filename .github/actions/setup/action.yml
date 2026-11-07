@@ -1,0 +1,63 @@
+name: Set up OpenPost
+description: Pinned Bun, cached dependencies, and optional Go, Node, Chromium and media tools.
+
+inputs:
+  go:
+    description: Install Go from apps/server/go.mod
+    default: "false"
+  node:
+    description: Install the pinned Node.js runtime
+    default: "false"
+  install:
+    description: Run a frozen root Bun install
+    default: "true"
+  chromium:
+    description: "Playwright Chromium build: none, full (channel chromium) or shell (headless shell)"
+    default: none
+  media:
+    description: Verify or install the FFmpeg fixture tools
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      with:
+        bun-version-file: package.json
+    - if: inputs.node == 'true'
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: "24.19.0"
+    - if: inputs.go == 'true'
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version-file: apps/server/go.mod
+        cache-dependency-path: |
+          apps/server/go.sum
+          apps/cli/go.sum
+    - if: inputs.install == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.bun/install/cache
+        key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+        restore-keys: bun-${{ runner.os }}-${{ runner.arch }}-
+    - if: inputs.install == 'true'
+      shell: bash
+      run: bun install --frozen-lockfile
+    - if: inputs.chromium != 'none'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ inputs.chromium }}-${{ hashFiles('bun.lock') }}
+    - if: inputs.chromium != 'none'
+      shell: bash
+      env:
+        PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
+        CHROMIUM: ${{ inputs.chromium }}
+      run: |
+        flag=--no-shell
+        [[ "$CHROMIUM" == shell ]] && flag=--only-shell
+        timeout 300 bunx --no-install playwright install --with-deps "$flag" chromium
+    - if: inputs.media == 'true'
+      shell: bash
+      run: timeout 300 bash scripts/ci-setup-tools.sh media

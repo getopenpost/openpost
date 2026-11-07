@@ -63,14 +63,8 @@ for browser suites. Focused repository policies use
 The release subcommands are `plan`, `preflight`, `check`, `check-full`, `status`,
 `prepare`, `promote`, and `prod`; see [Releases and Versioning](releases.md).
 
-Finite root tasks opportunistically enforce the Turbo cap after each run,
-keeping the newest complete entries. Automatic maintenance skips pruning when
-another task or maintenance pass is active instead of waiting for it. `dev`
-does not scan or prune the shared cache during startup. `bun scripts/turbo-cache.mjs
-prune` waits and enforces the cap explicitly. One worktree still
-serializes its finite root tasks because they share generated files. Set
-`OPENPOST_TURBO_CACHE_DIR` to choose a different location or
-`OPENPOST_TURBO_CACHE_MAX_MIB` to change the limit.
+Turbo keeps its task cache in `.turbo/cache` inside each checkout. Finite root
+tasks delete entries untouched for 14 days.
 
 Frontend Turbo entries omit the immutable editor model and audio trees. A cache
 restore links the current tracked files into the complete frontend artifact
@@ -91,9 +85,9 @@ verified memory floor.
 Entering Devenv installs tracked pre-commit and pre-push gates. They check the
 relevant changed files for whitespace, conflict markers, formatting, Svelte
 parse errors, Go formatting, shell syntax, and Nix syntax. They do not run
-tests or production builds. Run `bun run release -- check` before a release.
+tests or production builds. Run `bun run preflight` before a release.
 Use `bun run verify` for a high-risk change that needs local production builds,
-or `bun run release -- check-full` for the complete CI-style rehearsal.
+and rely on tag CI for the complete qualification.
 
 `bun run build` prepares generated documentation inputs, builds the app and
 sites, packages the frontend for the Go embed, and builds the backend and CLI.

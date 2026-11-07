@@ -17,8 +17,7 @@ export const docsOutputs = [
 export function docsGeneratorEnvironment(env = process.env) {
   return Object.fromEntries(
     Object.entries(env).filter(
-      ([name]) =>
-        !/^(?:GITHUB_|CF_|VITE_|OPENPOST_RELEASE_VERSION$|OPENPOST_TURBO_CACHE_DIR$)/u.test(name),
+      ([name]) => !/^(?:GITHUB_|CF_|VITE_|OPENPOST_RELEASE_VERSION$)/u.test(name),
     ),
   );
 }

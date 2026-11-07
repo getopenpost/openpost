@@ -17,26 +17,11 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export function planCI(
   files,
   manifest,
-  { full = false, release = false, reuse = false, repositoryRoot = root } = {},
+  { full = false, release = false, repositoryRoot = root } = {},
 ) {
-  if (reuse) {
-    // The exact SHA already passed the release plan on main. The tag only
-    // rebuilds the versioned image from the proven frontend artifact, relays
-    // the proven Android build when mobile changed, and refreshes the
-    // time-dependent advisory gates.
-    const proven = planCI(files, manifest, { release: true, repositoryRoot });
-    return {
-      ...Object.fromEntries(Object.keys(proven).map((name) => [name, false])),
-      security: true,
-      image: true,
-      android: proven.android,
-    };
-  }
   if (release) {
-    // Main pushes and unproven tags run the release plan: core gates always
-    // run, and distributions follow the published-release diff so a
-    // server-only release skips Android/n8n packaging. Only a green run of
-    // this plan writes a release proof; path-filtered runs never do.
+    // Tags and nightly runs force the core gates; distributions follow the
+    // published-release diff so a server-only release skips Android/n8n.
     const filtered = planFiltered(files, manifest, { full, repositoryRoot });
     return {
       ...filtered,
@@ -265,21 +250,15 @@ function main() {
 
   const full = process.argv.includes("--full");
   const release = process.argv.includes("--release");
-  const proofRun = option("--reuse") ?? "";
-  const reuse = proofRun !== "";
-  if (reuse && !/^[1-9][0-9]*$/u.test(proofRun)) {
-    throw new Error("--reuse requires the proven CI run id");
-  }
   const base = option("--base");
   const head = option("--head") ?? "HEAD";
-  if (!release && !full && !reuse && !base)
-    throw new Error("pass --full, --release, --reuse RUN, or --base REV [--head REV]");
-  if (reuse && !base) throw new Error("--reuse needs the published release --base");
+  if (!release && !full && !base)
+    throw new Error("pass --full, --release, or --base REV [--head REV]");
   const files = base ? changedFiles(base, head) : [];
-  const plan = planCI(files, manifest, { full, release, reuse });
-  const mode = reuse ? "reuse" : release ? "release" : full ? "full" : "filtered";
+  const plan = planCI(files, manifest, { full, release });
+  const mode = release ? "release" : full ? "full" : "filtered";
   const output = process.env.GITHUB_OUTPUT;
-  for (const [name, value] of Object.entries({ ...plan, mode, proof_run: proofRun })) {
+  for (const [name, value] of Object.entries({ ...plan, mode })) {
     const line = `${name}=${value}\n`;
     if (output) appendFileSync(output, line);
     else process.stdout.write(line);
@@ -291,7 +270,7 @@ function main() {
       .join("\n");
     appendFileSync(
       summary,
-      `## CI surface plan\n\n${reuse ? `Proven by CI run ${proofRun}: versioned image, advisories, and artifact relay only.` : release ? `Release candidate: core gates forced, distributions from ${files.length} changed path(s) since the last published stable release.` : full ? "Full candidate." : `${files.length} changed path(s).`}\n\n| Check | Decision |\n| --- | --- |\n${rows}\n`,
+      `## CI surface plan\n\n${release ? `Release candidate: core gates forced, distributions from ${files.length} changed path(s) since the last published stable release.` : full ? "Full candidate." : `${files.length} changed path(s).`}\n\n| Check | Decision |\n| --- | --- |\n${rows}\n`,
     );
   }
 }

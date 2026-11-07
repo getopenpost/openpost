@@ -66,7 +66,7 @@ exit 2
   }
 });
 
-test("a hung asset upload is terminated and retried", () => {
+test("a hung asset upload is terminated and retried", { timeout: 20_000 }, () => {
   const directory = mkdtempSync(join(tmpdir(), "openpost-release-upload-"));
   const fakeGh = join(directory, "gh");
   const calls = join(directory, "calls");
@@ -84,7 +84,7 @@ if [[ "$1 $2" == "release upload" ]]; then
   count="$(grep -c '^upload$' "$calls" 2>/dev/null || true)"
   echo upload >> "$calls"
   if [[ "$count" -lt 1 ]]; then
-    sleep 30
+    exec sleep 30
   fi
   exit 0
 fi

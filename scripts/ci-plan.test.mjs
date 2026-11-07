@@ -233,31 +233,6 @@ test("release tags prove the full core candidate while distributions follow the 
   assert.equal(releaseOnly.security, true);
 });
 
-test("proven tags rebuild only the versioned image and refresh advisories", () => {
-  const serverOnly = planCI(["apps/server/internal/api/handlers/foo.go"], manifest, {
-    reuse: true,
-  });
-  assert.deepEqual(serverOnly, {
-    application: false,
-    backend: false,
-    frontend: false,
-    marketing: false,
-    documentation: false,
-    cli: false,
-    n8n: false,
-    npm: false,
-    security: true,
-    image: true,
-    android: false,
-    cache_contract: false,
-  });
-
-  // The proven Android build is relayed, never rebuilt, when mobile shipped.
-  const mobile = planCI(["apps/mobile/src/app/(tabs)/drafts.tsx"], manifest, { reuse: true });
-  assert.equal(mobile.android, true);
-  assert.equal(mobile.backend, false);
-});
-
 test("package selection follows consumers rather than every package selecting the web app", () => {
   for (const name of ["sdk", "cli", "n8n-nodes-openpost", "social-images"]) {
     const plan = planCI([`packages/${name}/src/index.ts`], manifest);

@@ -28,7 +28,6 @@ concurrency:
   group: public-site-delivery
   cancel-in-progress: false
 env:
-  BUN_VERSION: "1.3.11"
   NODE_VERSION: "24.19.0"
   POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
   VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
@@ -68,7 +67,7 @@ jobs:
           timeout 60 git merge-base --is-ancestor "$CANDIDATE" origin/main || { echo 'Candidate source is not on main'; exit 1; }
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
-          bun-version: "1.3.11"
+          bun-version-file: package.json
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: "24.19.0"
@@ -229,7 +228,7 @@ jobs:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
-          bun-version: "1.3.11"
+          bun-version-file: package.json
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: public-site-qualified

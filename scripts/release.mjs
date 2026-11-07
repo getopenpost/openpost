@@ -1,14 +1,11 @@
 #!/usr/bin/env bun
 
-import { createHash } from "node:crypto";
-import { mkdir, readFile, rm, stat } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import path from "node:path";
 
 import { mobileReleasePaths } from "./release-distribution-plan.mjs";
 import { checkMCPRegistryOwnership } from "./check-mcp-registry.mjs";
 import { releaseCommandEnvironment } from "./release-command-environment.mjs";
-import { formatFailureDigest } from "./release-failures.mjs";
-import { findReleaseProofRun } from "./release-proof.mjs";
 import { publishedStableReleaseTag } from "./published-release-tag.mjs";
 import {
   changedReleasePaths,
@@ -28,23 +25,8 @@ try {
     case "plan":
       await plan();
       break;
-    case "preflight":
-      await preflight();
-      break;
-    case "check":
-      await check();
-      break;
-    case "check-full":
-      await checkFull();
-      break;
     case "status":
       await status();
-      break;
-    case "prepare":
-      await prepare();
-      break;
-    case "promote":
-      await promote(args[0]);
       break;
     case "ship":
     case "prod":
@@ -133,14 +115,6 @@ async function plan() {
   }
 }
 
-async function preflight() {
-  run(["bun", "run", "doctor"]);
-  requireCommand("gh");
-  verifyGitHubReleaseAccess();
-  await warnUnlessProductionReady("preflight");
-  console.log("release preflight: worktree, GitHub, workflows, and secrets are ready");
-}
-
 function checkReleaseContracts() {
   run(["bun", "run", "check", "--", "release-version"]);
   run(["bun", "run", "check", "--", "changelog"]);
@@ -186,18 +160,6 @@ async function checkReleaseMobileIdentity(previousReleaseTag) {
   }
 }
 
-async function check() {
-  const started = Date.now();
-  run(["bun", "run", "doctor"]);
-  run(["bun", "install", "--frozen-lockfile"]);
-  run(["bun", "install", "--cwd", "apps/mobile", "--frozen-lockfile"]);
-  run(["bun", "scripts/tasks.mjs", "preflight"]);
-  console.log(`release check: local preflight passed in ${formatDuration(Date.now() - started)}`);
-  console.log(
-    "Remote gates still include end-to-end browsers, race/integration tests, security scans, and release artifacts. Use check-full for a broader local rehearsal.",
-  );
-}
-
 async function verifyLocalCandidate(revision) {
   // Remote release qualification owns exhaustive gates. Local feedback selects
   // unpushed changes and fails closed to preflight for shared/configuration work.
@@ -210,186 +172,6 @@ async function verifyLocalCandidate(revision) {
       "candidate changed during local checks; commit the intended revision and run ship again",
     );
   }
-}
-
-async function checkFull() {
-  await requireLocalReleaseHost();
-  run(["bun", "run", "doctor"]);
-  run(["bun", "install", "--frozen-lockfile"]);
-  run(["bun", "install", "--cwd", "apps/mobile", "--frozen-lockfile"]);
-  run(["bun", "run", "check", "--", "provider-certification"]);
-  const fingerprint = await worktreeFingerprint();
-  const stampDir = path.join(root, ".devenv", "state", "release-check");
-  const stampPath = path.join(stampDir, `${fingerprint}.json`);
-  if (process.env.OPENPOST_FORCE_RELEASE_CHECK !== "1" && (await exists(stampPath))) {
-    const stamp = await stat(stampPath);
-    if (Date.now() - stamp.mtimeMs < 24 * 60 * 60 * 1_000) {
-      console.log(
-        `release check-full: exact worktree passed in the last 24 hours (${fingerprint.slice(0, 12)})`,
-      );
-      return;
-    }
-  }
-
-  run(["bun", "run", "verify"]);
-  run(["bun", "run", "test", "--", "backend"], {
-    OPENPOST_GO_TEST_RACE: "1",
-  });
-  run(["scripts/security-check.sh"]);
-  run(["bun", "run", "test", "--", "e2e"]);
-  run(["bun", "run", "test", "--", "e2e-app"]);
-
-  const revision = git(["rev-parse", "HEAD"]);
-  const image = `openpost-release-check:${fingerprint.slice(0, 12)}`;
-  const imageArchitecture = { arm64: "arm64", x64: "amd64" }[process.arch];
-  if (!imageArchitecture) {
-    throw new Error(`release image checks do not support host architecture ${process.arch}`);
-  }
-  try {
-    run(
-      [
-        "docker",
-        "build",
-        "--platform",
-        `linux/${imageArchitecture}`,
-        "--build-context",
-        "frontend_artifact=apps/server/cmd/openpost/public",
-        "--file",
-        "deploy/docker/Dockerfile",
-        "--tag",
-        image,
-        "--build-arg",
-        `VERSION=local-${fingerprint.slice(0, 12)}`,
-        "--build-arg",
-        `COMMIT=${revision}`,
-        ".",
-      ],
-      { DOCKER_BUILDKIT: "1" },
-    );
-    run(["scripts/smoke-production-image.sh", image, revision, "", imageArchitecture]);
-  } finally {
-    runOptional(["docker", "image", "rm", image]);
-    pruneDockerBuildCache();
-  }
-
-  await mkdir(stampDir, { recursive: true });
-  await Bun.write(
-    stampPath,
-    JSON.stringify({ fingerprint, revision, passed_at: new Date().toISOString() }, null, 2) + "\n",
-  );
-  console.log(`release check-full: complete (${fingerprint.slice(0, 12)})`);
-}
-
-async function prepare() {
-  requireCommand("git");
-  requireCommand("gh");
-  const branch = git(["branch", "--show-current"]);
-  if (branch !== "main") throw new Error(`refusing to release from ${JSON.stringify(branch)}`);
-  if (isDirty())
-    throw new Error(
-      "preparation requires a clean worktree; commit the candidate before verification",
-    );
-
-  verifyGitHubReleaseAccess();
-  await warnUnlessProductionReady("prepare");
-
-  run(["git", "fetch", "origin", "main", "--tags"]);
-  const divergence = git(["rev-list", "--left-right", "--count", "HEAD...origin/main"]);
-  if (Number(divergence.split("\t")[1]) !== 0)
-    throw new Error(
-      `main must include origin/main before preparation; divergence is ${divergence}`,
-    );
-
-  const latestTag = git(["tag", "--list", "v*", "--sort=-v:refname"]).split("\n").find(Boolean);
-  if (!latestTag) throw new Error("no v* release tags found");
-  const headTag = git(["tag", "--points-at", "HEAD", "--list", "v*", "--sort=-v:refname"])
-    .split("\n")
-    .find(Boolean);
-  if (headTag && !isDirty()) {
-    console.log(`release prepare: HEAD is already ${headTag}`);
-    return headTag;
-  }
-
-  const tag = runCapture(["bun", "scripts/next-release-version.mjs", latestTag]).trim();
-  const revision = git(["rev-parse", "HEAD"]);
-
-  // Validate release inputs before running the shared local gates.
-  run(["bun", "scripts/check-changelog.mjs"]);
-  checkReleaseContracts();
-  await checkReleaseMobileIdentity(publishedStableReleaseTag());
-
-  // Fail fast when the candidate has no releasable notes. Tag CI builds the
-  // draft notes from changes/ fragments plus [Unreleased] at the tag, so an
-  // empty or invalid combination must stop here instead of in tag CI.
-  runCapture(["bun", "scripts/release-notes.mjs", tag]);
-
-  // Preparation owns no files. The changelog is generated in CI at draft
-  // time and recorded on main by the release workflow after publication, so
-  // preparation never commits. The candidate is the pushed main SHA: push
-  // local main commits so the tag (created by promote) points at an
-  // origin/main revision. Later main commits cannot enter the tag; a
-  // rejected push means origin advanced and preparation stops here.
-  await verifyLocalCandidate(revision);
-  const ahead = Number(git(["rev-list", "--count", "origin/main..HEAD"]));
-  if (ahead > 0) run(["git", "push", "origin", `${revision}:refs/heads/main`]);
-  console.log(`release prepare: ${tag} candidate selected at ${revision}; run promote to tag it`);
-  return tag;
-}
-
-async function promote(requestedTag) {
-  requireCommand("gh");
-  if (isDirty()) throw new Error("promotion requires a clean worktree");
-  const revision = git(["rev-parse", "HEAD"]);
-  const branch = git(["branch", "--show-current"]);
-  if (branch !== "main") throw new Error("promotion requires main");
-
-  let tag = requestedTag?.trim();
-  if (!tag) {
-    tag = git(["tag", "--points-at", "HEAD", "--list", "v*", "--sort=-v:refname"])
-      .split("\n")
-      .find(Boolean);
-  }
-  if (!tag) throw new Error("pass the prepared version tag to release -- promote");
-
-  runCapture(["bun", "scripts/release-notes.mjs", tag]);
-  // Tag CI proves the candidate with the final version embedded; main CI is
-  // development feedback, not a serial predecessor. Do not wait for it here.
-
-  const remoteTag = git(["ls-remote", "--tags", "origin", `refs/tags/${tag}`]);
-  if (!remoteTag) {
-    runQuiet(["git", "fetch", "--quiet", "origin", "main"]);
-    if (!runOptional(["git", "merge-base", "--is-ancestor", revision, "origin/main"]).ok) {
-      throw new Error(
-        "promotion requires a candidate already pushed to origin/main; run prepare first",
-      );
-    }
-    await verifyLocalCandidate(revision);
-    const localTarget = runOptional(["git", "rev-parse", "--verify", `refs/tags/${tag}`]);
-    if (!localTarget.ok) run(["git", "tag", tag, revision]);
-    if (git(["rev-list", "-n", "1", tag]) !== revision)
-      throw new Error(`${tag} does not point at HEAD`);
-    run(["git", "push", "origin", tag], { OPENPOST_SKIP_PUSH_CHECK: "1" });
-  } else if (remoteTag.split(/\s+/u)[0] !== revision) {
-    throw new Error(`remote ${tag} points at another revision`);
-  }
-
-  await watchRuns([
-    { id: await waitForTagRun("CI", tag, revision), label: `${tag} CI` },
-    { id: await waitForTagRun("Build and Release", tag, revision), label: `${tag} release` },
-  ]);
-  const releaseURL = runCapture([
-    "gh",
-    "release",
-    "view",
-    tag,
-    "--json",
-    "url",
-    "--jq",
-    ".url",
-  ]).trim();
-  await verifyProduction(tag, revision);
-  console.log(`release promote: shipped ${tag}`);
-  console.log(releaseURL);
 }
 
 // Local verification precedes every new candidate push. An existing immutable
@@ -445,8 +227,7 @@ async function ship() {
       phase(`Pushing ${ahead} verified commit(s) to main`);
       run(["git", "push", "origin", `${revision}:refs/heads/main`]);
     }
-    // Tag CI reuses a completed exact-SHA proof if one already exists. Otherwise
-    // it runs every required gate. A moving main run is never a prerequisite.
+    // Tag CI runs every required gate for the exact tagged revision.
     phase(`Tagging ${tag} at ${revision.slice(0, 12)}`);
     if (!runOptional(["git", "rev-parse", "--verify", `refs/tags/${tag}`]).ok) {
       run(["git", "tag", tag, revision]);
@@ -616,7 +397,8 @@ function printJobFailure(runId, job) {
     interrupted ? "--log" : "--log-failed",
   ]);
   if (!log.ok) console.log(`Job log unavailable: ${log.stderr.trim()}`);
-  console.log(`\n${formatFailureDigest(job.name, log.stdout, { url: job.url })}\n`);
+  const tail = log.stdout.trimEnd().split("\n").slice(-80).join("\n");
+  console.log(`\n${job.name}: ${job.url}\n${tail}\n`);
 }
 
 function printFailures(runId) {
@@ -676,12 +458,6 @@ async function status() {
   ]);
   console.log(`Candidate:  ${ci.ok && ci.stdout.trim() !== "{}" ? ci.stdout.trim() : "not found"}`);
   try {
-    const proof = findReleaseProofRun({ repository: repositoryName(), sha: revision });
-    console.log(`Proof:      ${proof ? `CI run ${proof}; ship skips the test gates` : "none yet"}`);
-  } catch (error) {
-    console.log(`Proof:      unavailable (${error.message})`);
-  }
-  try {
     const response = await fetch("https://app.openpo.st/api/v1/version", {
       signal: AbortSignal.timeout(10_000),
     });
@@ -717,168 +493,6 @@ async function verifyProduction(version, revision) {
     await Bun.sleep(5_000);
   }
   throw new Error(`production did not report ${version} at revision ${revision}`);
-}
-
-async function warnUnlessProductionReady(stage) {
-  // A broken production must never block shipping its fix. Readiness gates
-  // the deployment result, not the decision to release.
-  try {
-    const response = await fetch("https://app.openpo.st/api/v1/ready", {
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (response.ok) return;
-    console.warn(
-      `release ${stage}: production readiness returned HTTP ${response.status}; continuing`,
-    );
-  } catch (error) {
-    console.warn(
-      `release ${stage}: production readiness unreachable (${error.message}); continuing`,
-    );
-  }
-}
-
-function verifyGitHubReleaseAccess() {
-  run(["gh", "auth", "status"]);
-  const permission = runCapture([
-    "gh",
-    "repo",
-    "view",
-    "--json",
-    "viewerPermission",
-    "--jq",
-    ".viewerPermission",
-  ]).trim();
-  if (!["ADMIN", "MAINTAIN", "WRITE"].includes(permission)) {
-    throw new Error(`GitHub permission ${JSON.stringify(permission)} cannot publish a release`);
-  }
-
-  const secrets = new Set(
-    runCapture(["gh", "secret", "list", "--app", "actions", "--json", "name", "--jq", ".[].name"])
-      .split("\n")
-      .filter(Boolean),
-  );
-  if (!secrets.has("DEPLOY_WEBHOOK_SECRET")) {
-    throw new Error("GitHub Actions secret DEPLOY_WEBHOOK_SECRET is missing");
-  }
-  run(["gh", "workflow", "view", "CI"]);
-  run(["gh", "workflow", "view", "Build and Release"]);
-}
-
-function releaseDiskStatus() {
-  const minimumGiB = Number(process.env.OPENPOST_RELEASE_MIN_FREE_GIB ?? "10");
-  if (!Number.isFinite(minimumGiB) || minimumGiB <= 0) {
-    throw new Error("OPENPOST_RELEASE_MIN_FREE_GIB must be a positive number");
-  }
-  const lines = runCapture(["df", "-Pk", root]).trim().split("\n");
-  const fields = lines.at(-1)?.trim().split(/\s+/) ?? [];
-  const availableKiB = Number(fields[3]);
-  if (!Number.isFinite(availableKiB)) throw new Error("could not determine free disk space");
-  return { availableGiB: availableKiB / 1024 / 1024, minimumGiB };
-}
-
-function requireFreeDisk() {
-  const { availableGiB, minimumGiB } = releaseDiskStatus();
-  if (availableGiB < minimumGiB) {
-    throw new Error(
-      `release checks need ${minimumGiB} GiB free; only ${availableGiB.toFixed(1)} GiB is available after pruning unused Docker build cache`,
-    );
-  }
-}
-
-async function requireLocalReleaseHost() {
-  const initialDisk = releaseDiskStatus();
-  try {
-    await requireDocker();
-  } catch (error) {
-    if (initialDisk.availableGiB < initialDisk.minimumGiB) {
-      throw new Error(
-        `${error.message}; the host also has only ${initialDisk.availableGiB.toFixed(1)} GiB free. Stop Docker Desktop and inventory bind mounts and volumes before any reset or purge`,
-      );
-    }
-    throw error;
-  }
-  if (initialDisk.availableGiB < initialDisk.minimumGiB) {
-    console.log(
-      `release preflight: only ${initialDisk.availableGiB.toFixed(1)} GiB is free; pruning unused Docker build cache`,
-    );
-    pruneDockerBuildCache();
-  }
-  requireFreeDisk();
-}
-
-function pruneDockerBuildCache() {
-  const maximum = process.env.OPENPOST_DOCKER_CACHE_MAX_STORAGE ?? "20gb";
-  const minimumFree = process.env.OPENPOST_DOCKER_MIN_FREE_SPACE ?? "20gb";
-  run([
-    "docker",
-    "buildx",
-    "prune",
-    "--all",
-    "--force",
-    "--max-used-space",
-    maximum,
-    "--min-free-space",
-    minimumFree,
-  ]);
-}
-
-async function requireDocker() {
-  requireCommand("docker");
-  const timeoutMs = 10_000;
-  const proc = Bun.spawn(["docker", "info", "--format", "{{.ServerVersion}} {{.MemTotal}}"], {
-    cwd: root,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const stdout = new Response(proc.stdout).text();
-  const stderr = new Response(proc.stderr).text();
-  let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    proc.kill();
-  }, timeoutMs);
-  const exitCode = await proc.exited;
-  clearTimeout(timer);
-  const [serverInfo, errorOutput] = await Promise.all([stdout, stderr]);
-  if (timedOut)
-    throw new Error(`Docker daemon did not respond within ${timeoutMs / 1_000} seconds`);
-  if (exitCode !== 0 || !serverInfo.trim()) {
-    throw new Error(`Docker daemon is unavailable: ${errorOutput.trim() || `exit ${exitCode}`}`);
-  }
-
-  if (process.platform === "darwin") {
-    const [, memoryBytesText] = serverInfo.trim().split(/\s+/, 2);
-    const memoryBytes = Number(memoryBytesText);
-    const minimumGiB = Number(process.env.OPENPOST_DOCKER_MIN_MEMORY_GIB ?? "9.5");
-    if (!Number.isFinite(minimumGiB) || minimumGiB <= 0) {
-      throw new Error("OPENPOST_DOCKER_MIN_MEMORY_GIB must be a positive number");
-    }
-    if (Number.isFinite(memoryBytes)) {
-      const memoryGiB = memoryBytes / 1024 ** 3;
-      if (memoryGiB < minimumGiB) {
-        throw new Error(
-          `Docker Desktop has ${memoryGiB.toFixed(1)} GiB of VM memory; release image builds need at least ${minimumGiB} GiB. Set Docker Desktop Resources to 10 GB memory and 4 GB swap`,
-        );
-      }
-    }
-  }
-}
-
-async function worktreeFingerprint() {
-  const hash = createHash("sha256");
-  hash.update(git(["rev-parse", "HEAD"]));
-  hash.update(runCapture(["bun", "--version"]));
-  hash.update(runCapture(["go", "version"]));
-  hash.update(runCapture(["git", "diff", "--binary", "HEAD"]));
-  const untracked = git(["ls-files", "--others", "--exclude-standard"])
-    .split("\n")
-    .filter(Boolean)
-    .sort();
-  for (const file of untracked) {
-    hash.update(file);
-    hash.update(await readFile(path.join(root, file)));
-  }
-  return hash.digest("hex");
 }
 
 function isDirty() {
@@ -937,14 +551,4 @@ function requireCommand(name) {
     stderr: "ignore",
   });
   if (result.exitCode !== 0) throw new Error(`missing required command: ${name}`);
-}
-
-async function exists(file) {
-  try {
-    await stat(file);
-    return true;
-  } catch (error) {
-    if (error.code === "ENOENT") return false;
-    throw error;
-  }
 }

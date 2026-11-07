@@ -59,85 +59,6 @@ export function resolveRunArtifact({ repository, runId, prefix }) {
   return selectAttemptArtifact(artifacts, prefix);
 }
 
-// Start runner preparation while builds run, then consume only an artifact
-// whose producer finished successfully in this same workflow run.
-export async function waitForRunArtifact(
-  options,
-  {
-    jobs = () => {
-      const result = Bun.spawnSync(
-        [
-          "gh",
-          "api",
-          "--paginate",
-          `repos/${options.repository}/actions/runs/${options.runId}/jobs?filter=all&per_page=100`,
-          "--jq",
-          ".jobs[] | @json",
-        ],
-        { stdout: "pipe", stderr: "pipe", timeout: 30_000 },
-      );
-      if (result.exitCode !== 0) throw new Error("could not inspect artifact producer jobs");
-      return result.stdout
-        .toString()
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => JSON.parse(line));
-    },
-    resolve = resolveRunArtifact,
-    now = Date.now,
-    pause = (ms) => new Promise((done) => setTimeout(done, ms)),
-  } = {},
-) {
-  if (
-    !/^[^/\s]+\/[^/\s]+$/u.test(String(options.repository ?? "")) ||
-    !/^[1-9][0-9]*$/u.test(String(options.runId ?? "")) ||
-    !options.producer ||
-    !options.prefix
-  ) {
-    throw new Error("repository, run id and producer are required");
-  }
-  const timeoutMs = options.timeoutMs ?? 30 * 60_000;
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
-    throw new Error("invalid artifact wait timeout");
-  const deadline = now() + timeoutMs;
-  let pollError;
-  let consecutiveErrors = 0;
-  while (now() < deadline) {
-    let entries;
-    try {
-      entries = jobs();
-      pollError = undefined;
-      consecutiveErrors = 0;
-    } catch (error) {
-      pollError = error;
-      consecutiveErrors++;
-      if (consecutiveErrors >= 3)
-        throw new Error(
-          `Could not inspect artifact producer after 3 consecutive errors: ${error.message}`,
-          { cause: error },
-        );
-      await pause(Math.max(0, Math.min(15_000, deadline - now())));
-      continue;
-    }
-    if (!Array.isArray(entries)) throw new Error("producer jobs must be an array");
-    const attempts = entries.filter((job) => job.name === options.producer);
-    const latest = Math.max(0, ...attempts.map((job) => job.run_attempt ?? 1));
-    if (!Number.isInteger(latest)) throw new Error("invalid artifact producer attempt");
-    const matches = attempts.filter((job) => (job.run_attempt ?? 1) === latest);
-    if (matches.length > 1) throw new Error("artifact producer is ambiguous");
-    const producer = matches[0];
-    if (producer?.status === "completed") {
-      if (producer.conclusion !== "success")
-        throw new Error(`Artifact producer ${options.producer}: ${producer.conclusion}`);
-      return resolve(options);
-    }
-    await pause(Math.min(15_000, deadline - now()));
-  }
-  throw new Error(
-    `Timed out waiting for artifact producer ${options.producer}${pollError ? `: ${pollError.message}` : ""}`,
-  );
-}
-
 function option(name) {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv[index + 1] : undefined;
@@ -145,17 +66,16 @@ function option(name) {
 
 if (import.meta.main) {
   try {
-    if (!["resolve", "wait"].includes(process.argv[2])) {
+    if (process.argv[2] !== "resolve") {
       throw new Error(
-        "usage: ci-artifacts.mjs resolve --repository owner/name --run-id ID --prefix PREFIX; ci-artifacts.mjs wait --repository owner/name --run-id ID --prefix PREFIX --producer NAME",
+        "usage: ci-artifacts.mjs resolve --repository owner/name --run-id ID --prefix PREFIX",
       );
     }
     console.log(
-      await (process.argv[2] === "wait" ? waitForRunArtifact : resolveRunArtifact)({
+      resolveRunArtifact({
         repository: option("--repository"),
         runId: option("--run-id"),
         prefix: option("--prefix"),
-        producer: option("--producer"),
       }),
     );
   } catch (error) {

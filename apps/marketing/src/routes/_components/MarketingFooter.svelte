@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { DitherFade } from '@openpost/ui/components/dither';
 	import { resolve } from '$app/paths';
 	import AsciiWordmark from './AsciiWordmark.svelte';
 	import HeroAccent from './HeroAccent.svelte';
@@ -54,6 +55,8 @@
 		/>
 	</div>
 	<div class="footer-links">
+		<!-- The send-off section dissolves into the footer instead of meeting it at a hard edge. -->
+		<DitherFade side="top" size={88} color="--marketing-section" />
 		<div class="footer-wordmark marketing-shell"><AsciiWordmark /></div>
 		<div class="marketing-shell grid gap-12 py-14 lg:grid-cols-[1.15fr_1.85fr] lg:py-16">
 			<div>
@@ -249,12 +252,12 @@
 		pointer-events: none;
 	}
 	.footer-links {
+		position: relative;
 		background: var(--marketing-mint);
 		color: var(--marketing-mint-ink);
-		border-top: 1px solid color-mix(in oklch, var(--marketing-mint-ink) 15%, transparent);
 	}
 	.footer-wordmark {
-		padding-top: 64px;
+		padding-top: 104px;
 	}
 	.footer-links :global(.text-muted-foreground),
 	.footer-links :global(.text-muted-foreground\/75) {

@@ -10,7 +10,9 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
-		"moduleResolution": "bundler"
+		"moduleResolution": "bundler",
+		// TypeScript 7 includes these DOM async iterators in "DOM"; name them for TypeScript 5.
+		"lib": ["esnext", "DOM", "DOM.Iterable", "DOM.AsyncIterable"]
 	}
 	// Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
 	// except $lib which is handled by https://svelte.dev/docs/kit/configuration#files

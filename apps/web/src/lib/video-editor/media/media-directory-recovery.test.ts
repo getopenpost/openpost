@@ -23,6 +23,10 @@ function directory(name: string, tree: TestTree): FileSystemDirectoryHandle {
 		}
 		return directory(entryName, entry);
 	});
+	const pairs = entries.map((entry): [string, FileSystemDirectoryHandle | FileSystemFileHandle] => [
+		entry.name,
+		entry
+	]);
 	return {
 		kind: 'directory',
 		name,
@@ -47,15 +51,10 @@ function directory(name: string, tree: TestTree): FileSystemDirectoryHandle {
 		async requestPermission(): Promise<PermissionState> {
 			return 'granted';
 		},
-		async *entries() {
-			for (const entry of entries) {
-				const pair: [string, FileSystemHandle] = [entry.name, entry];
-				yield pair;
-			}
-		},
-		values: async function* () {
-			for (const entry of entries) yield entry;
-		}
+		entries: () => directoryIterator(pairs),
+		values: () => directoryIterator(entries),
+		keys: () => directoryIterator(entries.map((entry) => entry.name)),
+		[Symbol.asyncIterator]: () => directoryIterator(pairs)
 	};
 }
 
@@ -231,3 +230,10 @@ describe('media directory recovery', () => {
 		});
 	});
 });
+
+function directoryIterator<T>(items: readonly T[]): FileSystemDirectoryHandleAsyncIterator<T> {
+	// SAFETY: these test doubles are only consumed through async iteration.
+	return (async function* () {
+		yield* items;
+	})() as unknown as FileSystemDirectoryHandleAsyncIterator<T>;
+}

@@ -51,6 +51,7 @@
     "@oxlint/plugins": "1.91.0",
     "@playwright/test": "^1.64.1",
     "@posthog/rollup-plugin": "1.4.7",
+    "@typescript/native": "npm:typescript@7.0.2",
     "braces": "3.0.3",
     "fallow": "3.38.1",
     "gifuct-js": "2.1.2",

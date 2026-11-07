@@ -221,7 +221,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-check --tsconfig ./tsconfig.json --tsgo",
     "prepack": "bun run build"
   },
   "dependencies": {

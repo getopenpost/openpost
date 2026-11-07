@@ -13,7 +13,7 @@
 		"check:i18n": "bun ../../scripts/check-i18n.mjs",
 		"check:theme-icons": "bun ../../scripts/generate-theme-icon-packs.mjs --check",
 		"check:types": "openapi-typescript openapi.json -o ../../packages/api-contract/src/schema.d.ts --check",
-		"check": "bun run check:i18n && bun run check:theme-icons && if [ \"${OPENPOST_CHECK_PREPARED:-0}\" != 1 ]; then bun run generate:i18n; fi && bun run check:types && bun run sync && svelte-check --tsconfig ./tsconfig.json",
+		"check": "bun run check:i18n && bun run check:theme-icons && if [ \"${OPENPOST_CHECK_PREPARED:-0}\" != 1 ]; then bun run generate:i18n; fi && bun run check:types && bun run sync && svelte-check --tsconfig ./tsconfig.json --tsgo",
 		"check:watch": "bun run generate:i18n && bun run sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint:oxlint": "oxlint .",
 		"lint:svelte": "eslint 'src/**/*.svelte' 'src/**/*.svelte.{ts,js}'",

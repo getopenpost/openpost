@@ -10,7 +10,8 @@
     "checkJs": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "noUncheckedSideEffectImports": false
   },
   "include": ["src/**/*.ts", "src/**/*.svelte"]
 }

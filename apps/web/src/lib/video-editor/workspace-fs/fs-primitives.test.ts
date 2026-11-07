@@ -35,8 +35,10 @@ describe('workspace blob writer', () => {
 			isSameEntry: async (other) => other === directory,
 			queryPermission: async (): Promise<PermissionState> => 'granted',
 			requestPermission: async (): Promise<PermissionState> => 'granted',
-			async *entries() {},
-			async *values() {}
+			entries: () => directoryIterator([]),
+			values: () => directoryIterator([]),
+			keys: () => directoryIterator([]),
+			[Symbol.asyncIterator]: () => directoryIterator([])
 		};
 		const root = directory;
 
@@ -109,8 +111,10 @@ describe('workspace JSON writes', () => {
 			isSameEntry: async (other) => other === root,
 			queryPermission: async (): Promise<PermissionState> => 'granted',
 			requestPermission: async (): Promise<PermissionState> => 'granted',
-			async *entries() {},
-			async *values() {}
+			entries: () => directoryIterator([]),
+			values: () => directoryIterator([]),
+			keys: () => directoryIterator([]),
+			[Symbol.asyncIterator]: () => directoryIterator([])
 		};
 
 		await writeJsonAtomic(root, ['project.json'], { name: 'Saved' });
@@ -121,3 +125,10 @@ describe('workspace JSON writes', () => {
 		expect(removeEntry).toHaveBeenCalledWith('project.json.tmp');
 	});
 });
+
+function directoryIterator<T>(items: readonly T[]): FileSystemDirectoryHandleAsyncIterator<T> {
+	// SAFETY: these test doubles are only consumed through async iteration.
+	return (async function* () {
+		yield* items;
+	})() as unknown as FileSystemDirectoryHandleAsyncIterator<T>;
+}

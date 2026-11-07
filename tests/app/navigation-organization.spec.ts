@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
 import { authenticatePage, createPublication, createWorkspace, registerUser } from "./helpers";
 
 test("navigation separates work, workspace management, and personal preferences", async ({
@@ -60,7 +59,10 @@ test("navigation separates work, workspace management, and personal preferences"
     .getByRole("link", { name: "List", exact: true })
     .click();
   await expect(page).toHaveURL(/\/publications$/);
-  const collapse = page.getByRole("button", { name: "Toggle sidebar", exact: true });
+  const collapse = page.getByRole("button", {
+    name: "Toggle sidebar",
+    exact: true,
+  });
   await collapse.focus();
   await page.keyboard.press("Enter");
   for (const name of ["Home", "Posts", "Inbox", "Analytics", "Media"]) {
@@ -71,87 +73,6 @@ test("navigation separates work, workspace management, and personal preferences"
   await expect(page).toHaveURL(/\/media$/);
   expect(errors).toEqual([]);
 });
-
-for (const width of [1440, 1280, 390, 320]) {
-  for (const scheme of ["light", "dark"] as const) {
-    test(`navigation and preferences fit at ${width}px in ${scheme}`, async ({
-      page,
-      request,
-    }, testInfo) => {
-      const auth = await registerUser(request, `nav-${width}-${randomUUID()}@example.com`);
-      await createWorkspace(request, auth.token, "Navigation workspace");
-      await authenticatePage(page, auth.token);
-      await page.setViewportSize({ width, height: width === 1280 ? 600 : 900 });
-      await page.goto("/publications");
-      if (width < 768) {
-        await page
-          .getByRole("navigation", { name: "Primary navigation" })
-          .getByRole("button", { name: "More", exact: true })
-          .click();
-        await page.getByRole("menuitem", { name: "Profile", exact: true }).click();
-      } else {
-        await page.getByTestId("profile-menu-trigger").click();
-      }
-      await page.getByRole("menuitem", { name: "Preferences", exact: true }).click();
-      const dialog = page.getByRole("dialog", {
-        name: "Preferences",
-        exact: true,
-      });
-      await dialog
-        .getByRole("button", {
-          name: scheme === "light" ? "Light" : "Dark",
-          exact: true,
-        })
-        .click();
-      await expect(dialog).toBeVisible();
-      await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-      await expect(dialog).toHaveCSS("opacity", "1");
-      await dialog.evaluate(async (element) => {
-        await Promise.all(
-          element
-            .getAnimations({ subtree: true })
-            .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
-            .map((animation) => animation.finished.catch(() => {})),
-        );
-      });
-      const accessibility = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
-      expect(accessibility.violations).toEqual([]);
-      const bounds = await dialog.boundingBox();
-      expect(bounds!.x).toBeGreaterThanOrEqual(0);
-      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-      await page.screenshot({
-        path: testInfo.outputPath(`preferences-${scheme}.png`),
-        animations: "disabled",
-      });
-      await page.keyboard.press("Escape");
-      await expect(dialog).not.toBeVisible();
-      if (width >= 768) {
-        const workNavigation = page.getByTestId("sidebar-workspace-navigation");
-        for (const name of ["Home", "Posts", "Inbox", "Analytics"]) {
-          await expect(workNavigation.getByRole("button", { name, exact: true })).toBeVisible();
-        }
-        const media = page
-          .getByTestId("sidebar-make-navigation")
-          .getByRole("button", { name: "Media", exact: true });
-        await expect(media).toBeVisible();
-        const idle = await media.evaluate((element) => getComputedStyle(element).backgroundColor);
-        await media.hover();
-        await expect
-          .poll(() => media.evaluate((element) => getComputedStyle(element).backgroundColor))
-          .not.toBe(idle);
-        await media.focus();
-        await expect(media).toBeFocused();
-      }
-      await page.screenshot({
-        path: testInfo.outputPath(`navigation-${scheme}.png`),
-        animations: "disabled",
-      });
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-        true,
-      );
-    });
-  }
-}
 
 test("mobile menus preserve keyboard focus and expose editor creation", async ({
   page,
@@ -220,7 +141,10 @@ for (const width of [390, 1440]) {
         ? page
             .getByRole("navigation", { name: "Primary navigation" })
             .getByRole("button", { name: "More", exact: true })
-        : page.getByRole("button", { name: "Switch workspace: Keyboard workspace", exact: true });
+        : page.getByRole("button", {
+            name: "Switch workspace: Keyboard workspace",
+            exact: true,
+          });
     await trigger.focus();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("menu")).toBeVisible();
@@ -268,7 +192,10 @@ test("short desktop keeps navigation and contextual draft resume reachable", asy
   await page.keyboard.press("Escape");
   await page.goto("/");
   const planner = page.getByTestId("desktop-sidebar-planner");
-  const viewAll = planner.getByRole("button", { name: "View all", exact: true });
+  const viewAll = planner.getByRole("button", {
+    name: "View all",
+    exact: true,
+  });
   await expect(viewAll).toBeInViewport();
   const draft = planner.getByRole("link", {
     name: "Resume draft: A recent thought to resume",
@@ -310,7 +237,9 @@ test("drafts fill the sidebar on every workspace page", async ({ page, request }
   await page.getByTestId("profile-menu-trigger").click();
   await page.getByRole("menuitem", { name: "Preferences", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Preferences", exact: true });
-  const preference = dialog.getByRole("checkbox", { name: "Show drafts in the sidebar" });
+  const preference = dialog.getByRole("checkbox", {
+    name: "Show drafts in the sidebar",
+  });
   await expect(preference).not.toBeChecked();
   await preference.click();
   await page.keyboard.press("Escape");

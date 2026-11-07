@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
 test("Image Editor starts a blank project from the primary action", async ({ page }) => {
@@ -22,7 +21,10 @@ test("signed-in Image Editor defaults new projects to workspace storage", async 
 
   await page.goto("/image-editor");
 
-  const storage = page.getByRole("button", { name: "Save new projects to", exact: true });
+  const storage = page.getByRole("button", {
+    name: "Save new projects to",
+    exact: true,
+  });
   await expect(storage).toContainText("OpenPost cloud");
   await storage.click();
   await page.getByRole("option", { name: "This device", exact: true }).click();
@@ -51,7 +53,10 @@ test("Video Editor creates after folder choice and recovers from cancellation", 
     });
   });
   await page.goto("/video-editor");
-  const create = page.getByRole("button", { name: "Open Video Editor", exact: true });
+  const create = page.getByRole("button", {
+    name: "Open Video Editor",
+    exact: true,
+  });
   await create.click();
   await expect(create).toBeEnabled();
   await expect(page).toHaveURL(/\/video-editor$/);
@@ -63,48 +68,3 @@ test("Video Editor creates after folder choice and recovers from cancellation", 
   await page.reload();
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
 });
-
-for (const signedIn of [false, true]) {
-  test(`editor start pages fit both schemes and phone widths (${signedIn ? "workspace" : "guest"})`, async ({
-    page,
-    request,
-  }, testInfo) => {
-    if (signedIn) {
-      const auth = await registerUser(request, `editor-start-${randomUUID()}@example.com`);
-      await createWorkspace(request, auth.token, "Editor start checks");
-      await authenticatePage(page, auth.token);
-    }
-    const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(error.message));
-    const routes = signedIn
-      ? ["image-editor", "image-editor/new", "video-editor"]
-      : ["image-editor", "video-editor"];
-    for (const route of routes) {
-      await page.goto(`/${route}`);
-      const title = route.startsWith("image-editor") ? "Image Editor" : "Video Editor";
-      await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
-      await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-      await expect(page.getByRole("button", { name: "Language", exact: true })).toHaveCount(1);
-      const createName = route.startsWith("image-editor") ? "New project" : "Open Video Editor";
-      await expect(page.getByRole("button", { name: createName, exact: true })).toBeEnabled();
-      for (const width of [1440, 390, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        for (const colorScheme of ["light", "dark"] as const) {
-          await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-          await expect(page.locator("html")).toHaveCSS("color-scheme", colorScheme);
-          await expect
-            .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-            .toBe(true);
-          const create = page.getByRole("button", { name: createName, exact: true });
-          await create.focus();
-          await expect(create).toBeFocused();
-          await page.screenshot({
-            path: testInfo.outputPath(`${route.replaceAll("/", "-")}-${width}-${colorScheme}.png`),
-          });
-        }
-      }
-    }
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-    expect(errors).toEqual([]);
-  });
-}

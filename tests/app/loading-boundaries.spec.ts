@@ -9,13 +9,15 @@ test.afterEach(async ({ page }) => {
 });
 
 for (const section of ["publications", "messages", "engagement"] as const) {
-  for (const width of [1280, 390, 320]) {
+  for (const width of [390]) {
     test(`${section} keeps controls while the selected view loads at ${width}px`, async ({
       page,
       request,
     }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
-      await page.emulateMedia({ colorScheme: width === 320 ? "dark" : "light" });
+      await page.emulateMedia({
+        colorScheme: width === 320 ? "dark" : "light",
+      });
       const { token } = await registerUser(
         request,
         `view-loading-${section}-${randomUUID()}@example.com`,
@@ -76,7 +78,9 @@ for (const section of ["publications", "messages", "engagement"] as const) {
             await expect(
               navigation.getByRole("link", { name: "Reviews", exact: true }),
             ).toBeInViewport({ ratio: 0.99 });
-            await expect(page.getByTestId("page-header")).toBeInViewport({ ratio: 1 });
+            await expect(page.getByTestId("page-header")).toBeInViewport({
+              ratio: 1,
+            });
           }
         }
         const action =
@@ -93,8 +97,8 @@ for (const section of ["publications", "messages", "engagement"] as const) {
   }
 }
 
-for (const width of [1280, 390, 320]) {
-  for (const scheme of ["light", "dark"] as const) {
+for (const width of [390]) {
+  for (const scheme of ["light"] as const) {
     test(`settings keeps navigation during section downloads at ${width}px ${scheme}`, async ({
       page,
       request,

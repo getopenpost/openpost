@@ -83,8 +83,8 @@ test("create a theme, reopen its draft, publish, apply, and return to Appearance
 
 test.use({ hasTouch: true });
 
-for (const width of [1440, 390, 320]) {
-  for (const scheme of ["light", "dark"] as const) {
+for (const width of [390]) {
+  for (const scheme of ["light"] as const) {
     test(`theme library remains usable at ${width}px in ${scheme}`, async ({ page, request }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });

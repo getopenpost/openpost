@@ -73,10 +73,10 @@ if browser_path="$(
   if [[ -x "$browser_path" ]]; then
     pass "Pinned Playwright Chromium is installed."
   else
-    warn "Pinned Playwright Chromium is missing; run devenv shell -- install."
+    warn "Pinned Playwright Chromium is missing; run bun run browser:install."
   fi
 else
-  warn "Playwright is unavailable; run devenv shell -- install."
+  warn "Playwright is unavailable; run bun run browser:install."
 fi
 
 for command in devenv go bun git; do

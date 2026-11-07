@@ -6,12 +6,11 @@
 {
   languages.go = {
     enable = true;
-    package = pkgs.go_1_26;
+    package = pkgs.go_1_27;
   };
 
   packages = [
     pkgs.golangci-lint
     pkgs.gotools
-    pkgs.sqlc
   ];
 }

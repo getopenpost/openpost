@@ -13,27 +13,19 @@ reboot; do not install project tools globally.
 git clone https://github.com/getopenpost/openpost.git
 cd openpost
 direnv allow
-devenv shell -- setup
+setup
 ```
 
-`setup` runs the frozen `install`, then creates local environment state.
-`install` runs `bun install --frozen-lockfile` and downloads the backend and
-CLI Go modules. Dependency and build caches live under the ignored
-`.devenv/state/` directory in the checkout, so a NAS-hosted clone does not
-depend on `/tmp` state. It copies `apps/server/.env.example` only when
-`apps/server/.env` is missing; rerunning it never overwrites local credentials.
+`setup` installs locked Bun dependencies and the pinned Playwright Chromium,
+then copies `apps/server/.env.example` to `apps/server/.env` only when that
+file is missing, so rerunning it never overwrites local credentials. Go, Bun
+and Playwright keep their caches in their usual per-user locations, so every
+worktree shares them.
 
 The backend reads `apps/server/.env` with its non-executing dotenv loader. Do not
 `source` or `eval` dotenv files, and do not put credentials in Nix expressions.
 
-Use Devenv to enter or repair the environment:
-
-```bash
-devenv shell -- setup
-```
-
-After direnv loads at the next shell prompt, run repository commands from the
-root:
+Run repository commands from the root:
 
 ```bash
 bun run dev
@@ -43,7 +35,7 @@ For concurrent checkouts, first run `bun run build -- frontend` in each checkout
 to prepare the backend's frontend artifact. Then use `devenv up -d`. The frontend
 hostname is available from `devenv eval processes.frontend.proxy.hostname`.
 Each checkout gets its own hostname, allocated ports, SQLite database and media
-under `.devenv/state/parallel-dev/`. Stop it with `devenv down`. This isolated
+under `.devenv/state/dev/`. Stop it with `devenv down`. This isolated
 data is separate from the database used by `bun run dev`. The proxy requires
 devenv 2.4 or newer; on Linux it may request sudo to bind port 80. Provider
 OAuth callbacks must be registered for the displayed URL.
@@ -71,18 +63,11 @@ for browser suites. Focused repository policies use
 The release subcommands are `plan`, `preflight`, `check`, `check-full`, `status`,
 `prepare`, `promote`, and `prod`; see [Releases and Versioning](releases.md).
 
-Use `cache-status` and `cache-prune` to inspect and enforce the 2 GiB Turbo
-task-cache cap and the daily 4 GiB default cap on the shared Go build cache.
-Root commands use the OpenPost directory under the operating system's user
-cache, so linked worktrees share entries and one total limit, including inside
-Devenv.
-Shell entry also prunes only when the Turbo cache is idle, so entering another
-worktree does not wait for an active root task.
 Finite root tasks opportunistically enforce the Turbo cap after each run,
 keeping the newest complete entries. Automatic maintenance skips pruning when
 another task or maintenance pass is active instead of waiting for it. `dev`
-does not scan or prune the shared cache during startup. `devenv shell --
-cache-prune` waits and enforces the cap explicitly. One worktree still
+does not scan or prune the shared cache during startup. `bun scripts/turbo-cache.mjs
+prune` waits and enforces the cap explicitly. One worktree still
 serializes its finite root tasks because they share generated files. Set
 `OPENPOST_TURBO_CACHE_DIR` to choose a different location or
 `OPENPOST_TURBO_CACHE_MAX_MIB` to change the limit.

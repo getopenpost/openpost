@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Disclosure as EditorDisclosure } from '$lib/components/editor-density';
@@ -58,7 +58,7 @@
 	// The transcribe controls are collapsible, open by default until a transcript
 	// exists. Keep the user's choice across source updates instead of resetting
 	// the section whenever the panel rerenders.
-	let transcribeOpen = $state(words.length === 0);
+	let transcribeOpen = $state(untrack(() => words.length === 0));
 	let error = $state('');
 	let progress = $state<TranscribeProgress | null>(null);
 	let backend = $state<'webgpu' | 'wasm' | null>(null);

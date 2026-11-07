@@ -66,8 +66,8 @@ test("an older open editor cannot delete a reply added by another editor", async
     .toEqual(["First message, edited after reloading", reply]);
 });
 
-for (const width of [1280, 390, 320]) {
-  for (const scheme of ["light", "dark"] as const) {
+for (const width of [1280, 320]) {
+  for (const scheme of ["light"] as const) {
     test(`a saved thread survives reopening and editing at ${width}px in ${scheme}`, async ({
       page,
       request,

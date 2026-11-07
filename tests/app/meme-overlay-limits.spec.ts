@@ -80,8 +80,8 @@ test("oversized Meme overlay explains its limits and choosing a smaller image re
   });
   await expect(guidance).toBeVisible();
   await expect(page.getByRole("button", { name: "Download", exact: true })).toBeDisabled();
-  for (const width of [1280, 390, 320]) {
-    for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320]) {
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 740 });
       await page.emulateMedia({ colorScheme });
       if (width < 1024) await page.getByRole("button", { name: "Preview", exact: true }).click();

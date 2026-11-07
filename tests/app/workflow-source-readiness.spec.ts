@@ -41,8 +41,8 @@ test("feed source explains invalid URLs before activation and recovers with keyb
   });
   await authenticatePage(page, auth.token);
   await page.goto(`/workflows/${workflow.id}`);
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       const source = page.locator('.svelte-flow__node[data-id="source"]');

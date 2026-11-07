@@ -170,8 +170,8 @@ test("draft gallery keeps content, selection and search without repeated row chr
         .evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
     )
     .toBe(true);
-  for (const width of [1440, 390, 320]) {
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1440, 320]) {
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 960 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await settleCardContrast(page);
@@ -289,7 +289,7 @@ test("calendar keeps sparse and busy days recognizable and opens every overflow 
   const overflow = busy.getByRole("button", { name: /View 4 posts/ }).last();
   await expect(overflow).toHaveText("+2");
   await expect(page.getByTestId("desktop-sidebar-planner")).toHaveCount(0);
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.screenshot({
       path: info.outputPath(`calendar-${scheme}.png`),

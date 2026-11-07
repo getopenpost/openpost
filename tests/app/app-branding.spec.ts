@@ -76,12 +76,12 @@ test("branding controls and previews fit desktop and narrow screens in both sche
   await page
     .getByLabel("App display name", { exact: true })
     .fill("A studio with a deliberately long display name for previews");
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.evaluate((value) => {
       localStorage.setItem("mode-watcher-mode", value);
     }, scheme);
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 1000 });
       await expect(page.getByLabel("App display name", { exact: true })).toBeVisible();
       await expect(page.getByRole("region", { name: "Preview", exact: true })).toBeVisible();

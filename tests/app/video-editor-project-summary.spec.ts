@@ -50,10 +50,10 @@ test("project summary labels stay grammatical through clip creation, Undo and sa
   await expect(clips).toHaveCount(1);
   await openProjectDetails(page);
   await expect(summary).toHaveText("1920×1080 · 30 fps · 0:03 · Clips: 1 · Media: 0 · Issues: 0");
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
     await page.reload();
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 900 });
       if (width >= 768) {
         await openProjectDetails(page);

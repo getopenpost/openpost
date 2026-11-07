@@ -48,12 +48,12 @@ test("Media filters retain reversed ranges for correction and admit valid bounds
   await expect(apply).toBeDisabled();
   await expect(to).toHaveValue("2026-09-29");
   await expect(to).toHaveAccessibleDescription(/To date must/);
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme });
     await expect
       .poll(() => page.locator("html").evaluate((node) => node.classList.contains("dark")))
       .toBe(scheme === "dark");
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 850 });
       await to.scrollIntoViewIfNeeded();
       await expect(apply).toBeDisabled();

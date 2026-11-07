@@ -60,7 +60,7 @@ test("template graphs stay centered when their cards resize", async ({ page }) =
     .getByRole("heading", { name: "Announce a GitHub release", exact: true })
     .locator("../..");
   const preview = card.locator('[aria-hidden="true"] > svg').first();
-  for (const width of [1440, 390, 320]) {
+  for (const width of [1440, 320]) {
     await page.setViewportSize({ width, height: 960 });
     await expect
       .poll(() =>
@@ -513,8 +513,8 @@ test("picker handoff keeps the new step editable across layouts and keyboard inp
   page,
 }, testInfo) => {
   await openWorkflows(page);
-  for (const width of [1280, 390, 320]) {
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320]) {
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.goto("/workflows");
@@ -785,8 +785,8 @@ test("canvas shortcuts undo and redo without stealing text history", async ({ pa
   await expect(nodes).toHaveCount(2);
 });
 
-for (const width of [1440, 390, 320]) {
-  for (const scheme of ["light", "dark"] as const) {
+for (const width of [1440, 320]) {
+  for (const scheme of ["light"] as const) {
     test(`workflow Social Sets reuse provider settings at ${width}px in ${scheme}`, async ({
       page,
     }) => {

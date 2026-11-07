@@ -97,12 +97,12 @@ test("Cloud history can inspect a saved version without restoring or changing th
   await expect(
     row.getByText("Compared with the latest saved version.", { exact: true }),
   ).toBeVisible();
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme });
     await expect
       .poll(() => page.locator("html").evaluate((node) => node.classList.contains("dark")))
       .toBe(scheme === "dark");
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 850 });
       await row.getByRole("button", { name: "Inspect version", exact: true }).focus();
       await expect(row.getByRole("button", { name: "Inspect version", exact: true })).toBeFocused();

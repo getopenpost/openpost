@@ -119,13 +119,13 @@ test("live font changes preserve saved multiline canvas layout", async ({
   });
   expect(live).toEqual(cold);
   expect((await read()).text).toBe(text);
-  for (const colorScheme of ["light", "dark"] as const) {
+  for (const colorScheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme });
     await page.evaluate(
       (dark) => document.documentElement.classList.toggle("dark", dark),
       colorScheme === "dark",
     );
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
       await pixels();

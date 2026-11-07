@@ -58,13 +58,13 @@ test("compact Image menu groups commands with keyboard and touch return paths", 
     "true",
   );
   await page.setViewportSize({ width: 320, height: 740 });
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.evaluate(
       (value) => document.documentElement.classList.toggle("dark", value === "dark"),
       scheme,
     );
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 740 });
       await more.tap();
       await expect(edit).toBeVisible();

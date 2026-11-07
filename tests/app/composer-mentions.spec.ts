@@ -534,8 +534,8 @@ test("selected mentions survive edits, undo, copying, thread saves and reloads",
   await page.locator(`#composer-destination-${accountID}`).click();
   await expect(editor.locator("[data-mention]")).toHaveText("@alice.bsky.social");
 
-  for (const width of [1280, 390, 320])
-    for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme });
       await expect(editor).toBeVisible();

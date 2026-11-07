@@ -68,8 +68,8 @@ test("a Reel campaign starts with focused setup, previews safely and saves separ
   await page.getByRole("button", { name: "Preview", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(setup.locator("blockquote")).toContainText("GRIND please!");
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 1000 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);

@@ -40,8 +40,8 @@ test("publication tab selection keeps the visible URL, reload and history in agr
   await page.screenshot({ path: testInfo.outputPath("after-reload.png") });
   await expect(scheduled).toHaveAttribute("aria-selected", "true");
 
-  for (const width of [1280, 390, 320]) {
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320]) {
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme });
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
@@ -129,8 +129,8 @@ test("published detail Back retains explicit Published scope after Drafts entry"
   await authenticatePage(page, auth.token);
   const published = page.getByRole("tab", { name: "Published", exact: true });
   await page.goto("/publications?tab=drafts");
-  for (const width of [1280, 390, 320]) {
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320]) {
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme });
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);

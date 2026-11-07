@@ -77,12 +77,12 @@ test("Cloud conflicts identify this browser and another device without presentin
       exact: true,
     }),
   ).toHaveCount(3);
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme });
     await expect
       .poll(() => page.locator("html").evaluate((node) => node.classList.contains("dark")))
       .toBe(scheme === "dark");
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 850 });
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))

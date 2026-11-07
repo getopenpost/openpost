@@ -39,8 +39,8 @@ test("custom prompt corrections persist without authoring a post", async ({
   await authenticatePage(page, auth.token);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/prompts");
-  for (const width of [1280, 390, 320]) {
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320]) {
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme });
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);

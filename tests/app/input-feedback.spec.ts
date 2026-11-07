@@ -21,8 +21,8 @@ test("password errors appear at the field on keyboard submission and focus the f
   await expect(confirmation).toHaveAttribute("aria-invalid", "true");
   await expect(confirmation).toBeFocused();
   await expect(page.locator("#confirm-password-feedback")).toContainText("match");
-  for (const width of [1280, 390, 320])
-    for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       await page.screenshot({

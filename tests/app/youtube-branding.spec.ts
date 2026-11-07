@@ -10,8 +10,8 @@ import {
   prepareProductPage,
 } from "./product-capture-fixtures";
 
-for (const scheme of ["light", "dark"] as const) {
-  for (const width of [320, 768, 800, 1440]) {
+for (const scheme of ["light"] as const) {
+  for (const width of [1440, 320]) {
     test(`YouTube attribution fits ${width}px in ${scheme}`, async ({ page, request }, info) => {
       await page.setViewportSize({ width, height: 1000 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });

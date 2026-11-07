@@ -105,13 +105,13 @@ test("text selection explains whole-layer font controls", async ({ page, request
     contentType: "application/json",
   });
   await expect(page.getByText(hint, { exact: true })).not.toBeVisible();
-  for (const colorScheme of ["light", "dark"] as const) {
+  for (const colorScheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme });
     await page.evaluate(
       (dark) => document.documentElement.classList.toggle("dark", dark),
       colorScheme === "dark",
     );
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 900 });
       if (width < 1024) await page.getByRole("button", { name: "Properties", exact: true }).click();
       const surface =

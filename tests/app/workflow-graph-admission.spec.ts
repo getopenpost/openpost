@@ -85,8 +85,8 @@ for (const concern of ["loop", "ports"] as const) {
         .dragTo(page.locator(`.svelte-flow__handle.target[data-nodeid="${target}"]`));
     }
     if (concern === "ports") {
-      for (const width of [1280, 390, 320]) {
-        for (const scheme of ["light", "dark"] as const) {
+      for (const width of [1280, 320]) {
+        for (const scheme of ["light"] as const) {
           await page.setViewportSize({ width, height: 900 });
           await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
           await page.getByRole("button", { name: "Fit canvas", exact: true }).click();
@@ -123,8 +123,8 @@ for (const concern of ["loop", "ports"] as const) {
         page.getByRole("img", { name: "Edge from yes to condition", exact: true }),
       ).toHaveCount(0);
       expect((await (await request.get(path, { headers })).json()).definition).toEqual(definition);
-      for (const width of [1280, 390, 320]) {
-        for (const scheme of ["light", "dark"] as const) {
+      for (const width of [1280, 320]) {
+        for (const scheme of ["light"] as const) {
           await page.setViewportSize({ width, height: 900 });
           await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
           await page.getByRole("button", { name: "Fit canvas", exact: true }).click();

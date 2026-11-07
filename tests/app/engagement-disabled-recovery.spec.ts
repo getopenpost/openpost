@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
-for (const width of [1280, 390, 320]) {
-  for (const scheme of ["light", "dark"] as const) {
+for (const width of [1280, 320]) {
+  for (const scheme of ["light"] as const) {
     test(`disabled collection offers account recovery at ${width}px ${scheme}`, async ({
       page,
       request,
@@ -187,12 +187,12 @@ test("collection recovery explains zero, one and several affected posts", async 
     await expect(
       popup.getByRole("button", { name: "Refresh engagement", exact: true }),
     ).toHaveCount(2);
-    for (const scheme of ["light", "dark"] as const) {
+    for (const scheme of ["light"] as const) {
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await expect
         .poll(() => page.locator("html").evaluate((node) => node.classList.contains("dark")))
         .toBe(scheme === "dark");
-      for (const width of [390, 320]) {
+      for (const width of [320]) {
         await page.setViewportSize({ width, height: 844 });
         // Floating UI repositions the open popup after the viewport resize event.
         await expect

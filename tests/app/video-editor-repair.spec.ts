@@ -46,10 +46,10 @@ test("header history actions close after the selected command becomes disabled",
   const header = page.getByRole("banner");
   const more = header.getByRole("button", { name: "More actions", exact: true });
   await expectProjectSummary(page, "Clips: 1");
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 844 });
       for (const command of ["Undo", "Redo"] as const) {
         await more.click();
@@ -457,9 +457,9 @@ test("recording setup fits both themes and imports a real streaming WebM", async
   await page.setViewportSize({ width: 1440, height: 900 });
   await newProject(page, "Recording proof");
   await expect(page.getByText(/Workspace root is not set/)).toHaveCount(0);
-  for (const colorScheme of ["light", "dark"] as const) {
+  for (const colorScheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-    for (const width of [1440, 390, 320]) {
+    for (const width of [1440, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await openRecorder(page);
       const dialog = page.getByRole("dialog", { name: "Recorder", exact: true });

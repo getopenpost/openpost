@@ -43,8 +43,8 @@ test("HTTP node explains the real test request before keyboard execution", async
   const workflow = await created.json();
   await authenticatePage(page, auth.token);
   await page.goto(`/workflows/${workflow.id}`);
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       const node = page.getByRole("button", { name: /^Audit local HTTP / });

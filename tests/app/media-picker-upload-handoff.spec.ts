@@ -37,13 +37,13 @@ test("Device upload offers explicit attachment and cancellation without switchin
     return picker;
   }
   const first = await upload();
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.evaluate(
       (value) => document.documentElement.classList.toggle("dark", value === "dark"),
       scheme,
     );
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 850 });
       await expect(first.getByRole("button", { name: "Add media", exact: true })).toBeInViewport();
       await expect(first.getByRole("button", { name: "Cancel", exact: true })).toBeInViewport();

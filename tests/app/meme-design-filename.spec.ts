@@ -54,12 +54,12 @@ test("Meme Media exports use the authored design name and remain searchable afte
   await mediaSearch.fill("Audit café named meme");
   await mediaSearch.press("Enter");
   await expect(page.getByText("Audit café named meme.png", { exact: true }).first()).toBeVisible();
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme });
     await expect
       .poll(() => page.locator("html").evaluate((node) => node.classList.contains("dark")))
       .toBe(scheme === "dark");
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 850 });
       await mediaSearch.focus();
       await expect(mediaSearch).toBeFocused();

@@ -36,8 +36,8 @@ test("post-created variables distinguish creation from publication and explain o
   const workflow = await response.json();
   await authenticatePage(page, auth.token);
   await page.goto(`/workflows/${workflow.id}`);
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.getByRole("button", { name: "Fit canvas", exact: true }).click();

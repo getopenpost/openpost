@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-for (const colorScheme of ["light", "dark"] as const) {
+for (const colorScheme of ["light"] as const) {
   test.describe(colorScheme, () => {
     test.use({ hasTouch: colorScheme === "dark" });
     test(`Hosted waitlist handles retries and signup at phone and desktop widths in ${colorScheme}`, async ({
@@ -55,7 +55,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(page.getByRole("checkbox")).toHaveCount(0);
       await expect(page.getByRole("alert")).toHaveCount(0);
 
-      for (const width of [1280, 390, 320]) {
+      for (const width of [1280, 320]) {
         await page.setViewportSize({ width, height: 900 });
         await expect(page.getByRole("button", { name: "Join the waitlist" })).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(

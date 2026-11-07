@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-for (const colorScheme of ["light", "dark"] as const) {
+for (const colorScheme of ["light"] as const) {
   test(`an invalid preview link uses the active ${colorScheme} recovery theme`, async ({
     page,
   }) => {

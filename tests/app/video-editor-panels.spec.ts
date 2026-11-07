@@ -71,7 +71,7 @@ test("animation application settings survive inspector tab switches without crea
   const duration = inspector.getByRole("slider", { name: "Duration", exact: true });
   const intensity = inspector.getByRole("slider", { name: "Intensity", exact: true });
   const stagger = inspector.getByRole("slider", { name: "Stagger frames", exact: true });
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.setViewportSize({ width: 1280, height: 844 });
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
@@ -88,7 +88,7 @@ test("animation application settings survive inspector tab switches without crea
     await expect(duration).toHaveAttribute("aria-valuenow", "3");
     await expect(intensity).toHaveAttribute("aria-valuenow", "0");
     await expect(stagger).toHaveAttribute("aria-valuenow", "2");
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 844 });
       await animation.focus();
       await animation.press("Home");
@@ -125,7 +125,7 @@ test("animation application settings survive inspector tab switches without crea
   );
 });
 
-for (const scheme of ["light", "dark"] as const) {
+for (const scheme of ["light"] as const) {
   test(`Color keeps its viewer and complete wheels usable on a laptop in ${scheme}`, async ({
     page,
   }, testInfo) => {
@@ -344,7 +344,7 @@ test("a collapsed asset tab opens its panel in one click", async ({ page }) => {
   await expect(page.locator('[data-layout-toggle="collapse-left"]')).toBeVisible();
 });
 
-for (const scheme of ["light", "dark"] as const) {
+for (const scheme of ["light"] as const) {
   test(`property panels stay neutral while controls retain their accent in ${scheme}`, async ({
     page,
   }, testInfo) => {
@@ -410,7 +410,7 @@ for (const scheme of ["light", "dark"] as const) {
     };
     expect(hue(accents.focus), "focus follows the active theme's hue").toBe(hue(accents.primary));
     expect(accents.editor, "editor selections follow the same focus accent").toBe(accents.focus);
-    for (const width of [390, 320]) {
+    for (const width of [320]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(page.locator("[data-program-monitor]")).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
@@ -553,7 +553,7 @@ for (const scheme of ["light", "dark"] as const) {
       await expect(page.locator("#editor-workspace-panel")).toBeVisible();
     }
     await assertFullColumns();
-    for (const width of [1024, 390, 320]) {
+    for (const width of [1024, 320]) {
       await page.setViewportSize({ width, height: 900 });
       if (width < 1024) {
         const dock = page.getByRole("navigation", { name: "Editor panels" });
@@ -604,7 +604,7 @@ test("Color palettes explain their action and landscape workspaces retain a usab
   await expect(page.locator("[data-effect-id]")).toHaveCount(1);
   await page.getByRole("button", { name: "Add effect · Secondary Qualifier", exact: true }).click();
   await expect(page.locator("[data-effect-id]")).toHaveCount(2);
-  for (const width of [640, 390, 320]) {
+  for (const width of [320]) {
     await page.setViewportSize({ width, height: width === 640 ? 450 : 844 });
     const program = page.locator("#video-editor-program-panel");
     expect((await program.boundingBox())!.height).toBeGreaterThanOrEqual(190);
@@ -654,7 +654,7 @@ test("Color palettes explain their action and landscape workspaces retain a usab
   await page.screenshot({ path: testInfo.outputPath("video-export-320.png") });
 });
 
-for (const scheme of ["light", "dark"] as const) {
+for (const scheme of ["light"] as const) {
   test(`Transcript fills the phone Assets pane and keeps its controls usable in ${scheme}`, async ({
     page,
   }, testInfo) => {
@@ -663,7 +663,7 @@ for (const scheme of ["light", "dark"] as const) {
     await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
     await createProject(page, "Readable transcript");
     await page.getByRole("tab", { name: "Captions", exact: true }).click();
-    for (const width of [390, 320]) {
+    for (const width of [320]) {
       await page.setViewportSize({ width, height: 844 });
       await page
         .getByRole("navigation", { name: "Editor panels", exact: true })

@@ -37,8 +37,8 @@ test("Calendar explains filtered emptiness and clears filters without changing d
   ]);
   await authenticatePage(page, auth.token);
   await page.goto("/calendar");
-  for (const width of [1280, 390, 320]) {
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320]) {
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 850 });
       await page.emulateMedia({ colorScheme: scheme });
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);

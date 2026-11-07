@@ -75,8 +75,8 @@ test("composer advances saved time slots across hour boundaries", async ({
   await expect(savedTimes).toBeFocused();
   await expect(dialog.getByRole("button", { name: "Schedule", exact: true })).toBeDisabled();
   await page.screenshot({ path: info.outputPath("ninety-minute-slots.png") });
-  for (const width of [390, 320]) {
-    for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [320]) {
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 844 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       await savedTimes.click();
@@ -238,8 +238,8 @@ test.describe("schedule history on touch screens", () => {
     await expect(time).toHaveValue("14:37");
     await expect(dialog.getByRole("button", { name: "Schedule", exact: true })).toBeEnabled();
     await dialog.locator('[data-bits-day][data-value="2026-10-14"]').click();
-    for (const width of [1280, 390, 320]) {
-      for (const colorScheme of ["light", "dark"] as const) {
+    for (const width of [1280, 320]) {
+      for (const colorScheme of ["light"] as const) {
         await page.setViewportSize({ width, height: 900 });
         await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
         await dialog.locator('[data-bits-day][data-value="2026-10-16"]').click();

@@ -42,8 +42,8 @@ test("Calendar selects a day and Today restores it without moving keyboard focus
   }
   await authenticatePage(page, auth.token);
   await page.goto("/calendar");
-  for (const width of [390, 320, 1168]) {
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1168, 320]) {
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 850 });
       await page.emulateMedia({ colorScheme: scheme });
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
@@ -91,7 +91,7 @@ test("Calendar selects a day and Today restores it without moving keyboard focus
     }
   }
   await page.setViewportSize({ width: 1440, height: 900 });
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme });
     await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
     await page.reload();

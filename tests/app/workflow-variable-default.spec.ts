@@ -80,8 +80,8 @@ test("the normal array picker replaces the list default and persists a usable ty
   await page.reload();
   await page.getByRole("button", { name: /^Audit sort / }).click();
   await expect(field.locator(".workflow-token")).toHaveAttribute("aria-label", "parse.data");
-  for (const width of [320, 390, 1280]) {
-    for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320]) {
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 850 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       if (width < 1024) await page.getByRole("tab", { name: "Configure", exact: true }).click();

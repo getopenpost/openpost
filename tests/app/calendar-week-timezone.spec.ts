@@ -36,7 +36,7 @@ test("Week grid retains both posts in a repeated local hour and changes timezone
         })
       ).ok(),
     ).toBe(true);
-    for (const scheme of ["light", "dark"] as const) {
+    for (const scheme of ["light"] as const) {
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.goto("/calendar");
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);

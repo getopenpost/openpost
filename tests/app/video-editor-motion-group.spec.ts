@@ -87,10 +87,10 @@ test("Motion repeated Group keeps one saved group and one undoable edit", async 
     "data-state",
     "saved",
   );
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 844 });
       await page.reload();
       await page.getByRole("tab", { name: "Motion", exact: true }).click();

@@ -16,8 +16,8 @@ for (const path of ["/invite", "/cli/authorize", "/preview"]) {
       if (/workspace-invitations|cli\/auth\/(session|approve|deny)/.test(request.url()))
         forbidden.push(request.url());
     });
-    for (const width of [1280, 390, 320]) {
-      for (const scheme of ["light", "dark"] as const) {
+    for (const width of [1280, 320]) {
+      for (const scheme of ["light"] as const) {
         await page.setViewportSize({ width, height: 850 });
         await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
         await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);

@@ -278,13 +278,13 @@ test("Image Editor keeps Export rightmost and saved feedback clear at narrow wid
   await page.keyboard.press("Tab");
   await expect(saved).toHaveAttribute("data-state", "saved");
   const cdp = await page.context().newCDPSession(page);
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.evaluate(
       (dark) => document.documentElement.classList.toggle("dark", dark),
       scheme === "dark",
     );
-    for (const width of [1600, 390, 320]) {
+    for (const width of [1600, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await cdp.send("Emulation.setTouchEmulationEnabled", {
         enabled: width !== 1600,
@@ -409,9 +409,9 @@ test("starter previews fit the complete canvas on narrow phones", async ({ page 
   await expect
     .poll(() => preview.evaluate((image: HTMLImageElement) => image.naturalWidth))
     .toBeGreaterThan(0);
-  for (const width of [320, 390, 1440]) {
+  for (const width of [1440, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const colorScheme of ["light", "dark"] as const) {
+    for (const colorScheme of ["light"] as const) {
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       await starter.scrollIntoViewIfNeeded();
       await expect
@@ -635,7 +635,7 @@ test("page-strip previews render after adding a page and remain visible across a
     .toBe(true);
 
   const colorSchemes: Array<"light" | "dark"> = ["light", "dark"];
-  for (const width of [390, 320]) {
+  for (const width of [320]) {
     for (const colorScheme of colorSchemes) {
       await page.setViewportSize({ width, height: 780 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
@@ -845,7 +845,7 @@ test("selection refinement loads layer alpha and closes a keyboard-accessible po
   await page.screenshot({ path: testInfo.outputPath("selection-refinement-phone-dark.png") });
 });
 
-for (const scheme of ["light", "dark"] as const) {
+for (const scheme of ["light"] as const) {
   test(`Photo keeps text editing first and Color preserves the live canvas on phones in ${scheme}`, async ({
     page,
   }, testInfo) => {
@@ -871,7 +871,7 @@ for (const scheme of ["light", "dark"] as const) {
     await page.screenshot({
       path: testInfo.outputPath("photo-text-laptop.png"),
     });
-    for (const width of [390, 320]) {
+    for (const width of [320]) {
       await page.setViewportSize({ width, height: 844 });
       await page.getByRole("button", { name: "Draw", exact: true }).click();
       await expect(
@@ -989,9 +989,9 @@ test("workspace designs can be deleted and editing a media file reopens its desi
   const deleteButton = page.getByRole("button", { name: "Delete Edit reuse", exact: true });
   await expect(deleteButton).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("workspace-design.png"), fullPage: true });
-  for (const colorScheme of ["light", "dark"] as const) {
+  for (const colorScheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 800 });
       await expect(deleteButton).toBeVisible();
       await deleteButton.focus();

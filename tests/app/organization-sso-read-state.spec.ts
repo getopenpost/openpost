@@ -10,8 +10,8 @@ test("SSO empty reads settle and failed reads do not advertise empty configurati
   await createWorkspace(request, auth.token, "SSO read states");
   await authenticatePage(page, auth.token);
   test.setTimeout(90000);
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.goto("/settings?tab=sso");

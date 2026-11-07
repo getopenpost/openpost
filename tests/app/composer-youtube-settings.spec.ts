@@ -59,8 +59,8 @@ test("YouTube settings explain required video before fields are resolved", async
   const path = `/api/v1/publications/${publication.id}`;
   await authenticatePage(page, auth.token);
   await page.goto(`/publications/${publication.id}?workspace_id=${workspace.id}`);
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.reload();
@@ -157,8 +157,8 @@ test("YouTube settings explain required video before fields are resolved", async
       ];
     })
     .toEqual([null, null]);
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.reload();

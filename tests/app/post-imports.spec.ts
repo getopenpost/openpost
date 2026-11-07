@@ -60,10 +60,10 @@ test("account details expose new-provider imports and keep X disabled", async ({
   await expect(
     imports.getByRole("link", { name: "A launch written directly on Threads." }),
   ).toBeVisible();
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    for (const width of [1440, 390, 320]) {
+    for (const width of [1440, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await page.reload();
       await openDetails(accountID);

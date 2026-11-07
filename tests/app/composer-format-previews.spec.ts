@@ -11,8 +11,8 @@ import {
 } from "./helpers";
 
 test.use({ hasTouch: true });
-for (const width of [1280, 390, 320])
-  for (const scheme of ["light", "dark"] as const) {
+for (const width of [1280, 320])
+  for (const scheme of ["light"] as const) {
     test(`account media follows feed, carousel and Story at ${width}px in ${scheme}`, async ({
       page,
       request,

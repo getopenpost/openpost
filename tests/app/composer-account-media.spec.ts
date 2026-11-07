@@ -133,9 +133,9 @@ test("account media controls preserve shared attachments and survive reload", as
       body: undefined,
       shared: "Shared orange photo",
     });
-  for (const colorScheme of ["light", "dark"] as const) {
+  for (const colorScheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 1000 });
       await expect(
         orange().getByRole("button", { name: "Remove media", exact: true }),

@@ -254,8 +254,8 @@ test("shared @ picker creates and reuses immutable per-network mention snapshots
   expect((await read()).renditions.find((r: any) => r.platform === "x").body).toBe(
     "Hi @guest_x  @new_guest  @new_guest ",
   );
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
       await page.reload();

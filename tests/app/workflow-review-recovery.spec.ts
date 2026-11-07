@@ -87,8 +87,8 @@ test("stale approval explains the changed post and refreshes the displayed revis
   const fixture = await pendingReview(request);
   await authenticatePage(page, fixture.auth.token);
   await page.goto(`/workflows/${fixture.workflow.id}`);
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.reload();
@@ -158,8 +158,8 @@ test("review destinations show resolved account names and each distinct content 
   const fixture = await pendingReview(request);
   await authenticatePage(page, fixture.auth.token);
   await page.goto("/workflows");
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.reload();

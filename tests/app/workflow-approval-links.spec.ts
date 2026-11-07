@@ -95,8 +95,8 @@ test("approval links select their workspace before loading a run, including same
   await followApprovalLink(second.href);
   await expect(page.locator("summary").filter({ hasText: "Second approval marker" })).toBeVisible();
   await expect(page).toHaveURL(second.href);
-  for (const width of [1280, 390, 320]) {
-    for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320]) {
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 844 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);

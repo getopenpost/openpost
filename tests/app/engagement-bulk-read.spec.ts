@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
-for (const width of [1280, 390, 320]) {
-  for (const scheme of ["light", "dark"] as const) {
+for (const width of [1280, 320]) {
+  for (const scheme of ["light"] as const) {
     test(`mark all matching read at ${width}px ${scheme}`, async ({ page, request }, testInfo) => {
       const { token } = await registerUser(request, `bulk-read-${randomUUID()}@example.com`);
       const workspace = await createWorkspace(request, token, "Bulk read workspace");

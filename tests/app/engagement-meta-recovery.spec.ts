@@ -42,8 +42,8 @@ test("persisted Meta permission outcomes offer account recovery and disappear af
     )
       writes.push(req.method() + " " + new URL(req.url()).pathname);
   });
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);

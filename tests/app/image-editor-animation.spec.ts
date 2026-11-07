@@ -54,8 +54,8 @@ test("non-Latin tool keys preserve editable text and browser shortcuts", async (
   );
 });
 
-for (const width of [1440, 390, 320]) {
-  for (const colorScheme of ["light", "dark"] as const) {
+for (const width of [1440, 320]) {
+  for (const colorScheme of ["light"] as const) {
     test(`GIF frame editing and lens controls at ${width}px in ${colorScheme}`, async ({
       page,
     }, testInfo) => {

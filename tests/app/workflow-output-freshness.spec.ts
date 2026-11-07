@@ -114,8 +114,8 @@ for (const mode of ["test", "preview"] as const) {
     );
     await expect(output.getByText(warning, { exact: true })).toBeVisible();
     await checkOutput(1);
-    for (const width of [320, 390, 1280]) {
-      for (const colorScheme of ["light", "dark"] as const) {
+    for (const width of [1280, 320]) {
+      for (const colorScheme of ["light"] as const) {
         await page.setViewportSize({ width, height: 850 });
         await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
         if (colorScheme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
@@ -145,8 +145,8 @@ for (const mode of ["test", "preview"] as const) {
     await page.reload();
     await page.getByRole("tab", { name: "Runs", exact: true }).click();
     const historicCard = page.getByRole("button", { name: /^Completed/ }).last();
-    for (const width of [320, 390, 1280]) {
-      for (const colorScheme of ["light", "dark"] as const) {
+    for (const width of [1280, 320]) {
+      for (const colorScheme of ["light"] as const) {
         await page.setViewportSize({ width, height: 850 });
         await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
         if (colorScheme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);

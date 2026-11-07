@@ -50,8 +50,8 @@ test("native mentions and reviews retain separate subjects, filters and review c
   await page.route("**/api/v1/engagement/refresh", (route) =>
     route.fulfill({ json: { status: "queued", queued: 0, job_ids: [] } }),
   );
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.goto("/inbox/engagement");

@@ -107,7 +107,7 @@ test("mobile menus preserve keyboard focus and expose editor creation", async ({
   await expect(page).toHaveURL(/\/$/);
 });
 
-for (const width of [390, 1440]) {
+for (const width of [1440, 390]) {
   test(`navigation menu preserves a keyboard choice made during opening at ${width}px`, async ({
     page,
     request,

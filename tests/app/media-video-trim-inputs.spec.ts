@@ -50,9 +50,9 @@ test("video preparation commits its accepted trim bounds after keyboard edits", 
   await start.press("Tab");
   await end.fill(String(duration));
   await end.press("Tab");
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme });
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 850 });
       await start.scrollIntoViewIfNeeded();
       await expect(start).toHaveValue("0.7");

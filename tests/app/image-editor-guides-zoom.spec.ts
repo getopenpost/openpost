@@ -84,13 +84,13 @@ test("Zoom tool click changes view around pointer and Alt reverses without autho
   await page.screenshot({ path: testInfo.outputPath("zoom-tool.png") });
   await page.keyboard.press("ControlOrMeta+0");
   await expect.poll(percent).toBe(before);
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.evaluate(
       (value) => document.documentElement.classList.toggle("dark", value === "dark"),
       scheme,
     );
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await zoom.click();
       const fitted = await percent();

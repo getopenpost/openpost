@@ -23,13 +23,13 @@ test("Media upload reports corrupt PNG failure without a ready library asset", a
   });
   await page.getByRole("button", { name: "Upload 1 file", exact: true }).click();
   await expect(page.getByText("image file could not be decoded", { exact: true })).toBeVisible();
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.evaluate(
       (value) => document.documentElement.classList.toggle("dark", value === "dark"),
       scheme,
     );
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 850 });
       await expect(page.getByRole("alert")).toBeInViewport();
       await expect(

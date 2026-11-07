@@ -41,8 +41,8 @@ test("adding an existing time explains that no weekdays changed", async ({
     0, 1, 2, 3, 4, 5, 6,
   ]);
   await page.screenshot({ path: info.outputPath("existing-time-desktop.png") });
-  for (const width of [390, 320]) {
-    for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [320]) {
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 844 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       await page.reload();

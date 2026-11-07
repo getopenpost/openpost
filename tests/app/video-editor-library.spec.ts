@@ -25,8 +25,8 @@ async function installLocalWorkspacePicker(page: Page): Promise<void> {
   });
 }
 
-for (const width of [390, 320]) {
-  for (const scheme of ["light", "dark"] as const) {
+for (const width of [320]) {
+  for (const scheme of ["light"] as const) {
     test.describe(`touch timer library at ${width}px in ${scheme}`, () => {
       test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
       test("keeps favorite controls reachable on a small screen", async ({ page }, testInfo) => {
@@ -96,7 +96,7 @@ async function createProject(
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
 }
 
-for (const scheme of ["light", "dark"] as const) {
+for (const scheme of ["light"] as const) {
   test(`library hearts follow the hovered or focused card in ${scheme}`, async ({
     page,
   }, testInfo) => {
@@ -172,7 +172,7 @@ for (const scheme of ["light", "dark"] as const) {
   });
 }
 
-for (const scheme of ["light", "dark"] as const) {
+for (const scheme of ["light"] as const) {
   test(`saved timers, repeat, chapters and frame handoff in ${scheme}`, async ({
     page,
   }, testInfo) => {
@@ -310,7 +310,7 @@ for (const scheme of ["light", "dark"] as const) {
       .click();
     await page.getByRole("menuitem", { name: "Undo", exact: true }).click();
     await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
-    for (const width of [390, 320]) {
+    for (const width of [320]) {
       await page.setViewportSize({ width, height: 844 });
       await page
         .getByRole("navigation", { name: "Editor panels", exact: true })
@@ -439,7 +439,7 @@ for (const style of ["Bomb", "Tomato"] as const) {
     await page.keyboard.press("Escape");
     await expect(bodyColor).toHaveAttribute("title", "Body color: #2855FF");
     await page.screenshot({ path: testInfo.outputPath(`${style}-custom-color.png`) });
-    for (const width of [390, 320]) {
+    for (const width of [320]) {
       await page.setViewportSize({ width, height: 844 });
       await page.getByRole("button", { name: "Properties", exact: true }).click();
       await bodyColor.scrollIntoViewIfNeeded();

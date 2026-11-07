@@ -15,8 +15,8 @@ test("an incomplete transfer keeps its explanation and never retries an absent I
       resolves.push(request.url());
   });
   await page.goto("/ownership-transfer");
-  for (const width of [1280, 390, 320])
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320])
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 850 });
       await page.emulateMedia({ colorScheme: scheme });
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);

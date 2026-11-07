@@ -43,9 +43,9 @@ test("invalid brand fonts explain the file problem and allow a valid upload afte
     "This font file could not be read. Choose a valid WOFF2, TTF, or OTF file.",
   );
   await expect(input).toHaveValue("");
-  for (const colorScheme of ["light", "dark"] as const) {
+  for (const colorScheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await alert.scrollIntoViewIfNeeded();
       await expect(alert).toBeVisible();

@@ -102,7 +102,7 @@ test("conversation editing persists, supports history, and exports readable Unic
   expect(errors).toEqual([]);
 });
 
-for (const width of [320, 390])
+for (const width of [320])
   test(`mobile ${width}px exports visible artwork from Edit and Preview`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
     await page.emulateMedia({

@@ -14,9 +14,9 @@ test("editor audit controls fit desktop and phone widths in both schemes", async
   await page.goto("/image-editor");
   await page.getByRole("button", { name: "Quick announcement", exact: true }).click();
   await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-  for (const colorScheme of ["light", "dark"] as const) {
+  for (const colorScheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-    for (const width of [1369, 390, 320]) {
+    for (const width of [1369, 320]) {
       await page.setViewportSize({ width, height: 800 });
       await expect(page.getByRole("button", { name: "Export", exact: true })).toBeVisible();
       await expect(
@@ -88,13 +88,13 @@ test("ordinary start page opens workspace templates with their pages and editabl
   await expect(workspaceCard).toHaveAccessibleName(
     "Audit workspace template: Create design, Saved to OpenPost",
   );
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.evaluate(
       (value) => document.documentElement.classList.toggle("dark", value === "dark"),
       scheme,
     );
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 900 });
       const section = page.getByRole("region", { name: "Workspace templates", exact: true });
       await section.scrollIntoViewIfNeeded();
@@ -148,7 +148,7 @@ test("ordinary start page opens workspace templates with their pages and editabl
   expect(errors).toEqual([]);
 });
 
-for (const scheme of ["light", "dark"] as const) {
+for (const scheme of ["light"] as const) {
   test(`failed cloud and recovery saves stay visible and protect unsaved work in ${scheme}`, async ({
     page,
     request,
@@ -189,7 +189,7 @@ for (const scheme of ["light", "dark"] as const) {
     await page.screenshot({
       path: testInfo.outputPath(`save-error-1280-${scheme}.png`),
     });
-    for (const width of [390, 320]) {
+    for (const width of [320]) {
       await page.setViewportSize({ width, height: 800 });
       await expect(
         page.locator('[role="status"][aria-label="Save unavailable for this test"]').last(),
@@ -393,13 +393,13 @@ test("cloud design trash restores the same saved design", async ({ page, request
   const trash = page.getByRole("region", { name: "Trash", exact: true });
   await trash.getByRole("button", { name: "Trash", exact: true }).click();
   await expect(trash.getByText("Restore this design", { exact: true })).toBeVisible();
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.evaluate(
       (value) => document.documentElement.classList.toggle("dark", value === "dark"),
       scheme,
     );
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
         width,

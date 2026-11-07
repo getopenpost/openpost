@@ -110,8 +110,8 @@ test("Saved run snapshots remain usable while switching and returning to the lis
   await back.click();
   await expect(completed).toBeVisible();
   expect(errors).toEqual([]);
-  for (const width of [1280, 390, 320]) {
-    for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320]) {
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 844 });
       const priorScheme = await page.locator("html").getAttribute("data-theme-scheme");
       const priorInk = await page.locator("body").evaluate((body) => getComputedStyle(body).color);

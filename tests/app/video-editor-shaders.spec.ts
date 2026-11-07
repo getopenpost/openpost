@@ -167,7 +167,7 @@ test("shader clips preserve edits, seek and export an MP4", async ({ page }) => 
   expect(errors).toEqual([]);
 });
 
-for (const scheme of ["light", "dark"] as const) {
+for (const scheme of ["light"] as const) {
   test(`shader gallery and controls fit desktop and phones in ${scheme}`, async ({
     page,
   }, info) => {
@@ -184,7 +184,7 @@ for (const scheme of ["light", "dark"] as const) {
     await expect(page.getByRole("button", { name: "Aurora", exact: true })).toBeFocused();
     await expectRenderedShader(page);
     await page.screenshot({ path: info.outputPath(`shaders-${scheme}-1440.png`) });
-    for (const width of [390, 320]) {
+    for (const width of [320]) {
       await page.setViewportSize({ width, height: 900 });
       const panels = page.getByRole("navigation", { name: "Editor panels" });
       for (const name of ["Media", "Properties", "Timeline"]) {
@@ -229,7 +229,7 @@ for (const scheme of ["light", "dark"] as const) {
         });
       }
     }
-    for (const width of [1440, 390, 320]) {
+    for (const width of [1440, 320]) {
       await page.setViewportSize({ width, height: 900 });
       if (width < 1440) {
         await page

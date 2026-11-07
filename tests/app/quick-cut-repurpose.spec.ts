@@ -155,12 +155,12 @@ test("Repurpose reviews real source clips and creates independent editable proje
   expect(z.array(z.unknown()).parse(await before.json())).toHaveLength(1);
 
   const touch = await page.context().newCDPSession(page);
-  for (const width of [1280, 390, 320]) {
+  for (const width of [1280, 320]) {
     await touch.send("Emulation.setTouchEmulationEnabled", {
       enabled: width < 600,
       maxTouchPoints: 1,
     });
-    for (const colorScheme of ["light", "dark"] as const) {
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       await expect(

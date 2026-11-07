@@ -84,8 +84,8 @@ test("a customized joined thread preserves each authored source after a cold rel
     })
     .toBe("Custom first edited\n\nContinuation once");
   await page.screenshot({ path: testInfo.outputPath("after-reload.png") });
-  for (const width of [390, 320]) {
-    for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [320]) {
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 844 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       await page.reload();

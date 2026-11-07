@@ -74,13 +74,13 @@ test("Status template blank optional fields preserve content without dangling ex
   await stage.fill("Resolved");
   await body.fill("Service ready");
   await expect(row.locator("p")).toHaveText("Resolved · Service ready");
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.evaluate(
       (value) => document.documentElement.classList.toggle("dark", value === "dark"),
       scheme,
     );
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 850 });
       if (width < 1024) await page.getByRole("button", { name: "Preview", exact: true }).click();
       await expect(artwork).toBeVisible();

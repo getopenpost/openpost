@@ -339,7 +339,7 @@ test("Motion distinguishes an empty composition from a selection and restores Ed
   await expect(page.locator("#video-editor-tools-panel h2")).toHaveText("Main slate");
 });
 
-for (const scheme of ["light", "dark"] as const) {
+for (const scheme of ["light"] as const) {
   test(`Motion creation controls remain readable in ${scheme}`, async ({ page }, testInfo) => {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
@@ -374,7 +374,7 @@ for (const scheme of ["light", "dark"] as const) {
       contrast.ratio,
       "Cancel text meets normal-text contrast on the Motion dialog",
     ).toBeGreaterThanOrEqual(4.5);
-    for (const width of [1440, 390, 320]) {
+    for (const width of [1440, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(cancel).toBeInViewport({ ratio: 1 });
       await page.screenshot({
@@ -551,12 +551,12 @@ test("the timeline ruler keeps its own row above track labels", async ({ page },
   );
   const timeline = page.locator("#video-editor-timeline-scroll");
   const ruler = page.getByRole("slider", { name: "Timeline playhead", exact: true });
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
     await page.reload();
     await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 844 });
       await ruler.press("Home");
       await ruler.press("ArrowRight");

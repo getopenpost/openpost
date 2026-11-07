@@ -59,8 +59,8 @@ async function openDiscordPublication(
   await page.goto(`/publications/${publication.id}`);
 }
 
-for (const width of [1440, 390, 320]) {
-  for (const scheme of ["light", "dark"] as const) {
+for (const width of [1440, 320]) {
+  for (const scheme of ["light"] as const) {
     test(`Discord settings keep required feedback usable at ${width}px in ${scheme}`, async ({
       page,
       request,

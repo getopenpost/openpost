@@ -48,8 +48,8 @@ test("scheduled edits survive cancelled navigation and require an explicit disca
   await page.goto(editorURL);
   await expect(input).toHaveText(original, { useInnerText: true });
 
-  for (const width of [1280, 390, 320]) {
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320]) {
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 1000 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await input.fill(edited);

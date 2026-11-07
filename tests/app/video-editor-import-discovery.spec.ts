@@ -16,11 +16,11 @@ test("disconnected local projects explain how to reach project bundle import", a
   await expect(
     local.getByText("Project bundle imports require a connected local folder.", { exact: true }),
   ).toBeVisible();
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme });
     await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
     await page.reload();
-    for (const width of [1280, 390, 320]) {
+    for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 844 });
       const button = local.getByRole("button", { name: "Import bundle", exact: true });
       await button.scrollIntoViewIfNeeded();

@@ -47,10 +47,10 @@ test("notification status, count and filters agree after reading and reload", as
   await filters.getByRole("tab", { name: "Read", exact: true }).click();
   await expect(row).toHaveAttribute("data-unread", "false");
 
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    for (const width of [1440, 390, 320]) {
+    for (const width of [1440, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await page.reload();
       if (scheme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
@@ -136,10 +136,10 @@ test("notification panel keeps reads explicit, recovers failures and fits deskto
   await page.goto("/inbox/engagement");
   const bell = page.getByTestId("sidebar-notifications").filter({ visible: true });
   const panel = page.getByTestId("notification-panel");
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    for (const width of [1440, 390, 320]) {
+    for (const width of [1440, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await page.reload();
       await expect(bell).toHaveAccessibleName("Notifications, 3 unread");

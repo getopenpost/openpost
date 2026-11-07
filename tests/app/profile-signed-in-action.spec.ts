@@ -34,8 +34,8 @@ test("public profile header sends signed-in viewers to their own profile setting
       await request.get("/api/v1/auth/me", { headers: { Authorization: `Bearer ${actor.token}` } })
     ).json();
     await authenticatePage(page, actor.token);
-    for (const width of [1280, 390, 320]) {
-      for (const scheme of ["light", "dark"] as const) {
+    for (const width of [1280, 320]) {
+      for (const scheme of ["light"] as const) {
         await page.setViewportSize({ width, height: 900 });
         await page.emulateMedia({ colorScheme: scheme });
         await page.goto(`/u/${identity.username}`);

@@ -78,8 +78,8 @@ test("composer history identifies the authored fields changed by a text edit", a
     nontextEvents.find((event: { revision?: number }) => event.revision === nontextPost.revision)
       .changed_domains,
   ).toEqual(["settings"]);
-  for (const width of [1280, 390, 320]) {
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320]) {
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.reload();

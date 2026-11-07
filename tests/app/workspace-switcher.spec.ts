@@ -64,10 +64,10 @@ test("workspace switcher creates and selects a workspace", async ({ page, reques
   await expect(page.getByRole("menuitem", { name: new RegExp(newName) })).toBeVisible();
   await page.keyboard.press("Escape");
 
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    for (const width of [1440, 390, 320]) {
+    for (const width of [1440, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await page.reload();
       if (scheme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);

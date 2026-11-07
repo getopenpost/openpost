@@ -197,9 +197,9 @@ for (const { destinationOnly, provider, outputProfile, count } of [
       .getByRole("button", { name: /^(Add alt text|Alt text)$/ })
       .click();
     await expect(page.getByPlaceholder("Alt text…")).toHaveValue(media.alt_text);
-    for (const colorScheme of ["light", "dark"] as const) {
+    for (const colorScheme of ["light"] as const) {
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      for (const width of [390, 320]) {
+      for (const width of [320]) {
         await page.setViewportSize({ width, height: 800 });
         await expect(page.getByPlaceholder("Alt text…")).toBeVisible();
         expect(

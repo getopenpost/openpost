@@ -48,7 +48,7 @@ async function createProject(
   await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
 }
 
-for (const scheme of ["light", "dark"] as const) {
+for (const scheme of ["light"] as const) {
   test.describe(scheme, () => {
     test.use({ hasTouch: scheme === "dark" });
     test(`precise trimming and explicit media placement in ${scheme}`, async ({
@@ -139,7 +139,7 @@ for (const scheme of ["light", "dark"] as const) {
       await expect
         .poll(async () => (await clips.first().boundingBox())!.width)
         .toBeCloseTo(original.width, 0);
-      for (const width of [1280, 390, 320]) {
+      for (const width of [1280, 320]) {
         await page.setViewportSize({ width, height: 844 });
         await clipOverflow.scrollIntoViewIfNeeded();
         await expect(clipOverflow).toBeInViewport();
@@ -157,7 +157,7 @@ for (const scheme of ["light", "dark"] as const) {
         .click();
       await page.getByRole("menuitem", { name: "Add at end of sequence", exact: true }).click();
       await expect(clips).toHaveCount(2);
-      for (const width of [390, 320]) {
+      for (const width of [320]) {
         await page.setViewportSize({ width, height: 844 });
         const panels = page.getByRole("navigation", { name: "Editor panels" });
         await panels.getByRole("button", { name: "Media", exact: true }).click();

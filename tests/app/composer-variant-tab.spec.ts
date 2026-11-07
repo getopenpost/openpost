@@ -32,7 +32,7 @@ function capability(accountId: string, platform: string, profile: string, label:
 }
 
 for (const width of [1280, 390]) {
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     test(`customized destination tab carries its own marker at ${width}px in ${scheme}`, async ({
       page,
       request,

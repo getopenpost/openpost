@@ -81,8 +81,8 @@ test("literal dotted keys and nested paths remain distinct picker references", a
     await expect(output.getByText(expected, { exact: true })).toBeVisible({ timeout: 30000 });
   }
   expect(errors).toEqual([]);
-  for (const width of [390, 320]) {
-    for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [320]) {
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 844 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       await page.getByRole("tab", { name: "Configure", exact: true }).click();

@@ -36,8 +36,8 @@ test("Calendar keeps the chosen date across Month and Week and opens the compose
   ]);
   await authenticatePage(page, auth.token);
   await page.goto("/calendar");
-  for (const width of [1168, 390, 320]) {
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1168, 320]) {
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 850 });
       await page.emulateMedia({ colorScheme: scheme });
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);

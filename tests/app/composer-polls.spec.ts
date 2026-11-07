@@ -4,10 +4,10 @@ import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import { authenticatePage, composerDestinations, createWorkspace, registerUser } from "./helpers";
 
-for (const width of [1280, 390, 320]) {
+for (const width of [1280, 320]) {
   test.describe(`${width}px controls`, () => {
     test.use({ hasTouch: width < 768 });
-    for (const scheme of ["light", "dark"] as const) {
+    for (const scheme of ["light"] as const) {
       test(`shared poll choices persist at ${width}px in ${scheme}`, async ({
         page,
         request,

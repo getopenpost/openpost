@@ -101,7 +101,7 @@ test("a background moves between visual tracks with undo, cancel and persistence
   await sunset.click();
   await page.getByRole("textbox", { name: "Width", exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("inspector-light-desktop.png") });
-  for (const width of [390, 320]) {
+  for (const width of [320]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(
       page

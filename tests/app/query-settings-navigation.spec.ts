@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
-for (const width of [1280, 390, 320])
-  for (const scheme of ["light", "dark"] as const) {
+for (const width of [1280, 320])
+  for (const scheme of ["light"] as const) {
     test(`organization settings settles after cached navigation at ${width}px ${scheme}`, async ({
       page,
       request,

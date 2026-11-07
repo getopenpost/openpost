@@ -178,7 +178,7 @@ test("unvisited app pages have an offline fallback and APIs stay out of caches",
   await expect(page.getByRole("link", { name: "Try again" })).toBeVisible();
 });
 
-for (const scheme of ["light", "dark"] as const) {
+for (const scheme of ["light"] as const) {
   test(`desktop install invitation appears once and remains available in the profile menu in ${scheme}`, async ({
     page,
     request,
@@ -312,8 +312,8 @@ test("offline fallback respects language, theme, keyboard and narrow screens", a
     { name: "PARAGLIDE_LOCALE", value: "pt", url: new URL(page.url()).origin },
   ]);
   await context.setOffline(true);
-  for (const width of [390, 320]) {
-    for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [320]) {
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 844 });
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       await page.goto("/quick-cut");

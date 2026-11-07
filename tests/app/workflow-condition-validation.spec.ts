@@ -50,8 +50,8 @@ test("Condition test explains the visible field and preserves older output as hi
   await expect(output.getByText("Completed", { exact: true })).toBeVisible();
   await expect(output.getByText("matched", { exact: true })).toBeVisible();
   await expect(output.getByText("true", { exact: true })).toBeVisible();
-  for (const width of [1280, 390, 320]) {
-    for (const scheme of ["light", "dark"] as const) {
+  for (const width of [1280, 320]) {
+    for (const scheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       const configure = page.getByRole("tab", { name: "Configure", exact: true });

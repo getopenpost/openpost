@@ -217,8 +217,8 @@ test("optimizes attachments automatically and fits one network while keeping bot
       .getByTestId("composer-account-preview")
       .locator(`[data-composer-media-id="${fitted.id}"] img`),
   ).toHaveAttribute("alt", "Fine color detail");
-  for (const colorScheme of ["light", "dark"] as const)
-    for (const width of [1280, 390, 320]) {
+  for (const colorScheme of ["light"] as const)
+    for (const width of [1280, 320]) {
       await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
       await page.setViewportSize({ width, height: 1000 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(

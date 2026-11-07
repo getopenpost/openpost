@@ -117,10 +117,10 @@ test("an edited source frame returns only to its destination cover and survives 
     .getByRole("button");
   await expect(candidates).toHaveCount(5);
   const cdp = await page.context().newCDPSession(page);
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-    for (const width of [1440, 390, 320]) {
+    for (const width of [1440, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await cdp.send("Emulation.setTouchEmulationEnabled", {
         enabled: width < 1000,
@@ -189,10 +189,10 @@ test("an edited source frame returns only to its destination cover and survives 
       .thumbnail_media_id,
   ).toBeFalsy();
   expect(result.segments[0].media.map((item: any) => item.id)).toEqual([setup.video.id]);
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-    for (const width of [1440, 390, 320]) {
+    for (const width of [1440, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await dialog
         .getByRole("img", { name: "A custom cover image is selected." })

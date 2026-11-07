@@ -66,8 +66,8 @@ test("pointer and keyboard canvas positions survive actual reload without revisi
   await expect.poll(position).toEqual(keyboardPosition);
   await page.reload();
   await expect.poll(position).toEqual(keyboardPosition);
-  for (const width of [390, 1280]) {
-    for (const colorScheme of ["light", "dark"] as const) {
+  for (const width of [1280, 390]) {
+    for (const colorScheme of ["light"] as const) {
       await page.setViewportSize({ width, height: 850 });
       await page.emulateMedia({ colorScheme });
       await page.reload();

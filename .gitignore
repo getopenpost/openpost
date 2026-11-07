@@ -148,3 +148,6 @@ apps/marketing/static/og/
 # Shared package output
 packages/ui/dist/
 packages/dither/dist/
+
+# Hosted data-plane test report
+apps/server/hosted-data-plane.json

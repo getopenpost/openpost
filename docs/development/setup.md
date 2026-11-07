@@ -40,6 +40,11 @@ data is separate from the database used by `bun run dev`. The proxy requires
 devenv 2.4 or newer; on Linux it may request sudo to bind port 80. Provider
 OAuth callbacks must be registered for the displayed URL.
 
+`devenv up --profile hosted -d postgres rustfs` starts the Hosted data plane,
+PostgreSQL and S3-compatible storage, on ports allocated per checkout. Run
+`devenv --profile hosted shell -- bash scripts/test-hosted-data-plane.sh` for the
+same migration, queue and object-storage tests CI runs, then `devenv down`.
+
 ## Commands
 
 ```bash

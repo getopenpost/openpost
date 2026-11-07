@@ -636,8 +636,8 @@ func (h *MediaHandler) listMedia(ctx context.Context, input *ListMediaInput) (*L
 		return nil, err
 	}
 
-	var total int
-	total, err = query.Count(ctx)
+	total64, err := query.Count(ctx)
+	total := int(total64)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to count media")
 	}
@@ -645,7 +645,7 @@ func (h *MediaHandler) listMedia(ctx context.Context, input *ListMediaInput) (*L
 	query = h.applyListMediaSort(query, input.Sort)
 
 	var media []models.MediaAttachment
-	err = query.Limit(limit).Offset(input.Offset).Scan(ctx, &media)
+	err = query.Limit(int64(limit)).Offset(int64(input.Offset)).Scan(ctx, &media)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to fetch media")
 	}

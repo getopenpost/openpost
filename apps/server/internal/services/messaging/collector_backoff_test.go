@@ -93,7 +93,7 @@ func TestCollectionFailureBackoffSurvivesForegroundAndPeriodicWakeups(t *testing
 				require.NoError(t, s.enqueueActiveAccounts(t.Context()))
 				jobs, err = db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
 				require.NoError(t, err)
-				require.Equal(t, 1, jobs)
+				require.EqualValues(t, 1, jobs)
 			})
 		}
 	}

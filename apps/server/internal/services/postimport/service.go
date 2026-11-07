@@ -276,7 +276,7 @@ func (s *Service) ListImportedPage(ctx context.Context, workspaceID, accountID, 
 		}
 		query = query.Where("(published_at < ? OR (published_at = ? AND id < ?))", after.PublishedAt, after.PublishedAt, after.ID)
 	}
-	err := query.Order("published_at DESC", "id DESC").Limit(limit + 1).Scan(ctx)
+	err := query.Order("published_at DESC", "id DESC").Limit(int64(limit + 1)).Scan(ctx)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, "", fmt.Errorf("list imported posts: %w", err)
 	}
@@ -331,7 +331,7 @@ func (s *Service) EnqueueDue(ctx context.Context) (int, error) {
 		Where("social_account_id IN (SELECT id FROM social_accounts WHERE is_active = ?)", true).
 		Where("social_account_id NOT IN (SELECT dedupe_key FROM jobs WHERE type = ? AND status IN (?, ?))", JobTypeSync, jobregistry.StatusPending, jobregistry.StatusProcessing).
 		Order("next_eligible_at ASC").
-		Limit(dueSweepLimit).
+		Limit(int64(dueSweepLimit)).
 		Scan(ctx); err != nil {
 		return 0, fmt.Errorf("list due post imports: %w", err)
 	}

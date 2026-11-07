@@ -63,7 +63,7 @@ func countRows[T any](t *testing.T, db *bun.DB, where string, args ...any) int {
 	}
 	count, err := query.Count(t.Context())
 	require.NoError(t, err)
-	return count
+	return int(count)
 }
 
 func TestDeleteWorkspaceRemovesWorkspaceContent(t *testing.T) {

@@ -947,7 +947,7 @@ func (h *ImageEditorHandler) updateTag(ctx context.Context, input *UpdateMediaTa
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to count tag items")
 	}
-	return &UpdateMediaTagOutput{Body: tagResponse(*tag, count)}, nil
+	return &UpdateMediaTagOutput{Body: tagResponse(*tag, int(count))}, nil
 }
 
 func (h *ImageEditorHandler) replaceTagItems(ctx context.Context, input *ReplaceMediaTagItemsInput) (*ReplaceMediaTagItemsOutput, error) {
@@ -1010,7 +1010,7 @@ func (h *ImageEditorHandler) replaceTagItems(ctx context.Context, input *Replace
 	}
 	return &ReplaceMediaTagItemsOutput{Body: struct {
 		Count int `json:"count"`
-	}{Count: count}}, nil
+	}{Count: int(count)}}, nil
 }
 
 func (h *ImageEditorHandler) promoteTaggedMedia(ctx context.Context, workspaceID, mode string, mediaIDs []string) error {

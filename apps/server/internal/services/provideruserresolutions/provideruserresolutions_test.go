@@ -109,7 +109,7 @@ func TestResolveUpsertsConcurrentLookupsForSameHandle(t *testing.T) {
 	count, err := db.NewSelect().Model((*models.ProviderUserResolution)(nil)).
 		Where("workspace_id = ? AND provider = ? AND handle = ?", "ws-1", "x", "alice").Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestResolveFailsBatchOnLookupErrorOrMissingHandle(t *testing.T) {

@@ -84,5 +84,5 @@ func TestPasskeyBeginRetryKeepsSameCeremony(t *testing.T) {
 	}
 	count, err := db.NewSelect().Model((*models.AuthChallenge)(nil)).Where("type = ?", authChallengePasskeyLogin).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }

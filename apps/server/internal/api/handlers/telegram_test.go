@@ -97,5 +97,5 @@ func TestTelegramConnectionCodeIsWorkspaceBoundAndReturnedOnlyAtIssuance(t *test
 	require.Equal(t, http.StatusUnprocessableEntity, missingChatResponse.Code)
 	count, err := db.NewSelect().Model((*models.BotConnectionNonce)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }

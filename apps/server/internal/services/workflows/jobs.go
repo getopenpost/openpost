@@ -221,7 +221,7 @@ func (s *Service) commitSourcePoll(ctx context.Context, record workflowRecord, d
 		// the order in which its posts reach the publication queue.
 		for i := len(items) - 1; i >= 0; i-- {
 			item := items[i]
-			if sourceAdmissionAtCapacity(active, record) {
+			if sourceAdmissionAtCapacity(int(active), record) {
 				// Keep this page available until its unadmitted events have room to run.
 				_, err := tx.NewUpdate().Model((*workflowRecord)(nil)).Set("source_page = ?, source_error = ?", record.SourcePage, "workspace has reached 1000 active workflow runs").Where("id = ?", id).Exec(ctx)
 				return err
@@ -284,7 +284,7 @@ func commentDailyLimitReached(ctx context.Context, db bun.IDB, record workflowRe
 		return false, nil
 	}
 	count, err := db.NewSelect().Model((*runRecord)(nil)).Where("workflow_id = ? AND mode = ? AND created_at >= ?", record.ID, ModeLive, now.Truncate(24*time.Hour)).Count(ctx)
-	return count >= def.Source.DailyLimit, err
+	return count >= int64(def.Source.DailyLimit), err
 }
 
 func (s *Service) admitSourceEvent(ctx context.Context, tx bun.Tx, record workflowRecord, def Definition, item SourceItem, now time.Time) (bool, error) {

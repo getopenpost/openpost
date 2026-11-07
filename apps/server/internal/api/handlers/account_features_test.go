@@ -256,7 +256,7 @@ func TestAccountFeaturesAtomicBatchValidation(t *testing.T) {
 
 	count, err := srv.db.NewSelect().Model((*models.AccountFeature)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 0, count, "no rows should be written on validation failure")
+	require.EqualValues(t, 0, count, "no rows should be written on validation failure")
 
 	// Also test last-write-wins
 	saveBody = map[string]any{

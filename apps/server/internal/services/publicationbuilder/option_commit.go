@@ -199,7 +199,7 @@ func (application *Application) validateOptionImages(ctx context.Context, worksp
 	if err != nil {
 		return err
 	}
-	if count != len(ids) {
+	if count != int64(len(ids)) {
 		return ErrBuildSourceUnavailable
 	}
 	return nil

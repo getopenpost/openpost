@@ -242,7 +242,7 @@ func (s *Service) listOrganizationSummaryRows(ctx context.Context, organizationI
 		Join("LEFT JOIN organization_theme_drafts AS draft ON draft.theme_id = theme.id AND draft.organization_id = theme.organization_id").
 		Where("theme.organization_id = ?", organizationID)
 	query = applyCustomSummaryCursor(query, cursor, "theme.normalized_name", "theme.created_at")
-	err := query.OrderExpr("theme.normalized_name ASC, theme.created_at ASC, theme.id ASC").Limit(limit).Scan(ctx, &rows)
+	err := query.OrderExpr("theme.normalized_name ASC, theme.created_at ASC, theme.id ASC").Limit(int64(limit)).Scan(ctx, &rows)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("%w: list themes", ErrUnavailable)
 	}
@@ -264,7 +264,7 @@ func (s *Service) listAvailableSummaryRows(ctx context.Context, organizationID s
 		Join("JOIN organization_theme_revisions AS revision ON revision.theme_id = theme.id AND revision.organization_id = theme.organization_id AND revision.revision = theme.latest_published_revision").
 		Where("theme.organization_id = ? AND theme.latest_published_revision > 0", organizationID)
 	query = applyCustomSummaryCursor(query, cursor, "LOWER(revision.name)", "revision.published_at")
-	err := query.OrderExpr("LOWER(revision.name) ASC, revision.published_at ASC, theme.id ASC").Limit(limit).Scan(ctx, &rows)
+	err := query.OrderExpr("LOWER(revision.name) ASC, revision.published_at ASC, theme.id ASC").Limit(int64(limit)).Scan(ctx, &rows)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("%w: list available themes", ErrUnavailable)
 	}

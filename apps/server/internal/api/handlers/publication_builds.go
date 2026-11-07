@@ -760,7 +760,7 @@ func (h *PublicationBuildHandler) normalizePublicationBuildAssets(
 	if err != nil {
 		return nil, huma.Error503ServiceUnavailable("Selected media sources could not be checked")
 	}
-	if count != len(mediaIDs) {
+	if count != int64(len(mediaIDs)) {
 		return nil, huma.Error400BadRequest("One or more media sources is unavailable in this Workspace")
 	}
 	return assets, nil

@@ -55,7 +55,7 @@ func TestPublicReplyReceiptSurvivesLostResponseAndCompletedJob(t *testing.T) {
 	require.ErrorIs(t, err, ErrOperationConflict)
 	count, err := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 	_, err = db.NewDelete().Model((*models.Job)(nil)).Where("id=?", jobID).Exec(t.Context())
 	require.NoError(t, err)
 	replay, err = s.QueueEngagementActionReceipt(t.Context(), actor, "c", "reply", "answer", "op")

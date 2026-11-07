@@ -112,7 +112,7 @@ func TestOptionalProducerRechecksMuteWhenCreateReplaceOrEndRacesIt(t *testing.T)
 			jobs, countErr := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
 			require.NoError(t, countErr)
 			if action == "end" {
-				require.Equal(t, 1, jobs)
+				require.EqualValues(t, 1, jobs)
 			} else {
 				require.Zero(t, jobs)
 			}

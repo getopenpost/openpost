@@ -493,7 +493,7 @@ func TestImageEditorDesignSaveUsesOptimisticConcurrencyAndTracksMedia(t *testing
 		Where("design_document_id = ? AND media_id = ?", created.Body.ID, "media-1").
 		Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 
 	var reference models.DesignMediaReference
 	require.NoError(t, handler.db.NewSelect().Model(&reference).
@@ -526,7 +526,7 @@ func TestImageEditorDesignCreationIsIdempotentForClientRequest(t *testing.T) {
 		Where("workspace_id = ? AND created_by_id = ?", "workspace-1", "user-1").
 		Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestImageEditorViewerCanReadButCannotEdit(t *testing.T) {
@@ -1026,13 +1026,13 @@ func TestImageEditorRemoveCheckpointPreservesDesignAndOtherVersions(t *testing.T
 	require.Zero(t, refs)
 	refs, err = handler.db.NewSelect().Model((*models.DesignRevisionMediaReference)(nil)).Where("revision_id = ?", checkpoints[1].ID).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, refs)
+	require.EqualValues(t, 1, refs)
 	index, err := handler.db.NewSelect().Model((*models.DesignRevisionMediaIndexState)(nil)).Where("revision_id = ?", checkpoints[0].ID).Count(ctx)
 	require.NoError(t, err)
 	require.Zero(t, index)
 	mediaCount, err := reader.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", "checkpoint-media").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, mediaCount)
+	require.EqualValues(t, 1, mediaCount)
 }
 
 func TestImageEditorRemoveCheckpointGuards(t *testing.T) {

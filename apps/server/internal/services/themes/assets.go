@@ -135,7 +135,7 @@ func (s *Service) ListAssets(ctx context.Context, actor Actor, organizationID st
 	if !cursor.CreatedAt.IsZero() {
 		query = query.Where("created_at < ? OR (created_at = ? AND id > ?)", cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
 	}
-	if err := query.OrderExpr("created_at DESC, id ASC").Limit(options.Limit + 1).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err := query.OrderExpr("created_at DESC, id ASC").Limit(int64(options.Limit + 1)).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return ThemeAssetPage{}, fmt.Errorf("%w: list theme assets", ErrUnavailable)
 	}
 	page := ThemeAssetPage{Items: make([]ThemeAssetRecord, 0, min(len(rows), options.Limit))}

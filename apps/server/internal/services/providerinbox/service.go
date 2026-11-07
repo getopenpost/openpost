@@ -74,7 +74,7 @@ func (s *Service) ProcessPending(ctx context.Context, limit int, process Process
 	}
 	now := s.now()
 	var candidates []receipt
-	if err := s.db.NewSelect().Model(&candidates).Where("processed_at IS NULL AND next_attempt_at <= ? AND lease_until <= ?", now.UnixMilli(), now.UnixMilli()).Order("created_at ASC").Limit(limit).Scan(ctx); err != nil {
+	if err := s.db.NewSelect().Model(&candidates).Where("processed_at IS NULL AND next_attempt_at <= ? AND lease_until <= ?", now.UnixMilli(), now.UnixMilli()).Order("created_at ASC").Limit(int64(limit)).Scan(ctx); err != nil {
 		return 0, err
 	}
 	count := 0

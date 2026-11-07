@@ -311,7 +311,7 @@ func TestAccountDeletionTransfersSharedOrganizationAndPreservesTeamContent(t *te
 	require.Equal(t, "user-2", publication.CreatedByID)
 	accountCount, err := db.NewSelect().Model((*models.SocialAccount)(nil)).Where("id = ?", "account-1").Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, accountCount)
+	require.EqualValues(t, 1, accountCount)
 	for table, where := range map[string]string{
 		"users":                "id = 'user-1'",
 		"organization_members": "user_id = 'user-1'",

@@ -141,10 +141,10 @@ func TestApplicationEnqueueIsIdempotentAndBuildsDurably(t *testing.T) {
 
 	jobCount, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", jobregistry.TypePublicationBuild).Count(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 1, jobCount)
+	require.EqualValues(t, 1, jobCount)
 	assetCount, err := db.NewSelect().Model((*buildAssetRecord)(nil)).Where("build_id = ? AND media_id = ?", first.ID, "proof").Count(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 1, assetCount)
+	require.EqualValues(t, 1, assetCount)
 	require.Equal(t, "founder-accounts", first.SocialSetID)
 	require.Equal(t, "rodrigo", first.VoiceProfileID)
 

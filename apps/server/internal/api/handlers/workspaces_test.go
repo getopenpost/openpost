@@ -866,5 +866,5 @@ func TestCreateWorkspaceRechecksLimitAfterCompetingCreation(t *testing.T) {
 	require.Equal(t, http.StatusPaymentRequired, resp.Code, resp.Body.String())
 	count, err := srv.db.NewSelect().Model((*models.Workspace)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }

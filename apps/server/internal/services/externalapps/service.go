@@ -602,7 +602,7 @@ func (s *Service) validateWorkspaceGrant(ctx context.Context, userID, sessionID 
 	}
 	if len(input.AccountIDs) > 0 {
 		count, err = s.db.NewSelect().Model((*models.SocialAccount)(nil)).Where("workspace_id = ? AND is_active = ? AND id IN (?)", input.WorkspaceID, true, bun.List(input.AccountIDs)).Count(ctx)
-		if err != nil || count != len(input.AccountIDs) {
+		if err != nil || count != int64(len(input.AccountIDs)) {
 			return WorkspaceGrantInput{}, ErrAccountNotAllowed
 		}
 	}

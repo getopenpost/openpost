@@ -162,7 +162,7 @@ func TestPublicationJobRestartPreservesAuthorizedTime(t *testing.T) {
 				require.Equal(t, models.RenditionStatusPublished, rendition.Status, "successful destinations must be preserved")
 				count, err := db.NewSelect().Model((*models.PublicationAuthorization)(nil)).Where("job_id = ?", job.ID).Count(ctx)
 				require.NoError(t, err)
-				require.Equal(t, 1, count, "invalid work must never receive replacement authorization")
+				require.EqualValues(t, 1, count, "invalid work must never receive replacement authorization")
 				require.NoError(t, runTestMigrations(t, db))
 				return
 			}

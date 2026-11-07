@@ -386,10 +386,10 @@ func repostCredentialCounts(t *testing.T, db *bun.DB, policyCount, grantCount in
 	t.Helper()
 	actualPolicies, err := db.NewSelect().Model((*models.RepostPolicy)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, policyCount, actualPolicies)
+	require.EqualValues(t, policyCount, actualPolicies)
 	actualGrants, err := db.NewSelect().Model((*models.RepostAccountGrant)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, grantCount, actualGrants)
+	require.EqualValues(t, grantCount, actualGrants)
 }
 
 func TestRepostPolicySaveKeepsExistingIdentity(t *testing.T) {

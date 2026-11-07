@@ -69,6 +69,6 @@ func TestRecordCommitsEventWebhookDeliveryAndJobTogether(t *testing.T) {
 	} {
 		count, countErr = db.NewSelect().Model(model).Count(ctx)
 		require.NoError(t, countErr)
-		require.Equal(t, 1, count)
+		require.EqualValues(t, 1, count)
 	}
 }

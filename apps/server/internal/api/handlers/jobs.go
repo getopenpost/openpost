@@ -158,13 +158,13 @@ func (h *JobHandler) listJobs(ctx context.Context, input *ListJobsInput) (*ListJ
 			pageCursor.ID,
 		)
 	} else {
-		query = query.Offset(input.Offset)
+		query = query.Offset(int64(input.Offset))
 	}
 	scanLimit := limit
 	if pageCursor != nil {
 		scanLimit++
 	}
-	query = query.Limit(scanLimit)
+	query = query.Limit(int64(scanLimit))
 	if err := query.Scan(ctx); err != nil {
 		return nil, huma.Error500InternalServerError("failed to fetch jobs")
 	}
@@ -172,7 +172,7 @@ func (h *JobHandler) listJobs(ctx context.Context, input *ListJobsInput) (*ListJ
 	if cursorHasMore {
 		jobs = jobs[:limit]
 	}
-	output := listJobsOutput(jobResponses(jobs, browserAdmin), total, limit, input.Offset)
+	output := listJobsOutput(jobResponses(jobs, browserAdmin), int(total), limit, input.Offset)
 	if pageCursor != nil {
 		output.HasMore = cursorHasMore
 	}

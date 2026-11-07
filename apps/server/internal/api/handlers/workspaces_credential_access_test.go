@@ -170,7 +170,7 @@ func TestAcceptWorkspaceInvitationRequiresCredentialSSOAccess(t *testing.T) {
 		Where("workspace_id = ? AND user_id = ?", workspaceCredentialTestID, workspaceCredentialInviteeUserID).
 		Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, membershipCount)
+	require.EqualValues(t, 1, membershipCount)
 }
 
 func TestListWorkspacesFiltersTokenDeniedRowsButKeepsBrowserDiscovery(t *testing.T) {
@@ -273,7 +273,7 @@ func TestCreateWorkspaceRechecksPreferredOrganizationCredentialAccess(t *testing
 	workspaceCount, err := server.db.NewSelect().Model((*models.Workspace)(nil)).
 		Where("organization_id = ?", orgID).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, workspaceCount)
+	require.EqualValues(t, 1, workspaceCount)
 }
 
 func TestCredentialFilteredReadOperationsDeclareAuthorizationErrors(t *testing.T) {

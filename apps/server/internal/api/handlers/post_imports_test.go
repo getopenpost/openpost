@@ -109,7 +109,7 @@ func testPostImportsLifecycle(t *testing.T, db *bun.DB) {
 	require.True(t, state.Enabled)
 	jobs, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", postimport.JobTypeSync).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, jobs)
+	require.EqualValues(t, 1, jobs)
 	firstWatermark := state.ImportWatermark
 	res = request(http.MethodPut, "/api/v1/accounts/account-1/post-imports", map[string]any{"workspace_id": "workspace-1", "enabled": true})
 	require.Equal(t, http.StatusOK, res.Code, res.Body.String())

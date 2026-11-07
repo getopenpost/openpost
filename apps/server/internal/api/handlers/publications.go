@@ -3507,7 +3507,7 @@ func (h *PublicationHandler) requireExternalPublicationAccounts(ctx context.Cont
 	if err != nil {
 		return huma.Error500InternalServerError("failed to validate publication account grants")
 	}
-	if count != len(accountIDs) {
+	if count != int64(len(accountIDs)) {
 		return huma.Error403Forbidden("external application is not granted every publication account")
 	}
 	return nil
@@ -3551,7 +3551,7 @@ func (h *PublicationHandler) validateMediaBelongsToWorkspace(ctx context.Context
 	if err != nil {
 		return huma.Error500InternalServerError("failed to validate media attachments")
 	}
-	if count != len(uniqueIDs) {
+	if count != int64(len(uniqueIDs)) {
 		return huma.Error400BadRequest("one or more media attachments are invalid or outside this workspace")
 	}
 	return nil

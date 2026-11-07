@@ -66,7 +66,7 @@ func TestImageEditorRestorePreservesIndependentContentAndSourceOwner(t *testing.
 	require.Empty(t, record.SourceMediaID)
 	references, err := handler.db.NewSelect().Model((*models.DesignMediaReference)(nil)).Where("design_document_id = ? AND media_id = ?", original.Body.ID, "restore-source").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, references)
+	require.EqualValues(t, 1, references)
 	reopened, err := handler.createDesign(ctx, input)
 	require.NoError(t, err)
 	require.Equal(t, replacement.Body.ID, reopened.Body.ID)

@@ -95,10 +95,10 @@ func TestOwnershipInitiationRequiresOwnerRecentAuthAndExactConfirmation(t *testi
 	require.Equal(t, http.StatusBadRequest, unknownNominee.Code, unknownNominee.Body.String())
 	failedCount, err := db.NewSelect().Model((*models.OrganizationOwnershipAuditEvent)(nil)).Where("action = ?", organizationownership.ActionInitiationFailed).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 7, failedCount)
+	require.EqualValues(t, 7, failedCount)
 	nullNomineeCount, err := db.NewSelect().Model((*models.OrganizationOwnershipAuditEvent)(nil)).Where("action = ? AND nominee_user_id IS NULL", organizationownership.ActionInitiationFailed).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, nullNomineeCount, "an unvalidated nominee must remain a nullable audit subject")
+	require.EqualValues(t, 1, nullNomineeCount, "an unvalidated nominee must remain a nullable audit subject")
 	created := jsonRequest(t, e, http.MethodPost, "/api/v1/organizations/org/ownership-transfer", body, "owner")
 	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
 	require.Contains(t, created.Body.String(), `"status":"pending"`)
@@ -114,7 +114,7 @@ func TestOwnershipInitiationAuditsUnavailableReauthentication(t *testing.T) {
 	require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
 	count, err := db.NewSelect().Model((*models.OrganizationOwnershipAuditEvent)(nil)).Where("action = ? AND result = ?", organizationownership.ActionInitiationFailed, "failed").Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestOwnershipEndpointsRejectMissingOrganizationIdentityAssurance(t *testing.T) {

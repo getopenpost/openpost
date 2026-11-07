@@ -635,5 +635,5 @@ func (s *Service) recommendationRankBucket(ctx context.Context, recommendation m
 	if err != nil {
 		return "", err
 	}
-	return growthRankBucket(count + 1), nil
+	return growthRankBucket(int(count + 1)), nil
 }

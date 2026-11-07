@@ -582,7 +582,7 @@ func (h *AccountLifecycleHandler) countDeletionWorkspaceData(ctx context.Context
 		if err != nil {
 			return err
 		}
-		*target = count
+		*target = int(count)
 	}
 	return nil
 }

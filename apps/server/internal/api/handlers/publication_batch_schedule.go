@@ -295,7 +295,7 @@ func (h *PublicationHandler) batchSchedulePreflight(ctx context.Context, post *m
 			return fmt.Errorf("the client approved specific timing; edit and resubmit this post first")
 		}
 	}
-	var overrides int
+	var overrides int64
 	overrides, err := h.db.NewSelect().Model((*models.Rendition)(nil)).Where("publication_id = ? AND schedule_override IS NOT NULL", post.ID).Count(ctx)
 	if err != nil {
 		return err

@@ -117,7 +117,7 @@ func TestCreatePublicationIdempotencyReplaysConflictsAndIsolatesTokens(t *testin
 
 	count, err := db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 2, count)
+	require.EqualValues(t, 2, count)
 }
 
 func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {

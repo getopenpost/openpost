@@ -129,7 +129,7 @@ func TestFeatureGateMessagingEnforcement(t *testing.T) {
 			require.NoError(t, msgSvc.HandleJob(ctx, messagingservice.JobTypeSweep, "{}"))
 			var jobs []models.Job
 			require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", messagingservice.JobTypeMessagesSync).Order("created_at DESC").Scan(ctx))
-			require.Greater(t, len(jobs), beforeSweep, "automatic sweep must admit the canonical messaging preference")
+			require.Greater(t, int64(len(jobs)), beforeSweep, "automatic sweep must admit the canonical messaging preference")
 			queued, err = msgSvc.RefreshWorkspace(ctx, workspaceAccessActor(), "ws-1", true)
 			require.NoError(t, err)
 			require.Zero(t, queued, "manual refresh reuses the pending sweep collection")
@@ -288,7 +288,7 @@ func TestFeatureGateGrowEnforcement(t *testing.T) {
 	require.NoError(t, err)
 	followJobs, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", "growth_follow").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, followJobs)
+	require.EqualValues(t, 1, followJobs)
 	require.NoError(t, executeGrowthJob(t, db, growSvc, followJobID))
 	require.Equal(t, 1, int(atomic.LoadInt32(&growFake.followCount)), "enabled follow must reach the provider")
 	require.NoError(t, db.NewSelect().Model(&discovered).Where("id = ?", discovered.ID).Scan(ctx))
@@ -412,21 +412,21 @@ func TestFeatureGateEnabledTransitionQueuesInitialWorkAndNoDuplicate(t *testing.
 	// Initially no job
 	count, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", "messages_sync").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 0, count)
+	require.EqualValues(t, 0, count)
 
 	// Enable should queue one messages_sync
 	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-trans", Feature: "messaging", Enabled: true}})
 	require.NoError(t, err)
 	count, err = db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", "messages_sync").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count, "enabling should queue initial durable refresh")
+	require.EqualValues(t, 1, count, "enabling should queue initial durable refresh")
 
 	// Repeated enabled writes should not duplicate
 	_, err = af.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-trans", Feature: "messaging", Enabled: true}})
 	require.NoError(t, err)
 	count, err = db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", "messages_sync").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count, "repeated enabled writes should not duplicate")
+	require.EqualValues(t, 1, count, "repeated enabled writes should not duplicate")
 
 	// Test Grow as well (dedupe via scope/dedupe)
 	_, err = db.NewInsert().Model(&models.SocialAccount{ID: "acc-grow2", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "did:plc:2", Slug: "acc-grow2", AccessTokenEnc: []byte("tok"), IsActive: true, CreatedAt: time.Now().UTC()}).Exec(ctx)
@@ -436,12 +436,12 @@ func TestFeatureGateEnabledTransitionQueuesInitialWorkAndNoDuplicate(t *testing.
 	require.NoError(t, err)
 	growCount, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", "growth_discovery").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, growCount)
+	require.EqualValues(t, 1, growCount)
 	_, err = afGrow.BatchSave(ctx, "ws-1", workspaceAccessActor(), []accountfeatures.ChoiceInput{{AccountID: "acc-grow2", Feature: "grow", Enabled: true}})
 	require.NoError(t, err)
 	growCount, err = db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", "growth_discovery").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, growCount)
+	require.EqualValues(t, 1, growCount)
 }
 
 func TestFeatureGateDisablingPreservesStoredData(t *testing.T) {
@@ -477,22 +477,22 @@ func TestFeatureGateDisablingPreservesStoredData(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify data still exists
-	var convCount, msgCount, engCount, anaCount, growCount int
+	var convCount, msgCount, engCount, anaCount, growCount int64
 	convCount, err = db.NewSelect().Model((*models.Conversation)(nil)).Where("id = ?", "conv-pres").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, convCount)
+	require.EqualValues(t, 1, convCount)
 	msgCount, err = db.NewSelect().Model((*models.DirectMessage)(nil)).Where("id = ?", "msg-pres").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, msgCount)
+	require.EqualValues(t, 1, msgCount)
 	engCount, err = db.NewSelect().Model((*models.EngagementItem)(nil)).Where("id = ?", "eng-pres").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, engCount)
+	require.EqualValues(t, 1, engCount)
 	anaCount, err = db.NewSelect().Model((*models.AnalyticsSyncState)(nil)).Where("id = ?", "account:acc-pres").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, anaCount)
+	require.EqualValues(t, 1, anaCount)
 	growCount, err = db.NewSelect().Model((*models.GrowthRecommendation)(nil)).Where("id = ?", "grow-pres").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, growCount)
+	require.EqualValues(t, 1, growCount)
 
 	// Reads of stored data remain allowed (service List)
 	msgSvc := messagingservice.NewService(db, staticTokenSourceFeature{}, nil)

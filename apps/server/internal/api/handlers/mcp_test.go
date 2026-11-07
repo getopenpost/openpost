@@ -1162,7 +1162,7 @@ func TestMCPWorkspaceScopedTokenFiltersAndRejectsOtherWorkspaces(t *testing.T) {
 		Where("source_text = ?", "This should not cross the token boundary").
 		Count(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 0, count)
+	require.EqualValues(t, 0, count)
 	jobs, err := srv.db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
 	require.NoError(t, err)
 	require.Zero(t, jobs)

@@ -198,7 +198,7 @@ func allEditorMediaBelongToWorkspace(
 		if err != nil {
 			return false, err
 		}
-		if count != end-start {
+		if count != int64(end-start) {
 			return false, nil
 		}
 	}

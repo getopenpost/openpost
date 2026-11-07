@@ -109,7 +109,7 @@ func TestStoreSavesConnectorAccountsAndBindingsAtomically(t *testing.T) {
 		Where("workspace_id = ?", "workspace-1").
 		Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, remainingAccounts, "the earlier committed connection must survive the rollback")
+	require.EqualValues(t, 1, remainingAccounts, "the earlier committed connection must survive the rollback")
 	var pending models.ConnectorConnectionSession
 	require.NoError(t, db.NewSelect().Model(&pending).Where("id = ?", failingSession.ID).Scan(ctx))
 	require.Equal(t, "pending", pending.State, "a failed transaction must not complete the connection session")

@@ -320,7 +320,7 @@ func TestSaveAccountRejectsSocialAccountQuota(t *testing.T) {
 		Where("is_active = ?", true).
 		Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 // TestSaveAccount_EncryptionError tests handling of encryption failures.
@@ -362,7 +362,7 @@ func TestSaveAccountMovesBlueskyDIDBetweenPDSes(t *testing.T) {
 	count, err := db.NewSelect().Model((*models.SocialAccount)(nil)).
 		Where("workspace_id = ? AND platform = ?", "workspace-bluesky", "bluesky").Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 
 	var grant models.OAuthGrant
 	require.NoError(t, db.NewSelect().Model(&grant).Where("id = ?", moved.OAuthGrantID).Scan(t.Context()))
@@ -439,7 +439,7 @@ func TestSaveAccountRechecksQuotaAfterCompetingConnection(t *testing.T) {
 	require.ErrorContains(t, err, "limit")
 	count, err := db.NewSelect().Model((*models.SocialAccount)(nil)).Where("workspace_id = ? AND is_active = ?", "ws", true).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 // The account-save boundary covers single connections and multi-destination OAuth.
@@ -537,7 +537,7 @@ func TestYouTubeConnectionPersistsActualProfileFetchTime(t *testing.T) {
 	require.Empty(t, stored.AccountAvatarURL, "a fresh profile must not renew an unfetched old photo")
 	deletionCount, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", "storage_delete").Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, deletionCount)
+	require.EqualValues(t, 1, deletionCount)
 }
 
 func TestYouTubeReconnectRestoresRetiredDestinationIdentity(t *testing.T) {

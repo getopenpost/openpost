@@ -157,7 +157,7 @@ func TestPublicationMentionIdentitySurvivesLegacyEditsAndCountsInRevisions(t *te
 	require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
 	count, err := db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count, "failed authoring leaves no partial publication")
+	require.EqualValues(t, 1, count, "failed authoring leaves no partial publication")
 	seedHandlerAccount(t, db, "linkedin", "linkedin")
 	company := &posttext.Mentions{Version: 1, Spans: []posttext.MentionSpan{{Start: 3, End: 7, Text: "Acme", Target: posttext.MentionTarget{Provider: "linkedin", Kind: "page", ID: "urn:li:organization:123"}}}}
 	first := "Hi Acme"

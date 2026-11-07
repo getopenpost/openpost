@@ -88,7 +88,7 @@ func TestMiddlewareAuthenticatesAndProvisionsAProxyUserOnce(t *testing.T) {
 		Where("type = ? AND scope_id = ?", "media_cleanup", workspaces[0].ID).
 		Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, jobCount)
+	require.EqualValues(t, 1, jobCount)
 }
 
 func TestMiddlewareLeavesRequestsAloneWithoutProxyCredentials(t *testing.T) {

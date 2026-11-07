@@ -84,7 +84,7 @@ func (h *MCPActivityHandler) RegisterRoutes(api huma.API) {
 			Model(&calls).
 			Where("user_id = ?", userID).
 			Order("created_at DESC").
-			Limit(limit)
+			Limit(int64(limit))
 		switch {
 		case input.WorkspaceID != "":
 			query = query.Where("workspace_id = ?", input.WorkspaceID)

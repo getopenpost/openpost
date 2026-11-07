@@ -287,7 +287,7 @@ func runLegacyJobScopeBackfillBatch(
 	if err := db.NewSelect().Model((*models.Job)(nil)).Column("id").
 		Where("id > ?", state.CursorID).
 		Order("id ASC").
-		Limit(batchSize).
+		Limit(int64(batchSize)).
 		Scan(ctx, &windowIDs); err != nil {
 		if isMissingLegacyAuthoringTable(err) {
 			return advanceLegacyPublicationBackfillPhase(ctx, db, state, legacyPublicationBackfillPhasePosts)
@@ -330,7 +330,7 @@ func repairPendingLegacyPublicationJobScopes(ctx context.Context, db *bun.DB) er
 				Where("status IN (?, ?)", "pending", "processing").
 				Where("scope_id = ''").
 				Order("type ASC", "scope_id ASC", "status ASC", "run_at ASC", "id ASC").
-				Limit(legacyPublicationBackfillBatchSize).
+				Limit(int64(legacyPublicationBackfillBatchSize)).
 				Scan(txCtx); err != nil {
 				if isMissingLegacyAuthoringTable(err) {
 					return nil
@@ -415,7 +415,7 @@ func repairProtectedLegacyPublicationWindow(ctx context.Context, tx bun.Tx, atte
 	if err := tx.NewSelect().TableExpr("provider_write_attempts AS protected_attempt").
 		ColumnExpr("protected_attempt.id, protected_attempt.job_id").
 		Where("protected_attempt.status = ?", attemptStatus).Where("protected_attempt.id > ?", state.CursorID).
-		OrderExpr("protected_attempt.id ASC").Limit(legacyPublicationBackfillBatchSize).
+		OrderExpr("protected_attempt.id ASC").Limit(int64(legacyPublicationBackfillBatchSize)).
 		Scan(ctx, &attempts); err != nil {
 		if isMissingLegacyAuthoringTable(err) {
 			return true, nil
@@ -539,7 +539,7 @@ func processPendingLegacyPublicationJobs(
 			Where("type = ? AND status = ?", jobType, "pending").
 			Where("id > ?", cursorID).
 			Order("id ASC").
-			Limit(legacyPublicationBackfillBatchSize).
+			Limit(int64(legacyPublicationBackfillBatchSize)).
 			Scan(ctx); err != nil {
 			if isMissingLegacyAuthoringTable(err) {
 				return nil
@@ -1406,7 +1406,7 @@ func runLegacyPostBackfillBatch(
 	if err := db.NewSelect().Model((*models.Post)(nil)).Column("id").
 		Where("id > ?", state.CursorID).
 		Order("id ASC").
-		Limit(batchSize).
+		Limit(int64(batchSize)).
 		Scan(ctx, &windowIDs); err != nil {
 		if isMissingLegacyAuthoringTable(err) {
 			return advanceLegacyPublicationBackfillPhase(ctx, db, state, legacyPublicationBackfillPhaseAuth)
@@ -1471,7 +1471,7 @@ func runLegacyAuthorizationBackfillBatch(
 	if err := db.NewSelect().Model((*models.Job)(nil)).Column("id").
 		Where("id > ?", state.CursorID).
 		Order("id ASC").
-		Limit(batchSize).
+		Limit(int64(batchSize)).
 		Scan(ctx, &windowIDs); err != nil {
 		if isMissingLegacyAuthoringTable(err) {
 			return completeLegacyPublicationBackfill(ctx, db, state)

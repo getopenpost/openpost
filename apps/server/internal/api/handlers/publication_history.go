@@ -159,7 +159,7 @@ func (h *PublicationHandler) loadLifecycleHistoryItems(
 		Where("workspace_id = ?", publication.WorkspaceID).
 		Where("publication_id = ?", publication.ID).
 		Order("created_at DESC", "id DESC").
-		Limit(limit)
+		Limit(int64(limit))
 	query = applyStringPublicationHistoryCursor(
 		query,
 		"created_at",
@@ -224,7 +224,7 @@ func (h *PublicationHandler) loadEditHistoryItems(
 		Where("aggregate_type = ?", drafts.AggregatePublication).
 		Where("aggregate_id = ?", publication.ID).
 		Order("created_at DESC", "revision DESC").
-		Limit(limit)
+		Limit(int64(limit))
 	query = applyRevisionPublicationHistoryCursor(query, publicationHistoryEditRank, cursor)
 	if err := query.Scan(ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) || isMissingPublicationHistoryTable(err) {

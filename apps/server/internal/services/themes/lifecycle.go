@@ -276,7 +276,7 @@ func (s *Service) ListRevisions(ctx context.Context, actor Actor, organizationID
 	if cursor.Revision > 0 {
 		query = query.Where("revision < ?", cursor.Revision)
 	}
-	if err := query.OrderExpr("revision DESC").Limit(options.Limit + 1).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err := query.OrderExpr("revision DESC").Limit(int64(options.Limit + 1)).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return PublishedRevisionPage{}, fmt.Errorf("%w: list published theme revisions", ErrUnavailable)
 	}
 	page := PublishedRevisionPage{Items: make([]PublishedRevision, 0, min(len(rows), options.Limit))}

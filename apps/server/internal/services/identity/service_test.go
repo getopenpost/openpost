@@ -306,7 +306,7 @@ func TestConcurrentIdentityAndPasskeyRemovalPreservesOneCredential(t *testing.T)
 		Where("user_id = ?", user.ID).
 		Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, identityCount+passkeyCount)
+	require.EqualValues(t, 1, identityCount+passkeyCount)
 }
 
 func testPasskey(id, userID string, createdAt time.Time) *models.UserPasskey {

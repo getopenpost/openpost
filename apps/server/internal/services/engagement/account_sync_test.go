@@ -195,7 +195,7 @@ func TestRuntimeEngagementRegistrationAlsoCollectsMentions(t *testing.T) {
 	require.NoError(t, err)
 	count, err := s.db.NewSelect().Model((*models.Job)(nil)).Where("type=?", jobregistry.TypeEngagementAccountSync).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count, "the OAuth runtime registration seam must enable activity without a restart")
+	require.EqualValues(t, 1, count, "the OAuth runtime registration seam must enable activity without a restart")
 
 	// Registration must actually collect activity, not only queue it: execute
 	// the queued account sync under its durable lease generation and read the
@@ -244,7 +244,7 @@ func TestMentionUnderNonRootPostRetainsExistingCommentIdentity(t *testing.T) {
 	executeAccountActivity(t, s, accountActivityReceipt(t, s))
 	count, err := s.db.NewSelect().Model((*models.EngagementItem)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count, "native identity must deduplicate notification and comment representations")
+	require.EqualValues(t, 1, count, "native identity must deduplicate notification and comment representations")
 	detail, err := s.GetEngagement(t.Context(), Actor{UserID: "u"}, "w", "c")
 	require.NoError(t, err)
 	require.Equal(t, "mention", detail.Item.Kind)

@@ -67,7 +67,7 @@ func TestDesignRevisionMediaReferencesBackfillProtectsSnapshotMedia(t *testing.T
 	require.Equal(t, 1, batch.RejectedMedia)
 	stateCount, err := db.NewSelect().Model((*models.DesignRevisionMediaIndexState)(nil)).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, stateCount, "the first bounded batch is a durable resume point")
+	require.EqualValues(t, 1, stateCount, "the first bounded batch is a durable resume point")
 	stats, err := backfillDesignRevisionMediaReferencesWithStats(ctx, db, 1)
 	require.NoError(t, err)
 	require.Equal(t, designRevisionMediaBackfillStats{Processed: 2, Batches: 2, Failed: 1}, stats)
@@ -76,7 +76,7 @@ func TestDesignRevisionMediaReferencesBackfillProtectsSnapshotMedia(t *testing.T
 	require.Equal(t, designRevisionMediaBackfillStats{}, secondStartup)
 	stateCount, err = db.NewSelect().Model((*models.DesignRevisionMediaIndexState)(nil)).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 3, stateCount, "zero-media and corrupt revisions receive processed markers")
+	require.EqualValues(t, 3, stateCount, "zero-media and corrupt revisions receive processed markers")
 	var invalidState models.DesignRevisionMediaIndexState
 	require.NoError(t, db.NewSelect().Model(&invalidState).
 		Where("revision_id = ?", "revision-3").Scan(ctx))

@@ -224,7 +224,7 @@ func TestWorkflowApprovalReachesTheInboxByDefault(t *testing.T) {
 		Where("user_id = ? AND dedup_key = ?", "user-1", WorkflowApprovalDedupKey("run-1", "step-1", ApprovalStateWaiting)).
 		Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 // Resolution is what stops a decided wait from leaving a dead button behind, so

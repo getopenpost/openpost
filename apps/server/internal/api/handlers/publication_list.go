@@ -51,13 +51,13 @@ func (h *PublicationHandler) listPublicationsPage(ctx context.Context, input *Li
 		}
 	}
 	if input.Cursor == "" {
-		query = query.Offset(input.Offset)
+		query = query.Offset(int64(input.Offset))
 	}
 	scanLimit := limit
 	if input.Cursor != "" {
 		scanLimit++
 	}
-	if err := query.Limit(scanLimit).Scan(ctx); err != nil {
+	if err := query.Limit(int64(scanLimit)).Scan(ctx); err != nil {
 		return nil, huma.Error500InternalServerError("failed to list publications")
 	}
 	cursorHasMore := input.Cursor != "" && len(publications) > limit
@@ -70,7 +70,7 @@ func (h *PublicationHandler) listPublicationsPage(ctx context.Context, input *Li
 	}
 
 	nextOffset := input.Offset + len(body)
-	hasMore := nextOffset < total
+	hasMore := int64(nextOffset) < total
 	if input.Cursor != "" {
 		hasMore = cursorHasMore
 	}
@@ -80,7 +80,7 @@ func (h *PublicationHandler) listPublicationsPage(ctx context.Context, input *Li
 		nextCursor = encodeTimestampIDCursor(last.CreatedAt, last.ID)
 	}
 	return &PublicationListOutput{
-		TotalCount: total,
+		TotalCount: int(total),
 		Limit:      limit,
 		Offset:     input.Offset,
 		NextOffset: nextOffset,

@@ -244,6 +244,6 @@ func TestRunMigrationsHealsSkippedMigrationCollisions(t *testing.T) {
 	for _, version := range []int64{110, 111} {
 		count, countErr := db.NewSelect().Model((*SchemaMigration)(nil)).Where("version = ?", version).Count(ctx)
 		require.NoError(t, countErr)
-		require.Equal(t, 1, count)
+		require.EqualValues(t, 1, count)
 	}
 }

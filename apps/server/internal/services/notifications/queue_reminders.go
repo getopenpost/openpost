@@ -393,7 +393,7 @@ func (s *Service) queueSnapshot(ctx context.Context, db bun.IDB, workspaceID str
 	}
 	pendingCount, err := queueQuery().Count(ctx)
 	if err != nil || pendingCount == 0 {
-		return queueSnapshot{PendingCount: pendingCount}, err
+		return queueSnapshot{PendingCount: int(pendingCount)}, err
 	}
 	var renditionID string
 	err = queueQuery().ColumnExpr("rendition.id").
@@ -417,7 +417,7 @@ func (s *Service) queueSnapshot(ctx context.Context, db bun.IDB, workspaceID str
 	if latestRunAt.IsZero() {
 		latestRunAt = publication.ScheduledAt
 	}
-	return queueSnapshot{PendingCount: pendingCount, LatestRunAt: latestRunAt.UTC()}, nil
+	return queueSnapshot{PendingCount: int(pendingCount), LatestRunAt: latestRunAt.UTC()}, nil
 }
 
 func (s *Service) handleQueueReminderEmail(ctx context.Context, job emailDeliveryJob) error {

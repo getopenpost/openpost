@@ -207,7 +207,7 @@ func (s *Service) listOrganizationOwnership(ctx context.Context, input Query, li
 		return []AuditEvent{}, nil
 	}
 	var rows []models.OrganizationOwnershipAuditEvent
-	query := s.db.NewSelect().Model(&rows).OrderExpr("created_at DESC, id DESC").Limit(limit)
+	query := s.db.NewSelect().Model(&rows).OrderExpr("created_at DESC, id DESC").Limit(int64(limit))
 	if input.OrganizationID != "" {
 		query = query.Where("organization_id = ?", input.OrganizationID)
 	}
@@ -226,7 +226,7 @@ func (s *Service) listOrganizationLifecycle(ctx context.Context, input Query, li
 		return []AuditEvent{}, nil
 	}
 	var rows []models.OrganizationLifecycleAuditEvent
-	query := s.db.NewSelect().Model(&rows).OrderExpr("created_at DESC, id DESC").Limit(limit)
+	query := s.db.NewSelect().Model(&rows).OrderExpr("created_at DESC, id DESC").Limit(int64(limit))
 	if input.OrganizationID != "" {
 		query = query.Where("organization_id = ?", input.OrganizationID)
 	}
@@ -239,7 +239,7 @@ func (s *Service) listOrganizationLifecycle(ctx context.Context, input Query, li
 
 func (s *Service) listWorkspaceLifecycle(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
 	var rows []models.WorkspaceLifecycleAuditEvent
-	query := s.db.NewSelect().Model(&rows).OrderExpr("created_at DESC, id DESC").Limit(limit)
+	query := s.db.NewSelect().Model(&rows).OrderExpr("created_at DESC, id DESC").Limit(int64(limit))
 	if input.OrganizationID != "" {
 		query = query.Where("organization_id = ?", input.OrganizationID)
 	}
@@ -256,7 +256,7 @@ func (s *Service) listIdentity(ctx context.Context, input Query, limit int) ([]A
 		return []AuditEvent{}, nil
 	}
 	var rows []models.IdentityAuditEvent
-	query := s.db.NewSelect().Model(&rows).OrderExpr("created_at DESC, id DESC").Limit(limit)
+	query := s.db.NewSelect().Model(&rows).OrderExpr("created_at DESC, id DESC").Limit(int64(limit))
 	if input.OrganizationID != "" {
 		query = query.Where("(organization_id = ? OR (COALESCE(organization_id, '') = '' AND provider_id IN (SELECT id FROM identity_providers WHERE organization_id = ?)))", input.OrganizationID, input.OrganizationID)
 	}
@@ -308,7 +308,7 @@ func (s *Service) listWorkspaceAccess(ctx context.Context, input Query, limit in
 	var rows []models.WorkspaceAccessAuditEvent
 	query := s.db.NewSelect().Model(&rows).
 		Join("JOIN workspaces AS workspace ON workspace.id = workspace_access_audit_event.workspace_id").
-		OrderExpr("workspace_access_audit_event.created_at DESC, workspace_access_audit_event.id DESC").Limit(limit)
+		OrderExpr("workspace_access_audit_event.created_at DESC, workspace_access_audit_event.id DESC").Limit(int64(limit))
 	if input.OrganizationID != "" {
 		query = query.Where("workspace.organization_id = ?", input.OrganizationID)
 	}
@@ -357,7 +357,7 @@ func (s *Service) listImpersonationKind(ctx context.Context, input Query, limit 
 	if input.Action != "" && input.Action != action {
 		return []AuditEvent{}, nil
 	}
-	query = query.OrderExpr(occurredColumn + " DESC, user_impersonation_grant.id DESC").Limit(limit)
+	query = query.OrderExpr(occurredColumn + " DESC, user_impersonation_grant.id DESC").Limit(int64(limit))
 	if input.ActorUserID != "" {
 		query = query.Where("user_impersonation_grant.admin_user_id = ?", input.ActorUserID)
 	}
@@ -379,7 +379,7 @@ func (s *Service) listImpersonationKind(ctx context.Context, input Query, limit 
 
 func (s *Service) listBilling(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
 	var rows []models.BillingCheckoutAttempt
-	query := s.db.NewSelect().Model(&rows).OrderExpr("updated_at DESC, checkout_attempt_id DESC").Limit(limit)
+	query := s.db.NewSelect().Model(&rows).OrderExpr("updated_at DESC, checkout_attempt_id DESC").Limit(int64(limit))
 	if input.OrganizationID != "" {
 		query = query.Where("organization_id = ?", input.OrganizationID)
 	}
@@ -406,7 +406,7 @@ func (s *Service) listMCP(ctx context.Context, input Query, limit int) ([]AuditE
 	var rows []models.MCPToolCall
 	query := s.db.NewSelect().Model(&rows).
 		Join("JOIN workspaces AS workspace ON workspace.id = mcp_tool_call.workspace_id").
-		OrderExpr("mcp_tool_call.created_at DESC, mcp_tool_call.id DESC").Limit(limit)
+		OrderExpr("mcp_tool_call.created_at DESC, mcp_tool_call.id DESC").Limit(int64(limit))
 	if input.OrganizationID != "" {
 		query = query.Where("workspace.organization_id = ?", input.OrganizationID)
 	}
@@ -452,7 +452,7 @@ func (s *Service) listPublicationAuthorization(ctx context.Context, input Query,
 	var rows []models.PublicationAuthorization
 	query := s.db.NewSelect().Model(&rows).
 		Join("JOIN workspaces AS workspace ON workspace.id = publication_authorization.workspace_id").
-		OrderExpr("publication_authorization.confirmed_at DESC, publication_authorization.id DESC").Limit(limit)
+		OrderExpr("publication_authorization.confirmed_at DESC, publication_authorization.id DESC").Limit(int64(limit))
 	if input.OrganizationID != "" {
 		query = query.Where("workspace.organization_id = ?", input.OrganizationID)
 	}
@@ -496,7 +496,7 @@ func (s *Service) listProviderWrite(ctx context.Context, input Query, limit int)
 func (s *Service) workspaceEvidenceQuery(model any, alias string, source Source, input Query, limit int) *bun.SelectQuery {
 	query := s.db.NewSelect().Model(model).
 		Join("JOIN workspaces AS workspace ON workspace.id = " + alias + ".workspace_id").
-		OrderExpr(alias + ".created_at DESC, " + alias + ".id DESC").Limit(limit)
+		OrderExpr(alias + ".created_at DESC, " + alias + ".id DESC").Limit(int64(limit))
 	if input.OrganizationID != "" {
 		query = query.Where("workspace.organization_id = ?", input.OrganizationID)
 	}

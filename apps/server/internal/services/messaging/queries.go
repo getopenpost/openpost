@@ -77,14 +77,14 @@ func (s *Service) ListConversations(ctx context.Context, actor Actor, input Conv
 			input.Cursor.OccurredAt, input.Cursor.OccurredAt, input.Cursor.ID,
 		)
 	}
-	query = query.OrderExpr("COALESCE(last_message_at, created_at) DESC").Order("id DESC").Limit(limit + 1)
+	query = query.OrderExpr("COALESCE(last_message_at, created_at) DESC").Order("id DESC").Limit(int64(limit + 1))
 	if input.Cursor == nil {
-		query = query.Offset(input.Offset)
+		query = query.Offset(int64(input.Offset))
 	}
 	if err := query.Scan(ctx, &items); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return ConversationPage{}, err
 	}
-	page := ConversationPage{Items: items, Total: total}
+	page := ConversationPage{Items: items, Total: int(total)}
 	if len(items) > limit {
 		page.Items = items[:limit]
 		last := page.Items[len(page.Items)-1]
@@ -146,9 +146,9 @@ func (s *Service) ListMessages(ctx context.Context, actor Actor, input MessageQu
 			input.Cursor.OccurredAt, input.Cursor.CreatedAt, input.Cursor.ID)
 	}
 	query = query.OrderExpr("COALESCE(direct_message.remote_created_at, direct_message.created_at) DESC").
-		OrderExpr("direct_message.created_at DESC").OrderExpr("direct_message.id DESC").Limit(limit + 1)
+		OrderExpr("direct_message.created_at DESC").OrderExpr("direct_message.id DESC").Limit(int64(limit + 1))
 	if input.Cursor == nil {
-		query = query.Offset(max(0, input.Offset))
+		query = query.Offset(int64(max(0, input.Offset)))
 	}
 	if err := query.Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return MessagePage{}, err

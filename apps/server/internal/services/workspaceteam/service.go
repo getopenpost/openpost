@@ -615,7 +615,7 @@ func enforceInvitationResendLimit(
 	err := db.NewSelect().Model(&recent).
 		Where("invitation_id = ? AND actor_user_id = ? AND resent_at > ?", invitation.ID, actorUserID, windowStart).
 		Order("resent_at ASC").
-		Limit(InvitationResendLimit).
+		Limit(int64(InvitationResendLimit)).
 		Scan(ctx)
 	if err != nil {
 		return err
@@ -1073,7 +1073,7 @@ func (s *Service) ListAudit(ctx context.Context, workspaceID, actorUserID string
 	}
 	events := []models.WorkspaceAccessAuditEvent{}
 	err = s.db.NewSelect().Model(&events).Where("workspace_id = ?", workspaceID).
-		OrderExpr("created_at DESC, id DESC").Limit(limit).Scan(ctx)
+		OrderExpr("created_at DESC, id DESC").Limit(int64(limit)).Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return events, nil
 	}

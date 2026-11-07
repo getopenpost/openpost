@@ -265,7 +265,7 @@ func TestPublishedSourceDrainsBacklogBeyondOnePage(t *testing.T) {
 	}
 	count, err := s.db.NewSelect().Model((*runRecord)(nil)).Where("workflow_id = ?", workflow.ID).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 501, count)
+	require.EqualValues(t, 501, count)
 }
 
 func TestCancelDuringNativeEffectKeepsItsOutcomeAndStopsNextStep(t *testing.T) {
@@ -361,7 +361,7 @@ func TestGitHubPollReconcilesPagesWithoutReplayingKnownReleases(t *testing.T) {
 	}
 	count, err := s.db.NewSelect().Model((*runRecord)(nil)).Where("workflow_id = ?", workflow.ID).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 11, count)
+	require.EqualValues(t, 11, count)
 	runs, err := s.Runs(t.Context(), actor, "ws", workflow.ID)
 	require.NoError(t, err)
 	ids := make([]string, 0, len(runs))
@@ -430,7 +430,7 @@ func TestSourceAdmitsAvailableCapacityAndKeepsRemainingEvents(t *testing.T) {
 	poll()
 	count, err := s.db.NewSelect().Model((*runRecord)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1000, count)
+	require.EqualValues(t, 1000, count)
 	var first []runRecord
 	require.NoError(t, s.db.NewSelect().Model(&first).Where("workflow_id = ? AND id NOT LIKE ?", workflow.ID, "existing-%").Scan(t.Context()))
 	require.Len(t, first, 1)
@@ -447,7 +447,7 @@ func TestSourceAdmitsAvailableCapacityAndKeepsRemainingEvents(t *testing.T) {
 	poll()
 	count, err = s.db.NewSelect().Model((*runRecord)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1001, count)
+	require.EqualValues(t, 1001, count)
 	var admitted []runRecord
 	require.NoError(t, s.db.NewSelect().Model(&admitted).Where("workflow_id = ? AND id NOT LIKE ?", workflow.ID, "existing-%").Scan(t.Context()))
 	ids := make([]string, 0, len(admitted))
@@ -460,7 +460,7 @@ func TestSourceAdmitsAvailableCapacityAndKeepsRemainingEvents(t *testing.T) {
 	poll()
 	count, err = s.db.NewSelect().Model((*runRecord)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1001, count)
+	require.EqualValues(t, 1001, count)
 }
 
 func TestConditionMatchesTypedOutputAgainstAuthoredScalarText(t *testing.T) {

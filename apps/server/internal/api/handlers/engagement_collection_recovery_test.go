@@ -71,7 +71,7 @@ func TestThreadsEngagementRefreshRequiresReplyReadGrant(t *testing.T) {
 	require.Equal(t, http.StatusOK, refresh.Code, refresh.Body.String())
 	count, err = db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", engagementservice.JobTypeEngagementSync).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count, "a reconnected grant may schedule collection")
+	require.EqualValues(t, 1, count, "a reconnected grant may schedule collection")
 }
 
 func TestEngagementCollectionPreservesProviderTimestamps(t *testing.T) {

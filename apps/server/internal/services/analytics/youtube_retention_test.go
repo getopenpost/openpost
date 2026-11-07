@@ -41,7 +41,7 @@ func TestYouTubeCacheExpiresBeforeThirtyDaysOnOverview(t *testing.T) {
 		require.Zero(t, count, "expired YouTube cache must be removed")
 		count, err = db.NewSelect().Model(model).Count(t.Context())
 		require.NoError(t, err)
-		require.Equal(t, 2, count, "fresh YouTube data and other providers must remain")
+		require.EqualValues(t, 2, count, "fresh YouTube data and other providers must remain")
 	}
 }
 
@@ -104,7 +104,7 @@ func TestYouTubeProfileExpiryKeepsAuthorizationIdentityForRefresh(t *testing.T) 
 	require.True(t, account.ProfileFetchedAt.IsZero())
 	count, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", "storage_delete").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestYouTubeRevocationRetiresProviderMetadataButKeepsAuthoredPost(t *testing.T) {
@@ -231,5 +231,5 @@ func TestYouTubeExpiredSelectionsAndUnlinkedRevokedGrantsAreCleared(t *testing.T
 	require.Zero(t, count)
 	count, err = db.NewSelect().Model((*models.OAuthAccountSelection)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 2, count)
+	require.EqualValues(t, 2, count)
 }

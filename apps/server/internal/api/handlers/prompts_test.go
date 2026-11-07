@@ -35,7 +35,7 @@ func TestSeedBuiltInPromptsIsConcurrentAndRestartSafe(t *testing.T) {
 
 	count, err := db.NewSelect().Model((*models.Prompt)(nil)).Count(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, len(handler.builtinPrompts), count)
+	require.EqualValues(t, len(handler.builtinPrompts), count)
 
 	// Every built-in prompt must ship with a filled-in example so applying a
 	// prompt can drop a ready-to-publish post into the composer.

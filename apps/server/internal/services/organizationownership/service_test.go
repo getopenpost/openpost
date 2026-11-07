@@ -107,7 +107,7 @@ func TestAcceptanceAtomicallySwapsExactlyOneOwnerAndIsSingleUse(t *testing.T) {
 		Join("JOIN organizations AS o ON o.id = billing_subscription.organization_id").
 		Where("billing_subscription.organization_id = ? AND o.created_by = ?", "org", "nominee").Count(t.Context())
 	require.NoError(t, countErr)
-	require.Equal(t, 1, linkedSubscriptions, "billing authority remains attached to the transferred Organization")
+	require.EqualValues(t, 1, linkedSubscriptions, "billing authority remains attached to the transferred Organization")
 	legacyOrganizations := []models.Organization{
 		{ID: "nominee-legacy", Name: "Nominee legacy", CreatedByID: "nominee"},
 		{ID: "owner-legacy", Name: "Prior owner legacy", CreatedByID: "owner"},
@@ -170,5 +170,5 @@ func ownerCount(t *testing.T, db *bun.DB) int {
 	t.Helper()
 	count, err := db.NewSelect().Model((*models.OrganizationMember)(nil)).Where("organization_id = ? AND role = ?", "org", models.OrganizationRoleOwner).Count(t.Context())
 	require.NoError(t, err)
-	return count
+	return int(count)
 }

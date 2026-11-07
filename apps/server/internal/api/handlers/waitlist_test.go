@@ -69,7 +69,7 @@ func TestHostedWaitlistPersistsOnceAndRetriesDiscordWithoutCreatingAnAccount(t *
 	require.NotContains(t, recorder.Events[0].DistinctID, "example.com")
 	count, err := db.NewSelect().Table("hosted_waitlist_entries").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 	var jobs []models.Job
 	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", jobregistry.TypeWaitlistNotification).Scan(ctx))
 	require.Len(t, jobs, 1)

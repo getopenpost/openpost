@@ -107,9 +107,10 @@ func (s *Service) RevokeAllWithDB(ctx context.Context, db bun.IDB, userID string
 }
 
 func (s *Service) CountRemaining(ctx context.Context, userID string) (int, error) {
-	return s.db.NewSelect().Model((*models.UserMFARecoveryCode)(nil)).
+	count, err := s.db.NewSelect().Model((*models.UserMFARecoveryCode)(nil)).
 		Where("user_id = ? AND used_at IS NULL", userID).
 		Count(ctx)
+	return int(count), err
 }
 
 // ConsumeWithDB marks one matching active code used. The partial unique index

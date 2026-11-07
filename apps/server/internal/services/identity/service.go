@@ -877,7 +877,7 @@ func (s *Service) removePasskeyInTx(ctx context.Context, tx bun.Tx, userID, pass
 
 type credentialFallbacks struct {
 	identityCount  int
-	passkeyCount   int
+	passkeyCount   int64
 	passwordUsable bool
 }
 
@@ -977,7 +977,8 @@ func activeIdentityCount(ctx context.Context, db bun.IDB, userID, excludedIdenti
 	if excludedIdentityID = strings.TrimSpace(excludedIdentityID); excludedIdentityID != "" {
 		query = query.Where("identity.id <> ?", excludedIdentityID)
 	}
-	return query.Count(ctx)
+	count, err := query.Count(ctx)
+	return int(count), err
 }
 
 func usablePasswordCredential(ctx context.Context, db bun.IDB, user *models.User) (bool, error) {

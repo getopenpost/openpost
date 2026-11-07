@@ -47,7 +47,7 @@ func TestYouTubeRetiredCommentReusesItemAndAutomationReceipt(t *testing.T) {
 	}
 	count, err := s.db.NewSelect().Model((*models.EngagementItem)(nil)).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 	require.NoError(t, s.db.NewSelect().Model(&reply).WherePK().Scan(ctx))
 	require.Equal(t, "c", reply.ItemID)
 	require.Equal(t, "sent", reply.State)

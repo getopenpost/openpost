@@ -415,7 +415,7 @@ func TestDeletingSocialSetDoesNotDeleteSnapshottedRenditions(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	count, err := server.db.NewSelect().Model((*models.Rendition)(nil)).Where("id = ?", "rendition-1").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 type socialSetsTestServer struct {

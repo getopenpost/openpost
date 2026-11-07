@@ -261,9 +261,9 @@ func (h *InstanceAdminHandler) getOverview(ctx context.Context, _ *struct{}) (*G
 	}
 
 	return &GetInstanceOverviewOutput{Body: InstanceOverviewResponse{
-		TotalUsers:            totalUsers,
+		TotalUsers:            int(totalUsers),
 		NewUsersLast30Days:    len(registrationTimes),
-		TotalWorkspaces:       totalWorkspaces,
+		TotalWorkspaces:       int(totalWorkspaces),
 		PublishedLast30Days:   len(publicationTimes),
 		UserRegistrationTrend: instanceDailyMetrics(start, registrationTimes),
 		PublicationTrend:      instanceDailyMetrics(start, publicationTimes),
@@ -303,8 +303,8 @@ func (h *InstanceAdminHandler) listUsers(ctx context.Context, input *ListInstanc
 	if err := query.
 		OrderExpr(orderExpr+" "+direction).
 		OrderExpr("instance_user.id ASC").
-		Limit(input.PerPage).
-		Offset((input.Page-1)*input.PerPage).
+		Limit(int64(input.PerPage)).
+		Offset(int64((input.Page-1)*input.PerPage)).
 		Scan(ctx, &rows); err != nil {
 		return nil, huma.Error500InternalServerError("failed to list users")
 	}
@@ -342,10 +342,10 @@ func (h *InstanceAdminHandler) listUsers(ctx context.Context, input *ListInstanc
 
 	totalPages := 0
 	if total > 0 {
-		totalPages = (total + input.PerPage - 1) / input.PerPage
+		totalPages = int((total + int64(input.PerPage) - 1) / int64(input.PerPage))
 	}
 	return &ListInstanceUsersOutput{Body: InstanceUserPage{
-		Users: users, Total: total, Page: input.Page, PerPage: input.PerPage, TotalPages: totalPages,
+		Users: users, Total: int(total), Page: input.Page, PerPage: input.PerPage, TotalPages: totalPages,
 	}}, nil
 }
 

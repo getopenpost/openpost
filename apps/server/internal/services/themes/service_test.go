@@ -161,7 +161,7 @@ func TestPublishConsumesExpectedPublishedHeadOnlyOnce(t *testing.T) {
 	require.Equal(t, 1, conflicted)
 	revisions, err := db.NewSelect().Model((*revisionRow)(nil)).Where("theme_id = ?", theme.Summary.Reference.ID).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, revisions)
+	require.EqualValues(t, 1, revisions)
 }
 
 func TestWorkspaceAssignmentLockAndDeleteGuards(t *testing.T) {
@@ -524,7 +524,7 @@ func TestThemeFontUploadValidatesWOFF2AndDeletesThroughDurableJob(t *testing.T) 
 	require.NoError(t, service.DeleteAsset(t.Context(), actor, "org-1", asset.ID))
 	jobs, err := db.NewSelect().Table("jobs").Where("type = ?", "storage_delete").Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, jobs, "both font objects fit in one bounded durable cleanup job")
+	require.EqualValues(t, 1, jobs, "both font objects fit in one bounded durable cleanup job")
 	var cleanupPayload string
 	require.NoError(t, db.NewSelect().Table("jobs").Column("payload").Where("type = ?", "storage_delete").Scan(t.Context(), &cleanupPayload))
 	require.Contains(t, cleanupPayload, ".woff2")

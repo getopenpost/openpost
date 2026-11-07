@@ -153,7 +153,7 @@ func (s *Service) ListForPublication(ctx context.Context, workspaceID, publicati
 		Where("workspace_id = ?", workspaceID).
 		Where("publication_id = ?", publicationID).
 		Order("created_at DESC").
-		Limit(limit).
+		Limit(int64(limit)).
 		Scan(ctx)
 	return events, err
 }

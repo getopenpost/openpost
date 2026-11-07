@@ -85,7 +85,7 @@ func TestWorkflowHTTPPreviewAndLiveDraftApproval(t *testing.T) {
 	require.Equal(t, workflows.StateApproval, live.State, live.Error)
 	count, err = db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 	publicationID := live.Steps[0].Output["id"].(string)
 	var post models.Publication
 	require.NoError(t, db.NewSelect().Model(&post).Where("id = ?", publicationID).Scan(t.Context()))
@@ -116,7 +116,7 @@ func TestWorkflowNativeDraftReplayAndStoredWorkspaceBoundary(t *testing.T) {
 	require.Equal(t, first, second)
 	count, err := db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 	ctx := workspaceaccess.WithStoredAuthority(t.Context(), input.Authority)
 	allowed, err := workspaceEditAllowed(ctx, db, "other", "user")
 	require.NoError(t, err)
@@ -146,10 +146,10 @@ func TestWorkflowNativeScheduleReplayKeepsOneJobAndOneAuthorization(t *testing.T
 	require.NotEmpty(t, first.Output["renditions"], "workflow runs must expose the scheduler destination outcomes")
 	count, err := srv.db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", publication.ID).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 	count, err = srv.db.NewSelect().Model((*models.PublicationAuthorization)(nil)).Where("publication_id = ?", publication.ID).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestWorkflowNativeDraftWithDestinationAndReplyReplay(t *testing.T) {
@@ -174,7 +174,7 @@ func TestWorkflowNativeDraftWithDestinationAndReplyReplay(t *testing.T) {
 	require.Equal(t, first, second)
 	count, err := srv.db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", rendition.PublicationID).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestWorkflowDraftRecoveryAfterSocialSetRemoval(t *testing.T) {
@@ -199,7 +199,7 @@ func TestWorkflowDraftRecoveryAfterSocialSetRemoval(t *testing.T) {
 	require.Equal(t, first, replay)
 	count, err := db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestWorkflowScheduleReportsNativeDestinationValidation(t *testing.T) {
@@ -243,7 +243,7 @@ func TestPostCreatedSourceHTTPReportsCreationWithoutPublicationTime(t *testing.T
 	require.Equal(t, "draft-event", items[0]["publication_id"])
 	require.Equal(t, "2026-10-03T10:15:30Z", items[0]["created_at"])
 	require.NotContains(t, items[0], "published_at")
-	var lifecycleCount int
+	var lifecycleCount int64
 	lifecycleCount, err = db.NewSelect().Table("publication_lifecycle_events").Where("publication_id = ?", "draft-event").Count(t.Context())
 	require.NoError(t, err)
 	require.Zero(t, lifecycleCount)

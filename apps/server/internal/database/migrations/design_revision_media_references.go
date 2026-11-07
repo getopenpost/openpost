@@ -174,7 +174,7 @@ func backfillDesignRevisionMediaReferencesBatchAfterWorkspace(
 			Join("JOIN design_documents AS document ON document.id = revision.design_document_id").
 			Where("NOT EXISTS (SELECT 1 FROM design_revision_media_index_state state WHERE state.revision_id = revision.id)").
 			OrderExpr("revision.id ASC").
-			Limit(batchSize)
+			Limit(int64(batchSize))
 		if afterID != "" {
 			query = query.Where("revision.id > ?", afterID)
 		}

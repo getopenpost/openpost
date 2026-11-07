@@ -326,7 +326,7 @@ func (s *Service) SavePolicy(ctx context.Context, input Policy, actorUserID stri
 		if err != nil {
 			return Policy{}, err
 		}
-		if count != len(input.ProviderIDs) {
+		if count != int64(len(input.ProviderIDs)) {
 			return Policy{}, errors.New("policy contains an identity provider outside this organization")
 		}
 		if input.Mode == models.OrganizationSSOModeRequired {
@@ -587,7 +587,7 @@ func (s *Service) ListAudit(ctx context.Context, organizationID string, limit in
 	err := s.db.NewSelect().Model(&events).
 		Where("organization_id = ?", organizationID).
 		Order("created_at DESC").
-		Limit(limit).
+		Limit(int64(limit)).
 		Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return []models.IdentityAuditEvent{}, nil

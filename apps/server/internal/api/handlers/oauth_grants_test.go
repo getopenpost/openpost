@@ -238,7 +238,7 @@ func TestYouTubeRevocationCommitsBeforeRetryableCleanup(t *testing.T) {
 			require.NoError(t, err)
 			if failure == "queue" {
 				require.Zero(t, count)
-				var remaining int
+				var remaining int64
 				remaining, err = db.NewSelect().Model((*models.AnalyticsAccountSnapshot)(nil)).Where("id = ?", "revoke-snapshot").Count(ctx)
 				require.NoError(t, err)
 				require.Zero(t, remaining, "queue failure cannot prevent inline cleanup")

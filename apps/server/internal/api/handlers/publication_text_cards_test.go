@@ -188,7 +188,7 @@ func TestTextCardReplacementNearQuotaAndRollback(t *testing.T) {
 	require.NoError(t, err)
 	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("source = 'text_card'").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 	filesBefore, err := filepath.Glob(filepath.Join(dir, "*.jpg"))
 	require.NoError(t, err)
 	jobsBefore, err := srv.db.NewSelect().Model((*models.Job)(nil)).Count(ctx)
@@ -278,7 +278,7 @@ func TestTextCardWorkflowReplayKeepsExactDeliveryImage(t *testing.T) {
 	require.Equal(t, first.Renditions[0].Segments[0].OutputMedia, replay.Renditions[0].Segments[0].OutputMedia)
 	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestTextCardCarouselKeepsAttachmentOrderAndExplicitOverrides(t *testing.T) {

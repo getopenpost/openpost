@@ -773,7 +773,7 @@ func (s *Service) publishRenditionSegments(
 			if countErr != nil {
 				return countErr
 			}
-			settings, linkErr := publicationlink.ResolveEffective(sourceSettings, account.ID, rendition.Platform, body, destinationSettings, settings, mediaCount)
+			settings, linkErr := publicationlink.ResolveEffective(sourceSettings, account.ID, rendition.Platform, body, destinationSettings, settings, int(mediaCount))
 			if linkErr != nil {
 				return fmt.Errorf("link validation: %w", linkErr)
 			}

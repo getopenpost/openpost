@@ -597,7 +597,7 @@ func (s *Service) pruneProviderUsageRows(
 		Column(keyColumn).
 		Where("occurred_at < ?", before.UTC()).
 		Order("occurred_at ASC", keyColumn+" ASC").
-		Limit(limit).
+		Limit(int64(limit)).
 		Scan(ctx, &keys); err != nil {
 		return 0, err
 	}

@@ -320,7 +320,7 @@ func TestMediaUploadRequiresDecodedImagePixels(t *testing.T) {
 				ready, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("processing_status = ?", "ready").Count(t.Context())
 				require.NoError(t, err)
 				if payload.valid {
-					require.Equal(t, 1, ready)
+					require.EqualValues(t, 1, ready)
 					var media models.MediaAttachment
 					require.NoError(t, srv.db.NewSelect().Model(&media).Where("processing_status = ?", "ready").Scan(t.Context()))
 					require.Equal(t, expectedType, media.MimeType)

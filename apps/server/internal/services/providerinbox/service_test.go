@@ -196,7 +196,7 @@ func TestMetaReplayRequeuesAfterDurableSchedulerFailure(t *testing.T) {
 	require.Equal(t, http.StatusServiceUnavailable, response.Code)
 	count, err := s.db.NewSelect().Model((*receipt)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count, "receipt must commit even when wakeup fails")
+	require.EqualValues(t, 1, count, "receipt must commit even when wakeup fails")
 	s.SetReceiptScheduler(func(context.Context) error { calls++; return nil })
 	response = httptest.NewRecorder()
 	s.MetaHandler(app).ServeHTTP(response, signedRequest(inboundMetaBody, app.AppSecret))
@@ -204,7 +204,7 @@ func TestMetaReplayRequeuesAfterDurableSchedulerFailure(t *testing.T) {
 	require.Equal(t, 2, calls)
 	count, err = s.db.NewSelect().Model((*receipt)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestTransportLeaseDeadlineCancelsIndependentlyOfRenewal(t *testing.T) {

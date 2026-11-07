@@ -235,7 +235,7 @@ func TestCLIAuthConcurrentApprovedPollsMintExactlyOneToken(t *testing.T) {
 	require.Equal(t, 1, secretCount)
 	tokenCount, err := srv.db.NewSelect().Model((*models.APIToken)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, tokenCount)
+	require.EqualValues(t, 1, tokenCount)
 }
 
 func TestCLIAuthApprovedSessionCannotMintAfterDeviceAuthorizationExpires(t *testing.T) {
@@ -351,7 +351,7 @@ func TestCLIAuthHappyPathReturnsTokenOnFirstApprovedPollOnly(t *testing.T) {
 		Where("user_id = ?", "user-1").
 		Count(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 1, tokenCount)
+	require.EqualValues(t, 1, tokenCount)
 	var storedToken models.APIToken
 	require.NoError(t, srv.db.NewSelect().Model(&storedToken).Where("user_id = ?", "user-1").Scan(context.Background()))
 	require.Equal(t, cliauth.ClientID, storedToken.ClientID)

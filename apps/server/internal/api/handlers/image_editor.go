@@ -895,14 +895,14 @@ func (h *ImageEditorHandler) listDesigns(ctx context.Context, input *ListImageEd
 			return q
 		}).
 		OrderExpr("d.updated_at DESC").
-		Limit(limit).
-		Offset(input.Offset).
+		Limit(int64(limit)).
+		Offset(int64(input.Offset)).
 		Scan(ctx, &rows)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to list OpenPost Image Editor designs")
 	}
 	out := &ListImageEditorDesignsOutput{}
-	out.Body.Total = total
+	out.Body.Total = int(total)
 	out.Body.CanEdit = canEdit
 	out.Body.Designs = make([]ImageEditorDesignSummary, 0, len(rows))
 	for _, row := range rows {
@@ -1381,7 +1381,7 @@ func (h *ImageEditorHandler) listRevisions(ctx context.Context, input *ListImage
 	query := h.db.NewSelect().Model(&revisions).
 		Where("design_document_id = ?", document.ID).
 		OrderExpr("created_at DESC, id DESC").
-		Limit(limit + 1)
+		Limit(int64(limit + 1))
 	if !cursor.CreatedAt.IsZero() {
 		query = query.Where(
 			"(created_at < ?) OR (created_at = ? AND id < ?)",

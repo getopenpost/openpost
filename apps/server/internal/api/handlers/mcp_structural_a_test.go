@@ -93,7 +93,7 @@ func TestMCPCreatePostIdempotencyReplays(t *testing.T) {
 
 	count, err := srv.db.NewSelect().Model((*models.Publication)(nil)).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 2, count)
+	require.EqualValues(t, 2, count)
 }
 
 func TestMCPDeletePostConfirmGate(t *testing.T) {
@@ -283,7 +283,7 @@ func TestMCPMediaLifecycle(t *testing.T) {
 	require.Equal(t, "manual", stored.TrashReason)
 	remaining, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", "media-lifecycle-1").Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, remaining)
+	require.EqualValues(t, 1, remaining)
 }
 
 func TestMCPRetryOpsValidateBeforeDispatch(t *testing.T) {

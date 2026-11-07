@@ -63,5 +63,5 @@ func TestMCPMentionLookupAndAuthoredThreadRoundTrip(t *testing.T) {
 	require.Equal(t, 1, adapter.calls)
 	count, err := srv.db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }

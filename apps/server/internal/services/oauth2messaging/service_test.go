@@ -147,7 +147,7 @@ func TestSupplementalOAuth2AuthorizationIdentityAndPKCE(t *testing.T) {
 	})
 	_, err = s.Complete(ctx, actor, query.Get("state"), "code")
 	require.ErrorIs(t, err, ErrReconnect)
-	var count int
+	var count int64
 	count, err = s.db.NewSelect().Model((*grant)(nil)).Count(ctx)
 	require.NoError(t, err)
 	require.Zero(t, count)
@@ -268,10 +268,10 @@ func TestXActivityBudgetAdmissionAndDurableReceipts(t *testing.T) {
 		require.Equal(t, "12345", payload["webhook_id"])
 		require.NotEmpty(t, payload["expires_at"])
 		require.Equal(t, "Bearer access", r.Header.Get("Authorization"))
-		var reservations int
+		var reservations int64
 		reservations, err := s.db.NewSelect().Model((*models.ProviderUsageReservation)(nil)).Count(t.Context())
 		require.NoError(t, err)
-		require.Equal(t, 2, reservations, "reserve complete exposure before external I/O")
+		require.EqualValues(t, 2, reservations, "reserve complete exposure before external I/O")
 		_, _ = fmt.Fprint(w, `{"data":{"subscription":{"subscription_id":"98765"}}}`)
 	})
 	_, err := s.StartSubscription(t.Context(), "workspace", "account", "dm.received", 2)
@@ -296,7 +296,7 @@ func TestXActivityBudgetAdmissionAndDurableReceipts(t *testing.T) {
 		scheduled++
 		count, err := s.db.NewSelect().Model((*receipt)(nil)).Count(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 1, count, "receipt must commit before enqueue")
+		require.EqualValues(t, 1, count, "receipt must commit before enqueue")
 		if scheduled == 1 {
 			return errors.New("queue unavailable")
 		}
@@ -339,12 +339,12 @@ func TestXActivityBudgetAdmissionAndDurableReceipts(t *testing.T) {
 	// Delivery replay settles the same reservation, never a second billed event.
 	count, err := s.db.NewSelect().Model((*models.ProviderUsageEvent)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 	encrypted := strings.Replace(strings.Replace(string(raw), "dm.received", "chat.received", 1), "event-1", "event-encrypted", 1)
 	require.NoError(t, s.Receive(t.Context(), sign(s.config.ClientSecret, []byte(encrypted)), []byte(encrypted)))
 	count, err = s.db.NewSelect().Model((*receipt)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestXQuotaCannotBurstAcrossLocalWindowBoundary(t *testing.T) {

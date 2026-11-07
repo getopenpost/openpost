@@ -1299,9 +1299,9 @@ func (s *Service) listEngagement(ctx context.Context, input Query) (Page, error)
 	}
 	query = query.OrderExpr(engagementOccurredAtSQL+" DESC").Order("created_at DESC", "id DESC")
 	if input.Cursor == nil {
-		query = query.Offset(max(0, input.Offset))
+		query = query.Offset(int64(max(0, input.Offset)))
 	}
-	err = query.Limit(input.Limit + 1).Scan(ctx)
+	err = query.Limit(int64(input.Limit + 1)).Scan(ctx)
 	if err != nil {
 		return Page{}, err
 	}
@@ -1312,7 +1312,7 @@ func (s *Service) listEngagement(ctx context.Context, input Query) (Page, error)
 	if err := s.hydrateEngagementProviderURLs(ctx, items); err != nil {
 		return Page{}, err
 	}
-	page := Page{Items: items, Total: count}
+	page := Page{Items: items, Total: int(count)}
 	if hasMore && len(items) > 0 {
 		last := items[len(items)-1]
 		occurredAt := last.RemoteCreatedAt

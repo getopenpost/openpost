@@ -72,7 +72,7 @@ func TestGeneratedImageImportRecoversAfterRecipeFailureWithoutAnotherUpload(t *t
 	require.Equal(t, first.ID, result.ID)
 	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 	uploaded, err := srv.usage.CurrentMonthly(t.Context(), "ws-1", entitlements.LimitMediaBytesUploadedMonthly, time.Now())
 	require.NoError(t, err)
 	require.Equal(t, int64(len(input.Content)), uploaded)
@@ -82,5 +82,5 @@ func TestGeneratedImageImportRecoversAfterRecipeFailureWithoutAnotherUpload(t *t
 	require.Equal(t, input.Recipe, stored.RecipeJSON)
 	recipeCount, err := srv.db.NewSelect().Model((*models.MediaGenerationRecipe)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, recipeCount)
+	require.EqualValues(t, 1, recipeCount)
 }

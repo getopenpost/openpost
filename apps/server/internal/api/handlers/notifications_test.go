@@ -272,7 +272,7 @@ func notificationCount(t *testing.T, db *bun.DB, id string) int {
 	t.Helper()
 	count, err := db.NewSelect().Model((*models.UserNotification)(nil)).Where("id = ?", id).Count(t.Context())
 	require.NoError(t, err)
-	return count
+	return int(count)
 }
 
 func TestNotificationReadStateMatchesUnreadCountAcrossMarkRead(t *testing.T) {

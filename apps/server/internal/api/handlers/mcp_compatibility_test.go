@@ -86,7 +86,7 @@ func TestMCPBase64UploadThroughHTTP(t *testing.T) {
 	require.Equal(t, true, second["deduped"])
 	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestMCPBase64UploadRejectsInvalidOrUnauthorizedFiles(t *testing.T) {

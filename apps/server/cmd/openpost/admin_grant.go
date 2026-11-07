@@ -57,6 +57,6 @@ func grantInstanceAdmin(ctx context.Context, db *bun.DB, email string) (grantAdm
 		UserID:       user.ID,
 		Email:        user.Email,
 		AlreadyAdmin: alreadyAdmin,
-		AdminCount:   adminCount,
+		AdminCount:   int(adminCount),
 	}, nil
 }

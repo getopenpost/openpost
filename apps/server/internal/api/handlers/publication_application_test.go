@@ -85,7 +85,7 @@ func TestPublicationApplicationReplaysEnqueueActionsWithoutCreatingAnotherJob(t 
 			jobCount, err := srv.db.NewSelect().Model((*models.Job)(nil)).
 				Where("scope_id = ?", publication.ID).Count(ctx)
 			require.NoError(t, err)
-			require.Equal(t, 1, jobCount)
+			require.EqualValues(t, 1, jobCount)
 		})
 	}
 }
@@ -436,10 +436,10 @@ func TestConcurrentFirstPublicationsRecordOneWorkspaceActivation(t *testing.T) {
 
 	activationCount, err := db.NewSelect().Model((*models.WorkspaceActivation)(nil)).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, activationCount)
+	require.EqualValues(t, 1, activationCount)
 	eventCount, err := db.NewSelect().Model((*models.ProductAnalyticsEvent)(nil)).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, eventCount)
+	require.EqualValues(t, 1, eventCount)
 }
 
 func TestPublicationTransportsRejectViewerMutations(t *testing.T) {

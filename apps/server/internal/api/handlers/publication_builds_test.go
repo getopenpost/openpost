@@ -265,7 +265,7 @@ func TestPublicationBuildCreateReturnsSameBuildAndRejectsIdempotencyConflict(t *
 
 	count, err := server.db.NewSelect().Model((*publicationbuilder.BuildRecord)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestPublicationBuildCreateBoundsPerUserBursts(t *testing.T) {

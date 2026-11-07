@@ -147,13 +147,13 @@ func (h *ScreenshotTemplateHandler) list(ctx context.Context, input *ListScreens
 		return nil, err
 	}
 	var rows []models.ScreenshotTemplateDesign
-	total, err := h.db.NewSelect().Model(&rows).ExcludeColumn("document_json").Where("workspace_id = ?", input.WorkspaceID).Order("updated_at DESC", "id DESC").Limit(input.Limit).Offset(input.Offset).ScanAndCount(ctx)
+	total, err := h.db.NewSelect().Model(&rows).ExcludeColumn("document_json").Where("workspace_id = ?", input.WorkspaceID).Order("updated_at DESC", "id DESC").Limit(int64(input.Limit)).Offset(int64(input.Offset)).ScanAndCount(ctx)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to list template designs")
 	}
 	out := &ListScreenshotTemplateDesignsOutput{}
 	out.Body.CanEdit = canEdit
-	out.Body.Total = total
+	out.Body.Total = int(total)
 	out.Body.Designs = make([]ScreenshotTemplateDesignSummary, 0, len(rows))
 	for _, row := range rows {
 		out.Body.Designs = append(out.Body.Designs, screenshotTemplateSummary(row))

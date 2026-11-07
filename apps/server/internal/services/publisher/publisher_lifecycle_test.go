@@ -122,7 +122,7 @@ func TestSuccessfulFinalPublicationEnqueuesQueueEmptiedReminder(t *testing.T) {
 		Where("type = ?", notifications.JobTypeEmailDelivery).
 		Where("payload LIKE ?", "%queue_reminder%").Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 type publisherTestEmailSender struct{}
@@ -453,7 +453,7 @@ func TestPublishedTransitionRecoversWithItsDurableEventWithoutAnotherSend(t *tes
 	require.Equal(t, 1, adapter.publishCalls)
 	count, err := srv.db.NewSelect().Model((*models.PublicationLifecycleEvent)(nil)).Where("rendition_id = ? AND type = ?", "rendition-1", lifecycle.EventPublished).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestConfirmedPublicationSurvivesQuotaSettlementFailure(t *testing.T) {

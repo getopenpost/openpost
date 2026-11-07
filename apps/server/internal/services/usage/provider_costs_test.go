@@ -85,10 +85,10 @@ func TestRecordProviderCostIsIdempotent(t *testing.T) {
 
 	eventCount, err := db.NewSelect().Model((*models.ProviderUsageEvent)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, eventCount)
+	require.EqualValues(t, 1, eventCount)
 	counterCount, err := db.NewSelect().Model((*models.ProviderUsagePeriodCounter)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 2, counterCount)
+	require.EqualValues(t, 2, counterCount)
 }
 
 func TestProviderCostReservationIsNotBillableUntilConfirmed(t *testing.T) {
@@ -106,7 +106,7 @@ func TestProviderCostReservationIsNotBillableUntilConfirmed(t *testing.T) {
 	require.Equal(t, int64(15_000), reserved.PeriodExposureMicrousd)
 	eventCount, err := db.NewSelect().Model((*models.ProviderUsageEvent)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 0, eventCount)
+	require.EqualValues(t, 0, eventCount)
 	summary, err := service.SnapshotProviderCosts(t.Context(), "ws-1", at)
 	require.NoError(t, err)
 	require.Equal(t, int64(0), summary[0].CostMicrousd)
@@ -120,7 +120,7 @@ func TestProviderCostReservationIsNotBillableUntilConfirmed(t *testing.T) {
 	require.Equal(t, int64(15_000), confirmed.PeriodCostMicrousd)
 	reservationCount, err := db.NewSelect().Model((*models.ProviderUsageReservation)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 0, reservationCount)
+	require.EqualValues(t, 0, reservationCount)
 	summary, err = service.SnapshotProviderCosts(t.Context(), "ws-1", at)
 	require.NoError(t, err)
 	require.Equal(t, int64(15_000), summary[0].CostMicrousd)
@@ -140,7 +140,7 @@ func TestRecordProviderCostRollsBackWhenBudgetWouldBeExceeded(t *testing.T) {
 	require.ErrorIs(t, err, ErrProviderCostBudgetExceeded)
 	eventCount, err := db.NewSelect().Model((*models.ProviderUsageEvent)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, eventCount)
+	require.EqualValues(t, 1, eventCount)
 	summary, err := service.SnapshotProviderCosts(t.Context(), "ws-1", at)
 	require.NoError(t, err)
 	require.Equal(t, int64(15_000), summary[0].CostMicrousd)
@@ -155,8 +155,8 @@ func TestProviderCostPolicyDisabledDoesNotGateSelfHostedRequests(t *testing.T) {
 	require.False(t, result.Enabled)
 	eventCount, err := db.NewSelect().Model((*models.ProviderUsageEvent)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 0, eventCount)
+	require.EqualValues(t, 0, eventCount)
 	reservationCount, err := db.NewSelect().Model((*models.ProviderUsageReservation)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 0, reservationCount)
+	require.EqualValues(t, 0, reservationCount)
 }

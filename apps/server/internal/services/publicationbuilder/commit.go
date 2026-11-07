@@ -147,7 +147,7 @@ func (application *Application) validateCommitSourceMedia(ctx context.Context, w
 	if err != nil {
 		return fmt.Errorf("check publication build source media: %w", err)
 	}
-	if count != len(mediaIDs) {
+	if count != int64(len(mediaIDs)) {
 		return ErrBuildSourceUnavailable
 	}
 	return nil

@@ -125,7 +125,7 @@ func TestWebhookDeliveryStopsWhenSponsorLosesWorkspaceAdmin(t *testing.T) {
 	require.NoError(t, EnqueueEvent(ctx, db, models.PublicationLifecycleEvent{ID: "event-2", WorkspaceID: "ws-1", Type: "published", MetadataJSON: `{}`, CreatedAt: now}))
 	count, err := db.NewSelect().Model((*models.ExternalWebhookDelivery)(nil)).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

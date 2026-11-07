@@ -151,7 +151,7 @@ func (s *Service) ListDeliveries(ctx context.Context, installationID string, lim
 	var deliveries []models.ExternalWebhookDelivery
 	err = s.db.NewSelect().Model(&deliveries).
 		Where("subscription_id IN (?)", bun.List(ids)).
-		Order("created_at DESC").Limit(limit).Scan(ctx)
+		Order("created_at DESC").Limit(int64(limit)).Scan(ctx)
 	return deliveries, err
 }
 

@@ -256,7 +256,7 @@ func (s *Service) Drain(ctx context.Context, apply ApplyMessages, limit int) (in
 		limit = 100
 	}
 	var receipts []receipt
-	if err := s.db.NewSelect().Model(&receipts).Where("processed = ? AND (next_attempt_at IS NULL OR next_attempt_at <= ?)", false, s.now()).Order("attempts ASC").OrderExpr("COALESCE(next_attempt_at, created_at) ASC").Order("event_uuid ASC").Limit(limit).Scan(ctx); err != nil {
+	if err := s.db.NewSelect().Model(&receipts).Where("processed = ? AND (next_attempt_at IS NULL OR next_attempt_at <= ?)", false, s.now()).Order("attempts ASC").OrderExpr("COALESCE(next_attempt_at, created_at) ASC").Order("event_uuid ASC").Limit(int64(limit)).Scan(ctx); err != nil {
 		return 0, errors.Join(err, s.Maintain(ctx))
 	}
 	processed := 0

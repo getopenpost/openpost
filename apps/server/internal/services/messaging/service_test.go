@@ -162,7 +162,7 @@ func TestMessageOperationReplayAndConflict(t *testing.T) {
 	require.NotEqual(t, first.ID, other.ID, "identical text is not an idempotency key")
 	count, err := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 2, count)
+	require.EqualValues(t, 2, count)
 }
 
 func TestInboxEventsReplayDeleteAndAuthorization(t *testing.T) {

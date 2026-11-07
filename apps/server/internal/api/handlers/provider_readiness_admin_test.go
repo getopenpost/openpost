@@ -199,7 +199,7 @@ func TestProviderReadinessAdminDerivesCertificationFromExactAccountContext(t *te
 				t, "/api/v1/admin/provider-readiness/certifications", request, "web-token",
 			)
 			require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
-			var count int
+			var count int64
 			count, err := srv.db.NewSelect().Model((*models.ProviderCertificationRun)(nil)).Count(t.Context())
 			require.NoError(t, err)
 			require.Zero(t, count)

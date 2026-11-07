@@ -161,7 +161,7 @@ func TestCommentCampaignCannotBeClaimedByAnotherRun(t *testing.T) {
 	require.Equal(t, reply.JobID, second.JobID)
 	count, err := s.db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 func TestCommentCampaignPrivateReplyIsOncePerPersonPerPost(t *testing.T) {
 	s, in, _ := campaignTest(t)

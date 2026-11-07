@@ -386,7 +386,7 @@ func TestCreateMediaUploadSessionIdempotencyReplaysTheReservedTarget(t *testing.
 	require.Equal(t, 1, storage.sessions)
 	mediaCount, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, mediaCount)
+	require.EqualValues(t, 1, mediaCount)
 }
 
 type zeroMediaReader struct{}
@@ -943,7 +943,7 @@ func TestCompleteMediaUploadSessionDedupesExistingMedia(t *testing.T) {
 		Where("id = ?", mediaID).
 		Count(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 1, pendingCount, "dedup cleanup ownership must outlive the signed PUT capability")
+	require.EqualValues(t, 1, pendingCount, "dedup cleanup ownership must outlive the signed PUT capability")
 	var retired models.MediaAttachment
 	require.NoError(t, srv.db.NewSelect().Model(&retired).Where("id = ?", mediaID).Scan(t.Context()))
 	require.Equal(t, mediaFailedStatus, retired.ProcessingStatus)

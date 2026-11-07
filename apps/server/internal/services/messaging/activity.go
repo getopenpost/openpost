@@ -151,11 +151,11 @@ func (s *Service) Summary(ctx context.Context, actor Actor, workspaceID string) 
 	if err := s.authorize(ctx, workspaceID, actor, workspaceaccess.LevelRead); err != nil {
 		return result, err
 	}
-	var err error
-	result.UnreadConversations, err = s.db.NewSelect().Model((*models.Conversation)(nil)).Where("workspace_id=? AND archived_at IS NULL AND unread_count>0", workspaceID).Count(ctx)
+	conversations, err := s.db.NewSelect().Model((*models.Conversation)(nil)).Where("workspace_id=? AND archived_at IS NULL AND unread_count>0", workspaceID).Count(ctx)
 	if err != nil {
 		return result, err
 	}
-	result.UnreadComments, err = s.db.NewSelect().Model((*models.EngagementItem)(nil)).Where("workspace_id=? AND archived_at IS NULL AND read_at IS NULL AND deleted_at IS NULL AND is_ours=?", workspaceID, false).Count(ctx)
+	comments, err := s.db.NewSelect().Model((*models.EngagementItem)(nil)).Where("workspace_id=? AND archived_at IS NULL AND read_at IS NULL AND deleted_at IS NULL AND is_ours=?", workspaceID, false).Count(ctx)
+	result.UnreadConversations, result.UnreadComments = int(conversations), int(comments)
 	return result, err
 }

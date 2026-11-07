@@ -224,7 +224,7 @@ func TestCloudVideoProjectAssetDeleteRemovesAssetAndIsIdempotent(t *testing.T) {
 		nil,
 	)
 	require.Equal(t, http.StatusOK, deleted.Code, deleted.Body.String())
-	var remaining int
+	var remaining int64
 	remaining, err = server.db.NewSelect().Model((*models.ProjectAsset)(nil)).Where("id = ?", asset.ID).Count(t.Context())
 	require.NoError(t, err)
 	require.Zero(t, remaining)

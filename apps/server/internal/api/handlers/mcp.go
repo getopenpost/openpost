@@ -1040,12 +1040,12 @@ func (h *MCPHandler) mcpAppWidgetResourceMeta() map[string]any {
 
 func mcpAppWidgetCSP() (map[string]any, map[string]any) {
 	return map[string]any{
-			"connectDomains":  []string{},
-			"resourceDomains": []string{},
-		}, map[string]any{
-			"connect_domains":  []string{},
-			"resource_domains": []string{},
-		}
+		"connectDomains":  []string{},
+		"resourceDomains": []string{},
+	}, map[string]any{
+		"connect_domains":  []string{},
+		"resource_domains": []string{},
+	}
 }
 
 func mcpWidgetDomain(publicURL string) string {
@@ -4739,7 +4739,7 @@ func (h *MCPHandler) countPublicationHistoryEvents(ctx context.Context, publicat
 	if lifecycleCount, err := h.db.NewSelect().Model((*models.PublicationLifecycleEvent)(nil)).
 		Where("publication_id = ?", publicationID).
 		Count(ctx); err == nil {
-		total += lifecycleCount
+		total += int(lifecycleCount)
 	} else if !isMissingPublicationHistoryTable(err) {
 		return total
 	}
@@ -4747,7 +4747,7 @@ func (h *MCPHandler) countPublicationHistoryEvents(ctx context.Context, publicat
 		Where("aggregate_type = ?", drafts.AggregatePublication).
 		Where("aggregate_id = ?", publicationID).
 		Count(ctx); err == nil {
-		total += editCount
+		total += int(editCount)
 	}
 	return total
 }
@@ -5190,7 +5190,7 @@ func (h *MCPHandler) listMedia(ctx context.Context, userID string, args map[stri
 			cursor.Timestamp, cursor.Timestamp, cursor.ID,
 		)
 	}
-	err = query.Limit(limit+1).Scan(ctx, &rows)
+	err = query.Limit(int64(limit+1)).Scan(ctx, &rows)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, &mcpError{Code: -32603, Message: "failed to list media"}
 	}

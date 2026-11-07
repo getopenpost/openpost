@@ -1005,7 +1005,7 @@ func loadByIdempotencyKey(ctx context.Context, db bun.IDB, workspaceID, userID, 
 	return record, err
 }
 
-func countActiveBuilds(ctx context.Context, db bun.IDB, workspaceID, userID string) (int, error) {
+func countActiveBuilds(ctx context.Context, db bun.IDB, workspaceID, userID string) (int64, error) {
 	return db.NewSelect().Model((*BuildRecord)(nil)).
 		Where("workspace_id = ? AND created_by_id = ?", workspaceID, userID).
 		Where("state IN (?, ?)", BuildStateQueued, BuildStateBuilding).

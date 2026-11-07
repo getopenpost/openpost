@@ -71,7 +71,7 @@ func refreshRenditionLinks(ctx context.Context, db bun.IDB, rendition models.Ren
 			projectedBody, projectedSettings, _ = publicationpoll.ResolveJoined(publicationPollSources(canonical), rendition.SocialAccountID, rendition.Platform, rendition.OutputProfile, body, settings)
 		}
 		segment.Body = projectedBody
-		values, _ := publicationlink.ResolveEffective(sourceSettings, rendition.SocialAccountID, rendition.Platform, body, destinationSettings, projectedSettings, mediaCount)
+		values, _ := publicationlink.ResolveEffective(sourceSettings, rendition.SocialAccountID, rendition.Platform, body, destinationSettings, projectedSettings, int(mediaCount))
 		segment.SettingsJSON = mustJSON(values)
 		if _, err := db.NewUpdate().Model(&segment).Column("body", "settings_json").Where("id = ?", segment.ID).Exec(ctx); err != nil {
 			return err

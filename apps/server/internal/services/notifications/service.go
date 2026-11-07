@@ -953,7 +953,7 @@ func (s *Service) loadDailyDigestItems(
 		Where("user_id = ? AND delivery_id = ? AND delivered_at IS NULL", userID, deliveryID)
 	total, err := pending.Count(ctx)
 	if err != nil || total == 0 {
-		return nil, total, err
+		return nil, int(total), err
 	}
 	var items []models.UserNotificationDigestItem
 	if err = s.db.NewSelect().Model(&items).
@@ -961,7 +961,7 @@ func (s *Service) loadDailyDigestItems(
 		Order("created_at ASC", "id ASC").Limit(20).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, 0, fmt.Errorf("load notification digest items: %w", err)
 	}
-	return items, total, nil
+	return items, int(total), nil
 }
 
 func (s *Service) discardMutedDigestItems(ctx context.Context, userID, deliveryID string, windowAt time.Time) error {
@@ -1065,7 +1065,7 @@ func (s *Service) List(ctx context.Context, userID, workspaceID, credentialWorks
 	query := s.db.NewSelect().Model(&items).
 		Where("user_id = ?", userID).
 		Order("created_at DESC", "id DESC").
-		Limit(limit + 1)
+		Limit(int64(limit + 1))
 	if workspaceID != "" {
 		if strictWorkspace {
 			query = query.Where("workspace_id = ?", workspaceID)
@@ -1105,7 +1105,7 @@ func (s *Service) List(ctx context.Context, userID, workspaceID, credentialWorks
 	if err != nil {
 		return NotificationPage{}, err
 	}
-	page.UnreadCount = count
+	page.UnreadCount = int(count)
 	return page, nil
 }
 

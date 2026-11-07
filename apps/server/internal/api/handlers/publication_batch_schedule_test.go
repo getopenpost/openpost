@@ -57,7 +57,7 @@ func TestBatchSchedulePreviewIsReadOnlyAndConfirmationReplays(t *testing.T) {
 	require.Contains(t, response.Body.String(), `"state":"scheduled"`, "an accepted receipt remains replayable after delivery")
 	count, err = srv.db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", post.ID).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestBatchScheduleUsesLocalDaysAcrossDST(t *testing.T) {
@@ -173,7 +173,7 @@ func TestBatchScheduleKeepsSeriesApartAndCommitsOnlyCurrentItems(t *testing.T) {
 	}
 	count, err := srv.db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", second.ID).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 	unchanged, err := h.publicationApplication().Get(ctx, "user-1", first.ID)
 	require.NoError(t, err)
 	require.Equal(t, at.Format(time.RFC3339), unchanged.ScheduledAt)

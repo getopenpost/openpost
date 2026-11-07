@@ -71,7 +71,7 @@ func TestPublicationVideoCoverWithNullableMediaSettings(t *testing.T) {
 			if tc.timestamp > 0 {
 				require.Equal(t, tc.timestamp, adapter.lastRequest.MediaSettings[0]["thumbnail_timestamp_ms"])
 			}
-			require.Equal(t, 1, uploadEvents)
+			require.EqualValues(t, 1, uploadEvents)
 		})
 	}
 }

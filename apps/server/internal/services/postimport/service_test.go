@@ -102,7 +102,7 @@ func countImported(t *testing.T, db *bun.DB, accountID string) int {
 		Where("social_account_id = ?", accountID).
 		Count(context.Background())
 	require.NoError(t, err)
-	return count
+	return int(count)
 }
 
 func loadImportState(t *testing.T, db *bun.DB, accountID string) models.PostImportState {
@@ -404,12 +404,12 @@ func TestImportsStayOutOfAnalyticsTables(t *testing.T) {
 		Where("workspace_id = ?", "workspace-1").
 		Count(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 1, snapshots)
+	require.EqualValues(t, 1, snapshots)
 	renditions, err := db.NewSelect().Model((*models.Rendition)(nil)).
 		Where("social_account_id = ?", account.ID).
 		Count(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 0, renditions)
+	require.EqualValues(t, 0, renditions)
 
 	// The library read is DB-only: it works with a failing token source.
 	broken := NewService(db, &stubTokenSource{err: context.DeadlineExceeded})
@@ -470,7 +470,7 @@ func TestDueImportIsQueuedOnceAfterItsFirstCycle(t *testing.T) {
 
 	count, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ? AND status = ?", JobTypeSync, "pending").Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
+	require.EqualValues(t, 1, count)
 }
 
 func TestSyncPersistsReadBudgetBeforeProviderCall(t *testing.T) {

@@ -38,7 +38,7 @@ func TestSeriesOnlyGeneratesSelectedConceptAndKeepsSourceSnapshot(t *testing.T) 
 	require.Len(t, parent.Result.Series, 2, "thin sources may produce fewer concepts")
 	count, err := db.NewSelect().Model((*BuildRecord)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 1, count, "planning creates no child drafts")
+	require.EqualValues(t, 1, count, "planning creates no child drafts")
 	parent, err = app.UpdateSeriesConcept(t.Context(), "user-1", parent.ID, "post-1", 1, "The launch", "Explain the offline release for founders")
 	require.NoError(t, err)
 	_, err = app.UpdateSeriesConcept(t.Context(), "user-1", parent.ID, "post-1", 1, "The launch", "Explain the offline release for founders")
@@ -62,7 +62,7 @@ func TestSeriesOnlyGeneratesSelectedConceptAndKeepsSourceSnapshot(t *testing.T) 
 	require.Equal(t, 1, publications.createCalls)
 	count, err = db.NewSelect().Model((*BuildRecord)(nil)).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 2, count, "unselected concepts remain concepts")
+	require.EqualValues(t, 2, count, "unselected concepts remain concepts")
 }
 
 func TestSeriesRepairsUnsupportedReferencesAndAllowsFewerConcepts(t *testing.T) {

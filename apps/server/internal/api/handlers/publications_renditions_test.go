@@ -909,7 +909,7 @@ func TestRetryPublicationRenditionPreservesAcceptedWriteIdentityUntilExactTarget
 			require.NoError(t, err)
 			if testCase.expectedHTTPCode == http.StatusOK {
 				require.Equal(t, models.RenditionStatusScheduled, current.Status)
-				require.Equal(t, 1, jobCount)
+				require.EqualValues(t, 1, jobCount)
 			} else {
 				require.Equal(t, models.RenditionStatusFailed, current.Status)
 				require.Zero(t, jobCount)

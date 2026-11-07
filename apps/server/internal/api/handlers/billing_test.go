@@ -404,10 +404,10 @@ func TestPaddleWebhookRouteRejectsInvalidSignature(t *testing.T) {
 	require.Equal(t, http.StatusOK, acceptedResponse.Code, acceptedResponse.Body.String())
 	acceptedEvents, err := accepted.db.NewSelect().Model((*models.BillingWebhookEvent)(nil)).Where("event_id = ?", "evt-route").Count(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 1, acceptedEvents, "an accepted webhook must record exactly one event")
+	require.EqualValues(t, 1, acceptedEvents, "an accepted webhook must record exactly one event")
 	acceptedJobs, err := accepted.db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", billing.JobTypeWebhook).Count(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 1, acceptedJobs, "an accepted webhook must queue exactly one reconciliation job")
+	require.EqualValues(t, 1, acceptedJobs, "an accepted webhook must queue exactly one reconciliation job")
 	var acceptedJob models.Job
 	require.NoError(t, accepted.db.NewSelect().Model(&acceptedJob).Where("type = ?", billing.JobTypeWebhook).Scan(context.Background()))
 	require.Contains(t, acceptedJob.Payload, "sub-route", "the queued job must carry the accepted event")
@@ -424,10 +424,10 @@ func TestPaddleWebhookRouteRejectsInvalidSignature(t *testing.T) {
 			require.Equal(t, http.StatusUnauthorized, resp.Code, resp.Body.String())
 			events, err := srv.db.NewSelect().Model((*models.BillingWebhookEvent)(nil)).Count(context.Background())
 			require.NoError(t, err)
-			require.Equal(t, 0, events, "a rejected webhook must not record an event")
+			require.EqualValues(t, 0, events, "a rejected webhook must not record an event")
 			jobs, err := srv.db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", billing.JobTypeWebhook).Count(context.Background())
 			require.NoError(t, err)
-			require.Equal(t, 0, jobs, "a rejected webhook must not queue work")
+			require.EqualValues(t, 0, jobs, "a rejected webhook must not queue work")
 		})
 	}
 }

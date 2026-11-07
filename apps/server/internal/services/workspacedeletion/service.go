@@ -364,7 +364,7 @@ func InspectPendingWorkWithReferences(ctx context.Context, db deletionDB, worksp
 	if err != nil {
 		return result, err
 	}
-	result.ProviderWrites = count
+	result.ProviderWrites = int(count)
 	keys, err := StoredObjectKeys(ctx, db, workspaceIDs)
 	if err != nil {
 		return result, err
@@ -383,7 +383,7 @@ func InspectPendingWorkWithReferences(ctx context.Context, db deletionDB, worksp
 	return result, nil
 }
 
-func pendingProviderWriteCount(ctx context.Context, db deletionDB, workspaceIDs []string) (int, error) {
+func pendingProviderWriteCount(ctx context.Context, db deletionDB, workspaceIDs []string) (int64, error) {
 	if len(workspaceIDs) == 0 {
 		return 0, nil
 	}

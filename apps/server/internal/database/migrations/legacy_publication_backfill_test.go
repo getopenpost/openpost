@@ -85,7 +85,7 @@ func TestLegacyPublicationBackfillResumesAfterCancellationAndIsIdempotent(t *tes
 	receiptCount, err := db.NewSelect().Model((*models.PublicationAuthorization)(nil)).
 		Where("batch_id = ? AND job_id = ?", batchID, job.ID).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, receiptCount)
+	require.EqualValues(t, 1, receiptCount)
 
 	state, err = loadLegacyPublicationBackfillState(ctx, db)
 	require.NoError(t, err)
@@ -274,7 +274,7 @@ func TestLegacyPublicationAuthorizationBackfillRollsBackAndResumesAtomically(t *
 	receiptCount, err = db.NewSelect().Model((*models.PublicationAuthorization)(nil)).
 		Where("job_id = ?", job.ID).Count(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 1, receiptCount)
+	require.EqualValues(t, 1, receiptCount)
 
 	linkedPost := &models.Post{
 		ID: "post-auth-linked", WorkspaceID: "workspace-auth", CreatedByID: "user-1",

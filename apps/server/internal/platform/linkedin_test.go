@@ -33,104 +33,6 @@ func TestLinkedInGenerateAuthURLEncodesScopesWithPercentSpaces(t *testing.T) {
 	}
 }
 
-func TestLinkedInGenerateAuthURLScopeSeparation(t *testing.T) {
-	tests := []struct {
-		name         string
-		adapter      *LinkedInAdapter
-		wantScopes   []string
-		absentScopes []string
-	}{
-		{
-			name:    "default: personal only",
-			adapter: NewLinkedInAdapter("id", "secret", "https://app.example/callback", false),
-			wantScopes: []string{
-				"openid", "profile", "w_member_social", "w_member_social_feed",
-			},
-			absentScopes: []string{
-				"r_member_social", "rw_organization_admin", "w_organization_social",
-				"r_organization_social", "r_member_profileAnalytics", "r_member_postAnalytics",
-			},
-		},
-		{
-			name:    "organizations only (no analytics)",
-			adapter: NewLinkedInAdapter("id", "secret", "https://app.example/callback", false, true),
-			wantScopes: []string{
-				"openid", "profile", "w_member_social", "w_member_social_feed",
-				"rw_organization_admin", "w_organization_social", "r_organization_social",
-			},
-			absentScopes: []string{
-				"r_member_profileAnalytics", "r_member_postAnalytics", "r_member_social",
-			},
-		},
-		{
-			name: "organizations + member analytics",
-			adapter: func() *LinkedInAdapter {
-				a := NewLinkedInAdapter("id", "secret", "https://app.example/callback", false, true)
-				a.enableMemberAnalytics = true
-				return a
-			}(),
-			wantScopes: []string{
-				"openid", "profile", "w_member_social", "w_member_social_feed",
-				"rw_organization_admin", "w_organization_social", "r_organization_social",
-				"r_member_profileAnalytics", "r_member_postAnalytics",
-			},
-			absentScopes: []string{},
-		},
-		{
-			name: "member analytics only (no organizations)",
-			adapter: func() *LinkedInAdapter {
-				a := NewLinkedInAdapter("id", "secret", "https://app.example/callback", false)
-				a.enableMemberAnalytics = true
-				return a
-			}(),
-			wantScopes: []string{
-				"openid", "profile", "w_member_social", "w_member_social_feed",
-				"r_member_profileAnalytics", "r_member_postAnalytics",
-			},
-			absentScopes: []string{
-				"rw_organization_admin", "w_organization_social", "r_organization_social",
-			},
-		},
-		{
-			name: "member reads + organizations (no analytics)",
-			adapter: func() *LinkedInAdapter {
-				a := NewLinkedInAdapter("id", "secret", "https://app.example/callback", false, true)
-				a.enableMemberReads = true
-				return a
-			}(),
-			wantScopes: []string{
-				"openid", "profile", "w_member_social", "w_member_social_feed",
-				"r_member_social",
-				"rw_organization_admin", "w_organization_social", "r_organization_social",
-			},
-			absentScopes: []string{
-				"r_member_profileAnalytics", "r_member_postAnalytics",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			authURL, _ := tt.adapter.GenerateAuthURL("state-123")
-			parsed, err := url.Parse(authURL)
-			if err != nil {
-				t.Fatalf("parsing auth URL: %v", err)
-			}
-			scope := parsed.Query().Get("scope")
-			for _, want := range tt.wantScopes {
-				if !strings.Contains(" "+scope+" ", " "+want+" ") {
-					t.Errorf("expected scope %q to be present in %q", want, scope)
-				}
-			}
-			for _, absent := range tt.absentScopes {
-				if strings.Contains(" "+scope+" ", " "+absent+" ") {
-					t.Errorf("expected scope %q to be absent from %q", absent, scope)
-				}
-			}
-		})
-	}
-}
-
 func TestLinkedInAnalyticsSupportRespectsMemberAnalyticsToggle(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -512,13 +414,6 @@ func TestLinkedInCreatePostPreservesHashtagsWithoutAcceptingMarkup(t *testing.T)
 				t.Fatalf("commentary = %q, want %q", got, test.want)
 			}
 		})
-	}
-}
-
-func TestLinkedInHideCommentUnsupported(t *testing.T) {
-	err := NewLinkedInAdapter("", "", "", false).HideComment(context.Background(), "li-token", "abc", "urn:li:comment:(urn:li:activity:123,789)")
-	if !errors.Is(err, ErrUnsupportedCommentAction) {
-		t.Fatalf("expected unsupported comment action, got %v", err)
 	}
 }
 

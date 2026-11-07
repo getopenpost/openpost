@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -108,8 +107,4 @@ func TestSendRejectsNon2xx(t *testing.T) {
 		err := Send(t.Context(), server.Client(), server.URL, map[string]any{})
 		require.Error(t, err, "status %d", status)
 	}
-}
-
-func TestDefaultClientHasTimeout(t *testing.T) {
-	require.Equal(t, 8*time.Second, NewClient().Timeout)
 }

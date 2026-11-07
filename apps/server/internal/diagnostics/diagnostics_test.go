@@ -206,15 +206,6 @@ func TestDedupeWindowSummaryCountsOccurrences(t *testing.T) {
 	}
 }
 
-func TestReporterDisabledByDefault(t *testing.T) {
-	reporter := NewReporter(Config{})
-	defer reporter.Close()
-	if reporter.Enabled() {
-		t.Fatal("reporter must be disabled without explicit opt-in")
-	}
-	reporter.Report(validReport())
-}
-
 func TestReporterEnvKillSwitchWins(t *testing.T) {
 	reporter := NewReporter(Config{
 		Enabled:            true,

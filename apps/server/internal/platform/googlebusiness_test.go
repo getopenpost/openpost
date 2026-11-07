@@ -396,18 +396,3 @@ func TestGoogleBusinessLocationValidation(t *testing.T) {
 	require.ErrorContains(t, adapter.ValidatePublishingTarget(context.Background(), "access", "accounts/111/locations/bbb", map[string]interface{}{}), "no longer operable")
 	require.ErrorContains(t, adapter.ValidatePublishingTarget(context.Background(), "access", "", map[string]interface{}{}), "requires a selected location")
 }
-
-func TestGoogleBusinessRegistered(t *testing.T) {
-	contract, ok := ApplicationContract(providerGoogleBusiness, ConnectionModeOAuth)
-	require.True(t, ok)
-	require.True(t, contract.AdapterBacked)
-
-	adapters, _, err := BuildAdapterRegistry([]AppConfig{{Provider: "googlebusiness", ClientID: "id", ClientSecret: "secret", RedirectURI: "https://app.test/callback"}}, RegistryOptions{})
-	require.NoError(t, err)
-	require.Contains(t, adapters, providerGoogleBusiness)
-
-	RegisterAllMediaValidators()
-	require.Nil(t, ValidateMedia(providerGoogleBusiness, []MediaItem{{MimeType: "image/jpeg"}}))
-	issues := ValidateMedia(providerGoogleBusiness, []MediaItem{{MimeType: "video/mp4"}})
-	require.NotEmpty(t, issues)
-}

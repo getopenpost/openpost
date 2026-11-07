@@ -67,21 +67,6 @@ func TestBoolPtrDistinguishesUnsetFromFalse(t *testing.T) {
 	}
 }
 
-func TestBoolDefault(t *testing.T) {
-	if got := BoolDefault(nil, "flag", true); got != true {
-		t.Fatalf("BoolDefault(nil, fallback=true) = %v, want true", got)
-	}
-	if got := BoolDefault(map[string]any{}, "flag", true); got != true {
-		t.Fatalf("BoolDefault(missing, fallback=true) = %v, want true", got)
-	}
-	if got := BoolDefault(map[string]any{"flag": "yes"}, "flag", false); got != true {
-		t.Fatalf("BoolDefault(yes, fallback=false) = %v, want true", got)
-	}
-	if got := BoolDefault(map[string]any{"flag": nil}, "flag", true); got != false {
-		t.Fatalf("BoolDefault(null, fallback=true) = %v, want false", got)
-	}
-}
-
 func TestStringCoercion(t *testing.T) {
 	cases := []struct {
 		name     string

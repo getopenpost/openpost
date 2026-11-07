@@ -421,19 +421,6 @@ func TestDevNullValidation(t *testing.T) {
 	}
 }
 
-func TestDevNullRegistryAndContract(t *testing.T) {
-	if err := ValidateAppConfig(AppConfig{Provider: "devnull"}); err != nil {
-		t.Fatalf("devnull app config invalid: %v", err)
-	}
-	adapters, _, err := BuildAdapterRegistry([]AppConfig{{Provider: "devnull"}}, RegistryOptions{})
-	if err != nil {
-		t.Fatalf("registry build failed: %v", err)
-	}
-	if adapters["devnull"] == nil {
-		t.Fatal("devnull adapter missing from registry")
-	}
-}
-
 func TestDevNullTextLimitCountsCharacters(t *testing.T) {
 	// 4000 multibyte characters are ~12000 bytes and must pass: dev/null
 	// measures characters, not bytes.

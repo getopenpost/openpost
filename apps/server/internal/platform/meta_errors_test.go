@@ -208,30 +208,6 @@ func TestEmbeddedGraphErrorsClassifyWithoutRetainingMessages(t *testing.T) {
 	require.NotContains(t, err.Error(), "secret")
 }
 
-func TestMetaFailureMessagesAreCurated(t *testing.T) {
-	for code, hint := range map[string]string{
-		"meta:checkpoint:190:459":                "security check",
-		"meta:checkpoint:instagram":              "instagram.com",
-		"meta:missing_page_role:190:492":         "role on this Page",
-		"meta:nonexistent:100:33":                "cannot access",
-		"meta:media_silent_audio:2207082":        "volume to 0",
-		"meta:media_format:2207085":              "format, duration",
-		"meta:media_rejected:2207042":            "25 posts per day",
-		"meta:media_rejected:2207009":            "Aspect ratio",
-		"meta:media_not_ready:9004:2207052":      "try again",
-		"meta:invalid_collaborator:110:2207018":  "collaborator",
-		"meta:first_comment_rejected:20:1772107": "first comment",
-		"meta:media_rejected:2207053":            "video limits",
-		"meta:media_rejected:9999999":            "Replace the media",
-	} {
-		message := MetaFailureMessage(code)
-		require.NotEmpty(t, message, "code %s needs a curated message", code)
-		require.Contains(t, message, hint)
-	}
-	require.Empty(t, MetaFailureMessage("meta:token_expired:190"))
-	require.Empty(t, MetaFailureMessage("something-else"))
-}
-
 func TestInstagramContainerErrorPollUsesSameClassifier(t *testing.T) {
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient

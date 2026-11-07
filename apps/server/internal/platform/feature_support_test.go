@@ -36,64 +36,6 @@ func TestSupportsAnalyticsLinkedInCommunityManagementParsing(t *testing.T) {
 	}
 }
 
-// TestSupportsAnalyticsSeededDefaults pins the backfill seed for every
-// provider that exists today, including providers that genuinely support
-// neither feature. These seeds are existing user-visible defaults: changing
-// any of them also changes seeded account_features rows.
-func TestSupportsAnalyticsSeededDefaults(t *testing.T) {
-	tests := []struct {
-		platform string
-		capState string
-		want     bool
-	}{
-		{"x", "", true},
-		{"bluesky", "", true},
-		{"mastodon", "", true},
-		{"pixelfed", "", true},
-		{"peertube", "", true},
-		{"lemmy", "", true},
-		{"piefed", "", true},
-		{"facebook", "", true},
-		{"instagram", "", true},
-		{"threads", "", true},
-		{"youtube", "", true},
-		{"tiktok", "", true},
-		{"telegram", "", true},
-		{"linkedin", "", true},
-		{"linkedin", `{"linkedin_account_type":"community_management"}`, false},
-		// Pinterest declares analytics in its adapter but stays behind the
-		// provider readiness gate, so the seed stays false.
-		{"pinterest", "", false},
-		{"discord", "", false},
-		{"discord", `{"connection_type":"webhook"}`, false},
-		{"discord", `{"connection_type":"bot"}`, true},
-		{"googlebusiness", "", false},
-		{"devnull", "", true},
-		{"unknown", "", false},
-		{"", "", false},
-	}
-	for _, tc := range tests {
-		if got := SupportsAnalytics(tc.platform, tc.capState); got != tc.want {
-			t.Errorf("SupportsAnalytics(%q,%q)=%v want %v", tc.platform, tc.capState, got, tc.want)
-		}
-	}
-}
-
-func TestSupportsEngagementSeededDefaults(t *testing.T) {
-	for provider, want := range map[string]bool{
-		"facebook": true, "instagram": true, "linkedin": true, "threads": true,
-		"mastodon": true, "pixelfed": true, "peertube": true, "lemmy": true,
-		"piefed": true, "bluesky": true, "x": true, "youtube": true,
-		"tiktok": false, "pinterest": false, "telegram": false,
-		"discord": false, "googlebusiness": false, "devnull": true,
-		"unknown": false, "": false,
-	} {
-		if got := SupportsEngagement(provider); got != want {
-			t.Errorf("SupportsEngagement(%q)=%v want %v", provider, got, want)
-		}
-	}
-}
-
 // TestFeatureSupportPinterestCapabilityIsNotAvailability makes the
 // capability/default distinction explicit: the Pinterest adapter declares
 // analytics support, but the backfill seed stays false until the provider

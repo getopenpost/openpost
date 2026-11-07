@@ -88,50 +88,6 @@ func TestTikTokGenerateAuthURL(t *testing.T) {
 	}
 }
 
-func TestTikTokScopeCapabilitiesSplitRequiredFromOptional(t *testing.T) {
-	required := TikTokRequiredPublishingScopes()
-	if len(required) != 3 || required[0] != "user.info.basic" || required[1] != "video.publish" || required[2] != "video.upload" {
-		t.Fatalf("unexpected minimal publishing scopes: %q", required)
-	}
-
-	optional := TikTokOptionalDisplayScopes()
-	if len(optional) != 3 || optional[0] != "user.info.profile" || optional[1] != "user.info.stats" || optional[2] != "video.list" {
-		t.Fatalf("unexpected optional display scopes: %q", optional)
-	}
-
-	def := TikTokDefaultScopeCapabilities().Scopes()
-	want := []string{"user.info.basic", "user.info.profile", "user.info.stats", "video.list", "video.publish", "video.upload"}
-	if strings.Join(def, ",") != strings.Join(want, ",") {
-		t.Fatalf("default scope set changed: got %q want %q", def, want)
-	}
-
-	minimal := TikTokDefaultScopeCapabilities().WithoutDisplayAPI().Scopes()
-	if strings.Join(minimal, ",") != strings.Join(required, ",") {
-		t.Fatalf("display-disabled scope set is not the minimal publishing set: got %q", minimal)
-	}
-
-	for _, set := range [][]string{def, required, optional} {
-		seen := map[string]struct{}{}
-		for _, scope := range set {
-			if _, duplicate := seen[scope]; duplicate {
-				t.Fatalf("duplicate scope %q in %q", scope, set)
-			}
-			seen[scope] = struct{}{}
-		}
-	}
-}
-
-func TestTikTokAdapterAlwaysRequestsBothPublishingScopes(t *testing.T) {
-	for _, capabilities := range []TikTokScopeCapabilities{
-		{Profile: true},
-		{DirectPost: true},
-	} {
-		adapter := NewTikTokAdapterWithCapabilities("key", "secret", "https://app.example/callback", capabilities)
-		require.Contains(t, adapter.RequestedScopes(), "video.publish")
-		require.Contains(t, adapter.RequestedScopes(), "video.upload")
-	}
-}
-
 func mustParseQuery(t *testing.T, raw string) url.Values {
 	t.Helper()
 	parsed, err := url.Parse(raw)

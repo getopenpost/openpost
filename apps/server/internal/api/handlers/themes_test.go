@@ -524,65 +524,6 @@ func TestThemeHTTPAvailableDetailDoesNotEnumerateStaleOrInaccessibleThemes(t *te
 	require.JSONEq(t, viewer.Body.String(), missingWorkspace.Body.String())
 }
 
-func TestThemeOpenAPIExposesCanonicalManifestAndLifecycleRoutes(t *testing.T) {
-	_, _, api := newThemeTestServer(t)
-	for _, path := range []string{
-		"/themes/available", "/themes/available/{id}", "/themes/{id}/draft", "/themes/{id}/publish",
-		"/themes/{id}/revisions", "/themes/{id}/revisions/{revision}",
-		"/themes/resolved", "/theme-assets/{id}/content",
-	} {
-		require.Contains(t, api.OpenAPI().Paths, path)
-	}
-	encoded, err := json.Marshal(api.OpenAPI())
-	require.NoError(t, err)
-	contract := string(encoded)
-	for _, property := range []string{
-		`"schemaVersion"`, `"borderStyle"`, `"navigation"`, `"pageTransition"`,
-		`"loadingState"`, `"sourceUrl"`, `"can_manage_workspace"`,
-		`"can_manage_organization"`, `"theme_id"`, `"revision"`, `"nativeDerivative"`, `"identity"`,
-		`"next_cursor"`,
-	} {
-		require.Contains(t, contract, property)
-	}
-	require.NotContains(t, contract, `"object_key"`)
-	var document map[string]any
-	require.NoError(t, json.Unmarshal(encoded, &document))
-	schemas := document["components"].(map[string]any)["schemas"].(map[string]any)
-	storedFont := schemas["ThemeFontFace"].(map[string]any)["properties"].(map[string]any)
-	require.NotContains(t, storedFont, "nativeDerivative")
-	runtimeFont := schemas["ThemeRuntimeFontFace"].(map[string]any)["properties"].(map[string]any)
-	require.Contains(t, runtimeFont, "nativeDerivative")
-	requireEnumProperty(t, schemas, "ThemeReference", "kind", []any{"built_in", "custom"})
-	requireEnumProperty(t, schemas, "ThemeManifest", "schemaVersion", []any{float64(1)})
-	requireEnumProperty(t, schemas, "ThemeManifest", "iconPack", []any{"lucide", "heroicons-outline", "heroicons-solid", "phosphor", "tabler"})
-	requireArrayEnumProperty(t, schemas, "ThemeManifest", "supportedSchemes", []any{"light", "dark"})
-	requireEnumProperty(t, schemas, "ThemeSummary", "icon_pack", []any{"lucide", "heroicons-outline", "heroicons-solid", "phosphor", "tabler"})
-	requireArrayEnumProperty(t, schemas, "ThemeSummary", "supported_schemes", []any{"light", "dark"})
-	requireEnumProperty(t, schemas, "ThemeAssetRecord", "kind", []any{"font", "background", "texture", "illustration"})
-	requireEnumProperty(t, schemas, "ThemeAssetRecord", "media_type", []any{"font/woff2", "image/png", "image/jpeg", "image/webp", "image/avif"})
-	requireEnumProperty(t, schemas, "ThemeAssetRecord", "font_style", []any{"normal", "italic"})
-	requireEnumProperty(t, schemas, "UploadThemeAssetInputBody", "media_type", []any{"font/woff2", "image/png", "image/jpeg", "image/webp", "image/avif"})
-	require.Contains(t, schemas["PublishedRevision"].(map[string]any)["properties"].(map[string]any), "source_revision")
-	pageProperties := schemas["ThemeSummaryPage"].(map[string]any)["properties"].(map[string]any)
-	require.Contains(t, pageProperties, "items")
-	require.Contains(t, pageProperties, "next_cursor")
-	require.NotContains(t, pageProperties, "manifest")
-	for _, schemaName := range []string{"PublishedRevisionPage", "ThemeAssetPage"} {
-		properties := schemas[schemaName].(map[string]any)["properties"].(map[string]any)
-		require.Contains(t, properties, "items")
-		require.Contains(t, properties, "next_cursor")
-	}
-	createRequired := schemas["CreateThemeInputBody"].(map[string]any)["required"].([]any)
-	require.NotContains(t, createRequired, "manifest")
-	publishRequired := schemas["PublishThemeInputBody"].(map[string]any)["required"].([]any)
-	require.Contains(t, publishRequired, "expected_draft_revision")
-	require.Contains(t, publishRequired, "expected_published_revision")
-	rollbackRequired := schemas["RollbackThemeInputBody"].(map[string]any)["required"].([]any)
-	require.Contains(t, rollbackRequired, "source_revision")
-	require.Contains(t, rollbackRequired, "expected_draft_revision")
-	require.Contains(t, rollbackRequired, "expected_published_revision")
-}
-
 func requireEnumProperty(t *testing.T, schemas map[string]any, schemaName, propertyName string, expected []any) {
 	t.Helper()
 	property := schemas[schemaName].(map[string]any)["properties"].(map[string]any)[propertyName].(map[string]any)

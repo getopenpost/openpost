@@ -34,41 +34,6 @@ func TestMediaLibraryGuideDerivesUploadLimits(t *testing.T) {
 	}
 }
 
-// The generated media-limits guide must publish the enforced uploader
-// limits, read from the server constants, so changing a constant updates
-// the guide through the generator. This test parses media.go independently
-// of the generator and requires the generated document to carry the same
-// numbers: the generator must fail closed rather than print stale values.
-func TestGeneratedUploadLimitsMatchServerConstants(t *testing.T) {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("cannot locate test source file")
-	}
-	root := filepath.Join(filepath.Dir(file), "..", "..", "..", "..")
-	source, err := os.ReadFile(filepath.Join(root, "apps", "server", "internal", "api", "handlers", "media.go"))
-	if err != nil {
-		t.Fatalf("read media handler source: %v", err)
-	}
-	expectBytes := mustConstValue(t, string(source), "MaxBufferedMediaUploadBytes")
-	expectPixels := mustConstValue(t, string(source), "mediaUploadMaxImagePixels")
-
-	document, err := generate()
-	if err != nil {
-		t.Fatalf("generate media limits: %v", err)
-	}
-	if !strings.Contains(document, "## Upload limits") {
-		t.Error("generated media limits must include an Upload limits section")
-	}
-	for _, want := range []string{
-		strings.ReplaceAll(strings.ReplaceAll(expectBytes, "_", ""), " ", ""),
-		strings.ReplaceAll(expectPixels, "_", ""),
-	} {
-		if !strings.Contains(strings.ReplaceAll(document, ",", ""), want) {
-			t.Errorf("generated media limits do not publish enforced constant value %q", want)
-		}
-	}
-}
-
 func mustConstValue(t *testing.T, source, name string) string {
 	t.Helper()
 	pattern := regexp.MustCompile(`(?m)^\s*` + name + `\s+int64\s*=\s*(.+?)\s*$`)

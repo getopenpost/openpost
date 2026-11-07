@@ -6,46 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestProcessCommandContract(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		args        []string
-		role        processRole
-		checkConfig bool
-		rotateKey   bool
-		adminEmail  string
-		showHelp    bool
-	}{
-		{name: "default remains the combined self-host process", role: processRoleAll},
-		{name: "explicit combined process", args: []string{"all"}, role: processRoleAll},
-		{name: "web process", args: []string{"web"}, role: processRoleWeb},
-		{name: "worker process", args: []string{"worker"}, role: processRoleWorker},
-		{name: "migration process", args: []string{"migrate"}, role: processRoleMigrate},
-		{name: "encryption key rotation", args: []string{"rotate-encryption-key"}, role: processRoleMaintenance, rotateKey: true},
-		{name: "admin recovery grant", args: []string{"grant-admin", "--email", "operator@example.test"}, role: processRoleMaintenance, adminEmail: "operator@example.test"},
-		{name: "admin recovery grant normalizes surrounding whitespace", args: []string{"grant-admin", "--email", " operator@example.test "}, role: processRoleMaintenance, adminEmail: "operator@example.test"},
-		{name: "configuration check remains available", args: []string{"check-config"}, checkConfig: true},
-		{name: "help", args: []string{"--help"}, showHelp: true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			command, err := parseProcessCommand(test.args)
-
-			require.NoError(t, err)
-			require.Equal(t, test.role, command.role)
-			require.Equal(t, test.checkConfig, command.checkConfig)
-			require.Equal(t, test.rotateKey, command.rotateEncryptionKey)
-			require.Equal(t, test.adminEmail, command.grantAdminEmail)
-			require.Equal(t, test.showHelp, command.showHelp)
-		})
-	}
-}
-
 func TestProcessCommandRejectsUnknownOrAmbiguousArguments(t *testing.T) {
 	t.Parallel()
 

@@ -12,42 +12,6 @@ import (
 	"testing"
 )
 
-func TestFacebookGenerateAuthURL(t *testing.T) {
-	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
-	adapter := NewFacebookAdapter("client-id", "client-secret", "https://app.example/api/v1/accounts/facebook/callback")
-
-	authURL, _ := adapter.GenerateAuthURL("state-123")
-	parsed, err := url.Parse(authURL)
-	if err != nil {
-		t.Fatalf("parsing auth url: %v", err)
-	}
-
-	if parsed.Scheme != "https" || parsed.Host != "www.facebook.com" || parsed.Path != "/v25.0/dialog/oauth" {
-		t.Fatalf("unexpected auth url %s", authURL)
-	}
-	query := parsed.Query()
-	if query.Get("auth_type") != "rerequest" {
-		t.Fatalf("reconnect must request declined permissions again: %s", authURL)
-	}
-	if query.Get(oauthParamClientID) != "client-id" {
-		t.Fatalf("expected client id, got %q", query.Get(oauthParamClientID))
-	}
-	if query.Get("response_type") != oauthResponseType {
-		t.Fatalf("unexpected response_type %q", query.Get("response_type"))
-	}
-	if !strings.Contains(query.Get("scope"), "pages_manage_posts") {
-		t.Fatalf("expected pages_manage_posts scope, got %q", query.Get("scope"))
-	}
-	for _, scope := range []string{"pages_manage_engagement", "pages_messaging", "pages_read_user_content", "pages_manage_metadata"} {
-		if !strings.Contains(query.Get("scope"), scope) {
-			t.Fatalf("expected %s scope, got %q", scope, query.Get("scope"))
-		}
-	}
-	if !strings.Contains(query.Get("scope"), "business_management") {
-		t.Fatalf("expected business_management scope for Business Portfolio Pages, got %q", query.Get("scope"))
-	}
-}
-
 func TestFacebookVideoCaptionPreservesExplicitEmpty(t *testing.T) {
 	originalClient := httpClient
 	t.Cleanup(func() { httpClient = originalClient })

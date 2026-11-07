@@ -126,9 +126,6 @@ describe('workspace JSON writes', () => {
 	});
 });
 
-function directoryIterator<T>(items: readonly T[]): FileSystemDirectoryHandleAsyncIterator<T> {
-	// SAFETY: these test doubles are only consumed through async iteration.
-	return (async function* () {
-		yield* items;
-	})() as unknown as FileSystemDirectoryHandleAsyncIterator<T>;
+async function* directoryIterator<T>(items: readonly T[]): AsyncGenerator<T, undefined, unknown> {
+	yield* items;
 }

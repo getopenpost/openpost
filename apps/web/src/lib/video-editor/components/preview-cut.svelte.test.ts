@@ -9,7 +9,7 @@ import { sequenceStore } from '../sequences/sequence-store.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { mediaPool } from '../media/pool.svelte';
 import { peekSharedPreviewAudioContext } from '../audio/preview-audio-graph';
-import { readMixerMasterLevels } from '../audio/audio-mixer';
+import { activeMixerTrackIds, readMixerMasterLevels } from '../audio/audio-mixer';
 import { previewPlaybackSettings } from '../preview/playback-settings.svelte';
 import { clearPreviewDecoderPrewarm, prewarmPreviewFrame } from '../preview/decoder-prewarm-client';
 import fixtureUrl from '../../../../../../tests/app/fixtures/product-screenshots/study-sos-demo.mp4?url';
@@ -84,17 +84,41 @@ it.each(['auto', 'full'] as const)(
 		let sampling = true;
 		let sampled = 0;
 		let audioPeak = 0;
+		let firstAudioFrame: number | null = null;
+		let firstAfterVideo: {
+			paused: boolean;
+			readyState: number;
+			currentTime: number;
+			volume: number;
+			muted: boolean;
+		} | null = null;
+		const audioStates = new Set<string>();
+		const mixerTracks = new Set<string>();
+		const audioDiagnostics = () =>
+			`context=${[...audioStates].join('|') || 'unobserved'} mixerTracks=${[...mixerTracks].join('|') || 'none'} firstAudioFrame=${firstAudioFrame ?? 'none'} afterVideo=${JSON.stringify(firstAfterVideo)}`;
 		const sample = async () => {
 			await tick();
 			if (!sampling) return;
 			const frame = timelineStore.currentFrame;
+			audioStates.add(peekSharedPreviewAudioContext()?.state ?? 'missing');
 			if (frame >= 30 && frame < 60) {
 				const levels = readMixerMasterLevels();
 				audioPeak = Math.max(audioPeak, levels.peakLeft, levels.peakRight);
+				if (levels.peakLeft > 0 || levels.peakRight > 0) firstAudioFrame ??= frame;
+				for (const trackId of activeMixerTrackIds()) mixerTracks.add(trackId);
 				sampled++;
 				const layer = screen.container.querySelector('[data-preview-item="after"]');
 				const video = layer?.querySelector('video');
 				const fallback = layer?.querySelector<HTMLCanvasElement>('[data-seek-fallback]');
+				firstAfterVideo ??= video
+					? {
+							paused: video.paused,
+							readyState: video.readyState,
+							currentTime: video.currentTime,
+							volume: video.volume,
+							muted: video.muted
+						}
+					: null;
 				context.clearRect(0, 0, pixels.width, pixels.height);
 				if (
 					video &&
@@ -126,8 +150,14 @@ it.each(['auto', 'full'] as const)(
 			await expect
 				.poll(() => screen.container.querySelector('video')?.readyState)
 				.toBeGreaterThanOrEqual(2);
-			await peekSharedPreviewAudioContext()?.suspend();
+			const audioContext = peekSharedPreviewAudioContext();
+			if (!audioContext) throw new Error('Preview audio context was not created.');
+			await audioContext.suspend();
+			// Clicking the preview is a user gesture. It must unlock the shared
+			// context, otherwise autoplay policy keeps the whole post-cut window
+			// silent even though the video frames advance.
 			await userEvent.click(screen.container);
+			await expect.poll(() => audioContext.state, { timeout: 2000 }).toBe('running');
 			requestAnimationFrame(sample);
 			// Play the lead-in so audio can start before the cut. Observe a full second
 			// after it rather than depending on a few animation frames under test load.
@@ -136,9 +166,9 @@ it.each(['auto', 'full'] as const)(
 			await expect
 				.poll(() => timelineStore.currentFrame, { timeout: 5000 })
 				.toBeGreaterThanOrEqual(75);
-			expect(sampled).toBeGreaterThan(0);
-			expect(audioPeak).toBeGreaterThan(0);
-			expect(blankFrames).toEqual([]);
+			expect(sampled, audioDiagnostics()).toBeGreaterThan(0);
+			expect(audioPeak, audioDiagnostics()).toBeGreaterThan(0);
+			expect(blankFrames, audioDiagnostics()).toEqual([]);
 		} finally {
 			sampling = false;
 			editorSession.stopPlayback();

@@ -118,6 +118,7 @@
 	} from '$lib/video-editor/effects/scope-samples.svelte';
 	import { showToast } from '$lib/toast';
 	import { hasLinkedAudioCompanion } from '$lib/video-editor/audio/transition-crossfade';
+	import { resumeAudioMixer } from '$lib/video-editor/audio/audio-mixer';
 	import { planPreviewAudioLayers } from '$lib/video-editor/preview/audio-plan';
 	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
 	import { shapeMasksForTrack } from '$lib/video-editor/shapes/masks';
@@ -1386,6 +1387,10 @@
 		canvasContextOpen = false;
 	}
 
+	function resumePreviewAudio(event: PointerEvent): void {
+		if (event.button === 0) resumeAudioMixer();
+	}
+
 	function deselectFromEmptyPreview(event: PointerEvent): void {
 		if (event.button !== 0) return;
 		const target = event.target;
@@ -1422,6 +1427,7 @@
 	data-program-pasteboard
 	role="region"
 	aria-label={m.video_editor_program_monitor()}
+	onpointerdowncapture={resumePreviewAudio}
 	onpointerdown={deselectFromEmptyPreview}
 >
 	<ContextMenu.Root open={canvasContextOpen} onOpenChange={setCanvasContextOpen}>

@@ -70,7 +70,6 @@ export async function runFrontendViteBuild() {
       ...process.env,
       NODE_OPTIONS: frontendBuildNodeOptions(process.env.NODE_OPTIONS),
       OPENPOST_BUILD_PUBLIC_DIR: publicDirectory,
-      OPENPOST_PARAGLIDE_PRECOMPILED: "1",
     };
     const result = spawnSync(
       process.execPath,

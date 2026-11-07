@@ -14,7 +14,7 @@
   },
   "devDependencies": {
     "@openpost/api-contract": "workspace:*",
-    "@tanstack/query-core": "5.102.8",
+    "@tanstack/query-core": "5.105.3",
     "typescript": "5.9.3",
     "vitest": "4.1.11"
   },

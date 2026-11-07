@@ -35,7 +35,7 @@
 <CalendarPrimitive.PrevButton
 	bind:ref
 	child={PrimitiveChild}
-	data-cuelume-toggle="page"
+	data-cuelume-toggle="navigate"
 	class={cn(
 		buttonVariants({ variant }),
 		'size-(--cell-size) bg-transparent p-0 select-none disabled:opacity-50 rtl:rotate-180',

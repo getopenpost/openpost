@@ -45,7 +45,7 @@
   "devDependencies": {
     "@n8n/node-cli": "0.44.3",
     "n8n-workflow": "2.35.3",
-    "typescript": "5.9.2"
+    "typescript": "5.9.3"
   },
   "peerDependencies": {
     "n8n-workflow": "*"

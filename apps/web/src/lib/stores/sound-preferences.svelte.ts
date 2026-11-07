@@ -3,8 +3,11 @@ import {
 	bind as bindCuelume,
 	play as playCue,
 	setEnabled as setCuelumeEnabled,
+	setTheme as setCuelumeTheme,
 	setVolume as setCuelumeVolume,
-	type SoundName
+	type PlayOptions,
+	type SoundName,
+	type ThemeName
 } from 'cuelume';
 import { z } from 'zod';
 const STORAGE_KEY = 'openpost:interface-sounds';
@@ -39,35 +42,27 @@ const storedSettingsSchema = z.object({
 	theme: z.enum(INTERFACE_SOUND_THEMES)
 });
 
-const THEME_CUES = {
-	signature: {
-		select: 'tick',
-		confirm: 'success',
-		cancel: 'droplet',
-		toggleOn: 'toggle',
-		toggleOff: 'toggle',
-		delete: 'droplet',
-		error: 'error'
-	},
-	velvet: {
-		select: 'whisper',
-		confirm: 'bloom',
-		cancel: 'whisper',
-		toggleOn: 'bloom',
-		toggleOff: 'droplet',
-		delete: 'droplet',
-		error: 'error'
-	},
-	crisp: {
-		select: 'tick',
-		confirm: 'ready',
-		cancel: 'release',
-		toggleOn: 'pulse',
-		toggleOff: 'press',
-		delete: 'press',
-		error: 'error'
-	}
-} satisfies Record<InterfaceSoundTheme, Record<InterfaceSoundToken, SoundName>>;
+// Each OpenPost sound theme is one cuelume material; tokens name interface jobs.
+const THEME_MATERIALS = {
+	signature: 'default',
+	velvet: 'press',
+	crisp: 'mech'
+} satisfies Record<InterfaceSoundTheme, ThemeName>;
+
+export interface InterfaceSoundCue {
+	name: SoundName;
+	options: PlayOptions;
+}
+
+const TOKEN_CUES = {
+	select: { name: 'select', options: {} },
+	confirm: { name: 'success', options: {} },
+	cancel: { name: 'close', options: { emphasis: 'subtle' } },
+	toggleOn: { name: 'toggle', options: { direction: 'forward' } },
+	toggleOff: { name: 'toggle', options: { direction: 'back' } },
+	delete: { name: 'close', options: { emphasis: 'strong' } },
+	error: { name: 'error', options: {} }
+} satisfies Record<InterfaceSoundToken, InterfaceSoundCue>;
 
 interface SoundStorage {
 	getItem(key: string): string | null;
@@ -76,8 +71,9 @@ interface SoundStorage {
 
 interface SoundEngine {
 	bind(root?: ParentNode): void;
-	play(name: SoundName): void;
+	play(name: SoundName, options?: PlayOptions): void;
 	setEnabled(enabled: boolean): void;
+	setTheme(theme: ThemeName): void;
 	setVolume(volume: number): void;
 }
 
@@ -85,6 +81,7 @@ const cuelumeEngine: SoundEngine = {
 	bind: bindCuelume,
 	play: playCue,
 	setEnabled: setCuelumeEnabled,
+	setTheme: setCuelumeTheme,
 	setVolume: setCuelumeVolume
 };
 
@@ -123,8 +120,9 @@ export function parseInterfaceSoundSettings(value: string | null): InterfaceSoun
 export function interfaceSoundCue(
 	token: InterfaceSoundToken,
 	theme: InterfaceSoundTheme
-): SoundName {
-	return THEME_CUES[theme][token];
+): InterfaceSoundCue {
+	const cue = TOKEN_CUES[token];
+	return { name: cue.name, options: { ...cue.options, theme: THEME_MATERIALS[theme] } };
 }
 
 export function createSoundPreferences(
@@ -158,8 +156,14 @@ export function createSoundPreferences(
 		theme = saved.theme;
 		engine.setVolume(volume);
 		engine.setEnabled(enabled);
+		engine.setTheme(THEME_MATERIALS[theme]);
 		engine.bind(root ?? document);
 		initialized = true;
+	}
+
+	function playToken(token: InterfaceSoundToken, cueTheme: InterfaceSoundTheme = theme): void {
+		const cue = interfaceSoundCue(token, cueTheme);
+		engine.play(cue.name, cue.options);
 	}
 
 	function ensureInitialized(): boolean {
@@ -188,10 +192,10 @@ export function createSoundPreferences(
 				enabled = true;
 				engine.setEnabled(true);
 				persist();
-				engine.play(interfaceSoundCue('toggleOn', theme));
+				playToken('toggleOn');
 				return;
 			}
-			engine.play(interfaceSoundCue('toggleOff', theme));
+			playToken('toggleOff');
 			enabled = false;
 			persist();
 			engine.setEnabled(false);
@@ -205,6 +209,7 @@ export function createSoundPreferences(
 		setTheme(nextTheme: InterfaceSoundTheme): void {
 			if (!ensureInitialized() || nextTheme === theme) return;
 			theme = nextTheme;
+			engine.setTheme(THEME_MATERIALS[theme]);
 			persist();
 		},
 		play(cue: SoundName): void {
@@ -213,13 +218,14 @@ export function createSoundPreferences(
 		},
 		playSemantic(token: InterfaceSoundToken, previewTheme?: InterfaceSoundTheme): void {
 			if (!ensureInitialized() || !enabled || volume <= 0) return;
-			engine.play(interfaceSoundCue(token, previewTheme ?? theme));
+			playToken(token, previewTheme ?? theme);
 		},
 		reset(): void {
 			if (!ensureInitialized()) return;
 			enabled = DEFAULT_INTERFACE_SOUND_SETTINGS.enabled;
 			volume = DEFAULT_INTERFACE_SOUND_SETTINGS.volume;
 			theme = DEFAULT_INTERFACE_SOUND_SETTINGS.theme;
+			engine.setTheme(THEME_MATERIALS[theme]);
 			engine.setVolume(volume);
 			engine.setEnabled(enabled);
 			persist();

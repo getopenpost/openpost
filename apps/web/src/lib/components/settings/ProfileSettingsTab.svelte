@@ -384,7 +384,7 @@
 			{/if}
 			<button
 				type="button"
-				data-cuelume-toggle="release"
+				data-cuelume-toggle="tap"
 				onclick={openAvatarUploader}
 				class="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:inset-auto [@media(pointer:coarse)]:right-0 [@media(pointer:coarse)]:bottom-0 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:border-2 [@media(pointer:coarse)]:border-background [@media(pointer:coarse)]:opacity-100"
 				aria-label={m.settings_change_profile_picture()}

@@ -16,7 +16,7 @@ const require = createRequire(import.meta.url);
 const vitest = join(dirname(require.resolve('vitest/package.json')), 'vitest.mjs');
 
 function run(executable, args, suite) {
-	const env = { ...process.env, OPENPOST_PARAGLIDE_PRECOMPILED: '1' };
+	const env = { ...process.env };
 	if (suite) env.OPENPOST_COMPONENT_TEST_SUITE = suite;
 	const result = spawnSync(executable, args, {
 		stdio: 'inherit',

@@ -304,12 +304,13 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		new Set((overview?.performance ?? []).map((item) => item.platform)).size
 	);
 	function metricTrend(key: string): number[] | undefined {
-		const values =
+		const series =
 			key === 'followers'
-				? (overview?.follower_series ?? []).map((point) => point.value)
-				: (overview?.trends?.[key as 'visibility' | 'engagement'] ?? []).map(
-						(point) => point.value
-					);
+				? overview?.follower_series
+				: key === 'visibility' || key === 'engagement'
+					? overview?.trends?.[key]
+					: undefined;
+		const values = (series ?? []).map((point) => point.value);
 		return values.length > 1 ? values : undefined;
 	}
 	function metricColor(key: string) {

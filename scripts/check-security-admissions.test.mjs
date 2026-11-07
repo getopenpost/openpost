@@ -19,7 +19,10 @@ test("security admission rejects changed dependencies, editor configuration and 
     copyFileSync(path.join(root, "bun.lock"), path.join(fixture, "bun.lock"));
     copyFileSync(path.join(root, worker), path.join(fixture, worker));
     expect(run()).toBe(0);
-    writeFileSync(path.join(fixture, "bun.lock"), '{"packages":{"zod":["zod@4.4.3"]}}');
+    writeFileSync(
+      path.join(fixture, "bun.lock"),
+      `{\n  "packages": {\n    "left-pad/zod": ["zod@3.25.76", "", {}, ""],\n  }\n}\n`,
+    );
     expect(run()).toBe(1);
     copyFileSync(path.join(root, "bun.lock"), path.join(fixture, "bun.lock"));
     writeFileSync(path.join(fixture, worker), "removeBackground(image, event.data.configuration)");

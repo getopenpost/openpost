@@ -3,26 +3,13 @@
 	"extends": ["//"],
 	"tasks": {
 		"check": {
-			"inputs": [
-				"$TURBO_DEFAULT$",
-				"$TURBO_ROOT$/scripts/posthog-source-maps.ts",
-				"$TURBO_ROOT$/scripts/paraglide-declarations.mjs"
-			]
+			"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/scripts/posthog-source-maps.ts"]
 		},
 		"test": {
-			"inputs": [
-				"$TURBO_DEFAULT$",
-				"$TURBO_ROOT$/tests/browser-tooling/**",
-				"$TURBO_ROOT$/scripts/posthog-source-maps.ts",
-				"$TURBO_ROOT$/scripts/paraglide-declarations.mjs"
-			]
+			"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/scripts/posthog-source-maps.ts"]
 		},
 		"test:server": {
-			"inputs": [
-				"$TURBO_DEFAULT$",
-				"$TURBO_ROOT$/scripts/posthog-source-maps.ts",
-				"$TURBO_ROOT$/scripts/paraglide-declarations.mjs"
-			]
+			"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/scripts/posthog-source-maps.ts"]
 		},
 		"build": {
 			"inputs": [
@@ -36,8 +23,7 @@
 				"$TURBO_ROOT$/scripts/frontend-vite-build.mjs",
 				"$TURBO_ROOT$/scripts/generate-app-route-manifest.mjs",
 				"$TURBO_ROOT$/scripts/precompress-static.mjs",
-				"$TURBO_ROOT$/scripts/posthog-source-maps.ts",
-				"$TURBO_ROOT$/scripts/paraglide-declarations.mjs"
+				"$TURBO_ROOT$/scripts/posthog-source-maps.ts"
 			],
 			"passThroughEnv": ["POSTHOG_PERSONAL_API_KEY"],
 			"outputs": ["build/**", "!build/image-editor-models/**"],

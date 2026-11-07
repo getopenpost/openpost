@@ -111,6 +111,7 @@
 			})
 		}));
 	});
+	// SAFETY: `measures` is a fixed, non-empty literal list, so its labels form a non-empty tuple.
 	const axes = $derived(measures.map((measure): string => measure.label) as [string, ...string[]]);
 </script>
 

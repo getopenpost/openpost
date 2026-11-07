@@ -18,11 +18,13 @@
 		type BeatSyncMode
 	} from './beat-sync';
 
-	let { selectedItemId = $bindable<string | null>(null), service = defaultBeatDetectionService } =
-		$props<{
-			selectedItemId?: string | null;
-			service?: BeatDetectionService;
-		}>();
+	let {
+		selectedItemId = $bindable<string | null>(null),
+		service = defaultBeatDetectionService
+	}: {
+		selectedItemId?: string | null;
+		service?: BeatDetectionService;
+	} = $props();
 
 	const mediaItems = $derived(
 		timelineStore.items.filter((item) => item.type === 'audio' || item.type === 'video')

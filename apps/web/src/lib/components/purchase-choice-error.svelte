@@ -8,10 +8,13 @@
 
 	let resolveHref = $derived(purchaseChoiceChangeHref(page.url));
 
-	let { code, className = '' } = $props<{
+	let {
+		code,
+		className = ''
+	}: {
 		code: PurchaseChoiceErrorCode;
 		className?: string;
-	}>();
+	} = $props();
 
 	const message = $derived.by(() => {
 		switch (code) {

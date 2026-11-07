@@ -40,15 +40,15 @@
 		"check": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@mediabunny/ac3": "1.54.0",
+		"@mediabunny/ac3": "1.65.0",
 		"@noble/hashes": "1.8.0",
 		"@ricky0123/vad-web": "0.0.31",
-		"mediabunny": "1.54.0",
-		"onnxruntime-web": "1.26.0-dev.20260410-5e55544225",
+		"mediabunny": "1.65.0",
+		"onnxruntime-web": "1.31.1",
 		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"typescript": "5.9.3",
-		"vite": "^8.2.4"
+		"vite": "^8.3.6"
 	}
 }

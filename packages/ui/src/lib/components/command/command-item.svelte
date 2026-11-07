@@ -14,7 +14,7 @@
 <CommandPrimitive.Item
 	bind:ref
 	data-slot="command-item"
-	data-cuelume-toggle="tick"
+	data-cuelume-toggle="select"
 	class={cn(
 		"group/command-item relative flex min-h-9 cursor-default items-center gap-2 rounded-lg px-3 py-1.5 text-sm outline-hidden transition-colors duration-75 select-none in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-primary/10 data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-primary",
 		className

@@ -19,8 +19,10 @@ function recordingEngine() {
 	return {
 		events,
 		bind: () => events.push('bind'),
-		play: (name: string) => events.push(`play:${name}`),
+		play: (name: string, options?: { theme?: string }) =>
+			events.push(`play:${name}${options?.theme ? `@${options.theme}` : ''}`),
 		setEnabled: (enabled: boolean) => events.push(`enabled:${enabled}`),
+		setTheme: (theme: string) => events.push(`theme:${theme}`),
 		setVolume: (volume: number) => events.push(`volume:${volume}`)
 	};
 }
@@ -34,7 +36,7 @@ describe('interface sound preferences', () => {
 
 		expect(sounds.enabled).toBe(true);
 		expect(sounds.volume).toBe(0.6);
-		expect(engine.events).toEqual(['volume:0.6', 'enabled:true', 'bind']);
+		expect(engine.events).toEqual(['volume:0.6', 'enabled:true', 'theme:default', 'bind']);
 
 		sounds.setEnabled(false);
 		sounds.setEnabled(false);
@@ -43,9 +45,9 @@ describe('interface sound preferences', () => {
 		sounds.setTheme('crisp');
 		sounds.playSemantic('confirm');
 		expect(engine.events.filter((event) => event.startsWith('play:'))).toEqual([
-			'play:toggle',
-			'play:toggle',
-			'play:ready'
+			'play:toggle@default',
+			'play:toggle@default',
+			'play:success@mech'
 		]);
 		expect(JSON.parse(storage.value() ?? '{}')).toEqual({
 			version: 1,
@@ -56,7 +58,7 @@ describe('interface sound preferences', () => {
 
 		sounds.setEnabled(false);
 		sounds.playSemantic('delete');
-		expect(engine.events.at(-2)).toBe('play:press');
+		expect(engine.events.at(-2)).toBe('play:toggle@mech');
 		expect(engine.events.at(-1)).toBe('enabled:false');
 	});
 
@@ -71,7 +73,10 @@ describe('interface sound preferences', () => {
 			volume: 0.6,
 			theme: 'signature'
 		});
-		expect(interfaceSoundCue('confirm', 'velvet')).toBe('bloom');
+		expect(interfaceSoundCue('confirm', 'velvet')).toEqual({
+			name: 'success',
+			options: { theme: 'press' }
+		});
 
 		const engine = recordingEngine();
 		const blockedStorage = {

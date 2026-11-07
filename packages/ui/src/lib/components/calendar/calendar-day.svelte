@@ -11,7 +11,7 @@
 
 <CalendarPrimitive.Day
 	bind:ref
-	data-cuelume-toggle="tick"
+	data-cuelume-toggle="select"
 	class={cn(
 		'flex size-(--cell-size) flex-col items-center justify-center gap-1 rounded-(--cell-radius) p-0 leading-none font-normal whitespace-nowrap select-none',
 		'[&:last-child[data-selected=true]_button]:rounded-r-(--cell-radius)',

@@ -14281,16 +14281,6 @@
 				"required": ["authorization_url"],
 				"type": "object"
 			},
-			"OIDCBackchannelLogoutOutputBody": {
-				"additionalProperties": false,
-				"properties": {
-					"ok": {
-						"type": "boolean"
-					}
-				},
-				"required": ["ok"],
-				"type": "object"
-			},
 			"OIDCDiscoverOutputBody": {
 				"additionalProperties": false,
 				"properties": {

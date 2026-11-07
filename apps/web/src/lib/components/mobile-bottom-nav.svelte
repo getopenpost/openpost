@@ -107,7 +107,7 @@
 						type="button"
 						data-theme-navigation-item
 						data-active={active}
-						data-cuelume-toggle="tick"
+						data-cuelume-toggle="select"
 						class={[
 							'flex min-h-[var(--theme-touch-target)] w-full flex-col items-center justify-center gap-0.5 rounded-md px-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
 							active ? 'text-foreground' : 'text-muted-foreground'

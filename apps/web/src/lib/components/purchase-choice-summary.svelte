@@ -6,10 +6,13 @@
 	import { m } from '$lib/paraglide/messages';
 	import { ThemeIcon } from '$lib/themes/icons';
 
-	let { choice, changeHref } = $props<{
+	let {
+		choice,
+		changeHref
+	}: {
 		choice: PurchaseChoice;
 		changeHref?: string;
-	}>();
+	} = $props();
 
 	let resolvedChangeHref = $derived(changeHref ?? purchaseChoiceChangeHref(page.url));
 

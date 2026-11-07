@@ -16,11 +16,10 @@ import path from "node:path";
 // are Svelte/Vite/Workbox configuration and n8n development tooling. The locked
 // graph pins those consumers; reject first-party imports so it cannot become
 // a runtime helper without re-review. The Go image carries no Node packages.
+// Zod 3 may only enter through these reviewed parents. Any other parent, or a
+// first-party import of the legacy copy, requires re-review.
+const reviewedLegacyZodParents = /^(?:@imgly\/background-removal|@n8n\/[^/]+)\/zod$/;
 const reviewedArtifacts = {
-  // Re-reviewed after declaring the existing UI and query-core imports at
-  // their consuming workspaces. The locked package and patch resolutions are
-  // byte-identical; legacy Zod/deepmerge parents and editor boundaries stay unchanged.
-  "bun.lock": "ce179158bcf6a2ea52f0e8692e6c56b0dad6e010b2a0b8b4602f2091fe8b2166",
   "apps/web/src/lib/image-editor/background-removal.worker.ts":
     "06f3aaf6c78d574c1d2538903e8bf34cf70032801824d8988a9ba2d2435749d5",
 };
@@ -60,6 +59,11 @@ function inspectSources(directory) {
 }
 
 try {
+  const lock = readFileSync("bun.lock", "utf8");
+  for (const [, key] of lock.matchAll(/^ {4}"([^"]+)": \["zod@3\./gm)) {
+    if (!reviewedLegacyZodParents.test(key))
+      throw new Error(`Re-review legacy Zod admission: ${key}`);
+  }
   for (const [file, expected] of Object.entries(reviewedArtifacts)) {
     const actual = createHash("sha256").update(readFileSync(file)).digest("hex");
     if (actual !== expected) throw new Error(`Re-review legacy Zod admission: ${file}`);

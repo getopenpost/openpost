@@ -12888,9 +12888,6 @@ export interface components {
             readonly $schema?: string;
             authorization_url: string;
         };
-        OIDCBackchannelLogoutOutputBody: {
-            ok: boolean;
-        };
         OIDCDiscoverOutputBody: {
             /**
              * Format: uri

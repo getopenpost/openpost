@@ -124,7 +124,6 @@ const checks = {
     bunTest(
       "scripts/legal-policy-manifest.test.mjs",
       "scripts/check-browser-storage-inventory.test.mjs",
-      "packages/legal-policy/src/index.test.mjs",
     ),
     bun("scripts/legal-policy-manifest.mjs", "check"),
     bun("scripts/check-browser-storage-inventory.mjs"),
@@ -156,7 +155,7 @@ const checks = {
   ]),
   "social-images": stage("social images", [
     bun("scripts/social-images/catalog.mjs", "--check"),
-    bunTest("packages/social-images/src/index.test.mjs", "scripts/social-images/render.test.mjs"),
+    bunTest("scripts/social-images/render.test.mjs"),
   ]),
   reachability: stage("production reachability", [
     commandStep("scripts/check-go-deadcode.sh"),

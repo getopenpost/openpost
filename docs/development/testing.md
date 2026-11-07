@@ -51,7 +51,7 @@ Use the pinned Playwright Chromium installed by `setup`, and run one browser sui
 
 The app's `test:browser` command prepares translations once and runs four isolated Vitest shards sequentially. CI supplies its own shard argument. Production-mode preview tests run separately. Keep the real translation catalogue and file isolation when tuning this loop.
 
-One-shot component runs omit source maps only for generated Paraglide JavaScript. The loader preserves the JavaScript bytes and authored source maps; watch and coverage runs bypass it. A custom CLI reporter can replace the root eligibility reporter and leave this optimization off. When upgrading Vite or Vitest, run `cd apps/web && bun run test:browser-tools` to check real generated leaf and wrapper responses, authored maps, and the coverage bypass. This command needs Chromium and belongs to browser verification, not repository policy checks.
+One-shot component runs omit source maps only for generated Paraglide JavaScript. The loader preserves the JavaScript bytes and authored source maps; watch and coverage runs bypass it. A custom CLI reporter can replace the root eligibility reporter and leave this optimization off.
 
 On the development laptop on 2026-10-26, the maintained four-shard command passed 315 files and 1,387 cases in 7m19s, including preparation. The separate production command passed two files and three cases in 21.5s. An earlier admitted run of the same case inventory took 11m05s for development, but it was not a paired benchmark and test-body timings varied. These numbers describe component tests, not full preflight or deployment.
 

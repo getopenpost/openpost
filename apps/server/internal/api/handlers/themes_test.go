@@ -524,25 +524,12 @@ func TestThemeHTTPAvailableDetailDoesNotEnumerateStaleOrInaccessibleThemes(t *te
 	require.JSONEq(t, viewer.Body.String(), missingWorkspace.Body.String())
 }
 
-func requireEnumProperty(t *testing.T, schemas map[string]any, schemaName, propertyName string, expected []any) {
-	t.Helper()
-	property := schemas[schemaName].(map[string]any)["properties"].(map[string]any)[propertyName].(map[string]any)
-	require.Equal(t, expected, property["enum"], schemaName+"."+propertyName)
-}
-
 func themeAssetIDs(assets []themes.ThemeAssetRecord) []string {
 	ids := make([]string, 0, len(assets))
 	for _, asset := range assets {
 		ids = append(ids, asset.ID)
 	}
 	return ids
-}
-
-func requireArrayEnumProperty(t *testing.T, schemas map[string]any, schemaName, propertyName string, expected []any) {
-	t.Helper()
-	property := schemas[schemaName].(map[string]any)["properties"].(map[string]any)[propertyName].(map[string]any)
-	require.Equal(t, "array", property["type"], schemaName+"."+propertyName+" must not accept null")
-	require.Equal(t, expected, property["items"].(map[string]any)["enum"], schemaName+"."+propertyName)
 }
 
 func newThemeTestServer(t *testing.T) (*echo.Echo, *bun.DB, huma.API) {

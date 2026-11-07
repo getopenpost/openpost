@@ -86,14 +86,14 @@ func registryTestConfig(t *testing.T, rawURL string, required bool) (Config, Reg
 	port, err := strconv.Atoi(parsed.Port())
 	require.NoError(t, err)
 	return Config{Version: configVersion, Installations: []InstallationConfig{{
-			ID: "directus-main", Required: required, BearerToken: "secret",
-			Endpoint: EndpointConfig{
-				Mode: TransportPrivateAllow, BaseURL: "http://connector.test:" + parsed.Port(),
-				AllowedHosts: []string{"connector.test"},
-				AllowedCIDRs: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")},
-				AllowedPorts: []int{port},
-			},
-		}}}, RegistryOptions{Client: ClientOptions{Resolver: resolverFunc(func(context.Context, string) ([]net.IPAddr, error) {
-			return []net.IPAddr{{IP: net.ParseIP(parsed.Hostname())}}, nil
-		})}}
+		ID: "directus-main", Required: required, BearerToken: "secret",
+		Endpoint: EndpointConfig{
+			Mode: TransportPrivateAllow, BaseURL: "http://connector.test:" + parsed.Port(),
+			AllowedHosts: []string{"connector.test"},
+			AllowedCIDRs: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")},
+			AllowedPorts: []int{port},
+		},
+	}}}, RegistryOptions{Client: ClientOptions{Resolver: resolverFunc(func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP(parsed.Hostname())}}, nil
+	})}}
 }

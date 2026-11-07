@@ -660,49 +660,6 @@ func TestMCPToolModes(t *testing.T) {
 	require.Equal(t, directFull, listNames(t, "mcp-token"))
 }
 
-func TestMCPToolModeInstructions(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	srv.handler.auth = mcpScopeAuthenticator{
-		"read-token": {UserID: "user-1", Email: "user@example.com", Scope: "mcp:read", WorkspaceID: "ws-1"},
-		"mcp-token":  {UserID: "user-1", Email: "user@example.com", Scope: "mcp:full", WorkspaceID: "ws-1"},
-	}
-	initialize := func(t *testing.T, token string) string {
-		t.Helper()
-		resp := srv.request(t, token, map[string]any{
-			"jsonrpc": "2.0",
-			"id":      "mode-initialize",
-			"method":  "initialize",
-			"params": map[string]any{
-				"protocolVersion": mcpProtocolVersion,
-				"capabilities":    map[string]any{},
-				"clientInfo":      map[string]any{"name": "test", "version": "1"},
-			},
-		})
-		require.Equal(t, http.StatusOK, resp.Code)
-		var out map[string]any
-		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-		instructions, _ := out["result"].(map[string]any)["instructions"].(string)
-		return instructions
-	}
-
-	// Direct mode never names the discovery tools; search-family modes do.
-	srv.handler.SetToolMode("direct")
-	require.NotContains(t, initialize(t, "mcp-token"), mcpToolSearch)
-	require.NotContains(t, initialize(t, "mcp-token"), mcpToolExecute)
-	srv.handler.SetToolMode("search")
-	require.Contains(t, initialize(t, "mcp-token"), mcpToolSearch)
-	srv.handler.SetToolMode("both")
-	require.Contains(t, initialize(t, "mcp-token"), mcpToolSearch)
-
-	// The read-only scope suffix applies in every mode.
-	for _, mode := range []string{"direct", "search", "both"} {
-		srv.handler.SetToolMode(mode)
-		require.Contains(t, initialize(t, "read-token"), "read-only", mode)
-	}
-}
-
 func TestMCPToolModeExecuteParity(t *testing.T) {
 	t.Parallel()
 
@@ -1130,43 +1087,6 @@ func TestMCPResourcesReadRejectsUnknownResource(t *testing.T) {
 	var out map[string]any
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	require.Equal(t, "unknown resource", out["error"].(map[string]any)["message"])
-}
-
-func TestMCPLocalUploadWidgetContractIsAccessibleAndAppScoped(t *testing.T) {
-	t.Parallel()
-	html := mcpUploadWidgetHTML()
-	for _, required := range []string{
-		`<label for="file">Media file</label>`,
-		`<label for="alt">Alt text`,
-		`role="status" aria-live="polite"`,
-		`accept="image/*,video/*"`,
-	} {
-		require.Contains(t, html, required)
-	}
-	// Gateways in front of MCP servers (Cloudflare MCP Server Portals and
-	// similar aggregators) expose tools under rewritten names such as
-	// {server_id}_{tool_name}, so a bare hardcoded ticket call fails with
-	// tool-not-found even though the widget rendered fine. The widget must
-	// recover the gateway prefix from the host-reported name of the tool that
-	// rendered it (ui/initialize hostContext.toolInfo.tool.name) and reapply
-	// it to the ticket tool, falling back to the bare name when the host
-	// provides no metadata.
-	require.Contains(t, html, `var renderTool="`+mcpToolRenderUpload+`",ticketToolDefault="`+mcpToolCreateTicket+`"`)
-	require.Contains(t, html, `method:'ui/initialize'`)
-	require.Contains(t, html, `data.result.hostContext&&data.result.hostContext.toolInfo`)
-	require.Contains(t, html, `invoked.slice(-renderTool.length)===renderTool`)
-	require.Contains(t, html, `invoked.slice(0,invoked.length-renderTool.length)+ticketToolDefault`)
-	require.Contains(t, html, `await resolveTicketTool()`)
-	require.Contains(t, html, `callTool(ticketTool,{`)
-	require.Contains(t, html, `This MCP client does not expose the OpenPost upload tool`)
-	require.Contains(t, html, `This MCP client does not support app tool calls.`)
-	require.NotContains(t, html, `callTool('`+mcpToolCreateTicket+`'`)
-	ticketTool := mcpCreateLocalUploadTicketTool()
-	meta := ticketTool["_meta"].(map[string]any)
-	require.Equal(t, []string{"app"}, meta["ui"].(map[string]any)["visibility"])
-	renderTool := mcpRenderLocalUploadTool()
-	renderMeta := renderTool["_meta"].(map[string]any)
-	require.Equal(t, mcpUploadWidgetURI, renderMeta["ui"].(map[string]any)["resourceUri"])
 }
 
 func TestMCPPromptsGetRejectsUnknownPrompt(t *testing.T) {

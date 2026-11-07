@@ -81,6 +81,7 @@
 					Write posts, edit images and videos, and plan your week. More time for the business you’re
 					building.
 				</p>
+				<p class="mt-3 text-sm leading-6 text-muted-foreground">Operated by Rodrigo Martins Dias</p>
 				<div class="mt-5 flex flex-wrap gap-x-5">
 					<a
 						href={navigationLink('GitHub source')}

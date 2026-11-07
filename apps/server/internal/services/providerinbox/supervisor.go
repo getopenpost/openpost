@@ -111,7 +111,7 @@ func (s *Service) runTransportLease(ctx context.Context, lease transportLease, e
 	cancel()
 	if !finished {
 		select {
-		case <-done:
+		case <-done: //nolint:errcheck // cancellation already decided the outcome
 		case <-time.After(5 * time.Second):
 			return errors.New("provider stream did not stop after cancellation")
 		}
@@ -130,7 +130,7 @@ func (s *Service) monitorTransportLease(ctx context.Context, accountID, owner st
 	defer ticker.Stop()
 	for {
 		select {
-		case <-done:
+		case <-done: //nolint:errcheck // disconnects are retried by the outer supervisor
 			// Provider disconnects are retried with jitter by the outer supervisor.
 			// The connect callback may record a safe provider failure for account health.
 			return true, nil

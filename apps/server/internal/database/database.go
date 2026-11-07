@@ -178,9 +178,7 @@ func initPostgresDB(dsn string, pool poolConfig) (*bun.DB, error) {
 	sqldb.SetMaxIdleConns(pool.MaxIdleConnections)
 	sqldb.SetConnMaxLifetime(pool.ConnectionMaxLifetime)
 	sqldb.SetConnMaxIdleTime(pool.ConnectionMaxIdleTime)
-	db := bun.NewDB(sqldb, pgdialect.New())
-	db.AddQueryHook(newPoolObserverHook(log.Printf))
-	return db, nil
+	return bun.NewDB(sqldb, pgdialect.New()).WithQueryHook(newPoolObserverHook(log.Printf)), nil
 }
 
 func CreateSchema(db *bun.DB) error {

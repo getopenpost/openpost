@@ -1016,21 +1016,17 @@ func (f *FacebookAdapter) ResumePublish(ctx context.Context, token, pageID strin
 		return pending, nil
 	}
 	edge, label, values := facebookVideoFinishRequest(req)
-	id, err := f.finishHostedVideo(ctx, token, pageID, edge, label, videoID, values, req)
+	// finishHostedVideo reports success as pending confirmation, never as nil.
+	_, err = f.finishHostedVideo(ctx, token, pageID, edge, label, videoID, values, req)
 	var waiting *facebookPendingError
 	if errors.As(err, &waiting) {
 		return waiting.result, nil
 	}
-	if err != nil {
-		var failure *facebookVideoFailure
-		if errors.As(err, &failure) {
-			return failure.result, failure.err
-		}
-		return pendingFacebookVideo("publishing", videoID), err
+	var failure *facebookVideoFailure
+	if errors.As(err, &failure) {
+		return failure.result, failure.err
 	}
-	result := AcceptedPublishResult(id)
-	result.ProviderReference = reference
-	return result, nil
+	return pendingFacebookVideo("publishing", videoID), err
 }
 
 type facebookPendingError struct{ result PublishResult }

@@ -1147,7 +1147,7 @@ func (s *Service) currentSeats(ctx context.Context, db bun.IDB, workspaceID stri
 	if err != nil {
 		return 0, err
 	}
-	return int64(activeMembers + pendingInvites), nil
+	return activeMembers + pendingInvites, nil
 }
 
 func (s *Service) seatDecision(ctx context.Context, workspaceID string) (entitlements.Decision, error) {

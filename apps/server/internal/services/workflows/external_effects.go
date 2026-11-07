@@ -169,7 +169,7 @@ func (s *Service) reserveAIUsage(ctx context.Context, usage *usageRecord) error 
 			if err != nil {
 				return err
 			}
-			if int64(count) >= s.aiMonthlyCalls {
+			if count >= s.aiMonthlyCalls {
 				return errors.New("workspace workflow AI monthly call limit reached")
 			}
 		}

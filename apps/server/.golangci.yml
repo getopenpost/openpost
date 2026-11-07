@@ -83,6 +83,12 @@ linters:
       - linters:
           - goconst
         path: .*
+      # Tests attach hooks to the DB that services already captured, which
+      # WithQueryHook's clone would bypass.
+      - linters:
+          - staticcheck
+        path: _test\.go
+        text: "AddQueryHook is deprecated"
       - linters:
           - dupl
           - errcheck

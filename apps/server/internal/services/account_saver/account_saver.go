@@ -845,7 +845,7 @@ func (s *AccountSaver) checkSocialAccountQuotaWithDB(ctx context.Context, db bun
 		WorkspaceID: workspaceID,
 		UserID:      userID,
 		Limit:       entitlements.LimitSocialAccounts,
-		Current:     int64(current),
+		Current:     current,
 		Amount:      amount,
 	})
 	if err != nil {

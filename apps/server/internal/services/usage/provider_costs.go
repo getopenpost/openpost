@@ -636,7 +636,7 @@ func (s *Service) SnapshotOrganizationProviderCosts(ctx context.Context, organiz
 	if err != nil {
 		return nil, err
 	}
-	return s.snapshotProviderCosts(ctx, at, int64(workspaceCount), func(query *bun.SelectQuery) *bun.SelectQuery {
+	return s.snapshotProviderCosts(ctx, at, workspaceCount, func(query *bun.SelectQuery) *bun.SelectQuery {
 		return query.Join("JOIN workspaces AS w ON w.id = provider_usage_period_counter.workspace_id").
 			Where("w.organization_id = ?", organizationID)
 	})

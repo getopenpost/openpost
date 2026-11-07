@@ -30,6 +30,11 @@
       "svelte": "./dist/components/telemetry-consent.svelte",
       "default": "./dist/components/telemetry-consent.svelte"
     },
+    "./components/dither": {
+      "types": "./dist/components/dither/index.d.ts",
+      "svelte": "./dist/components/dither/index.js",
+      "default": "./dist/components/dither/index.js"
+    },
     "./style.css": "./dist/style.css",
     "./*": {
       "types": "./dist/*.d.ts",

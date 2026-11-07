@@ -833,6 +833,26 @@
   }
 }
 
+/*
+ * Engine tokens. Charts and fields read these; themes own the colours through
+ * their chart and status tokens, so organisation themes recolour every dither.
+ */
+:where(:root) {
+  --dither-ink: var(--chart-1, oklch(0.61 0.2 255));
+  --dither-paper: var(--background, transparent);
+  --dither-cell: 2px;
+  --dither-color-blue: var(--chart-1, oklch(0.61 0.2 255));
+  --dither-color-purple: var(--chart-2, oklch(0.6 0.21 295));
+  --dither-color-pink: var(--chart-3, oklch(0.62 0.22 350));
+  --dither-color-green: var(--chart-4, oklch(0.6 0.13 175));
+  --dither-color-orange: var(--chart-5, oklch(0.65 0.16 75));
+  --dither-color-red: var(--destructive, oklch(0.57 0.22 25));
+  --dither-color-grey: var(--muted-foreground, oklch(0.55 0 0));
+  --dither-bloom: 0.45;
+}
+:where(.dark) {
+  --dither-bloom: 1;
+}
 /* Palette and contrast belong to the host; pixel geometry and interaction are shared. */
 @layer components {
   :where([data-theme-button="dither"]) [data-dither-button],

@@ -29,6 +29,23 @@ export type UiMessages = {
   common_toggle_sidebar: () => string;
   common_mobile_sidebar_description: () => string;
   common_sidebar: () => string;
+  chart_keyboard_help: () => string;
+  chart_category: () => string;
+  chart_series: () => string;
+  chart_spotlight: (label: string) => string;
+  chart_slices: () => string;
+  chart_value: () => string;
+  chart_share: () => string;
+  chart_slice_keyboard_help: () => string;
+  chart_axis: () => string;
+  chart_axis_keyboard_help: () => string;
+  chart_less: () => string;
+  chart_more: () => string;
+  chart_none: () => string;
+  chart_levels: () => string;
+  chart_up_to: (value: string) => string;
+  chart_more_than: (value: string) => string;
+  chart_square_keyboard_help: () => string;
 };
 const messagesKey = Symbol("openpost-ui-messages");
 const english: UiMessages = {
@@ -62,6 +79,26 @@ const english: UiMessages = {
   common_toggle_sidebar: () => "Toggle sidebar",
   common_mobile_sidebar_description: () => "Displays the mobile sidebar.",
   common_sidebar: () => "Sidebar",
+  chart_keyboard_help: () =>
+    "Use the arrow keys to move through the data, Home and End to jump to the ends, Escape to clear.",
+  chart_category: () => "Category",
+  chart_series: () => "Series",
+  chart_spotlight: (label) => `Spotlight ${label}`,
+  chart_slices: () => "Slices",
+  chart_value: () => "Value",
+  chart_share: () => "Share",
+  chart_slice_keyboard_help: () =>
+    "Use the arrow keys to move between slices, Enter to keep one lit, Escape to clear.",
+  chart_axis: () => "Axis",
+  chart_axis_keyboard_help: () => "Use the arrow keys to move between axes, Escape to clear.",
+  chart_less: () => "Less",
+  chart_more: () => "More",
+  chart_none: () => "None",
+  chart_levels: () => "Levels",
+  chart_up_to: (value) => `Up to ${value}`,
+  chart_more_than: (value) => `More than ${value}`,
+  chart_square_keyboard_help: () =>
+    "Use the arrow keys to move between squares, Home and End to jump to the first and last, Escape to clear.",
 };
 export function provideUiMessages(messages: Partial<UiMessages>) {
   setContext(messagesKey, { ...english, ...messages });

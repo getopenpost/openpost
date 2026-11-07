@@ -25,6 +25,11 @@
       "react-native": "./src/paint.ts",
       "default": "./dist/paint.js"
     },
+    "./engine": {
+      "types": "./src/engine/index.ts",
+      "bun": "./src/engine/index.ts",
+      "default": "./dist/engine/index.js"
+    },
     "./theme-validation": {
       "types": "./src/theme-validation.ts",
       "bun": "./src/theme-validation.ts",

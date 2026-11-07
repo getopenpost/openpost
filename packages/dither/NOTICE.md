@@ -5,8 +5,7 @@ The ordered dithering and alpha falloff in `src/paint.ts` are adapted from
 The button interaction is adapted from `button.tsx` at that revision. OpenPost
 uses a binary mask and a fixed ink tint so hover and press change density without
 increasing color contrast. The
-directional gradients and chart hover emphasis follow `gradient.tsx` and
-`bar-canvas.tsx`; chart scales and data remain owned by OpenPost.
+directional gradients follow `gradient.tsx`.
 
 Dither Kit's root `package.json` declares MIT. That revision has no separate
 license file or copyright notice. Attribution: Boring Software Inc., Dither Kit.
@@ -47,3 +46,25 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+# dithercn source
+
+`src/engine/` is adapted from dithercn's `lib/dither`
+([opencoredev/dithercn](https://github.com/opencoredev/dithercn/tree/3b1e85384c9ab05d381612d5520342dc38809adb/registry),
+MIT, Copyright (c) 2026 Leo and Shadcn Labs). Matrices, blue noise, colour
+resolution, fill ramps, pattern geometry, image diffusion and the WebGL field
+shader keep their algorithms. React hooks and components are replaced by
+framework-free lifecycles (`createFrameLoop`, `mountDitherShader`,
+`fillPatternSpec`); the Svelte chart and interface components in
+`@openpost/ui` port dithercn's examples onto them. Colours resolve through
+OpenPost theme tokens, and cells default to 2 CSS pixels.
+
+MIT License: Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including without
+limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom
+the Software is furnished to do so, subject to the following conditions: The
+above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS
+IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.

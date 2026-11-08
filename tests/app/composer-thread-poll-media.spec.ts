@@ -30,7 +30,7 @@ test("media on a follow-up preserves the first post's native poll", async ({
         name: "audit-thread-poll.png",
         mimeType: "image/png",
         buffer: Buffer.from(
-          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAEElEQVR4nGL6//8/IAAA//8GBgMAt2YRIQAAAABJRU5ErkJggg==",
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR42mL6//8/YAAGBgMAKE2v1gAAAABJRU5ErkJggg==",
           "base64",
         ),
       },
@@ -128,8 +128,8 @@ test("media on a follow-up preserves the first post's native poll", async ({
   expect(issueCodes).not.toContain("x_mutually_exclusive_attachment");
   expect(issueCodes).not.toContain("poll_resolution_required");
   await page.screenshot({ path: testInfo.outputPath("mixed-thread.png") });
-  for (const width of [1280, 320]) {
-    for (const scheme of ["light"] as const) {
+  for (const width of [1280, 390, 320]) {
+    for (const scheme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 1000 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);

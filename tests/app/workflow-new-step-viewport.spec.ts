@@ -76,8 +76,8 @@ test("appending a workflow step keeps its next action inside the canvas", async 
     .getByRole("complementary", { name: "What happens next?" })
     .getByRole("button", { name: "Close", exact: true })
     .click();
-  for (const width of [1280, 320]) {
-    for (const scheme of ["light"] as const) {
+  for (const width of [1280, 390, 320]) {
+    for (const scheme of ["light", "dark"] as const) {
       await expect
         .poll(
           async () =>

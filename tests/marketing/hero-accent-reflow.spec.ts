@@ -45,7 +45,8 @@ test("decorative circles follow settled responsive heading geometry @desktop", a
       await dismissTelemetryConsent(page);
       await page.evaluate(() => document.fonts.ready);
       const annotations = page.locator("svg.rough-annotation");
-      await expect(annotations.first().locator("path")).toHaveCount(1);
+      // One path per sketch iteration; a redraw that duplicates the annotation adds more.
+      await expect(annotations.first().locator("path")).toHaveCount(2);
       for (const width of [1280, 390, 320]) {
         await page.setViewportSize({ width, height: 844 });
         await page.evaluate(() => document.fonts.ready);

@@ -17,11 +17,9 @@ import { devProxy } from './dev-proxy.ts';
 // message makes every isolated test page load thousands of files. Production
 // builds switch to message modules so each message tree-shakes.
 function paraglidePlugin(command: 'build' | 'serve'): PluginOption {
+	const outputStructure = command === 'build' ? 'message-modules' : 'locale-modules';
 	// SAFETY: paraglideVitePlugin returns a Vite-compatible plugin, but its package type is not assignable to this Vite version.
-	return paraglideVitePlugin({
-		project: './project.inlang',
-		...(command === 'build' ? { outputStructure: 'message-modules' as const } : {})
-	}) as PluginOption;
+	return paraglideVitePlugin({ project: './project.inlang', outputStructure }) as PluginOption;
 }
 const isVitest = process.env.VITEST === 'true';
 const sourceMaps = postHogSourceMaps('app');

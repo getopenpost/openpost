@@ -222,7 +222,7 @@
     },
     "packages/cli": {
       "name": "@getopenpost/cli",
-      "version": "0.1.29",
+      "version": "0.1.30",
       "bin": {
         "openpost": "./bin/openpost.js",
         "openpost-mcp": "./bin/openpost-mcp.js",
@@ -266,7 +266,7 @@
     },
     "packages/n8n-nodes-openpost": {
       "name": "@getopenpost/n8n-nodes-openpost",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "devDependencies": {
         "@n8n/node-cli": "0.44.3",
         "n8n-workflow": "2.35.3",

@@ -20,7 +20,7 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.9
 	github.com/go-text/render v0.2.1
 	github.com/go-text/typesetting v0.3.5
-	github.com/go-webauthn/webauthn v0.18.2
+	github.com/go-webauthn/webauthn v0.17.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1

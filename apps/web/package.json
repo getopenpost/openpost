@@ -106,7 +106,7 @@
 		"@openpost/telemetry": "workspace:*",
 		"@openpost/video-project": "workspace:*",
 		"@paddle/paddle-js": "^1.6.6",
-		"@paper-design/shaders": "0.0.82",
+		"@paper-design/shaders": "0.0.80",
 		"@ricky0123/vad-web": "0.0.31",
 		"@tanstack/query-core": "5.105.3",
 		"@tanstack/svelte-query": "6.3.9",

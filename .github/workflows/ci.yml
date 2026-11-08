@@ -111,6 +111,9 @@ jobs:
         working-directory: apps/mobile
         run: bun install --frozen-lockfile
       - run: bun run format:check
+      # Reachability analysis loads the app's Vitest config, which extends the
+      # generated SvelteKit tsconfig.
+      - run: bun run --cwd apps/web sync
       - name: Generated contracts and repository policy
         env:
           OPENPOST_SECRET_SCAN_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -146,10 +149,17 @@ jobs:
         with:
           go: "true"
           install: "false"
-      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+      - id: golangci
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        continue-on-error: true
         with:
           version: v2.15.0
           install-only: true
+      # GitHub release downloads fail intermittently; the module proxy does not.
+      - if: steps.golangci.outcome == 'failure'
+        run: |
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - if: needs.plan.outputs.backend == 'true'
         run: bun run lint -- backend
       - if: needs.plan.outputs.cli == 'true'

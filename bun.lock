@@ -139,7 +139,7 @@
         "@openpost/ui": "workspace:*",
         "@openpost/video-project": "workspace:*",
         "@paddle/paddle-js": "^1.6.6",
-        "@paper-design/shaders": "0.0.82",
+        "@paper-design/shaders": "0.0.80",
         "@ricky0123/vad-web": "0.0.31",
         "@tanstack/query-core": "5.105.3",
         "@tanstack/svelte-query": "6.3.9",
@@ -1350,7 +1350,7 @@
 
     "@paddle/paddle-js": ["@paddle/paddle-js@1.6.6", "", {}, "sha512-MHkqW4b7DP6F0HvbNG6HnGcSUdX2znwsvENIqJQuMqTtwcRPo6tTg8m1ail02mAODbFu/wsWUcRdsW7a9DVyTQ=="],
 
-    "@paper-design/shaders": ["@paper-design/shaders@0.0.82", "", {}, "sha512-eCxYQrrCxRVc4KG8sLSQecsq8Ymstbaq/FqZjq/fhOa6UiR1ZZfdMO5IJpHmwL0GYmfzvZVQ4l8ZOLux0uLVdg=="],
+    "@paper-design/shaders": ["@paper-design/shaders@0.0.80", "", {}, "sha512-pcabvt5xDlFoEhpjUj4b1tGJMfqb0i5mXifWMNQf6z7FoOJYxYDo7F8R6k0JAh5D/7ouxjX5+N0cIq5WURyQ1Q=="],
 
     "@playwright/test": ["@playwright/test@1.64.1", "", { "dependencies": { "playwright": "1.64.1" }, "bin": { "playwright": "cli.js" } }, "sha512-IaYGml/nSOiZWROfPtuIL7neuu9qDOZ3TNvNljUIrhDMxiGTgPjzj/g9p9RxpS2tSepPDRY+UwAaEeiKtUvIAg=="],
 

@@ -44,6 +44,13 @@ runs:
     - if: inputs.install == 'true'
       shell: bash
       run: bun install --frozen-lockfile
+    # The PostHog CLI downloads its binary from GitHub releases on first use.
+    - if: inputs.install == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: node_modules/@posthog/cli/node_modules/.bin_real
+        key: posthog-cli-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
+        restore-keys: posthog-cli-${{ runner.os }}-${{ runner.arch }}-
     - if: inputs.chromium != 'none'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:

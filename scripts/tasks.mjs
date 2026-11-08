@@ -602,7 +602,8 @@ function testPlan(requestedScope) {
   const workspace = stage("workspace tests", [
     commandStep("bunx", "turbo", "run", "test", "--concurrency", "1"),
   ]);
-  const repository = stage("repository tests", [bunTest("./scripts")]);
+  // These tests spawn subprocesses and share the CPU with the Go suite.
+  const repository = stage("repository tests", [bunTest("--timeout=30000", "./scripts")]);
   const marketing = stage("marketing tests", [
     commandStep("bun", "run", "test", { cwd: "apps/marketing" }),
     bunTest(

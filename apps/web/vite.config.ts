@@ -13,8 +13,16 @@ import { phonemizerRuntimePlugin } from './src/lib/build/phonemizer-runtime.ts';
 import { devProxy } from './dev-proxy.ts';
 
 // Options live in project.inlang/paraglide.config.js, shared with `generate:i18n`.
-// SAFETY: paraglideVitePlugin returns a Vite-compatible plugin, but its package type is not assignable to this Vite version.
-const paraglidePlugin = paraglideVitePlugin({ project: './project.inlang' }) as PluginOption;
+// Dev, checks and browser tests use locale modules: unbundled, one module per
+// message makes every isolated test page load thousands of files. Production
+// builds switch to message modules so each message tree-shakes.
+function paraglidePlugin(command: 'build' | 'serve'): PluginOption {
+	// SAFETY: paraglideVitePlugin returns a Vite-compatible plugin, but its package type is not assignable to this Vite version.
+	return paraglideVitePlugin({
+		project: './project.inlang',
+		...(command === 'build' ? { outputStructure: 'message-modules' as const } : {})
+	}) as PluginOption;
+}
 const isVitest = process.env.VITEST === 'true';
 const sourceMaps = postHogSourceMaps('app');
 const frontendRoot = fileURLToPath(new URL('.', import.meta.url));
@@ -50,7 +58,7 @@ const testMediaStubPlugin: Plugin = {
 	}
 };
 
-export default defineConfig(({ isSsrBuild }) => ({
+export default defineConfig(({ command, isSsrBuild }) => ({
 	// Editor extensions must share one state/view instance across transitive dependencies.
 	resolve: { dedupe: ['@codemirror/state', '@codemirror/view'] },
 	cacheDir:
@@ -67,7 +75,7 @@ export default defineConfig(({ isSsrBuild }) => ({
 		...(isVitest ? [testMediaStubPlugin, testProjectWatcherPlugin] : []),
 		tailwindcss(),
 		...appFrameworkPlugins,
-		paraglidePlugin,
+		paraglidePlugin(command),
 		SvelteKitPWA({
 			base: '/',
 			scope: '/',

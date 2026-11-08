@@ -57,5 +57,6 @@ an existing artifact changes.
 `apps/web` owns `src/lib/paraglide`. Its options live in
 `apps/web/project.inlang/paraglide.config.js`, which both `generate:i18n` and
 the Vite plugin read. Paraglide emits its own declarations, so `svelte-check`
-can run straight after `generate:i18n`. Marketing reads shared web components
+can run straight after `generate:i18n`. Dev, checks and browser tests use locale modules; production
+`vite build` switches to per-message modules so each message tree-shakes. Marketing reads shared web components
 but never runs another generator against that directory.

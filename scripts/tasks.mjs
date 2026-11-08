@@ -271,6 +271,7 @@ export function resolvePlan(requestedCommand, requestedScope, requestedOptions =
         [
           ...(requestedCommand === "verify" ? [taskStage("format check", "format:check")] : []),
           taskStage("lint", "lint"),
+          taskStage("dead code", "fallow"),
           ...(requestedCommand === "preflight"
             ? [
                 withoutRepositoryTests(checks["npm-packages"]),

@@ -40,10 +40,10 @@
 		"check": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@mediabunny/ac3": "1.65.0",
+		"@mediabunny/ac3": "1.54.0",
 		"@noble/hashes": "1.8.0",
 		"@ricky0123/vad-web": "0.0.31",
-		"mediabunny": "1.65.0",
+		"mediabunny": "1.54.0",
 		"onnxruntime-web": "1.31.1",
 		"zod": "^4.6.7"
 	},

@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.38.6] - 2026-11-08
+
+### Fixed
+
+- The Video Editor preview unlocks its audio on the first pointer interaction, so playback started after a preview click keeps sound when the browser has suspended the shared audio context.
+- Feedback, diagnostics and meme requests accept bodies up to their documented limit exactly; the previous allowance of one extra byte is gone.
+- Small account avatars keep one initial so the platform badge no longer covers the second letter.
+
+### Changed
+
+- Interface sounds use the new cuelume cue set. Signature, Velvet and Crisp now map to cuelume's warm, trackpad and mechanical materials, and each sound follows its interface job: selecting, confirming, closing, toggling on or off, deleting and errors.
+- The server is built with Go 1.27.3 on Alpine 3.24.4, with refreshed Go and JavaScript dependencies.
+- Analytics is redesigned around dithered charts: stat cards carry their recent trend, daily visibility and engagement stack by network, followers show the account-wide total over time, the audience donut spotlights an account from its legend, and a network profile compares every network with the strongest one on each measure. Account rows show a follower trend.
+- Charts can be inspected from the keyboard with a live readout, and every chart keeps an accessible data table. Themes without the dither decoration draw flat fills in their own chart colors.
+- Instance administration trends use the same dithered bar charts.
+
 ## [7.37.2] - 2026-11-05
 
 ### Fixed

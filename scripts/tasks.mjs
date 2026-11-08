@@ -195,9 +195,11 @@ const checks = {
 // Public routes build both production sites twice, so they stay out of the
 // policy aggregate. CI proves them in a dedicated job; local `check` still
 // runs them as their own phase.
+// Phases run in order. Asset surfaces scan the docs tree, so they follow the
+// docs stage that regenerates its API reference pages.
 const policyGroups = [
-  ["build-graph", "assets", "workflows", "mcp-registry", "docs", "release-version", "secret-scan"],
-  ["app-routes", "legal-policy", "provider-certification", "provider-facts"],
+  ["build-graph", "workflows", "mcp-registry", "docs", "release-version", "secret-scan"],
+  ["assets", "app-routes", "legal-policy", "provider-certification", "provider-facts"],
   [
     "plan-catalog",
     "changelog",

@@ -22,6 +22,11 @@ file is missing, so rerunning it never overwrites local credentials. Go, Bun
 and Playwright keep their caches in their usual per-user locations, so every
 worktree shares them.
 
+The same shell works on macOS and Linux. On Linux it adds the Nix Chromium for
+Playwright and exposes Nix's libstdc++ to prebuilt npm addons such as `sharp`.
+On NixOS, also enable `programs.nix-ld` so downloaded executables such as
+esbuild can start.
+
 The backend reads `apps/server/.env` with its non-executing dotenv loader. Do not
 `source` or `eval` dotenv files, and do not put credentials in Nix expressions.
 

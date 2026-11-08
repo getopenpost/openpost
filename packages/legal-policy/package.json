@@ -12,8 +12,5 @@
     "./managed-service.json": "./src/managed-service.json",
     "./privacy-inventory.json": "./src/privacy-inventory.json",
     "./security-assurance.json": "./src/security-assurance.json"
-  },
-  "scripts": {
-    "test": "bun test src/index.test.mjs"
   }
 }

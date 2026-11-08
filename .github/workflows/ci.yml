@@ -101,7 +101,7 @@ jobs:
         shell: bash
         run: |
           archive="$RUNNER_TEMP/gitleaks.tar.gz"
-          curl --fail --location --silent --show-error \
+          curl --fail --location --silent --show-error --retry 5 --retry-all-errors \
             "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
             --output "$archive"
           printf '%s  %s\n' "$GITLEAKS_LINUX_X64_SHA256" "$archive" | sha256sum --check --status

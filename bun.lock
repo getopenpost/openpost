@@ -304,8 +304,9 @@
     },
     "packages/sdk": {
       "name": "@getopenpost/sdk",
-      "version": "0.5.1",
+      "version": "0.5.2",
       "devDependencies": {
+        "@types/node": "^24.19.2",
         "typescript": "5.9.3",
         "vitest": "4.1.11",
       },

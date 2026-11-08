@@ -30,12 +30,8 @@ in
     pkgs.uv
   ];
 
-  env = {
-    # go.mod pins the patched Go release; fetch it when nixpkgs trails.
-    GOTOOLCHAIN = lib.mkForce "auto";
-    # devenv keeps GOPATH per checkout; share downloaded modules across worktrees.
-    GOMODCACHE = "${builtins.getEnv "HOME"}/go/pkg/mod";
-  };
+  # go.mod pins the patched Go release; fetch it when nixpkgs trails.
+  env.GOTOOLCHAIN = "auto";
 
   process.proxy.enable = true;
   processes = {

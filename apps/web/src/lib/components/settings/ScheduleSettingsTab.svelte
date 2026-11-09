@@ -539,7 +539,7 @@
 		{:else}
 			<p class="mt-3 text-xs text-muted-foreground">
 				{m.settings_new_rows_timezone({
-					timezone: getTimezoneLabel(workspaceCtx.settings.timezone)
+					timezone: getTimezoneLabel(workspaceCtx.settings.timezone, getLocaleTag())
 				})}
 			</p>
 		{/if}

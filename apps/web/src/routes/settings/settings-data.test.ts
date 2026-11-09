@@ -5,7 +5,8 @@ import {
 	apiTokenExpiresAt,
 	activeReauthProviderID,
 	buildProfileUpdateBody,
-	isAPITokenScope
+	isAPITokenScope,
+	timezoneOptions
 } from './settings-data';
 
 describe('profile update capability boundary', () => {
@@ -86,5 +87,28 @@ describe('API token scope contract', () => {
 		expect(isAPITokenScope('cli:full')).toBe(true);
 		expect(isAPITokenScope('admin:full')).toBe(false);
 		expect(isAPITokenScope('api:read,api:write')).toBe(false);
+	});
+});
+
+describe('workspace timezone options', () => {
+	it('offers Atlantic and Newfoundland zones with readable labels', () => {
+		const options = timezoneOptions('UTC', 'en-US');
+		expect(options.find((option) => option.value === 'America/Halifax')).toEqual({
+			group: 'America',
+			value: 'America/Halifax',
+			label: 'Halifax (Atlantic Time)'
+		});
+		expect(options.find((option) => option.value === 'America/St_Johns')?.label).toBe(
+			'St Johns (Newfoundland Time)'
+		);
+	});
+
+	it('keeps the stored zone selectable when the engine lists another name for it', () => {
+		const values = timezoneOptions('Asia/Kolkata', 'en-US').map((option) => option.value);
+		expect(values.filter((value) => value === 'Asia/Kolkata')).toHaveLength(1);
+		expect(values).not.toContain('Asia/Calcutta');
+		expect(timezoneOptions('Mars/Olympus', 'en-US').map((option) => option.value)).toContain(
+			'Mars/Olympus'
+		);
 	});
 });

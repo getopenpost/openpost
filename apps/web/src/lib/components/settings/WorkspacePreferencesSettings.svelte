@@ -19,7 +19,12 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { ThemeIcon } from '$lib/themes/icons';
-	import { getTimezoneLabel, timezones } from '../../../routes/settings/settings-data';
+	import { getLocaleTag } from '$lib/i18n';
+	import {
+		getTimezoneLabel,
+		timezoneOptions,
+		type TimezoneOption
+	} from '../../../routes/settings/settings-data';
 
 	let {
 		onDelete
@@ -34,8 +39,8 @@
 	const unsavedChanges = getOptionalUnsavedChanges();
 
 	const groupedTimezones = $derived.by(() => {
-		const groups: Record<string, typeof timezones> = {};
-		for (const timezone of timezones) {
+		const groups: Record<string, TimezoneOption[]> = {};
+		for (const timezone of timezoneOptions(workspaceCtx.settings.timezone, getLocaleTag())) {
 			if (!groups[timezone.group]) groups[timezone.group] = [];
 			groups[timezone.group].push(timezone);
 		}
@@ -196,7 +201,7 @@
 				onValueChange={(value) => (workspaceCtx.settings.timezone = value)}
 			>
 				<Select.Trigger id="timezone-select" class="w-full">
-					{getTimezoneLabel(workspaceCtx.settings.timezone)}
+					{getTimezoneLabel(workspaceCtx.settings.timezone, getLocaleTag())}
 				</Select.Trigger>
 				<Select.Content class="max-h-80 overflow-y-auto">
 					{#each Object.entries(groupedTimezones) as [group, values] (group)}

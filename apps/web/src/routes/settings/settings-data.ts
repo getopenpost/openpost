@@ -1,71 +1,75 @@
 import { planCatalog } from '@openpost/plan-catalog';
 import type { components } from '$lib/api/types';
 
-export const timezones = [
-	{ group: 'Americas', value: 'America/New_York', label: 'New York (ET)' },
-	{ group: 'Americas', value: 'America/Chicago', label: 'Chicago (CT)' },
-	{ group: 'Americas', value: 'America/Denver', label: 'Denver (MT)' },
-	{ group: 'Americas', value: 'America/Los_Angeles', label: 'Los Angeles (PT)' },
-	{ group: 'Americas', value: 'America/Phoenix', label: 'Phoenix (AZ)' },
-	{ group: 'Americas', value: 'America/Anchorage', label: 'Anchorage (AK)' },
-	{ group: 'Americas', value: 'Pacific/Honolulu', label: 'Honolulu (HI)' },
-	{ group: 'Americas', value: 'America/Toronto', label: 'Toronto (ET)' },
-	{ group: 'Americas', value: 'America/Vancouver', label: 'Vancouver (PT)' },
-	{ group: 'Americas', value: 'America/Mexico_City', label: 'Mexico City (CT)' },
-	{ group: 'Americas', value: 'America/Bogota', label: 'Bogota' },
-	{ group: 'Americas', value: 'America/Lima', label: 'Lima' },
-	{ group: 'Americas', value: 'America/Santiago', label: 'Santiago' },
-	{ group: 'Americas', value: 'America/Sao_Paulo', label: 'Sao Paulo' },
-	{ group: 'Americas', value: 'America/Buenos_Aires', label: 'Buenos Aires' },
-	{ group: 'Europe', value: 'UTC', label: 'UTC' },
-	{ group: 'Europe', value: 'Europe/London', label: 'London (GMT/BST)' },
-	{ group: 'Europe', value: 'Europe/Dublin', label: 'Dublin (GMT/IST)' },
-	{ group: 'Europe', value: 'Europe/Lisbon', label: 'Lisbon (WET/WEST)' },
-	{ group: 'Europe', value: 'Europe/Madrid', label: 'Madrid (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Paris', label: 'Paris (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Amsterdam', label: 'Amsterdam (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Brussels', label: 'Brussels (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Berlin', label: 'Berlin (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Vienna', label: 'Vienna (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Zurich', label: 'Zurich (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Rome', label: 'Rome (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Stockholm', label: 'Stockholm (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Oslo', label: 'Oslo (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Copenhagen', label: 'Copenhagen (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Helsinki', label: 'Helsinki (EET/EEST)' },
-	{ group: 'Europe', value: 'Europe/Warsaw', label: 'Warsaw (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Prague', label: 'Prague (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Budapest', label: 'Budapest (CET/CEST)' },
-	{ group: 'Europe', value: 'Europe/Athens', label: 'Athens (EET/EEST)' },
-	{ group: 'Europe', value: 'Europe/Bucharest', label: 'Bucharest (EET/EEST)' },
-	{ group: 'Europe', value: 'Europe/Kiev', label: 'Kiev (EET/EEST)' },
-	{ group: 'Europe', value: 'Europe/Moscow', label: 'Moscow (MSK)' },
-	{ group: 'Europe', value: 'Europe/Istanbul', label: 'Istanbul (TRT)' },
-	{ group: 'Asia', value: 'Asia/Dubai', label: 'Dubai (GST)' },
-	{ group: 'Asia', value: 'Asia/Riyadh', label: 'Riyadh (AST)' },
-	{ group: 'Asia', value: 'Asia/Tehran', label: 'Tehran (IRST/IRDT)' },
-	{ group: 'Asia', value: 'Asia/Kolkata', label: 'Mumbai/Delhi (IST)' },
-	{ group: 'Asia', value: 'Asia/Bangkok', label: 'Bangkok (ICT)' },
-	{ group: 'Asia', value: 'Asia/Jakarta', label: 'Jakarta (WIB)' },
-	{ group: 'Asia', value: 'Asia/Singapore', label: 'Singapore (SGT)' },
-	{ group: 'Asia', value: 'Asia/Hong_Kong', label: 'Hong Kong (HKT)' },
-	{ group: 'Asia', value: 'Asia/Shanghai', label: 'Shanghai (CST)' },
-	{ group: 'Asia', value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-	{ group: 'Asia', value: 'Asia/Seoul', label: 'Seoul (KST)' },
-	{ group: 'Asia', value: 'Asia/Manila', label: 'Manila (PHT)' },
-	{ group: 'Asia', value: 'Asia/Kuala_Lumpur', label: 'Kuala Lumpur (MYT)' },
-	{ group: 'Pacific', value: 'Australia/Perth', label: 'Perth (AWST)' },
-	{ group: 'Pacific', value: 'Australia/Eucla', label: 'Eucla (AWST+)' },
-	{ group: 'Pacific', value: 'Australia/Adelaide', label: 'Adelaide (ACST)' },
-	{ group: 'Pacific', value: 'Australia/Brisbane', label: 'Brisbane (AEST)' },
-	{ group: 'Pacific', value: 'Australia/Sydney', label: 'Sydney (AEST/AEDT)' },
-	{ group: 'Pacific', value: 'Pacific/Auckland', label: 'Auckland (NZST/NZDT)' },
-	{ group: 'Pacific', value: 'Pacific/Fiji', label: 'Fiji (FJT/FJST)' },
-	{ group: 'Africa', value: 'Africa/Cairo', label: 'Cairo (EET)' },
-	{ group: 'Africa', value: 'Africa/Johannesburg', label: 'Johannesburg (SAST)' },
-	{ group: 'Africa', value: 'Africa/Lagos', label: 'Lagos (WAT)' },
-	{ group: 'Africa', value: 'Africa/Nairobi', label: 'Nairobi (EAT)' }
-];
+export interface TimezoneOption {
+	group: string;
+	value: string;
+	label: string;
+}
+
+const timezoneLabels = new Map<string, string>();
+
+function timezoneLabel(value: string, locale?: string): string {
+	const key = `${locale ?? ''}|${value}`;
+	let label = timezoneLabels.get(key);
+	if (label === undefined) {
+		label = formatTimezoneLabel(value, locale);
+		timezoneLabels.set(key, label);
+	}
+	return label;
+}
+
+function formatTimezoneLabel(value: string, locale?: string): string {
+	const place = value.includes('/')
+		? value
+				.slice(value.indexOf('/') + 1)
+				.replaceAll('_', ' ')
+				.replaceAll('/', ' / ')
+		: value;
+	try {
+		const name = new Intl.DateTimeFormat(locale, { timeZone: value, timeZoneName: 'longGeneric' })
+			.formatToParts(0)
+			.find((part) => part.type === 'timeZoneName')?.value;
+		return name && name !== place ? `${place} (${name})` : place;
+	} catch {
+		return place;
+	}
+}
+
+function canonicalTimezone(value: string): string {
+	try {
+		return new Intl.DateTimeFormat('en', { timeZone: value }).resolvedOptions().timeZone;
+	} catch {
+		return value;
+	}
+}
+
+/**
+ * Lists every IANA zone the browser supports, grouped by region. The server accepts any IANA
+ * zone, so a fixed list would hide valid choices. Engines may list an alias of the stored zone
+ * (for example Asia/Calcutta for Asia/Kolkata); the stored value replaces that alias so it stays
+ * selected, and an unknown stored value is kept as its own option.
+ */
+export function timezoneOptions(current = '', locale?: string): TimezoneOption[] {
+	let zones: string[] = [];
+	try {
+		zones = Intl.supportedValuesOf('timeZone');
+	} catch {
+		zones = [];
+	}
+	if (current && !zones.includes(current)) {
+		const alias = canonicalTimezone(current);
+		const index = zones.indexOf(alias);
+		zones = [...zones];
+		if (index >= 0) zones[index] = current;
+		else zones.push(current);
+	}
+	return [...new Set(['UTC', ...zones])].map((value) => ({
+		group: value.includes('/') ? value.slice(0, value.indexOf('/')) : 'UTC',
+		value,
+		label: value === 'UTC' ? 'UTC' : timezoneLabel(value, locale)
+	}));
+}
 
 export const inviteRoleOptions = ['editor', 'viewer', 'admin'] as const;
 
@@ -290,6 +294,6 @@ export interface ScheduleRow {
 	days: Record<number, PostingSchedule | undefined>;
 }
 
-export function getTimezoneLabel(value: string): string {
-	return timezones.find((timezone) => timezone.value === value)?.label ?? value;
+export function getTimezoneLabel(value: string, locale?: string): string {
+	return value === 'UTC' ? value : timezoneLabel(value, locale);
 }

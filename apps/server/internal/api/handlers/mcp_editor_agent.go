@@ -262,9 +262,14 @@ func mcpEditorRevealTool() mcpOperationDefinition {
 }
 
 func editorAgentAction(kind string, target bool, valueFields map[string]any, required ...string) map[string]any {
+	value := map[string]any{"type": "object", "properties": valueFields, "additionalProperties": false}
+	// A nil variadic slice encodes as null, which is not a valid JSON Schema "required" value.
+	if len(required) > 0 {
+		value["required"] = required
+	}
 	properties := map[string]any{
 		"kind":  map[string]any{"type": "string", "enum": []string{kind}},
-		"value": map[string]any{"type": "object", "properties": valueFields, "required": required, "additionalProperties": false},
+		"value": value,
 	}
 	wanted := []string{"kind", "value"}
 	if target {

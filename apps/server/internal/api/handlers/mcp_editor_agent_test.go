@@ -512,35 +512,3 @@ func TestEditorUsageSurvivesCancellationAndInvalidOutput(t *testing.T) {
 		t.Fatalf("usage leaked to another user: %+v %v", other, err)
 	}
 }
-
-func TestEditorAgentActionSchemasEncodeRequiredAsArray(t *testing.T) {
-	for name, actions := range map[string][]any{"video_edit": videoAgentActions(), "image_edit": imageAgentActions()} {
-		encoded, err := json.Marshal(actions)
-		if err != nil {
-			t.Fatalf("%s: marshal actions: %v", name, err)
-		}
-		var decoded any
-		if err := json.Unmarshal(encoded, &decoded); err != nil {
-			t.Fatalf("%s: unmarshal actions: %v", name, err)
-		}
-		var walk func(path string, node any)
-		walk = func(path string, node any) {
-			switch value := node.(type) {
-			case map[string]any:
-				if required, ok := value["required"]; ok {
-					if _, isArray := required.([]any); !isArray {
-						t.Errorf("%s%s/required = %#v, want a JSON array", name, path, required)
-					}
-				}
-				for key, child := range value {
-					walk(path+"/"+key, child)
-				}
-			case []any:
-				for index, child := range value {
-					walk(fmt.Sprintf("%s/%d", path, index), child)
-				}
-			}
-		}
-		walk("", decoded)
-	}
-}

@@ -1680,3 +1680,53 @@ func TestMCPCallAuditLogRecordsSuccessAndFailure(t *testing.T) {
 	require.Equal(t, "error", failure.Status)
 	require.Contains(t, failure.ErrorMessage, "outside this workspace")
 }
+
+func TestMCPToolListSchemasEncodeRequiredAsArrays(t *testing.T) {
+	t.Parallel()
+	srv := newMCPTestServer(t)
+	srv.handler.auth = mcpScopeAuthenticator{
+		"mcp-token": {UserID: "user-1", Scope: "mcp:full", WorkspaceID: "ws-1"},
+	}
+	srv.handler.SetToolMode("both")
+	var walk func(path string, node any)
+	walk = func(path string, node any) {
+		switch value := node.(type) {
+		case map[string]any:
+			for key, child := range value {
+				if key == "required" {
+					if _, isArray := child.([]any); !isArray {
+						t.Errorf("%s/required = %#v, want a JSON array", path, child)
+					}
+					continue
+				}
+				if key == "properties" {
+					if fields, ok := child.(map[string]any); ok {
+						for field, schema := range fields {
+							walk(path+"/properties/"+field, schema)
+						}
+						continue
+					}
+				}
+				walk(path+"/"+key, child)
+			}
+		case []any:
+			for index, child := range value {
+				walk(fmt.Sprintf("%s/%d", path, index), child)
+			}
+		}
+	}
+	for _, path := range []string{"/mcp", "/mcp/code"} {
+		resp := srv.requestPath(t, path, "mcp-token", map[string]any{"jsonrpc": "2.0", "id": "tools", "method": "tools/list"})
+		require.Equal(t, http.StatusOK, resp.Code)
+		var out struct {
+			Result struct {
+				Tools []map[string]any `json:"tools"`
+			} `json:"result"`
+		}
+		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+		require.NotEmpty(t, out.Result.Tools)
+		for _, tool := range out.Result.Tools {
+			walk(fmt.Sprintf("%s:%v", path, tool["name"]), map[string]any{"inputSchema": tool["inputSchema"], "outputSchema": tool["outputSchema"]})
+		}
+	}
+}

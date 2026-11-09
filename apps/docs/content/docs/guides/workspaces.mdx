@@ -27,7 +27,7 @@ Use **Workspace settings** for members and connected accounts. Your profile menu
 
 ## Send a post to a client
 
-Client review is optional. Your usual draft and publishing flow stays the same until you explicitly send a post for review. The deployment must support client reviews, and the workspace must have an active client member.
+Client review is optional unless an admin [requires it for every post](#require-client-review-for-every-post). Your usual draft and publishing flow stays the same until you explicitly send a post for review. The deployment must support client reviews, and the workspace must have an active client member.
 
 1. Open a draft and finish its text, destination variants, media and provider settings.
 2. Open the composer settings, select **Send to client**, choose the client, and add an optional note.
@@ -38,3 +38,11 @@ Client review is optional. Your usual draft and publishing flow stays the same u
 Editing submitted content requires another review. If the post was queued, the edit removes its pending delivery jobs and returns it to a draft. If you submitted a date, changing that date also requires another review. If you submitted no date, you can choose the first schedule after approval.
 
 The review history keeps the submitted versions and decisions. Removing or changing the assigned client's role prevents further publishing under that approval. Automatic reposts of reviewed posts are disabled; create a separate post for a new placement. Inbox replies remain separate conversation actions.
+
+### Require client review for every post
+
+An admin can make client review mandatory for a workspace. Open **Workspace settings**, select **Require client review for every post** under **Client review**, and save.
+
+While this is on, no post in the workspace can be scheduled, published, or retried until its assigned client approves the current version. This also applies to posts created through the API, the CLI, MCP, and Workflows. Posts that were already queued fail at delivery until they are approved, and automatic reposts are disabled. Add an active client member before turning it on, because posts cannot publish without one.
+
+API and CLI tokens can turn the requirement on but not off. To turn it off, an admin must be signed in to OpenPost in a browser.

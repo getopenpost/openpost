@@ -2,6 +2,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import FormField from '$lib/components/form-field.svelte';
 	import ColorPicker from '$lib/components/color-picker.svelte';
@@ -66,7 +67,11 @@
 				avatar_url: workspaceCtx.settings.avatar_url,
 				color: workspaceCtx.settings.color,
 				timezone: workspaceCtx.settings.timezone,
-				week_start: workspaceCtx.settings.week_start
+				week_start: workspaceCtx.settings.week_start,
+				...(workspaceCtx.settings.require_client_review !==
+				workspaceCtx.savedSettings.require_client_review
+					? { require_client_review: workspaceCtx.settings.require_client_review }
+					: {})
 			});
 			showToast(m.settings_saved());
 		} catch (cause) {
@@ -233,6 +238,30 @@
 		</div>
 	</div>
 </section>
+
+{#if workspaceCtx.currentWorkspace?.role === 'admin' && (workspaceCtx.currentWorkspace.client_reviews_enabled || workspaceCtx.savedSettings.require_client_review)}
+	<section id="client-review" class="scroll-mt-24 space-y-4">
+		<SectionHeader title={m.settings_client_review()} themeIconRole="security" class="mb-4" />
+		<div class="flex items-start gap-3 rounded-lg border bg-muted/20 p-4">
+			<Checkbox
+				id="require-client-review"
+				bind:checked={workspaceCtx.settings.require_client_review}
+				aria-describedby="require-client-review-description"
+			/>
+			<div class="min-w-0 flex-1">
+				<Label for="require-client-review" class="font-medium"
+					>{m.settings_require_client_review()}</Label
+				>
+				<p
+					id="require-client-review-description"
+					class="mt-1 text-sm leading-6 text-muted-foreground"
+				>
+					{m.settings_require_client_review_description()}
+				</p>
+			</div>
+		</div>
+	</section>
+{/if}
 
 {#if workspaceCtx.currentWorkspace?.role === 'admin'}
 	<section id="workspace-danger" class="scroll-mt-24">

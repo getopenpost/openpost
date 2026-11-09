@@ -125,7 +125,8 @@ function selectWorkspace(id: string) {
 		random_delay_minutes: 0,
 		slot_start_hour: 5,
 		slot_end_hour: 23,
-		slot_interval_minutes: 15
+		slot_interval_minutes: 15,
+		require_client_review: false
 	};
 }
 

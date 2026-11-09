@@ -868,3 +868,68 @@ func TestCreateWorkspaceRechecksLimitAfterCompetingCreation(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, count)
 }
+
+type clientReviewSettingAuthenticator struct{}
+
+func (clientReviewSettingAuthenticator) AuthenticateBearer(_ context.Context, token string) (*middleware.Principal, error) {
+	switch token {
+	case "session":
+		return &middleware.Principal{UserID: "user-1", Email: "user@example.com", SessionID: "session-1"}, nil
+	case "cli-token":
+		return &middleware.Principal{UserID: "user-1", Email: "user@example.com", TokenID: "token-1", Scope: "cli:full"}, nil
+	}
+	return nil, apitokens.ErrInvalidToken
+}
+
+func TestWorkspaceClientReviewRequirementSetting(t *testing.T) {
+	saved := func(t *testing.T, srv *workspaceTestServer) bool {
+		var workspace models.Workspace
+		require.NoError(t, srv.db.NewSelect().Model(&workspace).Where("id = ?", "ws-1").Scan(context.Background()))
+		return workspace.RequireClientReview
+	}
+	enable := map[string]any{"require_client_review": true}
+	disable := map[string]any{"require_client_review": false}
+
+	t.Run("needs client reviews on the deployment", func(t *testing.T) {
+		t.Setenv("OPENPOST_CLIENT_REVIEWS_ENABLED", "false")
+		srv := newWorkspaceTestServerWithAuthenticator(t, entitlements.NewSelfHostedService(), clientReviewSettingAuthenticator{})
+		srv.handler.UpdateWorkspaceSettings(srv.api)
+		seedWorkspaceUserAndMember(t, srv.db, "user-1", "user@example.com", models.WorkspaceRoleAdmin)
+		response := srv.patchJSON(t, "/api/v1/workspaces/ws-1/settings", enable, "session")
+		require.Equal(t, http.StatusConflict, response.Code, response.Body.String())
+		require.False(t, saved(t, srv))
+	})
+
+	t.Run("a CLI token can enable but not disable it", func(t *testing.T) {
+		t.Setenv("OPENPOST_CLIENT_REVIEWS_ENABLED", "true")
+		srv := newWorkspaceTestServerWithAuthenticator(t, entitlements.NewSelfHostedService(), clientReviewSettingAuthenticator{})
+		srv.handler.UpdateWorkspaceSettings(srv.api)
+		srv.handler.GetWorkspaceSettings(srv.api)
+		seedWorkspaceUserAndMember(t, srv.db, "user-1", "user@example.com", models.WorkspaceRoleAdmin)
+		response := srv.patchJSON(t, "/api/v1/workspaces/ws-1/settings", enable, "cli-token")
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		require.True(t, saved(t, srv))
+		read := srv.getJSON(t, "/api/v1/workspaces/ws-1/settings", "session")
+		require.Equal(t, http.StatusOK, read.Code, read.Body.String())
+		require.Contains(t, read.Body.String(), `"require_client_review":true`)
+		// Other settings stay editable by automation while the safeguard is on.
+		response = srv.patchJSON(t, "/api/v1/workspaces/ws-1/settings", map[string]any{"week_start": 0, "require_client_review": true}, "cli-token")
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		response = srv.patchJSON(t, "/api/v1/workspaces/ws-1/settings", disable, "cli-token")
+		require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+		require.True(t, saved(t, srv))
+		response = srv.patchJSON(t, "/api/v1/workspaces/ws-1/settings", disable, "session")
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		require.False(t, saved(t, srv))
+	})
+
+	t.Run("editors cannot change it", func(t *testing.T) {
+		t.Setenv("OPENPOST_CLIENT_REVIEWS_ENABLED", "true")
+		srv := newWorkspaceTestServerWithAuthenticator(t, entitlements.NewSelfHostedService(), clientReviewSettingAuthenticator{})
+		srv.handler.UpdateWorkspaceSettings(srv.api)
+		seedWorkspaceUserAndMember(t, srv.db, "user-1", "user@example.com", models.WorkspaceRoleEditor)
+		response := srv.patchJSON(t, "/api/v1/workspaces/ws-1/settings", enable, "session")
+		require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+		require.False(t, saved(t, srv))
+	})
+}

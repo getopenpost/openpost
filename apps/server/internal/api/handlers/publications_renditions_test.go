@@ -103,6 +103,7 @@ func TestRetryFailedPublicationRenditionsQueuesOnlyRetryableFailures(t *testing.
 		(*models.PublicationLifecycleEvent)(nil),
 		(*models.ProviderDelivery)(nil),
 	)
+	seedHandlerWorkspace(t, db, "workspace-1")
 	ctx := context.Background()
 	now := time.Date(2026, time.July, 27, 9, 0, 0, 0, time.UTC)
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{
@@ -701,6 +702,7 @@ func TestRetryPublicationRenditionQueuesOnlySafeTransientFailures(t *testing.T) 
 		(*models.Post)(nil),
 		(*models.ProviderDelivery)(nil),
 	)
+	seedHandlerWorkspace(t, db, "workspace-1")
 	ctx := context.Background()
 	now := time.Now().UTC()
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{
@@ -841,6 +843,7 @@ func TestRetryPublicationRenditionPreservesAcceptedWriteIdentityUntilExactTarget
 				(*models.Job)(nil),
 				(*models.ProviderWriteAttempt)(nil),
 			)
+			seedHandlerWorkspace(t, db, "workspace-1")
 			ctx := t.Context()
 			now := time.Now().UTC()
 			_, err := db.NewInsert().Model(&models.WorkspaceMember{

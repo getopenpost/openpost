@@ -12,14 +12,29 @@ import (
 
 var ErrReviewRequired = errors.New("this post requires approval of its current version before publishing")
 
+// ErrWorkspaceReviewRequired reports an unsubmitted post in a workspace that requires client review.
+var ErrWorkspaceReviewRequired = fmt.Errorf("%w; this workspace requires client review for every post, so send it to a client first", ErrReviewRequired)
+
+func workspaceRequiresReview(ctx context.Context, db bun.IDB, workspaceID string) (bool, error) {
+	return db.NewSelect().Model((*models.Workspace)(nil)).Where("id = ? AND require_client_review = ?", workspaceID, true).Exists(ctx)
+}
+
 // RequireReview runs at admission and again before a provider write. Posts that
-// were never submitted retain their ordinary publishing behavior.
+// were never submitted retain their ordinary publishing behavior unless their
+// workspace requires client review for every post.
 func RequireReview(ctx context.Context, db bun.IDB, publicationID string) error {
 	var post models.Publication
 	if err := db.NewSelect().Model(&post).Where("id = ?", publicationID).Scan(ctx); err != nil {
 		return err
 	}
 	if post.ReviewID == "" {
+		required, err := workspaceRequiresReview(ctx, db, post.WorkspaceID)
+		if err != nil {
+			return err
+		}
+		if required {
+			return ErrWorkspaceReviewRequired
+		}
 		return nil
 	}
 	if post.ReviewState != "approved" {
@@ -72,11 +87,18 @@ func ReviewFingerprints(ctx context.Context, db bun.IDB, publicationID string) (
 // A native repost is a new placement, outside the submitted post's approval.
 func RequireUnreviewedRepost(ctx context.Context, db bun.IDB, publicationID string) error {
 	var post models.Publication
-	if err := db.NewSelect().Model(&post).Column("review_id").Where("id = ?", publicationID).Scan(ctx); err != nil {
+	if err := db.NewSelect().Model(&post).Column("review_id", "workspace_id").Where("id = ?", publicationID).Scan(ctx); err != nil {
 		return err
 	}
 	if post.ReviewID != "" {
 		return errors.New("automatic reposting is disabled for posts sent for client review; create and submit a separate post")
+	}
+	required, err := workspaceRequiresReview(ctx, db, post.WorkspaceID)
+	if err != nil {
+		return err
+	}
+	if required {
+		return errors.New("automatic reposting is disabled while this workspace requires client review for every post; create and submit a separate post")
 	}
 	return nil
 }

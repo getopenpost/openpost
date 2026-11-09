@@ -29,6 +29,7 @@ func TestUpdateScheduledPublicationReschedulesPublishJob(t *testing.T) {
 		(*models.Rendition)(nil),
 		(*models.Job)(nil),
 	)
+	seedHandlerWorkspace(t, db, "workspace-1")
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	oldRunAt := now.Add(2 * time.Hour)
@@ -606,6 +607,7 @@ func TestSchedulePublicationReturnsEveryDestinationOutcome(t *testing.T) {
 		(*models.Job)(nil),
 		(*models.ProviderDelivery)(nil),
 	)
+	seedHandlerWorkspace(t, db, "workspace-1")
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{
@@ -897,6 +899,7 @@ func TestPrimaryPublicationQueueUsesCurrentScheduleAtTransactionBoundary(t *test
 		(*models.Rendition)(nil),
 		(*models.Job)(nil),
 	)
+	seedHandlerWorkspace(t, db, "workspace-1")
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	staleRunAt := now.Add(time.Hour)
@@ -1024,6 +1027,7 @@ func TestReplaceScheduledPublicationJobUsesRenditionOverrides(t *testing.T) {
 		(*models.Rendition)(nil),
 		(*models.Job)(nil),
 	)
+	seedHandlerWorkspace(t, db, "workspace-1")
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	defaultRunAt := now.Add(2 * time.Hour)

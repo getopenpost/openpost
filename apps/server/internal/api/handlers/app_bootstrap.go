@@ -29,6 +29,7 @@ type AppBootstrapWorkspaceSettings struct {
 	SlotStartHour       int      `json:"slot_start_hour"`
 	SlotEndHour         int      `json:"slot_end_hour"`
 	SlotIntervalMinutes int      `json:"slot_interval_minutes"`
+	RequireClientReview bool     `json:"require_client_review" doc:"Whether every post needs an assigned client's approval of its current version before it can be scheduled or published"`
 }
 
 type AppBootstrapUserProfile struct {
@@ -154,5 +155,6 @@ func bootstrapWorkspaceSettings(settings workspaceSettingsRead) *AppBootstrapWor
 		SlotStartHour:       settings.SlotStartHour,
 		SlotEndHour:         settings.SlotEndHour,
 		SlotIntervalMinutes: settings.SlotIntervalMinutes,
+		RequireClientReview: settings.RequireClientReview,
 	}
 }

@@ -51,6 +51,7 @@ interface WorkspaceSettings {
 	slot_start_hour: number;
 	slot_end_hour: number;
 	slot_interval_minutes: number;
+	require_client_review: boolean;
 }
 
 export interface WorkspaceSwitchRequest {
@@ -73,7 +74,8 @@ function defaultWorkspaceSettings(): WorkspaceSettings {
 		random_delay_minutes: 0,
 		slot_start_hour: 5,
 		slot_end_hour: 23,
-		slot_interval_minutes: 15
+		slot_interval_minutes: 15,
+		require_client_review: false
 	};
 }
 
@@ -544,7 +546,8 @@ export class WorkspaceContext {
 			random_delay_minutes: data.random_delay_minutes ?? 0,
 			slot_start_hour: data.slot_start_hour ?? 5,
 			slot_end_hour: data.slot_end_hour ?? 23,
-			slot_interval_minutes: data.slot_interval_minutes ?? 15
+			slot_interval_minutes: data.slot_interval_minutes ?? 15,
+			require_client_review: data.require_client_review ?? false
 		};
 		this.settings = loadedSettings;
 		this.savedSettings = structuredClone(loadedSettings);

@@ -1606,6 +1606,10 @@
 						"format": "int64",
 						"type": "integer"
 					},
+					"require_client_review": {
+						"description": "Whether every post needs an assigned client's approval of its current version before it can be scheduled or published",
+						"type": "boolean"
+					},
 					"slot_end_hour": {
 						"format": "int64",
 						"type": "integer"
@@ -1636,7 +1640,8 @@
 					"random_delay_minutes",
 					"slot_start_hour",
 					"slot_end_hour",
-					"slot_interval_minutes"
+					"slot_interval_minutes",
+					"require_client_review"
 				],
 				"type": ["object", "null"]
 			},
@@ -9366,6 +9371,10 @@
 						"format": "int64",
 						"type": "integer"
 					},
+					"require_client_review": {
+						"description": "Whether every post needs an assigned client's approval of its current version before it can be scheduled or published",
+						"type": "boolean"
+					},
 					"slot_end_hour": {
 						"format": "int64",
 						"type": "integer"
@@ -9396,7 +9405,8 @@
 					"random_delay_minutes",
 					"slot_start_hour",
 					"slot_end_hour",
-					"slot_interval_minutes"
+					"slot_interval_minutes",
+					"require_client_review"
 				],
 				"type": "object"
 			},
@@ -25647,6 +25657,10 @@
 						"format": "int64",
 						"type": "integer"
 					},
+					"require_client_review": {
+						"description": "Require an assigned client's approval for every post. Enabling needs client reviews on this deployment; disabling needs a signed-in browser session.",
+						"type": "boolean"
+					},
 					"slot_end_hour": {
 						"format": "int64",
 						"type": "integer"
@@ -25702,6 +25716,10 @@
 						"format": "int64",
 						"type": "integer"
 					},
+					"require_client_review": {
+						"description": "Whether every post needs an assigned client's approval of its current version before it can be scheduled or published",
+						"type": "boolean"
+					},
 					"slot_end_hour": {
 						"format": "int64",
 						"type": "integer"
@@ -25732,7 +25750,8 @@
 					"random_delay_minutes",
 					"slot_start_hour",
 					"slot_end_hour",
-					"slot_interval_minutes"
+					"slot_interval_minutes",
+					"require_client_review"
 				],
 				"type": "object"
 			},
@@ -66356,6 +66375,16 @@
 							}
 						},
 						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
 					},
 					"422": {
 						"content": {

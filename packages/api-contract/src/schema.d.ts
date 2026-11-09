@@ -7523,6 +7523,8 @@ export interface components {
             name: string;
             /** Format: int64 */
             random_delay_minutes: number;
+            /** @description Whether every post needs an assigned client's approval of its current version before it can be scheduled or published */
+            require_client_review: boolean;
             /** Format: int64 */
             slot_end_hour: number;
             /** Format: int64 */
@@ -10872,6 +10874,8 @@ export interface components {
             name: string;
             /** Format: int64 */
             random_delay_minutes: number;
+            /** @description Whether every post needs an assigned client's approval of its current version before it can be scheduled or published */
+            require_client_review: boolean;
             /** Format: int64 */
             slot_end_hour: number;
             /** Format: int64 */
@@ -17433,6 +17437,8 @@ export interface components {
             name?: string;
             /** Format: int64 */
             random_delay_minutes?: number;
+            /** @description Require an assigned client's approval for every post. Enabling needs client reviews on this deployment; disabling needs a signed-in browser session. */
+            require_client_review?: boolean;
             /** Format: int64 */
             slot_end_hour?: number;
             /** Format: int64 */
@@ -17463,6 +17469,8 @@ export interface components {
             name: string;
             /** Format: int64 */
             random_delay_minutes: number;
+            /** @description Whether every post needs an assigned client's approval of its current version before it can be scheduled or published */
+            require_client_review: boolean;
             /** Format: int64 */
             slot_end_hour: number;
             /** Format: int64 */
@@ -47114,6 +47122,15 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

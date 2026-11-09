@@ -189,12 +189,14 @@ type Workspace struct {
 	// DeprecatedDraftGapMinutes is a tombstone for the removed queue-spillover
 	// setting. The queue is strictly slot-based; when today's slots are full
 	// the next slot is on the next day.
-	DeprecatedDraftGapMinutes int       `bun:"draft_gap_minutes,default:60" json:"-"`
-	RandomDelayMinutes        int       `bun:",default:0" json:"random_delay_minutes"`   // ±N minutes natural posting
-	SlotStartHour             int       `bun:",default:5" json:"slot_start_hour"`        // 0-23
-	SlotEndHour               int       `bun:",default:23" json:"slot_end_hour"`         // 0-23
-	SlotIntervalMinutes       int       `bun:",default:15" json:"slot_interval_minutes"` // 1-180
-	CreatedAt                 time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	DeprecatedDraftGapMinutes int `bun:"draft_gap_minutes,default:60" json:"-"`
+	RandomDelayMinutes        int `bun:",default:0" json:"random_delay_minutes"`   // ±N minutes natural posting
+	SlotStartHour             int `bun:",default:5" json:"slot_start_hour"`        // 0-23
+	SlotEndHour               int `bun:",default:23" json:"slot_end_hour"`         // 0-23
+	SlotIntervalMinutes       int `bun:",default:15" json:"slot_interval_minutes"` // 1-180
+	// RequireClientReview blocks every provider write until an assigned Client approves the current version.
+	RequireClientReview bool      `bun:"require_client_review,notnull,default:false" json:"require_client_review"`
+	CreatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
 type SavedMention struct {

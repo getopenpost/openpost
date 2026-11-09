@@ -12,6 +12,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/api/middleware"
+	"github.com/openpost/backend/internal/config"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/auditprojection"
 	authservice "github.com/openpost/backend/internal/services/auth"
@@ -1504,6 +1505,7 @@ type GetWorkspaceSettingsOutput struct {
 		SlotStartHour       int    `json:"slot_start_hour"`
 		SlotEndHour         int    `json:"slot_end_hour"`
 		SlotIntervalMinutes int    `json:"slot_interval_minutes"`
+		RequireClientReview bool   `json:"require_client_review" doc:"Whether every post needs an assigned client's approval of its current version before it can be scheduled or published"`
 	}
 }
 
@@ -1520,6 +1522,7 @@ type UpdateWorkspaceSettingsInput struct {
 		SlotStartHour       *int    `json:"slot_start_hour,omitempty"`
 		SlotEndHour         *int    `json:"slot_end_hour,omitempty"`
 		SlotIntervalMinutes *int    `json:"slot_interval_minutes,omitempty"`
+		RequireClientReview *bool   `json:"require_client_review,omitempty" doc:"Require an assigned client's approval for every post. Enabling needs client reviews on this deployment; disabling needs a signed-in browser session."`
 	}
 }
 
@@ -1535,6 +1538,7 @@ type UpdateWorkspaceSettingsOutput struct {
 		SlotStartHour       int    `json:"slot_start_hour"`
 		SlotEndHour         int    `json:"slot_end_hour"`
 		SlotIntervalMinutes int    `json:"slot_interval_minutes"`
+		RequireClientReview bool   `json:"require_client_review" doc:"Whether every post needs an assigned client's approval of its current version before it can be scheduled or published"`
 	}
 }
 
@@ -1575,6 +1579,7 @@ func (h *WorkspaceHandler) GetWorkspaceSettings(api huma.API) {
 			SlotStartHour       int    `json:"slot_start_hour"`
 			SlotEndHour         int    `json:"slot_end_hour"`
 			SlotIntervalMinutes int    `json:"slot_interval_minutes"`
+			RequireClientReview bool   `json:"require_client_review" doc:"Whether every post needs an assigned client's approval of its current version before it can be scheduled or published"`
 		}{
 			Name:                settings.Name,
 			AvatarURL:           settings.AvatarURL,
@@ -1586,6 +1591,7 @@ func (h *WorkspaceHandler) GetWorkspaceSettings(api huma.API) {
 			SlotStartHour:       settings.SlotStartHour,
 			SlotEndHour:         settings.SlotEndHour,
 			SlotIntervalMinutes: settings.SlotIntervalMinutes,
+			RequireClientReview: settings.RequireClientReview,
 		}}, nil
 	})
 }
@@ -1599,7 +1605,7 @@ func (h *WorkspaceHandler) UpdateWorkspaceSettings(api huma.API) {
 		Summary:     "Update workspace settings",
 		Tags:        []string{tagWorkspaces},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-		Errors:      []int{400, 403, 404},
+		Errors:      []int{400, 403, 404, 409},
 	}, func(ctx context.Context, input *UpdateWorkspaceSettingsInput) (*UpdateWorkspaceSettingsOutput, error) {
 		userID := middleware.GetUserID(ctx)
 		if err := h.requireWorkspaceAdmin(ctx, input.PathID, userID); err != nil {
@@ -1677,8 +1683,15 @@ func (h *WorkspaceHandler) UpdateWorkspaceSettings(api huma.API) {
 			workspace.SlotIntervalMinutes = *input.Body.SlotIntervalMinutes
 		}
 
+		if input.Body.RequireClientReview != nil && *input.Body.RequireClientReview != workspace.RequireClientReview {
+			if err := requireClientReviewChangeAllowed(ctx, *input.Body.RequireClientReview); err != nil {
+				return nil, err
+			}
+			workspace.RequireClientReview = *input.Body.RequireClientReview
+		}
+
 		_, err = h.db.NewUpdate().Model(&workspace).
-			Column("name", "avatar_url", "color", "timezone", "week_start", "random_delay_minutes", "slot_start_hour", "slot_end_hour", "slot_interval_minutes").
+			Column("name", "avatar_url", "color", "timezone", "week_start", "random_delay_minutes", "slot_start_hour", "slot_end_hour", "slot_interval_minutes", "require_client_review").
 			Where("id = ?", input.PathID).
 			Exec(ctx)
 		if err != nil {
@@ -1696,6 +1709,7 @@ func (h *WorkspaceHandler) UpdateWorkspaceSettings(api huma.API) {
 			SlotStartHour       int    `json:"slot_start_hour"`
 			SlotEndHour         int    `json:"slot_end_hour"`
 			SlotIntervalMinutes int    `json:"slot_interval_minutes"`
+			RequireClientReview bool   `json:"require_client_review" doc:"Whether every post needs an assigned client's approval of its current version before it can be scheduled or published"`
 		}{
 			Name:                workspace.Name,
 			AvatarURL:           workspace.AvatarURL,
@@ -1707,8 +1721,22 @@ func (h *WorkspaceHandler) UpdateWorkspaceSettings(api huma.API) {
 			SlotStartHour:       workspace.SlotStartHour,
 			SlotEndHour:         workspace.SlotEndHour,
 			SlotIntervalMinutes: workspace.SlotIntervalMinutes,
+			RequireClientReview: workspace.RequireClientReview,
 		}}, nil
 	})
+}
+
+// requireClientReviewChangeAllowed keeps the safeguard enforceable: it can only be
+// enabled where clients can receive reviews, and an API token cannot disable the
+// control that restrains automations.
+func requireClientReviewChangeAllowed(ctx context.Context, enable bool) error {
+	if enable && !config.ClientReviewsEnabled() {
+		return huma.Error409Conflict("client reviews are not enabled on this deployment")
+	}
+	if !enable && strings.TrimSpace(middleware.GetSessionID(ctx)) == "" {
+		return huma.Error403Forbidden("a signed-in browser session is required to stop requiring client review")
+	}
+	return nil
 }
 
 func normalizedWorkspaceTimezone(value string) (string, bool) {

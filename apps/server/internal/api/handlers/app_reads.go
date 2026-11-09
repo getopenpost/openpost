@@ -40,6 +40,7 @@ type workspaceSettingsRead struct {
 	SlotStartHour       int
 	SlotEndHour         int
 	SlotIntervalMinutes int
+	RequireClientReview bool
 }
 
 func (r appReadModel) user(ctx context.Context, userID string) (*models.User, error) {
@@ -197,5 +198,6 @@ func (r appReadModel) workspaceSettings(
 		SlotStartHour:       workspace.SlotStartHour,
 		SlotEndHour:         workspace.SlotEndHour,
 		SlotIntervalMinutes: workspace.SlotIntervalMinutes,
+		RequireClientReview: workspace.RequireClientReview,
 	}, true, nil
 }

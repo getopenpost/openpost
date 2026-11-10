@@ -482,6 +482,7 @@ function bootstrap(): AppBootstrap {
       media_cleanup_days: 14,
       name: "Workspace",
       random_delay_minutes: 0,
+      require_client_review: false,
       slot_end_hour: 17,
       slot_interval_minutes: 60,
       slot_start_hour: 9,

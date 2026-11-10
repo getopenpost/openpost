@@ -62,17 +62,20 @@
 	async function saveSettings() {
 		saving = true;
 		try {
-			await workspaceCtx.saveSettings({
+			const settings: Partial<typeof workspaceCtx.settings> = {
 				name: workspaceCtx.settings.name.trim(),
 				avatar_url: workspaceCtx.settings.avatar_url,
 				color: workspaceCtx.settings.color,
 				timezone: workspaceCtx.settings.timezone,
-				week_start: workspaceCtx.settings.week_start,
-				...(workspaceCtx.settings.require_client_review !==
+				week_start: workspaceCtx.settings.week_start
+			};
+			if (
+				workspaceCtx.settings.require_client_review !==
 				workspaceCtx.savedSettings.require_client_review
-					? { require_client_review: workspaceCtx.settings.require_client_review }
-					: {})
-			});
+			) {
+				settings.require_client_review = workspaceCtx.settings.require_client_review;
+			}
+			await workspaceCtx.saveSettings(settings);
 			showToast(m.settings_saved());
 		} catch (cause) {
 			showToast(

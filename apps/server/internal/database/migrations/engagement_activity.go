@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/openpost/backend/internal/inboxactivity"
 	"github.com/uptrace/bun"
@@ -68,15 +69,36 @@ func prepareAccountEngagement(ctx context.Context, db *bun.DB) (result error) {
 				return err
 			}
 		}
-		rows, err := tx.QueryContext(ctx, `PRAGMA foreign_key_check`)
-		if err != nil {
+		// Validate both sides of the rebuilt table's relationships without
+		// making unrelated historic orphans a prerequisite for this upgrade.
+		var tables []string
+		if err := tx.NewRaw(`SELECT DISTINCT schema.name
+			FROM sqlite_master AS schema
+			JOIN pragma_foreign_key_list(schema.name) AS fk ON fk."table"='engagement_items' COLLATE NOCASE
+			WHERE schema.type='table'
+			UNION SELECT 'engagement_items'`).Scan(ctx, &tables); err != nil {
 			return err
 		}
-		defer rows.Close()
-		if rows.Next() {
-			return fmt.Errorf("engagement rebuild violates an existing foreign key")
+		for _, table := range tables {
+			rows, err := tx.QueryContext(ctx, `SELECT parent FROM pragma_foreign_key_check(?)`, table)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var parent string
+				if err := rows.Scan(&parent); err != nil {
+					return err
+				}
+				if strings.EqualFold(table, "engagement_items") || strings.EqualFold(parent, "engagement_items") {
+					return fmt.Errorf("engagement rebuild violates an existing foreign key")
+				}
+			}
+			if err := rows.Err(); err != nil {
+				return err
+			}
 		}
-		return rows.Err()
+		return nil
 	})
 }
 

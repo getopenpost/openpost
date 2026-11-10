@@ -158,10 +158,10 @@ func TestPublicationHandlerLoadAccountsRejectsInactiveAccounts(t *testing.T) {
 }
 
 // seedHandlerWorkspace stores the workspace whose settings scheduling and review gates read.
-func seedHandlerWorkspace(t testing.TB, db *bun.DB, workspaceID string) {
+func seedHandlerWorkspace(t testing.TB, db *bun.DB) {
 	t.Helper()
 	_, err := db.NewCreateTable().Model((*models.Workspace)(nil)).IfNotExists().Exec(context.Background())
 	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Workspace{ID: workspaceID, Name: "Workspace"}).Exec(context.Background())
+	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", Name: "Workspace"}).Exec(context.Background())
 	require.NoError(t, err)
 }

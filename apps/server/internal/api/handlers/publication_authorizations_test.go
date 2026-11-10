@@ -172,7 +172,7 @@ func newPublicationAuthorizationHandlerDB(t *testing.T) *bun.DB {
 
 func seedPublicationAuthorizationHandlerFixture(t *testing.T, db *bun.DB) {
 	t.Helper()
-	seedHandlerWorkspace(t, db, "workspace-1")
+	seedHandlerWorkspace(t, db)
 	now := time.Now().UTC().Truncate(time.Second)
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{
 		WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin,

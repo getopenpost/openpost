@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.39.0] - 2026-11-10
+
+### Added
+
+- Admins can require client review for every post in a workspace (Workspace settings > Client review). While it is on, scheduling, publishing and provider writes refuse any post whose current version has no client approval, including posts created through the API, CLI, MCP and Workflows, and automatic reposts are disabled. Enabling it requires client reviews on the deployment (`OPENPOST_CLIENT_REVIEWS_ENABLED`); disabling it requires a signed-in browser session, so API and CLI tokens cannot turn it off. `GET`/`PATCH /workspaces/{id}/settings` and the app bootstrap expose the new `require_client_review` field.
+
+### Fixed
+
+- The `video_edit` and `image_edit` MCP tools no longer advertise `"required": null` for actions without required value fields (`text.style`, `item.transform`, `page.add`, `page.duplicate`, `page.delete`). MCP clients that validate tool schemas, such as Claude Code, rejected both tools and did not load them.
+- The workspace timezone picker now lists every IANA time zone the browser supports, including Atlantic (America/Halifax) and Newfoundland (America/St_Johns) time. A zone saved through the API stays selectable even when the browser lists it under another name.
+- SQLite upgrades no longer stop at migration 171 because of unrelated historical foreign-key violations in sync-state tables. The engagement table rebuild still validates its own foreign keys and incoming references, preserving existing data.
+
 ## [7.38.6] - 2026-11-08
 
 ### Fixed

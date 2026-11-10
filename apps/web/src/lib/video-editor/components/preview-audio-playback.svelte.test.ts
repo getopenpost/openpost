@@ -109,7 +109,11 @@ it.each(
 		await userEvent.click(screen.container);
 		editorSession.startPlayback({ start: 0, end: 300 });
 		await expect
-			.poll(() => readMixerMasterLevels().peakLeft, { timeout: 2000 })
+			.poll(() => readMixerMasterLevels().peakLeft, {
+				// A cold Chromium shard still has to initialize the audio graph
+				// after the media element is ready. Match the fixture startup budget.
+				timeout: 5_000
+			})
 			.toBeGreaterThan(0.001);
 		if (edit !== 'volume') {
 			const settings: Partial<TimelineItem> = {

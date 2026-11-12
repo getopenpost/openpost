@@ -40,7 +40,7 @@ func TestContentOpenRouterRetriesPastLegacyFiveSecondBudget(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	_, contentConfig := openRouterConfigs(&config.Config{
-		OpenRouterAPIKey:    "test-key",
+		AIAPIKey:            "test-key",
 		ContentAIProvider:   "azure/eu",
 		ContentAIRequireZDR: true,
 	})
@@ -77,7 +77,7 @@ func TestConfiguredGatewayRoutesCaptionAndContent(t *testing.T) {
 	}))
 	defer server.Close()
 	t.Setenv("OPENPOST_AI_BASE_URL", server.URL+"/proxy/v1")
-	t.Setenv("OPENROUTER_API_KEY", "gateway-key")
+	t.Setenv("OPENPOST_AI_API_KEY", "gateway-key")
 	cfg := config.Load()
 	image, content := openRouterConfigs(cfg)
 	for _, routing := range []ai.OpenRouterConfig{image, content} {

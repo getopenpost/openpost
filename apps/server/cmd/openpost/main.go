@@ -695,7 +695,7 @@ func main() {
 	var imageGenerator ai.Generator
 	var decisionGenerator ai.Decider
 	var contentGenerator ai.Generator
-	if cfg.OpenRouterAPIKey != "" {
+	if cfg.AIAPIKey != "" {
 		imageConfig, contentConfig := openRouterConfigs(cfg)
 		imageGenerator, err = ai.NewOpenRouter(imageConfig)
 		if err != nil {

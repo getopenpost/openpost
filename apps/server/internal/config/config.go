@@ -64,7 +64,7 @@ type Config struct {
 	TermsVersion             string
 	PrivacyVersion           string
 	SupportEmail             string
-	OpenRouterAPIKey         string
+	AIAPIKey                 string
 	AIBaseURL                string
 	FalAPIKey                string
 	ContentAIProvider        string
@@ -267,7 +267,7 @@ func Load() *Config {
 		TermsVersion:            getEnvDefault("OPENPOST_TERMS_VERSION", defaultTermsVersion),
 		PrivacyVersion:          getEnvDefault("OPENPOST_PRIVACY_VERSION", defaultPrivacyVersion),
 		SupportEmail:            getEnvDefault("OPENPOST_SUPPORT_EMAIL", defaultSupportEmail),
-		OpenRouterAPIKey:        strings.TrimSpace(getEnvDefault("OPENROUTER_API_KEY", "")),
+		AIAPIKey:                strings.TrimSpace(getEnvWithFallbacks("OPENPOST_AI_API_KEY", "", "OPENROUTER_API_KEY")),
 		AIBaseURL:               strings.TrimSpace(getEnvDefault("OPENPOST_AI_BASE_URL", "")),
 		FalAPIKey:               strings.TrimSpace(getEnvDefault("FAL_KEY", "")),
 		ContentAIProvider:       strings.TrimSpace(getEnvWithFallbacks("OPENPOST_CONTENT_AI_PROVIDER", "", "OPENPOST_IMAGE_CAPTION_PROVIDER")),
@@ -872,7 +872,7 @@ func (c *Config) missingCloudTelemetryConfig() []string {
 }
 
 func (c *Config) invalidCloudImageCaptionConfig() []string {
-	if strings.TrimSpace(c.OpenRouterAPIKey) == "" {
+	if strings.TrimSpace(c.AIAPIKey) == "" {
 		return nil
 	}
 	var invalid []string
@@ -889,7 +889,7 @@ func (c *Config) invalidCloudContentAIConfig() []string {
 	if strings.TrimSpace(c.AIBaseURL) != "" {
 		return []string{"OPENPOST_AI_BASE_URL must be empty for Hosted OpenRouter routing"}
 	}
-	if strings.TrimSpace(c.OpenRouterAPIKey) == "" {
+	if strings.TrimSpace(c.AIAPIKey) == "" {
 		return nil
 	}
 	var invalid []string

@@ -125,7 +125,7 @@ export default defineConfig({
         // The isolated test server runs all roles after migration, so review admission is safe.
         OPENPOST_CLIENT_REVIEWS_ENABLED: "true",
         // Stored Builder fixtures exercise mutations without sending generation requests.
-        OPENROUTER_API_KEY: "e2e-unused-openrouter-key",
+        OPENPOST_AI_API_KEY: "e2e-unused-openrouter-key",
       },
       command: [
         `rm -f ${dbPath}`,

@@ -15,7 +15,7 @@ const (
 
 func openRouterConfigs(cfg *config.Config) (ai.OpenRouterConfig, ai.OpenRouterConfig) {
 	base := ai.OpenRouterConfig{
-		APIKey:             cfg.OpenRouterAPIKey,
+		APIKey:             cfg.AIAPIKey,
 		BaseURL:            cfg.AIBaseURL,
 		CompatibleEndpoint: strings.TrimSpace(cfg.AIBaseURL) != "",
 		HTTPReferer:        cfg.PublicURL,

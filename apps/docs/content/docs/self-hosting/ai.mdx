@@ -12,7 +12,7 @@ Add an OpenRouter key to enable AI post generation and automatic image captions.
 2. Add the key to the `.env` file used by your OpenPost container. Choose model IDs available to that key:
 
 ```dotenv
-OPENROUTER_API_KEY=your-openrouter-key
+OPENPOST_AI_API_KEY=your-openrouter-key
 OPENPOST_TEXT_GENERATION_MODEL=openai/gpt-6-luna
 OPENPOST_WORKFLOW_DECISION_MODEL=typesafe/jev-1.13
 OPENPOST_IMAGE_CAPTION_MODEL=openai/gpt-6-luna
@@ -24,7 +24,7 @@ The text model builds post copy from an idea. The image caption model writes sug
 
 You can leave the model values unset to use OpenPost's defaults. `OPENPOST_CONTENT_AI_PROVIDER` optionally selects an exact OpenRouter provider for text and meme generation. `OPENPOST_CONTENT_AI_REQUIRE_ZDR=true` restricts those requests to zero-retention endpoints. Use it only after checking that the selected model and provider support that policy. OpenRouter [documents its per-request zero-retention behavior](https://openrouter.ai/docs/guides/features/zdr). Image captions have separate `OPENPOST_IMAGE_CAPTION_PROVIDER` and `OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR` settings when you need different routing.
 
-Keep the key in your server secret store. Use `OPENROUTER_API_KEY_FILE` for a mounted secret file. Do not include it in posts, prompts, or logs.
+Keep the key in your server secret store. Use `OPENPOST_AI_API_KEY_FILE` for a mounted secret file. Do not include it in posts, prompts, or logs.
 
 ## Use your own AI gateway
 
@@ -32,14 +32,16 @@ For a self-hosted instance, set `OPENPOST_AI_BASE_URL` to your gateway's OpenAI-
 
 ```dotenv
 OPENPOST_AI_BASE_URL=https://gateway.example/v1
-OPENROUTER_API_KEY=your-gateway-key
+OPENPOST_AI_API_KEY=your-gateway-key
 OPENPOST_TEXT_GENERATION_MODEL=your-text-model
 OPENPOST_IMAGE_CAPTION_MODEL=your-vision-model
 OPENPOST_MEME_GENERATION_MODEL=your-text-model
 OPENPOST_WORKFLOW_DECISION_MODEL=your-decision-model
 ```
 
-The existing key variable also authenticates gateway requests, including through `OPENROUTER_API_KEY_FILE`. Set the models to IDs your gateway serves. Image captions need image input support; post building, meme suggestions and workflow decisions need structured JSON output support. A provider's native API must be exposed through an OpenAI-compatible endpoint to work here.
+`OPENPOST_AI_API_KEY` authenticates both OpenRouter and gateway requests. Use `OPENPOST_AI_API_KEY_FILE` for a mounted secret. The legacy names `OPENROUTER_API_KEY` and `OPENROUTER_API_KEY_FILE` remain supported as fallbacks. The new name or its mounted secret takes precedence.
+
+Set the models to IDs your gateway serves. Image captions need image input support; post building, meme suggestions and workflow decisions need structured JSON output support. A provider's native API must be exposed through an OpenAI-compatible endpoint to work here.
 
 Custom endpoints receive no OpenRouter `provider` preferences, `HTTP-Referer` or `X-Title` headers. OpenRouter provider pins and ZDR settings have no effect in this mode. Configure routing, retention and privacy at your gateway. OpenRouter web search is unavailable with a custom endpoint.
 

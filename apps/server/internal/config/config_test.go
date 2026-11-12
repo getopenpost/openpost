@@ -52,6 +52,7 @@ var configTestEnvKeys = []string{
 	"OPENPOST_PRIVACY_VERSION",
 	"OPENPOST_SUPPORT_EMAIL",
 	"OPENROUTER_API_KEY",
+	"OPENPOST_AI_API_KEY",
 	"OPENPOST_AI_BASE_URL",
 	"OPENPOST_CONTENT_AI_PROVIDER",
 	"OPENPOST_CONTENT_AI_REQUIRE_ZDR",
@@ -542,7 +543,7 @@ func TestValidateRuntimeRejectsManagedPolicyVersionDrift(t *testing.T) {
 
 func TestValidateRuntimePinsManagedAIToZdrEUProvider(t *testing.T) {
 	cfg := validCloudRuntimeConfig()
-	cfg.OpenRouterAPIKey = "openrouter-key"
+	cfg.AIAPIKey = "openrouter-key"
 	cfg.ContentAIProvider = "openai"
 	cfg.ContentAIRequireZDR = false
 	cfg.ImageCaptionProvider = "openai"
@@ -787,4 +788,33 @@ func TestValidateRuntimeRejectsCustomAIEndpointForHosted(t *testing.T) {
 	cfg := validCloudRuntimeConfig()
 	cfg.AIBaseURL = "https://gateway.example.test/v1"
 	require.ErrorContains(t, cfg.ValidateRuntime(), "OPENPOST_AI_BASE_URL must be empty")
+}
+
+func TestLoadAIAPIKeyAliases(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		env  map[string]string
+		want string
+	}{
+		{"primary", map[string]string{"OPENPOST_AI_API_KEY": " gateway-key "}, "gateway-key"},
+		{"legacy", map[string]string{"OPENROUTER_API_KEY": " legacy-key "}, "legacy-key"},
+		{"primary file", map[string]string{"OPENPOST_AI_API_KEY_FILE": "file"}, "mounted-key"},
+		{"legacy file", map[string]string{"OPENROUTER_API_KEY_FILE": "file"}, "mounted-key"},
+		{"primary wins", map[string]string{"OPENPOST_AI_API_KEY": "primary-key", "OPENROUTER_API_KEY": "legacy-key"}, "primary-key"},
+		{"primary file wins", map[string]string{"OPENPOST_AI_API_KEY_FILE": "file", "OPENROUTER_API_KEY": "legacy-key"}, "mounted-key"},
+		{"empty primary falls back", map[string]string{"OPENPOST_AI_API_KEY": "", "OPENROUTER_API_KEY": "legacy-key"}, "legacy-key"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, key := range []string{"OPENPOST_AI_API_KEY", "OPENPOST_AI_API_KEY_FILE", "OPENROUTER_API_KEY", "OPENROUTER_API_KEY_FILE"} {
+				t.Setenv(key, "")
+			}
+			for key, value := range tc.env {
+				if value == "file" {
+					value = writeEnvFile(t, "ai-key", "mounted-key\n")
+				}
+				t.Setenv(key, value)
+			}
+			require.Equal(t, tc.want, Load().AIAPIKey)
+		})
+	}
 }

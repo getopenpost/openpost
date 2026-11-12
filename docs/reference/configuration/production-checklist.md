@@ -19,7 +19,7 @@ changes live in [Developer Docs](../../development/index.md).
 - [ ] Keep `OPENPOST_EXTRA_CORS_ORIGINS` explicit and do not use `*`.
 - [ ] Configure a reverse proxy with HTTPS before connecting OAuth providers.
 - [ ] Align reverse-proxy and CDN request-body limits with the largest video you accept, and disable request buffering for streamed uploads.
-- [ ] Decide whether to enable automatic image alt text. If enabled, store `OPENROUTER_API_KEY` through `OPENROUTER_API_KEY_FILE` and review OpenRouter and model provider privacy and retention terms.
+- [ ] Decide whether to enable automatic image alt text. If enabled, store `OPENPOST_AI_API_KEY` through `OPENPOST_AI_API_KEY_FILE` and review OpenRouter and model provider privacy and retention terms.
 - [ ] Review the built-in meme catalog's source links and template-rights boundary. If AI meme suggestions are enabled, review the configured OpenRouter model and privacy terms; manual rendering stays inside OpenPost.
 - [ ] Confirm `GET /api/v1/health` returns `{"status":"ok"}`.
 - [ ] Confirm `GET /api/v1/ready` returns `{"status":"ready","database":"ok"}`.

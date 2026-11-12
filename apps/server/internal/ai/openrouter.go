@@ -38,12 +38,14 @@ type HTTPClient interface {
 }
 
 type OpenRouterConfig struct {
-	APIKey      string
-	BaseURL     string
-	HTTPClient  HTTPClient
-	HTTPReferer string
-	XTitle      string
-	Timeout     time.Duration
+	APIKey  string
+	BaseURL string
+	// CompatibleEndpoint disables OpenRouter-specific routing and attribution.
+	CompatibleEndpoint bool
+	HTTPClient         HTTPClient
+	HTTPReferer        string
+	XTitle             string
+	Timeout            time.Duration
 	// Provider pins requests to one exact OpenRouter provider slug, such as
 	// azure/eu. An empty value keeps the normal eligible-provider routing.
 	Provider   string
@@ -54,9 +56,10 @@ type OpenRouterConfig struct {
 }
 
 type OpenRouter struct {
-	client     openai.Client
-	provider   string
-	requireZDR bool
+	client         openai.Client
+	customEndpoint bool
+	provider       string
+	requireZDR     bool
 }
 
 // OpenRouter may return assistant content as either a string or an array of
@@ -116,25 +119,27 @@ func NewOpenRouter(config OpenRouterConfig) (*OpenRouter, error) {
 	options := []option.RequestOption{
 		option.WithAPIKey(apiKey),
 		option.WithBaseURL(baseURL),
-		option.WithHeader("HTTP-Referer", httpReferer),
-		option.WithHeader("X-Title", title),
 		option.WithRequestTimeout(timeout),
 		option.WithMaxRetries(maxRetries),
 		option.WithMaxRetryDelay(retryMax),
+	}
+	if !config.CompatibleEndpoint {
+		options = append(options, option.WithHeader("HTTP-Referer", httpReferer), option.WithHeader("X-Title", title))
 	}
 	if config.HTTPClient != nil {
 		options = append(options, option.WithHTTPClient(config.HTTPClient))
 	}
 
 	return &OpenRouter{
-		client:     openai.NewClient(options...),
-		provider:   strings.TrimSpace(config.Provider),
-		requireZDR: config.RequireZDR,
+		client:         openai.NewClient(options...),
+		customEndpoint: config.CompatibleEndpoint,
+		provider:       strings.TrimSpace(config.Provider),
+		requireZDR:     config.RequireZDR,
 	}, nil
 }
 
 func (o *OpenRouter) Generate(ctx context.Context, request GenerateRequest) (GenerateResult, error) {
-	chatRequest, requestOptions, err := buildOpenRouterRequest(request, o.provider, o.requireZDR)
+	chatRequest, requestOptions, err := buildOpenRouterRequest(request, o.provider, o.requireZDR, o.customEndpoint)
 	if err != nil {
 		return GenerateResult{}, err
 	}
@@ -174,6 +179,7 @@ func buildOpenRouterRequest(
 	request GenerateRequest,
 	providerSlug string,
 	requireZDR bool,
+	customEndpoint bool,
 ) (openai.ChatCompletionNewParams, []option.RequestOption, error) {
 	model := strings.TrimSpace(request.Model)
 	if model == "" {
@@ -268,7 +274,12 @@ func buildOpenRouterRequest(
 	}
 	requestOptions := []option.RequestOption{
 		option.WithJSONSet("stream", false),
-		option.WithJSONSet("provider", providerPreferences),
+	}
+	if !customEndpoint {
+		requestOptions = append(requestOptions, option.WithJSONSet("provider", providerPreferences))
+	}
+	if hasWebSearch && customEndpoint {
+		return openai.ChatCompletionNewParams{}, nil, errors.New("AI web search requires the default OpenRouter endpoint")
 	}
 	if hasWebSearch {
 		requestOptions = append(requestOptions, option.WithJSONSet("tools", []any{webSearchTool}))

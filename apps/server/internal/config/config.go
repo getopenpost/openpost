@@ -65,6 +65,7 @@ type Config struct {
 	PrivacyVersion           string
 	SupportEmail             string
 	OpenRouterAPIKey         string
+	AIBaseURL                string
 	FalAPIKey                string
 	ContentAIProvider        string
 	ContentAIRequireZDR      bool
@@ -267,6 +268,7 @@ func Load() *Config {
 		PrivacyVersion:          getEnvDefault("OPENPOST_PRIVACY_VERSION", defaultPrivacyVersion),
 		SupportEmail:            getEnvDefault("OPENPOST_SUPPORT_EMAIL", defaultSupportEmail),
 		OpenRouterAPIKey:        strings.TrimSpace(getEnvDefault("OPENROUTER_API_KEY", "")),
+		AIBaseURL:               strings.TrimSpace(getEnvDefault("OPENPOST_AI_BASE_URL", "")),
 		FalAPIKey:               strings.TrimSpace(getEnvDefault("FAL_KEY", "")),
 		ContentAIProvider:       strings.TrimSpace(getEnvWithFallbacks("OPENPOST_CONTENT_AI_PROVIDER", "", "OPENPOST_IMAGE_CAPTION_PROVIDER")),
 		ContentAIRequireZDR:     getEnvBoolWithAliases(false, "OPENPOST_CONTENT_AI_REQUIRE_ZDR", "OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR"),
@@ -884,6 +886,9 @@ func (c *Config) invalidCloudImageCaptionConfig() []string {
 }
 
 func (c *Config) invalidCloudContentAIConfig() []string {
+	if strings.TrimSpace(c.AIBaseURL) != "" {
+		return []string{"OPENPOST_AI_BASE_URL must be empty for Hosted OpenRouter routing"}
+	}
 	if strings.TrimSpace(c.OpenRouterAPIKey) == "" {
 		return nil
 	}

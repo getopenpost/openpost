@@ -52,6 +52,7 @@ var configTestEnvKeys = []string{
 	"OPENPOST_PRIVACY_VERSION",
 	"OPENPOST_SUPPORT_EMAIL",
 	"OPENROUTER_API_KEY",
+	"OPENPOST_AI_BASE_URL",
 	"OPENPOST_CONTENT_AI_PROVIDER",
 	"OPENPOST_CONTENT_AI_REQUIRE_ZDR",
 	"OPENPOST_IMAGE_CAPTION_MODEL",
@@ -774,4 +775,16 @@ func TestRuntimeProxyAndWorkflowLimits(t *testing.T) {
 	require.False(t, cfg.WorkflowsAIEnabled)
 	require.Zero(t, cfg.WorkflowsAIMonthlyCalls)
 	require.NoError(t, cfg.ValidateRuntime())
+}
+
+func TestLoadCustomAIEndpoint(t *testing.T) {
+	require.Empty(t, Load().AIBaseURL)
+	t.Setenv("OPENPOST_AI_BASE_URL", " https://gateway.example.test/v1/ ")
+	require.Equal(t, "https://gateway.example.test/v1/", Load().AIBaseURL)
+}
+
+func TestValidateRuntimeRejectsCustomAIEndpointForHosted(t *testing.T) {
+	cfg := validCloudRuntimeConfig()
+	cfg.AIBaseURL = "https://gateway.example.test/v1"
+	require.ErrorContains(t, cfg.ValidateRuntime(), "OPENPOST_AI_BASE_URL must be empty")
 }

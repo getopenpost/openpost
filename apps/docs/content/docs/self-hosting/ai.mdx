@@ -1,6 +1,6 @@
 ---
 title: AI providers
-description: Configure OpenRouter for text and captions, and fal for image generation and editing.
+description: Configure OpenRouter or a compatible gateway for text and captions, and fal for images.
 icon: Sparkles
 ---
 
@@ -26,16 +26,35 @@ You can leave the model values unset to use OpenPost's defaults. `OPENPOST_CONTE
 
 Keep the key in your server secret store. Use `OPENROUTER_API_KEY_FILE` for a mounted secret file. Do not include it in posts, prompts, or logs.
 
+## Use your own AI gateway
+
+For a self-hosted instance, set `OPENPOST_AI_BASE_URL` to your gateway's OpenAI-compatible API base, including its path prefix. OpenPost appends `/chat/completions`, so use a base such as `https://gateway.example/v1`, not the full completion URL.
+
+```dotenv
+OPENPOST_AI_BASE_URL=https://gateway.example/v1
+OPENROUTER_API_KEY=your-gateway-key
+OPENPOST_TEXT_GENERATION_MODEL=your-text-model
+OPENPOST_IMAGE_CAPTION_MODEL=your-vision-model
+OPENPOST_MEME_GENERATION_MODEL=your-text-model
+OPENPOST_WORKFLOW_DECISION_MODEL=your-decision-model
+```
+
+The existing key variable also authenticates gateway requests, including through `OPENROUTER_API_KEY_FILE`. Set the models to IDs your gateway serves. Image captions need image input support; post building, meme suggestions and workflow decisions need structured JSON output support. A provider's native API must be exposed through an OpenAI-compatible endpoint to work here.
+
+Custom endpoints receive no OpenRouter `provider` preferences, `HTTP-Referer` or `X-Title` headers. OpenRouter provider pins and ZDR settings have no effect in this mode. Configure routing, retention and privacy at your gateway. OpenRouter web search is unavailable with a custom endpoint.
+
+Recreate the container with `docker compose up -d --force-recreate openpost`, then follow the checks below. Apply the same environment to separate web and worker roles. Clear `OPENPOST_AI_BASE_URL` to return to OpenRouter. Hosted keeps its existing OpenRouter routing. Image generation through fal is independent of this setting.
+
 ## Check the setup
 
 1. Open a new post and ask the AI builder to turn a short idea into a draft. Review the generated copy before saving or publishing.
 2. Add an image with no existing alt text to the composer and generate a caption. Review it before publishing. Existing alt text is kept.
 
-Post generation sends the idea and selected context to the configured model through OpenRouter. Automatic alt text sends a 400 px JPEG thumbnail and up to 1,000 characters of relevant post text, rather than the original image. Background removal, video editing, and local transcription run in the browser and do not require this key.
+Post generation sends the idea and selected context to the configured model through the configured AI endpoint. Automatic alt text sends a 400 px JPEG thumbnail and up to 1,000 characters of relevant post text, rather than the original image. Background removal, video editing, and local transcription run in the browser and do not require this key.
 
-If a request fails, check the container logs for an OpenRouter error, then check the key, model ID, balance, provider slug, and zero-retention setting. A text-only model may not be suitable for image captions.
+If a request fails, check the container logs and your provider or gateway for authentication, model access and balance errors. For OpenRouter, also check the provider slug and zero-retention setting. A text-only model may not be suitable for image captions.
 
-Workflow AI decisions use Jev through OpenRouter's Decisions API. They route through TypeSafe and retain the content AI zero-data-retention requirement. Existing saved model settings take precedence over these defaults.
+With the default endpoint, workflow AI decisions use Jev through OpenRouter's Decisions API. They route through TypeSafe and retain the content AI zero-data-retention requirement. With a custom endpoint, decisions use chat completions with structured probability output and `OPENPOST_WORKFLOW_DECISION_MODEL`. Existing saved model settings take precedence over environment defaults.
 
 ## Image generation with fal
 

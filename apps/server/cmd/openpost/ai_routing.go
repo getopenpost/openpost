@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"time"
 
 	"github.com/openpost/backend/internal/ai"
@@ -14,9 +15,11 @@ const (
 
 func openRouterConfigs(cfg *config.Config) (ai.OpenRouterConfig, ai.OpenRouterConfig) {
 	base := ai.OpenRouterConfig{
-		APIKey:      cfg.OpenRouterAPIKey,
-		HTTPReferer: cfg.PublicURL,
-		XTitle:      "OpenPost",
+		APIKey:             cfg.OpenRouterAPIKey,
+		BaseURL:            cfg.AIBaseURL,
+		CompatibleEndpoint: strings.TrimSpace(cfg.AIBaseURL) != "",
+		HTTPReferer:        cfg.PublicURL,
+		XTitle:             "OpenPost",
 	}
 	imageConfig := base
 	imageConfig.Provider = cfg.ImageCaptionProvider

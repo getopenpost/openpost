@@ -107,6 +107,8 @@ test("Messages distinguishes archived filters from account setup and clears them
   }
   const databasePath = `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`;
   execFileSync("sqlite3", [
+    "-cmd",
+    ".timeout 5000",
     databasePath,
     `UPDATE account_features SET enabled=0 WHERE social_account_id='${accountID}' AND feature='messaging';`,
   ]);
@@ -133,6 +135,8 @@ test("Messages distinguishes archived filters from account setup and clears them
   ).toHaveAttribute("href", "/settings?tab=accounts");
   await page.screenshot({ path: testInfo.outputPath("disabled-filters-320-dark.png") });
   execFileSync("sqlite3", [
+    "-cmd",
+    ".timeout 5000",
     databasePath,
     `UPDATE account_features SET enabled=1 WHERE social_account_id='${accountID}' AND feature='messaging';`,
   ]);

@@ -76,7 +76,7 @@ EOF
 apt_options=(
   -o "Dir::Etc::sourcelist=$fixture_dir/ubuntu.sources" -o Dir::Etc::sourceparts=-
   -o APT::Update::Error-Mode=any
-  -o Acquire::Retries=0 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20
+  -o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20
   -o DPkg::Lock::Timeout=30
 )
 timeout --kill-after=10s 60s sudo -n apt-get "${apt_options[@]}" update

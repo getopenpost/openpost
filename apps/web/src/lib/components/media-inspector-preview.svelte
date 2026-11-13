@@ -44,6 +44,15 @@
 		onSaveAlt,
 		onRetryAnalysis
 	}: Props = $props();
+
+	// FFmpeg reports MP4 and QuickTime through one demuxer family ("mov,mp4,...")
+	// and records its first name. Prefer the uploaded type's own name.
+	function displayContainer(container: string | null | undefined, mimeType: string) {
+		if (!container) return '';
+		const subtype = mimeType.split('/')[1]?.toLowerCase();
+		if (container === 'mov' && subtype === 'mp4') return 'mp4';
+		return container;
+	}
 </script>
 
 <div class="grid items-start gap-6 py-2 md:grid-cols-[18rem_minmax(0,1fr)]">
@@ -119,7 +128,11 @@
 				<div>
 					<dt class="text-xs text-muted-foreground">{m.media_video_format()}</dt>
 					<dd class="mt-0.5">
-						{[media.container_format, media.video_codec, media.audio_codec]
+						{[
+							displayContainer(media.container_format, media.mime_type),
+							media.video_codec,
+							media.audio_codec
+						]
 							.filter(Boolean)
 							.join(' · ') || '—'}
 					</dd>

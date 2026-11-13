@@ -2,6 +2,7 @@
 	import { onDestroy, tick, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { ideate } from '$lib/post-builder/ideate.svelte';
+	import { moveInto } from '$lib/actions/move-into';
 	import { auth } from '$lib/stores/auth';
 	import {
 		readIdeateDraft,
@@ -54,6 +55,16 @@
 		type PublicationBuildRequest,
 		type PublicationPostOption
 	} from '$lib/post-builder/client';
+	let { variant = 'dialog' }: { variant?: 'dialog' | 'page' } = $props();
+	// The page variant is always visible; the dialog only while it is open.
+	const visible = $derived(variant === 'page' || ideate.open);
+	let pageSlot = $state<HTMLElement>();
+	let dialogBody = $state<HTMLElement>();
+	/** Switches the builder's context; only the dialog variant opens a dialog. */
+	function openContext(entry: { workspaceId: string; contextKey: string; buildId?: string }) {
+		if (variant === 'page') ideate.select(entry);
+		else ideate.show(entry);
+	}
 	const workspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const accounts = createQuery(() => workspaceAccountsQueryOptions(queryAPI, workspaceId));
 	const voices = createQuery(() => voiceProfilesQueryOptions(voiceProfileQueryAPI, workspaceId));
@@ -162,7 +173,7 @@
 		if (next.state === 'ready') {
 			options = next.result?.options ?? [];
 			editingIdea = false;
-			if (focusResults && ideate.open) {
+			if (focusResults && visible) {
 				focusResults = false;
 				await tick();
 				resultsElement?.focus();
@@ -659,6 +670,356 @@
 	});
 </script>
 
+{#snippet content()}
+	<div class={['grid w-full max-w-6xl gap-6', variant === 'dialog' && 'mx-auto']}>
+		{#if accounts.error}<InlineNotice
+				tone="error"
+				message={m.compose_ai_destinations_required()}
+			/>{/if}
+		{#if editingIdea || !hasResults}<form
+				class={['grid w-full max-w-2xl gap-4', variant === 'dialog' && 'mx-auto']}
+				onsubmit={(event) => {
+					event.preventDefault();
+					void generate();
+				}}
+			>
+				<label class="grid gap-2 text-sm font-medium"
+					>{m.ideate_idea_label()}<Textarea
+						bind:value={idea}
+						rows={4}
+						maxlength={20000}
+						placeholder={m.ideate_idea_placeholder()}
+						disabled={active || using}
+						onpaste={(event) => {
+							const files = Array.from(event.clipboardData?.files ?? []);
+							if (files.length) {
+								event.preventDefault();
+								void upload(files);
+							}
+						}}
+					/></label
+				>
+				<div class="flex flex-wrap items-center gap-2">
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						onclick={openAttachments}
+						disabled={active || using || uploading || assets.length >= 10}
+					>
+						<ThemeIcon role="image-add" class="size-4" />{uploading
+							? m.ideate_uploading()
+							: m.ideate_attach()}
+					</Button>
+					{#if missingAssets.length}
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							disabled={active || using || uploading || assets.length >= 10}
+							onclick={() => {
+								setAssets([...assets, ...missingAssets.slice(0, 10 - assets.length)]);
+							}}><ThemeIcon role="undo" class="size-4" />{m.compose_ai_media_use_source()}</Button
+						>
+					{/if}
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						class="ml-auto"
+						disabled={active || using || discovering || !selectedAccounts.length}
+						title={m.ideate_suggest_description()}
+						onclick={() => void discover()}
+					>
+						<ThemeIcon role="search" class="size-4" />{discovering
+							? m.compose_ai_finding_ideas()
+							: m.ideate_suggest()}
+					</Button>
+				</div>
+				{#if discoveryError}<InlineNotice tone="error" message={discoveryError} />{/if}
+				{#if discovering}<p class="text-sm text-muted-foreground" role="status">
+						{m.ideate_suggest_description()}
+					</p>{/if}
+				{#if opportunities.length}
+					<div class="grid gap-2" role="group" aria-label={m.ideate_suggest()}>
+						{#each opportunities as opportunity (opportunity.id)}
+							<Button
+								multiline
+								type="button"
+								variant="outline"
+								class="h-auto min-h-11 flex-col items-start gap-1 p-3 text-left whitespace-normal"
+								onclick={() => {
+									idea = [opportunity.title, opportunity.hook].filter(Boolean).join('\n\n');
+									opportunities = [];
+								}}
+							>
+								<span class="font-medium">{opportunity.title}</span>
+								<span class="text-sm font-normal text-muted-foreground"
+									>{opportunity.why_it_fits}</span
+								>
+							</Button>
+						{/each}
+					</div>
+				{/if}
+				{#if assets.length}
+					<ul class="grid gap-2" aria-label={m.compose_ai_media()}>
+						{#each assets as asset (asset.id)}
+							{@const metadata = assetMetadata.data?.media.find((item) => item.id === asset.id)}
+							{@const name = metadata?.original_filename || asset.name}
+							<li class="flex min-w-0 items-center gap-3 rounded-lg border p-2">
+								<MediaThumbnail
+									item={{
+										mime_type: metadata?.mime_type ?? '',
+										url: metadata?.url ?? '',
+										thumbnail_url: metadata?.thumbnail_url,
+										poster_thumbnail_url: metadata?.poster_thumbnail_url,
+										original_filename: name,
+										alt_text: metadata?.alt_text
+									}}
+									class="size-14 shrink-0 rounded-md object-cover"
+								/>
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm font-medium" title={name}>{name}</p>
+									<label class="flex min-h-11 items-center gap-2 text-xs text-muted-foreground">
+										<Checkbox
+											checked={asset.mayPublish}
+											disabled={active || using}
+											onCheckedChange={(checked) =>
+												(assets = assets.map((item) =>
+													item.id === asset.id ? { ...item, mayPublish: checked === true } : item
+												))}
+										/>
+										{m.ideate_attachment_publishable()}
+									</label>
+								</div>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon"
+									class="shrink-0"
+									onclick={() => setAssets(assets.filter((item) => item.id !== asset.id))}
+									disabled={active || using}
+									aria-label={m.ideate_remove_attachment({ name })}
+								>
+									<ThemeIcon role="close" class="size-4" />
+								</Button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+				<div class="grid min-w-0 gap-2">
+					<p class="text-sm font-medium">{m.compose_destinations()}</p>
+					<SocialSetControl
+						{workspaceId}
+						accounts={accounts.data ?? []}
+						selectedAccountIds={accountIds}
+						bind:selectedSetId={setId}
+						disabled={active || using}
+						autoApplyDefault={!build && !ideate.entry?.buildId && !ideate.entry?.input}
+						onApply={(set) =>
+							(accountIds = (set?.accounts ?? []).map((item) => item.social_account_id))}
+						onToggle={(account) => {
+							setId = '';
+							accountIds = accountIds.includes(account.id)
+								? accountIds.filter((id) => id !== account.id)
+								: [...accountIds, account.id];
+						}}
+						onSelectAll={() => {
+							setId = '';
+							accountIds = (accounts.data ?? []).map((account) => account.id);
+						}}
+						onClearAll={() => {
+							setId = '';
+							accountIds = [];
+						}}
+					/>
+				</div>
+				{#if !accountIds.length && !accounts.isPending}
+					<p class="text-sm text-muted-foreground">{m.compose_select_account()}</p>
+				{/if}
+				<Disclosure
+					summary={m.ideate_options()}
+					summaryClass="text-muted-foreground"
+					class="border-t"
+				>
+					<div class="grid gap-3 pb-3">
+						<label class="grid gap-1.5 text-sm font-medium"
+							>{m.ideate_voice_profile()}<AppSelect
+								bind:value={voiceId}
+								options={[
+									{ value: '', label: m.ideate_voice_account_defaults() },
+									...(voices.data ?? []).map((profile) => ({
+										value: profile.id,
+										label: profile.name
+									}))
+								]}
+								disabled={active || using}
+								ariaLabel={m.ideate_voice_profile()}
+							/></label
+						><label class="grid gap-1.5 text-sm font-medium"
+							>{m.ideate_direction()}<Input
+								bind:value={direction}
+								maxlength={500}
+								disabled={active || using}
+								placeholder={m.ideate_direction_placeholder()}
+							/></label
+						><label class="grid gap-1.5 text-sm font-medium"
+							>{m.compose_ai_context_notes()}<Textarea
+								bind:value={notes}
+								maxlength={10000}
+								rows={3}
+								disabled={active || using}
+							/></label
+						><label class="grid gap-1.5 text-sm font-medium"
+							>{m.compose_ai_context_links()}<Textarea
+								bind:value={links}
+								rows={2}
+								disabled={active || using}
+							/></label
+						>
+					</div>
+				</Disclosure>
+				<div
+					class="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between"
+				>
+					<label class="flex min-h-11 items-center gap-2 text-sm"
+						><Checkbox
+							bind:checked={seriesMode}
+							disabled={active || using}
+						/>{m.series_create()}</label
+					>
+					<Button
+						type="submit"
+						class="min-h-11 sm:min-w-40"
+						disabled={active ||
+							using ||
+							saving ||
+							uploading ||
+							discovering ||
+							!(idea.trim() || notes.trim() || links.trim() || assets.length) ||
+							!accountIds.length}
+						>{active
+							? m.ideate_generating()
+							: seriesMode
+								? m.series_plan()
+								: m.ideate_generate()}</Button
+					>
+				</div>
+			</form>{:else}<div class="flex items-start justify-between gap-3">
+				<p class="line-clamp-2 text-sm text-muted-foreground">{idea}</p>
+				{#if !build?.series_origin}<Button
+						variant="ghost"
+						size="sm"
+						onclick={() => (editingIdea = true)}
+						disabled={using}>{m.common_edit()}</Button
+					>{/if}
+			</div>{/if}
+		{#if error}<InlineNotice tone="error" message={error}
+				>{#snippet actions()}{#if build?.state === 'failed'}<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => void retry()}>{m.common_retry()}</Button
+						>{:else if restoringBuildId && !build}<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => void retryRestore()}
+							disabled={busy}>{m.common_retry()}</Button
+						>{:else if recovery.length}<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => void recoverEdits().catch(() => undefined)}>{m.common_retry()}</Button
+						>{:else if pendingEdits.size > 0}<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => {
+								error = '';
+								void flushEdits().catch((cause) => {
+									error = cause instanceof Error ? cause.message : m.ideate_edit_save_failed();
+								});
+							}}>{m.common_retry()}</Button
+						>{:else if build && active}<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => {
+								error = '';
+								void poll(build!.id, scope());
+							}}>{m.common_retry()}</Button
+						>{/if}{/snippet}</InlineNotice
+			>{/if}
+		{#if active}<div
+				class="mx-auto flex w-full max-w-2xl items-center justify-between gap-3 rounded-lg border p-4"
+			>
+				<p class="text-sm" role="status">{progress}</p>
+				{#if build}<Button variant="ghost" size="sm" onclick={() => void cancel()}
+						>{m.common_cancel()}</Button
+					>{/if}
+			</div>{/if}
+		{#if saving}<p class="text-sm text-muted-foreground" role="status">
+				{m.ideate_saving_edits()}
+			</p>{/if}
+		{#if using}<p class="text-sm text-muted-foreground" role="status">
+				{m.ideate_preparing_draft()}
+			</p>{/if}
+		{#if options.length && ideate.entry?.apply}
+			<label class="flex min-h-11 items-center gap-2 text-sm"
+				><Checkbox bind:checked={separateDraft} />{m.ideate_separate_draft()}</label
+			>
+		{/if}
+		{#if build?.result?.series?.length}
+			{#key build.id}<SeriesResults
+					{build}
+					onUpdated={(next) => void receive(next, scope())}
+					onOpen={(id) => openContext({ workspaceId, contextKey: id, buildId: id })}
+					onWorking={(working) => (seriesWorking = working)}
+				/>{/key}
+		{/if}
+		{#if build?.series_origin}<Button
+				variant="ghost"
+				onclick={async () => {
+					try {
+						await flushEdits();
+						const id = build?.series_origin?.build_id;
+						if (id) openContext({ workspaceId, contextKey: id, buildId: id });
+					} catch (cause) {
+						error = cause instanceof Error ? cause.message : m.ideate_edit_save_failed();
+					}
+				}}>{m.series_back()}</Button
+			>{/if}
+
+		{#if options.length}<div
+				bind:this={resultsElement}
+				tabindex="-1"
+				class="min-w-0 outline-none"
+				role="region"
+				aria-label={m.ideate_results()}
+			>
+				<PostOptions
+					{options}
+					accounts={selectedAccounts}
+					{workspaceId}
+					sources={build?.result?.sources ?? []}
+					busy={using || saving || active || recovery.length > 0}
+					onUse={(option) => void useOption(option)}
+					onChange={changeOption}
+				/>
+			</div>{/if}
+		{#if build?.state === 'committed'}<Button
+				href={resolveAppPath(`/publications/${build.publication_id}`)}
+				>{m.ideate_open_draft()}</Button
+			>{/if}
+	</div>
+{/snippet}
+
+<!-- Rendered once and moved, never re-rendered: series generation lives in the
+     content's children, so switching between page and dialog must keep them. -->
+<div class="min-w-0" use:moveInto={variant === 'page' ? pageSlot : dialogBody}>
+	{@render content()}
+</div>
+
+{#if variant === 'page'}
+	<div bind:this={pageSlot} data-testid="ideate-page" class="min-w-0"></div>
+{/if}
+
 <Dialog.Root bind:open={ideate.open}>
 	<Dialog.Content
 		forceMount
@@ -675,349 +1036,10 @@
 				>{seriesMode ? m.series_description() : m.ideate_description()}</Dialog.Description
 			>
 		</Dialog.Header>
-		<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6">
-			<div class="mx-auto grid w-full max-w-6xl gap-6">
-				{#if accounts.error}<InlineNotice
-						tone="error"
-						message={m.compose_ai_destinations_required()}
-					/>{/if}
-				{#if editingIdea || !hasResults}<form
-						class="mx-auto grid w-full max-w-2xl gap-4"
-						onsubmit={(event) => {
-							event.preventDefault();
-							void generate();
-						}}
-					>
-						<label class="grid gap-2 text-sm font-medium"
-							>{m.ideate_idea_label()}<Textarea
-								bind:value={idea}
-								rows={4}
-								maxlength={20000}
-								placeholder={m.ideate_idea_placeholder()}
-								disabled={active || using}
-								onpaste={(event) => {
-									const files = Array.from(event.clipboardData?.files ?? []);
-									if (files.length) {
-										event.preventDefault();
-										void upload(files);
-									}
-								}}
-							/></label
-						>
-						<div class="flex flex-wrap items-center gap-2">
-							<Button
-								type="button"
-								variant="outline"
-								size="sm"
-								onclick={openAttachments}
-								disabled={active || using || uploading || assets.length >= 10}
-							>
-								<ThemeIcon role="image-add" class="size-4" />{uploading
-									? m.ideate_uploading()
-									: m.ideate_attach()}
-							</Button>
-							{#if missingAssets.length}
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									disabled={active || using || uploading || assets.length >= 10}
-									onclick={() => {
-										setAssets([...assets, ...missingAssets.slice(0, 10 - assets.length)]);
-									}}
-									><ThemeIcon role="undo" class="size-4" />{m.compose_ai_media_use_source()}</Button
-								>
-							{/if}
-							<Button
-								type="button"
-								variant="ghost"
-								size="sm"
-								class="ml-auto"
-								disabled={active || using || discovering || !selectedAccounts.length}
-								title={m.ideate_suggest_description()}
-								onclick={() => void discover()}
-							>
-								<ThemeIcon role="search" class="size-4" />{discovering
-									? m.compose_ai_finding_ideas()
-									: m.ideate_suggest()}
-							</Button>
-						</div>
-						{#if discoveryError}<InlineNotice tone="error" message={discoveryError} />{/if}
-						{#if discovering}<p class="text-sm text-muted-foreground" role="status">
-								{m.ideate_suggest_description()}
-							</p>{/if}
-						{#if opportunities.length}
-							<div class="grid gap-2" role="group" aria-label={m.ideate_suggest()}>
-								{#each opportunities as opportunity (opportunity.id)}
-									<Button
-										multiline
-										type="button"
-										variant="outline"
-										class="h-auto min-h-11 flex-col items-start gap-1 p-3 text-left whitespace-normal"
-										onclick={() => {
-											idea = [opportunity.title, opportunity.hook].filter(Boolean).join('\n\n');
-											opportunities = [];
-										}}
-									>
-										<span class="font-medium">{opportunity.title}</span>
-										<span class="text-sm font-normal text-muted-foreground"
-											>{opportunity.why_it_fits}</span
-										>
-									</Button>
-								{/each}
-							</div>
-						{/if}
-						{#if assets.length}
-							<ul class="grid gap-2" aria-label={m.compose_ai_media()}>
-								{#each assets as asset (asset.id)}
-									{@const metadata = assetMetadata.data?.media.find((item) => item.id === asset.id)}
-									{@const name = metadata?.original_filename || asset.name}
-									<li class="flex min-w-0 items-center gap-3 rounded-lg border p-2">
-										<MediaThumbnail
-											item={{
-												mime_type: metadata?.mime_type ?? '',
-												url: metadata?.url ?? '',
-												thumbnail_url: metadata?.thumbnail_url,
-												poster_thumbnail_url: metadata?.poster_thumbnail_url,
-												original_filename: name,
-												alt_text: metadata?.alt_text
-											}}
-											class="size-14 shrink-0 rounded-md object-cover"
-										/>
-										<div class="min-w-0 flex-1">
-											<p class="truncate text-sm font-medium" title={name}>{name}</p>
-											<label class="flex min-h-11 items-center gap-2 text-xs text-muted-foreground">
-												<Checkbox
-													checked={asset.mayPublish}
-													disabled={active || using}
-													onCheckedChange={(checked) =>
-														(assets = assets.map((item) =>
-															item.id === asset.id
-																? { ...item, mayPublish: checked === true }
-																: item
-														))}
-												/>
-												{m.ideate_attachment_publishable()}
-											</label>
-										</div>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon"
-											class="shrink-0"
-											onclick={() => setAssets(assets.filter((item) => item.id !== asset.id))}
-											disabled={active || using}
-											aria-label={m.ideate_remove_attachment({ name })}
-										>
-											<ThemeIcon role="close" class="size-4" />
-										</Button>
-									</li>
-								{/each}
-							</ul>
-						{/if}
-						<div class="grid min-w-0 gap-2">
-							<p class="text-sm font-medium">{m.compose_destinations()}</p>
-							<SocialSetControl
-								{workspaceId}
-								accounts={accounts.data ?? []}
-								selectedAccountIds={accountIds}
-								bind:selectedSetId={setId}
-								disabled={active || using}
-								autoApplyDefault={!build && !ideate.entry?.buildId && !ideate.entry?.input}
-								onApply={(set) =>
-									(accountIds = (set?.accounts ?? []).map((item) => item.social_account_id))}
-								onToggle={(account) => {
-									setId = '';
-									accountIds = accountIds.includes(account.id)
-										? accountIds.filter((id) => id !== account.id)
-										: [...accountIds, account.id];
-								}}
-								onSelectAll={() => {
-									setId = '';
-									accountIds = (accounts.data ?? []).map((account) => account.id);
-								}}
-								onClearAll={() => {
-									setId = '';
-									accountIds = [];
-								}}
-							/>
-						</div>
-						{#if !accountIds.length && !accounts.isPending}
-							<p class="text-sm text-muted-foreground">{m.compose_select_account()}</p>
-						{/if}
-						<Disclosure
-							summary={m.ideate_options()}
-							summaryClass="text-muted-foreground"
-							class="border-t"
-						>
-							<div class="grid gap-3 pb-3">
-								<label class="grid gap-1.5 text-sm font-medium"
-									>{m.ideate_voice_profile()}<AppSelect
-										bind:value={voiceId}
-										options={[
-											{ value: '', label: m.ideate_voice_account_defaults() },
-											...(voices.data ?? []).map((profile) => ({
-												value: profile.id,
-												label: profile.name
-											}))
-										]}
-										disabled={active || using}
-										ariaLabel={m.ideate_voice_profile()}
-									/></label
-								><label class="grid gap-1.5 text-sm font-medium"
-									>{m.ideate_direction()}<Input
-										bind:value={direction}
-										maxlength={500}
-										disabled={active || using}
-										placeholder={m.ideate_direction_placeholder()}
-									/></label
-								><label class="grid gap-1.5 text-sm font-medium"
-									>{m.compose_ai_context_notes()}<Textarea
-										bind:value={notes}
-										maxlength={10000}
-										rows={3}
-										disabled={active || using}
-									/></label
-								><label class="grid gap-1.5 text-sm font-medium"
-									>{m.compose_ai_context_links()}<Textarea
-										bind:value={links}
-										rows={2}
-										disabled={active || using}
-									/></label
-								>
-							</div>
-						</Disclosure>
-						<div
-							class="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between"
-						>
-							<label class="flex min-h-11 items-center gap-2 text-sm"
-								><Checkbox
-									bind:checked={seriesMode}
-									disabled={active || using}
-								/>{m.series_create()}</label
-							>
-							<Button
-								type="submit"
-								class="min-h-11 sm:min-w-40"
-								disabled={active ||
-									using ||
-									saving ||
-									uploading ||
-									discovering ||
-									!(idea.trim() || notes.trim() || links.trim() || assets.length) ||
-									!accountIds.length}
-								>{active
-									? m.ideate_generating()
-									: seriesMode
-										? m.series_plan()
-										: m.ideate_generate()}</Button
-							>
-						</div>
-					</form>{:else}<div class="flex items-start justify-between gap-3">
-						<p class="line-clamp-2 text-sm text-muted-foreground">{idea}</p>
-						{#if !build?.series_origin}<Button
-								variant="ghost"
-								size="sm"
-								onclick={() => (editingIdea = true)}
-								disabled={using}>{m.common_edit()}</Button
-							>{/if}
-					</div>{/if}
-				{#if error}<InlineNotice tone="error" message={error}
-						>{#snippet actions()}{#if build?.state === 'failed'}<Button
-									variant="ghost"
-									size="sm"
-									onclick={() => void retry()}>{m.common_retry()}</Button
-								>{:else if restoringBuildId && !build}<Button
-									variant="ghost"
-									size="sm"
-									onclick={() => void retryRestore()}
-									disabled={busy}>{m.common_retry()}</Button
-								>{:else if recovery.length}<Button
-									variant="ghost"
-									size="sm"
-									onclick={() => void recoverEdits().catch(() => undefined)}
-									>{m.common_retry()}</Button
-								>{:else if pendingEdits.size > 0}<Button
-									variant="ghost"
-									size="sm"
-									onclick={() => {
-										error = '';
-										void flushEdits().catch((cause) => {
-											error = cause instanceof Error ? cause.message : m.ideate_edit_save_failed();
-										});
-									}}>{m.common_retry()}</Button
-								>{:else if build && active}<Button
-									variant="ghost"
-									size="sm"
-									onclick={() => {
-										error = '';
-										void poll(build!.id, scope());
-									}}>{m.common_retry()}</Button
-								>{/if}{/snippet}</InlineNotice
-					>{/if}
-				{#if active}<div
-						class="mx-auto flex w-full max-w-2xl items-center justify-between gap-3 rounded-lg border p-4"
-					>
-						<p class="text-sm" role="status">{progress}</p>
-						{#if build}<Button variant="ghost" size="sm" onclick={() => void cancel()}
-								>{m.common_cancel()}</Button
-							>{/if}
-					</div>{/if}
-				{#if saving}<p class="text-sm text-muted-foreground" role="status">
-						{m.ideate_saving_edits()}
-					</p>{/if}
-				{#if using}<p class="text-sm text-muted-foreground" role="status">
-						{m.ideate_preparing_draft()}
-					</p>{/if}
-				{#if options.length && ideate.entry?.apply}
-					<label class="flex min-h-11 items-center gap-2 text-sm"
-						><Checkbox bind:checked={separateDraft} />{m.ideate_separate_draft()}</label
-					>
-				{/if}
-				{#if build?.result?.series?.length}
-					{#key build.id}<SeriesResults
-							{build}
-							onUpdated={(next) => void receive(next, scope())}
-							onOpen={(id) => ideate.show({ workspaceId, contextKey: id, buildId: id })}
-							onWorking={(working) => (seriesWorking = working)}
-						/>{/key}
-				{/if}
-				{#if build?.series_origin}<Button
-						variant="ghost"
-						onclick={async () => {
-							try {
-								await flushEdits();
-								const id = build?.series_origin?.build_id;
-								if (id) ideate.show({ workspaceId, contextKey: id, buildId: id });
-							} catch (cause) {
-								error = cause instanceof Error ? cause.message : m.ideate_edit_save_failed();
-							}
-						}}>{m.series_back()}</Button
-					>{/if}
-
-				{#if options.length}<div
-						bind:this={resultsElement}
-						tabindex="-1"
-						class="min-w-0 outline-none"
-						role="region"
-						aria-label={m.ideate_results()}
-					>
-						<PostOptions
-							{options}
-							accounts={selectedAccounts}
-							{workspaceId}
-							sources={build?.result?.sources ?? []}
-							busy={using || saving || active || recovery.length > 0}
-							onUse={(option) => void useOption(option)}
-							onChange={changeOption}
-						/>
-					</div>{/if}
-				{#if build?.state === 'committed'}<Button
-						href={resolveAppPath(`/publications/${build.publication_id}`)}
-						>{m.ideate_open_draft()}</Button
-					>{/if}
-			</div>
-		</div>
+		<div
+			bind:this={dialogBody}
+			class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6"
+		></div>
 	</Dialog.Content>
 </Dialog.Root>
 

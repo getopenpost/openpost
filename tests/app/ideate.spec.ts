@@ -90,7 +90,7 @@ test("Ideate starts a new generation after the previous build is cancelled", asy
   await page.goto("/ideate");
   await page.getByRole("textbox").first().fill("The editor keeps source audio.");
   await page.getByTestId("composer-account-control").click();
-  await page.getByRole("button", { name: "All", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Select all", exact: true }).click();
   await page.keyboard.press("Escape");
   const generate = page.getByRole("button", {
     name: "Generate options",
@@ -106,9 +106,9 @@ test("Ideate starts a new generation after the previous build is cancelled", asy
   await expect.poll(() => createdIDs.length).toBe(2);
   expect(createdIDs[1]).not.toBe(createdIDs[0]);
   await expect(cancel).toBeVisible();
-  await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.goto("/ideate");
-  await expect(page.getByRole("dialog", { name: "Ideate", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ideas", exact: true })).toBeVisible();
+  await expect(page.getByTestId("ideate-page")).toBeVisible();
 });
 
 test("Ideate restores edited alternatives and explicitly selects one draft", async ({
@@ -417,7 +417,7 @@ for (const closeDuringGeneration of [false, true]) {
       });
       await authenticatePage(page, auth.token);
       await page.goto(`/ideate?build=${parentID}`);
-      const dialog = page.getByRole("dialog", { name: "Ideate", exact: true });
+      let dialog = page.getByTestId("ideate-page");
       await expect(dialog.getByLabel("Direction for this post")).toHaveCount(2);
       await dialog
         .getByLabel("Direction for this post")
@@ -428,12 +428,16 @@ for (const closeDuringGeneration of [false, true]) {
       await dialog.getByRole("button", { name: "Generate selected posts", exact: true }).click();
       if (closeDuringGeneration) {
         await expect.poll(() => generated.length).toBe(1);
-        await dialog.getByRole("button", { name: "Close", exact: true }).click();
+        // Leaving the Ideas page keeps the build running and offers to resume it.
+        await page
+          .getByTestId("sidebar-workspace-navigation")
+          .getByRole("button", { name: "Posts", exact: true })
+          .click();
         releaseGeneration();
         await expect.poll(() => generated.length).toBe(2);
-        await expect(dialog).not.toBeVisible();
-        await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCount(0);
+        await expect(page.getByTestId("ideate-page")).toHaveCount(0);
         await page.getByRole("button", { name: /Ideate ·/ }).click();
+        dialog = page.getByRole("dialog", { name: "Ideate", exact: true });
       }
       await expect(dialog.getByRole("button", { name: "Edit post", exact: true })).toHaveCount(
         closeDuringGeneration ? 2 : 1,
@@ -525,7 +529,7 @@ test("clients review submitted posts without entering authoring", async ({
   await authenticatePage(page, reviewer.token);
   await page.goto("/ideate");
   await expect(page).toHaveURL(/\/publications$/);
-  await expect(page.getByRole("dialog", { name: "Ideate", exact: true })).toHaveCount(0);
+  await expect(page.getByTestId("ideate-page")).toHaveCount(0);
   await expect(page.getByTestId("sidebar-new-post")).toHaveCount(0);
   await page.goto(`/publications/${post.id}?workspace_id=${workspace.id}`);
   await page.getByRole("button", { name: "Awaiting client approval", exact: true }).click();

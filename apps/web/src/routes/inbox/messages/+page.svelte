@@ -42,6 +42,9 @@
 	import SocialAccountAvatar from '$lib/components/social-account-avatar.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import InboxCollectionIssues, {
+		type CollectionIssue
+	} from '$lib/components/inbox-collection-issues.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -204,10 +207,23 @@
 			new Date(selected.messaging_window_expires_at).getTime() <= nowMs
 		)
 	);
-	const actionableSyncStates = $derived(
-		syncStates.filter(
-			(state) => state.status === 'permission_required' || state.status === 'failed'
-		)
+	const collectionIssues = $derived<CollectionIssue[]>(
+		syncStates
+			.filter((state) => state.status === 'permission_required' || state.status === 'failed')
+			.map((state) => {
+				const account = accounts.find((candidate) => candidate.id === state.social_account_id);
+				return {
+					key: state.id,
+					name: account ? accountName(account) : getPlatformName(state.platform),
+					platform: state.platform,
+					avatarUrl: account?.account_avatar_url,
+					title: state.error_message || m.messages_sync_attention(),
+					action:
+						state.status === 'permission_required'
+							? { label: m.feature_disabled_open_details(), href: '/settings?tab=accounts' }
+							: { label: m.messaging_refresh(), onclick: refresh, disabled: refreshing }
+				};
+			})
 	);
 	const initialLoading = $derived(
 		Boolean(workspaceId) &&
@@ -220,9 +236,13 @@
 		accounts.length > 0 && allFeatureEffectiveDisabled(messagingFeatures, 'messaging')
 	);
 	const hasConversationFilters = $derived(
-		Boolean(platformFilter || accountFilter || archived || search || unreadOnly)
+		Boolean(platformFilter || accountFilter || archived || unreadOnly)
 	);
-	const messagingReason = $derived(collectiveDisabledReason(messagingFeatures, 'messaging'));
+	const messagingReason = $derived(
+		collectiveDisabledReason(messagingFeatures, 'messaging', {
+			includeGeneric: false
+		})
+	);
 	const messagingEmptyIsFeatureDisabled = $derived(
 		messagingAllDisabled && conversations.length === 0 && !loading && !error
 	);
@@ -832,17 +852,7 @@
 {/if}
 
 {#snippet conversationFilterControls()}
-	<div class="flex flex-wrap items-center gap-3">
-		<Input
-			value={search}
-			oninput={(event) => {
-				search = event.currentTarget.value;
-				clearSelectedConversation();
-			}}
-			placeholder={m.messages_search()}
-			aria-label={m.messages_search()}
-			class="w-64 max-w-full"
-		/>
+	<div class="grid gap-4">
 		<label class="flex min-h-11 items-center gap-2 text-sm"
 			><Checkbox
 				checked={unreadOnly}
@@ -864,7 +874,7 @@
 				}
 			}}
 		>
-			<Select.Trigger class="h-11 w-44 max-w-full sm:h-9" aria-label={m.engagement_all_platforms()}>
+			<Select.Trigger class="h-11 w-full sm:h-9" aria-label={m.engagement_all_platforms()}>
 				{platformFilter ? getPlatformName(platformFilter) : m.engagement_all_platforms()}
 			</Select.Trigger>
 			<Select.Content>
@@ -883,7 +893,7 @@
 			}}
 		>
 			<Select.Trigger
-				class="h-11 w-60 max-w-full sm:h-9"
+				class="h-11 w-full sm:h-9"
 				aria-label={accountFilterLabel(accounts.find((account) => account.id === accountFilter))}
 			>
 				{#if accountFilter}
@@ -930,15 +940,22 @@
 
 <PageContainer
 	title={m.communications_navigation()}
-	themeIconRole="inbox"
+	themeIconRole="communications"
 	loading={initialLoading}
 	loadingLayout="list"
 	loadingItems={6}
 	contentLayout="fill"
 >
 	{#snippet actions()}
+		<InboxCollectionIssues
+			issues={collectionIssues}
+			description={m.messages_collection_issues_description()}
+		/>
 		<Button
 			variant="outline"
+			size="icon-sm"
+			aria-label={m.messaging_refresh()}
+			title={m.messaging_refresh()}
 			onclick={refresh}
 			disabled={refreshing || !workspaceId || messagingAllDisabled}
 			data-testid="messages-refresh"
@@ -947,28 +964,38 @@
 				role="refresh"
 				class={refreshing ? 'size-4 animate-spin motion-reduce:animate-none' : 'size-4'}
 			/>
-			{m.messaging_refresh()}
 		</Button>
 	{/snippet}
 
 	{#snippet navigation()}
-		<div class="space-y-5">
+		<div class="space-y-3">
 			<CommunicationsNavigation active="messages" />
-			<div class="hidden sm:block">{@render conversationFilterControls()}</div>
-			<div class="sm:hidden">
+			<div class="flex min-w-0 flex-wrap items-center gap-2">
+				<Input
+					type="search"
+					value={search}
+					oninput={(event) => {
+						search = event.currentTarget.value;
+						clearSelectedConversation();
+					}}
+					placeholder={m.messages_search()}
+					aria-label={m.messages_search()}
+					class="h-11 min-w-0 flex-1 sm:h-9 sm:max-w-72"
+				/>
 				<Popover.Root>
 					<Popover.Trigger>
-						{#snippet child({ props })}<Button {...props} variant="outline"
-								><ThemeIcon
-									role="filter"
-									class="size-4"
-								/>{m.media_filters()}{#if hasConversationFilters}<span aria-hidden="true">•</span
-									>{/if}</Button
-							>{/snippet}
+						{#snippet child({ props })}
+							<Button {...props} variant="outline" class="h-11 sm:h-9">
+								{m.engagement_filter_button()}
+								{#if hasConversationFilters}
+									<span class="size-1.5 rounded-full bg-primary" aria-hidden="true"></span>
+								{/if}
+							</Button>
+						{/snippet}
 					</Popover.Trigger>
-					<Popover.Content align="start" class="w-80 max-w-[calc(100vw-2rem)]"
-						>{@render conversationFilterControls()}</Popover.Content
-					>
+					<Popover.Content align="start" class="w-80 max-w-[calc(100vw-1rem)]">
+						{@render conversationFilterControls()}
+					</Popover.Content>
 				</Popover.Root>
 			</div>
 		</div>
@@ -1008,12 +1035,6 @@
 				</InlineNotice>
 			</div>
 		{/if}
-		{#each actionableSyncStates as state (state.id)}
-			<InlineNotice
-				tone={state.status === 'failed' ? 'error' : 'warning'}
-				message={`${getPlatformName(state.platform)}: ${state.error_message || m.messages_sync_attention()}`}
-			/>
-		{/each}
 
 		{#if error && !messagingAllDisabled}
 			<InlineNotice tone="error" message={error}>

@@ -14,17 +14,23 @@ class Ideate {
 	entry = $state.raw<IdeateEntry>();
 	sequence = $state(0);
 	status = $state<'idle' | 'working' | 'ready'>('idle');
+	/** The Ideas page's mount point; the shell's single builder renders there while set. */
+	pageTarget = $state<HTMLElement>();
 	show(entry?: IdeateEntry) {
+		if (entry) this.select(entry);
+		this.open = true;
+	}
+	/** Sets the builder context without opening the dialog (the Ideas page). */
+	select(entry: IdeateEntry) {
 		if (
-			entry &&
-			(entry.contextKey !== this.entry?.contextKey || entry.workspaceId !== this.entry?.workspaceId)
+			entry.contextKey !== this.entry?.contextKey ||
+			entry.workspaceId !== this.entry?.workspaceId
 		) {
 			this.entry = entry;
 			this.sequence++;
-		} else if (entry) {
+		} else {
 			this.entry = { ...this.entry, ...entry };
 		}
-		this.open = true;
 	}
 	reset() {
 		this.open = false;

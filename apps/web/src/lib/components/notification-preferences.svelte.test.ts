@@ -173,7 +173,7 @@ describe('NotificationPreferences', () => {
 			.mockImplementationOnce(() => cancellation.promise);
 
 		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
-		await screen.getByLabelText('Timezone').fill('Europe/Lisbon');
+		await screen.getByLabelText('Daily digest time').fill('10:30');
 		await screen.getByRole('button', { name: 'Save preferences' }).click();
 		await vi.waitFor(() => expect(cancelSpy).toHaveBeenCalledOnce());
 
@@ -203,8 +203,8 @@ describe('NotificationPreferences', () => {
 			workspaceName: 'Workspace A',
 			notify: mocks.showToast
 		});
-		const timezone = screen.getByLabelText('Timezone');
-		await timezone.fill('Europe/Lisbon');
+		const digestTime = screen.getByLabelText('Daily digest time');
+		await digestTime.fill('10:30');
 		await screen.getByRole('button', { name: 'Save preferences' }).click();
 		await vi.waitFor(() => expect(mocks.put).toHaveBeenCalledOnce());
 
@@ -214,7 +214,7 @@ describe('NotificationPreferences', () => {
 			notify: mocks.showToast
 		});
 		await expect.element(screen.getByRole('button', { name: 'Save preferences' })).toBeEnabled();
-		await timezone.fill('America/New_York');
+		await digestTime.fill('11:15');
 		await screen.getByRole('button', { name: 'Save preferences' }).click();
 		secondSave.resolve({ data: savedForWorkspaceB });
 		await vi.waitFor(() =>
@@ -242,7 +242,7 @@ describe('NotificationPreferences', () => {
 		const unsubscribe = auth.subscribe((state) => (authenticated = state.isAuthenticated));
 
 		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
-		await screen.getByLabelText('Timezone').fill('Europe/Lisbon');
+		await screen.getByLabelText('Daily digest time').fill('10:30');
 		await screen.getByRole('button', { name: 'Save preferences' }).click();
 
 		await vi.waitFor(() =>
@@ -270,7 +270,7 @@ describe('NotificationPreferences', () => {
 		const unsubscribe = auth.subscribe((state) => (authenticated = state.isAuthenticated));
 
 		const screen = await render(NotificationPreferences, { notify: mocks.showToast });
-		await screen.getByLabelText('Timezone').fill('Europe/Lisbon');
+		await screen.getByLabelText('Daily digest time').fill('10:30');
 		await screen.getByRole('button', { name: 'Save preferences' }).click();
 
 		await vi.waitFor(() => expect(authenticated).toBe(false));

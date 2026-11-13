@@ -54,7 +54,8 @@ export function featureReason(feature: FeatureState): string {
 
 export function collectiveDisabledReason(
 	features: FeatureState[],
-	feature: FeatureKey
+	feature: FeatureKey,
+	{ includeGeneric = true }: { includeGeneric?: boolean } = {}
 ): string | null {
 	const subset = features.filter((f) => f.feature === feature && !f.effective_enabled);
 	if (subset.length === 0) return null;
@@ -65,6 +66,9 @@ export function collectiveDisabledReason(
 	}
 	const hasPlan = subset.find((f) => f.availability === 'plan_restricted');
 	if (hasPlan) return m.feature_disabled_reason_plan_restricted();
+	// Off and not-yet-decided add nothing to an empty state that already says
+	// the feature is off; callers that need them pass `includeGeneric`.
+	if (!includeGeneric) return null;
 	const hasUndecided = subset.find((f) => !f.stored_exists);
 	if (hasUndecided) return m.feature_disabled_reason_undecided();
 	return m.feature_disabled_reason_off();

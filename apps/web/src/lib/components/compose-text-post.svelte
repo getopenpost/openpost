@@ -7835,6 +7835,7 @@
 		suggesting={suggestingSlot}
 		submitting={isSubmitting}
 		canSchedule={canSchedulePublication}
+		blockedReason={canSchedulePublication ? '' : scheduleDisabledReason}
 		bind:randomDelayOverride
 		randomDelayOptions={randomDelaySelectOptions}
 		defaultRandomDelayMinutes={workspaceCtx.settings.random_delay_minutes}

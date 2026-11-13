@@ -4,6 +4,8 @@
 	import * as Select from '$lib/components/ui/select';
 	import Disclosure from '$lib/components/disclosure.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { ThemeIcon } from '$lib/themes/icons';
+	import type { ThemeIconRole } from '$lib/themes';
 	import {
 		getSettingsDestinations,
 		type SettingsDestination,
@@ -44,6 +46,27 @@
 		return allDestinations.filter((destination) => destination.group === group);
 	}
 
+	const destinationIcons: Partial<Record<SettingsDestinationID, ThemeIconRole>> = {
+		profile: 'user',
+		notifications: 'notification',
+		security: 'security',
+		developer: 'code',
+		general: 'settings',
+		brand: 'image',
+		schedule: 'time',
+		members: 'users',
+		plan: 'billing',
+		appearance: 'appearance',
+		sso: 'key',
+		audit: 'history',
+		ownership: 'organization',
+		instance: 'storage',
+		configuration: 'controls',
+		'ai-prompts': 'sparkles',
+		users: 'users',
+		'instance-audit': 'history'
+	};
+
 	function destinationHref(destination: SettingsDestinationID): string {
 		return `/settings?tab=${destination}`;
 	}
@@ -59,14 +82,15 @@
 		data-settings-tab={destination.id}
 		data-cuelume-toggle="toggle"
 		class={[
-			'flex min-h-10 items-center rounded-md px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:min-h-11',
+			'flex min-h-9 items-center gap-2.5 rounded-md px-2.5 text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:min-h-11',
 			active === destination.id
-				? 'bg-navigation-active text-navigation-active-foreground'
+				? 'bg-navigation-active font-medium text-navigation-active-foreground'
 				: 'text-muted-foreground hover:bg-navigation-hover hover:text-foreground'
 		]}
 		aria-current={active === destination.id ? 'page' : undefined}
 	>
-		{destination.label}
+		<ThemeIcon role={destinationIcons[destination.id] ?? 'settings'} class="size-4 shrink-0" />
+		<span class="min-w-0 truncate">{destination.label}</span>
 	</a>
 {/snippet}
 
@@ -95,13 +119,13 @@
 	</div>
 
 	<nav class="hidden lg:block" aria-label={m.settings_groups_label()}>
-		{#each visibleGroups as group (group.id)}
-			<div class="mb-5 last:mb-0">
+		{#each visibleGroups as group, index (group.id)}
+			<div class={index > 0 ? 'mt-4 border-t pt-4' : ''}>
 				{#if group.id === 'advanced'}
 					<Disclosure
 						summary={group.label}
 						open={activeDestination?.group === 'advanced'}
-						summaryClass="mb-1 min-h-9 rounded-md px-3 text-xs text-muted-foreground hover:bg-navigation-hover"
+						summaryClass="min-h-8 rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-navigation-hover"
 					>
 						<div class="space-y-0.5">
 							{#each group.destinations as destination (destination.id)}
@@ -110,7 +134,9 @@
 						</div>
 					</Disclosure>
 				{:else}
-					<p class="mb-1 px-3 text-xs font-medium text-muted-foreground">{group.label}</p>
+					{#if group.destinations.length > 1}
+						<p class="mb-1 px-2.5 text-xs font-medium text-muted-foreground/80">{group.label}</p>
+					{/if}
 					<div class="space-y-0.5">
 						{#each group.destinations as destination (destination.id)}
 							{@render destinationLink(destination)}

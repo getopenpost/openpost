@@ -10,9 +10,12 @@
 	import { countUTF8Bytes } from '@openpost/platform-text';
 	import { page } from '$app/state';
 	import EngagementReview from '$lib/components/engagement-review.svelte';
-	import EngagementAutomation from '$lib/components/engagement-automation.svelte';
+	import EngagementAutomation, {
+		canAutomateComment,
+		commentAutomationLink
+	} from '$lib/components/engagement-automation.svelte';
 	import { appBranding } from '$lib/app-branding.svelte';
-	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import {
 		accountFeaturesQueryOptions,
 		engagementQueryOptions,
@@ -45,6 +48,9 @@
 	import { getLocaleTag } from '$lib/i18n';
 	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import InboxUpdates from '$lib/components/inbox-updates.svelte';
+	import InboxCollectionIssues, {
+		type CollectionIssue
+	} from '$lib/components/inbox-collection-issues.svelte';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import CommunicationsNavigation from '$lib/components/communications-navigation.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
@@ -147,7 +153,6 @@
 			(engagementQuery.data?.pages ?? []).flatMap((page) => page.items ?? [])
 		)
 	);
-	const total = $derived(engagementQuery.data?.pages[0]?.total ?? 0);
 	const syncStates = $derived(engagementQuery.data?.pages[0]?.sync_states ?? []);
 	const nextCursor = $derived(engagementQuery.data?.pages.at(-1)?.next_cursor ?? '');
 	const loadingMore = $derived(engagementQuery.isFetchingNextPage);
@@ -201,7 +206,11 @@
 	const engagementAllDisabled = $derived(
 		accounts.length > 0 && allFeatureEffectiveDisabled(engagementFeatures, 'engagement')
 	);
-	const engagementReason = $derived(collectiveDisabledReason(engagementFeatures, 'engagement'));
+	const engagementReason = $derived(
+		collectiveDisabledReason(engagementFeatures, 'engagement', {
+			includeGeneric: false
+		})
+	);
 	const engagementEmptyIsFeatureDisabled = $derived(
 		engagementAllDisabled && items.length === 0 && !initialLoading && !error
 	);
@@ -268,6 +277,44 @@
 			(left, right) => priority[left.kind] - priority[right.kind]
 		);
 	});
+	// A feature the owner turned off is a choice, not a collection problem; the
+	// empty state already explains how to turn it on.
+	const matchingTotal = $derived(engagementQuery.data?.pages[0]?.total ?? 0);
+	const emptyTitle = $derived(
+		kindFilter === 'review'
+			? m.engagement_reviews_empty_title()
+			: kindFilter === 'comment'
+				? m.engagement_comments_empty_title()
+				: m.engagement_empty_title()
+	);
+	const emptyDescription = $derived(
+		kindFilter === 'review'
+			? m.engagement_reviews_empty_description()
+			: kindFilter === 'comment'
+				? m.engagement_comments_empty_description()
+				: m.engagement_empty_description()
+	);
+	const collectionIssues = $derived<CollectionIssue[]>(
+		recoveryGroups
+			.filter((group) => group.kind !== 'disabled')
+			.map((group) => {
+				const state = group.states[0];
+				return {
+					key: group.key,
+					name: group.account ? accountName(group.account) : getPlatformName(group.platform),
+					platform: group.platform,
+					avatarUrl: group.account?.account_avatar_url,
+					title: recoveryRecommendation(group.kind, group.states.length),
+					detail: syncStateMessage(state),
+					action:
+						group.kind === 'reconnect'
+							? { label: m.analytics_reconnect(), href: '/settings?tab=accounts' }
+							: group.kind === 'retry' || group.kind === 'investigate'
+								? { label: m.engagement_refresh(), onclick: refresh, disabled: refreshing }
+								: undefined
+				};
+			})
+	);
 	const groupedItems = $derived.by(() => {
 		const groups = new SvelteMap<
 			string,
@@ -874,86 +921,23 @@
 	loadingItems={6}
 >
 	{#snippet actions()}
-		{#if recoveryGroups.length > 0}
-			<Popover.Root>
-				<Popover.Trigger>
-					{#snippet child({ props })}
-						<Button {...props} variant="outline">
-							<ProtectedIcon icon="error" class="size-4 text-amber-600 dark:text-amber-400" />
-							{m.engagement_collection_issues({ count: recoveryGroups.length })}
-						</Button>
-					{/snippet}
-				</Popover.Trigger>
-				<Popover.Content align="end" class="w-96 max-w-[calc(100vw-1rem)] overflow-hidden p-0">
-					<div class="border-b px-4 py-3">
-						<p class="text-sm font-semibold">{m.engagement_collection_issues_title()}</p>
-						<p class="mt-1 text-xs leading-5 text-muted-foreground">
-							{m.engagement_collection_issues_description()}
-						</p>
-					</div>
-					<div class="max-h-80 divide-y overflow-y-auto">
-						{#each recoveryGroups as group (group.key)}
-							{@const state = group.states[0]}
-							<div class="px-4 py-3">
-								<SocialAccountIdentity
-									name={group.account
-										? accountName(group.account)
-										: getPlatformName(group.platform)}
-									platform={group.platform}
-									avatarUrl={group.account?.account_avatar_url}
-								/>
-								<div class="mt-2 pl-11">
-									<p class="text-xs font-medium text-foreground">
-										{recoveryRecommendation(group.kind, group.states.length)}
-									</p>
-									<p class="mt-1 text-xs leading-5 text-muted-foreground">
-										{syncStateMessage(state)}
-									</p>
-									{#if group.kind === 'disabled'}
-										<Button
-											href="/settings?tab=accounts"
-											variant="link"
-											size="sm"
-											class="mt-1 h-auto min-h-8 px-0"
-										>
-											{m.feature_disabled_open_details()}
-										</Button>
-									{:else if group.kind === 'reconnect'}
-										<Button
-											href="/settings?tab=accounts"
-											variant="link"
-											size="sm"
-											class="mt-1 h-auto min-h-8 px-0"
-										>
-											{m.analytics_reconnect()}
-										</Button>
-									{:else if group.kind === 'retry' || group.kind === 'investigate'}
-										<Button
-											variant="link"
-											size="sm"
-											class="mt-1 h-auto min-h-8 px-0"
-											onclick={refresh}
-											disabled={refreshing}
-										>
-											{m.engagement_refresh()}
-										</Button>
-									{/if}
-								</div>
-							</div>
-						{/each}
-					</div>
-				</Popover.Content>
-			</Popover.Root>
+		<InboxCollectionIssues
+			issues={collectionIssues}
+			description={m.engagement_collection_issues_description()}
+		/>
+		{#if matchingTotal > 0}
+			<Button
+				variant="ghost"
+				size="sm"
+				onclick={() => void markAllMatchingRead()}
+				disabled={!workspaceId ||
+					!workspaceCtx.currentWorkspace?.can_edit ||
+					Boolean(actionInFlight)}
+			>
+				<ThemeIcon role="check" class="size-4" />
+				{m.engagement_mark_all_read()}
+			</Button>
 		{/if}
-		<Button
-			variant="ghost"
-			size="sm"
-			onclick={() => void markAllMatchingRead()}
-			disabled={!workspaceId || !workspaceCtx.currentWorkspace?.can_edit || Boolean(actionInFlight)}
-		>
-			<ThemeIcon role="check" class="size-4" />
-			{m.engagement_mark_all_read()}
-		</Button>
 		<Button
 			variant="outline"
 			size="icon-sm"
@@ -1107,14 +1091,12 @@
 					href="/grow"
 					variant="ghost"
 					size="sm"
-					class="ms-auto"
+					class="ms-auto h-11 sm:h-9"
 					data-testid="inbox-find-people"
 				>
+					<ThemeIcon role="users" class="size-4" />
 					{m.grow_find_people()}
 				</Button>
-				{#if total}
-					<span class="ms-auto text-sm text-muted-foreground">{total}</span>
-				{/if}
 			</div>
 		</div>
 	{/snippet}
@@ -1200,8 +1182,8 @@
 			{:else if unreadOnly}
 				<EmptyState
 					themeIconRole="communications"
-					title={m.engagement_empty_title()}
-					description={m.engagement_empty_description()}
+					title={m.engagement_empty_unread_title()}
+					description={emptyDescription}
 					actionLabel={m.engagement_empty_show_all()}
 					onAction={() => (unreadOnly = false)}
 					variant="muted"
@@ -1209,8 +1191,8 @@
 			{:else}
 				<EmptyState
 					themeIconRole="communications"
-					title={m.engagement_empty_title()}
-					description={m.engagement_empty_description()}
+					title={emptyTitle}
+					description={emptyDescription}
 					variant="muted"
 				/>
 			{/if}
@@ -1429,6 +1411,12 @@
 														<ThemeIcon role="delete" class="size-4" />{m.engagement_delete({
 															platform: getPlatformName(item.platform)
 														})}
+													</Button>
+												{/if}
+												{#if canAutomateComment(item) && workspaceCtx.currentWorkspace?.role === 'admin'}
+													<Button variant="ghost" size="sm" href={commentAutomationLink(item)}>
+														<ThemeIcon role="repeat" class="size-4" />
+														{m.workflows_comment_automate()}
 													</Button>
 												{/if}
 											</div>

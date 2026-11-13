@@ -74,19 +74,18 @@ for (const width of [1280, 320]) {
       await page.setViewportSize({ width, height: 844 });
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.goto("/inbox/engagement");
-      const trigger = page.getByRole("button", { name: "Collection issues (2)", exact: true });
+      // A feature the owner turned off is a choice, not a collection issue.
+      const trigger = page.getByRole("button", { name: "Collection issues (1)", exact: true });
       await trigger.focus();
       await page.keyboard.press("Enter");
       const popup = page.locator('[data-slot="popover-content"]');
-      await expect(popup.getByText("Comments and replies are off", { exact: true })).toBeVisible();
+      await expect(popup.getByText("Comments and replies are off", { exact: true })).toHaveCount(0);
       await expect(
         popup.getByText("OpenPost will retry collection for 1 post.", { exact: true }),
       ).toHaveCount(1);
       await expect(
         popup.getByRole("button", { name: "Refresh engagement", exact: true }),
       ).toHaveCount(1);
-      const details = popup.getByRole("link", { name: "Open account details", exact: true });
-      await expect(details).toHaveAttribute("href", "/settings?tab=accounts");
       const bounds = await popup.boundingBox();
       expect(bounds!.x).toBeGreaterThanOrEqual(0);
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
@@ -162,7 +161,7 @@ test("collection recovery explains zero, one and several affected posts", async 
     count = affected;
     await page.goto("/inbox/engagement");
     await expect(
-      page.getByRole("heading", { name: "No engagement yet", exact: true }),
+      page.getByRole("heading", { name: "You're all caught up", exact: true }),
     ).toBeVisible();
     const trigger = page.getByRole("button", { name: /^Collection issues/ });
     if (affected === 0) {

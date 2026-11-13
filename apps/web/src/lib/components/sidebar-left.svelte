@@ -2,7 +2,6 @@
 	import { appBranding } from '$lib/app-branding.svelte';
 	import { sidebarPreferences } from '$lib/stores/sidebar-preferences.svelte';
 	import { publicationView } from '$lib/stores/publication-view.svelte';
-	import { ideate } from '$lib/post-builder/ideate.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -24,6 +23,7 @@
 	import * as Avatar from '$lib/components/ui/avatar';
 	import Logo from './Logo.svelte';
 	import SidebarPlanner from './sidebar-planner.svelte';
+	import SidebarUpNext from './sidebar-up-next.svelte';
 	import AccountPreferencesMenu from './account-preferences-menu.svelte';
 	import WorkspaceMenuItems from './workspace-menu-items.svelte';
 	import CreateWorkspaceDialog from './create-workspace-dialog.svelte';
@@ -53,9 +53,9 @@
 		label: navigationLabel(item.id),
 		icon: navigationIcon(item.id)
 	});
-	const overviewItems = $derived(overviewNavigation.map(withPresentation));
-	const makeItems = $derived(
-		makeNavigation
+	// One list: separate unlabeled groups read as an arbitrary split.
+	const workspaceItems = $derived(
+		[...overviewNavigation, ...makeNavigation]
 			.filter((item) => item.id !== 'ideate' || workspaceCtx.currentWorkspace?.can_edit)
 			.map(withPresentation)
 	);
@@ -64,9 +64,8 @@
 			.filter((item) => item.id === 'accounts' || item.id === 'settings')
 			.map(withPresentation)
 	);
-	const showDrafts = $derived(
-		sidebarPreferences.draftsVisible && !sidebar.isMobile && sidebar.state === 'expanded'
-	);
+	const showPlanner = $derived(!sidebar.isMobile && sidebar.state === 'expanded');
+	const showDrafts = $derived(sidebarPreferences.draftsVisible && showPlanner);
 
 	function navigationIcon(id: PrimaryNavigationItem['id']): ThemeIconRole {
 		switch (id) {
@@ -141,10 +140,6 @@
 
 	function navigate(href: string) {
 		sidebar.setOpenMobile(false);
-		if (href === '/ideate') {
-			ideate.show();
-			return;
-		}
 		if (href === '/') {
 			if (!ui.startNewPost()) return;
 			if (currentPath === '/') return;
@@ -253,8 +248,8 @@
 	</Sidebar.Header>
 
 	<Sidebar.Content class="gap-4 overflow-y-auto px-2 py-2">
-		{@render navigationList(overviewItems, 'sidebar-workspace-navigation')}
-		{@render navigationList(makeItems, 'sidebar-make-navigation')}
+		{@render navigationList(workspaceItems, 'sidebar-workspace-navigation')}
+		{#if showPlanner}<SidebarUpNext onNavigate={navigate} />{/if}
 		{#if showDrafts}<SidebarPlanner onNavigate={navigate} />{/if}
 	</Sidebar.Content>
 

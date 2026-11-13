@@ -60,7 +60,7 @@ test("Messages distinguishes archived filters from account setup and clears them
       await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
       await page.reload();
       await expect(page.locator("html")).toHaveCSS("color-scheme", scheme);
-      if (width < 640) await page.getByRole("button", { name: "Filters", exact: true }).click();
+      await page.getByRole("button", { name: "Filters", exact: true }).click();
       await page.getByRole("button", { name: "All platforms", exact: true }).focus();
       await page.keyboard.press("Enter");
       await page.getByRole("option", { name: "Bluesky", exact: true }).click();
@@ -75,7 +75,7 @@ test("Messages distinguishes archived filters from account setup and clears them
       await expect(
         page.getByRole("heading", { name: "No archived conversations", exact: true }),
       ).toBeVisible();
-      if (width < 640) await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
       const reset = page.getByRole("button", { name: "Clear filters", exact: true });
       await reset.focus();
       await expect(reset).toBeFocused();
@@ -86,7 +86,7 @@ test("Messages distinguishes archived filters from account setup and clears them
       }
       await page.screenshot({ path: testInfo.outputPath(`archived-${width}-${scheme}.png`) });
       await page.keyboard.press("Enter");
-      if (width < 640) await page.getByRole("button", { name: "Filters", exact: true }).click();
+      await page.getByRole("button", { name: "Filters", exact: true }).click();
       await expect(page.getByRole("checkbox", { name: "Archived", exact: true })).not.toBeChecked();
       await expect(page.getByRole("button", { name: "All accounts", exact: true })).toBeVisible();
       await expect(

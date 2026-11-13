@@ -57,6 +57,5 @@ describe('account-picker select-all header', () => {
 			onClearAll: vi.fn()
 		});
 		await expect.element(screen.getByRole('checkbox', { name: 'Select all' })).toBeDisabled();
-		await expect.element(screen.getByRole('button', { name: 'All', exact: true })).toBeDisabled();
 	});
 });

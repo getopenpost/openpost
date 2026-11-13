@@ -147,9 +147,11 @@
 			<div class="min-w-0 flex-1 space-y-3">
 				<div class="flex flex-col gap-1">
 					<span class="text-sm font-medium">{workspaceCtx.currentWorkspace?.name}</span>
-					<span class="text-sm text-muted-foreground">
-						{workspaceCtx.currentWorkspace?.organization_name || m.settings_personal_workspace()}
-					</span>
+					{#if workspaceCtx.currentWorkspace?.organization_name && workspaceCtx.currentWorkspace.organization_name !== workspaceCtx.currentWorkspace.name}
+						<span class="text-sm text-muted-foreground">
+							{workspaceCtx.currentWorkspace.organization_name}
+						</span>
+					{/if}
 				</div>
 				<div class="flex flex-wrap gap-2">
 					<Button type="button" variant="outline" onclick={() => (imagePickerOpen = true)}>
@@ -266,6 +268,14 @@
 	</section>
 {/if}
 
+<SettingsFormFooter
+	label={m.settings_save_changes()}
+	savingLabel={m.settings_save_changes()}
+	{saving}
+	disabled={!workspaceCtx.settingsDirty}
+	onSave={saveSettings}
+/>
+
 {#if workspaceCtx.currentWorkspace?.role === 'admin'}
 	<section id="workspace-danger" class="scroll-mt-24">
 		<Disclosure
@@ -274,11 +284,6 @@
 			class="border-destructive/30"
 			summaryClass="text-destructive"
 		>
-			{#snippet summaryEnd()}
-				<span class="text-xs font-normal text-muted-foreground group-open:hidden"
-					>{m.common_edit()}</span
-				>
-			{/snippet}
 			<div class="border-t p-4">
 				<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div>
@@ -293,11 +298,3 @@
 		</Disclosure>
 	</section>
 {/if}
-
-<SettingsFormFooter
-	label={m.settings_save_changes()}
-	savingLabel={m.settings_save_changes()}
-	{saving}
-	disabled={!workspaceCtx.settingsDirty}
-	onSave={saveSettings}
-/>

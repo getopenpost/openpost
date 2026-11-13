@@ -456,7 +456,7 @@ describe('Social Set request ownership', () => {
 			.element(screen.getByRole('checkbox', { name: /founder-19, Mastodon/ }))
 			.toBeChecked();
 		expect(onToggle).not.toHaveBeenCalled();
-		await screen.getByRole('button', { name: 'All', exact: true }).click();
+		await screen.getByRole('checkbox', { name: 'Select all', exact: true }).click();
 		expect(onSelectAll).toHaveBeenCalledOnce();
 		await search.fill('missing destination');
 		await expect.element(screen.getByText('No matching accounts.', { exact: true })).toBeVisible();
@@ -591,12 +591,8 @@ describe('Social Set request ownership', () => {
 			await screen.getByTestId('composer-account-control').click();
 			if (action === 'account') await screen.getByRole('checkbox', { name: /ready, X/ }).click();
 			else
-				await screen
-					.getByRole('button', {
-						name: action === 'clear' ? 'Clear' : 'All',
-						exact: true
-					})
-					.click();
+				// The one select-all checkbox clears a full selection and fills an empty one.
+				await screen.getByRole('checkbox', { name: 'Select all', exact: true }).click();
 			pending.resolve(response([defaultSet]));
 			await expect
 				.element(screen.getByRole('button', { name: defaultSet.name, exact: true }))

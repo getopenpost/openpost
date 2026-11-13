@@ -8,6 +8,10 @@
 	import { z } from 'zod';
 	import { m } from '$lib/paraglide/messages';
 	import type IdeateDialog from './ideate-dialog.svelte';
+	import { page } from '$app/state';
+	import { isAppRouteInFamily } from '$lib/app-navigation';
+	import { moveInto } from '$lib/actions/move-into';
+	let hostSlot = $state<HTMLElement>();
 	let component = $state<typeof IdeateDialog>();
 	let loading = false;
 	let loadError = $state(false);
@@ -17,6 +21,10 @@
 		buildId: z.string().optional(),
 		open: z.boolean()
 	});
+	// One builder instance owns generation, so leaving the Ideas page never stops
+	// a running build. On that page it moves into the page and renders inline.
+	const onIdeasPage = $derived(isAppRouteInFamily(page.url.pathname, 'ideate'));
+	const pageTarget = $derived(onIdeasPage ? ideate.pageTarget : undefined);
 	const identity = $derived(`${$auth.user?.id ?? ''}:${workspaceCtx.currentWorkspace?.id ?? ''}`);
 	$effect(() => {
 		const next = identity;
@@ -73,23 +81,26 @@
 			});
 	}
 	$effect(() => {
-		if (!ideate.open || component || loading || loadError) return;
+		if ((!ideate.open && !pageTarget) || component || loading || loadError) return;
 		load();
 	});
 	onDestroy(() => ideate.reset());
 </script>
 
-{#if loadError && ideate.open}
+{#if loadError && (ideate.open || pageTarget)}
 	<InlineNotice tone="error" message={m.compose_ai_build_failed()}
 		>{#snippet actions()}<Button variant="ghost" onclick={load}>{m.common_retry()}</Button
 			>{/snippet}</InlineNotice
 	>
 {/if}
+<div bind:this={hostSlot} class="contents"></div>
 {#if component && workspaceCtx.currentWorkspace?.can_edit}
 	{@const Component = component}
-	{#key identity}<Component />{/key}
+	<div use:moveInto={pageTarget ?? hostSlot}>
+		{#key identity}<Component variant={pageTarget ? 'page' : 'dialog'} />{/key}
+	</div>
 {/if}
-{#if !ideate.open && ideate.status !== 'idle'}
+{#if !ideate.open && ideate.status !== 'idle' && !onIdeasPage}
 	<div class="fixed right-4 bottom-[calc(var(--mobile-bottom-nav-clearance,0px)+1rem)] z-30">
 		<Button variant="secondary" onclick={() => ideate.show()}
 			>{m.compose_ai_ideate()} · {ideate.status === 'working'

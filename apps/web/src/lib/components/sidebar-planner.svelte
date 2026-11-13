@@ -265,7 +265,8 @@
 </script>
 
 {#if loadingDrafts || drafts.length > 0 || draftsError}
-	<div class="flex min-h-20 flex-1 flex-col overflow-hidden" data-testid="desktop-sidebar-planner">
+	<!-- Fits the header and one whole draft row before the sidebar scrolls. -->
+	<div class="flex min-h-24 flex-1 flex-col overflow-hidden" data-testid="desktop-sidebar-planner">
 		<section class="flex min-h-0 flex-1 flex-col pt-2">
 			<div class="mb-1 flex h-7 shrink-0 items-center justify-between px-2">
 				<div class="flex items-center gap-1.5">
@@ -338,7 +339,8 @@
 											aria-current={activeDraft ? 'page' : undefined}
 										>
 											<span class="min-w-0 flex-1">
-												<span class="block truncate text-xs font-medium text-sidebar-foreground/88"
+												<span
+													class="block truncate text-xs leading-5 font-medium text-sidebar-foreground/88"
 													>{draft.title}</span
 												>
 												<span

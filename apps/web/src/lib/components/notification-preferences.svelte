@@ -36,6 +36,12 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
 	import { ThemeIcon } from '$lib/themes/icons';
+	import { getLocaleTag } from '$lib/i18n';
+	import {
+		getTimezoneLabel,
+		timezoneOptions,
+		type TimezoneOption
+	} from '../../routes/settings/settings-data';
 	import {
 		registerSettingsInitialLoad,
 		SETTINGS_INITIAL_LOAD_PARTICIPANT
@@ -69,6 +75,13 @@
 	let emailAddress = $state('');
 	let digestTime = $state('09:00');
 	let digestTimezone = $state('UTC');
+	const groupedDigestTimezones = $derived.by(() => {
+		const groups: Record<string, TimezoneOption[]> = {};
+		for (const timezone of timezoneOptions(digestTimezone, getLocaleTag())) {
+			(groups[timezone.group] ??= []).push(timezone);
+		}
+		return groups;
+	});
 	const dirty = $derived(
 		JSON.stringify({ preferences, digest_time: digestTime, digest_timezone: digestTimezone }) !==
 			savedSnapshot
@@ -305,37 +318,11 @@
 			themeIconRole="notification"
 		/>
 
-		<NotificationMutes {workspaceID} {workspaceName} {notify} queryStatus="parent" />
-
 		{#if emailAvailable}
 			<p class="text-sm text-muted-foreground">
 				{m.notifications_email_recipient({ email: emailAddress })}
 			</p>
 		{/if}
-
-		<div class="grid gap-4 rounded-lg border bg-muted/20 p-4 sm:grid-cols-2">
-			<div class="space-y-2">
-				<label class="text-sm font-medium" for="notification-digest-time">
-					{m.notifications_digest_time()}
-				</label>
-				<Input id="notification-digest-time" bind:value={digestTime} type="time" required />
-			</div>
-			<div class="space-y-2">
-				<label class="text-sm font-medium" for="notification-digest-timezone">
-					{m.notifications_digest_timezone()}
-				</label>
-				<Input
-					id="notification-digest-timezone"
-					bind:value={digestTimezone}
-					autocomplete="off"
-					required
-					placeholder="Europe/Lisbon"
-				/>
-			</div>
-			<p class="text-xs leading-5 text-muted-foreground sm:col-span-2">
-				{m.notifications_digest_help()}
-			</p>
-		</div>
 
 		<div class="hidden overflow-hidden rounded-lg border md:block">
 			<table class="w-full table-fixed text-sm">
@@ -430,6 +417,38 @@
 
 		<p class="text-xs leading-5 text-muted-foreground">{m.notifications_critical_help()}</p>
 
+		<div class="grid gap-4 rounded-lg border bg-muted/20 p-4 sm:grid-cols-2">
+			<div class="space-y-2">
+				<label class="text-sm font-medium" for="notification-digest-time">
+					{m.notifications_digest_time()}
+				</label>
+				<Input id="notification-digest-time" bind:value={digestTime} type="time" required />
+			</div>
+			<div class="space-y-2">
+				<label class="text-sm font-medium" for="notification-digest-timezone">
+					{m.notifications_digest_timezone()}
+				</label>
+				<Select.Root type="single" bind:value={digestTimezone}>
+					<Select.Trigger id="notification-digest-timezone" class="w-full">
+						{getTimezoneLabel(digestTimezone, getLocaleTag())}
+					</Select.Trigger>
+					<Select.Content class="max-h-80 overflow-y-auto">
+						{#each Object.entries(groupedDigestTimezones) as [group, values] (group)}
+							<Select.Group>
+								<Select.GroupHeading class="text-xs">{group}</Select.GroupHeading>
+								{#each values as timezone (timezone.value)}
+									<Select.Item value={timezone.value}>{timezone.label}</Select.Item>
+								{/each}
+							</Select.Group>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+			<p class="text-xs leading-5 text-muted-foreground sm:col-span-2">
+				{m.notifications_digest_help()}
+			</p>
+		</div>
+
 		<SettingsFormFooter
 			label={m.notifications_save_preferences()}
 			savingLabel={m.notifications_saving_preferences()}
@@ -437,6 +456,8 @@
 			disabled={!dirty}
 			onSave={() => void save()}
 		/>
+
+		<NotificationMutes {workspaceID} {workspaceName} {notify} queryStatus="parent" />
 	</div>
 {/if}
 

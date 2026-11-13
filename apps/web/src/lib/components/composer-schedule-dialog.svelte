@@ -38,6 +38,8 @@
 		suggesting?: boolean;
 		submitting?: boolean;
 		canSchedule?: boolean;
+		/** Why scheduling is unavailable; shown only while `canSchedule` is false. */
+		blockedReason?: string;
 		randomDelayOverride?: string;
 		randomDelayOptions?: number[];
 		defaultRandomDelayMinutes?: number;
@@ -58,6 +60,7 @@
 		suggesting = false,
 		submitting = false,
 		canSchedule = true,
+		blockedReason = '',
 		randomDelayOverride = $bindable('default'),
 		randomDelayOptions = [],
 		defaultRandomDelayMinutes = 0,
@@ -257,8 +260,8 @@
 			data-testid="schedule-dialog-body"
 			class="min-h-0 flex-1 space-y-4 overflow-y-auto py-3 sm:p-5"
 		>
-			{#if !canSchedule}
-				<InlineNotice tone="warning" message={m.compose_schedule_needs_destination()} />
+			{#if !canSchedule && blockedReason}
+				<InlineNotice tone="warning" message={blockedReason} class="mx-3 sm:mx-0" />
 			{/if}
 			<form
 				class="mx-3 space-y-2 sm:mx-0"
@@ -460,23 +463,18 @@
 					{/snippet}
 					<div class="border-t p-3">
 						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-							<div class="space-y-1">
-								<div class="text-sm font-medium">
-									{m.compose_randomize_time()}
-								</div>
-								<div class="text-xs text-muted-foreground">
-									{m.compose_workspace_default({
-										delay: formatRandomDelay(defaultRandomDelayMinutes)
-									})}.
-									{m.compose_delay_applies_to_post()}
-								</div>
-							</div>
+							<p class="min-w-0 text-xs leading-5 text-muted-foreground">
+								{m.compose_delay_applies_to_post()}
+							</p>
 							<Select.Root
 								type="single"
 								value={randomDelayOverride}
 								onValueChange={(value) => (randomDelayOverride = value || 'default')}
 							>
-								<Select.Trigger class="w-full sm:w-52">
+								<Select.Trigger
+									class="w-full shrink-0 sm:w-64"
+									aria-label={m.compose_randomize_time()}
+								>
 									{randomDelayOverride === 'default'
 										? m.compose_workspace_default({
 												delay: formatRandomDelay(defaultRandomDelayMinutes)

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { tick } from 'svelte';
-	import { ideate } from '$lib/post-builder/ideate.svelte';
 	import { primaryNavigation, type PrimaryNavigationItem } from '$lib/app-navigation';
 	import type { ThemeIconRole } from '$lib/themes';
 	import { goto } from '$app/navigation';
@@ -97,10 +96,6 @@
 			class="min-h-11 gap-3"
 			onclick={() => {
 				onNavigate();
-				if (item.id === 'ideate') {
-					ideate.show();
-					return;
-				}
 				goto(resolveAppPath(item.href));
 			}}
 			><ThemeIcon role={itemIcon(item.id)} class="size-4" />{itemLabel(item.id)}</DropdownMenu.Item

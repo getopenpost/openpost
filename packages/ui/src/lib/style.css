@@ -1157,6 +1157,16 @@ textarea[data-fabric="textarea"] {
   [data-theme-tabs="underline"] [data-slot="tabs-trigger"][data-state="active"]::after {
     opacity: 1;
   }
+
+  /* The scrolling tab strip clips outer rings into stray side bars. Keep focus
+     visible with an inset outline that stays inside the trigger. */
+  [data-theme-tabs="underline"] [data-slot="tabs-trigger"]:focus-visible {
+    border-color: transparent;
+    border-radius: var(--theme-radius-control, 0.375rem);
+    box-shadow: none;
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+  }
 }
 
 /* Calm reserves the signature texture for the actions that lead a screen.

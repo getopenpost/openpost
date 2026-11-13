@@ -440,115 +440,41 @@
 			</InlineNotice>
 		{/if}
 
-		<div class="mb-4 grid gap-3 lg:grid-cols-2" data-testid="billing-provider-boundary">
-			<div class="rounded-lg border bg-muted/20 p-4">
-				<h3 class="font-semibold">{m.settings_openpost_billing_facts()}</h3>
-				<p class="mt-1 text-sm text-muted-foreground">
-					{m.settings_openpost_billing_facts_body()}
-				</p>
-				{#if billingStatus.billing_contact_email}
-					<dl class="mt-3 text-sm">
-						<dt class="text-muted-foreground">
-							{m.settings_billing_contact()}
-						</dt>
-						<dd class="font-medium break-all">
-							{billingStatus.billing_contact_email}
-						</dd>
-					</dl>
-				{/if}
-			</div>
-			<div class="rounded-lg border bg-background p-4">
-				<h3 class="font-semibold">{m.settings_paddle_manages()}</h3>
-				<p class="mt-1 text-sm text-muted-foreground">
-					{m.settings_paddle_manages_body()}
-				</p>
-				{#if billingStatus.can_manage_billing && hasBillingSubscription}
-					<div class="mt-3 flex flex-wrap gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							onclick={() => void openBillingPortal('update_payment_method')}
-							disabled={billingPortalBusy}
-						>
-							{m.settings_update_payment_method()}
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							onclick={() => void openBillingPortal('invoices')}
-							disabled={billingPortalBusy}
-						>
-							{m.settings_view_invoices_receipts()}
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							onclick={() => void openBillingPortal('billing_details')}
-							disabled={billingPortalBusy}
-						>
-							{m.settings_update_billing_details()}
-						</Button>
-						<Button
-							variant="destructive"
-							size="sm"
-							onclick={() => void openBillingPortal('cancel_subscription')}
-							disabled={billingPortalBusy}
-						>
-							{m.settings_cancel_subscription()}
-						</Button>
+		<div class="mb-4 rounded-lg border bg-muted/20 p-4" data-testid="billing-plan-usage">
+			<div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+				<div class="min-w-0">
+					<p class="text-xs font-medium text-muted-foreground">{m.settings_current_plan()}</p>
+					<div class="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+						<p class="text-2xl font-semibold">
+							{currentBillingPlan?.name ?? (billingStatus.plan_id || m.settings_no_active_plan())}
+						</p>
+						<p class="text-sm text-muted-foreground">
+							{billingStatusLabel(billingStatus.status ?? '')}
+						</p>
 					</div>
-				{:else if hasBillingSubscription}
-					<p class="mt-3 text-sm font-medium">
-						{m.settings_billing_owner_action()}
-					</p>
-				{/if}
-			</div>
-		</div>
-
-		<div class="mb-4 grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-			<div class="rounded-lg border bg-muted/20 p-4">
-				<p class="text-xs font-medium text-muted-foreground">
-					{m.settings_current_plan()}
-				</p>
-				<div class="mt-2 flex flex-wrap items-end gap-x-3 gap-y-1">
-					<p class="text-2xl font-semibold">
-						{currentBillingPlan?.name ?? (billingStatus.plan_id || m.settings_no_active_plan())}
-					</p>
-					<p class="pb-1 text-sm text-muted-foreground">
-						{billingStatusLabel(billingStatus.status ?? '')}
-					</p>
 				</div>
-				{#if billingStatus.current_period_end}
-					<p class="mt-2 text-sm text-muted-foreground">
+				<p class="text-sm text-muted-foreground">
+					{#if billingStatus.current_period_end}
 						{m.settings_billing_period_ends({
 							date: formatDate(billingStatus.current_period_end)
 						})}
 						{#if billingStatus.cancel_at_period_end}
 							· {m.settings_billing_cancels_after_period()}
 						{/if}
-					</p>
-				{:else if hasActiveBillingPlan}
-					<p class="mt-2 text-sm text-muted-foreground">
-						{m.settings_active_plan()}
-					</p>
-				{:else}
-					<p class="mt-2 text-sm text-muted-foreground">
+					{:else if !hasActiveBillingPlan}
 						{m.settings_start_checkout()}
-					</p>
-				{/if}
-			</div>
-
-			<div class="rounded-lg border bg-muted/20 p-4">
-				<p class="text-xs font-medium text-muted-foreground">
-					{m.settings_usage_month()}
+					{/if}
 				</p>
+			</div>
+			<div class="mt-5 border-t pt-4">
+				<p class="text-xs font-medium text-muted-foreground">{m.settings_usage_month()}</p>
 				{#if monthlyBillingUsageRows.length}
-					<div class="mt-3 grid gap-3 sm:grid-cols-2">
+					<div class="mt-3 grid gap-x-8 gap-y-4 sm:grid-cols-2">
 						{#each monthlyBillingUsageRows as row (row.metric)}
-							<div>
-								<div class="mb-1 flex items-center justify-between gap-2 text-sm">
+							<div class="min-w-0">
+								<div class="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-2 text-sm">
 									<span>{row.label}</span>
-									<span class="text-muted-foreground">
+									<span class="text-muted-foreground tabular-nums">
 										{formatBillingValue(row.metric, row.current)} / {formatBillingValue(
 											row.metric,
 											row.limit
@@ -565,11 +491,60 @@
 						{/each}
 					</div>
 				{:else}
-					<p class="mt-2 text-sm text-muted-foreground">
-						{m.settings_usage_empty()}
+					<p class="mt-2 text-sm text-muted-foreground">{m.settings_usage_empty()}</p>
+				{/if}
+			</div>
+		</div>
+
+		<div class="mb-4 rounded-lg border bg-background p-4" data-testid="billing-provider-boundary">
+			<div class="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+				<h3 class="font-semibold">{m.settings_paddle_manages()}</h3>
+				{#if billingStatus.billing_contact_email}
+					<p class="text-sm [overflow-wrap:anywhere] text-muted-foreground">
+						{m.settings_billing_contact()}: {billingStatus.billing_contact_email}
 					</p>
 				{/if}
 			</div>
+			<p class="mt-1 text-sm text-muted-foreground">{m.settings_paddle_manages_short()}</p>
+			{#if billingStatus.can_manage_billing && hasBillingSubscription}
+				<div class="mt-3 flex flex-wrap items-center gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={() => void openBillingPortal('update_payment_method')}
+						disabled={billingPortalBusy}
+					>
+						{m.settings_update_payment_method()}
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={() => void openBillingPortal('invoices')}
+						disabled={billingPortalBusy}
+					>
+						{m.settings_view_invoices_receipts()}
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={() => void openBillingPortal('billing_details')}
+						disabled={billingPortalBusy}
+					>
+						{m.settings_update_billing_details()}
+					</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						class="text-destructive hover:text-destructive sm:ms-auto"
+						onclick={() => void openBillingPortal('cancel_subscription')}
+						disabled={billingPortalBusy}
+					>
+						{m.settings_cancel_subscription()}
+					</Button>
+				</div>
+			{:else if hasBillingSubscription}
+				<p class="mt-3 text-sm font-medium">{m.settings_billing_owner_action()}</p>
+			{/if}
 		</div>
 	{:else}
 		<InlineNotice tone="info" message={m.settings_start_checkout()} class="mb-4" />

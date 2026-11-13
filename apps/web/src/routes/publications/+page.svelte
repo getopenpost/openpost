@@ -33,7 +33,6 @@
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PublicationDeliveryCard from '$lib/components/publication-delivery-card.svelte';
-	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import SocialAccountAvatar from '$lib/components/social-account-avatar.svelte';
 	import { deliveryRecoveryAction, deliveryStateLabel } from '$lib/delivery-presentation';
 	import { m } from '$lib/paraglide/messages';
@@ -804,7 +803,10 @@
 
 {#snippet deliveryDetails(post: ActivityItem, accountDestinations: ActivityDestination[])}
 	{@const summaryParts = deliverySummaryParts(post)}
-	{#if post.destinations?.length && (post.status === 'failed' || summaryParts.length > 0 || post.destinations.some((destination) => destination.status === 'failed') || post.destinations.length > accountDestinations.length)}
+	{@const destinationStatuses = new Set(
+		post.destinations?.map((destination) => destination.status)
+	)}
+	{#if post.destinations?.length && (post.status === 'failed' || destinationStatuses.has('failed') || destinationStatuses.size > 1 || post.destinations.length > accountDestinations.length)}
 		<Disclosure
 			summary={m.activity_delivery_details()}
 			open={post.status === 'failed'}
@@ -938,11 +940,12 @@
 					]}
 				>
 					{#if inventoryView === 'grid'}
-						<div class="flex items-start gap-3 sm:gap-4">
+						{@const gridMedia = publicationPreviewMedia(post.publication)}
+						<div class="flex min-h-8 items-center gap-2 text-xs">
 							{#if activeTab === 'drafts' && selecting}
 								<Label
 									for={`post-select-${post.id}`}
-									class="flex min-h-11 min-w-11 shrink-0 items-center justify-center"
+									class="-ms-2 flex min-h-11 min-w-11 shrink-0 items-center justify-center"
 									><Checkbox
 										id={`post-select-${post.id}`}
 										aria-label={m.batch_select_post()}
@@ -956,97 +959,117 @@
 										}}
 									/></Label
 								>
-							{:else if activeTab !== 'drafts'}
-								<div
-									class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg border bg-muted/50"
+							{/if}
+							{#if activeTab !== 'drafts'}
+								<span
+									class={['inline-flex shrink-0 items-center gap-1 font-medium', statusClass(post)]}
 								>
 									{#if statusIconValue.kind === 'protected'}
-										<ProtectedIcon
-											icon={statusIconValue.role}
-											class={`size-4 ${statusClass(post)}`}
-										/>
+										<ProtectedIcon icon={statusIconValue.role} class="size-3.5" />
 									{:else}
-										<ThemeIcon role={statusIconValue.role} class={`size-4 ${statusClass(post)}`} />
+										<ThemeIcon role={statusIconValue.role} class="size-3.5" />
 									{/if}
-								</div>
+									{statusLabel(post)}
+								</span>
+								<span aria-hidden="true" class="text-muted-foreground">·</span>
 							{/if}
-							<div class="min-w-0 flex-1">
-								<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-									{#if activeTab !== 'drafts'}<span class={['font-medium', statusClass(post)]}
-											>{statusLabel(post)}</span
-										>{/if}
-									<span class="text-muted-foreground">
-										{formatDateTime(publicationActivityOccurrence(post))}
-									</span>
-									{#if post.publication.review_state === 'pending'}<span>{m.review_pending()}</span>
-									{:else if post.publication.review_state === 'needs_review'}<span
-											>{m.review_needs_review()}</span
-										>
-									{:else if post.publication.review_state === 'changes_requested'}<span
-											class="text-destructive">{m.review_changes_requested()}</span
-										>
-									{:else if post.publication.review_state === 'approved'}<span
-											>{m.review_approved()}</span
-										>{/if}
-									{#if post.isThread}
-										<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-											{threadPostCount(post.postCount)}
-										</span>
-									{/if}
-								</div>
-								<a
-									href={resolveAppPath(post.href)}
-									dir="auto"
-									class="mt-1.5 block max-w-[72ch] rounded-sm text-sm leading-6 text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-								>
-									{truncate(postText(post))}
-								</a>
-								{#if post.destinations?.length}
-									<div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-										{#each accountDestinations.slice(0, 4) as destination (destination.social_account_id)}
-											{@const account = destinationAccount(destination)}
-											<span
-												class="inline-flex max-w-52 items-center gap-1.5 rounded-md border bg-background px-2 py-1"
-											>
-												<SocialAccountIdentity
-													name={destinationName(destination)}
-													platform={destination.platform}
-													avatarUrl={account?.account_avatar_url}
-													size="sm"
-													showPlatform={false}
-													class="gap-1.5 text-xs"
-												/>
-											</span>
-										{/each}
-										{#if accountDestinations.length > 4}
-											<span class="rounded-full bg-muted px-2 py-1"
-												>+{accountDestinations.length - 4}</span
-											>
-										{/if}
-									</div>
-								{/if}
-								{@render deliveryDetails(post, accountDestinations)}
-							</div>
+							<time
+								datetime={publicationActivityOccurrence(post)}
+								class="min-w-0 truncate text-muted-foreground"
+							>
+								{formatDateTime(publicationActivityOccurrence(post))}
+							</time>
 							{#if activeTab !== 'drafts'}
 								<Button
 									variant="ghost"
-									size="sm"
-									class="min-h-10 shrink-0"
+									size="icon-sm"
+									class="ms-auto -me-1.5 shrink-0 text-muted-foreground hover:text-foreground"
 									onclick={() => goto(resolveAppPath(post.href))}
 									aria-label={post.status === 'published' || post.status === 'publishing'
 										? m.activity_view_post({ title: truncate(postText(post), 40) })
 										: m.activity_edit_post({ title: truncate(postText(post), 40) })}
 								>
-									{#if post.status === 'published' || post.status === 'publishing'}
-										<ThemeIcon role="eye" class="size-4 sm:mr-1.5" />
-										<span class="hidden sm:inline">{m.activity_view_details()}</span>
-									{:else}
-										<ThemeIcon role="edit" class="size-4 sm:mr-1.5" />
-										<span class="hidden sm:inline">{m.common_edit()}</span>
-									{/if}
+									<ThemeIcon
+										role={post.status === 'published' || post.status === 'publishing'
+											? 'eye'
+											: 'edit'}
+										class="size-4"
+									/>
 								</Button>
 							{/if}
 						</div>
+						<a
+							href={resolveAppPath(post.href)}
+							dir="auto"
+							class="mt-1.5 line-clamp-6 block rounded-sm text-sm leading-6 break-words whitespace-pre-line text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+						>
+							{postText(post)}
+						</a>
+						{#if gridMedia && !missingRowMedia.has(gridMedia.id)}
+							<span class="mt-3 block aspect-video overflow-hidden rounded-lg border bg-muted">
+								{#if gridMedia.poster_thumbnail_url}
+									<img
+										src={getAuthenticatedMediaURL(gridMedia.poster_thumbnail_url)}
+										alt=""
+										loading="lazy"
+										class="size-full object-cover"
+										onerror={() => missingRowMedia.add(gridMedia.id)}
+									/>
+								{:else}
+									<MediaPreviewImage
+										mediaId={gridMedia.id}
+										alt=""
+										class="size-full object-cover"
+										onMissing={() => missingRowMedia.add(gridMedia.id)}
+									/>
+								{/if}
+							</span>
+						{/if}
+						{#if post.isThread || post.publication.review_state || post.destinations?.length}
+							<div
+								class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground"
+							>
+								{#if post.destinations?.length}
+									<span
+										class="flex items-center -space-x-1.5"
+										title={accountDestinations.map(destinationName).join(', ')}
+									>
+										<span class="sr-only"
+											>{accountDestinations.map(destinationName).join(', ')}</span
+										>
+										{#each accountDestinations.slice(0, 5) as destination (destination.social_account_id)}
+											{@const account = destinationAccount(destination)}
+											<span class="rounded-full ring-2 ring-card" aria-hidden="true">
+												<SocialAccountAvatar
+													name={destinationName(destination)}
+													platform={destination.platform}
+													avatarUrl={account?.account_avatar_url}
+													size="sm"
+												/>
+											</span>
+										{/each}
+										{#if accountDestinations.length > 5}
+											<span
+												class="flex size-6 items-center justify-center rounded-full bg-muted text-xs font-medium ring-2 ring-card"
+												aria-hidden="true">+{accountDestinations.length - 5}</span
+											>
+										{/if}
+									</span>
+								{/if}
+								{#if post.isThread}<span>{threadPostCount(post.postCount)}</span>{/if}
+								{#if post.publication.review_state === 'pending'}<span>{m.review_pending()}</span>
+								{:else if post.publication.review_state === 'needs_review'}<span
+										>{m.review_needs_review()}</span
+									>
+								{:else if post.publication.review_state === 'changes_requested'}<span
+										class="text-destructive">{m.review_changes_requested()}</span
+									>
+								{:else if post.publication.review_state === 'approved'}<span
+										>{m.review_approved()}</span
+									>{/if}
+							</div>
+						{/if}
+						{@render deliveryDetails(post, accountDestinations)}
 					{:else}
 						{@const rowMedia = publicationPreviewMedia(post.publication)}
 						<div class="flex min-h-11 items-center gap-3">
@@ -1323,7 +1346,7 @@
 					<Disclosure
 						summary={m.activity_technical_details({ count: failedJobsPage.total })}
 						class="mt-6 border-t pt-4"
-						summaryClass="text-destructive"
+						summaryClass="text-xs font-normal text-muted-foreground hover:text-foreground"
 					>
 						<p class="mt-2 max-w-2xl text-xs leading-5 text-muted-foreground">
 							{m.activity_technical_details_description()}

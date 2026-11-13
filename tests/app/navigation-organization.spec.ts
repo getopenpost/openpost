@@ -13,12 +13,8 @@ test("navigation separates work, workspace management, and personal preferences"
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/publications");
   const workNavigation = page.getByTestId("sidebar-workspace-navigation");
-  for (const name of ["Posts", "Inbox", "Analytics"]) {
+  for (const name of ["Posts", "Inbox", "Analytics", "Ideas", "Studio", "Media", "Automations"]) {
     await expect(workNavigation.getByRole("button", { name, exact: true })).toBeVisible();
-  }
-  const makeNavigation = page.getByTestId("sidebar-make-navigation");
-  for (const name of ["Ideas", "Studio", "Media", "Automations"]) {
-    await expect(makeNavigation.getByRole("button", { name, exact: true })).toBeVisible();
   }
   await expect(page.getByTestId("sidebar-new-post")).toHaveAccessibleName("New post");
   await page.screenshot({ path: testInfo.outputPath("navigation-before.png") });

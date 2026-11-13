@@ -1,3 +1,26 @@
+<script lang="ts" module>
+	import type { components as Components } from '$lib/api/types';
+
+	/** The Automations template that drafts replies for one comment's post. */
+	export function commentAutomationLink(item: Components['schemas']['EngagementItem']): string {
+		return (
+			'/workflows?template=' +
+			(item.platform === 'instagram' ? 'instagram-playbook' : 'comment-resource') +
+			'&account_id=' +
+			encodeURIComponent(item.social_account_id) +
+			(item.rendition_id
+				? '&rendition_id=' + encodeURIComponent(item.rendition_id)
+				: item.conversation_remote_id
+					? '&post_id=' + encodeURIComponent(item.conversation_remote_id)
+					: '')
+		);
+	}
+
+	export function canAutomateComment(item: Components['schemas']['EngagementItem']): boolean {
+		return item.kind === 'comment' && item.platform !== 'x';
+	}
+</script>
+
 <script lang="ts">
 	import { createQuery } from '@tanstack/svelte-query';
 	import { commentAutomationQueryOptions, inboxQueryKeys } from '@openpost/query-catalog';
@@ -15,7 +38,6 @@
 	let expanded = $state(false),
 		busy = $state(false),
 		error = $state('');
-	const canAdmin = $derived(workspaceCtx.currentWorkspace?.role === 'admin');
 	const canEdit = $derived(['admin', 'editor'].includes(workspaceCtx.currentWorkspace?.role ?? ''));
 	const replies = createQuery(() => ({
 		...commentAutomationQueryOptions(commentAutomationQueryAPI, item.workspace_id, item.id),
@@ -40,17 +62,6 @@
 								? m.workflows_comment_skipped()
 								: m.workflows_comment_sending()
 	);
-	const link = $derived(
-		'/workflows?template=' +
-			(item.platform === 'instagram' ? 'instagram-playbook' : 'comment-resource') +
-			'&account_id=' +
-			encodeURIComponent(item.social_account_id) +
-			(item.rendition_id
-				? '&rendition_id=' + encodeURIComponent(item.rendition_id)
-				: item.conversation_remote_id
-					? '&post_id=' + encodeURIComponent(item.conversation_remote_id)
-					: '')
-	);
 	async function takeOver() {
 		const captured = item;
 		busy = true;
@@ -70,7 +81,7 @@
 	}
 </script>
 
-{#if item.kind === 'comment' && item.platform !== 'x'}
+{#if canAutomateComment(item) && (item.automation_state || error)}
 	<div class="mt-3 space-y-3">
 		{#if item.automation_state}<Disclosure summary={stateLabel} bind:open={expanded}>
 				{#if replies.isError}<InlineNotice
@@ -79,15 +90,12 @@
 					/>{/if}{#each replies.data ?? [] as reply (reply.id)}<CommentReplyReview {reply} />{/each}
 			</Disclosure>{/if}
 		{#if error}<InlineNotice tone="error" message={error} />{/if}
-		{#if canEdit}<div class="flex flex-wrap gap-2">
-				{#if canAdmin}<Button variant="ghost" size="sm" href={link}
-						>{m.workflows_comment_automate()}</Button
-					>{/if}{#if item.automation_state && !['sent', 'failed', 'skipped', 'cancelled'].includes(item.automation_state)}<Button
-						variant="outline"
-						size="sm"
-						disabled={busy}
-						onclick={takeOver}>{m.workflows_comment_takeover()}</Button
-					>{/if}
+		{#if canEdit && item.automation_state && !['sent', 'failed', 'skipped', 'cancelled'].includes(item.automation_state)}<div
+				class="flex flex-wrap gap-2"
+			>
+				<Button variant="outline" size="sm" disabled={busy} onclick={takeOver}
+					>{m.workflows_comment_takeover()}</Button
+				>
 			</div>{/if}
 	</div>
 {/if}

@@ -46,7 +46,8 @@ for (const width of [1280, 320]) {
       await button.focus();
       await page.keyboard.press("Enter");
       await expect(page.getByText("Marked 137 matching items as read.")).toBeVisible();
-      await expect(button).toBeEnabled();
+      // Nothing matches any more, so the action leaves the header.
+      await expect(button).toHaveCount(0);
       expect(attempts).toBe(2);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,

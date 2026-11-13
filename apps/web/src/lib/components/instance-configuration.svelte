@@ -556,12 +556,16 @@
 					description={sectionDescription(activeSection)}
 					themeIconRole="key"
 				/>
-				<div class="divide-y overflow-hidden rounded-xl border bg-background">
+				<div class="@container divide-y overflow-hidden rounded-xl border bg-background">
 					{#each visibleSettings as setting (setting.key)}
 						{@const copy = instanceSettingCopy(setting)}
+						{@const environmentNoticeIsQuiet =
+							!unsets[setting.key] &&
+							!setting.database_override_configured &&
+							!hasDraftOverride(setting)}
 						<div
 							class={[
-								'grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,22rem)] sm:items-start',
+								'grid gap-4 p-4 @2xl:grid-cols-[minmax(0,1fr)_minmax(14rem,20rem)] @2xl:items-start',
 								unsets[setting.key] ? 'bg-muted/25' : ''
 							]}
 						>
@@ -589,16 +593,32 @@
 								<p class="mt-1 max-w-[70ch] text-sm leading-5 text-muted-foreground">
 									{copy.description}
 								</p>
-								<code class="mt-2 block text-xs break-all text-muted-foreground">
-									{(setting.environment_variables ?? []).join(' · ')}
-								</code>
-								{#if setting.managed_by}
+								{#if setting.environment_variables?.length}
+									<div class="mt-2 flex flex-wrap gap-1.5">
+										{#each setting.environment_variables as variable (variable)}
+											<code
+												class="max-w-full rounded bg-muted px-1.5 py-0.5 font-mono text-xs [overflow-wrap:anywhere] text-muted-foreground"
+												>{variable}</code
+											>
+										{/each}
+									</div>
+								{/if}
+								{#if setting.managed_by && environmentNoticeIsQuiet}
+									<p class="mt-2 flex items-start gap-1.5 text-xs leading-5 text-muted-foreground">
+										<ThemeIcon role="help" class="mt-0.5 size-3.5 shrink-0" />
+										<span class="min-w-0 [overflow-wrap:anywhere]"
+											>{m.settings_configuration_environment_value_set_body({
+												source: setting.managed_by
+											})}</span
+										>
+									</p>
+								{:else if setting.managed_by}
 									<InlineNotice
 										tone={!unsets[setting.key] &&
 										(setting.database_override_configured || hasDraftOverride(setting))
 											? 'warning'
 											: 'info'}
-										class="mt-3"
+										class="mt-3 [overflow-wrap:anywhere]"
 									>
 										{#if unsets[setting.key]}
 											<p class="font-medium">
@@ -633,15 +653,6 @@
 											</p>
 											<p class="mt-0.5 text-current/80">
 												{m.settings_configuration_will_override_environment_body({
-													source: setting.managed_by
-												})}
-											</p>
-										{:else}
-											<p class="font-medium">
-												{m.settings_configuration_environment_value_set()}
-											</p>
-											<p class="mt-0.5 text-current/80">
-												{m.settings_configuration_environment_value_set_body({
 													source: setting.managed_by
 												})}
 											</p>

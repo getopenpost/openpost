@@ -32,7 +32,7 @@ OpenPost serves solo founders and creators who do not want to waste time. Small 
 
 ## Navigation
 
-Desktop: logo, workspace switcher, notifications, New post. Then Posts, Inbox, Analytics. Then Ideas, Studio, Media, Automations. Footer: Accounts, Settings, profile.
+Desktop: logo, workspace switcher, notifications, New post. Then one list: Posts, Inbox, Analytics, Ideas, Studio, Media, Automations. Unlabeled groups read as an arbitrary split. Below it, Up next shows the scheduled count and the next few slots, then Drafts when enabled. Footer: Accounts, Settings, profile.
 
 Phone: Posts, New, Inbox, More, all labelled. More owns Analytics, Ideas, Studio, Media, Automations, Accounts, Settings, Workspace, and Profile.
 
@@ -45,6 +45,7 @@ Find people lives under Inbox. Reposts lives under Automations. Posting schedule
 - **Onboarding**: one question about what you want to see when you open the app, each choice explained in one line, connect one account inline, write the first post. Keep the draft through connection. No plan card, no feedback box.
 - **Composer**: spacious canvas, live preview beside it on wide screens by default, one primary action. Disabled actions explain themselves.
 - **Posts**: one header row, single-line rows, about ten per screen, no zero counters.
-- **Inbox**: title Inbox, Unread default, search plus one filter popover, All, Comments, Messages, Reviews.
+- **Inbox**: title Inbox, Unread default, search plus one filter popover, All, Comments, Messages, Reviews. Per-account collection problems sit behind one Collection issues control in the header, never one banner per account. A feature the owner turned off is not an issue.
+- **Ideas**: a page, not a launcher. The shell owns one builder so a running build survives navigation; the composer opens the same builder as a dialog.
 - **Analytics**: one sentence, tiles that switch the dithered chart, one coverage line, dashes for unmeasured.
 - **Settings**: left rail. You, Workspace, Plan, Advanced. Organization and Instance scopes stay under Advanced and appear only for people who can use them. Branding merges into one page. Accounts is its own destination.

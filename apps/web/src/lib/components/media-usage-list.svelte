@@ -4,6 +4,7 @@
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import { getLocaleTag } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
+	import { resolveAppPath } from '$lib/app-path';
 	import {
 		mediaUsageKindLabel,
 		mediaUsageStatusLabel,
@@ -55,24 +56,40 @@
 			</p>
 		{:else}
 			{#each usages as usage (`${usage.kind}-${usage.id}`)}
-				<div class="rounded-lg border p-3">
-					<p class="line-clamp-2 text-sm font-medium">{usage.label || usage.content}</p>
-					<p class="mt-1 text-xs text-muted-foreground">{mediaUsageKindLabel(usage.kind)}</p>
-					<div class="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
+				{@const href =
+					usage.kind === 'publication'
+						? resolveAppPath(`/publications/${encodeURIComponent(usage.id)}`)
+						: undefined}
+				<svelte:element
+					this={href ? 'a' : 'div'}
+					{href}
+					class={[
+						'block rounded-lg border px-3 py-2.5',
+						href &&
+							'hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
+					]}
+				>
+					<p class="line-clamp-2 text-sm font-medium" dir="auto">{usage.label || usage.content}</p>
+					<p class="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+						<span class="inline-block first-letter:uppercase"
+							>{mediaUsageKindLabel(usage.kind)}</span
+						>
 						{#if usage.status}
-							<span class="rounded-full bg-muted px-2 py-0.5 text-xs">
-								{mediaUsageStatusLabel(usage.status)}
-							</span>
+							<span aria-hidden="true">·</span>
+							<span>{mediaUsageStatusLabel(usage.status)}</span>
 						{/if}
 						{#if usage.scheduled_at}
-							<span
+							<span aria-hidden="true">·</span>
+							<time datetime={usage.scheduled_at}
 								>{new Date(usage.scheduled_at).toLocaleString(getLocaleTag(), {
-									timeZone
-								})}</span
+									timeZone,
+									dateStyle: 'medium',
+									timeStyle: 'short'
+								})}</time
 							>
 						{/if}
-					</div>
-				</div>
+					</p>
+				</svelte:element>
 			{/each}
 		{/if}
 	{/if}

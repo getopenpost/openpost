@@ -4,6 +4,19 @@ import { ditherThreshold } from "../packages/dither/src/paint.ts";
 
 const DEFAULT_REPOSITORY = "getopenpost/openpost";
 const BADGE_NAMES = ["downloads", "release", "stars", "follow-dev"];
+const DEPLOYMENTS = [
+  ["hosted", "OpenPost Hosted", ["#dcd5ff", "#33216b"], ["#3b2866", "#f2ebff"]],
+  ["docker", "Docker Compose", ["#b9e1ff", "#063c65"], ["#123f65", "#e0f2ff"]],
+  ["coolify", "Coolify", ["#dec5ff", "#441778"], ["#48216e", "#f3e5ff"]],
+  ["dokploy", "Dokploy", ["#d3d7e6", "#252a40"], ["#30364c", "#edf0ff"]],
+  ["portainer", "Portainer", ["#abe8fa", "#064354"], ["#104958", "#ddf8ff"]],
+  ["dockge", "Dockge", ["#bed3ff", "#193c7b"], ["#223e74", "#e5eeff"]],
+  ["casaos", "CasaOS", ["#bddcff", "#153f77"], ["#1a4679", "#e5f1ff"]],
+  ["zimaos", "ZimaOS", ["#a9efd6", "#074c36"], ["#12513d", "#e0fff1"]],
+  ["umbrelos", "umbrelOS", ["#cecaff", "#302778"], ["#393078", "#efecff"]],
+  ["nixos", "NixOS", ["#c4d7f5", "#264573"], ["#2b4770", "#e8f1ff"]],
+  ["ubuntu", "Ubuntu", ["#ffccb8", "#72260d"], ["#74321c", "#ffede5"]],
+];
 const NPM_PACKAGES = ["@getopenpost/sdk", "@getopenpost/cli", "@getopenpost/n8n-nodes-openpost"];
 // The npm downloads API only serves explicit ranges, so start at the registry
 // epoch and let the API clamp to each package's first published day. One point
@@ -32,7 +45,7 @@ const COLORS = {
 };
 
 function usage() {
-  return "usage: bun scripts/generate-readme-badges.mjs [--repo owner/name] [--output-dir assets/badges]";
+  return "usage: bun scripts/generate-readme-badges.mjs [--repo owner/name] [--output-dir assets/badges] [--deployments-only]";
 }
 
 export function parseArguments(argv) {
@@ -46,6 +59,8 @@ export function parseArguments(argv) {
       options.repository = argv[++index];
     } else if (argument === "--output-dir") {
       options.outputDir = argv[++index];
+    } else if (argument === "--deployments-only") {
+      options.deploymentsOnly = true;
     } else if (argument === "--help") {
       console.log(usage());
       return null;
@@ -245,13 +260,43 @@ export async function writeBadges(data, outputDir) {
   return files.map(({ path }) => path);
 }
 
+function renderDeploymentBadge(label, palette) {
+  const width = Math.ceil(textWidth(label));
+  const [background, ink] = palette;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="28" viewBox="0 0 ${width} 28" role="img" aria-labelledby="title" shape-rendering="crispEdges"><title id="title">${escapeXML(label)}</title><defs><clipPath id="badge-clip"><rect width="${width}" height="28" rx="6"/></clipPath>${ditherPattern()}</defs><g clip-path="url(#badge-clip)"><rect width="${width}" height="28" fill="${background}"/><rect x="${width - 24}" width="24" height="28" fill="url(#dither)"/></g><rect x="0.5" y="0.5" width="${width - 1}" height="27" rx="5.5" fill="none" stroke="#000" stroke-opacity="0.12"/><text x="${width / 2}" y="14" fill="${ink}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="middle">${escapeXML(label)}</text></svg>`;
+}
+
+async function writeDeploymentBadges(outputDir) {
+  const destination = resolve(outputDir);
+  await mkdir(destination, { recursive: true });
+  await Promise.all(
+    DEPLOYMENTS.flatMap(([id, label, light, dark]) =>
+      [
+        ["light", light],
+        ["dark", dark],
+      ].map(([mode, palette]) =>
+        writeFile(
+          `${destination}/deploy-${id}-${mode}.svg`,
+          `${renderDeploymentBadge(label, palette)}\n`,
+          "utf8",
+        ),
+      ),
+    ),
+  );
+}
+
 if (import.meta.main) {
   try {
     const options = parseArguments(process.argv.slice(2));
     if (!options) process.exit(0);
-    const data = await fetchBadgeData(options.repository);
-    await writeBadges(data, options.outputDir);
-    console.log(`Updated ${BADGE_NAMES.length * 2} README badges for ${options.repository}.`);
+    if (!options.deploymentsOnly) {
+      const data = await fetchBadgeData(options.repository);
+      await writeBadges(data, options.outputDir);
+    }
+    await writeDeploymentBadges(options.outputDir);
+    console.log(
+      `Updated ${(DEPLOYMENTS.length + (options.deploymentsOnly ? 0 : BADGE_NAMES.length)) * 2} README badges.`,
+    );
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);

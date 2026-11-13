@@ -52,10 +52,6 @@
 </p>
 
 <p align="center">
-  Both editors are free to use without an account or watermark.<br>
-</p>
-
-<p align="center">
   <a href="https://www.youtube.com/watch?v=_mZf3HzQaN8">
     <picture>
       <source media="(prefers-reduced-motion: reduce)" srcset="./assets/screenshots/readme-hero-dark.webp">
@@ -71,13 +67,6 @@
 </p>
 
 ## What you can do
-
-Home shows upcoming posts and the replies, failures, and connections that need your attention.
-Use Posts to switch between the list and calendar, and Studio to open the image editor,
-video editor, Quick Cut, or Recorder. Choose New post in your profile's Preferences
-to open the app on the composer instead.
-
-Demos and linked screenshots use sample data.
 
 - <img src="./assets/brand/features/accounts.svg" alt="" width="24" height="24" align="top"> **[Connect accounts](https://openpo.st/docs/guides/accounts).** Manage your social connections in one workspace. Each provider keeps its own capabilities and publishing limits.
 - <img src="./assets/brand/features/compose.svg" alt="" width="24" height="24" align="top"> **[Compose for each platform](https://openpo.st/docs/guides/publishing).** Write posts and threads, then adjust the text and media for each account. Preview each version before publishing. Save account groups as Social Sets to reuse them.
@@ -148,6 +137,75 @@ Run OpenPost with Docker Compose. The default setup uses one container with SQLi
 </a>
 
 [Configure integrations](https://openpo.st/docs/self-hosting/integrations) · [Backups and upgrades](https://openpo.st/docs/self-hosting/maintenance)
+
+<p>
+  <a href="https://app.openpo.st/register">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-hosted-dark.svg">
+      <img src="./assets/badges/deploy-hosted-light.svg" alt="OpenPost Hosted">
+    </picture>
+  </a>
+  <a href="https://openpo.st/docs/self-hosting/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-docker-dark.svg">
+      <img src="./assets/badges/deploy-docker-light.svg" alt="Docker Compose">
+    </picture>
+  </a>
+  <a href="https://openpo.st/docs/self-hosting/coolify">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-coolify-dark.svg">
+      <img src="./assets/badges/deploy-coolify-light.svg" alt="Coolify">
+    </picture>
+  </a>
+  <a href="https://openpo.st/docs/self-hosting/dokploy">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-dokploy-dark.svg">
+      <img src="./assets/badges/deploy-dokploy-light.svg" alt="Dokploy">
+    </picture>
+  </a>
+  <a href="https://openpo.st/docs/self-hosting/portainer">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-portainer-dark.svg">
+      <img src="./assets/badges/deploy-portainer-light.svg" alt="Portainer">
+    </picture>
+  </a>
+  <a href="https://openpo.st/docs/self-hosting/dockge">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-dockge-dark.svg">
+      <img src="./assets/badges/deploy-dockge-light.svg" alt="Dockge">
+    </picture>
+  </a>
+  <a href="https://openpo.st/docs/self-hosting/casaos">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-casaos-dark.svg">
+      <img src="./assets/badges/deploy-casaos-light.svg" alt="CasaOS">
+    </picture>
+  </a>
+  <a href="https://openpo.st/docs/self-hosting/zimaos">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-zimaos-dark.svg">
+      <img src="./assets/badges/deploy-zimaos-light.svg" alt="ZimaOS">
+    </picture>
+  </a>
+  <a href="https://openpo.st/docs/self-hosting/umbrelos">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-umbrelos-dark.svg">
+      <img src="./assets/badges/deploy-umbrelos-light.svg" alt="umbrelOS">
+    </picture>
+  </a>
+  <a href="https://openpo.st/docs/self-hosting/nixos">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-nixos-dark.svg">
+      <img src="./assets/badges/deploy-nixos-light.svg" alt="NixOS">
+    </picture>
+  </a>
+  <a href="https://openpo.st/docs/self-hosting/binary">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-ubuntu-dark.svg">
+      <img src="./assets/badges/deploy-ubuntu-light.svg" alt="Ubuntu">
+    </picture>
+  </a>
+</p>
 
 ## Supported platforms
 

@@ -13,7 +13,7 @@ test("navigation separates work, workspace management, and personal preferences"
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/publications");
   const workNavigation = page.getByTestId("sidebar-workspace-navigation");
-  for (const name of ["Home", "Posts", "Inbox", "Analytics"]) {
+  for (const name of ["Posts", "Inbox", "Analytics"]) {
     await expect(workNavigation.getByRole("button", { name, exact: true })).toBeVisible();
   }
   const makeNavigation = page.getByTestId("sidebar-make-navigation");
@@ -65,7 +65,7 @@ test("navigation separates work, workspace management, and personal preferences"
   });
   await collapse.focus();
   await page.keyboard.press("Enter");
-  for (const name of ["Home", "Posts", "Inbox", "Analytics", "Media"]) {
+  for (const name of ["Posts", "Inbox", "Analytics", "Media"]) {
     await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
   }
   await page.getByRole("button", { name: "Media", exact: true }).focus();
@@ -210,7 +210,7 @@ test("short desktop keeps navigation and contextual draft resume reachable", asy
     contentBounds!.y + contentBounds!.height,
   );
   await page.locator('[data-sidebar="content"]').evaluate((content) => content.scrollTo(0, 0));
-  for (const name of ["Home", "Posts", "Inbox", "Analytics"])
+  for (const name of ["Posts", "Inbox", "Analytics"])
     await expect(
       page.getByTestId("sidebar-workspace-navigation").getByRole("button", { name, exact: true }),
     ).toBeInViewport();

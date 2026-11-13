@@ -41,8 +41,6 @@
 
 	function iconFor(id: (typeof items)[number]['id']): ThemeIconRole {
 		switch (id) {
-			case 'home':
-				return 'home';
 			case 'analytics':
 				return 'analytics';
 			case 'communications':
@@ -56,8 +54,6 @@
 
 	function labelFor(id: (typeof items)[number]['id']) {
 		switch (id) {
-			case 'home':
-				return m.nav_home();
 			case 'analytics':
 				return m.sidebar_analytics();
 			case 'new':
@@ -87,7 +83,7 @@
 	class="fixed inset-x-0 bottom-0 z-30 border-t bg-background/96 px-2 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-md md:hidden"
 	aria-label={m.sidebar_primary_navigation()}
 >
-	<ul class="grid min-h-[calc(var(--mobile-bottom-nav-height)-0.6rem)] grid-cols-5">
+	<ul class="grid min-h-[calc(var(--mobile-bottom-nav-height)-0.6rem)] grid-cols-4">
 		{#each items as item (item.id)}
 			{@const icon = iconFor(item.id)}
 			{@const active = isNavigationItemActive(item, pathname)}

@@ -12,7 +12,7 @@
 	const openComposer = sidebarPreferences.shouldOpenComposer(page.url.search !== '');
 	if (openComposer) sidebarPreferences.requestComposer();
 	$effect(() => {
-		if (!openComposer) void goto(resolveAppPath('/home'), { replaceState: true });
+		if (!openComposer) void goto(resolveAppPath('/publications'), { replaceState: true });
 	});
 	onNavigate(({ to }) => {
 		if (to?.url.pathname !== '/') sidebarPreferences.leaveComposer();

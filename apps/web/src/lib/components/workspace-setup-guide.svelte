@@ -4,7 +4,6 @@
 		workspaceSettingsQueryKeys,
 		workspaceSetupQueryOptions
 	} from '@openpost/query-catalog';
-	import { goto } from '$app/navigation';
 	import { queryClient } from '$lib/query/client';
 	import { workspaceSettingsQueryAPI } from '$lib/query/workspace-settings';
 	import { resolveAppPath } from '$lib/app-path';
@@ -14,18 +13,17 @@
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { m } from '$lib/paraglide/messages';
 	import { ui } from '$lib/stores/ui.svelte';
-	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 
 	type Setup = components['schemas']['WorkspaceSetupResponse'];
 	type SetupStepID = NonNullable<Setup['steps']>[number]['id'];
 
 	interface Props {
 		workspaceID: string;
-		context?: 'home' | 'accounts' | 'composer';
+		context: 'accounts' | 'composer';
 		wrapperClass?: string;
 	}
 
-	let { workspaceID, context = 'home', wrapperClass }: Props = $props();
+	let { workspaceID, context, wrapperClass }: Props = $props();
 	let setup = $state.raw<Setup | null>(null);
 	let loadedWorkspaceID = '';
 	let loadedRevision = ui.workspaceSetupRevision;
@@ -87,11 +85,6 @@
 		void loadSetup();
 	});
 
-	const canEdit = $derived(
-		workspaceCtx.currentWorkspace?.id === workspaceID &&
-			(workspaceCtx.currentWorkspace.can_edit ?? false)
-	);
-
 	const actionLabel = $derived(
 		setup?.next_action === 'name_workspace'
 			? m.workspace_setup_name_workspace()
@@ -123,21 +116,6 @@
 						: m.workspace_setup_workspace();
 	}
 
-	/** The composer owns creating a post, so those steps open it through the shared entry. */
-	function stepOpensComposer(stepID: SetupStepID) {
-		return stepID === 'composition' || stepID === 'publication';
-	}
-
-	function stepHref(stepID: SetupStepID): string | null {
-		if (stepID === 'workspace') return '/settings?tab=general#workspace-name';
-		if (stepID === 'subscription') {
-			if (setup?.next_action === 'resume_checkout' && setup.action_href) return setup.action_href;
-			return '/settings?tab=plan';
-		}
-		if (stepID === 'destination') return '/accounts';
-		return null;
-	}
-
 	/** The accounts surface is the connect destination; the settings tab redirect is stale. */
 	const lineHref = $derived.by(() => {
 		if (!setup?.action_href) return '';
@@ -145,11 +123,6 @@
 		if (setup.next_action === 'create_publication') return '';
 		return setup.action_href;
 	});
-
-	function startComposer() {
-		if (!ui.startNewPost()) return;
-		void goto(resolveAppPath('/'));
-	}
 
 	/** Pending steps count through their own sequence so completed checks never break the numbering. */
 	const pendingStepNumbers = $derived.by(() => {
@@ -200,80 +173,6 @@
 				</p>
 			</div>
 		{/if}
-	{:else if context === 'home'}
-		<section
-			data-testid="workspace-setup-guide-home"
-			class="rounded-lg border p-4 sm:p-5"
-			aria-labelledby="workspace-setup-heading-home"
-		>
-			<div class="min-w-0 space-y-1">
-				<p class="text-xs text-muted-foreground">
-					{m.workspace_setup_progress({
-						completed: setup.completed_steps,
-						total: setup.total_steps
-					})}
-				</p>
-				<h2 id="workspace-setup-heading-home" class="text-base font-semibold">
-					{m.workspace_setup_heading()}
-				</h2>
-			</div>
-			<ol class="mt-4 space-y-1.5 text-sm">
-				{#each pendingSteps as step (step.id)}
-					{#if stepOpensComposer(step.id) && canEdit}
-						<li>
-							<button
-								type="button"
-								onclick={startComposer}
-								class="flex min-h-11 w-full items-center gap-2.5 rounded-md font-medium transition-colors duration-200 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-							>
-								<span
-									class="setup-step-badge flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
-								>
-									{pendingStepNumbers.get(step.id)}
-								</span>
-								{stepLabel(step.id)}
-							</button>
-						</li>
-					{:else if stepHref(step.id)}
-						<li>
-							<a
-								href={resolveAppPath(stepHref(step.id) ?? '')}
-								class="flex min-h-11 items-center gap-2.5 rounded-md font-medium transition-colors duration-200 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-							>
-								<span
-									class="setup-step-badge flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
-								>
-									{pendingStepNumbers.get(step.id)}
-								</span>
-								{stepLabel(step.id)}
-							</a>
-						</li>
-					{:else}
-						<li class="flex min-h-11 items-center gap-2.5 font-medium">
-							<span
-								class="setup-step-badge flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
-							>
-								{pendingStepNumbers.get(step.id)}
-							</span>
-							{stepLabel(step.id)}
-						</li>
-					{/if}
-				{/each}
-				{#each completedSteps as step (step.id)}
-					<li class="flex min-h-11 items-center gap-2.5 text-muted-foreground">
-						<span
-							class="setup-step-badge flex size-6 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground"
-						>
-							<ThemeIcon
-								role="check"
-								class="size-3.5 {stepJustCompleted(step) ? 'setup-check-in' : ''}"
-							/>
-						</span>
-						{stepLabel(step.id)}
-					</li>
-				{/each}
-			</ol>
-		</section>
 	{:else}
 		<div class={wrapperClass}>
 			<section

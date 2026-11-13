@@ -69,7 +69,7 @@
 					class="min-h-11 w-full"
 					value={sidebarPreferences.landing}
 					options={[
-						{ value: 'home', label: m.nav_home() },
+						{ value: 'posts', label: m.sidebar_activity() },
 						{ value: 'compose', label: m.sidebar_new_post() }
 					]}
 					onValueChange={(value) => sidebarPreferences.setLanding(value as LandingPreference)}

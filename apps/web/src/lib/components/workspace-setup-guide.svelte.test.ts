@@ -15,7 +15,7 @@ describe('WorkspaceSetupGuide', () => {
 		queryClient.clear();
 	});
 
-	it('shows the server-projected progress and checklist while reusing cached reads', async () => {
+	it('shows the server-projected next step while reusing cached reads', async () => {
 		mocks.get.mockResolvedValue({
 			data: {
 				visible: true,
@@ -35,15 +35,10 @@ describe('WorkspaceSetupGuide', () => {
 		});
 
 		const screen = await render(WorkspaceSetupGuide, {
-			workspaceID: 'workspace-1'
+			props: { workspaceID: 'workspace-1', context: 'composer' }
 		});
-		const guide = screen.getByTestId('workspace-setup-guide-home');
+		const guide = screen.getByTestId('workspace-setup-guide-composer');
 		await expect.element(guide).toBeVisible();
-		await expect.element(guide).toHaveTextContent('3 of 4 complete');
-		await expect.element(guide).toHaveTextContent('Finish setting up this Workspace');
-		await expect.element(guide).toHaveTextContent('Workspace');
-		await expect.element(guide).toHaveTextContent('Write something');
-		await expect.element(guide).toHaveTextContent('Publish a post');
 		await expect
 			.element(screen.getByRole('link', { name: 'Connect an account' }))
 			.toHaveAttribute('href', '/accounts');
@@ -70,14 +65,16 @@ describe('WorkspaceSetupGuide', () => {
 		});
 
 		const screen = await render(WorkspaceSetupGuide, {
-			workspaceID: 'workspace-1'
+			props: { workspaceID: 'workspace-1', context: 'composer' }
 		});
 		await expect
 			.poll(
 				() => queryClient.getQueryState(workspaceSettingsQueryKeys.setup('workspace-1'))?.status
 			)
 			.toBe('success');
-		await expect.element(screen.getByTestId('workspace-setup-guide-home')).not.toBeInTheDocument();
+		await expect
+			.element(screen.getByTestId('workspace-setup-guide-composer'))
+			.not.toBeInTheDocument();
 	});
 
 	it('refreshes its projection after workspace state changes', async () => {
@@ -88,8 +85,8 @@ describe('WorkspaceSetupGuide', () => {
 					activated: false,
 					completed_steps: 2,
 					total_steps: 3,
-					next_action: 'create_publication',
-					action_href: '/',
+					next_action: 'connect_destination',
+					action_href: '/accounts',
 					steps: []
 				}
 			})
@@ -106,9 +103,9 @@ describe('WorkspaceSetupGuide', () => {
 			});
 
 		const screen = await render(WorkspaceSetupGuide, {
-			workspaceID: 'workspace-1'
+			props: { workspaceID: 'workspace-1', context: 'composer' }
 		});
-		await expect.element(screen.getByTestId('workspace-setup-guide-home')).toBeVisible();
+		await expect.element(screen.getByTestId('workspace-setup-guide-composer')).toBeVisible();
 		ui.refreshWorkspaceSetup();
 		await expect.poll(() => mocks.get).toHaveBeenCalledTimes(2);
 		expect(mocks.get).toHaveBeenNthCalledWith(2, '/workspaces/{id}/setup', {
@@ -118,6 +115,8 @@ describe('WorkspaceSetupGuide', () => {
 		await expect
 			.poll(() => queryClient.getQueryData(workspaceSettingsQueryKeys.setup('workspace-1')))
 			.toMatchObject({ visible: false, action_href: '/' });
-		await expect.element(screen.getByTestId('workspace-setup-guide-home')).not.toBeInTheDocument();
+		await expect
+			.element(screen.getByTestId('workspace-setup-guide-composer'))
+			.not.toBeInTheDocument();
 	});
 });

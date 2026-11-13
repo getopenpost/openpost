@@ -32,17 +32,16 @@ OpenPost serves solo founders and creators who do not want to waste time. Small 
 
 ## Navigation
 
-Desktop: logo, workspace switcher, notifications, New post. Then Home, Posts, Inbox, Analytics. Then Ideas, Studio, Media, Automations. Footer: Accounts, Settings, profile.
+Desktop: logo, workspace switcher, notifications, New post. Then Posts, Inbox, Analytics. Then Ideas, Studio, Media, Automations. Footer: Accounts, Settings, profile.
 
-Phone: Home, Posts, New, Inbox, More, all labelled. More owns Analytics, Ideas, Studio, Media, Automations, Accounts, Settings, Workspace, and Profile.
+Phone: Posts, New, Inbox, More, all labelled. More owns Analytics, Ideas, Studio, Media, Automations, Accounts, Settings, Workspace, and Profile.
 
 Find people lives under Inbox. Reposts lives under Automations. Posting schedule lives with the queue. Editors, Templates, Voice profiles, and Prompts live in Studio.
 
-`/` stays the composer URL. App entry at `/` without parameters follows the device landing preference: Home by default, New post for writing-first users, who also get Drafts in the sidebar. Every composer entry goes through `ui.startNewPost()`.
+`/` stays the composer URL. App entry at `/` without parameters follows the device landing preference: Posts by default, New post for writing-first users, who also get Drafts in the sidebar. Every composer entry goes through `ui.startNewPost()`.
 
 ## Surfaces
 
-- **Home**: what is going out, what needs you (failed posts, replies, approvals, disconnected accounts), how it is going in one sentence, and quick actions. Setup checklist lives here until complete. Ends with a closure line such as "You're covered until Thursday."
 - **Onboarding**: one question about what you want to see when you open the app, each choice explained in one line, connect one account inline, write the first post. Keep the draft through connection. No plan card, no feedback box.
 - **Composer**: spacious canvas, live preview beside it on wide screens by default, one primary action. Disabled actions explain themselves.
 - **Posts**: one header row, single-line rows, about ten per screen, no zero counters.

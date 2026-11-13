@@ -1,6 +1,6 @@
 import { browser } from '$app/environment';
 
-export type LandingPreference = 'home' | 'compose';
+export type LandingPreference = 'posts' | 'compose';
 
 const draftsStorageKey = 'openpost-sidebar-drafts';
 const landingStorageKey = 'openpost-landing';
@@ -25,7 +25,7 @@ function save(key: string, value: string) {
 
 class SidebarPreferences {
 	draftsVisible = $state(saved(draftsStorageKey) === 'true');
-	landing = $state<LandingPreference>(saved(landingStorageKey) === 'compose' ? 'compose' : 'home');
+	landing = $state<LandingPreference>(saved(landingStorageKey) === 'compose' ? 'compose' : 'posts');
 	#composerRequested = false;
 
 	setDraftsVisible(visible: boolean) {

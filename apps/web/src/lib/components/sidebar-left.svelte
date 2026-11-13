@@ -70,8 +70,6 @@
 
 	function navigationIcon(id: PrimaryNavigationItem['id']): ThemeIconRole {
 		switch (id) {
-			case 'home':
-				return 'home';
 			case 'new':
 				return 'compose';
 			case 'publications':
@@ -97,8 +95,6 @@
 
 	function navigationLabel(id: PrimaryNavigationItem['id']) {
 		switch (id) {
-			case 'home':
-				return m.nav_home();
 			case 'new':
 				return m.sidebar_new_post();
 			case 'publications':
@@ -192,7 +188,7 @@
 	<Sidebar.Header class="gap-2 p-2" data-testid="app-sidebar">
 		<div class="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
 			<a
-				href={resolve('/home')}
+				href={resolve('/publications')}
 				class="flex size-9 shrink-0 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
 				aria-label={m.app_branding_home({ name: appBranding.profile.display_name })}
 				data-testid="sidebar-home-brand"

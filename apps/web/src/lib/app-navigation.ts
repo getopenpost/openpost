@@ -1,6 +1,5 @@
 export type PrimaryNavigationItem = {
 	id:
-		| 'home'
 		| 'new'
 		| 'publications'
 		| 'communications'
@@ -19,7 +18,6 @@ export type PrimaryNavigationItem = {
 
 export type AppRouteFamily =
 	| 'ideate'
-	| 'home'
 	| 'root'
 	| 'publications'
 	| 'communications'
@@ -33,7 +31,6 @@ export type AppRouteFamily =
 	| 'local-editors';
 
 export const appRouteFamilies = {
-	home: ['/home'],
 	root: ['/'],
 	publications: ['/publications', '/calendar'],
 	communications: ['/inbox', '/grow'],
@@ -58,7 +55,6 @@ export const appRouteFamilies = {
 } satisfies Record<AppRouteFamily, readonly string[]>;
 
 export const primaryNavigation: PrimaryNavigationItem[] = [
-	{ id: 'home', label: 'Home', href: '/home', family: 'home', mobile: true },
 	{ id: 'new', label: 'New post', href: '/', family: 'root', mobile: true },
 	{
 		id: 'publications',
@@ -95,9 +91,9 @@ export const primaryNavigation: PrimaryNavigationItem[] = [
 	{ id: 'settings', label: 'Settings', href: '/settings', family: 'settings', mobile: false }
 ];
 
-const overviewNavigationIds = ['home', 'publications', 'communications', 'analytics'] as const;
+const overviewNavigationIds = ['publications', 'communications', 'analytics'] as const;
 const makeNavigationIds = ['ideate', 'studio', 'media', 'workflows'] as const;
-const mobileNavigationOrder = ['home', 'publications', 'new', 'communications'] as const;
+const mobileNavigationOrder = ['publications', 'new', 'communications'] as const;
 
 function navigationItems(ids: readonly PrimaryNavigationItem['id'][]) {
 	return ids.map((id) => primaryNavigation.find((item) => item.id === id)!);

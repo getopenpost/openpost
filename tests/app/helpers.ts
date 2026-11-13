@@ -148,7 +148,7 @@ export async function authenticatePage(page: Page, token: string) {
       sameSite: "Lax",
     },
   ]);
-  // Most suites exercise the composer at `/`. Home entry has its own coverage.
+  // Most suites exercise the composer at `/`. Posts entry has its own coverage.
   await page.addInitScript(() => localStorage.setItem("openpost-landing", "compose"));
 }
 

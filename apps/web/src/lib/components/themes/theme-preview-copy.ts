@@ -144,7 +144,6 @@ export function themePreviewCopy(locale: Locale = getLocale()): ThemePreviewCopy
 			}
 		},
 		desktopNavigation: [
-			{ label: m.theme_preview_navigation_home({}, options), role: 'home' },
 			{ label: m.theme_preview_navigation_compose({}, options), role: 'compose' },
 			{ label: m.theme_preview_navigation_calendar({}, options), role: 'calendar' },
 			{ label: m.theme_preview_navigation_media({}, options), role: 'media' }

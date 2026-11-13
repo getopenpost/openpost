@@ -65,12 +65,8 @@ function NativeTabLayout() {
       shadowColor={navigation.shadowColor}
       tintColor={navigation.selectedColor}
     >
-      {/* The phone navigation mirrors the web Calm contract: Home, Posts, New,
-          Inbox, More, all labelled. Analytics and Media live under More. */}
-      <NativeTabs.Trigger name="home">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="house" md="home" />
-      </NativeTabs.Trigger>
+      {/* The phone navigation mirrors the web Calm contract: Posts, New, Inbox,
+          More, all labelled. Analytics and Media live under More. */}
       <NativeTabs.Trigger name="posts">
         <NativeTabs.Trigger.Label>Posts</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon renderingMode="template" src={drafts} />

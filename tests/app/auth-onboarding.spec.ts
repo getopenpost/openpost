@@ -216,6 +216,6 @@ test("protected navigation carries its exact destination through login", async (
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign In" }).click();
-  await expect(page).toHaveURL(/\/home$/);
+  await expect(page).toHaveURL(/\/publications$/);
   expect(new URL(page.url()).origin).not.toBe("https://example.com");
 });

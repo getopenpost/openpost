@@ -81,6 +81,9 @@ openpost-release.jks
 
 # Data directories
 data/
+!deploy/umbrel/data/
+deploy/umbrel/data/*
+!deploy/umbrel/data/.gitkeep
 /media/
 apps/server/media/
 

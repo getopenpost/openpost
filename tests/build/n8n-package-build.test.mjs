@@ -16,28 +16,33 @@ function runPayloadCheck() {
   return spawnSync("node", [checkScript], { encoding: "utf8" });
 }
 
-test("the n8n npm payload rejects compiled tests that leaked into dist", () => {
-  const clean = runPayloadCheck();
-  assert.equal(clean.status, 0, clean.stderr || clean.stdout);
-  assert.match(clean.stdout, /validated \d+ npm payload files/u);
+// Two npm pack subprocesses share resources with the other preflight checks.
+test(
+  "the n8n npm payload rejects compiled tests that leaked into dist",
+  { timeout: 30_000 },
+  () => {
+    const clean = runPayloadCheck();
+    assert.equal(clean.status, 0, clean.stderr || clean.stdout);
+    assert.match(clean.stdout, /validated \d+ npm payload files/u);
 
-  const fileExisted = existsSync(leakedFile);
-  const directoryExisted = existsSync(leakedDirectory);
-  const previous = fileExisted ? readFileSync(leakedFile) : null;
-  try {
-    mkdirSync(leakedDirectory, { recursive: true });
-    writeFileSync(leakedFile, "// leaked compiled test fixture\n");
+    const fileExisted = existsSync(leakedFile);
+    const directoryExisted = existsSync(leakedDirectory);
+    const previous = fileExisted ? readFileSync(leakedFile) : null;
+    try {
+      mkdirSync(leakedDirectory, { recursive: true });
+      writeFileSync(leakedFile, "// leaked compiled test fixture\n");
 
-    const failed = runPayloadCheck();
-    assert.notEqual(failed.status, 0, "the n8n payload check accepted a compiled test in dist");
-    const expectedFailure = `Compiled test file in npm payload: ${leakedPayloadPath}`;
-    assert.ok(
-      (failed.stderr || "").split("\n").some((line) => line.includes(expectedFailure)),
-      `expected "${expectedFailure}" in:\n${failed.stderr}`,
-    );
-  } finally {
-    if (fileExisted) writeFileSync(leakedFile, previous);
-    else rmSync(leakedFile, { force: true });
-    if (!directoryExisted) rmSync(leakedDirectory, { recursive: true, force: true });
-  }
-});
+      const failed = runPayloadCheck();
+      assert.notEqual(failed.status, 0, "the n8n payload check accepted a compiled test in dist");
+      const expectedFailure = `Compiled test file in npm payload: ${leakedPayloadPath}`;
+      assert.ok(
+        (failed.stderr || "").split("\n").some((line) => line.includes(expectedFailure)),
+        `expected "${expectedFailure}" in:\n${failed.stderr}`,
+      );
+    } finally {
+      if (fileExisted) writeFileSync(leakedFile, previous);
+      else rmSync(leakedFile, { force: true });
+      if (!directoryExisted) rmSync(leakedDirectory, { recursive: true, force: true });
+    }
+  },
+);

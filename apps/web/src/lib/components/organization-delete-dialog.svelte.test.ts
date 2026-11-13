@@ -4,15 +4,6 @@ import { client } from '$lib/api/client';
 import { setLocale } from '$lib/paraglide/runtime';
 import OrganizationDeleteDialog from './organization-delete-dialog.svelte';
 
-// The shared loading status is mid-migration to ActivityIndicator in a concurrent
-// change (packages/ui does not export it yet), so tests stand in this stub with the
-// same role and accessible name. Drop this mock once the export lands.
-// oxlint-disable-next-line anti-slop/no-module-mocking
-vi.mock('$lib/components/dialog-loading-status.svelte', async () => {
-	const stub = await import('./dialog-loading-status.fixture.svelte');
-	return { default: stub.default };
-});
-
 // oxlint-disable-next-line anti-slop/no-module-mocking
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 

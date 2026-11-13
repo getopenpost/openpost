@@ -9,7 +9,7 @@ type DestinationCheckingState = {
 
 type DestinationReadyState = {
   kind: "ready";
-  route: "/(tabs)/posts";
+  route: "/(tabs)/posts?view=drafts";
 };
 
 type DestinationSetupState = {
@@ -50,7 +50,7 @@ export function destinationState(
     return { kind: "checking", route: "/onboarding/destination" } as const;
   }
   if (accounts.some((account) => account.is_active)) {
-    return { kind: "ready", route: "/(tabs)/posts" } as const;
+    return { kind: "ready", route: "/(tabs)/posts?view=drafts" } as const;
   }
   if (!serverBaseUrl) throw new Error("A server is required to connect a destination");
 

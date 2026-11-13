@@ -95,7 +95,7 @@ func (b *BlueskyAdapter) FetchMessageEvents(ctx context.Context, token string, i
 	if input.Cursor != "" {
 		path += "?" + url.Values{"cursor": {input.Cursor}}.Encode()
 	}
-	body, err := b.chatRequest(ctx, token, http.MethodGet, path, nil)
+	body, err := b.chatRequest(ctx, input.AccountID, token, http.MethodGet, path, nil)
 	if err != nil {
 		return FetchMessageEventsResult{}, err
 	}
@@ -192,7 +192,7 @@ func (b *BlueskyAdapter) hydrateMessageLog(ctx context.Context, token, accountID
 		if batch.removed[cid] {
 			continue
 		}
-		data, err := b.chatRequest(ctx, token, http.MethodGet, "/xrpc/chat.bsky.convo.getConvo?"+url.Values{"convoId": {cid}}.Encode(), nil)
+		data, err := b.chatRequest(ctx, accountID, token, http.MethodGet, "/xrpc/chat.bsky.convo.getConvo?"+url.Values{"convoId": {cid}}.Encode(), nil)
 		if err != nil {
 			var status *HTTPError
 			if errors.As(err, &status) && status.Code == "InvalidConvo" && (status.StatusCode == http.StatusBadRequest || status.StatusCode == http.StatusNotFound) {
@@ -233,7 +233,7 @@ func (b *BlueskyAdapter) FetchMessageHistory(ctx context.Context, token string, 
 	if input.Cursor != "" {
 		query.Set("cursor", input.Cursor)
 	}
-	body, err := b.chatRequest(ctx, token, http.MethodGet, "/xrpc/chat.bsky.convo.getMessages?"+query.Encode(), nil)
+	body, err := b.chatRequest(ctx, input.AccountID, token, http.MethodGet, "/xrpc/chat.bsky.convo.getMessages?"+query.Encode(), nil)
 	if err != nil {
 		return FetchMessageHistoryResult{}, err
 	}

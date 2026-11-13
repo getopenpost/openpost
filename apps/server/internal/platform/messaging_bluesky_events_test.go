@@ -8,7 +8,7 @@ import (
 )
 
 func TestBlueskyIncrementalEvents(t *testing.T) {
-	adapter, ok := any(NewBlueskyAdapter("")).(IncrementalMessagingAdapter)
+	adapter, ok := any(NewBlueskyAdapter("https://pds.example")).(IncrementalMessagingAdapter)
 	require.True(t, ok, "Bluesky must read its account log instead of polling every history")
 	previous := httpClient
 	t.Cleanup(func() { httpClient = previous })
@@ -68,7 +68,7 @@ func TestBlueskyBootstrapAndBoundedReplay(t *testing.T) {
 			return jsonResponse(r, `{"logs":[]}`), nil
 		}
 	})}
-	adapter := NewBlueskyAdapter("")
+	adapter := NewBlueskyAdapter("https://pds.example")
 	batch, err := adapter.FetchMessageEvents(t.Context(), "token", FetchMessageEventsRequest{AccountID: "me"})
 	require.NoError(t, err)
 	require.True(t, batch.Bootstrap)
@@ -94,7 +94,7 @@ func TestBlueskyDiscoveryDoesNotFetchHistory(t *testing.T) {
 		require.Equal(t, "/xrpc/chat.bsky.convo.listConvos", r.URL.Path)
 		return jsonResponse(r, `{"convos":[{"id":"c1","members":[{"did":"me"},{"did":"alice"}],"unreadCount":1,"lastMessage":{"$type":"chat.bsky.convo.defs#messageView","id":"m1","text":"hello","sender":{"did":"alice"},"sentAt":"2026-10-20T10:00:00Z"}}],"cursor":"older"}`), nil
 	})}
-	batch, err := NewBlueskyAdapter("").FetchMessages(t.Context(), "token", FetchMessagesRequest{AccountID: "me", Limit: 20})
+	batch, err := NewBlueskyAdapter("https://pds.example").FetchMessages(t.Context(), "token", FetchMessagesRequest{AccountID: "me", Limit: 20})
 	require.NoError(t, err)
 	require.Equal(t, "older", batch.NextCursor)
 	require.Equal(t, "m1", batch.Conversations[0].Messages[0].ID)
@@ -112,7 +112,7 @@ func TestBlueskyLogCanAdvancePastInaccessibleConversation(t *testing.T) {
 		response.StatusCode = status
 		return response, nil
 	})}
-	adapter := NewBlueskyAdapter("")
+	adapter := NewBlueskyAdapter("https://pds.example")
 	batch, err := adapter.FetchMessageEvents(t.Context(), "token", FetchMessageEventsRequest{AccountID: "me", Cursor: "r1", Limit: 1})
 	require.NoError(t, err)
 	require.Equal(t, "r2", batch.NextCursor)

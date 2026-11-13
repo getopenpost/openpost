@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 const (
@@ -33,7 +34,7 @@ func (b *BlueskyAdapter) FetchMessages(ctx context.Context, accessToken string, 
 	if input.Cursor != "" {
 		query.Set("cursor", input.Cursor)
 	}
-	body, err := b.chatRequest(ctx, accessToken, http.MethodGet, "/xrpc/chat.bsky.convo.listConvos?"+query.Encode(), nil)
+	body, err := b.chatRequest(ctx, input.AccountID, accessToken, http.MethodGet, "/xrpc/chat.bsky.convo.listConvos?"+query.Encode(), nil)
 	if err != nil {
 		return FetchMessagesResult{}, err
 	}
@@ -60,7 +61,7 @@ func (b *BlueskyAdapter) SendMessage(ctx context.Context, accessToken string, in
 		"convoId": input.RemoteConversationID,
 		"message": map[string]string{"text": strings.TrimSpace(input.Body)},
 	})
-	body, err := b.chatRequest(ctx, accessToken, http.MethodPost, "/xrpc/chat.bsky.convo.sendMessage", bytes.NewReader(payload))
+	body, err := b.chatRequest(ctx, input.AccountID, accessToken, http.MethodPost, "/xrpc/chat.bsky.convo.sendMessage", bytes.NewReader(payload))
 	if err != nil {
 		return SendMessageResult{}, err
 	}
@@ -75,7 +76,54 @@ func (b *BlueskyAdapter) SendMessage(ctx context.Context, accessToken string, in
 	return SendMessageResult{RemoteMessageID: result.ID, CreatedAt: sentAt}, nil
 }
 
-func (b *BlueskyAdapter) chatRequest(ctx context.Context, accessToken, method, path string, body io.Reader) ([]byte, error) {
+const blueskyChatHostTTL = time.Hour
+
+type blueskyChatHost struct {
+	adapter *BlueskyAdapter
+	expires time.Time
+}
+
+// chatAdapter returns the adapter that serves an account's chat requests. The
+// bsky.social entryway answers proxied chat.bsky methods with 501
+// MethodNotImplemented, so Bluesky-hosted accounts call the PDS host named in
+// their DID document. An adapter for any other PDS already addresses it.
+func (b *BlueskyAdapter) chatAdapter(ctx context.Context, did string) (*BlueskyAdapter, error) {
+	if b.pdsURL != BlueskyDefaultPDSURL {
+		return b, nil
+	}
+	if !strings.HasPrefix(did, "did:") {
+		return nil, fmt.Errorf("bluesky chat requires the account DID")
+	}
+	if cached, ok := b.chatHosts.Load(did); ok {
+		if host := cached.(blueskyChatHost); time.Now().Before(host.expires) {
+			return host.adapter, nil
+		}
+	}
+	documentURL, err := blueskyDIDDocumentURL(did)
+	if err != nil {
+		return nil, err
+	}
+	resolveCtx, cancel := context.WithTimeout(ctx, blueskyResolveTimeout)
+	defer cancel()
+	policy := blueskyPDSPolicy()
+	document, err := blueskyGuardedGet(resolveCtx, blueskyPDSHTTPClient(policy), policy, documentURL)
+	if err != nil {
+		return nil, fmt.Errorf("fetching bluesky did document for chat: %w", err)
+	}
+	endpoint, err := blueskyPDSEndpoint(document, did, "")
+	if err != nil {
+		return nil, err
+	}
+	adapter := NewResolvedBlueskyAdapter(endpoint)
+	b.chatHosts.Store(did, blueskyChatHost{adapter: adapter, expires: time.Now().Add(blueskyChatHostTTL)})
+	return adapter, nil
+}
+
+func (b *BlueskyAdapter) chatRequest(ctx context.Context, accountDID, accessToken, method, path string, body io.Reader) ([]byte, error) {
+	target, err := b.chatAdapter(ctx, accountDID)
+	if err != nil {
+		return nil, fmt.Errorf("bluesky messages: %w", err)
+	}
 	headers := map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
 		"atproto-proxy":     blueskyChatProxy,
@@ -83,7 +131,7 @@ func (b *BlueskyAdapter) chatRequest(ctx context.Context, accessToken, method, p
 	if method == http.MethodPost {
 		headers[headerContentType] = contentTypeJSON
 	}
-	response, err := b.doRequest(ctx, method, b.pdsURL+path, body, headers)
+	response, err := target.doRequest(ctx, method, target.pdsURL+path, body, headers)
 	if err != nil {
 		return nil, fmt.Errorf("bluesky messages: %w", err)
 	}

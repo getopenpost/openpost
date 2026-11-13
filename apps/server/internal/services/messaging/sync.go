@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -86,13 +88,14 @@ func (s *Service) syncMessages(ctx context.Context, accountID string) (resultErr
 		}))
 	}
 	if incremental, ok := provider.(platform.IncrementalMessagingAdapter); ok {
-		if err := s.syncIncremental(ctx, account, provider, incremental, token); err != nil {
-			_ = s.states.record(ctx, syncStateUpdate{account: account, status: syncStateFailed, failure: syncStateFailure{code: "provider_error", message: "Could not refresh messages. OpenPost will try again."}, cursor: progress.cursor, backfillComplete: progress.backfillComplete, cadence: providerRetryDelay(err, time.Minute), attemptedAt: s.now()})
-			return err
-		}
-		return s.states.record(ctx, syncStateUpdate{account: account, status: syncStateOK, cursor: progress.cursor, backfillComplete: true, cadence: s.collectionCadence(ctx, account, 15*time.Minute), attemptedAt: s.now()})
+		return s.syncIncrementalState(ctx, account, provider, incremental, token, progress)
 	}
 	collected, err := s.collectMessages(ctx, account, provider, token, progress)
+	if refusal := (*permanentRefusal)(nil); errors.As(err, &refusal) {
+		// The recorded state is the outcome; failing the job would only add a
+		// retry record for a refusal that retrying cannot change.
+		return refusal.recordErr
+	}
 	if err != nil {
 		return err
 	}
@@ -107,6 +110,18 @@ func (s *Service) syncMessages(ctx context.Context, accountID string) (resultErr
 		backfillComplete: collected.backfillComplete, cadence: s.collectionCadence(ctx, account, messageCadence(progress.emptyStreak)),
 		emptyStreak: progress.emptyStreak, attemptedAt: s.now(),
 	})
+}
+
+// syncIncrementalState runs one event-log collection and records its outcome.
+func (s *Service) syncIncrementalState(ctx context.Context, account models.SocialAccount, provider Provider, incremental platform.IncrementalMessagingAdapter, token string, progress messageSyncProgress) error {
+	if err := s.syncIncremental(ctx, account, provider, incremental, token); err != nil {
+		if permanent, recordErr := s.recordPermanentRefusal(ctx, account, progress, err); permanent {
+			return recordErr
+		}
+		_ = s.states.record(ctx, syncStateUpdate{account: account, status: syncStateFailed, failure: syncStateFailure{code: "provider_error", message: "Could not refresh messages. OpenPost will try again."}, cursor: progress.cursor, backfillComplete: progress.backfillComplete, cadence: providerRetryDelay(err, time.Minute), attemptedAt: s.now()})
+		return err
+	}
+	return s.states.record(ctx, syncStateUpdate{account: account, status: syncStateOK, cursor: progress.cursor, backfillComplete: true, cadence: s.collectionCadence(ctx, account, 15*time.Minute), attemptedAt: s.now()})
 }
 
 func (s *Service) syncProvider(ctx context.Context, account models.SocialAccount) (Provider, error) {
@@ -131,6 +146,9 @@ func syncProgress(state *models.MessagingSyncState) messageSyncProgress {
 func (s *Service) collectMessages(ctx context.Context, account models.SocialAccount, provider Provider, token string, progress messageSyncProgress) (collectedMessages, error) {
 	result, err := provider.FetchMessages(ctx, token, platform.FetchMessagesRequest{AccountID: account.AccountID, Limit: 100})
 	if err != nil {
+		if permanent, recordErr := s.recordPermanentRefusal(ctx, account, progress, err); permanent {
+			return collectedMessages{}, &permanentRefusal{recordErr: recordErr}
+		}
 		return collectedMessages{}, errors.Join(err, s.states.record(ctx, syncStateUpdate{
 			account: account, status: syncStateFailed,
 			failure: syncStateFailure{code: "provider_error", message: "OpenPost could not collect messages from this provider."},
@@ -473,4 +491,42 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// permanentRefusalCadence spaces checks of a refusal that only the account
+// owner or provider can resolve.
+const permanentRefusalCadence = 24 * time.Hour
+
+// permanentRefusal carries a recorded refusal out of snapshot collection.
+type permanentRefusal struct{ recordErr error }
+
+func (r *permanentRefusal) Error() string {
+	return "provider permanently refused message collection"
+}
+
+// recordPermanentRefusal records provider refusals that retrying cannot fix:
+// access denied for the connected credentials, or chat that the provider does
+// not implement for this account. It reports whether err was such a refusal.
+func (s *Service) recordPermanentRefusal(ctx context.Context, account models.SocialAccount, progress messageSyncProgress, err error) (bool, error) {
+	var providerError *platform.HTTPError
+	if !errors.As(err, &providerError) {
+		return false, nil
+	}
+	update := syncStateUpdate{
+		account: account, cursor: progress.cursor, backfillComplete: progress.backfillComplete,
+		cadence: permanentRefusalCadence, emptyStreak: progress.emptyStreak, attemptedAt: s.now(),
+	}
+	switch providerError.StatusCode {
+	case http.StatusForbidden:
+		update.status = syncStatePermissionRequired
+		update.failure = syncStateFailure{code: "provider_permission_denied", message: "The provider has not allowed OpenPost to read direct messages for this account."}
+	case http.StatusNotImplemented:
+		update.status = syncStateUnsupported
+		update.failure = syncStateFailure{code: "provider_unsupported", message: "The provider does not offer direct messages for this account."}
+	default:
+		return false, nil
+	}
+	log.Printf("[Messaging] collection refused account=%s platform=%s status=%d code=%s trace_id=%s retry_in=%s",
+		account.ID, account.Platform, providerError.StatusCode, providerError.Code, providerError.TraceID, permanentRefusalCadence)
+	return true, s.states.record(ctx, update)
 }

@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/openpost/backend/internal/netguard"
@@ -25,6 +26,8 @@ type BlueskyAdapter struct {
 	pdsURL    string
 	pdsPolicy *netguard.URLPolicy
 	pdsClient *http.Client
+	// chatHosts caches the resolved PDS adapter per account DID for chat.
+	chatHosts sync.Map
 }
 
 // BlueskyDefaultPDSURL is the entryway for Bluesky-hosted repositories. Accounts

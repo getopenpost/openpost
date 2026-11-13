@@ -46,6 +46,7 @@ type ListJobsInput struct {
 	WorkspaceID string `query:"workspace_id" doc:"Filter by workspace ID"`
 	RunFrom     string `query:"run_from" doc:"Include jobs scheduled at or after this RFC3339 timestamp"`
 	RunBefore   string `query:"run_before" doc:"Include jobs scheduled before this RFC3339 timestamp"`
+	Category    string `query:"category" enum:"publishing" doc:"Restrict to one kind of work; publishing lists only post delivery jobs"`
 }
 
 type ListJobsOutput struct {
@@ -309,6 +310,9 @@ func (h *JobHandler) listJobsQuery(
 
 	if input.Status != "" {
 		query = query.Where("job.status = ?", input.Status)
+	}
+	if input.Category == "publishing" {
+		query = query.Where("job.type IN (?, ?)", jobTypePublishPublication, jobTypePublishPost)
 	}
 	if !runFrom.IsZero() {
 		query = query.Where("job.run_at >= ?", runFrom)

@@ -16,6 +16,7 @@ interface ActivityPublicationsQuery {
 interface FailedJobsQuery {
 	workspace_id: string;
 	status: 'failed';
+	category: 'publishing';
 	limit: number;
 	offset: number;
 	cursor?: string;
@@ -86,9 +87,11 @@ export function createOpenPostQueryAPI(transport: QueryTransport): OpenPostQuery
 			return data;
 		},
 		async listFailedJobs(workspaceId, page, signal) {
+			// Posts lists delivery records only; Inbox owns collection recovery.
 			const query: FailedJobsQuery = {
 				workspace_id: workspaceId,
 				status: 'failed',
+				category: 'publishing',
 				limit: page.limit,
 				offset: 0
 			};

@@ -220,6 +220,7 @@ export function createMobileQueryAPI(getTransport: () => QueryTransport): Mobile
               query: {
                 workspace_id: workspaceId,
                 status: "failed",
+                category: "publishing",
                 limit: page.limit,
                 cursor: page.cursor || undefined,
               },

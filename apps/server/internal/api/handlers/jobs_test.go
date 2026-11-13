@@ -122,6 +122,30 @@ func TestListJobsCountsFilteredWorkspaceScope(t *testing.T) {
 	require.Equal(t, "", out[0].Payload)
 }
 
+// The Posts failed view lists only publishing records; Inbox collection
+// failures have their own recovery surface.
+func TestListJobsPublishingCategoryExcludesCollectionJobs(t *testing.T) {
+	t.Parallel()
+
+	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
+	srv.seedJobs(t)
+	collection := models.Job{ID: "inbox-sync-failed", Type: "messages_sync", ScopeID: "ws-1", Status: "failed", Payload: `{}`, RunAt: time.Now().UTC()}
+	_, err := srv.db.NewInsert().Model(&collection).Exec(t.Context())
+	require.NoError(t, err)
+
+	all := srv.getJSONWithToken(t, "/api/v1/jobs?workspace_id=ws-1&status=failed", "browser-session")
+	require.Equal(t, http.StatusOK, all.Code, all.Body.String())
+	require.Equal(t, "2", all.Header().Get("X-Total-Count"))
+
+	publishing := srv.getJSONWithToken(t, "/api/v1/jobs?workspace_id=ws-1&status=failed&category=publishing", "browser-session")
+	require.Equal(t, http.StatusOK, publishing.Code, publishing.Body.String())
+	require.Equal(t, "1", publishing.Header().Get("X-Total-Count"))
+	var out []JobResponse
+	require.NoError(t, json.Unmarshal(publishing.Body.Bytes(), &out))
+	require.Len(t, out, 1)
+	require.Equal(t, "job-4", out[0].ID)
+}
+
 func TestGetJobReturnsSafeWorkspaceJobForBrowserSession(t *testing.T) {
 	t.Parallel()
 

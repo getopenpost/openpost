@@ -45004,6 +45004,17 @@
 							"description": "Include jobs scheduled before this RFC3339 timestamp",
 							"type": "string"
 						}
+					},
+					{
+						"description": "Restrict to one kind of work; publishing lists only post delivery jobs",
+						"explode": false,
+						"in": "query",
+						"name": "category",
+						"schema": {
+							"description": "Restrict to one kind of work; publishing lists only post delivery jobs",
+							"enum": ["publishing"],
+							"type": "string"
+						}
 					}
 				],
 				"responses": {

@@ -31546,6 +31546,8 @@ export interface operations {
                 run_from?: string;
                 /** @description Include jobs scheduled before this RFC3339 timestamp */
                 run_before?: string;
+                /** @description Restrict to one kind of work; publishing lists only post delivery jobs */
+                category?: "publishing";
             };
             header?: never;
             path?: never;

@@ -4,7 +4,7 @@
 FROM frontend_artifact AS frontend-builder
 
 # Build stage for backend
-FROM docker.io/library/golang:1.27.3-alpine@sha256:fa3d596898d9f126af7c01d14ee7597bab3f39cccf392ef36b69fe77cd681f18 AS backend-builder
+FROM docker.io/library/golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS backend-builder
 
 ARG VERSION=dev
 ARG COMMIT=unknown
@@ -34,8 +34,8 @@ LABEL org.opencontainers.image.title="OpenPost" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${COMMIT}" \
       org.opencontainers.image.source="https://github.com/getopenpost/openpost" \
-      org.opencontainers.image.base.name="docker.io/library/alpine:3.24.1" \
-      org.opencontainers.image.base.digest="sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b"
+      org.opencontainers.image.base.name="docker.io/library/alpine:3.24.4" \
+      org.opencontainers.image.base.digest="sha256:93b41ef40b1677fce8fcc64ff4af09daddfacf5040afde618bc46c1e2d1cc7d4"
 
 RUN apk add --no-cache ca-certificates ffmpeg tzdata sqlite \
     'libcrypto3>=3.5.8-r0' 'libssl3>=3.5.8-r0'

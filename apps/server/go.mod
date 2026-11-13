@@ -1,6 +1,6 @@
 module github.com/openpost/backend
 
-go 1.27.3
+go 1.27.4
 
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.3

@@ -7,20 +7,24 @@
 		mediaId: string;
 		altTexts: Map<string, string>;
 		captioningIds: Set<string>;
+		failedCaptionIds: Set<string>;
 		editing: boolean;
 		onRemove: () => void;
 		onAltText: (mediaId: string, alt: string) => void;
 		onToggleAlt: () => void;
+		onRetryCaption: (mediaId: string) => void;
 		onDoneAlt: () => void;
 	}
 	let {
 		mediaId,
 		altTexts,
 		captioningIds,
+		failedCaptionIds,
 		editing,
 		onRemove,
 		onAltText,
 		onToggleAlt,
+		onRetryCaption,
 		onDoneAlt
 	}: Props = $props();
 </script>
@@ -77,7 +81,9 @@
 	{mediaId}
 	value={altTexts.get(mediaId) ?? ''}
 	captioning={captioningIds.has(mediaId)}
+	captionFailed={failedCaptionIds.has(mediaId)}
 	variant="inline"
 	onChange={(next) => onAltText(mediaId, next)}
+	onRetryCaption={() => onRetryCaption(mediaId)}
 	onDone={onDoneAlt}
 />

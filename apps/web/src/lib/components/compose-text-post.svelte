@@ -628,7 +628,6 @@
 	const pendingCaptionResults = new Map<string, ReturnType<typeof generateImageAltText>>();
 	const accountCaptionSuppressions = new Map<string, Set<string>>();
 	const captionPostContexts = new SvelteMap<string, string>();
-	let captionGenerationError = $state('');
 	let editingAltMediaId = $state<string | null>(null);
 	let previewMediaOpen = $state(false);
 	let settingsByAccount = $state<Record<string, ComposerSettings>>({});
@@ -4065,7 +4064,6 @@
 		} catch (cause) {
 			if (cause instanceof Error && cause.name === 'AbortError') return;
 			failedCaptionMediaIds.add(mediaId);
-			captionGenerationError = m.compose_alt_text_generation_failed();
 		} finally {
 			if (captionRequests.get(mediaId) === controller) {
 				captionRequests.delete(mediaId);
@@ -4075,16 +4073,10 @@
 		}
 	}
 
-	function retryFailedMediaAltText() {
-		const mediaIds = [...failedCaptionMediaIds];
-		captionGenerationError = '';
-		void Promise.all(
-			mediaIds.map((mediaId) => {
-				const postContext = captionPostContextForRetry(mediaId);
-				captionPostContexts.set(mediaId, postContext);
-				return generateMediaAltText(mediaId, postContext);
-			})
-		);
+	function retryMediaAltText(mediaId: string) {
+		const postContext = captionPostContextForRetry(mediaId);
+		captionPostContexts.set(mediaId, postContext);
+		void generateMediaAltText(mediaId, postContext);
 	}
 
 	async function loadAccounts(
@@ -7411,7 +7403,9 @@
 				mediaId={media.id}
 				altTexts={editorMediaAltTexts}
 				captioningIds={captioningMediaIds}
+				failedCaptionIds={failedCaptionMediaIds}
 				editing={editingAltMediaId === media.id}
+				onRetryCaption={retryMediaAltText}
 				onRemove={() => {
 					for (const index of sourceIndexes) {
 						const ids = getEditorMediaIdsForPost(posts[index]);
@@ -7891,16 +7885,6 @@
 			}}
 		/>
 	{/if}
-	{#if captionGenerationError}
-		<AppToast
-			message={captionGenerationError}
-			tone="error"
-			dismissLabel={m.common_dismiss()}
-			onDismiss={() => (captionGenerationError = '')}
-			actionLabel={m.common_retry()}
-			onAction={retryFailedMediaAltText}
-		/>
-	{/if}
 	{#if error}
 		<AppToast
 			message={error}
@@ -8220,12 +8204,14 @@
 														visiblePasteMediaUploads(source).length}
 													altTexts={editorMediaAltTexts}
 													captioningIds={captioningMediaIds}
+													failedCaptionIds={failedCaptionMediaIds}
 													bind:editingAltMediaId
 													pendingUploads={visiblePasteMediaUploads(source)}
 													queue={pasteMediaUploadQueue}
 													{isVideoMedia}
 													onRemoveMedia={(mediaIndex) => removeMedia(index, mediaIndex)}
 													onAltText={setMediaAltText}
+													onRetryCaption={retryMediaAltText}
 												/>
 											</div>
 										{/each}
@@ -8365,12 +8351,14 @@
 												mediaCount={editorMediaCount}
 												altTexts={editorMediaAltTexts}
 												captioningIds={captioningMediaIds}
+												failedCaptionIds={failedCaptionMediaIds}
 												bind:editingAltMediaId
 												pendingUploads={pendingMediaUploads}
 												queue={pasteMediaUploadQueue}
 												{isVideoMedia}
 												onRemoveMedia={(mi) => removeMedia(i, mi)}
 												onAltText={setMediaAltText}
+												onRetryCaption={retryMediaAltText}
 											/>
 
 											{@render sharedPollControl(post, i, 'summary')}

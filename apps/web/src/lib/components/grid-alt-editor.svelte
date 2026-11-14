@@ -9,12 +9,14 @@
 		value: string;
 		mediaId: string;
 		captioning?: boolean;
+		captionFailed?: boolean;
 		canEdit?: boolean;
 		saving?: boolean;
 		savedValue?: string | null;
 		variant?: 'inline' | 'panel';
 		onChange: (value: string) => void;
 		onCommit?: () => void;
+		onRetryCaption?: () => void;
 		onDone?: () => void;
 	}
 
@@ -23,12 +25,14 @@
 		value,
 		mediaId,
 		captioning = false,
+		captionFailed = false,
 		canEdit = true,
 		saving = false,
 		savedValue = null,
 		variant = 'inline',
 		onChange,
 		onCommit,
+		onRetryCaption,
 		onDone
 	}: Props = $props();
 
@@ -51,6 +55,18 @@
 			<p class="mt-1 text-xs text-white/80" aria-live="polite">
 				{m.compose_alt_text_generating()}
 			</p>
+		{:else if captionFailed && onRetryCaption}
+			<div
+				class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/80"
+				aria-live="polite"
+			>
+				<span>{m.compose_alt_text_generation_failed()}</span>
+				<button
+					type="button"
+					class="min-h-11 px-1 underline underline-offset-2 hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none md:min-h-7"
+					onclick={onRetryCaption}>{m.common_retry()}</button
+				>
+			</div>
 		{/if}
 		{#if onDone}
 			<div class="mt-1 flex justify-end gap-1">
@@ -79,6 +95,11 @@
 			<p class="text-xs text-muted-foreground" aria-live="polite">
 				{m.compose_alt_text_generating()}
 			</p>
+		{:else if captionFailed && onRetryCaption}
+			<div class="flex flex-wrap items-center gap-2 text-xs text-destructive" aria-live="polite">
+				<span>{m.compose_alt_text_generation_failed()}</span>
+				<Button size="sm" variant="link" onclick={onRetryCaption}>{m.common_retry()}</Button>
+			</div>
 		{/if}
 		{#if onCommit && canEdit && dirty}
 			<Button size="sm" variant="outline" onclick={onCommit} disabled={saving}>

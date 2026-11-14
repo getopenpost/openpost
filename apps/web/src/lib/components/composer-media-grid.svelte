@@ -9,12 +9,14 @@
 		mediaCount: number;
 		altTexts: Map<string, string>;
 		captioningIds: Set<string>;
+		failedCaptionIds: Set<string>;
 		editingAltMediaId?: string | null;
 		pendingUploads: PasteMediaUploadItem[];
 		queue: ComposerSessionMediaQueue<MediaUploadResult>;
 		isVideoMedia: (mediaId: string) => boolean;
 		onRemoveMedia: (mediaIndex: number) => void;
 		onAltText: (mediaId: string, alt: string) => void;
+		onRetryCaption: (mediaId: string) => void;
 	}
 
 	let {
@@ -22,12 +24,14 @@
 		mediaCount,
 		altTexts,
 		captioningIds,
+		failedCaptionIds,
 		editingAltMediaId = $bindable(null),
 		pendingUploads,
 		queue,
 		isVideoMedia,
 		onRemoveMedia,
-		onAltText
+		onAltText,
+		onRetryCaption
 	}: Props = $props();
 </script>
 
@@ -41,10 +45,12 @@
 				isFirstOfThree={mediaCount === 3 && mi === 0}
 				{altTexts}
 				{captioningIds}
+				{failedCaptionIds}
 				editing={editingAltMediaId === mediaId}
 				{isVideoMedia}
 				{onRemoveMedia}
 				{onAltText}
+				{onRetryCaption}
 				onToggleAlt={() => {
 					editingAltMediaId = editingAltMediaId === mediaId ? null : mediaId;
 				}}

@@ -10,11 +10,13 @@ function tileProps(isVideo: boolean) {
 		isFirstOfThree: false,
 		altTexts: new Map<string, string>(),
 		captioningIds: new Set<string>(),
+		failedCaptionIds: new Set<string>(),
 		editing: false,
 		isVideoMedia: () => isVideo,
 		onRemoveMedia: vi.fn(),
 		onAltText: vi.fn(),
 		onToggleAlt: vi.fn(),
+		onRetryCaption: vi.fn(),
 		onDoneAlt: vi.fn()
 	};
 }

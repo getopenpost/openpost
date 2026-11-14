@@ -10,11 +10,13 @@
 		isFirstOfThree: boolean;
 		altTexts: Map<string, string>;
 		captioningIds: Set<string>;
+		failedCaptionIds: Set<string>;
 		editing: boolean;
 		isVideoMedia: (mediaId: string) => boolean;
 		onRemoveMedia: (mediaIndex: number) => void;
 		onAltText: (mediaId: string, alt: string) => void;
 		onToggleAlt: () => void;
+		onRetryCaption: (mediaId: string) => void;
 		onDoneAlt: () => void;
 	}
 
@@ -25,11 +27,13 @@
 		isFirstOfThree,
 		altTexts,
 		captioningIds,
+		failedCaptionIds,
 		editing,
 		isVideoMedia,
 		onRemoveMedia,
 		onAltText,
 		onToggleAlt,
+		onRetryCaption,
 		onDoneAlt
 	}: Props = $props();
 
@@ -88,9 +92,11 @@
 		{mediaId}
 		{altTexts}
 		{captioningIds}
+		{failedCaptionIds}
 		{editing}
 		{onAltText}
 		{onToggleAlt}
+		{onRetryCaption}
 		{onDoneAlt}
 		onRemove={() => onRemoveMedia(mediaIndex)}
 	/>

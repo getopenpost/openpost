@@ -46,7 +46,7 @@
 		return allDestinations.filter((destination) => destination.group === group);
 	}
 
-	const destinationIcons: Partial<Record<SettingsDestinationID, ThemeIconRole>> = {
+	const destinationIcons = {
 		profile: 'user',
 		notifications: 'notification',
 		security: 'security',
@@ -64,8 +64,11 @@
 		configuration: 'controls',
 		'ai-prompts': 'sparkles',
 		users: 'users',
-		'instance-audit': 'history'
-	};
+		'instance-audit': 'history',
+		'app-branding': 'settings',
+		accounts: 'settings',
+		reposts: 'settings'
+	} satisfies Record<SettingsDestinationID, ThemeIconRole>;
 
 	function destinationHref(destination: SettingsDestinationID): string {
 		return `/settings?tab=${destination}`;

@@ -4,6 +4,37 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.41.6] - 2026-11-14
+
+### Fixed
+
+- A failed automatic alt-text generation no longer raises a page alert that can cover composer controls. The media editor shows the failure with a Try again action.
+- Updated SvelteKit to address a security advisory affecting malformed rewritten paths.
+- Bluesky direct messages now reach the account's own PDS. The bsky.social entryway answers chat requests with "Method Not Implemented", so Bluesky-hosted accounts never collected messages.
+- Message collection stops retrying when a provider refuses access (HTTP 403) or does not offer chat for the account (HTTP 501). The account shows a clear status, OpenPost checks again daily, and these refusals no longer add failed job records.
+- Grid view on Posts gives post text the full card width instead of one word per line.
+- The Posts Failed tab lists only delivery job records; Inbox collection failures stay in Inbox.
+- The schedule dialog explains the actual blocker, such as choosing an account, instead of always asking to connect a destination.
+- Media details show MP4 containers as `mp4` and link each post that uses the file.
+
+### Removed
+
+- The Home page and tab are gone from the web app, the phone navigation, and the native app. Opening OpenPost now lands on Posts, and the personal landing preference offers Posts or New post. The full setup checklist that lived on Home is replaced by the next-step line in the composer.
+
+### Added
+
+- Maintained umbrelOS App Store packaging with persistent local storage, independent per-install session and encryption keys, public URL settings, and provider callback and media access through Umbrel's gateway. Official store availability is subject to Umbrel's review.
+
+### Changed
+
+- Ideas is a full page. A build keeps running when you leave the page and can be resumed from any screen.
+- The sidebar shows the next scheduled posts with their count and time, in one navigation list.
+- Inbox pages share one Collection issues control and one search plus Filters row. Features you turned off are no longer counted as issues, and Reviews and Comments have their own empty states.
+- Settings navigation has icons and clearer groups. Instance configuration rows stack on narrow panels and keep environment variable notes quiet.
+- Billing leads with the current plan and usage; payment actions sit together with a quieter cancel action.
+- Notification settings list events first, choose the digest timezone from a list, and keep temporary mutes after the form.
+- Account pickers use one Select all checkbox.
+
 ## [7.40.2] - 2026-11-13
 
 ### Added

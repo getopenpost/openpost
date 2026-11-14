@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.40.2] - 2026-11-13
+
+### Added
+
+- Self-hosted AI gateways can use `OPENPOST_AI_BASE_URL` with `OPENPOST_AI_API_KEY` and their model settings for post generation, image alt text, meme suggestions and workflow decisions. Custom endpoints omit OpenRouter-specific routing and attribution. Legacy `OPENROUTER_API_KEY` and mounted-secret settings remain supported as fallbacks. (#508)
+
+### Fixed
+
+- Server and CLI builds use Go 1.27.4, fixing the standard library HTTP vulnerability GO-2026-6859.
+- CI retries transient media-tool downloads and waits for SQLite write locks in the Messages recovery fixture.
+
+### Changed
+
+- The mobile app uses the current compatible Expo patch versions.
+
 ## [7.39.0] - 2026-11-10
 
 ### Added

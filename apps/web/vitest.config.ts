@@ -11,6 +11,10 @@ const runRealMusicModel = process.env.VITE_OPENPOST_REAL_MUSIC_TEST === '1';
 const browserArgs: string[] = [];
 const deviceScaleSessions = new WeakMap<Page, CDPSession>();
 const browserTestFiles = ['src/**/*.svelte.{test,spec}.{js,ts}'];
+const dialogTestFiles = [
+	'src/**/*delete-dialog.svelte.{test,spec}.{js,ts}',
+	'src/**/delete-account-dialog.svelte.{test,spec}.{js,ts}'
+];
 const componentTestSuite = process.env.OPENPOST_COMPONENT_TEST_SUITE;
 const generatedTestMaps = paraglideTestMaps(fileURLToPath(new URL('../..', import.meta.url)));
 if (runRealMusicModel) browserArgs.push('--unlimited-storage');
@@ -112,10 +116,12 @@ export default defineConfig({
 					include:
 						componentTestSuite === 'routes'
 							? ['src/routes/**/*.svelte.{test,spec}.{js,ts}']
-							: browserTestFiles,
+							: componentTestSuite === 'dialogs'
+								? dialogTestFiles
+								: browserTestFiles,
 					exclude: [
 						'src/lib/server/**',
-						...(componentTestSuite === 'components' ? ['src/routes/**'] : [])
+						...(componentTestSuite === 'components' ? ['src/routes/**', ...dialogTestFiles] : [])
 					]
 				}
 			},

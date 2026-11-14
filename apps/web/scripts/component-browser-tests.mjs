@@ -31,11 +31,12 @@ function run(executable, args, suite) {
 	if (result.status !== 0) throw new Error(`${executable} exited with status ${result.status}`);
 }
 
-// Keep route initialization separate from worker- and GPU-backed editor tests.
-// Their browser module runners must not inherit each other's pending resources.
+// Keep native dialogs, route initialization, and worker- or GPU-backed editor
+// tests in separate browser module runners so none inherits another suite's
+// pending top-layer or media resources.
 run('bun', ['run', 'generate:i18n']);
 for (const shard of shards) {
-	for (const suite of ['components', 'routes']) {
+	for (const suite of ['dialogs', 'components', 'routes']) {
 		console.log(`Component browser shard: ${shard} (${suite})`);
 		run(
 			process.execPath,

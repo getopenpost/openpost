@@ -409,6 +409,7 @@ describe('route mutation sessions', () => {
 		const screen = await renderWithQuery(MessagesPage);
 		await screen.getByRole('button', { name: /Ada/ }).click();
 		await expect.element(screen.getByTestId('conversation-reply-composer')).toBeVisible();
+		await screen.getByRole('button', { name: 'Filters', exact: true }).click();
 		await screen.getByRole('checkbox', { name: 'Archived', exact: true }).click();
 		await expect.element(screen.getByRole('button', { name: /Bea/ })).toBeVisible();
 		await expect.element(screen.getByTestId('conversation-reply-composer')).not.toBeInTheDocument();

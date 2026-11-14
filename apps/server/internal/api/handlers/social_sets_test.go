@@ -418,6 +418,31 @@ func TestDeletingSocialSetDoesNotDeleteSnapshottedRenditions(t *testing.T) {
 	require.EqualValues(t, 1, count)
 }
 
+func TestDeletingSocialSetDecodesEncodedRouteID(t *testing.T) {
+	server := newSocialSetsTestServer(t)
+	ctx := context.Background()
+	set := &models.SocialSet{ID: "default:ws-1", WorkspaceID: "ws-1", Name: "All channels", IsDefault: true}
+	_, err := server.db.NewInsert().Model(set).Exec(ctx)
+	require.NoError(t, err)
+	_, err = server.db.NewInsert().Model(&models.SocialSetAccount{
+		SocialSetID: set.ID, SocialAccountID: "acc-1", DefaultSettingsJSON: "{}", DefaultSegmentSettingsJSON: "{}",
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	// openapi-fetch percent-encodes path parameters, and Echo routes on the raw
+	// path. The handler must decode before loading the set.
+	response := server.request(t, http.MethodDelete, "/api/v1/social-sets/default%3Aws-1?confirm=true", nil)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+
+	exists, err := server.db.NewSelect().Model((*models.SocialSet)(nil)).Where("id = ?", set.ID).Exists(ctx)
+	require.NoError(t, err)
+	require.False(t, exists)
+	members, err := server.db.NewSelect().Model((*models.SocialSetAccount)(nil)).
+		Where("social_set_id = ?", set.ID).Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, members)
+}
+
 type socialSetsTestServer struct {
 	echo       *echo.Echo
 	db         *bun.DB

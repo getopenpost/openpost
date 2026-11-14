@@ -473,6 +473,9 @@ func prepareMigration(ctx context.Context, db *bun.DB, migration migration) erro
 	case 171:
 		description = "account-level engagement subjects"
 		err = prepareAccountEngagement(ctx, db)
+	case 180:
+		description = "legacy All channels Social Sets"
+		err = removeLegacyAllChannelsSocialSets(ctx, db)
 	}
 	if err != nil {
 		return fmt.Errorf("migration %s %s preparation failed: %w", migration.name, description, err)
@@ -1605,10 +1608,7 @@ func ensureSocialSetsAndRenditionInheritance(ctx context.Context, db *bun.DB) er
 	if err := backfillCreationPresets(ctx, db); err != nil {
 		return err
 	}
-	if err := backfillRenditionInheritance(ctx, db); err != nil {
-		return err
-	}
-	return backfillDefaultSocialSets(ctx, db)
+	return backfillRenditionInheritance(ctx, db)
 }
 
 func ensureSocialSetTables(ctx context.Context, db *bun.DB) error {
@@ -1749,27 +1749,33 @@ func backfillRenditionInheritance(ctx context.Context, db *bun.DB) error {
 	return err
 }
 
-func backfillDefaultSocialSets(ctx context.Context, db *bun.DB) error {
-	for _, table := range []string{"workspaces", "social_accounts"} {
+// removeLegacyAllChannelsSocialSets deletes the synthetic default set created by
+// the 3.0 Social Sets upgrade. It duplicated select-all, and its membership
+// froze when the workspace upgraded, so later connected accounts were excluded.
+// An edited set keeps its row: editors update updated_at when membership or
+// defaults change.
+func removeLegacyAllChannelsSocialSets(ctx context.Context, db *bun.DB) error {
+	for _, table := range []string{"social_sets", "social_set_accounts"} {
 		exists, err := migrationTableExists(ctx, db, table)
 		if err != nil || !exists {
 			return err
 		}
 	}
-	if _, err := db.ExecContext(ctx, `INSERT INTO social_sets (id, workspace_id, name, is_default, created_at, updated_at)
-		SELECT 'default:' || workspaces.id, workspaces.id, 'All channels', true, current_timestamp, current_timestamp
-		FROM workspaces WHERE EXISTS (SELECT 1 FROM social_accounts
-			WHERE social_accounts.workspace_id = workspaces.id AND social_accounts.is_active = true)
-		AND NOT EXISTS (SELECT 1 FROM social_sets WHERE social_sets.workspace_id = workspaces.id)`); err != nil {
+	return db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if _, err := tx.ExecContext(txCtx, `DELETE FROM social_sets
+			WHERE id = 'default:' || workspace_id
+				AND name = 'All channels'
+				AND is_default = true
+				AND updated_at = created_at`); err != nil {
+			return err
+		}
+		// SQLite schemas created from the models have no foreign key cascade.
+		// Remove leftover memberships, including earlier failed set deletions.
+		_, err := tx.ExecContext(txCtx, `DELETE FROM social_set_accounts
+			WHERE NOT EXISTS (SELECT 1 FROM social_sets
+				WHERE social_sets.id = social_set_accounts.social_set_id)`)
 		return err
-	}
-	_, err := db.ExecContext(ctx, `INSERT INTO social_set_accounts
-		(social_set_id, social_account_id, display_order, default_output_profile, created_at)
-		SELECT 'default:' || social_accounts.workspace_id, social_accounts.id, 0, '', current_timestamp
-		FROM social_accounts WHERE social_accounts.is_active = true
-		AND EXISTS (SELECT 1 FROM social_sets WHERE social_sets.id = 'default:' || social_accounts.workspace_id)
-		ON CONFLICT DO NOTHING`)
-	return err
+	})
 }
 
 func ensureMediaTagMigration(ctx context.Context, db *bun.DB) error {

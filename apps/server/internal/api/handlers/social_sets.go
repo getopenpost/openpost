@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -229,7 +230,7 @@ func (h *SocialSetHandler) create(ctx context.Context, input *CreateSocialSetInp
 }
 
 func (h *SocialSetHandler) get(ctx context.Context, input *GetSocialSetInput) (*SocialSetOutput, error) {
-	set, err := loadSocialSet(ctx, h.db, input.PathID)
+	set, err := loadSocialSet(ctx, h.db, socialSetPathID(input.PathID))
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +241,7 @@ func (h *SocialSetHandler) get(ctx context.Context, input *GetSocialSetInput) (*
 }
 
 func (h *SocialSetHandler) update(ctx context.Context, input *UpdateSocialSetInput) (*SocialSetOutput, error) {
-	set, err := loadSocialSet(ctx, h.db, input.PathID)
+	set, err := loadSocialSet(ctx, h.db, socialSetPathID(input.PathID))
 	if err != nil {
 		return nil, err
 	}
@@ -288,14 +289,21 @@ func (h *SocialSetHandler) delete(ctx context.Context, input *DeleteSocialSetInp
 	if !input.Confirm {
 		return nil, huma.Error400BadRequest("confirm=true is required to delete a Social Set")
 	}
-	set, err := loadSocialSet(ctx, h.db, input.PathID)
+	set, err := loadSocialSet(ctx, h.db, socialSetPathID(input.PathID))
 	if err != nil {
 		return nil, err
 	}
 	if err := requireSocialSetWorkspaceAccess(ctx, h.db, set.WorkspaceID, middleware.GetUserID(ctx), true); err != nil {
 		return nil, err
 	}
-	if _, err := h.db.NewDelete().Model(set).Where("id = ?", set.ID).Exec(ctx); err != nil {
+	if err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewDelete().Model((*models.SocialSetAccount)(nil)).
+			Where("social_set_id = ?", set.ID).Exec(txCtx); err != nil {
+			return err
+		}
+		_, err := tx.NewDelete().Model(set).Where("id = ?", set.ID).Exec(txCtx)
+		return err
+	}); err != nil {
 		return nil, huma.Error500InternalServerError("failed to delete Social Set")
 	}
 	return actionMessage("Social Set deleted", ""), nil
@@ -612,6 +620,14 @@ func loadSocialSet(ctx context.Context, db bun.IDB, id string) (*models.SocialSe
 		return nil, huma.Error500InternalServerError("failed to load Social Set")
 	}
 	return &set, nil
+}
+
+func socialSetPathID(value string) string {
+	decoded, err := url.PathUnescape(value)
+	if err != nil {
+		return value
+	}
+	return decoded
 }
 
 func loadSocialSetResponses(ctx context.Context, db bun.IDB, sets []models.SocialSet) ([]SocialSetResponse, error) {

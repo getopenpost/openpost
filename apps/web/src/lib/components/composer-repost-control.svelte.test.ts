@@ -80,7 +80,7 @@ describe('composer repost target picker', () => {
 			.element(screen.getByRole('checkbox', { name: 'Select all' }))
 			.toHaveAttribute('aria-checked', 'mixed');
 
-		await screen.getByRole('button', { name: 'All' }).click();
+		await screen.getByRole('checkbox', { name: 'Select all' }).click();
 		expect(onChange).toHaveBeenCalled();
 		// The adopting picker keeps its own wire contract: the full target list in picker order.
 		expect(value.target_account_ids).toEqual(['account-a', 'account-b']);

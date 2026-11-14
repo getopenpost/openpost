@@ -32,7 +32,7 @@
 	"devDependencies": {
 		"@inlang/paraglide-js": "^3.1.0",
 		"@sveltejs/adapter-static": "^3.0.10",
-		"@sveltejs/kit": "^2.70.3",
+		"@sveltejs/kit": "^2.70.4",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "^4.3.4",
 		"svelte": "^5.57.3",

@@ -65,7 +65,7 @@
     "zod": "4.6.7"
   },
   "overrides": {
-    "@sveltejs/kit": "2.70.3",
+    "@sveltejs/kit": "2.70.4",
     "@vitest/browser": "4.1.12",
     "@vitest/browser-playwright": "4.1.12",
     "adm-zip": "0.6.1",

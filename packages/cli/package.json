@@ -56,6 +56,6 @@
     "node": ">=20"
   },
   "openpost": {
-    "releaseTag": "v7.41.1"
+    "releaseTag": "v7.41.2"
   }
 }

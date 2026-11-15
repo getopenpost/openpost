@@ -4581,6 +4581,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/post-builder/shorten": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Shorten post text to fit a character limit
+         * @description Returns lightly edited copy that fits the limit, or truncated copy when meaning cannot be kept. It does not save anything.
+         */
+        post: operations["shorten-post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/posting-schedules": {
         parameters: {
             query?: never;
@@ -16179,6 +16199,36 @@ export interface components {
             manual_entry_key: string;
             otpauth_url: string;
             qr_code_data_url: string;
+        };
+        ShortenPostInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ShortenPostInputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: int64
+             * @description Character limit the text must fit
+             */
+            max_characters: number;
+            /** @description Destination platform that counts the text */
+            platform: string;
+            /** @description Post text to shorten */
+            text: string;
+            /** @description Workspace ID */
+            workspace_id: string;
+        };
+        ShortenResult: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/ShortenResult.json
+             */
+            readonly $schema?: string;
+            model: string;
+            text: string;
+            truncated: boolean;
         };
         SkippedDestination: {
             account_id: string;
@@ -35877,6 +35927,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GeneratePostOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "shorten-post": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShortenPostInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShortenResult"];
                 };
             };
             /** @description Bad Request */

@@ -32,6 +32,7 @@ var (
 
 type Builder interface {
 	Build(context.Context, Input) (Result, error)
+	Shorten(context.Context, ShortenInput) (ShortenResult, error)
 }
 
 type Destination struct {

@@ -68,6 +68,10 @@ type postBuilderTestServer struct {
 	db   *bun.DB
 }
 
+func (f postBuilderFunc) Shorten(context.Context, postgeneration.ShortenInput) (postgeneration.ShortenResult, error) {
+	return postgeneration.ShortenResult{}, nil
+}
+
 func newPostBuilderTestServer(t *testing.T, builder postgeneration.Builder) *postBuilderTestServer {
 	t.Helper()
 	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil))
@@ -98,4 +102,44 @@ func (s *postBuilderTestServer) request(t *testing.T, accountIDs []string) *http
 	recorder := httptest.NewRecorder()
 	s.echo.ServeHTTP(recorder, request)
 	return recorder
+}
+
+type shortenStub struct {
+	postBuilderFunc
+	got postgeneration.ShortenInput
+}
+
+func (s *shortenStub) Shorten(_ context.Context, input postgeneration.ShortenInput) (postgeneration.ShortenResult, error) {
+	s.got = input
+	return postgeneration.ShortenResult{Text: "short", Model: "m"}, nil
+}
+
+func (s *postBuilderTestServer) shorten(t *testing.T, workspaceID string) *httptest.ResponseRecorder {
+	t.Helper()
+	var body bytes.Buffer
+	require.NoError(t, json.NewEncoder(&body).Encode(map[string]any{
+		"workspace_id": workspaceID, "text": "a long post", "platform": "x", "max_characters": 280,
+	}))
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/post-builder/shorten", &body)
+	request.Header.Set("Authorization", "Bearer web-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	s.echo.ServeHTTP(recorder, request)
+	return recorder
+}
+
+func TestShortenPostChecksWorkspaceEditAccessBeforeGeneration(t *testing.T) {
+	stub := &shortenStub{}
+	server := newPostBuilderTestServer(t, stub)
+
+	denied := server.shorten(t, "ws-2")
+	require.Equal(t, http.StatusForbidden, denied.Code, denied.Body.String())
+	require.Empty(t, stub.got.Text)
+
+	allowed := server.shorten(t, "ws-1")
+	require.Equal(t, http.StatusOK, allowed.Code, allowed.Body.String())
+	var output postgeneration.ShortenResult
+	require.NoError(t, json.Unmarshal(allowed.Body.Bytes(), &output))
+	require.Equal(t, "short", output.Text)
+	require.Equal(t, postgeneration.ShortenInput{Text: "a long post", Platform: "x", MaxCharacters: 280}, stub.got)
 }

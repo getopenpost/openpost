@@ -42,6 +42,19 @@ type GeneratePostOutput struct {
 	}
 }
 
+type ShortenPostInput struct {
+	Body struct {
+		WorkspaceID   string `json:"workspace_id" required:"true" doc:"Workspace ID"`
+		Text          string `json:"text" required:"true" minLength:"1" maxLength:"12000" doc:"Post text to shorten"`
+		Platform      string `json:"platform" required:"true" minLength:"1" maxLength:"64" doc:"Destination platform that counts the text"`
+		MaxCharacters int    `json:"max_characters" required:"true" minimum:"1" maximum:"100000" doc:"Character limit the text must fit"`
+	}
+}
+
+type ShortenPostOutput struct {
+	Body postgeneration.ShortenResult
+}
+
 func NewPostBuilderHandler(db *bun.DB, auth middleware.Authenticator, builder postgeneration.Builder) *PostBuilderHandler {
 	return &PostBuilderHandler{db: db, auth: auth, builder: builder, limiter: ratelimit.New()}
 }
@@ -57,6 +70,47 @@ func (h *PostBuilderHandler) RegisterRoutes(api huma.API) {
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 		Errors:      []int{400, 403, 429, 502, 503},
 	}, h.generate)
+	huma.Register(api, huma.Operation{
+		OperationID: "shorten-post",
+		Method:      http.MethodPost,
+		Path:        "/post-builder/shorten",
+		Summary:     "Shorten post text to fit a character limit",
+		Description: "Returns lightly edited copy that fits the limit, or truncated copy when meaning cannot be kept. It does not save anything.",
+		Tags:        []string{tagPublications},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:      []int{400, 403, 429, 502, 503},
+	}, h.shorten)
+}
+
+func (h *PostBuilderHandler) shorten(ctx context.Context, input *ShortenPostInput) (*ShortenPostOutput, error) {
+	if h.db == nil {
+		return nil, huma.Error503ServiceUnavailable("post builder is unavailable")
+	}
+	workspaceID := strings.TrimSpace(input.Body.WorkspaceID)
+	userID := middleware.GetUserID(ctx)
+	allowed, err := workspaceEditAllowed(ctx, h.db, workspaceID, userID)
+	if err != nil {
+		return nil, huma.Error503ServiceUnavailable("failed to verify workspace access")
+	}
+	if !allowed {
+		return nil, huma.Error403Forbidden("workspace access denied")
+	}
+	if h.builder == nil {
+		return nil, huma.Error503ServiceUnavailable("AI post building is not configured")
+	}
+	if !h.limiter.Allow("post-builder:"+userID, postBuilderRequestsPerMinute, time.Minute) {
+		return nil, huma.Error429TooManyRequests("AI post building limit reached; try again in one minute")
+	}
+	result, err := h.builder.Shorten(ctx, postgeneration.ShortenInput{
+		Text:          input.Body.Text,
+		Platform:      input.Body.Platform,
+		MaxCharacters: input.Body.MaxCharacters,
+	})
+	if err != nil {
+		log.Printf("AI post shortening failed for workspace %s (%T)", workspaceID, err)
+		return nil, postBuilderError(err)
+	}
+	return &ShortenPostOutput{Body: result}, nil
 }
 
 func (h *PostBuilderHandler) generate(ctx context.Context, input *GeneratePostInput) (*GeneratePostOutput, error) {

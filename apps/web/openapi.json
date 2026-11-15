@@ -22295,6 +22295,66 @@
 				"required": ["challenge_id", "manual_entry_key", "otpauth_url", "qr_code_data_url"],
 				"type": "object"
 			},
+			"ShortenPostInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/ShortenPostInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"max_characters": {
+						"description": "Character limit the text must fit",
+						"format": "int64",
+						"maximum": 100000,
+						"minimum": 1,
+						"type": "integer"
+					},
+					"platform": {
+						"description": "Destination platform that counts the text",
+						"maxLength": 64,
+						"minLength": 1,
+						"type": "string"
+					},
+					"text": {
+						"description": "Post text to shorten",
+						"maxLength": 12000,
+						"minLength": 1,
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "text", "platform", "max_characters"],
+				"type": "object"
+			},
+			"ShortenResult": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/api/v1/schemas/ShortenResult.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"model": {
+						"type": "string"
+					},
+					"text": {
+						"type": "string"
+					},
+					"truncated": {
+						"type": "boolean"
+					}
+				},
+				"required": ["text", "truncated", "model"],
+				"type": "object"
+			},
 			"SkippedDestination": {
 				"additionalProperties": false,
 				"properties": {
@@ -51262,6 +51322,106 @@
 					}
 				},
 				"summary": "Build publication copy from an idea",
+				"tags": ["Publications"]
+			}
+		},
+		"/post-builder/shorten": {
+			"post": {
+				"description": "Returns lightly edited copy that fits the limit, or truncated copy when meaning cannot be kept. It does not save anything.",
+				"operationId": "shorten-post",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ShortenPostInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ShortenResult"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"429": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Too Many Requests"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"502": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Gateway"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Shorten post text to fit a character limit",
 				"tags": ["Publications"]
 			}
 		},

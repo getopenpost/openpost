@@ -86,6 +86,7 @@
 		getPublicationBuild,
 		planPublicationAngles,
 		retryPublicationBuild,
+		shortenPostText,
 		type PublicationBuild,
 		type PublicationBuildAngle,
 		type PublicationBuildRequest,
@@ -178,7 +179,11 @@
 		normalizeVariantRecord,
 		variantRecordEquals
 	} from './compose/draft-utils';
-	import { platformTextLength, uniquePlatformLimits } from './compose/platform-limits';
+	import {
+		platformTextLength,
+		uniquePlatformLimits,
+		type PlatformLimit
+	} from './compose/platform-limits';
 	import { readinessStateMessage } from './account-presentation';
 	import { editorAccountIdAfterVariantLoad } from './compose/editor-target';
 	import { isActionableAccountIssue } from './compose/account-attention';
@@ -224,6 +229,7 @@
 	import { celebrateSchedule } from '$lib/celebrate-schedule';
 	import { requestDestructiveAction } from '$lib/destructive-action';
 	import AppToast from './app-toast.svelte';
+	import { dismissToast, showToast } from '$lib/toast';
 	import DestructiveConfirmDialog from './destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import DraftConflictDialog from './draft-conflict-dialog.svelte';
@@ -7145,6 +7151,162 @@
 		setPostContent(index, value, mentions);
 	}
 
+	// --------------------------------------------------------------------------
+	// AI shortening
+	// --------------------------------------------------------------------------
+	interface ShortenUndo {
+		postKey: string;
+		accountId: string | null;
+		after: string;
+		post: PostItem;
+		variant: VariantPost | null;
+		toastId: string | number;
+	}
+
+	let shorteningKey = $state<string | null>(null);
+	let shortenUndo = $state.raw<ShortenUndo | null>(null);
+
+	function shortenTargetText(postKey: string, accountId: string | null): string | null {
+		const post = posts.find((candidate) => candidate.key === postKey);
+		if (!post) return null;
+		return accountId ? (getVariantContent(accountId, postKey) ?? null) : post.content;
+	}
+
+	function clearShortenUndo() {
+		if (!shortenUndo) return;
+		dismissToast(shortenUndo.toastId);
+		shortenUndo = null;
+	}
+
+	function undoShorten() {
+		const undo = shortenUndo;
+		if (!undo) return;
+		shortenUndo = null;
+		dismissToast(undo.toastId);
+		if (shortenTargetText(undo.postKey, undo.accountId) !== undo.after) return;
+		if (undo.accountId && undo.variant) {
+			const next = new SvelteMap(variants);
+			const record = normalizeVariantRecord(next.get(undo.accountId), posts);
+			next.set(undo.accountId, {
+				...record,
+				[undo.postKey]: structuredClone($state.snapshot(undo.variant))
+			});
+			variants = next;
+		} else if (!undo.accountId) {
+			posts = posts.map((post) =>
+				post.key === undo.postKey ? structuredClone($state.snapshot(undo.post)) : post
+			);
+		}
+		scheduleAutoSave();
+	}
+
+	// An edit after shortening makes Undo ambiguous; the editor's own history takes over.
+	$effect(() => {
+		const undo = shortenUndo;
+		if (undo && shortenTargetText(undo.postKey, undo.accountId) !== undo.after) clearShortenUndo();
+	});
+
+	function handleShortenUndoShortcut(event: KeyboardEvent) {
+		if (!shortenUndo || event.shiftKey || event.altKey) return;
+		if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return;
+		event.preventDefault();
+		event.stopPropagation();
+		undoShorten();
+	}
+
+	async function shortenToLimit(options: {
+		busyKey: string;
+		postIndex: number;
+		accountId: string | null;
+		limit: PlatformLimit;
+	}) {
+		if (shorteningKey) return;
+		const post = posts[options.postIndex];
+		if (!post) return;
+		const accountId =
+			options.accountId && getVariantContent(options.accountId, post.key) !== null
+				? options.accountId
+				: null;
+		const text = accountId ? getVariantContent(accountId, post.key) : post.content;
+		if (!text?.trim()) return;
+		clearShortenUndo();
+		shorteningKey = options.busyKey;
+		const workspaceID = selectedWorkspaceId;
+		try {
+			const result = await shortenPostText({
+				workspaceId: workspaceID,
+				text,
+				platform: options.limit.key,
+				maxCharacters: options.limit.limit
+			});
+			if (workspaceID !== selectedWorkspaceId) return;
+			if (shortenTargetText(post.key, accountId) !== text) return;
+			if (!result.text || result.text === text) return;
+			const previousPost = structuredClone($state.snapshot(post));
+			const previousVariant = accountId
+				? structuredClone($state.snapshot(getVariantPost(accountId, post.key) ?? null))
+				: null;
+			const index = posts.findIndex((candidate) => candidate.key === post.key);
+			if (accountId) handleVariantChange(accountId, index, result.text);
+			else setPostContent(index, result.text);
+			const toastId = showToast(
+				result.truncated
+					? m.compose_shortened_truncated_toast()
+					: m.compose_shortened_toast({ limit: options.limit.limit }),
+				result.truncated ? 'warning' : 'success',
+				{ actionLabel: m.compose_shorten_undo(), onAction: undoShorten, duration: 10000 }
+			);
+			shortenUndo = {
+				postKey: post.key,
+				accountId,
+				after: result.text,
+				post: previousPost,
+				variant: previousVariant,
+				toastId
+			};
+		} catch (cause) {
+			showToast(
+				cause instanceof Error && cause.message ? cause.message : m.compose_shorten_failed(),
+				'error'
+			);
+		} finally {
+			shorteningKey = null;
+		}
+	}
+
+	function shortenFromCounter(index: number, limit: PlatformLimit) {
+		void shortenToLimit({
+			busyKey: 'counter',
+			postIndex: index,
+			accountId: activeVariantAccountId,
+			limit
+		});
+	}
+
+	function shortenFromIssue(issue: ComposerIssue) {
+		const account =
+			selectedAccounts.find((candidate) => candidate.id === issue.accountId) ??
+			selectedAccounts.find(
+				(candidate) => getPlatformKey(candidate.platform) === getPlatformKey(issue.provider ?? '')
+			);
+		const limit = account ? uniquePlatformLimits([account], resolvedCapabilities)[0] : undefined;
+		if (!account || !limit) {
+			showToast(m.compose_shorten_failed(), 'error');
+			return;
+		}
+		const resolvedIndex = composerIssuePostIndex(issue);
+		const overflowIndex = posts.findIndex(
+			(candidate) =>
+				platformTextLength(
+					limit.key,
+					(variants.has(account.id) ? getVariantContent(account.id, candidate.key) : null) ??
+						candidate.content
+				) > limit.limit
+		);
+		const postIndex = resolvedIndex >= 0 ? resolvedIndex : Math.max(overflowIndex, 0);
+		void shortenToLimit({ busyKey: issue.id, postIndex, accountId: account.id, limit });
+	}
+
 	function destinationSettingsForAccount(account: SocialAccount): ComposerSettings {
 		const destinationSettings = { ...settingsForAccount(account) };
 		const provider = getPlatformKey(account.platform);
@@ -7541,6 +7703,8 @@
 <!-- ====================================================================== -->
 <!-- Top Bar -->
 <!-- ====================================================================== -->
+<svelte:window onkeydowncapture={handleShortenUndoShortcut} />
+
 <div
 	class="flex min-h-0 flex-1 flex-col overflow-hidden"
 	data-testid="text-thread-composer-content"
@@ -7600,7 +7764,12 @@
 					/>
 				{/if}
 				{#if accounts.length > 0}
-					<ComposerValidationMenu issues={visibleGlobalIssues} onSelect={focusComposerIssue} />
+					<ComposerValidationMenu
+						issues={visibleGlobalIssues}
+						onSelect={focusComposerIssue}
+						onShorten={shortenFromIssue}
+						shorteningIssueId={shorteningKey}
+					/>
 				{/if}
 				<Button
 					type="button"
@@ -7718,7 +7887,12 @@
 
 			<div class="flex flex-wrap items-center gap-1.5 md:gap-2">
 				{#if accounts.length > 0}
-					<ComposerValidationMenu issues={visibleGlobalIssues} onSelect={focusComposerIssue} />
+					<ComposerValidationMenu
+						issues={visibleGlobalIssues}
+						onSelect={focusComposerIssue}
+						onShorten={shortenFromIssue}
+						shorteningIssueId={shorteningKey}
+					/>
 				{/if}
 				<Tooltip.Root>
 					<Tooltip.Trigger>
@@ -8407,6 +8581,8 @@
 												<ComposerCharCounter
 													content={getEditorContentForPost(post)}
 													limits={editorPlatformLimits}
+													shortening={shorteningKey === 'counter'}
+													onShorten={(limit) => shortenFromCounter(i, limit)}
 												/>
 
 												<button

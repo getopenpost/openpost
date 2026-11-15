@@ -10388,5 +10388,11 @@
 	"analytics_followers_over_time": "Seguidores ao longo do tempo",
 	"analytics_this_period": "neste período",
 	"analytics_other_networks": "Outras redes",
-	"analytics_followers_over_time_description": "Total de seguidores por dia, somado entre as contas selecionadas."
+	"analytics_followers_over_time_description": "Total de seguidores por dia, somado entre as contas selecionadas.",
+	"compose_shorten_with_ai": "Encurtar com IA",
+	"compose_shortening": "A encurtar…",
+	"compose_shortened_toast": "Encurtado para caber em {limit} carateres.",
+	"compose_shortened_truncated_toast": "Encurtado para caber. Foi preciso cortar alguns detalhes.",
+	"compose_shorten_failed": "O OpenPost não conseguiu encurtar esta publicação. Tente novamente.",
+	"compose_shorten_undo": "Anular"
 }

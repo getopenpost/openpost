@@ -10,6 +10,7 @@ export interface ComposerIssue {
 	id: string;
 	message: string;
 	severity: 'error' | 'warning';
+	code?: string;
 	accountId?: string;
 	targetLabel?: string;
 	provider?: string;
@@ -35,6 +36,12 @@ export interface TargetedComposerIssue {
 }
 
 const sharedComposerIssueCodes = new Set(['media_required']);
+
+const textLimitIssueCodes = new Set(['text_too_long', 'dynamic_text_limit']);
+
+export function isTextLimitIssue(issue: Pick<ComposerIssue, 'code'>): boolean {
+	return Boolean(issue.code && textLimitIssueCodes.has(issue.code));
+}
 
 export function isSharedComposerIssue(issue: ValidationIssue): boolean {
 	return sharedComposerIssueCodes.has(issue.code);
@@ -113,6 +120,7 @@ export function composerIssues(
 				id: `${issue.code}-${target.accountId}-${issue.segment_id ?? ''}-${issue.scope_id ?? ''}-${issue.field ?? ''}-${issue.media_id ?? ''}-${issue.message}`,
 				message: issueMessage(issue),
 				severity: issue.severity === 'warning' ? 'warning' : 'error',
+				code: issue.code,
 				accountId: target.accountId || undefined,
 				targetLabel: target.label || undefined,
 				provider: issue.provider || undefined,

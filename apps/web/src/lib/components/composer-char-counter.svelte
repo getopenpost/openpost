@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { Button } from '$lib/components/ui/button';
 	import * as Tooltip from '$lib/components/ui/tooltip';
+	import { ThemeIcon } from '$lib/themes/icons';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import {
@@ -11,9 +13,17 @@
 	interface Props {
 		content: string;
 		limits: PlatformLimit[];
+		shortening?: boolean;
+		onShorten?: (limit: PlatformLimit) => void;
 	}
 
-	let { content, limits }: Props = $props();
+	let { content, limits, shortening = false, onShorten }: Props = $props();
+
+	const exceededLimit = $derived(
+		limits
+			.filter((limit) => platformTextLength(limit.key, content) > limit.limit)
+			.sort((a, b) => a.limit - b.limit)[0]
+	);
 
 	function editorCharacterUsage(value: string): { count: number; limit: number } {
 		const usage = mostConstrainedCharacterUsage(value, limits);
@@ -94,6 +104,20 @@
 						>
 					</div>
 				{/each}
+				{#if exceededLimit && onShorten}
+					<Button
+						type="button"
+						variant="secondary"
+						size="sm"
+						class="mt-1 w-full"
+						disabled={shortening}
+						aria-busy={shortening}
+						onclick={() => onShorten(exceededLimit)}
+					>
+						<ThemeIcon role="sparkles" class="size-3.5" />
+						{shortening ? m.compose_shortening() : m.compose_shorten_with_ai()}
+					</Button>
+				{/if}
 			</div>
 		</Tooltip.Content>
 	</Tooltip.Root>

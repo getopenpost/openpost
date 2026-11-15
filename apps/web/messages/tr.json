@@ -10388,5 +10388,11 @@
 	"analytics_followers_over_time": "Zaman içinde takipçiler",
 	"analytics_this_period": "bu dönemde",
 	"analytics_other_networks": "Diğer ağlar",
-	"analytics_followers_over_time_description": "Seçili hesaplarda toplanan günlük toplam takipçi sayısı."
+	"analytics_followers_over_time_description": "Seçili hesaplarda toplanan günlük toplam takipçi sayısı.",
+	"compose_shorten_with_ai": "Yapay zekâyla kısalt",
+	"compose_shortening": "Kısaltılıyor…",
+	"compose_shortened_toast": "{limit} karaktere sığacak şekilde kısaltıldı.",
+	"compose_shortened_truncated_toast": "Sığması için kısaltıldı. Bazı ayrıntılar çıkarıldı.",
+	"compose_shorten_failed": "OpenPost bu gönderiyi kısaltamadı. Tekrar deneyin.",
+	"compose_shorten_undo": "Geri al"
 }

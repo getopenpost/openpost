@@ -10388,5 +10388,11 @@
 	"analytics_followers_over_time": "Abonnés dans le temps",
 	"analytics_this_period": "sur cette période",
 	"analytics_other_networks": "Autres réseaux",
-	"analytics_followers_over_time_description": "Total des abonnés par jour, additionné sur les comptes sélectionnés."
+	"analytics_followers_over_time_description": "Total des abonnés par jour, additionné sur les comptes sélectionnés.",
+	"compose_shorten_with_ai": "Raccourcir avec l’IA",
+	"compose_shortening": "Raccourcissement…",
+	"compose_shortened_toast": "Raccourci pour tenir en {limit} caractères.",
+	"compose_shortened_truncated_toast": "Raccourci pour tenir. Certains détails ont dû être coupés.",
+	"compose_shorten_failed": "OpenPost n’a pas pu raccourcir cette publication. Réessayez.",
+	"compose_shorten_undo": "Annuler"
 }

@@ -257,6 +257,29 @@ async function apiMutationRequest<T>(
 	return (await response.json()) as T;
 }
 
+export interface ShortenedPostText {
+	text: string;
+	truncated: boolean;
+}
+
+export async function shortenPostText(input: {
+	workspaceId: string;
+	text: string;
+	platform: string;
+	maxCharacters: number;
+}): Promise<ShortenedPostText> {
+	const result = await apiMutationRequest<ShortenedPostText>('/post-builder/shorten', {
+		method: 'POST',
+		body: JSON.stringify({
+			workspace_id: input.workspaceId,
+			text: input.text,
+			platform: input.platform,
+			max_characters: input.maxCharacters
+		})
+	});
+	return { text: result.text, truncated: result.truncated };
+}
+
 export function discoverPublicationOpportunities(
 	input: {
 		workspace_id: string;

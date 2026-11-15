@@ -10388,5 +10388,11 @@
 	"analytics_followers_over_time": "Follower nel tempo",
 	"analytics_this_period": "in questo periodo",
 	"analytics_other_networks": "Altre reti",
-	"analytics_followers_over_time_description": "Totale dei follower per giorno, sommato tra gli account selezionati."
+	"analytics_followers_over_time_description": "Totale dei follower per giorno, sommato tra gli account selezionati.",
+	"compose_shorten_with_ai": "Accorcia con l’IA",
+	"compose_shortening": "Accorciamento…",
+	"compose_shortened_toast": "Accorciato per stare in {limit} caratteri.",
+	"compose_shortened_truncated_toast": "Accorciato per rientrare nel limite. Alcuni dettagli sono stati tagliati.",
+	"compose_shorten_failed": "OpenPost non è riuscito ad accorciare questo post. Riprova.",
+	"compose_shorten_undo": "Annulla"
 }

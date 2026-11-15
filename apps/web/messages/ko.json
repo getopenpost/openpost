@@ -10388,5 +10388,11 @@
 	"analytics_followers_over_time": "팔로워 추이",
 	"analytics_this_period": "이 기간",
 	"analytics_other_networks": "기타 네트워크",
-	"analytics_followers_over_time_description": "선택한 계정을 합산한 일별 전체 팔로워 수입니다."
+	"analytics_followers_over_time_description": "선택한 계정을 합산한 일별 전체 팔로워 수입니다.",
+	"compose_shorten_with_ai": "AI로 줄이기",
+	"compose_shortening": "줄이는 중…",
+	"compose_shortened_toast": "{limit}자에 맞게 줄였습니다.",
+	"compose_shortened_truncated_toast": "한도에 맞게 줄였습니다. 일부 내용은 생략되었습니다.",
+	"compose_shorten_failed": "OpenPost가 이 게시물을 줄이지 못했습니다. 다시 시도하세요.",
+	"compose_shorten_undo": "실행 취소"
 }

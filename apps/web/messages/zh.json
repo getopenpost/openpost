@@ -10388,5 +10388,11 @@
 	"analytics_followers_over_time": "粉丝变化趋势",
 	"analytics_this_period": "本期间",
 	"analytics_other_networks": "其他网络",
-	"analytics_followers_over_time_description": "所选账号合计的每日粉丝总数。"
+	"analytics_followers_over_time_description": "所选账号合计的每日粉丝总数。",
+	"compose_shorten_with_ai": "用 AI 缩短",
+	"compose_shortening": "正在缩短…",
+	"compose_shortened_toast": "已缩短至 {limit} 个字符以内。",
+	"compose_shortened_truncated_toast": "已缩短以符合限制，部分细节被删减。",
+	"compose_shorten_failed": "OpenPost 无法缩短这篇帖子，请重试。",
+	"compose_shorten_undo": "撤销"
 }

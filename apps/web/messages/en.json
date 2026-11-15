@@ -10388,5 +10388,11 @@
 	"analytics_followers_over_time": "Followers over time",
 	"analytics_this_period": "this period",
 	"analytics_other_networks": "Other networks",
-	"analytics_followers_over_time_description": "Account-wide follower totals by day, added up across the selected accounts."
+	"analytics_followers_over_time_description": "Account-wide follower totals by day, added up across the selected accounts.",
+	"compose_shorten_with_ai": "Shorten with AI",
+	"compose_shortening": "Shortening…",
+	"compose_shortened_toast": "Shortened to fit {limit} characters.",
+	"compose_shortened_truncated_toast": "Shortened to fit. Some detail had to be cut.",
+	"compose_shorten_failed": "OpenPost could not shorten this post. Try again.",
+	"compose_shorten_undo": "Undo"
 }

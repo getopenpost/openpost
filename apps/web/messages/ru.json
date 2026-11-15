@@ -10388,5 +10388,11 @@
 	"analytics_followers_over_time": "Подписчики по времени",
 	"analytics_this_period": "за этот период",
 	"analytics_other_networks": "Другие сети",
-	"analytics_followers_over_time_description": "Общее число подписчиков по дням, суммированное по выбранным аккаунтам."
+	"analytics_followers_over_time_description": "Общее число подписчиков по дням, суммированное по выбранным аккаунтам.",
+	"compose_shorten_with_ai": "Сократить с ИИ",
+	"compose_shortening": "Сокращение…",
+	"compose_shortened_toast": "Сокращено до {limit} символов.",
+	"compose_shortened_truncated_toast": "Сокращено до лимита. Часть деталей пришлось убрать.",
+	"compose_shorten_failed": "OpenPost не смог сократить этот пост. Попробуйте ещё раз.",
+	"compose_shorten_undo": "Отменить"
 }

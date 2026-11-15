@@ -4,15 +4,24 @@
 	import { cn } from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
 	import { ProtectedIcon } from '$lib/themes/icons';
-	import type { ComposerIssue } from './compose/validation';
+	import { ThemeIcon } from '$lib/themes/icons';
+	import { isTextLimitIssue, type ComposerIssue } from './compose/validation';
 
 	interface Props {
 		issues: ComposerIssue[];
 		class?: string;
 		onSelect?: (issue: ComposerIssue) => void;
+		onShorten?: (issue: ComposerIssue) => void | Promise<void>;
+		shorteningIssueId?: string | null;
 	}
 
-	let { issues, class: className = '', onSelect }: Props = $props();
+	let {
+		issues,
+		class: className = '',
+		onSelect,
+		onShorten,
+		shorteningIssueId = null
+	}: Props = $props();
 	let open = $state(false);
 	let selectingIssue = $state(false);
 	const hasErrors = $derived(issues.some((issue) => issue.severity === 'error'));
@@ -108,6 +117,24 @@
 							</button>
 						{:else}
 							<div class="flex gap-2 px-2 py-2">{@render issueContent()}</div>
+						{/if}
+						{#if onShorten && isTextLimitIssue(issue)}
+							<div class="px-2 pb-2">
+								<Button
+									type="button"
+									variant="secondary"
+									size="sm"
+									class="min-h-11 md:min-h-8"
+									disabled={shorteningIssueId !== null}
+									aria-busy={shorteningIssueId === issue.id}
+									onclick={() => void onShorten(issue)}
+								>
+									<ThemeIcon role="sparkles" class="size-3.5" />
+									{shorteningIssueId === issue.id
+										? m.compose_shortening()
+										: m.compose_shorten_with_ai()}
+								</Button>
+							</div>
 						{/if}
 					</li>
 				{/each}

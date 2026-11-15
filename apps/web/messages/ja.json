@@ -10388,5 +10388,11 @@
 	"analytics_followers_over_time": "フォロワーの推移",
 	"analytics_this_period": "この期間",
 	"analytics_other_networks": "その他のネットワーク",
-	"analytics_followers_over_time_description": "選択したアカウントを合算した、日ごとのフォロワー総数です。"
+	"analytics_followers_over_time_description": "選択したアカウントを合算した、日ごとのフォロワー総数です。",
+	"compose_shorten_with_ai": "AIで短縮",
+	"compose_shortening": "短縮中…",
+	"compose_shortened_toast": "{limit}文字に収まるよう短縮しました。",
+	"compose_shortened_truncated_toast": "収まるよう短縮しました。一部の内容を省略しました。",
+	"compose_shorten_failed": "OpenPostはこの投稿を短縮できませんでした。もう一度お試しください。",
+	"compose_shorten_undo": "元に戻す"
 }

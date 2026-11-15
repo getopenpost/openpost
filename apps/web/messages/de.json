@@ -10388,5 +10388,11 @@
 	"analytics_followers_over_time": "Follower im Zeitverlauf",
 	"analytics_this_period": "in diesem Zeitraum",
 	"analytics_other_networks": "Weitere Netzwerke",
-	"analytics_followers_over_time_description": "Follower-Gesamtzahlen pro Tag, über die ausgewählten Konten addiert."
+	"analytics_followers_over_time_description": "Follower-Gesamtzahlen pro Tag, über die ausgewählten Konten addiert.",
+	"compose_shorten_with_ai": "Mit KI kürzen",
+	"compose_shortening": "Wird gekürzt…",
+	"compose_shortened_toast": "Auf {limit} Zeichen gekürzt.",
+	"compose_shortened_truncated_toast": "Gekürzt, damit es passt. Einige Details mussten entfallen.",
+	"compose_shorten_failed": "OpenPost konnte diesen Beitrag nicht kürzen. Versuche es erneut.",
+	"compose_shorten_undo": "Rückgängig"
 }

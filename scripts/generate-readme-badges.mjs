@@ -1,29 +1,9 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, extname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdir, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { ditherThreshold } from "../packages/dither/src/paint.ts";
 
 const DEFAULT_REPOSITORY = "getopenpost/openpost";
 const BADGE_NAMES = ["downloads", "release", "stars", "follow-dev"];
-// Deployment tiles show each platform's mark from assets/logos (sources in
-// SOURCES.md). A dark-mode entry swaps a mark that would vanish on a dark tile.
-const DEPLOYMENTS = [
-  ["hosted", "OpenPost Hosted", "assets/brand/logo.svg", "assets/brand/logo-dark.svg"],
-  ["docker", "Docker Compose", "assets/logos/docker.svg"],
-  ["coolify", "Coolify", "assets/logos/coolify.svg"],
-  ["dokploy", "Dokploy", "assets/logos/dokploy.svg", { replace: ["#111", "#f2f2f2"] }],
-  ["portainer", "Portainer", "assets/logos/portainer.svg"],
-  ["dockge", "Dockge", "assets/logos/dockge.svg"],
-  ["casaos", "CasaOS", "assets/logos/casaos.svg"],
-  ["zimaos", "ZimaOS", "assets/logos/zimaos.png"],
-  ["umbrelos", "umbrelOS", "assets/logos/umbrelos.png"],
-  ["nixos", "NixOS", "assets/logos/nixos.svg"],
-  ["ubuntu", "Ubuntu", "assets/logos/ubuntu.svg"],
-];
-const DEPLOYMENT_TILE = {
-  light: ["#ffffff", "#000"],
-  dark: ["#262c36", "#fff"],
-};
 const NPM_PACKAGES = ["@getopenpost/sdk", "@getopenpost/cli", "@getopenpost/n8n-nodes-openpost"];
 // The npm downloads API only serves explicit ranges, so start at the registry
 // epoch and let the API clamp to each package's first published day. One point
@@ -52,7 +32,7 @@ const COLORS = {
 };
 
 function usage() {
-  return "usage: bun scripts/generate-readme-badges.mjs [--repo owner/name] [--output-dir assets/badges] [--deployments-only]";
+  return "usage: bun scripts/generate-readme-badges.mjs [--repo owner/name] [--output-dir assets/badges]";
 }
 
 export function parseArguments(argv) {
@@ -66,8 +46,6 @@ export function parseArguments(argv) {
       options.repository = argv[++index];
     } else if (argument === "--output-dir") {
       options.outputDir = argv[++index];
-    } else if (argument === "--deployments-only") {
-      options.deploymentsOnly = true;
     } else if (argument === "--help") {
       console.log(usage());
       return null;
@@ -203,7 +181,7 @@ function textWidth(value) {
   return Math.max(28, [...String(value)].length * 7.2 + 16);
 }
 
-function ditherPattern(ink = "#fff") {
+function ditherPattern() {
   const cell = 2;
   const rects = [];
   for (let row = 0; row < 14; row += 1) {
@@ -212,7 +190,7 @@ function ditherPattern(ink = "#fff") {
       const lit = ditherThreshold(column, row) < density;
       const alpha = (0.08 + density * 0.42) * (lit ? 1 : 0.25);
       rects.push(
-        `<rect x="${column * cell}" y="${row * cell}" width="${cell}" height="${cell}" fill="${ink}" fill-opacity="${alpha.toFixed(3)}"/>`,
+        `<rect x="${column * cell}" y="${row * cell}" width="${cell}" height="${cell}" fill="#fff" fill-opacity="${alpha.toFixed(3)}"/>`,
       );
     }
   }
@@ -267,55 +245,13 @@ export async function writeBadges(data, outputDir) {
   return files.map(({ path }) => path);
 }
 
-const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-
-async function logoDataURI(source, variant) {
-  const path = resolve(REPOSITORY_ROOT, typeof variant === "string" ? variant : source);
-  if (extname(path) === ".png") {
-    return `data:image/png;base64,${(await readFile(path)).toString("base64")}`;
-  }
-  let markup = await readFile(path, "utf8");
-  if (variant?.replace) markup = markup.replaceAll(variant.replace[0], variant.replace[1]);
-  return `data:image/svg+xml;base64,${Buffer.from(markup).toString("base64")}`;
-}
-
-function renderDeploymentBadge(label, logo, mode) {
-  const size = 40;
-  const mark = 24;
-  const [background, outline] = DEPLOYMENT_TILE[mode];
-  const inset = (size - mark) / 2;
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-labelledby="title"><title id="title">${escapeXML(label)}</title><defs><clipPath id="badge-clip"><rect width="${size}" height="${size}" rx="8"/></clipPath>${ditherPattern(outline)}</defs><g clip-path="url(#badge-clip)" shape-rendering="crispEdges"><rect width="${size}" height="${size}" fill="${background}"/><rect x="${size - 7}" width="7" height="${size}" fill="url(#dither)" opacity="0.6"/></g><rect x="0.5" y="0.5" width="${size - 1}" height="${size - 1}" rx="7.5" fill="none" stroke="${outline}" stroke-opacity="0.14"/><image x="${inset}" y="${inset}" width="${mark}" height="${mark}" preserveAspectRatio="xMidYMid meet" href="${logo}" xlink:href="${logo}"/></svg>`;
-}
-
-async function writeDeploymentBadges(outputDir) {
-  const destination = resolve(outputDir);
-  await mkdir(destination, { recursive: true });
-  await Promise.all(
-    DEPLOYMENTS.flatMap(([id, label, source, darkVariant]) =>
-      ["light", "dark"].map(async (mode) => {
-        const logo = await logoDataURI(source, mode === "dark" ? darkVariant : undefined);
-        await writeFile(
-          `${destination}/deploy-${id}-${mode}.svg`,
-          `${renderDeploymentBadge(label, logo, mode)}\n`,
-          "utf8",
-        );
-      }),
-    ),
-  );
-}
-
 if (import.meta.main) {
   try {
     const options = parseArguments(process.argv.slice(2));
     if (!options) process.exit(0);
-    if (!options.deploymentsOnly) {
-      const data = await fetchBadgeData(options.repository);
-      await writeBadges(data, options.outputDir);
-    }
-    await writeDeploymentBadges(options.outputDir);
-    console.log(
-      `Updated ${(DEPLOYMENTS.length + (options.deploymentsOnly ? 0 : BADGE_NAMES.length)) * 2} README badges.`,
-    );
+    const data = await fetchBadgeData(options.repository);
+    await writeBadges(data, options.outputDir);
+    console.log(`Updated ${BADGE_NAMES.length * 2} README badges for ${options.repository}.`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);

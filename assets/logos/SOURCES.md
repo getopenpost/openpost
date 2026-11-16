@@ -10,20 +10,21 @@ frame, with an approximately 26px painted height, following the audit report's
 20dp minimum. Compact controls use text attribution. The current brand site's
 100px minimum differs from that report and needs clarification from YouTube.
 
-| Asset           | Source                                                                                                                                                                   |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `casaos.svg`    | [CasaOS UI favicon](https://github.com/IceWhaleTech/CasaOS-UI/blob/main/public/favicon.svg)                                                                              |
-| `coolify.svg`   | [Simple Icons: Coolify](https://simpleicons.org/?q=coolify)                                                                                                              |
-| `docker.svg`    | [Simple Icons: Docker](https://simpleicons.org/?q=docker)                                                                                                                |
-| `dockge.svg`    | [Dockge icon](https://github.com/louislam/dockge/blob/master/frontend/public/icon.svg)                                                                                   |
-| `dokploy.svg`   | [Dokploy logo](https://github.com/Dokploy/dokploy/blob/canary/apps/dokploy/public/logo.svg)                                                                              |
-| `nixos.svg`     | [Simple Icons: NixOS](https://simpleicons.org/?q=nixos)                                                                                                                  |
-| `portainer.svg` | [Simple Icons: Portainer](https://simpleicons.org/?q=portainer)                                                                                                          |
-| `ubuntu.svg`    | [Simple Icons: Ubuntu](https://simpleicons.org/?q=ubuntu) (brand fill `#E95420` added)                                                                                   |
-| `umbrelos.png`  | [Umbrel official website icon](https://umbrel.com/icons/icon-512.png), downloaded unchanged from the website's icon assets                                               |
-| `zimaos.png`    | [ZimaOS logo](https://github.com/IceWhaleTech/ZimaOS/blob/main/assets/zima.png)                                                                                          |
-| `pixelfed.svg`  | [Simple Icons: Pixelfed](https://simpleicons.org/?q=pixelfed) (fill normalized to `currentColor`)                                                                        |
-| `peertube.svg`  | [Simple Icons: PeerTube](https://simpleicons.org/?q=peertube) (fill normalized to `currentColor`)                                                                        |
-| `lemmy.svg`     | [Simple Icons: Lemmy](https://simpleicons.org/?q=lemmy) (fill normalized to `currentColor`)                                                                              |
-| `piefed.svg`    | [PieFed icon](https://codeberg.org/rimu/pyfedi/src/branch/main/app/static/images/piefed_logo_icon_t_256x256.svg) (fills normalized to `currentColor`, metadata stripped) |
-| `devnull.svg`   | [dev/null favicon](https://dev-null.sh/favicon.svg) (fills normalized to `currentColor`, style block and metadata stripped)                                              |
+| Asset               | Source                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `casaos.svg`        | [CasaOS UI favicon](https://github.com/IceWhaleTech/CasaOS-UI/blob/main/public/favicon.svg)                                                                              |
+| `coolify.svg`       | [Simple Icons: Coolify](https://simpleicons.org/?q=coolify)                                                                                                              |
+| `docker.svg`        | [Simple Icons: Docker](https://simpleicons.org/?q=docker)                                                                                                                |
+| `dockge.svg`        | [Dockge icon](https://github.com/louislam/dockge/blob/master/frontend/public/icon.svg)                                                                                   |
+| `dokploy.svg`       | [Dokploy logo](https://github.com/Dokploy/dokploy/blob/canary/apps/dokploy/public/logo.svg)                                                                              |
+| `dokploy-white.svg` | `dokploy.svg` with its fill changed to `#f2f2f2` for dark backgrounds                                                                                                    |
+| `nixos.svg`         | [Simple Icons: NixOS](https://simpleicons.org/?q=nixos)                                                                                                                  |
+| `portainer.svg`     | [Simple Icons: Portainer](https://simpleicons.org/?q=portainer)                                                                                                          |
+| `ubuntu.svg`        | [Simple Icons: Ubuntu](https://simpleicons.org/?q=ubuntu) (brand fill `#E95420` added)                                                                                   |
+| `umbrelos.png`      | [Umbrel official website icon](https://umbrel.com/icons/icon-512.png), downloaded unchanged from the website's icon assets                                               |
+| `zimaos.png`        | [ZimaOS logo](https://github.com/IceWhaleTech/ZimaOS/blob/main/assets/zima.png)                                                                                          |
+| `pixelfed.svg`      | [Simple Icons: Pixelfed](https://simpleicons.org/?q=pixelfed) (fill normalized to `currentColor`)                                                                        |
+| `peertube.svg`      | [Simple Icons: PeerTube](https://simpleicons.org/?q=peertube) (fill normalized to `currentColor`)                                                                        |
+| `lemmy.svg`         | [Simple Icons: Lemmy](https://simpleicons.org/?q=lemmy) (fill normalized to `currentColor`)                                                                              |
+| `piefed.svg`        | [PieFed icon](https://codeberg.org/rimu/pyfedi/src/branch/main/app/static/images/piefed_logo_icon_t_256x256.svg) (fills normalized to `currentColor`, metadata stripped) |
+| `devnull.svg`       | [dev/null favicon](https://dev-null.sh/favicon.svg) (fills normalized to `currentColor`, style block and metadata stripped)                                              |

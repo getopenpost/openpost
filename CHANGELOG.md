@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.42.2] - 2026-11-16
+
+### Fixed
+
+- Facebook Page photo posts, multi-photo posts, and photo stories now send the authored image alt text to Facebook.
+- Removed the stale "All channels" Social Set that the 3.0 upgrade created beside Select all. Its membership froze at upgrade time, so channels connected later were silently excluded; edited sets keep their saved name, defaults, and membership.
+- Deleting a Social Set works for legacy IDs that contain a colon.
+
+### Added
+
+- The mobile app supports securely stored custom proxy headers for self-hosted servers, including connection checks, sign-in, uploads, and media previews. Configure them under Advanced during setup or Proxy headers in the workspace menu.
+- Hover the character counter or open "Issues to review" when a post is over its limit to shorten it with AI. The edit keeps the meaning and wording where it can, and a toast (or Ctrl+Z / Cmd+Z) undoes it.
+
 ## [7.41.6] - 2026-11-14
 
 ### Fixed

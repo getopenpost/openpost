@@ -181,22 +181,14 @@ Posting formats, inbox features, and analytics vary by platform. Some integratio
 
 ## AI assistants
 
-Connect OpenPost to your AI assistant with MCP or the OpenPost skill. Ask it to draft posts, schedule them, and check publishing results.
-
-**Chat assistants**
+Connect OpenPost to your AI assistant with MCP or the OpenPost skill, then ask it to turn your work into posts and schedule them.
 
 <p>
   <a href="https://openpo.st/docs/mcp/chatgpt"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/logos/ai/chatgpt-white.svg"><img src="./apps/docs/public/clients/chatgpt.svg" alt="ChatGPT" title="ChatGPT" width="32" height="32" align="middle"></picture></a>
   <a href="https://openpo.st/docs/mcp/claude"><img src="./apps/docs/public/clients/claude.svg" alt="Claude" title="Claude" width="32" height="32" align="middle"></a>
   <a href="https://openpo.st/docs/mcp/grok"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/logos/ai/grok-white.svg"><img src="./apps/docs/public/clients/grok.svg" alt="Grok" title="Grok" width="32" height="32" align="middle"></picture></a>
   <a href="https://openpo.st/docs/mcp/perplexity"><img src="./apps/docs/public/clients/perplexity.svg" alt="Perplexity" title="Perplexity" width="32" height="32" align="middle"></a>
-</p>
-
-**Coding assistants and agents**
-
-<p>
   <a href="https://openpo.st/docs/mcp/codex"><img src="./apps/docs/public/clients/codex.svg" alt="Codex" title="Codex" width="32" height="32" align="middle"></a>
-  <a href="https://openpo.st/docs/mcp/claude-code"><img src="./apps/docs/public/clients/claude.svg" alt="Claude Code" title="Claude Code" width="32" height="32" align="middle"></a>
   <a href="https://openpo.st/docs/mcp/cursor"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/logos/ai/cursor-white.svg"><img src="./apps/docs/public/clients/cursor.svg" alt="Cursor" title="Cursor" width="32" height="32" align="middle"></picture></a>
   <a href="https://openpo.st/docs/mcp/vs-code"><img src="./apps/docs/public/clients/vscode.svg" alt="VS Code" title="VS Code" width="32" height="32" align="middle"></a>
   <a href="https://openpo.st/docs/mcp/github-copilot"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/logos/ai/github-copilot-white.svg"><img src="./apps/docs/public/clients/github-copilot.svg" alt="GitHub Copilot" title="GitHub Copilot" width="32" height="32" align="middle"></picture></a>

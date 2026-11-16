@@ -179,6 +179,37 @@ Posting formats, inbox features, and analytics vary by platform. Some integratio
 
 [Connect accounts](https://openpo.st/docs/guides/accounts) · [Integration requirements](https://openpo.st/docs/self-hosting/integrations)
 
+## AI assistants
+
+Connect OpenPost to your AI assistant with MCP or the OpenPost skill. Ask it to draft posts, schedule them, and check publishing results.
+
+**Chat assistants**
+
+<p>
+  <a href="https://openpo.st/docs/mcp/chatgpt"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/logos/ai/chatgpt-white.svg"><img src="./apps/docs/public/clients/chatgpt.svg" alt="ChatGPT" title="ChatGPT" width="32" height="32" align="middle"></picture></a>
+  <a href="https://openpo.st/docs/mcp/claude"><img src="./apps/docs/public/clients/claude.svg" alt="Claude" title="Claude" width="32" height="32" align="middle"></a>
+  <a href="https://openpo.st/docs/mcp/grok"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/logos/ai/grok-white.svg"><img src="./apps/docs/public/clients/grok.svg" alt="Grok" title="Grok" width="32" height="32" align="middle"></picture></a>
+  <a href="https://openpo.st/docs/mcp/perplexity"><img src="./apps/docs/public/clients/perplexity.svg" alt="Perplexity" title="Perplexity" width="32" height="32" align="middle"></a>
+</p>
+
+**Coding assistants and agents**
+
+<p>
+  <a href="https://openpo.st/docs/mcp/codex"><img src="./apps/docs/public/clients/codex.svg" alt="Codex" title="Codex" width="32" height="32" align="middle"></a>
+  <a href="https://openpo.st/docs/mcp/claude-code"><img src="./apps/docs/public/clients/claude.svg" alt="Claude Code" title="Claude Code" width="32" height="32" align="middle"></a>
+  <a href="https://openpo.st/docs/mcp/cursor"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/logos/ai/cursor-white.svg"><img src="./apps/docs/public/clients/cursor.svg" alt="Cursor" title="Cursor" width="32" height="32" align="middle"></picture></a>
+  <a href="https://openpo.st/docs/mcp/vs-code"><img src="./apps/docs/public/clients/vscode.svg" alt="VS Code" title="VS Code" width="32" height="32" align="middle"></a>
+  <a href="https://openpo.st/docs/mcp/github-copilot"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/logos/ai/github-copilot-white.svg"><img src="./apps/docs/public/clients/github-copilot.svg" alt="GitHub Copilot" title="GitHub Copilot" width="32" height="32" align="middle"></picture></a>
+  <a href="https://openpo.st/docs/mcp/gemini-cli"><img src="./apps/docs/public/clients/gemini.svg" alt="Gemini CLI" title="Gemini CLI" width="32" height="32" align="middle"></a>
+  <a href="https://openpo.st/docs/mcp/devin"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/logos/ai/devin-white.svg"><img src="./apps/docs/public/clients/devin.svg" alt="Devin" title="Devin" width="32" height="32" align="middle"></picture></a>
+  <a href="https://openpo.st/docs/mcp/antigravity"><img src="./apps/docs/public/clients/antigravity.svg" alt="Antigravity" title="Antigravity" width="32" height="32" align="middle"></a>
+  <a href="https://openpo.st/docs/mcp/opencode"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/logos/ai/opencode-white.svg"><img src="./apps/docs/public/clients/opencode.svg" alt="OpenCode" title="OpenCode" width="32" height="32" align="middle"></picture></a>
+  <a href="https://openpo.st/docs/mcp/openclaw"><img src="./apps/docs/public/clients/openclaw.svg" alt="OpenClaw" title="OpenClaw" width="32" height="32" align="middle"></a>
+  <a href="https://openpo.st/docs/mcp/hermes"><img src="./apps/docs/public/clients/hermes.png" alt="Hermes Agent" title="Hermes Agent" width="32" height="32" align="middle"></a>
+</p>
+
+[Connect an AI assistant](https://openpo.st/docs/mcp) · [MCP guide](https://openpo.st/docs/mcp/mcp-guide)
+
 ## Contributing
 
 Report bugs, improve the docs, or send a pull request. For larger changes, open an issue first so we can agree on the approach.

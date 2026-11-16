@@ -36,6 +36,11 @@ set -euo pipefail
 # no runtime dependencies. No Node packages ship in the Go image or static
 # sites. Remove these admissions when the consuming tools adopt the patched
 # majors.
+# GHSA-3r8g-jcqq-3p5j (remote function form DoS) and GHSA-6cf5-gc4q-fm3x
+# (private query.batch collisions) affect SvelteKit remote functions, which
+# OpenPost does not enable. SvelteKit patched them only in 3.1.1 and published
+# no v2 release. check-security-admissions.mjs fails closed if remote functions
+# or a patched SvelteKit release appear, so remove these admissions then.
 bun "$(dirname "${BASH_SOURCE[0]}")/check-braces-security-patch.mjs"
 # These admissions fail closed when the reviewed dependency/source boundaries
 # change. See the linked advisory conditions in check-security-admissions.mjs.
@@ -63,6 +68,8 @@ while [ "$attempt" -le 3 ]; do
   --ignore GHSA-mrhx-c7xc-m3w5 \
   --ignore GHSA-pfhg-q3qv-9q6r \
   --ignore GHSA-27mw-82g8-phjj \
+  --ignore GHSA-3r8g-jcqq-3p5j \
+  --ignore GHSA-6cf5-gc4q-fm3x \
   --ignore GHSA-gcqx-w48m-w2h4 \
   --ignore GHSA-g3hv-75wg-m249 \
   --ignore GHSA-3g3m-2fjr-6pw4 \

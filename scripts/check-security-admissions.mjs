@@ -12,6 +12,11 @@ import path from "node:path";
 // GHSA-pfhg-q3qv-9q6r and GHSA-27mw-82g8-phjj: the static SvelteKit
 // consumers do not use enhanced form actions or prerender setHeaders. Inspect
 // all first-party app/package modules, including imported module extensions.
+// GHSA-3r8g-jcqq-3p5j and GHSA-6cf5-gc4q-fm3x affect SvelteKit remote
+// function forms and query.batch, which OpenPost does not enable. They are
+// patched only in SvelteKit 3.1.1 with no v2 release. Reject remote function
+// modules and imports, and fail once a patched SvelteKit is installed so these
+// admissions are removed with the v3 migration.
 // GHSA-gcqx-w48m-w2h4 has no patched deepmerge release. Its current parents
 // are Svelte/Vite/Workbox configuration and n8n development tooling. The locked
 // graph pins those consumers; reject first-party imports so it cannot become
@@ -41,10 +46,17 @@ function inspectSources(directory) {
       if (!generatedDirectories.has(entry.name)) inspectSources(sourcePath);
       continue;
     }
-    if (!entry.isFile() || !/\.(?:[cm]?[jt]s|svelte)$/.test(entry.name)) continue;
+    if (!entry.isFile()) continue;
+    if (/\.remote\.[cm]?[jt]s$/.test(entry.name)) {
+      throw new Error(`Re-review SvelteKit remote-function advisory admissions: ${sourcePath}`);
+    }
+    if (!/\.(?:[cm]?[jt]s|svelte)$/.test(entry.name)) continue;
     const source = readFileSync(sourcePath, "utf8");
     if (/\$app\/forms|\bsetHeaders\b|use:enhance\b/.test(source)) {
       throw new Error(`Re-review SvelteKit advisory admissions: ${sourcePath}`);
+    }
+    if (/\$app\/server\b|experimental\.remoteFunctions\b|\bquery\.batch\b/.test(source)) {
+      throw new Error(`Re-review SvelteKit remote-function advisory admissions: ${sourcePath}`);
     }
     if (/(?:from\s*|import\s*\(|require\s*\()\s*["']deepmerge(?:["'/])/.test(source)) {
       throw new Error(`Re-review deepmerge development-only admission: ${sourcePath}`);
@@ -60,6 +72,16 @@ function inspectSources(directory) {
 
 try {
   const lock = readFileSync("bun.lock", "utf8");
+  const svelteKit = /^ {4}"@sveltejs\/kit": \["@sveltejs\/kit@([^"]+)"/m.exec(lock);
+  if (!svelteKit)
+    throw new Error("Re-review SvelteKit remote-function advisory admissions: dependency missing");
+  const [kitMajor, kitMinor, kitPatch] = svelteKit[1].split(".").map(Number);
+  if (![kitMajor, kitMinor, kitPatch].every(Number.isInteger))
+    throw new Error(`Re-review SvelteKit remote-function advisory admissions: ${svelteKit[1]}`);
+  if (kitMajor > 3 || (kitMajor === 3 && (kitMinor > 1 || (kitMinor === 1 && kitPatch >= 1))))
+    throw new Error(
+      "Remove SvelteKit remote-function advisory admissions: a patched release is installed",
+    );
   for (const [, key] of lock.matchAll(/^ {4}"([^"]+)": \["zod@3\./gm)) {
     if (!reviewedLegacyZodParents.test(key))
       throw new Error(`Re-review legacy Zod admission: ${key}`);

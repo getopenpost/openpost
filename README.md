@@ -139,72 +139,17 @@ Run OpenPost with Docker Compose. The default setup uses one container with SQLi
 [Configure integrations](https://openpo.st/docs/self-hosting/integrations) · [Backups and upgrades](https://openpo.st/docs/self-hosting/maintenance)
 
 <p>
-  <a href="https://app.openpo.st/register">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-hosted-dark.svg">
-      <img src="./assets/badges/deploy-hosted-light.svg" alt="OpenPost Hosted">
-    </picture>
-  </a>
-  <a href="https://openpo.st/docs/self-hosting/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-docker-dark.svg">
-      <img src="./assets/badges/deploy-docker-light.svg" alt="Docker Compose">
-    </picture>
-  </a>
-  <a href="https://openpo.st/docs/self-hosting/coolify">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-coolify-dark.svg">
-      <img src="./assets/badges/deploy-coolify-light.svg" alt="Coolify">
-    </picture>
-  </a>
-  <a href="https://openpo.st/docs/self-hosting/dokploy">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-dokploy-dark.svg">
-      <img src="./assets/badges/deploy-dokploy-light.svg" alt="Dokploy">
-    </picture>
-  </a>
-  <a href="https://openpo.st/docs/self-hosting/portainer">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-portainer-dark.svg">
-      <img src="./assets/badges/deploy-portainer-light.svg" alt="Portainer">
-    </picture>
-  </a>
-  <a href="https://openpo.st/docs/self-hosting/dockge">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-dockge-dark.svg">
-      <img src="./assets/badges/deploy-dockge-light.svg" alt="Dockge">
-    </picture>
-  </a>
-  <a href="https://openpo.st/docs/self-hosting/casaos">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-casaos-dark.svg">
-      <img src="./assets/badges/deploy-casaos-light.svg" alt="CasaOS">
-    </picture>
-  </a>
-  <a href="https://openpo.st/docs/self-hosting/zimaos">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-zimaos-dark.svg">
-      <img src="./assets/badges/deploy-zimaos-light.svg" alt="ZimaOS">
-    </picture>
-  </a>
-  <a href="https://openpo.st/docs/self-hosting/umbrelos">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-umbrelos-dark.svg">
-      <img src="./assets/badges/deploy-umbrelos-light.svg" alt="umbrelOS">
-    </picture>
-  </a>
-  <a href="https://openpo.st/docs/self-hosting/nixos">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-nixos-dark.svg">
-      <img src="./assets/badges/deploy-nixos-light.svg" alt="NixOS">
-    </picture>
-  </a>
-  <a href="https://openpo.st/docs/self-hosting/binary">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-ubuntu-dark.svg">
-      <img src="./assets/badges/deploy-ubuntu-light.svg" alt="Ubuntu">
-    </picture>
-  </a>
+  <a href="https://app.openpo.st/register" title="OpenPost Hosted"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-hosted-dark.svg"><img src="./assets/badges/deploy-hosted-light.svg" alt="OpenPost Hosted" title="OpenPost Hosted" width="40" height="40"></picture></a>
+  <a href="https://openpo.st/docs/self-hosting/" title="Docker Compose"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-docker-dark.svg"><img src="./assets/badges/deploy-docker-light.svg" alt="Docker Compose" title="Docker Compose" width="40" height="40"></picture></a>
+  <a href="https://openpo.st/docs/self-hosting/coolify" title="Coolify"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-coolify-dark.svg"><img src="./assets/badges/deploy-coolify-light.svg" alt="Coolify" title="Coolify" width="40" height="40"></picture></a>
+  <a href="https://openpo.st/docs/self-hosting/dokploy" title="Dokploy"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-dokploy-dark.svg"><img src="./assets/badges/deploy-dokploy-light.svg" alt="Dokploy" title="Dokploy" width="40" height="40"></picture></a>
+  <a href="https://openpo.st/docs/self-hosting/portainer" title="Portainer"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-portainer-dark.svg"><img src="./assets/badges/deploy-portainer-light.svg" alt="Portainer" title="Portainer" width="40" height="40"></picture></a>
+  <a href="https://openpo.st/docs/self-hosting/dockge" title="Dockge"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-dockge-dark.svg"><img src="./assets/badges/deploy-dockge-light.svg" alt="Dockge" title="Dockge" width="40" height="40"></picture></a>
+  <a href="https://openpo.st/docs/self-hosting/casaos" title="CasaOS"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-casaos-dark.svg"><img src="./assets/badges/deploy-casaos-light.svg" alt="CasaOS" title="CasaOS" width="40" height="40"></picture></a>
+  <a href="https://openpo.st/docs/self-hosting/zimaos" title="ZimaOS"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-zimaos-dark.svg"><img src="./assets/badges/deploy-zimaos-light.svg" alt="ZimaOS" title="ZimaOS" width="40" height="40"></picture></a>
+  <a href="https://openpo.st/docs/self-hosting/umbrelos" title="umbrelOS"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-umbrelos-dark.svg"><img src="./assets/badges/deploy-umbrelos-light.svg" alt="umbrelOS" title="umbrelOS" width="40" height="40"></picture></a>
+  <a href="https://openpo.st/docs/self-hosting/nixos" title="NixOS"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-nixos-dark.svg"><img src="./assets/badges/deploy-nixos-light.svg" alt="NixOS" title="NixOS" width="40" height="40"></picture></a>
+  <a href="https://openpo.st/docs/self-hosting/binary" title="Ubuntu"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/badges/deploy-ubuntu-dark.svg"><img src="./assets/badges/deploy-ubuntu-light.svg" alt="Ubuntu" title="Ubuntu" width="40" height="40"></picture></a>
 </p>
 
 ## Supported platforms

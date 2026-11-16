@@ -1,22 +1,29 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, extname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ditherThreshold } from "../packages/dither/src/paint.ts";
 
 const DEFAULT_REPOSITORY = "getopenpost/openpost";
 const BADGE_NAMES = ["downloads", "release", "stars", "follow-dev"];
+// Deployment tiles show each platform's mark from assets/logos (sources in
+// SOURCES.md). A dark-mode entry swaps a mark that would vanish on a dark tile.
 const DEPLOYMENTS = [
-  ["hosted", "OpenPost Hosted", ["#dcd5ff", "#33216b"], ["#3b2866", "#f2ebff"]],
-  ["docker", "Docker Compose", ["#b9e1ff", "#063c65"], ["#123f65", "#e0f2ff"]],
-  ["coolify", "Coolify", ["#dec5ff", "#441778"], ["#48216e", "#f3e5ff"]],
-  ["dokploy", "Dokploy", ["#d3d7e6", "#252a40"], ["#30364c", "#edf0ff"]],
-  ["portainer", "Portainer", ["#abe8fa", "#064354"], ["#104958", "#ddf8ff"]],
-  ["dockge", "Dockge", ["#bed3ff", "#193c7b"], ["#223e74", "#e5eeff"]],
-  ["casaos", "CasaOS", ["#bddcff", "#153f77"], ["#1a4679", "#e5f1ff"]],
-  ["zimaos", "ZimaOS", ["#a9efd6", "#074c36"], ["#12513d", "#e0fff1"]],
-  ["umbrelos", "umbrelOS", ["#cecaff", "#302778"], ["#393078", "#efecff"]],
-  ["nixos", "NixOS", ["#c4d7f5", "#264573"], ["#2b4770", "#e8f1ff"]],
-  ["ubuntu", "Ubuntu", ["#ffccb8", "#72260d"], ["#74321c", "#ffede5"]],
+  ["hosted", "OpenPost Hosted", "assets/brand/logo.svg", "assets/brand/logo-dark.svg"],
+  ["docker", "Docker Compose", "assets/logos/docker.svg"],
+  ["coolify", "Coolify", "assets/logos/coolify.svg"],
+  ["dokploy", "Dokploy", "assets/logos/dokploy.svg", { replace: ["#111", "#f2f2f2"] }],
+  ["portainer", "Portainer", "assets/logos/portainer.svg"],
+  ["dockge", "Dockge", "assets/logos/dockge.svg"],
+  ["casaos", "CasaOS", "assets/logos/casaos.svg"],
+  ["zimaos", "ZimaOS", "assets/logos/zimaos.png"],
+  ["umbrelos", "umbrelOS", "assets/logos/umbrelos.png"],
+  ["nixos", "NixOS", "assets/logos/nixos.svg"],
+  ["ubuntu", "Ubuntu", "assets/logos/ubuntu.svg"],
 ];
+const DEPLOYMENT_TILE = {
+  light: ["#ffffff", "#000"],
+  dark: ["#262c36", "#fff"],
+};
 const NPM_PACKAGES = ["@getopenpost/sdk", "@getopenpost/cli", "@getopenpost/n8n-nodes-openpost"];
 // The npm downloads API only serves explicit ranges, so start at the registry
 // epoch and let the API clamp to each package's first published day. One point
@@ -196,7 +203,7 @@ function textWidth(value) {
   return Math.max(28, [...String(value)].length * 7.2 + 16);
 }
 
-function ditherPattern() {
+function ditherPattern(ink = "#fff") {
   const cell = 2;
   const rects = [];
   for (let row = 0; row < 14; row += 1) {
@@ -205,7 +212,7 @@ function ditherPattern() {
       const lit = ditherThreshold(column, row) < density;
       const alpha = (0.08 + density * 0.42) * (lit ? 1 : 0.25);
       rects.push(
-        `<rect x="${column * cell}" y="${row * cell}" width="${cell}" height="${cell}" fill="#fff" fill-opacity="${alpha.toFixed(3)}"/>`,
+        `<rect x="${column * cell}" y="${row * cell}" width="${cell}" height="${cell}" fill="${ink}" fill-opacity="${alpha.toFixed(3)}"/>`,
       );
     }
   }
@@ -260,27 +267,39 @@ export async function writeBadges(data, outputDir) {
   return files.map(({ path }) => path);
 }
 
-function renderDeploymentBadge(label, palette) {
-  const width = Math.ceil(textWidth(label));
-  const [background, ink] = palette;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="28" viewBox="0 0 ${width} 28" role="img" aria-labelledby="title" shape-rendering="crispEdges"><title id="title">${escapeXML(label)}</title><defs><clipPath id="badge-clip"><rect width="${width}" height="28" rx="6"/></clipPath>${ditherPattern()}</defs><g clip-path="url(#badge-clip)"><rect width="${width}" height="28" fill="${background}"/><rect x="${width - 24}" width="24" height="28" fill="url(#dither)"/></g><rect x="0.5" y="0.5" width="${width - 1}" height="27" rx="5.5" fill="none" stroke="#000" stroke-opacity="0.12"/><text x="${width / 2}" y="14" fill="${ink}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="middle">${escapeXML(label)}</text></svg>`;
+const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+async function logoDataURI(source, variant) {
+  const path = resolve(REPOSITORY_ROOT, typeof variant === "string" ? variant : source);
+  if (extname(path) === ".png") {
+    return `data:image/png;base64,${(await readFile(path)).toString("base64")}`;
+  }
+  let markup = await readFile(path, "utf8");
+  if (variant?.replace) markup = markup.replaceAll(variant.replace[0], variant.replace[1]);
+  return `data:image/svg+xml;base64,${Buffer.from(markup).toString("base64")}`;
+}
+
+function renderDeploymentBadge(label, logo, mode) {
+  const size = 40;
+  const mark = 24;
+  const [background, outline] = DEPLOYMENT_TILE[mode];
+  const inset = (size - mark) / 2;
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-labelledby="title"><title id="title">${escapeXML(label)}</title><defs><clipPath id="badge-clip"><rect width="${size}" height="${size}" rx="8"/></clipPath>${ditherPattern(outline)}</defs><g clip-path="url(#badge-clip)" shape-rendering="crispEdges"><rect width="${size}" height="${size}" fill="${background}"/><rect x="${size - 7}" width="7" height="${size}" fill="url(#dither)" opacity="0.6"/></g><rect x="0.5" y="0.5" width="${size - 1}" height="${size - 1}" rx="7.5" fill="none" stroke="${outline}" stroke-opacity="0.14"/><image x="${inset}" y="${inset}" width="${mark}" height="${mark}" preserveAspectRatio="xMidYMid meet" href="${logo}" xlink:href="${logo}"/></svg>`;
 }
 
 async function writeDeploymentBadges(outputDir) {
   const destination = resolve(outputDir);
   await mkdir(destination, { recursive: true });
   await Promise.all(
-    DEPLOYMENTS.flatMap(([id, label, light, dark]) =>
-      [
-        ["light", light],
-        ["dark", dark],
-      ].map(([mode, palette]) =>
-        writeFile(
+    DEPLOYMENTS.flatMap(([id, label, source, darkVariant]) =>
+      ["light", "dark"].map(async (mode) => {
+        const logo = await logoDataURI(source, mode === "dark" ? darkVariant : undefined);
+        await writeFile(
           `${destination}/deploy-${id}-${mode}.svg`,
-          `${renderDeploymentBadge(label, palette)}\n`,
+          `${renderDeploymentBadge(label, logo, mode)}\n`,
           "utf8",
-        ),
-      ),
+        );
+      }),
     ),
   );
 }

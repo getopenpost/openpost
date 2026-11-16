@@ -89,7 +89,7 @@ export async function probeServer(
     const requestHeaders = serverHeadersForUrl(url, normalized, validated);
     const response = Object.keys(requestHeaders).length
       ? await proxyFetch(url, { headers: requestHeaders })
-      : await fetch(url);
+      : await fetch(`${normalized}/api/v1/ready`);
     if (!response.ok) return { ok: false, error: `Server responded with ${response.status}` };
     const body = (await response.json()) as { status?: string };
     if (body.status !== "ready") return { ok: false, error: "Server is not ready yet" };

@@ -41,6 +41,14 @@ export default function Gate() {
             title="Could not start OpenPost"
             message={launch.state.error.message}
             retry={launch.reload}
+            secondaryAction={
+              server && !server.isHosted
+                ? {
+                    label: "Edit proxy headers",
+                    onPress: () => router.push("/proxy-headers"),
+                  }
+                : undefined
+            }
           />
         </View>
       </Screen>

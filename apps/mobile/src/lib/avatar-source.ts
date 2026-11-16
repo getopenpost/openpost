@@ -11,9 +11,10 @@
 // - The bearer is attached only for same-origin protected /media/ paths.
 // - Local (file://, content://, data:) and external URLs pass through untouched
 //   with no Authorization header.
-// - Public avatars are cacheable; only credentialed previews opt out of the
-//   disk cache.
+// - Same-origin avatars carry configured proxy credentials. Public avatars
+//   without credentials are cacheable; credentialed previews opt out of disk cache.
 
+import type { ServerHeader } from "./server-headers";
 import { mediaImageSource, type MediaSource } from "./media-source";
 
 // Monogram rule shared with the web account avatar
@@ -38,8 +39,9 @@ export function avatarImageSource(
   uri: string,
   serverBaseUrl: string,
   token: string | null,
+  headers: ServerHeader[] = [],
 ): AvatarSource {
-  const resolved = mediaImageSource(uri, serverBaseUrl, token);
+  const resolved = mediaImageSource(uri, serverBaseUrl, token, headers);
   if (resolved.headers) {
     return { ...resolved, cacheable: false };
   }

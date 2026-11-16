@@ -99,3 +99,42 @@ test("mediaPreviewCandidates requests the thumbnail first and falls back to the 
     { uri: "https://cdn.example/photo.png" },
   ]);
 });
+
+const proxyHeaders = [{ name: "CF-Access-Client-Secret", value: "proxy-secret" }];
+
+test("proxy-protected media carries both credentials on thumbnails and fallback", () => {
+  const candidates = mediaPreviewCandidates(
+    "/media/photo",
+    "md",
+    "https://app.example",
+    "preview-token",
+    proxyHeaders,
+  );
+  for (const source of candidates)
+    expect(source.headers).toEqual({
+      Authorization: "Bearer preview-token",
+      "CF-Access-Client-Secret": "proxy-secret",
+    });
+});
+
+test("proxy credentials apply to same-origin public images without adding a bearer", () => {
+  expect(
+    mediaImageSource("/avatars/photo", "https://app.example", "preview-token", proxyHeaders),
+  ).toEqual({
+    uri: "https://app.example/avatars/photo",
+    headers: { "CF-Access-Client-Secret": "proxy-secret" },
+  });
+  for (const uri of [
+    "https://cdn.example/media/photo",
+    "file:///photo",
+    "content://photo/1",
+    "data:image/png;base64,AAA",
+  ]) {
+    expect(mediaImageSource(uri, "https://app.example", "preview-token", proxyHeaders)).toEqual({
+      uri,
+    });
+  }
+  expect(
+    mediaImageSource("/media/photo", "https://app.openpo.st", null, proxyHeaders).headers,
+  ).toBeUndefined();
+});

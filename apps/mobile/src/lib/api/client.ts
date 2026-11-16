@@ -1,4 +1,6 @@
 import createClient from "openapi-fetch";
+import { proxyFetch } from "../proxy-fetch";
+import { serverHeadersForUrl } from "../server-headers";
 import { nativeTelemetry } from "../telemetry";
 import type { paths } from "@openpost/api-contract";
 
@@ -44,16 +46,28 @@ export function registerUnauthorizedDeviceDataPurge(purge: () => Promise<void>):
 function rebuild() {
   const server = getServer();
   const token = getToken();
-  const key = `${server?.baseUrl ?? ""}|${token ?? ""}`;
+  const key = `${server?.baseUrl ?? ""}|${getServerMutationRevision()}|${token ?? ""}`;
   if (client && key === clientKey) return client;
   clientKey = key;
   client = createClient<paths>({
     baseUrl: server ? `${server.baseUrl}/api/v1` : "",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    fetch: (request) =>
+      server &&
+      Object.keys(serverHeadersForUrl(request.url, server.baseUrl, server.headers ?? [])).length
+        ? proxyFetch(request)
+        : globalThis.fetch(request),
   });
   client.use({
     onRequest({ request }) {
-      if (server && getServer()?.baseUrl === server.baseUrl && getToken() === token) {
+      if (
+        server &&
+        getServer() === server &&
+        getToken() === token &&
+        new URL(request.url).origin === new URL(server.baseUrl).origin
+      ) {
+        if (token) request.headers.set("Authorization", `Bearer ${token}`);
+        const headers = serverHeadersForUrl(request.url, server.baseUrl, server.headers ?? []);
+        for (const [name, value] of Object.entries(headers)) request.headers.set(name, value);
         request.headers.set("X-OpenPost-Client", "native");
         for (const [name, value] of Object.entries(nativeTelemetry.headers(server.baseUrl)))
           request.headers.set(name, value);
@@ -163,6 +177,8 @@ export async function settleApiUnauthorized(
   response: Response | undefined,
 ): Promise<void> {
   if (response?.status !== 401 || !identity.token) return;
+  const challenge = response.headers.get("WWW-Authenticate") ?? "";
+  if (!/^Bearer\s+error="invalid_token"(?:\s*,|$)/i.test(challenge)) return;
   if (!apiActorIdentityIsCurrent(identity)) return;
   if (await clearTokenForIdentity(identity)) await purgeUnauthorizedDeviceData();
 }

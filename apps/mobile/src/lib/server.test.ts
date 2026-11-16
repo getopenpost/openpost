@@ -63,9 +63,14 @@ const secureStore = {
   },
 };
 
+mock.module("expo/fetch", () => ({
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init),
+}));
+
 mock.module("expo-secure-store", () => secureStore);
 
-const { clearServer, getServer, loadServer, setServer } = await import("./server");
+const { clearServer, getServer, loadServer, setServer, updateServerHeaders, probeServer } =
+  await import("./server");
 const { createIdentityStore } = await import("./identity-store");
 const { getToken, getWorkspaceId, loadToken, loadWorkspaceId } = await import("./api/token-store");
 
@@ -88,11 +93,68 @@ describe("server persistence", () => {
     failingDeleteKey = null;
   });
 
+  test("stores proxy credentials with the server and updates them without losing the session", async () => {
+    const headers = [{ name: "CF-Access-Client-Secret", value: "proxy-secret" }];
+    await setServer("https://proxy.example.com", headers);
+    values.set(TOKEN_KEY, "session-token");
+    values.set(WORKSPACE_KEY, "workspace");
+    await loadToken();
+    await loadWorkspaceId();
+    expect(getServer()?.headers).toEqual(headers);
+    const restarted = createIdentityStore(secureStore);
+    await restarted.loadServerBaseUrl();
+    expect(restarted.getServerHeaders()).toEqual(headers);
+    await updateServerHeaders([{ name: "P-Access-Token", value: "replacement" }]);
+    expect(getToken()).toBe("session-token");
+    expect(getWorkspaceId()).toBe("workspace");
+    expect(getServer()?.headers).toEqual([{ name: "P-Access-Token", value: "replacement" }]);
+    await clearServer();
+    expect(values.has("openpost.server.headers")).toBe(false);
+  });
+
+  test("rolls back failed proxy credential edits with the session intact", async () => {
+    const headers = [{ name: "P-Access-Token", value: "old-secret" }];
+    await setServer("https://proxy.example.com", headers);
+    values.set(TOKEN_KEY, "session-token");
+    values.set(WORKSPACE_KEY, "workspace");
+    await loadToken();
+    await loadWorkspaceId();
+    failingDeleteKey = "openpost.server.headers";
+    await expect(updateServerHeaders([])).rejects.toThrow("SecureStore cleanup failed");
+    expect(getServer()?.headers).toEqual(headers);
+    expect(JSON.parse(values.get("openpost.server.headers")!)).toEqual(headers);
+    expect(getToken()).toBe("session-token");
+    expect(getWorkspaceId()).toBe("workspace");
+    expect(values.has(TRANSACTION_KEY)).toBe(false);
+  });
+
+  test("sends proxy credentials on the initial readiness probe", async () => {
+    const originalFetch = globalThis.fetch;
+    const requests: Request[] = [];
+    globalThis.fetch = Object.assign(
+      async (input: string | URL | Request, init?: RequestInit) => {
+        requests.push(new Request(input, init));
+        return Response.json({ status: "ready" });
+      },
+      { preconnect: originalFetch.preconnect },
+    );
+    try {
+      expect(
+        await probeServer("https://proxy.example.com", [
+          { name: "P-Access-Token", value: "proxy-secret" },
+        ]),
+      ).toEqual({ ok: true, baseUrl: "https://proxy.example.com" });
+      expect(requests[0]?.headers.get("P-Access-Token")).toBe("proxy-secret");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test("keeps the server snapshot stable until the selected server changes", async () => {
     values.set(SERVER_KEY, "https://app.openpo.st");
     await loadServer();
     const hosted = getServer();
-    expect(hosted).toEqual({ baseUrl: "https://app.openpo.st", isHosted: true });
+    expect(hosted).toEqual({ baseUrl: "https://app.openpo.st", isHosted: true, headers: [] });
     expect(getServer()).toBe(hosted);
 
     await loadServer();
@@ -100,7 +162,11 @@ describe("server persistence", () => {
 
     await setServer("https://social.example.com");
     const selfHosted = getServer();
-    expect(selfHosted).toEqual({ baseUrl: "https://social.example.com", isHosted: false });
+    expect(selfHosted).toEqual({
+      baseUrl: "https://social.example.com",
+      isHosted: false,
+      headers: [],
+    });
     expect(selfHosted).not.toBe(hosted);
     expect(getServer()).toBe(selfHosted);
 
@@ -114,6 +180,7 @@ describe("server persistence", () => {
     expect(await loadServer()).toEqual({
       baseUrl: "https://social.example.com",
       isHosted: false,
+      headers: [],
     });
     expect(values.get(SERVER_KEY)).toBe("https://social.example.com");
 
@@ -134,16 +201,21 @@ describe("server persistence", () => {
   });
 
   test("restores the whole identity when a replacement server cannot be stored", async () => {
-    await setServer("https://old-restored.example.com");
+    const headers = [{ name: "P-Access-Token", value: "old-proxy-secret" }];
+    await setServer("https://old-restored.example.com", headers);
     values.set(TOKEN_KEY, "token-old");
     values.set(WORKSPACE_KEY, "workspace-old");
     await loadToken();
     await loadWorkspaceId();
     failingServerValue = "https://failed-restored.example.com";
 
-    await expect(setServer(failingServerValue)).rejects.toThrow("SecureStore set failed");
+    await expect(
+      setServer(failingServerValue, [{ name: "P-Access-Token", value: "new-proxy-secret" }]),
+    ).rejects.toThrow("SecureStore set failed");
 
     expect(getServer()?.baseUrl).toBe("https://old-restored.example.com");
+    expect(getServer()?.headers).toEqual(headers);
+    expect(JSON.parse(values.get("openpost.server.headers")!)).toEqual(headers);
     expect(getToken()).toBe("token-old");
     expect(getWorkspaceId()).toBe("workspace-old");
     expect(values.get(SERVER_KEY)).toBe("https://old-restored.example.com");
@@ -157,6 +229,10 @@ describe("server persistence", () => {
       values.set(SERVER_KEY, "https://aborted-server.example.com");
       values.set(TOKEN_KEY, "token-from-old-server");
       values.set(WORKSPACE_KEY, "workspace-from-old-server");
+      values.set(
+        "openpost.server.headers",
+        JSON.stringify([{ name: "X-Proxy", value: "untrusted" }]),
+      );
       values.set(TRANSACTION_KEY, "server");
     };
 
@@ -167,6 +243,7 @@ describe("server persistence", () => {
     expect(await restarted.loadToken()).toBeNull();
     expect(await restarted.loadWorkspaceId()).toBeNull();
     expect(values.has(SERVER_KEY)).toBe(false);
+    expect(values.has("openpost.server.headers")).toBe(false);
     expect(values.has(TOKEN_KEY)).toBe(false);
     expect(values.has(WORKSPACE_KEY)).toBe(false);
     expect(values.has(TRANSACTION_KEY)).toBe(false);

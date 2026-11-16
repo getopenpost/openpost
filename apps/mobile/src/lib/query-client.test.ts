@@ -76,17 +76,47 @@ describe("query session cache", () => {
     expect(queryClient.getQueryData(queryKey)).toBeUndefined();
   });
 
+  test("proxy authentication failures preserve the OpenPost session and cached data", async () => {
+    await setServer("https://proxy-denied.example.com");
+    expect(await commitTokenForIdentity("openpost-token", captureApiRequestIdentity())).toBe(true);
+    const key = ["openpost", "v1", "actor-data"];
+    queryClient.setQueryData(key, "private");
+    for (const challenge of [null, "Basic realm=proxy", "Bearer realm=proxy"]) {
+      await settleApiUnauthorized(
+        captureApiRequestIdentity(),
+        new Response(null, {
+          status: 401,
+          headers: challenge ? { "WWW-Authenticate": challenge } : {},
+        }),
+      );
+      expect(getToken()).toBe("openpost-token");
+      expect(queryClient.getQueryData<string>(key)).toBe("private");
+    }
+  });
+
   test("settles a query 401 only against the server and token that started it", async () => {
     await setServer("https://identity.example.com");
     expect(await commitTokenForIdentity("token-a", captureApiRequestIdentity())).toBe(true);
     const staleIdentity = captureApiRequestIdentity();
     expect(await commitTokenForIdentity("token-b", staleIdentity)).toBe(true);
 
-    await settleApiUnauthorized(staleIdentity, new Response(null, { status: 401 }));
+    await settleApiUnauthorized(
+      staleIdentity,
+      new Response(null, {
+        status: 401,
+        headers: { "WWW-Authenticate": 'Bearer error="invalid_token"' },
+      }),
+    );
     expect(getToken()).toBe("token-b");
 
     queryClient.setQueryData(["openpost", "v1", "actor-data"], "private");
-    await settleApiUnauthorized(captureApiRequestIdentity(), new Response(null, { status: 401 }));
+    await settleApiUnauthorized(
+      captureApiRequestIdentity(),
+      new Response(null, {
+        status: 401,
+        headers: { "WWW-Authenticate": 'Bearer error="invalid_token"' },
+      }),
+    );
     expect(getToken()).toBeNull();
     expect(queryClient.getQueryData(["openpost", "v1", "actor-data"])).toBeUndefined();
   });
@@ -101,7 +131,13 @@ describe("query session cache", () => {
     const replacement = commitTokenForIdentity("token-new", captureApiRequestIdentity());
     await started.promise;
     const queryIdentity = captureApiRequestIdentity();
-    const settling = settleApiUnauthorized(queryIdentity, new Response(null, { status: 401 }));
+    const settling = settleApiUnauthorized(
+      queryIdentity,
+      new Response(null, {
+        status: 401,
+        headers: { "WWW-Authenticate": 'Bearer error="invalid_token"' },
+      }),
+    );
     release.resolve();
 
     expect(await replacement).toBe(true);
@@ -120,7 +156,13 @@ describe("query session cache", () => {
     const transition = setServer(failingServerValue);
     await started.promise;
 
-    await settleApiUnauthorized(captureApiRequestIdentity(), new Response(null, { status: 401 }));
+    await settleApiUnauthorized(
+      captureApiRequestIdentity(),
+      new Response(null, {
+        status: 401,
+        headers: { "WWW-Authenticate": 'Bearer error="invalid_token"' },
+      }),
+    );
     release.resolve();
     await expect(transition).rejects.toThrow("SecureStore server write failed");
 
@@ -134,7 +176,10 @@ describe("query session cache", () => {
     globalThis.fetch = (async () =>
       new Response(JSON.stringify({ detail: "Session expired" }), {
         status: 401,
-        headers: { "Content-Type": "application/problem+json" },
+        headers: {
+          "Content-Type": "application/problem+json",
+          "WWW-Authenticate": 'Bearer error="invalid_token"',
+        },
       })) as unknown as typeof fetch;
     try {
       await setServer("https://expired.example.com");

@@ -9,6 +9,7 @@ import { screenshotLayout } from "@/lib/ideate/screenshot-layout";
 import { previewMeme, type ExportVisual } from "@/lib/ideate/visual";
 import { getToken } from "@/lib/api/token-store";
 import { getServer } from "@/lib/server";
+import { downloadProxyMedia, hasProxyMediaHeaders } from "@/lib/proxy-media";
 import { mediaImageSource } from "@/lib/media-source";
 
 export function IdeateVisual({
@@ -62,18 +63,39 @@ export function IdeateVisual({
         ),
       ];
       for (const id of ids) {
-        const source = mediaImageSource(`/media/${id}`, getServer()?.baseUrl ?? "", getToken());
+        const server = getServer();
+        const source = mediaImageSource(
+          `/media/${id}`,
+          server?.baseUrl ?? "",
+          getToken(),
+          server?.headers,
+        );
         const file = `${FileSystem.cacheDirectory}ideate-image-${instanceId}-${attempt}-${id}.image`;
         try {
-          const download = await FileSystem.downloadAsync(source.uri, file, {
-            headers: source.headers,
-          });
-          if (download.status !== 200) throw new Error("Could not load a visual attachment.");
-          const bytes = await FileSystem.readAsStringAsync(file, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          images[id] =
-            `data:${download.headers["Content-Type"] ?? download.headers["content-type"] ?? "image/png"};base64,${bytes}`;
+          const protectedByProxy = hasProxyMediaHeaders(source);
+          const temporary = protectedByProxy
+            ? await downloadProxyMedia(source, controller.signal)
+            : undefined;
+          try {
+            const download = temporary
+              ? undefined
+              : await FileSystem.downloadAsync(source.uri, file, {
+                  headers: source.headers,
+                });
+            if (download && download.status !== 200)
+              throw new Error("Could not load a visual attachment.");
+            const bytes = await FileSystem.readAsStringAsync(temporary?.uri ?? file, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            const contentType =
+              temporary?.contentType ??
+              download?.headers["Content-Type"] ??
+              download?.headers["content-type"] ??
+              "image/png";
+            images[id] = `data:${contentType};base64,${bytes}`;
+          } finally {
+            temporary?.dispose();
+          }
         } finally {
           await FileSystem.deleteAsync(file, { idempotent: true });
         }

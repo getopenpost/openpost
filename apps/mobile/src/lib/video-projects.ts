@@ -1,3 +1,5 @@
+import { getServer } from "./server";
+import { serverHeadersForUrl } from "./server-headers";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Network from "expo-network";
 import { File } from "expo-file-system";
@@ -227,12 +229,23 @@ async function uploadCapture(capture: PendingCapture): Promise<void> {
     throw new Error(await errorMessage(session.response, "Could not start Project Asset upload"));
   }
   if (!session.data.deduped) {
+    const server = getServer();
+    const proxyHeaders = serverHeadersForUrl(
+      session.data.upload.url,
+      server?.baseUrl ?? "",
+      server?.headers ?? [],
+    );
     const uploaded = await FileSystem.uploadAsync(session.data.upload.url, capture.uri, {
       httpMethod: session.data.upload.method.toUpperCase() as "PUT" | "POST",
       uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-      headers: session.data.upload.headers,
+      followRedirects: Object.keys(proxyHeaders).length === 0,
+      headers: {
+        ...session.data.upload.headers,
+        ...proxyHeaders,
+      },
     });
-    if (uploaded.status >= 400) throw new Error(`Project Asset upload failed (${uploaded.status})`);
+    if (uploaded.status < 200 || uploaded.status >= 300)
+      throw new Error(`Project Asset upload failed (${uploaded.status})`);
   }
   const complete = await client.POST("/media/upload-session/{id}/complete", {
     params: { path: { id: session.data.media_id } },

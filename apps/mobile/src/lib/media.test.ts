@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import createClient from "openapi-fetch";
 import type { paths } from "@openpost/api-contract";
-import { files, resetFileSystem, uploads } from "../../tests/fixtures/file-system";
+import { files, resetFileSystem, uploads, uploadRequests } from "../../tests/fixtures/file-system";
 
 const actualSize = 64;
 mock.module("expo-secure-store", () => ({
@@ -172,3 +172,49 @@ test("uploadAttachment preflights with served limits when provided", async () =>
     ),
   ).rejects.toThrow(/or smaller/);
 });
+
+for (const target of ["https://proxy.example/upload", "https://storage.example/upload"]) {
+  test(`direct uploads scope proxy credentials and redirect policy for ${target}`, async () => {
+    const { setServer, clearServer } = await import("./server");
+    await setServer("https://proxy.example", [{ name: "P-Access-Token", value: "proxy-secret" }]);
+    const client = createClient<paths>({
+      baseUrl: "https://proxy.example/api/v1",
+      fetch: async (request) =>
+        new URL(request.url).pathname.endsWith("/complete")
+          ? Response.json({})
+          : Response.json({
+              media_id: "photo",
+              deduped: false,
+              upload: {
+                url: target,
+                method: "PUT",
+                headers: { "Content-Length": "64", "Content-Type": "image/webp" },
+              },
+            }),
+    });
+    try {
+      await uploadAttachment(
+        {
+          localId: "picker",
+          uri: "file:///compressed.webp",
+          mimeType: "image/webp",
+          filename: "photo.webp",
+          size: 64,
+        },
+        { client, workspaceId: "workspace" },
+      );
+      const sameOrigin = target.startsWith("https://proxy.example/");
+      expect(uploadRequests[0]).toEqual({
+        url: target,
+        headers: {
+          "Content-Length": "64",
+          "Content-Type": "image/webp",
+          ...(sameOrigin ? { "P-Access-Token": "proxy-secret" } : {}),
+        },
+        followRedirects: !sameOrigin,
+      });
+    } finally {
+      await clearServer();
+    }
+  });
+}

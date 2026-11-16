@@ -3,6 +3,24 @@ import { describe, expect, mock, test } from "bun:test";
 import { createServerChoice, serverChoiceErrorMessage } from "./server-choice";
 
 describe("server choice", () => {
+  test("uses the same proxy credentials for probing and saving", async () => {
+    const probe = mock(async () => ({
+      ok: true as const,
+      baseUrl: "https://proxy.example",
+    }));
+    const persist = mock(async () => undefined);
+    const headers = [{ name: "P-Access-Token", value: "device-secret" }];
+    const choice = createServerChoice({ probe, persist });
+    const pending = choice.start("proxy.example", headers);
+    headers[0].value = "edited-while-connecting";
+    await pending;
+    expect(probe).toHaveBeenCalledWith("proxy.example", [
+      { name: "P-Access-Token", value: "device-secret" },
+    ]);
+    expect(persist).toHaveBeenCalledWith("https://proxy.example", [
+      { name: "P-Access-Token", value: "device-secret" },
+    ]);
+  });
   test("surfaces a storage failure and allows retry", async () => {
     let shouldFail = true;
     const persist = mock(async () => {

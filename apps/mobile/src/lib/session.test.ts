@@ -293,7 +293,11 @@ describe("authenticated session bootstrap", () => {
     const synchronization = synchronizeSession(
       {
         queryClient: client,
-        getServer: () => ({ baseUrl: "https://anonymous-bootstrap.example.com", isHosted: false }),
+        getServer: () => ({
+          baseUrl: "https://anonymous-bootstrap.example.com",
+          isHosted: false,
+          headers: [],
+        }),
         getToken,
         getWorkspaceId,
         captureIdentity: captureApiRequestIdentity,
@@ -436,7 +440,7 @@ function synchronizer(
   };
   state.dependencies = {
     queryClient,
-    getServer: () => ({ baseUrl: "https://app.openpo.st", isHosted: true }),
+    getServer: () => ({ baseUrl: "https://app.openpo.st", isHosted: true, headers: [] }),
     getToken: () => state.token,
     getWorkspaceId: () => workspaceId,
     captureIdentity: () => ({

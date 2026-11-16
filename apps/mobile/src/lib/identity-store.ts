@@ -1,7 +1,9 @@
 import { createAbortError } from "@openpost/query-catalog";
+import { validateServerHeaders, type ServerHeader } from "./server-headers";
 import * as SecureStore from "expo-secure-store";
 
 const SERVER_KEY = "openpost.server.baseUrl";
+const HEADERS_KEY = "openpost.server.headers";
 const TOKEN_KEY = "openpost.auth.token";
 const WORKSPACE_KEY = "openpost.workspace.id";
 const TRANSACTION_KEY = "openpost.identity.pending";
@@ -17,6 +19,7 @@ type IdentityTransaction =
 
 type StoredIdentity = {
   serverBaseUrl: string | null;
+  serverHeaders: string | null;
   token: string | null;
   workspaceId: string | null;
 };
@@ -38,6 +41,7 @@ class IdentityQuarantineError extends AggregateError {
 
 export function createIdentityStore(storage: IdentityStorage) {
   let serverBaseUrl: string | null = null;
+  let serverHeaders: ServerHeader[] = [];
   let token: string | null = null;
   let workspaceId: string | null = null;
   let serverMutationRevision = 0;
@@ -68,6 +72,7 @@ export function createIdentityStore(storage: IdentityStorage) {
   function applyQuarantine(transaction: IdentityTransaction): void {
     if (transaction === SERVER_TRANSACTION) {
       serverBaseUrl = null;
+      serverHeaders = [];
       serverMutationRevision += 1;
       notify(serverListeners);
     }
@@ -103,7 +108,14 @@ export function createIdentityStore(storage: IdentityStorage) {
       if (recovered === SERVER_TRANSACTION) return serverBaseUrl;
 
       const stored = await storage.getItemAsync(SERVER_KEY);
+      const storedHeaders = await storage.getItemAsync(HEADERS_KEY);
       if (serverMutationRevision !== expectedRevision) return serverBaseUrl;
+      try {
+        serverHeaders =
+          stored && storedHeaders ? validateServerHeaders(JSON.parse(storedHeaders)) : [];
+      } catch {
+        throw new Error("Could not load saved proxy headers. Choose the server again.");
+      }
       serverBaseUrl = stored;
       notify(serverListeners);
       return serverBaseUrl;
@@ -148,7 +160,12 @@ export function createIdentityStore(storage: IdentityStorage) {
     });
   }
 
-  function commitServerBaseUrl(value: string | null): Promise<void> {
+  function commitServerBaseUrl(
+    value: string | null,
+    headers: ServerHeader[] = [],
+    preserveSession = false,
+  ): Promise<void> {
+    const nextHeaders = value ? validateServerHeaders(headers) : [];
     const operationRevision = ++serverMutationRevision;
     pendingServerMutationCount += 1;
     return runPersistenceOperation(async () => {
@@ -170,8 +187,15 @@ export function createIdentityStore(storage: IdentityStorage) {
           previous,
           async () => {
             await writeValue(storage, SERVER_KEY, value);
-            await writeValue(storage, WORKSPACE_KEY, null);
-            await writeValue(storage, TOKEN_KEY, null);
+            await writeValue(
+              storage,
+              HEADERS_KEY,
+              nextHeaders.length ? JSON.stringify(nextHeaders) : null,
+            );
+            if (!preserveSession) {
+              await writeValue(storage, WORKSPACE_KEY, null);
+              await writeValue(storage, TOKEN_KEY, null);
+            }
           },
           () => serverMutationRevision === operationRevision,
         );
@@ -179,13 +203,18 @@ export function createIdentityStore(storage: IdentityStorage) {
 
         finishPending();
         serverBaseUrl = value;
-        token = null;
-        workspaceId = null;
-        tokenMutationRevision += 1;
-        workspaceMutationRevision += 1;
+        serverHeaders = nextHeaders;
+        if (!preserveSession) {
+          token = null;
+          workspaceId = null;
+          tokenMutationRevision += 1;
+          workspaceMutationRevision += 1;
+        }
         notify(serverListeners);
-        notify(tokenListeners);
-        notify(workspaceListeners);
+        if (!preserveSession) {
+          notify(tokenListeners);
+          notify(workspaceListeners);
+        }
       } catch (cause) {
         finishPending();
         if (cause instanceof IdentityQuarantineError) applyQuarantine(cause.transaction);
@@ -326,12 +355,17 @@ export function createIdentityStore(storage: IdentityStorage) {
 
   return {
     commitServerBaseUrl,
+    commitServerHeaders: (headers: ServerHeader[]) => {
+      if (!serverBaseUrl) return Promise.reject(new Error("Choose a server first."));
+      return commitServerBaseUrl(serverBaseUrl, headers, true);
+    },
     commitTokenIfCurrent,
     commitWorkspaceIdIfCurrent,
     getPendingServerMutationCount: () => pendingServerMutationCount,
     getPendingTokenMutationCount: () => pendingTokenMutationCount,
     getPendingWorkspaceMutationCount: () => pendingWorkspaceMutationCount,
     getServerBaseUrl: () => serverBaseUrl,
+    getServerHeaders: () => serverHeaders,
     getServerMutationRevision: () => serverMutationRevision,
     getToken: () => token,
     getTokenMutationRevision: () => tokenMutationRevision,
@@ -426,22 +460,25 @@ async function quarantineStoredIdentity(
 }
 
 async function readStoredIdentity(storage: IdentityStorage): Promise<StoredIdentity> {
-  const [serverBaseUrl, token, workspaceId] = await Promise.all([
+  const [serverBaseUrl, serverHeaders, token, workspaceId] = await Promise.all([
     storage.getItemAsync(SERVER_KEY),
+    storage.getItemAsync(HEADERS_KEY),
     storage.getItemAsync(TOKEN_KEY),
     storage.getItemAsync(WORKSPACE_KEY),
   ]);
-  return { serverBaseUrl, token, workspaceId };
+  return { serverBaseUrl, serverHeaders, token, workspaceId };
 }
 
 function keysForTransaction(transaction: IdentityTransaction): string[] {
-  if (transaction === SERVER_TRANSACTION) return [SERVER_KEY, TOKEN_KEY, WORKSPACE_KEY];
+  if (transaction === SERVER_TRANSACTION)
+    return [SERVER_KEY, HEADERS_KEY, TOKEN_KEY, WORKSPACE_KEY];
   if (transaction === SESSION_TRANSACTION) return [TOKEN_KEY, WORKSPACE_KEY];
   return [WORKSPACE_KEY];
 }
 
 function valueForKey(identity: StoredIdentity, key: string): string | null {
   if (key === SERVER_KEY) return identity.serverBaseUrl;
+  if (key === HEADERS_KEY) return identity.serverHeaders;
   if (key === TOKEN_KEY) return identity.token;
   return identity.workspaceId;
 }

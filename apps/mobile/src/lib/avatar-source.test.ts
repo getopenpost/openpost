@@ -48,3 +48,13 @@ test("public avatars are cacheable while credentialed previews are not", () => {
   expect(avatarImageSource("https://cdn.example.com/avatar.png", BASE, TOKEN).cacheable).toBe(true);
   expect(avatarImageSource("/media/x.jpeg", BASE, TOKEN).cacheable).toBe(false);
 });
+
+test("proxy-protected public avatars are authenticated and stay out of the cache", () => {
+  expect(
+    avatarImageSource("/avatars/photo", BASE, TOKEN, [{ name: "P-Access-Token", value: "secret" }]),
+  ).toEqual({
+    uri: `${BASE}/avatars/photo`,
+    headers: { "P-Access-Token": "secret" },
+    cacheable: false,
+  });
+});

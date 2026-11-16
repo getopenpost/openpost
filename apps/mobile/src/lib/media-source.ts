@@ -10,11 +10,13 @@
 // cookie, native attaches a bearer token.
 //
 // Rules both sides honor:
-// - Only same-origin /media/ URLs are rewritten or credentialed. Local
-//   (file://, content://, data:) and external URLs pass through untouched with
-//   no Authorization header.
+// - Only same-origin /media/ URLs are rewritten or receive the bearer token.
+//   Proxy credentials apply to all same-origin server paths. Local
+//   (file://, content://, data:) and external URLs receive neither credential.
 // - Protected previews must stay out of the disk cache, so MediaImage keeps
 //   expo-image cachePolicy="none".
+
+import { serverHeadersForUrl, type ServerHeader } from "./server-headers";
 
 export type MediaPreviewSize = "sm" | "md" | "original";
 
@@ -23,11 +25,13 @@ export type MediaSource = {
   headers?: Record<string, string>;
 };
 
-function withAuth(uri: string, token: string | null): MediaSource {
-  return {
-    uri,
-    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
-  };
+function withAuth(
+  uri: string,
+  token: string | null,
+  proxyHeaders: Record<string, string>,
+): MediaSource {
+  const headers = { ...proxyHeaders, ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  return { uri, ...(Object.keys(headers).length ? { headers } : {}) };
 }
 
 function mediaIdFromThumbPath(pathname: string): string | null {
@@ -47,6 +51,7 @@ export function mediaPreviewSource(
   size: MediaPreviewSize,
   serverBaseUrl: string,
   token: string | null,
+  headers: ServerHeader[] = [],
 ): MediaSource {
   let server: URL;
   let resolved: URL;
@@ -56,8 +61,12 @@ export function mediaPreviewSource(
   } catch {
     return { uri };
   }
-  if (resolved.origin !== server.origin || !resolved.pathname.startsWith("/media/")) {
-    return { uri };
+  if (resolved.origin !== server.origin) return { uri };
+  const proxyHeaders = serverHeadersForUrl(resolved.toString(), serverBaseUrl, headers);
+  if (!resolved.pathname.startsWith("/media/")) {
+    return Object.keys(proxyHeaders).length
+      ? withAuth(resolved.toString(), null, proxyHeaders)
+      : { uri };
   }
   const thumbId = mediaIdFromThumbPath(resolved.pathname);
   if (thumbId) {
@@ -65,27 +74,30 @@ export function mediaPreviewSource(
       return withAuth(
         `${resolved.origin}/media/${thumbId}${resolved.search}${resolved.hash}`,
         token,
+        proxyHeaders,
       );
     }
     return withAuth(
       `${resolved.origin}/media/${thumbId}/thumb/${size}${resolved.search}${resolved.hash}`,
       token,
+      proxyHeaders,
     );
   }
   if (size === "original") {
-    return withAuth(resolved.toString(), token);
+    return withAuth(resolved.toString(), token, proxyHeaders);
   }
   const rest = resolved.pathname.slice("/media/".length);
   if (!rest || rest.includes("/")) {
-    return withAuth(resolved.toString(), token);
+    return withAuth(resolved.toString(), token, proxyHeaders);
   }
   const id = rest.replace(/\.[^/.]+$/, "");
   if (!id) {
-    return withAuth(resolved.toString(), token);
+    return withAuth(resolved.toString(), token, proxyHeaders);
   }
   return withAuth(
     `${resolved.origin}/media/${id}/thumb/${size}${resolved.search}${resolved.hash}`,
     token,
+    proxyHeaders,
   );
 }
 
@@ -93,8 +105,9 @@ export function mediaImageSource(
   uri: string,
   serverBaseUrl: string,
   token: string | null,
+  headers: ServerHeader[] = [],
 ): MediaSource {
-  return mediaPreviewSource(uri, "original", serverBaseUrl, token);
+  return mediaPreviewSource(uri, "original", serverBaseUrl, token, headers);
 }
 
 // A preview requests the thumbnail first and falls back to the original once,
@@ -104,9 +117,10 @@ export function mediaPreviewCandidates(
   size: MediaPreviewSize,
   serverBaseUrl: string,
   token: string | null,
+  headers: ServerHeader[] = [],
 ): MediaSource[] {
-  const requested = mediaPreviewSource(uri, size, serverBaseUrl, token);
+  const requested = mediaPreviewSource(uri, size, serverBaseUrl, token, headers);
   if (size === "original") return [requested];
-  const original = mediaPreviewSource(uri, "original", serverBaseUrl, token);
+  const original = mediaPreviewSource(uri, "original", serverBaseUrl, token, headers);
   return original.uri === requested.uri ? [requested] : [requested, original];
 }

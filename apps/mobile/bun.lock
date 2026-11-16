@@ -70,6 +70,7 @@
     },
   },
   "patchedDependencies": {
+    "expo-file-system@57.0.7": "patches/expo-file-system@57.0.7.patch",
     "react-native-enriched-html@1.1.1": "patches/react-native-enriched-html@1.1.1.patch",
     "braces@3.0.3": "../../patches/braces@3.0.3.patch",
     "expo-modules-core@57.0.26": "patches/expo-modules-core@57.0.26.patch",

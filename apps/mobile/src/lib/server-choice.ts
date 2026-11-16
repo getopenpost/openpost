@@ -1,21 +1,30 @@
+import type { ServerHeader } from "./server-headers";
+
 type ServerChoiceDependencies = {
-  probe: (target: string) => Promise<{ ok: true; baseUrl: string } | { ok: false; error: string }>;
-  persist: (target: string) => Promise<unknown>;
+  probe: (
+    target: string,
+    headers: ServerHeader[],
+  ) => Promise<{ ok: true; baseUrl: string } | { ok: false; error: string }>;
+  persist: (target: string, headers: ServerHeader[]) => Promise<unknown>;
 };
 
 type ServerChoiceResult = { status: "connected" } | { status: "failed"; message: string };
 
 type ServerChoice = {
-  start: (target: string) => Promise<ServerChoiceResult> | null;
+  start: (target: string, headers?: ServerHeader[]) => Promise<ServerChoiceResult> | null;
 };
 
 export function createServerChoice(dependencies: ServerChoiceDependencies): ServerChoice {
   let active: Promise<ServerChoiceResult> | null = null;
 
   return {
-    start(target) {
+    start(target, headers = []) {
       if (active) return null;
-      const operation = connect(target, dependencies).finally(() => {
+      const operation = connect(
+        target,
+        headers.map((header) => ({ ...header })),
+        dependencies,
+      ).finally(() => {
         if (active === operation) active = null;
       });
       active = operation;
@@ -33,10 +42,11 @@ export function serverChoiceErrorMessage(cause: unknown): string {
 
 async function connect(
   target: string,
+  headers: ServerHeader[],
   dependencies: ServerChoiceDependencies,
 ): Promise<ServerChoiceResult> {
-  const result = await dependencies.probe(target);
+  const result = await dependencies.probe(target, headers);
   if (!result.ok) return { status: "failed", message: result.error };
-  await dependencies.persist(result.baseUrl);
+  await dependencies.persist(result.baseUrl, headers);
   return { status: "connected" };
 }

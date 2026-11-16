@@ -1,0 +1,133 @@
+diff --git a/src/legacy/FileSystem.types.ts b/src/legacy/FileSystem.types.ts
+--- a/src/legacy/FileSystem.types.ts
++++ b/src/legacy/FileSystem.types.ts
+@@ -79,6 +79,8 @@
+ export type DownloadResult = FileSystemDownloadResult;
+ 
+ export type FileSystemUploadOptions = (UploadOptionsBinary | UploadOptionsMultipart) & {
++  /** Whether upload requests may follow redirects. Defaults to true. */
++  followRedirects?: boolean;
+   /**
+    * An object containing all the HTTP header fields and their values for the upload network request.
+    * The keys and values of the object are the header names and values respectively.
+diff --git a/build/legacy/FileSystem.types.d.ts b/build/legacy/FileSystem.types.d.ts
+--- a/build/legacy/FileSystem.types.d.ts
++++ b/build/legacy/FileSystem.types.d.ts
+@@ -71,6 +71,8 @@
+  */
+ export type DownloadResult = FileSystemDownloadResult;
+ export type FileSystemUploadOptions = (UploadOptionsBinary | UploadOptionsMultipart) & {
++    /** Whether upload requests may follow redirects. Defaults to true. */
++    followRedirects?: boolean;
+     /**
+      * An object containing all the HTTP header fields and their values for the upload network request.
+      * The keys and values of the object are the header names and values respectively.
+diff --git a/android/src/main/java/expo/modules/filesystem/legacy/FileSystemRecords.kt b/android/src/main/java/expo/modules/filesystem/legacy/FileSystemRecords.kt
+--- a/android/src/main/java/expo/modules/filesystem/legacy/FileSystemRecords.kt
++++ b/android/src/main/java/expo/modules/filesystem/legacy/FileSystemRecords.kt
+@@ -79,6 +79,8 @@
+ @OptimizedRecord
+ data class FileSystemUploadOptions(
+   @Field
++  val followRedirects: Boolean = true,
++  @Field
+   val headers: Map<String, String>?,
+   @Field
+   val httpMethod: HttpMethod = HttpMethod.POST,
+diff --git a/android/src/main/java/expo/modules/filesystem/legacy/FileSystemLegacyModule.kt b/android/src/main/java/expo/modules/filesystem/legacy/FileSystemLegacyModule.kt
+--- a/android/src/main/java/expo/modules/filesystem/legacy/FileSystemLegacyModule.kt
++++ b/android/src/main/java/expo/modules/filesystem/legacy/FileSystemLegacyModule.kt
+@@ -478,7 +478,9 @@
+       ) { requestBody -> requestBody }
+ 
+       okHttpClient?.let {
+-        it.newCall(request).enqueue(object : Callback {
++        val client = if (options.followRedirects) it else it.newBuilder()
++          .followRedirects(false).followSslRedirects(false).build()
++        client.newCall(request).enqueue(object : Callback {
+           override fun onFailure(call: Call, e: IOException) {
+             Log.e(TAG, e.message.toString())
+             promise.reject(TAG, e.message, e)
+@@ -525,7 +527,9 @@
+         options
+       ) { requestBody -> CountingRequestBody(requestBody, progressListener) }
+ 
+-      val call = okHttpClient!!.newCall(request)
++      val client = if (options.followRedirects) okHttpClient!! else okHttpClient!!.newBuilder()
++        .followRedirects(false).followSslRedirects(false).build()
++      val call = client.newCall(request)
+       taskHandlers[uuid] = TaskHandler(call)
+       call.enqueue(object : Callback {
+         override fun onFailure(call: Call, e: IOException) {
+diff --git a/ios/Legacy/FileSystemLegacyRecords.swift b/ios/Legacy/FileSystemLegacyRecords.swift
+--- a/ios/Legacy/FileSystemLegacyRecords.swift
++++ b/ios/Legacy/FileSystemLegacyRecords.swift
+@@ -46,6 +46,7 @@
+ }
+ 
+ struct UploadOptions: Record {
++  @Field var followRedirects: Bool = true
+   @Field var headers: [String: String]?
+   @Field var httpMethod: HttpMethod = .post
+   @Field var sessionType: SessionType = .background
+diff --git a/ios/Legacy/EXSessionTasks/EXSessionTaskDelegate.h b/ios/Legacy/EXSessionTasks/EXSessionTaskDelegate.h
+--- a/ios/Legacy/EXSessionTasks/EXSessionTaskDelegate.h
++++ b/ios/Legacy/EXSessionTasks/EXSessionTaskDelegate.h
+@@ -4,6 +4,8 @@
+ #import <ExpoModulesCore/EXDefines.h>
+ 
+ @interface EXSessionTaskDelegate : NSObject
++
++@property (nonatomic) BOOL preventsRedirects;
+ 
+ @property (nonatomic, strong, readonly) EXPromiseResolveBlock resolve;
+ @property (nonatomic, strong, readonly) EXPromiseRejectBlock reject;
+diff --git a/ios/Legacy/EXSessionTasks/EXSessionTaskDispatcher.m b/ios/Legacy/EXSessionTasks/EXSessionTaskDispatcher.m
+--- a/ios/Legacy/EXSessionTasks/EXSessionTaskDispatcher.m
++++ b/ios/Legacy/EXSessionTasks/EXSessionTaskDispatcher.m
+@@ -36,6 +36,14 @@
+ }
+ 
+ #pragma mark - dispatcher
++
++- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task
++  willPerformHTTPRedirection:(NSHTTPURLResponse *)response newRequest:(NSURLRequest *)request
++  completionHandler:(void (^)(NSURLRequest * _Nullable))completionHandler
++{
++  completionHandler(_tasks[task].preventsRedirects ? nil : request);
++}
++
+ 
+ - (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didFinishDownloadingToURL:(NSURL *)location
+ {
+diff --git a/ios/Legacy/FileSystemLegacyModule.swift b/ios/Legacy/FileSystemLegacyModule.swift
+--- a/ios/Legacy/FileSystemLegacyModule.swift
++++ b/ios/Legacy/FileSystemLegacyModule.swift
+@@ -224,16 +224,17 @@
+       guard FileManager.default.fileExists(atPath: localUrl.path) else {
+         throw FileNotExistsException(localUrl.path)
+       }
+-      let session = options.sessionType == .background ? backgroundSession : foregroundSession
++      let session = options.followRedirects && options.sessionType == .background ? backgroundSession : foregroundSession
+       let task = try createUploadTask(session: session, targetUrl: targetUrl, sourceUrl: localUrl, options: options)
+       let taskDelegate = EXSessionUploadTaskDelegate(resolve: promise.legacyResolver, reject: promise.legacyRejecter)
++      taskDelegate.preventsRedirects = !options.followRedirects
+ 
+       sessionTaskDispatcher.register(taskDelegate, for: task)
+       task.resume()
+     }
+ 
+     AsyncFunction("uploadTaskStartAsync") { (targetUrl: URL, localUrl: URL, uuid: String, options: UploadOptions, promise: Promise) in
+-      let session = options.sessionType == .background ? backgroundSession : foregroundSession
++      let session = options.followRedirects && options.sessionType == .background ? backgroundSession : foregroundSession
+       let task = try createUploadTask(session: session, targetUrl: targetUrl, sourceUrl: localUrl, options: options)
+       let onSend: EXUploadDelegateOnSendCallback = { [weak self] _, _, totalBytesSent, totalBytesExpectedToSend in
+         self?.sendEvent(EVENT_UPLOAD_PROGRESS, [
+@@ -252,6 +253,7 @@
+         uuid: uuid
+       )
+ 
++      taskDelegate.preventsRedirects = !options.followRedirects
+       sessionTaskDispatcher.register(taskDelegate, for: task)
+       taskHandlersManager.register(task, uuid: uuid)
+       task.resume()

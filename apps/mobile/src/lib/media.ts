@@ -1,3 +1,5 @@
+import { getServer } from "./server";
+import { serverHeadersForUrl } from "./server-headers";
 import { nativeTelemetry } from "./telemetry";
 import * as FileSystem from "expo-file-system/legacy";
 
@@ -163,12 +165,22 @@ export async function uploadAttachment(
     throw new Error(await errorMessage(response, "Upload failed to start", error));
 
   if (!session.deduped) {
+    const server = getServer();
+    const proxyHeaders = serverHeadersForUrl(
+      session.upload.url,
+      server?.baseUrl ?? "",
+      server?.headers ?? [],
+    );
     const uploadResult = await FileSystem.uploadAsync(session.upload.url, file.uri, {
       httpMethod: session.upload.method.toUpperCase() as "PUT" | "POST",
       uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-      headers: session.upload.headers,
+      followRedirects: Object.keys(proxyHeaders).length === 0,
+      headers: {
+        ...session.upload.headers,
+        ...proxyHeaders,
+      },
     });
-    if (uploadResult.status >= 400) {
+    if (uploadResult.status < 200 || uploadResult.status >= 300) {
       throw new Error(`Upload failed (${uploadResult.status})`);
     }
   }

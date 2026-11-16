@@ -16,7 +16,13 @@ OpenPost Mobile is a standalone Expo app. It uses native tabs and platform contr
 - Video capture and projects, plus stored account and destination analytics
 - Shared web theme tokens, icon packs, and Bayer textures, with native safe areas
 
-Settings stay in the web app. Use **Open web app** in the workspace menu, available from the OpenPost header.
+Account and workspace settings stay in the web app. Use **Open web app** in the workspace menu, available from the OpenPost header.
+
+For a self-hosted server behind an authenticating reverse proxy, open **Advanced: proxy headers** during server setup and add the header names and values supplied by your proxy. Then choose **Connect to server**. For example, Cloudflare Access uses `CF-Access-Client-Id` and `CF-Access-Client-Secret`; Pangolin uses `P-Access-Token-Id` and `P-Access-Token`.
+
+Edit these credentials later under **Proxy headers** in the workspace menu. Values stay in secure storage on this device and are cleared when you clear or change servers. They accompany requests only to your configured self-hosted server. `Authorization` and `X-OpenPost-*` headers are reserved by the app.
+
+With proxy headers enabled, media previews download to temporary local files before opening. Videos finish downloading before playback starts. Requests carrying proxy credentials reject redirects; use your server's final address.
 
 ## Prerequisites
 

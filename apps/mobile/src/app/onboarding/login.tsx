@@ -1,16 +1,17 @@
 import { NativeText as Text } from "@/components/native-text";
 import { router, Stack, useFocusEffect } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from "react-native";
 
 import { BodyText, Button, ContentSection, Screen, TextField, useColors } from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { login, verifyTotp } from "@/lib/auth";
 import { errorHaptic, successHaptic } from "@/lib/haptics";
-import { clearServer } from "@/lib/server";
+import { clearServer, getServer, subscribeServer } from "@/lib/server";
 
 export default function LoginScreen() {
   const colors = useColors();
+  const server = useSyncExternalStore(subscribeServer, getServer);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
@@ -155,6 +156,14 @@ export default function LoginScreen() {
             />
           </ContentSection>
 
+          {server && !server.isHosted ? (
+            <Button
+              title="Edit proxy headers"
+              intent="quiet"
+              disabled={busy}
+              onPress={() => router.push("/proxy-headers")}
+            />
+          ) : null}
           <Button
             title="Use a different server"
             intent="quiet"

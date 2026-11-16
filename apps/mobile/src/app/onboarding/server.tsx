@@ -15,12 +15,15 @@ import {
 import { Brand } from "@/components/brand";
 import { errorHaptic, successHaptic } from "@/lib/haptics";
 import { createServerChoice, serverChoiceErrorMessage } from "@/lib/server-choice";
+import { ProxyHeadersEditor } from "@/components/proxy-headers-editor";
+import { validateServerHeaders, type ServerHeader } from "@/lib/server-headers";
 import { HOSTED_URL, probeServer, setServer } from "@/lib/server";
 
 export default function ServerScreen() {
   const colors = useColors();
   const router = useRouter();
   const params = useLocalSearchParams<{ from?: string }>();
+  const [headers, setHeaders] = useState<ServerHeader[]>([]);
   const [url, setUrl] = useState("");
   const [showSelfHosted, setShowSelfHosted] = useState(false);
   const [busy, setBusy] = useState<"hosted" | "custom" | null>(null);
@@ -30,7 +33,14 @@ export default function ServerScreen() {
   );
 
   async function choose(target: string, kind: "hosted" | "custom") {
-    const operation = serverChoice.start(target);
+    let selectedHeaders: ServerHeader[];
+    try {
+      selectedHeaders = kind === "custom" ? validateServerHeaders(headers) : [];
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Check the proxy headers.");
+      return;
+    }
+    const operation = serverChoice.start(target, selectedHeaders);
     if (!operation) return;
     setBusy(kind);
     setError(null);
@@ -106,6 +116,11 @@ export default function ServerScreen() {
                 onSubmitEditing={() => void choose(url, "custom")}
               />
               <BodyText>Use the HTTPS address for your OpenPost server.</BodyText>
+              <ProxyHeadersEditor
+                headers={headers}
+                onChange={setHeaders}
+                disabled={busy !== null}
+              />
               <Button
                 title="Connect to server"
                 intent="ordinary"

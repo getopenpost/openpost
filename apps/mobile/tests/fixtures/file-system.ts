@@ -2,12 +2,18 @@ import { mock } from "bun:test";
 
 export const files = new Map<string, string>();
 export const writes: string[] = [];
+export const uploadRequests: {
+  url: string;
+  headers: Record<string, string>;
+  followRedirects?: boolean;
+}[] = [];
 export const uploads: { uri: string; size: number }[] = [];
 
 export function resetFileSystem() {
   files.clear();
   writes.length = 0;
   uploads.length = 0;
+  uploadRequests.length = 0;
 }
 
 mock.module("expo-file-system/legacy", () => ({
@@ -30,7 +36,16 @@ mock.module("expo-file-system/legacy", () => ({
     if (value === undefined) throw new Error("File does not exist");
     return value;
   },
-  uploadAsync: async (_url: string, uri: string, options: { headers: Record<string, string> }) => {
+  uploadAsync: async (
+    url: string,
+    uri: string,
+    options: { headers: Record<string, string>; followRedirects?: boolean },
+  ) => {
+    uploadRequests.push({
+      url,
+      headers: options.headers,
+      followRedirects: options.followRedirects,
+    });
     const size = Number(options.headers["Content-Length"]);
     uploads.push({ uri, size });
     return {

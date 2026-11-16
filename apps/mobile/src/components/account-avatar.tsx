@@ -17,6 +17,7 @@ import { PlatformIcon } from "@/components/platform-icon";
 import { getToken, subscribeToken } from "@/lib/api/token-store";
 import { accountInitials, avatarImageSource } from "@/lib/avatar-source";
 import { getServer, subscribeServer } from "@/lib/server";
+import { useProxyMediaSource } from "@/lib/use-proxy-media-source";
 import { useNativeTheme } from "@/theme";
 
 export interface AccountAvatarProps {
@@ -37,9 +38,13 @@ export function AccountAvatar({
   const { colors, typography } = useNativeTheme().manifest;
   const server = useSyncExternalStore(subscribeServer, getServer);
   const token = useSyncExternalStore(subscribeToken, getToken);
-  const [failed, setFailed] = useState(false);
-  const source = avatarUrl ? avatarImageSource(avatarUrl, server?.baseUrl ?? "", token) : null;
-  const showImage = Boolean(source) && !failed;
+  const [failedKey, setFailedKey] = useState<string | null>(null);
+  const source = avatarUrl
+    ? avatarImageSource(avatarUrl, server?.baseUrl ?? "", token, server?.headers)
+    : null;
+  const sourceKey = JSON.stringify(source);
+  const proxy = useProxyMediaSource(source);
+  const showImage = Boolean(proxy.source) && !proxy.failed && failedKey !== sourceKey;
   const badgeSize = Math.max(14, Math.round(size * 0.45));
   return (
     <View
@@ -51,12 +56,12 @@ export function AccountAvatar({
     >
       {showImage ? (
         <Image
-          source={source!}
+          source={proxy.source!}
           // Public avatars are cacheable; only credentialed previews opt out.
-          cachePolicy={source!.headers ? "none" : "memory-disk"}
-          recyclingKey={source!.uri}
+          cachePolicy={source?.headers ? "none" : "memory-disk"}
+          recyclingKey={proxy.source!.uri}
           contentFit="cover"
-          onError={() => setFailed(true)}
+          onError={() => setFailedKey(sourceKey)}
           style={[StyleSheet.absoluteFill, { borderRadius: size / 2 }]}
         />
       ) : (
@@ -121,9 +126,13 @@ export function WorkspaceAvatar({
   const { colors, typography } = useNativeTheme().manifest;
   const server = useSyncExternalStore(subscribeServer, getServer);
   const token = useSyncExternalStore(subscribeToken, getToken);
-  const [failed, setFailed] = useState(false);
-  const source = avatarUrl ? avatarImageSource(avatarUrl, server?.baseUrl ?? "", token) : null;
-  const showImage = Boolean(source) && !failed;
+  const [failedKey, setFailedKey] = useState<string | null>(null);
+  const source = avatarUrl
+    ? avatarImageSource(avatarUrl, server?.baseUrl ?? "", token, server?.headers)
+    : null;
+  const sourceKey = JSON.stringify(source);
+  const proxy = useProxyMediaSource(source);
+  const showImage = Boolean(proxy.source) && !proxy.failed && failedKey !== sourceKey;
   const ring = color ? { borderWidth: 2, borderColor: color } : null;
   return (
     <View
@@ -135,11 +144,11 @@ export function WorkspaceAvatar({
     >
       {showImage ? (
         <Image
-          source={source!}
-          cachePolicy={source!.headers ? "none" : "memory-disk"}
-          recyclingKey={source!.uri}
+          source={proxy.source!}
+          cachePolicy={source?.headers ? "none" : "memory-disk"}
+          recyclingKey={proxy.source!.uri}
           contentFit="cover"
-          onError={() => setFailed(true)}
+          onError={() => setFailedKey(sourceKey)}
           style={[StyleSheet.absoluteFill, { borderRadius: size / 2 }, ring]}
         />
       ) : (

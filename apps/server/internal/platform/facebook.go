@@ -358,9 +358,9 @@ func (f *FacebookAdapter) publish(ctx context.Context, accessToken, pageID strin
 			}
 		}
 		if len(req.PlatformMediaIDs) == 1 {
-			return f.publishPhoto(ctx, accessToken, pageID, req.Content, req.PlatformMediaIDs[0])
+			return f.publishPhoto(ctx, accessToken, pageID, req.Content, req.PlatformMediaIDs[0], mediaAltTextAt(req, 0))
 		}
-		return f.publishMultiPhoto(ctx, accessToken, pageID, req.Content, req.PlatformMediaIDs)
+		return f.publishMultiPhoto(ctx, accessToken, pageID, req)
 	}
 }
 
@@ -573,12 +573,15 @@ func (f *FacebookAdapter) publishFeedPost(ctx context.Context, accessToken, page
 	return id, err
 }
 
-func (f *FacebookAdapter) publishPhoto(ctx context.Context, accessToken, pageID, caption, mediaURL string) (string, error) {
+func (f *FacebookAdapter) publishPhoto(ctx context.Context, accessToken, pageID, caption, mediaURL, altText string) (string, error) {
 	values := map[string]string{
 		"url":                 mediaURL,
 		"caption":             strings.TrimSpace(caption),
 		"published":           "true",
 		oauthParamAccessToken: accessToken,
+	}
+	if altText != "" {
+		values["alt_text_custom"] = altText
 	}
 	respBody, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/photos"), values, nil)
 	if err != nil {
@@ -613,17 +616,17 @@ func facebookVideoDescription(req *PublishRequest) string {
 	return strings.TrimSpace(firstNonEmptyString(settingString(req.Settings, "video_description"), req.Description, req.Content))
 }
 
-func (f *FacebookAdapter) publishMultiPhoto(ctx context.Context, accessToken, pageID, message string, mediaURLs []string) (string, error) {
-	attached := make([]string, 0, len(mediaURLs))
-	for _, mediaURL := range mediaURLs {
-		photoID, err := f.uploadUnpublishedPhoto(ctx, accessToken, pageID, mediaURL)
+func (f *FacebookAdapter) publishMultiPhoto(ctx context.Context, accessToken, pageID string, req *PublishRequest) (string, error) {
+	attached := make([]string, 0, len(req.PlatformMediaIDs))
+	for index, mediaURL := range req.PlatformMediaIDs {
+		photoID, err := f.uploadUnpublishedPhoto(ctx, accessToken, pageID, mediaURL, mediaAltTextAt(req, index))
 		if err != nil {
 			return "", err
 		}
 		attached = append(attached, fmt.Sprintf(`{"media_fbid":"%s"}`, photoID))
 	}
 	values := map[string]string{
-		"message":             strings.TrimSpace(message),
+		"message":             strings.TrimSpace(req.Content),
 		oauthParamAccessToken: accessToken,
 	}
 	for index, item := range attached {
@@ -636,11 +639,14 @@ func (f *FacebookAdapter) publishMultiPhoto(ctx context.Context, accessToken, pa
 	return facebookPublishedID("facebook multi-photo publish", respBody)
 }
 
-func (f *FacebookAdapter) uploadUnpublishedPhoto(ctx context.Context, accessToken, pageID, mediaURL string) (string, error) {
+func (f *FacebookAdapter) uploadUnpublishedPhoto(ctx context.Context, accessToken, pageID, mediaURL, altText string) (string, error) {
 	values := map[string]string{
 		"url":                 mediaURL,
 		"published":           "false",
 		oauthParamAccessToken: accessToken,
+	}
+	if altText != "" {
+		values["alt_text_custom"] = altText
 	}
 	respBody, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/photos"), values, nil)
 	if err != nil {
@@ -661,7 +667,7 @@ func (f *FacebookAdapter) publishStory(ctx context.Context, accessToken, pageID 
 		edge, label, values := facebookVideoFinishRequest(req)
 		return f.publishHostedVideo(ctx, accessToken, pageID, edge, label, mediaURL, values, req)
 	}
-	photoID, err := f.uploadUnpublishedPhoto(ctx, accessToken, pageID, mediaURL)
+	photoID, err := f.uploadUnpublishedPhoto(ctx, accessToken, pageID, mediaURL, mediaAltTextAt(req, 0))
 	if err != nil {
 		return "", err
 	}

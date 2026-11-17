@@ -1,3 +1,5 @@
+import Graphemer from "graphemer";
+
 export const YOUTUBE_DESCRIPTION_MAX_BYTES = 5000;
 
 export const DEFAULT_PLATFORM_CHAR_LIMIT = 280;
@@ -14,6 +16,14 @@ const MASTODON_REMOTE_MENTION_PATTERN = /(^|[^/\w])@([a-z0-9_]+)@[a-z0-9.-]+[a-z
 const MASTODON_LINK_HOST =
   /^https?:\/\/(?:[^/?#@\s]*@)?[^/?#:\s]+\.(?:\p{L}{2,}|xn--[a-z0-9-]+)(?::\d+)?(?:[/?#]|$)/iu;
 const GRAPHEME_SEGMENTER = resolveGraphemeSegmenter();
+// Pin Unicode 15.0 segmentation to match the server's uniseg v0.4.7.
+// Native Intl.Segmenter versions differ, including Indic conjunct boundaries.
+// The CommonJS default export is wrapped by the browser bundler.
+const GraphemerConstructor =
+  typeof Graphemer === "function"
+    ? Graphemer
+    : (Graphemer as unknown as { default: typeof Graphemer }).default;
+const UNICODE_15_GRAPHEME_SEGMENTER = new GraphemerConstructor();
 const EXTENDED_PICTOGRAPHIC = /\p{Extended_Pictographic}/u;
 const REGIONAL_INDICATOR_G = /\p{Regional_Indicator}/gu;
 
@@ -175,10 +185,11 @@ export function countPlatformText(platformKey: string, text: string): number {
 // Threads counts one per grapheme, except an emoji grapheme, which counts its
 // UTF-8 bytes (developers.facebook.com/documentation/threads/posts,
 // Limitations). An emoji grapheme holds an Extended_Pictographic code point, is
-// a flag (a pair of regional indicators) or is a keycap sequence (U+20E3).
+// a flag (a pair of regional indicators), a skin-tone modifier, or a keycap
+// sequence (U+20E3).
 function countThreadsText(text: string): number {
   let length = 0;
-  for (const cluster of graphemeSegments(text)) {
+  for (const cluster of UNICODE_15_GRAPHEME_SEGMENTER.iterateGraphemes(text)) {
     length += isThreadsEmoji(cluster) ? countUTF8Bytes(cluster) : 1;
   }
   return length;
@@ -187,6 +198,7 @@ function countThreadsText(text: string): number {
 function isThreadsEmoji(cluster: string): boolean {
   return (
     EXTENDED_PICTOGRAPHIC.test(cluster) ||
+    /[\u{1f3fb}-\u{1f3ff}]/u.test(cluster) ||
     cluster.includes("\u20e3") ||
     (cluster.match(REGIONAL_INDICATOR_G) ?? []).length >= 2
   );
@@ -238,36 +250,7 @@ function graphemeSegments(text: string): string[] {
   if (GRAPHEME_SEGMENTER) {
     return Array.from(GRAPHEME_SEGMENTER.segment(text), ({ segment }) => segment);
   }
-  return fallbackGraphemeSegments(text);
-}
-
-// Used when Intl.Segmenter is missing. Not full UAX #29, but it keeps the
-// sequences that matter for counting together: combining marks, variation
-// selectors, skin-tone modifiers, tag characters, ZWJ sequences, flag pairs and
-// CRLF.
-const GRAPHEME_EXTEND = /^[\p{M}\u200d\ufe0f\u{1f3fb}-\u{1f3ff}\u{e0020}-\u{e007f}]$/u;
-const REGIONAL_INDICATOR = /^\p{Regional_Indicator}$/u;
-
-function fallbackGraphemeSegments(text: string): string[] {
-  const clusters: string[] = [];
-  let previous = "";
-  let regionalIndicators = 0;
-  for (const character of text) {
-    const joinsPrevious =
-      previous !== "" &&
-      (GRAPHEME_EXTEND.test(character) ||
-        (previous.endsWith("\u200d") && EXTENDED_PICTOGRAPHIC.test(character)) ||
-        (previous === "\r" && character === "\n") ||
-        (REGIONAL_INDICATOR.test(character) && regionalIndicators % 2 === 1));
-    regionalIndicators = REGIONAL_INDICATOR.test(character) ? regionalIndicators + 1 : 0;
-    if (joinsPrevious) {
-      clusters[clusters.length - 1] += character;
-    } else {
-      clusters.push(character);
-    }
-    previous = clusters[clusters.length - 1];
-  }
-  return clusters;
+  return UNICODE_15_GRAPHEME_SEGMENTER.splitGraphemes(text);
 }
 
 function isXEmojiSequence(codePoints: number[]): boolean {

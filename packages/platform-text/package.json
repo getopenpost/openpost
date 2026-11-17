@@ -16,6 +16,9 @@
     "check": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "graphemer": "1.4.0"
+  },
   "devDependencies": {
     "typescript": "5.9.3",
     "vitest": "^4.1.11"

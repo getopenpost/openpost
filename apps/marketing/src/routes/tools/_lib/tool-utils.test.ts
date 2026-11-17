@@ -17,8 +17,9 @@ describe('public text tools', () => {
 	it('splits Threads text without exceeding the platform limit', () => {
 		const limit = COUNTER_PLATFORMS.find((item) => item.key === 'threads')!.limit;
 		const parts = splitSmartThread('é'.repeat(1200), 'threads', limit, true);
-		expect(parts.length).toBeGreaterThan(1);
-		expect(parts.every((part) => platformTextCount(part.text, 'threads') <= limit)).toBe(true);
+		expect(parts.map((part) => part.content.length)).toEqual([495, 495, 210]);
+		expect(parts.map((part) => part.content).join('')).toBe('é'.repeat(1200));
+		expect(parts.every((part) => Array.from(part.text).length <= 500)).toBe(true);
 	});
 
 	it('advertises the number of platforms the counter renders', () => {

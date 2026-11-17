@@ -90,11 +90,11 @@ func threadsTextLength(text string) int {
 
 // isThreadsEmoji reports whether a grapheme is an emoji for Threads: it holds
 // an Extended_Pictographic code point, is a flag (a pair of regional
-// indicators), or is a keycap sequence (ends in U+20E3).
+// indicators), is a skin-tone modifier, or is a keycap sequence (U+20E3).
 func isThreadsEmoji(cluster []rune) bool {
 	regionalIndicators := 0
 	for _, codePoint := range cluster {
-		if codePoint == '\u20e3' {
+		if codePoint == '\u20e3' || (codePoint >= '\U0001f3fb' && codePoint <= '\U0001f3ff') {
 			return true
 		}
 		if codePoint >= '\U0001f1e6' && codePoint <= '\U0001f1ff' {

@@ -53,7 +53,7 @@ var (
 // Bluesky counts grapheme clusters, the unit its 300-character post limit
 // uses, Mastodon counts every link as 23 characters and every remote mention
 // as its username. Threads counts each grapheme as one character, except a
-// grapheme containing an Extended_Pictographic code point (an emoji), which
+// grapheme that is an emoji (see isThreadsEmoji), which
 // counts as its UTF-8 byte length. YouTube descriptions count UTF-8 bytes.
 func TextLength(provider, text string) int {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
@@ -79,7 +79,7 @@ func threadsTextLength(text string) int {
 	length := 0
 	graphemes := uniseg.NewGraphemes(text)
 	for graphemes.Next() {
-		if containsExtendedPictographic(graphemes.Runes()) {
+		if isThreadsEmoji(graphemes.Runes()) {
 			length += len(graphemes.Str())
 			continue
 		}
@@ -88,7 +88,22 @@ func threadsTextLength(text string) int {
 	return length
 }
 
-func containsExtendedPictographic(cluster []rune) bool {
+// isThreadsEmoji reports whether a grapheme is an emoji for Threads: it holds
+// an Extended_Pictographic code point, is a flag (a pair of regional
+// indicators), or is a keycap sequence (ends in U+20E3).
+func isThreadsEmoji(cluster []rune) bool {
+	regionalIndicators := 0
+	for _, codePoint := range cluster {
+		if codePoint == '\u20e3' {
+			return true
+		}
+		if codePoint >= '\U0001f1e6' && codePoint <= '\U0001f1ff' {
+			regionalIndicators++
+		}
+	}
+	if regionalIndicators >= 2 {
+		return true
+	}
 	for _, codePoint := range cluster {
 		i := sort.Search(len(extendedPictographic), func(i int) bool { return extendedPictographic[i][1] >= codePoint })
 		if i < len(extendedPictographic) && extendedPictographic[i][0] <= codePoint {

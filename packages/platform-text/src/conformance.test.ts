@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   PLATFORM_LIMITS,
@@ -28,6 +28,22 @@ describe("platform-text cross-language conformance", () => {
     expect(fixtures.counts.length).toBeGreaterThan(0);
     for (const { platform, text, expected } of fixtures.counts) {
       expect(countPlatformText(platform, text)).toBe(expected);
+    }
+  });
+
+  it("counts the shared fixture inputs the same when Intl.Segmenter is unavailable", async () => {
+    vi.resetModules();
+    vi.stubGlobal("Intl", { ...Intl, Segmenter: undefined });
+    try {
+      const fallback = await import("./index");
+      for (const { platform, text, expected } of fixtures.counts) {
+        expect(fallback.countPlatformText(platform, text), `${platform}: ${text.slice(-12)}`).toBe(
+          expected,
+        );
+      }
+    } finally {
+      vi.unstubAllGlobals();
+      vi.resetModules();
     }
   });
 });

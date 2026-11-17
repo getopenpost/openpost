@@ -13,6 +13,7 @@ package providerlimits
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -51,7 +52,9 @@ var (
 // selected Unicode ranges as one character, and weights the rest as two.
 // Bluesky counts grapheme clusters, the unit its 300-character post limit
 // uses, Mastodon counts every link as 23 characters and every remote mention
-// as its username. Threads and YouTube descriptions count UTF-8 bytes.
+// as its username. Threads counts each grapheme as one character, except a
+// grapheme containing an Extended_Pictographic code point (an emoji), which
+// counts as its UTF-8 byte length. YouTube descriptions count UTF-8 bytes.
 func TextLength(provider, text string) int {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case "x":
@@ -63,9 +66,36 @@ func TextLength(provider, text string) int {
 	case "youtube":
 		return len(strings.TrimSpace(text))
 	case "threads":
-		return len(text)
+		return threadsTextLength(text)
 	}
 	return utf8.RuneCountInString(text)
+}
+
+// threadsTextLength follows Meta's rule that text posts are limited to 500
+// characters and "emojis are counted as the number of UTF-8 bytes"
+// (developers.facebook.com/documentation/threads/posts, Limitations).
+// Other text counts one per grapheme.
+func threadsTextLength(text string) int {
+	length := 0
+	graphemes := uniseg.NewGraphemes(text)
+	for graphemes.Next() {
+		if containsExtendedPictographic(graphemes.Runes()) {
+			length += len(graphemes.Str())
+			continue
+		}
+		length++
+	}
+	return length
+}
+
+func containsExtendedPictographic(cluster []rune) bool {
+	for _, codePoint := range cluster {
+		i := sort.Search(len(extendedPictographic), func(i int) bool { return extendedPictographic[i][1] >= codePoint })
+		if i < len(extendedPictographic) && extendedPictographic[i][0] <= codePoint {
+			return true
+		}
+	}
+	return false
 }
 
 // mastodonCountableText applies the substitutions Mastodon makes before it

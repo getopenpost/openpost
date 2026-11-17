@@ -11,7 +11,8 @@ import (
 // to 23 characters, weights selected Unicode ranges as one character, and
 // weights the rest as two. Bluesky counts grapheme clusters, the unit its
 // 300-character post limit uses, Mastodon counts every link as 23 characters
-// and every remote mention as its username. Threads and YouTube descriptions
+// and every remote mention as its username. Threads counts one per grapheme,
+// except emoji graphemes, which count their UTF-8 bytes. YouTube descriptions
 // count UTF-8 bytes.
 func TextLength(provider, text string) int {
 	return providerlimits.TextLength(provider, text)

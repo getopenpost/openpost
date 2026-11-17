@@ -724,7 +724,7 @@ const platformImplementations = [
 			}
 		],
 		limits: [
-			`${PLATFORM_LIMITS.threads.charLimit} UTF-8 bytes`,
+			`${PLATFORM_LIMITS.threads.charLimit} characters (emoji count as UTF-8 bytes)`,
 			PLATFORM_LIMITS.threads.media,
 			'Reply chains',
 			'Public media URL and approved Meta app access required'

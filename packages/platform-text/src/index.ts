@@ -14,6 +14,7 @@ const MASTODON_REMOTE_MENTION_PATTERN = /(^|[^/\w])@([a-z0-9_]+)@[a-z0-9.-]+[a-z
 const MASTODON_LINK_HOST =
   /^https?:\/\/(?:[^/?#@\s]*@)?[^/?#:\s]+\.(?:\p{L}{2,}|xn--[a-z0-9-]+)(?::\d+)?(?:[/?#]|$)/iu;
 const GRAPHEME_SEGMENTER = resolveGraphemeSegmenter();
+const EXTENDED_PICTOGRAPHIC = /\p{Extended_Pictographic}/u;
 
 export interface PlatformLimitDefinition {
   key: string;
@@ -151,7 +152,7 @@ export function countUTF8Bytes(text: string): number {
 
 export function countPlatformText(platformKey: string, text: string): number {
   if (platformKey === "youtube") return countUTF8Bytes(text.trim());
-  if (platformKey === "threads") return countUTF8Bytes(text);
+  if (platformKey === "threads") return countThreadsText(text);
   if (platformKey === "bluesky") return graphemeSegments(text).length;
   if (platformKey === "mastodon") return Array.from(mastodonCountableText(text)).length;
   if (platformKey !== "x") return Array.from(text).length;
@@ -168,6 +169,17 @@ export function countPlatformText(platformKey: string, text: string): number {
     cursor = start + matchedURL.length;
   }
   return length + xWeightedTextSegmentLength(normalized.slice(cursor));
+}
+
+// Threads counts one per grapheme, except a grapheme containing an
+// Extended_Pictographic code point (an emoji), which counts its UTF-8 bytes
+// (developers.facebook.com/documentation/threads/posts, Limitations).
+function countThreadsText(text: string): number {
+  let length = 0;
+  for (const cluster of graphemeSegments(text)) {
+    length += EXTENDED_PICTOGRAPHIC.test(cluster) ? countUTF8Bytes(cluster) : 1;
+  }
+  return length;
 }
 
 // Mastodon measures a status after counting each http(s) link as 23

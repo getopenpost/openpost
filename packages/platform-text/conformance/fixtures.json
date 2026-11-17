@@ -190,17 +190,42 @@
     {
       "platform": "threads",
       "text": "é",
-      "expected": 2
+      "expected": 1
     },
     {
       "platform": "threads",
       "text": "’",
-      "expected": 3
+      "expected": 1
     },
     {
       "platform": "threads",
       "text": "👋",
       "expected": 4
+    },
+    {
+      "platform": "threads",
+      "text": "ああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ",
+      "expected": 300
+    },
+    {
+      "platform": "threads",
+      "text": "✨",
+      "expected": 3
+    },
+    {
+      "platform": "threads",
+      "text": "❤️",
+      "expected": 6
+    },
+    {
+      "platform": "threads",
+      "text": "👩‍👩‍👧‍👦",
+      "expected": 25
+    },
+    {
+      "platform": "threads",
+      "text": "日本語ABC✨",
+      "expected": 9
     },
     {
       "platform": "youtube",

@@ -14,6 +14,7 @@ describe('platform-limits', () => {
 		expect(platformTextLength(' MASTODON:example.social ', '@alice@example.social hi')).toBe(9);
 		expect(platformTextLength(' Bluesky ', '👨‍👩‍👧‍👦')).toBe(1);
 		expect(platformTextLength(' THREADS ', '👨‍👩‍👧‍👦')).toBe(25);
+		expect(platformTextLength(' THREADS ', '日本語✨')).toBe(6);
 		expect(platformTextLength(' YouTube ', '  é  ')).toBe(2);
 	});
 

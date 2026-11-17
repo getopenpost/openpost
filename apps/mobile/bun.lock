@@ -375,7 +375,7 @@
 
     "@openpost/dither": ["@openpost/dither@file:../../packages/dither", { "devDependencies": { "typescript": "^5.9.3" } }],
 
-    "@openpost/platform-text": ["@openpost/platform-text@file:../../packages/platform-text", { "devDependencies": { "typescript": "5.9.3", "vitest": "^4.1.11" } }],
+    "@openpost/platform-text": ["@openpost/platform-text@file:../../packages/platform-text", { "dependencies": { "graphemer": "1.4.0" }, "devDependencies": { "typescript": "5.9.3", "vitest": "^4.1.11" } }],
 
     "@openpost/query-catalog": ["@openpost/query-catalog@file:../../packages/query-catalog", { "devDependencies": { "@openpost/api-contract": "file:../api-contract", "@tanstack/query-core": "5.102.8", "typescript": "5.9.3", "vitest": "4.1.10" }, "peerDependencies": { "@tanstack/query-core": "5.102.8" } }],
 
@@ -1108,6 +1108,8 @@
     "gopd": ["gopd@1.2.0", "", {}, "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg=="],
 
     "graceful-fs": ["graceful-fs@4.2.11", "", {}, "sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ=="],
+
+    "graphemer": ["graphemer@1.4.0", "", {}, "sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag=="],
 
     "has-bigints": ["has-bigints@1.1.0", "", {}, "sha512-R3pbpkcIqv2Pm3dUwgjclDRVmWpTJW2DcMzcIhEXEx1oh/CEMObMm3KLmRJOdvhM7o4uQBnwr8pzRK2sJWIqfg=="],
 

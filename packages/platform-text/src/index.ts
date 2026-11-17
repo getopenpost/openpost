@@ -1,3 +1,5 @@
+import { unicode15Graphemes } from "./graphemes";
+
 export const YOUTUBE_DESCRIPTION_MAX_BYTES = 5000;
 
 export const DEFAULT_PLATFORM_CHAR_LIMIT = 280;
@@ -14,6 +16,8 @@ const MASTODON_REMOTE_MENTION_PATTERN = /(^|[^/\w])@([a-z0-9_]+)@[a-z0-9.-]+[a-z
 const MASTODON_LINK_HOST =
   /^https?:\/\/(?:[^/?#@\s]*@)?[^/?#:\s]+\.(?:\p{L}{2,}|xn--[a-z0-9-]+)(?::\d+)?(?:[/?#]|$)/iu;
 const GRAPHEME_SEGMENTER = resolveGraphemeSegmenter();
+const EXTENDED_PICTOGRAPHIC = /\p{Extended_Pictographic}/u;
+const REGIONAL_INDICATOR_G = /\p{Regional_Indicator}/gu;
 
 export interface PlatformLimitDefinition {
   key: string;
@@ -151,7 +155,7 @@ export function countUTF8Bytes(text: string): number {
 
 export function countPlatformText(platformKey: string, text: string): number {
   if (platformKey === "youtube") return countUTF8Bytes(text.trim());
-  if (platformKey === "threads") return countUTF8Bytes(text);
+  if (platformKey === "threads") return countThreadsText(text);
   if (platformKey === "bluesky") return graphemeSegments(text).length;
   if (platformKey === "mastodon") return Array.from(mastodonCountableText(text)).length;
   if (platformKey !== "x") return Array.from(text).length;
@@ -168,6 +172,28 @@ export function countPlatformText(platformKey: string, text: string): number {
     cursor = start + matchedURL.length;
   }
   return length + xWeightedTextSegmentLength(normalized.slice(cursor));
+}
+
+// Threads counts one per grapheme, except an emoji grapheme, which counts its
+// UTF-8 bytes (developers.facebook.com/documentation/threads/posts,
+// Limitations). An emoji grapheme holds an Extended_Pictographic code point, is
+// a flag (a pair of regional indicators), a skin-tone modifier, or a keycap
+// sequence (U+20E3).
+function countThreadsText(text: string): number {
+  let length = 0;
+  for (const cluster of unicode15Graphemes(text)) {
+    length += isThreadsEmoji(cluster) ? countUTF8Bytes(cluster) : 1;
+  }
+  return length;
+}
+
+function isThreadsEmoji(cluster: string): boolean {
+  return (
+    EXTENDED_PICTOGRAPHIC.test(cluster) ||
+    /[\u{1f3fb}-\u{1f3ff}]/u.test(cluster) ||
+    cluster.includes("\u20e3") ||
+    (cluster.match(REGIONAL_INDICATOR_G) ?? []).length >= 2
+  );
 }
 
 // Mastodon measures a status after counting each http(s) link as 23
@@ -216,7 +242,7 @@ function graphemeSegments(text: string): string[] {
   if (GRAPHEME_SEGMENTER) {
     return Array.from(GRAPHEME_SEGMENTER.segment(text), ({ segment }) => segment);
   }
-  return Array.from(text);
+  return Array.from(unicode15Graphemes(text));
 }
 
 function isXEmojiSequence(codePoints: number[]): boolean {

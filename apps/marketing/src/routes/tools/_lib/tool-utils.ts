@@ -37,7 +37,7 @@ const COUNTER_PLATFORM_DETAILS = {
 	},
 	threads: {
 		limit: PLATFORM_LIMITS.threads.charLimit,
-		note: 'Counts UTF-8 bytes.'
+		note: 'Counts one per character; emoji count their UTF-8 bytes.'
 	},
 	linkedin: {
 		limit: PLATFORM_LIMITS.linkedin.charLimit,

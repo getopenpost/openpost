@@ -26,6 +26,10 @@ OpenPost passes stored media MIME types to the Threads publisher and serves publ
 
 For a carousel, OpenPost prepares each media item before it publishes the full carousel. An account version with one media item stays a normal image or video post.
 
+## Text length
+
+Threads posts are limited to 500 characters. OpenPost counts each character as one, except emoji, which count as their number of UTF-8 bytes, matching Meta's documented rule. A Japanese post can therefore use the full 500 characters, while `✨` counts as 3 and `👩‍👩‍👧‍👦` as 25.
+
 ## Comments
 
 Comments and replies is an optional feature per connected Threads account. It starts off for a new account. Enable it after connection or in Account details. OpenPost can list replies, send replies, and hide replies when enabled. Reading replies needs `threads_read_replies`; reply actions need `threads_manage_replies`. The Threads API path in OpenPost does not delete replies. Threads does not support Direct messages in OpenPost, and Grow is not available for Threads. Disabling Comments and replies stops future Threads comment collection and reply actions without deleting stored replies or revoking authorization. Availability depends on provider support, required scopes, and plan access as distinct facts.

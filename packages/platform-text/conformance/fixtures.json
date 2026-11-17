@@ -190,17 +190,67 @@
     {
       "platform": "threads",
       "text": "é",
-      "expected": 2
+      "expected": 1
     },
     {
       "platform": "threads",
       "text": "’",
-      "expected": 3
+      "expected": 1
     },
     {
       "platform": "threads",
       "text": "👋",
       "expected": 4
+    },
+    {
+      "platform": "threads",
+      "text": "ああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ",
+      "expected": 300
+    },
+    {
+      "platform": "threads",
+      "text": "✨",
+      "expected": 3
+    },
+    {
+      "platform": "threads",
+      "text": "❤️",
+      "expected": 6
+    },
+    {
+      "platform": "threads",
+      "text": "👩‍👩‍👧‍👦",
+      "expected": 25
+    },
+    {
+      "platform": "threads",
+      "text": "日本語ABC✨",
+      "expected": 9
+    },
+    {
+      "platform": "threads",
+      "text": "🇺🇸",
+      "expected": 8
+    },
+    {
+      "platform": "threads",
+      "text": "1️⃣",
+      "expected": 7
+    },
+    {
+      "platform": "threads",
+      "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa🇺🇸",
+      "expected": 507
+    },
+    {
+      "platform": "threads",
+      "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa👩‍👩‍👧‍👦",
+      "expected": 505
+    },
+    {
+      "platform": "threads",
+      "text": "🇯🇵🇺🇸",
+      "expected": 16
     },
     {
       "platform": "youtube",
@@ -261,6 +311,36 @@
       "platform": "youtube",
       "text": "👨‍👩‍👧‍👦",
       "expected": 25
+    },
+    {
+      "platform": "threads",
+      "text": "क्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्षक्ष",
+      "expected": 600
+    },
+    {
+      "platform": "threads",
+      "text": "가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가가",
+      "expected": 300
+    },
+    {
+      "platform": "threads",
+      "text": "a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨a‍✨",
+      "expected": 400
+    },
+    {
+      "platform": "threads",
+      "text": "\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń\ń",
+      "expected": 600
+    },
+    {
+      "platform": "threads",
+      "text": "é",
+      "expected": 1
+    },
+    {
+      "platform": "threads",
+      "text": "🏽",
+      "expected": 4
     }
   ]
 }

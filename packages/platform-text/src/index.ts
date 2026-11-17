@@ -1,4 +1,4 @@
-import Graphemer from "graphemer";
+import { unicode15Graphemes } from "./graphemes";
 
 export const YOUTUBE_DESCRIPTION_MAX_BYTES = 5000;
 
@@ -16,14 +16,6 @@ const MASTODON_REMOTE_MENTION_PATTERN = /(^|[^/\w])@([a-z0-9_]+)@[a-z0-9.-]+[a-z
 const MASTODON_LINK_HOST =
   /^https?:\/\/(?:[^/?#@\s]*@)?[^/?#:\s]+\.(?:\p{L}{2,}|xn--[a-z0-9-]+)(?::\d+)?(?:[/?#]|$)/iu;
 const GRAPHEME_SEGMENTER = resolveGraphemeSegmenter();
-// Pin Unicode 15.0 segmentation to match the server's uniseg v0.4.7.
-// Native Intl.Segmenter versions differ, including Indic conjunct boundaries.
-// The CommonJS default export is wrapped by the browser bundler.
-const GraphemerConstructor =
-  typeof Graphemer === "function"
-    ? Graphemer
-    : (Graphemer as unknown as { default: typeof Graphemer }).default;
-const UNICODE_15_GRAPHEME_SEGMENTER = new GraphemerConstructor();
 const EXTENDED_PICTOGRAPHIC = /\p{Extended_Pictographic}/u;
 const REGIONAL_INDICATOR_G = /\p{Regional_Indicator}/gu;
 
@@ -189,7 +181,7 @@ export function countPlatformText(platformKey: string, text: string): number {
 // sequence (U+20E3).
 function countThreadsText(text: string): number {
   let length = 0;
-  for (const cluster of UNICODE_15_GRAPHEME_SEGMENTER.iterateGraphemes(text)) {
+  for (const cluster of unicode15Graphemes(text)) {
     length += isThreadsEmoji(cluster) ? countUTF8Bytes(cluster) : 1;
   }
   return length;
@@ -250,7 +242,7 @@ function graphemeSegments(text: string): string[] {
   if (GRAPHEME_SEGMENTER) {
     return Array.from(GRAPHEME_SEGMENTER.segment(text), ({ segment }) => segment);
   }
-  return UNICODE_15_GRAPHEME_SEGMENTER.splitGraphemes(text);
+  return Array.from(unicode15Graphemes(text));
 }
 
 function isXEmojiSequence(codePoints: number[]): boolean {

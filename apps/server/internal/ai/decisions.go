@@ -92,7 +92,7 @@ func (o *OpenRouter) decideWithChatCompletion(ctx context.Context, request Decis
 				"probability": map[string]any{"type": "number", "minimum": 0, "maximum": 1},
 			},
 		},
-	})
+	}, true)
 	if err != nil {
 		return DecisionResult{}, err
 	}

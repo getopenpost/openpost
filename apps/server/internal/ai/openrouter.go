@@ -263,7 +263,7 @@ func buildOpenRouterRequest(
 		ReasoningEffort: reasoningEffort,
 	}
 	if request.ResponseSchema != nil {
-		responseFormat, err := openRouterResponseFormat(*request.ResponseSchema)
+		responseFormat, err := openRouterResponseFormat(*request.ResponseSchema, customEndpoint)
 		if err != nil {
 			return openai.ChatCompletionNewParams{}, nil, err
 		}
@@ -351,13 +351,16 @@ func validMultimodalSourceID(value string) bool {
 	return true
 }
 
-func openRouterResponseFormat(schema JSONSchema) (shared.ResponseFormatJSONSchemaParam, error) {
+func openRouterResponseFormat(schema JSONSchema, compatibleEndpoint bool) (shared.ResponseFormatJSONSchemaParam, error) {
 	name := strings.TrimSpace(schema.Name)
 	if name == "" {
 		return shared.ResponseFormatJSONSchemaParam{}, errors.New("AI response schema name is required")
 	}
 	if len(schema.Schema) == 0 {
 		return shared.ResponseFormatJSONSchemaParam{}, errors.New("AI response schema is required")
+	}
+	if compatibleEndpoint {
+		schema.Schema = compatibleResponseSchema(schema.Schema)
 	}
 	config := shared.ResponseFormatJSONSchemaJSONSchemaParam{
 		Name:   name,

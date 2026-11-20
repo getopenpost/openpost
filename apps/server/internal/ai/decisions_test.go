@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -104,6 +105,11 @@ func TestCompatibleEndpointDecisionProtocol(t *testing.T) {
 				require.Equal(t, "json_schema", format["type"])
 				schema := format["json_schema"].(map[string]any)
 				require.Equal(t, true, schema["strict"])
+				probability := schema["schema"].(map[string]any)["properties"].(map[string]any)["probability"].(map[string]any)
+				if !assert.NotContains(t, probability, "minimum") || !assert.NotContains(t, probability, "maximum") {
+					http.Error(w, "unsupported numeric bound", http.StatusBadRequest)
+					return
+				}
 				w.Header().Set("Content-Type", "application/json")
 				content, err := json.Marshal(tc.answer)
 				require.NoError(t, err)

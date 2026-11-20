@@ -264,10 +264,12 @@ func TestCompatibleEndpointGenerate(t *testing.T) {
 		Provider: "azure/eu", RequireZDR: true, HTTPReferer: "https://app.example.test", XTitle: "OpenPost",
 	})
 	require.NoError(t, err)
+	items := map[string]any{"type": "array", "minItems": 2, "maxItems": 3, "description": "Captions.", "items": map[string]any{"type": "string", "maxLength": 100}}
+	schema := map[string]any{"type": "object", "properties": map[string]any{"captions": map[string]any{"anyOf": []any{items, map[string]any{"type": "null"}}}}}
 	result, err := generator.Generate(context.Background(), GenerateRequest{
 		Model: "local-vision", UserPrompt: "Describe this image.",
 		Images:         []Image{{Data: []byte("image"), MIMEType: "image/jpeg"}},
-		ResponseSchema: &JSONSchema{Name: "caption", Schema: map[string]any{"type": "object"}},
+		ResponseSchema: &JSONSchema{Name: "caption", Schema: schema},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "/gateway/v1/chat/completions", path)
@@ -276,7 +278,14 @@ func TestCompatibleEndpointGenerate(t *testing.T) {
 	require.Empty(t, headers.Get("X-Title"))
 	require.NotContains(t, received, "provider")
 	require.Equal(t, "local-vision", received["model"])
-	require.Contains(t, received, "response_format")
+	format := received["response_format"].(map[string]any)["json_schema"].(map[string]any)
+	properties := format["schema"].(map[string]any)["properties"].(map[string]any)
+	sentItems := properties["captions"].(map[string]any)["anyOf"].([]any)[0].(map[string]any)
+	require.NotContains(t, sentItems, "minItems")
+	require.NotContains(t, sentItems, "maxItems")
+	require.Equal(t, "Captions. Use at least 2 items. Use at most 3 items.", sentItems["description"])
+	require.Equal(t, float64(100), sentItems["items"].(map[string]any)["maxLength"])
+	require.Equal(t, 3, items["maxItems"])
 	require.Equal(t, "A bicycle.", result.Text)
 	require.Equal(t, "gateway-1", result.RequestID)
 	require.Equal(t, int64(15), result.Usage.TotalTokens)

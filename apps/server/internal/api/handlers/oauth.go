@@ -596,6 +596,9 @@ func (h *OAuthHandler) getProvider(platform, serverName string) (platform.Adapte
 		}
 		key := platform + ":" + serverName
 		adapter, ok := h.provider(key)
+		if !ok && !strings.Contains(serverName, "://") {
+			adapter, ok = h.provider(platform + ":https://" + strings.ToLower(serverName))
+		}
 		if !ok {
 			return nil, fmt.Errorf("unknown %s server: %s", platform, serverName)
 		}
@@ -1691,14 +1694,18 @@ func (h *OAuthHandler) exchangeCompatCode(ctx context.Context, provider string, 
 	if err := h.ensureCanStartAccountConnection(ctx, input.Body.WorkspaceID, userID); err != nil {
 		return nil, err
 	}
-	requestedInstance := strings.TrimRight(strings.TrimSpace(firstNonEmpty(
-		input.Body.InstanceURL, input.Body.ServerName,
-	)), "/")
+	serverName := strings.TrimRight(strings.TrimSpace(input.Body.ServerName), "/")
+	requestedInstance := firstNonEmpty(strings.TrimRight(strings.TrimSpace(input.Body.InstanceURL), "/"), serverName)
+	if strings.TrimSpace(input.Body.InstanceURL) == "" {
+		if adapter, lookupErr := h.getProvider(provider, requestedInstance); lookupErr == nil {
+			requestedInstance = firstNonEmpty(mastodonInstanceURL(adapter), requestedInstance)
+		}
+	}
 	if err := h.requireProviderConnection(ctx, provider, requestedInstance, intent); err != nil {
 		return nil, err
 	}
 
-	adapter, _, err := h.getCompatProvider(ctx, provider, input.Body.ServerName, input.Body.InstanceURL)
+	adapter, _, err := h.getCompatProvider(ctx, provider, serverName, input.Body.InstanceURL)
 	if err != nil {
 		return nil, huma.Error400BadRequest(err.Error())
 	}

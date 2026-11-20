@@ -374,7 +374,7 @@ func TestMastodonOOBRechecksReadinessAfterTokenExchangeBeforeSave(t *testing.T) 
 	handler.ExchangeCode(api)
 	resp := oauthSelectionRequest(t, e, http.MethodPost, "/api/v1/accounts/mastodon/exchange", map[string]string{
 		"workspace_id": "ws-1",
-		"server_name":  "https://social.example",
+		"server_name":  "social.example",
 		"instance_url": "",
 		"code":         "provider-code",
 		"intent":       "production",

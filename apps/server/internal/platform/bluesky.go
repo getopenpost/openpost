@@ -1299,6 +1299,11 @@ func (b *BlueskyAdapter) attachVideoToRecord(record map[string]interface{}, req 
 }
 
 func (b *BlueskyAdapter) attachImagesToRecord(record map[string]interface{}, req *PublishRequest) error {
+	if len(req.PlatformMediaIDs) > providerlimits.BlueskyImageMaxCount {
+		return fmt.Errorf("bluesky supports up to %d images per post", providerlimits.BlueskyImageMaxCount)
+	}
+
+	gallery := len(req.PlatformMediaIDs) > providerlimits.BlueskyLegacyImageMaxCount
 	images := make([]map[string]interface{}, 0, len(req.PlatformMediaIDs))
 	for i, blobJSON := range req.PlatformMediaIDs {
 		var blob map[string]interface{}
@@ -1313,15 +1318,32 @@ func (b *BlueskyAdapter) attachImagesToRecord(record map[string]interface{}, req
 			"alt":   altText,
 			"image": blob,
 		}
-		if ratio := blueskyMediaAspectRatio(req.Media, i); ratio != nil {
+		ratio := blueskyMediaAspectRatio(req.Media, i)
+		if gallery {
+			// The gallery image Lexicon requires an aspect ratio for every item.
+			if ratio == nil {
+				return fmt.Errorf("bluesky gallery image %d requires dimensions", i+1)
+			}
+			image[bskyRecordTypeField] = "app.bsky.embed.gallery#image"
+			image["aspectRatio"] = ratio
+		} else if ratio != nil {
 			image["aspectRatio"] = ratio
 		}
 		images = append(images, image)
 	}
-	if len(images) > 0 {
+
+	if len(images) == 0 {
+		return nil
+	}
+	if gallery {
 		record["embed"] = map[string]interface{}{
-			"$type":  "app.bsky.embed.images",
-			"images": images,
+			bskyRecordTypeField: "app.bsky.embed.gallery",
+			"items":             images,
+		}
+	} else {
+		record["embed"] = map[string]interface{}{
+			bskyRecordTypeField: "app.bsky.embed.images",
+			"images":            images,
 		}
 	}
 	return nil
@@ -1410,12 +1432,31 @@ func validateBlueskyMedia(media []MediaItem) []MediaValidationIssue {
 		return nil
 	}
 
-	if len(media) > 4 {
+	if len(media) > providerlimits.BlueskyImageMaxCount {
 		return []MediaValidationIssue{{
 			Provider: providerBluesky,
 			Severity: severityError,
-			Message:  "Bluesky supports up to 4 images per post.",
+			Message:  fmt.Sprintf("Bluesky supports up to %d images per post.", providerlimits.BlueskyImageMaxCount),
 		}}
+	}
+
+	if len(media) > providerlimits.BlueskyLegacyImageMaxCount {
+		for _, item := range media {
+			switch strings.ToLower(strings.TrimSpace(item.MimeType)) {
+			case "image/jpeg", "image/png", "image/webp":
+			default:
+				return []MediaValidationIssue{{
+					Provider: providerBluesky, MediaID: item.ID, Severity: severityError,
+					Message: "Bluesky galleries accept JPEG, PNG, or WebP images only.",
+				}}
+			}
+			if item.Width <= 0 || item.Height <= 0 {
+				return []MediaValidationIssue{{
+					Provider: providerBluesky, MediaID: item.ID, Severity: severityError,
+					Message: "Bluesky gallery images require width and height.",
+				}}
+			}
+		}
 	}
 
 	return nil

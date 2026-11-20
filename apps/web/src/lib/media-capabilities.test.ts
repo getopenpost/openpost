@@ -128,4 +128,21 @@ describe('media-capabilities', () => {
 			})
 		);
 	});
+	it('allows 5–10 Bluesky images and rejects 11 without splitting the gallery', () => {
+		for (const count of [1, 4, 5, 8, 10]) {
+			const images = Array.from({ length: count }, (_, index) => ({
+				id: 'image-' + index,
+				mimeType: 'image/jpeg'
+			}));
+			expect(validateProviderMedia('bluesky', images)).toEqual([]);
+		}
+		const tooMany = Array.from({ length: 11 }, (_, index) => ({
+			id: 'image-' + index,
+			mimeType: 'image/jpeg'
+		}));
+		expect(providerMediaWarningMessages('bluesky', tooMany)).toContain(
+			'Bluesky supports up to 10 images per post.'
+		);
+	});
+
 });

@@ -128,6 +128,7 @@ describe('media-capabilities', () => {
 			})
 		);
 	});
+
 	it('allows 5–10 Bluesky images and rejects 11 without splitting the gallery', () => {
 		for (const count of [1, 4, 5, 8, 10]) {
 			const images = Array.from({ length: count }, (_, index) => ({
@@ -144,5 +145,4 @@ describe('media-capabilities', () => {
 			'Bluesky supports up to 10 images per post.'
 		);
 	});
-
 });

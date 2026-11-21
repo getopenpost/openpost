@@ -191,7 +191,7 @@ func newAuthTokenCmd() *cobra.Command {
 					tok.TokenPrefix,
 					tok.Scope,
 					timePtr(tok.LastUsedAt),
-					timePtr(tok.ExpiresAt),
+					tokenExpiry(tok.ExpiresAt),
 					timePtr(tok.RevokedAt),
 				})
 			}
@@ -303,6 +303,15 @@ func openURL(ctx context.Context, rawURL string) error {
 		cmd = exec.CommandContext(ctx, "xdg-open", rawURL)
 	}
 	return cmd.Start()
+}
+
+// tokenExpiry shows "never" for a token without an expiry. The server omits
+// expires_at only for tokens created to never expire.
+func tokenExpiry(t *time.Time) string {
+	if t == nil || t.IsZero() {
+		return "never"
+	}
+	return t.UTC().Format(time.RFC3339)
 }
 
 func timePtr(t *time.Time) string {

@@ -3299,6 +3299,7 @@
 	"settings_token_expiry_90_days": "90 дней",
 	"settings_token_expiry_one_year": "1 год",
 	"settings_token_expiry_custom": "Своя дата",
+	"settings_token_expiry_never_description": "Этот токен действует, пока вы не отзовёте доступ. Храните его в надёжном месте.",
 	"settings_token_custom_expiry": "Дата окончания срока",
 	"settings_token_status_active": "Активен",
 	"settings_token_status_expired": "Истёк",

@@ -3286,6 +3286,7 @@
 	"settings_token_expiry_90_days": "90 天",
 	"settings_token_expiry_one_year": "1 年",
 	"settings_token_expiry_custom": "自定义日期",
+	"settings_token_expiry_never_description": "此令牌会一直有效，直到你移除其访问权限。请妥善保管。",
 	"settings_token_custom_expiry": "过期日期",
 	"settings_token_status_active": "有效",
 	"settings_token_status_expired": "已过期",

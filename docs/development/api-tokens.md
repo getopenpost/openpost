@@ -6,12 +6,12 @@ OpenPost API tokens are account credentials for the REST API, MCP clients, the C
 
 1. Enter a name that identifies the client or job.
 2. Choose a scope and, when possible, one workspace.
-3. Choose 30 days, 90 days, one year, or a custom expiration date. The server rejects dates in the past or more than one year away.
+3. Choose 30 days, 90 days, one year, a custom expiration date, or **Never**. The server rejects dates in the past or more than one year away.
 4. Create the token and copy the full secret from the one-time result.
 
 The full secret is never stored in plaintext and cannot be shown again. OpenPost lists only a short prefix, scope, workspace boundary, creation time, last use, expiration, and active, expired, or revoked status. If the secret is lost, revoke it and create a replacement.
 
-An omitted or JSON `null` `expires_at` uses the finite 90-day default. Existing tokens created under older versions may have no expiration; the settings list labels those explicitly. New tokens cannot request an unlimited lifetime.
+An omitted or JSON `null` `expires_at` uses the finite 90-day default. A token never expires only when it is created with **Never**, which sends `never_expires: true`; a request that also sets `expires_at` is rejected. Such tokens, like tokens from older versions that have no expiration, work until they are revoked. The settings list shows them as never expiring, and `openpost auth token list` prints `never`. An organization SSO policy with a maximum token lifetime still applies and gives the token that policy's expiry instead. Prefer a dated token for automation you can rotate.
 
 ## REST scopes
 

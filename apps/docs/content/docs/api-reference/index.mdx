@@ -20,7 +20,7 @@ Authorization: Bearer YOUR_TOKEN
 
 Create and revoke tokens in **Settings → Personal → Developer**. Choose both its permissions, such as `api:read` or `api:write`, and whether it can access the current workspace or all your workspaces. Use only the access your integration needs.
 
-Copy the token when it is created. OpenPost shows it once. Set an expiry and store it in your automation's secret store. Revoke it from the same settings page when it is no longer needed.
+Copy the token when it is created. OpenPost shows it once. Tokens expire after 90 days unless you choose another period. Choose **Never** only for a token you will revoke yourself, because it keeps working until you do. Store the token in your automation's secret store, and revoke it from the same settings page when it is no longer needed.
 
 ## Try a read request
 

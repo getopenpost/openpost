@@ -34,7 +34,7 @@ type APITokenResponse struct {
 	WorkspaceID        string  `json:"workspace_id,omitempty" doc:"Optional workspace ID this token is limited to"`
 	OrganizationID     string  `json:"organization_id,omitempty" doc:"Organization this token is bound to by SSO policy"`
 	IdentityProviderID string  `json:"identity_provider_id,omitempty" doc:"Identity provider assurance bound to this token"`
-	ExpiresAt          *string `json:"expires_at,omitempty" doc:"Token expiry time"`
+	ExpiresAt          *string `json:"expires_at,omitempty" doc:"Token expiry time. Omitted when the token never expires."`
 	LastUsedAt         *string `json:"last_used_at,omitempty" doc:"Last successful authentication time"`
 	RevokedAt          *string `json:"revoked_at,omitempty" doc:"Revocation time"`
 	CreatedAt          string  `json:"created_at" doc:"Creation time"`
@@ -50,7 +50,10 @@ type CreateAPITokenInput struct {
 		Name        string     `json:"name" minLength:"1" maxLength:"120" doc:"Required user-visible token name"`
 		Scope       string     `json:"scope,omitempty" enum:"cli:full,mcp:read,mcp:full,api:read,api:write" doc:"Token scope. Defaults to cli:full."`
 		WorkspaceID string     `json:"workspace_id,omitempty" doc:"Optional workspace ID this token is limited to"`
-		ExpiresAt   *time.Time `json:"expires_at,omitempty" nullable:"true" doc:"Expiry time. Omitted or null defaults to 90 days; the maximum lifetime is one year."`
+		ExpiresAt   *time.Time `json:"expires_at,omitempty" nullable:"true" doc:"Expiry time. Omitted or null defaults to 90 days; the maximum lifetime is one year. Use never_expires for a token without an expiry."`
+		// NeverExpires is a separate flag so a missing or null expires_at keeps
+		// meaning the 90-day default. A token never expires only when asked.
+		NeverExpires bool `json:"never_expires,omitempty" doc:"Create a token that never expires. It stays valid until it is revoked. Cannot be combined with expires_at. An organization token lifetime policy still applies."`
 	}
 }
 
@@ -110,6 +113,9 @@ func (h *APITokenHandler) registerCreateRoute(api huma.API) {
 }
 
 func (h *APITokenHandler) createToken(ctx context.Context, input *CreateAPITokenInput) (*CreateAPITokenOutput, error) {
+	if input.Body.NeverExpires && input.Body.ExpiresAt != nil {
+		return nil, huma.Error400BadRequest("choose either expires_at or never_expires, not both")
+	}
 	userID := middleware.GetUserID(ctx)
 	workspaceID, err := h.resolveTokenWorkspace(ctx, userID, input.Body.WorkspaceID)
 	if err != nil {
@@ -121,8 +127,12 @@ func (h *APITokenHandler) createToken(ctx context.Context, input *CreateAPIToken
 	}
 
 	expiresAt := input.Body.ExpiresAt
+	neverExpires := input.Body.NeverExpires
 	if !policyDecision.ExpiresAt.IsZero() {
+		// An organization's maximum token lifetime wins over the requested
+		// expiry, including a request for a token that never expires.
 		expiresAt = &policyDecision.ExpiresAt
+		neverExpires = false
 	}
 	generated, err := h.tokens.GenerateTokenWithOptions(
 		ctx,
@@ -131,6 +141,7 @@ func (h *APITokenHandler) createToken(ctx context.Context, input *CreateAPIToken
 		input.Body.Scope,
 		apitokens.GenerateOptions{
 			ExpiresAt:          expiresAt,
+			NeverExpires:       neverExpires,
 			WorkspaceID:        workspaceID,
 			OrganizationID:     policyDecision.OrganizationID,
 			IdentityProviderID: policyDecision.ProviderID,

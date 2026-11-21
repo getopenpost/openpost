@@ -139,6 +139,58 @@ func TestAPITokenHandlerAlignsOmittedNullAndCustomExpiry(t *testing.T) {
 	}
 }
 
+func TestAPITokenHandlerCreatesListsAndRevokesNeverExpiringToken(t *testing.T) {
+	t.Parallel()
+
+	db := createHandlerTestDB(t, (*models.User)(nil), (*models.APIToken)(nil))
+	_, err := db.NewInsert().Model(&models.User{
+		ID: "user-1", Email: "user@example.com", PasswordHash: "hash", CreatedAt: time.Now().UTC(),
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	e := echo.New()
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	NewAPITokenHandler(apitokens.NewService(db), testAuthenticator{}, db).RegisterRoutes(api)
+
+	ambiguous := apiTokenRequest(t, e, map[string]any{
+		"name": "Ambiguous", "scope": "api:read", "never_expires": true,
+		"expires_at": time.Now().UTC().Add(time.Hour),
+	})
+	require.Equal(t, http.StatusBadRequest, ambiguous.Code, ambiguous.Body.String())
+
+	created := apiTokenRequest(t, e, map[string]any{
+		"name": "Home server", "scope": "api:read", "never_expires": true,
+	})
+	require.Equal(t, http.StatusCreated, created.Code, created.Body.String())
+	var out struct {
+		Token string         `json:"token"`
+		Item  map[string]any `json:"item"`
+	}
+	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &out))
+	require.NotEmpty(t, out.Token)
+	require.NotContains(t, out.Item, "expires_at", "a token without an expiry must not report one")
+	require.Equal(t, "active", out.Item["status"])
+	tokenID, ok := out.Item["id"].(string)
+	require.True(t, ok)
+
+	var tokens []models.APIToken
+	require.NoError(t, db.NewSelect().Model(&tokens).Scan(t.Context()))
+	require.Len(t, tokens, 1, "the ambiguous request must not create a token")
+	require.True(t, tokens[0].ExpiresAt.IsZero())
+
+	list := apiTokenMethodRequest(t, e, http.MethodGet, "/api/v1/api-tokens", "web-token")
+	require.Equal(t, http.StatusOK, list.Code, list.Body.String())
+	var listed []map[string]any
+	require.NoError(t, json.Unmarshal(list.Body.Bytes(), &listed))
+	require.Len(t, listed, 1)
+	require.NotContains(t, listed[0], "expires_at")
+	require.Equal(t, "active", listed[0]["status"])
+
+	revoke := apiTokenMethodRequest(t, e, http.MethodDelete, "/api/v1/api-tokens/"+tokenID, "web-token")
+	require.Equal(t, http.StatusOK, revoke.Code, revoke.Body.String())
+	_, err = apitokens.NewService(db).ValidateToken(t.Context(), out.Token)
+	require.ErrorIs(t, err, apitokens.ErrRevokedToken)
+}
+
 func TestAPITokenHandlerRejectsInaccessibleWorkspaceScope(t *testing.T) {
 	t.Parallel()
 

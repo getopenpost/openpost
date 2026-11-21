@@ -157,6 +157,44 @@ func TestGenerateTokenRejectsExplicitNoExpiryAndUnsafeLifetimes(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidExpiry)
 }
 
+func TestGenerateTokenNeverExpiresOnlyWhenRequestedAndStaysRevocable(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := newServiceTestDB(t)
+	seedServiceUser(ctx, t, db)
+	service := NewService(db)
+
+	generated, err := service.GenerateTokenWithOptions(ctx, "user-1", "Home server", ScopeAPIRead, GenerateOptions{
+		NeverExpires: true,
+	})
+	require.NoError(t, err)
+	require.True(t, generated.Model.ExpiresAt.IsZero())
+
+	nullExpiry, err := db.NewSelect().Model((*models.APIToken)(nil)).
+		Where("id = ? AND expires_at IS NULL", generated.Model.ID).Count(ctx)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, nullExpiry, "a never-expiring token must be stored without an expiry")
+
+	principal, err := service.ValidateToken(ctx, generated.Token)
+	require.NoError(t, err)
+	require.Equal(t, generated.Model.ID, principal.TokenID)
+	var used models.APIToken
+	require.NoError(t, db.NewSelect().Model(&used).Where("id = ?", generated.Model.ID).Scan(ctx))
+	require.False(t, used.LastUsedAt.IsZero(), "authentication must record use of a token without an expiry")
+
+	require.NoError(t, service.RevokeToken(ctx, "user-1", generated.Model.ID))
+	_, err = service.ValidateToken(ctx, generated.Token)
+	require.ErrorIs(t, err, ErrRevokedToken)
+
+	dated := time.Now().UTC().Add(time.Hour)
+	_, err = service.GenerateTokenWithOptions(ctx, "user-1", "Ambiguous", ScopeAPIRead, GenerateOptions{
+		ExpiresAt:    &dated,
+		NeverExpires: true,
+	})
+	require.ErrorIs(t, err, ErrInvalidExpiry)
+}
+
 func TestGenerateTokenAcceptsMaximumLifetimeWithClientClockSkew(t *testing.T) {
 	t.Parallel()
 

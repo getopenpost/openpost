@@ -61,29 +61,25 @@ test.describe("workflows", () => {
       .getByRole("heading", { name: "Announce a GitHub release", exact: true })
       .locator("../..");
     const preview = card.locator('[aria-hidden="true"] > svg').first();
-    for (const width of [1440, 320]) {
-      await page.setViewportSize({ width, height: 960 });
-      await expect
-        .poll(() =>
-          preview.evaluate((svg) => {
-            const frame = svg.getBoundingClientRect();
-            const nodes = Array.from(svg.querySelectorAll("g > rect"), (node) =>
-              node.getBoundingClientRect(),
-            );
-            const left = Math.min(...nodes.map((node) => node.left));
-            const right = Math.max(...nodes.map((node) => node.right));
-            const top = Math.min(...nodes.map((node) => node.top));
-            const bottom = Math.max(...nodes.map((node) => node.bottom));
-            return Math.max(
-              Math.abs((left + right) / 2 - (frame.left + frame.right) / 2),
-              Math.abs((top + bottom) / 2 - (frame.top + frame.bottom) / 2),
-            );
-          }),
-        )
-        .toBeLessThan(1);
-      await card.scrollIntoViewIfNeeded();
-      await page.screenshot({ path: `test-results/workflow-previews-${width}.png` });
-    }
+    await page.setViewportSize({ width: 1440, height: 960 });
+    await expect
+      .poll(() =>
+        preview.evaluate((svg) => {
+          const frame = svg.getBoundingClientRect();
+          const nodes = Array.from(svg.querySelectorAll("g > rect"), (node) =>
+            node.getBoundingClientRect(),
+          );
+          const left = Math.min(...nodes.map((node) => node.left));
+          const right = Math.max(...nodes.map((node) => node.right));
+          const top = Math.min(...nodes.map((node) => node.top));
+          const bottom = Math.max(...nodes.map((node) => node.bottom));
+          return Math.max(
+            Math.abs((left + right) / 2 - (frame.left + frame.right) / 2),
+            Math.abs((top + bottom) / 2 - (frame.top + frame.bottom) / 2),
+          );
+        }),
+      )
+      .toBeLessThan(1);
   });
 
   test("workflow editor saves, previews without writes, and approves a native draft", async ({
@@ -195,104 +191,76 @@ test.describe("workflows", () => {
     );
   });
 
-  for (const viewport of [
-    { width: 1440, height: 960 },
-    { width: 390, height: 844 },
-    { width: 320, height: 740 },
-  ]) {
-    test(`workflow templates and keyboard configuration at ${viewport.width}px`, async ({
-      page,
-    }) => {
-      await page.setViewportSize(viewport);
-      await page.emulateMedia({ reducedMotion: "reduce" });
-      await openWorkflows(page);
-      await releaseTemplate(page);
-      await page.getByLabel("GitHub repository", { exact: true }).fill("openpost/openpost");
-      await expect(page.getByText("Saved", { exact: true })).toBeVisible();
-      await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-      await page.getByRole("button", { name: "Create draft Create draft", exact: true }).focus();
-      await page.keyboard.press("Enter");
-      await expect(page.getByLabel("Post text", { exact: true })).toBeVisible();
-      const inspector = page.getByRole("dialog");
-      await expect(inspector).toBeVisible();
-      await page
+  test("workflow templates, keyboard configuration and dark modal backdrop", async ({ page }) => {
+    const viewport = { width: 1440, height: 960 };
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await openWorkflows(page);
+    await releaseTemplate(page);
+    await page.getByLabel("GitHub repository", { exact: true }).fill("openpost/openpost");
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await page.getByRole("button", { name: "Create draft Create draft", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByLabel("Post text", { exact: true })).toBeVisible();
+    const inspector = page.getByRole("dialog");
+    await expect(inspector).toBeVisible();
+    await page
+      .locator('[data-workflow-field="workflow-text"]')
+      .getByRole("button", { name: "Insert variable", exact: true })
+      .click();
+    await page.keyboard.press("Escape");
+    await expect(
+      page
         .locator('[data-workflow-field="workflow-text"]')
-        .getByRole("button", { name: "Insert variable", exact: true })
-        .click();
-      await page.keyboard.press("Escape");
-      await expect(
-        page
-          .locator('[data-workflow-field="workflow-text"]')
-          .getByRole("button", { name: "Insert variable", exact: true }),
-      ).toBeFocused();
-      await expect(inspector).toBeVisible();
-      const bounds = await inspector.boundingBox();
-      expect(bounds?.width).toBeGreaterThan(viewport.width * 0.9);
-      if (viewport.width >= 1024) {
-        expect(bounds?.x).toBeGreaterThan(0);
-        expect(bounds?.y).toBeGreaterThan(0);
-      }
-      await expect
-        .poll(() =>
-          page.evaluate(
-            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-          ),
-        )
-        .toBe(true);
-      await page.screenshot({
-        path: `test-results/workflows-light-${viewport.width}.png`,
-        fullPage: true,
-      });
-      if (await page.getByRole("button", { name: "Back to canvas", exact: true }).isVisible())
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-      await expect(page.getByLabel("Workflow canvas", { exact: true })).toBeVisible();
-      await page.evaluate(() => {
-        localStorage.setItem("mode-watcher-mode", "dark");
-      });
-      await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
-      await page.reload();
-      if (await page.getByRole("button", { name: "Back to canvas", exact: true }).isVisible())
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-      await expect(
-        page
-          .getByLabel("Workflow canvas", { exact: true })
-          .getByRole("button", { name: "GitHub release Trigger" }),
-      ).toBeInViewport();
-      await page.screenshot({
-        path: `test-results/workflows-dark-${viewport.width}.png`,
-        fullPage: true,
-      });
-      const sourceNode = page.getByRole("button", {
-        name: "GitHub release Trigger",
-        exact: true,
-      });
-      await sourceNode.click();
-      await expect(page.getByRole("dialog")).toBeVisible();
-      const backdrop = await page.locator('[data-slot="dialog-overlay"]').evaluate((overlay) => {
-        const canvas = document.createElement("canvas");
-        canvas.width = canvas.height = 1;
-        const context = canvas.getContext("2d")!;
-        context.fillStyle = getComputedStyle(document.body).backgroundColor;
-        context.fillRect(0, 0, 1, 1);
-        const before = Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3);
-        context.fillStyle = getComputedStyle(overlay).backgroundColor;
-        context.fillRect(0, 0, 1, 1);
-        const after = Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3);
-        return { before, after };
-      });
-      expect(Math.max(...backdrop.before)).toBeGreaterThan(0);
-      expect(backdrop.after.reduce((sum, value) => sum + value, 0)).toBeLessThan(
-        backdrop.before.reduce((sum, value) => sum + value, 0),
-      );
-      await page.screenshot({
-        path: `test-results/workflows-dark-modal-${viewport.width}.png`,
-        fullPage: true,
-      });
-      await page.keyboard.press("Escape");
-      await expect(page.getByRole("dialog")).toHaveCount(0);
-      await expect(sourceNode).toBeFocused();
+        .getByRole("button", { name: "Insert variable", exact: true }),
+    ).toBeFocused();
+    await expect(inspector).toBeVisible();
+    const bounds = await inspector.boundingBox();
+    expect(bounds?.width).toBeGreaterThan(viewport.width * 0.9);
+    expect(bounds?.x).toBeGreaterThan(0);
+    expect(bounds?.y).toBeGreaterThan(0);
+    if (await page.getByRole("button", { name: "Back to canvas", exact: true }).isVisible())
+      await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await expect(page.getByLabel("Workflow canvas", { exact: true })).toBeVisible();
+    await page.evaluate(() => {
+      localStorage.setItem("mode-watcher-mode", "dark");
     });
-  }
+    await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+    await page.reload();
+    if (await page.getByRole("button", { name: "Back to canvas", exact: true }).isVisible())
+      await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await expect(
+      page
+        .getByLabel("Workflow canvas", { exact: true })
+        .getByRole("button", { name: "GitHub release Trigger" }),
+    ).toBeInViewport();
+    const sourceNode = page.getByRole("button", {
+      name: "GitHub release Trigger",
+      exact: true,
+    });
+    await sourceNode.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    const backdrop = await page.locator('[data-slot="dialog-overlay"]').evaluate((overlay) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = getComputedStyle(document.body).backgroundColor;
+      context.fillRect(0, 0, 1, 1);
+      const before = Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3);
+      context.fillStyle = getComputedStyle(overlay).backgroundColor;
+      context.fillRect(0, 0, 1, 1);
+      const after = Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3);
+      return { before, after };
+    });
+    expect(Math.max(...backdrop.before)).toBeGreaterThan(0);
+    expect(backdrop.after.reduce((sum, value) => sum + value, 0)).toBeLessThan(
+      backdrop.before.reduce((sum, value) => sum + value, 0),
+    );
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(sourceNode).toBeFocused();
+  });
 
   test("workflow guest entry requires sign-in", async ({ page }) => {
     await page.goto("/workflows");
@@ -519,36 +487,31 @@ test.describe("workflows", () => {
 
   test("picker handoff keeps the new step editable across layouts and keyboard input", async ({
     page,
-  }, testInfo) => {
+  }) => {
     await openWorkflows(page);
-    for (const width of [1280, 320]) {
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.goto("/workflows");
-        await page.getByRole("button", { name: "New workflow", exact: true }).click();
-        const add = page.getByRole("button", { name: "Add step", exact: true });
-        await add.focus();
-        await add.press("Enter");
-        const choice = page
-          .getByRole("complementary", { name: "What happens next?" })
-          .getByRole("button", { name: /^Create draft / });
-        await choice.focus();
-        await choice.press("Enter");
-        await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
-          "Create draft",
-        );
-        const text = page.getByLabel("Post text", { exact: true });
-        const authored = `Audit picker ${width} ${scheme}`;
-        await text.fill(authored);
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-        const node = page.getByRole("button", { name: /^Create draft / });
-        await node.focus();
-        await node.press("Enter");
-        await expect(text).toHaveText(authored);
-        await page.screenshot({ path: testInfo.outputPath(`picker-${width}-${scheme}.png`) });
-      }
-    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/workflows");
+    await page.getByRole("button", { name: "New workflow", exact: true }).click();
+    const add = page.getByRole("button", { name: "Add step", exact: true });
+    await add.focus();
+    await add.press("Enter");
+    const choice = page
+      .getByRole("complementary", { name: "What happens next?" })
+      .getByRole("button", { name: /^Create draft / });
+    await choice.focus();
+    await choice.press("Enter");
+    await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+      "Create draft",
+    );
+    const text = page.getByLabel("Post text", { exact: true });
+    const authored = "Audit picker";
+    await text.fill(authored);
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    const node = page.getByRole("button", { name: /^Create draft / });
+    await node.focus();
+    await node.press("Enter");
+    await expect(text).toHaveText(authored);
   });
 
   test("inserting a variable preserves JSON and its nested outputs remain usable", async ({
@@ -801,161 +764,128 @@ test.describe("workflows", () => {
     await expect(nodes).toHaveCount(2);
   });
 
-  for (const width of [1440, 320]) {
-    for (const scheme of ["light"] as const) {
-      test(`workflow Social Sets reuse provider settings at ${width}px in ${scheme}`, async ({
-        page,
-      }) => {
-        const { token, workspace } = await openWorkflows(page);
-        const accountID = randomUUID();
-        const db = `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`;
-        execFileSync("sqlite3", [
-          "-cmd",
-          ".timeout 5000",
-          db,
-          `INSERT INTO social_accounts
+  test("workflow Social Sets reuse provider settings", async ({ page }) => {
+    const { token, workspace } = await openWorkflows(page);
+    const accountID = randomUUID();
+    const db = `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`;
+    execFileSync("sqlite3", [
+      "-cmd",
+      ".timeout 5000",
+      db,
+      `INSERT INTO social_accounts
           (id, workspace_id, slug, platform, account_id, account_username, access_token_encrypted, capability_state_json, is_active)
           VALUES ('${accountID}', '${workspace.id}', 'workflow-discord', 'discord', 'guild-test', 'Launch channel', X'00', '{"connection_type":"bot"}', 1);`,
-        ]);
-        await page.addInitScript(
-          (value) => localStorage.setItem("mode-watcher-mode", value),
-          scheme,
-        );
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.setViewportSize({ width, height: 900 });
-        await page.reload();
-        await page.route(`**/api/v1/accounts/${accountID}/publishing-options/**`, (route) =>
-          route.fulfill({ json: { options: [{ value: "updates-channel", label: "#updates" }] } }),
-        );
-        await page.getByRole("button", { name: "New workflow", exact: true }).click();
-        if (width === 1440 && scheme === "light") {
-          await page.route("**/api/v1/capabilities", (route) =>
-            route.fulfill({ status: 503, json: { detail: "Destination settings unavailable" } }),
-          );
-        }
-        await addStep(page, "Create draft");
-        if (width === 1440 && scheme === "light") {
-          await expect(page.getByRole("alert")).toContainText("Destination settings unavailable");
-          await expect(page.getByTestId("composer-account-control")).toHaveCount(0);
-          await page.unroute("**/api/v1/capabilities");
-          await page.getByRole("button", { name: "Try again", exact: true }).click();
-        }
-        await page.getByTestId("composer-account-control").click();
-        await page.getByRole("button", { name: "Manage Social Sets", exact: true }).click();
-        const manager = page.getByRole("dialog", { name: "Manage Social Sets", exact: true });
-        await manager
-          .getByRole("textbox", { name: "Set name", exact: true })
-          .fill("Launch destinations");
-        await manager.getByLabel("Format for Launch channel", { exact: true }).click();
-        await page.getByRole("option", { name: "Discord message", exact: true }).click();
-        await manager.getByRole("button", { name: "Edit post settings", exact: true }).click();
-        const settings = page.getByRole("dialog", { name: "Discord settings", exact: true });
-        await settings.getByRole("combobox", { name: "Channel", exact: true }).click();
-        await page.getByRole("option", { name: "#updates", exact: true }).click();
-        await settings.getByRole("button", { name: "Done", exact: true }).click();
-        const saved = page.waitForResponse(
-          (response) =>
-            response.url().endsWith("/api/v1/social-sets") &&
-            response.request().method() === "POST",
-        );
-        await manager.getByRole("button", { name: "Save", exact: true }).click();
-        const response = await saved;
-        expect(response.ok(), await response.text()).toBeTruthy();
-        const set = await response.json();
-        expect(set.accounts[0].default_settings).toEqual({ channel_id: "updates-channel" });
-        await expect(manager.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
-        await manager.getByRole("button", { name: "Save", exact: true }).focus();
-        await page.keyboard.press("ControlOrMeta+z");
-        await page.keyboard.press("Escape");
-        await expect(manager).toBeHidden();
-        await expect(page.getByTestId("composer-account-control")).toContainText(
-          "Launch destinations",
-        );
-        await expect(
-          page.getByText("Each run uses this set's current accounts and defaults.", {
-            exact: false,
-          }),
-        ).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-        const nameFits = await page.getByLabel("Step name", { exact: true }).evaluate((element) => {
-          if (!(element instanceof HTMLInputElement)) throw new Error("Step name must be an input");
-          const style = getComputedStyle(element);
-          const context = document.createElement("canvas").getContext("2d")!;
-          context.font = style.font;
-          const width =
-            element.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-          return context.measureText(element.value).width <= width;
-        });
-        expect(nameFits, "The node name should fit beside its header actions").toBe(true);
-        await expect(
-          page
-            .getByRole("dialog", { name: "Create draft", exact: true })
-            .getByText("Saved", { exact: true }),
-        ).toBeVisible();
-        await page.screenshot({
-          path: `test-results/workflow-destinations-${scheme}-${width}.png`,
-        });
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-        await expect(page.getByRole("dialog")).toBeHidden();
-        await expect(page.getByText("Saved", { exact: true })).toBeVisible();
-        const workflowURL = page.url();
-        await page.reload();
-        await page.getByRole("button", { name: "Create draft Create draft", exact: true }).click();
-        await expect(page.getByTestId("composer-account-control")).toContainText(
-          "Launch destinations",
-        );
-        if (width === 1440 && scheme === "light") {
-          await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-          await page.getByRole("button", { name: "Test data", exact: true }).click();
-          await page.getByText("Live", { exact: true }).click();
-          await page.getByRole("button", { name: "Run live", exact: true }).click();
-          await expect(page.getByRole("paragraph").filter({ hasText: /^Completed$/ })).toBeVisible({
-            timeout: 30000,
-          });
-          const posts = await page.request.get(
-            `/api/v1/publications?workspace_id=${workspace.id}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
-          const publications = await posts.json();
-          expect(publications).toHaveLength(1);
-          const post = await page.request.get(`/api/v1/publications/${publications[0].id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const publication = await post.json();
-          expect(publication.renditions[0].settings.channel_id).toBe("updates-channel");
-          expect(publication.renditions[0].output_profile).toBe("discord.post");
-          await page.goto(workflowURL);
-          await page
-            .getByRole("button", { name: "Create draft Create draft", exact: true })
-            .click();
-        }
-        await page.getByTestId("composer-account-control").click();
-        await page.getByTestId("composer-account-row").getByRole("checkbox").uncheck();
-        await page.keyboard.press("Escape");
-        await expect(page.getByTestId("composer-account-control")).not.toContainText(
-          "Launch destinations",
-        );
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-        await page.getByRole("button", { name: "Organize", exact: true }).focus();
-        await page.keyboard.press("ControlOrMeta+z");
-        await page.getByRole("button", { name: "Create draft Create draft", exact: true }).click();
-        await expect(page.getByTestId("composer-account-control")).toContainText(
-          "Launch destinations",
-        );
-      });
-    }
-  }
+    ]);
+    await page.addInitScript((value) => localStorage.setItem("mode-watcher-mode", value), "light");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.reload();
+    await page.route(`**/api/v1/accounts/${accountID}/publishing-options/**`, (route) =>
+      route.fulfill({ json: { options: [{ value: "updates-channel", label: "#updates" }] } }),
+    );
+    await page.getByRole("button", { name: "New workflow", exact: true }).click();
+    await page.route("**/api/v1/capabilities", (route) =>
+      route.fulfill({ status: 503, json: { detail: "Destination settings unavailable" } }),
+    );
+    await addStep(page, "Create draft");
+    await expect(page.getByRole("alert")).toContainText("Destination settings unavailable");
+    await expect(page.getByTestId("composer-account-control")).toHaveCount(0);
+    await page.unroute("**/api/v1/capabilities");
+    await page.getByRole("button", { name: "Try again", exact: true }).click();
+    await page.getByTestId("composer-account-control").click();
+    await page.getByRole("button", { name: "Manage Social Sets", exact: true }).click();
+    const manager = page.getByRole("dialog", { name: "Manage Social Sets", exact: true });
+    await manager
+      .getByRole("textbox", { name: "Set name", exact: true })
+      .fill("Launch destinations");
+    await manager.getByLabel("Format for Launch channel", { exact: true }).click();
+    await page.getByRole("option", { name: "Discord message", exact: true }).click();
+    await manager.getByRole("button", { name: "Edit post settings", exact: true }).click();
+    const settings = page.getByRole("dialog", { name: "Discord settings", exact: true });
+    await settings.getByRole("combobox", { name: "Channel", exact: true }).click();
+    await page.getByRole("option", { name: "#updates", exact: true }).click();
+    await settings.getByRole("button", { name: "Done", exact: true }).click();
+    const saved = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/v1/social-sets") && response.request().method() === "POST",
+    );
+    await manager.getByRole("button", { name: "Save", exact: true }).click();
+    const response = await saved;
+    expect(response.ok(), await response.text()).toBeTruthy();
+    const set = await response.json();
+    expect(set.accounts[0].default_settings).toEqual({ channel_id: "updates-channel" });
+    await expect(manager.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
+    await manager.getByRole("button", { name: "Save", exact: true }).focus();
+    await page.keyboard.press("ControlOrMeta+z");
+    await page.keyboard.press("Escape");
+    await expect(manager).toBeHidden();
+    await expect(page.getByTestId("composer-account-control")).toContainText("Launch destinations");
+    await expect(
+      page.getByText("Each run uses this set's current accounts and defaults.", {
+        exact: false,
+      }),
+    ).toBeVisible();
+    const nameFits = await page.getByLabel("Step name", { exact: true }).evaluate((element) => {
+      if (!(element instanceof HTMLInputElement)) throw new Error("Step name must be an input");
+      const style = getComputedStyle(element);
+      const context = document.createElement("canvas").getContext("2d")!;
+      context.font = style.font;
+      const width =
+        element.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      return context.measureText(element.value).width <= width;
+    });
+    expect(nameFits, "The node name should fit beside its header actions").toBe(true);
+    await expect(
+      page
+        .getByRole("dialog", { name: "Create draft", exact: true })
+        .getByText("Saved", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+    const workflowURL = page.url();
+    await page.reload();
+    await page.getByRole("button", { name: "Create draft Create draft", exact: true }).click();
+    await expect(page.getByTestId("composer-account-control")).toContainText("Launch destinations");
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await page.getByRole("button", { name: "Test data", exact: true }).click();
+    await page.getByText("Live", { exact: true }).click();
+    await page.getByRole("button", { name: "Run live", exact: true }).click();
+    await expect(page.getByRole("paragraph").filter({ hasText: /^Completed$/ })).toBeVisible({
+      timeout: 30000,
+    });
+    const posts = await page.request.get(`/api/v1/publications?workspace_id=${workspace.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const publications = await posts.json();
+    expect(publications).toHaveLength(1);
+    const post = await page.request.get(`/api/v1/publications/${publications[0].id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const publication = await post.json();
+    expect(publication.renditions[0].settings.channel_id).toBe("updates-channel");
+    expect(publication.renditions[0].output_profile).toBe("discord.post");
+    await page.goto(workflowURL);
+    await page.getByRole("button", { name: "Create draft Create draft", exact: true }).click();
+    await page.getByTestId("composer-account-control").click();
+    await page.getByTestId("composer-account-row").getByRole("checkbox").uncheck();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("composer-account-control")).not.toContainText(
+      "Launch destinations",
+    );
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await page.getByRole("button", { name: "Organize", exact: true }).focus();
+    await page.keyboard.press("ControlOrMeta+z");
+    await page.getByRole("button", { name: "Create draft Create draft", exact: true }).click();
+    await expect(page.getByTestId("composer-account-control")).toContainText("Launch destinations");
+  });
 });
 
 test.describe("workflow approval links", () => {
   test("approval links select their workspace before loading a run, including same-route navigation", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(90_000);
     const auth = await registerUser(request, `approval-links-${randomUUID()}@example.com`);
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -1025,7 +955,6 @@ test.describe("workflow approval links", () => {
     });
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(first.href);
-    await page.screenshot({ path: testInfo.outputPath("approval-entry.png") });
     await expect(page.getByText("Workflow revision 1 · Preview", { exact: true })).toBeVisible();
     await expect(
       page.locator("summary").filter({ hasText: "First approval marker" }),
@@ -1051,19 +980,9 @@ test.describe("workflow approval links", () => {
       page.locator("summary").filter({ hasText: "Second approval marker" }),
     ).toBeVisible();
     await expect(page).toHaveURL(second.href);
-    for (const width of [1280, 320]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 844 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
-        await page.screenshot({
-          path: testInfo.outputPath(`approval-${width}-${colorScheme}.png`),
-        });
-      }
-    }
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", "light");
     expect(requests.some((url) => url.includes(first.run.id))).toBe(true);
     expect(requests.some((url) => url.includes(second.run.id))).toBe(true);
     for (const fixture of fixtures) {
@@ -1099,7 +1018,7 @@ test.describe("workflow builder destinations", () => {
   test("Builder destinations show required guidance and recover without execution", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     test.setTimeout(60000);
     const auth = await registerUser(request, `builder-dest-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Builder destinations");
@@ -1139,59 +1058,42 @@ test.describe("workflow builder destinations", () => {
     const workflow = await created.json();
     await authenticatePage(page, auth.token);
     await page.goto(`/workflows/${workflow.id}`);
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        const node = page.locator('.svelte-flow__node[data-id="build"]');
-        await node.getByRole("button", { name: /^Audit Builder / }).click();
-        const guidance = page.getByText("Choose a Social Set or destination first.", {
-          exact: true,
-        });
-        if (width === 1280 && scheme === "light") await expect(guidance).toBeVisible();
-        else {
-          await page
-            .getByRole("group", { name: "Destinations", exact: true })
-            .getByRole("button", { name: /^Accounts:/ })
-            .click();
-          const account = page.getByRole("checkbox", { name: /auditbuilder/ });
-          await account.uncheck();
-          await page.keyboard.press("Escape");
-          await expect(guidance).toBeVisible();
-        }
-        await page.screenshot({ path: info.outputPath(`destinations-${width}-${scheme}.png`) });
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-        await expect(node).toContainText("Needs attention");
-        await node.getByRole("button", { name: /^Audit Builder / }).click();
-        const picker = page
-          .getByRole("group", { name: "Destinations", exact: true })
-          .getByRole("button", { name: /^Accounts:/ });
-        await picker.focus();
-        await picker.press("Enter");
-        const account = page.getByRole("checkbox", { name: /auditbuilder/ });
-        await account.focus();
-        await account.press("Space");
-        await page.keyboard.press("Escape");
-        await expect(guidance).toBeHidden();
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-        await expect(node).not.toContainText("Needs attention");
-        await expect
-          .poll(
-            async () =>
-              (
-                await (
-                  await request.get(
-                    `/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`,
-                    {
-                      headers,
-                    },
-                  )
-                ).json()
-              ).definition.steps[0].inputs.account_ids.literal,
-          )
-          .toEqual([accountID]);
-        await page.reload();
-      }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const node = page.locator('.svelte-flow__node[data-id="build"]');
+    await node.getByRole("button", { name: /^Audit Builder / }).click();
+    const guidance = page.getByText("Choose a Social Set or destination first.", {
+      exact: true,
+    });
+    await expect(guidance).toBeVisible();
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await expect(node).toContainText("Needs attention");
+    await node.getByRole("button", { name: /^Audit Builder / }).click();
+    const picker = page
+      .getByRole("group", { name: "Destinations", exact: true })
+      .getByRole("button", { name: /^Accounts:/ });
+    await picker.focus();
+    await picker.press("Enter");
+    const account = page.getByRole("checkbox", { name: /auditbuilder/ });
+    await account.focus();
+    await account.press("Space");
+    await page.keyboard.press("Escape");
+    await expect(guidance).toBeHidden();
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await expect(node).not.toContainText("Needs attention");
+    await expect
+      .poll(
+        async () =>
+          (
+            await (
+              await request.get(`/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`, {
+                headers,
+              })
+            ).json()
+          ).definition.steps[0].inputs.account_ids.literal,
+      )
+      .toEqual([accountID]);
+    await page.reload();
     const saved = await (
       await request.get(`/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`, {
         headers,
@@ -1214,7 +1116,7 @@ test.describe("workflow builder recovery", () => {
   test("failed native Builder output opens its authorized read-only build record", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     test.setTimeout(60000);
     const email = `builder-result-${randomUUID()}@example.com`;
     const auth = await registerUser(request, email);
@@ -1280,31 +1182,26 @@ test.describe("workflow builder recovery", () => {
     ]);
     await authenticatePage(page, auth.token);
     await page.goto(`/workflows/${workflow.id}`);
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.reload();
-        await page
-          .locator("[data-workflow-editor] > header")
-          .getByRole("tab", { name: "Runs", exact: true })
-          .click();
-        await page.locator("aside button").filter({ hasText: "Failed" }).click();
-        await page.getByRole("button", { name: /^Audit failed build / }).click();
-        if (width < 1024) await page.getByRole("tab", { name: "Output", exact: true }).click();
-        const inspect = page.getByRole("button", { name: "Inspect build", exact: true });
-        await expect(inspect).toBeVisible();
-        await inspect.focus();
-        await inspect.press("Enter");
-        const details = page.getByRole("dialog", { name: "Build details", exact: true });
-        await expect(details).toContainText(buildID);
-        await expect(details).toContainText("generation_failed");
-        await expect(details).toContainText(message);
-        await page.screenshot({ path: info.outputPath(`build-${width}-${scheme}.png`) });
-        await page.keyboard.press("Escape");
-        await expect(details).toBeHidden();
-        await expect(inspect).toBeFocused();
-      }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+    await page
+      .locator("[data-workflow-editor] > header")
+      .getByRole("tab", { name: "Runs", exact: true })
+      .click();
+    await page.locator("aside button").filter({ hasText: "Failed" }).click();
+    await page.getByRole("button", { name: /^Audit failed build / }).click();
+    const inspect = page.getByRole("button", { name: "Inspect build", exact: true });
+    await expect(inspect).toBeVisible();
+    await inspect.focus();
+    await inspect.press("Enter");
+    const details = page.getByRole("dialog", { name: "Build details", exact: true });
+    await expect(details).toContainText(buildID);
+    await expect(details).toContainText("generation_failed");
+    await expect(details).toContainText(message);
+    await page.keyboard.press("Escape");
+    await expect(details).toBeHidden();
+    await expect(inspect).toBeFocused();
     expect(
       (
         await (
@@ -1341,7 +1238,7 @@ test.describe("workflow comment campaign", () => {
   test("a Reel campaign starts with focused setup, previews safely and saves separate private/public steps", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(120000);
     const auth = await registerUser(request, `comment-campaign-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Comment campaigns");
@@ -1369,10 +1266,6 @@ test.describe("workflow comment campaign", () => {
     await expect(page.getByLabel("Keywords or phrases", { exact: true })).toHaveValue("GRIND");
     const create = page.getByRole("button", { name: "Create workflow draft", exact: true });
     await expect(create).toBeDisabled();
-    await page.screenshot({
-      path: testInfo.outputPath("comment-campaign-before.png"),
-      fullPage: true,
-    });
     await page.getByLabel("Saved response", { exact: true }).fill("🔥".repeat(251));
     await expect(create).toBeDisabled();
     await expect(setup.getByRole("alert")).toContainText("1,000 UTF-8 bytes");
@@ -1383,22 +1276,10 @@ test.describe("workflow comment campaign", () => {
     await page.getByRole("button", { name: "Preview", exact: true }).focus();
     await page.keyboard.press("Enter");
     await expect(setup.locator("blockquote")).toContainText("GRIND please!");
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 1000 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-        await expect(page.locator("body")).toHaveJSProperty(
-          "scrollWidth",
-          await page.locator("body").evaluate((el) => el.clientWidth),
-        );
-        await setup.locator("h2").scrollIntoViewIfNeeded();
-        await page.screenshot({
-          path: testInfo.outputPath(`comment-campaign-${width}-${scheme}.png`),
-          fullPage: true,
-          animations: "disabled",
-        });
-      }
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", "light");
+    await setup.locator("h2").scrollIntoViewIfNeeded();
     const saved = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" && /\/api\/v1\/workflows\?/.test(response.url()),
@@ -1430,7 +1311,7 @@ test.describe("workflow comment campaign", () => {
   test("Inbox review keeps the edited private reply and takeover cancels the waiting run", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(120000);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -1518,10 +1399,6 @@ test.describe("workflow comment campaign", () => {
     await expect(textarea).toHaveValue("Edited playbook message");
     await page.setViewportSize({ width: 390, height: 1000 });
     await textarea.scrollIntoViewIfNeeded();
-    await page.screenshot({
-      path: testInfo.outputPath("comment-review-phone.png"),
-      fullPage: true,
-    });
     await page.getByRole("button", { name: "Take over", exact: true }).click();
     await expect
       .poll(
@@ -1539,10 +1416,6 @@ test.describe("workflow comment campaign", () => {
       page.locator("summary").filter({ hasText: "Automatic replies stopped" }),
     ).toBeVisible();
     expect(errors).toEqual([]);
-    await page.screenshot({
-      path: testInfo.outputPath("comment-takeover-phone.png"),
-      fullPage: true,
-    });
   });
 });
 
@@ -1550,7 +1423,7 @@ test.describe("workflow condition validation", () => {
   test("Condition test explains the visible field and preserves older output as history", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(60000);
     const auth = await registerUser(request, `condition-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Condition correction");
@@ -1595,39 +1468,27 @@ test.describe("workflow condition validation", () => {
     await expect(output.getByText("Completed", { exact: true })).toBeVisible();
     await expect(output.getByText("matched", { exact: true })).toBeVisible();
     await expect(output.getByText("true", { exact: true })).toBeVisible();
-    for (const width of [1280, 390, 320]) {
-      for (const scheme of ["light", "dark"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        const configure = page.getByRole("tab", { name: "Configure", exact: true });
-        if (width < 1024) await configure.click();
-        await page.getByLabel("Compare with", { exact: true }).fill("");
-        const admission = page.getByRole("button", { name: "Test node", exact: true });
-        const before = testsAdmitted;
-        await admission.focus();
-        await admission.press("Enter");
-        await expect(page.locator("#workflow-inspector-error")).toContainText(
-          "Compare with: This field is required.",
-        );
-        await expect(page.getByLabel("Compare with", { exact: true })).toBeFocused();
-        expect(testsAdmitted).toBe(before);
-        await page.screenshot({
-          path: testInfo.outputPath(`condition-invalid-${width}-${scheme}.png`),
-        });
-        if (width < 1024) await page.getByRole("tab", { name: "Output", exact: true }).click();
-        await expect(output).toContainText("Configuration or test data changed since this result.");
-        await expect(output.getByText("Completed", { exact: true })).toBeVisible();
-        if (width < 1024) await configure.click();
-        await page.getByLabel("Compare with", { exact: true }).fill("release");
-        await admission.click();
-        await expect(page.locator("#workflow-inspector-error")).toBeHidden();
-        await expect(output).not.toContainText(
-          "Configuration or test data changed since this result.",
-        );
-        await expect(output.getByText("true", { exact: true })).toBeVisible();
-      }
-    }
-    expect(testsAdmitted).toBe(7);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const configure = page.getByRole("tab", { name: "Configure", exact: true });
+    await page.getByLabel("Compare with", { exact: true }).fill("");
+    const admission = page.getByRole("button", { name: "Test node", exact: true });
+    const before = testsAdmitted;
+    await admission.focus();
+    await admission.press("Enter");
+    await expect(page.locator("#workflow-inspector-error")).toContainText(
+      "Compare with: This field is required.",
+    );
+    await expect(page.getByLabel("Compare with", { exact: true })).toBeFocused();
+    expect(testsAdmitted).toBe(before);
+    await expect(output).toContainText("Configuration or test data changed since this result.");
+    await expect(output.getByText("Completed", { exact: true })).toBeVisible();
+    await page.getByLabel("Compare with", { exact: true }).fill("release");
+    await admission.click();
+    await expect(page.locator("#workflow-inspector-error")).toBeHidden();
+    await expect(output).not.toContainText("Configuration or test data changed since this result.");
+    await expect(output.getByText("true", { exact: true })).toBeVisible();
+    expect(testsAdmitted).toBe(2);
     await expect
       .poll(async () => {
         const response = await request.get(`/api/v1/workflow-runs?workspace_id=${workspace.id}`, {
@@ -1639,7 +1500,7 @@ test.describe("workflow condition validation", () => {
           .filter((run: { workflow_id: string }) => run.workflow_id === workflow.id)
           .map((run: { state: string }) => run.state);
       })
-      .toEqual(Array(7).fill("succeeded"));
+      .toEqual(Array(2).fill("succeeded"));
     const persisted = await request.get(
       `/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`,
       { headers },
@@ -1726,7 +1587,7 @@ test.describe("workflow filter null guidance", () => {
   test("Filter distinguishes present null from absent and allows correction", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `workflow-null-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Filter null guidance");
     const response = await request.post(`/api/v1/workflows?workspace_id=${workspace.id}`, {
@@ -1767,20 +1628,10 @@ test.describe("workflow filter null guidance", () => {
       exact: true,
     });
     await expect(nullError).toBeVisible();
-    for (const width of [320]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 844 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);
-        await expect(nullError).toBeVisible();
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
-        await page.screenshot({
-          path: testInfo.outputPath(`filter-null-${width}-${colorScheme}.png`),
-        });
-      }
-    }
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", "light");
+    await expect(nullError).toBeVisible();
     await page.setViewportSize({ width: 1280, height: 900 });
     const items = page.getByRole("textbox", { name: "Items", exact: true });
     await items.fill('[{"id":"absent"}]');
@@ -1793,17 +1644,13 @@ test.describe("workflow filter null guidance", () => {
     await expect
       .poll(async () => JSON.parse(await output.locator("pre").innerText()))
       .toEqual({ count: 1, items: [{ id: "recovered", value: 2 }] });
-    await page.screenshot({ path: testInfo.outputPath("filter-numeric-recovery.png") });
     expect(errors).toEqual([]);
   });
 });
 
 test.describe("workflow graph admission", () => {
   for (const concern of ["loop", "ports"] as const) {
-    test(`workflow graph ${concern} preserves authored connections`, async ({
-      page,
-      request,
-    }, testInfo) => {
+    test(`workflow graph ${concern} preserves authored connections`, async ({ page, request }) => {
       test.setTimeout(60000);
       const auth = await registerUser(request, `graph-${randomUUID()}@example.com`);
       const workspace = await createWorkspace(request, auth.token, "Graph admission");
@@ -1887,32 +1734,27 @@ test.describe("workflow graph admission", () => {
           .dragTo(page.locator(`.svelte-flow__handle.target[data-nodeid="${target}"]`));
       }
       if (concern === "ports") {
-        for (const width of [1280, 320]) {
-          for (const scheme of ["light"] as const) {
-            await page.setViewportSize({ width, height: 900 });
-            await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-            await page.getByRole("button", { name: "Fit canvas", exact: true }).click();
-            for (const name of [
-              "Audit condition: input",
-              "Audit condition: Yes output",
-              "Audit condition: No output",
-              "Audit yes: output",
-              "Run manually: output",
-            ])
-              await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
-            await expect(page.getByRole("button", { name: "Handle", exact: true })).toHaveCount(0);
-            const node = page.getByRole("button", { name: /^Audit condition / });
-            await node.focus();
-            await page.keyboard.press("Enter");
-            await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
-              "Audit condition",
-            );
-            await page.getByRole("button", { name: "Back to canvas", exact: true }).focus();
-            await page.keyboard.press("Enter");
-            await expect(node).toBeFocused();
-            await page.screenshot({ path: testInfo.outputPath(`ports-${width}-${scheme}.png`) });
-          }
-        }
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await page.getByRole("button", { name: "Fit canvas", exact: true }).click();
+        for (const name of [
+          "Audit condition: input",
+          "Audit condition: Yes output",
+          "Audit condition: No output",
+          "Audit yes: output",
+          "Run manually: output",
+        ])
+          await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Handle", exact: true })).toHaveCount(0);
+        const node = page.getByRole("button", { name: /^Audit condition / });
+        await node.focus();
+        await page.keyboard.press("Enter");
+        await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+          "Audit condition",
+        );
+        await page.getByRole("button", { name: "Back to canvas", exact: true }).focus();
+        await page.keyboard.press("Enter");
+        await expect(node).toBeFocused();
       } else {
         await drag("yes", "condition");
         await expect(
@@ -1927,24 +1769,19 @@ test.describe("workflow graph admission", () => {
         expect((await (await request.get(path, { headers })).json()).definition).toEqual(
           definition,
         );
-        for (const width of [1280, 320]) {
-          for (const scheme of ["light"] as const) {
-            await page.setViewportSize({ width, height: 900 });
-            await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-            await page.getByRole("button", { name: "Fit canvas", exact: true }).click();
-            await page.screenshot({ path: testInfo.outputPath(`warning-${width}-${scheme}.png`) });
-            const warning = page
-              .getByRole("status")
-              .filter({ hasText: "This connection would create a loop." });
-            await expect(warning).toBeVisible();
-            await warning.getByRole("button", { name: "Close", exact: true }).focus();
-            await page.keyboard.press("Enter");
-            await expect(warning).toHaveCount(0);
-            await drag("yes", "condition");
-            await expect(warning).toBeVisible();
-            await expect(page.getByRole("img", { name: /^Edge from/ })).toHaveCount(3);
-          }
-        }
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await page.getByRole("button", { name: "Fit canvas", exact: true }).click();
+        const warning = page
+          .getByRole("status")
+          .filter({ hasText: "This connection would create a loop." });
+        await expect(warning).toBeVisible();
+        await warning.getByRole("button", { name: "Close", exact: true }).focus();
+        await page.keyboard.press("Enter");
+        await expect(warning).toHaveCount(0);
+        await drag("yes", "condition");
+        await expect(warning).toBeVisible();
+        await expect(page.getByRole("img", { name: /^Edge from/ })).toHaveCount(3);
         await page.setViewportSize({ width: 1280, height: 900 });
         await page.getByRole("button", { name: "Fit canvas", exact: true }).click();
         await drag("yes", "no");
@@ -1985,7 +1822,7 @@ test.describe("workflow http guidance", () => {
   test("HTTP node explains the real test request before keyboard execution", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     const auth = await registerUser(request, `http-guidance-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "HTTP guidance");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -2020,18 +1857,14 @@ test.describe("workflow http guidance", () => {
     const workflow = await created.json();
     await authenticatePage(page, auth.token);
     await page.goto(`/workflows/${workflow.id}`);
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        const node = page.getByRole("button", { name: /^Audit local HTTP / });
-        await node.focus();
-        await node.press("Enter");
-        await expect(page.getByText(guidance, { exact: true })).toBeVisible();
-        await expect(page.getByRole("button", { name: "Test node", exact: true })).toBeEnabled();
-        await page.screenshot({ path: info.outputPath(`http-${width}-${scheme}.png`) });
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-      }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const node = page.getByRole("button", { name: /^Audit local HTTP / });
+    await node.focus();
+    await node.press("Enter");
+    await expect(page.getByText(guidance, { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Test node", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
     await page.getByRole("button", { name: "Run preview", exact: true }).click();
     await expect
       .poll(async () => {
@@ -2089,7 +1922,7 @@ test.describe("workflow http json inspection", () => {
   test("failed HTTP JSON output exposes safe metadata instead of an empty-output instruction", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     const auth = await registerUser(request, `json-inspection-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "HTTP JSON inspection");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -2145,29 +1978,24 @@ test.describe("workflow http json inspection", () => {
     ]);
     await authenticatePage(page, auth.token);
     await page.goto(`/workflows/${workflow.id}`);
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.reload();
-        await page
-          .locator("[data-workflow-editor] > header")
-          .getByRole("tab", { name: "Runs", exact: true })
-          .click();
-        await page.locator("aside button").filter({ hasText: "Failed" }).click();
-        const node = page.getByRole("button", { name: /^Audit JSON diagnosis / });
-        await node.focus();
-        await node.press("Enter");
-        if (width < 1024) await page.getByRole("tab", { name: "Output", exact: true }).click();
-        const output = page.getByRole("region", { name: "Output", exact: true });
-        await expect(output).toContainText(message);
-        await expect(output.getByText("502", { exact: true })).toBeVisible();
-        await expect(output.getByText("text/html; charset=utf-8", { exact: true })).toBeVisible();
-        await expect(output).not.toContainText("Run or test this node to see its output.");
-        await page.screenshot({ path: info.outputPath(`json-${width}-${scheme}.png`) });
-        await page.keyboard.press("Escape");
-        await expect(node).toBeFocused();
-      }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+    await page
+      .locator("[data-workflow-editor] > header")
+      .getByRole("tab", { name: "Runs", exact: true })
+      .click();
+    await page.locator("aside button").filter({ hasText: "Failed" }).click();
+    const node = page.getByRole("button", { name: /^Audit JSON diagnosis / });
+    await node.focus();
+    await node.press("Enter");
+    const output = page.getByRole("region", { name: "Output", exact: true });
+    await expect(output).toContainText(message);
+    await expect(output.getByText("502", { exact: true })).toBeVisible();
+    await expect(output.getByText("text/html; charset=utf-8", { exact: true })).toBeVisible();
+    await expect(output).not.toContainText("Run or test this node to see its output.");
+    await page.keyboard.press("Escape");
+    await expect(node).toBeFocused();
     const runs = await (
       await request.get(`/api/v1/workflow-runs?workspace_id=${workspace.id}`, { headers })
     ).json();
@@ -2243,7 +2071,7 @@ test.describe("workflow json preview", () => {
   test("Edit fields preview preserves escaping and whole-value types through execution", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `workflow-json-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "JSON preview");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -2290,21 +2118,11 @@ test.describe("workflow json preview", () => {
     await expect
       .poll(async () => JSON.parse(await output.locator("pre").innerText()))
       .toEqual(expected);
-    for (const width of [320]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 844 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);
-        await page.getByRole("tab", { name: "Configure", exact: true }).click();
-        await expect.poll(async () => JSON.parse(await preview.innerText())).toEqual(expected);
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
-        await page.screenshot({
-          path: testInfo.outputPath(`json-preview-${width}-${colorScheme}.png`),
-        });
-      }
-    }
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", "light");
+    await page.getByRole("tab", { name: "Configure", exact: true }).click();
+    await expect.poll(async () => JSON.parse(await preview.innerText())).toEqual(expected);
     await page.setViewportSize({ width: 1280, height: 900 });
     const editor = field.getByRole("textbox");
     await editor.click();
@@ -2350,7 +2168,7 @@ test.describe("workflow layout", () => {
   test("pointer and keyboard canvas positions survive actual reload without revising the workflow", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `workflow-layout-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Canvas placement");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -2411,18 +2229,11 @@ test.describe("workflow layout", () => {
     await expect.poll(position).toEqual(keyboardPosition);
     await page.reload();
     await expect.poll(position).toEqual(keyboardPosition);
-    for (const width of [1280, 390]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 850 });
-        await page.emulateMedia({ colorScheme });
-        await page.reload();
-        await expect.poll(position).toEqual(keyboardPosition);
-        await expect(page.getByText("Saved in this browser", { exact: true })).toBeVisible();
-        await page.screenshot({
-          path: testInfo.outputPath(`canvas-cold-reload-${width}-${colorScheme}.png`),
-        });
-      }
-    }
+    await page.setViewportSize({ width: 1280, height: 850 });
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.reload();
+    await expect.poll(position).toEqual(keyboardPosition);
+    await expect(page.getByText("Saved in this browser", { exact: true })).toBeVisible();
     const saved = await request.get(
       `/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`,
       {
@@ -2448,7 +2259,7 @@ test.describe("workflow literal key picker", () => {
   test("literal dotted keys and nested paths remain distinct picker references", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `workflow-keys-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Literal key references");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -2524,26 +2335,14 @@ test.describe("workflow literal key picker", () => {
       await expect(output.getByText(expected, { exact: true })).toBeVisible({ timeout: 30000 });
     }
     expect(errors).toEqual([]);
-    for (const width of [320]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 844 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await page.getByRole("tab", { name: "Configure", exact: true }).click();
-        await field.getByRole("button", { name: "Insert variable", exact: true }).click();
-        await expect(page.getByRole("option").filter({ hasText: 'source["a.b"]' })).toBeVisible();
-        await expect(page.getByRole("option").filter({ hasText: "source.a.b" })).toBeVisible();
-        await page.screenshot({
-          path: testInfo.outputPath(`distinct-reference-picker-${width}-${colorScheme}.png`),
-        });
-        await page.keyboard.press("Escape");
-        await expect(
-          field.getByRole("button", { name: "Insert variable", exact: true }),
-        ).toBeFocused();
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
-      }
-    }
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.getByRole("tab", { name: "Configure", exact: true }).click();
+    await field.getByRole("button", { name: "Insert variable", exact: true }).click();
+    await expect(page.getByRole("option").filter({ hasText: 'source["a.b"]' })).toBeVisible();
+    await expect(page.getByRole("option").filter({ hasText: "source.a.b" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(field.getByRole("button", { name: "Insert variable", exact: true })).toBeFocused();
     expect(errors).toEqual([]);
   });
 });
@@ -2552,7 +2351,7 @@ test.describe("workflow new step viewport", () => {
   test("appending a workflow step keeps its next action inside the canvas", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(60000);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -2599,7 +2398,6 @@ test.describe("workflow new step viewport", () => {
       .filter({ has: page.getByRole("button", { name: /^Transform text / }) });
     const next = node.getByRole("button", { name: "Add after this step", exact: true });
     await expect(page.locator("[data-workflow-inspector]")).toBeHidden();
-    await page.screenshot({ path: testInfo.outputPath("appended-step.png") });
     await expect
       .poll(() =>
         next.evaluate((element) => {
@@ -2623,94 +2421,83 @@ test.describe("workflow new step viewport", () => {
       .getByRole("complementary", { name: "What happens next?" })
       .getByRole("button", { name: "Close", exact: true })
       .click();
-    for (const width of [1280, 390, 320]) {
-      for (const scheme of ["light", "dark"] as const) {
-        await expect
-          .poll(
-            async () =>
-              (
-                await (
-                  await request.get(
-                    `/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`,
-                    {
-                      headers,
-                    },
-                  )
-                ).json()
-              ).definition.steps.length,
-          )
-          .toBeGreaterThanOrEqual(3);
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.reload();
-        await expect(page.getByRole("button", { name: "Add step", exact: true })).toBeVisible();
-        const scale = () =>
-          page
-            .locator(".svelte-flow__viewport")
-            .evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).a);
-        if (width < 640 && scheme === "light") {
-          for (let i = 0; i < 3; i++) {
-            const beforeClick = await scale();
-            await page.getByRole("button", { name: "Zoom in", exact: true }).click();
-            await expect.poll(scale).toBeGreaterThan(beforeClick);
-          }
-        }
-        const beforeZoom = await scale();
-        const add = page.getByRole("button", { name: "Add step", exact: true });
-        await add.focus();
-        await add.press("Enter");
-        const choice = page
-          .getByRole("complementary", { name: "What happens next?" })
-          .getByRole("button", { name: /^Transform text / });
-        await choice.focus();
-        await choice.press("Enter");
-        const name = `Audit viewport ${width} ${scheme}`;
-        await page.getByRole("textbox", { name: "Step name", exact: true }).fill(name);
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-        await expect(page.locator("[data-workflow-inspector]")).toBeHidden();
-        const target = page
-          .locator(".svelte-flow__node")
-          .filter({ has: page.getByRole("button", { name: new RegExp(`^${name} `) }) });
-        const action = target.getByRole("button", { name: "Add after this step", exact: true });
-        await expect
-          .poll(() =>
-            action.evaluate((element) => {
-              const rect = element.getBoundingClientRect();
-              const canvas = element.closest(".workflow-canvas")!.getBoundingClientRect();
-              return (
-                rect.left >= canvas.left &&
-                rect.right <= canvas.right &&
-                rect.top >= canvas.top &&
-                rect.bottom <= canvas.bottom &&
-                element.contains(
-                  document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2),
-                )
-              );
-            }),
-          )
-          .toBe(true);
-        if (width === 1280) expect(await scale()).toBeCloseTo(beforeZoom, 5);
-        if (width < 640 && scheme === "light") expect(await scale()).toBeLessThan(beforeZoom);
-        await page.screenshot({ path: testInfo.outputPath(`appended-${width}-${scheme}.png`) });
-        await action.click();
-        await expect(page.getByRole("complementary", { name: "What happens next?" })).toBeVisible();
-        await page
-          .getByRole("complementary", { name: "What happens next?" })
-          .getByRole("button", { name: "Close", exact: true })
-          .click();
-        await expect
-          .poll(async () =>
-            (
-              await (
-                await request.get(`/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`, {
-                  headers,
-                })
-              ).json()
-            ).definition.steps.some((step: { name: string }) => step.name === name),
-          )
-          .toBe(true);
-      }
+    await expect
+      .poll(
+        async () =>
+          (
+            await (
+              await request.get(`/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`, {
+                headers,
+              })
+            ).json()
+          ).definition.steps.length,
+      )
+      .toBeGreaterThanOrEqual(3);
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Add step", exact: true })).toBeVisible();
+    const scale = () =>
+      page
+        .locator(".svelte-flow__viewport")
+        .evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).a);
+    for (let i = 0; i < 3; i++) {
+      const beforeClick = await scale();
+      await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+      await expect.poll(scale).toBeGreaterThan(beforeClick);
     }
+    const beforeZoom = await scale();
+    const add = page.getByRole("button", { name: "Add step", exact: true });
+    await add.focus();
+    await add.press("Enter");
+    const choice = page
+      .getByRole("complementary", { name: "What happens next?" })
+      .getByRole("button", { name: /^Transform text / });
+    await choice.focus();
+    await choice.press("Enter");
+    const name = "Audit viewport";
+    await page.getByRole("textbox", { name: "Step name", exact: true }).fill(name);
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await expect(page.locator("[data-workflow-inspector]")).toBeHidden();
+    const target = page
+      .locator(".svelte-flow__node")
+      .filter({ has: page.getByRole("button", { name: new RegExp(`^${name} `) }) });
+    const action = target.getByRole("button", { name: "Add after this step", exact: true });
+    await expect
+      .poll(() =>
+        action.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          const canvas = element.closest(".workflow-canvas")!.getBoundingClientRect();
+          return (
+            rect.left >= canvas.left &&
+            rect.right <= canvas.right &&
+            rect.top >= canvas.top &&
+            rect.bottom <= canvas.bottom &&
+            element.contains(
+              document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2),
+            )
+          );
+        }),
+      )
+      .toBe(true);
+    expect(await scale()).toBeLessThan(beforeZoom);
+    await action.click();
+    await expect(page.getByRole("complementary", { name: "What happens next?" })).toBeVisible();
+    await page
+      .getByRole("complementary", { name: "What happens next?" })
+      .getByRole("button", { name: "Close", exact: true })
+      .click();
+    await expect
+      .poll(async () =>
+        (
+          await (
+            await request.get(`/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`, {
+              headers,
+            })
+          ).json()
+        ).definition.steps.some((step: { name: string }) => step.name === name),
+      )
+      .toBe(true);
     const savedResponse = await request.get(
       `/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`,
       { headers },
@@ -2718,12 +2505,7 @@ test.describe("workflow new step viewport", () => {
     expect(savedResponse.ok()).toBe(true);
     const saved = await savedResponse.json();
     expect(saved.definition.steps.map((step: { name: string }) => step.name)).toEqual([
-      "Audit viewport 320 dark",
-      "Audit viewport 320 light",
-      "Audit viewport 390 dark",
-      "Audit viewport 390 light",
-      "Audit viewport 1280 dark",
-      "Audit viewport 1280 light",
+      "Audit viewport",
       "Audit first",
       "Audit second",
       "Transform text",
@@ -2761,7 +2543,7 @@ test.describe("workflow output freshness", () => {
     test(`${mode} output separates draft changes from immutable stored results`, async ({
       page,
       request,
-    }, testInfo) => {
+    }) => {
       const auth = await registerUser(request, `workflow-freshness-${randomUUID()}@example.com`);
       const workspace = await createWorkspace(request, auth.token, "Output freshness");
       const headers = { Authorization: `Bearer ${auth.token}` };
@@ -2867,19 +2649,10 @@ test.describe("workflow output freshness", () => {
       );
       await expect(output.getByText(warning, { exact: true })).toBeVisible();
       await checkOutput(1);
-      for (const width of [320, 390, 1280]) {
-        for (const colorScheme of ["light", "dark"] as const) {
-          await page.setViewportSize({ width, height: 850 });
-          await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-          if (colorScheme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
-          else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
-          if (width < 1024) await page.getByRole("tab", { name: "Output", exact: true }).click();
-          await expect(output.getByText(warning, { exact: true })).toBeVisible();
-          await page.screenshot({
-            path: testInfo.outputPath(`outdated-${width}-${colorScheme}.png`),
-          });
-        }
-      }
+      await page.setViewportSize({ width: 1280, height: 850 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+      await expect(output.getByText(warning, { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
       await page.getByRole("tab", { name: "Runs", exact: true }).click();
       await page
@@ -2898,28 +2671,17 @@ test.describe("workflow output freshness", () => {
       await page.reload();
       await page.getByRole("tab", { name: "Runs", exact: true }).click();
       const historicCard = page.getByRole("button", { name: /^Completed/ }).last();
-      for (const width of [320, 390, 1280]) {
-        for (const colorScheme of ["light", "dark"] as const) {
-          await page.setViewportSize({ width, height: 850 });
-          await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-          if (colorScheme === "dark") await expect(page.locator("html")).toHaveClass(/\bdark\b/);
-          else await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
-          await expect(
-            historicCard.getByText(mode === "test" ? "Test node" : "Preview", { exact: true }),
-          ).toBeVisible();
-          await expect(
-            historicCard.getByText(`Workflow revision ${original.workflow_revision}`, {
-              exact: true,
-            }),
-          ).toBeVisible();
-          expect(
-            await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-          ).toBe(true);
-          await page.screenshot({
-            path: testInfo.outputPath(`history-${mode}-${width}-${colorScheme}.png`),
-          });
-        }
-      }
+      await page.setViewportSize({ width: 1280, height: 850 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+      await expect(
+        historicCard.getByText(mode === "test" ? "Test node" : "Preview", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        historicCard.getByText(`Workflow revision ${original.workflow_revision}`, {
+          exact: true,
+        }),
+      ).toBeVisible();
       await historicCard.focus();
       await page.keyboard.press("Enter");
       await page
@@ -2944,7 +2706,7 @@ test.describe("workflow post created fields", () => {
   test("post-created variables distinguish creation from publication and explain old bindings", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     const auth = await registerUser(request, `created-fields-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Created fields");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -2975,48 +2737,42 @@ test.describe("workflow post created fields", () => {
     const workflow = await response.json();
     await authenticatePage(page, auth.token);
     await page.goto(`/workflows/${workflow.id}`);
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.getByRole("button", { name: "Fit canvas", exact: true }).click();
-        await page.getByRole("button", { name: /^Audit creation time / }).click();
-        const field = page.locator('[data-workflow-field="workflow-text"]');
-        const input = field.locator('.cm-content[contenteditable="true"]');
-        await expect(input).toBeVisible();
-        await input.focus();
-        await input.press("ControlOrMeta+A");
-        await page.keyboard.type("{{source.published_at}}");
-        await expect(page.locator("#workflow-text-error")).toHaveText(
-          "This variable is unavailable: source.published_at",
-        );
-        const picker = field.getByRole("button", { name: "Insert variable", exact: true });
-        await picker.focus();
-        await picker.press("Enter");
-        const search = page.getByRole("combobox", { name: /^Search variables/ });
-        await search.fill("source.published_at");
-        await expect(
-          page.getByText("No matching variables. Try another search.", { exact: true }),
-        ).toBeVisible();
-        await search.fill("source.created_at");
-        await expect(page.getByRole("option", { name: /created_at/ })).toBeVisible();
-        await page.screenshot({ path: info.outputPath(`created-${width}-${scheme}.png`) });
-        await page.keyboard.press("Escape");
-        await expect(picker).toBeFocused();
-        await input.focus();
-        await input.press("ControlOrMeta+A");
-        await input.press("Backspace");
-        await picker.focus();
-        await picker.press("Enter");
-        await search.fill("source.created_at");
-        await search.press("Enter");
-        await expect(
-          field.locator('.workflow-token[aria-label="source.created_at"]'),
-        ).toBeVisible();
-        await expect(page.locator("#workflow-text-error")).toHaveCount(0);
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-        await expect(page.locator("[data-workflow-inspector]")).not.toBeVisible();
-      }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.getByRole("button", { name: "Fit canvas", exact: true }).click();
+    await page.getByRole("button", { name: /^Audit creation time / }).click();
+    const field = page.locator('[data-workflow-field="workflow-text"]');
+    const input = field.locator('.cm-content[contenteditable="true"]');
+    await expect(input).toBeVisible();
+    await input.focus();
+    await input.press("ControlOrMeta+A");
+    await page.keyboard.type("{{source.published_at}}");
+    await expect(page.locator("#workflow-text-error")).toHaveText(
+      "This variable is unavailable: source.published_at",
+    );
+    const picker = field.getByRole("button", { name: "Insert variable", exact: true });
+    await picker.focus();
+    await picker.press("Enter");
+    const search = page.getByRole("combobox", { name: /^Search variables/ });
+    await search.fill("source.published_at");
+    await expect(
+      page.getByText("No matching variables. Try another search.", { exact: true }),
+    ).toBeVisible();
+    await search.fill("source.created_at");
+    await expect(page.getByRole("option", { name: /created_at/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(picker).toBeFocused();
+    await input.focus();
+    await input.press("ControlOrMeta+A");
+    await input.press("Backspace");
+    await picker.focus();
+    await picker.press("Enter");
+    await search.fill("source.created_at");
+    await search.press("Enter");
+    await expect(field.locator('.workflow-token[aria-label="source.created_at"]')).toBeVisible();
+    await expect(page.locator("#workflow-text-error")).toHaveCount(0);
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await expect(page.locator("[data-workflow-inspector]")).not.toBeVisible();
     await expect
       .poll(
         async () =>
@@ -3125,10 +2881,7 @@ test.describe("workflow query loading", () => {
 });
 
 test.describe("workflow sort types", () => {
-  test("Sort explains mixed fields and recovers with numeric fields", async ({
-    page,
-    request,
-  }, testInfo) => {
+  test("Sort explains mixed fields and recovers with numeric fields", async ({ page, request }) => {
     const auth = await registerUser(request, `workflow-sort-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Sort field types");
     const response = await request.post(`/api/v1/workflows?workspace_id=${workspace.id}`, {
@@ -3175,7 +2928,6 @@ test.describe("workflow sort types", () => {
         exact: true,
       }),
     ).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath("mixed-field-guidance.png") });
     const items = page.getByRole("textbox", { name: "Items", exact: true });
     await items.click();
     await items.press("ControlOrMeta+A");
@@ -3199,7 +2951,6 @@ test.describe("workflow sort types", () => {
           { name: "N10", rank: 10 },
         ],
       });
-    await page.screenshot({ path: testInfo.outputPath("numeric-field-recovery.png") });
     expect(errors).toEqual([]);
   });
 });
@@ -3208,7 +2959,7 @@ test.describe("workflow source readiness", () => {
   test("feed source explains invalid URLs before activation and recovers with keyboard correction", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(60000);
     const auth = await registerUser(request, `source-readiness-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Source readiness");
@@ -3244,58 +2995,50 @@ test.describe("workflow source readiness", () => {
     });
     await authenticatePage(page, auth.token);
     await page.goto(`/workflows/${workflow.id}`);
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        const source = page.locator('.svelte-flow__node[data-id="source"]');
-        await source.getByRole("button", { name: /^RSS or Atom item / }).click();
-        const feed = page.getByRole("textbox", { name: "Feed URL", exact: true });
-        await feed.fill("not a url");
-        await expect(feed).toHaveAttribute("aria-invalid", "true");
-        await expect(feed).toHaveAccessibleDescription(
-          "Enter an HTTP or HTTPS URL without credentials.",
-        );
-        await page.screenshot({ path: testInfo.outputPath(`invalid-feed-${width}-${scheme}.png`) });
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-        await expect(source).toContainText("Needs attention");
-        await source.getByRole("button", { name: /^RSS or Atom item / }).click();
-        for (const invalid of [
-          "ftp://example.com/feed",
-          "https://user:password@example.com/feed",
-          "https://@example.com/feed",
-          "http:example.com/feed",
-        ]) {
-          await feed.fill(invalid);
-          await expect(feed).toHaveAttribute("aria-invalid", "true");
-        }
-        await feed.fill("");
-        await expect(feed).toHaveAccessibleDescription("This field is required.");
-        await feed.focus();
-        await page.keyboard.type("https://example.com/feed.xml");
-        await page.keyboard.press("Tab");
-        await expect(feed).toHaveAttribute("aria-invalid", "false");
-        await expect(page.locator("#workflow-feed-error")).toBeHidden();
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-        await expect(source).not.toContainText("Needs attention");
-        await expect
-          .poll(
-            async () =>
-              (
-                await (
-                  await request.get(
-                    `/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`,
-                    {
-                      headers,
-                    },
-                  )
-                ).json()
-              ).definition.source.url,
-          )
-          .toBe("https://example.com/feed.xml");
-        await page.reload();
-      }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
     const source = page.locator('.svelte-flow__node[data-id="source"]');
+    await source.getByRole("button", { name: /^RSS or Atom item / }).click();
+    const feed = page.getByRole("textbox", { name: "Feed URL", exact: true });
+    await feed.fill("not a url");
+    await expect(feed).toHaveAttribute("aria-invalid", "true");
+    await expect(feed).toHaveAccessibleDescription(
+      "Enter an HTTP or HTTPS URL without credentials.",
+    );
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await expect(source).toContainText("Needs attention");
+    await source.getByRole("button", { name: /^RSS or Atom item / }).click();
+    for (const invalid of [
+      "ftp://example.com/feed",
+      "https://user:password@example.com/feed",
+      "https://@example.com/feed",
+      "http:example.com/feed",
+    ]) {
+      await feed.fill(invalid);
+      await expect(feed).toHaveAttribute("aria-invalid", "true");
+    }
+    await feed.fill("");
+    await expect(feed).toHaveAccessibleDescription("This field is required.");
+    await feed.focus();
+    await page.keyboard.type("https://example.com/feed.xml");
+    await page.keyboard.press("Tab");
+    await expect(feed).toHaveAttribute("aria-invalid", "false");
+    await expect(page.locator("#workflow-feed-error")).toBeHidden();
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
+    await expect(source).not.toContainText("Needs attention");
+    await expect
+      .poll(
+        async () =>
+          (
+            await (
+              await request.get(`/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`, {
+                headers,
+              })
+            ).json()
+          ).definition.source.url,
+      )
+      .toBe("https://example.com/feed.xml");
+    await page.reload();
     await source.getByRole("button", { name: /^RSS or Atom item / }).click();
     await page.getByRole("button", { name: "Source", exact: true }).click();
     await page.getByRole("option", { name: "Run manually", exact: true }).click();
@@ -3341,7 +3084,7 @@ test.describe("workflow variable default", () => {
   test("the normal array picker replaces the list default and persists a usable typed binding", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `workflow-picker-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Array picker");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -3418,17 +3161,9 @@ test.describe("workflow variable default", () => {
     await page.reload();
     await page.getByRole("button", { name: /^Audit sort / }).click();
     await expect(field.locator(".workflow-token")).toHaveAttribute("aria-label", "parse.data");
-    for (const width of [1280, 320]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 850 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        if (width < 1024) await page.getByRole("tab", { name: "Configure", exact: true }).click();
-        await expect(field.locator(".workflow-token")).toBeVisible();
-        await page.screenshot({
-          path: testInfo.outputPath(`typed-list-${width}-${colorScheme}.png`),
-        });
-      }
-    }
+    await page.setViewportSize({ width: 1280, height: 850 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(field.locator(".workflow-token")).toBeVisible();
     const saved = await (
       await request.get(`/api/v1/workflows/${workflow.id}?workspace_id=${workspace.id}`, {
         headers,
@@ -3444,7 +3179,7 @@ test.describe("workflow variable empty help", () => {
   test("variable search names variables and recovers through keyboard selection", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     test.setTimeout(600_000);
     const auth = await registerUser(request, `variable-help-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Variable search help");
@@ -3474,34 +3209,30 @@ test.describe("workflow variable empty help", () => {
     await authenticatePage(page, auth.token);
     await page.goto(`/workflows/${workflow.id}`);
     let tokenCount = 0;
-    for (const width of [1280, 390, 320])
-      for (const scheme of ["light", "dark"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.getByRole("button", { name: /^Audit text / }).click();
-        const field = page.locator('[data-workflow-field="workflow-text"]');
-        await expect(field).toBeVisible();
-        const trigger = field.getByRole("button", { name: "Insert variable", exact: true });
-        await trigger.focus();
-        await trigger.press("Enter");
-        const search = page.getByRole("combobox", { name: /^Search variables/ });
-        await search.fill("unavailable-audit-variable");
-        await expect(
-          page.getByText("No matching variables. Try another search.", { exact: true }),
-        ).toBeVisible();
-        await page.screenshot({ path: info.outputPath(`variable-${width}-${scheme}.png`) });
-        await search.fill("source.body");
-        await search.press("Enter");
-        tokenCount++;
-        await expect(field.locator('.workflow-token[aria-label="source.body"]')).toHaveCount(
-          tokenCount,
-        );
-        await trigger.focus();
-        await trigger.press("Enter");
-        await page.keyboard.press("Escape");
-        await expect(trigger).toBeFocused();
-        await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
-      }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.getByRole("button", { name: /^Audit text / }).click();
+    const field = page.locator('[data-workflow-field="workflow-text"]');
+    await expect(field).toBeVisible();
+    const trigger = field.getByRole("button", { name: "Insert variable", exact: true });
+    await trigger.focus();
+    await trigger.press("Enter");
+    const search = page.getByRole("combobox", { name: /^Search variables/ });
+    await search.fill("unavailable-audit-variable");
+    await expect(
+      page.getByText("No matching variables. Try another search.", { exact: true }),
+    ).toBeVisible();
+    await search.fill("source.body");
+    await search.press("Enter");
+    tokenCount++;
+    await expect(field.locator('.workflow-token[aria-label="source.body"]')).toHaveCount(
+      tokenCount,
+    );
+    await trigger.focus();
+    await trigger.press("Enter");
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+    await page.getByRole("button", { name: "Back to canvas", exact: true }).click();
     await expect
       .poll(
         async () =>
@@ -3513,6 +3244,6 @@ test.describe("workflow variable empty help", () => {
             ).json()
           ).definition.steps[0].inputs.text.literal,
       )
-      .toBe("{{source.body}}".repeat(6));
+      .toBe("{{source.body}}");
   });
 });

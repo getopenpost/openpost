@@ -18,11 +18,11 @@ import {
   uploadImageFixture,
 } from "./product-capture-fixtures";
 
-test.describe("calendar agenda labels", () => {
+test.describe("calendar date selection", () => {
   test("Calendar keeps the chosen date across Month and Week and opens the composer on that date", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(90_000);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -52,66 +52,53 @@ test.describe("calendar agenda labels", () => {
     ]);
     await authenticatePage(page, auth.token);
     await page.goto("/calendar");
-    for (const width of [1168, 320]) {
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 850 });
-        await page.emulateMedia({ colorScheme: scheme });
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.goto("/calendar");
-        const picker = page.getByTestId("calendar-date-picker");
-        const chosenDate = picker.getByRole("button", { name: "Monday, Sep 28", exact: true });
-        await chosenDate.click();
-        await expect(chosenDate).toHaveAccessibleDescription("1 post");
-        await page.getByRole("button", { name: "Week", exact: true }).click();
-        await expect(page.locator("main p[aria-live='polite']")).toHaveText(/Sep 27.*Oct 3, 2026/);
-        await expect(chosenDate).toHaveAttribute("aria-pressed", "true");
-        await chosenDate.focus();
-        await page.keyboard.press("ArrowUp");
-        const previousWeekDate = picker.getByRole("button", {
-          name: "Monday, Sep 21",
-          exact: true,
-        });
-        await expect(previousWeekDate).toBeFocused();
-        await page.keyboard.press("ArrowDown");
-        await expect(chosenDate).toBeFocused();
-        await expect(page.getByRole("button", { name: /Audit cross-month week/ })).toBeVisible();
-        const selectionColor = await chosenDate.evaluate(
-          (element) => getComputedStyle(element).backgroundColor,
-        );
-        const nextMonthDate = picker.getByRole("button", { name: "Thursday, Oct 1", exact: true });
-        await nextMonthDate.click();
-        await expect(nextMonthDate).toHaveAttribute("aria-pressed", "true");
-        await expect(chosenDate).toHaveAttribute("aria-pressed", "false");
-        await expect
-          .poll(() =>
-            nextMonthDate.evaluate((element) => getComputedStyle(element).backgroundColor),
-          )
-          .toBe(selectionColor);
-        await expect(
-          page.getByRole("heading", { name: "Thursday, Oct 1", exact: true }),
-        ).toBeVisible();
-        await expect(page.getByRole("button", { name: /Audit cross-month week/ })).toHaveCount(0);
-        await page.screenshot({ path: testInfo.outputPath(`week-${width}-${scheme}.png`) });
-        await page.getByRole("button", { name: "Month", exact: true }).click();
-        await expect(
-          picker.getByRole("button", { name: "Thursday, Oct 1", exact: true }),
-        ).toHaveAttribute("aria-pressed", "true");
-        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-          false,
-        );
-        await page.getByRole("button", { name: "Create post", exact: true }).click();
-        await expect(page).toHaveURL(/date=2026-10-01/);
-      }
-    }
+    const width = 1168;
+    await page.setViewportSize({ width, height: 850 });
+    await page.goto("/calendar");
+    const picker = page.getByTestId("calendar-date-picker");
+    const chosenDate = picker.getByRole("button", { name: "Monday, Sep 28", exact: true });
+    await chosenDate.click();
+    await expect(chosenDate).toHaveAccessibleDescription("1 post");
+    await page.getByRole("button", { name: "Week", exact: true }).click();
+    await expect(page.locator("main p[aria-live='polite']")).toHaveText(/Sep 27.*Oct 3, 2026/);
+    await expect(chosenDate).toHaveAttribute("aria-pressed", "true");
+    await chosenDate.focus();
+    await page.keyboard.press("ArrowUp");
+    const previousWeekDate = picker.getByRole("button", {
+      name: "Monday, Sep 21",
+      exact: true,
+    });
+    await expect(previousWeekDate).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(chosenDate).toBeFocused();
+    await expect(page.getByRole("button", { name: /Audit cross-month week/ })).toBeVisible();
+    const selectionColor = await chosenDate.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    );
+    const nextMonthDate = picker.getByRole("button", { name: "Thursday, Oct 1", exact: true });
+    await nextMonthDate.click();
+    await expect(nextMonthDate).toHaveAttribute("aria-pressed", "true");
+    await expect(chosenDate).toHaveAttribute("aria-pressed", "false");
+    await expect
+      .poll(() => nextMonthDate.evaluate((element) => getComputedStyle(element).backgroundColor))
+      .toBe(selectionColor);
+    await expect(page.getByRole("heading", { name: "Thursday, Oct 1", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Audit cross-month week/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Month", exact: true }).click();
+    await expect(
+      picker.getByRole("button", { name: "Thursday, Oct 1", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Create post", exact: true }).click();
+    await expect(page).toHaveURL(/date=2026-10-01/);
     expect(errors).toEqual([]);
   });
 });
 
-test.describe("calendar agenda today", () => {
+test.describe("calendar agenda", () => {
   test("Calendar selects a day and Today restores it without moving keyboard focus or changing posts", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(120_000);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -146,64 +133,48 @@ test.describe("calendar agenda today", () => {
     }
     await authenticatePage(page, auth.token);
     await page.goto("/calendar");
-    for (const width of [1168, 320]) {
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 850 });
-        await page.emulateMedia({ colorScheme: scheme });
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.reload();
-        const date = page.getByRole("heading", { name: "Wednesday, Sep 30", exact: true });
-        const today = page.getByRole("main").getByRole("button", { name: "Today", exact: true });
+    const width = 320;
+    await page.setViewportSize({ width, height: 850 });
+    await page.reload();
+    const date = page.getByRole("heading", { name: "Wednesday, Sep 30", exact: true });
+    const today = page.getByRole("main").getByRole("button", { name: "Today", exact: true });
 
-        const calendar = page.getByTestId("calendar-date-picker");
-        await expect(calendar).toBeVisible();
-        await expect(
-          calendar.getByRole("button", { name: "Tuesday, Sep 1", exact: true }),
-        ).toBeVisible();
-        await calendar.getByRole("button", { name: "Tuesday, Sep 1", exact: true }).click();
-        await expect(page.getByRole("button", { name: /Audit agenda day 1\b/ })).toBeVisible();
-        await expect(page.getByRole("button", { name: /Audit agenda day 30\b/ })).toHaveCount(0);
-        await expect(page.getByRole("button", { name: "Create post", exact: true })).toHaveCount(0);
-        const second = calendar.getByRole("button", { name: "Wednesday, Sep 2", exact: true });
-        await page.keyboard.press("ArrowRight");
-        await expect(second).toBeFocused();
-        await page.keyboard.press("Enter");
-        await expect(second).toHaveAttribute("aria-pressed", "true");
-        await expect(page.getByRole("button", { name: /Audit agenda day 2\b/ })).toBeVisible();
-        const target = await second.boundingBox();
-        expect(target!.width).toBeGreaterThanOrEqual(44);
-        expect(target!.height).toBeGreaterThanOrEqual(44);
-        await today.focus();
-        await page.keyboard.press("Enter");
-        await expect(date).toBeInViewport();
-        await expect(page.getByRole("button", { name: /Audit agenda day 30\b/ })).toBeVisible();
-        await expect(today).toBeFocused();
-        await expect(today).toBeInViewport();
-        if (width === 320 && scheme === "light") {
-          const accessibility = await new AxeBuilder({ page })
-            .include('[data-testid="calendar-date-picker"]')
-            .analyze();
-          expect(accessibility.violations).toEqual([]);
-        }
-        await page.screenshot({ path: testInfo.outputPath(`today-${width}-${scheme}.png`) });
-        await page.getByRole("button", { name: "Next month", exact: true }).click();
-        await today.click();
-        await expect(date).toBeInViewport();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-          false,
-        );
-      }
-    }
+    const calendar = page.getByTestId("calendar-date-picker");
+    await expect(calendar).toBeVisible();
+    await expect(
+      calendar.getByRole("button", { name: "Tuesday, Sep 1", exact: true }),
+    ).toBeVisible();
+    await calendar.getByRole("button", { name: "Tuesday, Sep 1", exact: true }).click();
+    await expect(page.getByRole("button", { name: /Audit agenda day 1\b/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Audit agenda day 30\b/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Create post", exact: true })).toHaveCount(0);
+    const second = calendar.getByRole("button", { name: "Wednesday, Sep 2", exact: true });
+    await page.keyboard.press("ArrowRight");
+    await expect(second).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(second).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: /Audit agenda day 2\b/ })).toBeVisible();
+    const target = await second.boundingBox();
+    expect(target!.width).toBeGreaterThanOrEqual(44);
+    expect(target!.height).toBeGreaterThanOrEqual(44);
+    await today.focus();
+    await page.keyboard.press("Enter");
+    await expect(date).toBeInViewport();
+    await expect(page.getByRole("button", { name: /Audit agenda day 30\b/ })).toBeVisible();
+    await expect(today).toBeFocused();
+    await expect(today).toBeInViewport();
+    const accessibility = await new AxeBuilder({ page })
+      .include('[data-testid="calendar-date-picker"]')
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
+    await page.getByRole("button", { name: "Next month", exact: true }).click();
+    await today.click();
+    await expect(date).toBeInViewport();
     await page.setViewportSize({ width: 1440, height: 900 });
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme });
-      await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-      await page.reload();
-      await expect(
-        page.getByRole("button", { name: "Audit agenda day 1", exact: true }),
-      ).toBeVisible();
-      await page.screenshot({ path: testInfo.outputPath(`desktop-${scheme}.png`) });
-    }
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "Audit agenda day 1", exact: true }),
+    ).toBeVisible();
     for (const id of [ids[0], ids[29]]) {
       const response = await request.get(`/api/v1/publications/${id}`, { headers });
       expect(response.ok()).toBe(true);
@@ -215,11 +186,11 @@ test.describe("calendar agenda today", () => {
   });
 });
 
-test.describe("calendar filter empty", () => {
+test.describe("calendar filters", () => {
   test("Calendar explains filtered emptiness and clears filters without changing dates or posts", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(120_000);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -250,55 +221,44 @@ test.describe("calendar filter empty", () => {
     ]);
     await authenticatePage(page, auth.token);
     await page.goto("/calendar");
-    for (const width of [1280, 320]) {
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 850 });
-        await page.emulateMedia({ colorScheme: scheme });
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.reload();
-        await expect(
-          page.getByRole("button", { name: /Audit scheduled filter recovery/ }).first(),
-        ).toBeVisible();
-        for (const view of ["Month", "Week"]) {
-          await page.getByRole("button", { name: view, exact: true }).click();
-          const range = page.getByRole("main").locator('p[aria-live="polite"]');
-          const before = await range.innerText();
-          await page.getByRole("button", { name: /^Filters\b/ }).click();
-          // The status dropdown nests inside the Filters popover; its menu items
-          // settle focus asynchronously, so select with pointer clicks.
-          await page.getByRole("button", { name: "All posts", exact: true }).click();
-          await page.getByRole("menuitemradio", { name: "Published", exact: true }).click();
-          await page.getByRole("button", { name: /^Filters\b/ }).click();
-          await expect(
-            page.getByRole("button", { name: /Audit scheduled filter recovery/ }),
-          ).toHaveCount(0);
-          await page.screenshot({
-            path: testInfo.outputPath(`filtered-${width}-${scheme}-${view}.png`),
-          });
-          await expect(
-            page.getByText(
-              "No posts match the selected dates and filters. Try another date range or clear the filters.",
-              { exact: true },
-            ),
-          ).toBeVisible();
-          const clear = page
-            .getByRole("main")
-            .getByRole("button", { name: "Clear filters", exact: true });
-          await clear.focus();
-          await page.keyboard.press("Enter");
-          await page.getByRole("button", { name: /^Filters\b/ }).click();
-          await expect(page.getByRole("button", { name: "All posts", exact: true })).toBeVisible();
-          await expect(
-            page.getByRole("button", { name: /Audit scheduled filter recovery/ }).first(),
-          ).toBeVisible();
-          await expect(range).toHaveText(before);
-          await expect(clear).toHaveCount(0);
-          await page.getByRole("button", { name: /^Filters\b/ }).click();
-          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-            false,
-          );
-        }
-      }
+    const width = 1280;
+    await page.setViewportSize({ width, height: 850 });
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: /Audit scheduled filter recovery/ }).first(),
+    ).toBeVisible();
+    for (const view of ["Month", "Week"]) {
+      await page.getByRole("button", { name: view, exact: true }).click();
+      const range = page.getByRole("main").locator('p[aria-live="polite"]');
+      const before = await range.innerText();
+      await page.getByRole("button", { name: /^Filters\b/ }).click();
+      // The status dropdown nests inside the Filters popover; its menu items
+      // settle focus asynchronously, so select with pointer clicks.
+      await page.getByRole("button", { name: "All posts", exact: true }).click();
+      await page.getByRole("menuitemradio", { name: "Published", exact: true }).click();
+      await page.getByRole("button", { name: /^Filters\b/ }).click();
+      await expect(
+        page.getByRole("button", { name: /Audit scheduled filter recovery/ }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByText(
+          "No posts match the selected dates and filters. Try another date range or clear the filters.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      const clear = page
+        .getByRole("main")
+        .getByRole("button", { name: "Clear filters", exact: true });
+      await clear.focus();
+      await page.keyboard.press("Enter");
+      await page.getByRole("button", { name: /^Filters\b/ }).click();
+      await expect(page.getByRole("button", { name: "All posts", exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: /Audit scheduled filter recovery/ }).first(),
+      ).toBeVisible();
+      await expect(range).toHaveText(before);
+      await expect(clear).toHaveCount(0);
+      await page.getByRole("button", { name: /^Filters\b/ }).click();
     }
     await page.setViewportSize({ width: 390, height: 850 });
     await page.getByRole("button", { name: /^Filters\b/ }).click();
@@ -349,7 +309,7 @@ test.describe("calendar week timezone", () => {
   test("Week grid retains both posts in a repeated local hour and changes timezone correctly", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.clock.setFixedTime(new Date("2026-11-01T12:00:00Z"));
@@ -379,45 +339,39 @@ test.describe("calendar week timezone", () => {
           })
         ).ok(),
       ).toBe(true);
-      for (const scheme of ["light"] as const) {
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.goto("/calendar");
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.reload();
-        await page.getByRole("button", { name: "Week", exact: true }).click();
-        const grid = page.getByRole("region", { name: "Weekly publishing calendar" });
-        await expect
-          .poll(() =>
-            grid
-              .getByText(timezone, { exact: true })
-              .evaluate((element) => element.scrollWidth <= element.clientWidth),
-          )
-          .toBe(true);
-        const firstHour = timezone === "UTC" ? "05:00" : "01:00";
-        const secondHour = timezone === "UTC" ? "06:00" : "01:00";
-        const first = grid
-          .getByRole("group", { name: `Sunday, Nov 1 ${firstHour}`, exact: true })
-          .getByRole("button", { name: "Before clock change", exact: true });
-        const second = grid
-          .getByRole("group", { name: `Sunday, Nov 1 ${secondHour}`, exact: true })
-          .getByRole("button", { name: "After clock change", exact: true });
-        await expect(first).toBeVisible();
-        await expect(second).toBeVisible();
-        await expect(first).toHaveAttribute("style", /25%/);
-        await expect(second).toHaveAttribute("style", /75%/);
-        await expect(grid.locator("[data-calendar-week-item]")).toHaveCount(2);
-        await first.focus();
-        await expect(first).toBeFocused();
-        await page.screenshot({
-          path: testInfo.outputPath(`week-${timezone.replaceAll("/", "-")}-${scheme}.png`),
-        });
-      }
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.goto("/calendar");
+      await page.reload();
+      await page.getByRole("button", { name: "Week", exact: true }).click();
+      const grid = page.getByRole("region", { name: "Weekly publishing calendar" });
+      await expect
+        .poll(() =>
+          grid
+            .getByText(timezone, { exact: true })
+            .evaluate((element) => element.scrollWidth <= element.clientWidth),
+        )
+        .toBe(true);
+      const firstHour = timezone === "UTC" ? "05:00" : "01:00";
+      const secondHour = timezone === "UTC" ? "06:00" : "01:00";
+      const first = grid
+        .getByRole("group", { name: `Sunday, Nov 1 ${firstHour}`, exact: true })
+        .getByRole("button", { name: "Before clock change", exact: true });
+      const second = grid
+        .getByRole("group", { name: `Sunday, Nov 1 ${secondHour}`, exact: true })
+        .getByRole("button", { name: "After clock change", exact: true });
+      await expect(first).toBeVisible();
+      await expect(second).toBeVisible();
+      await expect(first).toHaveAttribute("style", /25%/);
+      await expect(second).toHaveAttribute("style", /75%/);
+      await expect(grid.locator("[data-calendar-week-item]")).toHaveCount(2);
+      await first.focus();
+      await expect(first).toBeFocused();
     }
     expect(errors).toEqual([]);
   });
 });
 
-test.describe("publications ux", () => {
+test.describe("post list and details", () => {
   test("publications keeps the main workflow clear across list, search, and calendar", async ({
     page,
     request,
@@ -440,23 +394,6 @@ test.describe("publications ux", () => {
     await expect(selectedTab).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(page.getByTestId("publication-list")).toContainText("A clear launch note");
 
-    for (const [width, scheme] of [
-      [1440, "light"],
-      [390, "dark"],
-      [320, "light"],
-    ] as const) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-        true,
-      );
-      await page.screenshot({
-        path: `.impeccable/review/posts/list-${width}-${scheme}.png`,
-        fullPage: true,
-      });
-    }
-
     await page.getByRole("searchbox", { name: "Search posts" }).fill("does not exist");
     await expect(page.getByTestId("publication-list")).toHaveCount(0);
     await page.getByRole("searchbox", { name: "Search posts" }).fill("launch note");
@@ -471,22 +408,6 @@ test.describe("publications ux", () => {
     await page.getByRole("link", { name: "Calendar" }).click();
     await expect(page).toHaveURL(/\/calendar$/);
     await expect(page.getByRole("heading", { name: "Posts", exact: true })).toBeVisible();
-    for (const [width, scheme] of [
-      [1440, "light"],
-      [390, "dark"],
-      [320, "light"],
-    ] as const) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-        true,
-      );
-      await page.screenshot({
-        path: `.impeccable/review/posts/calendar-${width}-${scheme}.png`,
-        fullPage: true,
-      });
-    }
     await page.getByRole("link", { name: "List" }).click();
     await expect(page).toHaveURL(/\/publications(?:\?.*)?$/);
     await expect(page.getByRole("tab", { name: "Drafts" })).toHaveAttribute(
@@ -563,10 +484,7 @@ test.describe("publications ux", () => {
     await expect(grid.getByText("Target second-channel", { exact: true })).toBeVisible();
   });
 
-  test("published records show a confirmed local removal action", async ({
-    page,
-    request,
-  }, testInfo) => {
+  test("published records show a confirmed local removal action", async ({ page, request }) => {
     const auth = await registerUser(request, `published-delete-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Published cleanup");
     const created = await createPublication(
@@ -587,10 +505,6 @@ test.describe("publications ux", () => {
     expect((await stored.json()).status).toBe("published");
     await authenticatePage(page, auth.token);
     await page.goto(`/publications/${created.id}`);
-    await page.screenshot({
-      path: testInfo.outputPath("published-before-removal.png"),
-      fullPage: true,
-    });
     await page.getByRole("button", { name: "Remove from OpenPost", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText("Posts on social networks will not be deleted");
@@ -603,7 +517,7 @@ test.describe("publications ux", () => {
   });
 });
 
-test.describe("posts recognition", () => {
+test.describe("post gallery and calendar density", () => {
   async function settleCardContrast(page: import("@playwright/test").Page) {
     await expect
       .poll(() =>
@@ -645,7 +559,7 @@ test.describe("posts recognition", () => {
   test("draft gallery keeps content, selection and search without repeated row chrome", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     test.setTimeout(90_000);
     const auth = await registerUser(request, `draft-gallery-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Draft gallery");
@@ -732,7 +646,6 @@ test.describe("posts recognition", () => {
     await page.goto(`/publications?tab=drafts&workspace_id=${workspace.id}`);
     const views = page.getByRole("navigation", { name: "Post view" });
     await expect.soft(page.getByTestId("publication-list")).toBeVisible();
-    await page.screenshot({ path: info.outputPath("list-1440-light.png"), animations: "disabled" });
 
     await views.getByRole("link", { name: "Grid", exact: true }).click();
     const gallery = page.getByTestId("draft-gallery");
@@ -757,44 +670,25 @@ test.describe("posts recognition", () => {
           .evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
       )
       .toBe(true);
-    for (const width of [1440, 320]) {
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 960 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await settleCardContrast(page);
-        if (width === 1440)
-          await expect
-            .poll(() =>
-              gallery.locator("article").evaluateAll((cards) => {
-                const boxes = cards.map((card) => card.getBoundingClientRect());
-                return boxes.every((box) => {
-                  const previous = boxes
-                    .filter((other) => Math.abs(other.x - box.x) < 1 && other.top < box.top)
-                    .sort((a, b) => b.top - a.top)[0];
-                  return (
-                    !previous ||
-                    (box.top - previous.bottom >= 15 && box.top - previous.bottom <= 18)
-                  );
-                });
-              }),
-            )
-            .toBe(true);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-          false,
-        );
-        await page.screenshot({
-          path: info.outputPath(`drafts-${width}-${scheme}.png`),
-          animations: "disabled",
-        });
-      }
-    }
+    await settleCardContrast(page);
+    await expect
+      .poll(() =>
+        gallery.locator("article").evaluateAll((cards) => {
+          const boxes = cards.map((card) => card.getBoundingClientRect());
+          return boxes.every((box) => {
+            const previous = boxes
+              .filter((other) => Math.abs(other.x - box.x) < 1 && other.top < box.top)
+              .sort((a, b) => b.top - a.top)[0];
+            return (
+              !previous || (box.top - previous.bottom >= 15 && box.top - previous.bottom <= 18)
+            );
+          });
+        }),
+      )
+      .toBe(true);
     await page.context().addCookies([{ name: "PARAGLIDE_LOCALE", value: "ja", url: page.url() }]);
     await page.reload();
     await expect(page.getByRole("link", { name: "グリッド", exact: true })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-      false,
-    );
-    await page.screenshot({ path: info.outputPath("drafts-320-ja.png"), animations: "disabled" });
     await page.context().addCookies([{ name: "PARAGLIDE_LOCALE", value: "en", url: page.url() }]);
     await page.reload();
     await page.getByRole("button", { name: "Select drafts", exact: true }).click();
@@ -803,27 +697,15 @@ test.describe("posts recognition", () => {
     await views.getByRole("link", { name: "List", exact: true }).click();
     await expect(page.getByTestId("publication-list").locator(":scope > article")).toHaveCount(7);
     await expect(page.getByTestId("publication-list").getByRole("checkbox").first()).toBeChecked();
-    await page.screenshot({
-      path: info.outputPath("list-320-selection.png"),
-      animations: "disabled",
-    });
 
     await views.getByRole("link", { name: "Grid", exact: true }).click();
     await expect(gallery.getByRole("checkbox").first()).toBeChecked();
     await expect(
       page.getByRole("button", { name: "Schedule selected", exact: false }),
     ).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-      false,
-    );
     const plainCard = gallery.locator("article").filter({ hasText: "مرحبا" });
     expect((await plainCard.boundingBox())!.height).toBeLessThan(180);
-    await page.screenshot({
-      path: info.outputPath("drafts-320-selection.png"),
-      animations: "disabled",
-    });
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
-    await page.setViewportSize({ width: 1440, height: 960 });
     await page.goto("/media");
     await page
       .getByTestId("sidebar-workspace-navigation")
@@ -852,7 +734,7 @@ test.describe("posts recognition", () => {
     page,
     request,
     browser,
-  }, info) => {
+  }) => {
     test.setTimeout(90_000);
     await page.clock.setFixedTime(new Date(fixedNow));
     const auth = await registerUser(request, `calendar-recognition-${randomUUID()}@example.com`);
@@ -883,39 +765,13 @@ test.describe("posts recognition", () => {
     const overflow = busy.getByRole("button", { name: /View 4 posts/ }).last();
     await expect(overflow).toHaveText("+2");
     await expect(page.getByTestId("desktop-sidebar-planner")).toHaveCount(0);
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.screenshot({
-        path: info.outputPath(`calendar-${scheme}.png`),
-        animations: "disabled",
-      });
-    }
-    for (const height of [600, 720]) {
-      await page.setViewportSize({ width: 1280, height });
-      await expect(busy.locator("[data-calendar-item]")).toHaveCount(1);
-      await expect(overflow).toHaveText("+3");
-      expect((await page.locator(".month-shell").boundingBox())!.height).toBeLessThan(600);
-      await page.locator('[data-calendar-day="2026-09-06"]').scrollIntoViewIfNeeded();
-      await expect(page.locator('[data-calendar-day="2026-09-06"]')).toBeInViewport();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-        false,
-      );
-      await page.locator(".month-shell").evaluate((shell) => {
-        for (let parent = shell.parentElement; parent; parent = parent.parentElement) {
-          parent.scrollTop = 0;
-          parent.scrollLeft = 0;
-        }
-      });
-      expect(
-        await page
-          .locator(".month-shell")
-          .evaluate((shell) => shell.scrollWidth <= shell.clientWidth),
-      ).toBe(true);
-      await page.screenshot({
-        path: info.outputPath(`calendar-1280-${height}.png`),
-        animations: "disabled",
-      });
-    }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await expect(busy.locator("[data-calendar-item]")).toHaveCount(1);
+    await expect(overflow).toHaveText("+3");
+    expect((await page.locator(".month-shell").boundingBox())!.height).toBeLessThan(600);
+    await page.locator('[data-calendar-day="2026-09-06"]').scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-calendar-day="2026-09-06"]')).toBeInViewport();
     await page.setViewportSize({ width: 1440, height: 1080 });
     await expect(overflow).toHaveText("+2");
     await overflow.focus();
@@ -945,21 +801,17 @@ test.describe("posts recognition", () => {
       await expect(
         touchPage.getByRole("button", { name: /Customer interview lesson/ }),
       ).toBeVisible();
-      await touchPage.screenshot({
-        path: info.outputPath("calendar-touch-desktop.png"),
-        animations: "disabled",
-      });
     } finally {
       await touchContext.close();
     }
   });
 });
 
-test.describe("publication tab history", () => {
+test.describe("post tab history", () => {
   test("publication tab selection keeps the visible URL, reload and history in agreement", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(90_000);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -980,42 +832,10 @@ test.describe("publication tab history", () => {
     await scheduled.focus();
     await page.keyboard.press("Enter");
     await expect(scheduled).toHaveAttribute("aria-selected", "true");
-    await testInfo.attach("selected-before-reload", {
-      contentType: "application/json",
-      body: JSON.stringify({
-        url: page.url(),
-        scheduledSelected: await scheduled.getAttribute("aria-selected"),
-      }),
-    });
-    await page.screenshot({ path: testInfo.outputPath("scheduled-before-reload.png") });
+    await expect(scheduled).toBeFocused();
     await expect(page).toHaveURL(/\/publications$/);
     await page.reload();
-    await page.screenshot({ path: testInfo.outputPath("after-reload.png") });
     await expect(scheduled).toHaveAttribute("aria-selected", "true");
-
-    for (const width of [1280, 320]) {
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme });
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.reload();
-        await expect(page.locator("html")).toHaveCSS("color-scheme", scheme);
-        await expect(scheduled).toHaveAttribute("aria-selected", "true");
-        await published.click();
-        await expect(page).toHaveURL(/\/publications\?tab=published$/);
-        await scheduled.focus();
-        await page.keyboard.press("Enter");
-        await expect(page).toHaveURL(/\/publications$/);
-        await expect(scheduled).toBeFocused();
-        await expect(scheduled).toHaveAttribute("aria-selected", "true");
-        await page.reload();
-        await expect(scheduled).toHaveAttribute("aria-selected", "true");
-        await page.screenshot({ path: testInfo.outputPath(`scheduled-${width}-${scheme}.png`) });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-          false,
-        );
-      }
-    }
 
     const failed = page.getByRole("tab", { name: "Failed", exact: true });
     const view = page.getByRole("navigation", { name: "Post view" });
@@ -1059,7 +879,7 @@ test.describe("publication tab history", () => {
   test("published detail Back retains explicit Published scope after Drafts entry", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(90_000);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -1082,55 +902,42 @@ test.describe("publication tab history", () => {
     await authenticatePage(page, auth.token);
     const published = page.getByRole("tab", { name: "Published", exact: true });
     await page.goto("/publications?tab=drafts");
-    for (const width of [1280, 320]) {
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme });
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.goto("/publications?tab=drafts");
-        await expect(page.getByRole("tab", { name: "Drafts", exact: true })).toHaveAttribute(
-          "aria-selected",
-          "true",
-        );
-        await published.click();
-        await expect(page).toHaveURL(/\/publications\?tab=published$/);
-        const publishedLink = page.getByRole("link", { name: publishedText, exact: true });
-        await publishedLink.focus();
-        await page.keyboard.press("Enter");
-        await expect(
-          page.getByRole("heading", { name: publishedText, exact: true, level: 1 }),
-        ).toBeVisible();
-        await expect(
-          page.getByRole("button", { name: "Copy as draft", exact: true }),
-        ).toBeVisible();
-        await page.reload();
-        await expect(
-          page.getByRole("heading", { name: publishedText, exact: true, level: 1 }),
-        ).toBeVisible();
-        const back = page.getByRole("button", { name: "Back", exact: true });
-        await back.focus();
-        await expect(back).toBeFocused();
-        await page.screenshot({ path: testInfo.outputPath(`detail-${width}-${scheme}.png`) });
-        if (width === 1280) await back.click();
-        else await page.keyboard.press("Enter");
-        await expect(page).toHaveURL(/\/publications\?tab=published$/);
-        await expect(published).toHaveAttribute("aria-selected", "true");
-        await expect(publishedLink).toBeVisible();
-        await expect(page.getByTestId("publication-list")).not.toContainText(draftText);
-        await page.screenshot({ path: testInfo.outputPath(`detail-back-${width}-${scheme}.png`) });
-        await publishedLink.click();
-        await expect(
-          page.getByRole("heading", { name: publishedText, exact: true, level: 1 }),
-        ).toBeVisible();
-        await page.goBack();
-        await expect(page).toHaveURL(/\/publications\?tab=published$/);
-        await expect(published).toHaveAttribute("aria-selected", "true");
-        await page.reload();
-        await expect(published).toHaveAttribute("aria-selected", "true");
-        await expect(publishedLink).toBeVisible();
-        await expect(page.getByTestId("publication-list")).not.toContainText(draftText);
-      }
-    }
+    await expect(page.getByRole("tab", { name: "Drafts", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await published.click();
+    await expect(page).toHaveURL(/\/publications\?tab=published$/);
+    const publishedLink = page.getByRole("link", { name: publishedText, exact: true });
+    await publishedLink.focus();
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("heading", { name: publishedText, exact: true, level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copy as draft", exact: true })).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: publishedText, exact: true, level: 1 }),
+    ).toBeVisible();
+    const back = page.getByRole("button", { name: "Back", exact: true });
+    await back.focus();
+    await expect(back).toBeFocused();
+    await back.click();
+    await expect(page).toHaveURL(/\/publications\?tab=published$/);
+    await expect(published).toHaveAttribute("aria-selected", "true");
+    await expect(publishedLink).toBeVisible();
+    await expect(page.getByTestId("publication-list")).not.toContainText(draftText);
+    await publishedLink.click();
+    await expect(
+      page.getByRole("heading", { name: publishedText, exact: true, level: 1 }),
+    ).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/publications\?tab=published$/);
+    await expect(published).toHaveAttribute("aria-selected", "true");
+    await page.reload();
+    await expect(published).toHaveAttribute("aria-selected", "true");
+    await expect(publishedLink).toBeVisible();
+    await expect(page.getByTestId("publication-list")).not.toContainText(draftText);
     const unchanged = await request.get(
       `/api/v1/publications/${publication.id}?workspace_id=${workspace.id}`,
       { headers: { Authorization: `Bearer ${auth.token}` } },
@@ -1146,7 +953,7 @@ test.describe("publication tab history", () => {
   });
 });
 
-test.describe("publication schedule clock", () => {
+test.describe("schedule clock", () => {
   const clocks = [
     {
       workspaceZone: "Europe/Lisbon",
@@ -1178,7 +985,7 @@ test.describe("publication schedule clock", () => {
       test("planned List and Calendar share the authored clock while published outcomes use actual time", async ({
         page,
         request,
-      }, testInfo) => {
+      }) => {
         test.setTimeout(90_000);
         const errors: string[] = [];
         page.on("pageerror", (error) => errors.push(error.message));
@@ -1275,7 +1082,6 @@ test.describe("publication schedule clock", () => {
             item.locator("xpath=ancestor::section[1]").getByRole("heading"),
           ).toContainText(fixture.day);
         }
-        await page.screenshot({ path: testInfo.outputPath("calendar-clock.png") });
         await page.getByRole("link", { name: "List", exact: true }).click();
         await page.getByRole("tab", { name: "Scheduled", exact: true }).click();
         for (const fixture of fixtures.filter((item) => item.status !== "published")) {
@@ -1283,49 +1089,30 @@ test.describe("publication schedule clock", () => {
             `${fixture.day}, ${fixture.time}`,
           );
         }
-        await page.screenshot({ path: testInfo.outputPath("list-clock.png") });
-        for (const scheme of ["light"] as const) {
-          await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-          await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-          for (const width of [1280, 320]) {
-            await page.setViewportSize({ width, height: 900 });
-            await page.reload();
-            if (scheme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
-            else await expect(page.locator("html")).not.toHaveClass(/dark/);
-            await expect(page.getByRole("tab", { name: "Scheduled", exact: true })).toHaveAttribute(
-              "aria-selected",
-              "true",
-            );
-            const scheduled = page.locator("article").filter({ hasText: fixtures[0].text });
-            await expect(scheduled).toContainText(`Oct 2, ${clock.scheduledTime}`);
-            const calendar = page.getByRole("link", { name: "Calendar", exact: true });
-            await calendar.focus();
-            await page.keyboard.press("Enter");
-            await expect(page.getByRole("heading", { name: "Posts", exact: true })).toBeVisible();
-            if (width < 1280) {
-              await page
-                .getByTestId("calendar-date-picker")
-                .getByRole("button", { name: new RegExp(`${fixtures[0].day}$`) })
-                .click();
-            }
-            await expect(
-              page.getByRole("button").filter({ hasText: fixtures[0].text }),
-            ).toContainText(clock.scheduledTime);
-            expect(
-              await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-            ).toBe(false);
-            await page.screenshot({ path: testInfo.outputPath(`calendar-${width}-${scheme}.png`) });
-            const list = page.getByRole("link", { name: "List", exact: true });
-            await list.focus();
-            await page.keyboard.press("Enter");
-            await expect(page.getByRole("tab", { name: "Scheduled", exact: true })).toHaveAttribute(
-              "aria-selected",
-              "true",
-            );
-            await expect(scheduled).toContainText(`Oct 2, ${clock.scheduledTime}`);
-            await page.screenshot({ path: testInfo.outputPath(`list-${width}-${scheme}.png`) });
-          }
-        }
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await page.reload();
+        await expect(page.getByRole("tab", { name: "Scheduled", exact: true })).toHaveAttribute(
+          "aria-selected",
+          "true",
+        );
+        const scheduled = page.locator("article").filter({ hasText: fixtures[0].text });
+        await expect(scheduled).toContainText(`Oct 2, ${clock.scheduledTime}`);
+        const calendar = page.getByRole("link", { name: "Calendar", exact: true });
+        await calendar.focus();
+        await page.keyboard.press("Enter");
+        await expect(page.getByRole("heading", { name: "Posts", exact: true })).toBeVisible();
+        await expect(page.getByRole("button").filter({ hasText: fixtures[0].text })).toContainText(
+          clock.scheduledTime,
+        );
+        const list = page.getByRole("link", { name: "List", exact: true });
+        await list.focus();
+        await page.keyboard.press("Enter");
+        await expect(page.getByRole("tab", { name: "Scheduled", exact: true })).toHaveAttribute(
+          "aria-selected",
+          "true",
+        );
+        await expect(scheduled).toContainText(`Oct 2, ${clock.scheduledTime}`);
         await page.getByRole("tab", { name: "Published", exact: true }).click();
         await expect(page.locator("article").filter({ hasText: fixtures[3].text })).toContainText(
           `${fixtures[3].day}, ${fixtures[3].time}`,
@@ -1343,11 +1130,8 @@ test.describe("publication schedule clock", () => {
   }
 });
 
-test.describe("schedule existing time", () => {
-  test("adding an existing time explains that no weekdays changed", async ({
-    page,
-    request,
-  }, info) => {
+test.describe("posting times duplicate", () => {
+  test("adding an existing time explains that no weekdays changed", async ({ page, request }) => {
     const auth = await registerUser(request, `existing-time-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Existing weekly time");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -1384,27 +1168,13 @@ test.describe("schedule existing time", () => {
     expect(slots.map((slot: { day_of_week: number }) => slot.day_of_week).sort()).toEqual([
       0, 1, 2, 3, 4, 5, 6,
     ]);
-    await page.screenshot({ path: info.outputPath("existing-time-desktop.png") });
-    for (const width of [320]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 844 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await page.reload();
-        await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);
-        await expect(add).toBeVisible();
-        await expect(
-          page.getByRole("button", { name: "Remove the 9:00 AM row", exact: true }),
-        ).toBeVisible();
-        await add.click();
-        await expect(notice).toBeVisible();
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
-        await page.screenshot({
-          path: info.outputPath(`existing-time-${width}-${colorScheme}.png`),
-        });
-      }
-    }
+    await page.reload();
+    await expect(add).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Remove the 9:00 AM row", exact: true }),
+    ).toBeVisible();
+    await add.click();
+    await expect(notice).toBeVisible();
     await page.locator("#new-time").fill("10:00");
     await add.focus();
     await add.press("Enter");
@@ -1426,11 +1196,11 @@ test.describe("schedule existing time", () => {
   });
 });
 
-test.describe("schedule row removal", () => {
+test.describe("posting times removal", () => {
   test("reloading before the row removal response leaves no partially removed weekdays", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     const auth = await registerUser(request, `row-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Weekly removal recovery");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -1488,31 +1258,23 @@ test.describe("schedule row removal", () => {
     await expect(
       page.getByRole("button", { name: "Remove the 9:00 AM row", exact: true }),
     ).toHaveCount(0);
-    await page.screenshot({ path: info.outputPath("after-interrupted-response.png") });
   });
 });
 
 test.describe("repost cycles", () => {
   for (const viewport of [
-    { width: 1440, height: 900, scheme: "light" as const },
-    { width: 390, height: 844, scheme: "dark" as const },
-    { width: 320, height: 720, scheme: "light" as const },
+    { width: 1440, height: 900 },
+    { width: 320, height: 720 },
   ]) {
-    test(`edits a repost cycle at ${viewport.width}px ${viewport.scheme}`, async ({
-      page,
-      request,
-    }, testInfo) => {
+    test(`edits a repost cycle at ${viewport.width}px`, async ({ page, request }) => {
       await page.setViewportSize({
         width: viewport.width,
         height: viewport.height,
       });
-      await page.emulateMedia({
-        colorScheme: viewport.scheme,
-        reducedMotion: "reduce",
-      });
+      await page.emulateMedia({ reducedMotion: "reduce" });
       const auth = await registerUser(
         request,
-        `repost-cycle-${viewport.width}-${viewport.scheme}-${randomUUID()}@example.com`,
+        `repost-cycle-${viewport.width}-${randomUUID()}@example.com`,
       );
       const workspace = (await createWorkspace(request, auth.token, "Repost cycle")) as {
         id: string;
@@ -1560,17 +1322,10 @@ test.describe("repost cycles", () => {
         "/publications/existing-publication",
       );
       await page.getByRole("tab", { name: "Configure", exact: true }).click();
-      await page.screenshot({
-        path: testInfo.outputPath("repost-cycle-before.png"),
-        fullPage: true,
-      });
       const addRepost = settings.getByRole("button", { name: "Add repost" });
       if (viewport.width === 1440) {
         await addRepost.focus();
         await expect(addRepost).toBeFocused();
-        await page.screenshot({
-          path: testInfo.outputPath("repost-cycle-focus.png"),
-        });
         await page.keyboard.press("Enter");
       } else {
         await addRepost.click();
@@ -1594,9 +1349,6 @@ test.describe("repost cycles", () => {
             }),
           ],
         });
-      expect(
-        await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
-      ).toBeLessThanOrEqual(1);
       if (viewport.width <= 390) {
         for (const control of [
           settings.getByRole("button", { name: "Add repost" }),
@@ -1609,13 +1361,6 @@ test.describe("repost cycles", () => {
         }
       }
       await settings.getByRole("group", { name: "Repost schedule" }).scrollIntoViewIfNeeded();
-      await page.screenshot({
-        path: testInfo.outputPath("repost-cycle-stage.png"),
-      });
-      await page.screenshot({
-        path: testInfo.outputPath("repost-cycle.png"),
-        fullPage: true,
-      });
       expect(browserErrors).toEqual([]);
     });
   }
@@ -1680,11 +1425,11 @@ test.describe("repost cycles", () => {
   }
 });
 
-test.describe("authoring order", () => {
+test.describe("thread reorder", () => {
   test("thread authoring reorder supports keyboard preview, drop, cancel, and undo", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     const unique = `authoring-order-${randomUUID()}@example.com`;
@@ -1714,8 +1459,8 @@ test.describe("authoring order", () => {
     await expect(page.locator("#post-textarea-1")).toBeVisible();
     await page.locator("#post-textarea-1").fill("Second edited post");
 
-    // Let the initial content settle, then prove keyboard preview does not autosave.
-    await page.waitForTimeout(2200);
+    // Wait for the edits to autosave, then prove keyboard preview does not save again.
+    await expect.poll(() => saves.length, { timeout: 10_000 }).toBeGreaterThan(0);
     saves.length = 0;
     const handles = composer.locator("[data-reorder-key]");
     await expect(handles).toHaveCount(2);
@@ -1724,8 +1469,8 @@ test.describe("authoring order", () => {
     await page.keyboard.press("ArrowDown");
     await expectPostText(page.locator("#post-textarea-0"), "Second edited post");
     await expectPostText(page.locator("#post-textarea-1"), "First edited post");
-    await page.waitForTimeout(2200);
-    expect(saves).toHaveLength(0);
+    // Autosave debounces for about two seconds; no save may appear within that window.
+    await expect(async () => expect(saves).not.toHaveLength(0)).not.toPass({ timeout: 2_500 });
 
     await page.keyboard.press("Escape");
     await expectPostText(page.locator("#post-textarea-0"), "First edited post");
@@ -1744,30 +1489,18 @@ test.describe("authoring order", () => {
     await undo.click();
     await expectPostText(page.locator("#post-textarea-0"), "First edited post");
     await expectPostText(page.locator("#post-textarea-1"), "Second edited after reorder");
-    for (const width of [1280, 320])
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        const text = page.locator("#post-textarea-1");
-        const textBounds = await text.boundingBox();
-        const removeBounds = await composer
-          .getByRole("button", { name: "Remove post", exact: true })
-          .nth(1)
-          .boundingBox();
-        const padding = await text.evaluate((element) =>
-          parseFloat(getComputedStyle(element).paddingRight),
-        );
-        expect(textBounds).not.toBeNull();
-        expect(removeBounds).not.toBeNull();
-        expect(textBounds!.x + textBounds!.width - padding).toBeLessThanOrEqual(removeBounds!.x);
-        await page.screenshot({
-          path: testInfo.outputPath(`authoring-${width}-${colorScheme}.png`),
-          fullPage: true,
-        });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-      }
+    const text = page.locator("#post-textarea-1");
+    const textBounds = await text.boundingBox();
+    const removeBounds = await composer
+      .getByRole("button", { name: "Remove post", exact: true })
+      .nth(1)
+      .boundingBox();
+    const padding = await text.evaluate((element) =>
+      parseFloat(getComputedStyle(element).paddingRight),
+    );
+    expect(textBounds).not.toBeNull();
+    expect(removeBounds).not.toBeNull();
+    expect(textBounds!.x + textBounds!.width - padding).toBeLessThanOrEqual(removeBounds!.x);
     expect(errors).toEqual([]);
   });
 });

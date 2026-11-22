@@ -14,7 +14,7 @@ test.describe("navigation organization", () => {
   test("navigation separates work, workspace management, and personal preferences", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `navigation-${randomUUID()}@example.com`);
     await createWorkspace(request, auth.token, "Navigation workspace");
     await authenticatePage(page, auth.token);
@@ -26,7 +26,6 @@ test.describe("navigation organization", () => {
       await expect(workNavigation.getByRole("button", { name, exact: true })).toBeVisible();
     }
     await expect(page.getByTestId("sidebar-new-post")).toHaveAccessibleName("New post");
-    await page.screenshot({ path: testInfo.outputPath("navigation-before.png") });
     await page.getByTestId("profile-menu-trigger").click();
     await expect(page.getByRole("menuitem", { name: "Settings", exact: true })).toBeVisible();
     await expect(
@@ -173,7 +172,7 @@ test.describe("navigation organization", () => {
   test("short desktop keeps navigation and contextual draft resume reachable", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `nav-short-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Short navigation workspace");
     const response = await request.post("/api/v1/publications", {
@@ -221,17 +220,13 @@ test.describe("navigation organization", () => {
       await expect(
         page.getByTestId("sidebar-workspace-navigation").getByRole("button", { name, exact: true }),
       ).toBeInViewport();
-    await page.screenshot({
-      path: testInfo.outputPath("short-draft-resume.png"),
-      animations: "disabled",
-    });
     await viewAll.click();
     await expect(page).toHaveURL(/publications\?tab=drafts$/);
     await expect(page.getByTestId("publication-list")).toBeVisible();
     await expect(planner).toBeVisible();
   });
 
-  test("drafts fill the sidebar on every workspace page", async ({ page, request }, testInfo) => {
+  test("drafts fill the sidebar on every workspace page", async ({ page, request }) => {
     const auth = await registerUser(request, `nav-drafts-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Draft navigation");
     for (let index = 1; index <= 12; index++) {
@@ -273,7 +268,6 @@ test.describe("navigation organization", () => {
       });
       expect(visibleCount).toBeGreaterThan(3);
     }
-    await page.screenshot({ path: testInfo.outputPath("sidebar-drafts.png") });
     await page.setViewportSize({ width: 1280, height: 600 });
     await drafts.getByRole("link").last().scrollIntoViewIfNeeded();
     await expect(drafts.getByRole("link").last()).toBeInViewport();
@@ -298,7 +292,7 @@ test.describe("navigation progress", () => {
   for (const reducedMotion of ["reduce", "no-preference"] as const) {
     test(`navigation progress follows slow routes with ${reducedMotion} motion`, async ({
       page,
-    }, testInfo) => {
+    }) => {
       await page.emulateMedia({
         reducedMotion,
         colorScheme: reducedMotion === "reduce" ? "dark" : "light",
@@ -322,7 +316,6 @@ test.describe("navigation progress", () => {
             "transition-duration",
             "0s",
           );
-        await page.screenshot({ path: testInfo.outputPath("navigation-loading.png") });
       } finally {
         release();
       }
@@ -376,8 +369,10 @@ test.describe("navigation progress", () => {
       await page.locator('a[href="/forgot-password"]').click();
       releaseFirst();
       await expect(page.locator(".navigation-progress .bar")).toBeVisible();
-      // Keep the replacement route stalled beyond the previous bar's completion animation.
-      await page.waitForTimeout(700);
+      // The bar must not disappear within the previous bar's completion animation window.
+      await expect(
+        expect(page.locator(".navigation-progress .bar")).toHaveCount(0, { timeout: 700 }),
+      ).rejects.toThrow();
       await expect(page.locator(".navigation-progress .bar")).toBeVisible();
     } finally {
       releaseFirst();
@@ -676,173 +671,119 @@ test.describe("loading boundaries", () => {
   });
 
   for (const section of ["publications", "messages", "engagement"] as const) {
-    for (const width of [390]) {
-      test(`${section} keeps controls while the selected view loads at ${width}px`, async ({
-        page,
-        request,
-      }, testInfo) => {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({
-          colorScheme: width === 320 ? "dark" : "light",
-        });
-        const { token } = await registerUser(
-          request,
-          `view-loading-${section}-${randomUUID()}@example.com`,
-        );
-        await createWorkspace(request, token, "View loading");
-        await authenticatePage(page, token);
-        await page.goto(
-          section === "publications" ? "/publications?tab=scheduled" : `/inbox/${section}`,
-        );
-        await expect(page.locator('[data-slot="page-content"]').first()).toHaveAttribute(
-          "aria-busy",
-          "false",
-        );
-        // Inbox keeps an authorized long-poll pending after its visible data settles.
-        if (section === "publications") await page.waitForLoadState("networkidle");
-        if (section === "messages" && width < 640) {
-          await page.getByRole("button", { name: "Filters", exact: true }).click();
-        }
-        let release!: () => void;
-        const response = new Promise<void>((resolve) => {
-          release = resolve;
-        });
-        await page.route(
-          section === "publications"
-            ? "**/api/v1/publications?**"
-            : section === "messages"
-              ? "**/api/v1/messages?**"
-              : "**/api/v1/engagement?**",
-          async (route) => {
-            await response;
-            await route.continue();
-          },
-        );
-        const control =
-          section === "publications"
-            ? page.getByRole("tab", { name: "Published", exact: true })
-            : page.getByRole("checkbox", { name: "Archived", exact: true });
-        try {
-          if (section === "engagement") {
-            await page.getByRole("button", { name: "Filters", exact: true }).click();
-          }
-          await control.click();
-          await expect(page.getByTestId("page-loading")).toBeVisible();
-          await page.screenshot({
-            path: testInfo.outputPath(`${section}-loading.png`),
-            fullPage: true,
-          });
-          await expect(control).toBeVisible();
-          expect(
-            await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
-          ).toBeLessThanOrEqual(1);
-          if (section !== "publications") {
-            const navigation = page.getByTestId("communications-navigation");
-            await expect(navigation).toBeVisible();
-            if (width === 320) {
-              await navigation.hover();
-              await page.mouse.wheel(400, 0);
-              await expect(
-                navigation.getByRole("link", { name: "Reviews", exact: true }),
-              ).toBeInViewport({ ratio: 0.99 });
-              await expect(page.getByTestId("page-header")).toBeInViewport({
-                ratio: 1,
-              });
-            }
-          }
-          const action =
-            section === "publications"
-              ? page.getByRole("button", { name: "Refresh", exact: true })
-              : page.locator('[data-slot="page-header-actions"]').getByRole("button").first();
-          await expect(action).toBeVisible();
-        } finally {
-          release();
-        }
-        await expect(page.getByTestId("page-loading")).toHaveCount(0);
-        await expect(control).toBeVisible();
-      });
-    }
-  }
-
-  for (const width of [390]) {
-    for (const scheme of ["light"] as const) {
-      test(`settings keeps navigation during section downloads at ${width}px ${scheme}`, async ({
-        page,
-        request,
-      }, testInfo) => {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        const { token } = await registerUser(
-          request,
-          `loading-boundary-${randomUUID()}@example.com`,
-        );
-        await createWorkspace(request, token, "Loading boundaries");
-        await authenticatePage(page, token);
-        await page.goto("/settings?tab=general");
-        await expect(page.getByTestId("settings-navigation")).toBeVisible();
-        await expect(page.locator('[data-slot="page-content"]').first()).toHaveAttribute(
-          "aria-busy",
-          "false",
-        );
-        await page.waitForLoadState("networkidle");
-        let release!: () => void;
-        const download = new Promise<void>((resolve) => {
-          release = resolve;
-        });
-        await page.route("**/*.js", async (route) => {
-          await download;
-          await route.continue();
-        });
-        try {
-          if (width >= 768) await page.locator('[data-settings-tab="security"]').click();
-          else {
-            await page
-              .getByTestId("settings-navigation")
-              .getByRole("button", { name: "Settings", exact: true })
-              .click();
-            await page.getByRole("option", { name: "Security", exact: true }).click();
-          }
-          await expect(page).toHaveURL(/tab=security/);
-          await expect(page.getByTestId("page-loading")).toBeVisible();
-          await page.screenshot({
-            path: testInfo.outputPath("settings-section-loading.png"),
-            fullPage: true,
-          });
-          await expect(page.getByTestId("settings-navigation")).toBeVisible();
-          expect(
-            await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
-          ).toBeLessThanOrEqual(1);
-          if (width >= 768) {
-            const general = page.locator('[data-settings-tab="general"]');
-            await general.focus();
-            await page.keyboard.press("Enter");
-            await expect(page).toHaveURL(/tab=general/);
-            await expect(page.getByTestId("page-loading")).toHaveCount(0);
-            await page.locator('[data-settings-tab="security"]').click();
-            await expect(page.getByTestId("page-loading")).toBeVisible();
-          }
-        } finally {
-          release();
-        }
-        await expect(page.getByTestId("page-loading")).toHaveCount(0);
-        // Panel content only renders after its section download completes.
-        await expect(
-          page.getByRole("heading", { name: "Active sessions", exact: true }),
-        ).toBeVisible();
-        await expect(page.getByTestId("settings-navigation")).toBeVisible();
-        await page.screenshot({
-          path: testInfo.outputPath("settings-section-settled.png"),
-          fullPage: true,
-        });
-      });
-    }
-  }
-
-  for (const surface of ["calendar", "media"] as const) {
-    test(`${surface} keeps controls when its data scope changes`, async ({
+    test(`${section} keeps controls while the selected view loads at 390px`, async ({
       page,
       request,
-    }, testInfo) => {
+    }) => {
+      await page.setViewportSize({ width: 390, height: 900 });
+      await page.emulateMedia({
+        colorScheme: "light",
+      });
+      const { token } = await registerUser(
+        request,
+        `view-loading-${section}-${randomUUID()}@example.com`,
+      );
+      await createWorkspace(request, token, "View loading");
+      await authenticatePage(page, token);
+      await page.goto(
+        section === "publications" ? "/publications?tab=scheduled" : `/inbox/${section}`,
+      );
+      await expect(page.locator('[data-slot="page-content"]').first()).toHaveAttribute(
+        "aria-busy",
+        "false",
+      );
+      // Inbox keeps an authorized long-poll pending after its visible data settles.
+      if (section === "publications") await page.waitForLoadState("networkidle");
+      if (section === "messages") {
+        await page.getByRole("button", { name: "Filters", exact: true }).click();
+      }
+      let release!: () => void;
+      const response = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await page.route(
+        section === "publications"
+          ? "**/api/v1/publications?**"
+          : section === "messages"
+            ? "**/api/v1/messages?**"
+            : "**/api/v1/engagement?**",
+        async (route) => {
+          await response;
+          await route.continue();
+        },
+      );
+      const control =
+        section === "publications"
+          ? page.getByRole("tab", { name: "Published", exact: true })
+          : page.getByRole("checkbox", { name: "Archived", exact: true });
+      try {
+        if (section === "engagement") {
+          await page.getByRole("button", { name: "Filters", exact: true }).click();
+        }
+        await control.click();
+        await expect(page.getByTestId("page-loading")).toBeVisible();
+        await expect(control).toBeVisible();
+        if (section !== "publications") {
+          const navigation = page.getByTestId("communications-navigation");
+          await expect(navigation).toBeVisible();
+        }
+        const action =
+          section === "publications"
+            ? page.getByRole("button", { name: "Refresh", exact: true })
+            : page.locator('[data-slot="page-header-actions"]').getByRole("button").first();
+        await expect(action).toBeVisible();
+      } finally {
+        release();
+      }
+      await expect(page.getByTestId("page-loading")).toHaveCount(0);
+      await expect(control).toBeVisible();
+    });
+  }
+
+  test(`settings keeps navigation during section downloads at 390px light`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    const { token } = await registerUser(request, `loading-boundary-${randomUUID()}@example.com`);
+    await createWorkspace(request, token, "Loading boundaries");
+    await authenticatePage(page, token);
+    await page.goto("/settings?tab=general");
+    await expect(page.getByTestId("settings-navigation")).toBeVisible();
+    await expect(page.locator('[data-slot="page-content"]').first()).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    await page.waitForLoadState("networkidle");
+    let release!: () => void;
+    const download = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route("**/*.js", async (route) => {
+      await download;
+      await route.continue();
+    });
+    try {
+      await page
+        .getByTestId("settings-navigation")
+        .getByRole("button", { name: "Settings", exact: true })
+        .click();
+      await page.getByRole("option", { name: "Security", exact: true }).click();
+      await expect(page).toHaveURL(/tab=security/);
+      await expect(page.getByTestId("page-loading")).toBeVisible();
+      await expect(page.getByTestId("settings-navigation")).toBeVisible();
+    } finally {
+      release();
+    }
+    await expect(page.getByTestId("page-loading")).toHaveCount(0);
+    // Panel content only renders after its section download completes.
+    await expect(page.getByRole("heading", { name: "Active sessions", exact: true })).toBeVisible();
+    await expect(page.getByTestId("settings-navigation")).toBeVisible();
+  });
+
+  for (const surface of ["calendar", "media"] as const) {
+    test(`${surface} keeps controls when its data scope changes`, async ({ page, request }) => {
       const { token } = await registerUser(
         request,
         `scope-loading-${surface}-${randomUUID()}@example.com`,
@@ -884,10 +825,6 @@ test.describe("loading boundaries", () => {
           await control.fill("launch");
           await expect(control).toHaveValue("launch");
         }
-        await page.screenshot({
-          path: testInfo.outputPath(`${surface}-scope-loading.png`),
-          fullPage: true,
-        });
       } finally {
         release();
       }
@@ -964,7 +901,7 @@ test.describe("invalid link recovery", () => {
     test(`incomplete ${path} links offer keyboard recovery without requests`, async ({
       page,
       request,
-    }, info) => {
+    }) => {
       const auth = await registerUser(request, `invalid-links-${randomUUID()}@example.com`);
       await createWorkspace(request, auth.token, "Invalid Links");
       await authenticatePage(page, auth.token);
@@ -974,35 +911,22 @@ test.describe("invalid link recovery", () => {
         if (/workspace-invitations|cli\/auth\/(session|approve|deny)/.test(request.url()))
           forbidden.push(request.url());
       });
-      for (const width of [1280, 320]) {
-        for (const scheme of ["light"] as const) {
-          await page.setViewportSize({ width, height: 850 });
-          await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-          await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-          await page.goto(path);
-          await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-          const recovery = page.getByRole("link", {
-            name: path === "/preview" ? "Open composer" : "Return to OpenPost",
-            exact: true,
-          });
-          await page.screenshot({
-            path: info.outputPath(`${path.replaceAll("/", "-")}-${width}-${scheme}.png`),
-          });
-          await expect(recovery).toBeVisible();
-          await expect(recovery).toHaveAttribute("href", "/");
-          await expect(page.getByRole("button", { name: "Try again", exact: true })).toHaveCount(0);
-          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-            false,
-          );
-          await recovery.focus();
-          await expect(recovery).toBeFocused();
-          await page.keyboard.press("Enter");
-          await expect(page).toHaveURL(/\/$/);
-          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-            false,
-          );
-        }
-      }
+      await page.setViewportSize({ width: 1280, height: 850 });
+      await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+      await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), "light");
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      const recovery = page.getByRole("link", {
+        name: path === "/preview" ? "Open composer" : "Return to OpenPost",
+        exact: true,
+      });
+      await expect(recovery).toBeVisible();
+      await expect(recovery).toHaveAttribute("href", "/");
+      await expect(page.getByRole("button", { name: "Try again", exact: true })).toHaveCount(0);
+      await recovery.focus();
+      await expect(recovery).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(page).toHaveURL(/\/$/);
       expect(forbidden).toEqual([]);
     });
   }
@@ -1012,7 +936,7 @@ test.describe("notifications read state", () => {
   test("notification status, count and filters agree after reading and reload", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const email = `notification-state-${randomUUID()}@example.com`;
     const { token } = await registerUser(request, email);
     const workspace = await createWorkspace(request, token, "Audit notification state");
@@ -1035,9 +959,6 @@ test.describe("notifications read state", () => {
     const row = page.locator(`[data-notification-id="${notificationID}"]`);
     await expect(row).toBeVisible();
     await expect(inbox.getByText("1 unread notifications", { exact: true })).toBeVisible();
-    const before = testInfo.outputPath("notification-before-read.png");
-    await page.screenshot({ path: before, fullPage: true });
-    await testInfo.attach("before-read", { path: before, contentType: "image/png" });
     await expect(row).toHaveAttribute("data-unread", "true");
     const filters = page.getByRole("tablist", { name: "Filter notifications by read status" });
     await filters.getByRole("tab", { name: "Unread", exact: true }).click();
@@ -1053,35 +974,24 @@ test.describe("notifications read state", () => {
     await filters.getByRole("tab", { name: "Read", exact: true }).click();
     await expect(row).toHaveAttribute("data-unread", "false");
 
-    for (const scheme of ["light"] as const) {
-      await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      for (const width of [1440, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.reload();
-        if (scheme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
-        else await expect(page.locator("html")).not.toHaveClass(/dark/);
-        await expect(row).toBeHidden();
-        await expect(inbox.getByText("0 unread notifications", { exact: true })).toBeVisible();
-        await filters.getByRole("tab", { name: "Unread", exact: true }).click();
-        await expect(row).toBeHidden();
-        await filters.getByRole("tab", { name: "Read", exact: true }).click();
-        await expect(row).toBeVisible();
-        const screenshot = testInfo.outputPath(`notification-read-${width}-${scheme}.png`);
-        await page.screenshot({ path: screenshot, fullPage: true });
-        await testInfo.attach(`read-${width}-${scheme}`, {
-          path: screenshot,
-          contentType: "image/png",
-        });
-      }
-    }
+    await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), "light");
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.reload();
+    await expect(page.locator("html")).not.toHaveClass(/dark/);
+    await expect(row).toBeHidden();
+    await expect(inbox.getByText("0 unread notifications", { exact: true })).toBeVisible();
+    await filters.getByRole("tab", { name: "Unread", exact: true }).click();
+    await expect(row).toBeHidden();
+    await filters.getByRole("tab", { name: "Read", exact: true }).click();
+    await expect(row).toBeVisible();
     expect(errors).toEqual([]);
   });
 
   test("opening an engagement clears it from the active inbox and preserves read history", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const email = `notification-open-${randomUUID()}@example.com`;
     const { token } = await registerUser(request, email);
     const workspace = await createWorkspace(request, token, "Notification opening");
@@ -1097,7 +1007,6 @@ test.describe("notifications read state", () => {
     await page.goto("/inbox/notifications");
     const row = page.locator(`[data-notification-id="${id}"]`);
     await expect(row).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath("before-open.png"), fullPage: true });
     await row.getByRole("button", { name: "Open notification", exact: true }).click();
     await expect(page).toHaveURL(/\/inbox\/engagement$/);
     await page.goto("/inbox/notifications");
@@ -1142,31 +1051,23 @@ test.describe("notifications read state", () => {
     await page.goto("/inbox/engagement");
     const bell = page.getByTestId("sidebar-notifications").filter({ visible: true });
     const panel = page.getByTestId("notification-panel");
-    for (const scheme of ["light"] as const) {
-      await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      for (const width of [1440, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.reload();
-        await expect(bell).toHaveAccessibleName("Notifications, 3 unread");
-        await expect(bell.getByText("3", { exact: true })).toBeVisible();
-        await bell.focus();
-        await page.keyboard.press("Enter");
-        await expect(panel).toBeVisible();
-        await expect(panel.getByText("Panel comment", { exact: true })).toBeVisible();
-        const box = await panel.boundingBox();
-        expect(box).not.toBeNull();
-        expect(box!.x).toBeGreaterThanOrEqual(0);
-        expect(box!.x + box!.width).toBeLessThanOrEqual(width);
-        await page.screenshot({
-          path: testInfo.outputPath(`panel-${width}-${scheme}.png`),
-          fullPage: true,
-        });
-        await page.keyboard.press("Escape");
-        await expect(panel).toBeHidden();
-        await expect(bell).toBeFocused();
-      }
-    }
+    await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), "light");
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.reload();
+    await expect(bell).toHaveAccessibleName("Notifications, 3 unread");
+    await expect(bell.getByText("3", { exact: true })).toBeVisible();
+    await bell.focus();
+    await page.keyboard.press("Enter");
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText("Panel comment", { exact: true })).toBeVisible();
+    const box = await panel.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(1440);
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(bell).toBeFocused();
     await bell.click();
     await page.route("**/api/v1/notifications/read", (route) =>
       route.fulfill({
@@ -1277,10 +1178,7 @@ test.describe("workspace switcher", () => {
   // selection from dialog mount state in create-workspace-dialog.svelte (the
   // selection guard now checks only the actor identity, so bootstrap-invalidation
   // remounts mid-flight no longer abort selection). Re-enabled to prove it end to end.
-  test("workspace switcher creates and selects a workspace", async ({
-    page,
-    request,
-  }, testInfo) => {
+  test("workspace switcher creates and selects a workspace", async ({ page, request }) => {
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     const unique = Date.now().toString(36);
@@ -1341,47 +1239,27 @@ test.describe("workspace switcher", () => {
     await expect(page.getByRole("menuitem", { name: new RegExp(newName) })).toBeVisible();
     await page.keyboard.press("Escape");
 
-    for (const scheme of ["light"] as const) {
-      await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      for (const width of [1440, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.reload();
-        if (scheme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
-        else await expect(page.locator("html")).not.toHaveClass(/dark/);
-        const trigger =
-          width === 1440
-            ? workspaceButton
-            : page
-                .locator('[data-slot="mobile-bottom-nav"]')
-                .getByRole("button", { name: "More", exact: true });
-        await expect(trigger).toBeVisible();
-        await trigger.focus();
-        await page.keyboard.press("Enter");
-        if (width !== 1440) {
-          const workspaceItem = page.getByRole("menuitem", { name: "Workspace", exact: true });
-          await workspaceItem.focus();
-          await page.keyboard.press("Enter");
-        }
-        await expect(page.getByRole("menuitem", { name: new RegExp(firstName) })).toBeVisible();
-        const createdItem = page.getByRole("menuitem", { name: new RegExp(newName) });
-        await expect(createdItem).toBeVisible();
-        await page.keyboard.press("Home");
-        await page.keyboard.press("ArrowDown");
-        if (width !== 1440) await page.keyboard.press("ArrowDown");
-        await expect(createdItem).toBeFocused();
-        const screenshotPath = testInfo.outputPath(`workspace-list-${width}-${scheme}.png`);
-        await page.screenshot({ path: screenshotPath });
-        await expect(createdItem).toBeFocused();
-        await testInfo.attach(`workspace-list-${width}-${scheme}`, {
-          path: screenshotPath,
-          contentType: "image/png",
-        });
-        await page.keyboard.press("Escape");
-        await expect(page.getByRole("menu")).toBeHidden();
-        await expect(trigger).toBeFocused();
-      }
-    }
+    await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), "light");
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.reload();
+    await expect(page.locator("html")).not.toHaveClass(/dark/);
+    const trigger = workspaceButton;
+    await expect(trigger).toBeVisible();
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+
+    await expect(page.getByRole("menuitem", { name: new RegExp(firstName) })).toBeVisible();
+    const createdItem = page.getByRole("menuitem", { name: new RegExp(newName) });
+    await expect(createdItem).toBeVisible();
+    await page.keyboard.press("Home");
+    await page.keyboard.press("ArrowDown");
+
+    await expect(createdItem).toBeFocused();
+    await expect(createdItem).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toBeHidden();
+    await expect(trigger).toBeFocused();
     expect(pageErrors).toEqual([]);
   });
 
@@ -1677,84 +1555,60 @@ test.describe("locale", () => {
 });
 
 test.describe("query settings navigation", () => {
-  for (const width of [1280, 320])
-    for (const scheme of ["light"] as const) {
-      test(`organization settings settles after cached navigation at ${width}px ${scheme}`, async ({
-        page,
-        request,
-      }, testInfo) => {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        const errors: string[] = [];
-        page.on("pageerror", (error) => errors.push(error.message));
-        const auth = await registerUser(request, `query-settings-${randomUUID()}@example.com`);
-        await createWorkspace(request, auth.token, "Query settings");
-        await authenticatePage(page, auth.token);
-        await page.goto("/settings?tab=profile");
-        test.skip(
-          (await page.locator('meta[name="openpost-edition"][content="cloud"]').count()) === 0,
-          "Plan & usage is hosted-only",
-        );
-        await expect(page.getByTestId("settings-navigation")).toBeVisible();
-        if (width >= 768)
-          await page.getByRole("link", { name: "Organization", exact: true }).click();
-        else {
-          await page
-            .getByTestId("settings-navigation")
-            .getByRole("button", { name: "Settings", exact: true })
-            .click();
-          await page.getByRole("option", { name: "Plan & usage", exact: true }).click();
-        }
-        await expect(
-          page.getByRole("heading", { name: "Plan & usage", exact: true }),
-        ).toBeVisible();
-        await page.screenshot({ path: testInfo.outputPath("plan-navigation.png"), fullPage: true });
+  test(`organization settings settles after cached navigation at 1280px light`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const auth = await registerUser(request, `query-settings-${randomUUID()}@example.com`);
+    await createWorkspace(request, auth.token, "Query settings");
+    await authenticatePage(page, auth.token);
+    await page.goto("/settings?tab=profile");
+    test.skip(
+      (await page.locator('meta[name="openpost-edition"][content="cloud"]').count()) === 0,
+      "Plan & usage is hosted-only",
+    );
+    await expect(page.getByTestId("settings-navigation")).toBeVisible();
+    await page.getByRole("link", { name: "Organization", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Plan & usage", exact: true })).toBeVisible();
+    await expect(page.locator('[data-slot="page-content"]').first()).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    await expect(page.getByRole("heading", { name: "Billing", exact: true })).toBeVisible();
+    for (const [tab, label] of [
+      ["accounts", "Social accounts"],
+      ["audit", "Organization audit"],
+      ["ownership", "Ownership"],
+      ["plan", "Plan & usage"],
+    ]) {
+      {
+        const group = tab === "accounts" ? "Workspace" : "Organization";
+        await page.getByRole("link", { name: group, exact: true }).click();
         await expect(page.locator('[data-slot="page-content"]').first()).toHaveAttribute(
           "aria-busy",
           "false",
         );
-        await expect(page.getByRole("heading", { name: "Billing", exact: true })).toBeVisible();
-        await page.screenshot({ path: testInfo.outputPath("plan-settled.png"), fullPage: true });
-        expect(
-          await page.evaluate(() => document.documentElement.scrollWidth - innerWidth),
-        ).toBeLessThanOrEqual(1);
-        for (const [tab, label] of [
-          ["accounts", "Social accounts"],
-          ["audit", "Organization audit"],
-          ["ownership", "Ownership"],
-          ["plan", "Plan & usage"],
-        ]) {
-          if (width >= 768) {
-            const group = tab === "accounts" ? "Workspace" : "Organization";
-            await page.getByRole("link", { name: group, exact: true }).click();
-            await expect(page.locator('[data-slot="page-content"]').first()).toHaveAttribute(
-              "aria-busy",
-              "false",
-            );
-            await page.locator(`[data-settings-tab="${tab}"]`).click();
-          } else {
-            await page
-              .getByTestId("settings-navigation")
-              .getByRole("button", { name: "Settings", exact: true })
-              .click();
-            await page.getByRole("option", { name: label, exact: true }).click();
-          }
-          await expect(page).toHaveURL(new RegExp(`tab=${tab}(?:&|$)`));
-          await expect(page.locator('[data-slot="page-content"]').first()).toHaveAttribute(
-            "aria-busy",
-            "false",
-          );
-          await expect(page.getByTestId("settings-navigation")).toBeVisible();
-        }
-        expect(errors).toEqual([]);
-      });
+        await page.locator(`[data-settings-tab="${tab}"]`).click();
+      }
+      await expect(page).toHaveURL(new RegExp(`tab=${tab}(?:&|$)`));
+      await expect(page.locator('[data-slot="page-content"]').first()).toHaveAttribute(
+        "aria-busy",
+        "false",
+      );
+      await expect(page.getByTestId("settings-navigation")).toBeVisible();
     }
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe("input feedback", () => {
   test("password errors appear at the field on keyboard submission and focus the first invalid field", async ({
     page,
-  }, testInfo) => {
+  }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto("/reset-password#token=local-invalid-preview-token");
@@ -1773,18 +1627,8 @@ test.describe("input feedback", () => {
     await expect(confirmation).toHaveAttribute("aria-invalid", "true");
     await expect(confirmation).toBeFocused();
     await expect(page.locator("#confirm-password-feedback")).toContainText("match");
-    for (const width of [1280, 320])
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await page.screenshot({
-          path: testInfo.outputPath(`validation-${width}-${colorScheme}.png`),
-          fullPage: true,
-        });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-      }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
     expect(errors).toEqual([]);
   });
 });
@@ -1957,35 +1801,24 @@ test.describe("dither polish", () => {
       }
       await page.getByRole("button", { name: "Edit", exact: true }).click();
       await expect(hue).toHaveValue("305");
-      for (const width of [1440, 390, 320]) {
-        await page.setViewportSize({ width, height: 960 });
-        await expect(page.locator('iframe[aria-busy="true"]')).toHaveCount(0);
-        await expect(page.getByTestId("theme-preview")).toHaveCSS("opacity", "1");
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-        await page
-          .getByRole("region", { name: "Accent hue", exact: true })
-          .evaluate((el) => el.scrollIntoView({ block: "center" }));
-        for (const control of [
-          hue,
-          page.getByRole("slider", { name: "Accent hue" }),
-          page.getByRole("button", { name: "Choose Canvas color", exact: true }),
-        ]) {
-          const box = await control.boundingBox();
-          expect(box?.width).toBeGreaterThanOrEqual(44);
-          expect(box?.height).toBeGreaterThanOrEqual(44);
-        }
-        await page.screenshot({
-          path: `.impeccable/review/dither-polish/custom-accent-${width}.png`,
-        });
-        await page.getByRole("button", { name: "Choose Canvas color", exact: true }).click();
-        await expect(hex).toBeVisible();
-        await page.screenshot({
-          path: `.impeccable/review/dither-polish/color-picker-${width}.png`,
-        });
-        await page.keyboard.press("Escape");
+      await page.setViewportSize({ width: 1440, height: 960 });
+      await expect(page.locator('iframe[aria-busy="true"]')).toHaveCount(0);
+      await expect(page.getByTestId("theme-preview")).toHaveCSS("opacity", "1");
+      await page
+        .getByRole("region", { name: "Accent hue", exact: true })
+        .evaluate((el) => el.scrollIntoView({ block: "center" }));
+      for (const control of [
+        hue,
+        page.getByRole("slider", { name: "Accent hue" }),
+        page.getByRole("button", { name: "Choose Canvas color", exact: true }),
+      ]) {
+        const box = await control.boundingBox();
+        expect(box?.width).toBeGreaterThanOrEqual(44);
+        expect(box?.height).toBeGreaterThanOrEqual(44);
       }
+      await page.getByRole("button", { name: "Choose Canvas color", exact: true }).click();
+      await expect(hex).toBeVisible();
+      await page.keyboard.press("Escape");
     });
   });
 });

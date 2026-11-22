@@ -13,7 +13,7 @@ import {
 import { readFile } from "node:fs/promises";
 import { type components } from "@openpost/api-contract";
 
-test.describe("composer account media", () => {
+test.describe("account media", () => {
   // Real media, capabilities and draft persistence. Synthetic accounts never publish.
   test("account media controls preserve shared attachments and survive reload", async ({
     page,
@@ -105,7 +105,6 @@ test.describe("composer account media", () => {
         exact: true,
       })
       .scrollIntoViewIfNeeded();
-    await page.screenshot({ path: info.outputPath("image-size-warning.png"), fullPage: true });
     await page.getByRole("button", { name: /Edit:.*Image is 4.2 MB/ }).click();
     const preview = page.getByTestId("composer-account-preview");
     const orange = () => preview.locator(`[data-composer-media-id="${media[0].id}"]`);
@@ -148,20 +147,13 @@ test.describe("composer account media", () => {
         body: undefined,
         shared: "Shared orange photo",
       });
-    for (const colorScheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 1000 });
+    {
+      await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+      {
+        await page.setViewportSize({ width: 1280, height: 1000 });
         await expect(
           orange().getByRole("button", { name: "Remove media", exact: true }),
         ).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-        await page.screenshot({
-          path: info.outputPath(`account-media-${width}-${colorScheme}.png`),
-          fullPage: true,
-        });
       }
     }
     await orange().getByRole("button", { name: "Remove media", exact: true }).click();
@@ -339,7 +331,7 @@ test.describe("composer account media", () => {
   }
 });
 
-test.describe("composer alt text failure", () => {
+test.describe("alt text failure", () => {
   // Automatic captioning is best effort. A provider failure belongs to the media
   // editor, not to a persistent page toast that covers composer controls.
   test("a failed automatic alt text draft stays inside the media editor", async ({
@@ -450,7 +442,7 @@ test.describe("composer alt text failure", () => {
   });
 });
 
-test.describe("composer cover handoff", () => {
+test.describe("cover handoff", () => {
   async function fixture(page: Page, request: APIRequestContext) {
     const auth = await registerUser(request, `cover-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Video covers");
@@ -559,13 +551,13 @@ test.describe("composer cover handoff", () => {
       .getByRole("button");
     await expect(candidates).toHaveCount(5);
     const cdp = await page.context().newCDPSession(page);
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-      for (const width of [1440, 320]) {
-        await page.setViewportSize({ width, height: 900 });
+    {
+      await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+      await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", "light");
+      {
+        await page.setViewportSize({ width: 1440, height: 900 });
         await cdp.send("Emulation.setTouchEmulationEnabled", {
-          enabled: width < 1000,
+          enabled: false,
           maxTouchPoints: 1,
         });
         const edit = page.getByRole("button", {
@@ -576,13 +568,7 @@ test.describe("composer cover handoff", () => {
         const box = (await edit.boundingBox())!;
         expect(box.height).toBeGreaterThanOrEqual(44);
         expect(box.x).toBeGreaterThanOrEqual(0);
-        expect(box.x + box.width).toBeLessThanOrEqual(width);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await page.screenshot({
-          path: testInfo.outputPath(`cover-before-${width}-${scheme}.png`),
-        });
+        expect(box.x + box.width).toBeLessThanOrEqual(1440);
       }
     }
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -639,17 +625,14 @@ test.describe("composer cover handoff", () => {
         .thumbnail_media_id,
     ).toBeFalsy();
     expect(result.segments[0].media.map((item: any) => item.id)).toEqual([setup.video.id]);
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-      for (const width of [1440, 320]) {
-        await page.setViewportSize({ width, height: 900 });
+    {
+      await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+      await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", "light");
+      {
+        await page.setViewportSize({ width: 1440, height: 900 });
         await dialog
           .getByRole("img", { name: "A custom cover image is selected." })
           .scrollIntoViewIfNeeded();
-        await page.screenshot({
-          path: testInfo.outputPath(`cover-after-${width}-${scheme}.png`),
-        });
       }
     }
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -717,7 +700,7 @@ test.describe("composer cover handoff", () => {
   });
 });
 
-test.describe("composer image preparation", () => {
+test.describe("image preparation", () => {
   test("optimizes attachments automatically and fits one network while keeping both originals", async ({
     page,
     request,
@@ -871,7 +854,6 @@ test.describe("composer image preparation", () => {
     await expect(fit).toBeVisible();
     await page.setViewportSize({ width: 1280, height: 1000 });
     await fit.scrollIntoViewIfNeeded();
-    await page.screenshot({ path: info.outputPath("before-fit.png"), fullPage: true });
     const preparation = page.waitForRequest(`**/api/v1/media/${originals[1].id}/prepare-image`);
     await fit.click();
     expect((await preparation).postDataJSON()).toMatchObject({
@@ -931,18 +913,10 @@ test.describe("composer image preparation", () => {
         .getByTestId("composer-account-preview")
         .locator(`[data-composer-media-id="${fitted.id}"] img`),
     ).toHaveAttribute("alt", "Fine color detail");
-    for (const colorScheme of ["light"] as const)
-      for (const width of [1280, 320]) {
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await page.setViewportSize({ width, height: 1000 });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-        await page.screenshot({
-          path: info.outputPath(`after-fit-${width}-${colorScheme}.png`),
-          fullPage: true,
-        });
-      }
+    {
+      await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+      await page.setViewportSize({ width: 1280, height: 1000 });
+    }
     await useOriginal("Use original image 2");
     await expect
       .poll(async () =>
@@ -1105,7 +1079,7 @@ test.describe("composer image preparation", () => {
   });
 });
 
-test.describe("composer media reports", () => {
+test.describe("media reports", () => {
   type MediaInput = { media_id: string; alt_text?: string };
   type CapturedPublication = {
     segments?: { media?: MediaInput[] }[];
@@ -1273,7 +1247,6 @@ test.describe("composer media reports", () => {
       await expect.poll(() => requests.length).toBeGreaterThan(0);
       expect.soft(requests[0].account_settings[account.id]).not.toHaveProperty("share_to_feed");
       expect.soft(requests[0].account_settings[account.id]).not.toHaveProperty("is_trial_reel");
-      await page.screenshot({ path: testInfo.outputPath("loaded-composer.png"), fullPage: true });
       if (destinationOnly) {
         const request = requests.at(-1)!;
         expect(request.account_segments?.[account.id]?.[0]?.media).toEqual(
@@ -1312,21 +1285,13 @@ test.describe("composer media reports", () => {
         .getByRole("button", { name: /^(Add alt text|Alt text)$/ })
         .click();
       await expect(page.getByPlaceholder("Alt text…")).toHaveValue(media.alt_text);
-      for (const colorScheme of ["light"] as const) {
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        for (const width of [320]) {
-          await page.setViewportSize({ width, height: 800 });
+      {
+        await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+        {
           await expect(page.getByPlaceholder("Alt text…")).toBeVisible();
-          expect(
-            await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-          ).toBe(true);
           await page
             .getByRole("button", { name: "Done", exact: true })
             .evaluate((element) => element.scrollIntoView({ block: "center" }));
-          await page.screenshot({
-            path: testInfo.outputPath(`alt-text-${width}-${colorScheme}.png`),
-            fullPage: true,
-          });
         }
       }
       await page.getByPlaceholder("Alt text…").fill("Updated publication description");

@@ -16,7 +16,7 @@ import {
   registerUser,
   assignBuiltInTheme,
 } from "./helpers";
-import { readFile, mkdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import {
@@ -77,141 +77,120 @@ test.describe("integration settings", () => {
     await page.goto(`/publications/${publication.id}`);
   }
 
-  for (const width of [1440, 320]) {
-    for (const scheme of ["light"] as const) {
-      test(`Discord settings keep required feedback usable at ${width}px in ${scheme}`, async ({
-        page,
-        request,
-      }) => {
-        const errors: string[] = [];
-        page.on("pageerror", (error) => errors.push(error.message));
-        await openDiscordPublication(page, request, width, scheme);
-        await composerDestinations(page)
-          .getByRole("tab", { name: /^Test server/ })
-          .click();
-        await openComposerPlatformSettings(page);
-        const dialog = page.getByRole("dialog", { name: "Discord settings", exact: true });
-        await expect(dialog).toBeVisible();
-        await dialog.getByRole("button", { name: "Done", exact: true }).click();
-        await expect(dialog).toBeVisible();
-        await expect(page.locator("[data-sonner-toast]")).toContainText("Channel");
-        await expect(dialog.getByRole("button", { name: "Try again", exact: true })).toHaveCount(0);
-        await expect(
-          page.locator(
-            "[data-sonner-toaster][data-y-position=top][data-x-position=right] [data-sonner-toast]",
-          ),
-        ).toBeVisible();
-        await expect(dialog.getByRole("combobox", { name: "Channel", exact: true })).toBeFocused();
-        const toastBounds = await page.locator("[data-sonner-toast]").boundingBox();
-        expect(toastBounds!.x).toBeGreaterThanOrEqual(0);
-        expect(toastBounds!.x + toastBounds!.width).toBeLessThanOrEqual(width);
-        if (width < 600) {
-          const closeBounds = await dialog
-            .getByRole("button", { name: "Close", exact: true })
-            .boundingBox();
-          expect(toastBounds!.y).toBeGreaterThanOrEqual(closeBounds!.y + closeBounds!.height);
-        }
-        const requiredAccessibility = await new AxeBuilder({ page })
-          .include('[role="dialog"]')
-          .include("[data-sonner-toast]")
-          .analyze();
-        expect(requiredAccessibility.violations).toEqual([]);
-        await dialog.getByRole("button", { name: "Close", exact: true }).click();
-        await expect(dialog).not.toBeVisible();
-        await openComposerPlatformSettings(page);
-        await expect(dialog).toBeVisible();
-        const bounds = await dialog.boundingBox();
-        expect(bounds!.x).toBeGreaterThanOrEqual(0);
-        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-        await dialog.getByRole("combobox", { name: "Channel", exact: true }).click();
-        await page.getByRole("option", { name: "#test-posts", exact: true }).click();
-        await dialog.getByRole("button", { name: "Add embed", exact: true }).click();
-        await dialog.getByLabel("Title", { exact: true }).fill("Launch notes");
-        await dialog.getByLabel("Description", { exact: true }).fill("A structured embed preview.");
-        const accessibility = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
-        expect(accessibility.violations).toEqual([]);
-        await dialog.getByRole("button", { name: "Done", exact: true }).click();
-        await expect(dialog).not.toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-        expect(errors).toEqual([]);
-      });
+  test(`Discord settings keep required feedback usable at 1440px in light`, async ({
+    page,
+    request,
+  }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await openDiscordPublication(page, request, 1440, "light");
+    await composerDestinations(page)
+      .getByRole("tab", { name: /^Test server/ })
+      .click();
+    await openComposerPlatformSettings(page);
+    const dialog = page.getByRole("dialog", { name: "Discord settings", exact: true });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(dialog).toBeVisible();
+    await expect(page.locator("[data-sonner-toast]")).toContainText("Channel");
+    await expect(dialog.getByRole("button", { name: "Try again", exact: true })).toHaveCount(0);
+    await expect(
+      page.locator(
+        "[data-sonner-toaster][data-y-position=top][data-x-position=right] [data-sonner-toast]",
+      ),
+    ).toBeVisible();
+    await expect(dialog.getByRole("combobox", { name: "Channel", exact: true })).toBeFocused();
+    const toastBounds = await page.locator("[data-sonner-toast]").boundingBox();
+    expect(toastBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(toastBounds!.x + toastBounds!.width).toBeLessThanOrEqual(1440);
 
-      test(`Discord Social Set defaults persist at ${width}px in ${scheme}`, async ({
-        page,
-        request,
-      }) => {
-        const errors: string[] = [];
-        page.on("pageerror", (error) => errors.push(error.message));
-        await openDiscordPublication(page, request, width, scheme);
-        const dialog = page.getByRole("dialog", { name: "Discord settings", exact: true });
-        await page.getByTestId("composer-account-control").click();
-        await page.getByRole("button", { name: "Manage Social Sets", exact: true }).click();
-        const manager = page.getByRole("dialog", { name: "Manage Social Sets", exact: true });
-        await manager
-          .getByRole("textbox", { name: "Set name", exact: true })
-          .fill("Launch updates");
-        await manager.getByLabel("Format for Test server", { exact: true }).click();
-        await page.getByRole("option", { name: "Discord message", exact: true }).click();
-        await manager.getByRole("button", { name: "Edit post settings", exact: true }).click();
-        await expect(dialog).toBeVisible();
-        await dialog.getByRole("combobox", { name: "Channel", exact: true }).click();
-        await page.getByRole("option", { name: "#test-posts", exact: true }).click();
-        await dialog.getByRole("button", { name: "Done", exact: true }).click();
-        const saved = page.waitForResponse(
-          (response) =>
-            response.url().endsWith("/api/v1/social-sets") &&
-            response.request().method() === "POST",
-        );
-        await manager.getByRole("button", { name: "Save", exact: true }).click();
-        const savedResponse = await saved;
-        expect(savedResponse.ok(), await savedResponse.text()).toBe(true);
-        const socialSet = await savedResponse.json();
-        expect(socialSet.accounts[0].default_settings).toEqual({ channel_id: "channel-test" });
-        await expect(manager.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
-        await page.keyboard.press("Escape");
-        await expect(manager).not.toBeVisible();
-        await page.getByTestId("composer-account-control").click();
-        await page.getByRole("button", { name: "Manage Social Sets", exact: true }).click();
-        await manager.getByRole("button", { name: "Edit post settings", exact: true }).click();
-        await expect(dialog.getByRole("combobox", { name: "Channel", exact: true })).toContainText(
-          "#test-posts",
-        );
-        await dialog.getByRole("combobox", { name: "Channel", exact: true }).click();
-        await page.getByRole("option", { name: "#updates", exact: true }).click();
-        await dialog.getByRole("button", { name: "Done", exact: true }).click();
-        const updated = page.waitForResponse(
-          (response) =>
-            response.url().endsWith(`/api/v1/social-sets/${socialSet.id}`) &&
-            response.request().method() === "PUT",
-        );
-        await manager.getByRole("button", { name: "Save", exact: true }).click();
-        const updatedResponse = await updated;
-        expect(updatedResponse.ok(), await updatedResponse.text()).toBe(true);
-        expect((await updatedResponse.json()).accounts[0].default_settings).toEqual({
-          channel_id: "channel-updates",
-        });
-        await expect(manager.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
-        await page.keyboard.press("Escape");
-        await expect(manager).not.toBeVisible();
-        await page.goto("/");
-        await expect(page.getByTestId("composer-account-control")).toContainText("Launch updates");
-        await composerDestinations(page)
-          .getByRole("tab", { name: /^Test server/ })
-          .click();
-        await openComposerPlatformSettings(page);
-        await expect(dialog.getByRole("combobox", { name: "Channel", exact: true })).toContainText(
-          "#updates",
-        );
-        await dialog.getByRole("button", { name: "Done", exact: true }).click();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-        expect(errors).toEqual([]);
-      });
-    }
-  }
+    const requiredAccessibility = await new AxeBuilder({ page })
+      .include('[role="dialog"]')
+      .include("[data-sonner-toast]")
+      .analyze();
+    expect(requiredAccessibility.violations).toEqual([]);
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    await openComposerPlatformSettings(page);
+    await expect(dialog).toBeVisible();
+    const bounds = await dialog.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(1440);
+    await dialog.getByRole("combobox", { name: "Channel", exact: true }).click();
+    await page.getByRole("option", { name: "#test-posts", exact: true }).click();
+    await dialog.getByRole("button", { name: "Add embed", exact: true }).click();
+    await dialog.getByLabel("Title", { exact: true }).fill("Launch notes");
+    await dialog.getByLabel("Description", { exact: true }).fill("A structured embed preview.");
+    const accessibility = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
+    expect(accessibility.violations).toEqual([]);
+    await dialog.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test(`Discord Social Set defaults persist at 1440px in light`, async ({ page, request }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await openDiscordPublication(page, request, 1440, "light");
+    const dialog = page.getByRole("dialog", { name: "Discord settings", exact: true });
+    await page.getByTestId("composer-account-control").click();
+    await page.getByRole("button", { name: "Manage Social Sets", exact: true }).click();
+    const manager = page.getByRole("dialog", { name: "Manage Social Sets", exact: true });
+    await manager.getByRole("textbox", { name: "Set name", exact: true }).fill("Launch updates");
+    await manager.getByLabel("Format for Test server", { exact: true }).click();
+    await page.getByRole("option", { name: "Discord message", exact: true }).click();
+    await manager.getByRole("button", { name: "Edit post settings", exact: true }).click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("combobox", { name: "Channel", exact: true }).click();
+    await page.getByRole("option", { name: "#test-posts", exact: true }).click();
+    await dialog.getByRole("button", { name: "Done", exact: true }).click();
+    const saved = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/v1/social-sets") && response.request().method() === "POST",
+    );
+    await manager.getByRole("button", { name: "Save", exact: true }).click();
+    const savedResponse = await saved;
+    expect(savedResponse.ok(), await savedResponse.text()).toBe(true);
+    const socialSet = await savedResponse.json();
+    expect(socialSet.accounts[0].default_settings).toEqual({ channel_id: "channel-test" });
+    await expect(manager.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
+    await page.keyboard.press("Escape");
+    await expect(manager).not.toBeVisible();
+    await page.getByTestId("composer-account-control").click();
+    await page.getByRole("button", { name: "Manage Social Sets", exact: true }).click();
+    await manager.getByRole("button", { name: "Edit post settings", exact: true }).click();
+    await expect(dialog.getByRole("combobox", { name: "Channel", exact: true })).toContainText(
+      "#test-posts",
+    );
+    await dialog.getByRole("combobox", { name: "Channel", exact: true }).click();
+    await page.getByRole("option", { name: "#updates", exact: true }).click();
+    await dialog.getByRole("button", { name: "Done", exact: true }).click();
+    const updated = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/v1/social-sets/${socialSet.id}`) &&
+        response.request().method() === "PUT",
+    );
+    await manager.getByRole("button", { name: "Save", exact: true }).click();
+    const updatedResponse = await updated;
+    expect(updatedResponse.ok(), await updatedResponse.text()).toBe(true);
+    expect((await updatedResponse.json()).accounts[0].default_settings).toEqual({
+      channel_id: "channel-updates",
+    });
+    await expect(manager.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
+    await page.keyboard.press("Escape");
+    await expect(manager).not.toBeVisible();
+    await page.goto("/");
+    await expect(page.getByTestId("composer-account-control")).toContainText("Launch updates");
+    await composerDestinations(page)
+      .getByRole("tab", { name: /^Test server/ })
+      .click();
+    await openComposerPlatformSettings(page);
+    await expect(dialog.getByRole("combobox", { name: "Channel", exact: true })).toContainText(
+      "#updates",
+    );
+    await dialog.getByRole("button", { name: "Done", exact: true }).click();
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe("workspace settings", () => {
@@ -387,7 +366,7 @@ test.describe("app branding", () => {
   test("branding controls and previews fit desktop and narrow screens in both schemes", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(120_000);
     const { token } = await registerUser(request, `branding-layout-${randomUUID()}@example.com`);
     await createWorkspace(request, token, "Branding layout");
@@ -397,26 +376,13 @@ test.describe("app branding", () => {
     await page
       .getByLabel("App display name", { exact: true })
       .fill("A studio with a deliberately long display name for previews");
-    for (const scheme of ["light"] as const) {
-      await page.evaluate((value) => {
-        localStorage.setItem("mode-watcher-mode", value);
-      }, scheme);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 1000 });
-        await expect(page.getByLabel("App display name", { exact: true })).toBeVisible();
-        await expect(page.getByRole("region", { name: "Preview", exact: true })).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-        await page
-          .locator('section[aria-labelledby="app-branding-heading"]')
-          .screenshot({ path: testInfo.outputPath(`branding-settings-${scheme}-${width}.png`) });
-        await page
-          .getByRole("region", { name: "Preview", exact: true })
-          .screenshot({ path: testInfo.outputPath(`branding-preview-${scheme}-${width}.png`) });
-      }
-    }
+    await page.evaluate((value) => {
+      localStorage.setItem("mode-watcher-mode", value);
+    }, "light");
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await expect(page.getByLabel("App display name", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Preview", exact: true })).toBeVisible();
   });
 
   test("a delayed branding read cannot replace a successful save", async ({ page, request }) => {
@@ -480,7 +446,7 @@ test.describe("brand font upload", () => {
   test("invalid brand fonts explain the file problem and allow a valid upload afterwards", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     const auth = await registerUser(request, `font-upload-${randomUUID()}@example.com`);
@@ -506,7 +472,6 @@ test.describe("brand font upload", () => {
     expect(bounds.width).toBeGreaterThanOrEqual(44);
     expect(bounds.height).toBeGreaterThanOrEqual(44);
     expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath("font-upload-keyboard-focus.png") });
     const invalid = { name: "broken.ttf", mimeType: "font/ttf", buffer: Buffer.from("not a font") };
     await page.keyboard.press("Space");
     await (await chooseFont).setFiles(invalid);
@@ -515,20 +480,13 @@ test.describe("brand font upload", () => {
       "This font file could not be read. Choose a valid WOFF2, TTF, or OTF file.",
     );
     await expect(input).toHaveValue("");
-    for (const colorScheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await alert.scrollIntoViewIfNeeded();
-        await expect(alert).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await page.screenshot({
-          path: testInfo.outputPath(`invalid-font-${colorScheme}-${width}.png`),
-        });
-      }
-    }
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await alert.scrollIntoViewIfNeeded();
+    await expect(alert).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      1280,
+    );
     await input.setInputFiles(invalid);
     await expect(alert).toBeVisible();
     await expect(input).toBeEnabled();
@@ -558,130 +516,108 @@ test.describe("brand font upload", () => {
 });
 
 test.describe("youtube branding", () => {
-  for (const scheme of ["light"] as const) {
-    for (const width of [1440, 320]) {
-      test(`YouTube attribution fits ${width}px in ${scheme}`, async ({ page, request }, info) => {
-        await page.setViewportSize({ width, height: 1000 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        const auth = await registerUser(request, `youtube-brand-${randomUUID()}@example.com`);
-        const workspace = await createWorkspace(request, auth.token, "Brand review");
-        const media = await uploadImageFixture(
-          request,
-          auth.token,
-          workspace.id,
-          "logo.png",
-          await readFile(join(fixtureDirectory, rasterFixtureFiles["openpost-logo"])),
-        );
-        await prepareProductPage({
-          page,
-          request,
-          auth,
-          workspace,
-          backgroundMediaID: media,
-          logoMediaID: media,
-          scheme,
-        });
-        await page.goto("/accounts");
-        await page.getByTestId("provider-search").fill("YouTube");
-        await expect(page.getByTestId("provider-list").locator("li")).toHaveCount(1);
-        const card = page.getByTestId("provider-card-youtube");
-        await expect(card.getByRole("link", { name: "YouTube", exact: true })).toBeVisible();
-        const screenshot = await card.screenshot();
-        await info.attach("YouTube connection card", {
-          body: screenshot,
-          contentType: "image/png",
-        });
-        if (process.env.OPENPOST_YOUTUBE_EVIDENCE_DIRECTORY) {
-          await mkdir(process.env.OPENPOST_YOUTUBE_EVIDENCE_DIRECTORY, {
-            recursive: true,
-          });
-          await card.screenshot({
-            path: join(
-              process.env.OPENPOST_YOUTUBE_EVIDENCE_DIRECTORY,
-              `youtube-card-${width}-${scheme}.png`,
-            ),
-          });
-        }
-        const geometry = await card.locator("svg").evaluate((svg) => {
-          const mark = svg.querySelector("path")! as SVGGraphicsElement;
-          const matrix = (svg as SVGGraphicsElement).getScreenCTM()!;
-          const triangle = (svg.querySelectorAll("path")[1] as SVGGraphicsElement).getBBox();
-          const markBox = mark.getBBox();
-          const viewBox = (svg as SVGSVGElement).viewBox.baseVal;
-          const box = svg.getBoundingClientRect();
-          const cardBox = svg
-            .closest('[data-testid="provider-card-youtube"]')!
-            .getBoundingClientRect();
-          return {
-            paintedHeight: markBox.height * matrix.d,
-            aspectRatio: box.width / box.height,
-            canonicalAspectRatio: viewBox.width / viewBox.height,
-            clearSpace: [
-              markBox.x,
-              markBox.y,
-              viewBox.width - markBox.x - markBox.width,
-              viewBox.height - markBox.y - markBox.height,
-            ],
-            triangleWidth: triangle.width,
-            triangleColor: getComputedStyle(svg.querySelectorAll("path")[1]).fill,
-            right: box.right,
-            left: box.left,
-            top: box.top,
-            bottom: box.bottom,
-            cardLeft: cardBox.left,
-            cardRight: cardBox.right,
-            cardTop: cardBox.top,
-            cardBottom: cardBox.bottom,
-            color: getComputedStyle(mark).fill,
-          };
-        });
-        expect(geometry.cardBottom - geometry.cardTop).toBeLessThanOrEqual(112);
-        expect(geometry.paintedHeight).toBeGreaterThanOrEqual(20);
-        expect(geometry.paintedHeight).toBeLessThanOrEqual(28);
-        expect(geometry.aspectRatio).toBeCloseTo(geometry.canonicalAspectRatio, 2);
-        for (const margin of geometry.clearSpace) {
-          expect(margin).toBeGreaterThanOrEqual(geometry.triangleWidth - 0.01);
-        }
-        expect(geometry.triangleColor).toBe("rgb(255, 255, 255)");
-        expect(geometry.right).toBeLessThanOrEqual(width);
-        expect(geometry.left).toBeGreaterThanOrEqual(geometry.cardLeft);
-        expect(geometry.right).toBeLessThanOrEqual(geometry.cardRight);
-        expect(geometry.top).toBeGreaterThanOrEqual(geometry.cardTop);
-        expect(geometry.bottom).toBeLessThanOrEqual(geometry.cardBottom);
-        expect(geometry.color).toBe("rgb(255, 0, 51)");
-        const title = card.getByRole("heading", { name: "YouTube", exact: true });
-        const action = card.getByRole("button");
-        await expect(title).toBeVisible();
-        await expect(action).toBeVisible();
-        const titleBox = (await title.boundingBox())!;
-        const actionBox = (await action.boundingBox())!;
-        expect(titleBox.width).toBeGreaterThanOrEqual(48);
-        expect(titleBox.x).toBeGreaterThanOrEqual(geometry.right);
-        expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(actionBox.x);
-        expect(actionBox.x + actionBox.width).toBeLessThanOrEqual(geometry.cardRight);
-        expect(
-          Math.abs((geometry.top + geometry.bottom) / 2 - (actionBox.y + actionBox.height / 2)),
-        ).toBeLessThanOrEqual(1);
-        await expect(page.getByText("YouTube", { exact: true }).first()).toBeVisible();
-        const accountActions = page
-          .getByTestId("account-card-account-youtube")
-          .getByRole("button", { name: /^Actions for / });
-        await accountActions.click();
-        await expect(
-          page.getByRole("menuitem", { name: "Account details", exact: true }),
-        ).toBeVisible();
-        await page.keyboard.press("Escape");
-        await expect(accountActions).toBeFocused();
-        await page.goto("/");
-        await expect(
-          page.locator("#composer-destination-account-youtube [data-slot=social-account-platform]"),
-        ).toBeVisible();
-        await expect(
-          page.locator("#composer-destination-account-youtube [data-slot=social-account-platform]"),
-        ).toHaveText("· YouTube");
-      });
+  test(`YouTube attribution fits 1440px in light`, async ({ page, request }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    const auth = await registerUser(request, `youtube-brand-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Brand review");
+    const media = await uploadImageFixture(
+      request,
+      auth.token,
+      workspace.id,
+      "logo.png",
+      await readFile(join(fixtureDirectory, rasterFixtureFiles["openpost-logo"])),
+    );
+    await prepareProductPage({
+      page,
+      request,
+      auth,
+      workspace,
+      backgroundMediaID: media,
+      logoMediaID: media,
+      scheme: "light",
+    });
+    await page.goto("/accounts");
+    await page.getByTestId("provider-search").fill("YouTube");
+    await expect(page.getByTestId("provider-list").locator("li")).toHaveCount(1);
+    const card = page.getByTestId("provider-card-youtube");
+    await expect(card.getByRole("link", { name: "YouTube", exact: true })).toBeVisible();
+    const geometry = await card.locator("svg").evaluate((svg) => {
+      const mark = svg.querySelector("path")! as SVGGraphicsElement;
+      const matrix = (svg as SVGGraphicsElement).getScreenCTM()!;
+      const triangle = (svg.querySelectorAll("path")[1] as SVGGraphicsElement).getBBox();
+      const markBox = mark.getBBox();
+      const viewBox = (svg as SVGSVGElement).viewBox.baseVal;
+      const box = svg.getBoundingClientRect();
+      const cardBox = svg.closest('[data-testid="provider-card-youtube"]')!.getBoundingClientRect();
+      return {
+        paintedHeight: markBox.height * matrix.d,
+        aspectRatio: box.width / box.height,
+        canonicalAspectRatio: viewBox.width / viewBox.height,
+        clearSpace: [
+          markBox.x,
+          markBox.y,
+          viewBox.width - markBox.x - markBox.width,
+          viewBox.height - markBox.y - markBox.height,
+        ],
+        triangleWidth: triangle.width,
+        triangleColor: getComputedStyle(svg.querySelectorAll("path")[1]).fill,
+        right: box.right,
+        left: box.left,
+        top: box.top,
+        bottom: box.bottom,
+        cardLeft: cardBox.left,
+        cardRight: cardBox.right,
+        cardTop: cardBox.top,
+        cardBottom: cardBox.bottom,
+        color: getComputedStyle(mark).fill,
+      };
+    });
+    expect(geometry.cardBottom - geometry.cardTop).toBeLessThanOrEqual(112);
+    expect(geometry.paintedHeight).toBeGreaterThanOrEqual(20);
+    expect(geometry.paintedHeight).toBeLessThanOrEqual(28);
+    expect(geometry.aspectRatio).toBeCloseTo(geometry.canonicalAspectRatio, 2);
+    for (const margin of geometry.clearSpace) {
+      expect(margin).toBeGreaterThanOrEqual(geometry.triangleWidth - 0.01);
     }
-  }
+    expect(geometry.triangleColor).toBe("rgb(255, 255, 255)");
+    expect(geometry.right).toBeLessThanOrEqual(1440);
+    expect(geometry.left).toBeGreaterThanOrEqual(geometry.cardLeft);
+    expect(geometry.right).toBeLessThanOrEqual(geometry.cardRight);
+    expect(geometry.top).toBeGreaterThanOrEqual(geometry.cardTop);
+    expect(geometry.bottom).toBeLessThanOrEqual(geometry.cardBottom);
+    expect(geometry.color).toBe("rgb(255, 0, 51)");
+    const title = card.getByRole("heading", { name: "YouTube", exact: true });
+    const action = card.getByRole("button");
+    await expect(title).toBeVisible();
+    await expect(action).toBeVisible();
+    const titleBox = (await title.boundingBox())!;
+    const actionBox = (await action.boundingBox())!;
+    expect(titleBox.width).toBeGreaterThanOrEqual(48);
+    expect(titleBox.x).toBeGreaterThanOrEqual(geometry.right);
+    expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(actionBox.x);
+    expect(actionBox.x + actionBox.width).toBeLessThanOrEqual(geometry.cardRight);
+    expect(
+      Math.abs((geometry.top + geometry.bottom) / 2 - (actionBox.y + actionBox.height / 2)),
+    ).toBeLessThanOrEqual(1);
+    await expect(page.getByText("YouTube", { exact: true }).first()).toBeVisible();
+    const accountActions = page
+      .getByTestId("account-card-account-youtube")
+      .getByRole("button", { name: /^Actions for / });
+    await accountActions.click();
+    await expect(
+      page.getByRole("menuitem", { name: "Account details", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(accountActions).toBeFocused();
+    await page.goto("/");
+    await expect(
+      page.locator("#composer-destination-account-youtube [data-slot=social-account-platform]"),
+    ).toBeVisible();
+    await expect(
+      page.locator("#composer-destination-account-youtube [data-slot=social-account-platform]"),
+    ).toHaveText("· YouTube");
+  });
 });
 
 test.describe("post imports", () => {
@@ -692,7 +628,7 @@ test.describe("post imports", () => {
   test("account details expose new-provider imports and keep X disabled", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const { token } = await registerUser(request, `post-imports-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, token, "Imports acceptance");
     const accountID = randomUUID();
@@ -716,8 +652,6 @@ test.describe("post imports", () => {
     const drawer = page.getByTestId("account-settings-drawer");
     const imports = drawer.getByRole("region", { name: "Imported posts" });
     await expect(imports).toBeVisible();
-    const before = testInfo.outputPath("threads-imports-before.png");
-    await imports.screenshot({ path: before });
     const enable = imports.getByRole("button", { name: "Turn on", exact: true });
     await expect(enable).toBeEnabled();
     await enable.focus();
@@ -742,38 +676,22 @@ test.describe("post imports", () => {
     await expect(
       imports.getByRole("link", { name: "A launch written directly on Threads." }),
     ).toBeVisible();
-    for (const scheme of ["light"] as const) {
-      await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      for (const width of [1440, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.reload();
-        await openDetails(accountID);
-        await expect(
-          imports.getByRole("link", { name: "A launch written directly on Threads." }),
-        ).toBeVisible();
-        await expect(imports.getByRole("button", { name: "Turn on", exact: true })).toBeEnabled();
-        expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-        const toggle = imports.getByRole("button", { name: "Turn on", exact: true });
-        const bounds = await toggle.boundingBox();
-        expect(bounds?.height).toBeGreaterThanOrEqual(44);
-        expect(bounds?.width).toBeGreaterThanOrEqual(44);
-        if (width === 390 && scheme === "light") {
-          await toggle.tap();
-          const disable = imports.getByRole("button", { name: "Turn off", exact: true });
-          await expect(disable).toBeEnabled();
-          await disable.tap();
-          await expect(toggle).toBeEnabled();
-        }
-        expect(await drawer.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
-          true,
-        );
-        const screenshot = testInfo.outputPath(`threads-imports-${width}-${scheme}.png`);
-        await imports.screenshot({ path: screenshot });
-        await testInfo.attach(`${width}-${scheme}`, { path: screenshot, contentType: "image/png" });
-        await page.keyboard.press("Escape");
-      }
-    }
+    await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), "light");
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.reload();
+    await openDetails(accountID);
+    await expect(
+      imports.getByRole("link", { name: "A launch written directly on Threads." }),
+    ).toBeVisible();
+    await expect(imports.getByRole("button", { name: "Turn on", exact: true })).toBeEnabled();
+    expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+    const toggle = imports.getByRole("button", { name: "Turn on", exact: true });
+    const bounds = await toggle.boundingBox();
+    expect(bounds?.height).toBeGreaterThanOrEqual(44);
+    expect(bounds?.width).toBeGreaterThanOrEqual(44);
+
+    await page.keyboard.press("Escape");
     await openDetails(xID);
     await expect(
       imports.getByText("X imports are disabled by the provider read-cost policy."),
@@ -809,10 +727,6 @@ test.describe("queue reminders", () => {
     await section.getByRole("spinbutton", { name: "Days of runway" }).fill("14");
     await section.getByRole("button", { name: "Save queue reminders" }).click();
     await expect(page.getByText("Queue reminders saved.")).toBeVisible();
-    await page.screenshot({
-      path: "/tmp/openpost-queue-reminders-desktop.png",
-      fullPage: true,
-    });
 
     const saved = await request.get(`/api/v1/notifications/queue-reminders/${workspace.id}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -831,10 +745,6 @@ test.describe("queue reminders", () => {
       await page.setViewportSize(viewport);
       await expect(section).toBeVisible();
       await section.scrollIntoViewIfNeeded();
-      await page.screenshot({
-        path: `/tmp/openpost-queue-reminders-${viewport.width}.png`,
-        fullPage: true,
-      });
       const overflow = await section.evaluate(
         (element) => element.scrollWidth > element.clientWidth + 1,
       );

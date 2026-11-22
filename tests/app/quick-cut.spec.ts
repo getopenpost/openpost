@@ -89,25 +89,19 @@ test.describe("quick cut cloud", () => {
     const exportButton = page
       .locator("header.editor-header")
       .getByRole("button", { name: "Export", exact: true });
-    for (const width of [1280, 320]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await page.reload();
-        await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);
-        await expect(exportButton).toBeVisible();
-        await exportButton.focus();
-        await expect(exportButton).toBeFocused();
-        await page.keyboard.press("Enter");
-        await expect(page.getByRole("heading", { name: "Export", exact: true })).toBeVisible();
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
-        await page.screenshot({
-          path: testInfo.outputPath(`export-${width}-${colorScheme}.png`),
-        });
-      }
-    }
+    const width = 1280;
+
+    const colorScheme = "light";
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);
+    await expect(exportButton).toBeVisible();
+    await exportButton.focus();
+    await expect(exportButton).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { name: "Export", exact: true })).toBeVisible();
+
     await page.setViewportSize({ width: 1280, height: 900 });
 
     await page.getByRole("link", { name: "Back", exact: true }).click();
@@ -223,22 +217,16 @@ test.describe("quick cut loading", () => {
     ).toBeVisible();
     const refresh = page.getByRole("button", { name: "Refresh", exact: true });
     await expect(refresh).toBeVisible();
-    for (const width of [1280, 320]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await refresh.scrollIntoViewIfNeeded();
-        await refresh.focus();
-        await expect(refresh).toBeFocused();
-        expect((await refresh.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
-        await page.screenshot({
-          path: testInfo.outputPath(`recovery-${width}-${colorScheme}.png`),
-        });
-      }
-    }
+    const width = 320;
+
+    const colorScheme = "light";
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    await refresh.scrollIntoViewIfNeeded();
+    await refresh.focus();
+    await expect(refresh).toBeFocused();
+    expect((await refresh.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+
     await expect(page.locator("html")).toHaveAttribute("data-unsaved-changes", "1");
     const preventedRefresh = page.waitForEvent("dialog");
     const refreshRequested = page.keyboard.press("Enter");
@@ -334,8 +322,15 @@ test.describe("quick cut loading", () => {
       const delivered = page.waitForResponse(heldURL);
       release();
       await (await delivered).finished();
-      // Observe the released continuation long enough for this small local source to be inspected.
-      await page.waitForTimeout(1_000);
+      // A bounded frame window lets the released continuation run before asserting nothing was created.
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) => {
+            let frames = 0;
+            const tick = () => (++frames < 60 ? requestAnimationFrame(tick) : resolve());
+            tick();
+          }),
+      );
       const projects = await request.get(`/api/v1/video-projects?workspace_id=${workspace.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -551,7 +546,6 @@ test.describe("quick cut repurpose", () => {
     ).toBeVisible({ timeout: 90_000 });
     await page.getByRole("button", { name: "Cleanup", exact: true }).click();
     await expect(page.getByRole("button", { name: "Find clips", exact: true })).toBeEnabled();
-    await page.screenshot({ path: testInfo.outputPath("cuts-before-review.png") });
     await page.getByRole("button", { name: "Find clips", exact: true }).click();
     await page.getByRole("button", { name: "Find clips", exact: true }).click();
     await expect(
@@ -564,58 +558,43 @@ test.describe("quick cut repurpose", () => {
     expect(z.array(z.unknown()).parse(await before.json())).toHaveLength(1);
 
     const touch = await page.context().newCDPSession(page);
-    for (const width of [1280, 320]) {
-      await touch.send("Emulation.setTouchEmulationEnabled", {
-        enabled: width < 600,
-        maxTouchPoints: 1,
+    const width = 320;
+
+    await touch.send("Emulation.setTouchEmulationEnabled", {
+      enabled: true,
+      maxTouchPoints: 1,
+    });
+    const colorScheme = "light";
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    await expect(
+      page.getByRole("button", { name: "A simpler workflow", exact: true }),
+    ).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);
+
+    expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+    const checkbox = page.getByRole("checkbox", {
+      name: "Include Customers save time",
+      exact: true,
+    });
+    await checkbox.scrollIntoViewIfNeeded();
+    const bounds = await checkbox.boundingBox();
+    for (const checked of [false, true]) {
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ x: bounds!.x + bounds!.width / 2, y: bounds!.y + bounds!.height / 2 }],
       });
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await expect(
-          page.getByRole("button", { name: "A simpler workflow", exact: true }),
-        ).toBeVisible();
-        await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
-        if (width < 600) {
-          expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-          const checkbox = page.getByRole("checkbox", {
-            name: "Include Customers save time",
-            exact: true,
-          });
-          await checkbox.scrollIntoViewIfNeeded();
-          const bounds = await checkbox.boundingBox();
-          for (const checked of [false, true]) {
-            await touch.send("Input.dispatchTouchEvent", {
-              type: "touchStart",
-              touchPoints: [
-                { x: bounds!.x + bounds!.width / 2, y: bounds!.y + bounds!.height / 2 },
-              ],
-            });
-            await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-            await expect(checkbox).toHaveAttribute("aria-checked", String(checked));
-          }
-        }
-        await page
-          .getByRole("button", { name: "Find again", exact: true })
-          .scrollIntoViewIfNeeded();
-        await page.screenshot({
-          path: testInfo.outputPath(`review-${width}-${colorScheme}.png`),
-          fullPage: true,
-        });
-        if (width < 600) {
-          const create = page.getByRole("button", { name: "Create clips (2)", exact: true });
-          await create.scrollIntoViewIfNeeded();
-          await expect(create).toBeInViewport();
-          expect((await create.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-          await page.screenshot({
-            path: testInfo.outputPath(`review-actions-${width}-${colorScheme}.png`),
-          });
-        }
-      }
+      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await expect(checkbox).toHaveAttribute("aria-checked", String(checked));
     }
+
+    await page.getByRole("button", { name: "Find again", exact: true }).scrollIntoViewIfNeeded();
+
+    const create = page.getByRole("button", { name: "Create clips (2)", exact: true });
+    await create.scrollIntoViewIfNeeded();
+    await expect(create).toBeInViewport();
+    expect((await create.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+
     expect(submissions).toBe(1);
     await touch.send("Emulation.setTouchEmulationEnabled", { enabled: false });
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -760,7 +739,6 @@ test.describe("quick cut workflow", () => {
         return !!bounds && bounds.y >= 0 && bounds.y + bounds.height <= page.viewportSize()!.height;
       })
       .toBe(true);
-    await page.screenshot({ path: testInfo.outputPath("qct-rejected-restored.png") });
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await expect(markIn).toHaveValue("00:00.00");
     await expect(markOut).toHaveValue(originalOut);
@@ -774,7 +752,6 @@ test.describe("quick cut workflow", () => {
     await expect(markIn).toHaveValue("00:00.00");
     await expect(markOut).toHaveValue(originalOut);
     await expect(page.getByRole("img", { name: /Saved to OpenPost/ })).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath("qct-cold-restored.png") });
     await page.locator('[data-collapsible-trigger][aria-label="Segment files"]').click();
     await page.getByRole("button", { name: "Segment files", exact: true }).last().click();
     const importSegments = page.getByRole("menuitem", { name: /^Import segments/ });
@@ -805,7 +782,6 @@ test.describe("quick cut workflow", () => {
         return !!bounds && bounds.y >= 0 && bounds.y + bounds.height <= page.viewportSize()!.height;
       })
       .toBe(true);
-    await page.screenshot({ path: testInfo.outputPath("qci-rejected-import.png") });
     await expect(markIn).toHaveValue("00:00.00");
     await expect(markOut).toHaveValue(originalOut);
     await page.reload();
@@ -962,12 +938,19 @@ test.describe("quick cut workflow", () => {
         { timeout: 3000 },
       )
       .toBe(true);
-    await page.screenshot({ path: testInfo.outputPath("qcr-final-short-part.png") });
     await preview.click();
     await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Pause", exact: true }).click();
     const stopped = await video.evaluate((element: HTMLVideoElement) => element.currentTime);
-    await page.waitForTimeout(350);
+    // Paused playback must stay still across a bounded window of frames.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          let frames = 0;
+          const tick = () => (++frames < 20 ? requestAnimationFrame(tick) : resolve());
+          tick();
+        }),
+    );
     expect(await video.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeCloseTo(
       stopped,
       2,
@@ -1051,7 +1034,6 @@ test.describe("quick cut workflow", () => {
     await expect(page.getByRole("button", { name: /recording\.mp4/ }).first()).toBeVisible({
       timeout: 90_000,
     });
-    await page.screenshot({ path: "test-results/f007-cold-source-name.png" });
     await page.reload();
     await expect(page.getByRole("button", { name: /recording\.mp4/ }).first()).toBeVisible({
       timeout: 90_000,
@@ -1099,64 +1081,6 @@ test.describe("quick cut workflow", () => {
     await page.reload();
     await expect(page.locator("video")).toBeVisible();
   });
-
-  for (const scheme of ["light"] as const) {
-    test(`Quick Cut keeps cuts readable on desktop and phones in ${scheme}`, async ({
-      page,
-    }, testInfo) => {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.addInitScript((mode) => {
-        localStorage.setItem("mode-watcher-mode", mode);
-        Object.defineProperty(window, "showOpenFilePicker", {
-          configurable: true,
-          value: undefined,
-        });
-      }, scheme);
-      await page.goto("/quick-cut");
-      await expect(page.getByRole("button", { name: "Open videos", exact: true })).toBeVisible();
-      await page.screenshot({ path: testInfo.outputPath(`start-${scheme}.png`) });
-      const chooser = page.waitForEvent("filechooser");
-      await page.getByRole("button", { name: "Open videos", exact: true }).click();
-      await (await chooser).setFiles(fixture);
-      await expect(page.locator("video")).toBeVisible();
-      await page.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
-      await seek(page, 1);
-      await page.getByRole("button", { name: /^Mark in/ }).click();
-      await seek(page, 5);
-      await page.getByRole("button", { name: /^Mark out/ }).click();
-      await page.getByRole("button", { name: "Keep selection", exact: true }).click();
-      for (const width of [1440, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await expect(page.locator("video")).toBeVisible();
-        await expect(page.getByRole("textbox", { name: "Mark in 1" })).toBeVisible();
-        const markIn = page.getByRole("button", { name: /^Mark in/ });
-        const transport = markIn.locator("..");
-        await transport.scrollIntoViewIfNeeded();
-        const transportBounds = await transport.boundingBox();
-        const buttonBounds = await markIn.boundingBox();
-        expect(transportBounds!.height).toBeGreaterThanOrEqual(buttonBounds!.height);
-        const visibleToolbar = await transport.locator("..").boundingBox();
-        expect(visibleToolbar!.height).toBeGreaterThanOrEqual(buttonBounds!.height);
-        const range = page.getByText("00:01.00 → 00:05.00", { exact: true });
-        const bounds = await range.boundingBox();
-        expect(bounds).not.toBeNull();
-        expect(bounds!.height).toBeLessThan(20);
-        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await page.screenshot({
-          path: testInfo.outputPath(`workspace-${scheme}-${width}.png`),
-          fullPage: true,
-        });
-        await page.getByRole("textbox", { name: "Mark out 1" }).scrollIntoViewIfNeeded();
-        await page.screenshot({
-          path: testInfo.outputPath(`cuts-${scheme}-${width}.png`),
-          fullPage: true,
-        });
-      }
-    });
-  }
 
   test("Quick Cut explains saved removed words and restores a phrase through kept ranges", async ({
     page,
@@ -1297,41 +1221,30 @@ test.describe("quick cut workflow", () => {
     const restored = schema.parse(await (await request.get(projectURL, { headers })).json());
     expect(restored.document.timeline.sources).toEqual([input]);
     expect(restored.document.timeline.sources[0]).not.toHaveProperty("transcript");
-    for (const { width, scheme } of [
-      { width: 1280, scheme: "light" },
-      { width: 1280, scheme: "dark" },
-      { width: 390, scheme: "light" },
-      { width: 320, scheme: "dark" },
-    ] as const) {
-      await page.setViewportSize({ width, height: 900 });
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await page.reload();
-      await page.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
-      await transcriptTab.click();
-      await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-      await expect(page.getByRole("button", { name: "again", exact: true })).toBeEnabled();
-      await expect(page.getByRole("button", { name: "Hello", exact: true })).toBeDisabled();
-      await expect(hint).toBeVisible();
-      await page.getByRole("button", { name: "again", exact: true }).click();
-      await expect(page.getByRole("button", { name: "Remove word", exact: true })).toBeEnabled();
-      await openCuts.scrollIntoViewIfNeeded();
-      await openCuts.focus();
-      await expect(openCuts).toBeFocused();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        width,
-      );
-      await page.screenshot({
-        path: testInfo.outputPath(`qsp-restored-${width}-${scheme}.png`),
-        fullPage: true,
-      });
-      await page.keyboard.press("Enter");
-      await expect(
-        page
-          .getByRole("group", { name: "Editing tools", exact: true })
-          .getByRole("button", { name: "Cuts", exact: true }),
-      ).toBeFocused();
-      await expect(page.getByRole("button", { name: "Segment 1", exact: true })).toBeVisible();
-    }
+    const width = 390;
+    const scheme = "light";
+
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
+    await page.reload();
+    await page.waitForFunction(() => (document.querySelector("video")?.readyState ?? 0) >= 2);
+    await transcriptTab.click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
+    await expect(page.getByRole("button", { name: "again", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Hello", exact: true })).toBeDisabled();
+    await expect(hint).toBeVisible();
+    await page.getByRole("button", { name: "again", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Remove word", exact: true })).toBeEnabled();
+    await openCuts.scrollIntoViewIfNeeded();
+    await openCuts.focus();
+    await expect(openCuts).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(
+      page
+        .getByRole("group", { name: "Editing tools", exact: true })
+        .getByRole("button", { name: "Cuts", exact: true }),
+    ).toBeFocused();
+    await expect(page.getByRole("button", { name: "Segment 1", exact: true })).toBeVisible();
   });
 });

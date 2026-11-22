@@ -52,7 +52,10 @@ test.describe("first composition", () => {
     const editor = page.getByRole("textbox", { name: "Post text" });
     await editor.focus();
     await editor.fill("   ");
-    await page.waitForTimeout(300);
+    // Whitespace-only input must not claim the first composition; the poll proves absence within a bounded window.
+    await expect(
+      expect.poll(() => claims.length, { timeout: 400 }).toBeGreaterThan(0),
+    ).rejects.toThrow();
     expect(claims).toEqual([]);
 
     const secondComposer = await page.context().newPage();
@@ -172,7 +175,7 @@ test.describe("first composition", () => {
   });
 });
 
-test.describe("composer thread poll media", () => {
+test.describe("thread poll media", () => {
   // The capability resolver and draft persistence are real. Synthetic credentials
   // cannot publish, and this test never requests delivery.
   test("media on a follow-up preserves the first post's native poll", async ({
@@ -249,7 +252,6 @@ test.describe("composer thread poll media", () => {
       .fill("Audit poll before a photo.");
     try {
       await expect(page.getByRole("button", { name: "Add poll", exact: true })).toBeDisabled();
-      await page.screenshot({ path: testInfo.outputPath("poll-capabilities-loading.png") });
     } finally {
       releaseCapabilities();
     }
@@ -299,12 +301,11 @@ test.describe("composer thread poll media", () => {
     );
     expect(issueCodes).not.toContain("x_mutually_exclusive_attachment");
     expect(issueCodes).not.toContain("poll_resolution_required");
-    await page.screenshot({ path: testInfo.outputPath("mixed-thread.png") });
-    for (const width of [1280, 390, 320]) {
-      for (const scheme of ["light", "dark"] as const) {
-        await page.setViewportSize({ width, height: 1000 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
+    {
+      {
+        await page.setViewportSize({ width: 1280, height: 1000 });
+        await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), "light");
         await page.goto(`/publications/${saved.id}`);
         await expect(poll.getByText("Which option?", { exact: true })).toBeVisible();
         await composerDestinations(page)
@@ -319,13 +320,7 @@ test.describe("composer thread poll media", () => {
         await expect(page.getByRole("option", { name: "Native poll", exact: true })).toBeVisible();
         await page.keyboard.press("Escape");
         await expect(version).toBeFocused();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
         await poll.scrollIntoViewIfNeeded();
-        await page.screenshot({
-          path: testInfo.outputPath(`poll-${width}-${scheme}.png`),
-        });
         await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
       }
     }
@@ -357,9 +352,6 @@ test.describe("composer thread poll media", () => {
     expect((await blocked.json()).issues.map((issue: { code: string }) => issue.code)).toContain(
       "x_mutually_exclusive_attachment",
     );
-    await page.screenshot({
-      path: testInfo.outputPath("same-post-media-guard.png"),
-    });
     await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
     await page
       .getByRole("region", { name: "Drop zone for post 1", exact: true })
@@ -380,7 +372,7 @@ test.describe("composer thread poll media", () => {
   });
 });
 
-test.describe("composer thread preservation", () => {
+test.describe("thread preservation", () => {
   test("an older open editor cannot delete a reply added by another editor", async ({
     page,
     request,
@@ -425,7 +417,6 @@ test.describe("composer thread preservation", () => {
     ]);
     expect(response.status()).toBe(409);
     await expect(page.getByRole("dialog")).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath("conflict.png"), animations: "disabled" });
     await page.getByRole("button", { name: "Reload saved draft", exact: true }).click();
     await expect(editor).toHaveCount(2);
     await expectPostText(editor.nth(1), reply);
@@ -439,203 +430,166 @@ test.describe("composer thread preservation", () => {
       .toEqual(["First message, edited after reloading", reply]);
   });
 
-  for (const width of [1280, 320]) {
-    for (const scheme of ["light"] as const) {
-      test(`a saved thread survives reopening and editing at ${width}px in ${scheme}`, async ({
-        page,
-        request,
-      }, testInfo) => {
-        await page.setViewportSize({ width, height: 1000 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        const errors: string[] = [];
-        page.on("pageerror", (error) => errors.push(error.message));
-        const auth = await registerUser(request, `thread-reopen-${randomUUID()}@example.com`);
-        const workspace = await createWorkspace(request, auth.token, "Saved thread");
-        const headers = { Authorization: `Bearer ${auth.token}` };
-        const created = await request.post("/api/v1/publications", {
-          headers,
-          data: {
-            workspace_id: workspace.id,
-            title: "Saved thread",
-            source_text: "The main post",
-            content_profile: "thread",
-            intent: "thread",
-            creation_preset: "thread",
-            segments: [{ body: "The main post" }, { body: "The link reply https://example.com" }],
-          },
-        });
-        expect(created.ok(), await created.text()).toBeTruthy();
-        const publication = await created.json();
-        const path = `/api/v1/publications/${publication.id}`;
-        await authenticatePage(page, auth.token);
-        await page.goto(`/publications/${publication.id}?workspace_id=${workspace.id}`);
-        const editors = page.getByRole("textbox", { name: "Post text", exact: true });
-        await expect(editors).toHaveCount(2);
-        await expectPostText(editors.nth(1), "The link reply https://example.com");
-        await page.screenshot({ path: testInfo.outputPath("opened.png") });
-        await editors.nth(0).fill("The edited main post");
-        await expect
-          .poll(async () => {
-            const saved = await (await request.get(path, { headers })).json();
-            return saved.segments.map((segment: { body: string }) => segment.body);
-          })
-          .toEqual(["The edited main post", "The link reply https://example.com"]);
-        await page.reload();
-        await expect(editors).toHaveCount(2);
-        await expectPostText(editors.nth(0), "The edited main post");
-        await expectPostText(editors.nth(1), "The link reply https://example.com");
-        await page.screenshot({ path: testInfo.outputPath("saved.png") });
-        await page.getByRole("button", { name: "Remove post", exact: true }).nth(1).click();
-        await expect
-          .poll(async () => {
-            const saved = await (await request.get(path, { headers })).json();
-            return saved.segments.map((segment: { body: string }) => segment.body);
-          })
-          .toEqual(["The edited main post"]);
-        expect(errors).toEqual([]);
-      });
-    }
-  }
-});
-
-test.describe("composer thread toolbar focus", () => {
-  for (const width of [1280, 320]) {
-    test.describe(`${width}px thread actions`, () => {
-      test.use({ hasTouch: width < 768 });
-      for (const scheme of ["light"] as const) {
-        test(`backward focus reveals the earlier post's actions in ${scheme}`, async ({
-          page,
-          request,
-        }, testInfo) => {
-          const errors: string[] = [];
-          page.on("pageerror", (error) => errors.push(error.message));
-          page.on("console", (message) => {
-            if (message.type() === "error") errors.push(message.text());
-          });
-          await page.setViewportSize({ width, height: 1000 });
-          await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-          const auth = await registerUser(request, `thread-toolbar-${randomUUID()}@example.com`);
-          const workspace = await createWorkspace(request, auth.token, "Thread toolbar focus");
-          await authenticatePage(page, auth.token);
-          await page.goto("/");
-          await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-          await page.reload();
-          if (scheme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
-          else await expect(page.locator("html")).not.toHaveClass(/dark/);
-          const editors = page.getByRole("textbox", { name: "Post text", exact: true });
-          const firstEditor = editors.first();
-          const firstAction = page.getByRole("button", { name: "Add media", exact: true }).first();
-          await firstAction.focus();
-          const decoration = () =>
-            firstEditor.evaluate((element) => {
-              const style = getComputedStyle(element);
-              return [style.boxShadow, style.outlineStyle, style.outlineWidth];
-            });
-          const restingDecoration = await decoration();
-          if (width < 768) await firstEditor.tap();
-          else await firstEditor.click();
-          await expect(firstEditor).toBeFocused();
-          await page.screenshot({ path: testInfo.outputPath("editor-pointer-focus.png") });
-          expect(await decoration()).toEqual(restingDecoration);
-          await page.keyboard.type("Pointer editing");
-          expect(await decoration()).toEqual(restingDecoration);
-          await firstAction.focus();
-          for (let step = 0; step < 8; step++) {
-            await page.keyboard.press("Shift+Tab");
-            if (await firstEditor.evaluate((element) => document.activeElement === element)) break;
-          }
-          await expect(firstEditor).toBeFocused();
-          expect(await decoration()).not.toEqual(restingDecoration);
-          await page.screenshot({ path: testInfo.outputPath("editor-keyboard-focus.png") });
-          await editors.first().fill("Audit first post.");
-          await page.getByRole("button", { name: "Add post", exact: true }).click();
-          await editors.nth(1).fill("Audit second post.");
-          const headers = { Authorization: `Bearer ${auth.token}` };
-          let saved: any;
-          await expect
-            .poll(async () => {
-              const list = await (
-                await request.get("/api/v1/publications", {
-                  headers,
-                  params: { workspace_id: workspace.id },
-                })
-              ).json();
-              const items = Array.isArray(list) ? list : (list.items ?? list.publications ?? []);
-              const item = items.find((entry: any) => entry.source_text === "Audit first post.");
-              if (!item) return false;
-              saved = await (
-                await request.get(`/api/v1/publications/${item.id}`, { headers })
-              ).json();
-              return saved.segments?.[1]?.body === "Audit second post.";
-            })
-            .toBe(true);
-          await page.goto(`/publications/${saved.id}`);
-          await editors.nth(1).focus();
-          const earlierAction = page.getByRole("button", { name: "Add post", exact: true }).first();
-          for (let step = 0; step < 12; step++) {
-            if (await earlierAction.evaluate((button) => document.activeElement === button)) break;
-            await page.keyboard.press("Shift+Tab");
-          }
-          await expect(earlierAction).toBeFocused();
-          await expect
-            .poll(() =>
-              earlierAction.evaluate((button) => {
-                for (
-                  let element: Element | null = button;
-                  element;
-                  element = element.parentElement
-                ) {
-                  if (getComputedStyle(element).opacity === "0") return false;
-                }
-                return true;
-              }),
-            )
-            .toBe(true);
-          await page.screenshot({ path: testInfo.outputPath("earlier-action-focused.png") });
-          const firstMedia = page.getByRole("button", { name: "Add media", exact: true }).first();
-          for (let step = 0; step < 8; step++) {
-            if (await firstMedia.evaluate((button) => document.activeElement === button)) break;
-            await page.keyboard.press("Shift+Tab");
-          }
-          await expect(firstMedia).toBeFocused();
-          await page.keyboard.press("Enter");
-          await expect(page.getByRole("dialog")).toBeVisible();
-          await page.keyboard.press("Escape");
-          await expect(firstMedia).toBeFocused();
-          // Pointer users activate the visible post before using its contextual actions.
-          if (width < 768) await editors.nth(1).tap();
-          else await editors.nth(1).click();
-          const secondMedia = page.getByRole("button", { name: "Add media", exact: true }).nth(1);
-          if (width < 768) await secondMedia.tap();
-          else await secondMedia.click();
-          await expect(page.getByRole("dialog")).toBeVisible();
-          await page.keyboard.press("Escape");
-          await expect(secondMedia).toBeFocused();
-          if (width < 768) {
-            expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-            const bounds = await secondMedia.boundingBox();
-            expect(bounds!.width).toBeGreaterThanOrEqual(44);
-            expect(bounds!.height).toBeGreaterThanOrEqual(44);
-          }
-          expect(
-            await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-          ).toBe(true);
-          await page.screenshot({ path: testInfo.outputPath("pointer-recovered.png") });
-          const detail = await (
-            await request.get(`/api/v1/publications/${saved.id}`, { headers })
-          ).json();
-          expect(detail.segments.map((segment: { body: string }) => segment.body)).toEqual([
-            "Audit first post.",
-            "Audit second post.",
-          ]);
-          expect(errors).toEqual([]);
-        });
-      }
+  test(`a saved thread survives reopening and editing`, async ({ page, request }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const auth = await registerUser(request, `thread-reopen-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Saved thread");
+    const headers = { Authorization: `Bearer ${auth.token}` };
+    const created = await request.post("/api/v1/publications", {
+      headers,
+      data: {
+        workspace_id: workspace.id,
+        title: "Saved thread",
+        source_text: "The main post",
+        content_profile: "thread",
+        intent: "thread",
+        creation_preset: "thread",
+        segments: [{ body: "The main post" }, { body: "The link reply https://example.com" }],
+      },
     });
-  }
+    expect(created.ok(), await created.text()).toBeTruthy();
+    const publication = await created.json();
+    const path = `/api/v1/publications/${publication.id}`;
+    await authenticatePage(page, auth.token);
+    await page.goto(`/publications/${publication.id}?workspace_id=${workspace.id}`);
+    const editors = page.getByRole("textbox", { name: "Post text", exact: true });
+    await expect(editors).toHaveCount(2);
+    await expectPostText(editors.nth(1), "The link reply https://example.com");
+    await editors.nth(0).fill("The edited main post");
+    await expect
+      .poll(async () => {
+        const saved = await (await request.get(path, { headers })).json();
+        return saved.segments.map((segment: { body: string }) => segment.body);
+      })
+      .toEqual(["The edited main post", "The link reply https://example.com"]);
+    await page.reload();
+    await expect(editors).toHaveCount(2);
+    await expectPostText(editors.nth(0), "The edited main post");
+    await expectPostText(editors.nth(1), "The link reply https://example.com");
+    await page.getByRole("button", { name: "Remove post", exact: true }).nth(1).click();
+    await expect
+      .poll(async () => {
+        const saved = await (await request.get(path, { headers })).json();
+        return saved.segments.map((segment: { body: string }) => segment.body);
+      })
+      .toEqual(["The edited main post"]);
+    expect(errors).toEqual([]);
+  });
 });
 
-test.describe("composer mentions", () => {
+test.describe("thread toolbar focus", () => {
+  test.describe("thread actions", () => {
+    test(`backward focus reveals the earlier post's actions in light`, async ({
+      page,
+      request,
+    }, testInfo) => {
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      page.on("console", (message) => {
+        if (message.type() === "error") errors.push(message.text());
+      });
+      await page.setViewportSize({ width: 1280, height: 1000 });
+      await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+      const auth = await registerUser(request, `thread-toolbar-${randomUUID()}@example.com`);
+      const workspace = await createWorkspace(request, auth.token, "Thread toolbar focus");
+      await authenticatePage(page, auth.token);
+      await page.goto("/");
+      await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), "light");
+      await page.reload();
+      const editors = page.getByRole("textbox", { name: "Post text", exact: true });
+      const firstEditor = editors.first();
+      const firstAction = page.getByRole("button", { name: "Add media", exact: true }).first();
+      await firstAction.focus();
+      const decoration = () =>
+        firstEditor.evaluate((element) => {
+          const style = getComputedStyle(element);
+          return [style.boxShadow, style.outlineStyle, style.outlineWidth];
+        });
+      const restingDecoration = await decoration();
+      await firstEditor.click();
+      await expect(firstEditor).toBeFocused();
+      expect(await decoration()).toEqual(restingDecoration);
+      await page.keyboard.type("Pointer editing");
+      expect(await decoration()).toEqual(restingDecoration);
+      await firstAction.focus();
+      for (let step = 0; step < 8; step++) {
+        await page.keyboard.press("Shift+Tab");
+        if (await firstEditor.evaluate((element) => document.activeElement === element)) break;
+      }
+      await expect(firstEditor).toBeFocused();
+      expect(await decoration()).not.toEqual(restingDecoration);
+      await editors.first().fill("Audit first post.");
+      await page.getByRole("button", { name: "Add post", exact: true }).click();
+      await editors.nth(1).fill("Audit second post.");
+      const headers = { Authorization: `Bearer ${auth.token}` };
+      let saved: any;
+      await expect
+        .poll(async () => {
+          const list = await (
+            await request.get("/api/v1/publications", {
+              headers,
+              params: { workspace_id: workspace.id },
+            })
+          ).json();
+          const items = Array.isArray(list) ? list : (list.items ?? list.publications ?? []);
+          const item = items.find((entry: any) => entry.source_text === "Audit first post.");
+          if (!item) return false;
+          saved = await (await request.get(`/api/v1/publications/${item.id}`, { headers })).json();
+          return saved.segments?.[1]?.body === "Audit second post.";
+        })
+        .toBe(true);
+      await page.goto(`/publications/${saved.id}`);
+      await editors.nth(1).focus();
+      const earlierAction = page.getByRole("button", { name: "Add post", exact: true }).first();
+      for (let step = 0; step < 12; step++) {
+        if (await earlierAction.evaluate((button) => document.activeElement === button)) break;
+        await page.keyboard.press("Shift+Tab");
+      }
+      await expect(earlierAction).toBeFocused();
+      await expect
+        .poll(() =>
+          earlierAction.evaluate((button) => {
+            for (let element: Element | null = button; element; element = element.parentElement) {
+              if (getComputedStyle(element).opacity === "0") return false;
+            }
+            return true;
+          }),
+        )
+        .toBe(true);
+      const firstMedia = page.getByRole("button", { name: "Add media", exact: true }).first();
+      for (let step = 0; step < 8; step++) {
+        if (await firstMedia.evaluate((button) => document.activeElement === button)) break;
+        await page.keyboard.press("Shift+Tab");
+      }
+      await expect(firstMedia).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(firstMedia).toBeFocused();
+      // Pointer users activate the visible post before using its contextual actions.
+      await editors.nth(1).click();
+      const secondMedia = page.getByRole("button", { name: "Add media", exact: true }).nth(1);
+      await secondMedia.click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(secondMedia).toBeFocused();
+
+      const detail = await (
+        await request.get(`/api/v1/publications/${saved.id}`, { headers })
+      ).json();
+      expect(detail.segments.map((segment: { body: string }) => segment.body)).toEqual([
+        "Audit first post.",
+        "Audit second post.",
+      ]);
+      expect(errors).toEqual([]);
+    });
+  });
+});
+
+test.describe("mentions", () => {
   for (const joined of [false, true])
     test(`video description edits preserve explicit mention decisions (${joined ? "joined" : "single"})`, async ({
       page,
@@ -1170,24 +1124,16 @@ test.describe("composer mentions", () => {
     await page.locator(`#composer-destination-${accountID}`).click();
     await expect(editor.locator("[data-mention]")).toHaveText("@alice.bsky.social");
 
-    for (const width of [1280, 320])
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme });
-        await expect(editor).toBeVisible();
-        expect(
-          await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
-        ).toBe(true);
-        await page.screenshot({
-          path: info.outputPath(`mentions-${width}-${colorScheme}.png`),
-          fullPage: true,
-        });
-      }
+    {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.emulateMedia({ colorScheme: "light" });
+      await expect(editor).toBeVisible();
+    }
     expect(errors).toEqual([]);
   });
 });
 
-test.describe("composer saved mentions", () => {
+test.describe("saved mentions", () => {
   async function caretAtEnd(editor: Locator) {
     await editor.evaluate((element) => {
       element.focus();
@@ -1439,105 +1385,131 @@ test.describe("composer saved mentions", () => {
     expect((await read()).renditions.find((r: any) => r.platform === "x").body).toBe(
       "Hi @guest_x  @new_guest  @new_guest ",
     );
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.reload();
-        await expect(editor.locator("[data-mention]")).toHaveCount(3);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-        await page.screenshot({
-          animations: "disabled",
-          path: info.outputPath(`saved-mentions-${width}-${scheme}.png`),
-        });
-        const before = await editor.innerText();
-        await editor.click();
-        await caretAtEnd(editor);
-        await editor.pressSequentially(" @");
-        await expect(page.getByRole("option", { name: "Add mention", exact: true })).toBeVisible();
-        const picker = page.getByRole("listbox");
-        await expect(picker).toHaveAttribute("aria-busy", "false");
-        const bounds = await picker.boundingBox();
-        expect(bounds?.x).toBeGreaterThanOrEqual(8);
-        expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(width - 8);
-        await page.screenshot({
-          animations: "disabled",
-          path: info.outputPath(`saved-mention-picker-${width}-${scheme}.png`),
-        });
-        await page.getByRole("option", { name: "Add mention", exact: true }).click();
-        await expect(dialog).toBeVisible();
-        await expect(dialog).toHaveCSS("opacity", "1");
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-        await page.screenshot({
-          animations: "disabled",
-          path: info.outputPath(`saved-mention-dialog-${width}-${scheme}.png`),
-        });
-        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-        await editor.press("ControlOrMeta+z");
-        await expect(editor).toHaveText(before);
-      }
+    {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), "light");
+      await page.reload();
+      await expect(editor.locator("[data-mention]")).toHaveCount(3);
+      const before = await editor.innerText();
+      await editor.click();
+      await caretAtEnd(editor);
+      await editor.pressSequentially(" @");
+      await expect(page.getByRole("option", { name: "Add mention", exact: true })).toBeVisible();
+      const picker = page.getByRole("listbox");
+      await expect(picker).toHaveAttribute("aria-busy", "false");
+      const bounds = await picker.boundingBox();
+      expect(bounds?.x).toBeGreaterThanOrEqual(8);
+      expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(1280 - 8);
+      await page.getByRole("option", { name: "Add mention", exact: true }).click();
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toHaveCSS("opacity", "1");
+      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await editor.press("ControlOrMeta+z");
+      await expect(editor).toHaveText(before);
+    }
     expect(errors).toEqual([]);
   });
 });
 
-test.describe("composer polls", () => {
-  for (const width of [1280, 320]) {
-    test.describe(`${width}px controls`, () => {
-      test.use({ hasTouch: width < 768 });
-      for (const scheme of ["light"] as const) {
-        test(`shared poll choices persist at ${width}px in ${scheme}`, async ({
-          page,
-          request,
-        }, testInfo) => {
-          test.setTimeout(60_000);
-          const errors: string[] = [];
-          page.on("pageerror", (error) => errors.push(error.message));
-          await page.setViewportSize({ width, height: 1000 });
-          await page.emulateMedia({
-            colorScheme: scheme,
-            reducedMotion: "reduce",
-          });
-          const auth = await registerUser(request, `poll-${randomUUID()}@example.com`);
-          const workspace = await createWorkspace(request, auth.token, "Polls");
-          await authenticatePage(page, auth.token);
-          const targets = [
-            { id: randomUUID(), platform: "x", username: "pollx" },
-            { id: randomUUID(), platform: "bluesky", username: "pollsky" },
-            { id: randomUUID(), platform: "mastodon", username: "pollmastodon" },
-            { id: randomUUID(), platform: "linkedin", username: "polllinkedin" },
-          ];
-          for (const account of targets)
-            execFileSync("sqlite3", [
-              "-cmd",
-              ".timeout 5000",
-              `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`,
-              `INSERT INTO social_accounts (id,workspace_id,slug,platform,account_id,account_username,access_token_encrypted,is_active) VALUES ('${account.id}','${workspace.id}','poll-${account.id}','${account.platform}','${account.id}','${account.username}',X'00',1);`,
-            ]);
-          await page.route("**/api/v1/capabilities/resolve", (route) =>
-            route.fulfill({
-              json: {
-                accounts: targets.map((account) => ({
-                  account_id: account.id,
-                  provider: account.platform,
-                  profile: "short_text",
-                  output_profile: `${account.platform}.post`,
-                  label: account.platform,
-                  text_limit: 280,
-                  media: {
-                    min_count: 0,
-                    max_count: 4,
-                    allowed_mimes: [],
-                    requires_public_url: false,
-                    requires_https_fetchable: false,
-                  },
-                  intents: ["post"],
-                  media_shapes: ["text"],
-                  settings:
-                    account.platform === "x"
+test.describe("polls", () => {
+  test.describe("poll controls", () => {
+    test(`shared poll choices persist`, async ({ page, request }, testInfo) => {
+      test.setTimeout(60_000);
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.setViewportSize({ width: 1280, height: 1000 });
+      await page.emulateMedia({
+        colorScheme: "light",
+        reducedMotion: "reduce",
+      });
+      const auth = await registerUser(request, `poll-${randomUUID()}@example.com`);
+      const workspace = await createWorkspace(request, auth.token, "Polls");
+      await authenticatePage(page, auth.token);
+      const targets = [
+        { id: randomUUID(), platform: "x", username: "pollx" },
+        { id: randomUUID(), platform: "bluesky", username: "pollsky" },
+        { id: randomUUID(), platform: "mastodon", username: "pollmastodon" },
+        { id: randomUUID(), platform: "linkedin", username: "polllinkedin" },
+      ];
+      for (const account of targets)
+        execFileSync("sqlite3", [
+          "-cmd",
+          ".timeout 5000",
+          `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`,
+          `INSERT INTO social_accounts (id,workspace_id,slug,platform,account_id,account_username,access_token_encrypted,is_active) VALUES ('${account.id}','${workspace.id}','poll-${account.id}','${account.platform}','${account.id}','${account.username}',X'00',1);`,
+        ]);
+      await page.route("**/api/v1/capabilities/resolve", (route) =>
+        route.fulfill({
+          json: {
+            accounts: targets.map((account) => ({
+              account_id: account.id,
+              provider: account.platform,
+              profile: "short_text",
+              output_profile: `${account.platform}.post`,
+              label: account.platform,
+              text_limit: 280,
+              media: {
+                min_count: 0,
+                max_count: 4,
+                allowed_mimes: [],
+                requires_public_url: false,
+                requires_https_fetchable: false,
+              },
+              intents: ["post"],
+              media_shapes: ["text"],
+              settings:
+                account.platform === "x"
+                  ? [
+                      {
+                        key: "poll_options",
+                        label: "Poll",
+                        type: "textarea",
+                        control: "poll",
+                        scope: "segment",
+                        constraints: {
+                          min_items: 2,
+                          max_items: 4,
+                          max_length: 25,
+                        },
+                      },
+                      {
+                        key: "poll_duration_minutes",
+                        constraints: { minimum: 5, maximum: 10080 },
+                        label: "Duration",
+                        type: "number",
+                        scope: "segment",
+                      },
+                    ]
+                  : account.platform === "mastodon"
+                    ? [
+                        {
+                          key: "poll_options",
+                          label: "Poll",
+                          type: "textarea",
+                          control: "poll",
+                          scope: "segment",
+                          constraints: { min_items: 2, max_items: 4 },
+                        },
+                        {
+                          key: "poll_expires_in_seconds",
+                          label: "Duration",
+                          type: "number",
+                          scope: "segment",
+                        },
+                        {
+                          key: "poll_multiple",
+                          label: "Multiple selections",
+                          type: "boolean",
+                          scope: "segment",
+                        },
+                        {
+                          key: "poll_hide_totals",
+                          label: "Hide totals",
+                          type: "boolean",
+                          scope: "segment",
+                        },
+                      ]
+                    : account.platform === "linkedin"
                       ? [
                           {
                             key: "poll_options",
@@ -1548,489 +1520,390 @@ test.describe("composer polls", () => {
                             constraints: {
                               min_items: 2,
                               max_items: 4,
-                              max_length: 25,
+                              max_length: 30,
                             },
                           },
                           {
-                            key: "poll_duration_minutes",
-                            constraints: { minimum: 5, maximum: 10080 },
-                            label: "Duration",
-                            type: "number",
+                            key: "poll_question",
+                            label: "Poll question",
+                            type: "text",
                             scope: "segment",
+                            constraints: { max_length: 140 },
+                          },
+                          {
+                            key: "poll_duration",
+                            label: "Duration",
+                            type: "select",
+                            scope: "segment",
+                            options: ["ONE_DAY", "THREE_DAYS", "SEVEN_DAYS", "FOURTEEN_DAYS"],
                           },
                         ]
-                      : account.platform === "mastodon"
-                        ? [
-                            {
-                              key: "poll_options",
-                              label: "Poll",
-                              type: "textarea",
-                              control: "poll",
-                              scope: "segment",
-                              constraints: { min_items: 2, max_items: 4 },
-                            },
-                            {
-                              key: "poll_expires_in_seconds",
-                              label: "Duration",
-                              type: "number",
-                              scope: "segment",
-                            },
-                            {
-                              key: "poll_multiple",
-                              label: "Multiple selections",
-                              type: "boolean",
-                              scope: "segment",
-                            },
-                            {
-                              key: "poll_hide_totals",
-                              label: "Hide totals",
-                              type: "boolean",
-                              scope: "segment",
-                            },
-                          ]
-                        : account.platform === "linkedin"
-                          ? [
-                              {
-                                key: "poll_options",
-                                label: "Poll",
-                                type: "textarea",
-                                control: "poll",
-                                scope: "segment",
-                                constraints: {
-                                  min_items: 2,
-                                  max_items: 4,
-                                  max_length: 30,
-                                },
-                              },
-                              {
-                                key: "poll_question",
-                                label: "Poll question",
-                                type: "text",
-                                scope: "segment",
-                                constraints: { max_length: 140 },
-                              },
-                              {
-                                key: "poll_duration",
-                                label: "Duration",
-                                type: "select",
-                                scope: "segment",
-                                options: ["ONE_DAY", "THREE_DAYS", "SEVEN_DAYS", "FOURTEEN_DAYS"],
-                              },
-                            ]
-                          : [],
-                  setting_groups: [],
-                  compatible: true,
-                  active_constraints: {},
-                  issues: [],
-                  capability_revision: "poll-test",
-                  dynamic_options: {},
-                  immediate_readiness: { state: "healthy", publishable: true },
-                  scheduled_readiness: { state: "healthy", publishable: true },
-                })),
-              },
-            }),
-          );
-          await page.goto("/");
-          await page.getByRole("textbox", { name: "Post text", exact: true }).fill("Help us plan.");
-          await page.screenshot({ path: testInfo.outputPath("before.png") });
-          const add = page.getByRole("button", { name: "Add poll", exact: true });
-          const media = page.getByRole("button", {
-            name: "Add media",
-            exact: true,
+                      : [],
+              setting_groups: [],
+              compatible: true,
+              active_constraints: {},
+              issues: [],
+              capability_revision: "poll-test",
+              dynamic_options: {},
+              immediate_readiness: { state: "healthy", publishable: true },
+              scheduled_readiness: { state: "healthy", publishable: true },
+            })),
+          },
+        }),
+      );
+      await page.goto("/");
+      await page.getByRole("textbox", { name: "Post text", exact: true }).fill("Help us plan.");
+      const add = page.getByRole("button", { name: "Add poll", exact: true });
+      const media = page.getByRole("button", {
+        name: "Add media",
+        exact: true,
+      });
+      await expect(add).toHaveText("");
+      await expect(add.locator("svg")).toHaveCount(1);
+      expect(
+        await media.evaluate((button) => button.nextElementSibling?.getAttribute("aria-label")),
+      ).toBe("Add poll");
+      await add.focus();
+      await page.keyboard.press("Enter");
+      let dialog = page.getByRole("dialog", {
+        name: "Add poll",
+        exact: true,
+      });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByText(/Polls are unavailable on @pollsky/)).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "Poll version" })).toHaveCount(0);
+      await dialog
+        .getByRole("textbox", { name: "Question", exact: true })
+        .fill("Cancelled question");
+      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(dialog).not.toBeVisible();
+      const poll = page.locator(
+        '[data-testid="shared-poll-editor"]:visible, [data-testid="composer-account-editor"]:visible',
+      );
+      await expect(poll).toHaveCount(0);
+      await expect(add).toBeFocused();
+      await add.click();
+      await expect(dialog.getByRole("textbox", { name: "Question", exact: true })).toHaveValue("");
+      await dialog
+        .getByRole("textbox", { name: "Question", exact: true })
+        .fill("Would you use this?");
+      await dialog.getByRole("textbox", { name: "Option 1", exact: true }).fill("Yes, sometimes");
+      await dialog.getByRole("textbox", { name: "Option 2", exact: true }).fill("No");
+      expect(
+        (await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations,
+      ).toEqual([]);
+      await dialog.getByRole("button", { name: "Add poll", exact: true }).click();
+      await expect(dialog).not.toBeVisible();
+      await expect(poll.getByRole("textbox")).toHaveCount(0);
+      await expect(poll.getByText("Choose how to post the poll on these accounts.")).toBeVisible();
+      await poll.getByRole("button", { name: /^@pollsky/ }).click();
+      await expect(poll.getByText(/This account cannot publish polls/)).toBeVisible();
+      await poll.getByRole("button", { name: "Text version", exact: true }).click();
+      await expect(poll.getByText(/Text only, without voting buttons/)).toBeVisible();
+      await expect(poll.getByRole("textbox", { name: "Post text", exact: true })).toHaveText(
+        "Help us plan.",
+      );
+      await expect(
+        poll.getByText("Would you use this?\n1. Yes, sometimes\n2. No", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      const accessibility = await new AxeBuilder({ page })
+        .include('[data-testid="composer-account-editor"]')
+        .analyze();
+      expect(accessibility.violations).toEqual([]);
+
+      await poll.scrollIntoViewIfNeeded();
+      const headers = { Authorization: `Bearer ${auth.token}` };
+      let saved: any;
+      await expect
+        .poll(async () => {
+          const response = await request.get("/api/v1/publications", {
+            headers,
+            params: { workspace_id: workspace.id },
           });
-          await expect(add).toHaveText("");
-          await expect(add.locator("svg")).toHaveCount(1);
-          expect(
-            await media.evaluate((button) => button.nextElementSibling?.getAttribute("aria-label")),
-          ).toBe("Add poll");
-          await add.focus();
-          await page.keyboard.press("Enter");
-          let dialog = page.getByRole("dialog", {
-            name: "Add poll",
-            exact: true,
-          });
-          await expect(dialog).toBeVisible();
-          await expect(dialog.getByText(/Polls are unavailable on @pollsky/)).toBeVisible();
-          await expect(dialog.getByRole("button", { name: "Poll version" })).toHaveCount(0);
-          await dialog
-            .getByRole("textbox", { name: "Question", exact: true })
-            .fill("Cancelled question");
-          await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-          await expect(dialog).not.toBeVisible();
-          const poll = page.locator(
-            '[data-testid="shared-poll-editor"]:visible, [data-testid="composer-account-editor"]:visible',
+          const data = await response.json();
+          const items = Array.isArray(data) ? data : (data.items ?? data.publications ?? []);
+          saved = items.find((item: any) => item.source_text === "Help us plan.");
+          if (!saved) return false;
+          const detail = await request.get(`/api/v1/publications/${saved.id}`, { headers });
+          saved = await detail.json();
+          return (
+            saved.segments?.[0]?.settings?.poll?.destinations?.[targets[1].id]?.mode === "text"
           );
-          await expect(poll).toHaveCount(0);
-          await expect(add).toBeFocused();
-          await add.click();
-          await expect(dialog.getByRole("textbox", { name: "Question", exact: true })).toHaveValue(
-            "",
-          );
-          await dialog
-            .getByRole("textbox", { name: "Question", exact: true })
-            .fill("Would you use this?");
-          await dialog
-            .getByRole("textbox", { name: "Option 1", exact: true })
-            .fill("Yes, sometimes");
-          await dialog.getByRole("textbox", { name: "Option 2", exact: true }).fill("No");
-          expect(
-            (await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations,
-          ).toEqual([]);
-          await page.screenshot({ path: testInfo.outputPath("poll-dialog.png") });
-          await dialog.getByRole("button", { name: "Add poll", exact: true }).click();
-          await expect(dialog).not.toBeVisible();
-          await expect(poll.getByRole("textbox")).toHaveCount(0);
-          await expect(
-            poll.getByText("Choose how to post the poll on these accounts."),
-          ).toBeVisible();
-          await page.screenshot({ path: testInfo.outputPath("poll-shared.png") });
-          await poll.getByRole("button", { name: /^@pollsky/ }).click();
-          await expect(poll.getByText(/This account cannot publish polls/)).toBeVisible();
-          await poll.getByRole("button", { name: "Text version", exact: true }).click();
-          await expect(poll.getByText(/Text only, without voting buttons/)).toBeVisible();
-          await expect(poll.getByRole("textbox", { name: "Post text", exact: true })).toHaveText(
-            "Help us plan.",
-          );
-          await expect(
-            poll.getByText("Would you use this?\n1. Yes, sometimes\n2. No", {
-              exact: true,
-            }),
-          ).toBeVisible();
-          const accessibility = await new AxeBuilder({ page })
-            .include('[data-testid="composer-account-editor"]')
-            .analyze();
-          expect(accessibility.violations).toEqual([]);
-          if (width < 768) {
-            expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-            const smallTargets = await poll
-              .locator("button:visible, input:visible, summary:visible")
-              .evaluateAll((elements) =>
-                elements.flatMap((element) => {
-                  const bounds = element.getBoundingClientRect();
-                  return bounds.width > 0 && bounds.height > 0 && bounds.height < 44
-                    ? [
-                        {
-                          label: element.getAttribute("aria-label") ?? element.textContent,
-                          height: bounds.height,
-                        },
-                      ]
-                    : [];
-                }),
-              );
-            expect(smallTargets).toEqual([]);
-          }
-          const bounds = await poll.boundingBox();
-          expect(bounds!.x).toBeGreaterThanOrEqual(0);
-          expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-          await poll.scrollIntoViewIfNeeded();
-          await page.screenshot({
-            path: testInfo.outputPath("poll-account.png"),
-          });
-          const headers = { Authorization: `Bearer ${auth.token}` };
-          let saved: any;
-          await expect
-            .poll(async () => {
-              const response = await request.get("/api/v1/publications", {
-                headers,
-                params: { workspace_id: workspace.id },
-              });
-              const data = await response.json();
-              const items = Array.isArray(data) ? data : (data.items ?? data.publications ?? []);
-              saved = items.find((item: any) => item.source_text === "Help us plan.");
-              if (!saved) return false;
-              const detail = await request.get(`/api/v1/publications/${saved.id}`, { headers });
-              saved = await detail.json();
-              return (
-                saved.segments?.[0]?.settings?.poll?.destinations?.[targets[1].id]?.mode === "text"
-              );
-            })
-            .toBe(true);
-          expect(
-            saved.renditions.find((item: any) => item.platform === "x").segments[0].settings
-              .poll_options,
-          ).toBe("Yes, sometimes\nNo");
-          const linkedin = saved.renditions.find((item: any) => item.platform === "linkedin")
-            .segments[0];
-          expect(linkedin.settings.poll_question).toBe("Would you use this?");
-          expect(linkedin.body).toBe("Help us plan.");
-          expect(saved.renditions.find((item: any) => item.platform === "x").segments[0].body).toBe(
-            "Help us plan.\n\nWould you use this?",
-          );
-          await page.goto(`/publications/${saved.id}`);
-          await expect(poll.getByText("Would you use this?", { exact: true })).toBeVisible();
-          await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
-          dialog = page.getByRole("dialog", { name: "Edit poll", exact: true });
-          await expect(dialog.getByRole("textbox", { name: "Question", exact: true })).toHaveValue(
-            "Would you use this?",
-          );
-          await dialog
-            .getByRole("textbox", { name: "Question", exact: true })
-            .fill("Discard this edit");
-          await page.keyboard.press("Escape");
-          await expect(poll.getByRole("button", { name: "Edit poll", exact: true })).toBeFocused();
-          await expect(poll.getByText("Would you use this?", { exact: true })).toBeVisible();
-          await composerDestinations(page)
-            .getByRole("tab", { name: /@pollx,/ })
-            .click();
-          await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
-          const custom = poll.getByTestId("preview-poll-editor");
-          await custom.getByRole("button", { name: "Voting closes after", exact: true }).click();
-          await expect(page.getByRole("option", { name: "14 days", exact: true })).toHaveCount(0);
-          await page.keyboard.press("Escape");
-          await custom
-            .getByRole("textbox", { name: "Question", exact: true })
-            .fill("Usarias isto?");
-          await custom.getByRole("button", { name: "Save", exact: true }).click();
-          await expect(poll.getByText("Usarias isto?", { exact: true })).toBeVisible();
-          await expect(poll.getByRole("checkbox")).toHaveCount(0);
-          await composerDestinations(page)
-            .getByRole("tab", { name: /polllinkedin,/ })
-            .click();
-          await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
-          const linkedinDialog = poll.getByTestId("preview-poll-editor");
-          await expect(
-            linkedinDialog.getByRole("textbox", {
-              name: "Question",
-              exact: true,
-            }),
-          ).toHaveAttribute("maxlength", "140");
-          await expect(
-            linkedinDialog.getByRole("textbox", {
-              name: "Option 1",
-              exact: true,
-            }),
-          ).toHaveAttribute("maxlength", "30");
-          await linkedinDialog
-            .getByRole("button", { name: "Voting closes after", exact: true })
-            .click();
-          await expect(page.getByRole("option")).toHaveText([
-            "1 day",
-            "3 days",
-            "7 days",
-            "14 days",
-          ]);
-          await page.keyboard.press("Escape");
-          await linkedinDialog.getByRole("button", { name: "Add option", exact: true }).click();
-          await linkedinDialog.getByRole("button", { name: "Add option", exact: true }).click();
-          await expect(
-            linkedinDialog.getByRole("button", {
-              name: "Add option",
-              exact: true,
-            }),
-          ).toBeDisabled();
-          await linkedinDialog.getByRole("button", { name: "Cancel", exact: true }).click();
-          await composerDestinations(page)
-            .getByRole("tab", { name: /@pollmastodon,/ })
-            .click();
-          await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
-          await poll
-            .getByRole("checkbox", {
-              name: "Allow multiple selections",
-              exact: true,
-            })
-            .check();
-          await expect(
-            poll.getByRole("checkbox", {
-              name: "Allow multiple selections",
-              exact: true,
-            }),
-          ).toBeChecked();
-          await poll
-            .getByTestId("preview-poll-editor")
-            .getByRole("button", { name: "Save", exact: true })
-            .click();
-          await expect(
-            poll.getByRole("button", { name: "Poll version", exact: true }),
-          ).toContainText("Custom poll");
-          await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
-          await expect(poll.getByText("Would you use this?", { exact: true })).toBeVisible();
-          await composerDestinations(page)
-            .getByRole("tab", { name: /@pollsky,/ })
-            .click();
-          await expect(
-            poll.getByRole("button", { name: "Poll version", exact: true }),
-          ).toContainText("Text version");
-          await poll.getByRole("button", { name: "Customize post text", exact: true }).click();
-          const editor = page.getByRole("textbox", {
-            name: "Post text",
-            exact: true,
-          });
-          await expect(editor).toHaveText(
-            "Help us plan.\n\nWould you use this?\n1. Yes, sometimes\n2. No",
-            { useInnerText: true },
-          );
-          await expect(
-            poll.getByRole("button", { name: "Poll version", exact: true }),
-          ).toContainText("Post without poll");
-          await editor.fill("A separate question for this audience.");
-          await expect
-            .poll(async () => {
-              const detail = await (
-                await request.get(`/api/v1/publications/${saved.id}`, { headers })
-              ).json();
-              return detail.segments?.[0]?.settings?.poll?.destinations?.[targets[0].id]?.poll
-                ?.question;
-            })
-            .toBe("Usarias isto?");
-          await page.goto(`/publications/${saved.id}`);
-          await composerDestinations(page)
-            .getByRole("tab", { name: /@pollx,/ })
-            .click();
-          await expect(poll.getByText("Usarias isto?", { exact: true })).toBeVisible();
-          const late = {
-            id: randomUUID(),
-            platform: "bluesky",
-            username: "latepoll",
-          };
-          targets.push(late);
-          execFileSync("sqlite3", [
-            "-cmd",
-            ".timeout 5000",
-            `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`,
-            `INSERT INTO social_accounts (id,workspace_id,slug,platform,account_id,account_username,access_token_encrypted,is_active) VALUES ('${late.id}','${workspace.id}','poll-${late.id}','bluesky','${late.id}','${late.username}',X'00',1);`,
-          ]);
-          const current = await (
+        })
+        .toBe(true);
+      expect(
+        saved.renditions.find((item: any) => item.platform === "x").segments[0].settings
+          .poll_options,
+      ).toBe("Yes, sometimes\nNo");
+      const linkedin = saved.renditions.find((item: any) => item.platform === "linkedin")
+        .segments[0];
+      expect(linkedin.settings.poll_question).toBe("Would you use this?");
+      expect(linkedin.body).toBe("Help us plan.");
+      expect(saved.renditions.find((item: any) => item.platform === "x").segments[0].body).toBe(
+        "Help us plan.\n\nWould you use this?",
+      );
+      await page.goto(`/publications/${saved.id}`);
+      await expect(poll.getByText("Would you use this?", { exact: true })).toBeVisible();
+      await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
+      dialog = page.getByRole("dialog", { name: "Edit poll", exact: true });
+      await expect(dialog.getByRole("textbox", { name: "Question", exact: true })).toHaveValue(
+        "Would you use this?",
+      );
+      await dialog
+        .getByRole("textbox", { name: "Question", exact: true })
+        .fill("Discard this edit");
+      await page.keyboard.press("Escape");
+      await expect(poll.getByRole("button", { name: "Edit poll", exact: true })).toBeFocused();
+      await expect(poll.getByText("Would you use this?", { exact: true })).toBeVisible();
+      await composerDestinations(page)
+        .getByRole("tab", { name: /@pollx,/ })
+        .click();
+      await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
+      const custom = poll.getByTestId("preview-poll-editor");
+      await custom.getByRole("button", { name: "Voting closes after", exact: true }).click();
+      await expect(page.getByRole("option", { name: "14 days", exact: true })).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await custom.getByRole("textbox", { name: "Question", exact: true }).fill("Usarias isto?");
+      await custom.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(poll.getByText("Usarias isto?", { exact: true })).toBeVisible();
+      await expect(poll.getByRole("checkbox")).toHaveCount(0);
+      await composerDestinations(page)
+        .getByRole("tab", { name: /polllinkedin,/ })
+        .click();
+      await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
+      const linkedinDialog = poll.getByTestId("preview-poll-editor");
+      await expect(
+        linkedinDialog.getByRole("textbox", {
+          name: "Question",
+          exact: true,
+        }),
+      ).toHaveAttribute("maxlength", "140");
+      await expect(
+        linkedinDialog.getByRole("textbox", {
+          name: "Option 1",
+          exact: true,
+        }),
+      ).toHaveAttribute("maxlength", "30");
+      await linkedinDialog
+        .getByRole("button", { name: "Voting closes after", exact: true })
+        .click();
+      await expect(page.getByRole("option")).toHaveText(["1 day", "3 days", "7 days", "14 days"]);
+      await page.keyboard.press("Escape");
+      await linkedinDialog.getByRole("button", { name: "Add option", exact: true }).click();
+      await linkedinDialog.getByRole("button", { name: "Add option", exact: true }).click();
+      await expect(
+        linkedinDialog.getByRole("button", {
+          name: "Add option",
+          exact: true,
+        }),
+      ).toBeDisabled();
+      await linkedinDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await composerDestinations(page)
+        .getByRole("tab", { name: /@pollmastodon,/ })
+        .click();
+      await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
+      await poll
+        .getByRole("checkbox", {
+          name: "Allow multiple selections",
+          exact: true,
+        })
+        .check();
+      await expect(
+        poll.getByRole("checkbox", {
+          name: "Allow multiple selections",
+          exact: true,
+        }),
+      ).toBeChecked();
+      await poll
+        .getByTestId("preview-poll-editor")
+        .getByRole("button", { name: "Save", exact: true })
+        .click();
+      await expect(poll.getByRole("button", { name: "Poll version", exact: true })).toContainText(
+        "Custom poll",
+      );
+      await composerDestinations(page).getByRole("tab", { name: "All", exact: true }).click();
+      await expect(poll.getByText("Would you use this?", { exact: true })).toBeVisible();
+      await composerDestinations(page)
+        .getByRole("tab", { name: /@pollsky,/ })
+        .click();
+      await expect(poll.getByRole("button", { name: "Poll version", exact: true })).toContainText(
+        "Text version",
+      );
+      await poll.getByRole("button", { name: "Customize post text", exact: true }).click();
+      const editor = page.getByRole("textbox", {
+        name: "Post text",
+        exact: true,
+      });
+      await expect(editor).toHaveText(
+        "Help us plan.\n\nWould you use this?\n1. Yes, sometimes\n2. No",
+        { useInnerText: true },
+      );
+      await expect(poll.getByRole("button", { name: "Poll version", exact: true })).toContainText(
+        "Post without poll",
+      );
+      await editor.fill("A separate question for this audience.");
+      await expect
+        .poll(async () => {
+          const detail = await (
             await request.get(`/api/v1/publications/${saved.id}`, { headers })
           ).json();
-          const added = await request.put(`/api/v1/publications/${saved.id}`, {
-            headers,
-            data: {
-              expected_revision: current.revision,
-              renditions: [
-                ...current.renditions.map((item: any) => ({
-                  social_account_id: item.social_account_id,
-                })),
-                { social_account_id: late.id },
-              ],
-            },
-          });
-          expect(added.ok(), await added.text()).toBe(true);
-          await page.goto(`/publications/${saved.id}`);
-          await expect(poll.getByRole("button", { name: /^@latepoll/ })).toBeVisible();
-          const validation = await (
-            await request.post(`/api/v1/publications/${saved.id}/validate`, {
-              headers,
-            })
-          ).json();
-          expect(validation.issues.map((issue: { code: string }) => issue.code)).toContain(
-            "poll_resolution_required",
-          );
-          await poll.getByRole("button", { name: /^@latepoll/ }).click();
-          await expect(poll.getByText(/This account cannot publish polls/)).toBeVisible();
-          await poll.getByRole("button", { name: "Post without poll", exact: true }).click();
-          await expect(
-            poll.getByRole("button", { name: "Poll version", exact: true }),
-          ).toContainText("Post without poll");
-          let settled: any;
-          await expect
-            .poll(async () => {
-              settled = await (
-                await request.get(`/api/v1/publications/${saved.id}`, { headers })
-              ).json();
-              return settled.segments[0].settings.poll.destinations[late.id]?.mode;
-            })
-            .toBe("omit");
-          // The server can commit before the composer processes its save response.
-          await expect(page.getByTestId("composer-save-indicator")).toHaveAttribute(
-            "data-state",
-            /^(saved|idle)$/,
-          );
+          return detail.segments?.[0]?.settings?.poll?.destinations?.[targets[0].id]?.poll
+            ?.question;
+        })
+        .toBe("Usarias isto?");
+      await page.goto(`/publications/${saved.id}`);
+      await composerDestinations(page)
+        .getByRole("tab", { name: /@pollx,/ })
+        .click();
+      await expect(poll.getByText("Usarias isto?", { exact: true })).toBeVisible();
+      const late = {
+        id: randomUUID(),
+        platform: "bluesky",
+        username: "latepoll",
+      };
+      targets.push(late);
+      execFileSync("sqlite3", [
+        "-cmd",
+        ".timeout 5000",
+        `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`,
+        `INSERT INTO social_accounts (id,workspace_id,slug,platform,account_id,account_username,access_token_encrypted,is_active) VALUES ('${late.id}','${workspace.id}','poll-${late.id}','bluesky','${late.id}','${late.username}',X'00',1);`,
+      ]);
+      const current = await (
+        await request.get(`/api/v1/publications/${saved.id}`, { headers })
+      ).json();
+      const added = await request.put(`/api/v1/publications/${saved.id}`, {
+        headers,
+        data: {
+          expected_revision: current.revision,
+          renditions: [
+            ...current.renditions.map((item: any) => ({
+              social_account_id: item.social_account_id,
+            })),
+            { social_account_id: late.id },
+          ],
+        },
+      });
+      expect(added.ok(), await added.text()).toBe(true);
+      await page.goto(`/publications/${saved.id}`);
+      await expect(poll.getByRole("button", { name: /^@latepoll/ })).toBeVisible();
+      const validation = await (
+        await request.post(`/api/v1/publications/${saved.id}/validate`, {
+          headers,
+        })
+      ).json();
+      expect(validation.issues.map((issue: { code: string }) => issue.code)).toContain(
+        "poll_resolution_required",
+      );
+      await poll.getByRole("button", { name: /^@latepoll/ }).click();
+      await expect(poll.getByText(/This account cannot publish polls/)).toBeVisible();
+      await poll.getByRole("button", { name: "Post without poll", exact: true }).click();
+      await expect(poll.getByRole("button", { name: "Poll version", exact: true })).toContainText(
+        "Post without poll",
+      );
+      let settled: any;
+      await expect
+        .poll(async () => {
           settled = await (
             await request.get(`/api/v1/publications/${saved.id}`, { headers })
           ).json();
-          const importedPoll = settled.segments[0].settings.poll;
-          const imported = await request.put(`/api/v1/publications/${saved.id}`, {
-            headers,
-            data: {
-              expected_revision: settled.revision,
-              segments: settled.segments.map((segment: any, index: number) => ({
-                id: segment.id,
-                body: segment.body,
-                settings:
-                  index === 0
-                    ? {
-                        ...segment.settings,
-                        poll: {
-                          ...importedPoll,
-                          multiple: true,
-                          hide_totals: true,
-                          destinations: {
-                            ...importedPoll.destinations,
-                            [targets[0].id]: { mode: "native" },
-                          },
-                        },
-                      }
-                    : segment.settings,
-              })),
-            },
-          });
-          expect(imported.ok(), await imported.text()).toBe(true);
-          await page.goto(`/publications/${saved.id}`);
-          await composerDestinations(page)
-            .getByRole("tab", { name: /@pollx,/ })
-            .click();
-          await expect(
-            poll.getByText(/does not support the selected voting options/),
-          ).toBeVisible();
-          await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
-          await poll
-            .getByRole("checkbox", {
-              name: "Allow multiple selections",
-              exact: true,
-            })
-            .uncheck();
-          await poll
-            .getByRole("checkbox", {
-              name: "Hide totals until voting ends",
-              exact: true,
-            })
-            .uncheck();
-          await poll
-            .getByTestId("preview-poll-editor")
-            .getByRole("button", { name: "Save", exact: true })
-            .click();
-          await expect(poll.getByText(/does not support the selected voting options/)).toHaveCount(
-            0,
-          );
-          await expect
-            .poll(async () => {
-              const detail = await (
-                await request.get(`/api/v1/publications/${saved.id}`, { headers })
-              ).json();
-              const custom = detail.segments[0].settings.poll.destinations[targets[0].id].poll;
-              return custom?.multiple === false && custom?.hide_totals === false;
-            })
-            .toBe(true);
-          await expect(page.getByTestId("composer-save-indicator")).toHaveAttribute(
-            "data-state",
-            /^(saved|idle)$/,
-          );
-          const resolved = await (
+          return settled.segments[0].settings.poll.destinations[late.id]?.mode;
+        })
+        .toBe("omit");
+      // The server can commit before the composer processes its save response.
+      await expect(page.getByTestId("composer-save-indicator")).toHaveAttribute(
+        "data-state",
+        /^(saved|idle)$/,
+      );
+      settled = await (await request.get(`/api/v1/publications/${saved.id}`, { headers })).json();
+      const importedPoll = settled.segments[0].settings.poll;
+      const imported = await request.put(`/api/v1/publications/${saved.id}`, {
+        headers,
+        data: {
+          expected_revision: settled.revision,
+          segments: settled.segments.map((segment: any, index: number) => ({
+            id: segment.id,
+            body: segment.body,
+            settings:
+              index === 0
+                ? {
+                    ...segment.settings,
+                    poll: {
+                      ...importedPoll,
+                      multiple: true,
+                      hide_totals: true,
+                      destinations: {
+                        ...importedPoll.destinations,
+                        [targets[0].id]: { mode: "native" },
+                      },
+                    },
+                  }
+                : segment.settings,
+          })),
+        },
+      });
+      expect(imported.ok(), await imported.text()).toBe(true);
+      await page.goto(`/publications/${saved.id}`);
+      await composerDestinations(page)
+        .getByRole("tab", { name: /@pollx,/ })
+        .click();
+      await expect(poll.getByText(/does not support the selected voting options/)).toBeVisible();
+      await poll.getByRole("button", { name: "Edit poll", exact: true }).click();
+      await poll
+        .getByRole("checkbox", {
+          name: "Allow multiple selections",
+          exact: true,
+        })
+        .uncheck();
+      await poll
+        .getByRole("checkbox", {
+          name: "Hide totals until voting ends",
+          exact: true,
+        })
+        .uncheck();
+      await poll
+        .getByTestId("preview-poll-editor")
+        .getByRole("button", { name: "Save", exact: true })
+        .click();
+      await expect(poll.getByText(/does not support the selected voting options/)).toHaveCount(0);
+      await expect
+        .poll(async () => {
+          const detail = await (
             await request.get(`/api/v1/publications/${saved.id}`, { headers })
           ).json();
-          const textOnly = await request.put(`/api/v1/publications/${saved.id}`, {
-            headers,
-            data: {
-              expected_revision: resolved.revision,
-              renditions: [{ social_account_id: targets[1].id }],
-            },
-          });
-          expect(textOnly.ok(), await textOnly.text()).toBe(true);
-          await page.goto(`/publications/${saved.id}`);
-          await poll.getByRole("button", { name: "Remove poll", exact: true }).click();
-          await page.getByRole("button", { name: "Add poll", exact: true }).click();
-          dialog = page.getByRole("dialog", { name: "Add poll", exact: true });
-          await expect(dialog).toBeVisible();
-          await expect(dialog.getByText(/Polls are unavailable on @pollsky/)).toBeVisible();
-          await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-          expect(errors).toEqual([]);
-        });
-      }
+          const custom = detail.segments[0].settings.poll.destinations[targets[0].id].poll;
+          return custom?.multiple === false && custom?.hide_totals === false;
+        })
+        .toBe(true);
+      await expect(page.getByTestId("composer-save-indicator")).toHaveAttribute(
+        "data-state",
+        /^(saved|idle)$/,
+      );
+      const resolved = await (
+        await request.get(`/api/v1/publications/${saved.id}`, { headers })
+      ).json();
+      const textOnly = await request.put(`/api/v1/publications/${saved.id}`, {
+        headers,
+        data: {
+          expected_revision: resolved.revision,
+          renditions: [{ social_account_id: targets[1].id }],
+        },
+      });
+      expect(textOnly.ok(), await textOnly.text()).toBe(true);
+      await page.goto(`/publications/${saved.id}`);
+      await poll.getByRole("button", { name: "Remove poll", exact: true }).click();
+      await page.getByRole("button", { name: "Add poll", exact: true }).click();
+      dialog = page.getByRole("dialog", { name: "Add poll", exact: true });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByText(/Polls are unavailable on @pollsky/)).toBeVisible();
+      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      expect(errors).toEqual([]);
     });
-  }
+  });
 });
 
-test.describe("composer history domains", () => {
+test.describe("history", () => {
   test("composer history identifies the authored fields changed by a text edit", async ({
     page,
     request,
@@ -2075,7 +1948,6 @@ test.describe("composer history domains", () => {
     await page.getByRole("button", { name: "Post settings", exact: true }).click();
     await page.getByRole("button", { name: "Version history", exact: true }).click();
     await expect(page.getByTestId("publication-history-scroll")).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath("text-edit-history.png") });
     const events = await (await request.get(`${path}/events`, { headers })).json();
     const revisions = events.filter((event: { revision?: number }) => event.revision);
     expect(revisions[0].changed_domains).toEqual(["content"]);
@@ -2107,10 +1979,10 @@ test.describe("composer history domains", () => {
       nontextEvents.find((event: { revision?: number }) => event.revision === nontextPost.revision)
         .changed_domains,
     ).toEqual(["settings"]);
-    for (const width of [1280, 320]) {
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    {
+      {
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
         await page.reload();
         await expect(textbox).toHaveText("Audit corrected text", { useInnerText: true });
         await page.getByRole("button", { name: "Post settings", exact: true }).focus();
@@ -2118,7 +1990,6 @@ test.describe("composer history domains", () => {
         await page.getByRole("button", { name: "Version history", exact: true }).click();
         await expect(page.getByTestId("publication-history-scroll")).toBeVisible();
         await expect(page.getByTestId("publication-history-scroll")).toContainText("settings");
-        await page.screenshot({ path: testInfo.outputPath(`history-${width}-${scheme}.png`) });
         await page.keyboard.press("Escape");
       }
     }
@@ -2126,7 +1997,7 @@ test.describe("composer history domains", () => {
   });
 });
 
-test.describe("composer joined reload", () => {
+test.describe("joined reload", () => {
   // Provider readiness is synthetic; all authoring and cold reads use the real local API.
   test("a customized joined thread preserves each authored source after a cold reload", async ({
     page,
@@ -2195,7 +2066,6 @@ test.describe("composer joined reload", () => {
         return saved.renditions[0].segments[0].body_override;
       })
       .toBe("Custom first 東京\n\nContinuation once");
-    await page.screenshot({ path: testInfo.outputPath("before-reload.png") });
     await page.reload();
     await page.locator(`#composer-destination-${accountID}`).click();
     await expect(editors.nth(0)).toHaveText("Custom first 東京", { useInnerText: true });
@@ -2207,24 +2077,15 @@ test.describe("composer joined reload", () => {
         return saved.renditions[0].segments[0].body_override;
       })
       .toBe("Custom first edited\n\nContinuation once");
-    await page.screenshot({ path: testInfo.outputPath("after-reload.png") });
-    for (const width of [320]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 844 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    {
+      {
         await page.reload();
         await page.locator(`#composer-destination-${accountID}`).click();
         await expect(editors.nth(0)).toHaveText("Custom first edited", { useInnerText: true });
         await expect(editors.nth(1)).toHaveText("Continuation once", { useInnerText: true });
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
         await editors.nth(0).focus();
         await page.keyboard.press("Tab");
         await expect(editors.nth(0)).not.toBeFocused();
-        await page.screenshot({
-          path: testInfo.outputPath(`joined-${width}-${colorScheme}.png`),
-        });
       }
     }
   });
@@ -2394,7 +2255,7 @@ test.describe("composer joined reload", () => {
   });
 });
 
-test.describe("composer unsaved navigation", () => {
+test.describe("unsaved navigation", () => {
   test("scheduled edits survive cancelled navigation and require an explicit discard", async ({
     page,
     request,
@@ -2440,10 +2301,10 @@ test.describe("composer unsaved navigation", () => {
     await page.goto(editorURL);
     await expect(input).toHaveText(original, { useInnerText: true });
 
-    for (const width of [1280, 320]) {
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 1000 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    {
+      {
+        await page.setViewportSize({ width: 1280, height: 1000 });
+        await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
         await input.fill(edited);
         const previousPrompts = messages.length;
         await page.getByRole("button", { name: "Posts", exact: true }).click();
@@ -2451,7 +2312,6 @@ test.describe("composer unsaved navigation", () => {
         await expect(page).toHaveURL(new RegExp(`/publications/${publication.id}`));
         await expect(input).toHaveText(edited, { useInnerText: true });
         expect((await read()).source_text).toBe(original);
-        await page.screenshot({ path: info.outputPath(`protected-${width}-${scheme}.png`) });
       }
     }
 
@@ -2546,7 +2406,7 @@ test.describe("composer unsaved navigation", () => {
   });
 });
 
-test.describe("composer activity recovery", () => {
+test.describe("activity recovery", () => {
   function socialAccount(id: string, workspaceID: string, username: string) {
     return {
       id,

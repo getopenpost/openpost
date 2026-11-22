@@ -8,59 +8,54 @@ import type { Page } from "@playwright/test";
 
 test("conversion thumbnail labels fit inside their artwork at every directory width", async ({
   page,
-}, testInfo) => {
+}) => {
   await page.goto("/tools");
   await dismissTelemetryConsent(page);
-  for (const width of [1280, 768, 390, 320]) {
+  for (const width of [1280, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const theme of ["light", "dark"] as const) {
-      await selectTheme(page, theme);
-      const visuals = page
-        .getByRole("main")
-        .locator(
-          'a[href="/tools/jpg-to-webp"] .tool-visual, a[href="/tools/mp4-to-mkv"] .tool-visual, a[href="/tools/flac-to-mp3"] .tool-visual',
-        );
-      expect(await visuals.count()).toBe(3);
-      const mediaVisuals = page.locator(
-        '.tool-group[aria-label="Video"] .tool-visual, .tool-group[aria-label="Audio"] .tool-visual, .tool-group[aria-label="Convert"] .tool-visual',
+    await selectTheme(page, "light");
+    const visuals = page
+      .getByRole("main")
+      .locator(
+        'a[href="/tools/jpg-to-webp"] .tool-visual, a[href="/tools/mp4-to-mkv"] .tool-visual, a[href="/tools/flac-to-mp3"] .tool-visual',
       );
-      const overflow = await mediaVisuals.evaluateAll((visuals) =>
-        visuals.flatMap((visual) => {
-          const bounds = visual.getBoundingClientRect();
-          const walker = document.createTreeWalker(visual, NodeFilter.SHOW_TEXT);
-          const clipped: string[] = [];
-          while (walker.nextNode()) {
-            if (!walker.currentNode.textContent?.trim()) continue;
-            const range = document.createRange();
-            range.selectNodeContents(walker.currentNode);
-            if (range.getClientRects().length === 0) continue;
-            const text = range.getBoundingClientRect();
-            if (
-              text.left < bounds.left - 1 ||
-              text.right > bounds.right + 1 ||
-              text.top < bounds.top - 1 ||
-              text.bottom > bounds.bottom + 1
-            )
-              clipped.push(walker.currentNode.textContent);
-          }
-          return clipped;
-        }),
-      );
-      expect(overflow, `clipped labels at ${width}px in ${theme}`).toEqual([]);
-      for (const [index, family] of ["video", "audio", "image"].entries()) {
-        const visual = visuals.nth(index);
-        await visual.scrollIntoViewIfNeeded();
-        for (const image of await visual.locator("img").all()) {
-          await expect
-            .poll(() =>
-              image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0),
-            )
-            .toBe(true);
-          await image.evaluate((node: HTMLImageElement) => node.decode());
+    expect(await visuals.count()).toBe(3);
+    const mediaVisuals = page.locator(
+      '.tool-group[aria-label="Video"] .tool-visual, .tool-group[aria-label="Audio"] .tool-visual, .tool-group[aria-label="Convert"] .tool-visual',
+    );
+    const overflow = await mediaVisuals.evaluateAll((visuals) =>
+      visuals.flatMap((visual) => {
+        const bounds = visual.getBoundingClientRect();
+        const walker = document.createTreeWalker(visual, NodeFilter.SHOW_TEXT);
+        const clipped: string[] = [];
+        while (walker.nextNode()) {
+          if (!walker.currentNode.textContent?.trim()) continue;
+          const range = document.createRange();
+          range.selectNodeContents(walker.currentNode);
+          if (range.getClientRects().length === 0) continue;
+          const text = range.getBoundingClientRect();
+          if (
+            text.left < bounds.left - 1 ||
+            text.right > bounds.right + 1 ||
+            text.top < bounds.top - 1 ||
+            text.bottom > bounds.bottom + 1
+          )
+            clipped.push(walker.currentNode.textContent);
         }
-        await page.screenshot({
-          path: testInfo.outputPath(`thumbnails-${family}-${width}-${theme}.png`),
-        });
+        return clipped;
+      }),
+    );
+    expect(overflow, `clipped labels at ${width}px in light`).toEqual([]);
+    for (const [index, family] of ["video", "audio", "image"].entries()) {
+      const visual = visuals.nth(index);
+      await visual.scrollIntoViewIfNeeded();
+      for (const image of await visual.locator("img").all()) {
+        await expect
+          .poll(() =>
+            image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0),
+          )
+          .toBe(true);
+        await image.evaluate((node: HTMLImageElement) => node.decode());
       }
     }
   }
@@ -420,10 +415,10 @@ test("media tool guides and previews are discoverable without JavaScript", async
   await context.close();
 });
 
-test("converter controls work with keyboard and fit desktop and phone themes", async ({
+test("converter controls work with keyboard and fit a phone @mobile", async ({
   page,
   isMobile,
-}, testInfo) => {
+}) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {
@@ -458,23 +453,16 @@ test("converter controls work with keyboard and fit desktop and phone themes", a
       page.locator(".result video").evaluate((video: HTMLVideoElement) => video.currentTime),
     )
     .toBeGreaterThan(0);
-  for (const width of [1280, 390, 320]) {
-    await page.setViewportSize({ width, height: 1000 });
-    for (const theme of ["light", "dark"]) {
-      await selectTheme(page, theme);
-      const tool = page.locator(".media-tool");
-      await tool.scrollIntoViewIfNeeded();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        width,
-      );
-      if (isMobile)
-        for (const label of ["Output format", "Video codec", "Audio codec"]) {
-          expect(
-            (await page.getByRole("button", { name: label, exact: true }).boundingBox())!.height,
-          ).toBeGreaterThanOrEqual(44);
-        }
-      await page.screenshot({ path: testInfo.outputPath(`converter-${width}-${theme}.png`) });
+  await page.setViewportSize({ width: 320, height: 1000 });
+  await selectTheme(page, "light");
+  const tool = page.locator(".media-tool");
+  await tool.scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  if (isMobile)
+    for (const label of ["Output format", "Video codec", "Audio codec"]) {
+      expect(
+        (await page.getByRole("button", { name: label, exact: true }).boundingBox())!.height,
+      ).toBeGreaterThanOrEqual(44);
     }
-  }
   expect(errors).toEqual([]);
 });

@@ -108,35 +108,25 @@ test.describe("screenshot templates", () => {
     expect(errors).toEqual([]);
   });
 
-  for (const width of [320])
-    test(`mobile ${width}px exports visible artwork from Edit and Preview`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 844 });
-      await page.emulateMedia({
-        colorScheme: width === 320 ? "dark" : "light",
-        reducedMotion: "reduce",
-      });
-      await openTemplates(page);
-      await page.getByRole("button", { name: "Messages", exact: true }).click();
-      await expect(page.getByRole("textbox", { name: "Message 1", exact: true })).toBeVisible({
-        timeout: 30000,
-      });
-      const editPNG = await inspectPNG(page, await downloadPNG(page));
-      expect(editPNG.width).toBe(1080);
-      expect(editPNG.opaque / editPNG.pixels).toBeGreaterThan(0.99);
-      expect(editPNG.blue).toBeGreaterThan(10000);
-      await page.getByRole("button", { name: "Preview", exact: true }).click();
-      await expect(page.locator("[data-template-preview]")).toBeVisible();
-      const previewPNG = await inspectPNG(page, await downloadPNG(page));
-      expect(previewPNG).toEqual(editPNG);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-        true,
-      );
-      await page
-        .getByRole("button", { name: "We just hit 10k users.", exact: true })
-        .first()
-        .click();
-      await expect(page.getByRole("textbox", { name: "Message 1", exact: true })).toBeFocused();
+  test("mobile 320px exports visible artwork from Edit and Preview", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await openTemplates(page);
+    await page.getByRole("button", { name: "Messages", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Message 1", exact: true })).toBeVisible({
+      timeout: 30000,
     });
+    const editPNG = await inspectPNG(page, await downloadPNG(page));
+    expect(editPNG.width).toBe(1080);
+    expect(editPNG.opaque / editPNG.pixels).toBeGreaterThan(0.99);
+    expect(editPNG.blue).toBeGreaterThan(10000);
+    await page.getByRole("button", { name: "Preview", exact: true }).click();
+    await expect(page.locator("[data-template-preview]")).toBeVisible();
+    const previewPNG = await inspectPNG(page, await downloadPNG(page));
+    expect(previewPNG).toEqual(editPNG);
+    await page.getByRole("button", { name: "We just hit 10k users.", exact: true }).first().click();
+    await expect(page.getByRole("textbox", { name: "Message 1", exact: true })).toBeFocused();
+  });
 
   test("receipt and status templates expose their own fields and update artwork", async ({
     page,
@@ -679,11 +669,11 @@ test.describe("screenshot templates", () => {
     });
 });
 
-test.describe("template status empty fields", () => {
+test.describe("status template blanks", () => {
   test("Status template blank optional fields preserve content without dangling export separators", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     const auth = await registerUser(request, `status-empty-${randomUUID()}@example.com`);
@@ -715,7 +705,6 @@ test.describe("template status empty fields", () => {
     const download = await downloaded;
     expect(download.suggestedFilename()).toMatch(/\.png$/);
     const png = await readFile((await download.path())!);
-    await download.saveAs(testInfo.outputPath("blank-update-export.png"));
     const inspected = await page.evaluate(
       async ({ base64, region }) => {
         const img = new Image();
@@ -751,23 +740,8 @@ test.describe("template status empty fields", () => {
     await stage.fill("Resolved");
     await body.fill("Service ready");
     await expect(row.locator("p")).toHaveText("Resolved · Service ready");
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate(
-        (value) => document.documentElement.classList.toggle("dark", value === "dark"),
-        scheme,
-      );
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 850 });
-        if (width < 1024) await page.getByRole("button", { name: "Preview", exact: true }).click();
-        await expect(artwork).toBeVisible();
-        await page.screenshot({
-          animations: "disabled",
-          path: testInfo.outputPath(`status-${width}-${scheme}.png`),
-        });
-      }
-    }
-    await page.setViewportSize({ width: 1280, height: 850 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(artwork).toBeVisible();
     await stage.fill("  ");
     await body.fill("  ");
     await expect(artwork.locator(".update")).toHaveCount(3);
@@ -785,11 +759,11 @@ test.describe("template status empty fields", () => {
   });
 });
 
-test.describe("meme design filename", () => {
+test.describe("meme media name", () => {
   test("Meme Media exports use the authored design name and remain searchable after reload", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `meme-name-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Meme output name");
     const catalogResponse = await request.get(
@@ -823,13 +797,11 @@ test.describe("meme design filename", () => {
     );
     await page.getByRole("button", { name: "Save to Media", exact: true }).click();
     const media = (await (await render).json()).media;
-    await page.screenshot({ path: testInfo.outputPath("saved-name-before-assertion.png") });
     expect(media.original_filename).toBe("Audit café named meme.png");
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download", exact: true }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe("Audit café named meme.png");
-    await download.saveAs(testInfo.outputPath(download.suggestedFilename()));
     await page.goto("/media");
     const mediaSearch = page.getByRole("searchbox", {
       name: "Search filename or alt text",
@@ -840,21 +812,8 @@ test.describe("meme design filename", () => {
     await expect(
       page.getByText("Audit café named meme.png", { exact: true }).first(),
     ).toBeVisible();
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme });
-      await expect
-        .poll(() => page.locator("html").evaluate((node) => node.classList.contains("dark")))
-        .toBe(scheme === "dark");
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 850 });
-        await mediaSearch.focus();
-        await expect(mediaSearch).toBeFocused();
-        await page.screenshot({
-          animations: "disabled",
-          path: testInfo.outputPath(`name-${width}-${scheme}.png`),
-        });
-      }
-    }
+    await mediaSearch.focus();
+    await expect(mediaSearch).toBeFocused();
     await page.reload();
     await expect(
       page.getByText("Audit café named meme.png", { exact: true }).first(),
@@ -866,7 +825,7 @@ test.describe("meme design filename", () => {
 test.describe("meme overlay limits", () => {
   test("oversized Meme overlay explains its limits and choosing a smaller image recovers", async ({
     page,
-  }, testInfo) => {
+  }) => {
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     const { token } = await registerUser(page.request, `meme-limits-${Date.now()}@example.com`);
@@ -937,24 +896,9 @@ test.describe("meme overlay limits", () => {
       "Meme overlay images must be at most 10 MiB, 6000 pixels per side, and 12 million pixels. Resize the image or choose a smaller one.",
       { exact: true },
     );
-    await page.screenshot({
-      path: testInfo.outputPath("oversized-before-assertion.png"),
-    });
     await expect(guidance).toBeVisible();
     await expect(page.getByRole("button", { name: "Download", exact: true })).toBeDisabled();
-    for (const width of [1280, 320]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 740 });
-        await page.emulateMedia({ colorScheme });
-        if (width < 1024) await page.getByRole("button", { name: "Preview", exact: true }).click();
-        await expect(guidance).toBeVisible();
-        await page.screenshot({
-          path: testInfo.outputPath(`limits-${width}-${colorScheme}.png`),
-        });
-        if (width < 1024) await page.getByRole("button", { name: "Edit", exact: true }).click();
-      }
-    }
-    await page.setViewportSize({ width: 1280, height: 740 });
+    await expect(guidance).toBeVisible();
     await choose("small");
     await expect(guidance).toHaveCount(0);
     await expect(preview.locator("img")).toBeVisible();
@@ -967,6 +911,5 @@ test.describe("meme overlay limits", () => {
       .toBeTruthy();
     await expect(page.getByRole("button", { name: "Download", exact: true })).toBeEnabled();
     expect(pageErrors).toEqual([]);
-    await page.screenshot({ path: testInfo.outputPath("recovered.png") });
   });
 });

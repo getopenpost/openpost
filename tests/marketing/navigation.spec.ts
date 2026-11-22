@@ -1,0 +1,415 @@
+import { readFileSync } from "node:fs";
+import { expect, test } from "@playwright/test";
+import { parseChangelog } from "../../packages/changelog/src/index.js";
+import { dismissTelemetryConsent } from "./helpers";
+
+test.describe("marketing", () => {
+  test("marketing index links to the app and documentation", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page).toHaveTitle("OpenPost - The all-in-one content team for solo founders");
+    await expect(
+      page.getByRole("link", { name: "Get started", exact: true }).first(),
+    ).toHaveAttribute("href", "https://app.openpo.st/register?plan=founder&billing_period=monthly");
+    await expect(
+      page.getByRole("link", { name: "Help centre", exact: true }).first(),
+    ).toHaveAttribute("href", "https://openpo.st/docs/guides/quickstart");
+  });
+
+  test("landing header shows the live GitHub star link beside the wordmark", async ({ page }) => {
+    await page.route("https://app.openpo.st/api/v1/github-stars", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ count: 512 }),
+      });
+    });
+    await page.goto("/");
+
+    const header = page.locator("header.marketing-nav");
+    const starPill = header.getByTestId("github-star-pill");
+    await expect(starPill).toBeVisible();
+    await expect(starPill).toHaveAttribute("href", "https://github.com/getopenpost/openpost");
+    await expect(starPill).toHaveText("512");
+    await expect(starPill.locator("svg")).toBeVisible();
+    await expect(
+      header.getByRole("link", { name: "OpenPost home", exact: true }).locator(".."),
+    ).toContainText("OpenPost");
+    await expect(page.getByTestId("github-star-pill")).toHaveCount(1);
+  });
+
+  test("resources menu uses one column per resource group", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Resources", exact: true }).click();
+
+    const menuGrid = page.locator(".resource-menu > div");
+    await expect(menuGrid).toBeVisible();
+    await expect(menuGrid.getByRole("link", { name: "Comparisons", exact: true })).toHaveAttribute(
+      "href",
+      "/comparisons",
+    );
+    await expect(menuGrid.getByRole("link", { name: "Workflows", exact: true })).toHaveCount(0);
+    expect(
+      await menuGrid.evaluate(
+        (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
+      ),
+    ).toBe(2);
+  });
+
+  test("free tools directory keeps core tools reachable and fits narrow screens", async ({
+    page,
+  }) => {
+    const toolSlugs = [
+      "social-media-video-editor",
+      "social-media-image-editor",
+      "multi-platform-character-counter",
+      "post-preview-generator",
+      "thread-splitter",
+      "fediverse-handle-checker",
+      "linkedin-text-formatter",
+      "best-time-to-post-calculator",
+      "utm-link-builder",
+    ] as const;
+
+    await page.goto("/tools");
+    await expect(page.getByRole("heading", { name: /^Free tools\./, level: 1 })).toBeVisible();
+    const main = page.getByRole("main");
+    for (const slug of toolSlugs) {
+      await expect(main.locator(`a[href="/tools/${slug}"]`)).toHaveCount(1);
+    }
+
+    await page.setViewportSize({ width: 320, height: 720 });
+    await expect
+      .poll(() =>
+        page
+          .getByRole("heading", { name: /^Free tools\./, level: 1 })
+          .evaluate((heading) => heading.scrollWidth <= heading.clientWidth),
+      )
+      .toBe(true);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+  });
+
+  test("retired marketing pages and compatibility redirects stay removed", async ({ request }) => {
+    for (const retiredPath of [
+      "/self-hosted",
+      "/open-source",
+      "/compare",
+      "/docs",
+      "/docs/usage/accounts",
+    ]) {
+      expect((await request.get(retiredPath)).status(), retiredPath).toBe(404);
+    }
+  });
+
+  test("pricing makes every plan selectable for monthly and annual billing", async ({ page }) => {
+    const planCases = [
+      {
+        id: "founder",
+        name: "Solo",
+        monthly: "$29",
+        annual: "$290",
+        audience: "solo founders and creators",
+      },
+      {
+        id: "team",
+        name: "Team",
+        monthly: "$59",
+        annual: "$590",
+        audience: "small teams publishing together",
+      },
+      {
+        id: "agency",
+        name: "Agency",
+        monthly: "$99",
+        annual: "$990",
+        audience: "agencies managing client accounts",
+      },
+    ];
+    await page.goto("/pricing");
+    await dismissTelemetryConsent(page);
+    await expect(page.getByRole("link", { name: "Start Solo", exact: true })).toBeInViewport({
+      ratio: 1,
+    });
+    const selfHosted = page.getByRole("region", { name: "Self-hosted deployment" });
+    await expect(selfHosted).toContainText("no software fee");
+    await expect(selfHosted.getByRole("link", { name: "Review self-hosting" })).toHaveAttribute(
+      "href",
+      "https://openpo.st/docs/self-hosting",
+    );
+    await page.getByText("Trial and billing details").click();
+    await expect(
+      page.getByText("Paddle is the Merchant of Record", { exact: false }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Refund policy", exact: true })).toHaveAttribute(
+      "href",
+      "/refunds",
+    );
+    await expect(page.getByRole("link", { name: "Billing settings", exact: true })).toHaveAttribute(
+      "href",
+      "https://app.openpo.st/settings?tab=billing#billing",
+    );
+    await expect(page.locator('[role="status"][aria-live="polite"]')).toHaveCount(1);
+    const table = page.getByRole("table", { name: "Compare Hosted plans" });
+    for (const billing of ["monthly", "annual"] as const) {
+      await page
+        .getByRole("button", { name: billing === "monthly" ? "Monthly" : /^Yearly/ })
+        .click();
+      for (const plan of planCases) {
+        if ((page.viewportSize()?.width ?? 0) < 768)
+          await page.getByRole("button", { name: plan.name, exact: true }).click();
+        const header = table
+          .getByRole("columnheader")
+          .filter({ has: page.getByRole("heading", { name: plan.name, exact: true }) });
+        await expect(header).toContainText(`Best for ${plan.audience}.`);
+        await expect(
+          header.getByRole("link", { name: `Start ${plan.name}`, exact: true }),
+        ).toHaveAttribute(
+          "href",
+          `https://app.openpo.st/register?plan=${plan.id}&billing_period=${billing}`,
+        );
+        const price = header.locator(".price-line");
+        await expect(price).toContainText(billing === "monthly" ? plan.monthly : plan.annual);
+        await expect(price).toContainText(billing === "monthly" ? "/month" : "/year");
+      }
+    }
+    await expect(table.getByRole("heading", { name: "Starter", exact: true })).toHaveCount(0);
+    await expect(table.getByRole("heading", { name: "Pro", exact: true })).toHaveCount(0);
+    await expect(
+      table.getByRole("rowheader", { name: "AI writing & image alt text", exact: true }),
+    ).toBeVisible();
+    await page.setViewportSize({ width: 320, height: 720 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+  });
+
+  test("free marketing tools produce useful output", async ({ page }) => {
+    await page.goto("/tools/multi-platform-character-counter");
+    await dismissTelemetryConsent(page);
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("textbox", { name: "Post text" }).fill("hello");
+    await expect(page.getByRole("progressbar", { name: "X character use" })).toHaveAttribute(
+      "aria-valuenow",
+      "5",
+    );
+    await expect(page.getByRole("progressbar", { name: "Discord character use" })).toHaveAttribute(
+      "aria-valuenow",
+      "5",
+    );
+
+    await page.goto("/tools/post-preview-generator");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "Platform", exact: true }).click();
+    await page.getByRole("option", { name: "Mastodon", exact: true }).click();
+    await expect(page.locator("select")).toHaveCount(0);
+    await page
+      .getByRole("button", {
+        name: /Post details/,
+      })
+      .click();
+    await page.getByLabel("Handle").fill("@alice@hachyderm.io");
+    await expect(page.locator('[aria-label="Mastodon post preview"]')).toContainText(
+      "@alice@hachyderm.io",
+    );
+
+    await page.goto("/tools/thread-splitter");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("textbox", { name: "Text to split into a thread" }).fill("x".repeat(300));
+    await page.getByRole("button", { name: "Social network" }).click();
+    await page.getByRole("option", { name: /Bluesky/ }).click();
+    await expect(page.getByRole("button", { name: "Copy part 2" })).toBeVisible();
+
+    await page.goto("/tools/fediverse-handle-checker");
+    await page.waitForLoadState("networkidle");
+    await page.getByLabel("Fediverse or Bluesky handle").fill("@alice@hachyderm.io");
+    await expect(page.getByText("@alice@hachyderm.io", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Check live" })).toBeEnabled();
+
+    await page.goto("/tools/linkedin-text-formatter");
+    await page.waitForLoadState("networkidle");
+    await page
+      .getByRole("textbox", { name: "LinkedIn post draft" })
+      .fill("First sentence. Second sentence.");
+    await page.getByRole("button", { name: "Paragraph length" }).click();
+    await page.getByRole("option", { name: "One sentence" }).click();
+    await page.getByRole("checkbox", { name: "Use the same bullet style" }).click();
+    await expect(page.getByRole("textbox", { name: "Formatted LinkedIn post" })).toHaveValue(
+      /First sentence/,
+    );
+
+    await page.goto("/tools/best-time-to-post-calculator");
+    await page.waitForLoadState("networkidle");
+    await page.getByLabel("Posts per week").fill("2");
+    await expect(
+      page.getByRole("region", { name: "Your local schedule" }).getByRole("listitem"),
+    ).toHaveCount(2);
+
+    await page.goto("/tools/utm-link-builder");
+    await page.waitForLoadState("networkidle");
+    await page
+      .getByLabel("Page link")
+      .fill("https://example.com/launch?ref=homepage&utm_term=founders&utm_content=demo#details");
+    await page.getByLabel("Source").fill("linkedin");
+    await page.getByRole("textbox", { name: "Campaign", exact: true }).fill("summer-launch");
+    await expect(page.getByTestId("utm-result")).toHaveText(
+      "https://example.com/launch?ref=homepage&utm_term=founders&utm_content=demo&utm_source=linkedin&utm_medium=social&utm_campaign=summer-launch#details",
+    );
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.getByRole("button", { name: "Copy link", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Copied", exact: true })).toBeVisible();
+    await page.getByRole("textbox", { name: "Campaign", exact: true }).fill("autumn-launch");
+    await expect(page.getByRole("button", { name: "Copy link", exact: true })).toBeVisible();
+  });
+
+  test("public changelog is generated from the canonical release record", async ({ page }) => {
+    const canonicalSection = parseChangelog(
+      readFileSync(new URL("../../CHANGELOG.md", import.meta.url), "utf8"),
+    ).find((section) => section.groups.some((group) => group.items.length > 0));
+    const canonicalItem = canonicalSection?.groups.find((group) => group.items.length > 0)
+      ?.items[0];
+    if (!canonicalSection || !canonicalItem) {
+      throw new Error("The canonical changelog has no visible entries");
+    }
+
+    await page.goto("/changelog");
+
+    await expect(
+      page
+        .getByRole("heading", {
+          name: /^(?:Unreleased|v\d+\.\d+\.\d+)$/,
+        })
+        .first(),
+    ).toBeVisible();
+    const canonicalLabel =
+      canonicalSection.label === "Unreleased" ? "Unreleased" : `v${canonicalSection.label}`;
+    const section = page.locator("article").filter({
+      has: page.getByRole("heading", { name: canonicalLabel, exact: true }),
+    });
+    await expect(section.getByText(canonicalItem, { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Full changelog" })).toHaveAttribute(
+      "href",
+      "https://github.com/getopenpost/openpost/blob/main/CHANGELOG.md",
+    );
+  });
+});
+
+test.describe("mobile navigation escape", () => {
+  test("mobile navigation closes with Escape and restores its trigger @mobile", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.goto("/tools");
+    await dismissTelemetryConsent(page);
+    const trigger = page.getByRole("button", { name: "Open navigation", exact: true });
+    await trigger.focus();
+    await trigger.press("Enter");
+    await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(trigger).toHaveAttribute("aria-expanded", "false", { timeout: 2000 });
+    await expect(trigger).toBeFocused();
+    await page.setViewportSize({ width: 320, height: 900 });
+    await trigger.click();
+    const navigation = page.getByRole("navigation", { name: "Mobile navigation" });
+    const theme = navigation.getByRole("button", { name: `Use light theme`, exact: true });
+    if (await theme.isVisible()) await theme.click();
+    await navigation.getByRole("link", { name: "Free tools", exact: true }).focus();
+    await page.keyboard.press("Escape");
+    await expect(navigation).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await page.getByRole("button", { name: "Close navigation", exact: true }).click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+});
+
+test.describe("stale navigation", () => {
+  test("recovers a failed route import during initial hydration", async ({ page }) => {
+    let failedImports = 0;
+    let documents = 0;
+    page.on("request", (request) => {
+      if (request.isNavigationRequest() && request.frame() === page.mainFrame()) documents++;
+    });
+    await page.route("**/_app/immutable/nodes/*.js", async (route) => {
+      // Root layout and error nodes are eager imports; expire only the page node.
+      // A 404 stands in for an asset from a previous deployment that the host no
+      // longer serves. The follow-up probe sees the live asset again, which the
+      // recovery policy treats as a transient failure worth one bounded reload.
+      if (!/\/(0|1)\.[^/]+\.js$/.test(route.request().url()) && failedImports === 0) {
+        failedImports++;
+        await route.fulfill({ status: 404, body: "Not found" });
+        return;
+      }
+      await route.continue();
+    });
+    await page.goto("/pricing");
+    await expect.poll(() => failedImports).toBe(1);
+    await expect.poll(() => documents).toBe(2);
+    await expect(page.getByRole("heading", { name: "Page unavailable" })).toHaveCount(0);
+    await expect(page).toHaveURL(/\/pricing\/?$/);
+    await dismissTelemetryConsent(page);
+    const yearly = page.getByRole("button", { name: /^Yearly/ });
+    await yearly.click();
+    await expect(yearly).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("failed route imports preserve their cause and allow recovery", async ({ page }) => {
+    // SvelteKit handles this rejection, so pageerror alone cannot detect the secondary crash.
+    const debuggerSession = await page.context().newCDPSession(page);
+    const exceptions: string[] = [];
+    await debuggerSession.send("Debugger.enable");
+    await debuggerSession.send("Debugger.setPauseOnExceptions", { state: "all" });
+    debuggerSession.on("Debugger.paused", async (event) => {
+      if (event.data?.description) exceptions.push(event.data.description);
+      await debuggerSession.send("Debugger.resume");
+    });
+    await page.goto("/");
+    await dismissTelemetryConsent(page);
+    // Exhaust the automatic recovery budget to inspect the error the visitor would otherwise see briefly.
+    await page.evaluate(() => {
+      sessionStorage.setItem(
+        "openpost:chunk-recovery:v1",
+        JSON.stringify({ total: 3, perAsset: {} }),
+      );
+    });
+    await page.route("**/_app/immutable/nodes/*.js", (route) => route.abort("failed"));
+    await page.getByRole("link", { name: "Pricing", exact: true }).first().click();
+    await expect(page.getByRole("heading", { name: "Page unavailable" })).toBeVisible();
+    expect(exceptions.filter((error) => error.includes("universal"))).toEqual([]);
+    expect(
+      exceptions.some((error) => error.includes("Failed to fetch dynamically imported module")),
+    ).toBe(true);
+    await page.unroute("**/_app/immutable/nodes/*.js");
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Page unavailable" })).toHaveCount(0);
+    await debuggerSession.detach();
+  });
+});
+
+test.describe("docs route recovery", () => {
+  test("known documentation URLs at the public root recover to their mounted pages", async ({
+    request,
+  }) => {
+    for (const [from, to] of [
+      ["/workflows", "/docs/workflows"],
+      ["/workflows/examples/feed-digest", "/docs/workflows/examples/feed-digest"],
+      [
+        "/api-reference/editor-agent/save-editor-preference",
+        "/docs/api-reference/editor-agent/save-editor-preference",
+      ],
+      ["/mcp/chat-assistants", "/docs/mcp/chat-assistants"],
+      ["/guides/screenshot-templates", "/docs/guides/screenshot-templates"],
+    ]) {
+      const response = await request.get(from, { maxRedirects: 0 });
+      expect(response.status(), from).toBe(301);
+      expect(new URL(response.headers().location, response.url()).pathname).toBe(to);
+    }
+    expect((await request.get("/auth/profile", { maxRedirects: 0 })).status()).toBe(404);
+    const markdown = await request.get("/tools/thread-splitter.md");
+    expect(markdown.headers()["x-robots-tag"]).toBe("noindex");
+    const html = await request.get("/tools/thread-splitter");
+    expect(html.headers()["x-robots-tag"]).toBeUndefined();
+    expect(await html.text()).toContain('content="index, follow"');
+  });
+});

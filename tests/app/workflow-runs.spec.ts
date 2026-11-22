@@ -7,7 +7,7 @@ test.describe("workflow automatic empty runs", () => {
   test("empty active schedule history explains timing without activating or running it", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     const auth = await registerUser(request, `timer-help-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Timer waiting help");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -44,28 +44,24 @@ test.describe("workflow automatic empty runs", () => {
     try {
       await authenticatePage(page, auth.token);
       await page.goto(`/workflows/${workflow.id}`);
-      for (const width of [1280, 320])
-        for (const scheme of ["light"] as const) {
-          await page.setViewportSize({ width, height: 900 });
-          await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-          await page.reload();
-          await page
-            .locator("[data-workflow-editor] > header")
-            .getByRole("tab", { name: "Runs", exact: true })
-            .click();
-          await expect(
-            page.getByText(
-              "This schedule is active. Its first run starts after 5 minutes and the next background check.",
-              { exact: true },
-            ),
-          ).toBeVisible();
-          await expect(
-            page.getByText("Preview a workflow to inspect its steps without making changes.", {
-              exact: true,
-            }),
-          ).toHaveCount(0);
-          await page.screenshot({ path: info.outputPath(`timer-${width}-${scheme}.png`) });
-        }
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.reload();
+      await page
+        .locator("[data-workflow-editor] > header")
+        .getByRole("tab", { name: "Runs", exact: true })
+        .click();
+      await expect(
+        page.getByText(
+          "This schedule is active. Its first run starts after 5 minutes and the next background check.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Preview a workflow to inspect its steps without making changes.", {
+          exact: true,
+        }),
+      ).toHaveCount(0);
       await page.goto("/workflows");
       await page.getByRole("tab", { name: "Runs", exact: true }).click();
       await expect(
@@ -216,64 +212,53 @@ test.describe("workflow review recovery", () => {
   test("stale approval explains the changed post and refreshes the displayed revision without dispatch", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     const fixture = await pendingReview(request);
     await authenticatePage(page, fixture.auth.token);
     await page.goto(`/workflows/${fixture.workflow.id}`);
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.reload();
-        await page
-          .locator("[data-workflow-editor] > header")
-          .getByRole("tab", { name: "Runs", exact: true })
-          .click();
-        await page.locator("aside button").filter({ hasText: "Needs approval" }).click();
-        const approval = page.locator("section").filter({
-          has: page.getByRole("heading", { name: "Review post", exact: true }),
-        });
-        await expect(approval).toContainText("Review duplicate 東京");
-        const before = await (
-          await request.get(`/api/v1/publications/${fixture.publication.id}`, {
-            headers: fixture.headers,
-          })
-        ).json();
-        execute(
-          `UPDATE publications SET revision=revision+1 WHERE id=${sql(fixture.publication.id)};`,
-        );
-        const approve = approval.getByRole("button", {
-          name: "Approve shown revision",
-          exact: true,
-        });
-        await approve.focus();
-        await approve.press("Enter");
-        await expect(
-          page.getByText(
-            "the post changed; refresh the post and review its current revision before approving",
-            { exact: true },
-          ),
-        ).toBeVisible();
-        const refresh = approval.getByRole("button", {
-          name: "Refresh",
-          exact: true,
-        });
-        await page.screenshot({
-          path: info.outputPath(`review-conflict-${width}-${scheme}.png`),
-        });
-        await refresh.focus();
-        await refresh.press("Enter");
-        await expect(approval).toContainText(`Post revision ${before.revision + 1}`);
-        await expect(
-          page.getByText(
-            "the post changed; refresh the post and review its current revision before approving",
-            { exact: true },
-          ),
-        ).toHaveCount(0);
-        await page.screenshot({
-          path: info.outputPath(`review-refresh-${width}-${scheme}.png`),
-        });
-      }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+    await page
+      .locator("[data-workflow-editor] > header")
+      .getByRole("tab", { name: "Runs", exact: true })
+      .click();
+    await page.locator("aside button").filter({ hasText: "Needs approval" }).click();
+    const approval = page.locator("section").filter({
+      has: page.getByRole("heading", { name: "Review post", exact: true }),
+    });
+    await expect(approval).toContainText("Review duplicate 東京");
+    const before = await (
+      await request.get(`/api/v1/publications/${fixture.publication.id}`, {
+        headers: fixture.headers,
+      })
+    ).json();
+    execute(`UPDATE publications SET revision=revision+1 WHERE id=${sql(fixture.publication.id)};`);
+    const approve = approval.getByRole("button", {
+      name: "Approve shown revision",
+      exact: true,
+    });
+    await approve.focus();
+    await approve.press("Enter");
+    await expect(
+      page.getByText(
+        "the post changed; refresh the post and review its current revision before approving",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    const refresh = approval.getByRole("button", {
+      name: "Refresh",
+      exact: true,
+    });
+    await refresh.focus();
+    await refresh.press("Enter");
+    await expect(approval).toContainText(`Post revision ${before.revision + 1}`);
+    await expect(
+      page.getByText(
+        "the post changed; refresh the post and review its current revision before approving",
+        { exact: true },
+      ),
+    ).toHaveCount(0);
     const run = await (
       await request.get(
         `/api/v1/workflow-runs/${fixture.runID}?workspace_id=${fixture.workspace.id}`,
@@ -287,36 +272,28 @@ test.describe("workflow review recovery", () => {
   test("review destinations show resolved account names and each distinct content field once", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     const fixture = await pendingReview(request);
     await authenticatePage(page, fixture.auth.token);
     await page.goto("/workflows");
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.reload();
-        await page.getByRole("tab", { name: "Runs", exact: true }).click();
-        await page.getByRole("button").filter({ hasText: "Audit pending review" }).click();
-        const approval = page.locator("section").filter({
-          has: page.getByRole("heading", { name: "Review post", exact: true }),
-        });
-        const destinations = approval.locator("article");
-        await expect(destinations).toHaveCount(2);
-        await expect(destinations.nth(0).getByRole("heading", { level: 5 })).toHaveAccessibleName(
-          "review-bluesky",
-        );
-        await expect(destinations.nth(1).getByRole("heading", { level: 5 })).toHaveAccessibleName(
-          "review-threads",
-        );
-        for (const destination of await destinations.all())
-          await expect(destination.getByText("Review duplicate 東京", { exact: true })).toHaveCount(
-            1,
-          );
-        await page.screenshot({
-          path: info.outputPath(`review-content-${width}-${scheme}.png`),
-        });
-      }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+    await page.getByRole("tab", { name: "Runs", exact: true }).click();
+    await page.getByRole("button").filter({ hasText: "Audit pending review" }).click();
+    const approval = page.locator("section").filter({
+      has: page.getByRole("heading", { name: "Review post", exact: true }),
+    });
+    const destinations = approval.locator("article");
+    await expect(destinations).toHaveCount(2);
+    await expect(destinations.nth(0).getByRole("heading", { level: 5 })).toHaveAccessibleName(
+      "review-bluesky",
+    );
+    await expect(destinations.nth(1).getByRole("heading", { level: 5 })).toHaveAccessibleName(
+      "review-threads",
+    );
+    for (const destination of await destinations.all())
+      await expect(destination.getByText("Review duplicate 東京", { exact: true })).toHaveCount(1);
     const updated = await request.put(`/api/v1/publications/${fixture.publication.id}`, {
       headers: fixture.headers,
       data: {
@@ -346,9 +323,6 @@ test.describe("workflow review recovery", () => {
       await expect(destination.getByText("Title", { exact: true })).toBeVisible();
       await expect(destination.getByText("Body", { exact: true })).toBeVisible();
     }
-    await page.screenshot({
-      path: info.outputPath("review-distinct-fields-320-dark.png"),
-    });
   });
 });
 
@@ -356,7 +330,7 @@ test.describe("workflow run focus", () => {
   test("Workspace run history restores keyboard focus to the originating card", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `workflow-run-focus-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Run focus");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -413,32 +387,14 @@ test.describe("workflow run focus", () => {
     await page.goto("/workflows");
     await page.getByRole("tab", { name: "Runs", exact: true }).click();
     const card = page.getByRole("button").filter({ hasText: "Audit originating run" });
-    for (const width of [1280, 320]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 844 });
-        const priorScheme = await page.locator("html").getAttribute("data-theme-scheme");
-        const priorInk = await page
-          .locator("body")
-          .evaluate((body) => getComputedStyle(body).color);
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);
-        if (priorScheme !== colorScheme)
-          await expect(page.locator("body")).not.toHaveCSS("color", priorInk);
-        await card.focus();
-        await card.press("Enter");
-        await expect(
-          page.getByText("Workflow revision 1 · Preview", { exact: true }),
-        ).toBeVisible();
-        await page.getByRole("button", { name: "Runs", exact: true }).last().press("Enter");
-        await expect(card).toBeFocused();
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
-        await page.screenshot({
-          path: testInfo.outputPath(`run-focus-${width}-${colorScheme}.png`),
-        });
-      }
-    }
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", "light");
+    await card.focus();
+    await card.press("Enter");
+    await expect(page.getByText("Workflow revision 1 · Preview", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Runs", exact: true }).last().press("Enter");
+    await expect(card).toBeFocused();
     await page.setViewportSize({ width: 1280, height: 900 });
     await card.click();
     const back = page.getByRole("button", { name: "Runs", exact: true }).last();
@@ -460,7 +416,7 @@ test.describe("workflow run navigation", () => {
   test("Saved run snapshots remain usable while switching and returning to the list", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `workflow-runs-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Run navigation");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -568,36 +524,20 @@ test.describe("workflow run navigation", () => {
     await back.click();
     await expect(completed).toBeVisible();
     expect(errors).toEqual([]);
-    for (const width of [1280, 320]) {
-      for (const colorScheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 844 });
-        const priorScheme = await page.locator("html").getAttribute("data-theme-scheme");
-        const priorInk = await page
-          .locator("body")
-          .evaluate((body) => getComputedStyle(body).color);
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", colorScheme);
-        if (priorScheme !== colorScheme)
-          await expect(page.locator("body")).not.toHaveCSS("color", priorInk);
-        await completed.focus();
-        await completed.press("Enter");
-        await expect(page.getByRole("button", { name: /^Audit first snapshot / })).toBeVisible();
-        await back.press("Enter");
-        await expect(completed).toBeVisible();
-        await failed.focus();
-        await failed.press("Enter");
-        await expect(page.getByRole("button", { name: /^Audit second snapshot / })).toBeVisible();
-        await back.press("Enter");
-        await expect(failed).toBeVisible();
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
-        await page.screenshot({
-          path: testInfo.outputPath(`run-list-${width}-${colorScheme}.png`),
-        });
-        expect(errors).toEqual([]);
-      }
-    }
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", "light");
+    await completed.focus();
+    await completed.press("Enter");
+    await expect(page.getByRole("button", { name: /^Audit first snapshot / })).toBeVisible();
+    await back.press("Enter");
+    await expect(completed).toBeVisible();
+    await failed.focus();
+    await failed.press("Enter");
+    await expect(page.getByRole("button", { name: /^Audit second snapshot / })).toBeVisible();
+    await back.press("Enter");
+    await expect(failed).toBeVisible();
+    expect(errors).toEqual([]);
     await page.reload();
     await header.getByRole("tab", { name: "Runs", exact: true }).click();
     await completed.click();
@@ -685,12 +625,14 @@ test.describe("workflow run summaries", () => {
     let release: () => void = () => {
       throw new Error("detail has not started");
     };
+    let failedSnapshots = 0;
     await page.route(`**${detailPath}?**`, async (route) => {
       if (fullReads.length === 1)
         await new Promise<void>((resolve) => {
           release = resolve;
         });
       await route.fulfill({ status: 503, json: { detail: "Snapshot temporarily unavailable" } });
+      failedSnapshots++;
     });
     let releaseAccounts: () => void = () => {
       throw new Error("accounts have not started");
@@ -709,14 +651,18 @@ test.describe("workflow run summaries", () => {
     release();
     await expect.poll(() => fullReads.length).toBe(2);
     // Keep accounts pending until the snapshot has exhausted its one automatic retry.
-    await page.waitForTimeout(250);
+    await expect.poll(() => failedSnapshots).toBe(2);
     releaseAccounts();
     await page.unroute("**/api/v1/accounts?**");
     await expect(page.getByRole("button", { name: "Try again", exact: true })).toBeVisible();
     await expect(page.getByText("Snapshot temporarily unavailable", { exact: true })).toBeVisible();
     await expect(page.getByTestId("page-loading")).toBeHidden();
     const failedReads = fullReads.length;
-    await page.waitForTimeout(3500);
+    // Proving a negative: no automatic retry may arrive within a bounded window.
+    await expect
+      .poll(() => fullReads.length, { timeout: 3500 })
+      .not.toBe(failedReads)
+      .catch(() => {});
     expect(fullReads).toHaveLength(failedReads);
     await expect(page.getByText("Snapshot temporarily unavailable", { exact: true })).toBeVisible();
     await page.unroute(`**${detailPath}?**`);

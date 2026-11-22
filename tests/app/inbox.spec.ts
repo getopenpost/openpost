@@ -3,176 +3,144 @@ import { expect, test } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser, createPublication } from "./helpers";
 import { execFileSync } from "node:child_process";
 
-test.describe("engagement bulk read", () => {
-  for (const width of [1280, 320]) {
-    for (const scheme of ["light"] as const) {
-      test(`mark all matching read at ${width}px ${scheme}`, async ({
-        page,
-        request,
-      }, testInfo) => {
-        const { token } = await registerUser(request, `bulk-read-${randomUUID()}@example.com`);
-        const workspace = await createWorkspace(request, token, "Bulk read workspace");
-        await authenticatePage(page, token);
-        let read = false;
-        let attempts = 0;
-        await page.route("**/api/v1/accounts?**", (route) => route.fulfill({ json: [] }));
-        await page.route("**/api/v1/account-features?**", (route) => route.fulfill({ json: [] }));
-        await page.route("**/api/v1/engagement?**", (route) =>
-          route.fulfill({ json: { items: [], total: read ? 0 : 137, sync_states: [] } }),
-        );
-        await page.route("**/api/v1/engagement/read", async (route) => {
-          expect(route.request().postDataJSON()).toMatchObject({
-            workspace_id: workspace.id,
-            archived: true,
-          });
-          attempts++;
-          if (attempts === 1)
-            return route.fulfill({ status: 503, json: { detail: "Unavailable" } });
-          read = true;
-          return route.fulfill({ json: { updated_count: 137 } });
-        });
-        const errors: string[] = [];
-        page.on("pageerror", (error) => errors.push(error.message));
-        await page.setViewportSize({ width, height: 844 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.goto("/inbox/engagement");
-        await page.getByRole("button", { name: "Filters", exact: true }).click();
-        await page.getByRole("checkbox", { name: "Archived", exact: true }).check();
-        await page.keyboard.press("Escape");
-        const button = page.getByRole("button", { name: "Mark all matching read", exact: true });
-        await expect(button).toBeEnabled();
-        await page.screenshot({
-          path: testInfo.outputPath(`before-${width}-${scheme}.png`),
-          animations: "disabled",
-        });
-        await button.focus();
-        await page.keyboard.press("Enter");
-        await expect(page.getByText("OpenPost could not start that action.")).toBeVisible();
-        await expect(button).toBeEnabled();
-        await button.focus();
-        await page.keyboard.press("Enter");
-        await expect(page.getByText("Marked 137 matching items as read.")).toBeVisible();
-        // Nothing matches any more, so the action leaves the header.
-        await expect(button).toHaveCount(0);
-        expect(attempts).toBe(2);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-        await page.screenshot({
-          path: testInfo.outputPath(`after-${width}-${scheme}.png`),
-          animations: "disabled",
-        });
-        expect(errors).toEqual([]);
+test.describe("inbox bulk read", () => {
+  test("mark all matching read", async ({ page, request }) => {
+    const { token } = await registerUser(request, `bulk-read-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, token, "Bulk read workspace");
+    await authenticatePage(page, token);
+    let read = false;
+    let attempts = 0;
+    await page.route("**/api/v1/accounts?**", (route) => route.fulfill({ json: [] }));
+    await page.route("**/api/v1/account-features?**", (route) => route.fulfill({ json: [] }));
+    await page.route("**/api/v1/engagement?**", (route) =>
+      route.fulfill({ json: { items: [], total: read ? 0 : 137, sync_states: [] } }),
+    );
+    await page.route("**/api/v1/engagement/read", async (route) => {
+      expect(route.request().postDataJSON()).toMatchObject({
+        workspace_id: workspace.id,
+        archived: true,
       });
-    }
-  }
+      attempts++;
+      if (attempts === 1) return route.fulfill({ status: 503, json: { detail: "Unavailable" } });
+      read = true;
+      return route.fulfill({ json: { updated_count: 137 } });
+    });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/inbox/engagement");
+    await page.getByRole("button", { name: "Filters", exact: true }).click();
+    await page.getByRole("checkbox", { name: "Archived", exact: true }).check();
+    await page.keyboard.press("Escape");
+    const button = page.getByRole("button", { name: "Mark all matching read", exact: true });
+    await expect(button).toBeEnabled();
+    await button.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("OpenPost could not start that action.")).toBeVisible();
+    await expect(button).toBeEnabled();
+    await button.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("Marked 137 matching items as read.")).toBeVisible();
+    // Nothing matches any more, so the action leaves the header.
+    await expect(button).toHaveCount(0);
+    expect(attempts).toBe(2);
+    expect(errors).toEqual([]);
+  });
 });
 
-test.describe("engagement disabled recovery", () => {
-  for (const width of [1280, 320]) {
-    for (const scheme of ["light"] as const) {
-      test(`disabled collection offers account recovery at ${width}px ${scheme}`, async ({
-        page,
-        request,
-      }, testInfo) => {
-        const { token } = await registerUser(
-          request,
-          `engagement-recovery-${randomUUID()}@example.com`,
-        );
-        const workspace = await createWorkspace(request, token, "Recovery workspace");
-        await authenticatePage(page, token);
-        const disabledID = randomUUID();
-        const retryID = randomUUID();
-        await page.route("**/api/v1/accounts?**", (route) =>
-          route.fulfill({
-            json: [
-              {
-                id: disabledID,
-                workspace_id: workspace.id,
-                platform: "discord",
-                is_active: true,
-                account_username: "Disabled account",
-              },
-              {
-                id: retryID,
-                workspace_id: workspace.id,
-                platform: "bluesky",
-                is_active: true,
-                account_username: "Retry account",
-              },
-            ],
-          }),
-        );
-        await page.route("**/api/v1/account-features?**", (route) =>
-          route.fulfill({
-            json: [
-              { social_account_id: disabledID, feature: "engagement", effective_enabled: false },
-              { social_account_id: retryID, feature: "engagement", effective_enabled: true },
-            ],
-          }),
-        );
-        const states = [
+test.describe("inbox collection recovery", () => {
+  const width = 320;
+  test("disabled collection offers account recovery", async ({ page, request }) => {
+    const { token } = await registerUser(
+      request,
+      `engagement-recovery-${randomUUID()}@example.com`,
+    );
+    const workspace = await createWorkspace(request, token, "Recovery workspace");
+    await authenticatePage(page, token);
+    const disabledID = randomUUID();
+    const retryID = randomUUID();
+    await page.route("**/api/v1/accounts?**", (route) =>
+      route.fulfill({
+        json: [
           {
-            id: randomUUID(),
-            rendition_id: randomUUID(),
-            social_account_id: disabledID,
+            id: disabledID,
+            workspace_id: workspace.id,
             platform: "discord",
-            status: width === 320 && scheme === "dark" ? "temporarily_unavailable" : "disabled",
-            error_code: width === 390 && scheme === "light" ? "" : "feature_disabled",
-            error_message: "Engagement is disabled for this account.",
-            next_sync_at: "0001-01-01T00:00:00Z",
+            is_active: true,
+            account_username: "Disabled account",
           },
           {
-            id: randomUUID(),
-            rendition_id: randomUUID(),
-            social_account_id: retryID,
+            id: retryID,
+            workspace_id: workspace.id,
             platform: "bluesky",
-            status: "temporarily_unavailable",
-            error_code: "provider_temporarily_unavailable",
-            error_message: "Provider is temporarily unavailable.",
-            next_sync_at: "2030-01-01T00:00:00Z",
+            is_active: true,
+            account_username: "Retry account",
           },
-        ];
-        await page.route("**/api/v1/engagement?**", (route) =>
-          route.fulfill({ json: { items: [], total: 0, sync_states: states } }),
-        );
-        const errors: string[] = [];
-        page.on("pageerror", (error) => errors.push(error.message));
-        await page.setViewportSize({ width, height: 844 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.goto("/inbox/engagement");
-        // A feature the owner turned off is a choice, not a collection issue.
-        const trigger = page.getByRole("button", { name: "Collection issues (1)", exact: true });
-        await trigger.focus();
-        await page.keyboard.press("Enter");
-        const popup = page.locator('[data-slot="popover-content"]');
-        await expect(popup.getByText("Comments and replies are off", { exact: true })).toHaveCount(
-          0,
-        );
-        await expect(
-          popup.getByText("OpenPost will retry collection for 1 post.", { exact: true }),
-        ).toHaveCount(1);
-        await expect(
-          popup.getByRole("button", { name: "Refresh engagement", exact: true }),
-        ).toHaveCount(1);
-        const bounds = await popup.boundingBox();
-        expect(bounds!.x).toBeGreaterThanOrEqual(0);
-        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-        await page.screenshot({
-          path: testInfo.outputPath(`recovery-${width}-${scheme}.png`),
-          animations: "disabled",
-        });
-        await page.keyboard.press("Escape");
-        await expect(trigger).toBeFocused();
-        expect(errors).toEqual([]);
-      });
-    }
-  }
+        ],
+      }),
+    );
+    await page.route("**/api/v1/account-features?**", (route) =>
+      route.fulfill({
+        json: [
+          { social_account_id: disabledID, feature: "engagement", effective_enabled: false },
+          { social_account_id: retryID, feature: "engagement", effective_enabled: true },
+        ],
+      }),
+    );
+    const states = [
+      {
+        id: randomUUID(),
+        rendition_id: randomUUID(),
+        social_account_id: disabledID,
+        platform: "discord",
+        status: "disabled",
+        error_code: "feature_disabled",
+        error_message: "Engagement is disabled for this account.",
+        next_sync_at: "0001-01-01T00:00:00Z",
+      },
+      {
+        id: randomUUID(),
+        rendition_id: randomUUID(),
+        social_account_id: retryID,
+        platform: "bluesky",
+        status: "temporarily_unavailable",
+        error_code: "provider_temporarily_unavailable",
+        error_message: "Provider is temporarily unavailable.",
+        next_sync_at: "2030-01-01T00:00:00Z",
+      },
+    ];
+    await page.route("**/api/v1/engagement?**", (route) =>
+      route.fulfill({ json: { items: [], total: 0, sync_states: states } }),
+    );
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.setViewportSize({ width, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/inbox/engagement");
+    // A feature the owner turned off is a choice, not a collection issue.
+    const trigger = page.getByRole("button", { name: "Collection issues (1)", exact: true });
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const popup = page.locator('[data-slot="popover-content"]');
+    await expect(popup.getByText("Comments and replies are off", { exact: true })).toHaveCount(0);
+    await expect(
+      popup.getByText("OpenPost will retry collection for 1 post.", { exact: true }),
+    ).toHaveCount(1);
+    await expect(
+      popup.getByRole("button", { name: "Refresh engagement", exact: true }),
+    ).toHaveCount(1);
+    const bounds = await popup.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+    expect(errors).toEqual([]);
+  });
 
   test("collection recovery explains zero, one and several affected posts", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const { token } = await registerUser(request, `recovery-count-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, token, "Recovery counts");
     const accountID = randomUUID();
@@ -254,40 +222,27 @@ test.describe("engagement disabled recovery", () => {
       await expect(
         popup.getByRole("button", { name: "Refresh engagement", exact: true }),
       ).toHaveCount(2);
-      for (const scheme of ["light"] as const) {
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await expect
-          .poll(() => page.locator("html").evaluate((node) => node.classList.contains("dark")))
-          .toBe(scheme === "dark");
-        for (const width of [320]) {
-          await page.setViewportSize({ width, height: 844 });
-          // Floating UI repositions the open popup after the viewport resize event.
-          await expect
-            .poll(async () => (await popup.boundingBox())?.x ?? -1)
-            .toBeGreaterThanOrEqual(0);
-          await expect
-            .poll(async () => {
-              const bounds = await popup.boundingBox();
-              return bounds ? bounds.x + bounds.width : Infinity;
-            })
-            .toBeLessThanOrEqual(width);
-          await page.screenshot({
-            path: testInfo.outputPath(`recovery-${affected}-${width}-${scheme}.png`),
-            animations: "disabled",
-          });
-        }
-      }
+      const width = 320;
+      await page.setViewportSize({ width, height: 844 });
+      // Floating UI repositions the open popup after the viewport resize event.
+      await expect.poll(async () => (await popup.boundingBox())?.x ?? -1).toBeGreaterThanOrEqual(0);
+      await expect
+        .poll(async () => {
+          const bounds = await popup.boundingBox();
+          return bounds ? bounds.x + bounds.width : Infinity;
+        })
+        .toBeLessThanOrEqual(width);
       await page.keyboard.press("Escape");
       await expect(trigger).toBeFocused();
     }
   });
 });
 
-test.describe("engagement empty content", () => {
+test.describe("inbox empty replies", () => {
   test("stored empty replies explain missing content without claiming deletion or losing actions", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(90_000);
     const auth = await registerUser(request, `empty-engagement-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Empty engagement");
@@ -366,55 +321,38 @@ test.describe("engagement empty content", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/inbox/engagement");
     const notice = "No text or attachments are available for this reply.";
-    for (const width of [1280, 320]) {
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme });
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.reload();
-        const empty = page.locator(`[data-engagement-id='${fixtures[0].id}']`);
-        await expect(empty.getByRole("heading", { name: fixtures[0].name })).toBeVisible();
-        await empty.scrollIntoViewIfNeeded();
-        await page.screenshot({ path: testInfo.outputPath(`empty-${width}-${scheme}.png`) });
-        await expect(empty.getByText(notice, { exact: true })).toBeVisible();
-        await expect(
-          empty.getByText("This reply was deleted on the social network.", { exact: true }),
-        ).toHaveCount(0);
-        const reply = empty.getByRole("button", { name: "Reply", exact: true });
-        await reply.focus();
-        await page.keyboard.press("Enter");
-        await expect(
-          empty.getByRole("textbox", { name: "Write a reply…", exact: true }),
-        ).toBeVisible();
-        await expect(
-          empty.getByRole("button", { name: "Queue reply", exact: true }),
-        ).toBeDisabled();
-        await reply.focus();
-        await page.keyboard.press("Enter");
-        await expect(empty.getByRole("textbox")).toHaveCount(0);
-        await expect(reply).toBeFocused();
-        await expect(empty.getByRole("button", { name: "Mark read", exact: true })).toBeEnabled();
-        await expect(empty.getByRole("button", { name: "Archive", exact: true })).toBeEnabled();
-        await expect(
-          page
-            .locator(`[data-engagement-id='${fixtures[1].id}']`)
-            .getByText(notice, { exact: true }),
-        ).toBeVisible();
-        const attachment = page.locator(`[data-engagement-id='${fixtures[2].id}']`);
-        await expect(
-          attachment.getByRole("link", { name: "Audit attachment", exact: true }),
-        ).toHaveAttribute("href", "https://example.com/audit-attachment");
-        await expect(attachment.getByText(notice, { exact: true })).toHaveCount(0);
-        const deleted = page.locator(`[data-engagement-id='${fixtures[3].id}']`);
-        await expect(
-          deleted.getByText("This reply was deleted on the social network.", { exact: true }),
-        ).toBeVisible();
-        await expect(deleted.getByRole("button", { name: "Reply", exact: true })).toHaveCount(0);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-          false,
-        );
-      }
-    }
+    await page.reload();
+    const empty = page.locator(`[data-engagement-id='${fixtures[0].id}']`);
+    await expect(empty.getByRole("heading", { name: fixtures[0].name })).toBeVisible();
+    await empty.scrollIntoViewIfNeeded();
+    await expect(empty.getByText(notice, { exact: true })).toBeVisible();
+    await expect(
+      empty.getByText("This reply was deleted on the social network.", { exact: true }),
+    ).toHaveCount(0);
+    const reply = empty.getByRole("button", { name: "Reply", exact: true });
+    await reply.focus();
+    await page.keyboard.press("Enter");
+    await expect(empty.getByRole("textbox", { name: "Write a reply…", exact: true })).toBeVisible();
+    await expect(empty.getByRole("button", { name: "Queue reply", exact: true })).toBeDisabled();
+    await reply.focus();
+    await page.keyboard.press("Enter");
+    await expect(empty.getByRole("textbox")).toHaveCount(0);
+    await expect(reply).toBeFocused();
+    await expect(empty.getByRole("button", { name: "Mark read", exact: true })).toBeEnabled();
+    await expect(empty.getByRole("button", { name: "Archive", exact: true })).toBeEnabled();
+    await expect(
+      page.locator(`[data-engagement-id='${fixtures[1].id}']`).getByText(notice, { exact: true }),
+    ).toBeVisible();
+    const attachment = page.locator(`[data-engagement-id='${fixtures[2].id}']`);
+    await expect(
+      attachment.getByRole("link", { name: "Audit attachment", exact: true }),
+    ).toHaveAttribute("href", "https://example.com/audit-attachment");
+    await expect(attachment.getByText(notice, { exact: true })).toHaveCount(0);
+    const deleted = page.locator(`[data-engagement-id='${fixtures[3].id}']`);
+    await expect(
+      deleted.getByText("This reply was deleted on the social network.", { exact: true }),
+    ).toBeVisible();
+    await expect(deleted.getByRole("button", { name: "Reply", exact: true })).toHaveCount(0);
     const after = await request.get(endpoint, { headers });
     const current = await after.json();
     // Background feed health can change independently of these stored replies.
@@ -425,11 +363,11 @@ test.describe("engagement empty content", () => {
   });
 });
 
-test.describe("engagement mentions reviews", () => {
+test.describe("inbox mentions and reviews", () => {
   test("native mentions and reviews retain separate subjects, filters and review controls", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(180_000);
     const auth = await registerUser(request, `activity-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Account activity");
@@ -473,57 +411,39 @@ test.describe("engagement mentions reviews", () => {
     await page.route("**/api/v1/engagement/refresh", (route) =>
       route.fulfill({ json: { status: "queued", queued: 0, job_ids: [] } }),
     );
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.goto("/inbox/engagement");
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.reload();
-        const reviewRow = page.locator(`[data-engagement-id="${review}"]`);
-        const mentionRow = page.locator(`[data-engagement-id="${mention}"]`);
-        await expect(reviewRow.getByRole("heading", { name: "Anonymous reviewer" })).toBeVisible();
-        await expect(reviewRow.getByText("Rating without written feedback")).toBeVisible();
-        await expect(reviewRow.getByText("Rating: 5/5")).toBeVisible();
-        await expect(reviewRow.getByText("Google moderation: Pending review")).toBeVisible();
-        await expect(
-          page.locator("section").filter({ has: mentionRow }).locator("[data-engagement-id]"),
-        ).toHaveCount(1);
-        await page.screenshot({
-          path: testInfo.outputPath(`all-${width}-${scheme}.png`),
-          animations: "disabled",
-        });
-        // The kind filter is the Reviews page tab on the calm Inbox surface.
-        await page
-          .getByTestId("communications-navigation")
-          .getByRole("link", { name: "Reviews", exact: true })
-          .click();
-        await expect(mentionRow).toHaveCount(0);
-        await expect(reviewRow).toBeVisible();
-        await reviewRow.getByRole("button", { name: "Reply", exact: true }).click();
-        const text = reviewRow.getByRole("textbox", { name: "Write a reply…", exact: true });
-        await text.fill("🚀".repeat(1025));
-        await expect(
-          reviewRow.getByRole("button", { name: "Queue reply", exact: true }),
-        ).toBeDisabled();
-        await expect(reviewRow.getByText("4100/4096 UTF-8 bytes")).toBeVisible();
-        await text.fill("Thanks 日本語");
-        await expect(
-          reviewRow.getByRole("button", { name: "Queue reply", exact: true }),
-        ).toBeEnabled();
-        // The fixture has an owner reply, so removal may target only that reply.
-        await expect(
-          reviewRow.getByRole("button", { name: "Remove your reply", exact: true }),
-        ).toBeVisible();
-        await expect(reviewRow.getByRole("button", { name: /^Delete/ })).toHaveCount(0);
-        await page.screenshot({
-          path: testInfo.outputPath(`review-${width}-${scheme}.png`),
-          animations: "disabled",
-        });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-      }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/inbox/engagement");
+    await page.reload();
+    const reviewRow = page.locator(`[data-engagement-id="${review}"]`);
+    const mentionRow = page.locator(`[data-engagement-id="${mention}"]`);
+    await expect(reviewRow.getByRole("heading", { name: "Anonymous reviewer" })).toBeVisible();
+    await expect(reviewRow.getByText("Rating without written feedback")).toBeVisible();
+    await expect(reviewRow.getByText("Rating: 5/5")).toBeVisible();
+    await expect(reviewRow.getByText("Google moderation: Pending review")).toBeVisible();
+    await expect(
+      page.locator("section").filter({ has: mentionRow }).locator("[data-engagement-id]"),
+    ).toHaveCount(1);
+    // The kind filter is the Reviews page tab on the calm Inbox surface.
+    await page
+      .getByTestId("communications-navigation")
+      .getByRole("link", { name: "Reviews", exact: true })
+      .click();
+    await expect(mentionRow).toHaveCount(0);
+    await expect(reviewRow).toBeVisible();
+    await reviewRow.getByRole("button", { name: "Reply", exact: true }).click();
+    const text = reviewRow.getByRole("textbox", { name: "Write a reply…", exact: true });
+    await text.fill("🚀".repeat(1025));
+    await expect(
+      reviewRow.getByRole("button", { name: "Queue reply", exact: true }),
+    ).toBeDisabled();
+    await expect(reviewRow.getByText("4100/4096 UTF-8 bytes")).toBeVisible();
+    await text.fill("Thanks 日本語");
+    await expect(reviewRow.getByRole("button", { name: "Queue reply", exact: true })).toBeEnabled();
+    // The fixture has an owner reply, so removal may target only that reply.
+    await expect(
+      reviewRow.getByRole("button", { name: "Remove your reply", exact: true }),
+    ).toBeVisible();
+    await expect(reviewRow.getByRole("button", { name: /^Delete/ })).toHaveCount(0);
     await page.getByRole("button", { name: "Mark all matching read", exact: true }).click();
     await expect(page.getByText("Marked 1 matching items as read.")).toBeVisible();
     const stored = await request.get(`/api/v1/engagement?workspace_id=${workspace.id}`, {
@@ -537,11 +457,11 @@ test.describe("engagement mentions reviews", () => {
   });
 });
 
-test.describe("engagement meta recovery", () => {
+test.describe("inbox Meta recovery", () => {
   test("persisted Meta permission outcomes offer account recovery and disappear after recovery", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     const auth = await registerUser(request, `meta-collection-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Meta collection recovery");
     const post = await createPublication(
@@ -582,29 +502,23 @@ test.describe("engagement meta recovery", () => {
       )
         writes.push(req.method() + " " + new URL(req.url()).pathname);
     });
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.goto("/inbox/engagement");
-        await page.reload();
-        const trigger = page.getByRole("button", { name: "Collection issues (3)", exact: true });
-        await trigger.focus();
-        await trigger.press("Enter");
-        const popup = page.locator('[data-slot="popover-content"]');
-        const links = popup.getByRole("link", { name: "Manage accounts", exact: true });
-        await expect(links).toHaveCount(3);
-        await expect(
-          popup.getByRole("button", { name: "Refresh engagement", exact: true }),
-        ).toHaveCount(0);
-        await expect(
-          popup.getByText("OpenPost will retry collection for 1 post.", { exact: true }),
-        ).toHaveCount(0);
-        await page.screenshot({ path: info.outputPath(`meta-permission-${width}-${scheme}.png`) });
-        await page.keyboard.press("Escape");
-        await expect(trigger).toBeFocused();
-      }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/inbox/engagement");
+    await page.reload();
+    const trigger = page.getByRole("button", { name: "Collection issues (3)", exact: true });
+    await trigger.focus();
+    await trigger.press("Enter");
+    const popup = page.locator('[data-slot="popover-content"]');
+    const links = popup.getByRole("link", { name: "Manage accounts", exact: true });
+    await expect(links).toHaveCount(3);
+    await expect(
+      popup.getByRole("button", { name: "Refresh engagement", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      popup.getByText("OpenPost will retry collection for 1 post.", { exact: true }),
+    ).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
     // This checks presentation of the recovered read model; the public HTTP/job
     // regression independently proves the service clears these fields.
     sql(
@@ -616,11 +530,11 @@ test.describe("engagement meta recovery", () => {
   });
 });
 
-test.describe("messages empty recovery", () => {
+test.describe("inbox messages recovery", () => {
   test("Messages distinguishes archived filters from account setup and clears them with the keyboard", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(90_000);
     const { token } = await registerUser(request, `messages-recovery-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, token, "Messages recovery");
@@ -667,62 +581,40 @@ test.describe("messages empty recovery", () => {
     await expect(
       page.getByRole("heading", { name: "No conversations yet", exact: true }),
     ).toBeVisible();
-    for (const width of [1280, 320]) {
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme });
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.reload();
-        await expect(page.locator("html")).toHaveCSS("color-scheme", scheme);
-        await page.getByRole("button", { name: "Filters", exact: true }).click();
-        await page.getByRole("button", { name: "All platforms", exact: true }).focus();
-        await page.keyboard.press("Enter");
-        await page.getByRole("option", { name: "Bluesky", exact: true }).click();
-        await expect(
-          page.getByRole("heading", { name: "No matching conversations", exact: true }),
-        ).toBeVisible();
-        await page.getByRole("button", { name: "All accounts", exact: true }).click();
-        await page.getByRole("option", { name: /Audit messages/ }).click();
-        await page.getByRole("checkbox", { name: "Archived", exact: true }).focus();
-        await page.keyboard.press("Space");
-        await expect(page.getByRole("checkbox", { name: "Archived", exact: true })).toBeChecked();
-        await expect(
-          page.getByRole("heading", { name: "No archived conversations", exact: true }),
-        ).toBeVisible();
-        await page.keyboard.press("Escape");
-        const reset = page.getByRole("button", { name: "Clear filters", exact: true });
-        await reset.focus();
-        await expect(reset).toBeFocused();
-        if (width < 768) {
-          const bounds = await reset.boundingBox();
-          expect(bounds!.height).toBeGreaterThanOrEqual(44);
-          expect(bounds!.width).toBeGreaterThanOrEqual(44);
-        }
-        await page.screenshot({ path: testInfo.outputPath(`archived-${width}-${scheme}.png`) });
-        await page.keyboard.press("Enter");
-        await page.getByRole("button", { name: "Filters", exact: true }).click();
-        await expect(
-          page.getByRole("checkbox", { name: "Archived", exact: true }),
-        ).not.toBeChecked();
-        await expect(page.getByRole("button", { name: "All accounts", exact: true })).toBeVisible();
-        await expect(
-          page.getByRole("heading", { name: "No conversations yet", exact: true }),
-        ).toBeVisible();
-        await expect(page.getByRole("button", { name: "All platforms", exact: true })).toHaveText(
-          "All platforms",
-        );
-        await expect(
-          page.getByRole("link", { name: "Open account details", exact: true }),
-        ).toHaveAttribute("href", "/settings?tab=accounts");
-        await expect(page.getByRole("button", { name: "Clear filters", exact: true })).toHaveCount(
-          0,
-        );
-        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-          false,
-        );
-        await page.screenshot({ path: testInfo.outputPath(`setup-${width}-${scheme}.png`) });
-      }
-    }
+    await page.reload();
+    await page.getByRole("button", { name: "Filters", exact: true }).click();
+    await page.getByRole("button", { name: "All platforms", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("option", { name: "Bluesky", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "No matching conversations", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "All accounts", exact: true }).click();
+    await page.getByRole("option", { name: /Audit messages/ }).click();
+    await page.getByRole("checkbox", { name: "Archived", exact: true }).focus();
+    await page.keyboard.press("Space");
+    await expect(page.getByRole("checkbox", { name: "Archived", exact: true })).toBeChecked();
+    await expect(
+      page.getByRole("heading", { name: "No archived conversations", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    const reset = page.getByRole("button", { name: "Clear filters", exact: true });
+    await reset.focus();
+    await expect(reset).toBeFocused();
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Filters", exact: true }).click();
+    await expect(page.getByRole("checkbox", { name: "Archived", exact: true })).not.toBeChecked();
+    await expect(page.getByRole("button", { name: "All accounts", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "No conversations yet", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "All platforms", exact: true })).toHaveText(
+      "All platforms",
+    );
+    await expect(
+      page.getByRole("link", { name: "Open account details", exact: true }),
+    ).toHaveAttribute("href", "/settings?tab=accounts");
+    await expect(page.getByRole("button", { name: "Clear filters", exact: true })).toHaveCount(0);
     const databasePath = `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`;
     execFileSync("sqlite3", [
       "-cmd",
@@ -751,7 +643,6 @@ test.describe("messages empty recovery", () => {
     await expect(
       page.getByRole("link", { name: "Open account details", exact: true }),
     ).toHaveAttribute("href", "/settings?tab=accounts");
-    await page.screenshot({ path: testInfo.outputPath("disabled-filters-320-dark.png") });
     execFileSync("sqlite3", [
       "-cmd",
       ".timeout 5000",

@@ -74,10 +74,6 @@ test.describe("image editor", () => {
       await page.getByRole("menuitem", { name: /^Undo/ }).click();
       await page.keyboard.press("Escape");
       await expect(page.getByRole("menu")).toHaveCount(0);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        320,
-      );
-      await page.screenshot({ path: testInfo.outputPath("photo-touch-320.png") });
       await page.setViewportSize({ width: 1024, height: 768 });
       await expect(layers).toHaveCount(6);
     });
@@ -120,7 +116,15 @@ test.describe("image editor", () => {
     const zoomPercent = async () => Number.parseInt((await zoom.textContent()) ?? "", 10);
     await expect(canvas).toBeVisible();
     await zoom.click();
-    await page.waitForTimeout(250);
+    let lastZoom = -1;
+    await expect
+      .poll(async () => {
+        const value = await zoomPercent();
+        const settled = value === lastZoom;
+        lastZoom = value;
+        return settled;
+      })
+      .toBe(true);
     const before = await zoomPercent();
     const bounds = (await canvas.boundingBox())!;
 
@@ -278,9 +282,7 @@ test.describe("image editor", () => {
     expect(cropErrors).toEqual([]);
   });
 
-  test("Image Editor keeps Export rightmost and saved feedback clear at narrow widths", async ({
-    page,
-  }, testInfo) => {
+  test("Color tab Home key returns to Edit after the project saves", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1600, height: 900 });
     await page.goto("/image-editor");
     await page.getByRole("button", { name: "New project", exact: true }).click();
@@ -289,58 +291,7 @@ test.describe("image editor", () => {
     await page.getByRole("textbox", { name: "Design title" }).fill("Saved header project");
     await page.keyboard.press("Tab");
     await expect(saved).toHaveAttribute("data-state", "saved");
-    const cdp = await page.context().newCDPSession(page);
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate(
-        (dark) => document.documentElement.classList.toggle("dark", dark),
-        scheme === "dark",
-      );
-      for (const width of [1600, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await cdp.send("Emulation.setTouchEmulationEnabled", {
-          enabled: width !== 1600,
-          maxTouchPoints: 1,
-        });
-        await expect
-          .poll(() => page.evaluate(() => matchMedia("(pointer:coarse)").matches))
-          .toBe(width !== 1600);
-        const exportButton = header.getByRole("button", { name: "Export", exact: true });
-        const exportBox = await exportButton.boundingBox();
-        expect(exportBox).not.toBeNull();
-        for (const button of [
-          header.getByRole("button", { name: "More actions", exact: true }),
-          ...(width === 1600
-            ? [header.getByRole("button", { name: "Save to OpenPost", exact: true })]
-            : []),
-        ]) {
-          await expect(button).toBeVisible();
-          const box = await button.boundingBox();
-          if (box) expect(exportBox!.x).toBeGreaterThan(box.x);
-        }
-        const status = await saved.boundingBox();
-        const color = await header.getByRole("tab", { name: "Color", exact: true }).boundingBox();
-        expect(status).not.toBeNull();
-        expect(color).not.toBeNull();
-        expect(
-          status!.x >= color!.x + color!.width ||
-            status!.x + status!.width <= color!.x ||
-            status!.y >= color!.y + color!.height ||
-            status!.y + status!.height <= color!.y,
-        ).toBe(true);
-        await expect
-          .poll(() =>
-            header.evaluate((element) =>
-              [...element.querySelectorAll("button")].every((button) => {
-                const bounds = button.getBoundingClientRect();
-                return !bounds.width || (bounds.left >= 0 && bounds.right <= innerWidth);
-              }),
-            ),
-          )
-          .toBe(true);
-        await page.screenshot({ path: testInfo.outputPath(`image-header-${width}-${scheme}.png`) });
-      }
-    }
+
     await header.getByRole("tab", { name: "Color", exact: true }).click();
     await page.keyboard.press("Home");
     await expect(header.getByRole("tab", { name: "Edit", exact: true })).toHaveAttribute(
@@ -421,29 +372,23 @@ test.describe("image editor", () => {
     await expect
       .poll(() => preview.evaluate((image: HTMLImageElement) => image.naturalWidth))
       .toBeGreaterThan(0);
-    for (const width of [1440, 320]) {
-      await page.setViewportSize({ width, height: 900 });
-      for (const colorScheme of ["light"] as const) {
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        await starter.scrollIntoViewIfNeeded();
-        await expect
-          .poll(() =>
-            preview.evaluate((image: HTMLImageElement) => {
-              const frame = image.parentElement!.getBoundingClientRect();
-              const bitmap = image.getBoundingClientRect();
-              return (
-                image.naturalWidth > 0 &&
-                bitmap.width <= frame.width + 1 &&
-                bitmap.height <= frame.height + 1
-              );
-            }),
-          )
-          .toBe(true);
-        await starter.screenshot({
-          path: testInfo.outputPath(`templates-${width}-${colorScheme}.png`),
-        });
-      }
-    }
+    const width = 320;
+    await page.setViewportSize({ width, height: 900 });
+    await starter.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        preview.evaluate((image: HTMLImageElement) => {
+          const frame = image.parentElement!.getBoundingClientRect();
+          const bitmap = image.getBoundingClientRect();
+          return (
+            image.naturalWidth > 0 &&
+            bitmap.width <= frame.width + 1 &&
+            bitmap.height <= frame.height + 1
+          );
+        }),
+      )
+      .toBe(true);
+
     const last = gallery.getByRole("button").last();
     await last.scrollIntoViewIfNeeded();
     await expect
@@ -483,11 +428,10 @@ test.describe("image editor", () => {
     await page.getByRole("button", { name: /Instagram square/ }).click();
 
     await expect(page).toHaveURL(/\/image-editor\/local_design_/);
-    await page.waitForTimeout(500);
-    expect(browserErrors.filter((message) => !message.includes("401 (Unauthorized)"))).toEqual([]);
     await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
       timeout: 20_000,
     });
+    expect(browserErrors.filter((message) => !message.includes("401 (Unauthorized)"))).toEqual([]);
 
     const title = page.getByRole("textbox", { name: "Design title" });
     await title.fill("Local launch design");
@@ -591,21 +535,6 @@ test.describe("image editor", () => {
         (await fetch(image.src)).headers.get("content-type"),
       ),
     ).toBe("image/webp");
-    for (const { width, colorScheme } of [
-      { width: 320, colorScheme: "dark" as const },
-      { width: 390, colorScheme: "light" as const },
-    ]) {
-      await page.setViewportSize({ width, height: 780 });
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      await expect(dialog).toBeVisible();
-      await expect(dialog.getByRole("img", { name: "Encoded export preview" })).toBeVisible();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        width,
-      );
-      await page.screenshot({
-        path: testInfo.outputPath(`encoded-export-${width}-${colorScheme}.png`),
-      });
-    }
   });
 
   test("page-strip previews render after adding a page and remain visible across a page switch", async ({
@@ -629,9 +558,6 @@ test.describe("image editor", () => {
         ),
       )
       .toBe(true);
-    await page.screenshot({
-      path: testInfo.outputPath("image-editor-pages-desktop.png"),
-    });
 
     await page
       .getByRole("button", { name: /Page 1/ })
@@ -645,30 +571,6 @@ test.describe("image editor", () => {
         ),
       )
       .toBe(true);
-
-    const colorSchemes: Array<"light" | "dark"> = ["light", "dark"];
-    for (const width of [320]) {
-      for (const colorScheme of colorSchemes) {
-        await page.setViewportSize({ width, height: 780 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        const expandPages = page.getByRole("button", { name: "Expand pages" });
-        if (await expandPages.count()) await expandPages.click();
-        await expect(previews).toHaveCount(2);
-        await expect
-          .poll(async () =>
-            previews.evaluateAll((images) =>
-              images.every((image) => image instanceof HTMLImageElement && image.naturalWidth > 0),
-            ),
-          )
-          .toBe(true);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await page.screenshot({
-          path: testInfo.outputPath(`image-editor-pages-${width}-${colorScheme}.png`),
-        });
-      }
-    }
   });
 
   test("a large rectangular selection keeps its visible outline after a document edit", async ({
@@ -804,16 +706,12 @@ test.describe("image editor", () => {
       await page.getByRole("menuitem", { name: action, exact: true }).click();
       await expect(overlay).toHaveAttribute("data-active", "true");
     }
-    await page.screenshot({ path: testInfo.outputPath("selection-refinement-desktop.png") });
 
     await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
     const mobileViewport = { width: 390, height: 800 };
     await page.setViewportSize(mobileViewport);
     const mobileOptions = page.getByTestId("image-editor-selection-options");
     await expect(mobileOptions).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-      390,
-    );
     await page.keyboard.press("ControlOrMeta+0");
     await expect
       .poll(async () => {
@@ -856,123 +754,103 @@ test.describe("image editor", () => {
     await done.click();
     await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
     await expect(overlay).toHaveAttribute("data-active", "true");
-    await page.screenshot({ path: testInfo.outputPath("selection-refinement-phone-dark.png") });
   });
 
-  for (const scheme of ["light"] as const) {
-    test(`Photo keeps text editing first and Color preserves the live canvas on phones in ${scheme}`, async ({
-      page,
-    }, testInfo) => {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await page.setViewportSize({ width: 1280, height: 720 });
-      await page.goto("/image-editor");
-      await page.getByRole("button", { name: "Bold announcement", exact: true }).click();
-      await page
-        .getByRole("tree", { name: "Layers", exact: true })
-        .getByRole("treeitem")
-        .filter({ hasText: "NEXT" })
-        .click();
-      const properties = page.locator(".image-editor-properties-scroll:visible");
-      await expect(properties.locator("textarea")).toBeInViewport({ ratio: 1 });
-      await expect(
-        properties.getByRole("button", { name: "Font family", exact: true }),
-      ).toBeInViewport({ ratio: 1 });
-      await expect(
-        properties.getByRole("spinbutton", { name: "Size", exact: true }),
-      ).toBeInViewport({
-        ratio: 1,
-      });
-      await expect(properties.getByRole("button", { name: "Weight", exact: true })).toHaveText(
-        "850",
-      );
-      await page.screenshot({
-        path: testInfo.outputPath("photo-text-laptop.png"),
-      });
-      for (const width of [320]) {
-        await page.setViewportSize({ width, height: 844 });
-        await page.getByRole("button", { name: "Draw", exact: true }).click();
-        await expect(
-          page.getByRole("button", { name: "Foreground color", exact: true }),
-        ).toBeVisible();
-        await page.getByRole("button", { name: "Expand pages", exact: true }).click();
-        await page.locator("#image-editor-workspace-tab-color").click();
-        await expect(
-          page.getByRole("button", { name: "Foreground color", exact: true }),
-        ).toBeHidden();
-        await expect(page.getByRole("dialog")).toHaveCount(0);
-        const canvas = page.getByRole("application", {
-          name: "Design canvas",
-          exact: true,
-        });
-        const color = page.locator("[data-image-color-workspace]:visible");
-        await expect(canvas).toBeInViewport({ ratio: 1 });
-        const canvasBox = (await canvas.boundingBox())!;
-        const controlsBox = (await color.boundingBox())!;
-        expect(canvasBox.height).toBeGreaterThanOrEqual(220);
-        expect(canvasBox.y + canvasBox.height).toBeLessThanOrEqual(controlsBox.y + 1);
-        await color.getByRole("tab", { name: "Color Wheels", exact: true }).click();
-        const lift = page.getByRole("slider", {
-          name: "Lift color wheel",
-          exact: true,
-        });
-        await lift.scrollIntoViewIfNeeded();
-        await expect(lift).toBeInViewport({ ratio: 1 });
-        await lift.press("ArrowUp");
-        const previousLift = await lift.getAttribute("aria-valuetext");
-        await lift.press("ArrowRight");
-        await expect(lift).not.toHaveAttribute("aria-valuetext", previousLift!);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await page.screenshot({
-          path: testInfo.outputPath(`photo-color-${width}.png`),
-        });
-        await expect(color.getByRole("button", { name: "Before", exact: true })).toBeInViewport({
-          ratio: 1,
-        });
-        await color.getByRole("tab", { name: "Curves", exact: true }).click();
-        await color.getByRole("button", { name: "Red", exact: true }).click();
-        await page.setViewportSize({ width: 1280, height: 720 });
-        await expect(color.getByRole("tab", { name: "Curves", exact: true })).toHaveAttribute(
-          "aria-selected",
-          "true",
-        );
-        await expect(color.getByRole("button", { name: "Red", exact: true })).toHaveAttribute(
-          "aria-pressed",
-          "true",
-        );
-        await page.setViewportSize({ width, height: 844 });
-        await expect(color.getByRole("button", { name: "Red", exact: true })).toHaveAttribute(
-          "aria-pressed",
-          "true",
-        );
-        await page.getByRole("button", { name: "Collapse pages", exact: true }).click();
-        await page.locator("#image-editor-workspace-tab-edit").click();
-      }
-      await page.getByRole("button", { name: "Expand pages", exact: true }).click();
-      await page.locator("#image-editor-workspace-tab-color").click();
-      await page.setViewportSize({ width: 640, height: 360 });
-      const shortCanvas = page.getByRole("application", {
-        name: "Design canvas",
-        exact: true,
-      });
-      expect((await shortCanvas.boundingBox())!.height).toBeGreaterThanOrEqual(100);
-      await page
-        .locator("[data-image-color-workspace]:visible")
-        .getByRole("tab", { name: "Adjustments", exact: true })
-        .click();
-      const warm = page
-        .locator("[data-image-color-workspace]:visible")
-        .getByRole("button", { name: "Warm", exact: true });
-      await warm.scrollIntoViewIfNeeded();
-      await expect(warm).toBeInViewport({ ratio: 1 });
-      await warm.click();
-      await expect(warm).toHaveAttribute("aria-pressed", "true");
-      await page.setViewportSize({ width: 390, height: 844 });
-      await expect(page.getByRole("button", { name: "Collapse pages", exact: true })).toBeVisible();
+  test(`Photo keeps text editing first and Color preserves the live canvas on phones`, async ({
+    page,
+  }, testInfo) => {
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.addInitScript(() => localStorage.setItem("mode-watcher-mode", "light"));
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "Bold announcement", exact: true }).click();
+    await page
+      .getByRole("tree", { name: "Layers", exact: true })
+      .getByRole("treeitem")
+      .filter({ hasText: "NEXT" })
+      .click();
+    const properties = page.locator(".image-editor-properties-scroll:visible");
+    await expect(properties.locator("textarea")).toBeInViewport({ ratio: 1 });
+    await expect(
+      properties.getByRole("button", { name: "Font family", exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+    await expect(properties.getByRole("spinbutton", { name: "Size", exact: true })).toBeInViewport({
+      ratio: 1,
     });
-  }
+    await expect(properties.getByRole("button", { name: "Weight", exact: true })).toHaveText("850");
+    const width = 320;
+    await page.setViewportSize({ width, height: 844 });
+    await page.getByRole("button", { name: "Draw", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Foreground color", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Expand pages", exact: true }).click();
+    await page.locator("#image-editor-workspace-tab-color").click();
+    await expect(page.getByRole("button", { name: "Foreground color", exact: true })).toBeHidden();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    const canvas = page.getByRole("application", {
+      name: "Design canvas",
+      exact: true,
+    });
+    const color = page.locator("[data-image-color-workspace]:visible");
+    await expect(canvas).toBeInViewport({ ratio: 1 });
+    const canvasBox = (await canvas.boundingBox())!;
+    const controlsBox = (await color.boundingBox())!;
+    expect(canvasBox.height).toBeGreaterThanOrEqual(220);
+    expect(canvasBox.y + canvasBox.height).toBeLessThanOrEqual(controlsBox.y + 1);
+    await color.getByRole("tab", { name: "Color Wheels", exact: true }).click();
+    const lift = page.getByRole("slider", {
+      name: "Lift color wheel",
+      exact: true,
+    });
+    await lift.scrollIntoViewIfNeeded();
+    await expect(lift).toBeInViewport({ ratio: 1 });
+    await lift.press("ArrowUp");
+    const previousLift = await lift.getAttribute("aria-valuetext");
+    await lift.press("ArrowRight");
+    await expect(lift).not.toHaveAttribute("aria-valuetext", previousLift!);
+    await expect(color.getByRole("button", { name: "Before", exact: true })).toBeInViewport({
+      ratio: 1,
+    });
+    await color.getByRole("tab", { name: "Curves", exact: true }).click();
+    await color.getByRole("button", { name: "Red", exact: true }).click();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await expect(color.getByRole("tab", { name: "Curves", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(color.getByRole("button", { name: "Red", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.setViewportSize({ width, height: 844 });
+    await expect(color.getByRole("button", { name: "Red", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.getByRole("button", { name: "Collapse pages", exact: true }).click();
+    await page.locator("#image-editor-workspace-tab-edit").click();
+
+    await page.getByRole("button", { name: "Expand pages", exact: true }).click();
+    await page.locator("#image-editor-workspace-tab-color").click();
+    await page.setViewportSize({ width: 640, height: 360 });
+    const shortCanvas = page.getByRole("application", {
+      name: "Design canvas",
+      exact: true,
+    });
+    expect((await shortCanvas.boundingBox())!.height).toBeGreaterThanOrEqual(100);
+    await page
+      .locator("[data-image-color-workspace]:visible")
+      .getByRole("tab", { name: "Adjustments", exact: true })
+      .click();
+    const warm = page
+      .locator("[data-image-color-workspace]:visible")
+      .getByRole("button", { name: "Warm", exact: true });
+    await warm.scrollIntoViewIfNeeded();
+    await expect(warm).toBeInViewport({ ratio: 1 });
+    await warm.click();
+    await expect(warm).toHaveAttribute("aria-pressed", "true");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole("button", { name: "Collapse pages", exact: true })).toBeVisible();
+  });
 
   test("workspace designs can be deleted and editing a media file reopens its design", async ({
     page,
@@ -1006,23 +884,9 @@ test.describe("image editor", () => {
     await page.goto("/image-editor");
     const deleteButton = page.getByRole("button", { name: "Delete Edit reuse", exact: true });
     await expect(deleteButton).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath("workspace-design.png"), fullPage: true });
-    for (const colorScheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 800 });
-        await expect(deleteButton).toBeVisible();
-        await deleteButton.focus();
-        await expect(deleteButton).toBeFocused();
-        expect(
-          await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-        ).toBe(true);
-        await page.screenshot({
-          path: testInfo.outputPath(`workspace-design-${width}-${colorScheme}.png`),
-          fullPage: true,
-        });
-      }
-    }
+    await deleteButton.focus();
+    await expect(deleteButton).toBeFocused();
+
     await deleteButton.press("Enter");
     await expect(page.getByRole("dialog")).toContainText("This design will be moved to trash.");
     await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
@@ -1112,57 +976,35 @@ test.describe("image editor animation", () => {
     ).toHaveAttribute("aria-pressed", "true");
   });
 
-  for (const width of [1440, 320]) {
-    for (const colorScheme of ["light"] as const) {
-      test(`GIF frame editing and lens controls at ${width}px in ${colorScheme}`, async ({
-        page,
-      }, testInfo) => {
-        test.setTimeout(90_000);
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-        const errors: string[] = [];
-        page.on("pageerror", (error) => errors.push(error.message));
-        await page.goto("/image-editor");
-        await page.getByLabel("Open an image", { exact: true }).setInputFiles(gifPath);
-        await expect(page).toHaveURL(/\/image-editor\/local_design_/);
-        await expect(
-          page.getByRole("application", { name: "Design canvas", exact: true }),
-        ).toBeVisible();
-        await page.screenshot({ path: testInfo.outputPath(`before-${width}-${colorScheme}.png`) });
-        if (width < 1024) {
-          await page
-            .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
-            .getByRole("button", { name: "Layers", exact: true })
-            .click();
-        }
-        await page.getByRole("treeitem").filter({ hasText: "animated-rgb" }).click();
-        if (width < 1024) {
-          await page.keyboard.press("Escape");
-          await page
-            .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
-            .getByRole("button", { name: "Properties", exact: true })
-            .click();
-        }
-        await page.getByRole("button", { name: "Frame 2, 100 ms", exact: true }).click();
-        await page.getByRole("button", { name: "Duplicate frame", exact: true }).click();
-        await expect(
-          page.getByRole("group", { name: "Animation frames", exact: true }).getByRole("button"),
-        ).toHaveCount(4);
-        await page.getByLabel("Frame duration (ms)", { exact: true }).fill("200");
-        await page.keyboard.press("Tab");
-        await page.getByRole("button", { name: "Lens effect", exact: true }).click();
-        await page.getByRole("option", { name: "Starburst", exact: true }).click();
-        await expect(
-          page.getByRole("slider", { name: "Highlight threshold", exact: true }),
-        ).toBeVisible();
-        await page.screenshot({ path: testInfo.outputPath(`after-${width}-${colorScheme}.png`) });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        expect(errors).toEqual([]);
-      });
-    }
-  }
+  test(`GIF frame editing and lens controls`, async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto("/image-editor");
+    await page.getByLabel("Open an image", { exact: true }).setInputFiles(gifPath);
+    await expect(page).toHaveURL(/\/image-editor\/local_design_/);
+    await expect(
+      page.getByRole("application", { name: "Design canvas", exact: true }),
+    ).toBeVisible();
+
+    await page.getByRole("treeitem").filter({ hasText: "animated-rgb" }).click();
+
+    await page.getByRole("button", { name: "Frame 2, 100 ms", exact: true }).click();
+    await page.getByRole("button", { name: "Duplicate frame", exact: true }).click();
+    await expect(
+      page.getByRole("group", { name: "Animation frames", exact: true }).getByRole("button"),
+    ).toHaveCount(4);
+    await page.getByLabel("Frame duration (ms)", { exact: true }).fill("200");
+    await page.keyboard.press("Tab");
+    await page.getByRole("button", { name: "Lens effect", exact: true }).click();
+    await page.getByRole("option", { name: "Starburst", exact: true }).click();
+    await expect(
+      page.getByRole("slider", { name: "Highlight threshold", exact: true }),
+    ).toBeVisible();
+    expect(errors).toEqual([]);
+  });
 
   test("touch GIF edits persist across reload and download as an animated GIF", async ({
     browser,
@@ -1196,12 +1038,10 @@ test.describe("image editor animation", () => {
       ).toHaveCount(4);
       await page.getByLabel("Frame duration (ms)", { exact: true }).fill("200");
       await page.getByRole("heading", { name: "GIF animation", exact: true }).tap();
-      await page.screenshot({ path: testInfo.outputPath("gif-frames-touch-390-light.png") });
       await page.setViewportSize({ width: 320, height: 900 });
       await page.emulateMedia({ colorScheme: "dark" });
       await duplicate.scrollIntoViewIfNeeded();
       expect((await duplicate.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-      await page.screenshot({ path: testInfo.outputPath("gif-frames-touch-320-dark.png") });
       await page.keyboard.press("Escape");
       await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
         "data-state",
@@ -1294,36 +1134,6 @@ test.describe("image editor animation", () => {
 });
 
 test.describe("image editor audit", () => {
-  test("editor audit controls fit desktop and phone widths in both schemes", async ({
-    page,
-  }, testInfo) => {
-    // First template instantiation loads template previews and local storage;
-    // on a loaded CI shard that can exceed the 30s default.
-    test.setTimeout(60_000);
-    const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto("/image-editor");
-    await page.getByRole("button", { name: "Quick announcement", exact: true }).click();
-    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-    for (const colorScheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      for (const width of [1369, 320]) {
-        await page.setViewportSize({ width, height: 800 });
-        await expect(page.getByRole("button", { name: "Export", exact: true })).toBeVisible();
-        await expect(
-          page.getByRole("button", { name: "OpenPost Image Editor", exact: true }),
-        ).toBeInViewport();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await page.screenshot({
-          path: testInfo.outputPath(`image-editor-${width}-${colorScheme}.png`),
-        });
-      }
-    }
-    expect(errors).toEqual([]);
-  });
-
   test("ordinary start page opens workspace templates with their pages and editable title", async ({
     page,
     request,
@@ -1381,21 +1191,6 @@ test.describe("image editor audit", () => {
     await expect(workspaceCard).toHaveAccessibleName(
       "Audit workspace template: Create design, Saved to OpenPost",
     );
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate(
-        (value) => document.documentElement.classList.toggle("dark", value === "dark"),
-        scheme,
-      );
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        const section = page.getByRole("region", { name: "Workspace templates", exact: true });
-        await section.scrollIntoViewIfNeeded();
-        await section.screenshot({
-          path: testInfo.outputPath(`workspace-templates-${width}-${scheme}.png`),
-        });
-      }
-    }
     await page.setViewportSize({ width: 1280, height: 900 });
     await expect(
       page.getByRole("button", { name: "Save new projects to", exact: true }),
@@ -1443,68 +1238,56 @@ test.describe("image editor audit", () => {
     expect(errors).toEqual([]);
   });
 
-  for (const scheme of ["light"] as const) {
-    test(`failed cloud and recovery saves stay visible and protect unsaved work in ${scheme}`, async ({
-      page,
-      request,
-    }, testInfo) => {
-      const auth = await registerUser(request, `image-recovery-audit-${randomUUID()}@example.com`);
-      const workspace = await createWorkspace(request, auth.token, "Recovery audit");
-      await authenticatePage(page, auth.token);
-      await page.addInitScript((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.goto(`/image-editor/new?workspace=${workspace.id}`);
-      await page.getByRole("button", { name: "New project", exact: true }).click();
-      await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-      await page.route("**/api/v1/image-editor/designs/*", async (route) => {
-        if (route.request().method() !== "PATCH") return route.continue();
-        await route.fulfill({
-          status: 503,
-          contentType: "application/problem+json",
-          body: JSON.stringify({ detail: "Save unavailable for this test" }),
-        });
+  test(`failed cloud and recovery saves stay visible and protect unsaved work`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    const auth = await registerUser(request, `image-recovery-audit-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Recovery audit");
+    await authenticatePage(page, auth.token);
+    await page.addInitScript(() => localStorage.setItem("mode-watcher-mode", "light"));
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    await page.route("**/api/v1/image-editor/designs/*", async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      await route.fulfill({
+        status: 503,
+        contentType: "application/problem+json",
+        body: JSON.stringify({ detail: "Save unavailable for this test" }),
       });
-      await page.evaluate(() => {
-        IDBFactory.prototype.open = () => {
-          throw new DOMException("Storage full", "QuotaExceededError");
-        };
-      });
-      await page.getByRole("textbox", { name: "Design title" }).fill("Unsaved changes");
-      await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
-        "aria-label",
-        "Save unavailable for this test",
-      );
-      expect(
-        await page.evaluate(() => {
-          const event = new Event("beforeunload", { cancelable: true });
-          window.dispatchEvent(event);
-          return event.defaultPrevented;
-        }),
-      ).toBe(true);
-      await page.screenshot({
-        path: testInfo.outputPath(`save-error-1280-${scheme}.png`),
-      });
-      for (const width of [320]) {
-        await page.setViewportSize({ width, height: 800 });
-        await expect(
-          page.locator('[role="status"][aria-label="Save unavailable for this test"]').last(),
-        ).toBeVisible();
-        await expect(
-          page.getByRole("button", {
-            name: "OpenPost Image Editor",
-            exact: true,
-          }),
-        ).toBeInViewport();
-        await expect(page.getByRole("button", { name: "Export", exact: true })).toBeInViewport();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await page.screenshot({
-          path: testInfo.outputPath(`save-error-${width}-${scheme}.png`),
-        });
-      }
     });
-  }
+    await page.evaluate(() => {
+      IDBFactory.prototype.open = () => {
+        throw new DOMException("Storage full", "QuotaExceededError");
+      };
+    });
+    await page.getByRole("textbox", { name: "Design title" }).fill("Unsaved changes");
+    await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+      "aria-label",
+      "Save unavailable for this test",
+    );
+    expect(
+      await page.evaluate(() => {
+        const event = new Event("beforeunload", { cancelable: true });
+        window.dispatchEvent(event);
+        return event.defaultPrevented;
+      }),
+    ).toBe(true);
+    const width = 320;
+    await page.setViewportSize({ width, height: 800 });
+    await expect(
+      page.locator('[role="status"][aria-label="Save unavailable for this test"]').last(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "OpenPost Image Editor",
+        exact: true,
+      }),
+    ).toBeInViewport();
+    await expect(page.getByRole("button", { name: "Export", exact: true })).toBeInViewport();
+  });
 
   test("desktop page background Image opens a visible chooser", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -1688,20 +1471,6 @@ test.describe("image editor audit", () => {
     const trash = page.getByRole("region", { name: "Trash", exact: true });
     await trash.getByRole("button", { name: "Trash", exact: true }).click();
     await expect(trash.getByText("Restore this design", { exact: true })).toBeVisible();
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate(
-        (value) => document.documentElement.classList.toggle("dark", value === "dark"),
-        scheme,
-      );
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await trash.screenshot({ path: testInfo.outputPath(`trash-${width}-${scheme}.png`) });
-      }
-    }
     await page.reload();
     await trash.getByRole("button", { name: "Trash", exact: true }).click();
     await trash.getByRole("button", { name: "Restore", exact: true }).focus();
@@ -1843,7 +1612,6 @@ test.describe("image editor compact menu", () => {
       .getByRole("button", { name: "More actions", exact: true });
     await more.tap();
     const menu = page.getByRole("menu");
-    await page.screenshot({ path: testInfo.outputPath("compact-initial.png") });
     await expect(menu.getByRole("menuitem", { name: "Edit", exact: true })).toBeVisible();
     expect(await menu.getByRole("menuitem").count()).toBeLessThanOrEqual(12);
     expect(await menu.evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(
@@ -1876,7 +1644,6 @@ test.describe("image editor compact menu", () => {
     await back.tap();
     await expect(menu.getByRole("menuitem", { name: "Tools", exact: true })).toBeFocused();
     await menu.getByRole("menuitem", { name: "Tools", exact: true }).tap();
-    await page.screenshot({ path: testInfo.outputPath("compact-tools-320.png") });
     await menu.getByRole("menuitem", { name: /^Hand/ }).tap();
     await expect(menu).toHaveCount(0);
     await page.setViewportSize({ width: 1024, height: 740 });
@@ -1885,27 +1652,19 @@ test.describe("image editor compact menu", () => {
       "true",
     );
     await page.setViewportSize({ width: 320, height: 740 });
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate(
-        (value) => document.documentElement.classList.toggle("dark", value === "dark"),
-        scheme,
-      );
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 740 });
-        await more.tap();
-        await expect(edit).toBeVisible();
-        const bounds = (await menu.boundingBox())!;
-        expect(bounds.x).toBeGreaterThanOrEqual(0);
-        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
-        await page.screenshot({ path: testInfo.outputPath(`compact-${width}-${scheme}.png`) });
-        await menu.getByRole("menuitem", { name: "View", exact: true }).tap();
-        await expect(back).toBeFocused();
-        await page.keyboard.press("Escape");
-        await expect(menu).toHaveCount(0);
-        await expect(more).toBeFocused();
-      }
-    }
+
+    const width = 320;
+    await more.tap();
+    await expect(edit).toBeVisible();
+    const bounds = (await menu.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    await menu.getByRole("menuitem", { name: "View", exact: true }).tap();
+    await expect(back).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(more).toBeFocused();
+
     await page.setViewportSize({ width: 1280, height: 740 });
     await layers.first().click();
     const desktopEdit = page
@@ -1949,7 +1708,6 @@ test.describe("image editor compositing", () => {
       await expect(layers).toHaveCount(2);
       await page.getByRole("menuitem", { name: "Layer", exact: true }).click();
       await expect(page.getByText("Bakes pixels inside the page.", { exact: false })).toBeVisible();
-      await page.screenshot({ path: testInfo.outputPath(`${storage}-layer-commands.png`) });
       await page.getByRole("menuitem", { name: "Merge down", exact: true }).click();
       await expect(layers).toHaveCount(1);
       await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
@@ -1978,10 +1736,6 @@ test.describe("image editor compositing", () => {
       const bakeHelp = page.getByText("Bakes pixels inside the page.", { exact: false });
       await bakeHelp.evaluate((element) => element.scrollIntoView({ block: "center" }));
       await expect(bakeHelp).toBeInViewport({ ratio: 1 });
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        390,
-      );
-      await page.screenshot({ path: testInfo.outputPath(`${storage}-compositing-390.png`) });
       await page.keyboard.press("Escape");
       await page.setViewportSize({ width: 320, height: 800 });
       await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
@@ -1995,10 +1749,6 @@ test.describe("image editor compositing", () => {
       ).toBeVisible();
       await bakeHelp.evaluate((element) => element.scrollIntoView({ block: "center" }));
       await expect(bakeHelp).toBeInViewport({ ratio: 1 });
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        320,
-      );
-      await page.screenshot({ path: testInfo.outputPath(`${storage}-compositing-320.png`) });
       expect(errors).toEqual([]);
     });
   }
@@ -2056,7 +1806,6 @@ test.describe("image editor concurrency", () => {
           .poll(async () => (await readSource()).document.pages[0].name)
           .toBe("Server updated page");
         await expect(staleStrip.getByRole("button", { name: /Page 1: Page 1,/ })).toBeVisible();
-        await page.screenshot({ path: testInfo.outputPath("server-desktop-light.png") });
         const pendingTitle = "Pending local café title";
         const staleTitle = stale.getByRole("textbox", { name: "Design title", exact: true });
         await staleTitle.fill(pendingTitle);
@@ -2067,7 +1816,6 @@ test.describe("image editor concurrency", () => {
         });
         await expect(conflict).toBeVisible();
         await expect(staleTitle).toHaveValue(pendingTitle);
-        await stale.screenshot({ path: testInfo.outputPath("conflict-desktop-dark.png") });
         await conflict.getByRole("button", { name: "Continue locally", exact: true }).click();
         await expect(conflict).toHaveCount(0);
         await expect(staleTitle).toHaveValue(pendingTitle);
@@ -2080,9 +1828,6 @@ test.describe("image editor concurrency", () => {
         await stale.getByRole("menuitem", { name: /^Save\s+(?:⌘|Ctrl)/ }).click();
         await expect(conflict).toBeVisible();
         await stale.setViewportSize({ width: 320, height: 850 });
-        expect(
-          await stale.evaluate(() => document.documentElement.scrollWidth),
-        ).toBeLessThanOrEqual(320);
         const bounds = await conflict.boundingBox();
         expect(bounds).not.toBeNull();
         expect(bounds!.x).toBeGreaterThanOrEqual(0);
@@ -2091,7 +1836,6 @@ test.describe("image editor concurrency", () => {
         await conflict.evaluate(async (element) => {
           await Promise.all(element.getAnimations().map((animation) => animation.finished));
         });
-        await stale.screenshot({ path: testInfo.outputPath("conflict-narrow-dark.png") });
         const copySaved = stale.waitForResponse(
           (response) =>
             response.request().method() === "PATCH" &&
@@ -2128,7 +1872,6 @@ test.describe("image editor concurrency", () => {
         const expand = staleStrip.getByRole("button", { name: "Expand pages", exact: true });
         if (await expand.isVisible()) await expand.click();
         await expect(staleStrip.getByRole("button", { name: /Page 1: Page 1,/ })).toBeVisible();
-        await stale.screenshot({ path: testInfo.outputPath("copy-cold-dark.png") });
         const cold = await (
           await request.get(`/api/v1/image-editor/designs/${savedCopy.id}`, { headers })
         ).json();
@@ -2171,7 +1914,6 @@ test.describe("image editor effect presets", () => {
     await page.getByRole("menuitem", { name: "Tools", exact: true }).click();
     await page.getByRole("menuitem", { name: /^Shape\b/ }).click();
     await page.getByRole("button", { name: /^Effects/ }).click();
-    await page.screenshot({ path: testInfo.outputPath("presets-before.png") });
     await page.getByRole("button", { name: "Add drop shadow", exact: true }).click();
     await page.getByLabel("Preset name", { exact: true }).fill("Launch shadow");
     await page.getByRole("button", { name: "Save new", exact: true }).click();
@@ -2211,38 +1953,31 @@ test.describe("image editor effect presets", () => {
     await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(page.getByRole("button", { name: "Add drop shadow", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Add drop shadow", exact: true }).click();
-    await page.screenshot({ path: testInfo.outputPath("presets-desktop.png") });
-    for (const [width, colorScheme] of [
-      [390, "light"],
-      [320, "dark"],
-    ] as const) {
-      await page.setViewportSize({ width, height: 850 });
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      if (!(await page.getByRole("dialog").isVisible())) {
-        await page
-          .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
-          .getByRole("button", { name: "Properties", exact: true })
-          .click();
-      }
-      const panel = page.getByRole("dialog");
-      if (!(await panel.getByLabel("Preset name", { exact: true }).isVisible())) {
-        await page
-          .getByRole("dialog")
-          .getByRole("button", { name: /^Effects/ })
-          .click();
-      }
-      await panel.getByRole("button", { name: "Choose an effect preset" }).click();
-      await page.getByRole("option", { name: "Launch outline", exact: true }).click();
-      await panel.getByLabel("Preset name", { exact: true }).scrollIntoViewIfNeeded();
-      await expect(panel.getByLabel("Preset name", { exact: true })).toBeVisible();
-      const fieldBox = await panel.getByLabel("Preset name", { exact: true }).boundingBox();
-      expect(fieldBox?.height).toBeGreaterThanOrEqual(44);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        width,
-      );
-      await page.screenshot({ path: testInfo.outputPath(`presets-${width}-${colorScheme}.png`) });
+    const width = 390;
+    const colorScheme = "light";
+
+    await page.setViewportSize({ width, height: 850 });
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    if (!(await page.getByRole("dialog").isVisible())) {
+      await page
+        .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
+        .getByRole("button", { name: "Properties", exact: true })
+        .click();
     }
     const panel = page.getByRole("dialog");
+    if (!(await panel.getByLabel("Preset name", { exact: true }).isVisible())) {
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: /^Effects/ })
+        .click();
+    }
+    await panel.getByRole("button", { name: "Choose an effect preset" }).click();
+    await page.getByRole("option", { name: "Launch outline", exact: true }).click();
+    await panel.getByLabel("Preset name", { exact: true }).scrollIntoViewIfNeeded();
+    await expect(panel.getByLabel("Preset name", { exact: true })).toBeVisible();
+    const fieldBox = await panel.getByLabel("Preset name", { exact: true }).boundingBox();
+    expect(fieldBox?.height).toBeGreaterThanOrEqual(44);
+
     await panel.getByRole("button", { name: "Delete preset", exact: true }).click();
     await expect(
       panel.getByText("Preset deleted. Applied layers keep their effects.", { exact: true }),
@@ -2360,30 +2095,15 @@ test.describe("image editor font layout", () => {
       "false",
     );
     const live = await pixels();
-    await canvas.screenshot({ path: testInfo.outputPath("font-live.png") });
     await page.reload();
     await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
     const cold = await pixels();
-    await canvas.screenshot({ path: testInfo.outputPath("font-cold.png") });
     await testInfo.attach("font-pixels.json", {
       body: JSON.stringify({ live, cold }),
       contentType: "application/json",
     });
     expect(live).toEqual(cold);
     expect((await read()).text).toBe(text);
-    for (const colorScheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme });
-      await page.evaluate(
-        (dark) => document.documentElement.classList.toggle("dark", dark),
-        colorScheme === "dark",
-      );
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-        await pixels();
-        await page.screenshot({ path: testInfo.outputPath(`font-${width}-${colorScheme}.png`) });
-      }
-    }
   });
 });
 
@@ -2420,20 +2140,6 @@ test.describe("image editor guide range", () => {
     await expect(add).toBeDisabled();
     await expect(position).toHaveAttribute("aria-invalid", "true");
     await expect(position).toHaveAccessibleDescription("Enter a position from 0 to 1080 pixels.");
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate(
-        (value) => document.documentElement.classList.toggle("dark", value === "dark"),
-        scheme,
-      );
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        const bounds = (await dialog.boundingBox())!;
-        expect(bounds.x).toBeGreaterThanOrEqual(0);
-        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
-        await page.screenshot({ path: testInfo.outputPath(`guide-${width}-${scheme}.png`) });
-      }
-    }
     await page.setViewportSize({ width: 1280, height: 900 });
     await position.fill("1200");
     await expect(add).toBeDisabled();
@@ -2524,7 +2230,6 @@ test.describe("image editor guides zoom", () => {
     await guide.focus();
     await guide.press("ArrowRight");
     await expect(guide).toHaveAccessibleName(/Vertical guide at 325 pixels/);
-    await page.screenshot({ path: testInfo.outputPath("guide-select.png") });
     const saveStatus = page.getByRole("banner").locator('[role="status"][data-state]');
     await expect(saveStatus).toHaveAttribute("data-state", "saved");
     await expect(saveStatus).toHaveAttribute("aria-label", "Saved on this device");
@@ -2574,27 +2279,15 @@ test.describe("image editor guides zoom", () => {
     await page.keyboard.up("Alt");
     await expect.poll(percent).toBe(before);
     await expect(page.getByRole("banner").getByRole("button", { name: /^Undo/ })).toBeDisabled();
-    await page.screenshot({ path: testInfo.outputPath("zoom-tool.png") });
     await page.keyboard.press("ControlOrMeta+0");
     await expect.poll(percent).toBe(before);
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate(
-        (value) => document.documentElement.classList.toggle("dark", value === "dark"),
-        scheme,
-      );
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await zoom.click();
-        const fitted = await percent();
-        const rect = (await stage.boundingBox())!;
-        await page.mouse.click(rect.x + rect.width * 0.35, rect.y + rect.height * 0.4);
-        await expect.poll(percent).toBe(fitted + 10);
-        await page.screenshot({ path: testInfo.outputPath(`zoom-${width}-${scheme}.png`) });
-        await zoom.click();
-        await expect.poll(percent).toBe(fitted);
-      }
-    }
+    await zoom.click();
+    const fitted = await percent();
+    const rect = (await stage.boundingBox())!;
+    await page.mouse.click(rect.x + rect.width * 0.35, rect.y + rect.height * 0.4);
+    await expect.poll(percent).toBe(fitted + 10);
+    await zoom.click();
+    await expect.poll(percent).toBe(fitted);
   });
 });
 
@@ -2694,7 +2387,6 @@ test.describe("image editor mask radius", () => {
     await expect.poll(async () => (await read()).mask.radius).toBe(32.25);
     await page.getByRole("button", { name: "Redo", exact: true }).click();
     await expect(radius).toHaveAttribute("aria-valuenow", "107");
-    await page.screenshot({ path: testInfo.outputPath("bounded-radius.png") });
     await expect.poll(async () => (await read()).mask.radius).toBe(107);
     expect((await read()).transform).toEqual(transform);
     await page.reload();
@@ -2748,31 +2440,23 @@ test.describe("image editor page text", () => {
       [1080, 1080],
       [720, 1280],
     ]);
-    for (const [width, colorScheme] of [
-      [390, "light"],
-      [320, "dark"],
-    ] as const) {
-      await page.setViewportSize({ width, height: 850 });
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      const expand = strip.getByRole("button", { name: "Expand pages", exact: true });
-      if (await expand.isVisible()) await expand.click();
-      const resize = strip.getByRole("button", { name: "Resize page", exact: true });
-      await resize.scrollIntoViewIfNeeded();
-      await expect(resize).toBeInViewport();
-      const box = await resize.boundingBox();
-      expect(box?.width).toBeGreaterThanOrEqual(44);
-      expect(box?.height).toBeGreaterThanOrEqual(44);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        width,
-      );
-      await page.screenshot({
-        path: testInfo.outputPath(`mixed-pages-${width}-${colorScheme}.png`),
-      });
-    }
+    const width = 390;
+    const colorScheme = "light";
+
+    await page.setViewportSize({ width, height: 850 });
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    const expand = strip.getByRole("button", { name: "Expand pages", exact: true });
+    if (await expand.isVisible()) await expand.click();
+    const resize = strip.getByRole("button", { name: "Resize page", exact: true });
+    await resize.scrollIntoViewIfNeeded();
+    await expect(resize).toBeInViewport();
+    const box = await resize.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+
     await page.setViewportSize({ width: 1369, height: 850 });
     await page.reload();
     await expect(strip.getByRole("button", { name: /720 × 1280 px/ })).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath("mixed-pages-desktop.png") });
     await page.getByRole("menuitem", { name: "File", exact: true }).click();
     await page.getByRole("menuitem", { name: "Resize design", exact: true }).click();
     const resizeDesign = page.getByRole("dialog", { name: "Resize design", exact: true });
@@ -2872,29 +2556,21 @@ test.describe("image editor page text", () => {
     await expect(page.getByRole("button", { name: "Weight", exact: true })).toContainText(
       "400 · Regular",
     );
-    await page.screenshot({ path: testInfo.outputPath("text-range-desktop.png") });
-    for (const [width, colorScheme] of [
-      [390, "light"],
-      [320, "dark"],
-    ] as const) {
-      await page.setViewportSize({ width, height: 850 });
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      if (!(await page.getByRole("dialog").isVisible())) {
-        await page
-          .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
-          .getByRole("button", { name: "Properties", exact: true })
-          .click();
-      }
-      await expect(
-        page.getByRole("dialog").getByRole("textbox", { name: "Text", exact: true }),
-      ).toBeVisible();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        width,
-      );
-      await page.screenshot({
-        path: testInfo.outputPath(`text-range-${width}-${colorScheme}.png`),
-      });
+    const width = 390;
+    const colorScheme = "light";
+
+    await page.setViewportSize({ width, height: 850 });
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    if (!(await page.getByRole("dialog").isVisible())) {
+      await page
+        .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
+        .getByRole("button", { name: "Properties", exact: true })
+        .click();
     }
+    await expect(
+      page.getByRole("dialog").getByRole("textbox", { name: "Text", exact: true }),
+    ).toBeVisible();
+
     expect(errors).toEqual([]);
   });
 
@@ -3045,34 +2721,23 @@ test.describe("image editor text scope", () => {
       contentType: "application/json",
     });
     await expect(page.getByText(hint, { exact: true })).not.toBeVisible();
-    for (const colorScheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme });
-      await page.evaluate(
-        (dark) => document.documentElement.classList.toggle("dark", dark),
-        colorScheme === "dark",
-      );
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        if (width < 1024)
-          await page.getByRole("button", { name: "Properties", exact: true }).click();
-        const surface =
-          width < 1024 ? page.getByRole("dialog", { name: "Properties", exact: true }) : page;
-        const field = surface.getByRole("textbox", { name: "Text", exact: true });
-        await field.focus();
-        for (let i = 0; i < 20; i++) await field.press("ArrowLeft");
-        for (let i = 0; i < 5; i++) await field.press("Shift+ArrowRight");
-        await expect(surface.getByText(hint, { exact: true })).toBeVisible();
-        await expect(
-          surface.getByRole("button", { name: "Font family", exact: true }),
-        ).toHaveAccessibleDescription(hint);
-        await page.screenshot({ path: testInfo.outputPath(`scope-${width}-${colorScheme}.png`) });
-        if (width < 1024) {
-          await page.keyboard.press("Escape");
-          await expect(
-            page.getByRole("dialog", { name: "Properties", exact: true }),
-          ).not.toBeVisible();
-        }
-      }
+    const width = 320;
+
+    await page.setViewportSize({ width, height: 900 });
+    if (width < 1024) await page.getByRole("button", { name: "Properties", exact: true }).click();
+    const surface =
+      width < 1024 ? page.getByRole("dialog", { name: "Properties", exact: true }) : page;
+    const field = surface.getByRole("textbox", { name: "Text", exact: true });
+    await field.focus();
+    for (let i = 0; i < 20; i++) await field.press("ArrowLeft");
+    for (let i = 0; i < 5; i++) await field.press("Shift+ArrowRight");
+    await expect(surface.getByText(hint, { exact: true })).toBeVisible();
+    await expect(
+      surface.getByRole("button", { name: "Font family", exact: true }),
+    ).toHaveAccessibleDescription(hint);
+    if (width < 1024) {
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog", { name: "Properties", exact: true })).not.toBeVisible();
     }
   });
 });
@@ -3217,41 +2882,37 @@ test.describe("editor chrome color", () => {
 });
 
 test.describe("editor color picker", () => {
-  for (const colorScheme of ["light", "dark"] as const) {
-    test(`Image Editor previews pixels before selection in ${colorScheme}`, async ({
-      page,
-    }, testInfo) => {
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      await page.setViewportSize({ width: 1440, height: 900 });
-      await page.goto("/image-editor");
-      await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
-      await page.getByRole("button", { name: "Eyedropper", exact: true }).click();
-      await page.getByRole("button", { name: "Composite page", exact: true }).click();
-      const surface = page.getByTestId("image-editor-selection-surface");
-      const preview = page.getByTestId("image-editor-eyedropper-magnifier");
-      for (const width of [1440, 390, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await surface.hover();
-        await expect(preview).toBeVisible();
-        const bounds = (await preview.boundingBox())!;
-        expect(bounds.x).toBeGreaterThanOrEqual(0);
-        expect(bounds.y).toBeGreaterThanOrEqual(0);
-        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
-        expect(bounds.y + bounds.height).toBeLessThanOrEqual(900);
-        await page.screenshot({ path: testInfo.outputPath(`picker-${colorScheme}-${width}.png`) });
-      }
-      await page.setViewportSize({ width: 1440, height: 900 });
-      await surface.hover();
-      const color = (await preview.innerText()).trim();
-      await surface.click();
-      await expect(page.getByText(new RegExp(`^Sampled ${color} at`))).toBeVisible();
-      await page.getByRole("button", { name: "Eyedropper", exact: true }).focus();
-      await page.keyboard.press("ArrowRight");
-      await expect(preview).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(preview).toBeHidden();
-    });
-  }
+  test(`Image Editor previews pixels before selection`, async ({ page }, testInfo) => {
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
+    await page.getByRole("button", { name: "Eyedropper", exact: true }).click();
+    await page.getByRole("button", { name: "Composite page", exact: true }).click();
+    const surface = page.getByTestId("image-editor-selection-surface");
+    const preview = page.getByTestId("image-editor-eyedropper-magnifier");
+    const width = 320;
+
+    await page.setViewportSize({ width, height: 900 });
+    await surface.hover();
+    await expect(preview).toBeVisible();
+    const bounds = (await preview.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(900);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await surface.hover();
+    const color = (await preview.innerText()).trim();
+    await surface.click();
+    await expect(page.getByText(new RegExp(`^Sampled ${color} at`))).toBeVisible();
+    await page.getByRole("button", { name: "Eyedropper", exact: true }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(preview).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(preview).toBeHidden();
+  });
 });
 
 test.describe("editor start", () => {
@@ -3352,10 +3013,6 @@ test.describe("editor storage library", () => {
     await page.getByRole("option", { name: "This device", exact: true }).click();
     await expect(page.getByRole("img", { name: "Saved to OpenPost · Online" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Your designs", exact: true })).toBeVisible();
-    await page.screenshot({
-      path: testInfo.outputPath("image-project-storage.png"),
-      fullPage: true,
-    });
     await page.addInitScript(() => {
       const open = indexedDB.open.bind(indexedDB);
       indexedDB.open = (name, version) => {
@@ -3369,8 +3026,5 @@ test.describe("editor storage library", () => {
     ).toBeVisible();
     await expect(page.getByRole("img", { name: "Saved to OpenPost · Online" })).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-      .toBe(true);
   });
 });

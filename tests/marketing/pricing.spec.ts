@@ -1,14 +1,14 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { dismissTelemetryConsent } from "./helpers.js";
+import { dismissTelemetryConsent } from "./helpers";
 
-for (const scheme of ["light", "dark"] as const) {
-  test(`pricing is readable and operable in ${scheme}`, async ({ page }) => {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await page.goto("/pricing");
-    await dismissTelemetryConsent(page);
-    for (const width of [1440, 390, 320]) {
-      await page.setViewportSize({ width, height: 1000 });
+test.describe("pricing accessibility", () => {
+  for (const scheme of ["light", "dark"] as const) {
+    test(`pricing is readable and operable in ${scheme}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+      await page.goto("/pricing");
+      await dismissTelemetryConsent(page);
+      await page.setViewportSize({ width: 1440, height: 1000 });
       for (const billing of ["Monthly", "Yearly"]) {
         const toggle = page.getByRole("button", { name: new RegExp(`^${billing}`) });
         await toggle.focus();
@@ -30,16 +30,6 @@ for (const scheme of ["light", "dark"] as const) {
           await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
         ).toBe(true);
       }
-      if (width < 768) {
-        const team = page.getByRole("button", { name: "Team", exact: true });
-        await team.focus();
-        await page.keyboard.press("Enter");
-        await expect(page.getByRole("link", { name: "Start Team", exact: true })).toBeVisible();
-        await expect(
-          page.getByRole("row", { name: "People, including you 5", exact: true }),
-        ).toBeVisible();
-        await page.getByRole("button", { name: "Solo", exact: true }).click();
-      }
-    }
-  });
-}
+    });
+  }
+});

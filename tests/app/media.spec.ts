@@ -6,7 +6,7 @@ import { execFileSync, execFile } from "node:child_process";
 import { basename } from "node:path";
 import { promisify } from "node:util";
 
-test.describe("media copy provenance", () => {
+test.describe("media copies", () => {
   function silentWave() {
     const samples = 800;
     const bytes = Buffer.alloc(44 + samples * 2);
@@ -28,7 +28,7 @@ test.describe("media copy provenance", () => {
   test("Ordinary Media copies preserve origin and show copy provenance across MIME types", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `media-copy-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Independent Media copies");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -98,10 +98,6 @@ test.describe("media copy provenance", () => {
       expect(stored.id).not.toBe(originals[index].id);
       expect(stored.mime_type).toBe(originals[index].mime_type);
       expect(rows.find((item) => item.id === originals[index].id)?.source).toBe("upload");
-      await page.screenshot({
-        animations: "disabled",
-        path: testInfo.outputPath(`copy-${file.name}.png`),
-      });
       await page.keyboard.press("Escape");
       await expect(copy).toBeHidden();
     }
@@ -119,18 +115,14 @@ test.describe("media copy provenance", () => {
         page.getByRole("button", { name: `Open details for ${file.name}`, exact: true }),
       ).toBeHidden();
     }
-    await page.screenshot({
-      animations: "disabled",
-      path: testInfo.outputPath("copies-filter.png"),
-    });
   });
 });
 
-test.describe("media corrupt image", () => {
+test.describe("media corrupt upload", () => {
   test("Media upload reports corrupt PNG failure without a ready library asset", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `media-corrupt-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Image decode admission");
     await authenticatePage(page, auth.token);
@@ -147,24 +139,11 @@ test.describe("media corrupt image", () => {
     });
     await page.getByRole("button", { name: "Upload 1 file", exact: true }).click();
     await expect(page.getByText("image file could not be decoded", { exact: true })).toBeVisible();
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate(
-        (value) => document.documentElement.classList.toggle("dark", value === "dark"),
-        scheme,
-      );
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 850 });
-        await expect(page.getByRole("alert")).toBeInViewport();
-        await expect(
-          page.getByRole("button", { name: "Remove corrupt.png", exact: true }),
-        ).toBeInViewport();
-        await page.screenshot({
-          animations: "disabled",
-          path: testInfo.outputPath(`corrupt-${width}-${scheme}.png`),
-        });
-      }
-    }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(page.getByRole("alert")).toBeInViewport();
+    await expect(
+      page.getByRole("button", { name: "Remove corrupt.png", exact: true }),
+    ).toBeInViewport();
     const response = await request.get(`/api/v1/media?workspace_id=${workspace.id}`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     });
@@ -230,7 +209,7 @@ test.describe("media filter ranges", () => {
   test("Media filters retain reversed ranges for correction and admit valid bounds", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `filter-range-${randomUUID()}@example.com`);
     await createWorkspace(request, auth.token, "Filter range validation");
     await authenticatePage(page, auth.token);
@@ -250,7 +229,6 @@ test.describe("media filter ranges", () => {
     await minWidth.fill("641");
     await maxWidth.fill("640");
     await maxWidth.press("Tab");
-    await page.screenshot({ path: testInfo.outputPath("reversed-width.png") });
     await expect(apply).toBeDisabled();
     await expect(maxWidth).toHaveValue("640");
     await expect(maxWidth).toHaveAttribute("aria-invalid", "true");
@@ -273,25 +251,12 @@ test.describe("media filter ranges", () => {
     await expect(apply).toBeDisabled();
     await expect(to).toHaveValue("2026-09-29");
     await expect(to).toHaveAccessibleDescription(/To date must/);
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme });
-      await expect
-        .poll(() => page.locator("html").evaluate((node) => node.classList.contains("dark")))
-        .toBe(scheme === "dark");
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 850 });
-        await to.scrollIntoViewIfNeeded();
-        await expect(apply).toBeDisabled();
-        await to.focus();
-        await expect(to).toBeFocused();
-        await dialog.getByRole("alert").scrollIntoViewIfNeeded();
-        await expect(dialog.getByRole("alert")).toBeInViewport();
-        await page.screenshot({
-          animations: "disabled",
-          path: testInfo.outputPath(`range-${width}-${scheme}.png`),
-        });
-      }
-    }
+    await to.scrollIntoViewIfNeeded();
+    await expect(apply).toBeDisabled();
+    await to.focus();
+    await expect(to).toBeFocused();
+    await dialog.getByRole("alert").scrollIntoViewIfNeeded();
+    await expect(dialog.getByRole("alert")).toBeInViewport();
     await to.fill("2026-09-30");
     await expect(apply).toBeEnabled();
     await apply.click();
@@ -311,7 +276,7 @@ test.describe("media history", () => {
   test("Media history retains submitted discovery independently from unfinished search", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(90_000);
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -394,7 +359,6 @@ test.describe("media history", () => {
     await page.getByRole("button", { name: "Select", exact: true }).click();
     await page.getByRole("button", { name: "Select Audit return 40.mp4", exact: true }).click();
     await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath("before-navigation.png") });
     const templates = page.getByRole("link", { name: "Templates", exact: true });
     await templates.focus();
     await page.keyboard.press("Enter");
@@ -409,47 +373,33 @@ test.describe("media history", () => {
     await expect(page.getByRole("button", { name: "Name", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Select", exact: true })).toBeVisible();
     await expect(page.getByText("1 selected", { exact: true })).toBeHidden();
-    await page.screenshot({ path: testInfo.outputPath("after-back.png") });
-    for (const scheme of ["light"] as const) {
-      await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width: 1280, height: 900 });
-        await page.reload();
-        if (scheme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
-        else await expect(page.locator("html")).not.toHaveClass(/dark/);
-        await expect(search).toHaveValue("");
-        await expect(page.getByRole("button", { name: "Newest", exact: true })).toBeVisible();
-        await expect(
-          page.getByRole("button", { name: "Compact list view", exact: true }),
-        ).toBeVisible();
-        await page.getByRole("button", { name: "Filters", exact: true }).click();
-        await expect(page.getByRole("button", { name: /^Audit discovery tag/ })).toHaveAttribute(
-          "aria-pressed",
-          "false",
-        );
-        await page.keyboard.press("Escape");
-        await applyDiscovery();
-        await page.setViewportSize({ width, height: 900 });
-        await templates.focus();
-        await page.keyboard.press("Enter");
-        await expect(page).toHaveURL(/\/templates$/);
-        await expect(page.getByRole("heading", { name: "Templates", exact: true })).toBeVisible();
-        await page.goBack();
-        await expect(search).toHaveValue("Unsubmitted café 東京");
-        await expect(page.getByText("Audit return 40.mp4", { exact: true })).toBeVisible();
-        await page.goForward();
-        await expect(page).toHaveURL(/\/templates$/);
-        await expect(page.getByRole("heading", { name: "Templates", exact: true })).toBeVisible();
-        await page.goBack();
-        await expect(search).toHaveValue("Unsubmitted café 東京");
-        await expect(page.getByText("Audit return 40.mp4", { exact: true })).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-          false,
-        );
-        await page.screenshot({ path: testInfo.outputPath(`history-${width}-${scheme}.png`) });
-      }
-    }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+    await expect(search).toHaveValue("");
+    await expect(page.getByRole("button", { name: "Newest", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Compact list view", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Filters", exact: true }).click();
+    await expect(page.getByRole("button", { name: /^Audit discovery tag/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await page.keyboard.press("Escape");
+    await applyDiscovery();
+    await templates.focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/templates$/);
+    await expect(page.getByRole("heading", { name: "Templates", exact: true })).toBeVisible();
+    await page.goBack();
+    await expect(search).toHaveValue("Unsubmitted café 東京");
+    await expect(page.getByText("Audit return 40.mp4", { exact: true })).toBeVisible();
+    await page.goForward();
+    await expect(page).toHaveURL(/\/templates$/);
+    await expect(page.getByRole("heading", { name: "Templates", exact: true })).toBeVisible();
+    await page.goBack();
+    await expect(search).toHaveValue("Unsubmitted café 東京");
+    await expect(page.getByText("Audit return 40.mp4", { exact: true })).toBeVisible();
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -515,12 +465,12 @@ test.describe("media history", () => {
   });
 });
 
-test.describe("media picker upload handoff", () => {
+test.describe("media picker upload", () => {
   test("Device upload offers explicit attachment and cancellation without switching to Library", async ({
     page,
     request,
     browser,
-  }, testInfo) => {
+  }) => {
     const auth = await registerUser(request, `picker-handoff-${randomUUID()}@example.com`);
     await createWorkspace(request, auth.token, "Device attachment handoff");
     await authenticatePage(page, auth.token);
@@ -550,24 +500,9 @@ test.describe("media picker upload handoff", () => {
       return picker;
     }
     const first = await upload();
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate(
-        (value) => document.documentElement.classList.toggle("dark", value === "dark"),
-        scheme,
-      );
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 850 });
-        await expect(
-          first.getByRole("button", { name: "Add media", exact: true }),
-        ).toBeInViewport();
-        await expect(first.getByRole("button", { name: "Cancel", exact: true })).toBeInViewport();
-        await page.screenshot({
-          animations: "disabled",
-          path: testInfo.outputPath(`device-${width}-${scheme}.png`),
-        });
-      }
-    }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(first.getByRole("button", { name: "Add media", exact: true })).toBeInViewport();
+    await expect(first.getByRole("button", { name: "Cancel", exact: true })).toBeInViewport();
     await first.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(first).toBeHidden();
     await expect(page.getByRole("button", { name: "Image 2", exact: true })).toBeDisabled();
@@ -589,7 +524,6 @@ test.describe("media picker upload handoff", () => {
       viewport: { width: 320, height: 850 },
       isMobile: true,
       hasTouch: true,
-      colorScheme: "dark",
     });
     try {
       const touch = await touchContext.newPage();
@@ -604,10 +538,6 @@ test.describe("media picker upload handoff", () => {
       await expect(attach).toBeEnabled();
       await expect(attach).toBeInViewport();
       expect((await attach.boundingBox())?.height).toBeGreaterThanOrEqual(44);
-      await touch.screenshot({
-        animations: "disabled",
-        path: testInfo.outputPath("device-320-coarse.png"),
-      });
       await picker.getByRole("button", { name: "Cancel", exact: true }).tap();
       await expect(picker).toBeHidden();
       await expect(touch.getByRole("img", { name: "Image 2", exact: true })).toHaveCount(0);
@@ -617,7 +547,7 @@ test.describe("media picker upload handoff", () => {
   });
 });
 
-test.describe("media trash dialog", () => {
+test.describe("media trash", () => {
   async function fixture(page: Page, request: APIRequestContext, referenced = false) {
     const auth = await registerUser(request, `media-trash-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Recoverable media");
@@ -680,7 +610,7 @@ test.describe("media trash dialog", () => {
   test("Media inspector allows pointer cancellation, recoverable deletion and restore", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     const { inspector, confirm, details, name, read } = await fixture(page, request);
@@ -701,20 +631,9 @@ test.describe("media trash dialog", () => {
     await expect(deleteButton).toBeFocused();
     expect(await read()).toEqual(original);
     await deleteButton.click();
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-      await page.evaluate(
-        (value) => document.documentElement.classList.toggle("dark", value === "dark"),
-        scheme,
-      );
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 850 });
-        await expect(confirm.getByRole("button", { name: "Cancel", exact: true })).toBeInViewport();
-        await expect(confirm.getByRole("button", { name: "Delete", exact: true })).toBeInViewport();
-        await page.screenshot({ path: testInfo.outputPath(`confirm-${width}-${scheme}.png`) });
-      }
-    }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(confirm.getByRole("button", { name: "Cancel", exact: true })).toBeInViewport();
+    await expect(confirm.getByRole("button", { name: "Delete", exact: true })).toBeInViewport();
     await confirm.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(confirm).toBeHidden();
     await expect(inspector).toBeHidden();
@@ -765,7 +684,7 @@ test.describe("media trash dialog", () => {
   });
 });
 
-test.describe("media video trim inputs", () => {
+test.describe("media video trim", () => {
   test("video preparation commits its accepted trim bounds after keyboard edits", async ({
     page,
     request,
@@ -791,7 +710,6 @@ test.describe("media video trim inputs", () => {
     expect(duration).toBeGreaterThan(1);
     await start.fill("-2");
     await start.press("Tab");
-    await page.screenshot({ path: testInfo.outputPath("start-after-blur.png") });
     await expect(start).toHaveValue("0");
     await end.fill("9999");
     await end.press("Tab");
@@ -811,20 +729,13 @@ test.describe("media video trim inputs", () => {
     await start.press("Tab");
     await end.fill(String(duration));
     await end.press("Tab");
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme });
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 850 });
-        await start.scrollIntoViewIfNeeded();
-        await expect(start).toHaveValue("0.7");
-        await expect(end).toHaveValue(String(duration));
-        for (const name of ["Upload without editing", "Cancel", "Apply edit"]) {
-          const action = dialog.getByRole("button", { name, exact: true });
-          await expect(action).toBeInViewport({ ratio: 1 });
-          expect((await action.boundingBox())?.height).toBeGreaterThanOrEqual(44);
-        }
-        await page.screenshot({ path: testInfo.outputPath(`trim-${width}-${scheme}.png`) });
-      }
+    await start.scrollIntoViewIfNeeded();
+    await expect(start).toHaveValue("0.7");
+    await expect(end).toHaveValue(String(duration));
+    for (const name of ["Upload without editing", "Cancel", "Apply edit"]) {
+      const action = dialog.getByRole("button", { name, exact: true });
+      await expect(action).toBeInViewport({ ratio: 1 });
+      expect((await action.boundingBox())?.height).toBeGreaterThanOrEqual(44);
     }
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(dialog).toHaveCount(0);

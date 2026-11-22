@@ -65,7 +65,7 @@ test("a reviewed thread survives sign-in and becomes an editable draft with its 
   context,
   request,
   baseURL,
-}, testInfo) => {
+}) => {
   const auth = await registerUser(request, `tool-thread-${randomUUID()}@example.com`);
   const workspace = await createWorkspace(request, auth.token, "Imported thread");
   await connectPublicOrigins(context, baseURL!);
@@ -115,10 +115,6 @@ test("a reviewed thread survives sign-in and becomes an editable draft with its 
           .body,
     )
     .toBe("The second lesson, reviewed in OpenPost.");
-  await popup.screenshot({
-    path: testInfo.outputPath("imported-thread.png"),
-    animations: "disabled",
-  });
 });
 
 test("preview files and alt text reach the same draft after a failed upload is retried", async ({
@@ -126,7 +122,7 @@ test("preview files and alt text reach the same draft after a failed upload is r
   context,
   request,
   baseURL,
-}, testInfo) => {
+}) => {
   const auth = await registerUser(request, `tool-media-${randomUUID()}@example.com`);
   await createWorkspace(request, auth.token, "Imported preview");
   await connectPublicOrigins(context, baseURL!);
@@ -194,10 +190,6 @@ test("preview files and alt text reach the same draft after a failed upload is r
   expect(saved.segments[0].media).toHaveLength(1);
   expect(saved.segments[0].media[0].alt_text).toBe("A yellow tram in Lisbon.");
   expect(saved.status).toBe("draft");
-  await popup.screenshot({
-    path: testInfo.outputPath("imported-preview.png"),
-    animations: "disabled",
-  });
   let releaseUpload!: () => void;
   holdUpload = new Promise<void>((resolve) => {
     releaseUpload = resolve;

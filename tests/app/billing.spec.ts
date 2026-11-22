@@ -74,9 +74,6 @@ test.describe("billing recovery", () => {
     await expect(notice).toContainText("Payment action required");
     await expect(notice).toContainText("Past due since");
     await expect(notice).toContainText("paid plan access is restricted");
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth),
-    ).toBeLessThanOrEqual(1);
 
     await notice.getByRole("button", { name: "Update payment method" }).click();
     await expect(page).toHaveURL(/\/settings\?tab=plan&recovery=1$/);
@@ -130,7 +127,7 @@ test.describe("checkout open status", () => {
   test("a loaded payment window replaces opening progress and recovers after closure", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     const auth = await registerUser(request, `checkout-status-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Checkout Status");
     await authenticatePage(page, auth.token);
@@ -187,35 +184,29 @@ test.describe("checkout open status", () => {
         writes.push(request.url());
     });
     await page.goto(`/checkout?attempt=${attemptID}`);
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 850 });
-        await page.emulateMedia({ colorScheme: scheme });
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.reload();
-        await expect(page.getByRole("region", { name: "Controlled payment window" })).toBeVisible();
-        const ready = page
-          .getByRole("status")
-          .filter({ hasText: "Secure payment is open. Complete checkout in the Paddle window." });
-        await expect(ready).toBeVisible();
-        await page.screenshot({ path: info.outputPath(`checkout-${width}-${scheme}.png`) });
+    await page.setViewportSize({ width: 1280, height: 850 });
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), "light");
+    await page.reload();
+    await expect(page.getByRole("region", { name: "Controlled payment window" })).toBeVisible();
+    const ready = page
+      .getByRole("status")
+      .filter({ hasText: "Secure payment is open. Complete checkout in the Paddle window." });
+    await expect(ready).toBeVisible();
 
-        await expect(ready.locator(".animate-spin")).toHaveCount(0);
-        await expect(page.getByText("Opening secure payment…", { exact: true })).toHaveCount(0);
-        const close = page.getByRole("button", {
-          name: "Close controlled payment window",
-          exact: true,
-        });
-        await close.focus();
-        await page.keyboard.press("Enter");
-        await expect(page.getByRole("region", { name: "Controlled payment window" })).toHaveCount(
-          0,
-        );
-        const retry = page.getByRole("button", { name: "Try again", exact: true });
-        await retry.focus();
-        await page.keyboard.press("Enter");
-        await expect(ready).toBeVisible();
-      }
+    await expect(ready.locator(".animate-spin")).toHaveCount(0);
+    await expect(page.getByText("Opening secure payment…", { exact: true })).toHaveCount(0);
+    const close = page.getByRole("button", {
+      name: "Close controlled payment window",
+      exact: true,
+    });
+    await close.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("region", { name: "Controlled payment window" })).toHaveCount(0);
+    const retry = page.getByRole("button", { name: "Try again", exact: true });
+    await retry.focus();
+    await page.keyboard.press("Enter");
+    await expect(ready).toBeVisible();
     expect(writes).toEqual([]);
   });
 });

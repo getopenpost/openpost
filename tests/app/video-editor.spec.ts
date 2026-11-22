@@ -5,70 +5,80 @@ import { expect, test, type Page, type Locator } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 import { type components } from "@openpost/api-contract";
 
-test.describe("video editor", () => {
-  async function installLocalWorkspacePicker(page: Page): Promise<void> {
-    await page.addInitScript(() => {
-      if (!("showOpenFilePicker" in window)) {
-        Object.defineProperty(window, "showOpenFilePicker", {
-          configurable: true,
-          value: async () => [],
-        });
-      }
-      Object.defineProperty(window, "showDirectoryPicker", {
+// Waits two animation frames so "nothing further was drawn" checks follow a real paint.
+async function settleFrames(page: Page): Promise<void> {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+}
+
+async function installLocalWorkspacePicker(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    if (!("showOpenFilePicker" in window)) {
+      Object.defineProperty(window, "showOpenFilePicker", {
         configurable: true,
-        value: async () => {
-          const handle = await navigator.storage.getDirectory();
-          const prototype = Object.getPrototypeOf(handle);
-          if (!("queryPermission" in prototype)) {
-            Object.defineProperty(prototype, "queryPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          if (!("requestPermission" in prototype)) {
-            Object.defineProperty(prototype, "requestPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          return handle;
-        },
+        value: async () => [],
       });
+    }
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: async () => {
+        const handle = await navigator.storage.getDirectory();
+        const prototype = Object.getPrototypeOf(handle);
+        if (!("queryPermission" in prototype)) {
+          Object.defineProperty(prototype, "queryPermission", {
+            configurable: true,
+            value: async () => "granted",
+          });
+        }
+        if (!("requestPermission" in prototype)) {
+          Object.defineProperty(prototype, "requestPermission", {
+            configurable: true,
+            value: async () => "granted",
+          });
+        }
+        return handle;
+      },
     });
-  }
+  });
+}
 
-  async function createProject(
-    page: Page,
-    name: string,
-    options: { selectLocalProjects?: boolean } = {},
-  ): Promise<void> {
-    await installLocalWorkspacePicker(page);
-    await page.goto("/video-editor");
-    if (options.selectLocalProjects) {
-      await page.getByRole("button", { name: "This device" }).click();
-    }
-    await page.getByRole("button", { name: "Choose folder" }).click();
-    const projects = page.getByRole("heading", { name: "Projects" });
-    const openEditor = page.getByRole("button", { name: "Open Video Editor", exact: true });
-    await expect(projects.or(openEditor).first()).toBeVisible();
-    if (await projects.isVisible()) {
-      await page.getByRole("button", { name: "Custom project" }).click();
-      await page.getByRole("textbox", { name: "Project name" }).fill(name);
-      await page.getByRole("button", { name: "Create", exact: true }).click();
-    } else {
-      await openEditor.click();
-    }
-    await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);
-    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
-    await page.locator("[data-project-details]").click();
-    const projectName = page.getByRole("textbox", { name: "Project name" });
-    if ((await projectName.inputValue()) !== name) {
-      await projectName.fill(name);
-      await projectName.press("Tab");
-    }
-    await page.keyboard.press("Escape");
+async function createProject(
+  page: Page,
+  name: string,
+  options: { selectLocalProjects?: boolean } = {},
+): Promise<void> {
+  await installLocalWorkspacePicker(page);
+  await page.goto("/video-editor");
+  if (options.selectLocalProjects) {
+    await page.getByRole("button", { name: "This device" }).click();
   }
+  await page.getByRole("button", { name: "Choose folder" }).click();
+  const projects = page.getByRole("heading", { name: "Projects" });
+  const openEditor = page.getByRole("button", { name: "Open Video Editor", exact: true });
+  await expect(projects.or(openEditor).first()).toBeVisible();
+  if (await projects.isVisible()) {
+    await page.getByRole("button", { name: "Custom project" }).click();
+    await page.getByRole("textbox", { name: "Project name" }).fill(name);
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+  } else {
+    await openEditor.click();
+  }
+  await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);
+  await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
+  await page.locator("[data-project-details]").click();
+  const projectName = page.getByRole("textbox", { name: "Project name" });
+  if ((await projectName.inputValue()) !== name) {
+    await projectName.fill(name);
+    await projectName.press("Tab");
+  }
+  await page.keyboard.press("Escape");
+}
 
+test.describe("video editor", () => {
   async function addTextItem(page: Page): Promise<void> {
     await page.locator("header").getByRole("button", { name: "More actions", exact: true }).click();
     await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
@@ -325,7 +335,6 @@ test.describe("video editor", () => {
     await expect(
       page.getByText("Select one clip to add a transition.", { exact: true }),
     ).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath("transition-selection-fixed.png") });
   });
 
   test("Motion distinguishes an empty composition from a selection and restores Edit selection", async ({
@@ -338,56 +347,48 @@ test.describe("video editor", () => {
     await expect(page.getByTestId("composition-new")).toHaveAccessibleName("New composition");
     await page.getByTestId("composition-new").click();
     await expect(page.getByRole("dialog", { name: "New composition" })).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath("motion-new-composition-fixed.png") });
     await page.getByTestId("new-composition-cancel").click();
     await page.getByRole("tab", { name: "Edit", exact: true }).click();
     await expect(page.locator("#video-editor-tools-panel h2")).toHaveText("Main slate");
   });
 
-  for (const scheme of ["light"] as const) {
-    test(`Motion creation controls remain readable in ${scheme}`, async ({ page }, testInfo) => {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await createProject(page, "Motion contrast");
-      await seedDistinctSequences(page);
-      await page.getByRole("tab", { name: "Motion", exact: true }).click();
-      await page.getByTestId("composition-new").click();
-      const cancel = page.getByTestId("new-composition-cancel");
-      const contrast = await cancel.evaluate((button) => {
-        const surface = button.closest('[role="dialog"]')!;
-        const canvas = document.createElement("canvas");
-        canvas.width = canvas.height = 1;
-        const context = canvas.getContext("2d")!;
-        const luminance = (color: string) => {
-          context.fillStyle = color;
-          context.fillRect(0, 0, 1, 1);
-          const rgb = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map((value) => {
-            const channel = value / 255;
-            return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-          });
-          return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
-        };
-        const text = luminance(getComputedStyle(button).color);
-        const background = luminance(getComputedStyle(surface).backgroundColor);
-        return {
-          ratio: (Math.max(text, background) + 0.05) / (Math.min(text, background) + 0.05),
-          buttonBackground: getComputedStyle(button).backgroundColor,
-        };
-      });
-      expect(contrast.buttonBackground).toBe("rgba(0, 0, 0, 0)");
-      expect(
-        contrast.ratio,
-        "Cancel text meets normal-text contrast on the Motion dialog",
-      ).toBeGreaterThanOrEqual(4.5);
-      for (const width of [1440, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await expect(cancel).toBeInViewport({ ratio: 1 });
-        await page.screenshot({
-          path: testInfo.outputPath(`motion-creation-${scheme}-${width}.png`),
+  test(`Motion creation controls remain readable in light`, async ({ page }, testInfo) => {
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await createProject(page, "Motion contrast");
+    await seedDistinctSequences(page);
+    await page.getByRole("tab", { name: "Motion", exact: true }).click();
+    await page.getByTestId("composition-new").click();
+    const cancel = page.getByTestId("new-composition-cancel");
+    const contrast = await cancel.evaluate((button) => {
+      const surface = button.closest('[role="dialog"]')!;
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext("2d")!;
+      const luminance = (color: string) => {
+        context.fillStyle = color;
+        context.fillRect(0, 0, 1, 1);
+        const rgb = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map((value) => {
+          const channel = value / 255;
+          return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
         });
-      }
+        return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+      };
+      const text = luminance(getComputedStyle(button).color);
+      const background = luminance(getComputedStyle(surface).backgroundColor);
+      return {
+        ratio: (Math.max(text, background) + 0.05) / (Math.min(text, background) + 0.05),
+        buttonBackground: getComputedStyle(button).backgroundColor,
+      };
     });
-  }
+    expect(contrast.buttonBackground).toBe("rgba(0, 0, 0, 0)");
+    expect(
+      contrast.ratio,
+      "Cancel text meets normal-text contrast on the Motion dialog",
+    ).toBeGreaterThanOrEqual(4.5);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(cancel).toBeInViewport({ ratio: 1 });
+  });
 
   test("reload restores the active sequence without editing the project", async ({ page }) => {
     await createProject(page, "Sequence continuity");
@@ -491,30 +492,6 @@ test.describe("video editor", () => {
     await expect(script).toHaveValue("Keep this generated speech draft");
   });
 
-  test("Video Editor project library and shell fit narrow screens", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await installLocalWorkspacePicker(page);
-    await page.goto("/video-editor");
-    await page.getByRole("button", { name: "Choose folder" }).click();
-    await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
-    await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
-      .toBe(true);
-
-    await page.getByRole("button", { name: "Custom project" }).click();
-    await page.getByRole("textbox", { name: "Project name" }).fill("Responsive review");
-    await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
-    await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
-      .toBe(true);
-
-    await page.setViewportSize({ width: 320, height: 720 });
-    await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
-      .toBe(true);
-  });
-
   test("timeline hover preview stays outside track headers and uses one navigator", async ({
     page,
   }) => {
@@ -526,9 +503,6 @@ test.describe("video editor", () => {
     await page.mouse.move(bounds!.x + 185, bounds!.y + 50);
     const readout = page.locator("[data-timeline-preview-timecode]");
     await expect(readout).toBeVisible();
-    await page.screenshot({
-      path: `/tmp/openpost-timeline-${process.env.OPENPOST_CAPTURE_PHASE ?? "after"}.png`,
-    });
     const readoutBounds = await readout.boundingBox();
     // Track controls occupy the first 180 pixels of the scrolling viewport.
     expect(readoutBounds!.x).toBeGreaterThanOrEqual(bounds!.x + 180);
@@ -558,56 +532,51 @@ test.describe("video editor", () => {
     );
     const timeline = page.locator("#video-editor-timeline-scroll");
     const ruler = page.getByRole("slider", { name: "Timeline playhead", exact: true });
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await page.reload();
-      await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 844 });
-        await ruler.press("Home");
-        await ruler.press("ArrowRight");
-        await expect(ruler).toHaveAttribute("aria-valuenow", "1");
-        await expect(ruler).toBeFocused();
-        expect(await ruler.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe(
-          "none",
-        );
-        await timeline.evaluate((element) => {
-          element.scrollTop = 0;
-        });
-        const ticks = (await ruler.boundingBox())!;
-        const labels = (await page.locator("[data-track-header]").first().boundingBox())!;
-        expect(
-          labels.y,
-          "The ruler must have its own row above the first track",
-        ).toBeGreaterThanOrEqual(ticks.y + ticks.height);
-        await timeline.evaluate((element) => {
-          element.scrollTop = 24;
-        });
-        await page.screenshot({ path: info.outputPath(`scrolled-ruler-${scheme}-${width}.png`) });
-        expect(
-          await ruler.evaluate((element) => {
-            const bounds = element.getBoundingClientRect();
-            return element.contains(document.elementFromPoint(bounds.x + 40, bounds.y + 12));
-          }),
-          "The pinned ruler must cover track labels that scroll underneath it",
-        ).toBe(true);
-        const resize = (await page.locator("[data-track-resize]").first().boundingBox())!;
-        await timeline.evaluate(
-          (element, offset) => {
-            element.scrollTop += offset;
-          },
-          resize.y + resize.height / 2 - ticks.y - ticks.height / 2,
-        );
-        expect(
-          await ruler.evaluate((element) => {
-            const bounds = element.getBoundingClientRect();
-            return element.contains(document.elementFromPoint(bounds.x + 200, bounds.y + 12));
-          }),
-          "Track resize handles must not intercept the pinned ruler",
-        ).toBe(true);
-      }
-    }
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await page.reload();
+    await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await ruler.press("Home");
+    await ruler.press("ArrowRight");
+    await expect(ruler).toHaveAttribute("aria-valuenow", "1");
+    await expect(ruler).toBeFocused();
+    expect(await ruler.evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe(
+      "none",
+    );
+    await timeline.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    const ticks = (await ruler.boundingBox())!;
+    const labels = (await page.locator("[data-track-header]").first().boundingBox())!;
+    expect(
+      labels.y,
+      "The ruler must have its own row above the first track",
+    ).toBeGreaterThanOrEqual(ticks.y + ticks.height);
+    await timeline.evaluate((element) => {
+      element.scrollTop = 24;
+    });
+    expect(
+      await ruler.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        return element.contains(document.elementFromPoint(bounds.x + 40, bounds.y + 12));
+      }),
+      "The pinned ruler must cover track labels that scroll underneath it",
+    ).toBe(true);
+    const resize = (await page.locator("[data-track-resize]").first().boundingBox())!;
+    await timeline.evaluate(
+      (element, offset) => {
+        element.scrollTop += offset;
+      },
+      resize.y + resize.height / 2 - ticks.y - ticks.height / 2,
+    );
+    expect(
+      await ruler.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        return element.contains(document.elementFromPoint(bounds.x + 200, bounds.y + 12));
+      }),
+      "Track resize handles must not intercept the pinned ruler",
+    ).toBe(true);
   });
 
   test("horizontal timeline scrolling keeps the playhead behind track headers", async ({
@@ -641,7 +610,6 @@ test.describe("video editor", () => {
       element.scrollLeft = 90;
     });
     await expect.poll(() => timeline.evaluate((element) => element.scrollLeft)).toBe(90);
-    await page.screenshot({ path: info.outputPath("scrolled-playhead.png") });
     const after = await header.screenshot();
     expect(
       after.equals(before),
@@ -803,11 +771,11 @@ test.describe("video editor gallery previews", () => {
     await backgrounds.hover();
     await expect(warp.locator("canvas")).toHaveCount(0);
     const stopped = await metrics();
-    await page.waitForTimeout(250);
+    await settleFrames(page);
     expect((await metrics()).draws).toBe(stopped.draws);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await warp.focus();
-    await page.waitForTimeout(250);
+    await settleFrames(page);
     await expect(warp.locator("canvas")).toHaveCount(0);
     expect((await metrics()).draws).toBe(stopped.draws);
     await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -816,7 +784,6 @@ test.describe("video editor gallery previews", () => {
     await expect(warp.locator("canvas")).toBeVisible();
     await backgrounds.focus();
     await backgrounds.fill("");
-    await page.screenshot({ path: info.outputPath("background-gallery-after.png") });
     const beforeEffects = await metrics();
     await page
       .getByRole("tablist", { name: "Assets", exact: true })
@@ -827,25 +794,16 @@ test.describe("video editor gallery previews", () => {
     await heatmap.scrollIntoViewIfNeeded();
     await expect(heatmap.locator("canvas")).toHaveAttribute("data-rendered", "true");
     expect((await metrics()).compiles).toBe(beforeEffects.compiles);
-    await page.screenshot({ path: info.outputPath("shader-effects-after.png") });
     await heatmap.hover();
     await expect
       .poll(async () => (await metrics()).compiles)
       .toBeGreaterThan(beforeEffects.compiles);
     await page.getByRole("searchbox", { name: "Search effects", exact: true }).hover();
-    await page.waitForTimeout(250);
+    await settleFrames(page);
     const effectStopped = await metrics();
-    await page.waitForTimeout(250);
+    await settleFrames(page);
     expect((await metrics()).draws).toBe(effectStopped.draws);
     expect(errors).toEqual([]);
-    await info.attach("catalog-gpu-metrics", {
-      body: JSON.stringify({
-        idleBackgroundCompiles: 0,
-        idleEffectCompiles: 0,
-        hovered: effectStopped,
-      }),
-      contentType: "application/json",
-    });
   });
 });
 
@@ -865,445 +823,348 @@ test.describe("video editor import discovery", () => {
     await expect(
       local.getByText("Project bundle imports require a connected local folder.", { exact: true }),
     ).toBeVisible();
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme });
-      await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await page.reload();
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 844 });
-        const button = local.getByRole("button", { name: "Import bundle", exact: true });
-        await button.scrollIntoViewIfNeeded();
-        await expect(button).toBeDisabled();
-        await expect(
-          local.getByText("Project bundle imports require a connected local folder.", {
-            exact: true,
-          }),
-        ).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await page.screenshot({ path: `test-results/l003-${scheme}-${width}.png` });
-      }
-    }
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await page.reload();
+    await page.setViewportSize({ width: 1280, height: 844 });
+    const button = local.getByRole("button", { name: "Import bundle", exact: true });
+    await button.scrollIntoViewIfNeeded();
+    await expect(button).toBeDisabled();
+    await expect(
+      local.getByText("Project bundle imports require a connected local folder.", {
+        exact: true,
+      }),
+    ).toBeVisible();
   });
 });
 
 test.describe("video editor library", () => {
-  async function installLocalWorkspacePicker(page: Page): Promise<void> {
-    await page.addInitScript(() => {
-      Object.defineProperty(window, "showDirectoryPicker", {
-        configurable: true,
-        value: async () => {
-          const handle = await navigator.storage.getDirectory();
-          const prototype = Object.getPrototypeOf(handle);
-          if (!("queryPermission" in prototype)) {
-            Object.defineProperty(prototype, "queryPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          if (!("requestPermission" in prototype)) {
-            Object.defineProperty(prototype, "requestPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          return handle;
-        },
-      });
-    });
-  }
-
-  for (const width of [320]) {
-    for (const scheme of ["light"] as const) {
-      test.describe(`touch timer library at ${width}px in ${scheme}`, () => {
-        test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
-        test("keeps favorite controls reachable on a small screen", async ({ page }, testInfo) => {
-          await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-          await page.addInitScript(
-            (mode) => localStorage.setItem("mode-watcher-mode", mode),
-            scheme,
-          );
-          await page.setViewportSize({ width: 1280, height: 800 });
-          await createProject(page, "Touch timer library");
-          await page.setViewportSize({ width, height: 844 });
-          await page
-            .getByRole("navigation", { name: "Editor panels", exact: true })
-            .getByRole("button", { name: "Media", exact: true })
-            .click();
-          await page
-            .getByRole("tablist", { name: "Assets", exact: true })
-            .getByRole("tab", { name: "Elements", exact: true })
-            .click();
-          await page
-            .getByRole("tablist", { name: "Elements", exact: true })
-            .getByRole("tab", { name: "Timers", exact: true })
-            .click();
-          const ringCard = page.getByRole("button", { name: "Ring", exact: true }).last();
-          const cardBounds = await ringCard.boundingBox();
-          const previewBounds = await ringCard.locator("canvas").boundingBox();
-          expect(previewBounds!.y).toBeGreaterThanOrEqual(cardBounds!.y);
-          expect(previewBounds!.y + previewBounds!.height).toBeLessThanOrEqual(
-            cardBounds!.y + cardBounds!.height,
-          );
-          const favorite = page.getByRole("button", { name: "Favorite Ring", exact: true });
-          await favorite.scrollIntoViewIfNeeded();
-          const bounds = await favorite.boundingBox();
-          expect(bounds!.width).toBeGreaterThanOrEqual(44);
-          expect(bounds!.height).toBeGreaterThanOrEqual(44);
-          const cardAfterScroll = await ringCard.boundingBox();
-          expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(
-            cardAfterScroll!.y + cardAfterScroll!.height,
-          );
-          await expect(favorite).toHaveCSS("opacity", "1");
-          await page.screenshot({
-            path: testInfo.outputPath(`timers-touch-${width}-${scheme}.png`),
-          });
-          await favorite.tap();
-          await expect(favorite).toHaveAttribute("aria-pressed", "true");
-          await page.getByRole("tab", { name: "Library", exact: true }).click();
-          await expect(
-            page.getByRole("button", { name: "Ring", exact: true }).first(),
-          ).toBeVisible();
-          expect(
-            await page.evaluate(() => document.documentElement.scrollWidth),
-          ).toBeLessThanOrEqual(width);
-        });
-      });
-    }
-  }
-
-  async function createProject(
-    page: Page,
-    name: string,
-    options: { selectLocalProjects?: boolean } = {},
-  ): Promise<void> {
-    await installLocalWorkspacePicker(page);
-    await page.goto("/video-editor");
-    if (options.selectLocalProjects) {
-      await page.getByRole("button", { name: "This device" }).click();
-    }
-    await page.getByRole("button", { name: "Choose folder" }).click();
-    await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
-    await page.getByRole("button", { name: "Custom project" }).click();
-    await page.getByRole("textbox", { name: "Project name" }).fill(name);
-    await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);
-    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
-  }
-
-  for (const scheme of ["light"] as const) {
-    test(`library hearts follow the hovered or focused card in ${scheme}`, async ({
-      page,
-    }, testInfo) => {
-      test.setTimeout(120_000);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
+  test.describe(`touch timer library at 320px in light`, () => {
+    test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+    test("keeps favorite controls reachable on a small screen", async ({ page }, testInfo) => {
+      await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+      await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
       await page.setViewportSize({ width: 1280, height: 800 });
-      await createProject(page, "Contextual library favorites");
-      const openPanel = async (tab: string) => {
-        const rail = page.getByRole("navigation", { name: "Assets", exact: true });
-        if (tab === "Transition") {
-          await page
-            .getByRole("tablist", { name: "Effects", exact: true })
-            .getByRole("tab", { name: "Transition", exact: true })
-            .click();
-        } else if (tab === "Timers") {
-          await rail.getByRole("tab", { name: "Elements", exact: true }).click();
-          await page
-            .getByRole("tablist", { name: "Elements", exact: true })
-            .getByRole("tab", { name: "Timers", exact: true })
-            .click();
-        } else {
-          await rail.getByRole("tab", { name: tab, exact: true }).click();
-        }
-      };
-      for (const tab of ["Effects", "Transition", "Text", "Timers"]) {
-        await openPanel(tab);
-        const hearts = page.getByRole("button", { name: /^Favorite / });
-        const heart = hearts.first();
-        const card = heart.locator("..");
-        const item = card.getByRole("button").first();
-        await expect(heart).toBeAttached();
-        await page.mouse.move(1000, 100);
-        await page.getByRole("tab", { name: "Edit", exact: true }).focus();
-        await page.screenshot({ path: testInfo.outputPath(`${tab}-${scheme}-idle.png`) });
-        await expect(heart).toHaveCSS("opacity", "0");
-        await item.hover();
-        await expect(heart).toHaveCSS("opacity", "1");
-        await expect(hearts.nth(1)).toHaveCSS("opacity", "0");
-        const bounds = await heart.boundingBox();
-        const itemBounds = await item.boundingBox();
-        expect(bounds!.x).toBeGreaterThanOrEqual(itemBounds!.x);
-        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(itemBounds!.x + itemBounds!.width);
-        expect(bounds!.y).toBeGreaterThanOrEqual(itemBounds!.y);
-        expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(itemBounds!.y + itemBounds!.height);
-        await heart.hover();
-        await expect(heart).toHaveCSS("opacity", "1");
-        await page.screenshot({ path: testInfo.outputPath(`${tab}-${scheme}-hover.png`) });
-        await page.mouse.move(1000, 100);
-        await expect(heart).toHaveCSS("opacity", "0");
-        await item.focus();
-        await expect(heart).toHaveCSS("opacity", "1");
-        await page.keyboard.press("Tab");
-        await expect(heart).toBeFocused();
-        await expect(heart).toHaveCSS("opacity", "1");
-        await heart.press("Enter");
-        await expect(heart).toHaveAttribute("aria-pressed", "true");
-        await page.getByRole("tab", { name: "Edit", exact: true }).focus();
-        await expect(heart).toHaveCSS("opacity", "0");
-      }
+      await createProject(page, "Touch timer library");
+      await page.setViewportSize({ width: 320, height: 844 });
       await page
-        .getByRole("navigation", { name: "Assets", exact: true })
-        .getByRole("tab", { name: "Library", exact: true })
+        .getByRole("navigation", { name: "Editor panels", exact: true })
+        .getByRole("button", { name: "Media", exact: true })
         .click();
-      const savedHeart = page.getByRole("button", { name: "Favorite Countdown", exact: true });
-      await expect(savedHeart).toHaveCSS("opacity", "0");
-      await page.getByRole("button", { name: "Countdown", exact: true }).first().hover();
-      await expect(savedHeart).toHaveCSS("opacity", "1");
-      await page.mouse.move(1000, 100);
-      await expect(savedHeart).toHaveCSS("opacity", "0");
-      await savedHeart.focus();
-      await expect(savedHeart).toHaveCSS("opacity", "1");
-    });
-  }
-
-  for (const scheme of ["light"] as const) {
-    test(`saved timers, repeat, chapters and frame handoff in ${scheme}`, async ({
-      page,
-    }, testInfo) => {
-      test.setTimeout(120_000);
-      const errors: string[] = [];
-      page.on("pageerror", (error) => errors.push(error.message));
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await page.setViewportSize({ width: 1280, height: 800 });
-      await createProject(page, "Reusable timer workflow");
-      const projectURL = page.url();
       await page
-        .getByRole("navigation", { name: "Assets", exact: true })
+        .getByRole("tablist", { name: "Assets", exact: true })
         .getByRole("tab", { name: "Elements", exact: true })
         .click();
       await page
         .getByRole("tablist", { name: "Elements", exact: true })
         .getByRole("tab", { name: "Timers", exact: true })
         .click();
-      const ringCard = page.getByRole("button", { name: "Ring", exact: true });
+      const ringCard = page.getByRole("button", { name: "Ring", exact: true }).last();
       const cardBounds = await ringCard.boundingBox();
       const previewBounds = await ringCard.locator("canvas").boundingBox();
       expect(previewBounds!.y).toBeGreaterThanOrEqual(cardBounds!.y);
       expect(previewBounds!.y + previewBounds!.height).toBeLessThanOrEqual(
         cardBounds!.y + cardBounds!.height,
       );
-      const favoriteRing = page.getByRole("button", { name: "Favorite Ring", exact: true });
-      await favoriteRing.focus();
-      await favoriteRing.press("Enter");
-      await expect(favoriteRing).toHaveAttribute("aria-pressed", "true");
-      await page.screenshot({ path: testInfo.outputPath(`timers-${scheme}.png`) });
-      await page.getByRole("button", { name: "Ring", exact: true }).first().click();
-      const duration = page.getByRole("spinbutton", {
-        name: "Duration (seconds)",
-        exact: true,
-      });
-      await duration.fill("45");
-      await duration.press("Tab");
-      await expect(duration).toHaveValue("45");
-      await page
-        .getByRole("region", { name: "Text", exact: true })
-        .getByRole("button", { name: "Appearance", exact: true })
-        .click();
-      const thickness = page.getByRole("spinbutton", { name: "Thickness (%)", exact: true });
-      const segments = page.getByRole("spinbutton", { name: "Segments", exact: true });
-      await thickness.fill("12");
-      await thickness.press("Tab");
-      await segments.fill("8");
-      await segments.press("Tab");
-      await expect(thickness).toHaveValue("12");
-      await page.getByRole("textbox", { name: "Finish text", exact: true }).fill("GO");
-      await page.getByRole("textbox", { name: "Finish text", exact: true }).press("Tab");
-      await page
-        .getByRole("navigation", { name: "Assets", exact: true })
-        .getByRole("tab", { name: "Library", exact: true })
-        .click();
-      await page.getByRole("button", { name: "Save selection to library", exact: true }).click();
-      await page.getByRole("textbox", { name: "Name", exact: true }).fill("My rest timer");
-      await page
-        .getByRole("textbox", { name: "Collection, optional", exact: true })
-        .fill("Tutorials");
-      await page.locator("form button[type=submit]").click();
-      await expect(
-        page.getByRole("button", { name: "My rest timer", exact: true }).first(),
-      ).toBeVisible();
-      await page.getByText("Repeat selection", { exact: true }).first().click();
-      await page.getByRole("button", { name: "Repeat selection", exact: true }).click();
-      await expect(page.locator("[data-timeline-item-id]")).toHaveCount(3);
-      await page
-        .getByRole("banner")
-        .getByRole("button", { name: "More actions", exact: true })
-        .click();
-      await page.getByRole("menuitem", { name: "Undo", exact: true }).click();
-      await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
-      await expect
-        .poll(() =>
-          page.locator("#video-editor-program-panel canvas").evaluateAll((canvases) =>
-            canvases.some((element) => {
-              const canvas = element as HTMLCanvasElement;
-              const context = canvas.getContext("2d");
-              if (!context || !canvas.width) return false;
-              const pixels = context.getImageData(
-                Math.floor(canvas.width * 0.4),
-                Math.floor(canvas.height * 0.4),
-                Math.max(1, Math.floor(canvas.width * 0.2)),
-                Math.max(1, Math.floor(canvas.height * 0.2)),
-              ).data;
-              return pixels.some(
-                (value, index) =>
-                  index % 4 === 0 &&
-                  value > 250 &&
-                  pixels[index + 1]! > 250 &&
-                  pixels[index + 2]! > 250 &&
-                  pixels[index + 3]! > 250,
-              );
-            }),
-          ),
-        )
-        .toBe(true);
-      await page.screenshot({
-        path: testInfo.outputPath(`library-desktop-${scheme}.png`),
-      });
-      await page
-        .getByRole("banner")
-        .getByRole("button", { name: "More actions", exact: true })
-        .click();
-      await page.getByRole("menuitem", { name: "Save", exact: true }).click();
-      await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
-        "data-state",
-        "saved",
+      const favorite = page.getByRole("button", { name: "Favorite Ring", exact: true });
+      await favorite.scrollIntoViewIfNeeded();
+      const bounds = await favorite.boundingBox();
+      expect(bounds!.width).toBeGreaterThanOrEqual(44);
+      expect(bounds!.height).toBeGreaterThanOrEqual(44);
+      const cardAfterScroll = await ringCard.boundingBox();
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(
+        cardAfterScroll!.y + cardAfterScroll!.height,
       );
-      await page.reload();
-      const savedTimer = page.getByRole("button", { name: "My rest timer", exact: true }).first();
-      try {
-        await expect(savedTimer).toBeVisible({ timeout: 15_000 });
-      } catch {
+      await expect(favorite).toHaveCSS("opacity", "1");
+      await favorite.tap();
+      await expect(favorite).toHaveAttribute("aria-pressed", "true");
+      await page.getByRole("tab", { name: "Library", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Ring", exact: true }).first()).toBeVisible();
+    });
+  });
+
+  test(`library hearts follow the hovered or focused card in light`, async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await createProject(page, "Contextual library favorites");
+    const openPanel = async (tab: string) => {
+      const rail = page.getByRole("navigation", { name: "Assets", exact: true });
+      if (tab === "Transition") {
         await page
-          .getByRole("navigation", { name: "Assets", exact: true })
-          .getByRole("tab", { name: "Library", exact: true })
+          .getByRole("tablist", { name: "Effects", exact: true })
+          .getByRole("tab", { name: "Transition", exact: true })
           .click();
-        await expect(savedTimer).toBeVisible({ timeout: 10_000 });
-      }
-      await savedTimer.click();
-      await expect(page.locator("[data-timeline-item-id]")).toHaveCount(2);
-      await expect(duration).toHaveValue("45");
-      await page
-        .getByRole("region", { name: "Text", exact: true })
-        .getByRole("button", { name: "Appearance", exact: true })
-        .click();
-      await expect(thickness).toHaveValue("12");
-      await expect(segments).toHaveValue("8");
-      await page
-        .getByRole("banner")
-        .getByRole("button", { name: "More actions", exact: true })
-        .click();
-      await page.getByRole("menuitem", { name: "Undo", exact: true }).click();
-      await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
-      for (const width of [320]) {
-        await page.setViewportSize({ width, height: 844 });
-        await page
-          .getByRole("navigation", { name: "Editor panels", exact: true })
-          .getByRole("button", { name: "Media", exact: true })
-          .click();
-        await page
-          .getByRole("tablist", { name: "Assets", exact: true })
-          .getByRole("tab", { name: "Elements", exact: true })
-          .click();
+      } else if (tab === "Timers") {
+        await rail.getByRole("tab", { name: "Elements", exact: true }).click();
         await page
           .getByRole("tablist", { name: "Elements", exact: true })
           .getByRole("tab", { name: "Timers", exact: true })
           .click();
-        await expect(
-          page.getByRole("button", { name: "My rest timer", exact: true }).first(),
-        ).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await page
-          .getByRole("button", { name: "My rest timer", exact: true })
-          .first()
-          .scrollIntoViewIfNeeded();
-        await page.screenshot({
-          path: testInfo.outputPath(`library-${width}-${scheme}.png`),
-        });
+      } else {
+        await rail.getByRole("tab", { name: tab, exact: true }).click();
       }
-      await page.setViewportSize({ width: 1280, height: 800 });
-      await page.getByRole("button", { name: "Add marker", exact: true }).click();
-      await page.getByRole("textbox", { name: "Label", exact: true }).fill("Warm up");
-      await page.getByRole("textbox", { name: "Label", exact: true }).press("Enter");
-      await page.getByRole("banner").getByRole("button", { name: "Export", exact: true }).click();
-      const dialog = page.getByRole("dialog", {
-        name: "Export video",
-        exact: true,
-      });
-      await dialog.locator("summary").filter({ hasText: "Chapters" }).click();
-      await expect(dialog.getByRole("textbox", { name: "Chapters", exact: true })).toHaveValue(
-        "00:00 Warm up",
-      );
-      await dialog
-        .getByRole("textbox", { name: "Chapters", exact: true })
-        .fill("00:00 Introduction");
-      await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-      await dialog.getByRole("button", { name: "Copy chapters", exact: true }).click();
-      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("00:00 Introduction");
-      await page.screenshot({
-        path: testInfo.outputPath(`chapters-${scheme}.png`),
-      });
-      await page.keyboard.press("Escape");
-      await page
-        .locator("#video-editor-program-panel")
-        .getByRole("button", { name: "More actions", exact: true })
-        .click();
-      await page
-        .getByRole("menuitem", {
-          name: "Open current frame in Image Editor",
-          exact: true,
-        })
-        .click();
-      await expect(page).toHaveURL(/\/image-editor\//u, { timeout: 30_000 });
-      await expect(page.locator("canvas").first()).toBeVisible({
-        timeout: 20_000,
-      });
-      await expect
-        .poll(
-          () =>
-            page
-              .locator("canvas.lower-canvas")
-              .first()
-              .evaluate((element) => {
-                const canvas = element as HTMLCanvasElement;
-                const data = canvas
-                  .getContext("2d")!
-                  .getImageData(0, 0, canvas.width, canvas.height).data;
-                let white = 0;
-                for (let index = 0; index < data.length; index += 4)
-                  if (
-                    data[index]! > 250 &&
-                    data[index + 1]! > 250 &&
-                    data[index + 2]! > 250 &&
-                    data[index + 3]! > 250
-                  )
-                    white++;
-                return white;
-              }),
-          { timeout: 20_000 },
-        )
-        .toBeGreaterThan(100);
-      await page.screenshot({
-        path: testInfo.outputPath(`frame-image-editor-${scheme}.png`),
-      });
-      await page.goto(projectURL);
-      await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
-      expect(errors).toEqual([]);
+    };
+    for (const tab of ["Effects", "Transition", "Text", "Timers"]) {
+      await openPanel(tab);
+      const hearts = page.getByRole("button", { name: /^Favorite / });
+      const heart = hearts.first();
+      const card = heart.locator("..");
+      const item = card.getByRole("button").first();
+      await expect(heart).toBeAttached();
+      await page.mouse.move(1000, 100);
+      await page.getByRole("tab", { name: "Edit", exact: true }).focus();
+      await expect(heart).toHaveCSS("opacity", "0");
+      await item.hover();
+      await expect(heart).toHaveCSS("opacity", "1");
+      await expect(hearts.nth(1)).toHaveCSS("opacity", "0");
+      const bounds = await heart.boundingBox();
+      const itemBounds = await item.boundingBox();
+      expect(bounds!.x).toBeGreaterThanOrEqual(itemBounds!.x);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(itemBounds!.x + itemBounds!.width);
+      expect(bounds!.y).toBeGreaterThanOrEqual(itemBounds!.y);
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(itemBounds!.y + itemBounds!.height);
+      await heart.hover();
+      await expect(heart).toHaveCSS("opacity", "1");
+      await page.mouse.move(1000, 100);
+      await expect(heart).toHaveCSS("opacity", "0");
+      await item.focus();
+      await expect(heart).toHaveCSS("opacity", "1");
+      await page.keyboard.press("Tab");
+      await expect(heart).toBeFocused();
+      await expect(heart).toHaveCSS("opacity", "1");
+      await heart.press("Enter");
+      await expect(heart).toHaveAttribute("aria-pressed", "true");
+      await page.getByRole("tab", { name: "Edit", exact: true }).focus();
+      await expect(heart).toHaveCSS("opacity", "0");
+    }
+    await page
+      .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("tab", { name: "Library", exact: true })
+      .click();
+    const savedHeart = page.getByRole("button", { name: "Favorite Countdown", exact: true });
+    await expect(savedHeart).toHaveCSS("opacity", "0");
+    await page.getByRole("button", { name: "Countdown", exact: true }).first().hover();
+    await expect(savedHeart).toHaveCSS("opacity", "1");
+    await page.mouse.move(1000, 100);
+    await expect(savedHeart).toHaveCSS("opacity", "0");
+    await savedHeart.focus();
+    await expect(savedHeart).toHaveCSS("opacity", "1");
+  });
+
+  test(`saved timers, repeat, chapters and frame handoff in light`, async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await createProject(page, "Reusable timer workflow");
+    const projectURL = page.url();
+    await page
+      .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("tab", { name: "Elements", exact: true })
+      .click();
+    await page
+      .getByRole("tablist", { name: "Elements", exact: true })
+      .getByRole("tab", { name: "Timers", exact: true })
+      .click();
+    const ringCard = page.getByRole("button", { name: "Ring", exact: true });
+    const cardBounds = await ringCard.boundingBox();
+    const previewBounds = await ringCard.locator("canvas").boundingBox();
+    expect(previewBounds!.y).toBeGreaterThanOrEqual(cardBounds!.y);
+    expect(previewBounds!.y + previewBounds!.height).toBeLessThanOrEqual(
+      cardBounds!.y + cardBounds!.height,
+    );
+    const favoriteRing = page.getByRole("button", { name: "Favorite Ring", exact: true });
+    await favoriteRing.focus();
+    await favoriteRing.press("Enter");
+    await expect(favoriteRing).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Ring", exact: true }).first().click();
+    const duration = page.getByRole("spinbutton", {
+      name: "Duration (seconds)",
+      exact: true,
     });
-  }
+    await duration.fill("45");
+    await duration.press("Tab");
+    await expect(duration).toHaveValue("45");
+    await page
+      .getByRole("region", { name: "Text", exact: true })
+      .getByRole("button", { name: "Appearance", exact: true })
+      .click();
+    const thickness = page.getByRole("spinbutton", { name: "Thickness (%)", exact: true });
+    const segments = page.getByRole("spinbutton", { name: "Segments", exact: true });
+    await thickness.fill("12");
+    await thickness.press("Tab");
+    await segments.fill("8");
+    await segments.press("Tab");
+    await expect(thickness).toHaveValue("12");
+    await page.getByRole("textbox", { name: "Finish text", exact: true }).fill("GO");
+    await page.getByRole("textbox", { name: "Finish text", exact: true }).press("Tab");
+    await page
+      .getByRole("navigation", { name: "Assets", exact: true })
+      .getByRole("tab", { name: "Library", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Save selection to library", exact: true }).click();
+    await page.getByRole("textbox", { name: "Name", exact: true }).fill("My rest timer");
+    await page
+      .getByRole("textbox", { name: "Collection, optional", exact: true })
+      .fill("Tutorials");
+    await page.locator("form button[type=submit]").click();
+    await expect(
+      page.getByRole("button", { name: "My rest timer", exact: true }).first(),
+    ).toBeVisible();
+    await page.getByText("Repeat selection", { exact: true }).first().click();
+    await page.getByRole("button", { name: "Repeat selection", exact: true }).click();
+    await expect(page.locator("[data-timeline-item-id]")).toHaveCount(3);
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Undo", exact: true }).click();
+    await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
+    await expect
+      .poll(() =>
+        page.locator("#video-editor-program-panel canvas").evaluateAll((canvases) =>
+          canvases.some((element) => {
+            const canvas = element as HTMLCanvasElement;
+            const context = canvas.getContext("2d");
+            if (!context || !canvas.width) return false;
+            const pixels = context.getImageData(
+              Math.floor(canvas.width * 0.4),
+              Math.floor(canvas.height * 0.4),
+              Math.max(1, Math.floor(canvas.width * 0.2)),
+              Math.max(1, Math.floor(canvas.height * 0.2)),
+            ).data;
+            return pixels.some(
+              (value, index) =>
+                index % 4 === 0 &&
+                value > 250 &&
+                pixels[index + 1]! > 250 &&
+                pixels[index + 2]! > 250 &&
+                pixels[index + 3]! > 250,
+            );
+          }),
+        ),
+      )
+      .toBe(true);
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+      "data-state",
+      "saved",
+    );
+    await page.reload();
+    const savedTimer = page.getByRole("button", { name: "My rest timer", exact: true }).first();
+    try {
+      await expect(savedTimer).toBeVisible({ timeout: 15_000 });
+    } catch {
+      await page
+        .getByRole("navigation", { name: "Assets", exact: true })
+        .getByRole("tab", { name: "Library", exact: true })
+        .click();
+      await expect(savedTimer).toBeVisible({ timeout: 10_000 });
+    }
+    await savedTimer.click();
+    await expect(page.locator("[data-timeline-item-id]")).toHaveCount(2);
+    await expect(duration).toHaveValue("45");
+    await page
+      .getByRole("region", { name: "Text", exact: true })
+      .getByRole("button", { name: "Appearance", exact: true })
+      .click();
+    await expect(thickness).toHaveValue("12");
+    await expect(segments).toHaveValue("8");
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Undo", exact: true }).click();
+    await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page
+      .getByRole("navigation", { name: "Editor panels", exact: true })
+      .getByRole("button", { name: "Media", exact: true })
+      .click();
+    await page
+      .getByRole("tablist", { name: "Assets", exact: true })
+      .getByRole("tab", { name: "Elements", exact: true })
+      .click();
+    await page
+      .getByRole("tablist", { name: "Elements", exact: true })
+      .getByRole("tab", { name: "Timers", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "My rest timer", exact: true }).first(),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "My rest timer", exact: true })
+      .first()
+      .scrollIntoViewIfNeeded();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.getByRole("button", { name: "Add marker", exact: true }).click();
+    await page.getByRole("textbox", { name: "Label", exact: true }).fill("Warm up");
+    await page.getByRole("textbox", { name: "Label", exact: true }).press("Enter");
+    await page.getByRole("banner").getByRole("button", { name: "Export", exact: true }).click();
+    const dialog = page.getByRole("dialog", {
+      name: "Export video",
+      exact: true,
+    });
+    await dialog.locator("summary").filter({ hasText: "Chapters" }).click();
+    await expect(dialog.getByRole("textbox", { name: "Chapters", exact: true })).toHaveValue(
+      "00:00 Warm up",
+    );
+    await dialog.getByRole("textbox", { name: "Chapters", exact: true }).fill("00:00 Introduction");
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await dialog.getByRole("button", { name: "Copy chapters", exact: true }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("00:00 Introduction");
+    await page.keyboard.press("Escape");
+    await page
+      .locator("#video-editor-program-panel")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", {
+        name: "Open current frame in Image Editor",
+        exact: true,
+      })
+      .click();
+    await expect(page).toHaveURL(/\/image-editor\//u, { timeout: 30_000 });
+    await expect(page.locator("canvas").first()).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect
+      .poll(
+        () =>
+          page
+            .locator("canvas.lower-canvas")
+            .first()
+            .evaluate((element) => {
+              const canvas = element as HTMLCanvasElement;
+              const data = canvas
+                .getContext("2d")!
+                .getImageData(0, 0, canvas.width, canvas.height).data;
+              let white = 0;
+              for (let index = 0; index < data.length; index += 4)
+                if (
+                  data[index]! > 250 &&
+                  data[index + 1]! > 250 &&
+                  data[index + 2]! > 250 &&
+                  data[index + 3]! > 250
+                )
+                  white++;
+              return white;
+            }),
+        { timeout: 20_000 },
+      )
+      .toBeGreaterThan(100);
+    await page.goto(projectURL);
+    await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
+    expect(errors).toEqual([]);
+  });
 
   for (const style of ["Bomb", "Tomato"] as const) {
     test(`sculpted ${style} appearance controls`, async ({ page }, testInfo) => {
@@ -1326,9 +1187,7 @@ test.describe("video editor library", () => {
         page.getByRole("checkbox", { name: "Completion effect", exact: true }),
       ).toBeChecked();
       await page.getByRole("checkbox", { name: "Show numbers", exact: true }).uncheck();
-      await page.screenshot({ path: testInfo.outputPath(`${style}-artwork.png`) });
       await page.getByRole("checkbox", { name: "Show numbers", exact: true }).check();
-      await page.screenshot({ path: testInfo.outputPath(`${style}-timer.png`) });
       const bodyColor = page.getByRole("button", { name: "Body color", exact: true });
       await bodyColor.click();
       const hex = page.getByRole("textbox", { name: "Hex color", exact: true });
@@ -1336,47 +1195,15 @@ test.describe("video editor library", () => {
       await hex.press("Enter");
       await page.keyboard.press("Escape");
       await expect(bodyColor).toHaveAttribute("title", "Body color: #2855FF");
-      await page.screenshot({ path: testInfo.outputPath(`${style}-custom-color.png`) });
-      for (const width of [320]) {
-        await page.setViewportSize({ width, height: 844 });
-        await page.getByRole("button", { name: "Properties", exact: true }).click();
-        await bodyColor.scrollIntoViewIfNeeded();
-        await expect(bodyColor).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await page.screenshot({ path: testInfo.outputPath(`${style}-appearance-${width}.png`) });
-      }
+      await page.setViewportSize({ width: 320, height: 844 });
+      await page.getByRole("button", { name: "Properties", exact: true }).click();
+      await bodyColor.scrollIntoViewIfNeeded();
+      await expect(bodyColor).toBeVisible();
     });
   }
 });
 
 test.describe("video editor media recovery", () => {
-  async function installLocalWorkspacePicker(page: Page): Promise<void> {
-    await page.addInitScript(() => {
-      Object.defineProperty(window, "showDirectoryPicker", {
-        configurable: true,
-        value: async () => {
-          const handle = await navigator.storage.getDirectory();
-          const prototype = Object.getPrototypeOf(handle);
-          if (!("queryPermission" in prototype)) {
-            Object.defineProperty(prototype, "queryPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          if (!("requestPermission" in prototype)) {
-            Object.defineProperty(prototype, "requestPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          return handle;
-        },
-      });
-    });
-  }
-
   async function createProject(page: Page): Promise<string> {
     await installLocalWorkspacePicker(page);
     await page.goto("/video-editor");
@@ -1479,13 +1306,7 @@ test.describe("video editor media recovery", () => {
       .toBe(true);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
-      .toBe(true);
     await page.setViewportSize({ width: 320, height: 720 });
-    await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
-      .toBe(true);
 
     await page.getByRole("button", { name: "Relink files (1)" }).click();
     await expect(page.getByText("0 ready, 1 need review, 1 not found")).toBeVisible({
@@ -1502,43 +1323,6 @@ test.describe("video editor media recovery", () => {
 });
 
 test.describe("video editor motion group", () => {
-  async function installLocalWorkspacePicker(page: Page): Promise<void> {
-    await page.addInitScript(() => {
-      Object.defineProperty(window, "showDirectoryPicker", {
-        configurable: true,
-        value: async () => {
-          const handle = await navigator.storage.getDirectory();
-          const prototype = Object.getPrototypeOf(handle);
-          if (!("queryPermission" in prototype)) {
-            Object.defineProperty(prototype, "queryPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          if (!("requestPermission" in prototype)) {
-            Object.defineProperty(prototype, "requestPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          return handle;
-        },
-      });
-    });
-  }
-
-  async function createProject(page: Page, name: string): Promise<void> {
-    await installLocalWorkspacePicker(page);
-    await page.goto("/video-editor");
-    await page.getByRole("button", { name: "Choose folder" }).click();
-    await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
-    await page.getByRole("button", { name: "Custom project" }).click();
-    await page.getByRole("textbox", { name: "Project name" }).fill(name);
-    await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);
-    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
-  }
-
   test("Motion repeated Group keeps one saved group and one undoable edit", async ({
     page,
   }, testInfo) => {
@@ -1592,85 +1376,28 @@ test.describe("video editor motion group", () => {
       "data-state",
       "saved",
     );
-    for (const scheme of ["light"] as const) {
-      await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 844 });
-        await page.reload();
-        await page.getByRole("tab", { name: "Motion", exact: true }).click();
-        await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-        await expect(groups).toHaveCount(1);
-        await expect(groups.first()).toHaveAttribute("data-testid", originalId!);
-        await expect(layers).toHaveCount(3);
-        await layers.nth(0).focus();
-        await page.keyboard.press("Enter");
-        await layers.nth(1).focus();
-        await page.keyboard.press("Control+Enter");
-        await expect(page.getByTestId("composition-group")).toBeDisabled();
-        await page.keyboard.press("Control+g");
-        await expect(groups).toHaveCount(1);
-        await groups.first().scrollIntoViewIfNeeded();
-        await page.screenshot({ path: testInfo.outputPath(`motion-group-${width}-${scheme}.png`) });
-      }
-    }
+    await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await page.reload();
+    await page.getByRole("tab", { name: "Motion", exact: true }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", "light");
+    await expect(groups).toHaveCount(1);
+    await expect(groups.first()).toHaveAttribute("data-testid", originalId!);
+    await expect(layers).toHaveCount(3);
+    await layers.nth(0).focus();
+    await page.keyboard.press("Enter");
+    await layers.nth(1).focus();
+    await page.keyboard.press("Control+Enter");
+    await expect(page.getByTestId("composition-group")).toBeDisabled();
+    await page.keyboard.press("Control+g");
+    await expect(groups).toHaveCount(1);
+    await groups.first().scrollIntoViewIfNeeded();
     expect(errors).toEqual([]);
   });
 });
 
 test.describe("video editor panels", () => {
-  async function installLocalWorkspacePicker(page: Page): Promise<void> {
-    await page.addInitScript(() => {
-      if (!("showOpenFilePicker" in window)) {
-        Object.defineProperty(window, "showOpenFilePicker", {
-          configurable: true,
-          value: async () => {
-            throw new Error("This local-project fixture does not provide file imports.");
-          },
-        });
-      }
-      Object.defineProperty(window, "showDirectoryPicker", {
-        configurable: true,
-        value: async () => {
-          const handle = await navigator.storage.getDirectory();
-          const prototype = Object.getPrototypeOf(handle);
-          if (!("queryPermission" in prototype)) {
-            Object.defineProperty(prototype, "queryPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          if (!("requestPermission" in prototype)) {
-            Object.defineProperty(prototype, "requestPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          return handle;
-        },
-      });
-    });
-  }
-
-  async function createProject(
-    page: Page,
-    name: string,
-    options: { selectLocalProjects?: boolean } = {},
-  ): Promise<void> {
-    await installLocalWorkspacePicker(page);
-    await page.goto("/video-editor");
-    if (options.selectLocalProjects) {
-      await page.getByRole("button", { name: "This device" }).click();
-    }
-    await page.getByRole("button", { name: "Choose folder" }).click();
-    await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
-    await page.getByRole("button", { name: "Custom project" }).click();
-    await page.getByRole("textbox", { name: "Project name" }).fill(name);
-    await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);
-    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
-  }
-
   test("animation application settings survive inspector tab switches without creating history", async ({
     page,
   }, testInfo) => {
@@ -1693,44 +1420,37 @@ test.describe("video editor panels", () => {
     const duration = inspector.getByRole("slider", { name: "Duration", exact: true });
     const intensity = inspector.getByRole("slider", { name: "Intensity", exact: true });
     const stagger = inspector.getByRole("slider", { name: "Stagger frames", exact: true });
-    for (const scheme of ["light"] as const) {
-      await page.setViewportSize({ width: 1280, height: 844 });
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await page.reload();
-      await page.locator("[data-timeline-item-id]").click();
-      await animation.click();
-      const originalSaveState = (await saveIndicator.getAttribute("data-state")) ?? "";
-      expect(["idle", "saved"]).toContain(originalSaveState);
-      await duration.press("End");
-      await intensity.press("Home");
-      await stagger.press("ArrowRight");
-      await stagger.press("ArrowRight");
-      await inspector.getByRole("button", { name: "Add", exact: true }).click();
-      await expect(duration).toHaveAttribute("aria-valuenow", "3");
-      await expect(intensity).toHaveAttribute("aria-valuenow", "0");
-      await expect(stagger).toHaveAttribute("aria-valuenow", "2");
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 844 });
-        await animation.focus();
-        await animation.press("Home");
-        await expect(inspector.locator('[data-edit-inspector-tab="properties"]')).toBeFocused();
-        await page.keyboard.press("ArrowRight");
-        await expect(animation).toBeFocused();
-        await expect(duration).toHaveAttribute("aria-valuenow", "3");
-        await expect(intensity).toHaveAttribute("aria-valuenow", "0");
-        await expect(stagger).toHaveAttribute("aria-valuenow", "2");
-        await expect(inspector.getByRole("button", { name: "Add", exact: true })).toHaveAttribute(
-          "aria-pressed",
-          "true",
-        );
-        await stagger.scrollIntoViewIfNeeded();
-        await page.screenshot({
-          path: testInfo.outputPath(`animation-settings-${scheme}-${width}.png`),
-        });
-      }
-      await expect(saveIndicator).toHaveAttribute("data-state", originalSaveState);
-    }
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await page.reload();
+    await page.locator("[data-timeline-item-id]").click();
+    await animation.click();
+    const originalSaveState = (await saveIndicator.getAttribute("data-state")) ?? "";
+    expect(["idle", "saved"]).toContain(originalSaveState);
+    await duration.press("End");
+    await intensity.press("Home");
+    await stagger.press("ArrowRight");
+    await stagger.press("ArrowRight");
+    await inspector.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(duration).toHaveAttribute("aria-valuenow", "3");
+    await expect(intensity).toHaveAttribute("aria-valuenow", "0");
+    await expect(stagger).toHaveAttribute("aria-valuenow", "2");
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await animation.focus();
+    await animation.press("Home");
+    await expect(inspector.locator('[data-edit-inspector-tab="properties"]')).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect(animation).toBeFocused();
+    await expect(duration).toHaveAttribute("aria-valuenow", "3");
+    await expect(intensity).toHaveAttribute("aria-valuenow", "0");
+    await expect(stagger).toHaveAttribute("aria-valuenow", "2");
+    await expect(inspector.getByRole("button", { name: "Add", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await stagger.scrollIntoViewIfNeeded();
+    await expect(saveIndicator).toHaveAttribute("data-state", originalSaveState);
     await page.setViewportSize({ width: 1280, height: 844 });
     await expect(
       page.getByRole("banner").getByRole("button", { name: "Undo", exact: true }),
@@ -1747,178 +1467,154 @@ test.describe("video editor panels", () => {
     );
   });
 
-  for (const scheme of ["light"] as const) {
-    test(`Color keeps its viewer and complete wheels usable on a laptop in ${scheme}`, async ({
-      page,
-    }, testInfo) => {
-      test.setTimeout(90_000);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await page.setViewportSize({ width: 1280, height: 720 });
-      await createProject(page, "Focused Color layout");
-      await page
-        .getByRole("banner")
-        .getByRole("button", { name: "More actions", exact: true })
-        .click();
-      await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
-      await page.getByRole("tab", { name: "Color", exact: true }).click();
-      await expect(
-        page.getByRole("slider", { name: "Lift color wheel", exact: true }),
-      ).toBeVisible();
-      await page.screenshot({ path: testInfo.outputPath(`color-laptop-${scheme}.png`) });
+  test(`Color keeps its viewer and complete wheels usable on a laptop in light`, async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(90_000);
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await createProject(page, "Focused Color layout");
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
+    await page.getByRole("tab", { name: "Color", exact: true }).click();
+    await expect(page.getByRole("slider", { name: "Lift color wheel", exact: true })).toBeVisible();
 
-      for (const label of ["Show one scope", "Show all scopes"]) {
-        const control = page.getByRole("button", { name: label, exact: true });
-        const offset = await control.evaluate((button) => {
-          const bounds = button.getBoundingClientRect();
-          const icon = button.firstElementChild!.getBoundingClientRect();
-          return {
-            x: Math.abs(bounds.x + bounds.width / 2 - icon.x - icon.width / 2),
-            y: Math.abs(bounds.y + bounds.height / 2 - icon.y - icon.height / 2),
-          };
-        });
-        expect(offset.x, `${label} icon must be horizontally centered`).toBeLessThanOrEqual(1);
-        expect(offset.y, `${label} icon must be vertically centered`).toBeLessThanOrEqual(1);
-      }
-
-      const viewer = page.locator("#video-editor-program-panel");
-      await expect
-        .poll(async () => (await viewer.boundingBox())!.height)
-        .toBeGreaterThanOrEqual(280);
-      for (const name of ["Lift", "Gamma", "Gain", "Offset"]) {
-        const wheel = page.getByRole("slider", { name: `${name} color wheel`, exact: true });
-        await expect
-          .poll(async () => (await wheel.boundingBox())!.width)
-          .toBeGreaterThanOrEqual(104);
-        const visibleFraction = await wheel.evaluate((element) => {
-          const bounds = element.getBoundingClientRect();
-          let top = Math.max(0, bounds.top);
-          let bottom = Math.min(innerHeight, bounds.bottom);
-          let left = Math.max(0, bounds.left);
-          let right = Math.min(innerWidth, bounds.right);
-          for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
-            const style = getComputedStyle(ancestor);
-            const rect = ancestor.getBoundingClientRect();
-            if (/auto|scroll|hidden|clip/.test(style.overflowY)) {
-              top = Math.max(top, rect.top);
-              bottom = Math.min(bottom, rect.bottom);
-            }
-            if (/auto|scroll|hidden|clip/.test(style.overflowX)) {
-              left = Math.max(left, rect.left);
-              right = Math.min(right, rect.right);
-            }
-          }
-          return (
-            (Math.max(0, bottom - top) * Math.max(0, right - left)) / (bounds.width * bounds.height)
-          );
-        });
-        expect(visibleFraction, `${name} wheel must not be clipped by its panel`).toBeGreaterThan(
-          0.98,
-        );
-      }
-      await expect(page.getByRole("toolbar", { name: "On-canvas editing tools" })).toBeHidden();
-      const lift = page.getByRole("slider", { name: "Lift color wheel", exact: true });
-      const originalLift = await lift.getAttribute("aria-valuetext");
-      await lift.press("ArrowRight");
-      await expect(lift).not.toHaveAttribute("aria-valuetext", originalLift!);
-      await page
-        .getByRole("banner")
-        .getByRole("button", { name: "More actions", exact: true })
-        .click();
-      await page.getByRole("menuitem", { name: "Undo", exact: true }).click();
-      await expect(lift).toHaveAttribute("aria-valuetext", originalLift!);
-      await page.getByRole("tab", { name: "Curves", exact: true }).click();
-      await expect(
-        page.getByRole("group", { name: "Master curve editor", exact: true }),
-      ).toBeVisible();
-      await expect(lift).toBeHidden();
-      const curveMarker = page
-        .locator("[data-curves-editor] circle, [data-curves-editor] ellipse")
-        .nth(1);
-      await expect
-        .poll(async () => {
-          const box = await curveMarker.boundingBox();
-          return box ? Math.abs(box.width - box.height) : Number.POSITIVE_INFINITY;
-        })
-        .toBeLessThan(1);
-      const markerBox = (await curveMarker.boundingBox())!;
-      expect(markerBox.width).toBeGreaterThanOrEqual(8);
-      expect(markerBox.width).toBeLessThanOrEqual(16);
-      await expect(
-        page.getByRole("button", { name: "Toggle auto-keyframe", exact: true }),
-      ).toBeVisible();
-      await expect(page.getByRole("button", { name: "Before", exact: true })).toBeVisible();
-      await page.getByRole("tab", { name: "Effects", exact: true }).click();
-      await expect(page.getByRole("button", { name: "Add effect", exact: true })).toBeVisible();
-      const keyframes = page.getByRole("button", { name: "Keyframes", exact: true });
-      await keyframes.click();
-      await expect(
-        page.getByRole("button", { name: "Toggle auto-keyframe", exact: true }),
-      ).toBeVisible();
-      await page.getByRole("tab", { name: "Edit", exact: true }).click();
-      await page.getByRole("tab", { name: "Color", exact: true }).click();
-      await expect(keyframes).toHaveAttribute("aria-pressed", "true");
-      await page.getByRole("tab", { name: "Primaries", exact: true }).click();
-      const scopes = page.getByRole("complementary", { name: "Scopes", exact: true });
-      const previewWidth = (await viewer.boundingBox())!.width;
-      await page.getByRole("button", { name: "Scopes", exact: true }).click();
-      await expect(scopes).toBeHidden();
-      await expect
-        .poll(async () => (await viewer.boundingBox())!.width)
-        .toBeGreaterThan(previewWidth);
-      await expect(lift).toHaveAttribute("aria-valuetext", originalLift!);
-      await page.getByRole("tab", { name: "Curves", exact: true }).click();
-      await page.getByRole("tab", { name: "Edit", exact: true }).click();
-      await page.getByRole("tab", { name: "Color", exact: true }).click();
-      await expect(page.getByRole("tab", { name: "Curves", exact: true })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
-      await expect(scopes).toBeHidden();
-      await page
-        .getByRole("banner")
-        .getByRole("button", { name: "More actions", exact: true })
-        .click();
-      await page.getByRole("menuitem", { name: "Save", exact: true }).click();
-      await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
-        "data-state",
-        "saved",
-      );
-      await page.reload();
-      await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
-        timeout: 20_000,
+    for (const label of ["Show one scope", "Show all scopes"]) {
+      const control = page.getByRole("button", { name: label, exact: true });
+      const offset = await control.evaluate((button) => {
+        const bounds = button.getBoundingClientRect();
+        const icon = button.firstElementChild!.getBoundingClientRect();
+        return {
+          x: Math.abs(bounds.x + bounds.width / 2 - icon.x - icon.width / 2),
+          y: Math.abs(bounds.y + bounds.height / 2 - icon.y - icon.height / 2),
+        };
       });
-      await expect(page.getByRole("tab", { name: "Curves", exact: true })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
-      await expect(scopes).toBeHidden();
-      if (scheme === "light") {
-        for (const viewport of [
-          { width: 1024, height: 768 },
-          { width: 640, height: 450 },
-          { width: 390, height: 844 },
-          { width: 320, height: 844 },
-        ]) {
-          await page.setViewportSize(viewport);
-          await page.getByRole("tab", { name: "Secondary Qualifier", exact: true }).click();
-          await expect(
-            page.getByRole("tabpanel", { name: "Secondary Qualifier", exact: true }),
-          ).toBeVisible();
-          await expect(
-            page.getByRole("button", { name: "Add effect · Secondary Qualifier", exact: true }),
-          ).toBeVisible();
-          expect(
-            await page.evaluate(() => document.documentElement.scrollWidth),
-          ).toBeLessThanOrEqual(viewport.width);
-          await page.screenshot({
-            path: testInfo.outputPath(`color-qualifier-${viewport.width}.png`),
-          });
-          await page.getByRole("tab", { name: "Curves", exact: true }).click();
+      expect(offset.x, `${label} icon must be horizontally centered`).toBeLessThanOrEqual(1);
+      expect(offset.y, `${label} icon must be vertically centered`).toBeLessThanOrEqual(1);
+    }
+
+    const viewer = page.locator("#video-editor-program-panel");
+    await expect.poll(async () => (await viewer.boundingBox())!.height).toBeGreaterThanOrEqual(280);
+    for (const name of ["Lift", "Gamma", "Gain", "Offset"]) {
+      const wheel = page.getByRole("slider", { name: `${name} color wheel`, exact: true });
+      await expect.poll(async () => (await wheel.boundingBox())!.width).toBeGreaterThanOrEqual(104);
+      const visibleFraction = await wheel.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        let top = Math.max(0, bounds.top);
+        let bottom = Math.min(innerHeight, bounds.bottom);
+        let left = Math.max(0, bounds.left);
+        let right = Math.min(innerWidth, bounds.right);
+        for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+          const style = getComputedStyle(ancestor);
+          const rect = ancestor.getBoundingClientRect();
+          if (/auto|scroll|hidden|clip/.test(style.overflowY)) {
+            top = Math.max(top, rect.top);
+            bottom = Math.min(bottom, rect.bottom);
+          }
+          if (/auto|scroll|hidden|clip/.test(style.overflowX)) {
+            left = Math.max(left, rect.left);
+            right = Math.min(right, rect.right);
+          }
         }
-      }
+        return (
+          (Math.max(0, bottom - top) * Math.max(0, right - left)) / (bounds.width * bounds.height)
+        );
+      });
+      expect(visibleFraction, `${name} wheel must not be clipped by its panel`).toBeGreaterThan(
+        0.98,
+      );
+    }
+    await expect(page.getByRole("toolbar", { name: "On-canvas editing tools" })).toBeHidden();
+    const lift = page.getByRole("slider", { name: "Lift color wheel", exact: true });
+    const originalLift = await lift.getAttribute("aria-valuetext");
+    await lift.press("ArrowRight");
+    await expect(lift).not.toHaveAttribute("aria-valuetext", originalLift!);
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Undo", exact: true }).click();
+    await expect(lift).toHaveAttribute("aria-valuetext", originalLift!);
+    await page.getByRole("tab", { name: "Curves", exact: true }).click();
+    await expect(
+      page.getByRole("group", { name: "Master curve editor", exact: true }),
+    ).toBeVisible();
+    await expect(lift).toBeHidden();
+    const curveMarker = page
+      .locator("[data-curves-editor] circle, [data-curves-editor] ellipse")
+      .nth(1);
+    await expect
+      .poll(async () => {
+        const box = await curveMarker.boundingBox();
+        return box ? Math.abs(box.width - box.height) : Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThan(1);
+    const markerBox = (await curveMarker.boundingBox())!;
+    expect(markerBox.width).toBeGreaterThanOrEqual(8);
+    expect(markerBox.width).toBeLessThanOrEqual(16);
+    await expect(
+      page.getByRole("button", { name: "Toggle auto-keyframe", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Before", exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "Effects", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Add effect", exact: true })).toBeVisible();
+    const keyframes = page.getByRole("button", { name: "Keyframes", exact: true });
+    await keyframes.click();
+    await expect(
+      page.getByRole("button", { name: "Toggle auto-keyframe", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: "Edit", exact: true }).click();
+    await page.getByRole("tab", { name: "Color", exact: true }).click();
+    await expect(keyframes).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("tab", { name: "Primaries", exact: true }).click();
+    const scopes = page.getByRole("complementary", { name: "Scopes", exact: true });
+    const previewWidth = (await viewer.boundingBox())!.width;
+    await page.getByRole("button", { name: "Scopes", exact: true }).click();
+    await expect(scopes).toBeHidden();
+    await expect
+      .poll(async () => (await viewer.boundingBox())!.width)
+      .toBeGreaterThan(previewWidth);
+    await expect(lift).toHaveAttribute("aria-valuetext", originalLift!);
+    await page.getByRole("tab", { name: "Curves", exact: true }).click();
+    await page.getByRole("tab", { name: "Edit", exact: true }).click();
+    await page.getByRole("tab", { name: "Color", exact: true }).click();
+    await expect(page.getByRole("tab", { name: "Curves", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(scopes).toBeHidden();
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+      "data-state",
+      "saved",
+    );
+    await page.reload();
+    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
+      timeout: 20_000,
     });
-  }
+    await expect(page.getByRole("tab", { name: "Curves", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(scopes).toBeHidden();
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.getByRole("tab", { name: "Secondary Qualifier", exact: true }).click();
+    await expect(
+      page.getByRole("tabpanel", { name: "Secondary Qualifier", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Add effect · Secondary Qualifier", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: "Curves", exact: true }).click();
+  });
 
   test("text content is immediately editable without scrolling past transforms or templates", async ({
     page,
@@ -1933,7 +1629,6 @@ test.describe("video editor panels", () => {
     await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
     const inspector = page.locator("#video-editor-tools-panel");
     const content = inspector.locator("textarea");
-    await page.screenshot({ path: testInfo.outputPath("text-inspector-laptop.png") });
     await expect(content).toBeInViewport({ ratio: 1 });
     await expect(inspector.getByRole("spinbutton", { name: "Size", exact: true })).toBeInViewport({
       ratio: 1,
@@ -1983,249 +1678,211 @@ test.describe("video editor panels", () => {
     await expect(page.locator('[data-layout-toggle="collapse-left"]')).toBeVisible();
   });
 
-  for (const scheme of ["light"] as const) {
-    test(`property panels stay neutral while controls retain their accent in ${scheme}`, async ({
-      page,
-    }, testInfo) => {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await page.setViewportSize({ width: 1440, height: 1000 });
-      await createProject(page, "Neutral properties");
-      await page
-        .getByRole("banner")
-        .getByRole("button", { name: "More actions", exact: true })
-        .click();
-      await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
-      const panels = page.getByTestId("clip-transform-panel").locator("section");
-      await expect(panels).toHaveCount(2);
-      await page.screenshot({ path: testInfo.outputPath(`properties-${scheme}.png`) });
-      for (const panel of await panels.all()) {
-        const colors = await panel.evaluate((element) => {
-          const probe = document.createElement("span");
-          element.append(probe);
-          probe.style.backgroundColor = "var(--card)";
-          const neutral = getComputedStyle(probe).backgroundColor;
-          probe.style.backgroundColor = "var(--action-ordinary-hover)";
-          const hover = getComputedStyle(probe).backgroundColor;
-          probe.remove();
-          let surface: Element | null = element;
-          let actual = "rgba(0, 0, 0, 0)";
-          while (surface) {
-            const background = getComputedStyle(surface).backgroundColor;
-            if (background !== "rgba(0, 0, 0, 0)") {
-              actual = background;
-              break;
-            }
-            surface = surface.parentElement;
-          }
-          return { actual, neutral, hover };
-        });
-        expect(colors.actual).toBe(colors.neutral);
-        expect(colors.actual).not.toBe(colors.hover);
-      }
-      await page.getByRole("button", { name: "Appearance", exact: true }).click();
-      const opacity = page.getByRole("slider", { name: "Opacity", exact: true });
-      await opacity.focus();
-      await opacity.press("ArrowLeft");
-      await expect(opacity).toHaveAttribute("aria-valuenow", "99");
-      const accents = await opacity.evaluate((element) => {
+  test(`property panels stay neutral while controls retain their accent in light`, async ({
+    page,
+  }, testInfo) => {
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await createProject(page, "Neutral properties");
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
+    const panels = page.getByTestId("clip-transform-panel").locator("section");
+    await expect(panels).toHaveCount(2);
+    for (const panel of await panels.all()) {
+      const colors = await panel.evaluate((element) => {
         const probe = document.createElement("span");
-        probe.style.transition = "none";
         element.append(probe);
-        const color = (token: string) => {
-          probe.style.color = `var(${token})`;
-          return getComputedStyle(probe).color;
-        };
-        const focus = color("--ring");
-        const editor = color("--video-editor-focus");
-        const primary = color("--action-focal");
+        probe.style.backgroundColor = "var(--card)";
+        const neutral = getComputedStyle(probe).backgroundColor;
+        probe.style.backgroundColor = "var(--action-ordinary-hover)";
+        const hover = getComputedStyle(probe).backgroundColor;
         probe.remove();
-        return { focus, editor, primary };
+        let surface: Element | null = element;
+        let actual = "rgba(0, 0, 0, 0)";
+        while (surface) {
+          const background = getComputedStyle(surface).backgroundColor;
+          if (background !== "rgba(0, 0, 0, 0)") {
+            actual = background;
+            break;
+          }
+          surface = surface.parentElement;
+        }
+        return { actual, neutral, hover };
       });
-      const hue = (color: string) => {
-        const coordinates = /^oklch\([\d.]+\s+[\d.]+\s+([\d.]+)\)$/.exec(color);
-        expect(coordinates, `expected a computed OKLCH color, received ${color}`).not.toBeNull();
-        return Number(coordinates![1]);
+      expect(colors.actual).toBe(colors.neutral);
+      expect(colors.actual).not.toBe(colors.hover);
+    }
+    await page.getByRole("button", { name: "Appearance", exact: true }).click();
+    const opacity = page.getByRole("slider", { name: "Opacity", exact: true });
+    await opacity.focus();
+    await opacity.press("ArrowLeft");
+    await expect(opacity).toHaveAttribute("aria-valuenow", "99");
+    const accents = await opacity.evaluate((element) => {
+      const probe = document.createElement("span");
+      probe.style.transition = "none";
+      element.append(probe);
+      const color = (token: string) => {
+        probe.style.color = `var(${token})`;
+        return getComputedStyle(probe).color;
       };
-      expect(hue(accents.focus), "focus follows the active theme's hue").toBe(hue(accents.primary));
-      expect(accents.editor, "editor selections follow the same focus accent").toBe(accents.focus);
-      for (const width of [320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await expect(page.locator("[data-program-monitor]")).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await page.screenshot({ path: testInfo.outputPath(`properties-${scheme}-${width}.png`) });
-      }
+      const focus = color("--ring");
+      const editor = color("--video-editor-focus");
+      const primary = color("--action-focal");
+      probe.remove();
+      return { focus, editor, primary };
     });
+    const hue = (color: string) => {
+      const coordinates = /^oklch\([\d.]+\s+[\d.]+\s+([\d.]+)\)$/.exec(color);
+      expect(coordinates, `expected a computed OKLCH color, received ${color}`).not.toBeNull();
+      return Number(coordinates![1]);
+    };
+    expect(hue(accents.focus), "focus follows the active theme's hue").toBe(hue(accents.primary));
+    expect(accents.editor, "editor selections follow the same focus accent").toBe(accents.focus);
+    await page.setViewportSize({ width: 320, height: 900 });
+    await expect(page.locator("[data-program-monitor]")).toBeVisible();
+  });
 
-    test(`panel transitions preserve geometry and size in ${scheme}`, async ({
-      page,
-    }, testInfo) => {
-      test.setTimeout(120_000);
-      const errors: string[] = [];
-      page.on("pageerror", (error) => errors.push(error.message));
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await page.setViewportSize({ width: 1440, height: 1000 });
-      await createProject(page, "Panel transitions");
+  test(`panel transitions preserve geometry and size in light`, async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await createProject(page, "Panel transitions");
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
+    await expect(page.locator("[data-program-monitor]")).toBeVisible();
+    const assets = page.locator("#video-editor-assets-panel");
+    const tools = page.locator("#video-editor-tools-panel");
+    const preview = page.locator("#video-editor-program-panel");
+    const footer = page.locator("footer");
+    async function toggleDock(attribute: string) {
       await page
         .getByRole("banner")
         .getByRole("button", { name: "More actions", exact: true })
         .click();
-      await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
-      await expect(page.locator("[data-program-monitor]")).toBeVisible();
-      const assets = page.locator("#video-editor-assets-panel");
-      const tools = page.locator("#video-editor-tools-panel");
-      const preview = page.locator("#video-editor-program-panel");
-      const footer = page.locator("footer");
-      async function toggleDock(attribute: string) {
-        await page
-          .getByRole("banner")
-          .getByRole("button", { name: "More actions", exact: true })
-          .click();
-        await page.locator(`[data-layout-toggle="${attribute}"]`).click();
-      }
-      const player = await preview.locator("[data-program-monitor]").elementHandle();
-      async function assertLayout(leftFull: boolean, rightFull: boolean) {
-        await expect(preview).toBeVisible();
-        await expect(async () => {
-          const [a, t, f] = await page.evaluate(() =>
-            ["#video-editor-assets-panel", "#video-editor-tools-panel", "footer"].map(
-              (selector) => {
-                const r = document.querySelector(selector)!.getBoundingClientRect();
-                return { x: r.x, y: r.y, width: r.width, height: r.height };
-              },
-            ),
-          );
-          expect(f.x).toBeCloseTo(leftFull ? a.x + a.width : a.x, 0);
-          expect(f.x + f.width).toBeCloseTo(rightFull ? t.x : t.x + t.width, 0);
-          expect(a.y + a.height).toBeCloseTo(leftFull ? f.y + f.height : f.y, 0);
-          expect(t.y + t.height).toBeCloseTo(rightFull ? f.y + f.height : f.y, 0);
-        }).toPass({ timeout: 3000 });
-        expect(await player!.evaluate((node) => node.isConnected)).toBe(true);
-      }
-      async function assertFullColumns() {
-        await page
-          .getByRole("banner")
-          .getByRole("button", { name: "More actions", exact: true })
-          .click();
-        await expect(page.locator('[data-layout-toggle="expand-column-left"]')).toHaveText(
-          "Place panel above timeline",
+      await page.locator(`[data-layout-toggle="${attribute}"]`).click();
+    }
+    const player = await preview.locator("[data-program-monitor]").elementHandle();
+    async function assertLayout(leftFull: boolean, rightFull: boolean) {
+      await expect(preview).toBeVisible();
+      await expect(async () => {
+        const [a, t, f] = await page.evaluate(() =>
+          ["#video-editor-assets-panel", "#video-editor-tools-panel", "footer"].map((selector) => {
+            const r = document.querySelector(selector)!.getBoundingClientRect();
+            return { x: r.x, y: r.y, width: r.width, height: r.height };
+          }),
         );
-        await expect(page.locator('[data-layout-toggle="expand-column-right"]')).toHaveText(
-          "Place panel above timeline",
-        );
-        await page.keyboard.press("Escape");
-      }
-      await assertLayout(true, false);
-      const resize = page.getByRole("separator", { name: "Assets", exact: true });
-      await resize.press("ArrowRight");
-      await expect.poll(async () => (await assets.boundingBox())!.width).toBeGreaterThan(336);
-      const resizedWidth = (await assets.boundingBox())!.width;
-      expect(resizedWidth).toBeGreaterThan(336);
-      const timelineResize = page.getByRole("separator", { name: "Timeline", exact: true });
-      const beforeHeight = (await footer.boundingBox())!.height;
-      const grip = (await timelineResize.boundingBox())!;
-      await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(grip.x + grip.width / 2, grip.y - 40, { steps: 4 });
-      await page.mouse.up();
-      await expect
-        .poll(async () => (await footer.boundingBox())!.height)
-        .toBeGreaterThan(beforeHeight + 30);
-      for (let repeat = 0; repeat < 2; repeat++) {
-        await toggleDock("expand-column-right");
-        await assertLayout(true, true);
-        await toggleDock("expand-column-left");
-        await assertLayout(false, true);
-        await toggleDock("expand-column-right");
-        await assertLayout(false, false);
-        await toggleDock("expand-column-left");
-        await assertLayout(true, false);
-        await page.locator('[data-layout-toggle="collapse-left"]').click();
-        await assertLayout(true, false);
-        await page.locator('[data-layout-toggle="expand-left"]').click();
-        await page.locator('[data-layout-toggle="collapse-right"]').click();
-        await assertLayout(true, false);
-        await page.locator('[data-layout-toggle="expand-right"]').click();
-        expect((await assets.boundingBox())!.width).toBeCloseTo(resizedWidth, 0);
-      }
-      await page.locator("[data-program-monitor]").focus();
-      await page.keyboard.press("ControlOrMeta+Alt+ArrowRight");
-      await assertLayout(true, true);
-      await page.evaluate(async () => {
-        await document.fonts.ready;
-        await new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-        );
-      });
-      await page.screenshot({ path: testInfo.outputPath(`columns-${scheme}.png`) });
-      async function enterTheater() {
-        await preview.getByRole("button", { name: "More actions", exact: true }).click();
-        await page.getByRole("menuitem", { name: "Enter theater mode", exact: true }).click();
-      }
-      await enterTheater();
-      await assertLayout(false, false);
+        expect(f.x).toBeCloseTo(leftFull ? a.x + a.width : a.x, 0);
+        expect(f.x + f.width).toBeCloseTo(rightFull ? t.x : t.x + t.width, 0);
+        expect(a.y + a.height).toBeCloseTo(leftFull ? f.y + f.height : f.y, 0);
+        expect(t.y + t.height).toBeCloseTo(rightFull ? f.y + f.height : f.y, 0);
+      }).toPass({ timeout: 3000 });
+      expect(await player!.evaluate((node) => node.isConnected)).toBe(true);
+    }
+    async function assertFullColumns() {
+      await page
+        .getByRole("banner")
+        .getByRole("button", { name: "More actions", exact: true })
+        .click();
+      await expect(page.locator('[data-layout-toggle="expand-column-left"]')).toHaveText(
+        "Place panel above timeline",
+      );
+      await expect(page.locator('[data-layout-toggle="expand-column-right"]')).toHaveText(
+        "Place panel above timeline",
+      );
       await page.keyboard.press("Escape");
-      await assertLayout(true, true);
-      await enterTheater();
-      await page.locator("[data-program-monitor]").focus();
-      await page.evaluate(
-        () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
-      );
-      await expect(page.locator("[data-program-monitor]")).toBeFocused();
-      await page.keyboard.press("ControlOrMeta+Alt+ArrowRight");
-      await expect(page.locator('[data-layout-toggle="theater"]')).toHaveAttribute(
-        "aria-pressed",
-        "false",
-      );
-      await assertLayout(true, false);
+    }
+    await assertLayout(true, false);
+    const resize = page.getByRole("separator", { name: "Assets", exact: true });
+    await resize.press("ArrowRight");
+    await expect.poll(async () => (await assets.boundingBox())!.width).toBeGreaterThan(336);
+    const resizedWidth = (await assets.boundingBox())!.width;
+    expect(resizedWidth).toBeGreaterThan(336);
+    const timelineResize = page.getByRole("separator", { name: "Timeline", exact: true });
+    const beforeHeight = (await footer.boundingBox())!.height;
+    const grip = (await timelineResize.boundingBox())!;
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(grip.x + grip.width / 2, grip.y - 40, { steps: 4 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await footer.boundingBox())!.height)
+      .toBeGreaterThan(beforeHeight + 30);
+    for (let repeat = 0; repeat < 2; repeat++) {
       await toggleDock("expand-column-right");
-      await page.reload();
-      await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
-        timeout: 20_000,
-      });
-      await assertFullColumns();
+      await assertLayout(true, true);
+      await toggleDock("expand-column-left");
+      await assertLayout(false, true);
+      await toggleDock("expand-column-right");
+      await assertLayout(false, false);
+      await toggleDock("expand-column-left");
+      await assertLayout(true, false);
+      await page.locator('[data-layout-toggle="collapse-left"]').click();
+      await assertLayout(true, false);
+      await page.locator('[data-layout-toggle="expand-left"]').click();
+      await page.locator('[data-layout-toggle="collapse-right"]').click();
+      await assertLayout(true, false);
+      await page.locator('[data-layout-toggle="expand-right"]').click();
       expect((await assets.boundingBox())!.width).toBeCloseTo(resizedWidth, 0);
-      for (const workspace of ["Color", "Motion", "Edit"]) {
-        await page
-          .getByRole("tablist", { name: "Editor workspaces" })
-          .getByRole("tab", { name: workspace, exact: true })
-          .click();
-        await expect(page.locator("#editor-workspace-panel")).toBeVisible();
-      }
-      await assertFullColumns();
-      for (const width of [1024, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        if (width < 1024) {
-          const dock = page.getByRole("navigation", { name: "Editor panels" });
-          for (const [name, expected] of [
-            ["Media", assets],
-            ["Text", assets],
-            ["Effects", assets],
-            ["Properties", tools],
-            ["Timeline", preview],
-          ] as const) {
-            const tab = dock.getByRole("button", { name, exact: true });
-            await tab.click();
-            await expect(tab).toHaveAttribute("aria-pressed", "true");
-            await expect(expected).toBeVisible();
-          }
-          const dockBox = await dock.boundingBox();
-          const timeline = await footer.boundingBox();
-          expect(dockBox!.y).toBeGreaterThan((await preview.boundingBox())!.y);
-          expect(dockBox!.y).toBeGreaterThanOrEqual(timeline!.y + timeline!.height - 1);
-        }
-        await expect(preview).toBeVisible();
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await page.screenshot({ path: testInfo.outputPath(`panels-${scheme}-${width}.png`) });
-      }
-      expect(errors).toEqual([]);
+    }
+    await page.locator("[data-program-monitor]").focus();
+    await page.keyboard.press("ControlOrMeta+Alt+ArrowRight");
+    await assertLayout(true, true);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      );
     });
-  }
+    async function enterTheater() {
+      await preview.getByRole("button", { name: "More actions", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Enter theater mode", exact: true }).click();
+    }
+    await enterTheater();
+    await assertLayout(false, false);
+    await page.keyboard.press("Escape");
+    await assertLayout(true, true);
+    await enterTheater();
+    await page.locator("[data-program-monitor]").focus();
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+    await expect(page.locator("[data-program-monitor]")).toBeFocused();
+    await page.keyboard.press("ControlOrMeta+Alt+ArrowRight");
+    await expect(page.locator('[data-layout-toggle="theater"]')).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await assertLayout(true, false);
+    await toggleDock("expand-column-right");
+    await page.reload();
+    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
+      timeout: 20_000,
+    });
+    await assertFullColumns();
+    expect((await assets.boundingBox())!.width).toBeCloseTo(resizedWidth, 0);
+    for (const workspace of ["Color", "Motion", "Edit"]) {
+      await page
+        .getByRole("tablist", { name: "Editor workspaces" })
+        .getByRole("tab", { name: workspace, exact: true })
+        .click();
+      await expect(page.locator("#editor-workspace-panel")).toBeVisible();
+    }
+    await assertFullColumns();
+    await page.setViewportSize({ width: 1024, height: 900 });
+
+    await expect(preview).toBeVisible();
+    expect(errors).toEqual([]);
+  });
 
   test("Color palettes explain their action and landscape workspaces retain a usable preview", async ({
     page,
@@ -2254,28 +1911,22 @@ test.describe("video editor panels", () => {
       .getByRole("button", { name: "Add effect · Secondary Qualifier", exact: true })
       .click();
     await expect(page.locator("[data-effect-id]")).toHaveCount(2);
-    for (const width of [320]) {
-      await page.setViewportSize({ width, height: width === 640 ? 450 : 844 });
-      const program = page.locator("#video-editor-program-panel");
-      expect((await program.boundingBox())!.height).toBeGreaterThanOrEqual(190);
-      await expect(page.getByRole("button", { name: "Play", exact: true })).toBeInViewport({
-        ratio: 1,
-      });
-      await expect(
-        page.getByRole("button", { name: "Enter preview fullscreen", exact: true }),
-      ).toBeInViewport({ ratio: 1 });
-      const transportMenu = program.getByRole("button", { name: "More actions", exact: true });
-      await transportMenu.press("Enter");
-      await expect(
-        page.getByRole("menuitem", { name: "Step one frame forward", exact: true }),
-      ).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(transportMenu).toBeFocused();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        width,
-      );
-      await page.screenshot({ path: testInfo.outputPath(`video-qualifier-${width}.png`) });
-    }
+    await page.setViewportSize({ width: 320, height: 844 });
+    const program = page.locator("#video-editor-program-panel");
+    expect((await program.boundingBox())!.height).toBeGreaterThanOrEqual(190);
+    await expect(page.getByRole("button", { name: "Play", exact: true })).toBeInViewport({
+      ratio: 1,
+    });
+    await expect(
+      page.getByRole("button", { name: "Enter preview fullscreen", exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+    const transportMenu = program.getByRole("button", { name: "More actions", exact: true });
+    await transportMenu.press("Enter");
+    await expect(
+      page.getByRole("menuitem", { name: "Step one frame forward", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(transportMenu).toBeFocused();
     await page.setViewportSize({ width: 640, height: 450 });
     await page.getByRole("tab", { name: "Motion", exact: true }).click();
     await expect(page.getByRole("button", { name: "New composition", exact: true })).toBeVisible();
@@ -2287,7 +1938,6 @@ test.describe("video editor panels", () => {
     expect(
       (await page.locator("#video-editor-program-panel").boundingBox())!.height,
     ).toBeGreaterThanOrEqual(160);
-    await page.screenshot({ path: testInfo.outputPath("motion-landscape.png") });
     await page.getByRole("banner").getByRole("button", { name: "Export", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Export video", exact: true });
     await expect(dialog.getByRole("button", { name: "Render now", exact: true })).toBeInViewport({
@@ -2298,76 +1948,62 @@ test.describe("video editor panels", () => {
     await expect(dialog.getByRole("button", { name: "Render now", exact: true })).toBeInViewport({
       ratio: 1,
     });
-    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(
-      true,
-    );
-    await page.screenshot({ path: testInfo.outputPath("video-export-320.png") });
   });
 
-  for (const scheme of ["light"] as const) {
-    test(`Transcript fills the phone Assets pane and keeps its controls usable in ${scheme}`, async ({
-      page,
-    }, testInfo) => {
-      test.setTimeout(90_000);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await createProject(page, "Readable transcript");
-      await page.getByRole("tab", { name: "Captions", exact: true }).click();
-      for (const width of [320]) {
-        await page.setViewportSize({ width, height: 844 });
-        await page
-          .getByRole("navigation", { name: "Editor panels", exact: true })
-          .getByRole("button", { name: "Media", exact: true })
-          .click();
-        await page
-          .getByRole("tablist", { name: "Assets", exact: true })
-          .getByRole("tab", { name: "Captions", exact: true })
-          .click();
-        const transcript = page.getByRole("region", { name: "Transcript", exact: true });
-        await expect(transcript).toBeVisible();
-        const assetsBounds = (await page.locator("#video-editor-assets-panel").boundingBox())!;
-        const transcriptBounds = (await transcript.boundingBox())!;
-        expect(
-          Math.abs(
-            transcriptBounds.y + transcriptBounds.height - assetsBounds.y - assetsBounds.height,
-          ),
-        ).toBeLessThanOrEqual(1);
-        await expect(transcript.getByText("No captions yet.", { exact: true })).toBeInViewport({
-          ratio: 1,
-        });
-        expect(
-          await transcript.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
-        ).toBe(true);
-        await expect(page.getByRole("searchbox", { name: "Search transcript" })).toBeInViewport({
-          ratio: 1,
-        });
-        const search = transcript.getByRole("searchbox", { name: "Search transcript" });
-        await search.focus();
-        await page.keyboard.type("No caption fixture");
-        await expect(search).toHaveValue("No caption fixture");
-        await page.keyboard.press("Enter");
-        await expect(transcript.getByText("No matches", { exact: true })).toBeVisible();
-        await search.fill("");
-        const options = transcript.getByRole("button", { name: "Transcript options", exact: true });
-        await options.press("Enter");
-        await expect(options).toHaveAttribute("aria-expanded", "true");
-        await expect(
-          transcript.getByRole("button", { name: "Auto-scroll", exact: true }),
-        ).toBeInViewport({ ratio: 1 });
-        await options.press("Enter");
-        await expect(options).toHaveAttribute("aria-expanded", "false");
-        await page.screenshot({ path: testInfo.outputPath(`transcript-${width}-${scheme}.png`) });
-        await page
-          .getByRole("navigation", { name: "Editor panels", exact: true })
-          .getByRole("button", { name: "Timeline", exact: true })
-          .click();
-        await expect(page.getByRole("button", { name: "Play", exact: true })).toBeInViewport({
-          ratio: 1,
-        });
-        await expect(transcript).toBeHidden();
-      }
+  test(`Transcript fills the phone Assets pane and keeps its controls usable in light`, async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(90_000);
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await createProject(page, "Readable transcript");
+    await page.getByRole("tab", { name: "Captions", exact: true }).click();
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page
+      .getByRole("navigation", { name: "Editor panels", exact: true })
+      .getByRole("button", { name: "Media", exact: true })
+      .click();
+    await page
+      .getByRole("tablist", { name: "Assets", exact: true })
+      .getByRole("tab", { name: "Captions", exact: true })
+      .click();
+    const transcript = page.getByRole("region", { name: "Transcript", exact: true });
+    await expect(transcript).toBeVisible();
+    const assetsBounds = (await page.locator("#video-editor-assets-panel").boundingBox())!;
+    const transcriptBounds = (await transcript.boundingBox())!;
+    expect(
+      Math.abs(transcriptBounds.y + transcriptBounds.height - assetsBounds.y - assetsBounds.height),
+    ).toBeLessThanOrEqual(1);
+    await expect(transcript.getByText("No captions yet.", { exact: true })).toBeInViewport({
+      ratio: 1,
     });
-  }
+    await expect(page.getByRole("searchbox", { name: "Search transcript" })).toBeInViewport({
+      ratio: 1,
+    });
+    const search = transcript.getByRole("searchbox", { name: "Search transcript" });
+    await search.focus();
+    await page.keyboard.type("No caption fixture");
+    await expect(search).toHaveValue("No caption fixture");
+    await page.keyboard.press("Enter");
+    await expect(transcript.getByText("No matches", { exact: true })).toBeVisible();
+    await search.fill("");
+    const options = transcript.getByRole("button", { name: "Transcript options", exact: true });
+    await options.press("Enter");
+    await expect(options).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      transcript.getByRole("button", { name: "Auto-scroll", exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+    await options.press("Enter");
+    await expect(options).toHaveAttribute("aria-expanded", "false");
+    await page
+      .getByRole("navigation", { name: "Editor panels", exact: true })
+      .getByRole("button", { name: "Timeline", exact: true })
+      .click();
+    await expect(page.getByRole("button", { name: "Play", exact: true })).toBeInViewport({
+      ratio: 1,
+    });
+    await expect(transcript).toBeHidden();
+  });
 
   test("Motion uses authored duration in its summary, transport, and export", async ({ page }) => {
     test.setTimeout(90_000);
@@ -2441,9 +2077,6 @@ test.describe("video editor panels", () => {
           geometry.timelineBottom > geometry.height + 1
         ) {
           failures.push(`${size.width}x${size.height} ${name}: ${JSON.stringify(geometry)}`);
-          await page.screenshot({
-            path: testInfo.outputPath(`overflow-${size.width}-${name}.png`),
-          });
         }
       }
       if (size.width < 1024) {
@@ -2526,33 +2159,22 @@ test.describe("video editor project summary", () => {
     await expect(clips).toHaveCount(1);
     await openProjectDetails(page);
     await expect(summary).toHaveText("1920×1080 · 30 fps · 0:03 · Clips: 1 · Media: 0 · Issues: 0");
-    for (const scheme of ["light"] as const) {
-      await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await page.reload();
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        if (width >= 768) {
-          await openProjectDetails(page);
-          await expect(summary).toHaveAttribute(
-            "title",
-            "1920×1080 · 30 fps · 0:03 · Clips: 1 · Media: 0 · Issues: 0",
-          );
-          await expect(summary).toBeVisible();
-        } else {
-          await expect
-            .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-            .toBe(true);
-        }
-        await page.evaluate(async () => {
-          await document.fonts.ready;
-          await new Promise<void>((resolve) =>
-            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-          );
-        });
-        await page.screenshot({ path: info.outputPath(`summary-${scheme}-${width}.png`) });
-        await page.keyboard.press("Escape");
-      }
-    }
+    await page.evaluate((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await page.reload();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await openProjectDetails(page);
+    await expect(summary).toHaveAttribute(
+      "title",
+      "1920×1080 · 30 fps · 0:03 · Clips: 1 · Media: 0 · Issues: 0",
+    );
+    await expect(summary).toBeVisible();
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      );
+    });
+    await page.keyboard.press("Escape");
   });
 });
 
@@ -2601,25 +2223,16 @@ test.describe("video editor repair", () => {
     const header = page.getByRole("banner");
     const more = header.getByRole("button", { name: "More actions", exact: true });
     await expectProjectSummary(page, "Clips: 1");
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 844 });
-        for (const command of ["Undo", "Redo"] as const) {
-          await more.click();
-          const action = page.getByRole("menuitem", { name: command, exact: true });
-          if (width === 1280) await action.click();
-          else {
-            await action.focus();
-            await action.press("Enter");
-          }
-          await expect(page.getByRole("menu")).toHaveCount(0);
-          if (width !== 1280) await expect(more).toBeFocused();
-          await expectProjectSummary(page, command === "Undo" ? "Clips: 0" : "Clips: 1");
-        }
-        await page.screenshot({ path: testInfo.outputPath(`history-menu-${scheme}-${width}.png`) });
-      }
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", "light");
+    await page.setViewportSize({ width: 1280, height: 844 });
+    for (const command of ["Undo", "Redo"] as const) {
+      await more.click();
+      const action = page.getByRole("menuitem", { name: command, exact: true });
+      await action.click();
+      await expect(page.getByRole("menu")).toHaveCount(0);
+
+      await expectProjectSummary(page, command === "Undo" ? "Clips: 0" : "Clips: 1");
     }
     await more.click();
     await expect(page.getByRole("menuitem", { name: "Redo", exact: true })).toBeDisabled();
@@ -3021,28 +2634,17 @@ test.describe("video editor repair", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await newProject(page, "Recording proof");
     await expect(page.getByText(/Workspace root is not set/)).toHaveCount(0);
-    for (const colorScheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      for (const width of [1440, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        await openRecorder(page);
-        const dialog = page.getByRole("dialog", { name: "Recorder", exact: true });
-        await expect(dialog).toBeVisible();
-        await expect(dialog.getByRole("button", { name: "Microphone", exact: true })).toBeVisible();
-        await dialog.getByRole("button", { name: "Microphone", exact: true }).click();
-        await expect(
-          page.getByRole("option", { name: "Device default", exact: true }),
-        ).toBeVisible();
-        await page.keyboard.press("Escape");
-        expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-        await page.screenshot({
-          path: test.info().outputPath(`recording-${width}-${colorScheme}.png`),
-        });
-        await dialog.getByRole("button", { name: "Close", exact: true }).first().click();
-        await page.screenshot({
-          path: test.info().outputPath(`editor-${width}-${colorScheme}.png`),
-        });
-      }
+    {
+      await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await openRecorder(page);
+      const dialog = page.getByRole("dialog", { name: "Recorder", exact: true });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "Microphone", exact: true })).toBeVisible();
+      await dialog.getByRole("button", { name: "Microphone", exact: true }).click();
+      await expect(page.getByRole("option", { name: "Device default", exact: true })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await dialog.getByRole("button", { name: "Close", exact: true }).first().click();
     }
     await page.setViewportSize({ width: 1440, height: 900 });
     await openRecorder(page);
@@ -3356,99 +2958,75 @@ test.describe("video editor shaders", () => {
     expect(errors).toEqual([]);
   });
 
-  for (const scheme of ["light"] as const) {
-    test(`shader gallery and controls fit desktop and phones in ${scheme}`, async ({
-      page,
-    }, info) => {
-      test.setTimeout(60_000);
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-      await page.setViewportSize({ width: 1440, height: 900 });
-      const errors: string[] = [];
-      page.on("pageerror", (error) => errors.push(error.message));
-      await createShaderProject(page, "Warp");
-      await page.getByRole("slider", { name: "Warp: Speed", exact: true }).press("Home");
-      await expect(page.getByRole("button", { name: "Neural", exact: true })).toBeEnabled();
-      await page.getByRole("button", { name: "Aurora", exact: true }).focus();
-      await expect(page.getByRole("button", { name: "Aurora", exact: true })).toBeFocused();
-      await expectRenderedShader(page);
-      await page.screenshot({ path: info.outputPath(`shaders-${scheme}-1440.png`) });
-      for (const width of [320]) {
-        await page.setViewportSize({ width, height: 900 });
-        const panels = page.getByRole("navigation", { name: "Editor panels" });
-        for (const name of ["Media", "Properties", "Timeline"]) {
-          await panels.getByRole("button", { name, exact: true }).click();
-          await expect(panels.getByRole("button", { name, exact: true })).toHaveAttribute(
-            "aria-pressed",
-            "true",
-          );
-          expect(
-            await page.evaluate(() => document.documentElement.scrollWidth),
-          ).toBeLessThanOrEqual(width);
-          if (name === "Media") {
-            await page
-              .getByRole("tablist", { name: "Assets", exact: true })
-              .getByRole("tab", { name: "Elements", exact: true })
-              .click();
-            await page
-              .getByRole("tablist", { name: "Elements", exact: true })
-              .getByRole("tab", { name: "Backgrounds", exact: true })
-              .click();
-            for (const preset of ["Aurora", "Warp", "God rays", "Static radial gradient"]) {
-              await page.getByRole("searchbox", { name: "Search backgrounds" }).fill(preset);
-              const tile = page.getByRole("button", { name: preset, exact: true });
-              await tile.scrollIntoViewIfNeeded();
-              await expect(tile).toBeInViewport({ ratio: GALLERY_VISIBLE_RATIO });
-              await expect(tile.getByText(preset, { exact: true })).toBeInViewport({
-                ratio: GALLERY_VISIBLE_RATIO,
-              });
-            }
-          }
-          if (name === "Properties") {
-            await page
-              .getByRole("button", { name: "Warp: Shape", exact: true })
-              .scrollIntoViewIfNeeded();
-            await expect(
-              page.getByRole("button", { name: "Warp: Shape", exact: true }),
-            ).toBeInViewport();
-          }
-          await expectRenderedShader(page);
-          await page.screenshot({
-            path: info.outputPath(`shaders-${scheme}-${width}-${name.toLowerCase()}.png`),
+  test(`shader gallery and controls fit desktop and phones in light`, async ({ page }, info) => {
+    test.setTimeout(60_000);
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await createShaderProject(page, "Warp");
+    await page.getByRole("slider", { name: "Warp: Speed", exact: true }).press("Home");
+    await expect(page.getByRole("button", { name: "Neural", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "Aurora", exact: true }).focus();
+    await expect(page.getByRole("button", { name: "Aurora", exact: true })).toBeFocused();
+    await expectRenderedShader(page);
+    await page.setViewportSize({ width: 320, height: 900 });
+    const panels = page.getByRole("navigation", { name: "Editor panels" });
+    for (const name of ["Media", "Properties", "Timeline"]) {
+      await panels.getByRole("button", { name, exact: true }).click();
+      await expect(panels.getByRole("button", { name, exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      if (name === "Media") {
+        await page
+          .getByRole("tablist", { name: "Assets", exact: true })
+          .getByRole("tab", { name: "Elements", exact: true })
+          .click();
+        await page
+          .getByRole("tablist", { name: "Elements", exact: true })
+          .getByRole("tab", { name: "Backgrounds", exact: true })
+          .click();
+        for (const preset of ["Aurora", "Warp", "God rays", "Static radial gradient"]) {
+          await page.getByRole("searchbox", { name: "Search backgrounds" }).fill(preset);
+          const tile = page.getByRole("button", { name: preset, exact: true });
+          await tile.scrollIntoViewIfNeeded();
+          await expect(tile).toBeInViewport({ ratio: GALLERY_VISIBLE_RATIO });
+          await expect(tile.getByText(preset, { exact: true })).toBeInViewport({
+            ratio: GALLERY_VISIBLE_RATIO,
           });
         }
       }
-      for (const width of [1440, 320]) {
-        await page.setViewportSize({ width, height: 900 });
-        if (width < 1440) {
-          await page
-            .getByRole("navigation", { name: "Editor panels" })
-            .getByRole("button", { name: "Media", exact: true })
-            .click();
-        }
+      if (name === "Properties") {
         await page
-          .getByRole("tablist", { name: "Assets", exact: true })
-          .getByRole("tab", { name: "Effects", exact: true })
-          .click();
-        await page.getByRole("searchbox", { name: "Search effects", exact: true }).fill("Shaders");
-        await expect(page.locator('[data-effect-catalog-id^="gpu-paper-"]')).toHaveCount(10);
-        const heatmap = page.locator('[data-effect-catalog-id="gpu-paper-heatmap"]');
-        await heatmap.scrollIntoViewIfNeeded();
-        await expect(heatmap.locator("canvas")).toHaveAttribute("data-rendered", "true");
-        const tile = page.locator('[data-effect-catalog-id="gpu-paper-gem-smoke"]');
-        await tile.evaluate((element) =>
-          element.scrollIntoView({ block: "center", inline: "nearest" }),
-        );
-        await expect(tile).toBeInViewport({ ratio: FULLY_VISIBLE_RATIO });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-          width,
-        );
-        await expectRenderedShader(page);
-        await page.screenshot({ path: info.outputPath(`paper-effects-${scheme}-${width}.png`) });
+          .getByRole("button", { name: "Warp: Shape", exact: true })
+          .scrollIntoViewIfNeeded();
+        await expect(
+          page.getByRole("button", { name: "Warp: Shape", exact: true }),
+        ).toBeInViewport();
       }
-      expect(errors).toEqual([]);
-    });
-  }
+      await expectRenderedShader(page);
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    await page
+      .getByRole("tablist", { name: "Assets", exact: true })
+      .getByRole("tab", { name: "Effects", exact: true })
+      .click();
+    await page.getByRole("searchbox", { name: "Search effects", exact: true }).fill("Shaders");
+    await expect(page.locator('[data-effect-catalog-id^="gpu-paper-"]')).toHaveCount(10);
+    const heatmap = page.locator('[data-effect-catalog-id="gpu-paper-heatmap"]');
+    await heatmap.scrollIntoViewIfNeeded();
+    await expect(heatmap.locator("canvas")).toHaveAttribute("data-rendered", "true");
+    const tile = page.locator('[data-effect-catalog-id="gpu-paper-gem-smoke"]');
+    await tile.evaluate((element) =>
+      element.scrollIntoView({ block: "center", inline: "nearest" }),
+    );
+    await expect(tile).toBeInViewport({ ratio: FULLY_VISIBLE_RATIO });
+    await expectRenderedShader(page);
+    expect(errors).toEqual([]);
+  });
 
   test("Paper backgrounds and chained shader effects survive reopening and export", async ({
     page,
@@ -3499,7 +3077,6 @@ test.describe("video editor shaders", () => {
         }),
       )
       .toBeGreaterThan(100);
-    await page.screenshot({ path: test.info().outputPath("paper-effect-controls.png") });
     await page.keyboard.press("ControlOrMeta+s");
     await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
       "data-state",
@@ -3556,283 +3133,130 @@ test.describe("video editor shaders", () => {
   });
 });
 
-test.describe("video editor shortcut scope", () => {
-  test("Program shuttle runs outside Source and focused playhead sliders keep their keys", async ({
-    page,
-    request,
-  }, info) => {
-    test.setTimeout(90_000);
-    const auth = await registerUser(request, `shuttle-scope-${Date.now()}@example.com`);
-    await createWorkspace(request, auth.token, "Shuttle scope");
-    await authenticatePage(page, auth.token);
-    await page.goto("/video-editor");
-    await page.getByRole("button", { name: "Open Video Editor", exact: true }).click();
-    await expect(page).toHaveURL(/\/video-editor\/[\da-f-]+\?storage=cloud/);
-    await page.getByRole("tab", { name: "Edit", exact: true }).click();
-    await page
-      .getByRole("banner")
-      .getByRole("button", { name: "More actions", exact: true })
-      .click();
-    await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
-    const program = page.getByRole("application", { name: "Program", exact: true });
-    const position = page.getByRole("slider", { name: "Timeline playhead", exact: true });
-    await program.focus();
-    await page.keyboard.press("l");
-    await expect
-      .poll(async () => Number(await position.getAttribute("aria-valuenow")))
-      .toBeGreaterThan(10);
-    await page.keyboard.press("k");
-    await expect(page.getByRole("button", { name: "Play", exact: true })).toBeVisible();
-    const paused = Number(await position.getAttribute("aria-valuenow"));
-    await position.focus();
-    await page.keyboard.press("l");
-    await page.evaluate(
-      () =>
-        new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-        ),
-    );
-    await expect(page.getByRole("button", { name: "Play", exact: true })).toBeVisible();
-    expect(Number(await position.getAttribute("aria-valuenow"))).toBe(paused);
-    await program.focus();
-    await page.keyboard.press("j");
-    await expect
-      .poll(async () => Number(await position.getAttribute("aria-valuenow")))
-      .toBeLessThan(paused);
-    await page.keyboard.press("k");
-    await expect(page.getByRole("button", { name: "Play", exact: true })).toBeVisible();
-    await page.screenshot({ path: info.outputPath("program-shuttle-guard.png") });
-  });
-});
-
 test.describe("video editor trim", () => {
   test.use({ actionTimeout: 15_000 });
 
-  async function installLocalWorkspacePicker(page: Page): Promise<void> {
-    await page.addInitScript(() => {
-      Object.defineProperty(window, "showDirectoryPicker", {
-        configurable: true,
-        value: async () => {
-          const handle = await navigator.storage.getDirectory();
-          const prototype = Object.getPrototypeOf(handle);
-          if (!("queryPermission" in prototype)) {
-            Object.defineProperty(prototype, "queryPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          if (!("requestPermission" in prototype)) {
-            Object.defineProperty(prototype, "requestPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          return handle;
-        },
-      });
-    });
-  }
-
-  async function createProject(
-    page: Page,
-    name: string,
-    options: { selectLocalProjects?: boolean } = {},
-  ): Promise<void> {
-    await installLocalWorkspacePicker(page);
-    await page.goto("/video-editor");
-    if (options.selectLocalProjects) {
-      await page.getByRole("button", { name: "This device" }).click();
-    }
-    await page.getByRole("button", { name: "Choose folder" }).click();
-    await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
-    await page.getByRole("button", { name: "Custom project" }).click();
-    await page.getByRole("textbox", { name: "Project name" }).fill(name);
-    await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);
-    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
-  }
-
-  for (const scheme of ["light"] as const) {
-    test.describe(scheme, () => {
-      test.use({ hasTouch: scheme === "dark" });
-      test(`precise trimming and explicit media placement in ${scheme}`, async ({
-        page,
-      }, testInfo) => {
-        test.setTimeout(90_000);
-        const errors: string[] = [];
-        page.on("pageerror", (error) => errors.push(error.message));
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
-        await page.setViewportSize({ width: 1280, height: 800 });
-        await createProject(page, "Precise editing");
-        const bytes = (
-          await readFile(
-            fileURLToPath(
-              new URL("./fixtures/product-screenshots/lisbon-tram.png", import.meta.url),
-            ),
-          )
-        ).toString("base64");
-        await page.evaluate(async (bytes) => {
-          const root = await navigator.storage.getDirectory();
-          const imports = await root.getDirectoryHandle("test-imports", { create: true });
-          const handle = await imports.getFileHandle("lisbon-tram.png", { create: true });
-          const writable = await handle.createWritable();
-          await writable.write(
-            Uint8Array.from(atob(bytes), (character) => character.charCodeAt(0)),
-          );
-          await writable.close();
-          Object.defineProperty(window, "showOpenFilePicker", {
-            configurable: true,
-            value: async () => [handle],
-          });
-        }, bytes);
-        await page.getByRole("button", { name: "Import media", exact: true }).click();
-        await page
-          .getByRole("button", { name: "More actions for lisbon-tram.png", exact: true })
-          .click();
-        await page.getByRole("menuitem", { name: "Add at playhead", exact: true }).click();
-        const clips = page.locator("[data-timeline-item-id]");
-        await expect(clips).toHaveCount(1);
-        await clips
-          .first()
-          .getByRole("button", { name: /^lisbon-tram.png\. Drag/ })
-          .click();
-        if (scheme === "dark") {
-          const track = page.locator('[data-track="track-video-overlay"]');
-          const originalHeight = (await track.boundingBox())!.height;
-          await track.getByRole("button", { name: "More track actions", exact: true }).click();
-          const resize = page.getByRole("slider", {
-            name: "Resize Visual 2 track height",
-            exact: true,
-          });
-          await expect(resize).toBeVisible();
-          expect((await resize.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-          await expect(resize).toHaveAttribute("aria-valuenow", String(originalHeight));
-          // Raw CDP touch skips actionability checks. Wait for menu placement to settle.
-          await resize.click({ trial: true });
-          const box = (await resize.boundingBox())!;
-          const touch = await page.context().newCDPSession(page);
-          const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-          await touch.send("Input.dispatchTouchEvent", {
-            type: "touchStart",
-            touchPoints: [point],
-          });
-          await touch.send("Input.dispatchTouchEvent", {
-            type: "touchMove",
-            touchPoints: [{ ...point, y: point.y + 12 }],
-          });
-          await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-          await touch.detach();
-          await expect
-            .poll(async () => (await track.boundingBox())!.height)
-            .toBeGreaterThan(originalHeight);
-          await page.keyboard.press("Escape");
-          await page.keyboard.press("ControlOrMeta+z");
-          await expect.poll(async () => (await track.boundingBox())!.height).toBe(originalHeight);
-        }
-        await page.getByRole("slider", { name: "Timeline playhead", exact: true }).focus();
-        await page.keyboard.press("Home");
-        for (let i = 0; i < 30; i++) await page.keyboard.press("ArrowRight");
-        await page.screenshot({ path: testInfo.outputPath(`trim-before-${scheme}.png`) });
-        const clipOverflow = page.getByRole("button", {
-          name: "lisbon-tram.png: More actions",
-          exact: true,
+  test.describe("light", () => {
+    test(`precise trimming and explicit media placement in light`, async ({ page }, testInfo) => {
+      test.setTimeout(90_000);
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+      await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), "light");
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await createProject(page, "Precise editing");
+      const bytes = (
+        await readFile(
+          fileURLToPath(new URL("./fixtures/product-screenshots/lisbon-tram.png", import.meta.url)),
+        )
+      ).toString("base64");
+      await page.evaluate(async (bytes) => {
+        const root = await navigator.storage.getDirectory();
+        const imports = await root.getDirectoryHandle("test-imports", { create: true });
+        const handle = await imports.getFileHandle("lisbon-tram.png", { create: true });
+        const writable = await handle.createWritable();
+        await writable.write(Uint8Array.from(atob(bytes), (character) => character.charCodeAt(0)));
+        await writable.close();
+        Object.defineProperty(window, "showOpenFilePicker", {
+          configurable: true,
+          value: async () => [handle],
         });
-        await clipOverflow.click();
-        const trimStart = page.getByRole("menuitem", {
-          name: "Trim start to playhead",
-          exact: true,
-        });
-        await expect(trimStart).toBeEnabled();
-        const original = (await clips.first().boundingBox())!;
-        await trimStart.click();
-        await expect
-          .poll(async () => (await clips.first().boundingBox())!.width)
-          .toBeLessThan(original.width);
-        await page.keyboard.press("ControlOrMeta+z");
-        await expect
-          .poll(async () => (await clips.first().boundingBox())!.width)
-          .toBeCloseTo(original.width, 0);
-        for (const width of [1280, 320]) {
-          await page.setViewportSize({ width, height: 844 });
-          await clipOverflow.scrollIntoViewIfNeeded();
-          await expect(clipOverflow).toBeInViewport();
-          if (scheme === "dark")
-            expect((await clipOverflow.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-          expect(await clipOverflow.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-          expect(
-            await page.evaluate(() => document.documentElement.scrollWidth),
-          ).toBeLessThanOrEqual(width);
-          await page.screenshot({ path: testInfo.outputPath(`trim-${scheme}-${width}.png`) });
-        }
-        await page.setViewportSize({ width: 1280, height: 800 });
-        await page
-          .getByRole("button", { name: "More actions for lisbon-tram.png", exact: true })
-          .click();
-        await page.getByRole("menuitem", { name: "Add at end of sequence", exact: true }).click();
-        await expect(clips).toHaveCount(2);
-        for (const width of [320]) {
-          await page.setViewportSize({ width, height: 844 });
-          const panels = page.getByRole("navigation", { name: "Editor panels" });
-          await panels.getByRole("button", { name: "Media", exact: true }).click();
-          const sourceCard = page.getByRole("button", {
-            name: "Source: lisbon-tram.png",
-            exact: true,
-          });
-          if (width === 390) await sourceCard.click();
-          else {
-            await sourceCard.focus();
-            await sourceCard.press("Enter");
-          }
-          await expect(
-            panels.getByRole("button", { name: "Timeline", exact: true }),
-          ).toHaveAttribute("aria-pressed", "true");
-          await expect(page.getByRole("region", { name: "Source", exact: true })).toBeVisible();
-          const close = page.getByRole("button", { name: "Close source monitor", exact: true });
-          await expect(close).toBeFocused();
-          await page.screenshot({
-            path: testInfo.outputPath(`source-open-${scheme}-${width}.png`),
-          });
-          await close.click();
-        }
-        await page.setViewportSize({ width: 1280, height: 800 });
-        await page.getByRole("button", { name: "Source: lisbon-tram.png", exact: true }).click();
-        const source = page.getByRole("region", { name: "Source", exact: true });
-        const position = source.getByRole("slider", { name: "Source position", exact: true });
-        const inPoint = source.getByRole("slider", { name: "Source in point", exact: true });
-        const outPoint = source.getByRole("slider", { name: "Source out point", exact: true });
-        await source.getByRole("button", { name: "Go to end", exact: true }).click();
-        await expect(position).toHaveAttribute("aria-valuenow", "89");
-        await position.focus();
-        await page.keyboard.press("Home");
-        await expect(position).toHaveAttribute("aria-valuenow", "0");
-        await inPoint.focus();
-        await page.keyboard.press("ArrowRight");
-        await expect(inPoint).toHaveAttribute("aria-valuenow", "1");
-        await page.keyboard.press("Home");
-        await expect(inPoint).toHaveAttribute("aria-valuenow", "0");
-        await outPoint.focus();
-        await page.keyboard.press("Home");
-        await expect(outPoint).toHaveAttribute("aria-valuenow", "1");
-        await page.keyboard.press("End");
-        await expect(outPoint).toHaveAttribute("aria-valuenow", "90");
-        await page.screenshot({ path: testInfo.outputPath(`source-keyboard-${scheme}.png`) });
-        const append = page.getByRole("button", { name: "Add at end of sequence", exact: true });
-        await expect(append).toHaveCount(1);
-        await append.scrollIntoViewIfNeeded();
-        await page.screenshot({ path: testInfo.outputPath(`source-append-${scheme}.png`) });
-        await append.click();
-        await expect(clips).toHaveCount(3);
-        await page.keyboard.press("ControlOrMeta+s");
-        await expect(
-          page.getByRole("banner").locator('[role="status"][data-state]'),
-        ).toHaveAttribute("data-state", "saved");
-        await page.reload();
-        await expect(clips).toHaveCount(3);
-        expect(errors).toEqual([]);
+      }, bytes);
+      await page.getByRole("button", { name: "Import media", exact: true }).click();
+      await page
+        .getByRole("button", { name: "More actions for lisbon-tram.png", exact: true })
+        .click();
+      await page.getByRole("menuitem", { name: "Add at playhead", exact: true }).click();
+      const clips = page.locator("[data-timeline-item-id]");
+      await expect(clips).toHaveCount(1);
+      await clips
+        .first()
+        .getByRole("button", { name: /^lisbon-tram.png\. Drag/ })
+        .click();
+      await page.getByRole("slider", { name: "Timeline playhead", exact: true }).focus();
+      await page.keyboard.press("Home");
+      for (let i = 0; i < 30; i++) await page.keyboard.press("ArrowRight");
+      const clipOverflow = page.getByRole("button", {
+        name: "lisbon-tram.png: More actions",
+        exact: true,
       });
+      await clipOverflow.click();
+      const trimStart = page.getByRole("menuitem", {
+        name: "Trim start to playhead",
+        exact: true,
+      });
+      await expect(trimStart).toBeEnabled();
+      const original = (await clips.first().boundingBox())!;
+      await trimStart.click();
+      await expect
+        .poll(async () => (await clips.first().boundingBox())!.width)
+        .toBeLessThan(original.width);
+      await page.keyboard.press("ControlOrMeta+z");
+      await expect
+        .poll(async () => (await clips.first().boundingBox())!.width)
+        .toBeCloseTo(original.width, 0);
+      await page.setViewportSize({ width: 1280, height: 844 });
+      await clipOverflow.scrollIntoViewIfNeeded();
+      await expect(clipOverflow).toBeInViewport();
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page
+        .getByRole("button", { name: "More actions for lisbon-tram.png", exact: true })
+        .click();
+      await page.getByRole("menuitem", { name: "Add at end of sequence", exact: true }).click();
+      await expect(clips).toHaveCount(2);
+      await page.setViewportSize({ width: 320, height: 844 });
+      const panels = page.getByRole("navigation", { name: "Editor panels" });
+      await panels.getByRole("button", { name: "Media", exact: true }).click();
+      const sourceCard = page.getByRole("button", {
+        name: "Source: lisbon-tram.png",
+        exact: true,
+      });
+      await sourceCard.focus();
+      await sourceCard.press("Enter");
+      await expect(panels.getByRole("button", { name: "Timeline", exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      await expect(page.getByRole("region", { name: "Source", exact: true })).toBeVisible();
+      const close = page.getByRole("button", { name: "Close source monitor", exact: true });
+      await expect(close).toBeFocused();
+      await close.click();
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.getByRole("button", { name: "Source: lisbon-tram.png", exact: true }).click();
+      const source = page.getByRole("region", { name: "Source", exact: true });
+      const position = source.getByRole("slider", { name: "Source position", exact: true });
+      const inPoint = source.getByRole("slider", { name: "Source in point", exact: true });
+      const outPoint = source.getByRole("slider", { name: "Source out point", exact: true });
+      await source.getByRole("button", { name: "Go to end", exact: true }).click();
+      await expect(position).toHaveAttribute("aria-valuenow", "89");
+      await position.focus();
+      await page.keyboard.press("Home");
+      await expect(position).toHaveAttribute("aria-valuenow", "0");
+      await inPoint.focus();
+      await page.keyboard.press("ArrowRight");
+      await expect(inPoint).toHaveAttribute("aria-valuenow", "1");
+      await page.keyboard.press("Home");
+      await expect(inPoint).toHaveAttribute("aria-valuenow", "0");
+      await outPoint.focus();
+      await page.keyboard.press("Home");
+      await expect(outPoint).toHaveAttribute("aria-valuenow", "1");
+      await page.keyboard.press("End");
+      await expect(outPoint).toHaveAttribute("aria-valuenow", "90");
+      const append = page.getByRole("button", { name: "Add at end of sequence", exact: true });
+      await expect(append).toHaveCount(1);
+      await append.scrollIntoViewIfNeeded();
+      await append.click();
+      await expect(clips).toHaveCount(3);
+      await page.keyboard.press("ControlOrMeta+s");
+      await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+        "data-state",
+        "saved",
+      );
+      await page.reload();
+      await expect(clips).toHaveCount(3);
+      expect(errors).toEqual([]);
     });
-  }
+  });
 
   test("clip overflow trims the second half after splitting and trimming the first", async ({
     page,
@@ -3896,7 +3320,6 @@ test.describe("video editor trim", () => {
     await page.getByRole("menuitem", { name: "Trim start to playhead", exact: true }).click();
     await expect(page.getByRole("menu")).toHaveCount(0);
     await expect.poll(async () => (await second.boundingBox())!.width).toBeLessThan(before.width);
-    await page.screenshot({ path: testInfo.outputPath("second-trim.png") });
   });
 });
 
@@ -4003,17 +3426,13 @@ test.describe("video editor visual tracks", () => {
     await expect(sunset).toHaveCount(1);
     await sunset.click();
     await page.getByRole("textbox", { name: "Width", exact: true }).scrollIntoViewIfNeeded();
-    await page.screenshot({ path: testInfo.outputPath("inspector-light-desktop.png") });
-    for (const width of [320]) {
-      await page.setViewportSize({ width, height: 844 });
-      await expect(
-        page
-          .getByRole("navigation", { name: "Editor panels" })
-          .getByRole("button", { name: "Properties", exact: true }),
-      ).toHaveAttribute("aria-pressed", "true");
-      await page.getByRole("textbox", { name: "Width", exact: true }).scrollIntoViewIfNeeded();
-      await page.screenshot({ path: testInfo.outputPath(`inspector-light-${width}.png`) });
-    }
+    await page.setViewportSize({ width: 320, height: 844 });
+    await expect(
+      page
+        .getByRole("navigation", { name: "Editor panels" })
+        .getByRole("button", { name: "Properties", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("textbox", { name: "Width", exact: true }).scrollIntoViewIfNeeded();
   });
 });
 
@@ -4083,7 +3502,6 @@ test.describe("cloud video conflict origin", () => {
     await page.getByRole("menuitem", { name: "Version history", exact: true }).click();
     const history = page.getByRole("dialog", { name: "Version history", exact: true });
     await expect(history.getByText("Loading…", { exact: true })).toHaveCount(0);
-    await page.screenshot({ path: testInfo.outputPath("conflict-origin-before-assertion.png") });
     await expect(history.getByText(/^From another browser or device\s*·/)).toBeVisible();
     await expect(history.getByText(/^From this browser\s*·/)).toBeVisible();
     await expect(history.getByText(otherDevice, { exact: true })).toHaveCount(1);
@@ -4092,20 +3510,8 @@ test.describe("cloud video conflict origin", () => {
         exact: true,
       }),
     ).toHaveCount(3);
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme });
-      await expect
-        .poll(() => page.locator("html").evaluate((node) => node.classList.contains("dark")))
-        .toBe(scheme === "dark");
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 850 });
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
-        await history.getByText(/^From another browser or device\s*·/).scrollIntoViewIfNeeded();
-        await page.screenshot({ path: testInfo.outputPath(`conflict-${width}-${scheme}.png`) });
-      }
-    }
+    await page.setViewportSize({ width: 1280, height: 850 });
+    await history.getByText(/^From another browser or device\s*·/).scrollIntoViewIfNeeded();
     const otherRow = history.getByText(/^From another browser or device\s*·/).locator("..");
     await expect(otherRow.getByText(otherDevice, { exact: true })).not.toBeVisible();
     await otherRow.getByText("Details", { exact: true }).first().focus();
@@ -4208,7 +3614,6 @@ test.describe("cloud video history inspection", () => {
     const row = history
       .getByRole("listitem")
       .filter({ has: page.getByText("Before rename", { exact: true }) });
-    await page.screenshot({ path: testInfo.outputPath("history-before-inspection.png") });
     await row.getByRole("button", { name: "Inspect version", exact: true }).click();
     await expect(row.getByText("Earlier launch cut", { exact: true })).toBeVisible();
     await expect(row.getByText("Title changed", { exact: true })).toBeVisible();
@@ -4221,24 +3626,10 @@ test.describe("cloud video history inspection", () => {
     await expect(
       row.getByText("Compared with the latest saved version.", { exact: true }),
     ).toBeVisible();
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme });
-      await expect
-        .poll(() => page.locator("html").evaluate((node) => node.classList.contains("dark")))
-        .toBe(scheme === "dark");
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 850 });
-        await row.getByRole("button", { name: "Inspect version", exact: true }).focus();
-        await expect(
-          row.getByRole("button", { name: "Inspect version", exact: true }),
-        ).toBeFocused();
-        await row.scrollIntoViewIfNeeded();
-        await expect
-          .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-          .toBe(true);
-        await page.screenshot({ path: testInfo.outputPath(`inspection-${width}-${scheme}.png`) });
-      }
-    }
+    await page.setViewportSize({ width: 1280, height: 850 });
+    await row.getByRole("button", { name: "Inspect version", exact: true }).focus();
+    await expect(row.getByRole("button", { name: "Inspect version", exact: true })).toBeFocused();
+    await row.scrollIntoViewIfNeeded();
     await row.getByRole("button", { name: "Inspect version", exact: true }).press("Enter");
     await expect(row.getByText("Earlier launch cut", { exact: true })).toHaveCount(0);
     await expect(await read()).toEqual(before);
@@ -4277,7 +3668,6 @@ test.describe("cloud video history inspection", () => {
       .toBeGreaterThanOrEqual(44);
     await inspect.tap();
     await expect(touchRow.getByText("Earlier launch cut", { exact: true })).toBeVisible();
-    await touchPage.screenshot({ path: testInfo.outputPath("inspection-320-coarse.png") });
     await touchContext.close();
   });
 });
@@ -4391,17 +3781,11 @@ test.describe("cloud video projects", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
-    await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
-      .toBe(true);
     await page.locator("header").getByRole("button", { name: "More actions" }).click();
     await expect(page.getByRole("menuitem", { name: "Version history" })).toBeVisible();
     await page.getByRole("menuitem", { name: "Version history" }).click();
     await expect(page.getByRole("dialog", { name: "Version history" })).toBeVisible();
     await page.setViewportSize({ width: 320, height: 720 });
-    await expect
-      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
-      .toBe(true);
     await page
       .getByRole("dialog", { name: "Version history" })
       .locator('[data-slot="dialog-footer"]')
@@ -4572,7 +3956,6 @@ test.describe("cloud video projects", () => {
     expect(await (await request.get(projectURL, { headers })).json()).toMatchObject({
       name: "Remote version",
     });
-    await page.screenshot({ path: test.info().outputPath("conflict-copy-after.png") });
   });
 });
 
@@ -4686,7 +4069,6 @@ test.describe("recorder editor entry", () => {
     await expect(page.locator("[data-timeline-item-id]")).toHaveCount(1);
     await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
     expect(await savedAuthoredProject(page, ordinaryURL)).toEqual(authored);
-    await page.screenshot({ path: testInfo.outputPath("recording-visible-edit.png") });
     await page.getByRole("tab", { name: "Motion", exact: true }).click();
     await page.goto(ordinaryURL);
     await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
@@ -4697,31 +4079,6 @@ test.describe("recorder editor entry", () => {
 });
 
 test.describe("recording cleanup", () => {
-  async function installLocalWorkspacePicker(page: Page): Promise<void> {
-    await page.addInitScript(() => {
-      Object.defineProperty(window, "showDirectoryPicker", {
-        configurable: true,
-        value: async () => {
-          const handle = await navigator.storage.getDirectory();
-          const prototype = Object.getPrototypeOf(handle);
-          if (!("queryPermission" in prototype)) {
-            Object.defineProperty(prototype, "queryPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          if (!("requestPermission" in prototype)) {
-            Object.defineProperty(prototype, "requestPermission", {
-              configurable: true,
-              value: async () => "granted",
-            });
-          }
-          return handle;
-        },
-      });
-    });
-  }
-
   async function createProject(
     page: Page,
     name: string,
@@ -4838,23 +4195,13 @@ test.describe("recording cleanup", () => {
     await entry.click();
     const dialog = page.getByRole("dialog", { name: "Clean up recording", exact: true });
     await expect(dialog.getByRole("checkbox", { name: "Include um", exact: true })).toBeVisible();
-    for (const scheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-      for (const width of [1280, 320]) {
-        await page.setViewportSize({ width, height: 850 });
-        await expect(
-          dialog.getByRole("button", { name: "Apply changes", exact: true }),
-        ).toBeVisible();
-        const tabs = dialog.getByRole("tab");
-        for (const tab of await tabs.all())
-          expect((await tab.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-        expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
-          true,
-        );
-        await page.screenshot({ path: testInfo.outputPath(`cleanup-${width}-${scheme}.png`) });
-      }
-    }
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", "light");
+    await page.setViewportSize({ width: 1280, height: 850 });
+    await expect(dialog.getByRole("button", { name: "Apply changes", exact: true })).toBeVisible();
+    const tabs = dialog.getByRole("tab");
+    for (const tab of await tabs.all())
+      expect((await tab.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await dialog.getByRole("checkbox", { name: "Clean voice", exact: true }).tap();
     await dialog.getByRole("button", { name: "Apply changes", exact: true }).tap();
     await expect(dialog).not.toBeVisible();

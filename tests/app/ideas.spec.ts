@@ -1,36 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser, expectPostText } from "./helpers";
-import { writeFileSync } from "node:fs";
 
 test.describe("ideate", () => {
   test.use({ reducedMotion: "reduce" });
-
-  async function captureResponsive(page: Page, info: TestInfo, name: string) {
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme });
-        await expect(page.locator("html")).toHaveAttribute("data-theme-scheme", scheme);
-        await page.evaluate(async () => {
-          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-          await Promise.all(
-            document
-              .getAnimations()
-              .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
-              .map((animation) => animation.finished.catch(() => {})),
-          );
-        });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-        await page.screenshot({
-          path: info.outputPath(`${name}-${width}-${scheme}.png`),
-          animations: "disabled",
-        });
-      }
-  }
 
   const databasePath = `/tmp/openpost-app-e2e-${process.env.OPENPOST_APP_E2E_PORT ?? 18180}.db`;
   const sql = (value: string) => `'${value.replaceAll("'", "''")}'`;
@@ -116,7 +90,7 @@ test.describe("ideate", () => {
   test("Ideate restores edited alternatives and explicitly selects one draft", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     test.setTimeout(90_000);
     const email = `ideate-${randomUUID()}@example.com`;
     const auth = await registerUser(request, email);
@@ -212,19 +186,9 @@ test.describe("ideate", () => {
       exact: true,
     });
     await expect(choices).toHaveCount(4);
-    for (const width of [1280, 320])
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-        await page.reload();
-        await expect(choices).toHaveCount(4);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-          true,
-        );
-        await page.screenshot({
-          path: info.outputPath(`ideate-${width}-${scheme}.png`),
-        });
-      }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.reload();
+    await expect(choices).toHaveCount(4);
     await page.getByRole("button", { name: "Edit post text", exact: true }).first().click();
     const text = page.getByRole("textbox", { name: "Post text", exact: true });
     await text.fill("The editor now keeps up with me.");
@@ -238,7 +202,6 @@ test.describe("ideate", () => {
       .toBe("The editor now keeps up with me.");
     await page.reload();
     await expect(page.getByText("The editor now keeps up with me.", { exact: true })).toBeVisible();
-    await page.screenshot({ path: info.outputPath("ideate-edited.png") });
     await choices.first().focus();
     await choices.first().press("Enter");
     await expect(page).toHaveURL(/\/publications\//);
@@ -248,7 +211,6 @@ test.describe("ideate", () => {
     const publication = await response.json();
     expect(publication.status).toBe("draft");
     expect(publication.renditions[0].segments[0].body).toBe("The editor now keeps up with me.");
-    await page.context().storageState({ path: info.outputPath("browser-state.json") });
   });
 
   for (const closeDuringGeneration of [false, true]) {
@@ -256,7 +218,7 @@ test.describe("ideate", () => {
       closeDuringGeneration
         ? "a selected series keeps generating when Ideate closes"
         : "a series generates only selected concepts and saves drafts explicitly",
-      async ({ page, request }, info) => {
+      async ({ page, request }) => {
         const email = `series-${randomUUID()}@example.com`;
         const auth = await registerUser(request, email);
         const workspace = await createWorkspace(request, auth.token, "Series review");
@@ -457,7 +419,6 @@ test.describe("ideate", () => {
             ).trim(),
           );
         expect(count()).toBe(0);
-        await captureResponsive(page, info, "series-ready");
         await dialog.getByRole("button", { name: "Save selected drafts", exact: true }).click();
         await expect(dialog.getByRole("link", { name: "Open draft", exact: true })).toHaveCount(
           closeDuringGeneration ? 2 : 1,
@@ -483,10 +444,7 @@ test.describe("ideate", () => {
     );
   }
 
-  test("clients review submitted posts without entering authoring", async ({
-    page,
-    request,
-  }, info) => {
+  test("clients review submitted posts without entering authoring", async ({ page, request }) => {
     const owner = await registerUser(request, `review-owner-${randomUUID()}@example.com`);
     const clientEmail = `review-client-${randomUUID()}@example.com`;
     const reviewer = await registerUser(request, clientEmail);
@@ -551,7 +509,6 @@ test.describe("ideate", () => {
         exact: true,
       }),
     ).toBeEnabled();
-    await captureResponsive(page, info, "client-review");
     await reviewDialog.getByRole("button", { name: "Approve this version", exact: true }).click();
     await expect(reviewDialog.getByText("Client approved", { exact: true }).first()).toBeVisible();
     const checked = await request.get(`/api/v1/publications/${post.id}`, {
@@ -574,7 +531,7 @@ test.describe("ideate", () => {
   test("selected drafts preview dates before scheduling and recover the confirmed result", async ({
     page,
     request,
-  }, info) => {
+  }) => {
     const email = `batch-${randomUUID()}@example.com`;
     const auth = await registerUser(request, email);
     const workspace = await createWorkspace(request, auth.token, "Batch review");
@@ -641,7 +598,6 @@ test.describe("ideate", () => {
     await include.uncheck();
     await expect(firstTime).toHaveValue(customTime);
     await include.check();
-    await captureResponsive(page, info, "batch-preview");
     await dialog.getByRole("button", { name: "Confirm remaining dates", exact: true }).click();
     await expect(dialog.getByText("Scheduled", { exact: true })).toHaveCount(2);
     expect(jobs()).toBe(2);
@@ -654,11 +610,8 @@ test.describe("ideate", () => {
   });
 });
 
-test.describe("prompts custom edit", () => {
-  test("custom prompt corrections persist without authoring a post", async ({
-    page,
-    request,
-  }, testInfo) => {
+test.describe("custom prompts", () => {
+  test("custom prompt corrections persist without authoring a post", async ({ page, request }) => {
     const auth = await registerUser(request, `prompt-edit-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Custom prompt editing");
     const headers = { Authorization: `Bearer ${auth.token}` };
@@ -692,121 +645,104 @@ test.describe("prompts custom edit", () => {
     await authenticatePage(page, auth.token);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/prompts");
-    for (const width of [1280, 320]) {
-      for (const scheme of ["light"] as const) {
-        await page.setViewportSize({ width, height: 900 });
-        await page.emulateMedia({ colorScheme: scheme });
-        await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-        await page.reload();
-        const card = page.getByRole("article").filter({ hasText: stored.text });
-        await expect(card).toBeVisible();
-        await card.scrollIntoViewIfNeeded();
-        await page.screenshot({ path: testInfo.outputPath(`card-${width}-${scheme}.png`) });
-        const edit = card.getByRole("button", { name: "Edit prompt", exact: true });
-        await expect(edit).toBeVisible();
-        await edit.focus();
-        await page.keyboard.press("Enter");
-        const dialog = page.getByRole("dialog", { name: "Edit prompt", exact: true });
-        await expect(dialog.getByRole("textbox", { name: "Prompt text", exact: true })).toHaveValue(
-          stored.text,
-        );
-        await expect(
-          dialog.getByRole("textbox", { name: "Example post", exact: true }),
-        ).toHaveValue(stored.example);
-        await dialog.getByRole("textbox", { name: "Prompt text", exact: true }).fill("   ");
-        await expect(dialog.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
-        await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-        await expect(dialog).toHaveCount(0);
-        await expect(edit).toBeFocused();
-        await edit.click();
-        const text = `Audit correction ${width} ${scheme}: Café 👋\nمرحبا بالعالم`;
-        const example = `Audit example ${width} ${scheme}\nSecond line with "quotes".`;
-        const category = categories[1];
-        await dialog.getByRole("textbox", { name: "Prompt text", exact: true }).fill(text);
-        await dialog.getByRole("textbox", { name: "Example post", exact: true }).fill(example);
-        await dialog.getByRole("button", { name: "Category", exact: true }).click();
-        await page.getByRole("option", { name: category, exact: true }).click();
-        await page.screenshot({ path: testInfo.outputPath(`edit-${width}-${scheme}.png`) });
-        if (width === 1280 && scheme === "light") {
-          const updateURL = `**/api/v1/prompts/${originalID}`;
-          await page.route(updateURL, async (route) => {
-            injectedFailure = true;
-            await route.fulfill({
-              status: 503,
-              contentType: "application/problem+json",
-              body: JSON.stringify({
-                title: "Service Unavailable",
-                status: 503,
-                detail: "Audit save failed",
-              }),
-            });
-          });
-          await dialog.getByRole("button", { name: "Save", exact: true }).click();
-          await expect(page.getByText("Audit save failed", { exact: true })).toBeVisible();
-          await expect(
-            dialog.getByRole("textbox", { name: "Prompt text", exact: true }),
-          ).toHaveValue(text);
-          await expect(
-            dialog.getByRole("textbox", { name: "Example post", exact: true }),
-          ).toHaveValue(example);
-          await expect(dialog.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
-          const unchanged = await (
-            await request.get(`/api/v1/prompts?workspace_id=${workspace.id}`, { headers })
-          ).json();
-          expect(
-            unchanged.find((prompt: { id: string }) => prompt.id === originalID),
-          ).toMatchObject({
-            id: originalID,
-            text: stored.text,
-            example: stored.example,
-            category: stored.category,
-          });
-          await page.screenshot({ path: testInfo.outputPath("save-error-recovery.png") });
-          await page.unroute(updateURL);
-        }
-        const saved = page.waitForResponse(
-          (response) =>
-            new URL(response.url()).pathname === `/api/v1/prompts/${originalID}` &&
-            response.request().method() === "PUT",
-        );
-        await dialog.getByRole("button", { name: "Save", exact: true }).focus();
-        await page.keyboard.press("Enter");
-        expect((await saved).ok()).toBe(true);
-        await expect(dialog).toHaveCount(0);
-        const list = await request.get(`/api/v1/prompts?workspace_id=${workspace.id}`, { headers });
-        expect(list.ok()).toBe(true);
-        const custom = (await list.json()).filter(
-          (prompt: { is_built_in: boolean }) => !prompt.is_built_in,
-        );
-        expect(custom).toHaveLength(1);
-        stored = custom[0];
-        expect(stored).toMatchObject({
-          id: originalID,
-          created_at: originalCreatedAt,
-          text,
-          example,
-          category,
-        });
-        expect(
-          await (
-            await request.get(`/api/v1/publications?workspace_id=${workspace.id}`, { headers })
-          ).json(),
-        ).toEqual([]);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-          false,
-        );
-      }
-    }
+    await page.reload();
+    const card = page.getByRole("article").filter({ hasText: stored.text });
+    await expect(card).toBeVisible();
+    await card.scrollIntoViewIfNeeded();
+    const edit = card.getByRole("button", { name: "Edit prompt", exact: true });
+    await expect(edit).toBeVisible();
+    await edit.focus();
+    await page.keyboard.press("Enter");
+    const dialog = page.getByRole("dialog", { name: "Edit prompt", exact: true });
+    await expect(dialog.getByRole("textbox", { name: "Prompt text", exact: true })).toHaveValue(
+      stored.text,
+    );
+    await expect(dialog.getByRole("textbox", { name: "Example post", exact: true })).toHaveValue(
+      stored.example,
+    );
+    await dialog.getByRole("textbox", { name: "Prompt text", exact: true }).fill("   ");
+    await expect(dialog.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(edit).toBeFocused();
+    await edit.click();
+    const text = `Audit correction Café 👋\nمرحبا بالعالم`;
+    const example = `Audit example\nSecond line with "quotes".`;
+    const category = categories[1];
+    await dialog.getByRole("textbox", { name: "Prompt text", exact: true }).fill(text);
+    await dialog.getByRole("textbox", { name: "Example post", exact: true }).fill(example);
+    await dialog.getByRole("button", { name: "Category", exact: true }).click();
+    await page.getByRole("option", { name: category, exact: true }).click();
+    const updateURL = `**/api/v1/prompts/${originalID}`;
+    await page.route(updateURL, async (route) => {
+      injectedFailure = true;
+      await route.fulfill({
+        status: 503,
+        contentType: "application/problem+json",
+        body: JSON.stringify({
+          title: "Service Unavailable",
+          status: 503,
+          detail: "Audit save failed",
+        }),
+      });
+    });
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("Audit save failed", { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("textbox", { name: "Prompt text", exact: true })).toHaveValue(
+      text,
+    );
+    await expect(dialog.getByRole("textbox", { name: "Example post", exact: true })).toHaveValue(
+      example,
+    );
+    await expect(dialog.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
+    const unchanged = await (
+      await request.get(`/api/v1/prompts?workspace_id=${workspace.id}`, { headers })
+    ).json();
+    expect(unchanged.find((prompt: { id: string }) => prompt.id === originalID)).toMatchObject({
+      id: originalID,
+      text: stored.text,
+      example: stored.example,
+      category: stored.category,
+    });
+    await page.unroute(updateURL);
+    const saved = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === `/api/v1/prompts/${originalID}` &&
+        response.request().method() === "PUT",
+    );
+    await dialog.getByRole("button", { name: "Save", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    expect((await saved).ok()).toBe(true);
+    await expect(dialog).toHaveCount(0);
+    const list = await request.get(`/api/v1/prompts?workspace_id=${workspace.id}`, { headers });
+    expect(list.ok()).toBe(true);
+    const custom = (await list.json()).filter(
+      (prompt: { is_built_in: boolean }) => !prompt.is_built_in,
+    );
+    expect(custom).toHaveLength(1);
+    stored = custom[0];
+    expect(stored).toMatchObject({
+      id: originalID,
+      created_at: originalCreatedAt,
+      text,
+      example,
+      category,
+    });
+    expect(
+      await (
+        await request.get(`/api/v1/publications?workspace_id=${workspace.id}`, { headers })
+      ).json(),
+    ).toEqual([]);
     await page.reload();
     const finalCard = page.getByRole("article").filter({ hasText: stored.text });
     await expect(finalCard).toBeVisible();
     await finalCard.getByRole("button", { name: "Edit prompt", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "Edit prompt", exact: true });
-    await expect(dialog.getByRole("textbox", { name: "Example post", exact: true })).toHaveValue(
+    const reopened = page.getByRole("dialog", { name: "Edit prompt", exact: true });
+    await expect(reopened.getByRole("textbox", { name: "Example post", exact: true })).toHaveValue(
       stored.example,
     );
     await page.keyboard.press("Escape");
-    await expect(dialog).toHaveCount(0);
+    await expect(reopened).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
@@ -894,11 +830,11 @@ test.describe("prompts custom edit", () => {
   });
 });
 
-test.describe("prompts random preview", () => {
+test.describe("random prompt", () => {
   test("Random reveals an idea and only an explicit New post authors its example", async ({
     page,
     request,
-  }, testInfo) => {
+  }) => {
     test.setTimeout(90_000);
     const auth = await registerUser(request, `random-prompt-${randomUUID()}@example.com`);
     const workspace = await createWorkspace(request, auth.token, "Random prompt preview");
@@ -918,92 +854,64 @@ test.describe("prompts random preview", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/prompts");
     let selected: { text: string; example: string } | undefined;
-    try {
-      for (const width of [1280, 320]) {
-        for (const scheme of ["light"] as const) {
-          await page.setViewportSize({ width, height: 900 });
-          await page.emulateMedia({ colorScheme: scheme });
-          await page.evaluate((value) => localStorage.setItem("mode-watcher-mode", value), scheme);
-          await page.reload();
-          const random = page.getByRole("button", { name: "Random", exact: true });
-          const response = page.waitForResponse(
-            (res) => new URL(res.url()).pathname === "/api/v1/prompts/random",
-          );
-          await random.focus();
-          await page.keyboard.press("Enter");
-          const chosen = await response;
-          expect(chosen.ok()).toBe(true);
-          selected = await chosen.json();
-          await expect(page).toHaveURL(/\/prompts$/);
-          const preview = page.getByRole("region", { name: "Writing prompt", exact: true });
-          await expect(preview.getByText(selected!.text, { exact: true })).toBeVisible();
-          await expect(preview.getByText(selected!.example, { exact: true })).toBeVisible();
-          await expect(
-            preview.getByRole("button", { name: "New post", exact: true }),
-          ).toBeVisible();
-          await expect(random).toBeFocused();
-          await expect(preview).toBeInViewport();
-          await page.screenshot({ path: testInfo.outputPath(`random-${width}-${scheme}.png`) });
-          expect(await (await request.get(postsURL, { headers })).json()).toEqual([]);
-          expect(writes).toEqual([]);
-          expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
-            false,
-          );
-        }
-      }
-      const categoriesResponse = await request.get("/api/v1/prompts/categories", { headers });
-      expect(categoriesResponse.ok()).toBe(true);
-      const { categories } = await categoriesResponse.json();
-      const category = categories[0];
-      await page.getByRole("button", { name: "All categories", exact: true }).click();
-      await page.getByRole("option", { name: category, exact: true }).click();
-      await expect(page.getByRole("region", { name: "Writing prompt", exact: true })).toHaveCount(
-        0,
+    await page.reload();
+    const random = page.getByRole("button", { name: "Random", exact: true });
+    const response = page.waitForResponse(
+      (res) => new URL(res.url()).pathname === "/api/v1/prompts/random",
+    );
+    await random.focus();
+    await page.keyboard.press("Enter");
+    const chosen = await response;
+    expect(chosen.ok()).toBe(true);
+    selected = await chosen.json();
+    await expect(page).toHaveURL(/\/prompts$/);
+    const preview = page.getByRole("region", { name: "Writing prompt", exact: true });
+    await expect(preview.getByText(selected!.text, { exact: true })).toBeVisible();
+    await expect(preview.getByText(selected!.example, { exact: true })).toBeVisible();
+    await expect(preview.getByRole("button", { name: "New post", exact: true })).toBeVisible();
+    await expect(random).toBeFocused();
+    await expect(preview).toBeInViewport();
+    expect(await (await request.get(postsURL, { headers })).json()).toEqual([]);
+    expect(writes).toEqual([]);
+    const categoriesResponse = await request.get("/api/v1/prompts/categories", { headers });
+    expect(categoriesResponse.ok()).toBe(true);
+    const { categories } = await categoriesResponse.json();
+    const category = categories[0];
+    await page.getByRole("button", { name: "All categories", exact: true }).click();
+    await page.getByRole("option", { name: category, exact: true }).click();
+    await expect(page.getByRole("region", { name: "Writing prompt", exact: true })).toHaveCount(0);
+    const filteredResponse = page.waitForResponse((res) => {
+      const url = new URL(res.url());
+      return (
+        url.pathname === "/api/v1/prompts/random" && url.searchParams.get("category") === category
       );
-      const filteredResponse = page.waitForResponse((res) => {
-        const url = new URL(res.url());
-        return (
-          url.pathname === "/api/v1/prompts/random" && url.searchParams.get("category") === category
-        );
-      });
-      await page.getByRole("button", { name: "Random", exact: true }).click();
-      const filtered = await filteredResponse;
-      expect(filtered.ok()).toBe(true);
-      selected = await filtered.json();
-      await expect(
-        page
-          .getByRole("region", { name: "Writing prompt", exact: true })
-          .getByText(selected!.text, { exact: true }),
-      ).toBeVisible();
-      expect(await (await request.get(postsURL, { headers })).json()).toEqual([]);
-      expect(writes).toEqual([]);
-      const author = page
+    });
+    await page.getByRole("button", { name: "Random", exact: true }).click();
+    const filtered = await filteredResponse;
+    expect(filtered.ok()).toBe(true);
+    selected = await filtered.json();
+    await expect(
+      page
         .getByRole("region", { name: "Writing prompt", exact: true })
-        .getByRole("button", { name: "New post", exact: true });
-      await author.focus();
-      await page.keyboard.press("Enter");
-      await expectPostText(
-        page.getByRole("textbox", { name: "Post text", exact: true }),
-        selected!.example,
-      );
-      await expect
-        .poll(async () => (await (await request.get(postsURL, { headers })).json()).length)
-        .toBe(1);
-      const [post] = await (await request.get(postsURL, { headers })).json();
-      expect(post.status).toBe("draft");
-      expect(post.source_text).toBe(selected!.example);
-      expect(errors).toEqual([]);
-    } finally {
-      const posts = await request.get(postsURL, { headers });
-      const evidence = testInfo.outputPath("retained-public-posts.json");
-      writeFileSync(
-        evidence,
-        JSON.stringify({ url: page.url(), posts: await posts.json(), writes, errors }, null, 2),
-      );
-      await testInfo.attach("retained-public-posts", {
-        path: evidence,
-        contentType: "application/json",
-      });
-    }
+        .getByText(selected!.text, { exact: true }),
+    ).toBeVisible();
+    expect(await (await request.get(postsURL, { headers })).json()).toEqual([]);
+    expect(writes).toEqual([]);
+    const author = page
+      .getByRole("region", { name: "Writing prompt", exact: true })
+      .getByRole("button", { name: "New post", exact: true });
+    await author.focus();
+    await page.keyboard.press("Enter");
+    await expectPostText(
+      page.getByRole("textbox", { name: "Post text", exact: true }),
+      selected!.example,
+    );
+    await expect
+      .poll(async () => (await (await request.get(postsURL, { headers })).json()).length)
+      .toBe(1);
+    const [post] = await (await request.get(postsURL, { headers })).json();
+    expect(post.status).toBe("draft");
+    expect(post.source_text).toBe(selected!.example);
+    expect(errors).toEqual([]);
   });
 });

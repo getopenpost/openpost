@@ -675,6 +675,33 @@ func TestMediaUploadSessionTTLScalesForLargeVideos(t *testing.T) {
 	require.LessOrEqual(t, mediaUploadSessionTTL(MaxMediaUploadBytes), maxMediaUploadSessionTTL)
 }
 
+func TestStreamingImageUploadPersistsDimensionsBeforeReady(t *testing.T) {
+	t.Parallel()
+
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	var encoded bytes.Buffer
+	require.NoError(t, png.Encode(&encoded, image.NewRGBA(image.Rect(0, 0, 23, 17))))
+	content := encoded.Bytes()
+	mediaID := srv.createUploadSession(t, "gallery.png", "image/png", int64(len(content)))
+	storage.objects[mediaID+".png"] = content
+
+	resp := srv.postJSON(t, "/api/v1/media/upload-session/"+mediaID+"/complete", map[string]any{
+		"workspace_id": "ws-1",
+	})
+	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+	var completed MediaUploadResult
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &completed))
+	require.Equal(t, 23, completed.Width)
+	require.Equal(t, 17, completed.Height)
+
+	var media models.MediaAttachment
+	require.NoError(t, srv.db.NewSelect().Model(&media).Where("id = ?", mediaID).Scan(t.Context()))
+	require.Equal(t, mediaReadyStatus, media.ProcessingStatus)
+	require.Equal(t, 23, media.Width)
+	require.Equal(t, 17, media.Height)
+}
+
 func TestCompleteMediaUploadSessionFinalizesUploadedObject(t *testing.T) {
 	t.Parallel()
 

@@ -496,11 +496,11 @@ func buildCatalog() []Capability {
 		defaultQueued(Capability{Provider: ProviderGoogleBusiness, Profile: models.ContentProfileShortText, Label: "Google Business update", TextLimit: 1500, Media: text, Settings: googlebusinessSettings(), RequiresAppReview: true, UnavailableReason: "Google Business delivery is not enabled until Google API access and live certification are complete."}),
 		defaultQueued(Capability{Provider: ProviderGoogleBusiness, Profile: models.ContentProfileImagePost, Label: "Google Business photo update", TextLimit: 1500, Media: googlebusinessPhoto, RequiresPublicMedia: true, Settings: googlebusinessSettings(), RequiresAppReview: true, UnavailableReason: "Google Business delivery is not enabled until Google API access and live certification are complete."}),
 
-		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileShortText, Label: "Telegram message", TextLimit: 4096, Media: text, Settings: telegramSettings()}),
+		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileShortText, Label: "Telegram message", TextLimit: 4096, Media: text, MediaShapes: []string{MediaShapeText, MediaShapeLink}, Settings: telegramSettings()}),
 		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileImagePost, Label: "Telegram media", TextLimit: 1024, Media: telegramMedia, Settings: telegramSettings()}),
 		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileShortVideo, Label: "Telegram video", TextLimit: 1024, Media: telegramMedia, Settings: telegramSettings()}),
 
-		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileShortText, Label: "Discord message", TextLimit: 2000, Media: text, Settings: discordSettings()}),
+		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileShortText, Label: "Discord message", TextLimit: 2000, Media: text, MediaShapes: []string{MediaShapeText, MediaShapeLink}, Settings: discordSettings()}),
 		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileImagePost, Label: "Discord attachment", TextLimit: 2000, Media: MediaConstraint{MinCount: 1, MaxCount: 10, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "image/gif"}, MaxSizeBytes: 10 * 1024 * 1024}, Settings: discordSettings()}),
 		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileShortVideo, Label: "Discord video", TextLimit: 2000, Media: discordVideo, Settings: discordSettings()}),
 		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileLongVideo, Label: "Discord video", TextLimit: 2000, Media: discordVideo, Settings: discordSettings()}),

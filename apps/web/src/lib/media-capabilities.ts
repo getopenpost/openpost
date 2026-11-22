@@ -237,6 +237,12 @@ function validateBlueskyMedia(media: MediaCapabilityItem[]): MediaCapabilityIssu
 	if (media.length > blueskyGalleryMaxImages) {
 		return [issue('bluesky', 'error', 'Bluesky supports up to 10 images per post.')];
 	}
+	const unsupported = media.find((item) => !feedImageMimeTypes.has(normalizeMime(item.mimeType)));
+	if (unsupported) {
+		return [
+			issue('bluesky', 'error', 'Bluesky images must be JPEG, PNG, or WebP.', unsupported.id)
+		];
+	}
 	return [];
 }
 

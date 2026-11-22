@@ -1792,6 +1792,11 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 
 	media, err = h.finalizeDirectMediaUploadRecord(ctx, media, inspection)
 	if err != nil {
+		var validation huma.StatusError
+		if errors.As(err, &validation) && validation.GetStatus() == http.StatusBadRequest {
+			h.discardInvalidDirectUpload(ctx, &media)
+			return result, err
+		}
 		if duplicate, deduped := h.resolveDirectUploadDeduplication(ctx, workspaceID, fileHash, media); deduped {
 			return duplicate, nil
 		}
@@ -2023,6 +2028,11 @@ func (h *MediaHandler) finalizeDirectMediaUploadRecord(ctx context.Context, medi
 		width, height, thumbnails, err = h.processImage(ctx, inspection.Content, media.ID, mimeType)
 		if err != nil {
 			width, height = h.getImageDimensions(bytes.NewReader(inspection.Content), mimeType)
+		}
+		// A ready image with zero dimensions cannot be used in a Bluesky
+		// gallery. Never finalise such a streaming upload as publishable.
+		if width <= 0 || height <= 0 {
+			return media, huma.Error400BadRequest("uploaded image dimensions could not be determined")
 		}
 	}
 	thumbsJSON := ""

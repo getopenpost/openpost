@@ -1441,24 +1441,30 @@ func validateBlueskyMedia(media []MediaItem) []MediaValidationIssue {
 	}
 
 	if len(media) > providerlimits.BlueskyLegacyImageMaxCount {
-		for _, item := range media {
-			switch strings.ToLower(strings.TrimSpace(item.MimeType)) {
-			case "image/jpeg", "image/png", "image/webp":
-			default:
-				return []MediaValidationIssue{{
-					Provider: providerBluesky, MediaID: item.ID, Severity: severityError,
-					Message: "Bluesky galleries accept JPEG, PNG, or WebP images only.",
-				}}
-			}
-			if item.Width <= 0 || item.Height <= 0 {
-				return []MediaValidationIssue{{
-					Provider: providerBluesky, MediaID: item.ID, Severity: severityError,
-					Message: "Bluesky gallery images require width and height.",
-				}}
-			}
+		return validateBlueskyGalleryImages(media)
+	}
+	return nil
+}
+
+// Gallery-only constraints live in a separate helper to keep the video
+// validator below the lint complexity threshold.
+func validateBlueskyGalleryImages(media []MediaItem) []MediaValidationIssue {
+	for _, item := range media {
+		switch strings.ToLower(strings.TrimSpace(item.MimeType)) {
+		case "image/jpeg", "image/png", "image/webp":
+		default:
+			return []MediaValidationIssue{{
+				Provider: providerBluesky, MediaID: item.ID, Severity: severityError,
+				Message: "Bluesky galleries accept JPEG, PNG, or WebP images only.",
+			}}
+		}
+		if item.Width <= 0 || item.Height <= 0 {
+			return []MediaValidationIssue{{
+				Provider: providerBluesky, MediaID: item.ID, Severity: severityError,
+				Message: "Bluesky gallery images require width and height.",
+			}}
 		}
 	}
-
 	return nil
 }
 

@@ -456,8 +456,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "server=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "e2e-server-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
-          echo "frontend=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "frontend-public-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
+          {
+            echo "server=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "e2e-server-${GITHUB_SHA}-")"
+            echo "frontend=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "frontend-public-${GITHUB_SHA}-")"
+          } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ steps.artifact.outputs.server }}
@@ -508,9 +510,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "server=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "e2e-server-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
-          echo "frontend=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "frontend-public-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
-          echo "marketing=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "marketing-static-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
+          {
+            echo "server=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "e2e-server-${GITHUB_SHA}-")"
+            echo "frontend=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "frontend-public-${GITHUB_SHA}-")"
+            echo "marketing=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "marketing-static-${GITHUB_SHA}-")"
+          } >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ steps.artifacts.outputs.server }}

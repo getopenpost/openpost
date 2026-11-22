@@ -4,7 +4,10 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { createWorkspace, registerUser, expectPostText } from "./helpers";
 
-test.describe.configure({ timeout: 60_000 });
+// Both tests proxy full marketing and app origins through Playwright routes and
+// open popups; serialize them so two concurrent popups do not starve hydration
+// on 2-vCPU CI runners.
+test.describe.configure({ mode: "serial", timeout: 60_000 });
 
 // Serve the real marketing build at its production origin. The app's existing
 // fixture server answers its production hostname without making external calls.
@@ -80,7 +83,7 @@ test("a reviewed thread survives sign-in and becomes an editable draft with its 
   await expect(popup).toHaveURL(/\/login\?redirect=/);
   expect(popup.url()).not.toContain("lesson");
   await popup.reload();
-  await expect(popup.getByRole("textbox", { name: /email/i })).toBeVisible();
+  await expect(popup.getByRole("textbox", { name: /email/i })).toBeVisible({ timeout: 15_000 });
   await context.addCookies([
     {
       name: "openpost_session",
@@ -94,7 +97,7 @@ test("a reviewed thread survives sign-in and becomes an editable draft with its 
   ]);
   await popup.reload();
   const editors = popup.getByRole("textbox", { name: "Post text", exact: true });
-  await expect(editors).toHaveCount(2);
+  await expect(editors).toHaveCount(2, { timeout: 15_000 });
   await expectPostText(editors.nth(0), `${first}\n\n1/2`);
   await expectPostText(editors.nth(1), `${second}\n\n2/2`);
   await expect(popup).toHaveURL(/\/publications\//);
@@ -174,9 +177,13 @@ test("preview files and alt text reach the same draft after a failed upload is r
   const popupPromise = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Schedule this post", exact: true }).click();
   const popup = await popupPromise;
-  await expect(popup.getByRole("alert")).toContainText("The draft could not be prepared");
+  await expect(popup.getByRole("alert")).toContainText("The draft could not be prepared", {
+    timeout: 15_000,
+  });
   await popup.reload();
-  await expect(popup.getByRole("alert")).toContainText("The draft could not be prepared");
+  await expect(popup.getByRole("alert")).toContainText("The draft could not be prepared", {
+    timeout: 15_000,
+  });
   rejectUpload = false;
   await popup.getByRole("button", { name: "Try again", exact: true }).click();
   await expectPostText(

@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [7.42.5] - 2026-11-22
+
+### Fixed
+
+- Mastodon authorization-code exchange now checks instance readiness using the registered instance URL when the request supplies only the server name.
+- Custom AI gateways that reject numeric and array bounds in strict response schemas, including Anthropic's OpenAI-compatible endpoint, now receive those bounds as schema descriptions.
+- Discord and Telegram messages that contain a link keep their channel, chat and mention settings, so the composer no longer reports `channel_id is not supported for Discord message` or hides the destination settings after a link is added.
+- Threads text length now counts one per character and counts only emoji by their UTF-8 bytes, as Meta documents, so Japanese and other non-ASCII posts are no longer rejected as `text_too_long` at about a third of the 500-character limit.
+- The YouTube integration setup guide in the documentation now displays the YouTube title icon.
+
 ## [7.42.2] - 2026-11-16
 
 ### Fixed

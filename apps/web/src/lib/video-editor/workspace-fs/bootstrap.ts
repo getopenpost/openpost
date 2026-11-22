@@ -7,7 +7,7 @@
  * (OpenPost workspaces start at the current layout).
  */
 
-import { createLogger } from './logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import {
 	CONTENT_DIR,
 	MARKER_FILENAME,
@@ -15,8 +15,8 @@ import {
 	PROJECTS_DIR,
 	README_FILENAME,
 	WORKSPACE_SCHEMA_VERSION
-} from './paths';
-import { exists, writeBlob, writeJsonAtomic } from './fs-primitives';
+} from '@openpost/editor-shared/workspace';
+import { exists, writeBlob, writeJsonAtomic } from '@openpost/editor-shared/workspace';
 
 const logger = createLogger('WorkspaceBootstrap');
 

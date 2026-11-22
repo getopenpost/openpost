@@ -7,6 +7,7 @@
         "apps/server/",
         "apps/cli/",
         "tests/app/",
+        "tests/capture/",
         "docs/examples/",
         "apps/web/",
         "apps/mobile/",

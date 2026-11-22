@@ -12,6 +12,7 @@ import (
 )
 
 func TestCommentCampaignAdmitsOnlyNewMatchingCommentsOnce(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		t.Run(backend, func(t *testing.T) {
 			s, actor := workflowTestServiceWithDB(t, nil, workflowRunListTestDB(t, backend))
@@ -52,6 +53,7 @@ func TestCommentCampaignAdmitsOnlyNewMatchingCommentsOnce(t *testing.T) {
 }
 
 func TestPrivateReplyReviewPreservesItsTargetKind(t *testing.T) {
+	t.Parallel()
 	var kinds []string
 	actions := actionFunc(func(_ context.Context, in EffectRequest) (EffectResult, error) {
 		kinds = append(kinds, in.Kind)
@@ -71,6 +73,7 @@ func TestPrivateReplyReviewPreservesItsTargetKind(t *testing.T) {
 }
 
 func TestCommentPreviewUsesRecentInventoryBeyondOldNonmatches(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	now := time.Now().UTC()
 	_, err := s.db.NewInsert().Model(&models.SocialAccount{ID: "ig", WorkspaceID: "ws", Platform: "instagram", AccountID: "owner", AccessTokenEnc: []byte("test"), CreatedAt: now}).Exec(t.Context())
@@ -93,6 +96,7 @@ func TestCommentPreviewUsesRecentInventoryBeyondOldNonmatches(t *testing.T) {
 }
 
 func TestStopRepliesUsesPublishedCampaignAfterDraftSourceChanges(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "wait", Kind: KindWait, Inputs: map[string]Value{"minutes": literal(1)}}})
 	// A saved draft can differ from the still-active published definition.

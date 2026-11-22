@@ -42,7 +42,7 @@
 	import { mediaTaskId, mediaTasks } from '$lib/video-editor/media/media-tasks.svelte';
 	import LocalMusicPanel from './local-music-panel.svelte';
 	import { transcriptionLanguageUiLabel } from '$lib/video-editor/transcript/engine/model-i18n';
-	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 
 	type GenerateSpeech = (options: LocalTtsGenerateOptions) => Promise<GeneratedAudio>;
 	type CommitAudio = typeof commitGeneratedAudio;

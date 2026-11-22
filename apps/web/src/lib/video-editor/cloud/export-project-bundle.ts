@@ -5,14 +5,17 @@ import {
 	createBundleExportService,
 	type BundleExportRuntime
 } from '../project-bundle/bundle-export';
-import { sanitizeBundleFileName, throwIfBundleAborted } from '../project-bundle/bundle-utils';
+import {
+	sanitizeBundleFileName,
+	throwIfBundleAborted
+} from '@openpost/editor-shared/project-bundle';
 import type {
 	BundleExportResult,
 	BundleOutput,
 	BundleProgress
-} from '../project-bundle/bundle-types';
+} from '@openpost/editor-shared/project-bundle';
 import { resolveMediaBlob } from '../media/resolve-media-blob';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { Project } from '../project/types';
 import { m } from '$lib/paraglide/messages';
 

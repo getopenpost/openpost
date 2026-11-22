@@ -1,5 +1,7 @@
-/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-chained-type-assertions, eslint/no-empty -- GPU pool manages browser-owned WebGL and canvas resources with explicit size/cap checks */
+/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-chained-type-assertions -- GPU pool manages browser-owned WebGL and canvas resources with explicit size/cap checks */
 /** Bounded reusable GPU texture/framebuffer pool shared by preview and export. */
+
+import { ignoreCleanupError } from '$lib/cleanup';
 
 export interface PooledGpuEntry {
 	texture: WebGLTexture;
@@ -33,56 +35,42 @@ export class GpuResourcePool {
 		if (!entry) return null;
 		this.bytesForContext.set(gl, (this.bytesForContext.get(gl) ?? 0) - entry.bytes);
 		if (isContextLost(gl)) {
-			try {
-				gl.deleteTexture(entry.texture);
-			} catch {}
-			try {
-				gl.deleteFramebuffer(entry.framebuffer);
-			} catch {}
+			disposeGpuEntry(gl, entry);
 			return null;
 		}
 		clearTexturePixels(gl, entry);
 		return entry;
 	}
 
+	private hasCapacity(
+		gl: WebGL2RenderingContext,
+		list: PooledGpuEntry[],
+		incomingBytes: number
+	): boolean {
+		return (
+			list.length < this.maxCount &&
+			(this.bytesForContext.get(gl) ?? 0) + incomingBytes <= this.maxBytes
+		);
+	}
+
+	private evictOldest(gl: WebGL2RenderingContext, list: PooledGpuEntry[]): boolean {
+		const oldest = list.shift();
+		if (!oldest) return false;
+		disposeGpuEntry(gl, oldest);
+		this.bytesForContext.set(gl, (this.bytesForContext.get(gl) ?? 0) - oldest.bytes);
+		return true;
+	}
+
 	release(gl: WebGL2RenderingContext, entry: PooledGpuEntry): boolean {
 		if (isContextLost(gl)) {
-			try {
-				gl.deleteTexture(entry.texture);
-			} catch {}
-			try {
-				gl.deleteFramebuffer(entry.framebuffer);
-			} catch {}
+			disposeGpuEntry(gl, entry);
 			return false;
 		}
 		const list = this.pools.get(gl) ?? [];
-		const bytes = this.bytesForContext.get(gl) ?? 0;
-		if (list.length >= this.maxCount || bytes + entry.bytes > this.maxBytes) {
-			let freed = false;
-			if (list.length > 0) {
-				const oldest = list.shift();
-				if (oldest) {
-					try {
-						gl.deleteTexture(oldest.texture);
-					} catch {}
-					try {
-						gl.deleteFramebuffer(oldest.framebuffer);
-					} catch {}
-					this.bytesForContext.set(gl, (this.bytesForContext.get(gl) ?? 0) - oldest.bytes);
-					freed = true;
-				}
-			}
-			if (
-				!freed ||
-				list.length >= this.maxCount ||
-				(this.bytesForContext.get(gl) ?? 0) + entry.bytes > this.maxBytes
-			) {
-				try {
-					gl.deleteTexture(entry.texture);
-				} catch {}
-				try {
-					gl.deleteFramebuffer(entry.framebuffer);
-				} catch {}
+		if (!this.hasCapacity(gl, list, entry.bytes)) {
+			const freed = this.evictOldest(gl, list);
+			if (!freed || !this.hasCapacity(gl, list, entry.bytes)) {
+				disposeGpuEntry(gl, entry);
 				if (list.length === 0) {
 					this.pools.delete(gl);
 					this.bytesForContext.delete(gl);
@@ -106,12 +94,7 @@ export class GpuResourcePool {
 		const list = this.pools.get(gl);
 		if (!list) return;
 		for (const entry of list) {
-			try {
-				if (!isContextLost(gl)) {
-					gl.deleteTexture(entry.texture);
-					gl.deleteFramebuffer(entry.framebuffer);
-				}
-			} catch {}
+			if (!isContextLost(gl)) disposeGpuEntry(gl, entry);
 		}
 		this.pools.delete(gl);
 		this.bytesForContext.delete(gl);
@@ -142,14 +125,19 @@ function isContextLost(gl: WebGL2RenderingContext): boolean {
 	return (gl as unknown as { isContextLost?: () => boolean }).isContextLost?.() === true;
 }
 
+function disposeGpuEntry(gl: WebGL2RenderingContext, entry: PooledGpuEntry): void {
+	ignoreCleanupError(() => gl.deleteTexture(entry.texture));
+	ignoreCleanupError(() => gl.deleteFramebuffer(entry.framebuffer));
+}
+
 function clearTexturePixels(gl: WebGL2RenderingContext, entry: PooledGpuEntry): void {
-	try {
+	ignoreCleanupError(() => {
 		gl.bindFramebuffer(gl.FRAMEBUFFER, entry.framebuffer);
 		gl.viewport(0, 0, entry.width, entry.height);
 		gl.clearColor(0, 0, 0, 0);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-	} catch {}
+	});
 }
 
 export const gpuResourcePool = new GpuResourcePool();
@@ -225,7 +213,7 @@ function clearCanvasPixels(
 	width: number,
 	height: number
 ): void {
-	try {
+	ignoreCleanupError(() => {
 		const ctx = canvas.getContext('2d') as
 			| CanvasRenderingContext2D
 			| OffscreenCanvasRenderingContext2D
@@ -236,7 +224,7 @@ function clearCanvasPixels(
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		(ctx as any).filter = 'none';
 		ctx.clearRect(0, 0, width, height);
-	} catch {}
+	});
 }
 
 export const canvasPool = new CanvasPool();

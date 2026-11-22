@@ -18,6 +18,7 @@ import (
 // with nothing else changed, so the only difference between the two halves is
 // the role itself.
 func TestClientRoleDecidesApprovalWithoutAuthoring(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, actionFunc(func(_ context.Context, input EffectRequest) (EffectResult, error) {
 		if input.Kind == KindApproval {
 			return EffectResult{Output: map[string]any{"publication_id": "post-1", "revision": 3, "text": "review me"}}, nil
@@ -63,6 +64,7 @@ func TestClientRoleDecidesApprovalWithoutAuthoring(t *testing.T) {
 // TestViewerRoleCannotDecideApproval keeps the other side of the same boundary:
 // approval is a decision, and a viewer has none.
 func TestViewerRoleCannotDecideApproval(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, actionFunc(func(_ context.Context, input EffectRequest) (EffectResult, error) {
 		if input.Kind == KindApproval {
 			return EffectResult{Output: map[string]any{"publication_id": "post-1", "revision": 3, "text": "review me"}}, nil

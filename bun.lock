@@ -20,6 +20,7 @@
         "@typescript/native": "npm:typescript@7.0.2",
         "braces": "3.0.3",
         "fallow": "3.25.0",
+        "fflate": "0.8.3",
         "gifuct-js": "2.1.2",
         "js-yaml": "4.3.2",
         "knip": "6.44.1",

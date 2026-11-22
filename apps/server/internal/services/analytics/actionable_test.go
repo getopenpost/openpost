@@ -12,6 +12,7 @@ import (
 )
 
 func TestVisibilitySummaryCountsOneCompatibleMetricPerOutput(t *testing.T) {
+	t.Parallel()
 	content := []ContentOverview{
 		{Platform: "linkedin", Metrics: platform.AnalyticsValues{"views": 20, "impressions": 30}, MetricMetadata: legacyMetricMetadata(platform.AnalyticsValues{"views": 20, "impressions": 30}, platform.AnalyticsMetricSubjectContent, "linkedin")},
 		{Platform: "youtube", Metrics: platform.AnalyticsValues{"views": 10, "impressions": 900}, MetricMetadata: legacyMetricMetadata(platform.AnalyticsValues{"views": 10, "impressions": 900}, platform.AnalyticsMetricSubjectContent, "youtube")},
@@ -24,6 +25,7 @@ func TestVisibilitySummaryCountsOneCompatibleMetricPerOutput(t *testing.T) {
 }
 
 func TestActionableOverviewUsesFullPopulationAndImmutableOwnAccountEvidence(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	now := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
 	account := seedAnalyticsAccount(t, db, "")
@@ -84,6 +86,7 @@ func TestActionableOverviewUsesFullPopulationAndImmutableOwnAccountEvidence(t *t
 }
 
 func TestVisibilityRankingKeepsMeasuredZeroBeforeMissingAndDeduplicatesPosts(t *testing.T) {
+	t.Parallel()
 	items := []ContentOverview{
 		{PublicationID: "missing", Reference: ContentReference{RenditionID: "missing"}},
 		{PublicationID: "shared", Reference: ContentReference{RenditionID: "zero"}, Visibility: &ContentVisibility{Value: 0}},
@@ -98,6 +101,7 @@ func TestVisibilityRankingKeepsMeasuredZeroBeforeMissingAndDeduplicatesPosts(t *
 }
 
 func TestTakeawaysRejectInsufficientOrIncompatibleEvidenceAndUnsupportedAccounts(t *testing.T) {
+	t.Parallel()
 	now := time.Now().UTC()
 	metadata := legacyMetricMetadata(platform.AnalyticsValues{"likes": 1}, platform.AnalyticsMetricSubjectContent, "test")
 	items := []ContentOverview{insightTestContent("a", "account", "test", now, 10, metadata), insightTestContent("b", "account", "test", now, 10, metadata), insightTestContent("c", "account", "test", now, 40, metadata)}
@@ -121,6 +125,7 @@ func TestTakeawaysRejectInsufficientOrIncompatibleEvidenceAndUnsupportedAccounts
 }
 
 func TestVisibilityTrendNeverSubtractsAcrossMetricOrSourceChanges(t *testing.T) {
+	t.Parallel()
 	start := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	history := make([]models.AnalyticsRenditionSnapshot, 0, 4)
 	for i, sample := range []struct{ values, metadata string }{
@@ -140,6 +145,7 @@ func TestVisibilityTrendNeverSubtractsAcrossMetricOrSourceChanges(t *testing.T) 
 }
 
 func TestTakeawaysReserveRoomAndDeduplicateCrossPostedWinners(t *testing.T) {
+	t.Parallel()
 	metadata := legacyMetricMetadata(platform.AnalyticsValues{"likes": 1}, platform.AnalyticsMetricSubjectContent, "test")
 	items := make([]ContentOverview, 0, 6)
 	for _, account := range []string{"a", "b"} {
@@ -167,6 +173,7 @@ func TestTakeawaysReserveRoomAndDeduplicateCrossPostedWinners(t *testing.T) {
 }
 
 func TestRecoveryTakeawaysRespectUnsupportedProvidersAndCollectionChoices(t *testing.T) {
+	t.Parallel()
 	for _, account := range []AccountOverview{
 		{ID: "unsupported", Status: "permission_required", ErrorCode: "feature_disabled"},
 		{ID: "opted-out", Status: "permission_required", ErrorCode: "feature_disabled", AccountSupported: true},

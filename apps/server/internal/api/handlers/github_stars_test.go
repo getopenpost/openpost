@@ -14,6 +14,7 @@ import (
 )
 
 func TestGitHubStarsEndpointIsPublicWhenTheCountIsUnavailable(t *testing.T) {
+	t.Parallel()
 	e := echo.New()
 	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewGitHubStarsHandler(nil).RegisterRoutes(api)

@@ -505,7 +505,7 @@ func (h *PublicationHandler) createPublication(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		publication, _, err := h.publicationApplicationForTesting().CreateIdempotent(ctx, userID, input.Body, request)
+		publication, _, err := h.publicationApplication().CreateIdempotent(ctx, userID, input.Body, request)
 		if err != nil {
 			return nil, publicationMutationHTTPError(err, "failed to create publication")
 		}
@@ -673,7 +673,7 @@ func (h *PublicationHandler) updatePublication(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			resp, _, err := h.publicationApplicationForTesting().UpdateIdempotent(ctx, userID, input.PathID, input.Body, request)
+			resp, _, err := h.publicationApplication().UpdateIdempotent(ctx, userID, input.PathID, input.Body, request)
 			if err != nil {
 				return nil, publicationMutationHTTPError(err, "failed to update publication")
 			}
@@ -1068,7 +1068,7 @@ func (h *PublicationHandler) schedulePublication(api huma.API) {
 			if requestErr != nil {
 				return nil, requestErr
 			}
-			result, replayed, err = h.publicationApplicationForTesting().ScheduleIdempotent(
+			result, replayed, err = h.publicationApplication().ScheduleIdempotent(
 				ctx, userID, input.PathID, input.Body.ExpectedRevision, intent, request,
 			)
 		} else {
@@ -1185,7 +1185,7 @@ func (h *PublicationHandler) cancelPublication(api huma.API) {
 			if requestErr != nil {
 				return nil, requestErr
 			}
-			_, _, err = h.publicationApplicationForTesting().CancelIdempotent(
+			_, _, err = h.publicationApplication().CancelIdempotent(
 				ctx, userID, input.PathID, input.Body.ExpectedRevision, request,
 			)
 		} else {
@@ -1228,7 +1228,7 @@ func (h *PublicationHandler) publishNow(api huma.API) {
 			if requestErr != nil {
 				return nil, requestErr
 			}
-			result, replayed, err = h.publicationApplicationForTesting().PublishNowIdempotent(
+			result, replayed, err = h.publicationApplication().PublishNowIdempotent(
 				ctx, userID, input.PathID, input.Body.ExpectedRevision, intent, request,
 			)
 		} else {
@@ -1338,7 +1338,7 @@ func (h *PublicationHandler) retryFailedRenditions(api huma.API) {
 			if requestErr != nil {
 				return nil, requestErr
 			}
-			jobID, _, err = h.publicationApplicationForTesting().RetryFailedRenditionsIdempotent(
+			jobID, _, err = h.publicationApplication().RetryFailedRenditionsIdempotent(
 				ctx, middleware.GetUserID(ctx), input.PathID, request,
 			)
 		} else {

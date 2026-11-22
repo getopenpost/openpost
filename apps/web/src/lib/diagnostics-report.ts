@@ -95,23 +95,20 @@ export function maintainerDiagnosticsAllowed(gate: BrowserDiagnosticsGate): bool
 
 const reportedKeys = new Set<string>();
 
-export function resetBrowserDiagnosticsForTests() {
-	reportedKeys.clear();
-}
-
 // maybeReportBrowserFailure sends one normalized failure per session key
 // (code + kind + location) with a small session cap, so a render loop cannot flood
 // the instance. A send is attempted at most once per key; transport failures
 // stay silent and never surface in the UI.
 export async function maybeReportBrowserFailure(
 	failure: NormalizedBrowserFailure,
-	transport: MaintainerDiagnosticsTransport
+	transport: MaintainerDiagnosticsTransport,
+	seen: Set<string> = reportedKeys
 ): Promise<boolean> {
 	const key = `${failure.code}|${failure.errorKind ?? ''}|${failure.location}`;
-	if (reportedKeys.has(key) || reportedKeys.size >= MAX_BROWSER_DIAGNOSTICS_PER_SESSION) {
+	if (seen.has(key) || seen.size >= MAX_BROWSER_DIAGNOSTICS_PER_SESSION) {
 		return false;
 	}
-	reportedKeys.add(key);
+	seen.add(key);
 	try {
 		const body: Parameters<MaintainerDiagnosticsTransport['postReport']>[0] = {
 			surface: 'browser',

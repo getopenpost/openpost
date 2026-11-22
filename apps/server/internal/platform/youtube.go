@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/providerlimits"
 )
 
@@ -112,7 +114,7 @@ func (y *YouTubeAdapter) GetProfile(ctx context.Context, accessToken string) (*U
 	channel := channels[0]
 	return &UserProfile{
 		ID:          channel.ID,
-		Username:    firstNonEmptyString(channel.Snippet.CustomURL, channel.Snippet.Title, channel.ID),
+		Username:    textutil.FirstNonEmpty(channel.Snippet.CustomURL, channel.Snippet.Title, channel.ID),
 		DisplayName: channel.Snippet.Title,
 		AvatarURL:   channel.Snippet.Thumbnails.Default.URL,
 	}, nil
@@ -129,7 +131,7 @@ func (y *YouTubeAdapter) RefreshAccountMetadata(ctx context.Context, accessToken
 			continue
 		}
 		return &UserProfile{
-			ID: channel.ID, Username: firstNonEmptyString(channel.Snippet.CustomURL, channel.Snippet.Title, channel.ID),
+			ID: channel.ID, Username: textutil.FirstNonEmpty(channel.Snippet.CustomURL, channel.Snippet.Title, channel.ID),
 			DisplayName: channel.Snippet.Title, AvatarURL: channel.Snippet.Thumbnails.Default.URL,
 		}, nil
 	}
@@ -145,7 +147,7 @@ func (y *YouTubeAdapter) ListAccountSelections(ctx context.Context, token *Token
 	for _, channel := range channels {
 		options = append(options, AccountSelectionOption{
 			ID:          channel.ID,
-			Username:    firstNonEmptyString(channel.Snippet.CustomURL, channel.Snippet.Title, channel.ID),
+			Username:    textutil.FirstNonEmpty(channel.Snippet.CustomURL, channel.Snippet.Title, channel.ID),
 			DisplayName: channel.Snippet.Title,
 			AvatarURL:   channel.Snippet.Thumbnails.Default.URL,
 			Description: youtubeSubscriberDescription(channel.Statistics.SubscriberCount),
@@ -173,7 +175,7 @@ func (y *YouTubeAdapter) SelectAccount(ctx context.Context, token *TokenResult, 
 
 		return &SelectedAccount{
 			AccountID:        channel.ID,
-			AccountUsername:  firstNonEmptyString(channel.Snippet.CustomURL, channel.Snippet.Title, channel.ID),
+			AccountUsername:  textutil.FirstNonEmpty(channel.Snippet.CustomURL, channel.Snippet.Title, channel.ID),
 			AccountAvatarURL: channel.Snippet.Thumbnails.Default.URL,
 			Token:            &selectedToken,
 		}, nil
@@ -454,7 +456,7 @@ func prepareYouTubeUpload(req UploadMediaRequest) (youtubeVideoInsertRequest, er
 	if title == "" {
 		return youtubeVideoInsertRequest{}, fmt.Errorf("youtube upload requires an explicit title")
 	}
-	if err := providerlimits.ValidateYouTubeTitleCharacters(firstNonEmptyString(settingString(req.Settings, "title"), strings.TrimSpace(req.Title))); err != nil {
+	if err := providerlimits.ValidateYouTubeTitleCharacters(textutil.FirstNonEmpty(settingString(req.Settings, "title"), strings.TrimSpace(req.Title))); err != nil {
 		return youtubeVideoInsertRequest{}, err
 	}
 	if err := providerlimits.ValidateYouTubeDescription(req.Description); err != nil {
@@ -491,7 +493,7 @@ func prepareYouTubeUpload(req UploadMediaRequest) (youtubeVideoInsertRequest, er
 		Status: youtubeVideoStatus{
 			PrivacyStatus:           privacy,
 			PublishAt:               publishAt,
-			License:                 firstNonEmptyString(settingString(req.Settings, "license"), "youtube"),
+			License:                 textutil.FirstNonEmpty(settingString(req.Settings, "license"), "youtube"),
 			Embeddable:              settingBoolDefault(req.Settings, "embeddable", true),
 			SelfDeclaredMadeForKids: settingBoolPtr(req.Settings, "self_declared_made_for_kids"),
 			ContainsSyntheticMedia:  settingBoolPtr(req.Settings, "contains_synthetic_media"),
@@ -694,7 +696,7 @@ func (y *YouTubeAdapter) youtubeCaptionExists(ctx context.Context, accessToken, 
 	if language == "" {
 		return false, fmt.Errorf("youtube caption_language is required when a caption file is attached")
 	}
-	name := firstNonEmptyString(req.CaptionFilename, language)
+	name := textutil.FirstNonEmpty(req.CaptionFilename, language)
 	pageToken := ""
 	for {
 		params := url.Values{}
@@ -770,7 +772,7 @@ func buildYouTubeCaptionRequest(videoID string, req UploadMediaRequest) (*bytes.
 		"snippet": map[string]interface{}{
 			"videoId":  videoID,
 			"language": language,
-			"name":     firstNonEmptyString(req.CaptionFilename, language),
+			"name":     textutil.FirstNonEmpty(req.CaptionFilename, language),
 			"isDraft":  false,
 		},
 	}
@@ -790,7 +792,7 @@ func buildYouTubeCaptionRequest(videoID string, req UploadMediaRequest) (*bytes.
 		return nil, "", fmt.Errorf("writing youtube caption metadata: %w", err)
 	}
 	captionHeader := textproto.MIMEHeader{}
-	captionHeader.Set(headerContentType, firstNonEmptyString(req.CaptionMimeType, "text/vtt"))
+	captionHeader.Set(headerContentType, textutil.FirstNonEmpty(req.CaptionMimeType, "text/vtt"))
 	captionPart, err := writer.CreatePart(captionHeader)
 	if err != nil {
 		return nil, "", fmt.Errorf("creating youtube caption media part: %w", err)
@@ -843,7 +845,7 @@ func (y *YouTubeAdapter) setYouTubeThumbnail(ctx context.Context, accessToken, v
 	endpoint := youtubeUploadBaseURL + "/thumbnails/set?" + params.Encode()
 	resp, err := doYouTubeRequest(ctx, http.MethodPost, endpoint, bytes.NewReader(thumbnailBytes), map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
-		headerContentType:   firstNonEmptyString(req.ThumbnailMimeType, "image/jpeg"),
+		headerContentType:   textutil.FirstNonEmpty(req.ThumbnailMimeType, "image/jpeg"),
 	})
 	if err != nil {
 		return fmt.Errorf("youtube thumbnail upload: %w", err)
@@ -875,7 +877,7 @@ func (y *YouTubeAdapter) startYouTubeResumableUpload(ctx context.Context, access
 		headerAuthorization:       bearerPrefix + accessToken,
 		headerContentType:         contentTypeJSON + "; charset=UTF-8",
 		"X-Upload-Content-Length": strconv.FormatInt(mediaSize, 10),
-		"X-Upload-Content-Type":   firstNonEmptyString(req.MimeType, videoTypeMP4),
+		"X-Upload-Content-Type":   textutil.FirstNonEmpty(req.MimeType, videoTypeMP4),
 	})
 	if err != nil {
 		return "", fmt.Errorf("youtube resumable upload session: %w", err)
@@ -1033,7 +1035,7 @@ func (y *YouTubeAdapter) uploadYouTubeChunk(
 	chunkLength := end - offset + 1
 	response, err := doYouTubeUploadRequest(ctx, http.MethodPut, sessionURL, io.LimitReader(reader, chunkLength), map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
-		headerContentType:   firstNonEmptyString(req.MimeType, videoTypeMP4),
+		headerContentType:   textutil.FirstNonEmpty(req.MimeType, videoTypeMP4),
 		"Content-Length":    strconv.FormatInt(chunkLength, 10),
 		"Content-Range":     fmt.Sprintf("bytes %d-%d/%d", offset, end, req.Size),
 	})
@@ -1223,7 +1225,7 @@ func (y *YouTubeAdapter) checkYouTubeProcessingStatus(ctx context.Context, acces
 	if item.ProcessingDetails.ProcessingStatus == "failed" || item.Status.UploadStatus == "rejected" || item.Status.UploadStatus == "failed" || item.Status.UploadStatus == "deleted" {
 		return false, &MediaUploadError{
 			RetryClassification: MediaRetryTerminal,
-			Err: fmt.Errorf("youtube processing failed: %s", firstNonEmptyString(
+			Err: fmt.Errorf("youtube processing failed: %s", textutil.FirstNonEmpty(
 				item.ProcessingDetails.ProcessingFailureReason,
 				item.Status.FailureReason,
 				item.Status.RejectionReason,
@@ -1374,27 +1376,8 @@ func youtubeNextUploadOffset(rangeHeader string) int64 {
 	return uploadedEnd + 1
 }
 
-func validateYouTubeMedia(media []MediaItem) []MediaValidationIssue {
-	if len(media) != 1 {
-		return []MediaValidationIssue{{
-			Provider: providerYouTube,
-			Severity: severityError,
-			Message:  "YouTube publishing currently requires exactly one video attachment.",
-		}}
-	}
-	if !isVideoMime(media[0].MimeType) {
-		return []MediaValidationIssue{{
-			Provider: providerYouTube,
-			MediaID:  media[0].ID,
-			Severity: severityError,
-			Message:  "YouTube publishing supports video attachments only.",
-		}}
-	}
-	return nil
-}
-
 func youtubeTitle(req UploadMediaRequest) string {
-	title := firstNonEmptyString(settingString(req.Settings, "title"), strings.TrimSpace(req.Title))
+	title := textutil.FirstNonEmpty(settingString(req.Settings, "title"), strings.TrimSpace(req.Title))
 	return truncateRunes(title, youtubeTitleMaxRunes)
 }
 

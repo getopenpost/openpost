@@ -17,8 +17,12 @@ import {
 	removeKnownWorkspace,
 	saveWorkspaceHandleRecord,
 	type HandleRecord
-} from '../workspace-fs/handles-db';
-import { getWorkspaceRoot, onPermissionLost, setWorkspaceRoot } from '../workspace-fs/root';
+} from '@openpost/editor-shared/workspace';
+import {
+	getWorkspaceRoot,
+	onPermissionLost,
+	setWorkspaceRoot
+} from '@openpost/editor-shared/workspace';
 import { bootstrapWorkspace } from '../workspace-fs/bootstrap';
 import {
 	detectVideoEditorBrowserSupport,

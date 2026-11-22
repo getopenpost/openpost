@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { VideoFrameRateMetrics } from './types';
+import type { VideoFrameRateMetrics } from '@openpost/editor-shared/media';
 import {
 	FRAME_RATE_PROBE_PACKET_COUNT,
 	probeVideoFrameRate,

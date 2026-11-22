@@ -167,6 +167,7 @@ function planFiltered(files, manifest, { full = false, repositoryRoot = root } =
         "scripts/generate-selected-automation-contract.test.mjs",
         "scripts/n8n-package-release.mjs",
         "scripts/n8n-package-release.test.mjs",
+        "scripts/npm-registry.mjs",
       ],
     ),
     npm: matches(
@@ -176,6 +177,7 @@ function planFiltered(files, manifest, { full = false, repositoryRoot = root } =
         "package.json",
         "scripts/npm-package-release.mjs",
         "scripts/npm-package-release.test.mjs",
+        "scripts/npm-registry.mjs",
         "scripts/check-npm-package-build.mjs",
         "tests/build/npm-package-build.test.mjs",
         "scripts/verify-published-npm-package.mjs",

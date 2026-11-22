@@ -75,13 +75,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		importCloudProjectAssetFile
 	} from '$lib/video-editor/cloud/import-project-assets';
 	import { addSubtitleItemFromSrt } from '$lib/video-editor/transcript/captions';
-	import type { TranscriptionSelection } from '$lib/video-editor/transcript/engine/types';
+	import type { TranscriptionSelection } from '@openpost/editor-shared/transcript';
 	import { transcriptionService } from '$lib/video-editor/transcript/transcription-service.svelte';
 	import { aiCaptionService } from '$lib/video-editor/transcript/ai-caption-service.svelte';
 	import { loadWorkspaceMediaFile } from '$lib/video-editor/media/workspace-source';
 	import { insertMediaAtFrame } from '$lib/video-editor/timeline/actions/insert-media';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
-	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 	import type { ProjectMediaDeleteResult } from '$lib/video-editor/media/project-media-delete';
 	import ReusableLibrary from '$lib/video-editor/components/reusable-library.svelte';
 	import { videoLibrary } from '$lib/video-editor/library/library-store.svelte';
@@ -197,7 +197,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		formatShortcutBinding,
 		handleGlobalPlayPauseShortcut,
 		handleOpenSceneBrowserShortcut
-	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	} from '@openpost/editor-shared/settings';
 	import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
 	import { itemClipboardStore } from '$lib/video-editor/timeline/stores/item-clipboard-store.svelte';
 	import { pasteTimelineItemClipboard } from '$lib/video-editor/timeline/actions/item-clipboard';

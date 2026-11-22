@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 const devNullCommentRequestLimit = 100
@@ -137,8 +139,8 @@ func (c devNullCommentCommit) comment(username, accountID, parent, root string) 
 		author = c.User
 	}
 	comment := Comment{
-		ID: c.ID, ParentID: firstNonEmptyString(c.ParentID, parent), ConversationID: root,
-		AuthorID: author.ID, AuthorName: firstNonEmptyString(author.Name, author.Handle),
+		ID: c.ID, ParentID: textutil.FirstNonEmpty(c.ParentID, parent), ConversationID: root,
+		AuthorID: author.ID, AuthorName: textutil.FirstNonEmpty(author.Name, author.Handle),
 		AuthorHandle: author.Handle, AuthorAvatarURL: author.AvatarURL,
 		Text: c.Body, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 		Deleted: c.DeletedAt != "", CanReply: c.DeletedAt == "",

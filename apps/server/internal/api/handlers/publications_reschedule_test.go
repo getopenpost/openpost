@@ -23,6 +23,7 @@ import (
 )
 
 func TestUpdateScheduledPublicationReschedulesPublishJob(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Publication)(nil),
@@ -149,6 +150,7 @@ func TestUpdateScheduledPublicationReschedulesPublishJob(t *testing.T) {
 }
 
 func TestClearScheduledPublicationCancelsJobAndReturnsToDraft(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Publication)(nil),
@@ -287,6 +289,7 @@ func TestClearScheduledPublicationCancelsJobAndReturnsToDraft(t *testing.T) {
 }
 
 func TestProcessingPrimaryJobBlocksClearAndEditsAcrossRESTAndMCP(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Publication)(nil),
@@ -424,6 +427,7 @@ func TestProcessingPrimaryJobBlocksClearAndEditsAcrossRESTAndMCP(t *testing.T) {
 }
 
 func TestReschedulePublicationRejectsNonFutureTimeWithoutReplacingJob(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Publication)(nil),
@@ -485,6 +489,7 @@ func TestReschedulePublicationRejectsNonFutureTimeWithoutReplacingJob(t *testing
 }
 
 func TestClearScheduleCancelsOrphanPendingJobWhenPublicationStatusDrifted(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Publication)(nil),
@@ -540,6 +545,7 @@ func TestClearScheduleCancelsOrphanPendingJobWhenPublicationStatusDrifted(t *tes
 }
 
 func TestSchedulePublicationRollsBackJobAndStatesTogether(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Publication)(nil),
@@ -598,6 +604,7 @@ func TestSchedulePublicationRollsBackJobAndStatesTogether(t *testing.T) {
 }
 
 func TestSchedulePublicationReturnsEveryDestinationOutcome(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Publication)(nil),
@@ -710,6 +717,7 @@ func TestMCPPublicationScheduleSemanticsMatchREST(t *testing.T) {
 }
 
 func TestPublishedPublicationMutationEndpointsPreserveDeliveryState(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Publication)(nil),
@@ -807,6 +815,7 @@ func TestPublishedPublicationMutationEndpointsPreserveDeliveryState(t *testing.T
 }
 
 func TestPublicationActionsRejectProcessingPrimaryJobAcrossRESTAndMCP(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Publication)(nil),
@@ -894,6 +903,7 @@ func TestPublicationActionsRejectProcessingPrimaryJobAcrossRESTAndMCP(t *testing
 }
 
 func TestPrimaryPublicationQueueUsesCurrentScheduleAtTransactionBoundary(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.Publication)(nil),
 		(*models.Rendition)(nil),
@@ -971,6 +981,7 @@ func TestPrimaryPublicationQueueUsesCurrentScheduleAtTransactionBoundary(t *test
 }
 
 func TestPrimaryPublicationQueueRevalidatesLifecycleAtTransactionBoundary(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.Publication)(nil),
 		(*models.Rendition)(nil),
@@ -1022,6 +1033,7 @@ func jobIDs(jobs []models.Job) []string {
 }
 
 func TestReplaceScheduledPublicationJobUsesRenditionOverrides(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.Publication)(nil),
 		(*models.Rendition)(nil),

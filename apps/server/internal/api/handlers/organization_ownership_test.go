@@ -77,6 +77,7 @@ func newOwnershipHandlerTestWithReauth(t *testing.T, reauthAvailable bool) (*ech
 }
 
 func TestOwnershipInitiationRequiresOwnerRecentAuthAndExactConfirmation(t *testing.T) {
+	t.Parallel()
 	e, _, reauth, db := newOwnershipHandlerTest(t)
 	body := map[string]any{"nominee_user_id": "nominee", "confirm_organization_name": "Acme", "reauth_grant": "recent"}
 	member := jsonRequest(t, e, http.MethodPost, "/api/v1/organizations/org/ownership-transfer", body, "member")
@@ -108,6 +109,7 @@ func TestOwnershipInitiationRequiresOwnerRecentAuthAndExactConfirmation(t *testi
 }
 
 func TestOwnershipInitiationAuditsUnavailableReauthentication(t *testing.T) {
+	t.Parallel()
 	e, _, _, db := newOwnershipHandlerTestWithReauth(t, false)
 	body := map[string]any{"nominee_user_id": "nominee", "confirm_organization_name": "Acme", "reauth_grant": "recent"}
 	response := jsonRequest(t, e, http.MethodPost, "/api/v1/organizations/org/ownership-transfer", body, "owner")
@@ -118,6 +120,7 @@ func TestOwnershipInitiationAuditsUnavailableReauthentication(t *testing.T) {
 }
 
 func TestOwnershipEndpointsRejectMissingOrganizationIdentityAssurance(t *testing.T) {
+	t.Parallel()
 	e, service, _, db := newOwnershipHandlerTest(t)
 	transfer, err := service.Initiate(t.Context(), organizationownership.InitiateInput{
 		OrganizationID: "org", ActorUserID: "owner", ActorSessionID: "owner-session",
@@ -148,6 +151,7 @@ func TestOwnershipEndpointsRejectMissingOrganizationIdentityAssurance(t *testing
 }
 
 func TestOwnershipAcceptanceIsNomineeOnlyAndChangesAuthorityOnAcceptance(t *testing.T) {
+	t.Parallel()
 	e, service, _, _ := newOwnershipHandlerTest(t)
 	transfer, err := service.Initiate(t.Context(), organizationownership.InitiateInput{OrganizationID: "org", ActorUserID: "owner", ActorSessionID: "owner-session", ReauthGrant: "recent", NomineeUserID: "nominee", ConfirmOrganizationName: "Acme"})
 	require.NoError(t, err)

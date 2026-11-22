@@ -1,4 +1,5 @@
-import { paintTimer } from '../timers/render-timer';
+import { paintTimer, type TextRasterContext } from '../timers/render-timer';
+export type { TextRasterContext };
 /** Shared text and subtitle rasterization for live preview and export. */
 
 import type { TimelineItem } from '../project/types';
@@ -28,8 +29,6 @@ import {
 	karaokeStateAtFrame
 } from '../transcript/karaoke';
 import type { SubtitleCue } from '../project/types';
-
-export type TextRasterContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
 export interface TextRasterFrame {
 	absoluteFrame: number;

@@ -1,8 +1,8 @@
-import { readBlob, writeBlob } from '../workspace-fs/fs-primitives';
+import { readBlob, writeBlob } from '@openpost/editor-shared/workspace';
 import { associateMediaWithProject, getProjectMediaIds } from '../workspace-fs/project-media';
-import { projectThumbnailPath } from '../workspace-fs/paths';
+import { projectThumbnailPath } from '@openpost/editor-shared/workspace';
 import { createProject, deleteProject, getProject, updateProject } from '../workspace-fs/projects';
-import { requireWorkspaceRoot } from '../workspace-fs/root';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { cloneProjectDocument } from './project-clone';
 import type { Project } from './types';
 

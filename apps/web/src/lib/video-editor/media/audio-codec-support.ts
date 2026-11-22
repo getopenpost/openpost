@@ -1,4 +1,4 @@
-import { isAc3AudioCodec } from './ac3-decoder';
+import { isAc3AudioCodec } from '@openpost/editor-shared/media';
 
 const UNSUPPORTED_AUDIO_CODECS = ['dts', 'dtsc', 'dtse', 'dtsh', 'dtsl', 'truehd', 'mlpa'];
 

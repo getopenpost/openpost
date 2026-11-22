@@ -3,7 +3,7 @@ import type {
 	RecorderCursorMode,
 	RecordingCaptureMetadata,
 	RecordingSystemAudioStatus
-} from './types';
+} from '@openpost/editor-shared/media';
 
 const recorderCursorModeSchema = z.enum(['always', 'motion', 'never', 'unsupported', 'unknown']);
 

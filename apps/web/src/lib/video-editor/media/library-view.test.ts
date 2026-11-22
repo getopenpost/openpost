@@ -4,7 +4,7 @@ import {
 	hasMediaHealthIssues,
 	type MediaHealthCounts
 } from './library-view';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 
 function media(id: string, audioCodecSupported?: boolean): MediaMetadata {
 	return {

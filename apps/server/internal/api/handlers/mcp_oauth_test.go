@@ -393,6 +393,7 @@ func tokenPrefix(t *testing.T, token string) string {
 }
 
 func TestMCPOAuthRevokeWorksWithoutExternalApplications(t *testing.T) {
+	t.Parallel()
 	srv := newMCPOAuthTestServer(t)
 	issued, err := srv.apiTokens.GenerateTokenWithOptions(t.Context(), "user-1", "MCP", apitokens.ScopeMCP, apitokens.GenerateOptions{WorkspaceID: "ws-1", Audience: "https://app.openpost.test/mcp"})
 	require.NoError(t, err)

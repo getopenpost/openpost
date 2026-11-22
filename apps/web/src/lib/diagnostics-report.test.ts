@@ -3,7 +3,6 @@ import {
 	maintainerDiagnosticsAllowed,
 	maybeReportBrowserFailure,
 	normalizeBrowserFailure,
-	resetBrowserDiagnosticsForTests,
 	type MaintainerDiagnosticsTransport
 } from './diagnostics-report';
 
@@ -155,7 +154,7 @@ describe('maintainerDiagnosticsAllowed', () => {
 
 describe('maybeReportBrowserFailure', () => {
 	it('keeps distinct callsites on one minified line while deduplicating repeats', async () => {
-		resetBrowserDiagnosticsForTests();
+		const seen = new Set<string>();
 		const { calls, sender } = transport();
 		for (const column of [123, 456, 123]) {
 			const failure = normalizeBrowserFailure(
@@ -167,7 +166,7 @@ describe('maybeReportBrowserFailure', () => {
 				'https://app.example'
 			);
 			expect(failure).not.toBeNull();
-			if (failure) await maybeReportBrowserFailure(failure, sender);
+			if (failure) await maybeReportBrowserFailure(failure, sender, seen);
 		}
 		expect(calls.map((call) => call.operation)).toEqual([
 			'/_app/immutable/nodes/editor.js:1:123',
@@ -176,7 +175,7 @@ describe('maybeReportBrowserFailure', () => {
 	});
 
 	it('sends once per code and location, then stays silent', async () => {
-		resetBrowserDiagnosticsForTests();
+		const seen = new Set<string>();
 		const { calls, sender } = transport();
 		const failure = {
 			code: 'browser_uncaught' as const,
@@ -184,8 +183,8 @@ describe('maybeReportBrowserFailure', () => {
 			errorKind: 'type_error' as const,
 			frames: [{ module: '/_app/immutable/nodes/9.js', function: 'browser', line: 3 }]
 		};
-		expect(await maybeReportBrowserFailure(failure, sender)).toBe(true);
-		expect(await maybeReportBrowserFailure(failure, sender)).toBe(false);
+		expect(await maybeReportBrowserFailure(failure, sender, seen)).toBe(true);
+		expect(await maybeReportBrowserFailure(failure, sender, seen)).toBe(false);
 		expect(calls).toHaveLength(1);
 		expect(calls[0]).toEqual({
 			surface: 'browser',
@@ -197,12 +196,13 @@ describe('maybeReportBrowserFailure', () => {
 	});
 
 	it('caps the session instead of flooding on loops', async () => {
-		resetBrowserDiagnosticsForTests();
+		const seen = new Set<string>();
 		const { calls, sender } = transport();
 		for (let i = 0; i < 15; i++) {
 			const sent = await maybeReportBrowserFailure(
 				{ code: 'browser_uncaught', location: `/loop/${i}.js:1` },
-				sender
+				sender,
+				seen
 			);
 			expect(sent).toBe(i < 10);
 		}
@@ -210,7 +210,7 @@ describe('maybeReportBrowserFailure', () => {
 	});
 
 	it('treats transport failures as silent drops', async () => {
-		resetBrowserDiagnosticsForTests();
+		const seen = new Set<string>();
 		const failing: MaintainerDiagnosticsTransport = {
 			postReport: async () => {
 				throw new Error('offline');
@@ -218,7 +218,11 @@ describe('maybeReportBrowserFailure', () => {
 		};
 		const spy = vi.spyOn(failing, 'postReport');
 		expect(
-			await maybeReportBrowserFailure({ code: 'browser_uncaught', location: '/x.js:1' }, failing)
+			await maybeReportBrowserFailure(
+				{ code: 'browser_uncaught', location: '/x.js:1' },
+				failing,
+				seen
+			)
 		).toBe(false);
 		expect(spy).toHaveBeenCalledTimes(1);
 	});

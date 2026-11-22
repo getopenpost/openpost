@@ -48,6 +48,7 @@ func loadPlatformTextFixture(t *testing.T) platformTextFixture {
 // the generic per-provider limit the composer mirrors, so it must equal the
 // fixture value for every shared platform.
 func TestPlatformTextLimitsMatchSharedFixture(t *testing.T) {
+	t.Parallel()
 	fixture := loadPlatformTextFixture(t)
 
 	for provider, want := range fixture.Limits {
@@ -89,6 +90,7 @@ func TestPlatformTextLimitsMatchSharedFixture(t *testing.T) {
 // the same inputs the TypeScript counter asserts, so X weighted counting and
 // Mastodon URL shortening stay identical in both languages.
 func TestPlatformTextCountsMatchSharedFixture(t *testing.T) {
+	t.Parallel()
 	fixture := loadPlatformTextFixture(t)
 	for _, count := range fixture.Counts {
 		require.Equal(t, count.Expected, TextLength(count.Platform, count.Text),

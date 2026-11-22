@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/dataretention"
@@ -552,7 +554,7 @@ func buildContentOverview(
 		PublicationID:      publication.ID,
 		RenditionID:        rendition.ID,
 		Title:              publication.Title,
-		Excerpt:            firstNonEmptyAnalyticsText(publication.SourceText, publication.SourceContent),
+		Excerpt:            textutil.FirstNonEmpty(publication.SourceText, publication.SourceContent),
 		ContentProfile:     rendition.Profile,
 		Platform:           rendition.Platform,
 		AccountID:          account.ID,
@@ -704,15 +706,6 @@ func combinedFollowerSeries(accounts []AccountOverview) []SeriesPoint {
 		}
 	}
 	return series
-}
-
-func firstNonEmptyAnalyticsText(values ...string) string {
-	for _, value := range values {
-		if value = strings.TrimSpace(value); value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func accountFollowerHistory(snapshots []models.AnalyticsAccountSnapshot) ([]SeriesPoint, *int64) {

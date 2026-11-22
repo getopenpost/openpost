@@ -27,6 +27,7 @@ func storedMessageFixture(id, remoteID, direction, body, attachments string, del
 // A message stored before the adapter understood a provider field keeps its
 // blank body until the provider describes it again.
 func TestCollectionRepairsStoredMessageContent(t *testing.T) {
+	t.Parallel()
 	s, db, account, _ := messagingFixture(t)
 	_, err := db.NewInsert().Model(storedMessageFixture("blank", "remote-message", "inbound", "", "null", false)).Exec(t.Context())
 	require.NoError(t, err)
@@ -51,6 +52,7 @@ func TestCollectionRepairsStoredMessageContent(t *testing.T) {
 // Repairs never rewrite deleted tombstones, authored sends, or messages that
 // already have content.
 func TestCollectionRepairLeavesDeletedAndAuthoredMessages(t *testing.T) {
+	t.Parallel()
 	s, db, account, _ := messagingFixture(t)
 	for _, row := range []*models.DirectMessage{
 		storedMessageFixture("deleted", "deleted-message", "inbound", "", "", true),
@@ -84,6 +86,7 @@ func TestCollectionRepairLeavesDeletedAndAuthoredMessages(t *testing.T) {
 // Adapters that could not parse a provider timestamp stored the zero time.
 // A later sync keeps the provider's real sent time for that message.
 func TestCollectionRepairsUntimedMessages(t *testing.T) {
+	t.Parallel()
 	s, db, account, _ := messagingFixture(t)
 	untimed := storedMessageFixture("untimed", "untimed-message", "inbound", "hello", "null", false)
 	untimed.RemoteCreatedAt = time.Time{}

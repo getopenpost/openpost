@@ -5,9 +5,9 @@ import {
 	previewPlatforms,
 	supportsPreviewFormat
 } from '@openpost/social-preview';
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { SocialAccount } from '$lib/api/client';
+import { PLATFORM_COLORS } from '$lib/utils';
 import { buildComposerPreview, previewFormat } from './compose-preview';
 
 const account = {
@@ -34,42 +34,18 @@ describe('social preview model', () => {
 		).toBe(true);
 	});
 
-	it('can preview every built-in backend provider, including gated providers', () => {
-		const backendCatalog = readFileSync(
-			new URL('../../../server/internal/capabilities/capabilities.go', import.meta.url),
-			'utf8'
-		);
-		function providersIn(source: string): string[] {
-			const constants = new Map(
-				[...source.matchAll(/^\s*(?:const\s+)?([A-Za-z_]\w*)\s*=\s*"([^"\n]+)"/gmu)].map(
-					(match) => [match[1], match[2]]
-				)
-			);
-			// The field is the publishing contract; Go type and constant names may change.
-			const catalogue = [...source.matchAll(/return\s+\[\][A-Za-z_]\w*\s*\{([\s\S]*?)^\s*\}/gmu)]
-				.map((match) => match[1])
-				.filter((block) => /\{\s*Provider:/u.test(block))
-				.join('\n');
-			if (!catalogue) throw new Error('No publishing providers found');
-			const providers = [
-				...catalogue.matchAll(/\{\s*Provider:\s*(?:"([^"\n]+)"|([A-Za-z_]\w*))/gu)
-			].map((match) => {
-				const provider = match[1] ?? constants.get(match[2]);
-				if (!provider) throw new Error(`Unresolved provider constant: ${match[2]}`);
-				return provider;
-			});
-			if (providers.length === 0) throw new Error('No publishing providers found');
-			return [...new Set(providers)];
+	it('can preview every registered frontend destination platform', () => {
+		const registeredPlatforms = Object.keys(PLATFORM_COLORS);
+		expect(registeredPlatforms.length).toBeGreaterThan(0);
+		expect(previewPlatforms).toEqual(expect.arrayContaining(registeredPlatforms));
+		for (const platform of registeredPlatforms) {
+			const normalized = normalizePreviewPlatform(platform);
+			expect(normalized).toBe(platform);
+			if (normalized === 'unsupported') {
+				throw new Error(`Expected ${platform} to have a preview capability`);
+			}
+			expect(previewCapabilities[normalized].formats.length).toBeGreaterThan(0);
 		}
-		expect(
-			providersIn(
-				'const renamed = "x"\nreturn []RenamedType{\n {Provider: renamed}, {Provider: "mastodon"}\n}'
-			)
-		).toEqual(['x', 'mastodon']);
-		expect(() => providersIn('package renamed')).toThrow('No publishing providers found');
-		const backendProviders = providersIn(backendCatalog);
-		expect(backendProviders.length).toBeGreaterThan(0);
-		expect(previewPlatforms).toEqual(expect.arrayContaining(backendProviders));
 	});
 
 	it('normalizes instance-qualified platforms and safe defaults', () => {

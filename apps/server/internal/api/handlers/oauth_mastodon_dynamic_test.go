@@ -21,6 +21,7 @@ import (
 )
 
 func TestGetMastodonProviderReturnsConfiguredInstanceURL(t *testing.T) {
+	t.Parallel()
 	const instanceURL = "https://social.example"
 	handler := &OAuthHandler{providers: map[string]platform.Adapter{
 		"mastodon:OpenPost E2E": platform.NewMastodonAdapter(
@@ -38,6 +39,7 @@ func TestGetMastodonProviderReturnsConfiguredInstanceURL(t *testing.T) {
 }
 
 func TestGetMastodonProviderResolvesConfiguredInstanceURLAlias(t *testing.T) {
+	t.Parallel()
 	const instanceURL = "https://social.example"
 	adapter := platform.NewMastodonAdapter(
 		"client", "secret", "https://openpost.example/callback", instanceURL,
@@ -56,6 +58,7 @@ func TestGetMastodonProviderResolvesConfiguredInstanceURLAlias(t *testing.T) {
 }
 
 func TestGetAuthURLRegistersDynamicMastodonInstance(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),

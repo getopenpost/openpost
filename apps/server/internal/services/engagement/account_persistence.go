@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/inboxactivity"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
@@ -184,7 +186,7 @@ func (s *Service) notifyAccountActivity(ctx context.Context, tx bun.Tx, account 
 		return err
 	}
 	for _, userID := range recipients {
-		outcome, err := notifications.NewEngagementReceivedOutcome(notifications.EngagementReceivedFacts{Kind: item.Kind, RecipientUserID: userID, WorkspaceID: account.WorkspaceID, EngagementID: item.ID, Provider: account.Platform, AuthorName: firstNonEmpty(item.AuthorName, item.AuthorHandle)})
+		outcome, err := notifications.NewEngagementReceivedOutcome(notifications.EngagementReceivedFacts{Kind: item.Kind, RecipientUserID: userID, WorkspaceID: account.WorkspaceID, EngagementID: item.ID, Provider: account.Platform, AuthorName: textutil.FirstNonEmpty(item.AuthorName, item.AuthorHandle)})
 		if err != nil {
 			return err
 		}

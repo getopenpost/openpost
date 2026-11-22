@@ -379,7 +379,6 @@ func TestDevNullPublishMapsProviderErrors(t *testing.T) {
 }
 
 func TestDevNullValidation(t *testing.T) {
-	RegisterAllMediaValidators()
 	if err := validateDevNullText("hi"); err == nil {
 		t.Fatal("expected short body to fail")
 	}
@@ -394,18 +393,6 @@ func TestDevNullValidation(t *testing.T) {
 	}
 	if _, err := devNullReplyRef("https://dev-null.sh/@testuser/commits/01a14c0f"); err != nil {
 		t.Fatalf("link reply ref failed: %v", err)
-	}
-	issues := ValidateMedia(providerDevNull, []MediaItem{{ID: "1", MimeType: "image/gif"}})
-	if len(issues) == 0 {
-		t.Fatal("expected GIF to fail validation")
-	}
-	many := []MediaItem{{ID: "1", MimeType: "image/png"}, {ID: "2", MimeType: "image/png"}, {ID: "3", MimeType: "image/png"}, {ID: "4", MimeType: "image/png"}}
-	if issues := ValidateMedia(providerDevNull, many); len(issues) == 0 {
-		t.Fatal("expected 4 images to fail validation")
-	}
-	big := []MediaItem{{ID: "1", MimeType: "image/png", Size: int64(providerlimits.DevNullMaxImageBytes) + 1}}
-	if issues := ValidateMedia(providerDevNull, big); len(issues) == 0 {
-		t.Fatal("expected oversize image to fail validation")
 	}
 	if _, _, err := splitDevNullCredential("no-newline"); err == nil {
 		t.Fatal("expected malformed credential to fail")

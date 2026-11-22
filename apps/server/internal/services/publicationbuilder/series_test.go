@@ -13,6 +13,7 @@ import (
 )
 
 func TestSeriesOnlyGeneratesSelectedConceptAndKeepsSourceSnapshot(t *testing.T) {
+	t.Parallel()
 	db := newBuilderApplicationTestDB(t)
 	reads := 0
 	app, err := NewApplication(db, packageBuilderFunc(func(_ context.Context, input BuildInput) (BuildResult, error) {
@@ -66,6 +67,7 @@ func TestSeriesOnlyGeneratesSelectedConceptAndKeepsSourceSnapshot(t *testing.T) 
 }
 
 func TestSeriesRepairsUnsupportedReferencesAndAllowsFewerConcepts(t *testing.T) {
+	t.Parallel()
 	calls := 0
 	service, err := New(generationFunc(func(_ context.Context, _ ai.GenerateRequest) (ai.GenerateResult, error) {
 		calls++

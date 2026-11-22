@@ -8,7 +8,7 @@ import {
 import { importGeneratedImage, rollbackNewGeneratedMedia } from './import.svelte';
 import { mediaPool } from './pool.svelte';
 import { extractFreezeFrame } from './freeze-frame';
-import type { ProjectAssetImporter } from './types';
+import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 
 export type InsertFreezeFrameResult =
 	| { ok: true; itemId: string }

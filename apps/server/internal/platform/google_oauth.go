@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 // Shared Google OAuth 2.0 helpers for Google-backed adapters (YouTube and
@@ -47,7 +49,7 @@ func exchangeGoogleOAuthToken(ctx context.Context, values map[string]string, lab
 		AccessToken:  tokenResp.AccessToken,
 		RefreshToken: tokenResp.RefreshToken,
 		ExpiresIn:    tokenResp.ExpiresIn,
-		TokenType:    firstNonEmptyString(tokenResp.TokenType, tokenTypeBearer),
+		TokenType:    textutil.FirstNonEmpty(tokenResp.TokenType, tokenTypeBearer),
 		Extra:        extra,
 	}, nil
 }
@@ -75,8 +77,8 @@ func fetchGoogleUserProfile(ctx context.Context, accessToken, label string) (*Us
 	}
 	return &UserProfile{
 		ID:          profile.ID,
-		Username:    firstNonEmptyString(profile.Email, profile.Name, profile.ID),
-		DisplayName: firstNonEmptyString(profile.Name, profile.Email, profile.ID),
+		Username:    textutil.FirstNonEmpty(profile.Email, profile.Name, profile.ID),
+		DisplayName: textutil.FirstNonEmpty(profile.Name, profile.Email, profile.ID),
 		AvatarURL:   profile.Picture,
 	}, nil
 }

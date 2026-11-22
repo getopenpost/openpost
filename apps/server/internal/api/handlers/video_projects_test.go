@@ -21,6 +21,7 @@ import (
 )
 
 func TestCloudVideoProjectCreateLoadAndWorkspaceAuthorization(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	document := map[string]any{
 		"id":            "project-document-1",
@@ -85,6 +86,7 @@ func TestCloudVideoProjectCreateLoadAndWorkspaceAuthorization(t *testing.T) {
 }
 
 func TestCloudVideoProjectCopyRetainsIndependentAssetReferences(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
 		"id": "original-project", "workspace_id": "ws-1", "name": "Original",
@@ -149,6 +151,7 @@ func TestCloudVideoProjectCopyRetainsIndependentAssetReferences(t *testing.T) {
 }
 
 func TestCloudVideoProjectCopyWaitsForUnlinkedSourceUploads(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
 		"id": "uploading-project", "workspace_id": "ws-1", "name": "Uploading", "document": map[string]any{"id": "uploading-project"},
@@ -167,6 +170,7 @@ func TestCloudVideoProjectCopyWaitsForUnlinkedSourceUploads(t *testing.T) {
 }
 
 func TestCloudVideoProjectCopyRejectsMissingOrForeignSourcesWithoutCreatingAProject(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	foreign := &models.VideoProject{
 		ID: "foreign-source", WorkspaceID: "ws-2", Name: "Private source", DocumentJSON: `{}`,
@@ -190,6 +194,7 @@ func TestCloudVideoProjectCopyRejectsMissingOrForeignSourcesWithoutCreatingAProj
 }
 
 func TestCloudVideoProjectAssetDeleteRemovesAssetAndIsIdempotent(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
 		"workspace_id": "ws-1",
@@ -240,6 +245,7 @@ func TestCloudVideoProjectAssetDeleteRemovesAssetAndIsIdempotent(t *testing.T) {
 }
 
 func TestCloudVideoProjectNameFollowsEditsAndRestoredRevision(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
 		"workspace_id": "ws-1", "name": "Untitled project", "device_id": "desktop-a",
@@ -270,6 +276,7 @@ func TestCloudVideoProjectNameFollowsEditsAndRestoredRevision(t *testing.T) {
 }
 
 func TestCloudVideoProjectRebasesDisjointEditsAndPreservesOverlappingConflict(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
 		"workspace_id": "ws-1",
@@ -391,6 +398,7 @@ func TestCloudVideoProjectRebasesDisjointEditsAndPreservesOverlappingConflict(t 
 }
 
 func TestCloudVideoProjectCanDismissConflictWithoutChangingHead(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
 		"workspace_id": "ws-1", "name": "Dismiss conflict", "document": map[string]any{"id": "dismiss", "title": "Original"},
@@ -431,6 +439,7 @@ func TestCloudVideoProjectCanDismissConflictWithoutChangingHead(t *testing.T) {
 }
 
 func TestCloudVideoProjectTreatsTimelineMembershipAsOverlappingEntityEdits(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
 		"workspace_id": "ws-1", "name": "Structural conflict", "document": map[string]any{
@@ -508,6 +517,7 @@ func TestCloudVideoProjectTreatsQuickCutMembershipAsOverlappingSegmentEdits(t *t
 }
 
 func TestCloudVideoProjectCheckpointRestoreAndTrashRecovery(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	created := server.request(t, "editor-token", http.MethodPost, "/api/v1/video-projects", map[string]any{
 		"workspace_id": "ws-1",

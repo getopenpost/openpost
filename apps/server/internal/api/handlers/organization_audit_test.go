@@ -13,6 +13,7 @@ import (
 )
 
 func TestOrganizationOwnerCanPageFilterAndExportSafeAuditEvidence(t *testing.T) {
+	t.Parallel()
 	srv := newWorkspaceTestServer(t, entitlements.NewSelfHostedService())
 	csvContract := srv.api.OpenAPI().Paths["/organizations/{id}/audit-events/export.csv"].Get.Responses["200"]
 	require.Contains(t, csvContract.Content, "text/csv")
@@ -94,6 +95,7 @@ func TestOrganizationOwnerCanPageFilterAndExportSafeAuditEvidence(t *testing.T) 
 }
 
 func TestOrganizationAuditRequiresOwnerAndUnscopedCredential(t *testing.T) {
+	t.Parallel()
 	authenticator := workspaceTestAuthenticator{
 		"member-token": {UserID: "user-1", Email: "member@example.com"},
 		"bound-token":  {UserID: "user-1", Email: "member@example.com", WorkspaceID: "ws-1", TokenID: "token-1"},
@@ -115,6 +117,7 @@ func TestOrganizationAuditRequiresOwnerAndUnscopedCredential(t *testing.T) {
 }
 
 func TestOrganizationAuditRejectsCrossOrganizationWorkspaceFilter(t *testing.T) {
+	t.Parallel()
 	srv := newWorkspaceTestServer(t, entitlements.NewSelfHostedService())
 	seedWorkspaceUserAndMember(t, srv.db, "user-1", "owner@example.com", models.WorkspaceRoleAdmin)
 	_, err := srv.db.NewInsert().Model(&models.Workspace{ID: "outside", OrganizationID: "org-2", Name: "Outside"}).Exec(t.Context())
@@ -126,6 +129,7 @@ func TestOrganizationAuditRejectsCrossOrganizationWorkspaceFilter(t *testing.T) 
 }
 
 func TestInstanceAdministratorCanFilterAndExportInstanceAuditEvidence(t *testing.T) {
+	t.Parallel()
 	authenticator := workspaceTestAuthenticator{
 		"admin-session": {UserID: "admin-1", Email: "admin@example.com", SessionID: "session-1"},
 	}
@@ -173,6 +177,7 @@ func TestInstanceAdministratorCanFilterAndExportInstanceAuditEvidence(t *testing
 }
 
 func TestInstanceAuditRejectsNonAdminsOwnersAndScopedCredentials(t *testing.T) {
+	t.Parallel()
 	authenticator := workspaceTestAuthenticator{
 		"ordinary-session":       {UserID: "ordinary-1", Email: "ordinary@example.com", SessionID: "session-ordinary"},
 		"workspace-role-session": {UserID: "workspace-1", Email: "workspace@example.com", SessionID: "session-workspace"},

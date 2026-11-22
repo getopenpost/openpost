@@ -27,6 +27,10 @@ func (workflowSession) AuthenticateBearer(context.Context, string) (*middleware.
 	return &middleware.Principal{UserID: "user", SessionID: "session"}, nil
 }
 
+func newTestWorkflowActions(publications *PublicationHandler, builds *PublicationBuildHandler) workflows.Actions {
+	return NewWorkflowActionsWithEngagement(publications, builds, nil, nil)
+}
+
 func workflowHandlerDB(t *testing.T) *bun.DB {
 	t.Helper()
 	db := newHandlerSchemaTestDB(t)
@@ -45,9 +49,10 @@ func workflowHandlerDB(t *testing.T) *bun.DB {
 	return db
 }
 func TestWorkflowHTTPPreviewAndLiveDraftApproval(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	publications := NewPublicationHandler(db, workflowSession{}, nil)
-	service := workflows.NewService(db, NewWorkflowActions(publications, nil, nil), nil)
+	service := workflows.NewService(db, newTestWorkflowActions(publications, nil), nil)
 	e := echo.New()
 	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
 	NewWorkflowHandler(service, workflowSession{}).RegisterRoutes(api)
@@ -106,8 +111,9 @@ func TestWorkflowHTTPPreviewAndLiveDraftApproval(t *testing.T) {
 }
 
 func TestWorkflowNativeDraftReplayAndStoredWorkspaceBoundary(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
-	actions := NewWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil, nil)
+	actions := newTestWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil)
 	input := workflows.EffectRequest{Kind: workflows.KindDraft, Inputs: map[string]any{"text": "Only once"}, Authority: workspaceaccess.StoredAuthority{UserID: "user", WorkspaceID: "ws", OrganizationID: "org", AssuredAt: time.Now().UTC()}, RunID: "run", StepID: "draft", ExpiresAt: time.Now().Add(time.Hour)}
 	first, err := actions.Execute(t.Context(), input)
 	require.NoError(t, err)
@@ -131,12 +137,13 @@ func TestWorkflowNativeDraftReplayAndStoredWorkspaceBoundary(t *testing.T) {
 }
 
 func TestWorkflowNativeScheduleReplayKeepsOneJobAndOneAuthorization(t *testing.T) {
+	t.Parallel()
 	srv := newMCPTestServer(t)
 	createIdempotencyRecordTable(t, srv.db)
 	handler := srv.handler.publicationHandler()
 	publication, err := handler.publicationApplication().Create(t.Context(), "user-1", CreatePublicationBody{WorkspaceID: "ws-1", ContentProfile: models.ContentProfileShortText, SourceText: "Schedule this approved revision", SocialAccountIDs: []string{"account-1"}})
 	require.NoError(t, err)
-	actions := NewWorkflowActions(handler, nil, nil)
+	actions := newTestWorkflowActions(handler, nil)
 	input := workflows.EffectRequest{Kind: workflows.KindSchedule, Inputs: map[string]any{"publication_id": publication.ID, "revision": publication.Revision, "scheduled_at": time.Now().UTC().Add(time.Hour).Format(time.RFC3339Nano)}, Authority: workspaceaccess.StoredAuthority{UserID: "user-1", WorkspaceID: "ws-1", OrganizationID: "organization-1", AssuredAt: time.Now().UTC()}, RunID: "schedule-run", StepID: "schedule", ExpiresAt: time.Now().Add(time.Hour)}
 	first, err := actions.Execute(t.Context(), input)
 	require.NoError(t, err)
@@ -153,9 +160,10 @@ func TestWorkflowNativeScheduleReplayKeepsOneJobAndOneAuthorization(t *testing.T
 }
 
 func TestWorkflowNativeDraftWithDestinationAndReplyReplay(t *testing.T) {
+	t.Parallel()
 	srv := newMCPTestServer(t)
 	createIdempotencyRecordTable(t, srv.db)
-	actions := NewWorkflowActions(srv.handler.publicationHandler(), nil, nil)
+	actions := newTestWorkflowActions(srv.handler.publicationHandler(), nil)
 	input := workflows.EffectRequest{Kind: workflows.KindDraft, Inputs: map[string]any{"text": "Launch notes", "account_ids": []string{"account-1"}}, Authority: workspaceaccess.StoredAuthority{UserID: "user-1", WorkspaceID: "ws-1", OrganizationID: "organization-1", AssuredAt: time.Now().UTC()}, RunID: "reply-run", StepID: "draft", ExpiresAt: time.Now().Add(time.Hour)}
 	draft, err := actions.Execute(t.Context(), input)
 	require.NoError(t, err)
@@ -178,6 +186,7 @@ func TestWorkflowNativeDraftWithDestinationAndReplyReplay(t *testing.T) {
 }
 
 func TestWorkflowDraftRecoveryAfterSocialSetRemoval(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	now := time.Now().UTC()
 	for _, row := range []any{
@@ -188,7 +197,7 @@ func TestWorkflowDraftRecoveryAfterSocialSetRemoval(t *testing.T) {
 		_, err := db.NewInsert().Model(row).Exec(t.Context())
 		require.NoError(t, err)
 	}
-	actions := NewWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil, nil)
+	actions := newTestWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil)
 	input := workflows.EffectRequest{Kind: workflows.KindDraft, Inputs: map[string]any{"text": "Preserve this draft", "social_set_id": "set"}, Authority: workspaceaccess.StoredAuthority{UserID: "user", WorkspaceID: "ws", OrganizationID: "org", AssuredAt: now}, RunID: "recovery", StepID: "draft", ExpiresAt: now.Add(time.Hour)}
 	first, err := actions.Execute(t.Context(), input)
 	require.NoError(t, err)
@@ -203,11 +212,12 @@ func TestWorkflowDraftRecoveryAfterSocialSetRemoval(t *testing.T) {
 }
 
 func TestWorkflowScheduleReportsNativeDestinationValidation(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	now := time.Now().UTC()
 	_, err := db.NewInsert().Model(&models.SocialAccount{ID: "bot", WorkspaceID: "ws", Platform: "discord", AccountUsername: "Updates", AccessTokenEnc: []byte("test"), CapabilityState: `{"connection_type":"bot"}`, IsActive: true}).Exec(t.Context())
 	require.NoError(t, err)
-	actions := NewWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil, nil)
+	actions := newTestWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil)
 	input := workflows.EffectRequest{Kind: workflows.KindDraft, Inputs: map[string]any{"text": "Needs a channel", "account_ids": []string{"bot"}}, Authority: workspaceaccess.StoredAuthority{UserID: "user", WorkspaceID: "ws", OrganizationID: "org", AssuredAt: now}, RunID: "validation", StepID: "draft", ExpiresAt: now.Add(time.Hour)}
 	draft, err := actions.Execute(t.Context(), input)
 	require.NoError(t, err)
@@ -223,6 +233,7 @@ func TestWorkflowScheduleReportsNativeDestinationValidation(t *testing.T) {
 }
 
 func TestPostCreatedSourceHTTPReportsCreationWithoutPublicationTime(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	createdAt := time.Date(2026, time.October, 3, 10, 15, 30, 0, time.UTC)
 	_, err := db.NewInsert().Model(&models.Publication{ID: "draft-event", WorkspaceID: "ws", CreatedByID: "user", CreationSource: "web", Title: "Unscheduled draft", SourceText: "Not published", CreatedAt: createdAt, UpdatedAt: createdAt}).Exec(t.Context())

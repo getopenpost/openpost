@@ -2,53 +2,19 @@ package analytics
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/usage"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
 
-var analyticsTestSchemaPath string
-
-func TestMain(m *testing.M) {
-	templateDir, err := os.MkdirTemp("", "openpost-analytics-tests-")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "create analytics test template directory: %v\n", err)
-		os.Exit(1)
-	}
-	analyticsTestSchemaPath = filepath.Join(templateDir, "schema.db")
-	db, err := database.InitDB("file:" + analyticsTestSchemaPath + "?mode=rwc")
-	if err == nil {
-		err = database.CreateSchema(db)
-	}
-	if db != nil {
-		if closeErr := db.Close(); err == nil {
-			err = closeErr
-		}
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "create analytics test schema: %v\n", err)
-		_ = os.RemoveAll(templateDir)
-		os.Exit(1)
-	}
-
-	code := m.Run()
-	if err := os.RemoveAll(templateDir); err != nil && code == 0 {
-		fmt.Fprintf(os.Stderr, "remove analytics test template directory: %v\n", err)
-		code = 1
-	}
-	os.Exit(code)
-}
-
 func TestOverviewCursorCannotCrossWorkspaceAccountSortRevisionOrSignature(t *testing.T) {
+	t.Parallel()
 	service := NewService(nil, nil)
 	options := normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Sort: "newest", Limit: 1})
 	cursor := service.encodeOverviewNextCursor("workspace-a", 0, 1, 2, options, 30, "revision-a", time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC))
@@ -132,6 +98,7 @@ func (f *fakeAnalyticsAdapter) FetchContentAnalytics(context.Context, string, pl
 }
 
 func TestPinterestAnalyticsReadinessFailsClosedBeforeProviderCallAndPreservesHistory(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	account := seedAnalyticsAccount(t, db, "pins:read user_accounts:read")
 	account.Platform = "pinterest"
@@ -164,6 +131,7 @@ func TestPinterestAnalyticsReadinessFailsClosedBeforeProviderCallAndPreservesHis
 }
 
 func TestSemanticMeasurementsRoundTripAndIncompatibleMetricsDoNotAggregate(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	ctx := context.Background()
 	account := seedAnalyticsAccount(t, db, "")
@@ -263,6 +231,7 @@ func TestSemanticMeasurementsRoundTripAndIncompatibleMetricsDoNotAggregate(t *te
 }
 
 func TestProviderFailurePreservesLastSuccessWithoutRetryingQueueJob(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	ctx := context.Background()
 	account := seedAnalyticsAccount(t, db, "")
@@ -314,18 +283,12 @@ func (alwaysEnabledGate) IsEffectiveEnabled(context.Context, string, string) (bo
 
 func newAnalyticsTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	template, err := os.ReadFile(analyticsTestSchemaPath)
-	require.NoError(t, err)
-	databasePath := filepath.Join(t.TempDir(), "analytics.db")
-	require.NoError(t, os.WriteFile(databasePath, template, 0o600))
-	db, err := database.InitDB("file:" + databasePath + "?mode=rwc")
-	require.NoError(t, err)
+	db := testdb.NewSQLite(t)
 	now := time.Now().UTC()
-	_, err = db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Analytics", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
+	_, err := db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Analytics", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", OrganizationID: "organization-1", Name: "Analytics", CreatedAt: now}).Exec(t.Context())
 	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	return db
 }
 
@@ -349,6 +312,7 @@ func seedAnalyticsAccount(t *testing.T, db *bun.DB, scopes string) models.Social
 }
 
 func TestXAnalyticsUsesDailyCadenceAndDoesNotRepeatForcedReads(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	account := seedAnalyticsAccount(t, db, "")
 	account.Platform = "x"
@@ -374,6 +338,7 @@ func TestXAnalyticsUsesDailyCadenceAndDoesNotRepeatForcedReads(t *testing.T) {
 }
 
 func TestXAnalyticsReservesReadBudgetBeforeProviderRequest(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	account := seedAnalyticsAccount(t, db, "")
 	account.Platform = "x"
@@ -424,6 +389,7 @@ func TestXAnalyticsReservesReadBudgetBeforeProviderRequest(t *testing.T) {
 }
 
 func TestSweepRetentionFailureStillSchedulesNextSweep(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	_, err := db.NewDropTable().Model((*models.AnalyticsAccountSnapshot)(nil)).Exec(t.Context())
 	require.NoError(t, err)
@@ -437,4 +403,75 @@ func TestSweepRetentionFailureStillSchedulesNextSweep(t *testing.T) {
 	require.Len(t, queued, 1, "a failed retention run must leave a durable successor")
 	require.Equal(t, now.Add(15*time.Minute), queued[0].RunAt.UTC())
 	require.Equal(t, "pending", queued[0].Status)
+}
+
+func TestResolveRepurposeSourceRejectsInvalidAndCrossWorkspaceSources(t *testing.T) {
+	t.Parallel()
+	db := newAnalyticsTestDB(t)
+	account := seedAnalyticsAccount(t, db, "")
+	now := time.Now().UTC()
+	publication := seedAnalyticsPublication(t, db, account.WorkspaceID, "publication-1", now)
+	rendition := models.Rendition{
+		ID: "rendition-1", PublicationID: publication.ID, TargetKey: "post",
+		SocialAccountID: account.ID, Platform: account.Platform, Profile: "short_text",
+		Status: models.RenditionStatusPublished, CreatedAt: now, UpdatedAt: now,
+	}
+	_, err := db.NewInsert().Model(&rendition).Exec(t.Context())
+	require.NoError(t, err)
+	service := NewService(db, staticTokenSource{})
+
+	_, err = service.ResolveRepurposeSource(t.Context(), account.WorkspaceID, ContentReference{Type: "external", PublicationID: publication.ID, RenditionID: rendition.ID}, RepurposeRange{Days: 30})
+	require.ErrorIs(t, err, ErrInvalidRepurposeReference)
+	_, err = service.ResolveRepurposeSource(t.Context(), account.WorkspaceID, ContentReference{Type: "openpost"}, RepurposeRange{Days: 30})
+	require.ErrorIs(t, err, ErrInvalidRepurposeReference)
+	_, err = service.ResolveRepurposeSource(t.Context(), "another-workspace", ContentReference{Type: "openpost", PublicationID: publication.ID, RenditionID: rendition.ID}, RepurposeRange{Days: 30})
+	require.ErrorIs(t, err, ErrRepurposeSourceNotFound)
+}
+
+func TestContentInsightsRejectMixedProviderReportingPeriods(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	firstStart, firstEnd := now.Add(-7*24*time.Hour), now
+	secondStart, secondEnd := now.Add(-30*24*time.Hour), now
+	firstMetadata := map[string]platform.AnalyticsMetricMetadata{
+		platform.MetricLikes: reportingEngagementMetadata("provider-a", firstStart, firstEnd),
+	}
+	secondMetadata := map[string]platform.AnalyticsMetricMetadata{
+		platform.MetricLikes: reportingEngagementMetadata("provider-b", secondStart, secondEnd),
+	}
+	content := []ContentOverview{
+		insightTestContent("first", "account-a", "provider-a", now.Add(-time.Hour), 20, firstMetadata),
+		insightTestContent("second", "account-b", "provider-b", now.Add(-2*time.Hour), 10, secondMetadata),
+	}
+
+	insights := buildContentInsights(content, now.Add(-30*24*time.Hour), now)
+	require.Len(t, insights, 2)
+	require.ElementsMatch(t, []string{InsightKindMostEngagementActions, InsightKindStrongestMeasuredDestination}, []string{insights[0].Kind, insights[1].Kind})
+	for _, insight := range insights {
+		require.Equal(t, InsightStatusInsufficientData, insight.Status)
+		require.Equal(t, InsightReasonIncompatibleSemantics, insight.Reason)
+		require.Equal(t, 2, insight.MeasuredCount)
+		require.Nil(t, insight.Value)
+		require.Nil(t, insight.Content)
+	}
+}
+
+func insightTestContent(id, accountID, provider string, publishedAt time.Time, engagement int64, metadata map[string]platform.AnalyticsMetricMetadata) ContentOverview {
+	reference := ContentReference{Type: string(platform.AccountContentOriginOpenPost), PublicationID: "publication-" + id, RenditionID: id}
+	metrics := platform.AnalyticsValues{}
+	if metadata != nil {
+		metrics[platform.MetricLikes] = engagement
+	}
+	return ContentOverview{
+		Reference: reference, Title: id, Excerpt: id, Platform: provider,
+		AccountID: accountID, Username: accountID, PublishedAt: publishedAt, CollectedAt: publishedAt.Add(time.Hour),
+		Metrics: metrics, MetricMetadata: metadata,
+	}
+}
+
+func reportingEngagementMetadata(source string, start, end time.Time) platform.AnalyticsMetricMetadata {
+	return platform.AnalyticsMetricMetadata{
+		Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodTotal,
+		Source: source, PeriodStart: &start, PeriodEnd: &end,
+	}
 }

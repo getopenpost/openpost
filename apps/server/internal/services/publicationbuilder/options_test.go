@@ -21,6 +21,7 @@ import (
 type decisionFunc func(context.Context, ai.DecisionRequest) (ai.DecisionResult, error)
 
 func TestFourPostFailureStaysPendingWhileDurableRetryIsRunnable(t *testing.T) {
+	t.Parallel()
 	db := newBuilderApplicationTestDB(t)
 	app, err := NewApplication(db, packageBuilderFunc(func(context.Context, BuildInput) (BuildResult, error) {
 		return BuildResult{}, nil
@@ -50,6 +51,7 @@ func (fn decisionFunc) Decide(ctx context.Context, request ai.DecisionRequest) (
 }
 
 func TestFourPostBuildRepairsBrokenMemeAndRetainsDecisionUsage(t *testing.T) {
+	t.Parallel()
 	provider, err := memes.NewBuiltinProvider()
 	require.NoError(t, err)
 	writerCalls := 0
@@ -115,6 +117,7 @@ func TestFourPostBuildRepairsBrokenMemeAndRetainsDecisionUsage(t *testing.T) {
 }
 
 func TestFourPostProviderRequestsShareSeriousReleaseContextThroughPlannerRepairWriterAndCritique(t *testing.T) {
+	t.Parallel()
 	plannerCalls := 0
 	service, err := New(generationFunc(func(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
 		var value any
@@ -198,6 +201,7 @@ func TestFourPostProviderRequestsShareSeriousReleaseContextThroughPlannerRepairW
 }
 
 func TestChoosingAnOptionPersistsAuthorEditsAndMissingDemo(t *testing.T) {
+	t.Parallel()
 	db := newBuilderApplicationTestDB(t)
 	input := BuildInput{OptionCount: 4, Idea: "I built a faster editor.", Destinations: []Destination{{AccountID: "account-1", Platform: "x", AllowedOutputProfiles: []OutputProfile{{Key: "x.short_text", TextLimit: 280, MaxSegments: 1, MediaMaxCount: 4, AllowedMIMEs: []string{"video/*"}}}}}}
 	options := make([]PostOption, 4)
@@ -229,6 +233,7 @@ func TestChoosingAnOptionPersistsAuthorEditsAndMissingDemo(t *testing.T) {
 }
 
 func TestSourceBackedOptionEditsSurviveReloadAndCommit(t *testing.T) {
+	t.Parallel()
 	db := newBuilderApplicationTestDB(t)
 	_, err := db.NewInsert().Model(&models.MediaAttachment{ID: "proof", WorkspaceID: "workspace-1", MimeType: "image/png", ProcessingStatus: "ready"}).Exec(t.Context())
 	require.NoError(t, err)
@@ -297,6 +302,7 @@ func (hook *optionSelectionHook) AfterQuery(ctx context.Context, event *bun.Quer
 }
 
 func TestConcurrentOptionChoicesCannotReplaceTheSelectedSnapshot(t *testing.T) {
+	t.Parallel()
 	db := newBuilderApplicationTestDB(t)
 	hook := &optionSelectionHook{bRead: make(chan struct{}), aSelected: make(chan struct{})}
 	db.AddQueryHook(hook)
@@ -348,6 +354,7 @@ func TestConcurrentOptionChoicesCannotReplaceTheSelectedSnapshot(t *testing.T) {
 }
 
 func TestFourPostCreativeFeedbackGetsOneRewriteWithConsistencyRechecked(t *testing.T) {
+	t.Parallel()
 	writerCalls, reviewCalls, decisionCalls := 0, 0, 0
 	service, err := New(generationFunc(func(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
 		var value any
@@ -399,6 +406,7 @@ func TestFourPostCreativeFeedbackGetsOneRewriteWithConsistencyRechecked(t *testi
 }
 
 func TestRenderedPrivateContextAssetCanBeExplicitlyAttached(t *testing.T) {
+	t.Parallel()
 	db := newBuilderApplicationTestDB(t)
 	_, err := db.NewInsert().Model(&models.MediaAttachment{ID: "visual", WorkspaceID: "workspace-1", MimeType: "image/png", ProcessingStatus: "ready"}).Exec(t.Context())
 	require.NoError(t, err)

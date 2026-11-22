@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/uptrace/bun"
 )
 
@@ -43,7 +43,7 @@ func (*synchronizeConsumeSelectsHook) AfterQuery(context.Context, *bun.QueryEven
 
 func TestConsumeReturnsPayloadToOneConcurrentConsumer(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.InitDBWithDriver("sqlite", "file:"+filepath.Join(t.TempDir(), "oauth-state.db")+"?mode=rwc")
+	db, err := testdb.OpenWithDriver("sqlite", "file:"+filepath.Join(t.TempDir(), "oauth-state.db")+"?mode=rwc")
 	if err != nil {
 		t.Fatalf("open test database: %v", err)
 	}

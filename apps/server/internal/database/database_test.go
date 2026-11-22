@@ -2,17 +2,23 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
+	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect"
 )
 
 func TestInitDBWithDriverRejectsUnsupportedDriver(t *testing.T) {
-	db, err := InitDBWithDriver("mysql", "mysql://example")
+	db, err := InitDBWithDriverAndRole("mysql", "mysql://example", "all")
 	require.Nil(t, db)
 	require.ErrorContains(t, err, "unsupported database driver")
 }
@@ -23,14 +29,14 @@ func TestJSONTextExprForDialect(t *testing.T) {
 }
 
 func TestDateExprForDialect(t *testing.T) {
-	require.Equal(t, "DATE(p.scheduled_at)", DateExprForDialect(dialect.SQLite, "p.scheduled_at", ""))
-	require.Equal(t, "DATE(datetime(p.scheduled_at, '+01:30'))", DateExprForDialect(dialect.SQLite, "p.scheduled_at", "+01:30"))
-	require.Equal(t, "DATE(p.scheduled_at + (-300 * INTERVAL '1 minute'))", DateExprForDialect(dialect.PG, "p.scheduled_at", "-05:00"))
+	require.Equal(t, "DATE(p.scheduled_at)", dateExprForDialect(dialect.SQLite, "p.scheduled_at", ""))
+	require.Equal(t, "DATE(datetime(p.scheduled_at, '+01:30'))", dateExprForDialect(dialect.SQLite, "p.scheduled_at", "+01:30"))
+	require.Equal(t, "DATE(p.scheduled_at + (-300 * INTERVAL '1 minute'))", dateExprForDialect(dialect.PG, "p.scheduled_at", "-05:00"))
 }
 
 func TestInitDBWithDriverDoesNotExposeMalformedPostgresCredentials(t *testing.T) {
 	const password = "do-not-log-this-password"
-	db, err := InitDBWithDriver("postgres", "postgres://openpost:"+password+"%@localhost/openpost")
+	db, err := InitDBWithDriverAndRole("postgres", "postgres://openpost:"+password+"%@localhost/openpost", "all")
 	require.Nil(t, db)
 	require.Error(t, err)
 	require.NotContains(t, err.Error(), password)
@@ -61,7 +67,7 @@ func TestPostgresConnectionsUseUTC(t *testing.T) {
 	if dsn == "" {
 		t.Skip("OPENPOST_TEST_POSTGRES_URL is not configured")
 	}
-	db, err := InitDBWithDriver("postgres", dsn)
+	db, err := InitDBWithDriverAndRole("postgres", dsn, "all")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 
@@ -71,7 +77,7 @@ func TestPostgresConnectionsUseUTC(t *testing.T) {
 }
 
 func TestPoolObserverReportsConnectionPressureOncePerChange(t *testing.T) {
-	db, err := InitDB("file::memory:?cache=shared")
+	db, err := InitDBWithDriverAndRole("sqlite", "file::memory:?cache=shared", "all")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 
@@ -97,4 +103,116 @@ func TestPoolObserverReportsConnectionPressureOncePerChange(t *testing.T) {
 
 	observer.Observe(db.Stats())
 	require.Len(t, messages, 1, "unchanged saturation must not flood logs")
+}
+
+func TestInitDBCreatesMissingSQLiteDirectory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "db", "openpost.db")
+	db, err := InitDBWithDriverAndRole("sqlite", "file:"+path+"?cache=shared&mode=rwc", "all")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	require.NoError(t, CreateSchema(db))
+	require.FileExists(t, path)
+}
+
+func TestInitDBCreatesEscapedSQLiteDirectory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested db", "openpost.db")
+	dsn := (&url.URL{Scheme: "file", Path: path, RawQuery: "cache=shared&mode=rwc"}).String()
+
+	db, err := InitDBWithDriverAndRole("sqlite", dsn, "all")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	require.NoError(t, CreateSchema(db))
+	require.FileExists(t, path)
+}
+
+func TestCreateSchemaBuildsExternalApplicationIntegrationTables(t *testing.T) {
+	db, err := InitDBWithDriverAndRole("sqlite", "file:"+t.Name()+"?mode=memory&cache=private", "all")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	require.NoError(t, CreateSchema(db))
+
+	var applied int
+	require.NoError(t, db.NewRaw("SELECT COUNT(*) FROM schema_migrations WHERE version = 129").Scan(t.Context(), &applied))
+	require.Equal(t, 1, applied)
+
+	for _, table := range []string{
+		"external_applications",
+		"external_app_installations",
+		"external_app_workspace_grants",
+		"external_app_account_grants",
+		"external_oauth_codes",
+		"external_refresh_tokens",
+		"external_webhook_subscriptions",
+		"external_webhook_deliveries",
+	} {
+		var count int
+		require.NoError(t, db.NewRaw("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", table).Scan(t.Context(), &count))
+		require.Equal(t, 1, count, table)
+	}
+
+	var installationColumn int
+	require.NoError(t, db.NewRaw("SELECT COUNT(*) FROM pragma_table_info('api_tokens') WHERE name = 'installation_id'").Scan(t.Context(), &installationColumn))
+	require.Equal(t, 1, installationColumn)
+
+	now := time.Now().UTC()
+	_, err = db.NewInsert().Model(&models.User{ID: "operator-1", Email: "operator@example.test", CreatedAt: now}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.ExternalApplication{
+		ID: "application-1", ClientID: "client-1", Name: "App", ClientType: "public",
+		RedirectURIsJSON: `[]`, AllowedScopes: "workspace:read", CreatedByUserID: "operator-1",
+		CreatedAt: now, UpdatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewDelete().Model((*models.User)(nil)).Where("id = ?", "operator-1").Exec(t.Context())
+	require.NoError(t, err)
+	var createdBy sql.NullString
+	require.NoError(t, db.NewRaw("SELECT created_by_user_id FROM external_applications WHERE id = ?", "application-1").Scan(t.Context(), &createdBy))
+	require.False(t, createdBy.Valid)
+}
+
+func TestConcurrentSQLiteMigrationCommandsSerializeAcrossConnections(t *testing.T) {
+	t.Parallel()
+
+	dsn := "file:" + filepath.Join(t.TempDir(), "openpost.db") + "?cache=shared&mode=rwc"
+	first, err := InitDBWithDriverAndRole("sqlite", dsn, "all")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, first.Close()) })
+	second, err := InitDBWithDriverAndRole("sqlite", dsn, "all")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, second.Close()) })
+
+	start := make(chan struct{})
+	var wait sync.WaitGroup
+	wait.Add(2)
+	errors := make(chan error, 2)
+	for _, db := range []*bun.DB{first, second} {
+		go func() {
+			defer wait.Done()
+			<-start
+			errors <- CreateSchemaLocked(t.Context(), db, "sqlite", dsn)
+		}()
+	}
+	close(start)
+	wait.Wait()
+	close(errors)
+
+	for err := range errors {
+		require.NoError(t, err)
+	}
+	require.NoError(t, RequireCurrentSchema(t.Context(), first))
+}
+
+func TestLongLivedProcessRejectsAnUnmigratedDatabase(t *testing.T) {
+	t.Parallel()
+
+	dsn := "file:" + filepath.Join(t.TempDir(), "unmigrated.db") + "?cache=shared&mode=rwc"
+	db, err := InitDBWithDriverAndRole("sqlite", dsn, "all")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	err = RequireCurrentSchema(context.Background(), db)
+	require.ErrorContains(t, err, "openpost migrate")
+
+	require.NoError(t, CreateSchemaLocked(t.Context(), db, "sqlite", dsn))
+	require.NoError(t, RequireCurrentSchema(context.Background(), db))
 }

@@ -1,5 +1,5 @@
 /** Binary waveform persistence tier. Ported from FreeCut (MIT). */
-import type { WaveformData } from './waveform-client';
+import type { WaveformData } from '@openpost/editor-shared/media';
 import { readOpfsBlob, writeOpfsBlob } from './opfs-cache';
 
 const MAGIC = 0x4f505746;

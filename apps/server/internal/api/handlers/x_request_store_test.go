@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	servicecrypto "github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -41,8 +41,9 @@ func (hook *synchronizeXRequestSelectsHook) BeforeQuery(ctx context.Context, eve
 func (*synchronizeXRequestSelectsHook) AfterQuery(context.Context, *bun.QueryEvent) {}
 
 func TestXRequestStoreReturnsSecretToOneConcurrentConsumer(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
-	db, err := database.InitDBWithDriver("sqlite", "file:"+filepath.Join(t.TempDir(), "x-request.db")+"?mode=rwc")
+	db, err := testdb.OpenWithDriver("sqlite", "file:"+filepath.Join(t.TempDir(), "x-request.db")+"?mode=rwc")
 	if err != nil {
 		t.Fatalf("open test database: %v", err)
 	}
@@ -101,7 +102,8 @@ func TestXRequestStoreReturnsSecretToOneConcurrentConsumer(t *testing.T) {
 }
 
 func TestXRequestStoreStagesEncryptedStorageAcrossRollbackBoundary(t *testing.T) {
-	db, err := database.InitDBWithDriver("sqlite", "file:"+filepath.Join(t.TempDir(), "x-request-encryption.db")+"?mode=rwc")
+	t.Parallel()
+	db, err := testdb.OpenWithDriver("sqlite", "file:"+filepath.Join(t.TempDir(), "x-request-encryption.db")+"?mode=rwc")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	_, err = db.NewCreateTable().Model((*models.XOAuthRequestToken)(nil)).Exec(t.Context())
@@ -145,7 +147,8 @@ func TestXRequestStoreStagesEncryptedStorageAcrossRollbackBoundary(t *testing.T)
 }
 
 func TestXRequestStoreLegacyModeDoesNotInterpretEncryptionPrefix(t *testing.T) {
-	db, err := database.InitDBWithDriver("sqlite", "file:"+filepath.Join(t.TempDir(), "x-request-prefix.db")+"?mode=rwc")
+	t.Parallel()
+	db, err := testdb.OpenWithDriver("sqlite", "file:"+filepath.Join(t.TempDir(), "x-request-prefix.db")+"?mode=rwc")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	_, err = db.NewCreateTable().Model((*models.XOAuthRequestToken)(nil)).Exec(t.Context())
@@ -169,8 +172,9 @@ func TestXRequestStoreLegacyModeDoesNotInterpretEncryptionPrefix(t *testing.T) {
 }
 
 func TestXRequestStoreReadsEncryptedSecretAcrossRollingKeyIDCutover(t *testing.T) {
+	t.Parallel()
 	const sharedKey = "shared-encryption-key-with-at-least-thirty-two-characters"
-	db, err := database.InitDBWithDriver("sqlite", "file:"+filepath.Join(t.TempDir(), "x-request-rolling-key-id.db")+"?mode=rwc")
+	db, err := testdb.OpenWithDriver("sqlite", "file:"+filepath.Join(t.TempDir(), "x-request-rolling-key-id.db")+"?mode=rwc")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	_, err = db.NewCreateTable().Model((*models.XOAuthRequestToken)(nil)).Exec(t.Context())

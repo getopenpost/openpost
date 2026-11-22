@@ -42,6 +42,7 @@ func (s delayedQuota) Check(ctx context.Context, r entitlements.Request) (entitl
 	return d, e
 }
 func TestConcurrentProviderDispatchRespectsMonthlyQuota(t *testing.T) {
+	t.Parallel()
 	for _, metric := range []entitlements.LimitKey{entitlements.LimitProviderWriteCallsMonthly, entitlements.LimitPublishedPostsMonthly} {
 		t.Run(string(metric), func(t *testing.T) {
 			srv := newPublisherUsageTestServer(t, &fakePublisherAdapter{})
@@ -92,6 +93,7 @@ func TestConcurrentProviderDispatchRespectsMonthlyQuota(t *testing.T) {
 }
 
 func TestPublishedQuotaKeepsOperationIdentityAcrossRecovery(t *testing.T) {
+	t.Parallel()
 	for _, outcome := range []string{"accepted", "ambiguous", "before-send"} {
 		t.Run(outcome, func(t *testing.T) {
 			adapter := &fakePublisherAdapter{}
@@ -163,6 +165,7 @@ func (s observedQuota) Check(ctx context.Context, request entitlements.Request) 
 }
 
 func TestQuotaDenialReleasesUnsentProviderCost(t *testing.T) {
+	t.Parallel()
 	adapter := &fakePublisherAdapter{}
 	srv := newPublisherUsageTestServer(t, adapter)
 	_, err := srv.db.NewCreateTable().Model((*models.Organization)(nil)).IfNotExists().Exec(t.Context())

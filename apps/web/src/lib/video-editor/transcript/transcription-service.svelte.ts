@@ -1,7 +1,7 @@
 import { mediaPool } from '../media/pool.svelte';
 import { mediaTaskId, mediaTasks } from '../media/media-tasks.svelte';
 import { resolveMediaBlob } from '../media/resolve-media-blob';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { TimelineItem } from '../project/types';
 import {
 	captureSourceTranscriptStorage,
@@ -21,7 +21,7 @@ import type {
 	TranscribeOptions,
 	TranscribeProgress,
 	TranscriptionSelection
-} from './engine/types';
+} from '@openpost/editor-shared/transcript';
 import {
 	addGeneratedSubtitleItem,
 	captureTranscriptionSource,

@@ -6,6 +6,7 @@ import (
 )
 
 func TestParseNaturalLanguageSchedule(t *testing.T) {
+	t.Parallel()
 	loc, err := time.LoadLocation("America/New_York")
 	if err != nil {
 		t.Fatal(err)

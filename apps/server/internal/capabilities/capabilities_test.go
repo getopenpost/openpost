@@ -1,6 +1,7 @@
 package capabilities
 
 import (
+	"encoding/json"
 	"slices"
 	"strings"
 	"testing"
@@ -102,8 +103,7 @@ func settingDefinitionForKey(settings []SettingDefinition, key string) (SettingD
 	return SettingDefinition{}, false
 }
 
-func TestBlueskyVideoLimitsAgreeAcrossAuthoringAndProviderValidation(t *testing.T) {
-	platform.RegisterAllMediaValidators()
+func TestBlueskyVideoLimitsAuthoringValidation(t *testing.T) {
 	for _, test := range []struct {
 		name     string
 		mime     string
@@ -121,8 +121,6 @@ func TestBlueskyVideoLimitsAgreeAcrossAuthoringAndProviderValidation(t *testing.
 				issues := Validate(ProviderBluesky, profile, "Caption", "", "", []MediaItem{{ID: "video-1", MimeType: test.mime, Size: test.size, DurationMS: test.duration, AnalysisStatus: "ready"}}, nil)
 				require.Equal(t, test.invalid, len(issues) > 0, "authoring profile %s: %v", profile, issues)
 			}
-			issues := platform.MediaValidators[ProviderBluesky]([]platform.MediaItem{{ID: "video-1", MimeType: test.mime, Size: test.size, DurationMS: test.duration}})
-			require.Equal(t, test.invalid, len(issues) > 0, "provider: %v", issues)
 		})
 	}
 }
@@ -1059,8 +1057,7 @@ func requireNoIssueCode(t *testing.T, issues []ValidationIssue, code string) {
 	}
 }
 
-func TestThreadVideoAttachmentsAgreeWithPublisher(t *testing.T) {
-	platform.RegisterAllMediaValidators()
+func TestThreadVideoAttachmentsValidation(t *testing.T) {
 	for _, provider := range []string{ProviderX, ProviderBluesky} {
 		for _, test := range []struct {
 			name    string
@@ -1074,14 +1071,11 @@ func TestThreadVideoAttachmentsAgreeWithPublisher(t *testing.T) {
 		} {
 			t.Run(provider+"/"+test.name, func(t *testing.T) {
 				media := make([]MediaItem, 0, len(test.mimes))
-				providerMedia := make([]platform.MediaItem, 0, len(test.mimes))
 				for _, mime := range test.mimes {
 					media = append(media, MediaItem{ID: "media", MimeType: mime, Size: 1000, DurationMS: 1000, Width: 1080, Height: 1920, AnalysisStatus: "ready"})
-					providerMedia = append(providerMedia, platform.MediaItem{ID: "media", MimeType: mime, Size: 1000})
 				}
 				issues := Validate(provider, models.ContentProfileThread, "Caption", "", "", media, nil)
 				require.Equal(t, test.invalid, len(issues) > 0, "%v", issues)
-				require.Equal(t, test.invalid, len(platform.ValidateMedia(provider, providerMedia)) > 0)
 			})
 		}
 	}
@@ -1140,4 +1134,140 @@ func TestAccountImageLimitsReachMediaValidation(t *testing.T) {
 	require.Equal(t, int64(1000), resolved.Media.MaxImageSizeBytes)
 	requireIssueCode(t, resolved.Issues, "media_size")
 	requireIssueCode(t, resolved.Issues, "media_pixels_max")
+}
+
+// All returns one process-wide catalog. Resolution must never rewrite it,
+// because every request and the certification digest cache read the same slice.
+func TestCapabilityCatalogStableAcrossResolution(t *testing.T) {
+	before, err := json.Marshal(All())
+	require.NoError(t, err)
+
+	for _, provider := range []string{ProviderX, ProviderInstagram, ProviderYouTube, ProviderLinkedIn} {
+		Resolve(provider, ResolveInput{
+			Intent:   IntentPost,
+			Segments: []ResolveSegment{{ID: "segment-1", Body: "A normal update"}},
+			Settings: map[string]any{"title": "Title"},
+		})
+	}
+
+	after, err := json.Marshal(All())
+	require.NoError(t, err)
+	require.JSONEq(t, string(before), string(after))
+}
+
+// Issue #414: the capability preview must agree with what the provider
+// adapter sends for the same stored settings_json value. Adapters read
+// "yes"/"on" as enabled, so validation must too.
+func TestSettingBooleanValueMatchesAdapterCoercion(t *testing.T) {
+	cases := []struct {
+		name  string
+		value any
+		want  bool
+	}{
+		{"true string", "true", true},
+		{"one string", "1", true},
+		{"yes string", "yes", true},
+		{"on string", "on", true},
+		{"empty string", "", false},
+		{"false string", "false", false},
+		{"bool true", true, true},
+		{"bool false", false, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			settings := map[string]any{"flag": tc.value}
+			if got := settingBooleanValue(settings, "flag"); got != tc.want {
+				t.Fatalf("settingBooleanValue(%q) = %v, want %v", tc.value, got, tc.want)
+			}
+		})
+	}
+	if got := settingBooleanValue(map[string]any{}, "flag"); got != false {
+		t.Fatalf("settingBooleanValue(missing) = %v, want false", got)
+	}
+}
+
+func TestRequiredDemoBlocksDeliveryUntilVideoAttached(t *testing.T) {
+	settings := map[string]any{"attachment_requirement": map[string]any{"kind": "video", "brief": "Show the new drag interaction."}}
+	issues := ValidateOutput("x", "x.video", "short_video", "This is how it works.", "", "", nil, settings)
+	require.True(t, hasAttachmentIssue(issues), "a missing demo must block scheduling and delivery")
+	issues = ValidateOutput("x", "x.video", "short_video", "This is how it works.", "", "", []MediaItem{{ID: "image", MimeType: "image/png"}}, settings)
+	require.True(t, hasAttachmentIssue(issues), "a screenshot does not fulfill a video requirement")
+	issues = ValidateOutput("x", "x.video", "short_video", "This is how it works.", "", "", []MediaItem{{ID: "demo", MimeType: "video/mp4", AnalysisStatus: "ready", Size: 1024, Width: 1920, Height: 1080, DurationMS: 10000}}, settings)
+	require.False(t, hasAttachmentIssue(issues))
+	for _, issue := range issues {
+		require.NotEqual(t, "error", issue.Severity, "matching media must restore complete readiness: %+v", issues)
+	}
+	resolved := Resolve("x", ResolveInput{RequestedOutputProfile: "x.post", Segments: []ResolveSegment{{ID: "source", Body: "This is how it works."}}, Settings: settings})
+	require.False(t, resolved.Compatible, "discovery must show the missing attachment before scheduling")
+	require.True(t, hasAttachmentIssue(resolved.Issues))
+}
+
+func hasAttachmentIssue(issues []ValidationIssue) bool {
+	for _, issue := range issues {
+		if issue.Code == "attachment_required" && issue.Severity == "error" {
+			return true
+		}
+	}
+	return false
+}
+
+func TestAttachmentRequirementsAreSegmentScopedAndValidateShape(t *testing.T) {
+	requirement := map[string]any{"attachment_requirement": map[string]any{"kind": "video"}}
+	resolved := Resolve("x", ResolveInput{RequestedOutputProfile: "x.thread", Segments: []ResolveSegment{{ID: "first", Body: "Watch the demo", Settings: requirement}, {ID: "reply", Body: "Details"}}})
+	require.False(t, resolved.Compatible)
+	missing := 0
+	for _, issue := range resolved.Issues {
+		if issue.Code == "attachment_required" {
+			missing++
+			require.Equal(t, "first", issue.SegmentID)
+		}
+	}
+	require.Equal(t, 1, missing, "the reply must not inherit the first source's attachment requirement")
+	for _, malformed := range []any{"video", true, []string{"video"}, map[string]any{"kind": "audio"}} {
+		require.True(t, hasAttachmentIssue(ValidateAttachmentRequirement("x", "x.post", nil, map[string]any{"attachment_requirement": malformed})))
+	}
+	require.Empty(t, ValidateAttachmentRequirement("x", "x.post", nil, map[string]any{"attachment_requirement": nil}))
+}
+
+func TestYouTubePublishTimeReadiness(t *testing.T) {
+	for _, scenario := range []struct {
+		name, privacy, publishAt string
+		wantCode                 string
+	}{
+		{"private scheduled video", "private", "2030-10-12T20:00:00+08:00", ""},
+		{"private unscheduled video", "private", "", ""},
+		{"past time follows YouTube behavior", "private", "2020-10-12T12:00:00Z", ""},
+		{"invalid time", "private", "tomorrow", "setting_datetime_invalid"},
+		{"missing timezone", "private", "2030-10-12T20:00:00", "setting_datetime_invalid"},
+		{"public schedule", "public", "2030-10-12T12:00:00Z", "setting_dependency"},
+		{"unlisted schedule", "unlisted", "2030-10-12T12:00:00Z", "setting_dependency"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			resolved := Resolve(ProviderYouTube, ResolveInput{
+				RequestedOutputProfile: "youtube.video",
+				Segments: []ResolveSegment{{ID: "source", Title: "Launch", Media: []MediaItem{{
+					ID: "video", MimeType: "video/mp4", Size: 1024, Width: 1920, Height: 1080, DurationMS: 300_000, AnalysisStatus: "ready",
+				}}}},
+				Settings: map[string]any{"privacy": scenario.privacy, "category_id": "22", "publish_at": scenario.publishAt},
+			})
+			if scenario.wantCode == "" {
+				require.True(t, resolved.Compatible, "%+v", resolved.Issues)
+			} else {
+				require.False(t, resolved.Compatible)
+				requireIssueForField(t, resolved.Issues, scenario.wantCode, "publish_at")
+			}
+		})
+	}
+}
+
+func TestYouTubePublishTimeCannotBecomeSocialSetDefault(t *testing.T) {
+	resolved := Resolve(ProviderYouTube, ResolveInput{
+		RequestedOutputProfile: "youtube.video", Context: ResolveContextSocialSetDefaults,
+	})
+	for _, field := range resolved.Settings {
+		require.NotEqual(t, "publish_at", field.Key, "absolute publish times belong to individual posts")
+	}
+	values := map[string]any{"privacy": "private", "publish_at": "2030-10-12T12:00:00Z"}
+	issues := ValidateDefaultSettings(resolved.Capability, SettingScopeDestination, values, values)
+	requireIssueForField(t, issues, "unsupported_setting", "publish_at")
 }

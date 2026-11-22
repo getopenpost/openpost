@@ -18,7 +18,7 @@ import {
 	resolveEditorShortcuts,
 	sanitizeShortcutOverrides,
 	shortcutBindingFromEvent
-} from './keyboard-shortcuts';
+} from '@openpost/editor-shared/settings';
 
 describe('keyboard shortcuts', () => {
 	it('normalizes aliases, physical keys, and cross-platform modifiers', () => {

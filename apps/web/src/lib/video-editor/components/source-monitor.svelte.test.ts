@@ -10,7 +10,7 @@ import { WebThemeRuntime } from '$lib/themes/runtime';
 import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins';
 import { toast } from 'svelte-sonner';
 import { createProject, getProject } from '../workspace-fs/projects';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import '../../../routes/layout.css';
 import demoVideoURL from '../../../../../../tests/app/fixtures/product-screenshots/study-sos-demo.mp4?url';
 import demoAudioURL from '../../../../../../tests/app/fixtures/product-demos/tutorial-music.wav?url';

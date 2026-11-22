@@ -22,7 +22,7 @@
 		requestMediaSourceAccess
 	} from '$lib/video-editor/media/media-source-recovery';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
-	import type { MediaMetadata } from '$lib/video-editor/media/types';
+	import type { MediaMetadata } from '@openpost/editor-shared/media';
 	import { removeItems } from '$lib/video-editor/timeline/actions/items';
 	import {
 		relinkOrphanedClip,

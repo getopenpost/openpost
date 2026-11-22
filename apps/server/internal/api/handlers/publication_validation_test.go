@@ -13,6 +13,7 @@ import (
 )
 
 func TestValidatePublicationIncludesNativeProcessingFailure(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.Publication)(nil),
 		(*models.Rendition)(nil),
@@ -53,6 +54,7 @@ func TestValidatePublicationIncludesNativeProcessingFailure(t *testing.T) {
 }
 
 func TestValidatePublicationIncludesMissingScope(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.Publication)(nil),
 		(*models.Rendition)(nil),
@@ -102,6 +104,7 @@ func TestValidatePublicationIncludesMissingScope(t *testing.T) {
 }
 
 func TestInstagramLoginReconnectionRejectsRetainedShoppingTagsBeforeScheduling(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Publication)(nil), (*models.Rendition)(nil),
 		(*models.PublicationSegment)(nil), (*models.PublicationSegmentMedia)(nil),
 		(*models.RenditionSegment)(nil), (*models.RenditionSegmentMedia)(nil),
@@ -144,6 +147,7 @@ func TestInstagramLoginReconnectionRejectsRetainedShoppingTagsBeforeScheduling(t
 }
 
 func TestValidatePublicationRejectsOverLimitInstagramAltText(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Publication)(nil), (*models.Rendition)(nil),
 		(*models.PublicationSegment)(nil), (*models.PublicationSegmentMedia)(nil),
 		(*models.RenditionSegment)(nil), (*models.RenditionSegmentMedia)(nil),
@@ -179,6 +183,7 @@ func TestValidatePublicationRejectsOverLimitInstagramAltText(t *testing.T) {
 }
 
 func TestValidateDynamicXConstraintsUseTheResolvedAccountTier(t *testing.T) {
+	t.Parallel()
 	rendition := models.Rendition{
 		ID:       "x-rendition",
 		Platform: capabilities.ProviderX,

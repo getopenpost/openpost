@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { downmixToMono } from './resampler';
+import { downmixToMono } from '@openpost/editor-shared/transcript';
 
 describe('transcription channel mix', () => {
 	it('retains speakers recorded on separate channels and prevents phase cancellation', () => {

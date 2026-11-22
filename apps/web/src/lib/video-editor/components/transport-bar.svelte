@@ -31,7 +31,7 @@
 	import { adaptivePreviewQuality } from '$lib/video-editor/preview/adaptive-preview-quality.svelte';
 	import { showToast } from '$lib/toast';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
-	import { formatShortcutBinding } from '$lib/video-editor/settings/keyboard-shortcuts';
+	import { formatShortcutBinding } from '@openpost/editor-shared/settings';
 	import TimelineVoiceoverControl from './timeline-voiceover-control.svelte';
 	import TimelineVoiceoverMenu from './timeline-voiceover-menu.svelte';
 	import { voiceoverRecorder } from '$lib/video-editor/recorder/voiceover-recorder.svelte';
@@ -40,7 +40,7 @@
 		setInPoint,
 		setOutPoint
 	} from '$lib/video-editor/timeline/actions/items';
-	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 
 	let {
 		projectId,

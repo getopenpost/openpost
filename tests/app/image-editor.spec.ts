@@ -1,856 +1,766 @@
-import { expect, test } from "@playwright/test";
-import { randomUUID } from "node:crypto";
+import { expect, test, type Page } from "@playwright/test";
+import { randomUUID, createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { authenticatePage, registerUser, createWorkspace } from "./helpers";
+import { fileURLToPath } from "node:url";
+import { parseGIF } from "gifuct-js";
+import { zipSync, strToU8, strFromU8, unzipSync } from "fflate";
+import sharp from "sharp";
 
-test.describe("touch editor discovery", () => {
-  test.use({ hasTouch: true });
+test.describe("image editor", () => {
+  test.describe("touch editor discovery", () => {
+    test.use({ hasTouch: true });
 
-  test("tool variants stay tappable and compact commands edit the selected layer", async ({
+    test("tool variants stay tappable and compact commands edit the selected layer", async ({
+      page,
+    }, testInfo) => {
+      test.setTimeout(60_000);
+      await page.setViewportSize({ width: 1024, height: 768 });
+      await page.goto("/image-editor");
+      await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
+      const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
+      await expect(layers).toHaveCount(6);
+      await layers.first().click();
+      const family = page
+        .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
+        .getByRole("button", { name: /^(Select objects|Rectangle select|Ellipse select)$/ });
+      expect(await family.evaluate((element) => element.tagName)).toBe("BUTTON");
+      await family.focus();
+      await family.press("ArrowDown");
+      await page.getByRole("menuitem", { name: /Ellipse select/ }).click();
+      await expect(family).toHaveAttribute("aria-label", "Ellipse select");
+      await expect(family).toHaveAttribute("aria-pressed", "true");
+      await family.press("ArrowDown");
+      await page.getByRole("menuitem", { name: /^Select objects/ }).click();
+      await expect(family).toHaveAttribute("aria-label", "Select objects");
+      await expect(family).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByRole("menu")).toHaveCount(0);
+      await family.click();
+      await expect(page.getByRole("menuitem", { name: /Ellipse select/ })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(family).toBeFocused();
+
+      await page.setViewportSize({ width: 320, height: 780 });
+      const touchFamily = page
+        .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
+        .getByRole("button", { name: "Select", exact: true });
+      const touchBounds = (await touchFamily.boundingBox())!;
+      expect(touchBounds.width).toBeGreaterThanOrEqual(44);
+      expect(touchBounds.height).toBeGreaterThanOrEqual(44);
+      const propertiesLabel = page
+        .getByRole("navigation", {
+          name: "OpenPost Image Editor tools",
+          exact: true,
+        })
+        .getByRole("button", { name: "Properties", exact: true })
+        .locator("span");
+      expect(
+        await propertiesLabel.evaluate((element) => element.scrollWidth <= element.clientWidth),
+      ).toBe(true);
+      const more = page
+        .getByRole("banner")
+        .getByRole("button", { name: "More actions", exact: true });
+      await more.click();
+      await expect
+        .poll(async () => (await page.getByRole("menu").boundingBox())!.width)
+        .toBeGreaterThanOrEqual(264);
+      await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+      await page.getByRole("menuitem", { name: /^Duplicate/ }).click();
+      await page.setViewportSize({ width: 1024, height: 768 });
+      await expect(layers).toHaveCount(7);
+      await page.setViewportSize({ width: 320, height: 780 });
+      await more.click();
+      await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+      await page.getByRole("menuitem", { name: /^Undo/ }).click();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("menu")).toHaveCount(0);
+      await page.setViewportSize({ width: 1024, height: 768 });
+      await expect(layers).toHaveCount(6);
+    });
+  });
+
+  test("desktop Image Editor uses the compact rail and closes Add when another tool is chosen", async ({
     page,
-  }, testInfo) => {
-    test.setTimeout(60_000);
-    await page.setViewportSize({ width: 1024, height: 768 });
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/image-editor");
-    await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
-    const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
-    await expect(layers).toHaveCount(6);
-    await layers.first().click();
-    const family = page
-      .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
-      .getByRole("button", { name: /^(Select objects|Rectangle select|Ellipse select)$/ });
-    expect(await family.evaluate((element) => element.tagName)).toBe("BUTTON");
-    await family.focus();
-    await family.press("ArrowDown");
-    await page.getByRole("menuitem", { name: /Ellipse select/ }).click();
-    await expect(family).toHaveAttribute("aria-label", "Ellipse select");
-    await expect(family).toHaveAttribute("aria-pressed", "true");
-    await family.press("ArrowDown");
-    await page.getByRole("menuitem", { name: /^Select objects/ }).click();
-    await expect(family).toHaveAttribute("aria-label", "Select objects");
-    await expect(family).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByRole("menu")).toHaveCount(0);
-    await family.click();
-    await expect(page.getByRole("menuitem", { name: /Ellipse select/ })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(family).toBeFocused();
+    await page.getByRole("button", { name: "New project", exact: true }).click();
 
-    await page.setViewportSize({ width: 320, height: 780 });
-    const touchFamily = page
-      .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
-      .getByRole("button", { name: "Select", exact: true });
-    const touchBounds = (await touchFamily.boundingBox())!;
-    expect(touchBounds.width).toBeGreaterThanOrEqual(44);
-    expect(touchBounds.height).toBeGreaterThanOrEqual(44);
-    const propertiesLabel = page
+    const tools = page.getByRole("navigation", {
+      name: "OpenPost Image Editor tools",
+      exact: true,
+    });
+    await expect(tools).toBeVisible();
+    await expect.poll(async () => (await tools.boundingBox())?.width).toBe(44);
+
+    const add = tools.getByRole("button", { name: "Add", exact: true });
+    await add.click();
+    await expect(add).toHaveAttribute("aria-pressed", "true");
+
+    const select = tools.getByRole("button", {
+      name: /^(Select objects|Rectangle select|Ellipse select)$/,
+    });
+    await select.click();
+    await page.getByRole("menuitem", { name: /^Rectangle select/ }).click();
+    await expect(add).toHaveAttribute("aria-pressed", "false");
+    await expect(select).toBeFocused();
+  });
+
+  test("macOS trackpad pinch zoom responds without repeated long gestures", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+
+    const canvas = page.getByRole("application", { name: "Design canvas", exact: true });
+    const zoom = page.getByRole("button", { name: /^Zoom \d+%$/ });
+    const zoomPercent = async () => Number.parseInt((await zoom.textContent()) ?? "", 10);
+    await expect(canvas).toBeVisible();
+    await zoom.click();
+    let lastZoom = -1;
+    await expect
+      .poll(async () => {
+        const value = await zoomPercent();
+        const settled = value === lastZoom;
+        lastZoom = value;
+        return settled;
+      })
+      .toBe(true);
+    const before = await zoomPercent();
+    const bounds = (await canvas.boundingBox())!;
+
+    await canvas.dispatchEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: bounds.x + bounds.width / 2,
+      clientY: bounds.y + bounds.height / 2,
+      ctrlKey: true,
+      deltaMode: 0,
+      deltaY: -20,
+    });
+
+    await expect.poll(zoomPercent).toBeGreaterThanOrEqual(Math.round(before * 1.045));
+  });
+
+  test("guest camera capture supports crop controls and undo without workspace writes", async ({
+    page,
+  }) => {
+    const cropErrors: string[] = [];
+    page.on("pageerror", (error) => cropErrors.push(error.message));
+    const workspaceWrites: string[] = [];
+    page.on("request", (request) => {
+      if (
+        request.method() !== "GET" &&
+        (request.url().includes("/api/v1/media") ||
+          request.url().includes("/api/v1/image-editor/designs"))
+      ) {
+        workspaceWrites.push(`${request.method()} ${request.url()}`);
+      }
+    });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "mediaDevices", {
+        configurable: true,
+        value: {
+          enumerateDevices: async () => [],
+          getUserMedia: async () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = 320;
+            canvas.height = 240;
+            const context = canvas.getContext("2d")!;
+            context.fillStyle = "#12a2c5";
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            return canvas.captureStream(5);
+          },
+        },
+      });
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+
+    await page
       .getByRole("navigation", {
         name: "OpenPost Image Editor tools",
         exact: true,
       })
-      .getByRole("button", { name: "Properties", exact: true })
-      .locator("span");
-    expect(
-      await propertiesLabel.evaluate((element) => element.scrollWidth <= element.clientWidth),
-    ).toBe(true);
-    const more = page
-      .getByRole("banner")
-      .getByRole("button", { name: "More actions", exact: true });
-    await more.click();
-    await expect
-      .poll(async () => (await page.getByRole("menu").boundingBox())!.width)
-      .toBeGreaterThanOrEqual(264);
-    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
-    await page.getByRole("menuitem", { name: /^Duplicate/ }).click();
-    await page.setViewportSize({ width: 1024, height: 768 });
-    await expect(layers).toHaveCount(7);
-    await page.setViewportSize({ width: 320, height: 780 });
-    await more.click();
-    await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
-    await page.getByRole("menuitem", { name: /^Undo/ }).click();
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("menu")).toHaveCount(0);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-      320,
+      .getByRole("button", { name: "Add", exact: true })
+      .click();
+    const sources = page.getByRole("toolbar", { name: "Source", exact: true });
+    await expect(sources.getByRole("button", { name: "Device", exact: true })).toBeVisible();
+    await expect(sources.getByRole("button", { name: "Stock media", exact: true })).toBeVisible();
+    await expect(sources.getByRole("button", { name: "Camera", exact: true })).toBeVisible();
+    await expect(sources.getByRole("button", { name: "Workspace", exact: true })).toHaveCount(0);
+
+    await sources.getByRole("button", { name: "Camera", exact: true }).click();
+    await page.getByRole("button", { name: "Take photo", exact: true }).click();
+    await page.getByRole("button", { name: "Use photo", exact: true }).click();
+
+    const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
+    await expect(layers).toHaveCount(1);
+    await expect(layers.first()).toContainText("camera-");
+    await expect(page.getByText(/^Added camera-/)).toBeVisible();
+    expect(workspaceWrites).toEqual([]);
+
+    await page.getByRole("button", { name: "Done", exact: true }).first().click();
+    const crop = page.getByRole("button", { name: "Crop", exact: true });
+    await crop.click();
+    const options = page.getByTestId("image-editor-crop-options");
+    await page.getByRole("button", { name: "Crop aspect ratio" }).click();
+    await page.getByRole("option", { name: "Square · 1:1", exact: true }).click();
+    expect(cropErrors).toEqual([]);
+    await expect(page.getByRole("button", { name: "Crop aspect ratio" })).toHaveText(
+      "Square · 1:1",
     );
-    await page.screenshot({ path: testInfo.outputPath("photo-touch-320.png") });
-    await page.setViewportSize({ width: 1024, height: 768 });
-    await expect(layers).toHaveCount(6);
-  });
-});
+    await options.getByRole("button", { name: "Apply crop" }).click();
+    await expect(options).toHaveCount(0);
+    await page.getByRole("button", { name: /^Transform/ }).click();
+    const width = page.getByRole("spinbutton", { name: "W", exact: true });
+    const height = page.getByRole("spinbutton", { name: "H", exact: true });
+    await expect(width).toHaveValue("240");
+    await expect(height).toHaveValue("240");
 
-test("desktop Image Editor uses the compact rail and closes Add when another tool is chosen", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/image-editor");
-  await page.getByRole("button", { name: "New project", exact: true }).click();
+    await crop.click();
+    await options.getByRole("button", { name: "Reset", exact: true }).click();
+    await options.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(options).toHaveCount(0);
+    await expect(width).toHaveValue("240");
 
-  const tools = page.getByRole("navigation", {
-    name: "OpenPost Image Editor tools",
-    exact: true,
-  });
-  await expect(tools).toBeVisible();
-  await expect.poll(async () => (await tools.boundingBox())?.width).toBe(44);
-
-  const add = tools.getByRole("button", { name: "Add", exact: true });
-  await add.click();
-  await expect(add).toHaveAttribute("aria-pressed", "true");
-
-  const select = tools.getByRole("button", {
-    name: /^(Select objects|Rectangle select|Ellipse select)$/,
-  });
-  await select.click();
-  await page.getByRole("menuitem", { name: /^Rectangle select/ }).click();
-  await expect(add).toHaveAttribute("aria-pressed", "false");
-  await expect(select).toBeFocused();
-});
-
-test("macOS trackpad pinch zoom responds without repeated long gestures", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/image-editor");
-  await page.getByRole("button", { name: "New project", exact: true }).click();
-
-  const canvas = page.getByRole("application", { name: "Design canvas", exact: true });
-  const zoom = page.getByRole("button", { name: /^Zoom \d+%$/ });
-  const zoomPercent = async () => Number.parseInt((await zoom.textContent()) ?? "", 10);
-  await expect(canvas).toBeVisible();
-  await zoom.click();
-  await page.waitForTimeout(250);
-  const before = await zoomPercent();
-  const bounds = (await canvas.boundingBox())!;
-
-  await canvas.dispatchEvent("wheel", {
-    bubbles: true,
-    cancelable: true,
-    clientX: bounds.x + bounds.width / 2,
-    clientY: bounds.y + bounds.height / 2,
-    ctrlKey: true,
-    deltaMode: 0,
-    deltaY: -20,
-  });
-
-  await expect.poll(zoomPercent).toBeGreaterThanOrEqual(Math.round(before * 1.045));
-});
-
-test("guest camera capture supports crop controls and undo without workspace writes", async ({
-  page,
-}) => {
-  const cropErrors: string[] = [];
-  page.on("pageerror", (error) => cropErrors.push(error.message));
-  const workspaceWrites: string[] = [];
-  page.on("request", (request) => {
-    if (
-      request.method() !== "GET" &&
-      (request.url().includes("/api/v1/media") ||
-        request.url().includes("/api/v1/image-editor/designs"))
-    ) {
-      workspaceWrites.push(`${request.method()} ${request.url()}`);
-    }
-  });
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "mediaDevices", {
-      configurable: true,
-      value: {
-        enumerateDevices: async () => [],
-        getUserMedia: async () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = 320;
-          canvas.height = 240;
-          const context = canvas.getContext("2d")!;
-          context.fillStyle = "#12a2c5";
-          context.fillRect(0, 0, canvas.width, canvas.height);
-          return canvas.captureStream(5);
-        },
-      },
-    });
-  });
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/image-editor");
-  await page.getByRole("button", { name: "New project", exact: true }).click();
-  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-
-  await page
-    .getByRole("navigation", {
-      name: "OpenPost Image Editor tools",
+    await crop.click();
+    const edge = page.getByRole("button", {
+      name: "Resize crop from right",
       exact: true,
-    })
-    .getByRole("button", { name: "Add", exact: true })
-    .click();
-  const sources = page.getByRole("toolbar", { name: "Source", exact: true });
-  await expect(sources.getByRole("button", { name: "Device", exact: true })).toBeVisible();
-  await expect(sources.getByRole("button", { name: "Stock media", exact: true })).toBeVisible();
-  await expect(sources.getByRole("button", { name: "Camera", exact: true })).toBeVisible();
-  await expect(sources.getByRole("button", { name: "Workspace", exact: true })).toHaveCount(0);
-
-  await sources.getByRole("button", { name: "Camera", exact: true }).click();
-  await page.getByRole("button", { name: "Take photo", exact: true }).click();
-  await page.getByRole("button", { name: "Use photo", exact: true }).click();
-
-  const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
-  await expect(layers).toHaveCount(1);
-  await expect(layers.first()).toContainText("camera-");
-  await expect(page.getByText(/^Added camera-/)).toBeVisible();
-  expect(workspaceWrites).toEqual([]);
-
-  await page.getByRole("button", { name: "Done", exact: true }).first().click();
-  const crop = page.getByRole("button", { name: "Crop", exact: true });
-  await crop.click();
-  const options = page.getByTestId("image-editor-crop-options");
-  await page.getByRole("button", { name: "Crop aspect ratio" }).click();
-  await page.getByRole("option", { name: "Square · 1:1", exact: true }).click();
-  expect(cropErrors).toEqual([]);
-  await expect(page.getByRole("button", { name: "Crop aspect ratio" })).toHaveText("Square · 1:1");
-  await options.getByRole("button", { name: "Apply crop" }).click();
-  await expect(options).toHaveCount(0);
-  await page.getByRole("button", { name: /^Transform/ }).click();
-  const width = page.getByRole("spinbutton", { name: "W", exact: true });
-  const height = page.getByRole("spinbutton", { name: "H", exact: true });
-  await expect(width).toHaveValue("240");
-  await expect(height).toHaveValue("240");
-
-  await crop.click();
-  await options.getByRole("button", { name: "Reset", exact: true }).click();
-  await options.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(options).toHaveCount(0);
-  await expect(width).toHaveValue("240");
-
-  await crop.click();
-  const edge = page.getByRole("button", {
-    name: "Resize crop from right",
-    exact: true,
-  });
-  const box = (await edge.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2 - 30, box.y + box.height / 2, {
-    steps: 5,
-  });
-  await page.mouse.up();
-  await options.getByRole("button", { name: "Apply crop" }).click();
-  await expect(options).toHaveCount(0);
-  await expect.poll(async () => Number(await width.inputValue())).toBeLessThan(240);
-  await page.keyboard.press("ControlOrMeta+z");
-  await expect(width).toHaveValue("240");
-
-  await crop.click();
-  await page.getByRole("button", { name: "Crop aspect ratio" }).click();
-  await page.getByRole("option", { name: "Square · 1:1", exact: true }).click();
-  const lockedEdge = (await edge.boundingBox())!;
-  await page.mouse.move(lockedEdge.x + lockedEdge.width / 2, lockedEdge.y + lockedEdge.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(
-    lockedEdge.x + lockedEdge.width / 2 - 30,
-    lockedEdge.y + lockedEdge.height / 2 + 10,
-    { steps: 5 },
-  );
-  await page.mouse.up();
-  await expect(page.getByRole("button", { name: "Crop aspect ratio" })).toHaveText("Square · 1:1");
-  const corner = page.getByRole("button", { name: "Resize crop from bottom right", exact: true });
-  const cornerBox = (await corner.boundingBox())!;
-  const cornerX = cornerBox.x + cornerBox.width / 2;
-  const cornerY = cornerBox.y + cornerBox.height / 2;
-  await page.keyboard.down("Control");
-  await page.mouse.move(cornerX, cornerY);
-  await page.mouse.down();
-  await page.mouse.move(cornerX + 8, cornerY - 7);
-  const firstCorner = (await corner.boundingBox())!;
-  await page.mouse.move(cornerX + 8, cornerY - 9);
-  const secondCorner = (await corner.boundingBox())!;
-  await page.mouse.up();
-  await page.keyboard.up("Control");
-  expect(Math.abs(secondCorner.x - firstCorner.x)).toBeLessThan(4);
-  await edge.press("ArrowLeft");
-  await options.getByRole("button", { name: "Apply crop" }).click();
-  await expect.poll(async () => Number(await width.inputValue())).toBeLessThan(240);
-  expect(Number(await width.inputValue())).toBeCloseTo(Number(await height.inputValue()), 0);
-  expect(cropErrors).toEqual([]);
-});
-
-test("Image Editor keeps Export rightmost and saved feedback clear at narrow widths", async ({
-  page,
-}, testInfo) => {
-  await page.setViewportSize({ width: 1600, height: 900 });
-  await page.goto("/image-editor");
-  await page.getByRole("button", { name: "New project", exact: true }).click();
-  const header = page.getByRole("banner");
-  const saved = page.getByTestId("image-editor-save-indicator");
-  await page.getByRole("textbox", { name: "Design title" }).fill("Saved header project");
-  await page.keyboard.press("Tab");
-  await expect(saved).toHaveAttribute("data-state", "saved");
-  const cdp = await page.context().newCDPSession(page);
-  for (const scheme of ["light"] as const) {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await page.evaluate(
-      (dark) => document.documentElement.classList.toggle("dark", dark),
-      scheme === "dark",
-    );
-    for (const width of [1600, 320]) {
-      await page.setViewportSize({ width, height: 900 });
-      await cdp.send("Emulation.setTouchEmulationEnabled", {
-        enabled: width !== 1600,
-        maxTouchPoints: 1,
-      });
-      await expect
-        .poll(() => page.evaluate(() => matchMedia("(pointer:coarse)").matches))
-        .toBe(width !== 1600);
-      const exportButton = header.getByRole("button", { name: "Export", exact: true });
-      const exportBox = await exportButton.boundingBox();
-      expect(exportBox).not.toBeNull();
-      for (const button of [
-        header.getByRole("button", { name: "More actions", exact: true }),
-        ...(width === 1600
-          ? [header.getByRole("button", { name: "Save to OpenPost", exact: true })]
-          : []),
-      ]) {
-        await expect(button).toBeVisible();
-        const box = await button.boundingBox();
-        if (box) expect(exportBox!.x).toBeGreaterThan(box.x);
-      }
-      const status = await saved.boundingBox();
-      const color = await header.getByRole("tab", { name: "Color", exact: true }).boundingBox();
-      expect(status).not.toBeNull();
-      expect(color).not.toBeNull();
-      expect(
-        status!.x >= color!.x + color!.width ||
-          status!.x + status!.width <= color!.x ||
-          status!.y >= color!.y + color!.height ||
-          status!.y + status!.height <= color!.y,
-      ).toBe(true);
-      await expect
-        .poll(() =>
-          header.evaluate((element) =>
-            [...element.querySelectorAll("button")].every((button) => {
-              const bounds = button.getBoundingClientRect();
-              return !bounds.width || (bounds.left >= 0 && bounds.right <= innerWidth);
-            }),
-          ),
-        )
-        .toBe(true);
-      await page.screenshot({ path: testInfo.outputPath(`image-header-${width}-${scheme}.png`) });
-    }
-  }
-  await header.getByRole("tab", { name: "Color", exact: true }).click();
-  await page.keyboard.press("Home");
-  await expect(header.getByRole("tab", { name: "Edit", exact: true })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-});
-
-test("signed-in creators can use built-in templates in their workspace", async ({
-  page,
-  request,
-}) => {
-  const auth = await registerUser(request, `image-template-${randomUUID()}@example.com`);
-  const workspace = await createWorkspace(request, auth.token, "Image workspace");
-  await authenticatePage(page, auth.token);
-  await page.goto(`/image-editor/new?workspace=${workspace.id}`);
-  await page.getByText("Custom size", { exact: true }).first().click();
-  await expect(page.getByRole("spinbutton", { name: "Width" })).toBeVisible();
-  await page.getByRole("button", { name: "Create custom design" }).click();
-  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-});
-
-test("opening cloud design PNG export does not keep resetting its encoded preview", async ({
-  page,
-  request,
-}) => {
-  const auth = await registerUser(request, `image-export-${randomUUID()}@example.com`);
-  const workspace = await createWorkspace(request, auth.token, "Image export workspace");
-  await authenticatePage(page, auth.token);
-  await page.route("**/image-editor/designs**", async (route) => {
-    const response = await route.fetch();
-    const payload = await response.json();
-    if (!payload.document?.export_defaults) {
-      await route.fulfill({ response, json: payload });
-      return;
-    }
-    // Replays the affected design's saved value, just above the slider's value.
-    payload.document.export_defaults.quality = 0.9200000166893005;
-    await route.fulfill({ response, json: payload });
-  });
-  await page.goto(`/image-editor/new?workspace=${workspace.id}`);
-  await page.getByText("Custom size", { exact: true }).first().click();
-  await page.getByRole("button", { name: "Create custom design" }).click();
-  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-  await page.getByRole("button", { name: "Export", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Export design" });
-  const preview = dialog.getByRole("img", { name: "Encoded export preview" });
-  await expect(preview).toBeVisible();
-  await expect
-    .poll(() =>
-      preview.evaluate(async (image: HTMLImageElement) =>
-        (await fetch(image.src)).headers.get("content-type"),
-      ),
-    )
-    .toBe("image/png");
-  const resets = await dialog.evaluate(async (root) => {
-    let count = 0;
-    const observer = new MutationObserver(() => {
-      if (root.textContent?.includes("Encoding preview")) count++;
     });
-    observer.observe(root, { childList: true, subtree: true, characterData: true });
-    await new Promise((resolve) => setTimeout(resolve, 4000));
-    observer.disconnect();
-    return count;
-  });
-  expect(resets).toBe(0);
-});
+    const box = (await edge.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 30, box.y + box.height / 2, {
+      steps: 5,
+    });
+    await page.mouse.up();
+    await options.getByRole("button", { name: "Apply crop" }).click();
+    await expect(options).toHaveCount(0);
+    await expect.poll(async () => Number(await width.inputValue())).toBeLessThan(240);
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect(width).toHaveValue("240");
 
-test("starter previews fit the complete canvas on narrow phones", async ({ page }, testInfo) => {
-  test.setTimeout(60_000);
-  await page.goto("/image-editor");
-  const gallery = page.getByRole("region", { name: "Starter templates" });
-  await expect(gallery.getByRole("button").last()).toBeVisible();
-  await expect.poll(() => gallery.locator("canvas").count()).toBeLessThanOrEqual(2);
-  const starter = gallery.getByRole("button", { name: "Quick announcement" });
-  const preview = starter.locator(".template-preview-frame img");
-  await starter.scrollIntoViewIfNeeded();
-  await expect
-    .poll(() => preview.evaluate((image: HTMLImageElement) => image.naturalWidth))
-    .toBeGreaterThan(0);
-  for (const width of [1440, 320]) {
-    await page.setViewportSize({ width, height: 900 });
-    for (const colorScheme of ["light"] as const) {
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      await starter.scrollIntoViewIfNeeded();
-      await expect
-        .poll(() =>
-          preview.evaluate((image: HTMLImageElement) => {
-            const frame = image.parentElement!.getBoundingClientRect();
-            const bitmap = image.getBoundingClientRect();
-            return (
-              image.naturalWidth > 0 &&
-              bitmap.width <= frame.width + 1 &&
-              bitmap.height <= frame.height + 1
-            );
-          }),
-        )
-        .toBe(true);
-      await starter.screenshot({
-        path: testInfo.outputPath(`templates-${width}-${colorScheme}.png`),
-      });
-    }
-  }
-  const last = gallery.getByRole("button").last();
-  await last.scrollIntoViewIfNeeded();
-  await expect
-    .poll(() =>
-      last
-        .locator(".template-preview-frame img")
-        .evaluate((image: HTMLImageElement) => image.naturalWidth),
-    )
-    .toBeGreaterThan(0);
-  await starter.focus();
-  await expect(starter).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/image-editor\/local_design_/);
-  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-});
-
-// A public visitor can create a design, keep working across a reload, and
-// export it without an account and without any server write. If local
-// persistence breaks, edits silently vanish; if the public boundary leaks,
-// anonymous work hits the API.
-test("public image editor creates, restores, and exports a local design", async ({ page }) => {
-  test.setTimeout(60_000);
-  const browserErrors: string[] = [];
-  const workspaceWrites: string[] = [];
-  page.on("pageerror", (error) => browserErrors.push(error.message));
-  page.on("console", (message) => {
-    if (message.type() === "error") browserErrors.push(message.text());
-  });
-  page.on("request", (request) => {
-    if (request.method() !== "GET" && request.url().includes("/api/v1/image-editor/designs")) {
-      workspaceWrites.push(`${request.method()} ${request.url()}`);
-    }
+    await crop.click();
+    await page.getByRole("button", { name: "Crop aspect ratio" }).click();
+    await page.getByRole("option", { name: "Square · 1:1", exact: true }).click();
+    const lockedEdge = (await edge.boundingBox())!;
+    await page.mouse.move(
+      lockedEdge.x + lockedEdge.width / 2,
+      lockedEdge.y + lockedEdge.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      lockedEdge.x + lockedEdge.width / 2 - 30,
+      lockedEdge.y + lockedEdge.height / 2 + 10,
+      { steps: 5 },
+    );
+    await page.mouse.up();
+    await expect(page.getByRole("button", { name: "Crop aspect ratio" })).toHaveText(
+      "Square · 1:1",
+    );
+    const corner = page.getByRole("button", { name: "Resize crop from bottom right", exact: true });
+    const cornerBox = (await corner.boundingBox())!;
+    const cornerX = cornerBox.x + cornerBox.width / 2;
+    const cornerY = cornerBox.y + cornerBox.height / 2;
+    await page.keyboard.down("Control");
+    await page.mouse.move(cornerX, cornerY);
+    await page.mouse.down();
+    await page.mouse.move(cornerX + 8, cornerY - 7);
+    const firstCorner = (await corner.boundingBox())!;
+    await page.mouse.move(cornerX + 8, cornerY - 9);
+    const secondCorner = (await corner.boundingBox())!;
+    await page.mouse.up();
+    await page.keyboard.up("Control");
+    expect(Math.abs(secondCorner.x - firstCorner.x)).toBeLessThan(4);
+    await edge.press("ArrowLeft");
+    await options.getByRole("button", { name: "Apply crop" }).click();
+    await expect.poll(async () => Number(await width.inputValue())).toBeLessThan(240);
+    expect(Number(await width.inputValue())).toBeCloseTo(Number(await height.inputValue()), 0);
+    expect(cropErrors).toEqual([]);
   });
 
-  await page.goto("/image-editor");
-  await expect(page.getByRole("heading", { name: "Image Editor", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /Instagram square/ }).click();
+  test("Color tab Home key returns to Edit after the project saves", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    const header = page.getByRole("banner");
+    const saved = page.getByTestId("image-editor-save-indicator");
+    await page.getByRole("textbox", { name: "Design title" }).fill("Saved header project");
+    await page.keyboard.press("Tab");
+    await expect(saved).toHaveAttribute("data-state", "saved");
 
-  await expect(page).toHaveURL(/\/image-editor\/local_design_/);
-  await page.waitForTimeout(500);
-  expect(browserErrors.filter((message) => !message.includes("401 (Unauthorized)"))).toEqual([]);
-  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
-    timeout: 20_000,
+    await header.getByRole("tab", { name: "Color", exact: true }).click();
+    await page.keyboard.press("Home");
+    await expect(header.getByRole("tab", { name: "Edit", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
-  const title = page.getByRole("textbox", { name: "Design title" });
-  await title.fill("Local launch design");
-  const saveIndicator = page.getByTestId("image-editor-save-indicator");
-  await expect(saveIndicator).toBeVisible();
-  await expect(saveIndicator).toHaveAttribute("data-state", "saved");
-  await expect(saveIndicator).toHaveAttribute("aria-label", "Saved on this device");
-
-  await page.reload();
-  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
-    timeout: 20_000,
-  });
-  await expect(title).toHaveValue("Local launch design");
-
-  await page.getByRole("button", { name: "Export" }).click();
-  await expect(page.getByRole("heading", { name: "Export design" })).toBeVisible();
-  const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download" }).click();
-  await download;
-  await expect(
-    page.getByLabel("Notifications alt+T").getByText("Export download started."),
-  ).toBeVisible();
-
-  const home = page
-    .getByRole("banner")
-    .getByRole("button", { name: "OpenPost Image Editor", exact: true });
-  await home.focus();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/image-editor$/);
-  await expect(page.getByText("Local launch design", { exact: true })).toBeVisible();
-
-  expect(workspaceWrites).toEqual([]);
-  expect(browserErrors.filter((message) => !message.includes("401 (Unauthorized)"))).toEqual([]);
-});
-
-test("Image Editor previews and downloads the same encoded PNG, JPEG, and WebP bytes", async ({
-  page,
-}, testInfo) => {
-  test.setTimeout(90_000);
-  await page.goto("/image-editor");
-  await page.getByRole("button", { name: /Instagram square/ }).click();
-  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
-    timeout: 20_000,
+  test("signed-in creators can use built-in templates in their workspace", async ({
+    page,
+    request,
+  }) => {
+    const auth = await registerUser(request, `image-template-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Image workspace");
+    await authenticatePage(page, auth.token);
+    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+    await page.getByText("Custom size", { exact: true }).first().click();
+    await expect(page.getByRole("spinbutton", { name: "Width" })).toBeVisible();
+    await page.getByRole("button", { name: "Create custom design" }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
   });
 
-  for (const format of ["PNG", "JPEG", "WebP"] as const) {
+  test("opening cloud design PNG export does not keep resetting its encoded preview", async ({
+    page,
+    request,
+  }) => {
+    const auth = await registerUser(request, `image-export-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Image export workspace");
+    await authenticatePage(page, auth.token);
+    await page.route("**/image-editor/designs**", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      if (!payload.document?.export_defaults) {
+        await route.fulfill({ response, json: payload });
+        return;
+      }
+      // Replays the affected design's saved value, just above the slider's value.
+      payload.document.export_defaults.quality = 0.9200000166893005;
+      await route.fulfill({ response, json: payload });
+    });
+    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+    await page.getByText("Custom size", { exact: true }).first().click();
+    await page.getByRole("button", { name: "Create custom design" }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
     await page.getByRole("button", { name: "Export", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Export design" });
-    await dialog.getByRole("button", { name: "Format", exact: true }).click();
-    await page.getByRole("option", { name: format, exact: true }).click();
-
     const preview = dialog.getByRole("img", { name: "Encoded export preview" });
     await expect(preview).toBeVisible();
-    await expect(dialog.getByText(/^[\d,.]+ bytes$/)).toBeVisible();
     await expect
       .poll(() =>
-        preview.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight]),
+        preview.evaluate(async (image: HTMLImageElement) =>
+          (await fetch(image.src)).headers.get("content-type"),
+        ),
       )
-      .toEqual([1080, 1080]);
-
-    const previewResult = await preview.evaluate(async (image: HTMLImageElement) => {
-      const response = await fetch(image.src);
-      const blob = await response.blob();
-      return {
-        bytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
-        type: blob.type,
-      };
-    });
-    const exactByteLabel = await dialog.getByText(/^[\d,.]+ bytes$/).textContent();
-    expect(Number(exactByteLabel?.replace(/\D/g, ""))).toBe(previewResult.bytes.length);
-    expect(previewResult.type).toBe(
-      format === "PNG" ? "image/png" : format === "JPEG" ? "image/jpeg" : "image/webp",
-    );
-    const downloadEvent = page.waitForEvent("download");
-    await dialog.getByRole("button", { name: "Download", exact: true }).click();
-    const download = await downloadEvent;
-    const downloadPath = await download.path();
-    expect(downloadPath).not.toBeNull();
-    expect(Array.from(await readFile(downloadPath!))).toEqual(previewResult.bytes);
-    expect(download.suggestedFilename()).toMatch(
-      format === "PNG" ? /\.png$/ : format === "JPEG" ? /\.jpg$/ : /\.webp$/,
-    );
-  }
-
-  await expect(page.getByLabel("Notifications alt+T")).not.toContainText(
-    "Export download started.",
-    {
-      timeout: 10_000,
-    },
-  );
-  await page.getByRole("button", { name: "Export", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Export design" });
-  for (const format of ["PNG", "JPEG", "WebP"] as const) {
-    await dialog.getByRole("button", { name: "Format", exact: true }).click();
-    await page.getByRole("option", { name: format, exact: true }).click();
-  }
-  const latestPreview = dialog.getByRole("img", { name: "Encoded export preview" });
-  await expect(latestPreview).toBeVisible();
-  expect(
-    await latestPreview.evaluate(async (image: HTMLImageElement) =>
-      (await fetch(image.src)).headers.get("content-type"),
-    ),
-  ).toBe("image/webp");
-  for (const { width, colorScheme } of [
-    { width: 320, colorScheme: "dark" as const },
-    { width: 390, colorScheme: "light" as const },
-  ]) {
-    await page.setViewportSize({ width, height: 780 });
-    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("img", { name: "Encoded export preview" })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-      width,
-    );
-    await page.screenshot({
-      path: testInfo.outputPath(`encoded-export-${width}-${colorScheme}.png`),
-    });
-  }
-});
-
-test("page-strip previews render after adding a page and remain visible across a page switch", async ({
-  page,
-}, testInfo) => {
-  await page.goto("/image-editor");
-  await page.getByRole("button", { name: /Instagram square/ }).click();
-  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-  // Expanding pages uses the reserved strip so thumbnails do not cover the artwork.
-  await page.getByRole("button", { name: "Expand pages" }).click();
-  await page.getByRole("button", { name: "Add page" }).click();
-
-  const strip = page.getByTestId("image-editor-page-strip");
-  await expect(strip.getByRole("button", { name: /Page 1:/ })).toBeVisible();
-  const previews = strip.locator(".template-preview-frame img");
-  await expect(previews).toHaveCount(2);
-  await expect
-    .poll(async () =>
-      previews.evaluateAll((images) =>
-        images.every((image) => image instanceof HTMLImageElement && image.naturalWidth > 0),
-      ),
-    )
-    .toBe(true);
-  await page.screenshot({
-    path: testInfo.outputPath("image-editor-pages-desktop.png"),
-  });
-
-  await page
-    .getByRole("button", { name: /Page 1/ })
-    .last()
-    .click();
-  await expect(previews).toHaveCount(2);
-  await expect
-    .poll(async () =>
-      previews.evaluateAll((images) =>
-        images.every((image) => image instanceof HTMLImageElement && image.naturalWidth > 0),
-      ),
-    )
-    .toBe(true);
-
-  const colorSchemes: Array<"light" | "dark"> = ["light", "dark"];
-  for (const width of [320]) {
-    for (const colorScheme of colorSchemes) {
-      await page.setViewportSize({ width, height: 780 });
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      const expandPages = page.getByRole("button", { name: "Expand pages" });
-      if (await expandPages.count()) await expandPages.click();
-      await expect(previews).toHaveCount(2);
-      await expect
-        .poll(async () =>
-          previews.evaluateAll((images) =>
-            images.every((image) => image instanceof HTMLImageElement && image.naturalWidth > 0),
-          ),
-        )
-        .toBe(true);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        width,
-      );
-      await page.screenshot({
-        path: testInfo.outputPath(`image-editor-pages-${width}-${colorScheme}.png`),
+      .toBe("image/png");
+    const resets = await dialog.evaluate(async (root) => {
+      let count = 0;
+      const observer = new MutationObserver(() => {
+        if (root.textContent?.includes("Encoding preview")) count++;
       });
-    }
-  }
-});
-
-test("a large rectangular selection keeps its visible outline after a document edit", async ({
-  page,
-}) => {
-  await page.goto("/image-editor");
-  await page.getByRole("button", { name: /Instagram square/ }).click();
-  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-  await page
-    .getByRole("button", { name: /^(Select objects|Rectangle select|Ellipse select)$/ })
-    .first()
-    .click();
-  await page.getByRole("menuitem", { name: /^Rectangle select/ }).click();
-  const overlay = page.getByTestId("image-editor-pixel-selection");
-  const bounds = await overlay.boundingBox();
-  expect(bounds).not.toBeNull();
-  if (!bounds) return;
-  await page.mouse.move(bounds.x + bounds.width * 0.1, bounds.y + bounds.height * 0.1);
-  await page.mouse.down();
-  await page.mouse.move(bounds.x + bounds.width * 0.8, bounds.y + bounds.height * 0.8, {
-    steps: 12,
+      observer.observe(root, { childList: true, subtree: true, characterData: true });
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+      observer.disconnect();
+      return count;
+    });
+    expect(resets).toBe(0);
   });
-  await page.mouse.up();
-  await expect(overlay).toHaveAttribute("data-active", "true");
-  const outlinePixels = await overlay.evaluate((canvas: HTMLCanvasElement) => {
-    const context = canvas.getContext("2d");
-    if (!context) return 0;
-    const image = context.getImageData(0, 0, canvas.width, canvas.height);
-    let visible = 0;
-    for (let index = 3; index < image.data.length; index += 4) if (image.data[index]) visible++;
-    return visible;
+
+  test("starter previews fit the complete canvas on narrow phones", async ({ page }, testInfo) => {
+    test.setTimeout(60_000);
+    await page.goto("/image-editor");
+    const gallery = page.getByRole("region", { name: "Starter templates" });
+    await expect(gallery.getByRole("button").last()).toBeVisible();
+    await expect.poll(() => gallery.locator("canvas").count()).toBeLessThanOrEqual(2);
+    const starter = gallery.getByRole("button", { name: "Quick announcement" });
+    const preview = starter.locator(".template-preview-frame img");
+    await starter.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => preview.evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBeGreaterThan(0);
+    const width = 320;
+    await page.setViewportSize({ width, height: 900 });
+    await starter.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        preview.evaluate((image: HTMLImageElement) => {
+          const frame = image.parentElement!.getBoundingClientRect();
+          const bitmap = image.getBoundingClientRect();
+          return (
+            image.naturalWidth > 0 &&
+            bitmap.width <= frame.width + 1 &&
+            bitmap.height <= frame.height + 1
+          );
+        }),
+      )
+      .toBe(true);
+
+    const last = gallery.getByRole("button").last();
+    await last.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        last
+          .locator(".template-preview-frame img")
+          .evaluate((image: HTMLImageElement) => image.naturalWidth),
+      )
+      .toBeGreaterThan(0);
+    await starter.focus();
+    await expect(starter).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/image-editor\/local_design_/);
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
   });
-  expect(outlinePixels).toBeGreaterThan(100);
-  await page.getByRole("textbox", { name: "Design title" }).fill("Selection outline check");
-  await expect(overlay).toHaveAttribute("data-active", "true");
-  const afterEditPixels = await overlay.evaluate((canvas: HTMLCanvasElement) => {
-    const image = canvas.getContext("2d")?.getImageData(0, 0, canvas.width, canvas.height);
-    if (!image) return 0;
-    let visible = 0;
-    for (let index = 3; index < image.data.length; index += 4) if (image.data[index]) visible++;
-    return visible;
+
+  // A public visitor can create a design, keep working across a reload, and
+  // export it without an account and without any server write. If local
+  // persistence breaks, edits silently vanish; if the public boundary leaks,
+  // anonymous work hits the API.
+  test("public image editor creates, restores, and exports a local design", async ({ page }) => {
+    test.setTimeout(60_000);
+    const browserErrors: string[] = [];
+    const workspaceWrites: string[] = [];
+    page.on("pageerror", (error) => browserErrors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") browserErrors.push(message.text());
+    });
+    page.on("request", (request) => {
+      if (request.method() !== "GET" && request.url().includes("/api/v1/image-editor/designs")) {
+        workspaceWrites.push(`${request.method()} ${request.url()}`);
+      }
+    });
+
+    await page.goto("/image-editor");
+    await expect(page.getByRole("heading", { name: "Image Editor", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /Instagram square/ }).click();
+
+    await expect(page).toHaveURL(/\/image-editor\/local_design_/);
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
+      timeout: 20_000,
+    });
+    expect(browserErrors.filter((message) => !message.includes("401 (Unauthorized)"))).toEqual([]);
+
+    const title = page.getByRole("textbox", { name: "Design title" });
+    await title.fill("Local launch design");
+    const saveIndicator = page.getByTestId("image-editor-save-indicator");
+    await expect(saveIndicator).toBeVisible();
+    await expect(saveIndicator).toHaveAttribute("data-state", "saved");
+    await expect(saveIndicator).toHaveAttribute("aria-label", "Saved on this device");
+
+    await page.reload();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(title).toHaveValue("Local launch design");
+
+    await page.getByRole("button", { name: "Export" }).click();
+    await expect(page.getByRole("heading", { name: "Export design" })).toBeVisible();
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download" }).click();
+    await download;
+    await expect(
+      page.getByLabel("Notifications alt+T").getByText("Export download started."),
+    ).toBeVisible();
+
+    const home = page
+      .getByRole("banner")
+      .getByRole("button", { name: "OpenPost Image Editor", exact: true });
+    await home.focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/image-editor$/);
+    await expect(page.getByText("Local launch design", { exact: true })).toBeVisible();
+
+    expect(workspaceWrites).toEqual([]);
+    expect(browserErrors.filter((message) => !message.includes("401 (Unauthorized)"))).toEqual([]);
   });
-  expect(afterEditPixels).toBe(outlinePixels);
-});
 
-test("selection refinement loads layer alpha and closes a keyboard-accessible polygonal lasso", async ({
-  page,
-}, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/image-editor");
-  await page.getByRole("button", { name: "Quick announcement", exact: true }).click();
-  await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
-
-  const layer = page
-    .getByRole("tree", { name: "Layers", exact: true })
-    .getByRole("treeitem")
-    .first();
-  await layer.click();
-  await page.getByRole("menubar").getByRole("menuitem", { name: "Select", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Select layer alpha", exact: true }).click();
-  const overlay = page.getByTestId("image-editor-pixel-selection");
-  await expect(overlay).toHaveAttribute("data-active", "true");
-
-  await page.keyboard.press("ControlOrMeta+D");
-  await expect(overlay).toHaveAttribute("data-active", "false");
-  await page.keyboard.press("Shift+L");
-  await expect(
-    page.getByText("Polygonal lasso", { exact: true }).filter({ visible: true }),
-  ).toBeVisible();
-  const surface = page.getByTestId("image-editor-selection-surface");
-  const bounds = await surface.boundingBox();
-  expect(bounds).not.toBeNull();
-  if (!bounds) return;
-
-  const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
-  const layerCount = await layers.count();
-  await page.mouse.click(bounds.x + bounds.width * 0.2, bounds.y + bounds.height * 0.2);
-  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toBeVisible();
-  await page.keyboard.press("Backspace");
-  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
-  await expect(layers).toHaveCount(layerCount);
-
-  await page.mouse.click(bounds.x + bounds.width * 0.2, bounds.y + bounds.height * 0.2);
-  await page.mouse.click(bounds.x + bounds.width * 0.3, bounds.y + bounds.height * 0.4);
-  await page.getByRole("button", { name: "Expand pages" }).click();
-  await page.getByRole("button", { name: "Add page" }).click();
-  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
-  await page.keyboard.press("Enter");
-  await expect(overlay).toHaveAttribute("data-active", "false");
-  await page
-    .getByTestId("image-editor-page-strip")
-    .getByRole("button", { name: /Page 1:/ })
-    .click();
-  await page.getByRole("button", { name: "Collapse pages" }).click();
-  const resumedBounds = await surface.boundingBox();
-  expect(resumedBounds).not.toBeNull();
-  if (!resumedBounds) return;
-  await page.mouse.click(
-    resumedBounds.x + resumedBounds.width * 0.25,
-    resumedBounds.y + resumedBounds.height * 0.25,
-  );
-  await page.mouse.click(
-    resumedBounds.x + resumedBounds.width * 0.7,
-    resumedBounds.y + resumedBounds.height * 0.3,
-  );
-  await page.mouse.click(
-    resumedBounds.x + resumedBounds.width * 0.45,
-    resumedBounds.y + resumedBounds.height * 0.75,
-  );
-  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toBeVisible();
-  await page.keyboard.press("Enter");
-  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
-  await expect(overlay).toHaveAttribute("data-active", "true");
-
-  await page.keyboard.press("ControlOrMeta+D");
-  await page.mouse.click(
-    resumedBounds.x + resumedBounds.width * 0.25,
-    resumedBounds.y + resumedBounds.height * 0.25,
-  );
-  await page.mouse.click(
-    resumedBounds.x + resumedBounds.width * 0.7,
-    resumedBounds.y + resumedBounds.height * 0.3,
-  );
-  await page.mouse.dblclick(
-    resumedBounds.x + resumedBounds.width * 0.45,
-    resumedBounds.y + resumedBounds.height * 0.75,
-  );
-  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
-  await expect(overlay).toHaveAttribute("data-active", "true");
-
-  for (const action of ["Grow by 1 px", "Shrink by 1 px", "Invert selection"]) {
-    await page.getByRole("button", { name: "Refine selection", exact: true }).click();
-    await page.getByRole("menuitem", { name: action, exact: true }).click();
-    await expect(overlay).toHaveAttribute("data-active", "true");
-  }
-  await page.screenshot({ path: testInfo.outputPath("selection-refinement-desktop.png") });
-
-  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
-  const mobileViewport = { width: 390, height: 800 };
-  await page.setViewportSize(mobileViewport);
-  const mobileOptions = page.getByTestId("image-editor-selection-options");
-  await expect(mobileOptions).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  await page.keyboard.press("ControlOrMeta+0");
-  await expect
-    .poll(async () => {
-      const bounds = await surface.boundingBox();
-      return Boolean(
-        bounds &&
-        bounds.x >= 0 &&
-        bounds.y >= 0 &&
-        bounds.x + bounds.width <= mobileViewport.width &&
-        bounds.y + bounds.height <= mobileViewport.height,
-      );
-    })
-    .toBe(true);
-  const mobileBounds = await surface.boundingBox();
-  expect(mobileBounds).not.toBeNull();
-  if (!mobileBounds) return;
-  await page.mouse.click(
-    mobileBounds.x + mobileBounds.width * 0.2,
-    mobileBounds.y + mobileBounds.height * 0.2,
-  );
-  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toBeVisible();
-  const done = mobileOptions.getByRole("button", { name: "Done", exact: true });
-  const cancel = mobileOptions.getByRole("button", { name: "Cancel", exact: true });
-  await expect(done).toBeDisabled();
-  await expect(cancel).toBeVisible();
-  await cancel.click();
-  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
-
-  for (const [x, y] of [
-    [0.2, 0.2],
-    [0.75, 0.25],
-    [0.45, 0.7],
-  ] as const) {
-    await page.mouse.click(
-      mobileBounds.x + mobileBounds.width * x,
-      mobileBounds.y + mobileBounds.height * y,
-    );
-  }
-  await expect(done).toBeEnabled();
-  await done.click();
-  await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
-  await expect(overlay).toHaveAttribute("data-active", "true");
-  await page.screenshot({ path: testInfo.outputPath("selection-refinement-phone-dark.png") });
-});
-
-for (const scheme of ["light"] as const) {
-  test(`Photo keeps text editing first and Color preserves the live canvas on phones in ${scheme}`, async ({
+  test("Image Editor previews and downloads the same encoded PNG, JPEG, and WebP bytes", async ({
     page,
   }, testInfo) => {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await page.addInitScript((mode) => localStorage.setItem("mode-watcher-mode", mode), scheme);
+    test.setTimeout(90_000);
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: /Instagram square/ }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible({
+      timeout: 20_000,
+    });
+
+    for (const format of ["PNG", "JPEG", "WebP"] as const) {
+      await page.getByRole("button", { name: "Export", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: "Export design" });
+      await dialog.getByRole("button", { name: "Format", exact: true }).click();
+      await page.getByRole("option", { name: format, exact: true }).click();
+
+      const preview = dialog.getByRole("img", { name: "Encoded export preview" });
+      await expect(preview).toBeVisible();
+      await expect(dialog.getByText(/^[\d,.]+ bytes$/)).toBeVisible();
+      await expect
+        .poll(() =>
+          preview.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight]),
+        )
+        .toEqual([1080, 1080]);
+
+      const previewResult = await preview.evaluate(async (image: HTMLImageElement) => {
+        const response = await fetch(image.src);
+        const blob = await response.blob();
+        return {
+          bytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
+          type: blob.type,
+        };
+      });
+      const exactByteLabel = await dialog.getByText(/^[\d,.]+ bytes$/).textContent();
+      expect(Number(exactByteLabel?.replace(/\D/g, ""))).toBe(previewResult.bytes.length);
+      expect(previewResult.type).toBe(
+        format === "PNG" ? "image/png" : format === "JPEG" ? "image/jpeg" : "image/webp",
+      );
+      const downloadEvent = page.waitForEvent("download");
+      await dialog.getByRole("button", { name: "Download", exact: true }).click();
+      const download = await downloadEvent;
+      const downloadPath = await download.path();
+      expect(downloadPath).not.toBeNull();
+      expect(Array.from(await readFile(downloadPath!))).toEqual(previewResult.bytes);
+      expect(download.suggestedFilename()).toMatch(
+        format === "PNG" ? /\.png$/ : format === "JPEG" ? /\.jpg$/ : /\.webp$/,
+      );
+    }
+
+    await expect(page.getByLabel("Notifications alt+T")).not.toContainText(
+      "Export download started.",
+      {
+        timeout: 10_000,
+      },
+    );
+    await page.getByRole("button", { name: "Export", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Export design" });
+    for (const format of ["PNG", "JPEG", "WebP"] as const) {
+      await dialog.getByRole("button", { name: "Format", exact: true }).click();
+      await page.getByRole("option", { name: format, exact: true }).click();
+    }
+    const latestPreview = dialog.getByRole("img", { name: "Encoded export preview" });
+    await expect(latestPreview).toBeVisible();
+    expect(
+      await latestPreview.evaluate(async (image: HTMLImageElement) =>
+        (await fetch(image.src)).headers.get("content-type"),
+      ),
+    ).toBe("image/webp");
+  });
+
+  test("page-strip previews render after adding a page and remain visible across a page switch", async ({
+    page,
+  }, testInfo) => {
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: /Instagram square/ }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    // Expanding pages uses the reserved strip so thumbnails do not cover the artwork.
+    await page.getByRole("button", { name: "Expand pages" }).click();
+    await page.getByRole("button", { name: "Add page" }).click();
+
+    const strip = page.getByTestId("image-editor-page-strip");
+    await expect(strip.getByRole("button", { name: /Page 1:/ })).toBeVisible();
+    const previews = strip.locator(".template-preview-frame img");
+    await expect(previews).toHaveCount(2);
+    await expect
+      .poll(async () =>
+        previews.evaluateAll((images) =>
+          images.every((image) => image instanceof HTMLImageElement && image.naturalWidth > 0),
+        ),
+      )
+      .toBe(true);
+
+    await page
+      .getByRole("button", { name: /Page 1/ })
+      .last()
+      .click();
+    await expect(previews).toHaveCount(2);
+    await expect
+      .poll(async () =>
+        previews.evaluateAll((images) =>
+          images.every((image) => image instanceof HTMLImageElement && image.naturalWidth > 0),
+        ),
+      )
+      .toBe(true);
+  });
+
+  test("a large rectangular selection keeps its visible outline after a document edit", async ({
+    page,
+  }) => {
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: /Instagram square/ }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    await page
+      .getByRole("button", { name: /^(Select objects|Rectangle select|Ellipse select)$/ })
+      .first()
+      .click();
+    await page.getByRole("menuitem", { name: /^Rectangle select/ }).click();
+    const overlay = page.getByTestId("image-editor-pixel-selection");
+    const bounds = await overlay.boundingBox();
+    expect(bounds).not.toBeNull();
+    if (!bounds) return;
+    await page.mouse.move(bounds.x + bounds.width * 0.1, bounds.y + bounds.height * 0.1);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width * 0.8, bounds.y + bounds.height * 0.8, {
+      steps: 12,
+    });
+    await page.mouse.up();
+    await expect(overlay).toHaveAttribute("data-active", "true");
+    const outlinePixels = await overlay.evaluate((canvas: HTMLCanvasElement) => {
+      const context = canvas.getContext("2d");
+      if (!context) return 0;
+      const image = context.getImageData(0, 0, canvas.width, canvas.height);
+      let visible = 0;
+      for (let index = 3; index < image.data.length; index += 4) if (image.data[index]) visible++;
+      return visible;
+    });
+    expect(outlinePixels).toBeGreaterThan(100);
+    await page.getByRole("textbox", { name: "Design title" }).fill("Selection outline check");
+    await expect(overlay).toHaveAttribute("data-active", "true");
+    const afterEditPixels = await overlay.evaluate((canvas: HTMLCanvasElement) => {
+      const image = canvas.getContext("2d")?.getImageData(0, 0, canvas.width, canvas.height);
+      if (!image) return 0;
+      let visible = 0;
+      for (let index = 3; index < image.data.length; index += 4) if (image.data[index]) visible++;
+      return visible;
+    });
+    expect(afterEditPixels).toBe(outlinePixels);
+  });
+
+  test("selection refinement loads layer alpha and closes a keyboard-accessible polygonal lasso", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "Quick announcement", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+
+    const layer = page
+      .getByRole("tree", { name: "Layers", exact: true })
+      .getByRole("treeitem")
+      .first();
+    await layer.click();
+    await page.getByRole("menubar").getByRole("menuitem", { name: "Select", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Select layer alpha", exact: true }).click();
+    const overlay = page.getByTestId("image-editor-pixel-selection");
+    await expect(overlay).toHaveAttribute("data-active", "true");
+
+    await page.keyboard.press("ControlOrMeta+D");
+    await expect(overlay).toHaveAttribute("data-active", "false");
+    await page.keyboard.press("Shift+L");
+    await expect(
+      page.getByText("Polygonal lasso", { exact: true }).filter({ visible: true }),
+    ).toBeVisible();
+    const surface = page.getByTestId("image-editor-selection-surface");
+    const bounds = await surface.boundingBox();
+    expect(bounds).not.toBeNull();
+    if (!bounds) return;
+
+    const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
+    const layerCount = await layers.count();
+    await page.mouse.click(bounds.x + bounds.width * 0.2, bounds.y + bounds.height * 0.2);
+    await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toBeVisible();
+    await page.keyboard.press("Backspace");
+    await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
+    await expect(layers).toHaveCount(layerCount);
+
+    await page.mouse.click(bounds.x + bounds.width * 0.2, bounds.y + bounds.height * 0.2);
+    await page.mouse.click(bounds.x + bounds.width * 0.3, bounds.y + bounds.height * 0.4);
+    await page.getByRole("button", { name: "Expand pages" }).click();
+    await page.getByRole("button", { name: "Add page" }).click();
+    await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
+    await page.keyboard.press("Enter");
+    await expect(overlay).toHaveAttribute("data-active", "false");
+    await page
+      .getByTestId("image-editor-page-strip")
+      .getByRole("button", { name: /Page 1:/ })
+      .click();
+    await page.getByRole("button", { name: "Collapse pages" }).click();
+    const resumedBounds = await surface.boundingBox();
+    expect(resumedBounds).not.toBeNull();
+    if (!resumedBounds) return;
+    await page.mouse.click(
+      resumedBounds.x + resumedBounds.width * 0.25,
+      resumedBounds.y + resumedBounds.height * 0.25,
+    );
+    await page.mouse.click(
+      resumedBounds.x + resumedBounds.width * 0.7,
+      resumedBounds.y + resumedBounds.height * 0.3,
+    );
+    await page.mouse.click(
+      resumedBounds.x + resumedBounds.width * 0.45,
+      resumedBounds.y + resumedBounds.height * 0.75,
+    );
+    await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toBeVisible();
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
+    await expect(overlay).toHaveAttribute("data-active", "true");
+
+    await page.keyboard.press("ControlOrMeta+D");
+    await page.mouse.click(
+      resumedBounds.x + resumedBounds.width * 0.25,
+      resumedBounds.y + resumedBounds.height * 0.25,
+    );
+    await page.mouse.click(
+      resumedBounds.x + resumedBounds.width * 0.7,
+      resumedBounds.y + resumedBounds.height * 0.3,
+    );
+    await page.mouse.dblclick(
+      resumedBounds.x + resumedBounds.width * 0.45,
+      resumedBounds.y + resumedBounds.height * 0.75,
+    );
+    await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
+    await expect(overlay).toHaveAttribute("data-active", "true");
+
+    for (const action of ["Grow by 1 px", "Shrink by 1 px", "Invert selection"]) {
+      await page.getByRole("button", { name: "Refine selection", exact: true }).click();
+      await page.getByRole("menuitem", { name: action, exact: true }).click();
+      await expect(overlay).toHaveAttribute("data-active", "true");
+    }
+
+    await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+    const mobileViewport = { width: 390, height: 800 };
+    await page.setViewportSize(mobileViewport);
+    const mobileOptions = page.getByTestId("image-editor-selection-options");
+    await expect(mobileOptions).toBeVisible();
+    await page.keyboard.press("ControlOrMeta+0");
+    await expect
+      .poll(async () => {
+        const bounds = await surface.boundingBox();
+        return Boolean(
+          bounds &&
+          bounds.x >= 0 &&
+          bounds.y >= 0 &&
+          bounds.x + bounds.width <= mobileViewport.width &&
+          bounds.y + bounds.height <= mobileViewport.height,
+        );
+      })
+      .toBe(true);
+    const mobileBounds = await surface.boundingBox();
+    expect(mobileBounds).not.toBeNull();
+    if (!mobileBounds) return;
+    await page.mouse.click(
+      mobileBounds.x + mobileBounds.width * 0.2,
+      mobileBounds.y + mobileBounds.height * 0.2,
+    );
+    await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toBeVisible();
+    const done = mobileOptions.getByRole("button", { name: "Done", exact: true });
+    const cancel = mobileOptions.getByRole("button", { name: "Cancel", exact: true });
+    await expect(done).toBeDisabled();
+    await expect(cancel).toBeVisible();
+    await cancel.click();
+    await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
+
+    for (const [x, y] of [
+      [0.2, 0.2],
+      [0.75, 0.25],
+      [0.45, 0.7],
+    ] as const) {
+      await page.mouse.click(
+        mobileBounds.x + mobileBounds.width * x,
+        mobileBounds.y + mobileBounds.height * y,
+      );
+    }
+    await expect(done).toBeEnabled();
+    await done.click();
+    await expect(page.getByTestId("image-editor-polygonal-lasso-preview")).toHaveCount(0);
+    await expect(overlay).toHaveAttribute("data-active", "true");
+  });
+
+  test(`Photo keeps text editing first and Color preserves the live canvas on phones`, async ({
+    page,
+  }, testInfo) => {
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.addInitScript(() => localStorage.setItem("mode-watcher-mode", "light"));
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto("/image-editor");
     await page.getByRole("button", { name: "Bold announcement", exact: true }).click();
@@ -868,70 +778,57 @@ for (const scheme of ["light"] as const) {
       ratio: 1,
     });
     await expect(properties.getByRole("button", { name: "Weight", exact: true })).toHaveText("850");
-    await page.screenshot({
-      path: testInfo.outputPath("photo-text-laptop.png"),
+    const width = 320;
+    await page.setViewportSize({ width, height: 844 });
+    await page.getByRole("button", { name: "Draw", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Foreground color", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Expand pages", exact: true }).click();
+    await page.locator("#image-editor-workspace-tab-color").click();
+    await expect(page.getByRole("button", { name: "Foreground color", exact: true })).toBeHidden();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    const canvas = page.getByRole("application", {
+      name: "Design canvas",
+      exact: true,
     });
-    for (const width of [320]) {
-      await page.setViewportSize({ width, height: 844 });
-      await page.getByRole("button", { name: "Draw", exact: true }).click();
-      await expect(
-        page.getByRole("button", { name: "Foreground color", exact: true }),
-      ).toBeVisible();
-      await page.getByRole("button", { name: "Expand pages", exact: true }).click();
-      await page.locator("#image-editor-workspace-tab-color").click();
-      await expect(
-        page.getByRole("button", { name: "Foreground color", exact: true }),
-      ).toBeHidden();
-      await expect(page.getByRole("dialog")).toHaveCount(0);
-      const canvas = page.getByRole("application", {
-        name: "Design canvas",
-        exact: true,
-      });
-      const color = page.locator("[data-image-color-workspace]:visible");
-      await expect(canvas).toBeInViewport({ ratio: 1 });
-      const canvasBox = (await canvas.boundingBox())!;
-      const controlsBox = (await color.boundingBox())!;
-      expect(canvasBox.height).toBeGreaterThanOrEqual(220);
-      expect(canvasBox.y + canvasBox.height).toBeLessThanOrEqual(controlsBox.y + 1);
-      await color.getByRole("tab", { name: "Color Wheels", exact: true }).click();
-      const lift = page.getByRole("slider", {
-        name: "Lift color wheel",
-        exact: true,
-      });
-      await lift.scrollIntoViewIfNeeded();
-      await expect(lift).toBeInViewport({ ratio: 1 });
-      await lift.press("ArrowUp");
-      const previousLift = await lift.getAttribute("aria-valuetext");
-      await lift.press("ArrowRight");
-      await expect(lift).not.toHaveAttribute("aria-valuetext", previousLift!);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        width,
-      );
-      await page.screenshot({
-        path: testInfo.outputPath(`photo-color-${width}.png`),
-      });
-      await expect(color.getByRole("button", { name: "Before", exact: true })).toBeInViewport({
-        ratio: 1,
-      });
-      await color.getByRole("tab", { name: "Curves", exact: true }).click();
-      await color.getByRole("button", { name: "Red", exact: true }).click();
-      await page.setViewportSize({ width: 1280, height: 720 });
-      await expect(color.getByRole("tab", { name: "Curves", exact: true })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
-      await expect(color.getByRole("button", { name: "Red", exact: true })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
-      await page.setViewportSize({ width, height: 844 });
-      await expect(color.getByRole("button", { name: "Red", exact: true })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
-      await page.getByRole("button", { name: "Collapse pages", exact: true }).click();
-      await page.locator("#image-editor-workspace-tab-edit").click();
-    }
+    const color = page.locator("[data-image-color-workspace]:visible");
+    await expect(canvas).toBeInViewport({ ratio: 1 });
+    const canvasBox = (await canvas.boundingBox())!;
+    const controlsBox = (await color.boundingBox())!;
+    expect(canvasBox.height).toBeGreaterThanOrEqual(220);
+    expect(canvasBox.y + canvasBox.height).toBeLessThanOrEqual(controlsBox.y + 1);
+    await color.getByRole("tab", { name: "Color Wheels", exact: true }).click();
+    const lift = page.getByRole("slider", {
+      name: "Lift color wheel",
+      exact: true,
+    });
+    await lift.scrollIntoViewIfNeeded();
+    await expect(lift).toBeInViewport({ ratio: 1 });
+    await lift.press("ArrowUp");
+    const previousLift = await lift.getAttribute("aria-valuetext");
+    await lift.press("ArrowRight");
+    await expect(lift).not.toHaveAttribute("aria-valuetext", previousLift!);
+    await expect(color.getByRole("button", { name: "Before", exact: true })).toBeInViewport({
+      ratio: 1,
+    });
+    await color.getByRole("tab", { name: "Curves", exact: true }).click();
+    await color.getByRole("button", { name: "Red", exact: true }).click();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await expect(color.getByRole("tab", { name: "Curves", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(color.getByRole("button", { name: "Red", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.setViewportSize({ width, height: 844 });
+    await expect(color.getByRole("button", { name: "Red", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.getByRole("button", { name: "Collapse pages", exact: true }).click();
+    await page.locator("#image-editor-workspace-tab-edit").click();
+
     await page.getByRole("button", { name: "Expand pages", exact: true }).click();
     await page.locator("#image-editor-workspace-tab-color").click();
     await page.setViewportSize({ width: 640, height: 360 });
@@ -954,84 +851,2180 @@ for (const scheme of ["light"] as const) {
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole("button", { name: "Collapse pages", exact: true })).toBeVisible();
   });
-}
 
-test("workspace designs can be deleted and editing a media file reopens its design", async ({
-  page,
-  request,
-}, testInfo) => {
-  const auth = await registerUser(request, `design-lifecycle-${randomUUID()}@example.com`);
-  const workspace = await createWorkspace(request, auth.token, "Design lifecycle");
-  const upload = await request.post("/api/v1/media/upload", {
-    headers: { Authorization: `Bearer ${auth.token}` },
-    multipart: {
-      workspace_id: workspace.id,
-      file: {
-        name: "reuse.png",
-        mimeType: "image/png",
-        buffer: Buffer.from(
-          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAEElEQVR4nGL6//8/IAAA//8GBgMAt2YRIQAAAABJRU5ErkJggg==",
-          "base64",
-        ),
+  test("workspace designs can be deleted and editing a media file reopens its design", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const auth = await registerUser(request, `design-lifecycle-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Design lifecycle");
+    const upload = await request.post("/api/v1/media/upload", {
+      headers: { Authorization: `Bearer ${auth.token}` },
+      multipart: {
+        workspace_id: workspace.id,
+        file: {
+          name: "reuse.png",
+          mimeType: "image/png",
+          buffer: Buffer.from(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAEElEQVR4nGL6//8/IAAA//8GBgMAt2YRIQAAAABJRU5ErkJggg==",
+            "base64",
+          ),
+        },
       },
-    },
+    });
+    expect(upload.ok(), await upload.text()).toBe(true);
+    const media = await upload.json();
+    await authenticatePage(page, auth.token);
+    const sourceURL = `/image-editor/new?workspace=${workspace.id}&source_media=${media.id}&source_name=reuse.png&width=1080&height=1080`;
+    await page.goto(sourceURL);
+    await expect(page).toHaveURL(/\/image-editor\/[a-f0-9-]+(?:\?.*)?$/);
+    const firstURL = page.url();
+    await page.goto(sourceURL);
+    await expect(page).toHaveURL(firstURL);
+    await page.goto("/image-editor");
+    const deleteButton = page.getByRole("button", { name: "Delete Edit reuse", exact: true });
+    await expect(deleteButton).toBeVisible();
+    await deleteButton.focus();
+    await expect(deleteButton).toBeFocused();
+
+    await deleteButton.press("Enter");
+    await expect(page.getByRole("dialog")).toContainText("This design will be moved to trash.");
+    await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(page.getByRole("link", { name: /Edit reuse/ })).toHaveCount(0);
+    const usage = await request.get(`/api/v1/media/${media.id}/usage`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    });
+    expect(
+      (await usage.json()).usage.filter((item: { kind: string }) => item.kind.startsWith("design")),
+    ).toEqual([]);
+    const replacements = await Promise.all(
+      [0, 1].map(() =>
+        request.post("/api/v1/image-editor/designs", {
+          headers: { Authorization: `Bearer ${auth.token}` },
+          data: {
+            workspace_id: workspace.id,
+            source_media_id: media.id,
+            preset_key: "instagram-square",
+            title: "Replacement edit",
+            width_px: 1080,
+            height_px: 1080,
+          },
+        }),
+      ),
+    );
+    for (const response of replacements) expect(response.ok(), await response.text()).toBe(true);
+    const documents = await Promise.all(replacements.map((response) => response.json()));
+    expect(documents[0].id).toBe(documents[1].id);
+    expect(firstURL).not.toContain(documents[0].id);
   });
-  expect(upload.ok(), await upload.text()).toBe(true);
-  const media = await upload.json();
-  await authenticatePage(page, auth.token);
-  const sourceURL = `/image-editor/new?workspace=${workspace.id}&source_media=${media.id}&source_name=reuse.png&width=1080&height=1080`;
-  await page.goto(sourceURL);
-  await expect(page).toHaveURL(/\/image-editor\/[a-f0-9-]+(?:\?.*)?$/);
-  const firstURL = page.url();
-  await page.goto(sourceURL);
-  await expect(page).toHaveURL(firstURL);
-  await page.goto("/image-editor");
-  const deleteButton = page.getByRole("button", { name: "Delete Edit reuse", exact: true });
-  await expect(deleteButton).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("workspace-design.png"), fullPage: true });
-  for (const colorScheme of ["light"] as const) {
-    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-    for (const width of [1280, 320]) {
-      await page.setViewportSize({ width, height: 800 });
-      await expect(deleteButton).toBeVisible();
-      await deleteButton.focus();
-      await expect(deleteButton).toBeFocused();
-      expect(
-        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-      ).toBe(true);
-      await page.screenshot({
-        path: testInfo.outputPath(`workspace-design-${width}-${colorScheme}.png`),
-        fullPage: true,
+});
+
+test.describe("image editor animation", () => {
+  const gifPath = fileURLToPath(
+    new URL("../../apps/web/src/lib/video-editor/media/fixtures/animated-rgb.gif", import.meta.url),
+  );
+
+  test("non-Latin tool keys preserve editable text and browser shortcuts", async ({ page }) => {
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    const canvas = page.getByRole("application", { name: "Design canvas", exact: true });
+    await expect(canvas).toBeVisible();
+    const tools = page.getByRole("navigation", {
+      name: "OpenPost Image Editor tools",
+      exact: true,
+    });
+    await canvas.dispatchEvent("keydown", {
+      key: "и",
+      code: "KeyB",
+      bubbles: true,
+      cancelable: true,
+    });
+    await expect(tools.getByRole("button", { name: "Pencil", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await canvas.dispatchEvent("keydown", {
+      key: "σ",
+      code: "KeyV",
+      bubbles: true,
+      cancelable: true,
+    });
+    await expect(
+      tools.getByRole("button", { name: "Select objects", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await canvas.dispatchEvent("keydown", {
+      key: "لا",
+      code: "KeyB",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    await expect(
+      tools.getByRole("button", { name: "Select objects", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    const title = page.getByRole("textbox", { name: "Design title", exact: true });
+    await title.fill("Пример");
+    await title.dispatchEvent("keydown", {
+      key: "и",
+      code: "KeyB",
+      bubbles: true,
+      cancelable: true,
+    });
+    await expect(title).toHaveValue("Пример");
+    await expect(
+      tools.getByRole("button", { name: "Select objects", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test(`GIF frame editing and lens controls`, async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto("/image-editor");
+    await page.getByLabel("Open an image", { exact: true }).setInputFiles(gifPath);
+    await expect(page).toHaveURL(/\/image-editor\/local_design_/);
+    await expect(
+      page.getByRole("application", { name: "Design canvas", exact: true }),
+    ).toBeVisible();
+
+    await page.getByRole("treeitem").filter({ hasText: "animated-rgb" }).click();
+
+    await page.getByRole("button", { name: "Frame 2, 100 ms", exact: true }).click();
+    await page.getByRole("button", { name: "Duplicate frame", exact: true }).click();
+    await expect(
+      page.getByRole("group", { name: "Animation frames", exact: true }).getByRole("button"),
+    ).toHaveCount(4);
+    await page.getByLabel("Frame duration (ms)", { exact: true }).fill("200");
+    await page.keyboard.press("Tab");
+    await page.getByRole("button", { name: "Lens effect", exact: true }).click();
+    await page.getByRole("option", { name: "Starburst", exact: true }).click();
+    await expect(
+      page.getByRole("slider", { name: "Highlight threshold", exact: true }),
+    ).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test("touch GIF edits persist across reload and download as an animated GIF", async ({
+    browser,
+    baseURL,
+  }, testInfo) => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 900 },
+      hasTouch: true,
+      colorScheme: "light",
+      reducedMotion: "reduce",
+    });
+    const page = await context.newPage();
+    try {
+      await page.goto(`${baseURL}/image-editor`);
+      await page.getByLabel("Open an image", { exact: true }).setInputFiles(gifPath);
+      await expect(page).toHaveURL(/\/image-editor\/local_design_/);
+      const tools = page.getByRole("navigation", {
+        name: "OpenPost Image Editor tools",
+        exact: true,
       });
+      await tools.getByRole("button", { name: "Layers", exact: true }).tap();
+      await page.getByRole("treeitem").filter({ hasText: "animated-rgb" }).tap();
+      await page.keyboard.press("Escape");
+      await tools.getByRole("button", { name: "Properties", exact: true }).tap();
+      const duplicate = page.getByRole("button", { name: "Duplicate frame", exact: true });
+      await duplicate.scrollIntoViewIfNeeded();
+      expect((await duplicate.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await duplicate.tap();
+      await expect(
+        page.getByRole("group", { name: "Animation frames", exact: true }).getByRole("button"),
+      ).toHaveCount(4);
+      await page.getByLabel("Frame duration (ms)", { exact: true }).fill("200");
+      await page.getByRole("heading", { name: "GIF animation", exact: true }).tap();
+      await page.setViewportSize({ width: 320, height: 900 });
+      await page.emulateMedia({ colorScheme: "dark" });
+      await duplicate.scrollIntoViewIfNeeded();
+      expect((await duplicate.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await page.keyboard.press("Escape");
+      await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
+        "data-state",
+        "saved",
+      );
+      await page.reload();
+      await tools.getByRole("button", { name: "Layers", exact: true }).tap();
+      await page.getByRole("treeitem").filter({ hasText: "animated-rgb" }).tap();
+      await page.keyboard.press("Escape");
+      await tools.getByRole("button", { name: "Properties", exact: true }).tap();
+      await expect(
+        page.getByRole("group", { name: "Animation frames", exact: true }).getByRole("button"),
+      ).toHaveCount(4);
+      await expect(
+        page.getByRole("button", { name: "Frame 2, 200 ms", exact: true }),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Export", exact: true }).tap();
+      const dialog = page.getByRole("dialog", { name: "Export design", exact: true });
+      await dialog.getByRole("button", { name: "Format", exact: true }).tap();
+      await page.getByRole("option", { name: "GIF", exact: true }).tap();
+      const downloading = page.waitForEvent("download");
+      await dialog.getByRole("button", { name: "Download", exact: true }).tap();
+      const download = await downloading;
+      expect(download.suggestedFilename()).toMatch(/\.gif$/);
+      const buffer = await readFile((await download.path())!);
+      const gif = parseGIF(Uint8Array.from(buffer).buffer);
+      expect(
+        gif.frames.flatMap((frame) => ("image" in frame ? [frame.gce.delay * 10] : [])),
+      ).toEqual([100, 200, 100, 100]);
+    } finally {
+      await context.close();
     }
-  }
-  await deleteButton.press("Enter");
-  await expect(page.getByRole("dialog")).toContainText("This design will be moved to trash.");
-  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(page.getByRole("link", { name: /Edit reuse/ })).toHaveCount(0);
-  const usage = await request.get(`/api/v1/media/${media.id}/usage`, {
-    headers: { Authorization: `Bearer ${auth.token}` },
   });
-  expect(
-    (await usage.json()).usage.filter((item: { kind: string }) => item.kind.startsWith("design")),
-  ).toEqual([]);
-  const replacements = await Promise.all(
-    [0, 1].map(() =>
-      request.post("/api/v1/image-editor/designs", {
-        headers: { Authorization: `Bearer ${auth.token}` },
+
+  test("cancelling a GIF drop during guest storage leaves no layer", async ({ page }) => {
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    const canvas = page.getByRole("application", { name: "Design canvas", exact: true });
+    await expect(canvas).toBeVisible();
+    await page.evaluate(() => {
+      let inspections = 0;
+      const nativePost = Worker.prototype.postMessage;
+      Worker.prototype.postMessage = function (
+        message,
+        options?: Transferable[] | StructuredSerializeOptions,
+      ) {
+        const send = nativePost.bind(this);
+        const deliver = () =>
+          Array.isArray(options) ? send(message, options) : send(message, options ?? {});
+        if (message && message.decode === false && ++inspections === 2) {
+          document.body.dataset.gifStorageHeld = "true";
+          window.addEventListener(
+            "message",
+            (event) => {
+              if (event.data === "release-gif-storage") deliver();
+            },
+            { once: true },
+          );
+        } else deliver();
+      };
+    });
+    await page.evaluate(
+      (bytes) => {
+        const transfer = new DataTransfer();
+        transfer.items.add(
+          new File([new Uint8Array(bytes)], "cancelled.gif", { type: "image/gif" }),
+        );
+        const canvas = document.querySelector('[role="application"][aria-label="Design canvas"]')!;
+        const bounds = canvas.getBoundingClientRect();
+        canvas.dispatchEvent(
+          new DragEvent("drop", {
+            bubbles: true,
+            cancelable: true,
+            dataTransfer: transfer,
+            clientX: bounds.left + bounds.width / 2,
+            clientY: bounds.top + bounds.height / 2,
+          }),
+        );
+      },
+      Array.from(await readFile(gifPath)),
+    );
+    await expect(page.locator("body")).toHaveAttribute("data-gif-storage-held", "true");
+    const progress = page.getByTestId("image-editor-import-progress");
+    await progress.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.evaluate(() => window.postMessage("release-gif-storage", "*"));
+    await expect(progress).toBeHidden();
+    await expect(page.getByRole("treeitem").filter({ hasText: "cancelled" })).toHaveCount(0);
+  });
+});
+
+test.describe("image editor audit", () => {
+  test("ordinary start page opens workspace templates with their pages and editable title", async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.setTimeout(60_000);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.stack || error.message));
+    const auth = await registerUser(request, `image-template-audit-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Template audit");
+    const headers = { Authorization: `Bearer ${auth.token}` };
+    const source = await (
+      await request.post("/api/v1/image-editor/designs", {
+        headers,
         data: {
           workspace_id: workspace.id,
-          source_media_id: media.id,
-          preset_key: "instagram-square",
-          title: "Replacement edit",
+          preset_key: "custom",
           width_px: 1080,
           height_px: 1080,
+          title: "Template source",
         },
+      })
+    ).json();
+    source.document.pages.push({
+      ...structuredClone(source.document.pages[0]),
+      id: randomUUID(),
+      name: "Second page",
+    });
+    const templateResponse = await request.post("/api/v1/image-editor/templates", {
+      headers,
+      data: {
+        workspace_id: workspace.id,
+        name: "Audit workspace template",
+        category: "Audit",
+        document: source.document,
+      },
+    });
+    expect(templateResponse.ok()).toBe(true);
+    await authenticatePage(page, auth.token);
+    await page.goto("/image-editor");
+    await expect(
+      page.getByRole("button", { name: "Save new projects to", exact: true }),
+    ).toContainText("OpenPost cloud");
+    await expect(
+      page.getByRole("heading", { name: "Workspace templates", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Starter templates", exact: true }),
+    ).toBeVisible();
+    const showAll = page.getByRole("button", { name: /Show all .* templates/ });
+    if (await showAll.isVisible()) await showAll.click();
+    const workspaceCard = page.getByRole("button", { name: /^Audit workspace template/ });
+    await page.getByRole("button", { name: "Save new projects to", exact: true }).click();
+    await page.getByRole("option", { name: "This device", exact: true }).click();
+    await expect(workspaceCard).toBeVisible();
+    await expect(workspaceCard).toHaveAccessibleName(
+      "Audit workspace template: Create design, Saved to OpenPost",
+    );
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(
+      page.getByRole("button", { name: "Save new projects to", exact: true }),
+    ).toContainText("This device");
+    await workspaceCard.focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/image-editor\/[0-9a-f-]{36}$/);
+    await expect(page.getByRole("application", { name: "Design canvas" }))
+      .toBeVisible()
+      .catch((error) => {
+        throw new Error(`${error.message}\nBrowser errors: ${errors.join("\n")}`);
+      });
+    await expect(
+      page.getByRole("button", { name: "Page 2: Second page, 1080 × 1080 px", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("textbox", { name: "Design title" }).fill("Opened template");
+    await expect(page).toHaveTitle("Opened template");
+    const copyID = new URL(page.url()).pathname.split("/").at(-1)!;
+    await expect
+      .poll(async () => {
+        const copy = await request.get(`/api/v1/image-editor/designs/${copyID}`, { headers });
+        return (await copy.json()).document.title;
+      })
+      .toBe("Opened template");
+    await page.reload();
+    await expect(page.getByRole("textbox", { name: "Design title" })).toHaveValue(
+      "Opened template",
+    );
+    const unchangedTemplate = await request.get(
+      `/api/v1/image-editor/templates?workspace_id=${workspace.id}`,
+      { headers },
+    );
+    expect(unchangedTemplate.ok()).toBe(true);
+    const inventory = await unchangedTemplate.json();
+    const savedTemplate = inventory.templates.find(
+      (template: { name: string }) => template.name === "Audit workspace template",
+    );
+    expect(savedTemplate.document.title).toBe("Template source");
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "Save new projects to", exact: true }).click();
+    await page.getByRole("option", { name: "This device", exact: true }).click();
+    await expect(workspaceCard).toBeVisible();
+    await page.getByRole("button", { name: "Quick announcement", exact: true }).click();
+    await expect(page).toHaveURL(/\/image-editor\/local_design_/);
+    expect(errors).toEqual([]);
+  });
+
+  test(`failed cloud and recovery saves stay visible and protect unsaved work`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    const auth = await registerUser(request, `image-recovery-audit-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Recovery audit");
+    await authenticatePage(page, auth.token);
+    await page.addInitScript(() => localStorage.setItem("mode-watcher-mode", "light"));
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    await page.route("**/api/v1/image-editor/designs/*", async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      await route.fulfill({
+        status: 503,
+        contentType: "application/problem+json",
+        body: JSON.stringify({ detail: "Save unavailable for this test" }),
+      });
+    });
+    await page.evaluate(() => {
+      IDBFactory.prototype.open = () => {
+        throw new DOMException("Storage full", "QuotaExceededError");
+      };
+    });
+    await page.getByRole("textbox", { name: "Design title" }).fill("Unsaved changes");
+    await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+      "aria-label",
+      "Save unavailable for this test",
+    );
+    expect(
+      await page.evaluate(() => {
+        const event = new Event("beforeunload", { cancelable: true });
+        window.dispatchEvent(event);
+        return event.defaultPrevented;
       }),
-    ),
-  );
-  for (const response of replacements) expect(response.ok(), await response.text()).toBe(true);
-  const documents = await Promise.all(replacements.map((response) => response.json()));
-  expect(documents[0].id).toBe(documents[1].id);
-  expect(firstURL).not.toContain(documents[0].id);
+    ).toBe(true);
+    const width = 320;
+    await page.setViewportSize({ width, height: 800 });
+    await expect(
+      page.locator('[role="status"][aria-label="Save unavailable for this test"]').last(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "OpenPost Image Editor",
+        exact: true,
+      }),
+    ).toBeInViewport();
+    await expect(page.getByRole("button", { name: "Export", exact: true })).toBeInViewport();
+  });
+
+  test("desktop page background Image opens a visible chooser", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    await page.getByRole("button", { name: "Image", exact: true }).click();
+    await expect(
+      page
+        .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
+        .getByRole("button", { name: "Add", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("a background uploaded from a filtered library remains a background", async ({
+    page,
+    request,
+  }) => {
+    const auth = await registerUser(request, `image-background-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Background audit");
+    await authenticatePage(page, auth.token);
+    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    const id = new URL(page.url()).pathname.split("/").at(-1)!;
+    await page.getByRole("button", { name: "Image", exact: true }).click();
+    const library = page.getByRole("dialog", { name: "Media", exact: true });
+    await library.getByRole("textbox", { name: "Search media" }).fill("no-matching-audit-media");
+    await library.getByRole("button", { name: "Search media", exact: true }).click();
+    await library.getByRole("button", { name: "Device", exact: true }).click();
+    const picker = page.getByRole("dialog", { name: "Add an image", exact: true });
+    await picker
+      .locator('input[type="file"]')
+      .setInputFiles("tests/app/fixtures/product-screenshots/lisbon-tram.png");
+    await picker.getByRole("button", { name: "Upload 1 file", exact: true }).click();
+    await expect(picker).not.toBeVisible();
+    await expect
+      .poll(async () => {
+        const design = await (
+          await request.get(`/api/v1/image-editor/designs/${id}`, {
+            headers: { Authorization: `Bearer ${auth.token}` },
+          })
+        ).json();
+        return {
+          background: design.document.pages[0].background.type,
+          layers: design.document.pages[0].layers.length,
+        };
+      })
+      .toEqual({ background: "image", layers: 0 });
+  });
+
+  test("portable import edits only the imported design and updates the tab title", async ({
+    page,
+    request,
+  }) => {
+    const auth = await registerUser(request, `image-identity-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Image identity");
+    await authenticatePage(page, auth.token);
+    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    const originalURL = page.url();
+    const originalID = new URL(originalURL).pathname.split("/").at(-1)!;
+    const headers = { Authorization: `Bearer ${auth.token}` };
+    const original = await (
+      await request.get(`/api/v1/image-editor/designs/${originalID}`, { headers })
+    ).json();
+    const archive = zipSync({
+      "project.json": strToU8(
+        JSON.stringify({
+          format: "openpost-image-project",
+          version: 1,
+          exported_at: new Date().toISOString(),
+          document: original.document,
+          media: [],
+        }),
+      ),
+    });
+    await page.locator('input[type=file][accept*="openpost-image"]').setInputFiles({
+      name: "identity.openpost-image",
+      mimeType: "application/zip",
+      buffer: Buffer.from(archive),
+    });
+    await expect(page).not.toHaveURL(originalURL);
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    const importedURL = page.url();
+    await page.getByRole("textbox", { name: "Design title" }).fill("Imported design only");
+    await expect
+      .poll(async () => {
+        const id = new URL(importedURL).pathname.split("/").at(-1)!;
+        return (await (await request.get(`/api/v1/image-editor/designs/${id}`, { headers })).json())
+          .document.title;
+      })
+      .toBe("Imported design only");
+    await expect(page).toHaveTitle("Imported design only");
+    expect(
+      (await (await request.get(`/api/v1/image-editor/designs/${originalID}`, { headers })).json())
+        .document.title,
+    ).toBe(original.document.title);
+    await page.reload();
+    await expect(page.getByRole("textbox", { name: "Design title" })).toHaveValue(
+      "Imported design only",
+    );
+    await page.getByRole("button", { name: "OpenPost Image Editor", exact: true }).click();
+    await expect(page).toHaveURL(/\/media$/);
+  });
+
+  test("guide arrow and delete keys leave the selected layer unchanged", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "Quick announcement", exact: true }).click();
+    const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
+    await expect(layers.first()).toBeVisible();
+    const count = await layers.count();
+    const selected = layers
+      .filter({ hasNot: page.getByRole("button", { name: "Unlock layer", exact: true }) })
+      .first();
+    await selected.click({ position: { x: 60, y: 12 } });
+    await expect(selected).toHaveAttribute("aria-selected", "true");
+    await page.getByRole("menuitem", { name: "View", exact: true }).click();
+    await page.getByRole("menuitem", { name: /Add guide/ }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Add guide", exact: true }).click();
+    const guide = page.getByRole("button", { name: /Vertical guide at/ });
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    await guide.focus();
+    await guide.press("ArrowRight");
+    await expect(guide).toHaveAccessibleName(/Vertical guide at 541 pixels/);
+    await guide.press("Delete");
+    await expect(guide).toHaveCount(0);
+    await expect(layers).toHaveCount(count);
+  });
+
+  test("cloud design trash restores the same saved design", async ({ page, request }, testInfo) => {
+    const auth = await registerUser(request, `image-trash-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Image trash");
+    const headers = { Authorization: `Bearer ${auth.token}` };
+    const created = await request.post("/api/v1/image-editor/designs", {
+      headers,
+      data: {
+        workspace_id: workspace.id,
+        preset_key: "custom",
+        width_px: 1080,
+        height_px: 1080,
+        title: "Restore this design",
+      },
+    });
+    expect(created.ok()).toBe(true);
+    let original = await created.json();
+    const second = {
+      ...structuredClone(original.document.pages[0]),
+      id: randomUUID(),
+      name: "Retained second page",
+    };
+    original.document.pages.push(second);
+    const saved = await request.patch(`/api/v1/image-editor/designs/${original.id}`, {
+      headers,
+      data: { expected_revision: original.revision, document: original.document },
+    });
+    expect(saved.ok()).toBe(true);
+    original = await saved.json();
+    const checkpoint = await request.post(`/api/v1/image-editor/designs/${original.id}/revisions`, {
+      headers,
+      data: { expected_revision: original.revision, name: "Retained checkpoint" },
+    });
+    expect(checkpoint.ok()).toBe(true);
+    await authenticatePage(page, auth.token);
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "Delete Restore this design", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(page.getByRole("link", { name: /Restore this design/ })).toBeVisible();
+    await page.getByRole("button", { name: "Delete Restore this design", exact: true }).click();
+    await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(page.getByRole("link", { name: /Restore this design/ })).toHaveCount(0);
+    const trash = page.getByRole("region", { name: "Trash", exact: true });
+    await trash.getByRole("button", { name: "Trash", exact: true }).click();
+    await expect(trash.getByText("Restore this design", { exact: true })).toBeVisible();
+    await page.reload();
+    await trash.getByRole("button", { name: "Trash", exact: true }).click();
+    await trash.getByRole("button", { name: "Restore", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect(trash.getByText("Restore this design", { exact: true })).toHaveCount(0);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.getByRole("link", { name: /Restore this design/ }).click();
+    await expect(page).toHaveURL(new RegExp(`/image-editor/${original.id}$`));
+    await expect(page.getByRole("textbox", { name: "Design title" })).toHaveValue(
+      "Restore this design",
+    );
+    await page.reload();
+    await expect(page.getByRole("textbox", { name: "Design title" })).toHaveValue(
+      "Restore this design",
+    );
+    const restored = await (
+      await request.get(`/api/v1/image-editor/designs/${original.id}`, { headers })
+    ).json();
+    expect(restored.document).toEqual(original.document);
+    expect(
+      (
+        await request.post(`/api/v1/image-editor/designs/${original.id}/restore`, { headers })
+      ).status(),
+    ).toBe(404);
+    const history = await (
+      await request.get(`/api/v1/image-editor/designs/${original.id}/revisions`, { headers })
+    ).json();
+    expect(
+      history.revisions.some((item: { name: string }) => item.name === "Retained checkpoint"),
+    ).toBe(true);
+  });
+});
+
+test.describe("image editor checkpoint remove", () => {
+  test("removing a named checkpoint preserves the current design and other saved versions", async ({
+    page,
+    request,
+  }) => {
+    const auth = await registerUser(request, `checkpoint-remove-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Checkpoint removal");
+    const headers = { Authorization: `Bearer ${auth.token}` };
+    await authenticatePage(page, auth.token);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    const id = new URL(page.url()).pathname.split("/").at(-1)!;
+    const openHistory = async () => {
+      if (await page.getByRole("dialog", { name: "Version history", exact: true }).isVisible())
+        return;
+      await page
+        .getByRole("banner")
+        .getByRole("button", { name: "More actions", exact: true })
+        .click();
+      await page.getByRole("menuitem", { name: /^Version history/ }).click();
+      await expect(
+        page.getByRole("dialog", { name: "Version history", exact: true }),
+      ).toBeVisible();
+    };
+    for (const name of ["Remove café checkpoint", "Keep other checkpoint"]) {
+      await openHistory();
+      await page.getByRole("button", { name: "Create checkpoint", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: "Create checkpoint", exact: true });
+      await dialog.getByRole("textbox", { name: "Checkpoint name", exact: true }).fill(name);
+      await dialog.getByRole("button", { name: "Create checkpoint", exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(
+        page.getByRole("dialog", { name: "Version history", exact: true }),
+      ).toBeVisible();
+    }
+    const head = await (
+      await request.get(`/api/v1/image-editor/designs/${id}`, { headers })
+    ).json();
+    await openHistory();
+    const history = page.getByRole("dialog", { name: "Version history", exact: true });
+    await history.getByRole("button", { name: /^Remove café checkpoint/ }).click();
+    await history.getByRole("button", { name: "Remove checkpoint", exact: true }).click();
+    const confirmation = page.getByRole("dialog", { name: "Remove checkpoint", exact: true });
+    await expect(confirmation.getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(
+      history.getByRole("button", { name: "Remove checkpoint", exact: true }),
+    ).toBeFocused();
+    await page.clock.install();
+    await page.clock.pauseAt(new Date());
+    await history.getByRole("button", { name: "Remove checkpoint", exact: true }).press("Enter");
+    const remove = confirmation.getByRole("button", { name: "Remove checkpoint", exact: true });
+    await remove.focus();
+    await expect(remove).toBeFocused();
+    // A keyboard choice made before opening autofocus must survive its next frame.
+    await page.clock.runFor(32);
+    await expect(remove).toBeFocused();
+    await page.clock.resume();
+    const removed = page.waitForResponse(
+      (response) =>
+        response.request().method() === "DELETE" &&
+        response.url().includes(`/image-editor/designs/${id}/revisions/`),
+    );
+    await page.keyboard.press("Enter");
+    expect((await removed).ok()).toBeTruthy();
+    await expect(confirmation).toHaveCount(0);
+    await expect(history.getByRole("button", { name: /^Remove café checkpoint/ })).toHaveCount(0);
+    await expect(history.getByRole("button", { name: /^Keep other checkpoint/ })).toBeVisible();
+    const immediately = await (
+      await request.get(`/api/v1/image-editor/designs/${id}`, { headers })
+    ).json();
+    expect(immediately.document).toEqual(head.document);
+    expect(immediately.revision).toBe(head.revision);
+    await page.reload();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    await openHistory();
+    await expect(history.getByRole("button", { name: /^Remove café checkpoint/ })).toHaveCount(0);
+    await expect(history.getByRole("button", { name: /^Keep other checkpoint/ })).toBeVisible();
+    const after = await (
+      await request.get(`/api/v1/image-editor/designs/${id}`, { headers })
+    ).json();
+    expect(after.document).toEqual(head.document);
+  });
+});
+
+test.describe("image editor compact menu", () => {
+  test.use({ hasTouch: true });
+
+  test("compact Image menu groups commands with keyboard and touch return paths", async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(60_000);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.setViewportSize({ width: 1024, height: 740 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
+    const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
+    await expect(layers).toHaveCount(6);
+    await layers.first().click();
+    await page.setViewportSize({ width: 320, height: 740 });
+    const more = page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true });
+    await more.tap();
+    const menu = page.getByRole("menu");
+    await expect(menu.getByRole("menuitem", { name: "Edit", exact: true })).toBeVisible();
+    expect(await menu.getByRole("menuitem").count()).toBeLessThanOrEqual(12);
+    expect(await menu.evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(
+      true,
+    );
+    expect(
+      (await menu.getByRole("menuitem", { name: "Tools", exact: true }).boundingBox())!.height,
+    ).toBeGreaterThanOrEqual(44);
+    const edit = menu.getByRole("menuitem", { name: "Edit", exact: true });
+    await edit.focus();
+    await page.keyboard.press("Enter");
+    const back = menu.getByRole("menuitem", { name: "Back", exact: true });
+    await expect(back).toBeFocused();
+    await back.press("Enter");
+    await expect(edit).toBeFocused();
+    await edit.tap();
+    await menu.getByRole("menuitem", { name: /^Duplicate/ }).click();
+    await page.setViewportSize({ width: 1024, height: 740 });
+    await expect(layers).toHaveCount(7);
+    await page.setViewportSize({ width: 320, height: 740 });
+    await more.tap();
+    await edit.tap();
+    await menu.getByRole("menuitem", { name: /^Undo/ }).click();
+    await expect(menu).toHaveCount(0);
+    await page.setViewportSize({ width: 1024, height: 740 });
+    await expect(layers).toHaveCount(6);
+    await page.setViewportSize({ width: 320, height: 740 });
+    await more.tap();
+    await menu.getByRole("menuitem", { name: "Tools", exact: true }).tap();
+    await back.tap();
+    await expect(menu.getByRole("menuitem", { name: "Tools", exact: true })).toBeFocused();
+    await menu.getByRole("menuitem", { name: "Tools", exact: true }).tap();
+    await menu.getByRole("menuitem", { name: /^Hand/ }).tap();
+    await expect(menu).toHaveCount(0);
+    await page.setViewportSize({ width: 1024, height: 740 });
+    await expect(page.getByRole("button", { name: "Hand", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.setViewportSize({ width: 320, height: 740 });
+
+    const width = 320;
+    await more.tap();
+    await expect(edit).toBeVisible();
+    const bounds = (await menu.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    await menu.getByRole("menuitem", { name: "View", exact: true }).tap();
+    await expect(back).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(more).toBeFocused();
+
+    await page.setViewportSize({ width: 1280, height: 740 });
+    await layers.first().click();
+    const desktopEdit = page
+      .getByRole("menubar")
+      .getByRole("menuitem", { name: "Edit", exact: true });
+    await desktopEdit.click();
+    await menu.getByRole("menuitem", { name: /^Duplicate/ }).click();
+    await expect(menu).toHaveCount(0);
+    await expect(layers).toHaveCount(7);
+    await desktopEdit.click();
+    await menu.getByRole("menuitem", { name: /^Undo/ }).click();
+    await expect(menu).toHaveCount(0);
+    await expect(layers).toHaveCount(6);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe("image editor compositing", () => {
+  for (const storage of ["guest", "cloud"] as const) {
+    test(`${storage} layers can be merged, restored, and flattened without losing the saved project`, async ({
+      page,
+      request,
+    }, testInfo) => {
+      test.setTimeout(60_000);
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.stack ?? error.message));
+      await page.setViewportSize({ width: 1369, height: 800 });
+      if (storage === "cloud") {
+        const auth = await registerUser(request, `compositing-${randomUUID()}@example.com`);
+        const workspace = await createWorkspace(request, auth.token, "Compositing");
+        await authenticatePage(page, auth.token);
+        await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+      } else await page.goto("/image-editor");
+      await page.getByRole("button", { name: "New project", exact: true }).click();
+      await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+      const layers = page.getByRole("tree", { name: "Layers", exact: true }).getByRole("treeitem");
+      for (let index = 0; index < 2; index++) {
+        await page.getByRole("menuitem", { name: "Tools", exact: true }).click();
+        await page.getByRole("menuitem", { name: /^Shape\b/ }).click();
+      }
+      await expect(layers).toHaveCount(2);
+      await page.getByRole("menuitem", { name: "Layer", exact: true }).click();
+      await expect(page.getByText("Bakes pixels inside the page.", { exact: false })).toBeVisible();
+      await page.getByRole("menuitem", { name: "Merge down", exact: true }).click();
+      await expect(layers).toHaveCount(1);
+      await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
+        "data-state",
+        "saved",
+      );
+      await page.getByRole("button", { name: /^Undo/ }).click();
+      await expect(layers).toHaveCount(2);
+      await page.getByRole("menuitem", { name: "Layer", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Flatten page", exact: true }).click();
+      await expect(layers).toHaveCount(1);
+      await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
+        "data-state",
+        "saved",
+      );
+      await page.reload();
+      await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+      await expect(layers).toHaveCount(1);
+      await page.setViewportSize({ width: 390, height: 800 });
+      await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+      await page
+        .getByRole("banner")
+        .getByRole("button", { name: "More actions", exact: true })
+        .click();
+      await page.getByRole("menuitem", { name: "Layer", exact: true }).click();
+      const bakeHelp = page.getByText("Bakes pixels inside the page.", { exact: false });
+      await bakeHelp.evaluate((element) => element.scrollIntoView({ block: "center" }));
+      await expect(bakeHelp).toBeInViewport({ ratio: 1 });
+      await page.keyboard.press("Escape");
+      await page.setViewportSize({ width: 320, height: 800 });
+      await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+      await page
+        .getByRole("banner")
+        .getByRole("button", { name: "More actions", exact: true })
+        .click();
+      await page.getByRole("menuitem", { name: "Layer", exact: true }).click();
+      await expect(
+        page.getByRole("menuitem", { name: "Rasterize to image", exact: true }),
+      ).toBeVisible();
+      await bakeHelp.evaluate((element) => element.scrollIntoView({ block: "center" }));
+      await expect(bakeHelp).toBeInViewport({ ratio: 1 });
+      expect(errors).toEqual([]);
+    });
+  }
+});
+
+test.describe("image editor concurrency", () => {
+  for (const recovery of ["Reload server version", "Save my version as a copy"] as const) {
+    test(`conflict ${recovery} preserves pending local title and stale page together`, async ({
+      page,
+      browser,
+      request,
+    }, testInfo) => {
+      test.setTimeout(120_000);
+      const auth = await registerUser(request, `image-conflict-${randomUUID()}@example.com`);
+      const workspace = await createWorkspace(request, auth.token, "Image conflict snapshot");
+      const headers = { Authorization: `Bearer ${auth.token}` };
+      await authenticatePage(page, auth.token);
+      await page.setViewportSize({ width: 1280, height: 850 });
+      await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+      await page.getByRole("button", { name: "New project", exact: true }).click();
+      await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+      const sourceID = new URL(page.url()).pathname.split("/").at(-1)!;
+      const title = page.getByRole("textbox", { name: "Design title", exact: true });
+      await title.fill("Server baseline");
+      await title.press("Tab");
+      const readSource = async () => {
+        const response = await request.get(`/api/v1/image-editor/designs/${sourceID}`, { headers });
+        expect(response.ok()).toBeTruthy();
+        return response.json();
+      };
+      await expect.poll(async () => (await readSource()).document.title).toBe("Server baseline");
+      const secondContext = await browser.newContext({
+        baseURL: testInfo.project.use.baseURL,
+        viewport: { width: 1280, height: 850 },
+        colorScheme: "dark",
+      });
+      const stale = await secondContext.newPage();
+      const errors: string[] = [];
+      stale.on("pageerror", (error) => errors.push(error.message));
+      try {
+        await authenticatePage(stale, auth.token);
+        await stale.goto(`/image-editor/${sourceID}?workspace=${workspace.id}`);
+        await expect(stale.getByRole("textbox", { name: "Design title", exact: true })).toHaveValue(
+          "Server baseline",
+        );
+        const sourceStrip = page.getByTestId("image-editor-page-strip");
+        const staleStrip = stale.getByTestId("image-editor-page-strip");
+        await sourceStrip.getByRole("button", { name: "Expand pages", exact: true }).click();
+        await staleStrip.getByRole("button", { name: "Expand pages", exact: true }).click();
+        await sourceStrip.getByRole("button", { name: "Rename page", exact: true }).click();
+        const pageName = sourceStrip.getByRole("textbox", { name: "Page name", exact: true });
+        await pageName.fill("Server updated page");
+        await pageName.press("Enter");
+        await expect
+          .poll(async () => (await readSource()).document.pages[0].name)
+          .toBe("Server updated page");
+        await expect(staleStrip.getByRole("button", { name: /Page 1: Page 1,/ })).toBeVisible();
+        const pendingTitle = "Pending local café title";
+        const staleTitle = stale.getByRole("textbox", { name: "Design title", exact: true });
+        await staleTitle.fill(pendingTitle);
+        await staleTitle.press("Tab");
+        const conflict = stale.getByRole("dialog", {
+          name: "This design changed elsewhere",
+          exact: true,
+        });
+        await expect(conflict).toBeVisible();
+        await expect(staleTitle).toHaveValue(pendingTitle);
+        await conflict.getByRole("button", { name: "Continue locally", exact: true }).click();
+        await expect(conflict).toHaveCount(0);
+        await expect(staleTitle).toHaveValue(pendingTitle);
+        await expect(staleStrip.getByRole("button", { name: /Page 1: Page 1,/ })).toBeVisible();
+        // Keep closing-menu teardown overlapping the resize, including on fast machines.
+        const animationSession = await secondContext.newCDPSession(stale);
+        await animationSession.send("Animation.enable");
+        await animationSession.send("Animation.setPlaybackRate", { playbackRate: 0.1 });
+        await stale.getByRole("menuitem", { name: "File", exact: true }).click();
+        await stale.getByRole("menuitem", { name: /^Save\s+(?:⌘|Ctrl)/ }).click();
+        await expect(conflict).toBeVisible();
+        await stale.setViewportSize({ width: 320, height: 850 });
+        const bounds = await conflict.boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320);
+        await animationSession.send("Animation.setPlaybackRate", { playbackRate: 1 });
+        await conflict.evaluate(async (element) => {
+          await Promise.all(element.getAnimations().map((animation) => animation.finished));
+        });
+        const copySaved = stale.waitForResponse(
+          (response) =>
+            response.request().method() === "PATCH" &&
+            /\/api\/v1\/image-editor\/designs\/[^/]+$/.test(new URL(response.url()).pathname) &&
+            !response.url().includes(sourceID),
+        );
+        await conflict.getByRole("button", { name: recovery, exact: true }).press("Enter");
+        const copyResponse = await copySaved;
+        expect(copyResponse.ok()).toBeTruthy();
+        const savedCopy = await copyResponse.json();
+        expect(savedCopy.document.title).toBe(pendingTitle);
+        expect(savedCopy.document.pages.map((item: { name: string }) => item.name)).toEqual([
+          "Page 1",
+        ]);
+        expect(savedCopy.id).not.toBe(sourceID);
+        expect(savedCopy.revision).toBeGreaterThan(1);
+        await expect(conflict).toHaveCount(0);
+        await stale.setViewportSize({ width: 1280, height: 850 });
+        const original = await readSource();
+        expect(original.document.title).toBe("Server baseline");
+        expect(original.document.pages[0].name).toBe("Server updated page");
+        if (recovery === "Reload server version") {
+          await expect(staleTitle).toHaveValue("Server baseline");
+          await expect(
+            staleStrip.getByRole("button", { name: /Server updated page/ }),
+          ).toBeVisible();
+        } else {
+          await expect(stale).toHaveURL(new RegExp(`/image-editor/${savedCopy.id}`));
+          await expect(staleTitle).toHaveValue(pendingTitle);
+        }
+        await stale.goto(`/image-editor/${savedCopy.id}?workspace=${workspace.id}`);
+        await stale.reload();
+        await expect(staleTitle).toHaveValue(pendingTitle);
+        const expand = staleStrip.getByRole("button", { name: "Expand pages", exact: true });
+        if (await expand.isVisible()) await expand.click();
+        await expect(staleStrip.getByRole("button", { name: /Page 1: Page 1,/ })).toBeVisible();
+        const cold = await (
+          await request.get(`/api/v1/image-editor/designs/${savedCopy.id}`, { headers })
+        ).json();
+        expect(cold.document.title).toBe(pendingTitle);
+        expect(cold.document.pages[0].name).toBe("Page 1");
+        expect(errors).toEqual([]);
+      } finally {
+        await secondContext.close();
+      }
+    });
+  }
+});
+
+test.describe("image editor effect presets", () => {
+  test.use({ hasTouch: true, actionTimeout: 15_000 });
+
+  test("workspace effect presets persist and apply with undo", async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.setTimeout(120_000);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const auth = await registerUser(request, `effect-presets-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Effect presets");
+    await authenticatePage(page, auth.token);
+    let releaseBrandKit!: () => void;
+    const brandKitReady = new Promise<void>((resolve) => {
+      releaseBrandKit = resolve;
+    });
+    await page.route("**/image-editor/brand-kit?*", async (route) => {
+      await brandKitReady;
+      await route.continue();
+    });
+    await page.setViewportSize({ width: 1369, height: 850 });
+    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    releaseBrandKit();
+    await page.getByRole("menuitem", { name: "Tools", exact: true }).click();
+    await page.getByRole("menuitem", { name: /^Shape\b/ }).click();
+    await page.getByRole("button", { name: /^Effects/ }).click();
+    await page.getByRole("button", { name: "Add drop shadow", exact: true }).click();
+    await page.getByLabel("Preset name", { exact: true }).fill("Launch shadow");
+    await page.getByRole("button", { name: "Save new", exact: true }).click();
+    await expect(page.getByText("Preset saved.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Remove drop shadow", exact: true }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Remove drop shadow", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: /^Undo/ }).click();
+    await expect(page.getByRole("button", { name: "Add drop shadow", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
+      "data-state",
+      "saved",
+    );
+    await page.reload();
+    await page
+      .getByRole("tree", { name: "Layers", exact: true })
+      .getByRole("treeitem")
+      .first()
+      .click();
+    await page.getByRole("button", { name: /^Effects/ }).click();
+    await page.getByRole("button", { name: "Choose an effect preset" }).click();
+    await page.getByRole("option", { name: "Launch shadow", exact: true }).click();
+    await page.getByRole("button", { name: "Remove drop shadow", exact: true }).click();
+    await page.getByLabel("Preset name", { exact: true }).fill("Launch outline");
+    await page.getByRole("button", { name: "Rename preset", exact: true }).click();
+    await expect(page.getByText("Preset saved.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Remove drop shadow", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Remove drop shadow", exact: true }).click();
+    await page.getByRole("button", { name: "Replace effects", exact: true }).click();
+    await expect(page.getByText("Preset saved.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Add drop shadow", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Add drop shadow", exact: true }).click();
+    const width = 390;
+    const colorScheme = "light";
+
+    await page.setViewportSize({ width, height: 850 });
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    if (!(await page.getByRole("dialog").isVisible())) {
+      await page
+        .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
+        .getByRole("button", { name: "Properties", exact: true })
+        .click();
+    }
+    const panel = page.getByRole("dialog");
+    if (!(await panel.getByLabel("Preset name", { exact: true }).isVisible())) {
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: /^Effects/ })
+        .click();
+    }
+    await panel.getByRole("button", { name: "Choose an effect preset" }).click();
+    await page.getByRole("option", { name: "Launch outline", exact: true }).click();
+    await panel.getByLabel("Preset name", { exact: true }).scrollIntoViewIfNeeded();
+    await expect(panel.getByLabel("Preset name", { exact: true })).toBeVisible();
+    const fieldBox = await panel.getByLabel("Preset name", { exact: true }).boundingBox();
+    expect(fieldBox?.height).toBeGreaterThanOrEqual(44);
+
+    await panel.getByRole("button", { name: "Delete preset", exact: true }).click();
+    await expect(
+      panel.getByText("Preset deleted. Applied layers keep their effects.", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      panel.getByRole("button", { name: "Remove drop shadow", exact: true }),
+    ).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe("image editor font layout", () => {
+  test("live font changes preserve saved multiline canvas layout", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const auth = await registerUser(request, `font-layout-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Font layout");
+    const headers = { Authorization: `Bearer ${auth.token}` };
+    const created = await request.post("/api/v1/image-editor/designs", {
+      headers,
+      data: {
+        workspace_id: workspace.id,
+        title: "Font layout",
+        preset_key: "custom",
+        width_px: 1080,
+        height_px: 1080,
+      },
+    });
+    expect(created.ok()).toBe(true);
+    const design = await created.json();
+    const text = "Font audit café é 👋\nمرحبا بالعالم";
+    design.document.pages[0].layers = [
+      {
+        id: randomUUID(),
+        name: "Multiline text",
+        type: "text",
+        visible: true,
+        locked: false,
+        opacity: 1,
+        transform: {
+          x: 80,
+          y: 80,
+          width: 600,
+          height: 130,
+          rotation: 0,
+          flip_x: false,
+          flip_y: false,
+        },
+        text: {
+          text,
+          font_family: "Arial",
+          font_weight: 400,
+          font_style: "normal",
+          font_size: 90,
+          color: "#000000",
+          align: "left",
+          line_height: 1.1,
+          letter_spacing: 0,
+          stroke_width: 0,
+          shadow: { color: "#00000000", blur: 0, offset_x: 0, offset_y: 0 },
+          wrap: "word",
+          curve: { type: "none", strength: 0.65, offset: 0, reverse: false },
+        },
+      },
+    ];
+    expect(
+      (
+        await request.patch(`/api/v1/image-editor/designs/${design.id}`, {
+          headers,
+          data: { expected_revision: design.revision, document: design.document },
+        })
+      ).ok(),
+    ).toBe(true);
+    await authenticatePage(page, auth.token);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`/image-editor/${design.id}`);
+    await page
+      .getByRole("treeitem", { name: /Multiline text/ })
+      .click({ position: { x: 65, y: 12 } });
+    await page.getByRole("button", { name: "Font family", exact: true }).click();
+    await page.getByRole("button", { name: "Georgia", exact: true }).click();
+    const read = async () =>
+      (await (await request.get(`/api/v1/image-editor/designs/${design.id}`, { headers })).json())
+        .document.pages[0].layers[0].text;
+    await expect.poll(async () => (await read()).font_family).toBe("Georgia");
+    expect((await read()).text).toBe(text);
+    const canvas = page.locator("canvas.lower-canvas");
+    const pixels = async () => {
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        );
+      });
+      // Read the full artwork without CSS scaling or the floating view toolbar.
+      const png = await canvas.evaluate((element: HTMLCanvasElement) =>
+        element.toDataURL("image/png"),
+      );
+      const rendered = await sharp(Buffer.from(png.split(",")[1], "base64"))
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      return {
+        width: rendered.info.width,
+        height: rendered.info.height,
+        hash: createHash("sha256").update(rendered.data).digest("hex"),
+      };
+    };
+    // Selection controls are painted into Fabric's lower canvas too. Compare
+    // artwork in the same unselected state as a freshly opened design.
+    await page.keyboard.press("ControlOrMeta+d");
+    await expect(page.getByRole("treeitem", { name: /Multiline text/ })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    const live = await pixels();
+    await page.reload();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    const cold = await pixels();
+    await testInfo.attach("font-pixels.json", {
+      body: JSON.stringify({ live, cold }),
+      contentType: "application/json",
+    });
+    expect(live).toEqual(cold);
+    expect((await read()).text).toBe(text);
+  });
+});
+
+test.describe("image editor guide range", () => {
+  test("guide dialog retains invalid positions and admits the selected page axis range", async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
+    await page.clock.install();
+    const open = async () => {
+      await page.getByRole("menubar").getByRole("menuitem", { name: "View", exact: true }).click();
+      await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now() + 1000)));
+      await page.getByRole("menuitem", { name: /Add guide/ }).click();
+      // Menu close restores focus before the dialog's deferred opening focus.
+      await page.clock.runFor(32);
+      await page.clock.resume();
+      await expect(
+        page.getByRole("dialog").getByRole("radio", { name: "Vertical", exact: true }),
+      ).toBeFocused();
+    };
+    await open();
+    const dialog = page.getByRole("dialog");
+    const position = dialog.getByRole("spinbutton", { name: "Position in pixels", exact: true });
+    const add = dialog.getByRole("button", { name: "Add guide", exact: true });
+    const guides = page.getByRole("button", { name: /(?:Vertical|Horizontal) guide at/ });
+    await position.fill("-20");
+    await position.press("Enter");
+    await expect(dialog).toBeVisible();
+    await expect(position).toHaveValue("-20");
+    await expect(guides).toHaveCount(0);
+    await expect(add).toBeDisabled();
+    await expect(position).toHaveAttribute("aria-invalid", "true");
+    await expect(position).toHaveAccessibleDescription("Enter a position from 0 to 1080 pixels.");
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await position.fill("1200");
+    await expect(add).toBeDisabled();
+    await dialog.getByRole("radio", { name: "Horizontal", exact: true }).click();
+    await expect(position).toHaveAccessibleDescription("Enter a position from 0 to 1350 pixels.");
+    await expect(add).toBeEnabled();
+    await add.click();
+    await expect(
+      page.getByRole("button", { name: /Horizontal guide at 1200 pixels/ }),
+    ).toBeVisible();
+    await open();
+    await position.fill("");
+    await expect(add).toBeDisabled();
+    await position.press("Enter");
+    await expect(dialog).toBeVisible();
+    await position.fill("540.5");
+    await expect(add).toBeEnabled();
+    await position.press("Enter");
+    await expect(dialog).toHaveCount(0);
+    const vertical = page.getByRole("button", { name: /Vertical guide at/ });
+    // Guide labels round pixels for speech; the authored position remains fractional after reload.
+    await expect(vertical).toHaveAccessibleName(/Vertical guide at 541 pixels/);
+    const renderedGuideError = () =>
+      vertical.evaluate((guide) => {
+        const stage = guide.closest('[data-testid="image-editor-stage"]')!;
+        const bounds = stage.getBoundingClientRect();
+        const guideBounds = guide.getBoundingClientRect();
+        return Math.abs(
+          guideBounds.x + guideBounds.width / 2 - bounds.x - (bounds.width * 540.5) / 1080,
+        );
+      });
+    // Two 1/64 CSS-pixel layout units cover child-offset and stage-width rounding.
+    expect(await renderedGuideError()).toBeLessThanOrEqual(1 / 32);
+    const saveStatus = page.getByRole("banner").locator('[role="status"][data-state]');
+    await expect(saveStatus).toHaveAttribute("data-state", "saved");
+    await expect(saveStatus).toHaveAttribute("aria-label", "Saved on this device");
+    await page.reload();
+    await expect(vertical).toHaveAccessibleName(/Vertical guide at 541 pixels/);
+    expect(await renderedGuideError()).toBeLessThanOrEqual(1 / 32);
+    const downloadReady = page.waitForEvent("download");
+    await page.getByRole("menubar").getByRole("menuitem", { name: "File", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Export editable project", exact: true }).click();
+    const download = await downloadReady;
+    const archive = unzipSync(await readFile((await download.path())!));
+    const project = JSON.parse(strFromU8(archive["project.json"]));
+    expect(
+      project.document.pages.flatMap(
+        (page: { guides?: { vertical: number[] } }) => page.guides?.vertical ?? [],
+      ),
+    ).toEqual([540.5]);
+  });
+});
+
+test.describe("image editor guides zoom", () => {
+  test("Select allows ruler guide dragging, one undo and persisted keyboard recovery", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await page.getByRole("menubar").getByRole("menuitem", { name: "View", exact: true }).click();
+    const rulers = page.getByRole("menuitemcheckbox", { name: "Rulers", exact: true });
+    if ((await rulers.getAttribute("aria-checked")) !== "true") {
+      await rulers.click();
+    } else {
+      await rulers.focus();
+      await page.keyboard.press("Escape");
+    }
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    const stage = page.getByTestId("image-editor-stage");
+    const vertical = page.getByRole("button", {
+      name: "Drag to add a vertical guide",
+      exact: true,
+    });
+    const bounds = (await stage.boundingBox())!;
+    const ruler = (await vertical.boundingBox())!;
+    await page.mouse.move(bounds.x + bounds.width * 0.3, ruler.y + ruler.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width * 0.3, bounds.y + 90, { steps: 8 });
+    await page.mouse.up();
+    const guide = page.getByRole("button", { name: /Vertical guide at/ });
+    await expect(guide).toHaveCount(1);
+    await expect(guide).toHaveAccessibleName(/Vertical guide at 324 pixels/);
+    await page.getByRole("banner").getByRole("button", { name: /^Undo/ }).click();
+    await expect(guide).toHaveCount(0);
+    await page.getByRole("banner").getByRole("button", { name: /^Redo/ }).click();
+    await expect(guide).toHaveCount(1);
+    await guide.focus();
+    await guide.press("ArrowRight");
+    await expect(guide).toHaveAccessibleName(/Vertical guide at 325 pixels/);
+    const saveStatus = page.getByRole("banner").locator('[role="status"][data-state]');
+    await expect(saveStatus).toHaveAttribute("data-state", "saved");
+    await expect(saveStatus).toHaveAttribute("aria-label", "Saved on this device");
+    await page.reload();
+    await expect(guide).toHaveAccessibleName(/Vertical guide at 325 pixels/);
+    const horizontal = page.getByRole("button", {
+      name: "Drag to add a horizontal guide",
+      exact: true,
+    });
+    const side = (await horizontal.boundingBox())!;
+    const reloaded = (await stage.boundingBox())!;
+    await page.mouse.move(side.x + side.width / 2, reloaded.y + reloaded.height * 0.4);
+    await page.mouse.down();
+    await page.mouse.move(reloaded.x + 90, reloaded.y + reloaded.height * 0.4, { steps: 8 });
+    await page.mouse.up();
+    await expect(page.getByRole("button", { name: /Horizontal guide at 432 pixels/ })).toHaveCount(
+      1,
+    );
+  });
+
+  test("Zoom tool click changes view around pointer and Alt reverses without authoring history", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    const stage = page.getByTestId("image-editor-stage");
+    await expect(stage).toBeVisible();
+    const zoom = page.getByRole("button", { name: /^Zoom \d+%$/ });
+    const percent = async () => Number.parseInt((await zoom.textContent()) ?? "", 10);
+    const before = await percent();
+    await page.keyboard.press("z");
+    await expect(page.getByRole("button", { name: "Zoom", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const bounds = (await stage.boundingBox())!;
+    const x = bounds.x + bounds.width * 0.35;
+    const y = bounds.y + bounds.height * 0.4;
+    await page.mouse.click(x, y);
+    await expect.poll(percent).toBe(before + 10);
+    const enlarged = (await stage.boundingBox())!;
+    expect(enlarged.x + enlarged.width * 0.35).toBeCloseTo(x, 0);
+    expect(enlarged.y + enlarged.height * 0.4).toBeCloseTo(y, 0);
+    await page.keyboard.down("Alt");
+    await page.mouse.click(x, y);
+    await page.keyboard.up("Alt");
+    await expect.poll(percent).toBe(before);
+    await expect(page.getByRole("banner").getByRole("button", { name: /^Undo/ })).toBeDisabled();
+    await page.keyboard.press("ControlOrMeta+0");
+    await expect.poll(percent).toBe(before);
+    await zoom.click();
+    const fitted = await percent();
+    const rect = (await stage.boundingBox())!;
+    await page.mouse.click(rect.x + rect.width * 0.35, rect.y + rect.height * 0.4);
+    await expect.poll(percent).toBe(fitted + 10);
+    await zoom.click();
+    await expect.poll(percent).toBe(fitted);
+  });
+});
+
+test.describe("image editor mask radius", () => {
+  test("rounded mask keyboard radius stays bounded with fractional authored history", async ({
+    page,
+    request,
+  }, testInfo) => {
+    const auth = await registerUser(request, `mask-radius-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Mask radius");
+    const headers = { Authorization: `Bearer ${auth.token}` };
+    const created = await request.post("/api/v1/image-editor/designs", {
+      headers,
+      data: {
+        workspace_id: workspace.id,
+        title: "Mask radius",
+        preset_key: "custom",
+        width_px: 1080,
+        height_px: 1080,
+      },
+    });
+    expect(created.ok()).toBe(true);
+    const design = await created.json();
+    const transform = {
+      x: 100,
+      y: 100,
+      width: 381.75,
+      height: 214.875,
+      rotation: 0,
+      flip_x: false,
+      flip_y: false,
+    };
+    design.document.pages[0].layers = [
+      {
+        id: randomUUID(),
+        name: "Radius target",
+        type: "shape",
+        visible: true,
+        locked: false,
+        opacity: 1,
+        transform,
+        shape: {
+          kind: "rectangle",
+          fill: "#f97316",
+          stroke: "#000000",
+          stroke_width: 0,
+          radius: 0,
+        },
+        mask: { shape: "rounded_rectangle", radius: 32.25, inset: 0 },
+      },
+    ];
+    expect(
+      (
+        await request.patch(`/api/v1/image-editor/designs/${design.id}`, {
+          headers,
+          data: { expected_revision: design.revision, document: design.document },
+        })
+      ).ok(),
+    ).toBe(true);
+    const read = async () =>
+      (await (await request.get(`/api/v1/image-editor/designs/${design.id}`, { headers })).json())
+        .document.pages[0].layers[0];
+    await authenticatePage(page, auth.token);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`/image-editor/${design.id}`);
+    await page
+      .getByRole("treeitem", { name: /Radius target/ })
+      .click({ position: { x: 65, y: 12 } });
+    await page.getByRole("button", { name: /^Effects/ }).click();
+    const radius = page.getByRole("slider", { name: "Mask radius", exact: true });
+    await expect(radius).toHaveAttribute("aria-valuenow", "32");
+    const accessibleMaximum = Number(await radius.getAttribute("aria-valuemax"));
+    expect((await read()).mask.radius).toBe(32.25);
+    await radius.focus();
+    await radius.press("End");
+    await radius.press("ArrowRight");
+    const observedRadius = Number(await radius.getAttribute("aria-valuenow"));
+    await expect.poll(async () => (await read()).mask.radius).toBe(observedRadius);
+    await testInfo.attach("radius-bound.json", {
+      body: JSON.stringify({
+        accessibleMaximum,
+        observedRadius,
+        authoredRadius: (await read()).mask.radius,
+      }),
+      contentType: "application/json",
+    });
+    expect(Number(await radius.getAttribute("aria-valuenow"))).toBeLessThanOrEqual(
+      accessibleMaximum,
+    );
+    await expect(radius).toHaveAttribute("aria-valuenow", "107");
+    // A later key at the limit must not add an empty Undo step.
+    await page.clock.setFixedTime(new Date(Date.now() + 2000));
+    await radius.press("ArrowRight");
+    await expect(radius).toHaveAttribute("aria-valuenow", "107");
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(radius).toHaveAttribute("aria-valuenow", "32");
+    await expect.poll(async () => (await read()).mask.radius).toBe(32.25);
+    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect(radius).toHaveAttribute("aria-valuenow", "107");
+    await expect.poll(async () => (await read()).mask.radius).toBe(107);
+    expect((await read()).transform).toEqual(transform);
+    await page.reload();
+    await page
+      .getByRole("treeitem", { name: /Radius target/ })
+      .click({ position: { x: 65, y: 12 } });
+    await page.getByRole("button", { name: /^Effects/ }).click();
+    await expect(radius).toHaveAttribute("aria-valuenow", "107");
+    await radius.focus();
+    await radius.press("Home");
+    await radius.press("ArrowLeft");
+    await expect(radius).toHaveAttribute("aria-valuenow", "0");
+  });
+});
+
+test.describe("image editor page text", () => {
+  test.use({ hasTouch: true, actionTimeout: 15_000 });
+
+  test("mixed page sizes persist and Resize design also resets pages to the default size", async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.setTimeout(120_000);
+    const auth = await registerUser(request, `mixed-pages-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Mixed pages");
+    const headers = { Authorization: `Bearer ${auth.token}` };
+    await authenticatePage(page, auth.token);
+    await page.setViewportSize({ width: 1369, height: 850 });
+    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    const id = new URL(page.url()).pathname.split("/").at(-1)!;
+    const strip = page.getByTestId("image-editor-page-strip");
+    await strip.getByRole("button", { name: "Expand pages", exact: true }).click();
+    await strip.getByRole("button", { name: "Duplicate page", exact: true }).click();
+    await strip.getByRole("button", { name: "Resize page", exact: true }).click();
+    const resizePage = page.getByRole("dialog", { name: "Resize page", exact: true });
+    await resizePage.getByRole("spinbutton", { name: "Width", exact: true }).fill("720");
+    await resizePage.getByRole("spinbutton", { name: "Height", exact: true }).fill("1280");
+    await resizePage.getByRole("button", { name: "Resize", exact: true }).click();
+    const sizes = async () => {
+      const data = await (
+        await request.get(`/api/v1/image-editor/designs/${id}`, { headers })
+      ).json();
+      return data.document.pages.map((item: { width_px?: number; height_px?: number }) => [
+        item.width_px ?? data.document.width_px,
+        item.height_px ?? data.document.height_px,
+      ]);
+    };
+    await expect.poll(sizes).toEqual([
+      [1080, 1080],
+      [720, 1280],
+    ]);
+    const width = 390;
+    const colorScheme = "light";
+
+    await page.setViewportSize({ width, height: 850 });
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    const expand = strip.getByRole("button", { name: "Expand pages", exact: true });
+    if (await expand.isVisible()) await expand.click();
+    const resize = strip.getByRole("button", { name: "Resize page", exact: true });
+    await resize.scrollIntoViewIfNeeded();
+    await expect(resize).toBeInViewport();
+    const box = await resize.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+
+    await page.setViewportSize({ width: 1369, height: 850 });
+    await page.reload();
+    await expect(strip.getByRole("button", { name: /720 × 1280 px/ })).toBeVisible();
+    await page.getByRole("menuitem", { name: "File", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Resize design", exact: true }).click();
+    const resizeDesign = page.getByRole("dialog", { name: "Resize design", exact: true });
+    await expect(resizeDesign.getByRole("spinbutton", { name: "Width", exact: true })).toHaveValue(
+      "1080",
+    );
+    await resizeDesign.getByRole("button", { name: "Resize", exact: true }).click();
+    await expect.poll(sizes).toEqual([
+      [1080, 1080],
+      [1080, 1080],
+    ]);
+    await page.getByRole("button", { name: /^Undo/ }).click();
+    await expect.poll(sizes).toEqual([
+      [1080, 1080],
+      [720, 1280],
+    ]);
+    await strip.getByRole("button", { name: /1080 × 1080 px/ }).click();
+    await page.getByRole("menuitem", { name: "Tools", exact: true }).click();
+    await page.getByRole("menuitem", { name: /^Shape\b/ }).click();
+    await page.getByRole("menubar").getByRole("menuitem", { name: "Select", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Select layer alpha", exact: true }).click();
+    const selection = page.getByTestId("image-editor-pixel-selection");
+    await expect(selection).toHaveAttribute("data-active", "true");
+    const transfer = await page.evaluateHandle(async () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 64;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = "#2255cc";
+      context.fillRect(0, 0, 64, 64);
+      const blob = await new Promise<Blob>((resolve) => canvas.toBlob((value) => resolve(value!)));
+      const data = new DataTransfer();
+      data.items.add(new File([blob], "page-drop.png", { type: "image/png" }));
+      return data;
+    });
+    const target = strip.getByRole("button", { name: /720 × 1280 px/ });
+    await target.dispatchEvent("drop", { dataTransfer: transfer });
+    await transfer.dispose();
+    await expect(target).toHaveAttribute("aria-current", "page");
+    await expect(selection).toHaveAttribute("data-active", "false");
+    await expect
+      .poll(async () => {
+        const data = await (
+          await request.get(`/api/v1/image-editor/designs/${id}`, { headers })
+        ).json();
+        return data.document.pages[1].layers.map((layer: { type: string }) => layer.type);
+      })
+      .toEqual(["image"]);
+  });
+
+  test("text range weight survives cloud save and reload without changing the whole layer", async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.setTimeout(120_000);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const auth = await registerUser(request, `text-ranges-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Text ranges");
+    await authenticatePage(page, auth.token);
+    await page.setViewportSize({ width: 1369, height: 850 });
+    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    const id = new URL(page.url()).pathname.split("/").at(-1)!;
+    await page.getByRole("menuitem", { name: "Tools", exact: true }).click();
+    await page.getByRole("menuitem", { name: /^Text\b/ }).click();
+    const text = page.getByRole("textbox", { name: "Text", exact: true });
+    await text.fill("Launch faster today");
+    await text.press("ControlOrMeta+A");
+    await text.press("ArrowLeft");
+    for (let index = 0; index < 6; index++) await text.press("Shift+ArrowRight");
+    await page.getByRole("button", { name: "Weight", exact: true }).click();
+    await page.getByRole("option", { name: "400 · Regular", exact: true }).click();
+    await expect
+      .poll(async () => {
+        const response = await request.get(`/api/v1/image-editor/designs/${id}`, {
+          headers: { Authorization: `Bearer ${auth.token}` },
+        });
+        const data = await response.json();
+        return data.document.pages[0].layers[0]?.text;
+      })
+      .toMatchObject({
+        text: "Launch faster today",
+        font_weight: 700,
+        runs: [{ start: 0, end: 6, font_weight: 400 }],
+      });
+    await page.reload();
+    await page
+      .getByRole("tree", { name: "Layers", exact: true })
+      .getByRole("treeitem")
+      .first()
+      .click();
+    await expect(text).toHaveValue("Launch faster today");
+    await text.press("ControlOrMeta+A");
+    await text.press("ArrowLeft");
+    for (let index = 0; index < 6; index++) await text.press("Shift+ArrowRight");
+    await expect(page.getByRole("button", { name: "Weight", exact: true })).toContainText(
+      "400 · Regular",
+    );
+    const width = 390;
+    const colorScheme = "light";
+
+    await page.setViewportSize({ width, height: 850 });
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    if (!(await page.getByRole("dialog").isVisible())) {
+      await page
+        .getByRole("navigation", { name: "OpenPost Image Editor tools", exact: true })
+        .getByRole("button", { name: "Properties", exact: true })
+        .click();
+    }
+    await expect(
+      page.getByRole("dialog").getByRole("textbox", { name: "Text", exact: true }),
+    ).toBeVisible();
+
+    expect(errors).toEqual([]);
+  });
+
+  test("cloud autosave keeps the canvas text cursor and accepts continued typing", async ({
+    page,
+    request,
+  }) => {
+    const auth = await registerUser(request, `canvas-autosave-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Canvas autosave");
+    await authenticatePage(page, auth.token);
+    await page.setViewportSize({ width: 1369, height: 850 });
+    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    await page.getByRole("button", { name: "Text", exact: true }).click();
+    const saved = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().includes("/api/v1/image-editor/designs/"),
+    );
+    await page.keyboard.insertText("Hello 👩🏽‍💻");
+    const response = await saved;
+    expect(response.ok()).toBe(true);
+    await expect(page.getByRole("banner").locator('[role="status"][data-state]')).toHaveAttribute(
+      "data-state",
+      "saved",
+    );
+    const designID = new URL(page.url()).pathname.split("/").at(-1)!;
+    await expect
+      .poll(
+        async () => {
+          const savedDesign = await request.get(`/api/v1/image-editor/designs/${designID}`, {
+            headers: { Authorization: `Bearer ${auth.token}` },
+          });
+          return (await savedDesign.json()).document.pages[0].preview_media_id;
+        },
+        { timeout: 15_000 },
+      )
+      .toBeTruthy();
+    await page.keyboard.insertText(" again");
+    await expect(page.getByRole("textbox", { name: "Text", exact: true })).toHaveValue(
+      "Hello 👩🏽‍💻 again",
+    );
+  });
+});
+
+test.describe("image editor text scope", () => {
+  test("text selection explains whole-layer font controls", async ({ page, request }, testInfo) => {
+    const auth = await registerUser(request, `font-layout-${randomUUID()}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, "Text scope");
+    const headers = { Authorization: `Bearer ${auth.token}` };
+    const created = await request.post("/api/v1/image-editor/designs", {
+      headers,
+      data: {
+        workspace_id: workspace.id,
+        title: "Text scope",
+        preset_key: "custom",
+        width_px: 1080,
+        height_px: 1080,
+      },
+    });
+    expect(created.ok()).toBe(true);
+    const design = await created.json();
+    const text = "Hello world";
+    design.document.pages[0].layers = [
+      {
+        id: randomUUID(),
+        name: "Multiline text",
+        type: "text",
+        visible: true,
+        locked: false,
+        opacity: 1,
+        transform: {
+          x: 80,
+          y: 80,
+          width: 600,
+          height: 130,
+          rotation: 0,
+          flip_x: false,
+          flip_y: false,
+        },
+        text: {
+          text,
+          font_family: "Arial",
+          font_weight: 400,
+          font_style: "normal",
+          font_size: 90,
+          color: "#000000",
+          align: "left",
+          line_height: 1.1,
+          letter_spacing: 0,
+          stroke_width: 0,
+          shadow: { color: "#00000000", blur: 0, offset_x: 0, offset_y: 0 },
+          wrap: "word",
+          curve: { type: "none", strength: 0.65, offset: 0, reverse: false },
+        },
+      },
+    ];
+    expect(
+      (
+        await request.patch(`/api/v1/image-editor/designs/${design.id}`, {
+          headers,
+          data: { expected_revision: design.revision, document: design.document },
+        })
+      ).ok(),
+    ).toBe(true);
+    await authenticatePage(page, auth.token);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`/image-editor/${design.id}`);
+    await page
+      .getByRole("treeitem", { name: /Multiline text/ })
+      .click({ position: { x: 65, y: 12 } });
+    const textField = page.getByRole("textbox", { name: "Text", exact: true });
+    await textField.focus();
+    for (let i = 0; i < 20; i++) await textField.press("ArrowLeft");
+    for (let i = 0; i < 5; i++) await textField.press("Shift+ArrowRight");
+    await expect(page.getByText("5 selected", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Font family", exact: true }).click();
+    await page.getByRole("button", { name: "Georgia", exact: true }).click();
+    const read = async () =>
+      (await (await request.get(`/api/v1/image-editor/designs/${design.id}`, { headers })).json())
+        .document.pages[0].layers[0].text;
+    await expect.poll(async () => (await read()).font_family).toBe("Georgia");
+    expect((await read()).text).toBe(text);
+    await expect(page.getByText("5 selected", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Font family and size affect the whole text layer.", { exact: true }),
+    ).toBeVisible();
+    const hint = "Font family and size affect the whole text layer.";
+    await expect(
+      page.getByRole("button", { name: "Font family", exact: true }),
+    ).toHaveAccessibleDescription(hint);
+    await expect(
+      page.getByRole("spinbutton", { name: "Size", exact: true }),
+    ).toHaveAccessibleDescription(hint);
+    await page.getByRole("spinbutton", { name: "Size", exact: true }).fill("72");
+    await expect.poll(async () => (await read()).font_size).toBe(72);
+    expect((await read()).text).toBe(text);
+    await textField.focus();
+    await textField.press("ArrowLeft");
+    const caret = await textField.evaluate((field) => {
+      if (!(field instanceof HTMLTextAreaElement)) throw new Error("Text field unavailable");
+      return { start: field.selectionStart, end: field.selectionEnd };
+    });
+    expect(caret.start).toBe(caret.end);
+    await testInfo.attach("collapsed-caret.json", {
+      body: JSON.stringify(caret),
+      contentType: "application/json",
+    });
+    await expect(page.getByText(hint, { exact: true })).not.toBeVisible();
+    const width = 320;
+
+    await page.setViewportSize({ width, height: 900 });
+    if (width < 1024) await page.getByRole("button", { name: "Properties", exact: true }).click();
+    const surface =
+      width < 1024 ? page.getByRole("dialog", { name: "Properties", exact: true }) : page;
+    const field = surface.getByRole("textbox", { name: "Text", exact: true });
+    await field.focus();
+    for (let i = 0; i < 20; i++) await field.press("ArrowLeft");
+    for (let i = 0; i < 5; i++) await field.press("Shift+ArrowRight");
+    await expect(surface.getByText(hint, { exact: true })).toBeVisible();
+    await expect(
+      surface.getByRole("button", { name: "Font family", exact: true }),
+    ).toHaveAccessibleDescription(hint);
+    if (width < 1024) {
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog", { name: "Properties", exact: true })).not.toBeVisible();
+    }
+  });
+});
+
+test.describe("editor chrome color", () => {
+  async function createVideoProject(page: Page, name = "Shared editor chrome"): Promise<string> {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "showDirectoryPicker", {
+        configurable: true,
+        value: async () => {
+          const handle = await navigator.storage.getDirectory();
+          const prototype = Object.getPrototypeOf(handle);
+          if (!("queryPermission" in prototype)) {
+            Object.defineProperty(prototype, "queryPermission", {
+              configurable: true,
+              value: async () => "granted",
+            });
+          }
+          if (!("requestPermission" in prototype)) {
+            Object.defineProperty(prototype, "requestPermission", {
+              configurable: true,
+              value: async () => "granted",
+            });
+          }
+          return handle;
+        },
+      });
+    });
+    await page.goto("/video-editor");
+    await page.getByRole("button", { name: "This device" }).click();
+    await page.getByRole("button", { name: "Choose folder" }).click();
+    await page.getByRole("button", { name: "Custom project" }).click();
+    await page.getByRole("textbox", { name: "Project name" }).fill(name);
+    await page.getByRole("button", { name: "Create", exact: true }).click();
+    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible({
+      timeout: 20_000,
+    });
+    return page.url();
+  }
+
+  async function verifySequenceAutoBalance(page: Page, errors: string[]): Promise<void> {
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
+    await expect(page.getByRole("application", { name: "Program" }).getByRole("img")).toBeVisible();
+    const editTab = page.getByRole("tab", { name: "Edit", exact: true });
+    const colorTab = page.getByRole("tab", { name: "Color", exact: true });
+    await expect(editTab).toHaveAttribute("aria-selected", "true");
+    await colorTab.click();
+    await expect
+      .poll(() => page.evaluate(() => localStorage.getItem("openpost-video-editor-workspace-v1")))
+      .toBe("color");
+    await expect(colorTab).toHaveAttribute("aria-selected", "true");
+    expect(errors).toEqual([]);
+    await expect(page.getByRole("region", { name: "Color grading" })).toBeVisible({
+      timeout: 20_000,
+    });
+    const autoKey = page.getByRole("button", { name: "Toggle auto-keyframe" });
+    await autoKey.click();
+    await expect(autoKey).toHaveAttribute("aria-pressed", "true");
+    const liftWheel = page.getByRole("slider", { name: "Lift color wheel" });
+    await liftWheel.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(liftWheel).toHaveAttribute("aria-valuetext", /^1 degrees/);
+    await page.getByRole("tab", { name: "Curves", exact: true }).click();
+    const curve = page.locator('[role="group"][aria-label="Master curve editor"]:visible');
+    const initialCurvePointCount = await curve.locator("[data-curve-point]").count();
+    expect(initialCurvePointCount).toBeGreaterThanOrEqual(2);
+    await curve.click({ position: { x: 75, y: 35 } });
+    await expect(curve.locator("[data-curve-point]")).toHaveCount(initialCurvePointCount + 1);
+    await page.getByRole("tab", { name: "Primaries", exact: true }).click();
+
+    await editTab.click();
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: "More actions", exact: true })
+      .click();
+    await page.getByRole("menuitem", { name: "Add text", exact: true }).click();
+    const timelineItems = page.locator("[data-timeline-item-id]");
+    await expect(timelineItems).toHaveCount(2);
+    await timelineItems
+      .locator('button[aria-pressed="false"]')
+      .first()
+      .click({
+        modifiers: ["ControlOrMeta"],
+      });
+    await expect(timelineItems.locator('button[aria-pressed="true"]')).toHaveCount(2);
+    await colorTab.click();
+    await expect(page.getByRole("slider", { name: "Lift color wheel" })).toHaveAttribute(
+      "aria-valuetext",
+      "Mixed",
+    );
+    await page.getByRole("slider", { name: "Lift color wheel" }).press("ArrowRight");
+    await expect(page.getByRole("slider", { name: "Lift color wheel" })).not.toHaveAttribute(
+      "aria-valuetext",
+      "Mixed",
+    );
+    await page
+      .getByRole("group", { name: "Color workspace", exact: true })
+      .getByRole("button", { name: "Sequence" })
+      .click();
+    await expect(page.locator("[data-color-target-label]")).toHaveText("Sequence: Main");
+    await editTab.click();
+    await colorTab.click();
+    await expect(page.locator("[data-color-target-label]")).toHaveText("Sequence: Main");
+    await page.getByRole("button", { name: "Add adjustment layer" }).click();
+    await expect(page.getByRole("region", { name: "Color grading" })).toHaveAttribute(
+      "data-sequence-grade-item-id",
+      /.+/,
+    );
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect(page.getByRole("button", { name: "Add adjustment layer" })).toBeVisible();
+    await page.getByRole("button", { name: "Add adjustment layer" }).click();
+    await page.getByRole("application", { name: "Program" }).click({ position: { x: 8, y: 8 } });
+    await expect(page.locator('[data-scope-sample-ready="true"]')).toBeVisible();
+    expect(errors).toEqual([]);
+    await page.getByRole("button", { name: "Auto balance from the current frame" }).click();
+    await expect(page.getByText("Auto balance applied.")).toBeVisible({
+      timeout: 5_000,
+    });
+  }
+
+  test("Sequence Auto Balance samples the composed frame without changing clip selection", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(60_000);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.stack ?? String(error)));
+    const { token } = await registerUser(
+      request,
+      `sequence-color-sampling-${randomUUID()}@example.com`,
+    );
+    await createWorkspace(request, token, "Sequence color sampling");
+    await authenticatePage(page, token);
+    await createVideoProject(page, "Sequence color sampling");
+    await verifySequenceAutoBalance(page, errors);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe("editor color picker", () => {
+  test(`Image Editor previews pixels before selection`, async ({ page }, testInfo) => {
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "How-to carousel", exact: true }).click();
+    await page.getByRole("button", { name: "Eyedropper", exact: true }).click();
+    await page.getByRole("button", { name: "Composite page", exact: true }).click();
+    const surface = page.getByTestId("image-editor-selection-surface");
+    const preview = page.getByTestId("image-editor-eyedropper-magnifier");
+    const width = 320;
+
+    await page.setViewportSize({ width, height: 900 });
+    await surface.hover();
+    await expect(preview).toBeVisible();
+    const bounds = (await preview.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(900);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await surface.hover();
+    const color = (await preview.innerText()).trim();
+    await surface.click();
+    await expect(page.getByText(new RegExp(`^Sampled ${color} at`))).toBeVisible();
+    await page.getByRole("button", { name: "Eyedropper", exact: true }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(preview).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(preview).toBeHidden();
+  });
+});
+
+test.describe("editor start", () => {
+  test("Image Editor starts a blank project from the primary action", async ({ page }) => {
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page).toHaveURL(/\/image-editor\/local_design_/);
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("application", { name: "Design canvas" })).toBeVisible();
+  });
+
+  test("signed-in Image Editor defaults new projects to workspace storage", async ({
+    page,
+    request,
+  }) => {
+    const auth = await registerUser(request, `editor-start-label-${randomUUID()}@example.com`);
+    await createWorkspace(request, auth.token, "Editor start label");
+    await authenticatePage(page, auth.token);
+
+    await page.goto("/image-editor");
+
+    const storage = page.getByRole("button", {
+      name: "Save new projects to",
+      exact: true,
+    });
+    await expect(storage).toContainText("OpenPost cloud");
+    await storage.click();
+    await page.getByRole("option", { name: "This device", exact: true }).click();
+    await expect(storage).toContainText("This device");
+  });
+
+  test("Video Editor creates after folder choice and recovers from cancellation", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      let attempts = 0;
+      Object.defineProperty(window, "showDirectoryPicker", {
+        configurable: true,
+        value: async () => {
+          if (++attempts === 1) throw new DOMException("Canceled", "AbortError");
+          const handle = await navigator.storage.getDirectory();
+          const prototype = Object.getPrototypeOf(handle);
+          for (const method of ["queryPermission", "requestPermission"]) {
+            Object.defineProperty(prototype, method, {
+              configurable: true,
+              value: async () => "granted",
+            });
+          }
+          return handle;
+        },
+      });
+    });
+    await page.goto("/video-editor");
+    const create = page.getByRole("button", {
+      name: "Open Video Editor",
+      exact: true,
+    });
+    await create.click();
+    await expect(create).toBeEnabled();
+    await expect(page).toHaveURL(/\/video-editor$/);
+    await page.getByRole("button", { name: /Shorts, TikTok and Reels/ }).click();
+    await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/);
+    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
+    await page.locator("[data-project-details]").click();
+    await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue(
+      "Untitled project",
+    );
+    await page.reload();
+    await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
+  });
+});
+
+test.describe("editor storage library", () => {
+  test("Image Editor keeps local and cloud designs visible when changing creation storage", async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.setTimeout(180_000);
+    const auth = await registerUser(request, `image-library-${Date.now()}@example.com`);
+    await createWorkspace(request, auth.token, "Image library");
+    await authenticatePage(page, auth.token);
+    await page.goto("/image-editor");
+    await page.getByRole("button", { name: "Save new projects to", exact: true }).click();
+    await page.getByRole("option", { name: "This device", exact: true }).click();
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page).toHaveURL(/image-editor\/local_design_/);
+    await page.goto("/image-editor");
+    await expect(page.getByRole("img", { name: "Local only" })).toBeVisible();
+    await page.getByRole("button", { name: "Save new projects to", exact: true }).click();
+    await page.getByRole("option", { name: "OpenPost cloud", exact: true }).click();
+    await page.getByRole("button", { name: "New project", exact: true }).click();
+    await expect(page).toHaveURL(/image-editor\/(?!local_design_)[^/]+$/);
+    await page.goto("/image-editor");
+    await expect(page.getByRole("img", { name: "Saved to OpenPost · Online" })).toBeVisible();
+    await expect(page.getByRole("img", { name: "Local only" })).toBeVisible();
+    await page.getByRole("button", { name: "Save new projects to", exact: true }).click();
+    await page.getByRole("option", { name: "This device", exact: true }).click();
+    await expect(page.getByRole("img", { name: "Saved to OpenPost · Online" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your designs", exact: true })).toBeVisible();
+    await page.addInitScript(() => {
+      const open = indexedDB.open.bind(indexedDB);
+      indexedDB.open = (name, version) => {
+        if (name === "openpost-studio") throw new Error("Local library unavailable");
+        return open(name, version);
+      };
+    });
+    await page.reload();
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Local library unavailable" }),
+    ).toBeVisible();
+    await expect(page.getByRole("img", { name: "Saved to OpenPost · Online" })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+  });
 });

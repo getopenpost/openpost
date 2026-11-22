@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 // PieFedAdapter publishes to PieFed communities through the account's home
@@ -19,6 +21,7 @@ import (
 // (see community.go) while speaking PieFed's native endpoints and
 // representations. The connected account ID is the numeric person ID.
 type PieFedAdapter struct {
+	BaseAdapter
 	instanceURL string
 }
 
@@ -38,16 +41,8 @@ func (p *PieFedAdapter) AuthorizationGrantDescriptor() AuthorizationGrantDescrip
 	}
 }
 
-func (p *PieFedAdapter) GenerateAuthURL(_ string) (string, map[string]string) {
-	return "", nil
-}
-
 func (p *PieFedAdapter) ExchangeCode(_ context.Context, _ string, _ map[string]string) (*TokenResult, error) {
 	return nil, fmt.Errorf("piefed uses instance credentials, not OAuth redirect")
-}
-
-func (p *PieFedAdapter) RefreshCapability() RefreshCapability {
-	return RefreshCapability{Supported: false, CredentialSource: RefreshCredentialNone}
 }
 
 func (p *PieFedAdapter) RefreshToken(_ context.Context, _ RefreshTokenInput) (*TokenResult, error) {
@@ -191,7 +186,7 @@ func (p *PieFedAdapter) resolveCommunity(ctx context.Context, jwt, ref string) (
 // SearchPublishingOptions searches communities on the connected instance for
 // the composer destination picker. Values are canonical actor IDs.
 func (p *PieFedAdapter) SearchPublishingOptions(ctx context.Context, accessToken string, input PublishingOptionsInput) (PublishingOptionsPage, error) {
-	query := strings.TrimSpace(firstNonEmptyString(input.Search, input.Context["value"], input.Context["query"]))
+	query := strings.TrimSpace(textutil.FirstNonEmpty(input.Search, input.Context["value"], input.Context["query"]))
 	limit := input.Limit
 	if limit <= 0 || limit > 25 {
 		limit = 10
@@ -278,7 +273,7 @@ func (p *PieFedAdapter) Publish(ctx context.Context, accessToken, _ string, req 
 	if body := communityBody(req.Content, req.Settings); body != "" {
 		payload["body"] = body
 	}
-	if link := firstNonEmptyString(settingString(req.Settings, CommunitySettingURL), firstCommunityMediaURL(req)); link != "" {
+	if link := textutil.FirstNonEmpty(settingString(req.Settings, CommunitySettingURL), firstCommunityMediaURL(req)); link != "" {
 		payload["url"] = link
 	}
 	if settingBool(req.Settings, CommunitySettingNSFW) {
@@ -542,29 +537,4 @@ func (p *PieFedAdapter) FetchContentAnalytics(ctx context.Context, accessToken s
 	}
 	subtractOwnReplies(total, input.OwnReplyCount)
 	return total, nil
-}
-
-func validateCommunityMedia(provider string, media []MediaItem) []MediaValidationIssue {
-	if len(media) == 0 {
-		return nil
-	}
-	for _, item := range media {
-		if !strings.HasPrefix(strings.ToLower(item.MimeType), "image/") {
-			return []MediaValidationIssue{{
-				Provider: provider,
-				MediaID:  item.ID,
-				Severity: severityError,
-				Message:  "Community posts accept images only; video and documents are not supported.",
-			}}
-		}
-	}
-	return nil
-}
-
-func validateLemmyMedia(media []MediaItem) []MediaValidationIssue {
-	return validateCommunityMedia(providerLemmy, media)
-}
-
-func validatePieFedMedia(media []MediaItem) []MediaValidationIssue {
-	return validateCommunityMedia(providerPieFed, media)
 }

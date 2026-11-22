@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -23,7 +23,7 @@ const (
 
 func openBotIngressTestDB(t *testing.T, path string, initialize bool) *bun.DB {
 	t.Helper()
-	db, err := database.InitDBWithDriver("sqlite", "file:"+path+"?mode=rwc")
+	db, err := testdb.OpenWithDriver("sqlite", "file:"+path+"?mode=rwc")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	if !initialize {

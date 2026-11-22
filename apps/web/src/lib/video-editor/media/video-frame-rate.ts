@@ -1,4 +1,4 @@
-import type { VideoFrameRateMetrics } from './types';
+import type { VideoFrameRateMetrics } from '@openpost/editor-shared/media';
 
 export const FRAME_RATE_PROBE_PACKET_COUNT = 256;
 

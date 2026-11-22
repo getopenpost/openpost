@@ -16,8 +16,7 @@ import type {
 	WipeDirection as TransitionDirection
 } from '../transitions/types';
 import type { AudioEqFieldSource } from '../audio/audio-eq';
-import type { AudioEqSettings } from '../audio/types';
-import type { AudioNoiseReductionFieldSource } from '../audio/audio-noise-reduction';
+import type { AudioEqSettings, AudioNoiseReductionFieldSource } from '../audio/types';
 import type { AudioPitchFieldSource } from '../audio/audio-pitch';
 
 export type {

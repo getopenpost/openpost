@@ -120,6 +120,7 @@ func (f policyTestFixture) insertToken(
 }
 
 func TestEvaluateWorkspaceAccessAuthorizationMatrix(t *testing.T) {
+	t.Parallel()
 	f := newPolicyTestFixture(t)
 	ctx := context.Background()
 	now := time.Now().UTC()
@@ -174,6 +175,7 @@ func TestEvaluateWorkspaceAccessAuthorizationMatrix(t *testing.T) {
 }
 
 func TestAuthorizeTokenCreationRequiresAndInheritsSSOAssurance(t *testing.T) {
+	t.Parallel()
 	f := newPolicyTestFixture(t)
 	f.setPolicy(t, models.OrganizationSSOTokensScoped)
 	ctx := context.Background()
@@ -199,6 +201,7 @@ func TestAuthorizeTokenCreationRequiresAndInheritsSSOAssurance(t *testing.T) {
 }
 
 func TestEvaluateWorkspaceAccessUsesPerWorkspaceExternalApplicationAssurance(t *testing.T) {
+	t.Parallel()
 	f := newPolicyTestFixture(t)
 	f.setPolicy(t, models.OrganizationSSOTokensScoped)
 	ctx := context.Background()
@@ -242,6 +245,7 @@ func TestEvaluateWorkspaceAccessUsesPerWorkspaceExternalApplicationAssurance(t *
 }
 
 func TestEvaluateOrganizationAccessRejectsWorkspaceBoundTokens(t *testing.T) {
+	t.Parallel()
 	f := newPolicyTestFixture(t)
 	ctx := context.Background()
 
@@ -269,6 +273,7 @@ func TestEvaluateOrganizationAccessRejectsWorkspaceBoundTokens(t *testing.T) {
 }
 
 func TestUpsertProviderCannotMutateAnotherOrganizationProvider(t *testing.T) {
+	t.Parallel()
 	f := newPolicyTestFixture(t)
 	ctx := context.Background()
 	now := time.Now().UTC()

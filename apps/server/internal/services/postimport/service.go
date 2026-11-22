@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
@@ -763,20 +765,20 @@ func (s *Service) recordReadFailure(ctx context.Context, state *models.PostImpor
 	if errors.As(err, &nativeErr) {
 		switch nativeErr.Status {
 		case platform.NativePostPermissionRequired:
-			return s.recordOutcome(ctx, state, nativeErr.Status, firstNonEmpty(nativeErr.Code, "permission_required"),
+			return s.recordOutcome(ctx, state, nativeErr.Status, textutil.FirstNonEmpty(nativeErr.Code, "permission_required"),
 				"Reconnect this account to continue importing native posts.", now.Add(permissionRetry), now)
 		case platform.NativePostRateLimited:
 			retryAfter := max(nativeErr.RetryAfter, time.Minute)
-			return s.recordOutcome(ctx, state, nativeErr.Status, firstNonEmpty(nativeErr.Code, "rate_limited"),
+			return s.recordOutcome(ctx, state, nativeErr.Status, textutil.FirstNonEmpty(nativeErr.Code, "rate_limited"),
 				"The provider is rate limiting. OpenPost will retry.", now.Add(retryAfter), now)
 		case platform.NativePostCostLimited:
-			return s.recordOutcome(ctx, state, nativeErr.Status, firstNonEmpty(nativeErr.Code, "cost_limited"),
+			return s.recordOutcome(ctx, state, nativeErr.Status, textutil.FirstNonEmpty(nativeErr.Code, "cost_limited"),
 				"Native reads are disabled by the provider read-cost policy.", nextUTCDay(now), now)
 		case platform.NativePostUnsupported:
-			return s.recordOutcome(ctx, state, nativeErr.Status, firstNonEmpty(nativeErr.Code, "native_read_not_supported"),
+			return s.recordOutcome(ctx, state, nativeErr.Status, textutil.FirstNonEmpty(nativeErr.Code, "native_read_not_supported"),
 				"This provider does not expose native post reads in OpenPost.", now.Add(routineCadence), now)
 		default:
-			return s.recordOutcome(ctx, state, platform.NativePostFailed, firstNonEmpty(nativeErr.Code, "provider_error"),
+			return s.recordOutcome(ctx, state, platform.NativePostFailed, textutil.FirstNonEmpty(nativeErr.Code, "provider_error"),
 				"The provider is temporarily unavailable. OpenPost will retry.", now.Add(failureBackoff), now)
 		}
 	}
@@ -831,15 +833,6 @@ func boundedOutcomeMessage(message string) string {
 		return string(runes)
 	}
 	return string(runes[:limit])
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }
 
 func coalesceTime(primary, fallback time.Time) time.Time {

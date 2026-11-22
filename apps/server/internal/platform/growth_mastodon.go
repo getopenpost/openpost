@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"golang.org/x/net/html"
 )
 
@@ -203,7 +205,7 @@ func (m *MastodonAdapter) DiscoverGrowthCandidates(ctx context.Context, input Gr
 				RemoteID:    ma.ID,
 				Handle:      handle,
 				DisplayName: ma.DisplayName,
-				AvatarURL:   firstNonEmptyString(ma.Avatar, ma.AvatarStatic),
+				AvatarURL:   textutil.FirstNonEmpty(ma.Avatar, ma.AvatarStatic),
 			})
 		}
 
@@ -224,7 +226,7 @@ func (m *MastodonAdapter) DiscoverGrowthCandidates(ctx context.Context, input Gr
 			Handle:         handle,
 			DisplayName:    acct.DisplayName,
 			Bio:            bio,
-			AvatarURL:      firstNonEmptyString(acct.Avatar, acct.AvatarStatic),
+			AvatarURL:      textutil.FirstNonEmpty(acct.Avatar, acct.AvatarStatic),
 			ProfileURL:     profileURL,
 			FollowersCount: acct.FollowersCount,
 			FollowingCount: acct.FollowingCount,

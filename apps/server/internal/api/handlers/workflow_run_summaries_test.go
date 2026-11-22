@@ -19,8 +19,9 @@ import (
 )
 
 func TestWorkflowRunSummariesKeepPayloadsInAuthorizedDetail(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
-	service := workflows.NewService(db, NewWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil, nil), nil)
+	service := workflows.NewService(db, newTestWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil), nil)
 	actor := workspaceaccess.ActorFacts{UserID: "user", SessionID: "session"}
 	workflow, err := service.Save(t.Context(), actor, "ws", "", workflows.SaveRequest{Name: "Original workflow", Definition: workflows.Definition{Schema: 1, Source: workflows.Source{Kind: "manual"}, Steps: []workflows.Step{{ID: "draft", Kind: workflows.KindDraft, Inputs: map[string]workflows.Value{"text": {Reference: "source.body"}}}}}})
 	require.NoError(t, err)
@@ -63,6 +64,7 @@ func (workflowSummaryScopeSession) AuthenticateBearer(_ context.Context, scope s
 	return &middleware.Principal{UserID: "user", SessionID: "session", Scope: scope}, nil
 }
 func TestWorkflowRunSummariesAllowReadScopes(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	e := echo.New()
 	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))

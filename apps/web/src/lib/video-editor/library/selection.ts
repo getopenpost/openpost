@@ -18,7 +18,7 @@ import { importCollectedFont, importCopiedFile, resolveMediaBlob } from '../medi
 import { executeAtomic } from '../timeline/commands/command-store.svelte';
 import { ensureOpenTrackForRange } from '../timeline/actions/track-placement';
 import { nestSequence } from '../sequences/sequence-actions';
-import type { ProjectAssetImporter } from '../media/types';
+import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 import type { LibraryRecipe } from './types';
 
 export async function captureLibrarySelection(

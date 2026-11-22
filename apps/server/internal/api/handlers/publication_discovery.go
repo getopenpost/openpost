@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
@@ -172,7 +174,7 @@ func (handler *PublicationDiscoveryHandler) loadDiscoveryRecentPublications(
 		recent = append(recent, item)
 	}
 	for _, row := range rows {
-		summary := firstNonEmptyDiscoveryText(row.SourceText, row.Title)
+		summary := textutil.FirstNonEmpty(row.SourceText, row.Title)
 		publishedAt := row.UpdatedAt
 		if row.Status == models.PublicationStatusPublished && !row.ActualRunAt.IsZero() {
 			publishedAt = row.ActualRunAt
@@ -188,15 +190,6 @@ func (handler *PublicationDiscoveryHandler) loadDiscoveryRecentPublications(
 		appendRecent(item)
 	}
 	return recent, nil
-}
-
-func firstNonEmptyDiscoveryText(values ...string) string {
-	for _, value := range values {
-		if value = strings.TrimSpace(value); value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func boundedDiscoverySummary(value string) string {

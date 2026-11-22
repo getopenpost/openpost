@@ -32,6 +32,7 @@ import (
 )
 
 func TestMediaUploadRejectsActiveContent(t *testing.T) {
+	t.Parallel()
 	for _, payload := range []struct{ name, content string }{
 		{"html", "<!doctype html><script>document.title='executed'</script>"},
 		{"xml", `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><script>document.title='executed'</script></html>`},
@@ -98,6 +99,7 @@ func TestMediaUploadRejectsActiveContent(t *testing.T) {
 }
 
 func TestStoredMediaCannotRenderActiveDocuments(t *testing.T) {
+	t.Parallel()
 	for index, mimeType := range []string{"text/html; charset=utf-8", "application/xhtml+xml", "image/svg+xml", "text/xml", "application/xml", "application/pdf", "application/octet-stream", "", "text/javascript", "text/css", "text/plain", "image/example+xml", "image/unknown"} {
 		t.Run(strconv.Itoa(index), func(t *testing.T) {
 			storage := newFakeDirectUploadStorage()
@@ -121,6 +123,7 @@ func TestStoredMediaCannotRenderActiveDocuments(t *testing.T) {
 }
 
 func TestMediaUploadSessionRejectsActiveDeclarations(t *testing.T) {
+	t.Parallel()
 	for index, contentType := range []string{"Text/HTML; charset=utf-8", "application/xhtml+xml", "image/svg+xml; charset=utf-8", "text/xml", "application/xml", "application/example+xml"} {
 		t.Run(strconv.Itoa(index), func(t *testing.T) {
 			storage := newFakeDirectUploadStorage()
@@ -167,6 +170,7 @@ func assertMCPUploadRejected(t *testing.T, content, expected string) {
 }
 
 func TestStoredPassiveMediaKeepsInlineContentType(t *testing.T) {
+	t.Parallel()
 	for _, contentType := range []string{"image/png", "video/mp4", "audio/ogg; codecs=opus", "font/woff2", "application/x-font-ttf"} {
 		t.Run(contentType, func(t *testing.T) {
 			storage := newFakeDirectUploadStorage()
@@ -192,6 +196,7 @@ func TestStoredPassiveMediaKeepsInlineContentType(t *testing.T) {
 }
 
 func TestMediaUploadRequiresDecodedImagePixels(t *testing.T) {
+	t.Parallel()
 	var valid bytes.Buffer
 	require.NoError(t, png.Encode(&valid, image.NewRGBA(image.Rect(0, 0, 2, 2))))
 	var jpegData, gifData bytes.Buffer
@@ -341,6 +346,7 @@ func TestMediaUploadRequiresDecodedImagePixels(t *testing.T) {
 }
 
 func TestMediaUploadSessionDoesNotReuseCorruptReadyImage(t *testing.T) {
+	t.Parallel()
 	content := []byte("\x89PNG\r\n\x1a\nno image pixels")
 	hash := sha256.Sum256(content)
 	storage := newFakeDirectUploadStorage()
@@ -360,6 +366,7 @@ func TestMediaUploadSessionDoesNotReuseCorruptReadyImage(t *testing.T) {
 }
 
 func TestMediaCleanupPurgesAbandonedUploadSessions(t *testing.T) {
+	t.Parallel()
 	srv := newMCPTestServer(t)
 	for _, model := range []any{(*models.VideoProjectRevision)(nil), (*models.VideoProjectMutation)(nil), (*models.VideoProjectCheckpoint)(nil), (*models.VideoProjectConflict)(nil)} {
 		_, err := srv.db.NewCreateTable().Model(model).IfNotExists().Exec(t.Context())

@@ -14,6 +14,7 @@ import (
 // limits are the enforced ones: a session at the advertised limit is accepted
 // and one byte over is rejected, for every published kind.
 func TestUploadSessionAdmissionAgreesWithAdvertisedLimits(t *testing.T) {
+	t.Parallel()
 	storage := newFakeDirectUploadStorage()
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
 

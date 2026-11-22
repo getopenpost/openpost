@@ -11,12 +11,10 @@ import (
 	"time"
 
 	"github.com/PaddleHQ/paddle-go-sdk/v5"
-	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 type fakePaddleAPI struct {
@@ -60,50 +58,16 @@ func (f *fakePaddleAPI) CreateCustomerPortalSession(_ context.Context, input *pa
 
 func newBillingTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
-	require.NoError(t, err)
-	sqldb.SetMaxOpenConns(1)
-	db := bun.NewDB(sqldb, sqlitedialect.New())
-	for _, model := range []interface{}{
-		(*models.Organization)(nil),
-		(*models.Workspace)(nil),
-		(*models.BillingSubscription)(nil),
-		(*models.BillingWebhookEvent)(nil),
-		(*models.BillingCheckoutAttempt)(nil),
-		(*models.BillingCheckoutCancellation)(nil),
-		(*models.BillingCustomer)(nil),
-		(*models.Job)(nil),
-	} {
-		_, err := db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
-		require.NoError(t, err)
-	}
-	_, err = db.ExecContext(context.Background(), `CREATE TABLE voice_profiles (
-		id TEXT PRIMARY KEY,
-		workspace_id TEXT NOT NULL,
-		name TEXT NOT NULL,
-		normalized_name TEXT NOT NULL,
-		is_default BOOLEAN NOT NULL DEFAULT false,
-		revision INTEGER NOT NULL DEFAULT 1,
-		schema_version INTEGER NOT NULL DEFAULT 1,
-		definition_json TEXT NOT NULL DEFAULT '{}',
-		created_by_id TEXT NOT NULL DEFAULT '',
-		created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
-		updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
-		UNIQUE (id, workspace_id),
-		UNIQUE (workspace_id, normalized_name)
-	)`)
-	require.NoError(t, err)
-	_, err = db.ExecContext(context.Background(), `CREATE UNIQUE INDEX voice_profiles_default_idx ON voice_profiles (workspace_id) WHERE is_default = true`)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Organization{ID: "org-1", Name: "OpenPost", CreatedByID: "owner", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}).Exec(context.Background())
+	db := testdb.NewSQLiteBase(t)
+	_, err := db.NewInsert().Model(&models.Organization{ID: "org-1", Name: "OpenPost", CreatedByID: "owner", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}).Exec(context.Background())
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.Workspace{ID: "ws-1", Name: "Launch"}).Exec(context.Background())
 	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	return db
 }
 
 func TestCheckoutCancellationWinningBeforeReconciliationLockTerminatesSubscription(t *testing.T) {
+	t.Parallel()
 	db := newBillingTestDB(t)
 	now := time.Now().UTC()
 	attempt := &models.BillingCheckoutAttempt{
@@ -148,6 +112,7 @@ func testCatalog() map[string]PlanConfig {
 }
 
 func TestConsumeCheckoutReturnRequiresExactUserAndConsumesPathOnce(t *testing.T) {
+	t.Parallel()
 	db := newBillingTestDB(t)
 	now := time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
 	_, err := db.NewInsert().Model(&models.BillingCheckoutAttempt{
@@ -175,6 +140,7 @@ func TestConsumeCheckoutReturnRequiresExactUserAndConsumesPathOnce(t *testing.T)
 }
 
 func TestAcceptPaddleWebhookQueuesSupportedEventOnce(t *testing.T) {
+	t.Parallel()
 	db := newBillingTestDB(t)
 	secret := "pdl_webhook_secret"
 	service := NewService(db, secret)
@@ -211,6 +177,7 @@ func recoverySubscription(updatedAt time.Time) *paddle.Subscription {
 }
 
 func TestOldSubscriptionEventsCannotReplaceNewCheckout(t *testing.T) {
+	t.Parallel()
 	db := newBillingTestDB(t)
 	now := time.Now().UTC()
 	service := NewService(db, "", PaddleConfig{Plans: testCatalog()})
@@ -237,6 +204,7 @@ func TestOldSubscriptionEventsCannotReplaceNewCheckout(t *testing.T) {
 }
 
 func TestSubscriptionReconciliationRejectsCheckoutPriceSubstitution(t *testing.T) {
+	t.Parallel()
 	for _, priceID := range []string{"pri_founder_month", "pri_agency_year", "pri_unknown", ""} {
 		t.Run(priceID, func(t *testing.T) {
 			db := newBillingTestDB(t)

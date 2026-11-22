@@ -1,7 +1,7 @@
 import { getLocale } from '$lib/paraglide/runtime';
 import { z } from 'zod';
 import type { components } from '$lib/api/types';
-import type { ComposerSettings } from './modes';
+import type { ComposerSettings } from './settings-types';
 type SettingDefinition = components['schemas']['SettingDefinition'];
 
 const pollContentSchema = z.object({

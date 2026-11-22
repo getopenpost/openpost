@@ -348,17 +348,3 @@ export async function requestHandlePermission(
 export function isFileSystemAccessSupported(): boolean {
 	return typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';
 }
-
-export async function __resetHandlesDBForTesting(): Promise<void> {
-	if (dbPromise) {
-		const db = await dbPromise.catch(() => null);
-		db?.close();
-		dbPromise = null;
-	}
-	await new Promise<void>((resolve, reject) => {
-		const request = indexedDB.deleteDatabase(HANDLES_DB_NAME);
-		request.onsuccess = () => resolve();
-		request.onerror = () => reject(request.error);
-		request.onblocked = () => reject(new Error('Handles DB reset was blocked.'));
-	});
-}

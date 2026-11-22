@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 // MetaMessagingWebhookAdapter resolves official webhook messages to the same
@@ -154,7 +156,7 @@ func (event metaWebhookEvent) batch(conversation ProviderConversation, accountID
 		if reaction.MessageID == "" || (reaction.Action != "react" && reaction.Action != "unreact") {
 			return FetchMessageEventsResult{}, fmt.Errorf("unsupported Meta reaction event")
 		}
-		result.Reactions = append(result.Reactions, ProviderMessageReaction{ConversationID: conversation.ID, MessageID: reaction.MessageID, ActorRemoteID: event.Sender.ID, Value: firstNonEmptyString(reaction.Emoji, reaction.Reaction), Deleted: reaction.Action == "unreact"})
+		result.Reactions = append(result.Reactions, ProviderMessageReaction{ConversationID: conversation.ID, MessageID: reaction.MessageID, ActorRemoteID: event.Sender.ID, Value: textutil.FirstNonEmpty(reaction.Emoji, reaction.Reaction), Deleted: reaction.Action == "unreact"})
 	}
 	result.Conversations = []ProviderConversation{conversation}
 	return result, nil

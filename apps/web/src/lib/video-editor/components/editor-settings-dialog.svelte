@@ -42,7 +42,7 @@
 	import type {
 		TranscriptionModel,
 		TranscriptionQuantization
-	} from '$lib/video-editor/transcript/engine/types';
+	} from '@openpost/editor-shared/transcript';
 	import {
 		transcriptionLanguageUiLabel,
 		transcriptionModelUiLabel,

@@ -1,5 +1,8 @@
 import { PARAKEET_FILES, PARAKEET_FILE_BYTES } from './parakeet-model';
-import type { TranscriptionModel, TranscriptionQuantization } from './types';
+import type {
+	TranscriptionModel,
+	TranscriptionQuantization
+} from '@openpost/editor-shared/transcript';
 
 /**
  * First-download size estimates for the local transcription models, ported from

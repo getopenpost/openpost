@@ -5,7 +5,7 @@ import type { Project, TimelineItem, TimelineTrack } from '../project/types';
 import { editorSession } from '../editor.svelte';
 import { mediaPool } from '../media/pool.svelte';
 import { TimelineFrameRenderer } from '../media/render-export';
-import { setWorkspaceRoot } from '../workspace-fs/root';
+import { setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import PreviewLayer from '../components/preview-layer.svelte';
 import { LottieRenderer, mapTimelineFrameToLottieFrame } from './frame-provider';

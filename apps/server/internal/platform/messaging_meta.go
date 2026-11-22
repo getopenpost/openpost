@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 type metaMessagingAdapter struct {
@@ -157,7 +159,7 @@ func (m metaMessagingAdapter) fetch(ctx context.Context, token string, input Fet
 		}
 		result.Conversations = append(result.Conversations, ProviderConversation{
 			ID: remote.ID, CounterpartRemoteID: counterpart.ID,
-			CounterpartName:   firstNonEmptyString(counterpart.Name, counterpart.Username),
+			CounterpartName:   textutil.FirstNonEmpty(counterpart.Name, counterpart.Username),
 			CounterpartHandle: prefixHandle(counterpart.Username),
 			LastMessageAt:     updatedAt, LastMessagePreview: preview, LastRemoteMessageID: lastID,
 			ReplyWindowExpiresAt: window, Messages: messages,

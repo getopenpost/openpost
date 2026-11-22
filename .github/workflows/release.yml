@@ -19,17 +19,28 @@ env:
 permissions: {}
 
 jobs:
-  distribution-plan:
-    name: Select distributions and verify reused downloads
+  # One job qualifies the tag and prepares the draft so every build starts
+  # within a minute. `release ship` tags only after main CI passed for this
+  # exact SHA, so no step here waits for CI.
+  setup:
+    name: Qualify candidate and prepare draft
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
-      contents: read
+      actions: read
+      contents: write
+      packages: read
     outputs:
-      sdk: ${{ steps.plan.outputs.sdk }}
-      n8n: ${{ steps.plan.outputs.n8n }}
-      cli: ${{ steps.plan.outputs.cli }}
+      ci_run_id: ${{ steps.candidate.outputs.run_id }}
+      frontend_artifact: ${{ steps.artifacts.outputs.frontend }}
+      android_artifact: ${{ steps.artifacts.outputs.android }}
+      mobile_changed: ${{ steps.mobile.outputs.changed }}
+      sdk_changed: ${{ steps.plan.outputs.sdk }}
+      n8n_changed: ${{ steps.plan.outputs.n8n }}
+      cli_changed: ${{ steps.plan.outputs.cli }}
       notes_artifact: distribution-notes-${{ github.sha }}-${{ github.run_attempt }}
+      digest: ${{ steps.image.outputs.digest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -45,6 +56,7 @@ jobs:
           set -euo pipefail
           previous_tag="$(bun scripts/published-release-tag.mjs --exclude "$GITHUB_REF_NAME")"
           [[ -n "$previous_tag" ]]
+          echo "previous_tag=$previous_tag" >> "$GITHUB_OUTPUT"
           bun scripts/release-distribution-plan.mjs "$previous_tag" "$GITHUB_SHA" > distribution-plan.txt
           cat distribution-plan.txt >> "$GITHUB_OUTPUT"
           if grep -qx 'cli=true' distribution-plan.txt; then
@@ -58,47 +70,17 @@ jobs:
           path: reused-downloads.md
           if-no-files-found: error
           retention-days: 31
-
-  verify-candidate:
-    name: Verify exact release candidate
-    needs: distribution-plan
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      packages: read
-    outputs:
-      ci_run_id: ${{ steps.candidate.outputs.run_id }}
-      frontend_artifact: ${{ steps.artifacts.outputs.frontend }}
-      android_artifact: ${{ steps.artifacts.outputs.android }}
-      mobile_changed: ${{ steps.mobile.outputs.changed }}
-      sdk_changed: ${{ needs.distribution-plan.outputs.sdk }}
-      n8n_changed: ${{ needs.distribution-plan.outputs.n8n }}
-      cli_changed: ${{ needs.distribution-plan.outputs.cli }}
-      notes_artifact: ${{ needs.distribution-plan.outputs.notes_artifact }}
-      digest: ${{ steps.image.outputs.digest }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Require a release-valid Android identity
         id: mobile
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREVIOUS_TAG: ${{ steps.plan.outputs.previous_tag }}
         shell: bash
         run: |
           # Android keeps its own cadence. A server-only release keeps the
           # released identity; only a release that changes a mobile surface
           # must advance it.
-          previous_tag="$(bun scripts/published-release-tag.mjs --exclude "$GITHUB_REF_NAME")"
-          [[ -n "$previous_tag" ]]
-          git show "$previous_tag:apps/mobile/app.json" > previous-release-app.json
-          if git diff --quiet --find-renames=40% "$previous_tag" "$GITHUB_SHA" -- apps/mobile packages/api-contract packages/query-catalog packages/dither packages/platform-text packages/telemetry packages/video-project apps/web/openapi.json bunfig.toml; then
+          git show "$PREVIOUS_TAG:apps/mobile/app.json" > previous-release-app.json
+          if git diff --quiet --find-renames=40% "$PREVIOUS_TAG" "$GITHUB_SHA" -- apps/mobile packages/api-contract packages/query-catalog packages/dither packages/platform-text packages/telemetry packages/video-project apps/web/openapi.json bunfig.toml; then
             mobile_changed="false"
           else
             mobile_changed="true"
@@ -109,52 +91,34 @@ jobs:
             --package apps/mobile/package.json \
             --previous-config previous-release-app.json \
             --changed "$mobile_changed"
-      - name: Require successful CI for the tagged SHA
+      - name: Require successful main CI for the tagged SHA
         id: candidate
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          # Tag CI proves the candidate with the final version embedded.
-          # Look up by branch (authoritative immediately) rather than by
-          # commit (search-indexed, can lag), then pin the exact SHA.
+          # Main CI runs every core gate and builds the versioned candidate.
+          # Retry briefly only for API listing lag.
           candidate=""
-          for attempt in $(seq 1 90); do
-            branch_match="$(gh run list \
+          for attempt in $(seq 1 6); do
+            candidate="$(gh run list \
               --repo "$GITHUB_REPOSITORY" \
               --workflow CI \
-              --branch "$GITHUB_REF_NAME" \
-              --event push \
-              --limit 20 \
-              --json databaseId,headSha \
-              --jq '[.[] | select(.headSha == "'"$GITHUB_SHA"'")][0].databaseId // empty' || true)"
-            commit_match="$(gh run list \
-              --repo "$GITHUB_REPOSITORY" \
-              --workflow CI \
-              --commit "$GITHUB_SHA" \
-              --event push \
-              --limit 20 \
-              --json databaseId,headBranch,headSha \
-              --jq '[.[] | select(.headBranch == "'"$GITHUB_REF_NAME"'" and .headSha == "'"$GITHUB_SHA"'")][0].databaseId // empty' || true)"
-            candidate="${branch_match:-$commit_match}"
-            if [[ -n "$candidate" ]]; then
-              echo "Found CI run $candidate for tag $GITHUB_REF_NAME on SHA $GITHUB_SHA."
-              break
-            fi
-            echo "Waiting for CI on tag $GITHUB_REF_NAME (attempt ${attempt}/90)."
-            sleep 30
+              --branch main \
+              --limit 50 \
+              --json databaseId,headSha,event,conclusion \
+              --jq '[.[] | select(.headSha == "'"$GITHUB_SHA"'" and (.event == "push" or .event == "workflow_dispatch") and .conclusion == "success") | .databaseId] | max // empty' || true)"
+            [[ "$candidate" =~ ^[0-9]+$ ]] && break
+            echo "Waiting for the main CI listing (attempt ${attempt}/6)."
+            sleep 10
           done
-          [[ -n "$candidate" ]] || {
-            echo "No CI run exists for tag $GITHUB_REF_NAME on SHA $GITHUB_SHA." >&2
+          [[ "$candidate" =~ ^[0-9]+$ ]] || {
+            echo "No successful main CI run exists for $GITHUB_SHA. Release with bun run release -- ship, which tags after main CI passes." >&2
             exit 1
           }
-          [[ "$candidate" =~ ^[0-9]+$ ]]
-          gh run watch "$candidate" \
-            --repo "$GITHUB_REPOSITORY" \
-            --exit-status \
-            --interval 30 > /dev/null
+          echo "Qualified by CI run $candidate."
           echo "run_id=$candidate" >> "$GITHUB_OUTPUT"
-      - name: Resolve artifacts from their successful CI attempts
+      - name: Resolve artifacts from the qualifying CI run
         id: artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -162,27 +126,21 @@ jobs:
           MOBILE_CHANGED: ${{ steps.mobile.outputs.changed }}
         shell: bash
         run: |
-          image="$(bun scripts/ci-artifacts.mjs resolve \
-            --repository "$GITHUB_REPOSITORY" \
-            --run-id "$CI_RUN_ID" \
-            --prefix "image-digest-${GITHUB_SHA}-")"
-          frontend="$(bun scripts/ci-artifacts.mjs resolve \
-            --repository "$GITHUB_REPOSITORY" \
-            --run-id "$CI_RUN_ID" \
-            --prefix "frontend-public-${GITHUB_SHA}-")"
+          resolve() {
+            bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$CI_RUN_ID" --prefix "$1"
+          }
+          image="$(resolve "image-digest-${GITHUB_SHA}-")"
+          frontend="$(resolve "frontend-public-${GITHUB_SHA}-")"
           android=""
           if [[ "$MOBILE_CHANGED" == "true" ]]; then
-            android="$(bun scripts/ci-artifacts.mjs resolve \
-              --repository "$GITHUB_REPOSITORY" \
-              --run-id "$CI_RUN_ID" \
-              --prefix "android-unsigned-${GITHUB_SHA}-")"
+            android="$(resolve "android-unsigned-${GITHUB_SHA}-")"
           fi
           {
             echo "image=$image"
             echo "frontend=$frontend"
             echo "android=$android"
           } >> "$GITHUB_OUTPUT"
-      - name: Verify the tested image
+      - name: Verify the tested image identity
         id: image
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -203,8 +161,7 @@ jobs:
           done
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
           repository="${REGISTRY}/$(printf '%s' "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')"
-          image="${repository}@${digest}"
-          docker buildx imagetools inspect --raw "$image" | jq -e \
+          docker buildx imagetools inspect --raw "${repository}@${digest}" | jq -e \
             --arg amd64 "$amd64_digest" \
             --arg arm64 "$arm64_digest" '
               [.manifests[] | select(.platform.os == "linux")] as $linux
@@ -212,97 +169,26 @@ jobs:
               and any($linux[]; .platform.architecture == "amd64" and .digest == $amd64)
               and any($linux[]; .platform.architecture == "arm64" and .digest == $arm64)
             ' >/dev/null
-          for architecture in amd64 arm64; do
-            platform_digest_variable="${architecture}_digest"
-            platform_digest="${!platform_digest_variable}"
-            platform_image="${repository}@${platform_digest}"
-            docker pull --platform "linux/${architecture}" "$platform_image"
-            image_version="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$platform_image")"
-            image_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$platform_image")"
+          # Read each platform's OCI labels from its registry config.
+          for platform_digest in "$amd64_digest" "$arm64_digest"; do
+            labels="$(docker buildx imagetools inspect "${repository}@${platform_digest}" --format '{{ json .Image.Config.Labels }}')"
+            image_version="$(jq -r '.["org.opencontainers.image.version"] // empty' <<< "$labels")"
+            image_revision="$(jq -r '.["org.opencontainers.image.revision"] // empty' <<< "$labels")"
             if [[ "$image_version" != "$GITHUB_REF_NAME" || "$image_revision" != "$GITHUB_SHA" ]]; then
-              echo "Tested linux/${architecture} image identity does not match ${GITHUB_REF_NAME} at ${GITHUB_SHA}." >&2
+              echo "Tested image ${platform_digest} is ${image_version} at ${image_revision}, not ${GITHUB_REF_NAME} at ${GITHUB_SHA}." >&2
               exit 1
             fi
           done
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
-
-  candidate-frontend:
-    name: Resolve the candidate frontend
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-    outputs:
-      ci_run_id: ${{ steps.frontend.outputs.run_id }}
-      frontend_artifact: ${{ steps.frontend.outputs.artifact }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          sparse-checkout: scripts
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - name: Wait for the tag CI frontend artifact
-        id: frontend
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          # Binaries build while tag CI is still proving the candidate. The
-          # draft, every upload, and promotion still wait for CI success.
-          for attempt in $(seq 1 160); do
-            run_id="$(gh run list \
-              --repo "$GITHUB_REPOSITORY" \
-              --workflow CI \
-              --branch "$GITHUB_REF_NAME" \
-              --event push \
-              --limit 20 \
-              --json databaseId,headSha \
-              --jq '[.[] | select(.headSha == "'"$GITHUB_SHA"'")][0].databaseId // empty' || true)"
-            if [[ "$run_id" =~ ^[0-9]+$ ]]; then
-              if artifact="$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$run_id" --prefix "frontend-public-${GITHUB_SHA}-" 2>/dev/null)"; then
-                {
-                  echo "run_id=$run_id"
-                  echo "artifact=$artifact"
-                } >> "$GITHUB_OUTPUT"
-                exit 0
-              fi
-              state="$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" --json status,conclusion --jq '.status + " " + (.conclusion // "")')"
-              if [[ "$state" == completed* ]]; then
-                echo "Tag CI run $run_id finished ($state) without a frontend artifact." >&2
-                exit 1
-              fi
-            fi
-            echo "Waiting for the tag CI frontend artifact (attempt ${attempt}/160)."
-            sleep 15
-          done
-          echo "Tag CI did not publish a frontend artifact in time." >&2
-          exit 1
-
-  prepare-draft:
-    name: Prepare reusable draft release
-    runs-on: ubuntu-latest
-    needs: verify-candidate
-    permissions:
-      actions: read
-      contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: ${{ needs.verify-candidate.outputs.notes_artifact }}
       - name: Create or verify the draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLI_CHANGED: ${{ steps.plan.outputs.cli }}
         shell: bash
         run: |
           set -euo pipefail
           cli_scope=()
-          if [[ "${{ needs.verify-candidate.outputs.cli_changed }}" == 'false' ]]; then cli_scope=(--no-cli); fi
+          if [[ "$CLI_CHANGED" == 'false' ]]; then cli_scope=(--no-cli); fi
           bun scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
           cat reused-downloads.md >> release-notes.md
           fetch_release() {
@@ -332,10 +218,11 @@ jobs:
   build-binaries:
     name: Build server (${{ matrix.os }}-${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
-    needs: candidate-frontend
+    needs: setup
+    timeout-minutes: 15
     permissions:
       actions: read
-      contents: read
+      contents: write
     strategy:
       matrix:
         include:
@@ -348,11 +235,11 @@ jobs:
         with:
           go-version-file: apps/server/go.mod
           cache-dependency-path: apps/server/go.sum
-      - name: Download frontend built by candidate CI
+      - name: Download the frontend the qualifying CI run tested
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI_RUN_ID: ${{ needs.candidate-frontend.outputs.ci_run_id }}
-          FRONTEND_ARTIFACT: ${{ needs.candidate-frontend.outputs.frontend_artifact }}
+          CI_RUN_ID: ${{ needs.setup.outputs.ci_run_id }}
+          FRONTEND_ARTIFACT: ${{ needs.setup.outputs.frontend_artifact }}
         run: gh run download "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$FRONTEND_ARTIFACT" --dir apps/server/cmd/openpost/public
       - name: Build binary
         shell: bash
@@ -363,71 +250,62 @@ jobs:
           else
             CGO_ENABLED=1 go build -buildvcs=false -ldflags="-s -w -X main.version=${GITHUB_REF_NAME} -X main.commit=${GITHUB_SHA}" -o ../../openpost-server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
           fi
-      - name: Retain the server binary for the draft release
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release-asset-server-${{ matrix.os }}-${{ matrix.arch }}
-          path: openpost-server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
-          if-no-files-found: error
-          retention-days: 7
+      - name: Upload the binary to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: bash scripts/release-asset-upload.sh "openpost-server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
 
   build-cli:
-    name: Build CLI (${{ matrix.os }}-${{ matrix.arch }})
-    runs-on: ${{ matrix.runner }}
-    needs: distribution-plan
-    if: needs.distribution-plan.outputs.cli == 'true'
+    name: Build CLI and MCP binaries
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.cli_changed == 'true'
+    timeout-minutes: 10
     permissions:
-      contents: read
-    strategy:
-      matrix:
-        include:
-          - { os: linux, arch: amd64, runner: ubuntu-latest, ext: "" }
-          - { os: linux, arch: arm64, runner: ubuntu-latest, ext: "" }
-          - { os: darwin, arch: arm64, runner: macos-latest, ext: "" }
-          - { os: windows, arch: amd64, runner: ubuntu-latest, ext: ".exe" }
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: apps/cli/go.mod
           cache-dependency-path: apps/cli/go.sum
-      - name: Build CLI binaries
+      # Every target is a pure-Go cross-compile, so one runner builds them all.
+      - name: Build and checksum CLI and MCP binaries
         shell: bash
         run: |
-          cd apps/cli
-          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o ../../openpost-cli-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
-          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o ../../openpost-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost-mcp
-      - name: Checksum CLI and MCP binaries
-        shell: bash
-        run: |
-          for asset in \
-            "openpost-cli-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}" \
-            "openpost-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"; do
-            if command -v sha256sum >/dev/null 2>&1; then
+          set -euo pipefail
+          assets=()
+          for target in linux/amd64 linux/arm64 darwin/arm64 windows/amd64; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            ext=""
+            [[ "$os" == windows ]] && ext=".exe"
+            for command in cli mcp; do
+              source="./cmd/openpost"
+              [[ "$command" == mcp ]] && source="./cmd/openpost-mcp"
+              asset="openpost-${command}-${os}-${arch}${ext}"
+              (cd apps/cli && CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o "../../${asset}" "$source")
               sha256sum "$asset" > "${asset}.sha256"
               sha256sum --check "${asset}.sha256"
-            else
-              shasum -a 256 "$asset" > "${asset}.sha256"
-              shasum -a 256 -c "${asset}.sha256"
-            fi
+              assets+=("$asset" "${asset}.sha256")
+            done
           done
-      - name: Retain CLI and MCP binaries for the draft release
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release-asset-cli-${{ matrix.os }}-${{ matrix.arch }}
-          path: |
-            openpost-cli-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
-            openpost-cli-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}.sha256
-            openpost-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
-            openpost-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}.sha256
-          if-no-files-found: error
-          retention-days: 7
+          printf '%s\n' "${assets[@]}" > cli-assets.txt
+      - name: Upload CLI and MCP binaries to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          mapfile -t assets < cli-assets.txt
+          bash scripts/release-asset-upload.sh "${assets[@]}"
 
-  upload-assets:
-    name: Upload changed release binaries
+  build-android:
+    name: Sign Android candidate
+    if: needs.setup.outputs.mobile_changed == 'true'
     runs-on: ubuntu-latest
-    needs: [verify-candidate, prepare-draft, candidate-frontend, build-binaries, build-cli]
-    if: ${{ !cancelled() && needs.verify-candidate.result == 'success' && needs.prepare-draft.result == 'success' && needs.candidate-frontend.result == 'success' && needs.build-binaries.result == 'success' && (needs.build-cli.result == 'success' || (needs.verify-candidate.outputs.cli_changed == 'false' && needs.build-cli.result == 'skipped')) }}
+    needs: setup
+    timeout-minutes: 10
     permissions:
       actions: read
       contents: write
@@ -435,53 +313,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: scripts
-      - name: Require binaries built from the verified frontend
-        env:
-          VERIFIED_RUN: ${{ needs.verify-candidate.outputs.ci_run_id }}
-          VERIFIED_FRONTEND: ${{ needs.verify-candidate.outputs.frontend_artifact }}
-          BUILT_RUN: ${{ needs.candidate-frontend.outputs.ci_run_id }}
-          BUILT_FRONTEND: ${{ needs.candidate-frontend.outputs.frontend_artifact }}
-        shell: bash
-        run: |
-          # A full CI rerun replaces the frontend artifact; rerun this workflow
-          # so the binaries embed the same bytes as the tested image.
-          [[ "$VERIFIED_RUN" == "$BUILT_RUN" && "$VERIFIED_FRONTEND" == "$BUILT_FRONTEND" ]] || {
-            echo "Binaries used $BUILT_FRONTEND from run $BUILT_RUN; CI verified $VERIFIED_FRONTEND from run $VERIFIED_RUN." >&2
-            exit 1
-          }
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: release-asset-*
-          path: release-assets
-          merge-multiple: true
-      - name: Upload the binaries to the draft release
+      - name: Download the unsigned APK main CI built
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          # Promotion verifies the exact core asset set after this upload.
-          shopt -s nullglob
-          assets=(release-assets/openpost-*)
-          bash scripts/release-asset-upload.sh "${assets[@]}"
-
-  build-android:
-    name: Sign Android candidate
-    if: needs.verify-candidate.outputs.mobile_changed == 'true'
-    runs-on: ubuntu-latest
-    needs: [verify-candidate, prepare-draft]
-    permissions:
-      actions: read
-      contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - name: Download the unsigned APK built by candidate CI
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI_RUN_ID: ${{ needs.verify-candidate.outputs.ci_run_id }}
-          ANDROID_ARTIFACT: ${{ needs.verify-candidate.outputs.android_artifact }}
+          CI_RUN_ID: ${{ needs.setup.outputs.ci_run_id }}
+          ANDROID_ARTIFACT: ${{ needs.setup.outputs.android_artifact }}
         run: |
           gh run download "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$ANDROID_ARTIFACT" --dir candidate-android
           cd candidate-android
@@ -524,18 +360,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
-        run: |
-          bash scripts/release-asset-upload.sh \
-            openpost-app-android.apk
+        run: bash scripts/release-asset-upload.sh openpost-app-android.apk
 
   promote-image:
     name: Promote tested image
     runs-on: ubuntu-latest
-    needs: [verify-candidate, prepare-draft, upload-assets]
-    if: ${{ !cancelled() && needs.verify-candidate.result == 'success' && needs.prepare-draft.result == 'success' && needs.upload-assets.result == 'success' }}
+    needs: [setup, build-binaries, build-cli]
+    if: ${{ !cancelled() && needs.setup.result == 'success' && needs.build-binaries.result == 'success' && (needs.build-cli.result == 'success' || (needs.setup.outputs.cli_changed == 'false' && needs.build-cli.result == 'skipped')) }}
+    timeout-minutes: 10
     permissions:
       actions: read
-      contents: write
+      contents: read
       packages: write
     outputs:
       digest: ${{ steps.promote.outputs.digest }}
@@ -546,21 +381,22 @@ jobs:
           bun-version-file: package.json
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ needs.verify-candidate.outputs.notes_artifact }}
+          name: ${{ needs.setup.outputs.notes_artifact }}
       - name: Require every core draft release asset before promotion
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLI_CHANGED: ${{ needs.setup.outputs.cli_changed }}
         shell: bash
         run: |
           set -euo pipefail
           cli_scope=()
-          if [[ "${{ needs.verify-candidate.outputs.cli_changed }}" == 'false' ]]; then cli_scope=(--no-cli); fi
+          if [[ "$CLI_CHANGED" == 'false' ]]; then cli_scope=(--no-cli); fi
           bun scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
           cat reused-downloads.md >> release-notes.md
           release_id="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json databaseId --jq '.databaseId')"
           [[ "$release_id" =~ ^[0-9]+$ ]]
           gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}" > draft-release.json
-          # Promotion only needs the core server/CLI assets it just built.
+          # Promotion only needs the core server/CLI assets just built.
           # Android signs in parallel and the publish job verifies the final set.
           bun scripts/release-assets.mjs verify "${cli_scope[@]}" \
             --release-json draft-release.json \
@@ -576,7 +412,7 @@ jobs:
       - name: Add release tags without rebuilding
         id: promote
         env:
-          SOURCE_DIGEST: ${{ needs.verify-candidate.outputs.digest }}
+          SOURCE_DIGEST: ${{ needs.setup.outputs.digest }}
         shell: bash
         run: |
           source_image="${REGISTRY}/${IMAGE_NAME}@${SOURCE_DIGEST}"
@@ -644,12 +480,12 @@ jobs:
 
   publish-n8n:
     name: Publish and verify n8n package
-    if: "!cancelled() && ((needs.promote-image.result == 'success' && needs.verify-candidate.outputs.n8n_changed == 'true') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'n8n'))"
+    if: "!cancelled() && ((needs.promote-image.result == 'success' && needs.setup.outputs.n8n_changed == 'true') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'n8n'))"
     runs-on: ubuntu-latest
     # The n8n package keeps its own publication identity and runs beside the
     # Hosted deployment, never behind it: an npm failure must not delay or
     # block the server rollout, and a server rollout never forces an n8n bump.
-    needs: [promote-image, verify-candidate]
+    needs: [promote-image, setup]
     timeout-minutes: 20
     permissions:
       contents: read
@@ -668,8 +504,10 @@ jobs:
       - name: Install the trusted-publishing npm CLI
         run: npm install --global "npm@${NPM_CLI_VERSION}"
       - run: bun install --frozen-lockfile
-      - name: Check the exact package source before publication
-        run: bun run check:n8n
+      # Main CI checked this exact package source; build only what packs.
+      - name: Build the package
+        working-directory: packages/n8n-nodes-openpost
+        run: bun run build
       - name: Publish once or reconcile the existing registry version
         id: package
         run: bun scripts/n8n-package-release.mjs publish
@@ -693,11 +531,11 @@ jobs:
 
   publish-sdk:
     name: Publish and verify npm SDK package
-    if: "!cancelled() && ((needs.promote-image.result == 'success' && needs.verify-candidate.outputs.sdk_changed == 'true') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'sdk'))"
+    if: "!cancelled() && ((needs.promote-image.result == 'success' && needs.setup.outputs.sdk_changed == 'true') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.package == 'sdk'))"
     runs-on: ubuntu-latest
     # Like the n8n package, the SDK keeps its own publication identity and
     # runs beside the Hosted deployment, never behind it.
-    needs: [promote-image, verify-candidate]
+    needs: [promote-image, setup]
     timeout-minutes: 20
     permissions:
       contents: read
@@ -715,8 +553,10 @@ jobs:
       - name: Install the trusted-publishing npm CLI
         run: npm install --global "npm@${NPM_CLI_VERSION}"
       - run: bun install --frozen-lockfile
-      - name: Check the exact package sources before publication
-        run: bun scripts/tasks.mjs check npm-packages
+      # Main CI checked this exact package source; build only what packs.
+      - name: Build the package
+        working-directory: packages/sdk
+        run: bun run build
       - name: Publish the SDK or reconcile the existing registry version
         id: sdk
         run: bun scripts/npm-package-release.mjs publish --package packages/sdk
@@ -736,8 +576,8 @@ jobs:
     # The wrapper installs its binaries from the public GitHub release, so
     # unlike the SDK it publishes only after publish-release flips the draft
     # public. A wrapper version whose binaries are unreachable must never ship.
-    needs: [promote-image, publish-release, verify-candidate]
-    if: ${{ !cancelled() && needs.promote-image.result == 'success' && needs.publish-release.result == 'success' && needs.verify-candidate.result == 'success' && needs.verify-candidate.outputs.cli_changed == 'true' }}
+    needs: [promote-image, publish-release, setup]
+    if: ${{ !cancelled() && needs.promote-image.result == 'success' && needs.publish-release.result == 'success' && needs.setup.result == 'success' && needs.setup.outputs.cli_changed == 'true' }}
     outputs:
       cli_spec: ${{ steps.cli.outputs.package_spec }}
     timeout-minutes: 20
@@ -757,8 +597,10 @@ jobs:
       - name: Install the trusted-publishing npm CLI
         run: npm install --global "npm@${NPM_CLI_VERSION}"
       - run: bun install --frozen-lockfile
-      - name: Check the exact package sources before publication
-        run: bun scripts/tasks.mjs check npm-packages
+      # Main CI checked this exact package source; build only what packs.
+      - name: Build the package
+        working-directory: packages/cli
+        run: bun run build
       - name: Publish the CLI wrapper or reconcile the existing registry version
         id: cli
         run: bun scripts/npm-package-release.mjs publish --package packages/cli
@@ -782,6 +624,8 @@ jobs:
     # opens a follow-up instead of blocking anything.
     needs: [publish-cli]
     if: ${{ !cancelled() && needs.publish-cli.result == 'success' }}
+    # Reporting only: `release ship` does not wait for registry propagation.
+    continue-on-error: true
     timeout-minutes: 10
     permissions:
       contents: read
@@ -816,8 +660,8 @@ jobs:
     # build-android is intentionally not a need: a skipped need would skip
     # publication. Server-only releases publish core assets; mobile releases
     # wait below for the parallel signing job to attach its APK.
-    needs: [verify-candidate, prepare-draft, upload-assets, promote-image, deploy-production]
-    if: ${{ !cancelled() && needs.verify-candidate.result == 'success' && needs.prepare-draft.result == 'success' && needs.upload-assets.result == 'success' && needs.promote-image.result == 'success' && needs.deploy-production.result == 'success' }}
+    needs: [setup, promote-image, deploy-production]
+    if: ${{ !cancelled() && needs.setup.result == 'success' && needs.promote-image.result == 'success' && needs.deploy-production.result == 'success' }}
     permissions:
       actions: read
       contents: write
@@ -828,16 +672,16 @@ jobs:
           bun-version-file: package.json
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ needs.verify-candidate.outputs.notes_artifact }}
+          name: ${{ needs.setup.outputs.notes_artifact }}
       - name: Verify the exact asset set and publish the draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MOBILE_CHANGED: ${{ needs.verify-candidate.outputs.mobile_changed }}
+          MOBILE_CHANGED: ${{ needs.setup.outputs.mobile_changed }}
         shell: bash
         run: |
           set -euo pipefail
           cli_scope=()
-          if [[ "${{ needs.verify-candidate.outputs.cli_changed }}" == 'false' ]]; then cli_scope=(--no-cli); fi
+          if [[ "${{ needs.setup.outputs.cli_changed }}" == 'false' ]]; then cli_scope=(--no-cli); fi
           # Server-only releases publish core assets without Android packaging;
           # mobile releases verify the full set including the signed APK.
           asset_scope="$([[ "$MOBILE_CHANGED" == 'true' ]] && echo '--complete' || echo '--core')"

@@ -10,7 +10,7 @@ import { setKeyframe } from '../timeline/actions/keyframes';
 import { editorSession } from '../editor.svelte';
 import { addGpuEffect } from '../timeline/actions/effects';
 import { createProject, getProject } from '../workspace-fs/projects';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
 import EffectsPanel from './effects-panel.svelte';
 import '../../../routes/layout.css';

@@ -1,7 +1,7 @@
 <!-- One frame-synced visual layer in the composited editor preview. -->
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
-	import { createLogger } from '$lib/video-editor/workspace-fs/logger';
+	import { createLogger } from '@openpost/editor-shared/workspace';
 	import type { CropSettings, ItemTransform, TimelineItem } from '$lib/video-editor/project/types';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';

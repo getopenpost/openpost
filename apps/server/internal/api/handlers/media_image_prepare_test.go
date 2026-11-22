@@ -18,6 +18,7 @@ import (
 )
 
 func TestOptimizeImageRetainsOriginalAndReusesCopy(t *testing.T) {
+	t.Parallel()
 	storage := mediastore.NewLocalStorage(t.TempDir(), "/media")
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
 	var content bytes.Buffer

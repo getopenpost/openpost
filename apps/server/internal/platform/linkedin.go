@@ -17,6 +17,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 const (
@@ -231,7 +233,7 @@ func (l *LinkedInAdapter) communityManagementProfile(ctx context.Context, access
 	}
 	return &UserProfile{
 		ID:              profile.ID,
-		Username:        firstNonEmptyString(profile.VanityName, profile.FirstName),
+		Username:        textutil.FirstNonEmpty(profile.VanityName, profile.FirstName),
 		DisplayName:     strings.TrimSpace(profile.FirstName + " " + profile.LastName),
 		AvatarURL:       (linkedInOrganizationLogo{OriginalStreams: profile.ProfilePicture.DisplayImage}).avatarURL(),
 		CapabilityState: map[string]string{"linkedin_account_type": "person"},
@@ -272,7 +274,7 @@ func (l *LinkedInAdapter) organizationMetadata(ctx context.Context, accessToken,
 		return nil, fmt.Errorf("linkedin organization is no longer available")
 	}
 	return &UserProfile{
-		ID: accountID, Username: firstNonEmptyString(organization.VanityName, organization.LocalizedName),
+		ID: accountID, Username: textutil.FirstNonEmpty(organization.VanityName, organization.LocalizedName),
 		DisplayName: organization.LocalizedName, AvatarURL: organization.LogoV2.avatarURL(),
 	}, nil
 }
@@ -333,7 +335,7 @@ func (l *LinkedInAdapter) SelectAccount(ctx context.Context, token *TokenResult,
 		authorURN := "urn:li:" + kind + ":" + remoteID
 		return &SelectedAccount{
 			AccountID:        authorURN,
-			AccountUsername:  firstNonEmptyString(option.Username, option.DisplayName),
+			AccountUsername:  textutil.FirstNonEmpty(option.Username, option.DisplayName),
 			AccountAvatarURL: option.AvatarURL,
 			Token:            token,
 			CapabilityState: map[string]string{
@@ -373,7 +375,7 @@ func (l *LinkedInAdapter) administeredOrganizations(ctx context.Context, accessT
 			return nil, fmt.Errorf("decoding linkedin organization access: %w", err)
 		}
 		for _, item := range response.Elements {
-			urn := firstNonEmptyString(item.OrganizationTarget, item.Organization)
+			urn := textutil.FirstNonEmpty(item.OrganizationTarget, item.Organization)
 			if urn == "" {
 				continue
 			}
@@ -412,7 +414,7 @@ func (l *LinkedInAdapter) administeredOrganizations(ctx context.Context, accessT
 		options = append(options, AccountSelectionOption{
 			ID:          "organization:" + id,
 			Username:    org.VanityName,
-			DisplayName: firstNonEmptyString(org.LocalizedName, org.VanityName, id),
+			DisplayName: textutil.FirstNonEmpty(org.LocalizedName, org.VanityName, id),
 			AvatarURL:   org.LogoV2.avatarURL(),
 			Kind:        "Organization Page",
 			Description: "Publish and manage engagement as this LinkedIn Page.",
@@ -472,7 +474,7 @@ func resolveLinkedInOrganizationLogos(ctx context.Context, accessToken string, o
 		if organization.LogoV2.avatarURL() != "" {
 			continue
 		}
-		organization.LogoV2.resolvedURL = linkedInLogoDownloadURL(ctx, accessToken, firstNonEmptyString(organization.LogoV2.Cropped, organization.LogoV2.Original))
+		organization.LogoV2.resolvedURL = linkedInLogoDownloadURL(ctx, accessToken, textutil.FirstNonEmpty(organization.LogoV2.Cropped, organization.LogoV2.Original))
 		organizations.Results[id] = organization
 	}
 }
@@ -837,7 +839,7 @@ func (l *LinkedInAdapter) Unrepost(ctx context.Context, accessToken, _ string, r
 
 //nolint:gocyclo
 func (l *LinkedInAdapter) createPost(ctx context.Context, accessToken, authorURN, apiVersion string, req *PublishRequest) (string, error) {
-	visibility := firstNonEmptyString(settingString(req.Settings, "visibility"), "PUBLIC")
+	visibility := textutil.FirstNonEmpty(settingString(req.Settings, "visibility"), "PUBLIC")
 	if visibility != "PUBLIC" && visibility != "CONNECTIONS" {
 		return "", fmt.Errorf("linkedin visibility %q is not supported", visibility)
 	}
@@ -866,7 +868,7 @@ func (l *LinkedInAdapter) createPost(ctx context.Context, accessToken, authorURN
 		for _, option := range pollOptions {
 			options = append(options, map[string]string{"text": option})
 		}
-		duration := firstNonEmptyString(settingString(req.Settings, "poll_duration"), "ONE_DAY")
+		duration := textutil.FirstNonEmpty(settingString(req.Settings, "poll_duration"), "ONE_DAY")
 		switch duration {
 		case "ONE_WEEK":
 			duration = "SEVEN_DAYS"
@@ -875,7 +877,7 @@ func (l *LinkedInAdapter) createPost(ctx context.Context, accessToken, authorURN
 		}
 		payload["content"] = map[string]interface{}{
 			"poll": map[string]interface{}{
-				"question": firstNonEmptyString(strings.TrimSpace(settingString(req.Settings, "poll_question")), strings.TrimSpace(req.Content)),
+				"question": textutil.FirstNonEmpty(strings.TrimSpace(settingString(req.Settings, "poll_question")), strings.TrimSpace(req.Content)),
 				"options":  options,
 				"settings": map[string]string{"duration": duration},
 			},
@@ -1056,7 +1058,7 @@ func (l *LinkedInAdapter) postComment(ctx context.Context, accessToken, actorURN
 
 	// Later segments reply to this comment, which LinkedIn only accepts as a
 	// comment URN.
-	return firstNonEmptyString(result.CommentURN, result.ID), nil
+	return textutil.FirstNonEmpty(result.CommentURN, result.ID), nil
 }
 
 type linkedinGraphComment struct {
@@ -1076,7 +1078,7 @@ type linkedinGraphComment struct {
 }
 
 func linkedInCommentFromGraph(item linkedinGraphComment, actorURN, parentID string) Comment {
-	id := firstNonEmptyString(item.CommentURN, item.ID)
+	id := textutil.FirstNonEmpty(item.CommentURN, item.ID)
 	isOurs := actorURN != "" && item.Actor == actorURN
 	if parentID == "" {
 		parentID = item.ParentComment
@@ -1169,7 +1171,7 @@ func (l *LinkedInAdapter) ReplyToComment(ctx context.Context, accessToken, accou
 	// Replies stay addressable as comment URNs, the same order ListComments
 	// and postComment use: LinkedIn only accepts a comment URN for nested
 	// targets and comment management.
-	return firstNonEmptyString(result.CommentURN, result.ID), nil
+	return textutil.FirstNonEmpty(result.CommentURN, result.ID), nil
 }
 
 func (l *LinkedInAdapter) HideComment(context.Context, string, string, string) error {
@@ -1422,62 +1424,4 @@ func doRequestWithHeaders(ctx context.Context, method, url string, body io.Reade
 	}
 
 	return resp.Header, nil
-}
-
-func validateLinkedInMedia(media []MediaItem) []MediaValidationIssue {
-	if len(media) == 0 {
-		return nil
-	}
-	if len(media) > 20 {
-		return []MediaValidationIssue{{
-			Provider: providerLinkedIn,
-			Severity: severityError,
-			Message:  "LinkedIn multi-image posts support 2-20 images.",
-		}}
-	}
-	if len(media) > 1 {
-		for _, item := range media {
-			if isLinkedInImageMime(item.MimeType) {
-				continue
-			}
-			return []MediaValidationIssue{{
-				Provider: providerLinkedIn,
-				MediaID:  item.ID,
-				Severity: severityError,
-				Message:  "LinkedIn multi-image posts support JPEG, PNG, or GIF images only.",
-			}}
-		}
-		return nil
-	}
-	item := media[0]
-	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(item.MimeType)), "image/") && !isLinkedInImageMime(item.MimeType) {
-		return []MediaValidationIssue{{
-			Provider: providerLinkedIn,
-			MediaID:  item.ID,
-			Severity: severityError,
-			Message:  "LinkedIn image posts support JPEG, PNG, or GIF images.",
-		}}
-	}
-	if isVideoMime(item.MimeType) && !isLinkedInVideoMime(item.MimeType) {
-		return []MediaValidationIssue{{
-			Provider: providerLinkedIn,
-			MediaID:  item.ID,
-			Severity: severityWarning,
-			Message:  "LinkedIn video publishing is most reliable with MP4 video.",
-		}}
-	}
-	return nil
-}
-
-func isLinkedInImageMime(mimeType string) bool {
-	switch strings.ToLower(strings.TrimSpace(mimeType)) {
-	case "image/jpeg", "image/png", "image/gif":
-		return true
-	default:
-		return false
-	}
-}
-
-func isLinkedInVideoMime(mimeType string) bool {
-	return strings.EqualFold(mimeType, videoTypeMP4)
 }

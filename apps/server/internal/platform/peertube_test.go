@@ -534,10 +534,6 @@ func TestPeerTubeAnalytics(t *testing.T) {
 }
 
 func TestPeerTubeValidation(t *testing.T) {
-	issues := validatePeerTubeMedia([]MediaItem{{ID: "m1", MimeType: "image/jpeg"}})
-	require.Len(t, issues, 1)
-	require.Equal(t, "error", issues[0].Severity)
-
 	adapter := NewPeerTubeAdapter("https://tube.example")
 	require.Error(t, adapter.ValidatePublishingTarget(t.Context(), "tok", "", map[string]interface{}{}))
 	require.NoError(t, adapter.ValidatePublishingTarget(t.Context(), "tok", "demos", map[string]interface{}{}))

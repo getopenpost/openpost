@@ -16,9 +16,6 @@
       "outputs": [],
       "env": ["OPENPOST_CHECK_PREPARED"]
     },
-    "//#_policy": {
-      "outputs": []
-    },
     "lint:oxlint": {
       "outputs": []
     },

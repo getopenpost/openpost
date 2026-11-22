@@ -1,4 +1,4 @@
-import type { AudioBufferLike } from '../audio/audio-silence';
+import type { AudioBufferLike } from '@openpost/editor-shared/audio';
 import { localAiRuntimeRegistry } from '../local-ai/runtime-registry';
 import { decodeAudioRangeForAnalysis } from '../media/silence';
 import type { FillerAudioConfidence, FillerRange, FillerRangesByMediaId } from './speech-cleanup';

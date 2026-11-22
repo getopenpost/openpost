@@ -33,6 +33,7 @@ func (f deciderFunc) Decide(ctx context.Context, request ai.DecisionRequest) (ai
 }
 
 func TestHTTPRequestUsesRotatedScopedSecretWithoutExposingIt(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	connection, err := s.SaveCredential(t.Context(), actor, "ws", WorkflowCredentialRequest{Name: "API", Kind: "bearer", Host: "8.8.8.8", Token: "original-secret-value"})
 	require.NoError(t, err)
@@ -75,6 +76,7 @@ func TestHTTPRequestUsesRotatedScopedSecretWithoutExposingIt(t *testing.T) {
 }
 
 func TestAITextAcceptsGeneralMessages(t *testing.T) {
+	t.Parallel()
 	for _, system := range []string{"", "Reply in Portuguese."} {
 		t.Run(system, func(t *testing.T) {
 			s, actor := workflowTestService(t, nil)
@@ -100,6 +102,7 @@ func TestAITextAcceptsGeneralMessages(t *testing.T) {
 }
 
 func TestAIUsageSurvivesInvalidOutputAndProviderFailureWithoutReplay(t *testing.T) {
+	t.Parallel()
 	for _, providerFailure := range []bool{false, true} {
 		t.Run(fmt.Sprint(providerFailure), func(t *testing.T) {
 			s, actor := workflowTestService(t, nil)
@@ -140,6 +143,7 @@ func TestAIUsageSurvivesInvalidOutputAndProviderFailureWithoutReplay(t *testing.
 }
 
 func TestCreatedPostTriggerExcludesAutomationAndAdmitsOnce(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "wait", Kind: KindWait, Inputs: map[string]Value{"minutes": literal(0)}}})
 	workflow.Definition.Source = Source{Kind: "publication_created"}
@@ -164,6 +168,7 @@ func TestCreatedPostTriggerExcludesAutomationAndAdmitsOnce(t *testing.T) {
 }
 
 func TestBasicCredentialCannotLeakThroughResponseHeaders(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	secret := "username:private-password"
 	encoded := base64.StdEncoding.EncodeToString([]byte(secret))
@@ -194,6 +199,7 @@ func (h afterWorkflowQuery) BeforeQuery(ctx context.Context, _ *bun.QueryEvent) 
 func (h afterWorkflowQuery) AfterQuery(ctx context.Context, event *bun.QueryEvent) { h(ctx, event) }
 
 func TestCancellationAfterCheckpointStopsExternalDispatch(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	calls := 0
 	s.SetAI(generatorFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
@@ -223,6 +229,7 @@ func TestCancellationAfterCheckpointStopsExternalDispatch(t *testing.T) {
 }
 
 func TestFailedPostTriggerKeepsFailureAfterRetry(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "wait", Kind: KindWait, Inputs: map[string]Value{"minutes": literal(0)}}})
 	workflow.Definition.Source = Source{Kind: "rendition_failed"}
@@ -250,6 +257,7 @@ func TestFailedPostTriggerKeepsFailureAfterRetry(t *testing.T) {
 }
 
 func TestSingleNodeTestDispatchesOnlySelectedNodeWithTypedData(t *testing.T) {
+	t.Parallel()
 	nativeCalls := 0
 	s, actor := workflowTestService(t, actionFunc(func(context.Context, EffectRequest) (EffectResult, error) { nativeCalls++; return EffectResult{}, nil }))
 	calls := 0
@@ -280,6 +288,7 @@ func TestSingleNodeTestDispatchesOnlySelectedNodeWithTypedData(t *testing.T) {
 }
 
 func TestAIDecisionRoutesAndRecordsEvidence(t *testing.T) {
+	t.Parallel()
 	for _, probability := range []float64{0.1, 0.9} {
 		t.Run(fmt.Sprint(probability), func(t *testing.T) {
 			s, actor := workflowTestService(t, nil)
@@ -314,6 +323,7 @@ func TestAIDecisionRoutesAndRecordsEvidence(t *testing.T) {
 }
 
 func TestHTTPJSONFailureRetainsSafeDiagnosisWithoutRepeatingRequest(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	secret := "private-test-secret"
 	connection, err := s.SaveCredential(t.Context(), actor, "ws", WorkflowCredentialRequest{Name: "Audit HTTP", Kind: "bearer", Host: "8.8.8.8", Token: secret})

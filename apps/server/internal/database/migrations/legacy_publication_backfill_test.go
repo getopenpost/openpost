@@ -15,6 +15,7 @@ import (
 )
 
 func TestLegacyPublicationBackfillResumesAfterCancellationAndIsIdempotent(t *testing.T) {
+	t.Parallel()
 	db := newMigrationsTestDB(t)
 	ctx := t.Context()
 	createLegacyPublicationTestTables(t, db)
@@ -102,6 +103,7 @@ func TestLegacyPublicationBackfillResumesAfterCancellationAndIsIdempotent(t *tes
 }
 
 func TestCompletedLegacyPublicationBackfillDoesNotReopenForUnrepairableHistory(t *testing.T) {
+	t.Parallel()
 	db := newMigrationsTestDB(t)
 	ctx := t.Context()
 	createLegacyPublicationTestTables(t, db)
@@ -140,6 +142,7 @@ func TestCompletedLegacyPublicationBackfillDoesNotReopenForUnrepairableHistory(t
 }
 
 func TestLegacyPublicationRequestRechecksWorkerClaimInsideTransaction(t *testing.T) {
+	t.Parallel()
 	db := newMigrationsTestDB(t)
 	ctx := t.Context()
 	createLegacyPublicationTestTables(t, db)
@@ -197,6 +200,7 @@ func TestLegacyPublicationRequestRechecksWorkerClaimInsideTransaction(t *testing
 }
 
 func TestLegacyPublicationAuthorizationBackfillRollsBackAndResumesAtomically(t *testing.T) {
+	t.Parallel()
 	db := newMigrationsTestDB(t)
 	ctx := t.Context()
 	createLegacyPublicationTestTables(t, db)

@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/PaddleHQ/paddle-go-sdk/v5"
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/jobregistry"
@@ -884,7 +886,7 @@ func (s *Service) processTransactionEvent(ctx context.Context, eventType, entity
 			}
 		}
 	}
-	customerID := firstNonEmpty(pointerString(transaction.CustomerID), transaction.Customer.ID)
+	customerID := textutil.FirstNonEmpty(pointerString(transaction.CustomerID), transaction.Customer.ID)
 	if customerID == "" && subscription != nil {
 		customerID = subscription.CustomerID
 	}

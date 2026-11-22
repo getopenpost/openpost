@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createBlankProject } from '../project/defaults';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { ProjectFontAsset } from '../project/types';
 import {
 	loadProjectFontAsset,

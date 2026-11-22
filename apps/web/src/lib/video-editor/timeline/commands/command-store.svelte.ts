@@ -9,7 +9,7 @@
  * (v1 has no compositions).
  */
 
-import { createLogger } from '../../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import { captureSnapshot, restoreSnapshot, snapshotsEqual } from './snapshot.svelte';
 import type { CommandEntry, CommandPayloadValue, TimelineCommand, TimelineSnapshot } from './types';

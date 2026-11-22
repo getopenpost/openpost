@@ -40,10 +40,7 @@
 	import { keyframeSelectionStore } from '$lib/video-editor/timeline/stores/keyframe-selection-store.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { effectPropertyLabel } from '$lib/video-editor/effects/effect-keyframes';
-	import {
-		editorDeleteModeForEvent,
-		eventMatchesShortcut
-	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	import { editorDeleteModeForEvent, eventMatchesShortcut } from '@openpost/editor-shared/settings';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import KeyframeContextMenuContent from './keyframe-context-menu-content.svelte';
 	import KeyframeTimingStrip from './keyframe-timing-strip.svelte';

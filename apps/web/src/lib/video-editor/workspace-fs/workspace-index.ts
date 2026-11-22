@@ -7,9 +7,13 @@
  * Ported from FreeCut (MIT).
  */
 
-import { createLogger } from './logger';
-import { INDEX_FILENAME } from './paths';
-import { readJson, writeJsonAtomic, WorkspaceFileCorruptError } from './fs-primitives';
+import { createLogger } from '@openpost/editor-shared/workspace';
+import { INDEX_FILENAME } from '@openpost/editor-shared/workspace';
+import {
+	readJson,
+	writeJsonAtomic,
+	WorkspaceFileCorruptError
+} from '@openpost/editor-shared/workspace';
 
 const INDEX_VERSION = '1.0';
 

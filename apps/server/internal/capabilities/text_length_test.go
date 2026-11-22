@@ -9,6 +9,7 @@ import (
 )
 
 func TestTextLengthBoundariesMatchProviderLimits(t *testing.T) {
+	t.Parallel()
 	longURL := "https://example.com/" + strings.Repeat("a", 80)
 
 	t.Run("X weighted URL boundary", func(t *testing.T) {
@@ -63,6 +64,7 @@ func TestTextLengthBoundariesMatchProviderLimits(t *testing.T) {
 }
 
 func TestTextLengthKeepsOtherProvidersAtCodePoints(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, 3, TextLength(ProviderMastodon, "日本語"))
 	require.Equal(t, 5, TextLength(ProviderMastodon, "cafe\u0301"))
 }

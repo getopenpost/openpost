@@ -2,7 +2,7 @@ import { page } from 'vitest/browser';
 import MotionPresetsPanel from './motion-presets-panel.svelte';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { setCurrentFrame } from '../timeline/actions/items';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { createProject, getProject } from '../workspace-fs/projects';
 import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';

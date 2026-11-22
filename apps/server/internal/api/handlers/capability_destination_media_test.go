@@ -17,6 +17,7 @@ import (
 )
 
 func TestComposerResolvesDestinationMedia(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Workspace)(nil), (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil), (*models.MediaAttachment)(nil))
 	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws", Name: "Test"}).Exec(t.Context())
 	require.NoError(t, err)
@@ -53,6 +54,7 @@ func TestComposerResolvesDestinationMedia(t *testing.T) {
 }
 
 func TestComposerKeepsNativePollSettingsForTextSegmentOfMixedThread(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Workspace)(nil), (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil), (*models.MediaAttachment)(nil))
 	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws", Name: "Test"}).Exec(t.Context())
 	require.NoError(t, err)

@@ -20,6 +20,7 @@ import (
 )
 
 func TestEmailDeliveryWebhookAuthenticatesAndRedactsIdempotentEvidence(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceInvitation)(nil),
 		(*models.WorkspaceInvitationDeliveryEvent)(nil),

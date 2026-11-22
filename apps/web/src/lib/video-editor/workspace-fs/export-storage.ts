@@ -1,4 +1,4 @@
-import { getWorkspaceRoot, requireWorkspaceRoot } from './root';
+import { getWorkspaceRoot, requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 
 // Keep routing for projects opened in this tab, including exports finishing after navigation.
 const cloudWorkspaces = new Map<string, string>();

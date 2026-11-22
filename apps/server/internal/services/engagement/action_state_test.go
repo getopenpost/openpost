@@ -45,6 +45,7 @@ func (moderationTokens) GetValidAccessToken(context.Context, string) (string, er
 }
 
 func TestConfirmedModerationAppearsInDurableInboxFeed(t *testing.T) {
+	t.Parallel()
 	for _, action := range []string{"hide", "delete", "like", "unlike"} {
 		t.Run(action, func(t *testing.T) {
 			s := admissionTestService(t)
@@ -94,6 +95,7 @@ func (p *mentionReplyProvider) ReplyToComment(context.Context, string, string, s
 	return "reply", nil
 }
 func TestQueuedMentionReplyHonorsRoleRevocationBeforeSend(t *testing.T) {
+	t.Parallel()
 	s := admissionTestService(t)
 	s.tokenSource = moderationTokens{}
 	provider := &mentionReplyProvider{}

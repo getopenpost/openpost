@@ -11,6 +11,7 @@ import (
 )
 
 func TestOverviewInsightsUseLatestStoredSnapshotsAcrossTheFullFilteredPopulation(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		t.Run(backend, func(t *testing.T) {
 			db := analyticsSnapshotTestDB(t, backend,
@@ -82,6 +83,7 @@ func TestOverviewInsightsUseLatestStoredSnapshotsAcrossTheFullFilteredPopulation
 }
 
 func TestOverviewTrendBaselinePrecedesTheRangeBoundary(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		t.Run(backend, func(t *testing.T) {
 			for _, baseline := range []struct {

@@ -10,14 +10,17 @@ import (
 )
 
 func TestAccountActivityUpgradePreservesCommentsAndReceipts(t *testing.T) {
+	t.Parallel()
 	exerciseAccountActivityUpgrade(t, newMigrationsTestDB(t))
 }
 
 func TestAccountActivityUpgradePreservesCommentsAndReceiptsPostgres(t *testing.T) {
+	t.Parallel()
 	exerciseAccountActivityUpgrade(t, newPostgresMigrationTestDB(t))
 }
 
 func TestAccountActivityUpgradePreservesUnrelatedForeignKeyViolations(t *testing.T) {
+	t.Parallel()
 	db := newMigrationsTestDB(t)
 	migrateBeforeAccountActivity(t, db)
 	for _, statement := range []string{
@@ -41,6 +44,7 @@ func TestAccountActivityUpgradePreservesUnrelatedForeignKeyViolations(t *testing
 }
 
 func TestAccountActivityUpgradeRejectsBrokenEngagementForeignKeys(t *testing.T) {
+	t.Parallel()
 	for _, fixture := range []struct{ name, statement string }{
 		{"outgoing", `INSERT INTO engagement_items(id,rendition_id) VALUES('item','missing-rendition')`},
 		{"incoming", `INSERT INTO activity_receipts(item_id) VALUES('missing-item')`},

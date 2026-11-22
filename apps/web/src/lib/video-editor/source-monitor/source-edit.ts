@@ -1,4 +1,4 @@
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { TimelineItem, TimelineItemKind, TimelineTrack } from '../project/types';
 import { editorSession } from '../editor.svelte';
 import { sequenceStore } from '../sequences/sequence-store.svelte';

@@ -11,13 +11,11 @@ vi.mock('$lib/video/cover-frame', async (importOriginal) => ({
 	captureVideoFrame: vi.fn()
 }));
 
-// Use a real decodable source while keeping media discovery out of this lifecycle test.
+// Keep media URLs inert so headless Chromium does not block on external MP4 decoding.
 // oxlint-disable-next-line anti-slop/no-module-mocking
-vi.mock('$lib/media-url', async () => {
-	const { default: source } =
-		await import('../../../../../tests/app/fixtures/product-screenshots/study-sos-demo.mp4?url');
-	return { getAuthenticatedMediaByID: () => source };
-});
+vi.mock('$lib/media-url', () => ({
+	getAuthenticatedMediaByID: () => undefined
+}));
 
 it.each(['Edit this frame', 'Use this frame'])(
 	'does not finish %s after the picker closes during capture',
@@ -33,6 +31,15 @@ it.each(['Edit this frame', 'Use this frame'])(
 			onEditFrame,
 			onFileChange
 		});
+		const previewVideo = screen.container.querySelector('video:not([hidden])');
+		expect(previewVideo).toBeInstanceOf(HTMLVideoElement);
+		if (!(previewVideo instanceof HTMLVideoElement)) {
+			throw new Error('Expected visible preview video');
+		}
+		Object.defineProperty(previewVideo, 'duration', { value: 10, configurable: true });
+		previewVideo.dispatchEvent(new Event('loadedmetadata'));
+		await tick();
+
 		await screen.getByRole('button', { name: action, exact: true }).click();
 		await screen.unmount();
 		capture.resolve(new Blob(['frame'], { type: 'image/jpeg' }));

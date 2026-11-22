@@ -18,7 +18,7 @@ import {
 } from '../typography/caption-style-presets';
 import { buildCuesFromWords, type TranscriptWord } from './cues';
 import { BrowserTranscriber } from './engine/transcriber';
-import type { TranscribeOptions } from './engine/types';
+import type { TranscribeOptions } from '@openpost/editor-shared/transcript';
 import { isTrackEffectivelyLocked } from '../timeline/utils/track-groups';
 import { ensureOpenTrackForRange } from '../timeline/actions/track-placement';
 

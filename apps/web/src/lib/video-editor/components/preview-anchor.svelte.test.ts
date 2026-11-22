@@ -9,7 +9,7 @@ import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { setCurrentFrame } from '../timeline/actions/items';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { createProject, getProject } from '../workspace-fs/projects';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import '../../../routes/layout.css';
 
 // Downsampling rotated white glyphs can leave only antialiased gray pixels.

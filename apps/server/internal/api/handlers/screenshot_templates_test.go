@@ -153,6 +153,7 @@ func TestScreenshotTemplateRejectsInvalidConversation(t *testing.T) {
 }
 
 func TestScreenshotTemplateImageFieldsRoundTrip(t *testing.T) {
+	t.Parallel()
 	srv := newScreenshotTestServer(t)
 	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{ID: "photo", WorkspaceID: "workspace-1", MimeType: "image/png", ProcessingStatus: "ready"}).Exec(t.Context())
 	require.NoError(t, err)
@@ -178,6 +179,7 @@ func TestScreenshotTemplateImageFieldsRoundTrip(t *testing.T) {
 }
 
 func TestScreenshotTemplateRejectsUnavailableImages(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		name, workspace, mime, status string
 		assetKind                     string

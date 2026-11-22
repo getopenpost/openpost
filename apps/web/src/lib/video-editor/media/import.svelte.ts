@@ -9,18 +9,22 @@
  * Adapted from FreeCut (MIT) media-library import, trimmed to v1.
  */
 
-import { createLogger } from '../workspace-fs/logger';
-import { requireWorkspaceRoot } from '../workspace-fs/root';
-import { writeBlob, writeJsonAtomic } from '../workspace-fs/fs-primitives';
+import { createLogger } from '@openpost/editor-shared/workspace';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
+import { writeBlob, writeJsonAtomic } from '@openpost/editor-shared/workspace';
 import {
 	mediaMetadataPath,
 	mediaSourceByFileName,
 	mediaThumbnailPath,
 	sanitizeWorkspaceFileName
-} from '../workspace-fs/paths';
+} from '@openpost/editor-shared/workspace';
 import { associateMediaWithProject, removeMediaFromProject } from '../workspace-fs/project-media';
 import { createMedia, deleteMedia } from '../workspace-fs/media';
-import type { MediaAttribution, MediaMetadata, ProjectAssetImporter } from './types';
+import type {
+	MediaAttribution,
+	MediaMetadata,
+	ProjectAssetImporter
+} from '@openpost/editor-shared/media';
 import { probeMediaFile } from './probe-client';
 import { mediaPool } from './pool.svelte';
 import { reconcileSystemAudioWithProbe } from './recording-capture-schema';
@@ -80,14 +84,14 @@ export interface GeneratedAudioImportOptions {
 	projectId: string;
 	duration: number;
 	tags?: string[];
-	capture?: import('./types').RecordingCaptureMetadata;
+	capture?: import('@openpost/editor-shared/media').RecordingCaptureMetadata;
 	importAsset?: ProjectAssetImporter;
 }
 
 export interface GeneratedVideoImportOptions {
 	projectId: string;
 	tags?: string[];
-	capture?: import('./types').RecordingCaptureMetadata;
+	capture?: import('@openpost/editor-shared/media').RecordingCaptureMetadata;
 	importAsset?: ProjectAssetImporter;
 }
 

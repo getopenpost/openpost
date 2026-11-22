@@ -1,5 +1,4 @@
-import type { TextRasterContext } from '../media/text-raster';
-import type { TimerSettings, timerValue } from './timer';
+import type { TextRasterContext, TimerSettings, timerValue } from './timer';
 
 type TimerValue = ReturnType<typeof timerValue>;
 const TAU = Math.PI * 2;

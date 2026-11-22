@@ -11,7 +11,7 @@
 
 import { mediaPool } from '../media/pool.svelte';
 import { mediaTaskId, mediaTasks } from '../media/media-tasks.svelte';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { TimelineItem } from '../project/types';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { m } from '$lib/paraglide/messages';
@@ -32,9 +32,9 @@ import { sequenceStore } from '../sequences/sequence-store.svelte';
 import type { SceneAnalysis } from '../media/scene-search/types';
 
 export interface AiCaptionServiceDependencies {
-	isAnalyzable: (media: import('../media/types').MediaMetadata) => boolean;
+	isAnalyzable: (media: import('@openpost/editor-shared/media').MediaMetadata) => boolean;
 	analyzeScenes: (
-		media: import('../media/types').MediaMetadata,
+		media: import('@openpost/editor-shared/media').MediaMetadata,
 		options: {
 			signal?: AbortSignal;
 			onProgress?: (progress: {

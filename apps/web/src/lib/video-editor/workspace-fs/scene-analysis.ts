@@ -1,6 +1,6 @@
 /** Scene Browser analysis persistence. Ported from FreeCut (MIT). */
 
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { MediaScene, SceneAnalysis } from '../media/scene-search/types';
 import {
 	readArrayBuffer,
@@ -9,8 +9,8 @@ import {
 	removeEntry,
 	writeBlob,
 	writeJsonAtomic
-} from './fs-primitives';
-import { createLogger } from './logger';
+} from '@openpost/editor-shared/workspace';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import {
 	sceneAnalysisPath,
 	sceneImageEmbeddingsPath,
@@ -18,7 +18,7 @@ import {
 	sceneThumbPath,
 	sceneThumbRelPath,
 	sceneThumbsDir
-} from './paths';
+} from '@openpost/editor-shared/workspace';
 import { getOpfsCacheRoot } from '../media/opfs-cache';
 
 const logger = createLogger('WorkspaceFS:SceneAnalysis');

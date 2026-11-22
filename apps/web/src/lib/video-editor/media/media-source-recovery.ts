@@ -1,12 +1,12 @@
 import { isLottieFile, parseLottieFileBytes } from '../lottie/metadata';
-import { readBlob, removeEntry, writeBlob } from '../workspace-fs/fs-primitives';
+import { readBlob, removeEntry, writeBlob } from '@openpost/editor-shared/workspace';
 import {
 	updateMedia,
 	validateMediaHandle,
 	type MediaHandleValidation
 } from '../workspace-fs/media';
-import { mediaSourceByFileName, mediaThumbnailPath } from '../workspace-fs/paths';
-import { requireWorkspaceRoot } from '../workspace-fs/root';
+import { mediaSourceByFileName, mediaThumbnailPath } from '@openpost/editor-shared/workspace';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { filmstripCache } from './filmstrip-client';
 import { prepareMediaImportFile } from './media-file-types';
 import { mediaLibraryKind } from './library-view';
@@ -15,7 +15,7 @@ import type { MediaSourceIssue } from './media-recovery';
 import { mediaPool } from './pool.svelte';
 import { probeMediaFile } from './probe-client';
 import { clearProxyCache } from './proxy-client';
-import type { MediaMetadata, VideoFrameRateMetrics } from './types';
+import type { MediaMetadata, VideoFrameRateMetrics } from '@openpost/editor-shared/media';
 import { clearWaveformCache } from './waveform-client';
 
 interface ReplacementProbe {

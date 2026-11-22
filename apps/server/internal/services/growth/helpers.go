@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 )
@@ -47,11 +49,7 @@ func parseURL(raw string) (*url.URL, error) {
 }
 
 func boundedText(s string, limit int) string {
-	s = strings.TrimSpace(s)
-	if len([]rune(s)) <= limit {
-		return s
-	}
-	return string([]rune(s)[:limit])
+	return textutil.TruncateRunes(s, limit)
 }
 
 func classifyGrowthError(err error) (status, code, message string) {
@@ -63,13 +61,13 @@ func classifyGrowthError(err error) (status, code, message string) {
 		code = strings.TrimSpace(httpErr.Code)
 		switch {
 		case httpErr.StatusCode == 401 || httpErr.StatusCode == 403:
-			return models.GrowthSyncStatusPermissionRequired, firstNonEmpty(code, "permission"), "Reconnect this account to continue discovery."
+			return models.GrowthSyncStatusPermissionRequired, textutil.FirstNonEmpty(code, "permission"), "Reconnect this account to continue discovery."
 		case httpErr.StatusCode == 429:
-			return models.GrowthSyncStatusRateLimited, firstNonEmpty(code, "rate_limited"), "The provider is rate limiting. OpenPost will retry."
+			return models.GrowthSyncStatusRateLimited, textutil.FirstNonEmpty(code, "rate_limited"), "The provider is rate limiting. OpenPost will retry."
 		case httpErr.StatusCode >= 500:
-			return models.GrowthSyncStatusTemporarilyUnavailable, firstNonEmpty(code, "provider_server"), "The provider is temporarily unavailable."
+			return models.GrowthSyncStatusTemporarilyUnavailable, textutil.FirstNonEmpty(code, "provider_server"), "The provider is temporarily unavailable."
 		default:
-			return models.GrowthSyncStatusFailed, firstNonEmpty(code, "provider_error"), "Discovery failed."
+			return models.GrowthSyncStatusFailed, textutil.FirstNonEmpty(code, "provider_error"), "Discovery failed."
 		}
 	}
 	lower := strings.ToLower(err.Error())
@@ -80,15 +78,6 @@ func classifyGrowthError(err error) (status, code, message string) {
 		return models.GrowthSyncStatusRateLimited, "rate_limited", "The provider is rate limiting."
 	}
 	return models.GrowthSyncStatusTemporarilyUnavailable, "unknown", "OpenPost could not reach the provider."
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return strings.TrimSpace(v)
-		}
-	}
-	return ""
 }
 
 func providerKeyForAccount(account models.SocialAccount) string {

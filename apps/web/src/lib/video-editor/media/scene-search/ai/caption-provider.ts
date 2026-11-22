@@ -1,6 +1,6 @@
 /** Singleton local scene-caption provider. Ported from FreeCut (MIT). */
 
-import { createLogger } from '../../../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import type { SceneCaptionData } from '../types';
 import { addAbortableWorkerMessageListener } from './worker-message-listener';
 import { localAiRuntimeRegistry } from '../../../local-ai/runtime-registry';

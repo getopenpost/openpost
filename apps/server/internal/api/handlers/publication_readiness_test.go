@@ -49,8 +49,12 @@ func TestProviderReadinessCertificationIntentRequiresUnscopedInstanceAdmin(t *te
 func TestInsertPublicationJobCarriesCertificationIntentToTheWorker(t *testing.T) {
 	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Job)(nil))
+	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws-1", Name: "Test Workspace"}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Publication{ID: "publication-1", WorkspaceID: "ws-1", Status: models.PublicationStatusScheduled}).Exec(t.Context())
+	require.NoError(t, err)
 	var jobID string
-	err := db.RunInTx(t.Context(), nil, func(ctx context.Context, tx bun.Tx) error {
+	err = db.RunInTx(t.Context(), nil, func(ctx context.Context, tx bun.Tx) error {
 		var insertErr error
 		jobID, insertErr = insertPublicationJobTx(
 			ctx,
@@ -88,6 +92,7 @@ func TestPublicationSchedulingFailsClosedWithoutReadinessService(t *testing.T) {
 }
 
 func TestPublicationSchedulingRechecksReadinessAfterPreTransactionMutation(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(
 		t,
 		(*models.Publication)(nil),

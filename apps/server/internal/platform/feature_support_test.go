@@ -7,6 +7,7 @@ import (
 )
 
 func TestSupportsAnalyticsLinkedInCommunityManagementParsing(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		capState string
@@ -41,6 +42,7 @@ func TestSupportsAnalyticsLinkedInCommunityManagementParsing(t *testing.T) {
 // analytics support, but the backfill seed stays false until the provider
 // readiness gate passes. Adapter capability alone must never enable it.
 func TestFeatureSupportPinterestCapabilityIsNotAvailability(t *testing.T) {
+	t.Parallel()
 	support := NewPinterestAdapter("id", "secret", "https://app.test/callback").AnalyticsSupport()
 	if !support.Account || !support.Content {
 		t.Fatalf("expected the Pinterest adapter to declare analytics, got %+v", support)
@@ -60,6 +62,7 @@ func TestFeatureSupportPinterestCapabilityIsNotAvailability(t *testing.T) {
 // runtime scope checks own degraded installations. The Discord webhook adapter
 // declares no analytics while the bot adapter does.
 func TestFeatureSupportConditionalCapabilities(t *testing.T) {
+	t.Parallel()
 	tiktokApp := AppConfig{Provider: "tiktok", ClientID: "conformance"}
 
 	adapters, _, err := BuildAdapterRegistry([]AppConfig{tiktokApp}, RegistryOptions{})
@@ -182,6 +185,7 @@ func conformanceApps() []AppConfig {
 // declares. Adding a provider to appBuilders without updating the table fails
 // here instead of silently seeding the wrong backfill default.
 func TestFeatureSupportTableCoversRegisteredAdapters(t *testing.T) {
+	t.Parallel()
 	// Full installation capabilities: TikTok keeps the Display API scopes and
 	// LinkedIn keeps Community Management API access, matching the
 	// adapterAnalytics column documented in providerFeatureTable.

@@ -22,14 +22,6 @@ import (
 	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
-func InitDB(dsn string) (*bun.DB, error) {
-	return initSQLiteDB(dsn)
-}
-
-func InitDBWithDriver(driver, dsn string) (*bun.DB, error) {
-	return InitDBWithDriverAndRole(driver, dsn, "all")
-}
-
 func InitDBWithDriverAndRole(driver, dsn, role string) (*bun.DB, error) {
 	switch strings.ToLower(strings.TrimSpace(driver)) {
 	case "", "sqlite":

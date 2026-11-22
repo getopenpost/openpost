@@ -237,3 +237,24 @@ func testPublicationEventsPaginatesSafeActorAttributedHistory(t *testing.T, db *
 	require.Equal(t, "Alex", secondPage[0].Actor.Name)
 	require.Equal(t, []string{"content", "schedule"}, secondPage[0].ChangedDomains)
 }
+
+func TestListPublicationEventsPostgres(t *testing.T) {
+	db := createHandlerPostgresTestDB(t,
+		(*models.User)(nil), (*models.Workspace)(nil), (*models.WorkspaceMember)(nil),
+		(*models.Publication)(nil), (*models.Rendition)(nil),
+		(*models.PublicationLifecycleEvent)(nil), (*models.PublicationAuthorization)(nil),
+		(*models.DraftRevisionChange)(nil),
+		(*models.ExternalWebhookSubscription)(nil), (*models.ProviderDelivery)(nil),
+		(*models.SocialAccount)(nil),
+	)
+	testPublicationEventsPaginatesSafeActorAttributedHistory(t, db)
+}
+
+func TestTimestampIDCursorRejectsMalformedValues(t *testing.T) {
+	t.Parallel()
+
+	for _, value := range []string{"", "not-a-time|id", "2026-08-09T12:00:00Z|"} {
+		_, err := parseTimestampIDCursor(value)
+		require.ErrorIs(t, err, errInvalidHistoryCursor)
+	}
+}

@@ -15,7 +15,7 @@
 		TRANSITION_DRAG_MIME
 	} from '../timeline/transition-drop';
 	import type { LibraryEntry } from '../library/types';
-	import type { ProjectAssetImporter } from '../media/types';
+	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 	import {
 		clearGeneratedItemDragData,
 		writeGeneratedItemDragData

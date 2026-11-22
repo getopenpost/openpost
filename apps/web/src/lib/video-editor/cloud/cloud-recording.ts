@@ -3,7 +3,7 @@ import { uploadMediaFile } from '$lib/media-upload-client';
 import type { CaptureArtifact, RecorderKind } from '../recorder/recorder.svelte';
 import type { RecordingImportRuntime } from '../recorder/insert-recording';
 import { mediaPool } from '../media/pool.svelte';
-import { hashBlob } from '../project-bundle/bundle-utils';
+import { hashBlob } from '@openpost/editor-shared/project-bundle';
 import { probeMediaFile } from '../media/probe-client';
 import { importCloudProjectAssetFile } from './import-project-assets';
 import { CloudVideoProjectRepository } from './project-repository';

@@ -251,6 +251,7 @@ func (q *synchronizedMediaQuota) Check(ctx context.Context, req entitlements.Req
 	return decision, err
 }
 func TestUploadMediaConcurrentAdmissionHonorsByteLimits(t *testing.T) {
+	t.Parallel()
 	for _, limit := range []entitlements.LimitKey{entitlements.LimitMediaBytesStored, entitlements.LimitMediaBytesUploadedMonthly} {
 		t.Run(string(limit), func(t *testing.T) {
 			quota := &synchronizedMediaQuota{Service: entitlements.NewStaticService(entitlements.PlanSnapshot{Limits: map[entitlements.LimitKey]int64{limit: 4}}), arrived: make(chan struct{}, 2), release: make(chan struct{})}
@@ -305,6 +306,7 @@ func (r *repeatedUploadBytes) Read(p []byte) (int, error) {
 	return n, nil
 }
 func TestLegacyUploadRejectsOverAllowanceBeforeSpoolingFullBody(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name                 string
 		declared, authorized bool

@@ -20,11 +20,13 @@ import (
 )
 
 func TestPublicationPathIDDecodesLegacyPublicationIDs(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, "legacy-publication:post-1", publicationPathID("legacy-publication%3Apost-1"))
 	require.Equal(t, "publication-1", publicationPathID("publication-1"))
 }
 
 func TestInsertRenditionsPersistsIndependentTargetsForOneAccount(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.Rendition)(nil),
 		(*models.RenditionSegment)(nil),
@@ -95,6 +97,7 @@ func TestInsertRenditionsPersistsIndependentTargetsForOneAccount(t *testing.T) {
 }
 
 func TestRetryFailedPublicationRenditionsQueuesOnlyRetryableFailures(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Publication)(nil),
@@ -243,6 +246,7 @@ func TestRetryFailedPublicationRenditionsQueuesOnlyRetryableFailures(t *testing.
 }
 
 func TestUpsertPublicationRenditionsPreservesOmittedRenditionsUntilExplicitDelete(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.SocialAccount)(nil),
@@ -444,6 +448,7 @@ func TestUpsertPublicationRenditionsPreservesOmittedRenditionsUntilExplicitDelet
 }
 
 func TestInsertRenditionsResolvesStaleLinkedInTextProfileAfterMediaIsAdded(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.SocialAccount)(nil),
 		(*models.Publication)(nil),
@@ -542,6 +547,7 @@ func TestInsertRenditionsResolvesStaleLinkedInTextProfileAfterMediaIsAdded(t *te
 }
 
 func TestPublicationMediaAltTextPersistsForCanonicalAndRenditionOverrides(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.Publication)(nil),
 		(*models.PublicationSegment)(nil),
@@ -611,6 +617,7 @@ func TestPublicationMediaAltTextPersistsForCanonicalAndRenditionOverrides(t *tes
 }
 
 func TestReplacePublicationSegmentsKeepsDestinationOverridesForStableSegmentIDs(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.Publication)(nil),
 		(*models.PublicationSegment)(nil),
@@ -694,6 +701,7 @@ func TestReplacePublicationSegmentsKeepsDestinationOverridesForStableSegmentIDs(
 }
 
 func TestRetryPublicationRenditionQueuesOnlySafeTransientFailures(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Publication)(nil),
@@ -804,6 +812,7 @@ func TestRetryPublicationRenditionQueuesOnlySafeTransientFailures(t *testing.T) 
 }
 
 func TestRetryPublicationRenditionPreservesAcceptedWriteIdentityUntilExactTargetIsPublished(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name             string
 		acceptedSubject  string

@@ -18,6 +18,7 @@ import (
 )
 
 func TestPasskeyLoginAttemptLimit(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.User)(nil), (*models.AuthChallenge)(nil), (*models.UserPasskey)(nil))
 	user := &models.User{ID: "u", Email: "u@example.com", PasswordHash: "unused", CreatedAt: time.Now().UTC()}
 	_, err := db.NewInsert().Model(user).Exec(t.Context())
@@ -41,6 +42,7 @@ func TestPasskeyLoginAttemptLimit(t *testing.T) {
 }
 
 func TestBrowserAuthResponseHasOnlyCookie(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.User)(nil))
 	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
 	user := &models.User{ID: "u", Email: "u@example.com", PasswordHash: "unused", CreatedAt: time.Now().UTC()}
@@ -57,6 +59,7 @@ func TestBrowserAuthResponseHasOnlyCookie(t *testing.T) {
 }
 
 func TestPasskeyBeginRetryKeepsSameCeremony(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.User)(nil), (*models.AuthChallenge)(nil), (*models.UserPasskey)(nil))
 	user := &models.User{ID: "u", Email: "u@example.com", PasswordHash: "unused", CreatedAt: time.Now().UTC()}
 	_, err := db.NewInsert().Model(user).Exec(t.Context())

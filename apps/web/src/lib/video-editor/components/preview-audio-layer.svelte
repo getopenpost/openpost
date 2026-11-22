@@ -52,7 +52,7 @@
 	import { prepareAudioBufferForSoundTouchPreview } from '$lib/video-editor/audio/soundtouch-preview-buffer';
 	import type { ResolvedAudioEqSettings } from '$lib/video-editor/audio/types';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
-	import { isAc3AudioCodec } from '$lib/video-editor/media/ac3-decoder';
+	import { isAc3AudioCodec } from '@openpost/editor-shared/media';
 	import {
 		getShuttleMediaPlaybackRate,
 		isReverseShuttleRate

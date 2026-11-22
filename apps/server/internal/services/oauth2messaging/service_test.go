@@ -24,6 +24,7 @@ import (
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/usage"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -48,7 +49,7 @@ func testService(t *testing.T) *Service {
 func messagingTestDB(t *testing.T) *bun.DB {
 	t.Helper()
 	if dsn := os.Getenv("OPENPOST_TEST_POSTGRES_URL"); dsn != "" {
-		db, err := database.InitDBWithDriver("postgres", dsn)
+		db, err := testdb.OpenWithDriver("postgres", dsn)
 		require.NoError(t, err)
 		db.SetMaxOpenConns(1)
 		schema := "x_messaging_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")

@@ -12,9 +12,9 @@ import { captureTelemetryEvent } from '@openpost/telemetry';
 import type { Project } from '../project/types';
 import { migrateProjectDocument } from '../project/defaults';
 import { ensureProjectUpgradeBackup as ensureProjectUpgradeBackupTransaction } from '../project/project-upgrade';
-import { createLogger } from './logger';
-import { deleteHandle, getHandle, saveHandle } from './handles-db';
-import { requireWorkspaceRoot } from './root';
+import { createLogger } from '@openpost/editor-shared/workspace';
+import { deleteHandle, getHandle, saveHandle } from '@openpost/editor-shared/workspace';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import {
 	exists,
 	listDirectory,
@@ -24,7 +24,7 @@ import {
 	writeBlob,
 	writeJsonAtomic,
 	WorkspaceFileCorruptError
-} from './fs-primitives';
+} from '@openpost/editor-shared/workspace';
 import {
 	PROJECTS_DIR,
 	projectDir,
@@ -32,14 +32,14 @@ import {
 	projectMediaLinksPath,
 	projectThumbnailPath,
 	projectTrashedMarkerPath
-} from './paths';
+} from '@openpost/editor-shared/workspace';
 import {
 	readWorkspaceIndex,
 	sortIndexEntries,
 	writeWorkspaceIndex,
 	type WorkspaceIndexEntry
 } from './workspace-index';
-import { withKeyLock } from './with-key-lock';
+import { withKeyLock } from '@openpost/editor-shared/workspace';
 
 /**
  * Single key for every `index.json` mutation — serializes concurrent creates

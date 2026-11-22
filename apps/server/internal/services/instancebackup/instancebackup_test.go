@@ -13,6 +13,7 @@ import (
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/database/migrations"
 	"github.com/openpost/backend/internal/services/instancebackup"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/uptrace/bun"
 )
 
@@ -29,7 +30,7 @@ func newFixture(t *testing.T) fixture {
 		DatabaseFile: filepath.Join(root, "db", "openpost.db"),
 		MediaDir:     filepath.Join(root, "media"),
 	}
-	db, err := database.InitDB("file:" + filepath.ToSlash(paths.DatabaseFile) + "?mode=rwc")
+	db, err := testdb.Open("file:" + filepath.ToSlash(paths.DatabaseFile) + "?mode=rwc")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +138,7 @@ func TestBackupRoundTripRestoresDatabaseAndMedia(t *testing.T) {
 				t.Fatalf("applied = %v, err = %v", applied, err)
 			}
 
-			restored, err := database.InitDB("file:" + filepath.ToSlash(f.paths.DatabaseFile) + "?mode=rwc")
+			restored, err := testdb.Open("file:" + filepath.ToSlash(f.paths.DatabaseFile) + "?mode=rwc")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -330,7 +331,7 @@ func TestFailedInstallRecoversCurrentDatabaseAndMedia(t *testing.T) {
 	if applied, err := instancebackup.ApplyPending(f.paths, f.current, time.Now()); err == nil || applied {
 		t.Fatalf("applied = %v, err = %v", applied, err)
 	}
-	db, err := database.InitDB("file:" + filepath.ToSlash(f.paths.DatabaseFile) + "?mode=rwc")
+	db, err := testdb.Open("file:" + filepath.ToSlash(f.paths.DatabaseFile) + "?mode=rwc")
 	if err != nil {
 		t.Fatal(err)
 	}

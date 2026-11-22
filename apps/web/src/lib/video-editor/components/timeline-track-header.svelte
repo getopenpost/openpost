@@ -11,10 +11,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import type { TimelineTrack } from '$lib/video-editor/project/types';
-	import {
-		eventMatchesShortcut,
-		formatShortcutAriaKey
-	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	import { eventMatchesShortcut, formatShortcutAriaKey } from '@openpost/editor-shared/settings';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 
 	let {

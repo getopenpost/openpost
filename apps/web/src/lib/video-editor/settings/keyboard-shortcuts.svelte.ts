@@ -6,7 +6,7 @@ import {
 	type EditorShortcutBindingMap,
 	type EditorShortcutId,
 	type EditorShortcutOverrideMap
-} from './keyboard-shortcuts';
+} from '@openpost/editor-shared/settings';
 
 const STORAGE_KEY = 'openpost-video-editor-shortcuts-v1';
 

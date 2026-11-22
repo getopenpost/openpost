@@ -16,7 +16,7 @@ import {
 	readDirectoryFiles,
 	removeEntry,
 	writeBlob
-} from './fs-primitives';
+} from '@openpost/editor-shared/workspace';
 import {
 	EXPORTS_DIR,
 	PROJECTS_DIR,
@@ -24,7 +24,7 @@ import {
 	projectExportFilePath,
 	projectExportsDir,
 	sanitizeWorkspaceFileName
-} from './paths';
+} from '@openpost/editor-shared/workspace';
 
 export interface SavedExport {
 	/** The on-disk filename actually used (after de-duplication). */

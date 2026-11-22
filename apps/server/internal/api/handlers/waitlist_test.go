@@ -20,6 +20,7 @@ import (
 )
 
 func TestHostedWaitlistPersistsOnceAndRetriesDiscordWithoutCreatingAnAccount(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	db := newHandlerSchemaTestDB(t)
 	var attempts atomic.Int32

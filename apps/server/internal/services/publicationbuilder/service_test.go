@@ -24,6 +24,7 @@ func (generate generationFunc) Generate(ctx context.Context, request ai.Generate
 }
 
 func TestAnglePlanningUsesSharedContextAndRepairsInvalidOutput(t *testing.T) {
+	t.Parallel()
 	calls := 0
 	service, err := New(generationFunc(func(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
 		calls++
@@ -60,6 +61,7 @@ func TestAnglePlanningUsesSharedContextAndRepairsInvalidOutput(t *testing.T) {
 }
 
 func TestBuildDoesNotRepairProviderFailure(t *testing.T) {
+	t.Parallel()
 	calls := 0
 	failure := &ai.ProviderError{Provider: "synthetic", StatusCode: 503}
 	service, err := New(generationFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {

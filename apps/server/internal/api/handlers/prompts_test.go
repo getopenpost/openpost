@@ -10,6 +10,7 @@ import (
 )
 
 func TestSeedBuiltInPromptsIsConcurrentAndRestartSafe(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Prompt)(nil))
 	handler := NewPromptHandler(db, testAuthenticator{})
 

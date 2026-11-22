@@ -19,6 +19,7 @@ import (
 )
 
 func TestInstanceAdministratorCanEditAndRestorePostGenerationPrompts(t *testing.T) {
+	t.Parallel()
 	e := newAIPromptTestServer(t, true, browserSessionTestAuthenticator())
 
 	listed := requestAIPrompts(t, e, http.MethodGet, "/api/v1/admin/ai-prompts", nil)
@@ -45,6 +46,7 @@ func TestInstanceAdministratorCanEditAndRestorePostGenerationPrompts(t *testing.
 }
 
 func TestInstanceAIPromptsRequireAdministratorBrowserSession(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		isAdmin       bool

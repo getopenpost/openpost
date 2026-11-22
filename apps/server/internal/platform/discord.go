@@ -13,11 +13,15 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 var discordWebhookPath = regexp.MustCompile(`^/api(?:/v[0-9]+)?/webhooks/([0-9]+)/([A-Za-z0-9._-]+)$`)
 
-type DiscordAdapter struct{}
+type DiscordAdapter struct {
+	BaseAdapter
+}
 
 func NewDiscordAdapter() *DiscordAdapter {
 	return &DiscordAdapter{}
@@ -31,16 +35,8 @@ func (*DiscordAdapter) AuthorizationGrantDescriptor() AuthorizationGrantDescript
 	}
 }
 
-func (d *DiscordAdapter) GenerateAuthURL(string) (string, map[string]string) {
-	return "", nil
-}
-
 func (d *DiscordAdapter) ExchangeCode(context.Context, string, map[string]string) (*TokenResult, error) {
 	return nil, fmt.Errorf("discord webhooks use a webhook URL, not OAuth")
-}
-
-func (d *DiscordAdapter) RefreshCapability() RefreshCapability {
-	return RefreshCapability{Supported: false, CredentialSource: RefreshCredentialNone}
 }
 
 func (d *DiscordAdapter) RefreshToken(context.Context, RefreshTokenInput) (*TokenResult, error) {
@@ -73,8 +69,8 @@ func (d *DiscordAdapter) GetProfile(ctx context.Context, webhookURL string) (*Us
 	if err := json.Unmarshal(body, &webhook); err != nil {
 		return nil, fmt.Errorf("decoding discord webhook: %w", err)
 	}
-	id := firstNonEmptyString(webhook.ID, webhookID)
-	username := firstNonEmptyString(webhook.Name, webhook.Channel.Name, "Discord webhook")
+	id := textutil.FirstNonEmpty(webhook.ID, webhookID)
+	username := textutil.FirstNonEmpty(webhook.Name, webhook.Channel.Name, "Discord webhook")
 	displayName := username
 	if webhook.Guild.Name != "" && webhook.Channel.Name != "" {
 		displayName = webhook.Guild.Name + " · #" + webhook.Channel.Name
@@ -93,7 +89,7 @@ func (d *DiscordAdapter) GetProfile(ctx context.Context, webhookURL string) (*Us
 		DisplayName: displayName,
 		AvatarURL:   avatarURL,
 		CapabilityState: map[string]string{
-			"discord_guild_id":   firstNonEmptyString(webhook.GuildID, webhook.Guild.ID),
+			"discord_guild_id":   textutil.FirstNonEmpty(webhook.GuildID, webhook.Guild.ID),
 			"discord_channel_id": webhook.Channel.ID,
 			"connection_type":    "webhook",
 		},
@@ -264,15 +260,4 @@ func validateDiscordWebhookURL(raw string) (*url.URL, string, error) {
 	}
 	parsed.RawQuery = ""
 	return parsed, match[1], nil
-}
-
-func validateDiscordMedia(media []MediaItem) []MediaValidationIssue {
-	if len(media) > 10 {
-		return []MediaValidationIssue{{
-			Provider: providerDiscord,
-			Severity: severityError,
-			Message:  "Discord webhook messages support up to 10 attachments.",
-		}}
-	}
-	return nil
 }

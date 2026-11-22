@@ -186,6 +186,7 @@ func insertOAuthReadinessWorkspaceMember(t *testing.T, db *bun.DB) {
 }
 
 func TestOAuthCallbackRechecksReadinessBeforeTokenExchange(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.AuthChallenge)(nil),
@@ -239,6 +240,7 @@ func TestOAuthCallbackRechecksReadinessBeforeTokenExchange(t *testing.T) {
 }
 
 func TestXRequestStorePreservesConnectionIntent(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.XOAuthRequestToken)(nil))
 	store := newXRequestStore(db, crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"))
 	now := time.Now().UTC()
@@ -256,6 +258,7 @@ func TestXRequestStorePreservesConnectionIntent(t *testing.T) {
 }
 
 func TestOAuthCallbackReprovesCertificationInitiatorRole(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.User)(nil),
 		(*models.WorkspaceMember)(nil),
@@ -349,6 +352,7 @@ func (*readinessMastodonAdapter) Publish(context.Context, string, string, *platf
 }
 
 func TestMastodonOOBRechecksReadinessAfterTokenExchangeBeforeSave(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.SocialAccount)(nil),
@@ -388,6 +392,7 @@ func TestMastodonOOBRechecksReadinessAfterTokenExchangeBeforeSave(t *testing.T) 
 }
 
 func TestDelayedOAuthSelectionRechecksAfterProviderCallBeforeSave(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.AuthChallenge)(nil),

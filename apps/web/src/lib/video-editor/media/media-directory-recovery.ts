@@ -1,5 +1,5 @@
 import type { MediaSourceIssue } from './media-recovery';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 
 export interface MediaRecoveryDirectoryFile {
 	path: string;

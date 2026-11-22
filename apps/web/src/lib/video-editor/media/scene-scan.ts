@@ -25,8 +25,8 @@ import {
 	SCENE_SAMPLE_INTERVAL_SECONDS,
 	rgbHistogram
 } from './scene-math';
-import type { MediaMetadata } from './types';
-import { createLogger } from '../workspace-fs/logger';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
+import { createLogger } from '@openpost/editor-shared/workspace';
 
 const FALLBACK_FPS = 30;
 const VERIFICATION_MAX_EDGE = 480;

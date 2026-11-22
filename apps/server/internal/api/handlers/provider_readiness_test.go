@@ -19,6 +19,7 @@ import (
 )
 
 func TestProviderReadinessReportsOnlyAuthoritativePerSubjectDecisions(t *testing.T) {
+	t.Parallel()
 	srv := newProviderReadinessTestServer(t)
 
 	resp := srv.get(t, "/api/v1/provider-readiness?workspace_id=ws-1")

@@ -1,4 +1,4 @@
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { CURRENT_SCHEMA_VERSION, migrateProjectDocument } from '../project/defaults';
 import { cloneProjectDocument } from '../project/project-clone';
 import type { Project } from '../project/types';

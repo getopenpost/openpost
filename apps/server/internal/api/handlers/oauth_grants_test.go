@@ -32,6 +32,7 @@ func (a *authorizationRevokingAdapter) RevokeAuthorization(_ context.Context, to
 }
 
 func TestProviderRevocationFailureKeepsTheLocalGrantRetryable(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.Organization)(nil), (*models.Workspace)(nil), (*models.WorkspaceMember)(nil),
 		(*models.SocialAccount)(nil), (*models.Job)(nil),
@@ -78,6 +79,7 @@ func TestProviderRevocationFailureKeepsTheLocalGrantRetryable(t *testing.T) {
 }
 
 func TestDisconnectDestinationAndRevokeSharedGrantHaveDistinctImpact(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	db := createHandlerTestDB(t,
 		(*models.Organization)(nil),
@@ -197,6 +199,7 @@ func TestDisconnectDestinationAndRevokeSharedGrantHaveDistinctImpact(t *testing.
 }
 
 func TestYouTubeRevocationCommitsBeforeRetryableCleanup(t *testing.T) {
+	t.Parallel()
 	for _, failure := range []string{"retention", "queue"} {
 		t.Run(failure, func(t *testing.T) {
 			db := newAnalyticsHandlerTestDB(t, "revoke-ws")

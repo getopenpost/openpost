@@ -59,6 +59,7 @@ func createIdempotencyRecordTable(t *testing.T, db interface {
 }
 
 func TestCreatePublicationIdempotencyReplaysConflictsAndIsolatesTokens(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Publication)(nil),
@@ -121,6 +122,7 @@ func TestCreatePublicationIdempotencyReplaysConflictsAndIsolatesTokens(t *testin
 }
 
 func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),
 		(*models.Job)(nil),
@@ -397,6 +399,7 @@ func TestCreatePublicationReplacesClientPlaceholderSegmentIDs(t *testing.T) {
 }
 
 func TestDeletePublicationRequiresConfirmationAndRevision(t *testing.T) {
+	t.Parallel()
 	for _, status := range []string{models.PublicationStatusDraft, models.PublicationStatusPublished} {
 		t.Run(status, func(t *testing.T) {
 			db := createHandlerTestDB(t,

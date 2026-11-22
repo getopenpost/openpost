@@ -1,10 +1,14 @@
 import { uploadMediaFile } from '$lib/media-upload-client';
 import type { CloudVideoProjectRepository } from './project-repository';
-import { hashBlob } from '../project-bundle/bundle-utils';
+import { hashBlob } from '@openpost/editor-shared/project-bundle';
 import { fileWithInferredMediaType, prepareMediaImportFile } from '../media/media-file-types';
 import { probeMediaFile } from '../media/probe-client';
 import { mediaPool } from '../media/pool.svelte';
-import type { MediaAttribution, MediaMetadata, RecordingCaptureMetadata } from '../media/types';
+import type {
+	MediaAttribution,
+	MediaMetadata,
+	RecordingCaptureMetadata
+} from '@openpost/editor-shared/media';
 import { isLottieFile, parseLottieFileBytes } from '../lottie/metadata';
 
 export interface CloudProjectAssetImportOptions<TDocument extends object> {

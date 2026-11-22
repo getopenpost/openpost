@@ -1,6 +1,6 @@
 import { importGeneratedAudio, rollbackNewGeneratedMedia } from '../media/import.svelte';
 import { mediaPool } from '../media/pool.svelte';
-import type { MediaMetadata, ProjectAssetImporter } from '../media/types';
+import type { MediaMetadata, ProjectAssetImporter } from '@openpost/editor-shared/media';
 import {
 	insertGeneratedAudioForText,
 	insertGeneratedAudioOnNewTrack

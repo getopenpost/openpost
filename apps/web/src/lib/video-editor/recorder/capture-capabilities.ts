@@ -1,6 +1,6 @@
 /* Capture truth: browser capability detection for cursor and system/tab audio */
 
-import type { RecordingSystemAudioStatus } from '../media/types';
+import type { RecordingSystemAudioStatus } from '@openpost/editor-shared/media';
 
 export type CursorMode = 'always' | 'motion' | 'never';
 export type CursorActualMode = CursorMode | 'unsupported' | 'unknown';

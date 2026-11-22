@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/providerlimits"
 )
 
@@ -243,7 +245,7 @@ func (i *InstagramAdapter) RefreshAccountMetadata(ctx context.Context, accessTok
 		return nil, fmt.Errorf("instagram profile returned no id")
 	}
 	return &UserProfile{
-		ID: profile.ID, Username: firstNonEmptyString(profile.Username, profile.Name),
+		ID: profile.ID, Username: textutil.FirstNonEmpty(profile.Username, profile.Name),
 		DisplayName: profile.Name, AvatarURL: profile.ProfilePictureURL,
 	}, nil
 }
@@ -258,11 +260,11 @@ func (i *InstagramAdapter) ListAccountSelections(ctx context.Context, token *Tok
 		ig := page.InstagramBusinessAccount
 		options = append(options, AccountSelectionOption{
 			ID:          ig.ID,
-			Username:    firstNonEmptyString(ig.Username, ig.Name, page.Name),
-			DisplayName: firstNonEmptyString(ig.Name, ig.Username, page.Name),
-			AvatarURL:   firstNonEmptyString(ig.ProfilePictureURL, page.Picture.Data.URL),
+			Username:    textutil.FirstNonEmpty(ig.Username, ig.Name, page.Name),
+			DisplayName: textutil.FirstNonEmpty(ig.Name, ig.Username, page.Name),
+			AvatarURL:   textutil.FirstNonEmpty(ig.ProfilePictureURL, page.Picture.Data.URL),
 			Kind:        "Instagram professional",
-			Description: firstNonEmptyString(ig.AccountType, "Business or Creator account"),
+			Description: textutil.FirstNonEmpty(ig.AccountType, "Business or Creator account"),
 			Extra: map[string]string{
 				"page_id":      page.ID,
 				"account_type": strings.ToLower(ig.AccountType),
@@ -298,11 +300,11 @@ func (i *InstagramAdapter) SelectAccount(ctx context.Context, token *TokenResult
 
 		return &SelectedAccount{
 			AccountID:        ig.ID,
-			AccountUsername:  firstNonEmptyString(ig.Username, ig.Name, page.Name),
-			AccountAvatarURL: firstNonEmptyString(ig.ProfilePictureURL, page.Picture.Data.URL),
+			AccountUsername:  textutil.FirstNonEmpty(ig.Username, ig.Name, page.Name),
+			AccountAvatarURL: textutil.FirstNonEmpty(ig.ProfilePictureURL, page.Picture.Data.URL),
 			Token:            &pageToken,
 			CapabilityState: map[string]string{
-				"instagram_account_type": strings.ToLower(firstNonEmptyString(ig.AccountType, "professional")),
+				"instagram_account_type": strings.ToLower(textutil.FirstNonEmpty(ig.AccountType, "professional")),
 				"facebook_page_id":       page.ID,
 			},
 		}, nil
@@ -701,7 +703,7 @@ func instagramCommentFromGraph(item instagramGraphComment, accountID, parentID s
 		ID:         item.ID,
 		ParentID:   parentID,
 		AuthorID:   authorID,
-		AuthorName: firstNonEmptyString(item.Username, item.From.Username),
+		AuthorName: textutil.FirstNonEmpty(item.Username, item.From.Username),
 		Text:       item.Text,
 		CreatedAt:  item.Timestamp,
 		Hidden:     item.Hidden,
@@ -1470,46 +1472,6 @@ func instagramIDFromResponse(label string, respBody []byte) (string, error) {
 		return "", fmt.Errorf("%s: invalid id", label)
 	}
 	return resp.ID, nil
-}
-
-func validateInstagramMedia(media []MediaItem) []MediaValidationIssue {
-	if len(media) < 1 || len(media) > 10 {
-		return []MediaValidationIssue{{
-			Provider: providerInstagram,
-			Severity: severityError,
-			Message:  "Instagram publishing requires 1-10 image or video attachments.",
-		}}
-	}
-	for _, item := range media {
-		if isInstagramImageMime(item.MimeType) || isInstagramVideoMime(item.MimeType) {
-			continue
-		}
-		return []MediaValidationIssue{{
-			Provider: providerInstagram,
-			MediaID:  item.ID,
-			Severity: severityError,
-			Message:  "Instagram supports JPEG, PNG, WebP, MP4, or MOV media.",
-		}}
-	}
-	return nil
-}
-
-func isInstagramImageMime(mimeType string) bool {
-	switch strings.ToLower(strings.TrimSpace(mimeType)) {
-	case "image/jpeg", "image/png", "image/webp":
-		return true
-	default:
-		return false
-	}
-}
-
-func isInstagramVideoMime(mimeType string) bool {
-	switch strings.ToLower(strings.TrimSpace(mimeType)) {
-	case videoTypeMP4, "video/quicktime":
-		return true
-	default:
-		return false
-	}
 }
 
 func instagramScopes() []string {

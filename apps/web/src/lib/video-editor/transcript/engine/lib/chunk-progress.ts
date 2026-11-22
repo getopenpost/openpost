@@ -1,4 +1,4 @@
-import type { PCMChunk, TranscribeProgress } from '../types';
+import type { PCMChunk, TranscribeProgress } from '@openpost/editor-shared/transcript';
 
 const SAMPLE_RATE = 16_000;
 

@@ -17,6 +17,7 @@ import (
 )
 
 func TestBatchSchedulePreviewIsReadOnlyAndConfirmationReplays(t *testing.T) {
+	t.Parallel()
 	srv := newMCPTestServer(t)
 	createIdempotencyRecordTable(t, srv.db)
 	ctx := context.Background()
@@ -61,6 +62,7 @@ func TestBatchSchedulePreviewIsReadOnlyAndConfirmationReplays(t *testing.T) {
 }
 
 func TestBatchScheduleUsesLocalDaysAcrossDST(t *testing.T) {
+	t.Parallel()
 	loc, err := time.LoadLocation("Europe/Lisbon")
 	require.NoError(t, err)
 	start := time.Date(2027, 3, 27, 0, 0, 0, 0, loc)
@@ -75,6 +77,7 @@ func TestBatchScheduleUsesLocalDaysAcrossDST(t *testing.T) {
 }
 
 func TestBatchPreviewReservesMonthlyCapacityAcrossSelection(t *testing.T) {
+	t.Parallel()
 	srv := newMCPTestServerWithEntitlement(t, entitlements.NewStaticService(entitlements.PlanSnapshot{Limits: map[entitlements.LimitKey]int64{entitlements.LimitScheduledPostsMonthly: 1}}))
 	h := srv.handler.publicationHandler()
 	h.auth = testAuthenticator{}
@@ -105,6 +108,7 @@ func TestBatchPreviewReservesMonthlyCapacityAcrossSelection(t *testing.T) {
 }
 
 func TestScheduledAdmissionReservesQuotaBeforeCommittingJob(t *testing.T) {
+	t.Parallel()
 	srv := newMCPTestServerWithEntitlement(t, entitlements.NewStaticService(entitlements.PlanSnapshot{Limits: map[entitlements.LimitKey]int64{entitlements.LimitScheduledPostsMonthly: 1}}))
 	h := srv.handler.publicationHandler()
 	ctx := t.Context()
@@ -133,6 +137,7 @@ func TestScheduledAdmissionReservesQuotaBeforeCommittingJob(t *testing.T) {
 }
 
 func TestBatchScheduleKeepsSeriesApartAndCommitsOnlyCurrentItems(t *testing.T) {
+	t.Parallel()
 	srv := newMCPTestServer(t)
 	createIdempotencyRecordTable(t, srv.db)
 	h := srv.handler.publicationHandler()
@@ -181,6 +186,7 @@ func TestBatchScheduleKeepsSeriesApartAndCommitsOnlyCurrentItems(t *testing.T) {
 }
 
 func TestBatchPreviewRejectedDraftDoesNotConsumeAvailableDate(t *testing.T) {
+	t.Parallel()
 	srv := newMCPTestServer(t)
 	h := srv.handler.publicationHandler()
 	h.auth = testAuthenticator{}

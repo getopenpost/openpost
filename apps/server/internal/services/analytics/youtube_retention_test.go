@@ -10,6 +10,7 @@ import (
 )
 
 func TestYouTubeCacheExpiresBeforeThirtyDaysOnOverview(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	account := seedAnalyticsAccount(t, db, "")
 	account.Platform = "youtube"
@@ -46,6 +47,7 @@ func TestYouTubeCacheExpiresBeforeThirtyDaysOnOverview(t *testing.T) {
 }
 
 func TestYouTubeDisconnectPurgesFreshCacheAndPreservesReceipts(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	ctx := t.Context()
 	account := seedAnalyticsAccount(t, db, "")
@@ -86,6 +88,7 @@ func TestYouTubeDisconnectPurgesFreshCacheAndPreservesReceipts(t *testing.T) {
 }
 
 func TestYouTubeProfileExpiryKeepsAuthorizationIdentityForRefresh(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	ctx := t.Context()
 	account := seedAnalyticsAccount(t, db, "")
@@ -108,6 +111,7 @@ func TestYouTubeProfileExpiryKeepsAuthorizationIdentityForRefresh(t *testing.T) 
 }
 
 func TestYouTubeRevocationRetiresProviderMetadataButKeepsAuthoredPost(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	ctx := t.Context()
 	account := seedAnalyticsAccount(t, db, "")
@@ -140,6 +144,7 @@ func TestYouTubeRevocationRetiresProviderMetadataButKeepsAuthoredPost(t *testing
 }
 
 func TestYouTubeOldAuthorizationFailureCannotRetireActiveGrant(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	ctx := t.Context()
 	account := seedAnalyticsAccount(t, db, "")
@@ -160,6 +165,7 @@ func TestYouTubeOldAuthorizationFailureCannotRetireActiveGrant(t *testing.T) {
 }
 
 func TestYouTubeExternalRevocationExpiresAfterProfileDeadline(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	now := time.Now().UTC()
 	account := seedAnalyticsAccount(t, db, "")
@@ -181,6 +187,7 @@ func TestYouTubeExternalRevocationExpiresAfterProfileDeadline(t *testing.T) {
 }
 
 func TestYouTubeRetirementPostgresPreservesOtherWorkspace(t *testing.T) {
+	t.Parallel()
 	db := analyticsSnapshotTestDB(t, "postgres", (*models.Organization)(nil), (*models.Workspace)(nil), (*models.SocialAccount)(nil), (*models.OAuthGrant)(nil), (*models.UserNotification)(nil), (*models.AnalyticsAccountSnapshot)(nil), (*models.AnalyticsSyncState)(nil), (*models.ImportedPost)(nil), (*models.PostImportState)(nil), (*models.EngagementItem)(nil), (*models.Rendition)(nil), (*models.RenditionSegment)(nil), (*models.ProviderWriteAttempt)(nil), (*models.ProviderDelivery)(nil), (*models.Job)(nil))
 	_, err := db.ExecContext(t.Context(), "CREATE TABLE engagement_operations (item_id TEXT); CREATE TABLE engagement_automation_replies (item_id TEXT, item_body TEXT)")
 	require.NoError(t, err)
@@ -204,6 +211,7 @@ func TestYouTubeRetirementPostgresPreservesOtherWorkspace(t *testing.T) {
 }
 
 func TestYouTubeExpiredSelectionsAndUnlinkedRevokedGrantsAreCleared(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	now := time.Now().UTC()
 	for _, model := range []any{&models.User{ID: "user", Email: "selection@example.com"}, &models.User{ID: "other", Email: "other-selection@example.com"}, &models.Workspace{ID: "other-workspace", OrganizationID: "organization-1", Name: "Other"}} {

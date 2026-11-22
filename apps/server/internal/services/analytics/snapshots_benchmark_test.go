@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
@@ -39,7 +39,7 @@ func analyticsSnapshotTestDB(t testing.TB, backend string, extraModels ...any) *
 		require.NoError(t, err)
 	} else {
 		var err error
-		db, err = database.InitDB("file:" + filepath.Join(t.TempDir(), "snapshots.db") + "?mode=rwc")
+		db, err = testdb.Open("file:" + filepath.Join(t.TempDir(), "snapshots.db") + "?mode=rwc")
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, db.Close()) })
 	}

@@ -4,7 +4,7 @@ import {
 	createShortcutMatcher,
 	DEFAULT_EDITOR_SHORTCUTS,
 	handleGlobalPlayPauseShortcut
-} from './keyboard-shortcuts';
+} from '@openpost/editor-shared/settings';
 import { userEvent } from 'vitest/browser';
 
 describe('canvas text keyboard ownership', () => {

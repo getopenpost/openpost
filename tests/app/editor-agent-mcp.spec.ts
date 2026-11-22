@@ -88,7 +88,7 @@ function testToneWAV(): Buffer {
 test("MCP edits the open Video Editor live with retry and stale revision protection", async ({
   page,
   request,
-}, testInfo) => {
+}) => {
   test.setTimeout(180_000);
   const auth = await registerUser(request, `editor-agent-video-${randomUUID()}@example.com`);
   const workspace = (await createWorkspace(request, auth.token, "Video agent")) as { id: string };
@@ -105,7 +105,6 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
     "data-agent-status",
     "connected",
   );
-  await page.screenshot({ path: testInfo.outputPath("video-before-light.png") });
   const projectId = new URL(page.url()).pathname.split("/").at(-1)!;
 
   const sessions = await mcpTool(request, token, "editor_sessions", { workspace_id: workspace.id });
@@ -328,7 +327,6 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
   await expect(chat.getByRole("button", { name: "Style", exact: true })).toContainText(
     "Clean demo",
   );
-  await page.screenshot({ path: testInfo.outputPath("assistant-desktop-light.png") });
   const desktopViewport = page.viewportSize()!;
   await page.setViewportSize({ width: 390, height: 844 });
   await page
@@ -346,10 +344,6 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
   await preferencesButton.focus();
   await preferencesButton.press("Enter");
   await expect(memory.getByText("Use simple captions", { exact: true })).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("assistant-phone-390-light.png"),
-  });
-  await page.setViewportSize({ width: 320, height: 720 });
   await expect(chat.getByRole("textbox")).toBeVisible();
   await expect
     .poll(async () => {
@@ -362,10 +356,6 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
       );
     })
     .toBe(true);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
-  await page.screenshot({
-    path: testInfo.outputPath("assistant-phone-320-light.png"),
-  });
   await preferencesButton.press("Enter");
   await expect(memory).toBeHidden();
   await page.setViewportSize(desktopViewport);
@@ -737,12 +727,8 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
   expect(
     afterRipple.request.result.items.some((entry: { id: string }) => entry.id === duplicateID),
   ).toBe(false);
-  await page.screenshot({ path: testInfo.outputPath("video-after-light.png") });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator('[data-left-panel-tab="ai"]:visible [data-agent-dot]')).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("video-phone-390-light.png") });
-  await page.setViewportSize({ width: 320, height: 720 });
-  await page.screenshot({ path: testInfo.outputPath("video-phone-320-light.png") });
   const candidates = (await mcpTool(request, token, "library_search", scope)).request.result
     .entries;
   const foreignFavorite = candidates.find(
@@ -783,13 +769,11 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
       scope: workspace.id,
     },
   );
-  await page.evaluate(() => localStorage.setItem("mode-watcher-mode", "dark"));
   await page.reload();
   await expect(page.locator(".video-editor-theme")).toHaveAttribute(
     "data-agent-status",
     "connected",
   );
-  await page.screenshot({ path: testInfo.outputPath("video-phone-320-dark.png") });
   await page
     .getByRole("navigation", { name: "Editor panels", exact: true })
     .getByRole("button", { name: "Media", exact: true })
@@ -797,10 +781,6 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
   await page.locator('[data-left-panel-tab="ai"]:visible').click();
   await chat.getByRole("button", { name: "Preferences", exact: true }).click();
   await expect(memory.getByText("Use simple captions", { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
-  await page.screenshot({
-    path: testInfo.outputPath("assistant-phone-320-dark.png"),
-  });
   const reconnected = (
     await mcpTool(request, token, "editor_sessions", { workspace_id: workspace.id })
   ).sessions.find((entry: { project_id: string }) => entry.project_id === projectId);
@@ -827,10 +807,7 @@ test("MCP edits the open Video Editor live with retry and stale revision protect
   ).toBe(false);
 });
 
-test("MCP edits a layered image through the open design controller", async ({
-  page,
-  request,
-}, testInfo) => {
+test("MCP edits a layered image through the open design controller", async ({ page, request }) => {
   test.setTimeout(180_000);
   const auth = await registerUser(request, `editor-agent-image-${randomUUID()}@example.com`);
   const workspace = (await createWorkspace(request, auth.token, "Image agent")) as { id: string };
@@ -848,7 +825,6 @@ test("MCP edits a layered image through the open design controller", async ({
     "data-agent-status",
     "connected",
   );
-  await page.screenshot({ path: testInfo.outputPath("image-before-light.png") });
   const projectId = new URL(page.url()).pathname.split("/").at(-1)!;
 
   const sessions = await mcpTool(request, token, "editor_sessions", { workspace_id: workspace.id });
@@ -1140,17 +1116,11 @@ test("MCP edits a layered image through the open design controller", async ({
   expect(
     (await mcpTool(request, token, "image_inspect", scope)).request.result.page_summaries,
   ).toHaveLength(1);
-  await page.screenshot({ path: testInfo.outputPath("image-after-light.png") });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("button", { name: "Agent connected", exact: true })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath("image-phone-390-light.png") });
-  await page.setViewportSize({ width: 320, height: 720 });
-  await page.screenshot({ path: testInfo.outputPath("image-phone-320-light.png") });
-  await page.evaluate(() => localStorage.setItem("mode-watcher-mode", "dark"));
   await page.reload();
   await expect(page.getByTestId("image-editor-shell")).toHaveAttribute(
     "data-agent-status",
     "connected",
   );
-  await page.screenshot({ path: testInfo.outputPath("image-phone-320-dark.png") });
 });

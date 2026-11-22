@@ -2,7 +2,7 @@
  * Resolve an object URL for playing a media item. Callers must revoke.
  */
 
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { resolveMediaBlob } from './resolve-media-blob';
 
 interface MediaUrlEntry {

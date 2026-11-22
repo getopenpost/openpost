@@ -13,6 +13,7 @@ import (
 // IDENTITY-15: rendition reads must carry a bounded destination account
 // identity so list surfaces do not join GET /accounts client-side.
 func TestLoadPublicationResponsesProjectsDestinationAccountIdentity(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.Publication)(nil),
 		(*models.PublicationSegment)(nil),

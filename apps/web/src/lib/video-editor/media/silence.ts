@@ -4,16 +4,16 @@
  * one undo step.
  */
 
-import type { AudioSilenceDetectionOptions } from '../audio/audio-silence';
+import type { AudioSilenceDetectionOptions } from '@openpost/editor-shared/audio';
 import type { SourceRange } from '../timeline/actions/range-removal';
 import { removeSilenceFromItems } from '../timeline/actions/range-removal';
 import { mediaPool } from './pool.svelte';
 import { resolveMediaBlob } from './import.svelte';
 import type { TimelineItem } from '../project/types';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
-import { decodeAudioBlobRangeForAnalysis } from '../audio/analysis-decoder';
-export { decodeAudioBlobRangeForAnalysis } from '../audio/analysis-decoder';
-import { analyzeAudioBlob } from '../audio/analysis-client';
+import { decodeAudioBlobRangeForAnalysis } from '@openpost/editor-shared/audio';
+export { decodeAudioBlobRangeForAnalysis } from '@openpost/editor-shared/audio';
+import { analyzeAudioBlob } from '@openpost/editor-shared/audio';
 
 export interface RemoveSilenceOptions extends AudioSilenceDetectionOptions {
 	/** Speech uses a local voice activity model; signal uses audio levels. */
@@ -33,7 +33,7 @@ export async function decodeAudioRangeForAnalysis(
 	startSeconds: number,
 	endSeconds: number,
 	signal?: AbortSignal
-): Promise<import('../audio/audio-silence').AudioBufferLike> {
+): Promise<import('@openpost/editor-shared/audio').AudioBufferLike> {
 	signal?.throwIfAborted();
 	const media = mediaPool.get(mediaId);
 	if (!media) throw new Error(`Unknown media: ${mediaId}`);
@@ -49,7 +49,7 @@ export async function decodeAudioRangeForAnalysis(
 export async function decodeAudioForAnalysis(
 	mediaId: string,
 	signal?: AbortSignal
-): Promise<import('../audio/audio-silence').AudioBufferLike> {
+): Promise<import('@openpost/editor-shared/audio').AudioBufferLike> {
 	return decodeAudioRangeForAnalysis(mediaId, 0, Number.POSITIVE_INFINITY, signal);
 }
 

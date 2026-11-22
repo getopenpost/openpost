@@ -3,51 +3,17 @@ package postimport
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/dataretention"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
-
-var postImportTestSchemaPath string
-
-func TestMain(m *testing.M) {
-	templateDir, err := os.MkdirTemp("", "openpost-postimport-tests-")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "create postimport test template directory: %v\n", err)
-		os.Exit(1)
-	}
-	postImportTestSchemaPath = filepath.Join(templateDir, "schema.db")
-	db, err := database.InitDB("file:" + postImportTestSchemaPath + "?mode=rwc")
-	if err == nil {
-		err = database.CreateSchema(db)
-	}
-	if db != nil {
-		if closeErr := db.Close(); err == nil {
-			err = closeErr
-		}
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "create postimport test schema: %v\n", err)
-		_ = os.RemoveAll(templateDir)
-		os.Exit(1)
-	}
-
-	code := m.Run()
-	if err := os.RemoveAll(templateDir); err != nil && code == 0 {
-		fmt.Fprintf(os.Stderr, "remove postimport test template directory: %v\n", err)
-		code = 1
-	}
-	os.Exit(code)
-}
 
 type stubTokenSource struct {
 	token string
@@ -62,18 +28,12 @@ func (s *stubTokenSource) GetValidAccessToken(context.Context, string) (string, 
 
 func newPostImportTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	template, err := os.ReadFile(postImportTestSchemaPath)
-	require.NoError(t, err)
-	databasePath := filepath.Join(t.TempDir(), "postimport.db")
-	require.NoError(t, os.WriteFile(databasePath, template, 0o600))
-	db, err := database.InitDB("file:" + databasePath + "?mode=rwc")
-	require.NoError(t, err)
+	db := testdb.NewSQLite(t)
 	now := time.Now().UTC()
-	_, err = db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Imports", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
+	_, err := db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Imports", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", OrganizationID: "organization-1", Name: "Imports", CreatedAt: now}).Exec(t.Context())
 	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	return db
 }
 
@@ -140,6 +100,7 @@ func nativePostItem(uri, text, createdAt string) platform.NativePostItem {
 }
 
 func TestEnableSetsWatermarkWithoutBackfill(t *testing.T) {
+	t.Parallel()
 	reader := &nativeReaderFixture{pages: map[string]platform.NativePostPage{
 		"": {Coverage: platform.NativePostComplete, NextCursor: "", Items: []platform.NativePostItem{nativePostItem("at://did:plc:owner/app.bsky.feed.post/old", "old post", "2026-01-10T10:00:00Z")}},
 	}}
@@ -180,6 +141,7 @@ func TestEnableSetsWatermarkWithoutBackfill(t *testing.T) {
 }
 
 func TestSyncDedupesRepeatedReads(t *testing.T) {
+	t.Parallel()
 	page := platform.NativePostPage{Coverage: platform.NativePostComplete, NextCursor: "", Items: []platform.NativePostItem{nativePostItem("at://did:plc:owner/app.bsky.feed.post/aaa", "hello", "2026-09-26T11:00:00Z")}}
 	reads := 0
 	reader := &nativeReaderFixture{read: func(context.Context, platform.NativePostRequest) (platform.NativePostPage, error) {
@@ -214,6 +176,7 @@ func TestSyncDedupesRepeatedReads(t *testing.T) {
 }
 
 func TestResumedSyncKeepsStartWatermark(t *testing.T) {
+	t.Parallel()
 	reader := &nativeReaderFixture{pages: map[string]platform.NativePostPage{
 		"":      {Coverage: platform.NativePostComplete, NextCursor: "older", Items: []platform.NativePostItem{nativePostItem("at://did:plc:owner/app.bsky.feed.post/first", "first", "2026-09-26T11:00:00Z")}},
 		"older": {Coverage: platform.NativePostComplete, NextCursor: "", Items: []platform.NativePostItem{nativePostItem("at://did:plc:owner/app.bsky.feed.post/second", "second", "2026-09-26T10:00:00Z")}},
@@ -244,6 +207,7 @@ func TestResumedSyncKeepsStartWatermark(t *testing.T) {
 }
 
 func TestInitialSyncRetainsCursorAfter250StoredPosts(t *testing.T) {
+	t.Parallel()
 	reader := &nativeReaderFixture{pages: map[string]platform.NativePostPage{"": {Coverage: platform.NativePostComplete, NextCursor: "older", Items: []platform.NativePostItem{nativePostItem("at://did:plc:owner/app.bsky.feed.post/new", "new", "2026-09-26T11:00:00Z")}}}}
 	db := newPostImportTestDB(t)
 	account := seedPostImportAccount(t, db, "bluesky", "did:plc:owner", "")
@@ -264,6 +228,7 @@ func TestInitialSyncRetainsCursorAfter250StoredPosts(t *testing.T) {
 }
 
 func TestSyncSkipsPostsPublishedThroughOpenPost(t *testing.T) {
+	t.Parallel()
 	ownURI := "at://did:plc:owner/app.bsky.feed.post/own"
 	nativeURI := "at://did:plc:owner/app.bsky.feed.post/native"
 	reader := &nativeReaderFixture{pages: map[string]platform.NativePostPage{
@@ -295,6 +260,7 @@ func TestSyncSkipsPostsPublishedThroughOpenPost(t *testing.T) {
 }
 
 func TestReadBudgetGuardBlocksProvidersReads(t *testing.T) {
+	t.Parallel()
 	db := newPostImportTestDB(t)
 	account := seedPostImportAccount(t, db, "x", "x-user", "")
 	now := time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC)
@@ -322,6 +288,7 @@ func TestReadBudgetGuardBlocksProvidersReads(t *testing.T) {
 }
 
 func TestReadBudgetIsFreshAtTheUTCDayItsRetryWaitsFor(t *testing.T) {
+	t.Parallel()
 	reader := &nativeReaderFixture{pages: map[string]platform.NativePostPage{
 		"":       {Coverage: platform.NativePostComplete, NextCursor: "page-2", Items: []platform.NativePostItem{nativePostItem("at://did:plc:owner/app.bsky.feed.post/aaa", "first", "2026-09-26T15:30:00Z")}},
 		"page-2": {Coverage: platform.NativePostComplete, NextCursor: "", Items: []platform.NativePostItem{nativePostItem("at://did:plc:owner/app.bsky.feed.post/bbb", "second", "2026-09-26T15:20:00Z")}},
@@ -355,6 +322,7 @@ func TestReadBudgetIsFreshAtTheUTCDayItsRetryWaitsFor(t *testing.T) {
 }
 
 func TestPermissionFailureKeepsAccountConnected(t *testing.T) {
+	t.Parallel()
 	reader := &nativeReaderFixture{read: func(context.Context, platform.NativePostRequest) (platform.NativePostPage, error) {
 		return platform.NativePostPage{}, platform.NewNativePostError(platform.NativePostPermissionRequired, "auth_required", 0)
 	}}
@@ -377,6 +345,7 @@ func TestPermissionFailureKeepsAccountConnected(t *testing.T) {
 }
 
 func TestImportsStayOutOfAnalyticsTables(t *testing.T) {
+	t.Parallel()
 	reader := &nativeReaderFixture{pages: map[string]platform.NativePostPage{
 		"": {Coverage: platform.NativePostComplete, NextCursor: "", Items: []platform.NativePostItem{nativePostItem("at://did:plc:owner/app.bsky.feed.post/aaa", "hello", "2026-09-26T11:00:00Z")}},
 	}}
@@ -419,6 +388,7 @@ func TestImportsStayOutOfAnalyticsTables(t *testing.T) {
 }
 
 func TestDisableStopsSync(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int64
 	reader := &nativeReaderFixture{read: func(context.Context, platform.NativePostRequest) (platform.NativePostPage, error) {
 		calls.Add(1)
@@ -437,6 +407,7 @@ func TestDisableStopsSync(t *testing.T) {
 }
 
 func TestHandleJobRejectsBadPayload(t *testing.T) {
+	t.Parallel()
 	db := newPostImportTestDB(t)
 	service := NewService(db, &stubTokenSource{token: "token"})
 	require.Error(t, service.HandleJob(context.Background(), "post_import_sync", `{}`))
@@ -444,6 +415,7 @@ func TestHandleJobRejectsBadPayload(t *testing.T) {
 }
 
 func TestDueImportIsQueuedOnceAfterItsFirstCycle(t *testing.T) {
+	t.Parallel()
 	db := newPostImportTestDB(t)
 	account := seedPostImportAccount(t, db, "bluesky", "did:plc:owner", "https://bsky.example")
 	service := NewService(db, &stubTokenSource{token: "token"})
@@ -474,6 +446,7 @@ func TestDueImportIsQueuedOnceAfterItsFirstCycle(t *testing.T) {
 }
 
 func TestSyncPersistsReadBudgetBeforeProviderCall(t *testing.T) {
+	t.Parallel()
 	db := newPostImportTestDB(t)
 	var account models.SocialAccount
 	reader := &nativeReaderFixture{read: func(context.Context, platform.NativePostRequest) (platform.NativePostPage, error) {
@@ -491,6 +464,7 @@ func TestSyncPersistsReadBudgetBeforeProviderCall(t *testing.T) {
 }
 
 func TestNativeImportsRespectGrantAndConfiguredReaders(t *testing.T) {
+	t.Parallel()
 	db := newPostImportTestDB(t)
 	account := seedPostImportAccount(t, db, "tiktok", "owner", "")
 	tokens := &stubTokenSource{token: "token"}
@@ -522,6 +496,7 @@ func TestNativeImportsRespectGrantAndConfiguredReaders(t *testing.T) {
 }
 
 func TestDisableDuringProviderReadStopsTheInFlightImport(t *testing.T) {
+	t.Parallel()
 	db := newPostImportTestDB(t)
 	var service *Service
 	var account models.SocialAccount
@@ -554,6 +529,7 @@ func (a aliasNativeAdapter) ListNativePosts(context.Context, string, platform.Na
 }
 
 func TestNativeImportsExcludeConfirmedFacebookPhotoAlias(t *testing.T) {
+	t.Parallel()
 	db := newPostImportTestDB(t)
 	account := seedPostImportAccount(t, db, "facebook", "page", "")
 	now := time.Date(2026, 10, 10, 9, 0, 0, 0, time.UTC)
@@ -580,6 +556,7 @@ func TestNativeImportsExcludeConfirmedFacebookPhotoAlias(t *testing.T) {
 }
 
 func TestNativeImportDefersUnresolvedInstagramPublication(t *testing.T) {
+	t.Parallel()
 	db := newPostImportTestDB(t)
 	account := seedPostImportAccount(t, db, "instagram", "ig", "")
 	now := time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC)
@@ -613,6 +590,7 @@ func TestNativeImportDefersUnresolvedInstagramPublication(t *testing.T) {
 }
 
 func TestYouTubeCursorPurgeFencesInflightImportWithoutChangingOptIn(t *testing.T) {
+	t.Parallel()
 	db := newPostImportTestDB(t)
 	account := seedPostImportAccount(t, db, "youtube", "channel", "")
 	now := time.Now().UTC().Truncate(time.Microsecond)
@@ -642,6 +620,7 @@ func TestYouTubeCursorPurgeFencesInflightImportWithoutChangingOptIn(t *testing.T
 }
 
 func TestYouTubeCursorExpiryUsesCycleAgeAndPreservesAuthoredImportChoice(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, provider, cursor string
 		age                    time.Duration

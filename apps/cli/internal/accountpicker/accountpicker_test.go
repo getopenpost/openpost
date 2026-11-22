@@ -8,6 +8,7 @@ import (
 )
 
 func TestResolve(t *testing.T) {
+	t.Parallel()
 	accounts := []api.SocialAccount{
 		{
 			ID:              "acct-x-1",
@@ -160,6 +161,7 @@ func TestResolve(t *testing.T) {
 }
 
 func TestResolveInstanceHostSelectors(t *testing.T) {
+	t.Parallel()
 	accounts := []api.SocialAccount{
 		{ID: "acct-m-1", Platform: "mastodon", AccountUsername: "alice", InstanceURL: "https://masto.example", IsActive: true},
 		{ID: "acct-p-1", Platform: "pixelfed", AccountUsername: "alice", InstanceURL: "https://pix.example", IsActive: true},

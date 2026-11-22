@@ -1,7 +1,7 @@
 import { deleteMedia } from '../workspace-fs/media';
 import { getProjectsUsingMedia } from '../workspace-fs/project-media';
 import { deleteProject } from '../workspace-fs/projects';
-import { createLogger } from '../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import {
 	getTrashedProjectMediaIds,
 	isProjectTrashed,

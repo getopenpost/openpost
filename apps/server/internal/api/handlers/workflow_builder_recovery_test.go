@@ -26,6 +26,7 @@ import (
 type workflowFailingBuilder struct{}
 
 func TestWorkflowBuilderPreservesLongWritingInstructions(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 	actions := workflowActions{builds: server.handler}
 	instructions := "Make a simple Twitter post following the format:\n\nWhat you can now use OpenPost for, in your benefit (that will bring the reader of the post more $ or more views), that changed or was added in this release. Basically a use case that they definitely want to read.\n\nNow in OpenPost v[...] (or something like this)"
@@ -59,12 +60,13 @@ func (workflowFailingBuilder) Build(context.Context, publicationbuilder.BuildInp
 }
 
 func TestWorkflowBuilderFailureRetainsNativeResultAndSafeRecovery(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	application, err := publicationbuilder.NewApplication(db, workflowFailingBuilder{}, publicationbuilder.ApplicationConfig{})
 	require.NoError(t, err)
 	publications := NewPublicationHandler(db, workflowSession{}, nil)
 	builds := NewPublicationBuildHandler(db, workflowSession{}, application)
-	service := workflows.NewService(db, NewWorkflowActions(publications, builds, nil), nil)
+	service := workflows.NewService(db, newTestWorkflowActions(publications, builds), nil)
 	actor := workspaceaccess.ActorFacts{UserID: "user", SessionID: "session"}
 	workflow, err := service.Save(t.Context(), actor, "ws", "", workflows.SaveRequest{Name: "Synthetic Builder failure", Definition: workflows.Definition{Schema: 1, Source: workflows.Source{Kind: "manual"}, Steps: []workflows.Step{{ID: "build", Kind: workflows.KindBuild, Name: "Build", Inputs: map[string]workflows.Value{"text": {Literal: "Synthetic unscheduled post"}}}}}})
 	require.NoError(t, err)

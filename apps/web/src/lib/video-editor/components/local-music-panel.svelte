@@ -35,7 +35,7 @@
 	import { mediaTaskId, mediaTasks } from '$lib/video-editor/media/media-tasks.svelte';
 	import type { LocalGenerationProgress } from '$lib/video-editor/local-ai/types';
 	import type { AudioQuality } from 'ai-music-js';
-	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 
 	type GenerateMusic = (options: GenerateLocalMusicOptions) => Promise<GeneratedMusic>;
 	type CommitAudio = typeof commitGeneratedAudio;

@@ -10,6 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
@@ -167,7 +169,7 @@ func (s *Service) resolveManagedRepurposeSource(
 		snapshots = append(snapshots, repurposeSnapshot{MetricsJSON: item.MetricsJSON, MetricMetadataJSON: item.MetricMetadataJSON, CapturedAt: item.CapturedAt, Platform: sourceRendition.Platform})
 	}
 	selected := selectRepurposeSnapshot(snapshots, rangeStart, rangeEnd)
-	return publication.Title, firstNonEmptyAnalyticsText(publication.SourceText, publication.SourceContent),
+	return publication.Title, textutil.FirstNonEmpty(publication.SourceText, publication.SourceContent),
 		publication.ContentProfile, sourceRendition.Platform, publishedAt, accountIDs, selected, nil
 }
 

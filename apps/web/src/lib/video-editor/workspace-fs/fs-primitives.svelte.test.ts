@@ -5,7 +5,7 @@ import {
 	readArrayBuffer,
 	writeJsonAtomic,
 	writeBlob
-} from './fs-primitives';
+} from '@openpost/editor-shared/workspace';
 
 it.each(['json', 'bytes'])(
 	'refreshes a %s snapshot invalidated by a concurrent write',

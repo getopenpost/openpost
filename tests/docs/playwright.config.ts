@@ -3,10 +3,22 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const baseURL = "http://127.0.0.1:4175";
+const pagesPreview =
+  "bunx wrangler pages dev dist/public-site --compatibility-date 2026-08-06 --port 4175";
+
+// CI downloads the composed public site built by its public-site job.
+const usePrebuiltArtifact = process.env.OPENPOST_E2E_PREBUILT === "1";
 
 export default defineConfig({
   testDir: ".",
   outputDir: `${root}/test-results/docs`,
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  failOnFlakyTests: !!process.env.CI,
+  retries: 0,
+  reporter: process.env.CI
+    ? [["github"], ["html", { open: "never", outputFolder: `${root}/playwright-report` }]]
+    : "list",
   use: {
     ...devices["Desktop Chrome"],
     baseURL,
@@ -32,8 +44,7 @@ export default defineConfig({
   },
   webServer: {
     cwd: root,
-    command:
-      "bun run build -- public-site && bunx wrangler pages dev dist/public-site --compatibility-date 2026-08-06 --port 4175",
+    command: usePrebuiltArtifact ? pagesPreview : `bun run build -- public-site && ${pagesPreview}`,
     env: {
       VITE_POSTHOG_PROJECT_TOKEN: "phc_browser_fixture",
       VITE_POSTHOG_API_HOST: baseURL,

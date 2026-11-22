@@ -2,22 +2,18 @@ package repurpose
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/ai"
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
-	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 type generatorFunc func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error)
@@ -28,13 +24,7 @@ func (fn generatorFunc) Generate(ctx context.Context, input ai.GenerateRequest) 
 
 func testService(t *testing.T, generator ai.Generator) (*Service, workspaceaccess.ActorFacts) {
 	t.Helper()
-	connection, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	db := bun.NewDB(connection, sqlitedialect.New())
-	db.SetMaxOpenConns(1)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	// Exercise the shipped migration, not a second test-only schema.
-	require.NoError(t, database.CreateSchema(db))
+	db := testdb.NewSQLiteNoFK(t)
 	for _, model := range []any{
 		&models.User{ID: "user", Email: "one@example.com"},
 		&models.User{ID: "other", Email: "other@example.com"},
@@ -66,6 +56,7 @@ func payloadFor(t *testing.T, service *Service, id string) string {
 }
 
 func TestRepurposePersistsGroundedCandidatesAndIdempotentSubmission(t *testing.T) {
+	t.Parallel()
 	calls := 0
 	service, actor := testService(t, generatorFunc(func(_ context.Context, input ai.GenerateRequest) (ai.GenerateResult, error) {
 		calls++
@@ -114,6 +105,7 @@ func TestRepurposePersistsGroundedCandidatesAndIdempotentSubmission(t *testing.T
 }
 
 func TestRepurposeRejectsInvalidSourcesBeforeAI(t *testing.T) {
+	t.Parallel()
 	service, actor := testService(t, generatorFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
 		t.Fatal("invalid source reached AI")
 		return ai.GenerateResult{}, nil
@@ -150,6 +142,7 @@ func TestRepurposeRejectsInvalidSourcesBeforeAI(t *testing.T) {
 }
 
 func TestRepurposeRejectsInventedRangesAndAcceptsNoUsefulClips(t *testing.T) {
+	t.Parallel()
 	output := validResponse
 	service, actor := testService(t, generatorFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
 		return ai.GenerateResult{Text: output}, nil
@@ -181,6 +174,7 @@ func TestRepurposeRejectsInventedRangesAndAcceptsNoUsefulClips(t *testing.T) {
 }
 
 func TestRepurposeCancellationFencesInflightResultAndRetry(t *testing.T) {
+	t.Parallel()
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	calls := 0
@@ -231,6 +225,7 @@ func TestRepurposeCancellationFencesInflightResultAndRetry(t *testing.T) {
 }
 
 func TestRepurposeAdmissionAndMediaAccess(t *testing.T) {
+	t.Parallel()
 	calls := 0
 	service, actor := testService(t, generatorFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
 		calls++
@@ -266,6 +261,7 @@ func TestRepurposeAdmissionAndMediaAccess(t *testing.T) {
 }
 
 func TestRepurposeTerminalJobFailureCannotOverwriteNewGeneration(t *testing.T) {
+	t.Parallel()
 	service, actor := testService(t, generatorFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
 		return ai.GenerateResult{Text: `{"candidates":[]}`}, nil
 	}))

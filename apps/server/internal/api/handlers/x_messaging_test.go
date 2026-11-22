@@ -14,6 +14,7 @@ import (
 )
 
 func TestXMessagingWebhookUsesRawOAuth2SignatureAndBoundsBody(t *testing.T) {
+	t.Parallel()
 	service := oauth2messaging.NewService(nil, crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"), oauth2messaging.Config{ClientSecret: "messaging-secret"}, nil)
 	e := echo.New()
 	NewXMessagingHandler(nil, service).RegisterWebhook(e)

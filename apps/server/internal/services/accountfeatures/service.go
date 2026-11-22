@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/uptrace/bun"
 
 	"github.com/openpost/backend/internal/jobregistry"
@@ -711,7 +713,7 @@ func (s *Service) supportForAnalytics(account models.SocialAccount, adapter any)
 	supported := sup.Account || sup.Content
 	required := append([]string{}, sup.AccountRequiredScopes...)
 	required = append(required, sup.ContentRequiredScopes...)
-	unavailable := firstNonEmpty(sup.AccountUnavailable, sup.ContentUnavailable)
+	unavailable := textutil.FirstNonEmpty(sup.AccountUnavailable, sup.ContentUnavailable)
 	if !supported {
 		return required, nil, unavailable, false
 	}
@@ -758,15 +760,6 @@ func missingScopes(granted string, required []string) []string {
 		}
 	}
 	return missing
-}
-
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if strings.TrimSpace(v) != "" {
-			return strings.TrimSpace(v)
-		}
-	}
-	return ""
 }
 
 // IsEffectiveEnabledWithDB evaluates admission inside the caller's transaction.

@@ -12,6 +12,7 @@ import (
 )
 
 func TestPostingScheduleBatchDeleteIsAtomicAndWorkspaceScoped(t *testing.T) {
+	t.Parallel()
 	srv := newWorkspaceTestServer(t, entitlements.NewSelfHostedService())
 	seedWorkspaceUserAndMember(t, srv.db, "user-1", "user@example.com", models.WorkspaceRoleAdmin)
 	_, err := srv.db.NewCreateTable().Model((*models.PostingSchedule)(nil)).Exec(t.Context())
@@ -68,6 +69,7 @@ func TestPostingScheduleBatchDeleteIsAtomicAndWorkspaceScoped(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFindNextConfiguredScheduleSlotTime_SkipsOccupiedSlotReturnsLaterSlotSameDay(t *testing.T) {
+	t.Parallel()
 	loc := time.UTC
 	now := time.Date(2026, time.May, 4, 8, 0, 0, 0, loc) // Monday
 	schedules := []models.PostingSchedule{
@@ -93,6 +95,7 @@ func TestFindNextConfiguredScheduleSlotTime_SkipsOccupiedSlotReturnsLaterSlotSam
 }
 
 func TestFindNextConfiguredScheduleSlotTime_SkipsOccupiedOnlySlotUntilNextWeek(t *testing.T) {
+	t.Parallel()
 	loc := time.UTC
 	now := time.Date(2026, time.May, 4, 5, 0, 0, 0, loc) // Monday
 	schedules := []models.PostingSchedule{
@@ -117,6 +120,7 @@ func TestFindNextConfiguredScheduleSlotTime_SkipsOccupiedOnlySlotUntilNextWeek(t
 }
 
 func TestFindNextConfiguredScheduleSlotTime_ReturnsNilWhenNoSchedules(t *testing.T) {
+	t.Parallel()
 	loc := time.UTC
 	now := time.Date(2026, time.May, 4, 8, 0, 0, 0, loc)
 
@@ -130,6 +134,7 @@ func TestFindNextConfiguredScheduleSlotTime_ReturnsNilWhenNoSchedules(t *testing
 }
 
 func TestFindNextConfiguredScheduleSlotTime_SkipsPastSlot(t *testing.T) {
+	t.Parallel()
 	loc := time.UTC
 	now := time.Date(2026, time.May, 4, 10, 0, 0, 0, loc) // Monday 10AM
 	schedules := []models.PostingSchedule{
@@ -152,6 +157,7 @@ func TestFindNextConfiguredScheduleSlotTime_SkipsPastSlot(t *testing.T) {
 }
 
 func TestFindNextConfiguredScheduleSlotTime_HandlesDSTTransition(t *testing.T) {
+	t.Parallel()
 	loc, err := time.LoadLocation("Europe/Lisbon")
 	if err != nil {
 		t.Fatalf("load location: %v", err)
@@ -177,6 +183,7 @@ func TestFindNextConfiguredScheduleSlotTime_HandlesDSTTransition(t *testing.T) {
 }
 
 func TestFindNextConfiguredScheduleSlotTime_WindowBlocksNearbyScheduleWithDelay(t *testing.T) {
+	t.Parallel()
 	loc := time.UTC
 	now := time.Date(2026, time.May, 4, 8, 0, 0, 0, loc)
 	schedules := []models.PostingSchedule{
@@ -196,6 +203,7 @@ func TestFindNextConfiguredScheduleSlotTime_WindowBlocksNearbyScheduleWithDelay(
 }
 
 func TestIsSlotOccupied_WindowBlocksWithinDelaySum(t *testing.T) {
+	t.Parallel()
 	loc := time.UTC
 	slotTime := time.Date(2026, time.May, 4, 9, 0, 0, 0, loc)
 	pubs := []models.Publication{

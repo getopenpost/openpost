@@ -370,7 +370,8 @@ jobs:
     timeout-minutes: 10
     permissions:
       actions: read
-      contents: read
+      # Reading an unpublished draft release via GitHub API requires contents: write.
+      contents: write
       packages: write
     outputs:
       digest: ${{ steps.promote.outputs.digest }}

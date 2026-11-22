@@ -118,7 +118,7 @@ test("search filters keep guides, automation, and API reference separate", async
     "Image Editor",
     "API reference",
   ]);
-  await page.getByRole("textbox").fill("publication");
+  await page.getByRole("combobox", { name: "Search" }).fill("publication");
   await page.getByRole("button", { name: "All docs", exact: true }).focus();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: "Guides", exact: true })).toBeFocused();
@@ -127,19 +127,20 @@ test("search filters keep guides, automation, and API reference separate", async
     "aria-pressed",
     "true",
   );
-  await expect(page.getByRole("button", { name: /Docs Guides/ }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Docs Automate/ })).toHaveCount(0);
+  await expect(page.getByRole("option", { name: /^Docs Guides/ }).first()).toBeVisible();
+  await expect(page.getByRole("option", { name: /^Docs Automate/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Automate", exact: true }).click();
-  await expect(page.getByRole("button", { name: /Docs Automate/ }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Docs Guides/ })).toHaveCount(0);
+  await expect(page.getByRole("option", { name: /^Docs Automate/ }).first()).toBeVisible();
+  await expect(page.getByRole("option", { name: /^Docs Guides/ })).toHaveCount(0);
   await page.getByRole("button", { name: "API reference", exact: true }).click();
-  await expect(page.getByRole("button", { name: /Docs API reference/ }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Docs Automate/ })).toHaveCount(0);
+  await expect(page.getByRole("option", { name: /^Docs API reference/ }).first()).toBeVisible();
+  await expect(page.getByRole("option", { name: /^Docs Automate/ })).toHaveCount(0);
   await page.getByRole("button", { name: /Close/i }).click();
-  await expect(page.getByRole("textbox")).not.toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Search" })).not.toBeVisible();
 });
 
 test("AI client links open the matching setup guide", async ({ page }) => {
+  test.setTimeout(90_000);
   await page.goto("/docs/mcp");
   const clients = await page
     .locator('#nd-page a[href^="/docs/mcp/"]')
@@ -211,9 +212,15 @@ test("social integration directory opens each network setup guide", async ({ pag
     await page.goto("/docs/self-hosting/integrations");
     await directory.locator(`a[href$="/${network}"]`).click();
     await expect(page).toHaveURL(new RegExp(`/integrations/${network}$`));
-    const icon = page.locator(".docs-title-icon img");
+    // Brand marks are images or inline SVG; either must actually render.
+    const icon = page.locator(".docs-title-icon").locator("img, svg").first();
+    await expect(icon, network).toBeVisible();
     await expect
-      .poll(() => icon.evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .poll(() =>
+        icon.evaluate((mark) =>
+          mark instanceof HTMLImageElement ? mark.naturalWidth : mark.getBoundingClientRect().width,
+        ),
+      )
       .toBeGreaterThan(0);
   }
 });

@@ -1,6 +1,7 @@
 package capabilities
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -855,6 +856,33 @@ func TestResolveDropsStaleNativeLinkSettingsOutsideLinkShare(t *testing.T) {
 
 	require.Equal(t, models.ContentProfileLinkShare, linkResolved.Profile)
 	requireNoIssueCode(t, linkResolved.Issues, "unsupported_setting")
+}
+
+func TestResolveKeepsMessageSettingsForLinkPostsWithoutLinkShare(t *testing.T) {
+	// Discord and Telegram have no link-share format, so a message that
+	// carries a link still publishes as a plain message with its settings.
+	for _, tc := range []struct {
+		provider string
+		settings map[string]any
+	}{
+		{ProviderDiscord, map[string]any{"channel_id": "channel-1", "mention_policy": "none"}},
+		{ProviderTelegram, map[string]any{"chat_id": "-100123"}},
+	} {
+		t.Run(tc.provider, func(t *testing.T) {
+			resolved := Resolve(tc.provider, ResolveInput{
+				CreationPreset: IntentPost,
+				SourceURL:      "https://example.com",
+				Settings:       tc.settings,
+				Segments:       []ResolveSegment{{ID: "segment-1", Body: "Read https://example.com"}},
+			})
+
+			require.Equal(t, models.ContentProfileShortText, resolved.Profile)
+			requireNoIssueCode(t, resolved.Issues, "unsupported_setting")
+			for key := range tc.settings {
+				require.True(t, slices.ContainsFunc(resolved.Settings, func(setting SettingDefinition) bool { return setting.Key == key }), "missing setting %s", key)
+			}
+		})
+	}
 }
 
 func TestProviderSettingsRejectCrossProviderKeys(t *testing.T) {

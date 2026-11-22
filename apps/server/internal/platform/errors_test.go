@@ -9,6 +9,7 @@ import (
 )
 
 func TestNewHTTPErrorKeepsOnlySafeProviderMetadata(t *testing.T) {
+	t.Parallel()
 	headers := http.Header{"Retry-After": []string{"120"}}
 	err := NewHTTPError(
 		http.StatusTooManyRequests,
@@ -26,11 +27,13 @@ func TestNewHTTPErrorKeepsOnlySafeProviderMetadata(t *testing.T) {
 }
 
 func TestProviderDiagnosticsDoNotRetainEchoedCustomerProse(t *testing.T) {
+	t.Parallel()
 	err := NewHTTPError(http.StatusBadRequest, nil, []byte(`{"error":{"code":100,"message":"The post Hello from Acme was rejected","fbtrace_id":"trace123"}}`))
 	require.NotContains(t, ProviderErrorDiagnostic(err), "Hello from Acme")
 }
 
 func TestNewHTTPErrorKeepsBoundedProviderDiagnostics(t *testing.T) {
+	t.Parallel()
 	err := NewHTTPError(
 		http.StatusBadRequest,
 		nil,
@@ -44,6 +47,7 @@ func TestNewHTTPErrorKeepsBoundedProviderDiagnostics(t *testing.T) {
 }
 
 func TestNewHTTPErrorDropsUnsafeProviderDiagnostics(t *testing.T) {
+	t.Parallel()
 	err := NewHTTPError(
 		http.StatusBadRequest,
 		nil,
@@ -56,6 +60,7 @@ func TestNewHTTPErrorDropsUnsafeProviderDiagnostics(t *testing.T) {
 }
 
 func TestNewHTTPErrorRejectsUnsafeCodes(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		payload     string

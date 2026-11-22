@@ -20,9 +20,10 @@ import (
 )
 
 func TestPrepareImageUsesDestinationAndPreservesOriginalAcrossRESTAndMCP(t *testing.T) {
+	t.Parallel()
 	storage := mediastore.NewLocalStorage(t.TempDir(), "/media")
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
-	_, err := srv.db.NewCreateTable().Model((*models.SocialAccount)(nil)).Exec(t.Context())
+	_, err := srv.db.NewCreateTable().Model((*models.SocialAccount)(nil)).IfNotExists().Exec(t.Context())
 	require.NoError(t, err)
 	srv.handler.SetCapabilityResolver(NewCapabilityResolverHandler(srv.db, nil, map[string]platform.Adapter{"bluesky": xCapabilityResolverAdapter{result: platform.AccountCapabilityResult{Constraints: map[string]any{"max_image_pixels": int64(2048), "allowed_mimes": []string{"image/jpeg"}}}}}, capabilityResolverTokenSource{}))
 	account := &models.SocialAccount{ID: "destination", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "remote", Slug: "destination", AccessTokenEnc: []byte("test"), IsActive: true}

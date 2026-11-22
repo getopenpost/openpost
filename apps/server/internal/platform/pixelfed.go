@@ -12,6 +12,7 @@ import (
 // fediverse.go; this file keeps Pixelfed's provider identity, photo-first
 // validation, and capability features.
 type PixelfedAdapter struct {
+	BaseAdapter
 	compat mastodonCompatCredentials
 }
 
@@ -34,25 +35,6 @@ func (p *PixelfedAdapter) AuthorizationGrantDescriptor() AuthorizationGrantDescr
 	}
 }
 
-// validatePixelfedMedia keeps photo publishing first-class. Video passes
-// through with a warning because support varies across Pixelfed versions.
-func validatePixelfedMedia(media []MediaItem) []MediaValidationIssue {
-	if len(media) == 0 {
-		return nil
-	}
-	for _, item := range media {
-		if isVideoMime(item.MimeType) {
-			return []MediaValidationIssue{{
-				Provider: providerPixelfed,
-				MediaID:  item.ID,
-				Severity: severityWarning,
-				Message:  "Pixelfed is photo-first; video support depends on the instance and version.",
-			}}
-		}
-	}
-	return nil
-}
-
 func (p *PixelfedAdapter) InstanceURL() string {
 	return p.compat.instanceURL
 }
@@ -63,13 +45,6 @@ func (p *PixelfedAdapter) GenerateAuthURL(state string) (string, map[string]stri
 
 func (p *PixelfedAdapter) ExchangeCode(ctx context.Context, code string, _ map[string]string) (*TokenResult, error) {
 	return p.compat.exchangeCode(ctx, code)
-}
-
-func (p *PixelfedAdapter) RefreshCapability() RefreshCapability {
-	return RefreshCapability{
-		Supported:        false,
-		CredentialSource: RefreshCredentialNone,
-	}
 }
 
 func (p *PixelfedAdapter) RefreshToken(_ context.Context, _ RefreshTokenInput) (*TokenResult, error) {

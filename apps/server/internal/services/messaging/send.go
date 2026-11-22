@@ -11,6 +11,8 @@ import (
 	"log"
 	"strings"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
@@ -274,7 +276,7 @@ func mergeMessageEcho(ctx context.Context, tx bun.Tx, message *models.DirectMess
 	if message.DeletedAt.IsZero() && !echo.DeletedAt.IsZero() {
 		message.DeletedAt = echo.DeletedAt
 	}
-	message.AuthorRemoteID = firstNonEmpty(echo.AuthorRemoteID, message.AuthorRemoteID)
+	message.AuthorRemoteID = textutil.FirstNonEmpty(echo.AuthorRemoteID, message.AuthorRemoteID)
 	if echo.AttachmentsJSON != "" && echo.AttachmentsJSON != "null" && echo.AttachmentsJSON != "[]" {
 		message.AttachmentsJSON = echo.AttachmentsJSON
 	}

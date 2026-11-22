@@ -31,6 +31,7 @@ func (s *blockingAvatarStorage) Open(context.Context, string) (io.ReadCloser, er
 }
 
 func TestPreviewBoundsRenderingAcrossServiceInstances(t *testing.T) {
+	t.Parallel()
 	storage := &blockingAvatarStorage{started: make(chan struct{}, 3), release: make(chan struct{})}
 	account := models.SocialAccount{AccountAvatarURL: "/avatars/busy"}
 	style := textcards.Style{Color: "#ffffff", ColorEnd: "#ffffff"}

@@ -21,6 +21,7 @@ func (v *fixedPublicMediaVerifier) Verify(_ context.Context, rawURL string) publ
 }
 
 func TestRefreshPublicMediaStateRepairsLegacyRelativeURLFailure(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.MediaAttachment)(nil))
 	checkedAt := time.Now().UTC().Add(-time.Minute)
 	media := models.MediaAttachment{
@@ -59,6 +60,7 @@ func TestRefreshPublicMediaStateRepairsLegacyRelativeURLFailure(t *testing.T) {
 }
 
 func TestRefreshPublicMediaStateRecoversRecentFailure(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.MediaAttachment)(nil))
 	media := models.MediaAttachment{ID: "recent-failure", WorkspaceID: "ws-1", MimeType: "image/png", PublicURLStatus: 404, PublicURLError: "public media URL returned 404", PublicURLCheckedAt: time.Now().UTC().Add(-2 * time.Minute)}
 	_, err := db.NewInsert().Model(&media).Exec(t.Context())

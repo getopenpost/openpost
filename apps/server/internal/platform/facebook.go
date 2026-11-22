@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 const (
@@ -149,7 +151,7 @@ func decodeFacebookToken(label string, respBody []byte) (*TokenResult, error) {
 	return &TokenResult{
 		AccessToken: tokenResp.AccessToken,
 		ExpiresIn:   tokenResp.ExpiresIn,
-		TokenType:   firstNonEmptyString(tokenResp.TokenType, tokenTypeBearer),
+		TokenType:   textutil.FirstNonEmpty(tokenResp.TokenType, tokenTypeBearer),
 	}, nil
 }
 
@@ -242,7 +244,7 @@ func (f *FacebookAdapter) RefreshAccountMetadata(ctx context.Context, accessToke
 		return nil, fmt.Errorf("facebook page profile returned no id")
 	}
 	return &UserProfile{
-		ID: page.ID, Username: firstNonEmptyString(page.Username, page.Name),
+		ID: page.ID, Username: textutil.FirstNonEmpty(page.Username, page.Name),
 		DisplayName: page.Name, AvatarURL: page.Picture.Data.URL,
 	}, nil
 }
@@ -256,7 +258,7 @@ func (f *FacebookAdapter) ListAccountSelections(ctx context.Context, token *Toke
 	for _, page := range pages {
 		options = append(options, AccountSelectionOption{
 			ID:          page.ID,
-			Username:    firstNonEmptyString(page.Username, page.Name),
+			Username:    textutil.FirstNonEmpty(page.Username, page.Name),
 			DisplayName: page.Name,
 			AvatarURL:   page.Picture.Data.URL,
 			Kind:        "page",
@@ -293,7 +295,7 @@ func (f *FacebookAdapter) SelectAccount(ctx context.Context, token *TokenResult,
 
 		return &SelectedAccount{
 			AccountID:        page.ID,
-			AccountUsername:  firstNonEmptyString(page.Username, page.Name),
+			AccountUsername:  textutil.FirstNonEmpty(page.Username, page.Name),
 			AccountAvatarURL: page.Picture.Data.URL,
 			Token:            &pageToken,
 		}, nil
@@ -596,7 +598,7 @@ func (f *FacebookAdapter) publishVideo(ctx context.Context, accessToken, pageID 
 		"description":         facebookVideoDescription(req),
 		oauthParamAccessToken: accessToken,
 	}
-	if title := firstNonEmptyString(settingString(req.Settings, "video_title"), req.Title); title != "" {
+	if title := textutil.FirstNonEmpty(settingString(req.Settings, "video_title"), req.Title); title != "" {
 		values["title"] = title
 	}
 	respBody, err := DoFormURLEncoded(ctx, http.MethodPost, f.graphURL(pageID+"/videos"), values, nil)
@@ -613,7 +615,7 @@ func facebookVideoDescription(req *PublishRequest) string {
 			return strings.TrimSpace(caption)
 		}
 	}
-	return strings.TrimSpace(firstNonEmptyString(settingString(req.Settings, "video_description"), req.Description, req.Content))
+	return strings.TrimSpace(textutil.FirstNonEmpty(settingString(req.Settings, "video_description"), req.Description, req.Content))
 }
 
 func (f *FacebookAdapter) publishMultiPhoto(ctx context.Context, accessToken, pageID string, req *PublishRequest) (string, error) {
@@ -729,8 +731,8 @@ type facebookGraphComment struct {
 func facebookCommentAttachments(item facebookGraphComment) []CommentAttachment {
 	attachment := item.Attachment
 	image := strings.TrimSpace(attachment.Media.Image.Src)
-	permalink := firstNonEmptyString(attachment.URL, attachment.Target.URL)
-	link := firstNonEmptyString(permalink, image, strings.TrimSpace(attachment.Media.Source))
+	permalink := textutil.FirstNonEmpty(attachment.URL, attachment.Target.URL)
+	link := textutil.FirstNonEmpty(permalink, image, strings.TrimSpace(attachment.Media.Source))
 	if link == "" {
 		return nil
 	}
@@ -897,65 +899,11 @@ func facebookPublishedID(label string, respBody []byte) (string, error) {
 			Subcode:    firstSafeProviderCode([]any{publishResp.Error.Subcode}),
 		})
 	}
-	id := firstNonEmptyString(publishResp.PostID, publishResp.ID)
+	id := textutil.FirstNonEmpty(publishResp.PostID, publishResp.ID)
 	if id == "" {
 		return "", fmt.Errorf("%s: missing published id", label)
 	}
 	return id, nil
-}
-
-func validateFacebookMedia(media []MediaItem) []MediaValidationIssue {
-	if len(media) == 0 {
-		return nil
-	}
-	if len(media) > 10 {
-		return []MediaValidationIssue{{
-			Provider: providerFacebook,
-			Severity: severityError,
-			Message:  "Facebook photo posts support up to 10 media attachments.",
-		}}
-	}
-	if len(media) > 1 {
-		for _, item := range media {
-			if isFacebookPhotoMime(item.MimeType) {
-				continue
-			}
-			return []MediaValidationIssue{{
-				Provider: providerFacebook,
-				MediaID:  item.ID,
-				Severity: severityError,
-				Message:  "Facebook multi-photo posts support JPEG, PNG, or WebP images only.",
-			}}
-		}
-		return nil
-	}
-	if isFacebookPhotoMime(media[0].MimeType) || isFacebookVideoMime(media[0].MimeType) {
-		return nil
-	}
-	return []MediaValidationIssue{{
-		Provider: providerFacebook,
-		MediaID:  media[0].ID,
-		Severity: severityError,
-		Message:  "Facebook supports one JPEG, PNG, WebP, MP4, or MOV attachment.",
-	}}
-}
-
-func isFacebookPhotoMime(mimeType string) bool {
-	switch strings.ToLower(strings.TrimSpace(mimeType)) {
-	case "image/jpeg", "image/png", "image/webp":
-		return true
-	default:
-		return false
-	}
-}
-
-func isFacebookVideoMime(mimeType string) bool {
-	switch strings.ToLower(strings.TrimSpace(mimeType)) {
-	case videoTypeMP4, "video/quicktime":
-		return true
-	default:
-		return false
-	}
 }
 
 func facebookScopes() []string {
@@ -1068,7 +1016,7 @@ func facebookVideoFinishRequest(req *PublishRequest) (string, string, map[string
 		"video_state": "PUBLISHED",
 		"description": facebookVideoDescription(req),
 	}
-	if title := firstNonEmptyString(settingString(req.Settings, "video_title"), req.Title); title != "" {
+	if title := textutil.FirstNonEmpty(settingString(req.Settings, "video_title"), req.Title); title != "" {
 		finishValues["title"] = title
 	}
 	if _, exists := req.Settings["share_to_feed"]; exists {

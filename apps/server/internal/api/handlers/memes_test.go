@@ -42,6 +42,7 @@ func (f memeSuggestionGeneratorFunc) Generate(ctx context.Context, request ai.Ge
 }
 
 func TestMemeSuggestionsAcceptRichWorkspaceVoice(t *testing.T) {
+	t.Parallel()
 	examples := []voiceprofiles.Example{
 		{Text: "First approved example: " + strings.Repeat("a", 3000)},
 		{Text: "Second approved example: " + strings.Repeat("b", 3000)},
@@ -725,6 +726,7 @@ func TestMemeThumbnailRejectsBrowserUnsafeDimensions(t *testing.T) {
 }
 
 func TestMemeThumbnailCacheStaysWithinByteBudget(t *testing.T) {
+	t.Parallel()
 	handler := &MemeHandler{
 		thumbnailCache: make(map[string]memeThumbnailCacheEntry),
 		now:            func() time.Time { return time.Now().UTC() },
@@ -791,6 +793,7 @@ func TestMemeBodyLimitRejectsOversizedInputBeforeHandler(t *testing.T) {
 }
 
 func TestMemeSuggestionsCanRunPastFiveSecondsOverHTTP(t *testing.T) {
+	t.Parallel()
 	srv := newMemeHandlerTestServer(t, memeSuggesterFunc(func(ctx context.Context, input memegeneration.Input) (memegeneration.Result, error) {
 		select {
 		case <-time.After(5200 * time.Millisecond):

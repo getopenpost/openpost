@@ -9,6 +9,7 @@ import (
 // The capability cache trusts each adapter to declare every input that can
 // change its provider answer. These assertions pin that contract.
 func TestAccountCapabilityKeyInputs(t *testing.T) {
+	t.Parallel()
 	base := AccountCapabilityInput{
 		Intent:        "post",
 		OutputProfile: "x.post",

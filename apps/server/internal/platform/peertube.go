@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 // PeerTube privacy identifiers. See GET /api/v1/videos/privacies.
@@ -37,6 +39,7 @@ const (
 // channel selection happens at connect time through AccountSelectionAdapter,
 // and the connected account ID is the channel name.
 type PeerTubeAdapter struct {
+	BaseAdapter
 	instanceURL string
 }
 
@@ -54,10 +57,6 @@ func (p *PeerTubeAdapter) AuthorizationGrantDescriptor() AuthorizationGrantDescr
 		ExecutionMode: "password",
 		Evidence:      map[string]string{"protocol": "oauth2", "exchange": "password", "instance_url": p.instanceURL},
 	}
-}
-
-func (p *PeerTubeAdapter) GenerateAuthURL(_ string) (string, map[string]string) {
-	return "", nil
 }
 
 func (p *PeerTubeAdapter) ExchangeCode(_ context.Context, _ string, _ map[string]string) (*TokenResult, error) {
@@ -155,7 +154,7 @@ func (p *PeerTubeAdapter) exchangeUserToken(ctx context.Context, values map[stri
 		AccessToken:  tokenResp.AccessToken,
 		RefreshToken: tokenResp.RefreshToken,
 		ExpiresIn:    tokenResp.ExpiresIn,
-		TokenType:    firstNonEmptyString(tokenResp.TokenType, tokenTypeBearer),
+		TokenType:    textutil.FirstNonEmpty(tokenResp.TokenType, tokenTypeBearer),
 	}, nil
 }
 
@@ -185,9 +184,9 @@ func (p *PeerTubeAdapter) GetProfile(ctx context.Context, accessToken string) (*
 		return nil, err
 	}
 	return &UserProfile{
-		ID:              firstNonEmptyString(me.Account.Name, me.Username, strconv.FormatInt(me.ID, 10)),
-		Username:        firstNonEmptyString(me.Account.Name, me.Username),
-		DisplayName:     firstNonEmptyString(me.Account.DisplayName, me.Username),
+		ID:              textutil.FirstNonEmpty(me.Account.Name, me.Username, strconv.FormatInt(me.ID, 10)),
+		Username:        textutil.FirstNonEmpty(me.Account.Name, me.Username),
+		DisplayName:     textutil.FirstNonEmpty(me.Account.DisplayName, me.Username),
 		CapabilityState: map[string]string{"fediverse_software": "peertube"},
 	}, nil
 }
@@ -236,7 +235,7 @@ func (p *PeerTubeAdapter) listOwnChannels(ctx context.Context, accessToken strin
 	if err != nil {
 		return nil, err
 	}
-	accountName := firstNonEmptyString(me.Account.Name, me.Username)
+	accountName := textutil.FirstNonEmpty(me.Account.Name, me.Username)
 	if accountName == "" {
 		return nil, fmt.Errorf("peertube account identity is unavailable")
 	}
@@ -260,7 +259,7 @@ func (p *PeerTubeAdapter) ListAccountSelections(ctx context.Context, token *Toke
 		options = append(options, AccountSelectionOption{
 			ID:          name,
 			Username:    name,
-			DisplayName: firstNonEmptyString(channel.DisplayName, name),
+			DisplayName: textutil.FirstNonEmpty(channel.DisplayName, name),
 			Kind:        "channel",
 			Extra:       map[string]string{"channel_id": strconv.FormatInt(channel.ID, 10)},
 		})
@@ -277,7 +276,7 @@ func (p *PeerTubeAdapter) SelectAccount(ctx context.Context, token *TokenResult,
 		if option.ID == strings.TrimSpace(selectionID) {
 			return &SelectedAccount{
 				AccountID:       option.ID,
-				AccountUsername: firstNonEmptyString(option.DisplayName, option.Username),
+				AccountUsername: textutil.FirstNonEmpty(option.DisplayName, option.Username),
 				InstanceURL:     p.instanceURL,
 				Token:           token,
 				CapabilityState: map[string]string{"fediverse_software": "peertube", "peertube_channel": option.ID},
@@ -290,7 +289,7 @@ func (p *PeerTubeAdapter) SelectAccount(ctx context.Context, token *TokenResult,
 // SearchPublishingOptions serves the composer pickers for channels,
 // categories, and licences from the connected instance.
 func (p *PeerTubeAdapter) SearchPublishingOptions(ctx context.Context, accessToken string, input PublishingOptionsInput) (PublishingOptionsPage, error) {
-	query := strings.TrimSpace(firstNonEmptyString(input.Search, input.Context["value"], input.Context["query"]))
+	query := strings.TrimSpace(textutil.FirstNonEmpty(input.Search, input.Context["value"], input.Context["query"]))
 	limit := input.Limit
 	if limit <= 0 || limit > 50 {
 		limit = 25
@@ -304,12 +303,12 @@ func (p *PeerTubeAdapter) SearchPublishingOptions(ctx context.Context, accessTok
 		page := PublishingOptionsPage{}
 		for _, channel := range channels {
 			name := strings.TrimSpace(channel.Name)
-			if name == "" || (query != "" && !strings.Contains(strings.ToLower(firstNonEmptyString(channel.DisplayName, name)), strings.ToLower(query))) {
+			if name == "" || (query != "" && !strings.Contains(strings.ToLower(textutil.FirstNonEmpty(channel.DisplayName, name)), strings.ToLower(query))) {
 				continue
 			}
 			page.Options = append(page.Options, DestinationOption{
 				Value: name,
-				Label: firstNonEmptyString(channel.DisplayName, name),
+				Label: textutil.FirstNonEmpty(channel.DisplayName, name),
 			})
 			if len(page.Options) >= limit {
 				break
@@ -398,14 +397,14 @@ func (p *PeerTubeAdapter) ResolveAccountPublishingCapabilities(_ context.Context
 // destination channel is unresolved. A publication with an unresolved
 // channel must not be schedulable.
 func (p *PeerTubeAdapter) ValidatePublishingTarget(_ context.Context, _, accountID string, settings map[string]interface{}) error {
-	if strings.TrimSpace(firstNonEmptyString(settingString(settings, "channel"), accountID)) == "" {
+	if strings.TrimSpace(textutil.FirstNonEmpty(settingString(settings, "channel"), accountID)) == "" {
 		return fmt.Errorf("peertube publish requires a channel: connect a channel or set one for this post")
 	}
 	return nil
 }
 
 func peertubeChannelForRequest(accountID string, settings map[string]interface{}) string {
-	return strings.TrimSpace(firstNonEmptyString(settingString(settings, "channel"), accountID))
+	return strings.TrimSpace(textutil.FirstNonEmpty(settingString(settings, "channel"), accountID))
 }
 
 func peertubePrivacy(settings map[string]interface{}) (int, error) {
@@ -576,20 +575,6 @@ func (p *PeerTubeAdapter) UploadMedia(_ context.Context, _, _, _ string, _ io.Re
 	return "", fmt.Errorf("peertube video upload requires post metadata")
 }
 
-func validatePeerTubeMedia(media []MediaItem) []MediaValidationIssue {
-	for _, item := range media {
-		if !isVideoMime(item.MimeType) {
-			return []MediaValidationIssue{{
-				Provider: providerPeerTube,
-				MediaID:  item.ID,
-				Severity: severityError,
-				Message:  "PeerTube only publishes video; attach a video file to this destination.",
-			}}
-		}
-	}
-	return nil
-}
-
 type peertubeAccount struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"displayName"`
@@ -636,7 +621,7 @@ func (p *PeerTubeAdapter) ListComments(ctx context.Context, accessToken, _ strin
 	}
 	ownAccount := ""
 	if me, err := p.fetchMe(ctx, accessToken); err == nil {
-		ownAccount = firstNonEmptyString(me.Account.Name, me.Username)
+		ownAccount = textutil.FirstNonEmpty(me.Account.Name, me.Username)
 	}
 	// The thread list carries each thread's first comment as a plain comment.
 	// Replies are only returned by the per-thread tree endpoint.
@@ -653,7 +638,7 @@ func (p *PeerTubeAdapter) ListComments(ctx context.Context, accessToken, _ strin
 			comments = append(comments, Comment{
 				ID: ref, ParentID: parentRef, ConversationID: videoID,
 				AuthorID:     node.Comment.Account.Name,
-				AuthorName:   firstNonEmptyString(node.Comment.Account.DisplayName, node.Comment.Account.Name),
+				AuthorName:   textutil.FirstNonEmpty(node.Comment.Account.DisplayName, node.Comment.Account.Name),
 				AuthorHandle: author, AuthorAvatarURL: "",
 				Text:      mastodonPlainText(node.Comment.Text),
 				CreatedAt: node.Comment.CreatedAt, UpdatedAt: node.Comment.UpdatedAt,

@@ -23,6 +23,7 @@ func (feedbackTestDestination) Deliver(context.Context, feedback.Report) error {
 }
 
 func TestFeedbackHandlerRequiresAuthenticationAndConfiguredDestination(t *testing.T) {
+	t.Parallel()
 	e := echo.New()
 	group := e.Group("/api/v1")
 	api := humaecho.NewV4WithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
@@ -49,6 +50,7 @@ func TestFeedbackHandlerRequiresAuthenticationAndConfiguredDestination(t *testin
 }
 
 func TestFeedbackHandlerQueuesOptionalReportAndRateLimits(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Job)(nil), (*models.User)(nil))
 	_, err := db.ExecContext(context.Background(), `
 		CREATE TABLE feedback_rate_limit_windows (
@@ -118,6 +120,7 @@ func TestFeedbackHandlerQueuesOptionalReportAndRateLimits(t *testing.T) {
 }
 
 func TestFeedbackBodyLimitRejectsOversizedReportsBeforeDecoding(t *testing.T) {
+	t.Parallel()
 	e := echo.New()
 	group := e.Group("/api/v1")
 	api := humaecho.NewV4WithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))

@@ -745,6 +745,7 @@ func TestMCPRejectsAudienceMismatch(t *testing.T) {
 }
 
 func TestMCPPublicationExecutionIntentDefaultsAndRequiresInstanceAdmin(t *testing.T) {
+	t.Parallel()
 	srv := newMCPTestServer(t)
 	ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-1")
 	created, rpcErr := srv.handler.createPublication(ctx, "user-1", map[string]any{
@@ -1398,6 +1399,7 @@ func TestMCPCommentMutationQueuesOneAttemptProviderJob(t *testing.T) {
 }
 
 func TestMCPCommentMutationRejectsCredentialBoundToAnotherWorkspace(t *testing.T) {
+	t.Parallel()
 	srv := newMCPTestServer(t)
 	ctx := t.Context()
 	_, err := srv.db.NewInsert().Model(&models.Publication{ID: "publication-comment-boundary", WorkspaceID: "ws-1", CreatedByID: "user-1", Title: "Launch", ContentProfile: models.ContentProfileShortText, SourceText: "Launch", SourceContent: "Launch", Status: models.PublicationStatusPublished, MetadataJSON: "{}", ReleasePlanJSON: "{}"}).Exec(ctx)

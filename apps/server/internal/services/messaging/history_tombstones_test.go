@@ -10,6 +10,7 @@ import (
 )
 
 func TestHistoryDeletionPrecedesLaterHistoryMessage(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		t.Run(backend, func(t *testing.T) {
 			s, _, account, actor := messagingBackendFixture(t, backend)
@@ -25,6 +26,7 @@ func TestHistoryDeletionPrecedesLaterHistoryMessage(t *testing.T) {
 }
 
 func TestHistoryDoesNotCommitAfterAccountEligibilityChanges(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		for _, revoke := range []string{"disconnect", "disable"} {
 			t.Run(backend+"/"+revoke, func(t *testing.T) {

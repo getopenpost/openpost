@@ -102,7 +102,7 @@ func workflowReceipt(input workflows.EffectRequest, operation string) idempotenc
 	return idempotency.Request{PrincipalID: "user:" + input.Authority.UserID, WorkspaceID: input.Authority.WorkspaceID, OperationID: "workflow-" + operation, Key: input.RunID + ":" + input.StepID, HTTPStatus: 200, ExpiresAt: input.ExpiresAt}
 }
 func (a workflowActions) draft(ctx context.Context, input workflows.EffectRequest) (map[string]any, error) {
-	commands := a.publications.publicationApplicationForTesting()
+	commands := a.publications.publicationApplication()
 	body := CreatePublicationBody{WorkspaceID: input.Authority.WorkspaceID, Title: workflowText(input.Inputs, "title"), SourceText: workflowText(input.Inputs, "text"), SourceURL: workflowText(input.Inputs, "url"), SocialAccountIDs: workflowAccounts(input.Inputs), SocialSetID: workflowText(input.Inputs, "social_set_id"), CreationPreset: "post", ContentProfile: "text", Metadata: map[string]any{"workflow_run_id": input.RunID, "workflow_step_id": input.StepID}}
 	publication, err := commands.CreateFromWorkflow(ctx, input.Authority.UserID, body, workflowReceipt(input, "create-draft"))
 	if err != nil {
@@ -145,7 +145,7 @@ func (a workflowActions) schedule(ctx context.Context, input workflows.EffectReq
 	if err != nil {
 		return nil, errors.New("choose a valid schedule delay")
 	}
-	commands := a.publications.publicationApplicationForTesting()
+	commands := a.publications.publicationApplication()
 	receipt := workflowReceipt(input, "schedule")
 	_, receipt, err = commands.prepareEnqueueIdempotency(ctx, input.Authority.UserID, id, revision+1, providerreadiness.ExecutionIntentProduction, receipt)
 	if err != nil {
@@ -265,10 +265,6 @@ func (a workflowActions) build(ctx context.Context, input workflows.EffectReques
 	output := workflowPublicationOutput(publication)
 	output["build_id"] = build.ID
 	return workflows.EffectResult{Output: output}, nil
-}
-
-func NewWorkflowActions(publications *PublicationHandler, builds *PublicationBuildHandler, analytics *analyticsservice.Service) workflows.Actions {
-	return workflowActions{publications: publications, builds: builds, analytics: analytics}
 }
 
 func (a workflowActions) commentReply(ctx context.Context, in workflows.EffectRequest) (workflows.EffectResult, error) {

@@ -5,25 +5,23 @@ import (
 	"errors"
 	"io"
 	"strings"
-	"sync"
 	"time"
 )
 
-// PublishRequest contains everything needed to publish a single post.
 type PublishRequest struct {
-	Content          string // Post text content
-	RenditionID      string // Owning Rendition for provider-specific durable receipts
-	Profile          string // OpenPost content profile, e.g. short_text, carousel, story, short_video
-	OutputProfile    string // Provider-qualified output profile, e.g. instagram.carousel
-	Title            string // Provider-specific title for video/link surfaces
-	Description      string // Provider-specific description for video/link surfaces
-	SettingsJSON     string // Raw provider settings JSON
+	Content          string
+	RenditionID      string
+	Profile          string
+	OutputProfile    string
+	Title            string
+	Description      string
+	SettingsJSON     string
 	Settings         map[string]interface{}
-	PlatformMediaIDs []string                 // Platform-specific media IDs from UploadMedia
-	MediaAltTexts    []string                 // Alt text for each media item (parallel to PlatformMediaIDs)
-	MediaSettings    []map[string]interface{} // Per-media settings parallel to PlatformMediaIDs
+	PlatformMediaIDs []string
+	MediaAltTexts    []string
+	MediaSettings    []map[string]interface{}
 	Media            []MediaItem
-	ReplyToID        string // External ID of parent post (empty for first post in thread)
+	ReplyToID        string
 
 	// OperationID and IdempotencyKey identify one logical provider mutation.
 	// They never contain content or credentials. Adapters may use the
@@ -223,48 +221,7 @@ type PublishResumer interface {
 	ResumePublish(ctx context.Context, accessToken, accountID string, request *PublishRequest, providerReference string) (PublishResult, error)
 }
 
-type MediaValidationIssue struct {
-	Provider string
-	MediaID  string
-	Severity string
-	Message  string
-}
-
-type MediaValidator func([]MediaItem) []MediaValidationIssue
-
-var MediaValidators = map[string]MediaValidator{}
-var registerMediaValidatorsOnce sync.Once
-
 var ErrUnsupportedCommentAction = errors.New("comment action unsupported")
-
-func RegisterAllMediaValidators() {
-	registerMediaValidatorsOnce.Do(func() {
-		MediaValidators[providerBluesky] = validateBlueskyMedia
-		MediaValidators[providerDevNull] = validateDevNullMedia
-		MediaValidators[providerDiscord] = validateDiscordMedia
-		MediaValidators[providerFacebook] = validateFacebookMedia
-		MediaValidators[providerGoogleBusiness] = validateGoogleBusinessMedia
-		MediaValidators[providerInstagram] = validateInstagramMedia
-		MediaValidators[providerLinkedIn] = validateLinkedInMedia
-		MediaValidators[providerMastodon] = validateMastodonMedia
-		MediaValidators[providerPixelfed] = validatePixelfedMedia
-		MediaValidators[providerPeerTube] = validatePeerTubeMedia
-		MediaValidators[providerLemmy] = validateLemmyMedia
-		MediaValidators[providerPieFed] = validatePieFedMedia
-		MediaValidators[providerPinterest] = validatePinterestMedia
-		MediaValidators[providerTikTok] = validateTikTokMedia
-		MediaValidators[providerThreads] = validateThreadsMedia
-		MediaValidators[providerX] = validateXMedia
-		MediaValidators[providerYouTube] = validateYouTubeMedia
-	})
-}
-
-func ValidateMedia(platformName string, media []MediaItem) []MediaValidationIssue {
-	if validator, ok := MediaValidators[platformName]; ok {
-		return validator(media)
-	}
-	return nil
-}
 
 func isVideoMime(mimeType string) bool {
 	return strings.HasPrefix(strings.ToLower(mimeType), "video/")

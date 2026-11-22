@@ -14,6 +14,7 @@ import (
 )
 
 func TestHandleJobSendsBillingEmbedOnceWithUserDetails(t *testing.T) {
+	t.Parallel()
 	db := newBillingTestDB(t)
 	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
 	_, err := db.NewCreateTable().Model((*models.User)(nil)).IfNotExists().Exec(t.Context())

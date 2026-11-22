@@ -14,6 +14,7 @@ import (
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/inboxchanges"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
@@ -25,7 +26,7 @@ func journalDB(t *testing.T, postgres bool) *bun.DB {
 	var db *bun.DB
 	if !postgres {
 		var err error
-		db, err = database.InitDBWithDriver("sqlite", "file:"+uuid.NewString()+"?mode=memory&cache=shared")
+		db, err = testdb.OpenWithDriver("sqlite", "file:"+uuid.NewString()+"?mode=memory&cache=shared")
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, db.Close()) })
 	} else {

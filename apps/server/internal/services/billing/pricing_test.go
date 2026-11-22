@@ -9,6 +9,7 @@ import (
 )
 
 func TestHostedPurchaseChoicesMatchPublishedPackages(t *testing.T) {
+	t.Parallel()
 	service := NewService(nil, "", PaddleConfig{
 		Plans:                testCatalog(),
 		PurchaseChoiceSecret: "pricing-test-signing-secret",

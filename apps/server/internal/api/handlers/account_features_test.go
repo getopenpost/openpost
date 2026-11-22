@@ -111,6 +111,7 @@ func seedAccount(t *testing.T, db *bun.DB, id, workspaceID, grantedScopes string
 }
 
 func TestDevNullEngagementCanBeEnabledWithoutReconnect(t *testing.T) {
+	t.Parallel()
 	srv := newAccountFeaturesTestServer(t, map[string]platform.Adapter{"devnull": platform.NewDevNullAdapter("")})
 	seedAccount(t, srv.db, "devnull-account", "ws-1", "")
 	_, err := srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("platform = ?", "devnull").Where("id = ?", "devnull-account").Exec(t.Context())

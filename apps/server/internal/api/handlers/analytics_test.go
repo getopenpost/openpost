@@ -14,10 +14,10 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -45,6 +45,7 @@ func (analyticsHandlerTokenSource) GetValidAccessToken(context.Context, string) 
 }
 
 func TestAnalyticsOverviewRejectsStaleCursor(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsHandlerTestDB(t, "ws-1")
 	ctx := t.Context()
 	now := time.Now().UTC()
@@ -112,6 +113,7 @@ func TestAnalyticsOverviewRejectsStaleCursor(t *testing.T) {
 }
 
 func TestAnalyticsRepurposeRequiresEditorAndKeepsOpaqueReferencesWorkspaceScoped(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsHandlerTestDB(t, "ws-1")
 	ctx := t.Context()
 	now := time.Now().UTC()
@@ -168,6 +170,7 @@ func TestAnalyticsRepurposeRequiresEditorAndKeepsOpaqueReferencesWorkspaceScoped
 }
 
 func TestAnalyticsOverviewAllowsViewerButRefreshRequiresEditor(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsHandlerTestDB(t, "ws-1")
 	ctx := context.Background()
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{
@@ -230,6 +233,7 @@ func TestAnalyticsOverviewAllowsViewerButRefreshRequiresEditor(t *testing.T) {
 }
 
 func TestAnalyticsOverviewFiltersSeveralAccountsAndBindsCursorToTheSet(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsHandlerTestDB(t, "selected", "other")
 	ctx := t.Context()
 	now := time.Now().UTC()
@@ -311,10 +315,7 @@ func TestAnalyticsOverviewFiltersSeveralAccountsAndBindsCursorToTheSet(t *testin
 // production schema rather than a partial table list that can bypass cleanup.
 func newAnalyticsHandlerTestDB(t *testing.T, workspaceIDs ...string) *bun.DB {
 	t.Helper()
-	db, err := database.InitDB(":memory:")
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := testdb.NewSQLite(t)
 	for _, model := range []any{&models.User{ID: "user-1", Email: "analytics@example.com"}, &models.Organization{ID: "analytics-org", Name: "Analytics"}} {
 		_, err := db.NewInsert().Model(model).Exec(t.Context())
 		require.NoError(t, err)

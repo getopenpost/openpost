@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 const (
@@ -123,7 +125,7 @@ func (d *DiscordBotAdapter) GetProfile(ctx context.Context, accessToken string) 
 	if user.ID == "" {
 		return nil, fmt.Errorf("discord user response did not include an id")
 	}
-	return &UserProfile{ID: user.ID, Username: firstNonEmptyString(user.GlobalName, user.Username), AvatarURL: discordAvatarURL(user.ID, user.Avatar)}, nil
+	return &UserProfile{ID: user.ID, Username: textutil.FirstNonEmpty(user.GlobalName, user.Username), AvatarURL: discordAvatarURL(user.ID, user.Avatar)}, nil
 }
 
 func (d *DiscordBotAdapter) RefreshAccountMetadata(ctx context.Context, _ string, input AccountMetadataRequest) (*UserProfile, error) {
@@ -306,7 +308,7 @@ func (d *DiscordBotAdapter) searchDiscordMembers(ctx context.Context, guildID st
 		if member.User.ID == "" {
 			continue
 		}
-		label := firstNonEmptyString(member.Nick, member.User.GlobalName, member.User.Username, member.User.ID)
+		label := textutil.FirstNonEmpty(member.Nick, member.User.GlobalName, member.User.Username, member.User.ID)
 		options = append(options, DestinationOption{Value: member.User.ID, Label: "@" + label})
 	}
 	return PublishingOptionsPage{Options: options}, nil

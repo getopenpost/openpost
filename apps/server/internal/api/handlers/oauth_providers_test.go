@@ -142,6 +142,7 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 }
 
 func TestTelegramConnectionAvailabilityFollowsReadiness(t *testing.T) {
+	t.Parallel()
 	for _, approved := range []bool{false, true} {
 		t.Run(map[bool]string{false: "review missing", true: "review current"}[approved], func(t *testing.T) {
 			e := echo.New()

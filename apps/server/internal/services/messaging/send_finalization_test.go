@@ -26,6 +26,7 @@ func (p sendRequestProvider) SendMessage(ctx context.Context, _ string, request 
 }
 
 func TestQueuedReplyTargetSurvivesIncomingMessagesAndSafeRetry(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		for _, provider := range []string{"mastodon", "bluesky"} {
 			t.Run(backend+"/"+provider, func(t *testing.T) {
@@ -85,6 +86,7 @@ func TestQueuedReplyTargetSurvivesIncomingMessagesAndSafeRetry(t *testing.T) {
 }
 
 func TestSendAcceptancePreservesDeletionAcrossEchoOrdering(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		for _, order := range []string{"echo then delete", "delete then echo"} {
 			for _, scope := range []string{"conversation", "account", "conversation deletion"} {
@@ -170,6 +172,7 @@ func TestSendAcceptancePreservesDeletionAcrossEchoOrdering(t *testing.T) {
 }
 
 func TestReplyTargetMigrationPreservesAttemptedRequests(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		t.Run(backend, func(t *testing.T) {
 			s, db, account, actor := messagingBackendFixture(t, backend)
@@ -234,6 +237,7 @@ func TestReplyTargetMigrationPreservesAttemptedRequests(t *testing.T) {
 }
 
 func TestDeletedSendKeepsNewerConversationPreview(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		t.Run(backend, func(t *testing.T) {
 			s, db, account, actor := messagingBackendFixture(t, backend)

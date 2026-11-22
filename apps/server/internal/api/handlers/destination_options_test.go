@@ -51,6 +51,7 @@ func (s *destinationOptionsTokenSource) GetValidAccessToken(_ context.Context, a
 }
 
 func TestDestinationOptionsUsesConnectedAccountAndFreshToken(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil))
 	ctx := context.Background()
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{
@@ -95,6 +96,7 @@ func TestDestinationOptionsUsesConnectedAccountAndFreshToken(t *testing.T) {
 }
 
 func TestDestinationOptionsUsesDynamicallyRegisteredInstanceAdapter(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil))
 	ctx := context.Background()
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{
@@ -140,6 +142,7 @@ func TestDestinationOptionsUsesDynamicallyRegisteredInstanceAdapter(t *testing.T
 }
 
 func TestThreadsLocationOptionsRequireLocationTaggingScope(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil))
 	ctx := context.Background()
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{
@@ -202,6 +205,7 @@ func TestThreadsLocationOptionsRequireLocationTaggingScope(t *testing.T) {
 }
 
 func TestTelegramPublishingOptionsOnlyExposeTheVerifiedAccountChat(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil), (*models.TelegramConnection)(nil))
 	now := time.Now().UTC()
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{

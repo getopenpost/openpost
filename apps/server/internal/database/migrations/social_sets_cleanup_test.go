@@ -8,6 +8,7 @@ import (
 )
 
 func TestRemoveLegacyAllChannelsSocialSets(t *testing.T) {
+	t.Parallel()
 	db := newMigrationsTestDB(t)
 	require.NoError(t, runTestMigrations(t, db))
 	ctx := t.Context()

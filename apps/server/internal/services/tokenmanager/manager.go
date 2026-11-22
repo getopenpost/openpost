@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 
@@ -434,7 +436,7 @@ func normalizedScopes(token *platform.TokenResult) string {
 	if token == nil || token.Extra == nil {
 		return ""
 	}
-	return normalizeScopeString(firstNonEmpty(token.Extra["scope"], token.Extra["scopes"]))
+	return normalizeScopeString(textutil.FirstNonEmpty(token.Extra["scope"], token.Extra["scopes"]))
 }
 
 func normalizeScopeString(raw string) string {
@@ -533,13 +535,4 @@ func (tm *TokenManager) persistLegacyTokens(ctx context.Context, account *models
 		log.Printf("[TokenManager] Failed to schedule legacy refresh job for account %s: %v", account.ID, err)
 	}
 	return tokenResp.AccessToken, nil
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }

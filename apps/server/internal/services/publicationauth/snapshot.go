@@ -13,6 +13,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
@@ -177,7 +179,7 @@ func renditionFingerprintParts(
 		content.Segments = append(content.Segments, contentSegmentFingerprint{
 			Position:    0,
 			Body:        rendition.Body,
-			Title:       firstNonEmpty(rendition.Title, publication.Title),
+			Title:       textutil.FirstNonEmpty(rendition.Title, publication.Title),
 			Description: rendition.Description,
 		})
 		rows, rowErr := loadRenditionMediaRows(ctx, db, rendition.ID)
@@ -194,8 +196,8 @@ func renditionFingerprintParts(
 			content.Segments = append(content.Segments, contentSegmentFingerprint{
 				Position:    segment.Position,
 				Body:        segment.Body,
-				Title:       firstNonEmpty(segment.Title, rendition.Title, publication.Title),
-				Description: firstNonEmpty(segment.Description, rendition.Description),
+				Title:       textutil.FirstNonEmpty(segment.Title, rendition.Title, publication.Title),
+				Description: textutil.FirstNonEmpty(segment.Description, rendition.Description),
 				URL:         segment.URL,
 			})
 			segmentSettings, settingsErr := canonicalJSON(segment.SettingsJSON)
@@ -264,7 +266,7 @@ func mediaItemsFromRows(rows []renditionMediaRow, segmentPosition int) ([]mediaI
 		items = append(items, mediaItemFingerprint{
 			SegmentPosition: segmentPosition, DisplayOrder: row.DisplayOrder, Role: row.Role,
 			MediaID: row.MediaID, FileHash: row.FileHash, MimeType: row.MimeType, Size: row.Size,
-			OriginalFilename: row.OriginalFilename, AltText: firstNonEmpty(row.AltText, row.DefaultAltText),
+			OriginalFilename: row.OriginalFilename, AltText: textutil.FirstNonEmpty(row.AltText, row.DefaultAltText),
 			ThumbnailTimestampMS: row.ThumbnailTimestampMS, Settings: settings,
 		})
 	}
@@ -381,15 +383,6 @@ func ensureJSONEOF(decoder *json.Decoder) error {
 		return fmt.Errorf("multiple JSON values")
 	}
 	return err
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func missingTable(err error) bool {

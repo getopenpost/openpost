@@ -11,6 +11,7 @@ import (
 )
 
 func TestRenderDrawsReadableTextAndKeepsDeterministicBytes(t *testing.T) {
+	t.Parallel()
 	style, err := Parse(map[string]any{"text_card": "always", "text_card_shadow": false})
 	require.NoError(t, err)
 	for _, text := range []string{"A new release.", "Olá, café!", "مرحبا بالعالم", "שלום עולם", "日本語の投稿", "Hello 👋 🌍"} {
@@ -39,6 +40,7 @@ func TestRenderDrawsReadableTextAndKeepsDeterministicBytes(t *testing.T) {
 }
 
 func TestAvatarPlaceholderFollowsCardColor(t *testing.T) {
+	t.Parallel()
 	defaultStyle, err := Parse(map[string]any{"text_card": "always", "text_card_shadow": false})
 	require.NoError(t, err)
 	redStyle, err := Parse(map[string]any{"text_card": "always", "text_card_shadow": false, "text_card_color": "#ff0000"})
@@ -80,6 +82,7 @@ func TestAvatarPlaceholderFollowsCardColor(t *testing.T) {
 }
 
 func TestAvatarPlaceholderPicksLegibleInitial(t *testing.T) {
+	t.Parallel()
 	// The placeholder keeps the brand indigo monogram on light discs and
 	// switches to white on dark discs; this pins the documented choice.
 	light, err := Parse(map[string]any{"text_card": "always"})
@@ -124,6 +127,7 @@ func testContrast(a, b [3]int) float64 {
 }
 
 func TestAvatarPlaceholderContrastsAgainstPaperInBothAppearances(t *testing.T) {
+	t.Parallel()
 	for _, appearance := range []string{"light", "dark"} {
 		t.Run(appearance, func(t *testing.T) {
 			style, err := Parse(map[string]any{"text_card": "always", "text_card_shadow": false, "text_card_appearance": appearance})
@@ -156,6 +160,7 @@ func TestAvatarPlaceholderContrastsAgainstPaperInBothAppearances(t *testing.T) {
 }
 
 func TestFooterStaysClearOfBodyText(t *testing.T) {
+	t.Parallel()
 	// A page filled with text used to put the footer arrow inside the descender
 	// band of the last line. Measure the rendered gap instead of the constants
 	// that produce it, so the layout can change without losing the guarantee.
@@ -208,6 +213,7 @@ func abs(value int) int {
 }
 
 func TestLayoutPaginatesWithoutDroppingTextAndBoundsWork(t *testing.T) {
+	t.Parallel()
 	body := strings.Repeat("We shipped a smaller, faster editor. ", 55)
 	pages, err := Layout(body, "instagram.feed")
 	require.NoError(t, err)
@@ -228,6 +234,7 @@ func TestLayoutPaginatesWithoutDroppingTextAndBoundsWork(t *testing.T) {
 }
 
 func TestEllipsizeLabelTruncatesClippedIdentity(t *testing.T) {
+	t.Parallel()
 	faces, err := newFaces()
 	require.NoError(t, err)
 	longName := "Alexandra Josephine Montgomery Rutherfordington the Third Esquire of the Long Names Society"
@@ -246,6 +253,7 @@ func TestEllipsizeLabelTruncatesClippedIdentity(t *testing.T) {
 }
 
 func TestRenderEllipsizesLongIdentity(t *testing.T) {
+	t.Parallel()
 	style, err := Parse(map[string]any{"text_card": "always", "text_card_shadow": false})
 	require.NoError(t, err)
 	faces, err := newFaces()

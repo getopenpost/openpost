@@ -30,6 +30,7 @@ import (
 )
 
 func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *testing.T) {
+	t.Parallel()
 	e, db, _ := newThemeTestServer(t)
 	fontBytes := handlerRealWOFF2(t)
 	font := uploadThemeAsset(t, e, map[string]any{
@@ -282,6 +283,7 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 }
 
 func TestThemeAssignmentAcceptsCurrentBuiltInRevision(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newThemeTestServer(t)
 
 	response := themeRequest(t, e, http.MethodPut, "/api/v1/theme-assignments/workspace-1", map[string]any{
@@ -292,6 +294,7 @@ func TestThemeAssignmentAcceptsCurrentBuiltInRevision(t *testing.T) {
 }
 
 func TestThemeHTTPDuplicateBuiltInDoesNotRequireManifest(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newThemeTestServer(t)
 	response := themeRequest(t, e, http.MethodPost, "/api/v1/themes", map[string]any{
 		"organization_id": "org-1", "name": "Studio copy", "duplicate_built_in_id": "studio",
@@ -304,6 +307,7 @@ func TestThemeHTTPDuplicateBuiltInDoesNotRequireManifest(t *testing.T) {
 }
 
 func TestThemeHTTPSettingsRequireManagementWithoutWorkspaceEnumeration(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newThemeTestServer(t)
 	viewerKnown := themeRequestAs(t, e, "viewer-token", http.MethodGet, "/api/v1/theme-settings?workspace_id=workspace-1", nil)
 	viewerMissing := themeRequestAs(t, e, "viewer-token", http.MethodGet, "/api/v1/theme-settings?workspace_id=missing-workspace", nil)
@@ -318,6 +322,7 @@ func TestThemeHTTPSettingsRequireManagementWithoutWorkspaceEnumeration(t *testin
 }
 
 func TestThemeHTTPSummaryPaginationIsBoundedCompactAndComplete(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newThemeTestServer(t)
 	createdIDs := map[string]struct{}{}
 	publishedIDs := map[string]struct{}{}
@@ -406,6 +411,7 @@ func TestThemeHTTPSummaryPaginationIsBoundedCompactAndComplete(t *testing.T) {
 }
 
 func TestThemeHTTPRevisionPagesAreBoundedNewestFirstAndComplete(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newThemeTestServer(t)
 	createdResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes", map[string]any{
 		"organization_id": "org-1", "name": "Revision history", "duplicate_built_in_id": "studio",
@@ -447,6 +453,7 @@ func TestThemeHTTPRevisionPagesAreBoundedNewestFirstAndComplete(t *testing.T) {
 }
 
 func TestThemeHTTPAssetPagesAreBoundedStableAndComplete(t *testing.T) {
+	t.Parallel()
 	e, db, _ := newThemeTestServer(t)
 	assetIDs := make([]string, 0, 3)
 	for index := range 3 {
@@ -479,6 +486,7 @@ func TestThemeHTTPAssetPagesAreBoundedStableAndComplete(t *testing.T) {
 }
 
 func TestThemeHTTPAvailableDetailDoesNotEnumerateStaleOrInaccessibleThemes(t *testing.T) {
+	t.Parallel()
 	e, _, _ := newThemeTestServer(t)
 	createdResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes", map[string]any{
 		"organization_id": "org-1", "name": "Immutable preview", "duplicate_built_in_id": "studio",

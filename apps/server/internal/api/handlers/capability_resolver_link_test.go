@@ -8,6 +8,7 @@ import (
 )
 
 func TestSatisfyCanonicalURLRequirement(t *testing.T) {
+	t.Parallel()
 	for _, tt := range []struct {
 		name       string
 		sourceURL  string

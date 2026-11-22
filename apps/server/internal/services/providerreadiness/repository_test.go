@@ -1,17 +1,17 @@
 package providerreadiness
 
 import (
-	"path/filepath"
 	"slices"
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/uptrace/bun"
 )
 
 func TestRepositoryAuthorizationRequiresTheAccountsExactGrantOwner(t *testing.T) {
+	t.Parallel()
 	db := newProviderReadinessRepositoryTestDB(t)
 	repository := NewRepository(db)
 	now := time.Now().UTC()
@@ -57,24 +57,11 @@ func TestRepositoryAuthorizationRequiresTheAccountsExactGrantOwner(t *testing.T)
 
 func newProviderReadinessRepositoryTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	dsn := "file:" + filepath.Join(t.TempDir(), "provider-readiness.db") + "?mode=rwc"
-	db, err := database.InitDB(dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := database.CreateSchema(db); err != nil {
-		_ = db.Close()
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := db.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	return db
+	return testdb.NewSQLite(t)
 }
 
 func TestRepositoryTelegramAuthorizationUsesVerifiedInstallation(t *testing.T) {
+	t.Parallel()
 	db := newProviderReadinessRepositoryTestDB(t)
 	repository := NewRepository(db)
 	now := time.Now().UTC().Truncate(time.Second)

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
@@ -397,7 +399,7 @@ func MarkAssetNeedsStorage(ctx context.Context, db *bun.DB, actor workspaceacces
 		now := time.Now().UTC()
 		if _, err := tx.NewUpdate().Model((*models.ProjectAsset)(nil)).
 			Set("status = ?", models.ProjectAssetStatusNeedsStorage).
-			Set("attention_reason = ?", firstNonEmpty(reason, "storage quota exceeded")).
+			Set("attention_reason = ?", textutil.FirstNonEmpty(reason, "storage quota exceeded")).
 			Set("updated_at = ?", now).
 			Where("id = ?", asset.ID).Exec(txCtx); err != nil {
 			return err
@@ -415,7 +417,7 @@ func MarkAssetNeedsStorageForMedia(ctx context.Context, db *bun.DB, workspaceID,
 		now := time.Now().UTC()
 		if _, err := tx.NewUpdate().Model((*models.ProjectAsset)(nil)).
 			Set("status = ?", models.ProjectAssetStatusNeedsStorage).
-			Set("attention_reason = ?", firstNonEmpty(reason, "storage quota exceeded")).
+			Set("attention_reason = ?", textutil.FirstNonEmpty(reason, "storage quota exceeded")).
 			Set("updated_at = ?", now).
 			Where("workspace_id = ? AND media_id = ?", workspaceID, mediaID).Exec(txCtx); err != nil {
 			return err
@@ -691,7 +693,7 @@ func (s *Service) Create(ctx context.Context, actor workspaceaccess.ActorFacts, 
 
 	now := s.now().UTC()
 	project := &models.VideoProject{
-		ID: firstNonEmpty(input.ID, uuid.NewString()), WorkspaceID: input.WorkspaceID, Name: input.Name,
+		ID: textutil.FirstNonEmpty(input.ID, uuid.NewString()), WorkspaceID: input.WorkspaceID, Name: input.Name,
 		HeadRevision: 1, DocumentJSON: string(document), SyncStatus: models.VideoProjectSyncSynced,
 		CreatedByUserID: actor.UserID, UpdatedByUserID: actor.UserID, CreatedAt: now, UpdatedAt: now,
 	}
@@ -922,7 +924,7 @@ func (s *Service) createMutationConflict(ctx context.Context, tx bun.Tx, actor w
 	now := s.now().UTC()
 	conflict := &models.VideoProjectConflict{
 		ID: uuid.NewString(), ProjectID: project.ID,
-		Name:         fmt.Sprintf("Conflict from %s at revision %d", firstNonEmpty(input.DeviceID, "another device"), project.HeadRevision),
+		Name:         fmt.Sprintf("Conflict from %s at revision %d", textutil.FirstNonEmpty(input.DeviceID, "another device"), project.HeadRevision),
 		BaseRevision: input.BaseRevision, HeadRevision: project.HeadRevision, MutationID: input.MutationID,
 		DocumentJSON: string(branchDocument), OverlapTargetsJSON: mustMarshal(overlaps),
 		AuthorUserID: actor.UserID, DeviceID: input.DeviceID, CreatedAt: now,
@@ -1472,7 +1474,7 @@ func projectSyncState(ctx context.Context, db bun.IDB, projectID string) (string
 		case models.ProjectAssetStatusReady:
 		case models.ProjectAssetStatusNeedsStorage, models.ProjectAssetStatusFailed:
 			status = models.VideoProjectSyncNeedsAttention
-			attention = firstNonEmpty(asset.AttentionReason, "required project asset needs attention")
+			attention = textutil.FirstNonEmpty(asset.AttentionReason, "required project asset needs attention")
 			return status, attention, nil
 		case models.ProjectAssetStatusUploading:
 			status = models.VideoProjectSyncUploading
@@ -1512,13 +1514,4 @@ func authorize(ctx context.Context, db bun.IDB, actor workspaceaccess.ActorFacts
 func mustMarshal(value any) string {
 	raw, _ := json.Marshal(value)
 	return string(raw)
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value = strings.TrimSpace(value); value != "" {
-			return value
-		}
-	}
-	return ""
 }

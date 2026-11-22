@@ -243,6 +243,7 @@ func TestListJobsCursorAndRunRangeReachOlderRecordsWithoutDuplicates(t *testing.
 }
 
 func TestListJobsUsesCanonicalScopeForMigratedLegacyHistory(t *testing.T) {
+	t.Parallel()
 	srv := newJobsTestServer(t)
 	ctx := t.Context()
 	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
@@ -328,6 +329,7 @@ func (s *jobsTestServer) getJSONWithToken(t *testing.T, path, token string) *htt
 }
 
 func TestInboxCollectionAndReplyJobReceiptsStayWorkspaceScoped(t *testing.T) {
+	t.Parallel()
 	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
 	for _, kind := range []string{"messages_sync", "message_send", "engagement_sync", "engagement_action", "engagement_review_action"} {
 		job := models.Job{ID: "inbox-" + kind, Type: kind, ScopeID: "ws-1", Status: "pending", Payload: `{"body":"private reply"}`, RunAt: time.Now().UTC()}

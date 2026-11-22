@@ -16,6 +16,7 @@ import (
 )
 
 func TestValidatePublicationListInputAcceptsStableCursorAndRejectsMixedPagination(t *testing.T) {
+	t.Parallel()
 	timestamp := time.Date(2026, time.August, 9, 12, 0, 0, 789, time.UTC)
 	input := &ListPublicationsInput{Cursor: encodeTimestampIDCursor(timestamp, "publication-1")}
 	_, cursor, _, err := validatePublicationListInput(input)
@@ -32,6 +33,7 @@ func TestValidatePublicationListInputAcceptsStableCursorAndRejectsMixedPaginatio
 }
 
 func TestFailedPublicationCanBeDismissedAndRestoredWithoutDeletingEvidence(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.Publication)(nil))
 	ctx := t.Context()
 	now := time.Date(2026, time.August, 27, 10, 0, 0, 0, time.UTC)

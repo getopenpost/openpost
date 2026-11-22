@@ -158,11 +158,3 @@ func TestPixelfedCapabilitiesReportPixelfedRevision(t *testing.T) {
 	require.False(t, result.AvailableFeatures["focal_point"], "pixelfed must not advertise focal points")
 	require.False(t, result.AvailableFeatures["quote_url"], "pixelfed must not advertise quote posts")
 }
-
-func TestValidatePixelfedMediaWarnsOnVideo(t *testing.T) {
-	issues := validatePixelfedMedia([]MediaItem{{ID: "m1", MimeType: "video/mp4"}})
-	require.Len(t, issues, 1)
-	require.Equal(t, "pixelfed", issues[0].Provider)
-	require.Equal(t, "warning", issues[0].Severity)
-	require.Empty(t, validatePixelfedMedia([]MediaItem{{ID: "m1", MimeType: "image/jpeg"}}))
-}

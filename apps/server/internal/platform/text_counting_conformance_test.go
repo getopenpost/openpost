@@ -15,6 +15,7 @@ import (
 // accept/reject decision at the grapheme and byte boundaries, including for
 // text where graphemes and code points diverge.
 func TestValidateBlueskyTextMatchesCanonicalCounter(t *testing.T) {
+	t.Parallel()
 	texts := []string{
 		"",
 		"Hello, world!",
@@ -60,6 +61,7 @@ func TestValidateBlueskyTextMatchesCanonicalCounter(t *testing.T) {
 // stays the limit owner for account-unaware validation and the catalog
 // carries the premium limit.
 func TestXTextLimitsMatchCanonicalLimits(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, 280, providerlimits.XStandardTextLimit, "canonical X standard limit")
 	require.Equal(t, 25_000, providerlimits.XPremiumTextLimit, "canonical X premium limit")
 

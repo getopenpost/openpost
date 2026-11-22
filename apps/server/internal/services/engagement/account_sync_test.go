@@ -67,6 +67,7 @@ func executeAccountActivity(t *testing.T, s *Service, job models.Job) {
 }
 
 func TestAccountActivityResumesPartialPagesAndPreservesSharedReadState(t *testing.T) {
+	t.Parallel()
 	s := admissionTestService(t)
 	s.notifications = notifications.NewService(s.db)
 	s.tokenSource = moderationTokens{}
@@ -115,6 +116,7 @@ func TestAccountActivityResumesPartialPagesAndPreservesSharedReadState(t *testin
 }
 
 func TestAccountActivityRejectsStaleAuthorityAndWorkerLeases(t *testing.T) {
+	t.Parallel()
 	for _, reason := range []string{"disabled", "reactivated", "grant replaced", "lease replaced"} {
 		t.Run(reason, func(t *testing.T) {
 			s := admissionTestService(t)
@@ -153,6 +155,7 @@ func TestAccountActivityRejectsStaleAuthorityAndWorkerLeases(t *testing.T) {
 }
 
 func TestAccountActivityRetainsContinuationWhenPageBudgetIsExhausted(t *testing.T) {
+	t.Parallel()
 	s := admissionTestService(t)
 	s.tokenSource = moderationTokens{}
 	provider := &activityProvider{fail: "never", pages: map[string]platform.AccountActivityPage{
@@ -187,6 +190,7 @@ type registeredActivityProvider struct {
 }
 
 func TestRuntimeEngagementRegistrationAlsoCollectsMentions(t *testing.T) {
+	t.Parallel()
 	s := admissionTestService(t)
 	s.tokenSource = moderationTokens{}
 	provider := &registeredActivityProvider{activityProvider: activityProvider{fail: "never", pages: map[string]platform.AccountActivityPage{"": {Items: []platform.AccountActivityItem{activityMention("runtime", "New instance mention")}}}}}
@@ -220,6 +224,7 @@ func TestRuntimeEngagementRegistrationAlsoCollectsMentions(t *testing.T) {
 }
 
 func TestMentionUnderNonRootPostRetainsExistingCommentIdentity(t *testing.T) {
+	t.Parallel()
 	s := admissionTestService(t)
 	s.tokenSource = moderationTokens{}
 	legacy := `{"_root":{"cid":"owned-reply-cid","uri":"at://did:plc:owner/app.bsky.feed.post/owned-reply"},"cid":"mention-cid","uri":"at://did:plc:alice/app.bsky.feed.post/mention"}`

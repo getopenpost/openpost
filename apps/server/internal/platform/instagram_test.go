@@ -1,10 +1,13 @@
 package platform
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -13,6 +16,7 @@ import (
 	"time"
 
 	"github.com/openpost/backend/internal/providerlimits"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInstagramContainerSettingsStayWithinProviderRules(t *testing.T) {
@@ -1023,4 +1027,114 @@ func TestInstagramAlreadyPublishedContainerDoesNotPublishAgain(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInstagramPrivateReplyAddressesCommentInBothLoginModes(t *testing.T) {
+	original := httpClient
+	t.Cleanup(func() { httpClient = original })
+	for _, direct := range []bool{false, true} {
+		t.Run(map[bool]string{false: "facebook login", true: "instagram login"}[direct], func(t *testing.T) {
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				host := "graph.facebook.com"
+				if direct {
+					host = "graph.instagram.com"
+				}
+				require.Equal(t, host, req.URL.Host)
+				require.Contains(t, req.URL.Path, "/owner/messages")
+				require.Equal(t, "Bearer private-token", req.Header.Get("Authorization"))
+				var body map[string]any
+				require.NoError(t, json.NewDecoder(req.Body).Decode(&body))
+				require.Equal(t, map[string]any{"comment_id": "comment-42"}, body["recipient"])
+				require.Equal(t, map[string]any{"text": "Here is your playbook: https://example.test/book"}, body["message"])
+				return jsonResponse(req, `{"recipient_id":"reader","message_id":"dm-42"}`), nil
+			})}
+			adapter := NewInstagramAdapter("", "", "")
+			adapter.instagramLogin = direct
+			id, err := adapter.ReplyPrivatelyToComment(context.Background(), "private-token", "owner", "comment-42", "Here is your playbook: https://example.test/book")
+			require.NoError(t, err)
+			require.Equal(t, "dm-42", id)
+		})
+	}
+}
+
+func TestInstagramPublishFailureLogsSafeRequestStage(t *testing.T) {
+	original := httpClient
+	t.Cleanup(func() { httpClient = original })
+	var output bytes.Buffer
+	previous := log.Writer()
+	log.SetOutput(&output)
+	t.Cleanup(func() { log.SetOutput(previous) })
+	calls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		calls++
+		switch req.URL.Path {
+		case "/v25.0/12345/media":
+			return jsonResponse(req, `{"id":"67890"}`), nil
+		case "/v25.0/67890":
+			return jsonResponse(req, `{"status_code":"FINISHED"}`), nil
+		case "/v25.0/12345/media_publish":
+			return jsonResponseWithStatus(req, 400, `{"error":{"code":100,"error_subcode":33,"fbtrace_id":"trace-safe","message":"secret-provider-body"}}`), nil
+		default:
+			return nil, fmt.Errorf("unexpected request")
+		}
+	})}
+	_, err := NewInstagramLoginAdapter("", "", "").Publish(t.Context(), "secret-token", "12345", &PublishRequest{
+		Content: "secret-caption", PlatformMediaIDs: []string{"https://media.example/secret-file.jpg"}, Media: []MediaItem{{MimeType: "image/jpeg"}},
+	})
+	require.Error(t, err)
+	require.Equal(t, 3, calls)
+	for _, diagnostic := range []string{`host="graph.instagram.com"`, `operation="media_publish"`, `endpoint="/{ig_user_id}/media_publish"`, `object_id="67890"`, `status=400`, `subcode="33"`, `trace="trace-safe"`} {
+		require.Contains(t, output.String(), diagnostic)
+	}
+	for _, secret := range []string{"secret-token", "secret-caption", "secret-provider-body", "secret-file"} {
+		require.NotContains(t, output.String(), secret)
+	}
+}
+
+// GET /{ig-media-id}/comments returns only top-level comments. Replies are
+// omitted unless the replies field is expanded. A follower answering the
+// account's own reply never reaches the inbox without that expansion, and
+// ParentID must be the comment the reply answers.
+func TestInstagramListCommentsCollectsNestedReplies(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		require.True(t, strings.HasSuffix(req.URL.Path, "/media-1/comments"), req.URL.Path)
+		if !strings.Contains(req.URL.Query().Get("fields"), "replies") {
+			return jsonResponse(req, `{
+				"data": [
+					{"id":"c1","text":"Does it support video?","timestamp":"2026-09-14T10:00:00+0000","username":"fan"}
+				]
+			}`), nil
+		}
+		return jsonResponse(req, `{
+			"data": [{
+				"id": "c1",
+				"text": "Does it support video?",
+				"timestamp": "2026-09-14T10:00:00+0000",
+				"username": "fan",
+				"replies": {
+					"data": [
+						{"id":"c2","text":"Yes, up to five minutes.","timestamp":"2026-09-14T10:05:00+0000","username":"openpost","parent_id":"c1"},
+						{"id":"c3","text":"And carousels?","timestamp":"2026-09-14T10:10:00+0000","username":"fan","parent_id":"c1"}
+					]
+				}
+			}]
+		}`), nil
+	})}
+
+	comments, err := NewInstagramAdapter("", "", "").ListComments(context.Background(), "ig-token", "ig-1", "media-1")
+
+	require.NoError(t, err)
+	byID := map[string]Comment{}
+	for _, comment := range comments {
+		byID[comment.ID] = comment
+	}
+	require.Len(t, byID, 3)
+	require.Empty(t, byID["c1"].ParentID, "a top-level comment answers the media")
+	require.Equal(t, "c1", byID["c2"].ParentID, "the account reply must be threaded under the comment it answers")
+	require.Equal(t, "c1", byID["c3"].ParentID, "Instagram attaches a follow-up to the top-level comment")
+	require.Equal(t, "openpost", byID["c2"].AuthorName)
+	require.Equal(t, "fan", byID["c3"].AuthorName)
 }

@@ -44,6 +44,7 @@ func (issueCodeBotAPI) SetWebhook(context.Context, telegramservice.SetWebhookReq
 }
 
 func TestTelegramConnectionCodeIsWorkspaceBoundAndReturnedOnlyAtIssuance(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.User)(nil), (*models.Workspace)(nil), (*models.WorkspaceMember)(nil),
 		(*models.BotConnectionNonce)(nil), (*models.SocialAccount)(nil),

@@ -432,7 +432,6 @@ func main() {
 		Website:     cfg.PublicURL,
 	})
 
-	platform.RegisterAllMediaValidators()
 	dynamicMastodonApps, err := mastodonAppService.ListActiveAppConfigs(context.Background())
 	if err != nil {
 		fatalfWithDiagnostics(diagnosticsReporter, "failed to load dynamic mastodon app registry from database: %v", err)

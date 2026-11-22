@@ -71,6 +71,7 @@ func (stub *publicationBuildPublicationStub) CreateFromBuild(
 type publicationBuildTestAuthenticator struct{}
 
 func TestPublicationBuildProfilesIncludeImagePostVariants(t *testing.T) {
+	t.Parallel()
 	handler := &PublicationBuildHandler{}
 	for _, provider := range []string{"x", "linkedin"} {
 		t.Run(provider, func(t *testing.T) {
@@ -107,6 +108,7 @@ func (publicationBuildTestAuthenticator) AuthenticateBearer(
 }
 
 func TestPublicationBuildCreateRejectsForeignAccountAndVoiceProfile(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 
 	response := server.request(t, http.MethodPost, "/api/v1/publication-builds", publicationBuildRequest(map[string]any{
@@ -126,6 +128,7 @@ func TestPublicationBuildCreateRejectsForeignAccountAndVoiceProfile(t *testing.T
 }
 
 func TestPublicationBuildCreateUsesSocialSetSubsetCapabilitiesAndStoredAuthority(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 
 	response := server.request(t, http.MethodPost, "/api/v1/publication-builds", publicationBuildRequest(map[string]any{
@@ -167,6 +170,7 @@ func TestPublicationBuildCreateUsesSocialSetSubsetCapabilitiesAndStoredAuthority
 }
 
 func TestPublicationBuildOutputProfilesFreezeLiveMastodonInstanceLimits(t *testing.T) {
+	t.Parallel()
 	account := models.SocialAccount{
 		ID: "mastodon-account", Platform: capabilities.ProviderMastodon, InstanceURL: "https://social.example",
 	}
@@ -191,6 +195,7 @@ func TestPublicationBuildOutputProfilesFreezeLiveMastodonInstanceLimits(t *testi
 }
 
 func TestPublicationBuildOutputProfilesFollowLiveXSubscriptionLimits(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name             string
 		subscriptionType string
@@ -224,6 +229,7 @@ func TestPublicationBuildOutputProfilesFollowLiveXSubscriptionLimits(t *testing.
 }
 
 func TestPublicationBuildCreateKeepsNonNativeCandidatesForBasicAdaptation(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 
 	response := server.request(t, http.MethodPost, "/api/v1/publication-builds", publicationBuildRequest(map[string]any{
@@ -242,6 +248,7 @@ func TestPublicationBuildCreateKeepsNonNativeCandidatesForBasicAdaptation(t *tes
 }
 
 func TestPublicationBuildCreateReturnsSameBuildAndRejectsIdempotencyConflict(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 	request := publicationBuildRequest(nil)
 
@@ -269,6 +276,7 @@ func TestPublicationBuildCreateReturnsSameBuildAndRejectsIdempotencyConflict(t *
 }
 
 func TestPublicationBuildCreateBoundsPerUserBursts(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 	for range publicationBuildRequestsPerMinute {
 		require.True(t, server.handler.limiter.Allow(
@@ -289,6 +297,7 @@ func TestPublicationBuildCreateBoundsPerUserBursts(t *testing.T) {
 }
 
 func TestPublicationBuildCreateEnforcesDurableActiveBuildLimit(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 	for index := range 3 {
 		response := server.request(
@@ -310,6 +319,7 @@ func TestPublicationBuildCreateEnforcesDurableActiveBuildLimit(t *testing.T) {
 }
 
 func TestPublicationBuildRetryEnforcesDurableActiveBuildLimit(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 	failedResponse := server.request(
 		t, http.MethodPost, "/api/v1/publication-builds", publicationBuildRequest(nil), "failed-build", "web-token",
@@ -345,6 +355,7 @@ func TestPublicationBuildRetryEnforcesDurableActiveBuildLimit(t *testing.T) {
 }
 
 func TestPublicationBuildCreateStoresReferencesWithoutFetchingThem(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 	var fetches atomic.Int32
 	remote := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
@@ -375,6 +386,7 @@ func TestPublicationBuildCreateStoresReferencesWithoutFetchingThem(t *testing.T)
 }
 
 func TestPublicationBuildCreateAcceptsMultilineContextNotes(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 	contextNotes := "What changed:\n- Removed the setup step\n- Kept the existing workflow"
 	instructions := "Start with the practical benefit for the reader.\nKeep the release version and supplied links.\nExplain what changed without inventing metrics, setup steps, outcomes or features.\nUse a short opening and one concrete use case."
@@ -394,6 +406,7 @@ func TestPublicationBuildCreateAcceptsMultilineContextNotes(t *testing.T) {
 }
 
 func TestPublicationBuildGetRequiresCreatorOwnership(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 	created := server.request(
 		t, http.MethodPost, "/api/v1/publication-builds", publicationBuildRequest(nil), "owned-build-request", "web-token",
@@ -412,6 +425,7 @@ func TestPublicationBuildGetRequiresCreatorOwnership(t *testing.T) {
 }
 
 func TestPublicationBuildCancelAndRetryUseDurableApplicationState(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 	created := server.request(
 		t, http.MethodPost, "/api/v1/publication-builds", publicationBuildRequest(nil), "state-actions-request", "web-token",
@@ -439,6 +453,7 @@ func TestPublicationBuildCancelAndRetryUseDurableApplicationState(t *testing.T) 
 }
 
 func TestPublicationBuildCommitHandsReadyPackageToComposerOnce(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 	publications := &publicationBuildPublicationStub{}
 	server.handler.SetPublicationApplication(publications)
@@ -487,6 +502,7 @@ func TestPublicationBuildCommitHandsReadyPackageToComposerOnce(t *testing.T) {
 }
 
 func TestPublicationBuildHandlerReturnsUnavailableWithoutApplication(t *testing.T) {
+	t.Parallel()
 	server := newPublicationBuildTestServer(t)
 	e := echo.New()
 	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))

@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/mediaanalysis"
@@ -207,7 +209,7 @@ func (s *Service) analyzeMedia(ctx context.Context, media models.MediaAttachment
 		return mediaanalysis.Result{}, err
 	}
 	if result.AnalysisStatus != "" && result.AnalysisStatus != mediaanalysis.AnalysisStatusReady {
-		return mediaanalysis.Result{}, errors.New(firstNonEmpty(result.AnalysisError, "video analysis did not complete"))
+		return mediaanalysis.Result{}, errors.New(textutil.FirstNonEmpty(result.AnalysisError, "video analysis did not complete"))
 	}
 	audioOnly := result.DominantType == "audio" && result.AudioCodec != ""
 	if result.DurationMS <= 0 || (!audioOnly && (result.Width <= 0 || result.Height <= 0)) {
@@ -252,7 +254,7 @@ func (s *Service) persistResult(
 		Set("duration_ms = ?", result.DurationMS).
 		Set("frame_rate = ?", result.FrameRate).
 		Set("aspect_ratio = ?", result.AspectRatio).
-		Set("dominant_type = ?", firstNonEmpty(result.DominantType, "video")).
+		Set("dominant_type = ?", textutil.FirstNonEmpty(result.DominantType, "video")).
 		Set("mime_type = ?", mimeType).
 		Set("container_format = ?", result.ContainerFormat).
 		Set("video_codec = ?", result.VideoCodec).
@@ -341,15 +343,6 @@ func (s *Service) setProgress(ctx context.Context, mediaID string, progress int)
 
 func analysisJobID(mediaID string) string {
 	return "media-analysis-" + mediaID
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }
 
 type contextReader struct {

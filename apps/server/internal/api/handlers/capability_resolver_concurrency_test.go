@@ -41,6 +41,7 @@ func (a *keyedCapabilityAdapter) AccountCapabilityKeyInput(input platform.Accoun
 }
 
 func TestAccountCapabilityCacheUsesOnlyDeclaredInputs(t *testing.T) {
+	t.Parallel()
 	account := models.SocialAccount{ID: "account-1", WorkspaceID: "workspace-1", Platform: capabilities.ProviderX}
 	segments := []capabilities.ResolveSegment{{ID: "segment-1", Body: "A normal update"}}
 	adapter := &keyedCapabilityAdapter{
@@ -63,6 +64,7 @@ func TestAccountCapabilityCacheUsesOnlyDeclaredInputs(t *testing.T) {
 }
 
 func TestAccountCapabilityCacheMissesAfterReconnect(t *testing.T) {
+	t.Parallel()
 	account := models.SocialAccount{
 		ID: "account-1", WorkspaceID: "workspace-1", Platform: capabilities.ProviderX,
 		OAuthGrantID: "grant-1", GrantedScopes: "tweet.read tweet.write",
@@ -83,6 +85,7 @@ func TestAccountCapabilityCacheMissesAfterReconnect(t *testing.T) {
 }
 
 func TestResolveCapabilitiesTreatsOmittedSegmentsLikeIdenticalOverrides(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Workspace)(nil), (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil))
 	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws", Name: "Test"}).Exec(t.Context())
 	require.NoError(t, err)
@@ -167,6 +170,7 @@ func hasCapabilityIssueCode(issues []capabilities.ValidationIssue, code string) 
 }
 
 func TestResolveCapabilitiesMatchesSequentialResponse(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Workspace)(nil), (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil))
 	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws", Name: "Test"}).Exec(t.Context())
 	require.NoError(t, err)

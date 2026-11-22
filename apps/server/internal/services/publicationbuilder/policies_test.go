@@ -7,6 +7,7 @@ import (
 )
 
 func TestNativeTextPoliciesAvoidUnsupportedPerformanceRules(t *testing.T) {
+	t.Parallel()
 	mastodon, ok := policyFor("mastodon")
 	require.True(t, ok)
 	require.True(t, mastodon.Native)
@@ -22,6 +23,7 @@ func TestNativeTextPoliciesAvoidUnsupportedPerformanceRules(t *testing.T) {
 }
 
 func TestGenerationContextKeepsMediaGuidanceCapabilityGatedAndFallbackConservative(t *testing.T) {
+	t.Parallel()
 	destinations := []Destination{
 		{AccountID: "linkedin", Platform: "linkedin", AllowedOutputProfiles: []OutputProfile{{Key: "linkedin.post", TextLimit: 3000, MaxSegments: 1}}},
 		{AccountID: "youtube", Platform: "youtube", AllowedOutputProfiles: []OutputProfile{{Key: "youtube.video", TextLimit: 5000, MaxSegments: 1, MediaMaxCount: 1, AllowedMIMEs: []string{"video/*"}}}},

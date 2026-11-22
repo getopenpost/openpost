@@ -31,6 +31,7 @@ func (a publicationAuthorizationAuthenticator) AuthenticateBearer(_ context.Cont
 }
 
 func TestRESTPublicationAuthorizationCapturesBrowserAPIAndCLIActors(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name, token, userAgent, expectedOrigin string
 		principal                              *middleware.Principal
@@ -76,6 +77,7 @@ func TestRESTPublicationAuthorizationCapturesBrowserAPIAndCLIActors(t *testing.T
 }
 
 func TestMCPPublicationAuthorizationRetainsTokenAndClientIdentity(t *testing.T) {
+	t.Parallel()
 	db := newPublicationAuthorizationHandlerDB(t)
 	seedPublicationAuthorizationHandlerFixture(t, db)
 	_, err := db.NewUpdate().Model((*models.Publication)(nil)).
@@ -106,6 +108,7 @@ func TestMCPPublicationAuthorizationRetainsTokenAndClientIdentity(t *testing.T) 
 }
 
 func TestPublicationCreationSourceUsesLowCardinalityActorOrigin(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		origin string
 		want   string
@@ -128,6 +131,7 @@ func TestPublicationCreationSourceUsesLowCardinalityActorOrigin(t *testing.T) {
 }
 
 func TestAccountExportRedactsPublicationAuthorizationSecretsAndFingerprints(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Publication)(nil), (*models.APIToken)(nil))
 	now := time.Now().UTC()
 	receipt := &models.PublicationAuthorization{

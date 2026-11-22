@@ -2,111 +2,17 @@ package handlers
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
-	"strings"
 	"testing"
 
-	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 func createHandlerTestDB(t testing.TB, modelsToCreate ...interface{}) *bun.DB {
 	t.Helper()
-
-	testName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
-	dsn := fmt.Sprintf("file:%s_%s?mode=memory&cache=shared", testName, uuid.NewString())
-	sqldb, err := sql.Open("sqlite3", dsn)
-	require.NoError(t, err)
-
-	db := bun.NewDB(sqldb, sqlitedialect.New())
-	_, err = db.NewCreateTable().
-		Model((*models.OAuthGrant)(nil)).
-		IfNotExists().
-		Exec(context.Background())
-	require.NoError(t, err)
-	_, err = db.NewCreateTable().
-		Model((*models.DraftRevisionChange)(nil)).
-		IfNotExists().
-		Exec(context.Background())
-	require.NoError(t, err)
-	_, err = db.NewCreateTable().
-		Model((*models.WorkspaceFirstConnection)(nil)).
-		IfNotExists().
-		Exec(context.Background())
-	require.NoError(t, err)
-	_, err = db.NewCreateTable().
-		Model((*models.WorkspaceActivation)(nil)).
-		IfNotExists().
-		Exec(context.Background())
-	require.NoError(t, err)
-	_, err = db.NewCreateTable().
-		Model((*models.ProductAnalyticsEvent)(nil)).
-		IfNotExists().
-		Exec(context.Background())
-	require.NoError(t, err)
-	_, err = db.NewCreateTable().
-		Model((*models.OAuthAccountSelectionReservation)(nil)).
-		IfNotExists().
-		Exec(context.Background())
-	require.NoError(t, err)
-	editorModels := []interface{}{
-		(*models.Post)(nil),
-		(*models.PostDestination)(nil),
-		(*models.PostMedia)(nil),
-		(*models.PostVariant)(nil),
-		(*models.ThreadDraft)(nil),
-		(*models.PublicationSegment)(nil),
-		(*models.PublicationSegmentMedia)(nil),
-		(*models.Rendition)(nil),
-		(*models.RenditionSegment)(nil),
-		(*models.RenditionSegmentMedia)(nil),
-		(*models.PublicationLifecycleEvent)(nil),
-		(*models.PublicationAuthorization)(nil),
-		(*models.ProviderWriteAttempt)(nil),
-	}
-	for _, model := range editorModels {
-		_, err := db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
-		require.NoError(t, err)
-	}
-	for _, model := range modelsToCreate {
-		_, err := db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
-		require.NoError(t, err)
-	}
-	for _, statement := range []string{
-		`CREATE TABLE IF NOT EXISTS voice_profiles (
-			id TEXT PRIMARY KEY,
-			workspace_id TEXT NOT NULL,
-			name TEXT NOT NULL,
-			normalized_name TEXT NOT NULL,
-			is_default BOOLEAN NOT NULL DEFAULT false,
-			revision INTEGER NOT NULL DEFAULT 1,
-			schema_version INTEGER NOT NULL DEFAULT 1,
-			definition_json TEXT NOT NULL DEFAULT '{}',
-			created_by_id TEXT NOT NULL DEFAULT '',
-			created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
-			updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
-			UNIQUE (id, workspace_id),
-			UNIQUE (workspace_id, normalized_name)
-		)`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS voice_profiles_default_idx ON voice_profiles (workspace_id) WHERE is_default = true`,
-		`CREATE TABLE IF NOT EXISTS voice_profile_account_assignments (
-			social_account_id TEXT PRIMARY KEY,
-			workspace_id TEXT NOT NULL,
-			voice_profile_id TEXT NOT NULL,
-			created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
-			updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp
-		)`,
-	} {
-		_, err := db.ExecContext(context.Background(), statement)
-		require.NoError(t, err)
-	}
-
-	return db
+	return testdb.NewSQLiteBase(t, modelsToCreate...)
 }
 
 func seedHandlerAccount(t *testing.T, db *bun.DB, id, platform string) {

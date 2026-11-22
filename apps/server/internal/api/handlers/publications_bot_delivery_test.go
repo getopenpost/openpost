@@ -90,6 +90,7 @@ type telegramDeliveryAdapter struct{ *botDeliveryAdapter }
 func (*telegramDeliveryAdapter) UsesInstanceCredential() bool { return true }
 
 func TestBotPublicationRESTQueueWorkerPublishesSupportedFormats(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		provider, profile, outputProfile, mime, mediaBody string
 	}{

@@ -11,6 +11,7 @@ import (
 )
 
 func TestBuildUsesAccountSnapshotTextLimit(t *testing.T) {
+	t.Parallel()
 	body := strings.Repeat("a", 600)
 	adapterCalls := 0
 	service, err := New(generationFunc(func(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
@@ -38,6 +39,7 @@ func TestBuildUsesAccountSnapshotTextLimit(t *testing.T) {
 }
 
 func TestBuildRepairsNativeYouTubeTextBeforeReturningDraft(t *testing.T) {
+	t.Parallel()
 	for _, scenario := range []struct {
 		name, title, description, feedback string
 		review                             bool

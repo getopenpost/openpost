@@ -115,6 +115,7 @@ func newBillingAPITestServer(t *testing.T) *billingTestServer {
 }
 
 func TestConfirmFirstWorkspacePurchaseCreatesAndResumesOneBoundAttempt(t *testing.T) {
+	t.Parallel()
 	srv := newBillingAPITestServer(t)
 	ctx := t.Context()
 	_, err := srv.db.NewDelete().Model((*models.WorkspaceMember)(nil)).Where("workspace_id = ?", "ws-1").Exec(ctx)
@@ -183,6 +184,7 @@ func TestConfirmFirstWorkspacePurchaseCreatesAndResumesOneBoundAttempt(t *testin
 }
 
 func TestSuccessfulCheckoutReturnEmitsCompletedOnce(t *testing.T) {
+	t.Parallel()
 	srv := newBillingAPITestServer(t)
 	now := time.Now().UTC()
 	_, err := srv.db.NewInsert().Model(&models.BillingCheckoutAttempt{
@@ -200,6 +202,7 @@ func TestSuccessfulCheckoutReturnEmitsCompletedOnce(t *testing.T) {
 }
 
 func TestResumeBillingCheckoutRequiresExactUser(t *testing.T) {
+	t.Parallel()
 	srv := newBillingAPITestServer(t)
 	ctx := t.Context()
 	attempt := &models.BillingCheckoutAttempt{
@@ -483,6 +486,7 @@ func TestBillingCheckoutConfigIsPublicAndBrowserSafe(t *testing.T) {
 }
 
 func TestBillingMutationsRequireOrganizationAdmin(t *testing.T) {
+	t.Parallel()
 	srv := newBillingAPITestServer(t)
 	_, err := srv.db.NewUpdate().
 		Model((*models.OrganizationMember)(nil)).

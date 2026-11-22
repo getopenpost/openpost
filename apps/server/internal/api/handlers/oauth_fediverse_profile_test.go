@@ -90,6 +90,7 @@ func TestFediverseOAuthCallbackRejectsProfileLookupFailure(t *testing.T) {
 }
 
 func TestFediverseOOBExchangeRejectsProfileLookupFailure(t *testing.T) {
+	t.Parallel()
 	for _, provider := range []string{mastodonProvider, pixelfedProvider} {
 		t.Run(provider, func(t *testing.T) {
 			e, adapter, db := newFediverseOAuthProfileFailureServer(t, provider)

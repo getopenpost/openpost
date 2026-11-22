@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/accountfeatures"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -42,10 +42,7 @@ func (p testProvider) SendMessage(ctx context.Context, _ string, _ platform.Send
 
 func messagingFixture(t *testing.T) (*Service, *bun.DB, models.SocialAccount, Actor) {
 	t.Helper()
-	db, err := database.InitDBWithDriver("sqlite", fmt.Sprintf("file:messaging-%d?mode=memory&cache=shared", time.Now().UnixNano()))
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := testdb.NewSQLite(t)
 	now := time.Now().UTC()
 	account := models.SocialAccount{ID: "account", WorkspaceID: "workspace", Platform: "bluesky", AccountID: "did:plc:self", Slug: "self", AccessTokenEnc: []byte("token"), IsActive: true}
 	for _, row := range []any{
@@ -56,7 +53,7 @@ func messagingFixture(t *testing.T) (*Service, *bun.DB, models.SocialAccount, Ac
 		&account,
 		&models.Conversation{ID: "conversation", WorkspaceID: "workspace", SocialAccountID: "account", Platform: "bluesky", RemoteConversationID: "remote-thread", LastMessageAt: now, CreatedAt: now, UpdatedAt: now},
 	} {
-		_, err = db.NewInsert().Model(row).Exec(t.Context())
+		_, err := db.NewInsert().Model(row).Exec(t.Context())
 		require.NoError(t, err)
 	}
 	s := NewService(db, testToken{}, nil)
@@ -67,6 +64,7 @@ func messagingFixture(t *testing.T) (*Service, *bun.DB, models.SocialAccount, Ac
 // A provider can deliver its outbound echo while the HTTP send is still returning.
 // The admitted local ID must survive so clients can reconcile their optimistic bubble.
 func TestSendReconcilesEchoBeforeAcceptance(t *testing.T) {
+	t.Parallel()
 	s, db, account, actor := messagingFixture(t)
 	createdAt := time.Now().UTC().Truncate(time.Microsecond)
 	s.now = func() time.Time { return createdAt }
@@ -133,6 +131,7 @@ func TestSendReconcilesEchoBeforeAcceptance(t *testing.T) {
 }
 
 func TestUnreadAndArchiveSurviveIncomingCollection(t *testing.T) {
+	t.Parallel()
 	s, _, account, actor := messagingFixture(t)
 	read, archived := false, true
 	require.NoError(t, s.SetConversationState(t.Context(), actor, "workspace", "conversation", &read, &archived))
@@ -147,6 +146,7 @@ func TestUnreadAndArchiveSurviveIncomingCollection(t *testing.T) {
 }
 
 func TestMessageOperationReplayAndConflict(t *testing.T) {
+	t.Parallel()
 	s, db, _, actor := messagingFixture(t)
 	s.SetProvider("bluesky", testProvider{})
 	first, err := s.QueueMessage(t.Context(), actor, "conversation", "same text", "operation-1")
@@ -166,6 +166,7 @@ func TestMessageOperationReplayAndConflict(t *testing.T) {
 }
 
 func TestInboxEventsReplayDeleteAndAuthorization(t *testing.T) {
+	t.Parallel()
 	s, db, account, actor := messagingFixture(t)
 	initial, err := s.Changes(t.Context(), actor, "workspace", "", 0)
 	require.NoError(t, err)
@@ -196,6 +197,7 @@ func TestInboxEventsReplayDeleteAndAuthorization(t *testing.T) {
 }
 
 func TestRetryNeverReplaysAnAmbiguousProviderWrite(t *testing.T) {
+	t.Parallel()
 	s, _, _, actor := messagingFixture(t)
 	calls := 0
 	s.SetProvider("bluesky", testProvider{send: func(context.Context) (platform.SendMessageResult, error) {
@@ -219,6 +221,7 @@ func TestRetryNeverReplaysAnAmbiguousProviderWrite(t *testing.T) {
 }
 
 func TestLateReactionSnapshotDoesNotResurrectRemovedReaction(t *testing.T) {
+	t.Parallel()
 	s, db, account, _ := messagingFixture(t)
 	incoming := platform.ProviderMessage{ID: "m1", Direction: "inbound", Body: "hello", RemoteCreatedAt: s.now(), ReactionsKnown: true, Reactions: []platform.ProviderMessageReaction{{ActorRemoteID: "friend", Value: "heart"}}}
 	batch := platform.FetchMessageEventsResult{Conversations: []platform.ProviderConversation{{ID: "remote-thread", Messages: []platform.ProviderMessage{incoming}}}}
@@ -232,6 +235,7 @@ func TestLateReactionSnapshotDoesNotResurrectRemovedReaction(t *testing.T) {
 }
 
 func TestUnreadSummaryCountsConversationsBeyondPageOne(t *testing.T) {
+	t.Parallel()
 	s, db, _, actor := messagingFixture(t)
 	for i := range 101 {
 		_, err := db.NewInsert().Model(&models.Conversation{ID: fmt.Sprintf("chat-%03d", i), WorkspaceID: "workspace", SocialAccountID: "account", Platform: "bluesky", RemoteConversationID: fmt.Sprintf("remote-%d", i), UnreadCount: 3, CreatedAt: s.now(), UpdatedAt: s.now()}).Exec(t.Context())
@@ -247,6 +251,7 @@ func TestUnreadSummaryCountsConversationsBeyondPageOne(t *testing.T) {
 }
 
 func TestAdmissionUsesTransactionBoundFeatureGate(t *testing.T) {
+	t.Parallel()
 	s, db, _, actor := messagingFixture(t)
 	_, err := db.NewInsert().Model(&models.AccountFeature{SocialAccountID: "account", WorkspaceID: "workspace", Feature: "messaging", Enabled: true, DecidedAt: s.now()}).Exec(t.Context())
 	require.NoError(t, err)
@@ -259,6 +264,7 @@ func TestAdmissionUsesTransactionBoundFeatureGate(t *testing.T) {
 }
 
 func TestForegroundEntryWakesColdAccountAndCoalescesDevices(t *testing.T) {
+	t.Parallel()
 	s, db, account, actor := messagingFixture(t)
 	s.SetProvider("bluesky", testProvider{})
 	_, err := db.NewRaw(`INSERT INTO message_event_checkpoints(social_account_id,next_poll_at) VALUES(?,?)`, account.ID, s.now().Add(time.Hour)).Exec(t.Context())
@@ -277,6 +283,7 @@ func TestForegroundEntryWakesColdAccountAndCoalescesDevices(t *testing.T) {
 }
 
 func TestCounterpartReadReceiptsRespectWatermarksAndNeverRegress(t *testing.T) {
+	t.Parallel()
 	for _, receiptKind := range []string{"watermark", "message ID"} {
 		t.Run(receiptKind, func(t *testing.T) {
 			s, db, account, actor := messagingFixture(t)
@@ -339,6 +346,7 @@ func TestCounterpartReadReceiptsRespectWatermarksAndNeverRegress(t *testing.T) {
 }
 
 func TestManualRefreshReturnsCoalescedWorkspaceCollectionReceipts(t *testing.T) {
+	t.Parallel()
 	s, db, _, actor := messagingFixture(t)
 	s.SetProvider("bluesky", testProvider{})
 	queued, err := s.RefreshWorkspace(t.Context(), actor, "workspace", true)

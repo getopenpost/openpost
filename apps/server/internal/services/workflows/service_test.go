@@ -67,6 +67,7 @@ func runJob(t *testing.T, s *Service, id string) {
 }
 
 func TestRunKeepsSavedDefinitionBranchesAndTypedBindingsAcrossRestart(t *testing.T) {
+	t.Parallel()
 	var calls []EffectRequest
 	effect := actionFunc(func(_ context.Context, input EffectRequest) (EffectResult, error) {
 		calls = append(calls, input)
@@ -103,6 +104,7 @@ func TestRunKeepsSavedDefinitionBranchesAndTypedBindingsAcrossRestart(t *testing
 }
 
 func TestPreviewNeverDispatchesNativeEffectsAndMissingFieldsFail(t *testing.T) {
+	t.Parallel()
 	calls := 0
 	s, actor := workflowTestService(t, actionFunc(func(context.Context, EffectRequest) (EffectResult, error) { calls++; return EffectResult{}, nil }))
 	workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "draft", Kind: KindDraft, Inputs: map[string]Value{"text": reference("source.body")}}})
@@ -125,6 +127,7 @@ func TestPreviewNeverDispatchesNativeEffectsAndMissingFieldsFail(t *testing.T) {
 }
 
 func TestDurableWaitCancelAndRevokedAuthority(t *testing.T) {
+	t.Parallel()
 	calls := 0
 	s, actor := workflowTestService(t, actionFunc(func(context.Context, EffectRequest) (EffectResult, error) { calls++; return EffectResult{}, nil }))
 	workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "wait", Kind: KindWait, Inputs: map[string]Value{"minutes": literal(10)}}, {ID: "draft", Kind: KindDraft, Inputs: map[string]Value{"text": literal("later")}}})
@@ -156,6 +159,7 @@ func TestDurableWaitCancelAndRevokedAuthority(t *testing.T) {
 }
 
 func TestApprovalResumesExactlyOnceWithReviewedRevision(t *testing.T) {
+	t.Parallel()
 	var scheduled []EffectRequest
 	s, actor := workflowTestService(t, actionFunc(func(_ context.Context, input EffectRequest) (EffectResult, error) {
 		if input.Kind == KindApproval {
@@ -187,6 +191,7 @@ func TestApprovalResumesExactlyOnceWithReviewedRevision(t *testing.T) {
 }
 
 func TestSourceBaselineDeduplicationAndSampleDoNotAdmitOldItems(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	rss := `<rss version="2.0"><channel><title>Updates</title><item><guid>old</guid><title>Old</title><description>Earlier</description></item></channel></rss>`
 	s.client = &http.Client{Transport: responseTransport(func(*http.Request) (*http.Response, error) {
@@ -215,6 +220,7 @@ func TestSourceBaselineDeduplicationAndSampleDoNotAdmitOldItems(t *testing.T) {
 }
 
 func TestDraftConflictScopeAndConnectionSecrecy(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	workflow := saveTestWorkflow(t, s, actor, nil)
 	_, err := s.Save(t.Context(), actor, "ws", workflow.ID, SaveRequest{Name: "New name", ExpectedRevision: workflow.Revision, Definition: workflow.Definition})
@@ -241,6 +247,7 @@ func TestDraftConflictScopeAndConnectionSecrecy(t *testing.T) {
 }
 
 func TestPublishedSourceDrainsBacklogBeyondOnePage(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	workflow := saveTestWorkflow(t, s, actor, []Step{{ID: "wait", Kind: KindWait, Inputs: map[string]Value{"minutes": literal(1)}}})
 	workflow.Definition.Source = Source{Kind: "rendition_published"}
@@ -269,6 +276,7 @@ func TestPublishedSourceDrainsBacklogBeyondOnePage(t *testing.T) {
 }
 
 func TestCancelDuringNativeEffectKeepsItsOutcomeAndStopsNextStep(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	calls := 0
 	s.SetActions(actionFunc(func(ctx context.Context, input EffectRequest) (EffectResult, error) {
@@ -292,6 +300,7 @@ func TestCancelDuringNativeEffectKeepsItsOutcomeAndStopsNextStep(t *testing.T) {
 }
 
 func TestGitHubSampleHandlesRepositoriesWithLargeReleaseHistories(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	s.client = &http.Client{Transport: responseTransport(func(req *http.Request) (*http.Response, error) {
 		count, err := strconv.Atoi(req.URL.Query().Get("per_page"))
@@ -319,6 +328,7 @@ func TestGitHubSampleHandlesRepositoriesWithLargeReleaseHistories(t *testing.T) 
 }
 
 func TestGitHubPollReconcilesPagesWithoutReplayingKnownReleases(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	now := time.Now().UTC()
 	var expanded bool
@@ -372,6 +382,7 @@ func TestGitHubPollReconcilesPagesWithoutReplayingKnownReleases(t *testing.T) {
 }
 
 func TestDeletedConnectionCannotBeSavedFromStaleEditor(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	connection, err := s.SaveCredential(t.Context(), actor, "ws", WorkflowCredentialRequest{Name: "Private releases", Kind: "github", Token: "github-secret-token"})
 	require.NoError(t, err)
@@ -383,6 +394,7 @@ func TestDeletedConnectionCannotBeSavedFromStaleEditor(t *testing.T) {
 }
 
 func TestGitHubAdmitsUnseenReleaseWithinActivationSecond(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	releases := `[]`
 	s.client = &http.Client{Transport: responseTransport(func(*http.Request) (*http.Response, error) {
@@ -404,6 +416,7 @@ func TestGitHubAdmitsUnseenReleaseWithinActivationSecond(t *testing.T) {
 }
 
 func TestSourceAdmitsAvailableCapacityAndKeepsRemainingEvents(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	rss := `<rss version="2.0"><channel><title>Feed</title></channel></rss>`
 	s.client = &http.Client{Transport: responseTransport(func(*http.Request) (*http.Response, error) {
@@ -464,6 +477,7 @@ func TestSourceAdmitsAvailableCapacityAndKeepsRemainingEvents(t *testing.T) {
 }
 
 func TestConditionMatchesTypedOutputAgainstAuthoredScalarText(t *testing.T) {
+	t.Parallel()
 	for _, value := range []any{float64(10), true} {
 		t.Run(fmt.Sprint(value), func(t *testing.T) {
 			s, actor := workflowTestService(t, nil)
@@ -481,6 +495,7 @@ func TestConditionMatchesTypedOutputAgainstAuthoredScalarText(t *testing.T) {
 }
 
 func TestExpiredWaitResumesOnceAfterRestart(t *testing.T) {
+	t.Parallel()
 	calls := 0
 	s, actor := workflowTestService(t, actionFunc(func(context.Context, EffectRequest) (EffectResult, error) {
 		calls++
@@ -511,6 +526,7 @@ func TestExpiredWaitResumesOnceAfterRestart(t *testing.T) {
 }
 
 func TestWorkflowRejectsBrokenTokensBeforeStarting(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	for _, text := range []string{"Hello {{source.title", "Hello {{source.title + 1}}", `{{source["invalid\q"]}}`, `{{source["constructor"]}}`} {
 		item := saveTestWorkflow(t, s, actor, []Step{{ID: "draft", Kind: KindDraft, Inputs: map[string]Value{"text": literal(text)}}})
@@ -520,6 +536,7 @@ func TestWorkflowRejectsBrokenTokensBeforeStarting(t *testing.T) {
 }
 
 func TestWorkflowTransformsFeedItemsBeforeCreatingContent(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	item := saveTestWorkflow(t, s, actor, []Step{
 		{ID: "parse", Kind: "parse_json", Inputs: map[string]Value{"text": reference("source.body")}},
@@ -539,6 +556,7 @@ func TestWorkflowTransformsFeedItemsBeforeCreatingContent(t *testing.T) {
 }
 
 func TestLiteralKeyReferencesRemainDistinctThroughSavedExecution(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	workflow := saveTestWorkflow(t, s, actor, []Step{
 		{ID: "values", Kind: KindFields, Inputs: map[string]Value{"fields": literal(map[string]any{
@@ -565,6 +583,7 @@ func TestLiteralKeyReferencesRemainDistinctThroughSavedExecution(t *testing.T) {
 }
 
 func TestSortRequiresOneComparableFieldTypeThroughSavedExecution(t *testing.T) {
+	t.Parallel()
 	mixed := []any{
 		map[string]any{"name": "A", "rank": 2},
 		map[string]any{"name": "B", "rank": 10},
@@ -624,6 +643,7 @@ func TestSortRequiresOneComparableFieldTypeThroughSavedExecution(t *testing.T) {
 }
 
 func TestFilterDistinguishesNullFromMissingThroughSavedExecution(t *testing.T) {
+	t.Parallel()
 	for _, scenario := range []struct {
 		name      string
 		item      map[string]any

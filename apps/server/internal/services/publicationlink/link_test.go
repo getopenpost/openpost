@@ -7,6 +7,7 @@ import (
 )
 
 func TestLinkChoiceFollowsAccountTextWithoutReplacingExplicitMetadata(t *testing.T) {
+	t.Parallel()
 	source := map[string]any{"link": map[string]any{"destinations": map[string]any{"account": map[string]any{"mode": "post"}}}}
 	settings := map[string]any{"link_url": "https://shared.example/old", "link_title": "Authored title"}
 	values, err := Resolve(source, "account", "bluesky", "An account update https://account.example/new", settings, 0)
@@ -20,6 +21,7 @@ func TestLinkChoiceFollowsAccountTextWithoutReplacingExplicitMetadata(t *testing
 }
 
 func TestCustomAndLegacyURLsRemainIndependentOfCaption(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []Mode{ModeCustom, ModeLegacy} {
 		t.Run(string(mode), func(t *testing.T) {
 			source := map[string]any{"link": map[string]any{"destinations": map[string]any{"account": map[string]any{"mode": mode, "url": "https://custom.example/card"}}}}
@@ -36,6 +38,7 @@ func TestCustomAndLegacyURLsRemainIndependentOfCaption(t *testing.T) {
 }
 
 func TestInheritedURLDoesNotCompeteWithMediaButExplicitBlueskyCardDoes(t *testing.T) {
+	t.Parallel()
 	source := map[string]any{"link": map[string]any{"destinations": map[string]any{"account": map[string]any{"mode": "post"}}}}
 	values, err := Resolve(source, "account", "bluesky", "Caption https://example.com", map[string]any{}, 1)
 	require.NoError(t, err)
@@ -46,6 +49,7 @@ func TestInheritedURLDoesNotCompeteWithMediaButExplicitBlueskyCardDoes(t *testin
 }
 
 func TestDestinationQuoteSuppressesInheritedCardWithoutMovingSettingsOwnership(t *testing.T) {
+	t.Parallel()
 	source := map[string]any{"link": map[string]any{"destinations": map[string]any{"account": map[string]any{"mode": "post"}}}}
 	destination := map[string]any{"quote_url": "https://bsky.app/profile/person.test/post/abc", "link_title": "Original title"}
 	segment := map[string]any{"link_url": "https://stale.example"}
@@ -61,6 +65,7 @@ func TestDestinationQuoteSuppressesInheritedCardWithoutMovingSettingsOwnership(t
 }
 
 func TestThreadsAttachmentsSuppressInheritedCardsButRejectExplicitCards(t *testing.T) {
+	t.Parallel()
 	for _, key := range []string{"text_attachment_plaintext", "gif_id"} {
 		t.Run(key, func(t *testing.T) {
 			source := map[string]any{"link": map[string]any{"destinations": map[string]any{"account": map[string]any{"mode": "post"}}}}

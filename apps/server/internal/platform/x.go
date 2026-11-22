@@ -21,6 +21,7 @@ import (
 )
 
 type XAdapter struct {
+	BaseAdapter
 	consumerKey           string
 	consumerSecret        string
 	redirectURI           string
@@ -274,13 +275,6 @@ func (x *XAdapter) ExchangeCode(_ context.Context, _ string, extra map[string]st
 		TokenType:   "OAuth1",
 		Extra:       resultExtra,
 	}, nil
-}
-
-func (x *XAdapter) RefreshCapability() RefreshCapability {
-	return RefreshCapability{
-		Supported:        false,
-		CredentialSource: RefreshCredentialNone,
-	}
 }
 
 func (x *XAdapter) RefreshToken(_ context.Context, _ RefreshTokenInput) (*TokenResult, error) {
@@ -1126,45 +1120,4 @@ func splitXCombinedToken(combined string) (string, string, error) {
 		return "", "", fmt.Errorf("x account requires OAuth 1.0a reconnect for media support")
 	}
 	return parts[0], parts[1], nil
-}
-
-func validateXMedia(media []MediaItem) []MediaValidationIssue {
-	if len(media) == 0 {
-		return nil
-	}
-
-	var videos int
-	for _, item := range media {
-		if isVideoMime(item.MimeType) {
-			videos++
-		}
-	}
-
-	if videos == 0 {
-		if len(media) > 4 {
-			return []MediaValidationIssue{{
-				Provider: providerX,
-				Severity: severityError,
-				Message:  "X supports up to 4 images per post.",
-			}}
-		}
-		return nil
-	}
-
-	if videos > 1 || len(media) > 1 {
-		return []MediaValidationIssue{{
-			Provider: providerX,
-			Severity: severityError,
-			Message:  "X supports one video per post and cannot mix video with images.",
-		}}
-	}
-	if !strings.EqualFold(media[0].MimeType, videoTypeMP4) {
-		return []MediaValidationIssue{{
-			Provider: providerX,
-			MediaID:  media[0].ID,
-			Severity: severityWarning,
-			Message:  "X video publishing is most reliable with MP4 video.",
-		}}
-	}
-	return nil
 }

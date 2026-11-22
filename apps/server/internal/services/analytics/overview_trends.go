@@ -8,6 +8,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/uptrace/bun"
@@ -84,7 +86,7 @@ func (s *Service) loadDailyContentTrends(
 		if publishedAt.IsZero() {
 			publishedAt = publication.UpdatedAt
 		}
-		label := firstNonEmptyAnalyticsText(publication.Title, publication.SourceText, publication.SourceContent)
+		label := textutil.FirstNonEmpty(publication.Title, publication.SourceText, publication.SourceContent)
 		appendRenditionTrend(history, start, publishedAt, label, account.AccountUsername, engagementByDate, viewsByDate, visibilityByDate)
 	}
 	return orderedDailyBreakdown(engagementByDate), orderedDailyBreakdown(viewsByDate), orderedDailyBreakdown(visibilityByDate), nil

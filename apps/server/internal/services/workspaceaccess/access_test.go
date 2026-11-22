@@ -8,12 +8,13 @@ import (
 
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAuthorizeCombinesCredentialPolicyMembershipAndLevel(t *testing.T) {
 	ctx := context.Background()
-	db, err := database.InitDBWithDriver("sqlite", fmt.Sprintf("file:workspace-access-policy-%d?mode=memory&cache=shared", time.Now().UnixNano()))
+	db, err := testdb.OpenWithDriver("sqlite", fmt.Sprintf("file:workspace-access-policy-%d?mode=memory&cache=shared", time.Now().UnixNano()))
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	require.NoError(t, database.CreateSchema(db))

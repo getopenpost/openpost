@@ -10,9 +10,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/auth"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -38,15 +38,16 @@ func (hook *registrationConcurrentWriter) AfterQuery(ctx context.Context, event 
 }
 
 func TestRegistrationSurvivesConcurrentSQLiteWriter(t *testing.T) {
+	t.Parallel()
 	dsn := "file:" + filepath.Join(t.TempDir(), "registration.db") + "?mode=rwc"
-	db, err := database.InitDB(dsn)
+	db, err := testdb.Open(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 	_, err = db.NewCreateTable().Model((*models.User)(nil)).Exec(t.Context())
 	require.NoError(t, err)
 	_, err = db.Exec("CREATE TABLE concurrent_writes (id INTEGER PRIMARY KEY)")
 	require.NoError(t, err)
-	writer, err := database.InitDB(dsn)
+	writer, err := testdb.Open(dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = writer.Close() })
 	_, err = writer.Exec("PRAGMA busy_timeout=0")

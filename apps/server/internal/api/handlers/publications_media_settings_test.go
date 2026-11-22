@@ -17,6 +17,7 @@ import (
 )
 
 func TestPublicationMediaSettingsPersistAsObjects(t *testing.T) {
+	t.Parallel()
 	for _, transport := range []string{"mcp", "rest_omitted", "rest_null", "rest_object", "rest_authored"} {
 		t.Run(transport, func(t *testing.T) {
 			srv := newMCPTestServer(t)
@@ -71,6 +72,7 @@ func TestPublicationMediaSettingsPersistAsObjects(t *testing.T) {
 }
 
 func TestFailedPublicationDeletionPreservesProtectedDeliveries(t *testing.T) {
+	t.Parallel()
 	for _, state := range []string{"unsent", providerwrite.StatusSending, providerwrite.StatusAmbiguous, providerwrite.StatusAccepted} {
 		t.Run(state, func(t *testing.T) {
 			srv := newMCPTestServer(t)

@@ -220,6 +220,7 @@ func TestOAuthCallbackCreatesAndCompletesAccountSelection(t *testing.T) {
 }
 
 func TestPendingAccountSelectionPreservesRefreshTokenExpiry(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.OAuthAccountSelection)(nil))
 	handler := NewOAuthHandler(
 		db,
@@ -318,6 +319,7 @@ func oauthSelectionRequest(t *testing.T, e *echo.Echo, method, path string, body
 }
 
 func TestNormalizeAccountSelectionIDs(t *testing.T) {
+	t.Parallel()
 	newInput := func(id string, ids ...string) *CompleteAccountSelectionInput {
 		input := &CompleteAccountSelectionInput{}
 		input.Body.SelectionID = id

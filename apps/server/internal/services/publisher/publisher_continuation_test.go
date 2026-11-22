@@ -32,6 +32,7 @@ func (p *pendingPublisherAdapter) ReconcilePublish(_ context.Context, _, _, refe
 }
 
 func TestPendingPublicationContinuesWithoutFailureEvents(t *testing.T) {
+	t.Parallel()
 	for _, segmented := range []bool{false, true} {
 		name := "single"
 		if segmented {
@@ -86,6 +87,7 @@ func TestPendingPublicationContinuesWithoutFailureEvents(t *testing.T) {
 }
 
 func TestPendingDestinationSurvivesLongerRateLimitOnAnotherDestination(t *testing.T) {
+	t.Parallel()
 	base := &fakePublisherAdapter{}
 	srv := newPublisherLifecycleTestServer(t, base)
 	pending := &pendingPublisherAdapter{fakePublisherAdapter: base}

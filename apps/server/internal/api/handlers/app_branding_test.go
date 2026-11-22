@@ -33,6 +33,7 @@ func brandingResponse(t *testing.T, e *echo.Echo, token, method, path string, bo
 }
 
 func TestAppBrandingHTTPInheritancePermissionsAndRevisionConflict(t *testing.T) {
+	t.Parallel()
 	e := newBrandingTestServer(t)
 	root := "/api/v1/app-branding/workspace-1"
 	initial := brandingResponse(t, e, "viewer-token", http.MethodGet, root, nil)
@@ -70,6 +71,7 @@ func TestAppBrandingHTTPInheritancePermissionsAndRevisionConflict(t *testing.T) 
 }
 
 func TestAppBrandingHTTPImagesAreScopedCopiedAndValidated(t *testing.T) {
+	t.Parallel()
 	e := newBrandingTestServer(t)
 	root := "/api/v1/app-branding/workspace-1"
 	image := map[string]any{"content_base64": base64.StdEncoding.EncodeToString(handlerPNG(t, 32, 32))}
@@ -102,6 +104,7 @@ func TestAppBrandingHTTPImagesAreScopedCopiedAndValidated(t *testing.T) {
 }
 
 func TestAppBrandingHTTPResetFencesStaleEditorsAndQueuesImageCleanup(t *testing.T) {
+	t.Parallel()
 	e, db, api := newThemeTestServer(t)
 	NewAppBrandingHandler(db, themeTestAuthenticator{}, mediastore.NewLocalStorage(t.TempDir(), "/unused")).RegisterRoutes(api)
 	root := "/api/v1/app-branding/workspace-1"
@@ -117,6 +120,7 @@ func TestAppBrandingHTTPResetFencesStaleEditorsAndQueuesImageCleanup(t *testing.
 }
 
 func TestAppBrandingDeletionCollectsImagesAfterPreflight(t *testing.T) {
+	t.Parallel()
 	e, db, api := newThemeTestServer(t)
 	NewAppBrandingHandler(db, themeTestAuthenticator{}, mediastore.NewLocalStorage(t.TempDir(), "/unused")).RegisterRoutes(api)
 	root := "/api/v1/app-branding/workspace-1"

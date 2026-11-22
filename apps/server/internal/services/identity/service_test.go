@@ -19,9 +19,9 @@ import (
 
 	"github.com/go-jose/go-jose/v4"
 	josejwt "github.com/go-jose/go-jose/v4/jwt"
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	servicecrypto "github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -181,11 +181,7 @@ func (f *fakeOIDCIssuer) writeJSON(w http.ResponseWriter, value any) {
 
 func newIdentityTestService(t *testing.T, fake *fakeOIDCIssuer) (*Service, *bun.DB) {
 	t.Helper()
-	dsn := fmt.Sprintf("file:identity-%d?mode=memory&cache=shared", time.Now().UnixNano())
-	db, err := database.InitDBWithDriver("sqlite", dsn)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := testdb.NewSQLite(t)
 	service := NewService(db, servicecrypto.NewTokenEncryptor("identity-test-key"), Config{
 		PublicURL: "https://openpost.example",
 		Environment: EnvironmentProviderConfig{
@@ -213,6 +209,7 @@ func beginTestLogin(t *testing.T, service *Service, fake *fakeOIDCIssuer) (*Begi
 }
 
 func TestOIDCLoginUsesPKCEAndStableIdentity(t *testing.T) {
+	t.Parallel()
 	fake := newFakeOIDCIssuer(t)
 	service, db := newIdentityTestService(t, fake)
 	result, state := beginTestLogin(t, service, fake)
@@ -249,6 +246,7 @@ func TestOIDCLoginUsesPKCEAndStableIdentity(t *testing.T) {
 }
 
 func TestConcurrentIdentityAndPasskeyRemovalPreservesOneCredential(t *testing.T) {
+	t.Parallel()
 	fake := newFakeOIDCIssuer(t)
 	service, db := newIdentityTestService(t, fake)
 	ctx := context.Background()
@@ -350,6 +348,7 @@ func seedRequiredSSOPasswordPolicy(t *testing.T, db *bun.DB, userID, suffix stri
 }
 
 func TestOIDCRejectsBrowserBindingAndNonceFailures(t *testing.T) {
+	t.Parallel()
 	t.Run("browser binding", func(t *testing.T) {
 		fake := newFakeOIDCIssuer(t)
 		service, _ := newIdentityTestService(t, fake)
@@ -379,6 +378,7 @@ func TestOIDCRejectsBrowserBindingAndNonceFailures(t *testing.T) {
 }
 
 func TestOIDCRejectsIssuerAudienceAndUserInfoSubject(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name         string
 		configure    func(*fakeOIDCIssuer, *bun.DB)
@@ -455,6 +455,7 @@ func TestOIDCRejectsIssuerAudienceAndUserInfoSubject(t *testing.T) {
 }
 
 func TestWaitlistBlocksOIDCProvisioningButPreservesExistingLogin(t *testing.T) {
+	t.Parallel()
 	fake := newFakeOIDCIssuer(t)
 	service, db := newIdentityTestService(t, fake)
 	ctx := context.Background()

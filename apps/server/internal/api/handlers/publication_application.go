@@ -111,21 +111,17 @@ func categorizePublicationError(err *error) {
 var _ publicationservice.Application = publicationApplication{}
 
 func (h *PublicationHandler) publicationApplication() publicationApplication {
-	return h.publicationApplicationForTesting()
-}
-
-// BuilderApplication exposes the same canonical mutation boundary to the
-// trusted AI build handoff without creating a second Publication write path.
-func (h *PublicationHandler) BuilderApplication() publicationbuilder.PublicationApplication {
-	return h.publicationApplicationForTesting()
-}
-
-func (h *PublicationHandler) publicationApplicationForTesting() publicationApplication {
 	return publicationApplication{
 		handler: h,
 		now:     func() time.Time { return time.Now().UTC() },
 		newID:   uuid.NewString,
 	}
+}
+
+// BuilderApplication exposes the same canonical mutation boundary to the
+// trusted AI build handoff without creating a second Publication write path.
+func (h *PublicationHandler) BuilderApplication() publicationbuilder.PublicationApplication {
+	return h.publicationApplication()
 }
 
 func (commands publicationApplication) Get(

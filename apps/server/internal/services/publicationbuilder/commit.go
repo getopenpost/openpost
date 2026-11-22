@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/models"
 	publicationservice "github.com/openpost/backend/internal/services/publications"
@@ -224,7 +226,7 @@ func publicationCreateCommand(
 	}
 	command := publicationservice.CreateCommand{
 		WorkspaceID:    workspaceID,
-		Title:          firstNonEmptyBuilderText(result.Direction.Thesis, firstBuilderLine(result.CanonicalText), "Built publication"),
+		Title:          textutil.FirstNonEmpty(result.Direction.Thesis, firstBuilderLine(result.CanonicalText), "Built publication"),
 		Intent:         models.PublishingIntentPost,
 		CreationPreset: models.PublishingIntentPost,
 		SocialSetID:    request.SocialSetID,
@@ -330,13 +332,4 @@ func firstBuilderLine(value string) string {
 		return strings.TrimSpace(line)
 	}
 	return strings.TrimSpace(value)
-}
-
-func firstNonEmptyBuilderText(values ...string) string {
-	for _, value := range values {
-		if value = strings.TrimSpace(value); value != "" {
-			return value
-		}
-	}
-	return ""
 }

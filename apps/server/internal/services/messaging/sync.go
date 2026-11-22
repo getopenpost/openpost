@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
@@ -252,7 +254,7 @@ func (s *Service) persistConversationWithDB(ctx context.Context, tx bun.IDB, acc
 			changes = append(changes, inboxchanges.Change{Kind: "message", ConversationID: conversationID, MessageID: localID})
 			if rm.Direction == "inbound" {
 				newInbound++
-				received = append(received, receivedMessage{conversationID: conversationID, messageID: rm.ID, senderName: firstNonEmpty(remote.CounterpartName, remote.CounterpartHandle, "a social account"), provider: account.Platform})
+				received = append(received, receivedMessage{conversationID: conversationID, messageID: rm.ID, senderName: textutil.FirstNonEmpty(remote.CounterpartName, remote.CounterpartHandle, "a social account"), provider: account.Platform})
 			}
 		}
 	}
@@ -285,10 +287,10 @@ func upsertConversation(ctx context.Context, db bun.IDB, account models.SocialAc
 		return conversationUpsert{}, err
 	}
 	// Older history and sparse events must not erase a newer chat summary.
-	remote.CounterpartRemoteID = firstNonEmpty(remote.CounterpartRemoteID, existing.CounterpartRemoteID)
-	remote.CounterpartName = firstNonEmpty(remote.CounterpartName, existing.CounterpartName)
-	remote.CounterpartHandle = firstNonEmpty(remote.CounterpartHandle, existing.CounterpartHandle)
-	remote.CounterpartAvatarURL = firstNonEmpty(remote.CounterpartAvatarURL, existing.CounterpartAvatarURL)
+	remote.CounterpartRemoteID = textutil.FirstNonEmpty(remote.CounterpartRemoteID, existing.CounterpartRemoteID)
+	remote.CounterpartName = textutil.FirstNonEmpty(remote.CounterpartName, existing.CounterpartName)
+	remote.CounterpartHandle = textutil.FirstNonEmpty(remote.CounterpartHandle, existing.CounterpartHandle)
+	remote.CounterpartAvatarURL = textutil.FirstNonEmpty(remote.CounterpartAvatarURL, existing.CounterpartAvatarURL)
 	if remote.LastMessageAt.Before(existing.LastMessageAt) || remote.LastMessageAt.IsZero() {
 		remote.LastMessageAt = existing.LastMessageAt
 		remote.LastMessagePreview = existing.LastMessagePreview
@@ -482,15 +484,6 @@ func messageCadence(emptyStreak int) time.Duration {
 	default:
 		return 15 * time.Minute
 	}
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value = strings.TrimSpace(value); value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 // permanentRefusalCadence spaces checks of a refusal that only the account

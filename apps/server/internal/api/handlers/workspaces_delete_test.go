@@ -223,6 +223,7 @@ func TestWorkspaceDeletionPreviewReportsBillingAndCleanupBlockers(t *testing.T) 
 }
 
 func TestConcurrentWorkspaceDeletionKeepsFinalWorkspace(t *testing.T) {
+	t.Parallel()
 	server := newDeleteWorkspaceTestServer(t)
 	insertDeleteFixture(t, server.db)
 	service := workspacedeletion.NewService(server.db, auth.NewService("workspace-delete-test"), nil)
@@ -273,4 +274,21 @@ func TestWorkspaceDeletionBlockersAreActionableAndLeaveDataIntact(t *testing.T) 
 	require.Equal(t, http.StatusConflict, deleted.Code, deleted.Body.String())
 	require.Contains(t, deleted.Body.String(), "Wait for publishing and provider actions")
 	require.Equal(t, 1, countRows[models.Workspace](t, server.db, "id = ?", "workspace-1"))
+}
+
+func TestNormalizedWorkspaceTimezone(t *testing.T) {
+	t.Parallel()
+
+	timezone, valid := normalizedWorkspaceTimezone(" America/New_York ")
+	require.True(t, valid)
+	require.Equal(t, "America/New_York", timezone)
+
+	for _, value := range []string{"", "Bad/Zone", "Local"} {
+		value := value
+		t.Run(value, func(t *testing.T) {
+			t.Parallel()
+			_, valid := normalizedWorkspaceTimezone(value)
+			require.False(t, valid)
+		})
+	}
 }

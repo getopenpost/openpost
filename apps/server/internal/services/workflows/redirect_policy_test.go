@@ -36,6 +36,7 @@ func okResponse(body string) *http.Response {
 // must be refused before the second request is issued. IP literals keep
 // netguard validation DNS-free.
 func TestSourceFetchRefusesCredentialedCrossHostRedirect(t *testing.T) {
+	t.Parallel()
 	s, _ := workflowTestService(t, nil)
 	calls := 0
 	s.client = &http.Client{Transport: redirectTestTransport(func(req *http.Request) (*http.Response, error) {
@@ -51,6 +52,7 @@ func TestSourceFetchRefusesCredentialedCrossHostRedirect(t *testing.T) {
 }
 
 func TestSourceFetchAllowsSameHostHTTPSRedirect(t *testing.T) {
+	t.Parallel()
 	s, _ := workflowTestService(t, nil)
 	s.client = &http.Client{Transport: redirectTestTransport(func(req *http.Request) (*http.Response, error) {
 		var resp *http.Response
@@ -71,6 +73,7 @@ func TestSourceFetchAllowsSameHostHTTPSRedirect(t *testing.T) {
 // The workflow HTTP step attaches a stored connection secret, so a redirect
 // to another host must be refused before the second request is issued.
 func TestHTTPRequestRefusesCredentialedCrossHostRedirect(t *testing.T) {
+	t.Parallel()
 	s, _ := workflowTestService(t, nil)
 	ciphertext, err := s.encryptor.Encrypt("secret-token")
 	require.NoError(t, err)

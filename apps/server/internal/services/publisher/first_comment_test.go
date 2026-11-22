@@ -32,6 +32,7 @@ func (f *firstCommentFakeAdapter) PostFirstComment(_ context.Context, _, _, exte
 }
 
 func TestFirstCommentSettingsPreferRootSegment(t *testing.T) {
+	t.Parallel()
 	got := firstCommentSettingsForSegments(
 		map[string]any{"first_comment": "destination"},
 		[]models.RenditionSegment{{SettingsJSON: `{"first_comment":"segment"}`}},
@@ -41,6 +42,7 @@ func TestFirstCommentSettingsPreferRootSegment(t *testing.T) {
 }
 
 func TestPublishFirstCommentBestEffortNeverFailsParent(t *testing.T) {
+	t.Parallel()
 	srv := newPublisherUsageTestServer(t, &fakePublisherAdapter{})
 	service := srv.service
 	_, err := srv.db.NewCreateTable().Model((*models.Publication)(nil)).IfNotExists().Exec(t.Context())

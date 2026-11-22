@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/uptrace/bun"
@@ -100,7 +102,7 @@ func (a Authorizer) AuthorizePreMembership(ctx context.Context, workspaceID stri
 	}
 	applyIdentityDecision(&decision, identityDecision)
 	if !identityDecision.Allowed {
-		decision.Reason = firstNonEmpty(identityDecision.Reason, "credential does not satisfy organization policy")
+		decision.Reason = textutil.FirstNonEmpty(identityDecision.Reason, "credential does not satisfy organization policy")
 		return decision, nil
 	}
 	decision.Allowed = true
@@ -167,7 +169,7 @@ func (a Authorizer) Authorize(ctx context.Context, workspaceID string, actor Act
 	}
 	applyIdentityDecision(&decision, identityDecision)
 	if !identityDecision.Allowed {
-		decision.Reason = firstNonEmpty(identityDecision.Reason, "credential does not satisfy organization policy")
+		decision.Reason = textutil.FirstNonEmpty(identityDecision.Reason, "credential does not satisfy organization policy")
 		return decision, nil
 	}
 	decision.Allowed = true
@@ -312,13 +314,4 @@ func RolesMeetingLevel(level Level) []string {
 		}
 	}
 	return roles
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }

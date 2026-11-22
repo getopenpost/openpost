@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 // Google Business Profile (GBP) adapter.
@@ -318,8 +320,8 @@ func googleBusinessLocationDescription(location googleBusinessLocation) string {
 func googleBusinessLocationOption(location googleBusinessLocation) AccountSelectionOption {
 	return AccountSelectionOption{
 		ID:          location.Name,
-		Username:    firstNonEmptyString(location.Title, location.Name),
-		DisplayName: firstNonEmptyString(location.Title, location.Name),
+		Username:    textutil.FirstNonEmpty(location.Title, location.Name),
+		DisplayName: textutil.FirstNonEmpty(location.Title, location.Name),
 		Description: googleBusinessLocationDescription(location),
 		Kind:        "location",
 	}
@@ -364,7 +366,7 @@ func (g *GoogleBusinessAdapter) SelectAccount(ctx context.Context, token *TokenR
 		selectedToken.Extra["location_id"] = location.Name
 		return &SelectedAccount{
 			AccountID:        location.Name,
-			AccountUsername:  firstNonEmptyString(location.Title, location.Name),
+			AccountUsername:  textutil.FirstNonEmpty(location.Title, location.Name),
 			AccountAvatarURL: "",
 			Token:            &selectedToken,
 			CapabilityState: map[string]string{
@@ -392,8 +394,8 @@ func (g *GoogleBusinessAdapter) RefreshAccountMetadata(ctx context.Context, acce
 		}
 		return &UserProfile{
 			ID:          location.Name,
-			Username:    firstNonEmptyString(location.Title, location.Name),
-			DisplayName: firstNonEmptyString(location.Title, location.Name),
+			Username:    textutil.FirstNonEmpty(location.Title, location.Name),
+			DisplayName: textutil.FirstNonEmpty(location.Title, location.Name),
 			CapabilityState: map[string]string{
 				"googlebusiness_location_verified": fmt.Sprint(location.LocationState.IsVerified),
 			},
@@ -409,7 +411,7 @@ func (g *GoogleBusinessAdapter) ListDestinationOptions(ctx context.Context, acce
 	}
 	options := make([]DestinationOption, 0, len(locations))
 	for _, location := range locations {
-		label := firstNonEmptyString(location.Title, location.Name)
+		label := textutil.FirstNonEmpty(location.Title, location.Name)
 		if description := googleBusinessLocationDescription(location); description != "" {
 			label += " (" + description + ")"
 		}
@@ -428,7 +430,7 @@ func (g *GoogleBusinessAdapter) SearchPublishingOptions(ctx context.Context, acc
 	}
 	options := make([]DestinationOption, 0, len(locations))
 	for _, location := range locations {
-		label := firstNonEmptyString(location.Title, location.Name)
+		label := textutil.FirstNonEmpty(location.Title, location.Name)
 		if description := googleBusinessLocationDescription(location); description != "" {
 			label += " (" + description + ")"
 		}
@@ -500,7 +502,7 @@ func (g *GoogleBusinessAdapter) ResolveAccountPublishingCapabilities(ctx context
 // ValidatePublishingTarget rechecks that the selected location still reports
 // local-post operability before any provider mutation begins.
 func (g *GoogleBusinessAdapter) ValidatePublishingTarget(ctx context.Context, accessToken, accountID string, settings map[string]interface{}) error {
-	location := firstNonEmptyString(settingString(settings, "location_id"), strings.TrimSpace(accountID))
+	location := textutil.FirstNonEmpty(settingString(settings, "location_id"), strings.TrimSpace(accountID))
 	if !googleBusinessLocationNamePattern.MatchString(location) {
 		return fmt.Errorf("google business publishing requires a selected location")
 	}
@@ -911,7 +913,7 @@ func (g *GoogleBusinessAdapter) Publish(ctx context.Context, accessToken, accoun
 	if err != nil {
 		return PublishResult{}, err
 	}
-	location := firstNonEmptyString(settingString(req.Settings, "location_id"), strings.TrimSpace(accountID))
+	location := textutil.FirstNonEmpty(settingString(req.Settings, "location_id"), strings.TrimSpace(accountID))
 
 	prepared := PublishResult{ProviderState: "creating", RetrySafety: PublishRetryNever}
 	if err := req.BeginWrite(prepared); err != nil {
@@ -1054,27 +1056,4 @@ func (g *GoogleBusinessAdapter) ResolveContentURL(ctx context.Context, accessTok
 		return "", fmt.Errorf("google business post has no shareable URL yet")
 	}
 	return searchURL, nil
-}
-
-func validateGoogleBusinessMedia(media []MediaItem) []MediaValidationIssue {
-	if len(media) == 0 {
-		return nil
-	}
-	if len(media) > 1 {
-		return []MediaValidationIssue{{
-			Provider: providerGoogleBusiness,
-			Severity: severityError,
-			Message:  "Google Business posts support at most one photo.",
-		}}
-	}
-	mimeType := strings.ToLower(strings.TrimSpace(media[0].MimeType))
-	if mimeType != "image/jpeg" && mimeType != "image/png" {
-		return []MediaValidationIssue{{
-			Provider: providerGoogleBusiness,
-			MediaID:  media[0].ID,
-			Severity: severityError,
-			Message:  "Google Business posts support JPEG or PNG photos.",
-		}}
-	}
-	return nil
 }

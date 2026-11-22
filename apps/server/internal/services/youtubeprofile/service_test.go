@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -29,17 +29,14 @@ func (a profileAdapter) RefreshAccountMetadata(context.Context, string, platform
 }
 func fixture(t *testing.T) (*Service, *bun.DB, models.SocialAccount) {
 	t.Helper()
-	db, err := database.InitDB(":memory:")
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
-	require.NoError(t, database.CreateSchema(db))
+	db := testdb.NewSQLite(t)
 	now := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
 	for _, m := range []any{&models.Organization{ID: "org", Name: "Org"}, &models.Workspace{ID: "ws", OrganizationID: "org", Name: "WS"}} {
-		_, err = db.NewInsert().Model(m).Exec(t.Context())
+		_, err := db.NewInsert().Model(m).Exec(t.Context())
 		require.NoError(t, err)
 	}
 	account := models.SocialAccount{ID: "a", WorkspaceID: "ws", Platform: "youtube", Slug: "a", AccountID: "channel", AccountUsername: "Old", AccountAvatarURL: "/avatars/avatar_account_old.png", AccessTokenEnc: []byte{}, IsActive: true, ProfileFetchedAt: now.Add(-22 * 24 * time.Hour)}
-	_, err = db.NewInsert().Model(&account).Exec(t.Context())
+	_, err := db.NewInsert().Model(&account).Exec(t.Context())
 	require.NoError(t, err)
 	s := NewService(db, nil, nil)
 	s.now = func() time.Time { return now }

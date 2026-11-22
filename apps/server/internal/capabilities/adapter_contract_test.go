@@ -8,6 +8,7 @@ import (
 )
 
 func TestMediaSettingScopesMatchAdapterContract(t *testing.T) {
+	t.Parallel()
 	mediaKeys := map[string]bool{
 		"alt_text":     true,
 		"focal_point":  true,
@@ -26,6 +27,7 @@ func TestMediaSettingScopesMatchAdapterContract(t *testing.T) {
 }
 
 func TestIntentSpecificControlsDoNotLeak(t *testing.T) {
+	t.Parallel()
 	photo := capabilities.Resolve(capabilities.ProviderTikTok, capabilities.ResolveInput{
 		Intent: capabilities.IntentPost,
 		Segments: []capabilities.ResolveSegment{{

@@ -173,6 +173,22 @@ func (c *Client) DeleteJSON(ctx context.Context, path string, out any) error {
 	return c.do(ctx, http.MethodDelete, path, nil, out)
 }
 
+func doJSON[Resp any](ctx context.Context, c *Client, method, path string, body any) (*Resp, error) {
+	var out Resp
+	if err := c.do(ctx, method, path, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func doJSONSlice[T any](ctx context.Context, c *Client, method, path string, body any) ([]T, error) {
+	var out []T
+	if err := c.do(ctx, method, path, body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ----- typed endpoints used by the CLI -----
 
 // Health is the public /api/v1/health probe.
@@ -211,11 +227,7 @@ func (c *Client) Ready(ctx context.Context) (*Readiness, error) {
 
 // Me fetches the authenticated user profile.
 func (c *Client) Me(ctx context.Context) (*Me, error) {
-	var m Me
-	if err := c.GetJSON(ctx, "/api/v1/auth/me", &m); err != nil {
-		return nil, err
-	}
-	return &m, nil
+	return doJSON[Me](ctx, c, http.MethodGet, "/api/v1/auth/me", nil)
 }
 
 type Me struct {
@@ -251,11 +263,7 @@ type Workspace struct {
 }
 
 func (c *Client) ListWorkspaces(ctx context.Context) ([]Workspace, error) {
-	var out []Workspace
-	if err := c.GetJSON(ctx, "/api/v1/workspaces", &out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return doJSONSlice[Workspace](ctx, c, http.MethodGet, "/api/v1/workspaces", nil)
 }
 
 type CreateWorkspaceInput struct {
@@ -263,11 +271,7 @@ type CreateWorkspaceInput struct {
 }
 
 func (c *Client) CreateWorkspace(ctx context.Context, in CreateWorkspaceInput) (*Workspace, error) {
-	var out Workspace
-	if err := c.PostJSON(ctx, "/api/v1/workspaces", in, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[Workspace](ctx, c, http.MethodPost, "/api/v1/workspaces", in)
 }
 
 type WorkspaceSettings struct {
@@ -280,11 +284,7 @@ type WorkspaceSettings struct {
 }
 
 func (c *Client) GetWorkspaceSettings(ctx context.Context, workspaceID string) (*WorkspaceSettings, error) {
-	var out WorkspaceSettings
-	if err := c.GetJSON(ctx, "/api/v1/workspaces/"+workspaceID+"/settings", &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[WorkspaceSettings](ctx, c, http.MethodGet, "/api/v1/workspaces/"+workspaceID+"/settings", nil)
 }
 
 // ----- Billing -----
@@ -314,11 +314,7 @@ type BillingURL struct {
 func (c *Client) BillingStatus(ctx context.Context, workspaceID string) (*BillingStatus, error) {
 	v := url.Values{}
 	v.Set("workspace_id", workspaceID)
-	var out BillingStatus
-	if err := c.GetJSON(ctx, "/api/v1/billing/status?"+v.Encode(), &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[BillingStatus](ctx, c, http.MethodGet, "/api/v1/billing/status?"+v.Encode(), nil)
 }
 
 func (c *Client) CreateBillingCheckout(ctx context.Context, workspaceID, planID, billingPeriod string) (*BillingURL, error) {
@@ -396,27 +392,15 @@ type SuggestPostingScheduleOutput struct {
 func (c *Client) ListPostingSchedules(ctx context.Context, workspaceID string) ([]PostingSchedule, error) {
 	v := url.Values{}
 	v.Set("workspace_id", workspaceID)
-	var out []PostingSchedule
-	if err := c.GetJSON(ctx, "/api/v1/posting-schedules?"+v.Encode(), &out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return doJSONSlice[PostingSchedule](ctx, c, http.MethodGet, "/api/v1/posting-schedules?"+v.Encode(), nil)
 }
 
 func (c *Client) CreatePostingSchedule(ctx context.Context, in CreatePostingScheduleInput) (*PostingSchedule, error) {
-	var out PostingSchedule
-	if err := c.PostJSON(ctx, "/api/v1/posting-schedules", in, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[PostingSchedule](ctx, c, http.MethodPost, "/api/v1/posting-schedules", in)
 }
 
 func (c *Client) UpdatePostingSchedule(ctx context.Context, scheduleID string, in UpdatePostingScheduleInput) (*PostingSchedule, error) {
-	var out PostingSchedule
-	if err := c.PatchJSON(ctx, "/api/v1/posting-schedules/"+url.PathEscape(scheduleID), in, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[PostingSchedule](ctx, c, http.MethodPatch, "/api/v1/posting-schedules/"+url.PathEscape(scheduleID), in)
 }
 
 func (c *Client) DeletePostingSchedule(ctx context.Context, scheduleID string) error {
@@ -437,11 +421,7 @@ func (c *Client) SuggestPostingSchedule(ctx context.Context, workspaceID string,
 func (c *Client) NextAvailableSlot(ctx context.Context, in NextAvailableSlotInput) (*NextAvailableSlotOutput, error) {
 	v := url.Values{}
 	v.Set("workspace_id", in.WorkspaceID)
-	var out NextAvailableSlotOutput
-	if err := c.GetJSON(ctx, "/api/v1/posting-schedules/next-slot?"+v.Encode(), &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[NextAvailableSlotOutput](ctx, c, http.MethodGet, "/api/v1/posting-schedules/next-slot?"+v.Encode(), nil)
 }
 
 // ----- Accounts -----
@@ -584,11 +564,7 @@ type UpdateAccountInput struct {
 }
 
 func (c *Client) ListAccountProviders(ctx context.Context) ([]ProviderInfo, error) {
-	var out []ProviderInfo
-	if err := c.GetJSON(ctx, "/api/v1/accounts/providers", &out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return doJSONSlice[ProviderInfo](ctx, c, http.MethodGet, "/api/v1/accounts/providers", nil)
 }
 
 func (c *Client) GetProviderReadiness(ctx context.Context, workspaceID string) ([]ProviderReadiness, error) {
@@ -604,27 +580,15 @@ func (c *Client) GetProviderReadiness(ctx context.Context, workspaceID string) (
 }
 
 func (c *Client) ListCapabilities(ctx context.Context) (*CapabilityCatalog, error) {
-	var out CapabilityCatalog
-	if err := c.GetJSON(ctx, "/api/v1/capabilities", &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[CapabilityCatalog](ctx, c, http.MethodGet, "/api/v1/capabilities", nil)
 }
 
 func (c *Client) ListAccounts(ctx context.Context, workspaceID string) ([]SocialAccount, error) {
-	var out []SocialAccount
-	if err := c.GetJSON(ctx, "/api/v1/accounts?workspace_id="+url.QueryEscape(workspaceID), &out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return doJSONSlice[SocialAccount](ctx, c, http.MethodGet, "/api/v1/accounts?workspace_id="+url.QueryEscape(workspaceID), nil)
 }
 
 func (c *Client) UpdateAccount(ctx context.Context, accountID string, in UpdateAccountInput) (*SocialAccount, error) {
-	var out SocialAccount
-	if err := c.PatchJSON(ctx, "/api/v1/accounts/"+url.PathEscape(accountID), in, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[SocialAccount](ctx, c, http.MethodPatch, "/api/v1/accounts/"+url.PathEscape(accountID), in)
 }
 
 // DisconnectAccount deactivates a connected social account.
@@ -754,11 +718,7 @@ func (c *Client) UploadMedia(ctx context.Context, workspaceID, filePath, altText
 	if err := c.putFile(ctx, session.Upload, f, info.Size()); err != nil {
 		return nil, err
 	}
-	var media Media
-	if err := c.PostJSON(ctx, session.CompleteURL, map[string]string{"workspace_id": workspaceID}, &media); err != nil {
-		return nil, err
-	}
-	return &media, nil
+	return doJSON[Media](ctx, c, http.MethodPost, session.CompleteURL, map[string]string{"workspace_id": workspaceID})
 }
 
 type mediaUploadSession struct {
@@ -851,19 +811,11 @@ func (c *Client) UpdateMedia(ctx context.Context, mediaID, altText string) error
 func (c *Client) GetMediaStorage(ctx context.Context, workspaceID string) (*MediaStorage, error) {
 	v := url.Values{}
 	v.Set("workspace_id", workspaceID)
-	var out MediaStorage
-	if err := c.GetJSON(ctx, "/api/v1/media/storage?"+v.Encode(), &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[MediaStorage](ctx, c, http.MethodGet, "/api/v1/media/storage?"+v.Encode(), nil)
 }
 
 func (c *Client) GetMediaUsage(ctx context.Context, mediaID string) (*MediaUsage, error) {
-	var out MediaUsage
-	if err := c.GetJSON(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/usage", &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[MediaUsage](ctx, c, http.MethodGet, "/api/v1/media/"+url.PathEscape(mediaID)+"/usage", nil)
 }
 
 // ----- Publications -----
@@ -1207,11 +1159,7 @@ type Comment struct {
 }
 
 func (c *Client) CreatePublication(ctx context.Context, in CreatePublicationInput) (*Publication, error) {
-	var out Publication
-	if err := c.PostJSON(ctx, "/api/v1/publications", in, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[Publication](ctx, c, http.MethodPost, "/api/v1/publications", in)
 }
 
 func (c *Client) ListPublications(ctx context.Context, in ListPublicationsInput) ([]Publication, error) {
@@ -1247,27 +1195,15 @@ func (c *Client) ListPublications(ctx context.Context, in ListPublicationsInput)
 	if encoded := v.Encode(); encoded != "" {
 		path += "?" + encoded
 	}
-	var out []Publication
-	if err := c.GetJSON(ctx, path, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return doJSONSlice[Publication](ctx, c, http.MethodGet, path, nil)
 }
 
 func (c *Client) GetPublication(ctx context.Context, id string) (*Publication, error) {
-	var out Publication
-	if err := c.GetJSON(ctx, "/api/v1/publications/"+url.PathEscape(id), &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[Publication](ctx, c, http.MethodGet, "/api/v1/publications/"+url.PathEscape(id), nil)
 }
 
 func (c *Client) UpdatePublication(ctx context.Context, id string, in UpdatePublicationInput) (*Publication, error) {
-	var out Publication
-	if err := c.PutJSON(ctx, "/api/v1/publications/"+url.PathEscape(id), in, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[Publication](ctx, c, http.MethodPut, "/api/v1/publications/"+url.PathEscape(id), in)
 }
 
 func (c *Client) UpsertPublicationRenditions(ctx context.Context, id string, expectedRevision int, renditions []RenditionInput) (*Publication, error) {
@@ -1282,43 +1218,23 @@ func (c *Client) UpsertPublicationRenditions(ctx context.Context, id string, exp
 }
 
 func (c *Client) ReplyToRendition(ctx context.Context, id string, in RenditionReplyInput) (*PublicationActionOutput, error) {
-	var out PublicationActionOutput
-	if err := c.PostJSON(ctx, "/api/v1/renditions/"+url.PathEscape(id)+"/reply", in, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[PublicationActionOutput](ctx, c, http.MethodPost, "/api/v1/renditions/"+url.PathEscape(id)+"/reply", in)
 }
 
 func (c *Client) ValidatePublication(ctx context.Context, id string) (*PublicationValidation, error) {
-	var out PublicationValidation
-	if err := c.PostJSON(ctx, "/api/v1/publications/"+url.PathEscape(id)+"/validate", map[string]any{}, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[PublicationValidation](ctx, c, http.MethodPost, "/api/v1/publications/"+url.PathEscape(id)+"/validate", map[string]any{})
 }
 
 func (c *Client) PublishPublicationNow(ctx context.Context, id string, expectedRevision int) (*PublicationActionOutput, error) {
-	var out PublicationActionOutput
-	if err := c.PostJSON(ctx, "/api/v1/publications/"+url.PathEscape(id)+"/publish-now", map[string]any{"expected_revision": expectedRevision}, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[PublicationActionOutput](ctx, c, http.MethodPost, "/api/v1/publications/"+url.PathEscape(id)+"/publish-now", map[string]any{"expected_revision": expectedRevision})
 }
 
 func (c *Client) SchedulePublication(ctx context.Context, id string, expectedRevision int) (*PublicationActionOutput, error) {
-	var out PublicationActionOutput
-	if err := c.PostJSON(ctx, "/api/v1/publications/"+url.PathEscape(id)+"/schedule", map[string]any{"expected_revision": expectedRevision}, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[PublicationActionOutput](ctx, c, http.MethodPost, "/api/v1/publications/"+url.PathEscape(id)+"/schedule", map[string]any{"expected_revision": expectedRevision})
 }
 
 func (c *Client) CancelPublication(ctx context.Context, id string, expectedRevision int) (*PublicationActionOutput, error) {
-	var out PublicationActionOutput
-	if err := c.PostJSON(ctx, "/api/v1/publications/"+url.PathEscape(id)+"/cancel", map[string]any{"expected_revision": expectedRevision}, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[PublicationActionOutput](ctx, c, http.MethodPost, "/api/v1/publications/"+url.PathEscape(id)+"/cancel", map[string]any{"expected_revision": expectedRevision})
 }
 
 func (c *Client) DeletePublication(ctx context.Context, id string, expectedRevision int) (*PublicationActionOutput, error) {
@@ -1326,11 +1242,7 @@ func (c *Client) DeletePublication(ctx context.Context, id string, expectedRevis
 	query := url.Values{}
 	query.Set("confirm", "true")
 	query.Set("expected_revision", strconv.Itoa(expectedRevision))
-	var out PublicationActionOutput
-	if err := c.DeleteJSON(ctx, path+"?"+query.Encode(), &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[PublicationActionOutput](ctx, c, http.MethodDelete, path+"?"+query.Encode(), nil)
 }
 
 func (c *Client) DeletePublicationRendition(ctx context.Context, id, accountID string, expectedRevision int) (*PublicationActionOutput, error) {
@@ -1338,11 +1250,7 @@ func (c *Client) DeletePublicationRendition(ctx context.Context, id, accountID s
 	query := url.Values{}
 	query.Set("confirm", "true")
 	query.Set("expected_revision", strconv.Itoa(expectedRevision))
-	var out PublicationActionOutput
-	if err := c.DeleteJSON(ctx, path+"?"+query.Encode(), &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[PublicationActionOutput](ctx, c, http.MethodDelete, path+"?"+query.Encode(), nil)
 }
 
 func (c *Client) RetryPublicationRendition(ctx context.Context, id, accountID string) (*PublicationActionOutput, error) {
@@ -1361,11 +1269,7 @@ func (c *Client) ListPublicationEvents(ctx context.Context, id string, limit int
 		v.Set("limit", strconv.Itoa(limit))
 		path += "?" + v.Encode()
 	}
-	var out []PublicationLifecycleEvent
-	if err := c.GetJSON(ctx, path, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return doJSONSlice[PublicationLifecycleEvent](ctx, c, http.MethodGet, path, nil)
 }
 
 func (c *Client) ListRenditionComments(ctx context.Context, renditionID string) ([]Comment, error) {
@@ -1379,27 +1283,15 @@ func (c *Client) ListRenditionComments(ctx context.Context, renditionID string) 
 }
 
 func (c *Client) ReplyToComment(ctx context.Context, commentID, body string) (*CommentActionOutput, error) {
-	var out CommentActionOutput
-	if err := c.PostJSON(ctx, "/api/v1/comments/"+url.PathEscape(commentID)+"/reply", map[string]string{"body": body}, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[CommentActionOutput](ctx, c, http.MethodPost, "/api/v1/comments/"+url.PathEscape(commentID)+"/reply", map[string]string{"body": body})
 }
 
 func (c *Client) HideComment(ctx context.Context, commentID string) (*CommentActionOutput, error) {
-	var out CommentActionOutput
-	if err := c.PostJSON(ctx, "/api/v1/comments/"+url.PathEscape(commentID)+"/hide", map[string]any{}, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[CommentActionOutput](ctx, c, http.MethodPost, "/api/v1/comments/"+url.PathEscape(commentID)+"/hide", map[string]any{})
 }
 
 func (c *Client) DeleteComment(ctx context.Context, commentID string) (*CommentActionOutput, error) {
-	var out CommentActionOutput
-	if err := c.DeleteJSON(ctx, "/api/v1/comments/"+url.PathEscape(commentID), &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[CommentActionOutput](ctx, c, http.MethodDelete, "/api/v1/comments/"+url.PathEscape(commentID), nil)
 }
 
 // ----- Auth: CLI device flow + API token management -----
@@ -1421,11 +1313,7 @@ type CLIAuthStartOutput struct {
 
 // StartCLIAuth begins a CLI device-flow session.
 func (c *Client) StartCLIAuth(ctx context.Context, in CLIAuthStartInput) (*CLIAuthStartOutput, error) {
-	var out CLIAuthStartOutput
-	if err := c.PostJSON(ctx, "/api/v1/cli/auth/start", in, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[CLIAuthStartOutput](ctx, c, http.MethodPost, "/api/v1/cli/auth/start", in)
 }
 
 type CLIAuthPollInput struct {
@@ -1441,11 +1329,7 @@ type CLIAuthPollOutput struct {
 
 // PollCLIAuth reports the current status of a pending CLI device-flow.
 func (c *Client) PollCLIAuth(ctx context.Context, deviceCode string) (*CLIAuthPollOutput, error) {
-	var out CLIAuthPollOutput
-	if err := c.PostJSON(ctx, "/api/v1/cli/auth/poll", CLIAuthPollInput{DeviceCode: deviceCode}, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
+	return doJSON[CLIAuthPollOutput](ctx, c, http.MethodPost, "/api/v1/cli/auth/poll", CLIAuthPollInput{DeviceCode: deviceCode})
 }
 
 type Token struct {
@@ -1461,11 +1345,7 @@ type Token struct {
 }
 
 func (c *Client) ListAPITokens(ctx context.Context) ([]Token, error) {
-	var out []Token
-	if err := c.GetJSON(ctx, "/api/v1/api-tokens", &out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return doJSONSlice[Token](ctx, c, http.MethodGet, "/api/v1/api-tokens", nil)
 }
 
 func (c *Client) RevokeAPIToken(ctx context.Context, id string) error {
@@ -1515,11 +1395,7 @@ func (c *Client) ListJobs(ctx context.Context, in ListJobsInput) ([]Job, error) 
 	if encoded := v.Encode(); encoded != "" {
 		path += "?" + encoded
 	}
-	var out []Job
-	if err := c.GetJSON(ctx, path, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return doJSONSlice[Job](ctx, c, http.MethodGet, path, nil)
 }
 
 // ----- helpers -----

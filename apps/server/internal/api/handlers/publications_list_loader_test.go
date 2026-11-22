@@ -26,6 +26,7 @@ func (counter *selectQueryCounter) BeforeQuery(ctx context.Context, event *bun.Q
 func (*selectQueryCounter) AfterQuery(context.Context, *bun.QueryEvent) {}
 
 func TestLoadPublicationResponsesUsesFixedQueryCount(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.Publication)(nil),
 		(*models.PublicationSegment)(nil),

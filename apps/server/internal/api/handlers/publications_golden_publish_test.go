@@ -66,10 +66,12 @@ func (p *goldenWorkerProvider) Publish(_ context.Context, token, accountID strin
 }
 
 func TestPublicationAPIThroughWorkerRetainsProviderResult(t *testing.T) {
+	t.Parallel()
 	testPublicationAPIThroughWorker(t, "mastodon")
 }
 
 func TestTextCardAPIThroughWorkerUploadsGeneratedImage(t *testing.T) {
+	t.Parallel()
 	testPublicationAPIThroughWorker(t, "pixelfed")
 }
 

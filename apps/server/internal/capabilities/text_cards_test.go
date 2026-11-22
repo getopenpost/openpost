@@ -18,6 +18,7 @@ import (
 // the first segment's media, and callers resolve several destinations from the
 // same segment slice.
 func TestProjectTextCardsDoesNotMutateCallerSegments(t *testing.T) {
+	t.Parallel()
 	segments := []ResolveSegment{{
 		ID:    "segment-1",
 		Body:  "hello",
@@ -30,6 +31,7 @@ func TestProjectTextCardsDoesNotMutateCallerSegments(t *testing.T) {
 }
 
 func TestTextCardCatalogueOptionsParseThroughRenderer(t *testing.T) {
+	t.Parallel()
 	defs := TextCardSettings()
 	byKey := make(map[string]SettingDefinition, len(defs))
 	for _, def := range defs {
@@ -69,6 +71,7 @@ func TestTextCardCatalogueOptionsParseThroughRenderer(t *testing.T) {
 }
 
 func TestTextCardsResolveTheDeliveredMediaShape(t *testing.T) {
+	t.Parallel()
 	for _, provider := range []string{ProviderInstagram, ProviderPixelfed} {
 		t.Run(provider, func(t *testing.T) {
 			resolved := Resolve(provider, ResolveInput{Settings: map[string]any{"text_card": "always"}, Segments: []ResolveSegment{{ID: "source", Body: "A small release worth sharing."}}})
@@ -84,6 +87,7 @@ func TestTextCardsResolveTheDeliveredMediaShape(t *testing.T) {
 }
 
 func TestTextCardsRespectNativeFormatsAndCarouselLimits(t *testing.T) {
+	t.Parallel()
 	story := Resolve(ProviderInstagram, ResolveInput{CreationPreset: "story", Settings: map[string]any{"text_card": "text_only"}, Segments: []ResolveSegment{{Body: "A story worth sharing."}}})
 	require.True(t, story.Compatible, "%+v", story.Issues)
 	require.Equal(t, "instagram.story", story.OutputProfile)
@@ -109,6 +113,7 @@ func TestTextCardsRespectNativeFormatsAndCarouselLimits(t *testing.T) {
 }
 
 func TestTextCardsDeduplicateSharedSourceAttachments(t *testing.T) {
+	t.Parallel()
 	photos := []MediaItem{{ID: "one", MimeType: "image/jpeg", Width: 1080, Height: 1350}, {ID: "two", MimeType: "image/jpeg", Width: 1080, Height: 1350}, {ID: "three", MimeType: "image/jpeg", Width: 1080, Height: 1350}}
 	resolved := Resolve(ProviderPixelfed, ResolveInput{Settings: map[string]any{"text_card": "always"}, Segments: []ResolveSegment{{ID: "a", Body: "First", Media: photos}, {ID: "b", Body: "Second", Media: photos}}})
 	require.True(t, resolved.Compatible, "%+v", resolved.Issues)

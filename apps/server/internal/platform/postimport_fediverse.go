@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 func (p *PixelfedAdapter) NativePostSupport() NativePostSupport { return nativePostSupport() }
@@ -131,7 +133,7 @@ func listNativeCommunityPosts(ctx context.Context, token string, input NativePos
 		if view.Creator.ID != person || post.Deleted || post.Removed {
 			continue
 		}
-		appendNativePost(&page, input, NativePostItem{ProviderPostID: strconv.FormatInt(post.ID, 10), Title: firstNonEmptyString(post.Title, post.Name), Text: post.Body, PublishedAt: ProviderTime(post.Published), ExternalURL: post.ActorID})
+		appendNativePost(&page, input, NativePostItem{ProviderPostID: strconv.FormatInt(post.ID, 10), Title: textutil.FirstNonEmpty(post.Title, post.Name), Text: post.Body, PublishedAt: ProviderTime(post.Published), ExternalURL: post.ActorID})
 	}
 	return page, nil
 }

@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/accountfeatures"
@@ -16,6 +15,7 @@ import (
 	messagingservice "github.com/openpost/backend/internal/services/messaging"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -59,11 +59,7 @@ func (f *countingGrowthProvider) FollowGrowthCandidate(_ context.Context, _, _, 
 
 func newFeatureEnforcementDB(t *testing.T) *bun.DB {
 	t.Helper()
-	db, err := database.InitDBWithDriver("sqlite", "file:"+t.Name()+"?mode=memory&cache=shared")
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
-	return db
+	return testdb.NewSQLite(t)
 }
 
 func seedFeatureUserWorkspace(t *testing.T, db *bun.DB) {

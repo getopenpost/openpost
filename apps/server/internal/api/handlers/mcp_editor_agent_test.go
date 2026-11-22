@@ -48,6 +48,7 @@ func (g *editorAssistantSequenceGenerator) Generate(_ context.Context, request a
 }
 
 func TestEditorAssistantRequiresConfiguredModelEditAccessAndHostedPlan(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	blank, whitespace := "", " \t "
 	for _, test := range []struct {
@@ -88,6 +89,7 @@ func TestEditorAssistantRequiresConfiguredModelEditAccessAndHostedPlan(t *testin
 }
 
 func TestFreeEditorAssistantHTTPRejectsRequestsBeforeCallingModel(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []string{"image", "video"} {
 		t.Run(kind, func(t *testing.T) {
 			db := workflowHandlerDB(t)
@@ -122,6 +124,7 @@ func TestFreeEditorAssistantHTTPRejectsRequestsBeforeCallingModel(t *testing.T) 
 }
 
 func TestHostedEditorAssistantStopCancelsQueuedEdit(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	relay := editoragent.NewRelay(db)
 	session, err := relay.Register(t.Context(), "ws", "user", "project", "video")
@@ -149,6 +152,7 @@ func TestHostedEditorAssistantStopCancelsQueuedEdit(t *testing.T) {
 }
 
 func TestHostedEditorAssistantHTTPUsesPaidToolLoopAndAccountsUsage(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	relay := editoragent.NewRelay(db)
 	session, err := relay.Register(t.Context(), "ws", "user", "project", "video")
@@ -246,6 +250,7 @@ func TestHostedEditorAssistantHTTPUsesPaidToolLoopAndAccountsUsage(t *testing.T)
 }
 
 func TestEditorAgentMCPValidatesSpecificActions(t *testing.T) {
+	t.Parallel()
 	base := map[string]any{
 		"workspace_id": "workspace", "session_id": "session", "project_id": "project",
 		"expected_revision": "revision", "request_id": "retry-key",
@@ -277,6 +282,7 @@ func TestEditorAgentMCPValidatesSpecificActions(t *testing.T) {
 }
 
 func TestEditorAudioPreviewReturnsBoundedMCPAudioContent(t *testing.T) {
+	t.Parallel()
 	wave := func(size int) []byte {
 		data := make([]byte, size)
 		copy(data[:4], "RIFF")
@@ -332,6 +338,7 @@ func TestEditorAudioPreviewReturnsBoundedMCPAudioContent(t *testing.T) {
 	}
 }
 func TestEditorAgentMCPResultUsesAdvertisedEnvelope(t *testing.T) {
+	t.Parallel()
 	result := editorAgentToolResult(map[string]any{"sessions": []any{}})
 	if err := validateMCPToolOutput("editor_sessions", result); err != nil {
 		t.Fatalf("editor session output does not match the MCP contract: %v", err)
@@ -342,6 +349,7 @@ func TestEditorAgentMCPResultUsesAdvertisedEnvelope(t *testing.T) {
 }
 
 func TestHostedAssistantCanInspectCompletedEditorRequest(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	relay := editoragent.NewRelay(db)
 	session, err := relay.Register(t.Context(), "ws", "user", "project", "video")
@@ -367,6 +375,7 @@ func TestHostedAssistantCanInspectCompletedEditorRequest(t *testing.T) {
 }
 
 func TestEditorPreferencesKeepScopeExplicitRulesAndPinnedStyles(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	service := editorpreferences.NewService(db)
 	personal, err := service.SavePreference(t.Context(), "ws", "user", editorpreferences.Preference{EditorKind: "video", Rule: "Use simple captions", SourceInstruction: "Always use simple captions", Enabled: true}, 0)
@@ -437,6 +446,7 @@ func TestEditorPreferencesKeepScopeExplicitRulesAndPinnedStyles(t *testing.T) {
 }
 
 func TestEditorSuggestionsNeedThreeDistinctManualProjectsAndRespectReset(t *testing.T) {
+	t.Parallel()
 	service := editorpreferences.NewService(workflowHandlerDB(t))
 	record := func(project string) {
 		t.Helper()
@@ -484,6 +494,7 @@ func (g editorUsageGenerator) Generate(ctx context.Context, r ai.GenerateRequest
 }
 
 func TestEditorUsageSurvivesCancellationAndInvalidOutput(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	usage := aiusage.NewService(db)
 	ctx, cancel := context.WithCancel(t.Context())

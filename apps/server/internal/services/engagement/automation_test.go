@@ -65,6 +65,7 @@ func completeCampaignJob(t *testing.T, s *Service, id string) {
 	require.NoError(t, err)
 }
 func TestCommentCampaignPrivateSendReceiptDoesNotResend(t *testing.T) {
+	t.Parallel()
 	s, in, p := campaignTest(t)
 	reply, err := s.AdvanceAutomationReply(t.Context(), in)
 	require.NoError(t, err)
@@ -80,6 +81,7 @@ func TestCommentCampaignPrivateSendReceiptDoesNotResend(t *testing.T) {
 	require.Zero(t, p.public)
 }
 func TestCommentCampaignTakeoverStopsQueuedProviderWrite(t *testing.T) {
+	t.Parallel()
 	s, in, p := campaignTest(t)
 	reply, err := s.AdvanceAutomationReply(t.Context(), in)
 	require.NoError(t, err)
@@ -92,6 +94,7 @@ func TestCommentCampaignTakeoverStopsQueuedProviderWrite(t *testing.T) {
 	require.Zero(t, p.private)
 }
 func TestCommentCampaignReviewDoesNotSendUntilApproved(t *testing.T) {
+	t.Parallel()
 	s, in, p := campaignTest(t)
 	in.Delivery = "review"
 	reply, err := s.AdvanceAutomationReply(t.Context(), in)
@@ -117,6 +120,7 @@ func TestCommentCampaignReviewDoesNotSendUntilApproved(t *testing.T) {
 }
 
 func TestCommentCampaignFailedPrivateReplyNeverQueuesAcknowledgement(t *testing.T) {
+	t.Parallel()
 	s, in, p := campaignTest(t)
 	reply, err := s.AdvanceAutomationReply(t.Context(), in)
 	require.NoError(t, err)
@@ -128,6 +132,7 @@ func TestCommentCampaignFailedPrivateReplyNeverQueuesAcknowledgement(t *testing.
 	require.Zero(t, p.public)
 }
 func TestCommentCampaignSeparatePublicStepWaitsForPrivateAcceptance(t *testing.T) {
+	t.Parallel()
 	s, in, p := campaignTest(t)
 	reply, err := s.AdvanceAutomationReply(t.Context(), in)
 	require.NoError(t, err)
@@ -149,6 +154,7 @@ func TestCommentCampaignSeparatePublicStepWaitsForPrivateAcceptance(t *testing.T
 	require.Equal(t, 1, p.public)
 }
 func TestCommentCampaignCannotBeClaimedByAnotherRun(t *testing.T) {
+	t.Parallel()
 	s, in, _ := campaignTest(t)
 	reply, err := s.AdvanceAutomationReply(t.Context(), in)
 	require.NoError(t, err)
@@ -164,6 +170,7 @@ func TestCommentCampaignCannotBeClaimedByAnotherRun(t *testing.T) {
 	require.EqualValues(t, 1, count)
 }
 func TestCommentCampaignPrivateReplyIsOncePerPersonPerPost(t *testing.T) {
+	t.Parallel()
 	s, in, _ := campaignTest(t)
 	_, err := s.db.NewUpdate().Model((*models.EngagementItem)(nil)).Set("author_remote_id='reader'").Where("id='c'").Exec(t.Context())
 	require.NoError(t, err)
@@ -182,6 +189,7 @@ func TestCommentCampaignPrivateReplyIsOncePerPersonPerPost(t *testing.T) {
 }
 
 func TestCommentTakeoverCancelsParkedReviewRun(t *testing.T) {
+	t.Parallel()
 	s, in, p := campaignTest(t)
 	in.Delivery = "review"
 	_, err := s.AdvanceAutomationReply(t.Context(), in)
@@ -199,6 +207,7 @@ func TestCommentTakeoverCancelsParkedReviewRun(t *testing.T) {
 }
 
 func TestPrivateCommentReplyRequiresStableCommenterAndPost(t *testing.T) {
+	t.Parallel()
 	for _, field := range []string{"author_remote_id", "conversation_remote_id"} {
 		t.Run(field, func(t *testing.T) {
 			s, in, p := campaignTest(t)
@@ -216,6 +225,7 @@ func TestPrivateCommentReplyRequiresStableCommenterAndPost(t *testing.T) {
 }
 
 func TestCommentReplyRetainsAcceptanceAfterJobPruning(t *testing.T) {
+	t.Parallel()
 	s, in, p := campaignTest(t)
 	reply, err := s.AdvanceAutomationReply(t.Context(), in)
 	require.NoError(t, err)
@@ -248,6 +258,7 @@ func (p *campaignWebhookProvider) ReadWebhookComment(_ context.Context, _, _, co
 	return platform.Comment{ID: commentID, ConversationID: mediaID, AuthorID: "reader", Text: "GRIND please", CanReply: true, CreatedAt: time.Now().UTC().Format(time.RFC3339)}, "https://www.instagram.com/reel/sample/", nil
 }
 func TestExternalReelCommentUsesCanonicalInboxIdentityAndCurrentGrantFence(t *testing.T) {
+	t.Parallel()
 	s, _, _ := campaignTest(t)
 	provider := &campaignWebhookProvider{}
 	s.SetProvider("instagram", provider)
@@ -272,6 +283,7 @@ func TestExternalReelCommentUsesCanonicalInboxIdentityAndCurrentGrantFence(t *te
 }
 
 func TestAcceptedPrivateReplyRemainsSentAfterTakeoverDuringProviderCall(t *testing.T) {
+	t.Parallel()
 	s, in, p := campaignTest(t)
 	reply, err := s.AdvanceAutomationReply(t.Context(), in)
 	require.NoError(t, err)
@@ -288,6 +300,7 @@ func TestAcceptedPrivateReplyRemainsSentAfterTakeoverDuringProviderCall(t *testi
 }
 
 func TestTakeoverAfterPrivateAcceptanceCancelsRemainingWorkflow(t *testing.T) {
+	t.Parallel()
 	s, in, _ := campaignTest(t)
 	reply, err := s.AdvanceAutomationReply(t.Context(), in)
 	require.NoError(t, err)

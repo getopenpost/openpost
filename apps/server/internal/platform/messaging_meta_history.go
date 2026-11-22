@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 type metaMessageView struct {
@@ -81,8 +83,8 @@ func (m metaMessageView) provider(accountID string) ProviderMessage {
 	result := ProviderMessage{ID: m.ID, Direction: direction, AuthorRemoteID: m.From.ID, Body: m.Message, RemoteCreatedAt: at}
 	for _, attachment := range m.Attachments.Data {
 		// Graph puts the image URL in image_data.url and often omits mime_type.
-		image := firstNonEmptyString(attachment.Image.URL, attachment.Image.Src)
-		remote := firstNonEmptyString(image, attachment.Video.URL, attachment.FileURL)
+		image := textutil.FirstNonEmpty(attachment.Image.URL, attachment.Image.Src)
+		remote := textutil.FirstNonEmpty(image, attachment.Video.URL, attachment.FileURL)
 		if remote == "" {
 			continue
 		}
@@ -97,7 +99,7 @@ func (m metaMessageView) provider(accountID string) ProviderMessage {
 	for _, share := range m.Shares.Data {
 		// Graph documents a share's url; some platforms and older payloads
 		// return link instead.
-		link := firstNonEmptyString(share.URL, share.Link)
+		link := textutil.FirstNonEmpty(share.URL, share.Link)
 		if link != "" {
 			result.Attachments = append(result.Attachments, MessageAttachment{Type: "share", URL: link, Name: share.Name})
 		}

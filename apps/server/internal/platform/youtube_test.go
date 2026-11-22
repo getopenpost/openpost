@@ -894,25 +894,6 @@ func TestYouTubeUploadDisclosureMetadata(t *testing.T) {
 	}
 }
 
-func TestValidateMediaYouTubeRequiresOneVideo(t *testing.T) {
-	RegisterAllMediaValidators()
-
-	issues := ValidateMedia(providerYouTube, nil)
-	if len(issues) != 1 {
-		t.Fatalf("expected one missing-media issue, got %d", len(issues))
-	}
-
-	issues = ValidateMedia(providerYouTube, []MediaItem{{ID: "image", MimeType: "image/png"}})
-	if len(issues) != 1 {
-		t.Fatalf("expected one unsupported-media issue, got %d", len(issues))
-	}
-
-	issues = ValidateMedia(providerYouTube, []MediaItem{{ID: "video", MimeType: "video/mp4"}})
-	if len(issues) != 0 {
-		t.Fatalf("expected no issues for one video, got %#v", issues)
-	}
-}
-
 func TestYouTubeUploadRejectsInvalidDescriptionsBeforeNetwork(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
@@ -502,7 +504,7 @@ func (s *Service) listAvailableAccounts(
 			WorkspaceID:       account.WorkspaceID,
 			WorkspaceName:     workspaceNames[account.WorkspaceID],
 			Platform:          account.Platform,
-			Username:          firstNonEmpty(account.AccountUsername, account.Slug, account.AccountID),
+			Username:          textutil.FirstNonEmpty(account.AccountUsername, account.Slug, account.AccountID),
 			AvatarURL:         account.AccountAvatarURL,
 			InstanceURL:       account.InstanceURL,
 			SupportsRepost:    supported,
@@ -566,7 +568,7 @@ func (s *Service) listGrants(ctx context.Context, workspaceID string) ([]GrantRe
 			TargetWorkspaceID:   grant.TargetWorkspaceID,
 			TargetWorkspaceName: names[grant.TargetWorkspaceID],
 			TargetAccountID:     grant.TargetAccountID,
-			TargetUsername:      firstNonEmpty(account.AccountUsername, account.Slug, account.AccountID),
+			TargetUsername:      textutil.FirstNonEmpty(account.AccountUsername, account.Slug, account.AccountID),
 			Platform:            account.Platform,
 			Direction:           direction,
 			CreatedAt:           grant.CreatedAt.Format(time.RFC3339),
@@ -610,7 +612,7 @@ func (s *Service) validatePolicyAccounts(
 			return invalidInputf("repost rule %q has an unavailable target account", input.Name)
 		}
 		if !sourcePlatforms[account.Platform] {
-			return invalidInputf("repost rule %q needs a %s source account for target @%s", input.Name, account.Platform, firstNonEmpty(account.AccountUsername, account.Slug))
+			return invalidInputf("repost rule %q needs a %s source account for target @%s", input.Name, account.Platform, textutil.FirstNonEmpty(account.AccountUsername, account.Slug))
 		}
 		if account.WorkspaceID != workspaceID {
 			granted, err := s.hasActiveGrant(ctx, workspaceID, accountID)
@@ -626,7 +628,7 @@ func (s *Service) validatePolicyAccounts(
 					return ErrWorkspaceAccess
 				}
 				if err := s.requireWorkspaceAdmin(ctx, account.WorkspaceID, userID, access.credential); err != nil {
-					return invalidInputf("target @%s requires admin access to its workspace", firstNonEmpty(account.AccountUsername, account.Slug))
+					return invalidInputf("target @%s requires admin access to its workspace", textutil.FirstNonEmpty(account.AccountUsername, account.Slug))
 				}
 			}
 		}
@@ -795,13 +797,4 @@ func (s *Service) repostAdapter(account models.SocialAccount) platform.RepostAda
 
 func repostProviderKey(account models.SocialAccount) string {
 	return platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }

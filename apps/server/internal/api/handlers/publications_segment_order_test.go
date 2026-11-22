@@ -15,6 +15,7 @@ import (
 )
 
 func TestUpdatePublicationReordersAndReplacesThreadSegments(t *testing.T) {
+	t.Parallel()
 	for _, operation := range []string{"reorder", "remove first", "insert first", "replace all"} {
 		t.Run(operation, func(t *testing.T) {
 			db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.Publication)(nil), (*models.RenditionMedia)(nil), (*models.Job)(nil))

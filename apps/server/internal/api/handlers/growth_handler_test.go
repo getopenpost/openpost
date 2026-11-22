@@ -105,6 +105,7 @@ func (s *growthTestServer) request(t *testing.T, method, path string, body any, 
 }
 
 func TestGrowthListAuthBoundary(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		query string
@@ -125,6 +126,7 @@ func TestGrowthListAuthBoundary(t *testing.T) {
 }
 
 func TestGrowthRefreshSuccessAndFollowConflict(t *testing.T) {
+	t.Parallel()
 	srv := newGrowthTestServer(t)
 	refresh := srv.request(t, http.MethodPost, "/api/v1/growth/refresh", map[string]string{"workspace_id": "ws-1", "account_id": "acc-bluesky"}, "web-token")
 	require.Equal(t, http.StatusOK, refresh.Code, refresh.Body.String())

@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 // FediverseSoftware identifies the server software behind a Fediverse
@@ -257,9 +259,9 @@ func compatVerifyCredentials(ctx context.Context, instanceURL, accessToken strin
 func compatUserProfile(profile compatProfile, software FediverseSoftware) *UserProfile {
 	result := &UserProfile{
 		ID:          profile.ID,
-		Username:    firstNonEmptyString(profile.Acct, profile.Username),
+		Username:    textutil.FirstNonEmpty(profile.Acct, profile.Username),
 		DisplayName: profile.DisplayName,
-		AvatarURL:   firstNonEmptyString(profile.AvatarStatic, profile.Avatar),
+		AvatarURL:   textutil.FirstNonEmpty(profile.AvatarStatic, profile.Avatar),
 	}
 	if software != FediverseSoftwareUnknown {
 		result.CapabilityState = map[string]string{"fediverse_software": string(software)}
@@ -368,7 +370,7 @@ func buildCompatStatusForm(req *PublishRequest) (url.Values, error) {
 	formValues := url.Values{}
 	formValues.Set("status", ContentWithSettingURL(req.Content, req.Settings))
 
-	visibility := firstNonEmptyString(settingString(req.Settings, "visibility"), "public")
+	visibility := textutil.FirstNonEmpty(settingString(req.Settings, "visibility"), "public")
 	if !validCompatVisibility(visibility) {
 		return nil, fmt.Errorf("fediverse visibility %q is not supported", visibility)
 	}
@@ -567,7 +569,7 @@ func compatV2InstanceCapabilities(ctx context.Context, instanceURL, accessToken 
 		constraints["poll_max_expiration_seconds"] = instance.Configuration.Polls.MaxExpiration
 	}
 	return AccountCapabilityResult{
-		Revision:    "compat:" + firstNonEmptyString(instance.Version, "unknown"),
+		Revision:    "compat:" + textutil.FirstNonEmpty(instance.Version, "unknown"),
 		Constraints: constraints,
 	}, nil
 }
@@ -609,7 +611,7 @@ func compatV1InstanceCapabilities(ctx context.Context, instanceURL, accessToken 
 		}
 	}
 	return AccountCapabilityResult{
-		Revision:    "compat-v1:" + firstNonEmptyString(instance.Version, "unknown"),
+		Revision:    "compat-v1:" + textutil.FirstNonEmpty(instance.Version, "unknown"),
 		Constraints: constraints,
 	}, nil
 }

@@ -47,6 +47,7 @@ func (p *panickingPublisherAdapter) ReconcilePublish(context.Context, string, st
 }
 
 func TestPublicationPanicFinalizesDestinationAndPreservesWriteReceipts(t *testing.T) {
+	t.Parallel()
 	for _, phase := range []string{"before_write", "sending", "accepted", "pending"} {
 		t.Run(phase, func(t *testing.T) {
 			base := &fakePublisherAdapter{}

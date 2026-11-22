@@ -17,6 +17,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/proxyauth"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -154,7 +155,7 @@ func TestMiddlewareRejectsIncompleteOrInvalidProxyCredentials(t *testing.T) {
 
 func proxyAuthTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	db, err := database.InitDB("file:" + strings.ReplaceAll(t.Name(), "/", "-") + "?mode=memory&cache=shared")
+	db, err := testdb.Open("file:" + strings.ReplaceAll(t.Name(), "/", "-") + "?mode=memory&cache=shared")
 	require.NoError(t, err)
 	require.NoError(t, database.CreateSchema(db))
 	t.Cleanup(func() { require.NoError(t, db.Close()) })

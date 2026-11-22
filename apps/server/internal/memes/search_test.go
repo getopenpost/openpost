@@ -1,6 +1,7 @@
 package memes
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -38,4 +39,13 @@ func TestSearchTemplatesUsesSemanticMeaningAndTags(t *testing.T) {
 	require.Equal(t, template.ID, byTag[0].ID)
 
 	require.Empty(t, searchTemplates(corpus, "tax filing deadline", 10))
+}
+
+func TestValidateCaptionUsesVisibleCharacterLimit(t *testing.T) {
+	t.Parallel()
+
+	require.NoError(t, ValidateCaption(strings.Repeat("😀", MaxCaptionCharacters)))
+	require.ErrorIs(t, ValidateCaption(strings.Repeat("😀", MaxCaptionCharacters+1)), ErrInvalidRequest)
+	require.ErrorIs(t, ValidateCaption("safe\x00looking"), ErrInvalidRequest)
+	require.NoError(t, ValidateCaption("first line\nsecond line"))
 }

@@ -8,6 +8,7 @@ import (
 )
 
 func TestEngagementTotalPrefersProviderAggregateWithoutDoubleCountingComponents(t *testing.T) {
+	t.Parallel()
 	values := AnalyticsValues{
 		MetricEngagements:    10,
 		MetricSaves:          3,
@@ -19,6 +20,7 @@ func TestEngagementTotalPrefersProviderAggregateWithoutDoubleCountingComponents(
 }
 
 func TestAnalyticsMeasurementsPreserveIntegerUnitsAndAggregations(t *testing.T) {
+	t.Parallel()
 	start := time.Date(2026, 8, 1, 0, 0, 0, 0, time.FixedZone("test", -4*60*60))
 	end := start.Add(24 * time.Hour)
 	scale := int64(100)
@@ -62,6 +64,7 @@ func TestAnalyticsMeasurementsPreserveIntegerUnitsAndAggregations(t *testing.T) 
 }
 
 func TestAnalyticsMeasurementsRejectInvalidPeriodAndScale(t *testing.T) {
+	t.Parallel()
 	start := time.Now().UTC()
 	zero := int64(0)
 	_, _, err := (AnalyticsMeasurements{"views": {
@@ -83,6 +86,7 @@ func TestAnalyticsMeasurementsRejectInvalidPeriodAndScale(t *testing.T) {
 }
 
 func TestLegacyAnalyticsMetricMetadataMapsOnlyEstablishedSemantics(t *testing.T) {
+	t.Parallel()
 	followers, ok := LegacyAnalyticsMetricMetadata(AnalyticsMetricSubjectAccount, MetricFollowers, "")
 	require.True(t, ok)
 	require.Equal(t, AnalyticsMetricAggregationCurrentSnapshot, followers.Aggregation)

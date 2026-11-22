@@ -23,11 +23,6 @@ const checks = {
   // The payload assertions run after both builds because they inspect the
   // built dist output that clean checkouts only produce here.
   "npm-packages": stage("npm packages", [
-    bunTest(
-      "scripts/npm-package-release.test.mjs",
-      "scripts/npm-pack-result.test.mjs",
-      "scripts/npm-view-result.test.mjs",
-    ),
     commandStep("bun", "run", "check", { cwd: "packages/sdk" }),
     commandStep("bun", "run", "test", { cwd: "packages/sdk" }),
     commandStep("bun", "run", "build", { cwd: "packages/sdk" }),
@@ -38,12 +33,6 @@ const checks = {
     bun("scripts/check-npm-package-build.mjs"),
   ]),
   "n8n-package": stage("n8n package", [
-    bunTest(
-      "scripts/n8n-package-release.test.mjs",
-      "scripts/npm-pack-result.test.mjs",
-      "scripts/npm-view-result.test.mjs",
-    ),
-    bunTest("scripts/generate-selected-automation-contract.test.mjs"),
     bun("scripts/generate-selected-automation-contract.mjs", "--check"),
     commandStep("bun", "run", "check", { cwd: "packages/n8n-nodes-openpost" }),
     commandStep("bun", "run", "test", { cwd: "packages/n8n-nodes-openpost" }),
@@ -52,91 +41,38 @@ const checks = {
     bunTest("tests/build/n8n-package-build.test.mjs"),
     bun("scripts/check-n8n-package-build.mjs"),
   ]),
-  "build-graph": stage("build graph", [
-    bunTest(
-      "scripts/build-graph.test.mjs",
-      "scripts/ui-build-lock.test.mjs",
-      "scripts/build-telemetry-env.test.mjs",
-      "scripts/frontend-vite-build.test.mjs",
-      "scripts/paraglide-offline.test.mjs",
-      "scripts/package-frontend.test.mjs",
-      "scripts/precompress-static.test.mjs",
-    ),
-    bun("scripts/check-build-graph.mjs"),
-  ]),
-  assets: stage("asset surfaces", [
-    bunTest("scripts/asset-surfaces.test.mjs", "scripts/readme-demos.test.mjs"),
-    bun("scripts/asset-surfaces.mjs"),
-  ]),
+  "build-graph": stage("build graph", [bun("scripts/check-build-graph.mjs")]),
+  assets: stage("asset surfaces", [bun("scripts/asset-surfaces.mjs")]),
   workflows: stage("GitHub Actions workflows", [
-    bunTest("scripts/app-e2e-shards.test.mjs"),
     bun("scripts/check-automation-paths.mjs"),
     go("run", "github.com/rhysd/actionlint/cmd/actionlint@v1.7.12"),
   ]),
-  "mcp-registry": stage("MCP registry", [
-    bunTest("scripts/check-mcp-registry.test.mjs"),
-    bun("scripts/check-mcp-registry.mjs"),
-  ]),
+  "mcp-registry": stage("MCP registry", [bun("scripts/check-mcp-registry.mjs")]),
   docs: stage("documentation policy", [
     bunRun("--filter", "@openpost/docs", "prepare"),
     bunRun("--filter", "@openpost/docs", "check"),
     bunTest("apps/docs/lib/api-document.test.ts"),
-    bunTest(
-      "scripts/check-doc-links.test.mjs",
-      "scripts/check-doc-telemetry.test.mjs",
-      "scripts/docs-automation-examples.test.mjs",
-      "scripts/sync-docs-external.test.mjs",
-    ),
     bun("scripts/check-doc-links.mjs"),
   ]),
   "release-version": stage("release version", [
-    bunTest(
-      "scripts/next-release-version.test.mjs",
-      "scripts/n8n-package-release.test.mjs",
-      "scripts/npm-pack-result.test.mjs",
-      "scripts/npm-view-result.test.mjs",
-      "scripts/mobile-release.test.mjs",
-      "scripts/release-assets.test.mjs",
-      "scripts/ci-artifacts.test.mjs",
-      "scripts/public-site-artifact.test.mjs",
-      "scripts/ci-plan.test.mjs",
-      "scripts/go-test-shards.test.mjs",
-      "scripts/release-asset-upload.test.mjs",
-      "scripts/release-surfaces.test.mjs",
-    ),
-    commandStep("node", "--test", "scripts/public-site-recording.test.mjs"),
     bunTest("tests/build/posthog-source-maps.test.ts"),
     bun("scripts/release-surfaces.mjs"),
   ]),
   "app-routes": stage("application routes", [
-    bunTest("scripts/generate-app-route-manifest.test.mjs"),
     bun("scripts/generate-app-route-manifest.mjs", "--check"),
   ]),
   "public-routes": stage("public routes", [
-    bunTest("scripts/cloudflare-edge-plan.test.mjs"),
-    bunTest("scripts/check-marketing-route-manifest.test.mjs"),
-    bunTest("scripts/marketing-agent-readiness.test.mjs"),
     commandStep("bunx", "turbo", "run", "_test:public-build"),
-    bunTest("scripts/public-deployment-proof.test.mjs"),
     bun("scripts/check-marketing-route-manifest.mjs"),
   ]),
   "legal-policy": stage("legal policy", [
-    bunTest(
-      "scripts/legal-policy-manifest.test.mjs",
-      "scripts/check-browser-storage-inventory.test.mjs",
-    ),
     bun("scripts/legal-policy-manifest.mjs", "check"),
     bun("scripts/check-browser-storage-inventory.mjs"),
   ]),
   "provider-certification": stage("provider certification", [
-    bunTest("scripts/provider-certification-manifest.test.mjs"),
     bun("scripts/provider-certification-manifest.mjs", "check"),
   ]),
   "provider-facts": stage("provider facts", [
-    bunTest(
-      "scripts/provider-catalog-facts.test.mjs",
-      "scripts/check-platform-text-conformance.test.mjs",
-    ),
     bun("scripts/provider-catalog-facts.mjs"),
     bun("scripts/check-platform-text-conformance.mjs"),
   ]),
@@ -146,17 +82,9 @@ const checks = {
   ]),
   changelog: stage("changelog", [
     bun("scripts/check-changelog.mjs"),
-    bunTest(
-      "packages/changelog/src/index.test.mjs",
-      "scripts/merge-changelog-fragments.test.mjs",
-      "scripts/release-notes.test.mjs",
-      "scripts/record-release-changelog.test.mjs",
-    ),
+    bunTest("packages/changelog/src/index.test.mjs"),
   ]),
-  "social-images": stage("social images", [
-    bun("scripts/social-images/catalog.mjs", "--check"),
-    bunTest("scripts/social-images/render.test.mjs"),
-  ]),
+  "social-images": stage("social images", [bun("scripts/social-images/catalog.mjs", "--check")]),
   reachability: stage("production reachability", [
     commandStep("scripts/check-go-deadcode.sh"),
     commandStep(
@@ -171,27 +99,21 @@ const checks = {
     ),
   ]),
   "secret-scan": stage("secret scan", [commandStep("bash", "scripts/scan-secrets.sh")]),
-  compatibility: stage("compatibility surfaces", [
-    bunTest("scripts/compatibility-surfaces.test.mjs"),
-    bun("scripts/compatibility-surfaces.mjs"),
-  ]),
+  compatibility: stage("compatibility surfaces", [bun("scripts/compatibility-surfaces.mjs")]),
   "ui-consistency": stage("UI consistency", [
     bun("scripts/check-ui-consistency.mjs"),
     bun("scripts/sync-static-ui.mjs", "--check"),
     commandStep("bun", "scripts/sync-static-404.mjs", "--check", { cwd: "apps/marketing" }),
   ]),
   "query-migration": stage("Query migration", [
-    bunTest("scripts/check-query-migration.test.mjs"),
     bun("scripts/check-query-migration.mjs"),
-    bunTest("scripts/check-query-effect-fetch.test.mjs"),
     bun("scripts/check-query-effect-fetch.mjs"),
   ]),
-  agents: stage("agent instructions", [
-    bunTest("scripts/agent-doctor.test.mjs"),
-    bun("scripts/agent-doctor.mjs"),
-  ]),
+  agents: stage("agent instructions", [bun("scripts/agent-doctor.mjs")]),
 };
 
+// Check stages inspect the checkout. Repository regression tests have one
+// owner: `bun test ./scripts` (the `test` task and the CI policy job).
 // Public routes build both production sites twice, so they stay out of the
 // policy aggregate. CI proves them in a dedicated job; local `check` still
 // runs them as their own phase.
@@ -218,7 +140,7 @@ if (import.meta.main) {
         ? affectedPlan(
             (await import("./affected-checks.mjs")).affectedSelection(process.argv.slice(3), root),
           )
-        : resolvePlan(command, scope, options);
+        : resolvePlan(command, scope);
     if (options.has("--plan")) {
       console.log(JSON.stringify(publicPlan(plan), null, 2));
     } else {
@@ -240,13 +162,8 @@ if (import.meta.main) {
   }
 }
 
-export function resolvePlan(requestedCommand, requestedScope, requestedOptions = new Set()) {
+export function resolvePlan(requestedCommand, requestedScope) {
   if (!requestedCommand) throw new Error(help());
-  if (requestedOptions.has("--non-browser")) {
-    throw new Error(
-      "--non-browser was removed; use test for the standard suite or select an explicit test scope",
-    );
-  }
   switch (requestedCommand) {
     case "dev":
       return devPlan(requestedScope);
@@ -259,7 +176,7 @@ export function resolvePlan(requestedCommand, requestedScope, requestedOptions =
       if (requestedScope) throw unsupported("fallow", requestedScope, []);
       return fallowPlan();
     case "check":
-      return checkPlan(requestedScope, requestedOptions);
+      return checkPlan(requestedScope);
     case "test":
       return testPlan(requestedScope);
     case "build":
@@ -276,8 +193,8 @@ export function resolvePlan(requestedCommand, requestedScope, requestedOptions =
           taskStage("dead code", "fallow"),
           ...(requestedCommand === "preflight"
             ? [
-                withoutRepositoryTests(checks["npm-packages"]),
-                withoutRepositoryTests(checks["n8n-package"]),
+                checks["npm-packages"],
+                checks["n8n-package"],
                 stage("mobile source checks", [
                   commandStep("bun", "run", "check:source", { cwd: "apps/mobile" }),
                 ]),
@@ -488,7 +405,7 @@ function lintPlan(requestedScope) {
   return plan("lint", undefined, [[frontend, backend, marketing], [cli]]);
 }
 
-function checkPlan(requestedScope, requestedOptions) {
+function checkPlan(requestedScope) {
   if (requestedScope && checks[requestedScope] && requestedScope !== "docs") {
     return plan("check", requestedScope, [[checks[requestedScope]]]);
   }
@@ -530,7 +447,6 @@ function checkPlan(requestedScope, requestedOptions) {
     go("test", "-tags", "dev", "-run", "^$", "./...", { cwd: "apps/server" }),
   ]);
   const cli = stage("CLI types", [go("test", "-run", "^$", "./...", { cwd: "apps/cli" })]);
-  const policy = stage("repository policy", [commandStep("bunx", "turbo", "run", "_policy")]);
 
   if (requestedScope === "frontend") {
     return plan("check", requestedScope, [[contracts], [translations], [frontend]]);
@@ -544,24 +460,19 @@ function checkPlan(requestedScope, requestedOptions) {
     return plan("check", requestedScope, [[translations], [marketing]]);
   if (requestedScope === "docs") return plan("check", requestedScope, [[checks.docs]]);
 
-  const groups = policyGroups.map((group) =>
-    group.map((name) => withoutRepositoryTests(checks[name])),
-  );
+  const policy = policyGroups.map((group) => group.map((name) => checks[name]));
   if (requestedScope === "policy") {
-    if (requestedOptions.has("--policy-only")) {
-      return plan("check", requestedScope, groups);
-    }
-    return plan("check", requestedScope, [[contracts], [translations], [policy]]);
+    return plan("check", requestedScope, [[contracts], [translations], ...policy]);
   }
   return plan("check", undefined, [
     [contracts],
     [translations],
     [frontendAndMarketing, backend, cli],
     // Policy checks rewrite Paraglide output, so they run after its readers.
-    [policy],
+    ...policy,
     // The production-artifact proof rebuilds both public sites, so it runs
     // after policy work instead of inside the policy aggregate.
-    [withoutRepositoryTests(checks["public-routes"])],
+    [checks["public-routes"]],
   ]);
 }
 
@@ -891,20 +802,6 @@ function bunTest(...args) {
     arg.startsWith(".") || arg.startsWith("-") || path.isAbsolute(arg) ? arg : `./${arg}`,
   );
   return commandStep("bun", "test", ...exactPaths);
-}
-
-// Aggregate policy checks inspect the checkout. Repository regression tests
-// have one owner: the scripts sweep in `test` (and the CI policy job).
-// Explicit check selectors still include their focused regression tests.
-function withoutRepositoryTests(taskStage) {
-  return {
-    ...taskStage,
-    steps: taskStage.steps.flatMap((step) => {
-      if (step.argv?.[0] !== "bun" || step.argv[1] !== "test") return [step];
-      const files = step.argv.slice(2).filter((file) => !file.startsWith("./scripts/"));
-      return files.length ? [bunTest(...files)] : [];
-    }),
-  };
 }
 
 function go(...values) {

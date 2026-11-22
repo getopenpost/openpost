@@ -3,7 +3,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+import { authenticatePage, createWorkspace, registerUser } from "../app/helpers";
 
 const captureEnabled = process.env.OPENPOST_UPDATE_PRODUCT_SCREENSHOTS === "1";
 const screenshotDirectory =
@@ -21,7 +21,7 @@ import {
   installLocalVideoWorkspace,
   createVideoEditorProject,
   prepareProductPage,
-} from "./product-capture-fixtures";
+} from "../app/product-capture-fixtures";
 
 test.describe("product screenshot capture", () => {
   // Route fixtures must own every request; service worker behavior is covered by pwa.spec.ts.

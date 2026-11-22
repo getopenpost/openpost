@@ -6,7 +6,6 @@ on:
     # Release bookkeeping was validated before publication. Pages still
     # receives the push, so the public changelog can deploy.
     paths-ignore: ["CHANGELOG.md", "changes/**"]
-    tags: ["v*"]
   pull_request:
     branches: [main]
   schedule:
@@ -17,9 +16,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || github.event_name == 'schedule' && 'qualification' || github.ref }}
-  # Superseded feedback can stop. Tags and nightly audits stay independent.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+  # Main pushes qualify release candidates, so every main commit keeps its own
+  # run. Superseded pull request feedback can stop.
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || github.event_name == 'schedule' && 'qualification' || github.event_name == 'push' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   GITLEAKS_VERSION: "8.30.1"
@@ -65,21 +65,17 @@ jobs:
         run: |
           if [[ "$EVENT_NAME" == pull_request ]]; then
             bun scripts/ci-plan.mjs --base "$BASE_SHA" --head "$GITHUB_SHA"
-          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            # Core gates always run; distributions follow changes since the
-            # last published stable release.
-            previous_tag="$(bun scripts/published-release-tag.mjs --exclude "${GITHUB_REF#refs/tags/}")"
-            [[ -n "$previous_tag" ]]
-            bun scripts/ci-plan.mjs --release --base "$previous_tag" --head "$GITHUB_SHA"
           elif [[ "$EVENT_NAME" == schedule || "$EVENT_NAME" == workflow_dispatch ]]; then
             previous_tag="$(bun scripts/published-release-tag.mjs)"
             [[ -n "$previous_tag" ]]
             bun scripts/ci-plan.mjs --release --full --base "$previous_tag" --head "$GITHUB_SHA"
-          elif [[ -n "$BEFORE_SHA" && "$BEFORE_SHA" != 0000000000000000000000000000000000000000 ]] && git cat-file -e "$BEFORE_SHA^{commit}" && git merge-base --is-ancestor "$BEFORE_SHA" "$GITHUB_SHA"; then
-            bun scripts/ci-plan.mjs --base "$BEFORE_SHA" --head "$GITHUB_SHA"
           else
-            # Unknown push ancestry widens checks rather than skipping them.
-            bun scripts/ci-plan.mjs --full
+            # A green main run is the release qualification for its SHA, so
+            # core gates always run; distributions follow changes since the
+            # last published stable release.
+            previous_tag="$(bun scripts/published-release-tag.mjs)"
+            [[ -n "$previous_tag" ]]
+            bun scripts/ci-plan.mjs --release --base "$previous_tag" --head "$GITHUB_SHA"
           fi
 
   web-quality:
@@ -121,8 +117,12 @@ jobs:
         run: bun run check -- policy && bun test --timeout 30000 ./scripts
       - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
         run: bun run lint -- frontend && bun run lint -- marketing
+      # The policy step already generated contracts and translations.
       - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
-        run: bun run check -- frontend-marketing
+        name: Frontend and marketing types
+        env:
+          OPENPOST_CHECK_PREPARED: "1"
+        run: bunx turbo run check --filter @openpost/web --filter @openpost/site
       - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
         name: Changed-source dead-code gate
         env:
@@ -268,7 +268,8 @@ jobs:
     needs: plan
     if: needs.plan.outputs.frontend == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # The component runner kills a hung batch after four minutes and names it.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -282,8 +283,6 @@ jobs:
           node: "true"
           chromium: ${{ matrix.shard == 'unit' && 'shell' || 'full' }}
       - working-directory: apps/web
-        env:
-          DEBUG: ${{ matrix.shard != 'unit' && 'pw:browser' || '' }}
         run: |
           bun run sync
           if [[ "${{ matrix.shard }}" == unit ]]; then
@@ -304,12 +303,14 @@ jobs:
     name: Canonical frontend build
     needs: plan
     if: needs.plan.outputs.application == 'true'
-    runs-on: ubuntu-latest
+    # Matches the browser jobs that run the cgo E2E server built here.
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
         with:
+          go: "true"
           node: "true"
       - name: Build the canonical application artifact and source maps
         env:
@@ -326,9 +327,20 @@ jobs:
           path: apps/server/cmd/openpost/public
           if-no-files-found: error
           retention-days: 14
+      # Browser shards start this one dev-tagged server with the canonical
+      # frontend embedded instead of compiling it again per shard.
+      - name: Build the E2E server once
+        working-directory: apps/server
+        run: go build -tags dev -buildvcs=false -o "$RUNNER_TEMP/e2e/openpost-e2e" ./cmd/openpost
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-server-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e2e/openpost-e2e
+          if-no-files-found: error
+          retention-days: 3
 
   public-site:
-    name: Public site build and artifact contract
+    name: Public artifact contract
     needs: plan
     if: needs.plan.outputs.marketing == 'true' || needs.plan.outputs.documentation == 'true' || needs.plan.outputs.application == 'true' || needs.plan.outputs.mode != 'filtered'
     runs-on: ubuntu-latest
@@ -364,11 +376,13 @@ jobs:
           VITE_POSTHOG_API_HOST: ${{ env.OPENPOST_MARKETING_POSTHOG_API_HOST }}
           VITE_POSTHOG_UI_HOST: ${{ env.OPENPOST_MARKETING_POSTHOG_UI_HOST }}
         run: bun run build -- marketing
+      # Pushes use the production analytics configuration; pull requests use
+      # the local fixture so the documentation browser suite sees consent.
       - name: Build documentation
         env:
-          VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
-          VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
-          VITE_POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
+          VITE_POSTHOG_PROJECT_TOKEN: ${{ env.OPENPOST_MARKETING_POSTHOG_PROJECT_TOKEN }}
+          VITE_POSTHOG_API_HOST: ${{ env.OPENPOST_MARKETING_POSTHOG_API_HOST }}
+          VITE_POSTHOG_UI_HOST: ${{ env.OPENPOST_MARKETING_POSTHOG_UI_HOST }}
         run: bun run build -- docs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -378,8 +392,16 @@ jobs:
           include-hidden-files: true
           retention-days: 14
       - run: timeout 120 bun scripts/compose-public-site.mjs
+      - if: needs.plan.outputs.documentation == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: public-site-${{ github.sha }}-${{ github.run_attempt }}
+          path: dist/public-site
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 3
       - name: Seal the canonical public candidate before rebuild proofs
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')))
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           mkdir -p delivery
           cp -R dist/public-site delivery/site
@@ -397,7 +419,7 @@ jobs:
           bun test ./tests/build/generate-agent-surfaces.test.mjs
           bun scripts/check-marketing-route-manifest.mjs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')))
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           name: public-site-qualified-${{ github.sha }}-${{ github.run_attempt }}
           path: delivery
@@ -413,12 +435,12 @@ jobs:
       actions: read
       contents: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        # Each shard runs one worker against its own server.
-        suite: [1/4, 2/4, 3/4, 4/4]
+        # Playwright's native shards; each runs two workers against one server.
+        suite: [1/3, 2/3, 3/3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -428,33 +450,24 @@ jobs:
           sparse-checkout-cone-mode: false
       - uses: ./.github/actions/setup
         with:
-          go: "true"
           chromium: full
           media: "true"
       - id: artifact
         env:
           GH_TOKEN: ${{ github.token }}
-        run: echo "name=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "frontend-public-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
+        run: echo "name=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "e2e-server-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ steps.artifact.outputs.name }}
-          path: apps/server/cmd/openpost/public
+          path: ${{ runner.temp }}/e2e
       - name: Test the canonical application artifact
         env:
           OPENPOST_E2E_PREBUILT: "1"
-          DEBUG: pw:browser
+          OPENPOST_APP_E2E_SERVER_BINARY: ${{ runner.temp }}/e2e/openpost-e2e
           OPENPOST_APP_E2E_SUITE: core
-          OPENPOST_APP_E2E_SHARD: ${{ matrix.suite }}
-          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/openpost-app-timings.json
-        run: bun run test -- e2e-app
-      - name: Retain application test timings
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: app-test-timings-${{ strategy.job-index }}-${{ github.sha }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/openpost-app-timings.json
-          if-no-files-found: ignore
-          retention-days: 14
+        run: |
+          chmod +x "$OPENPOST_APP_E2E_SERVER_BINARY"
+          bunx playwright test --config tests/app/playwright.config.ts --shard "${{ matrix.suite }}"
       - name: Retain application browser failure diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -484,18 +497,17 @@ jobs:
           sparse-checkout-cone-mode: false
       - uses: ./.github/actions/setup
         with:
-          go: "true"
           chromium: full
       - id: artifacts
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "frontend=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "frontend-public-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
+          echo "server=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "e2e-server-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
           echo "marketing=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "marketing-static-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: ${{ steps.artifacts.outputs.frontend }}
-          path: apps/server/cmd/openpost/public
+          name: ${{ steps.artifacts.outputs.server }}
+          path: ${{ runner.temp }}/e2e
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ steps.artifacts.outputs.marketing }}
@@ -503,9 +515,11 @@ jobs:
       - name: Test free-tool draft handoffs
         env:
           OPENPOST_E2E_PREBUILT: "1"
-          DEBUG: pw:browser
+          OPENPOST_APP_E2E_SERVER_BINARY: ${{ runner.temp }}/e2e/openpost-e2e
           OPENPOST_APP_E2E_SUITE: handoff
-        run: bun run test -- e2e-app
+        run: |
+          chmod +x "$OPENPOST_APP_E2E_SERVER_BINARY"
+          bunx playwright test --config tests/app/playwright.config.ts
       - name: Retain handoff failure diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -562,6 +576,44 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  browser-docs:
+    name: Documentation browser suite
+    needs: [plan, public-site]
+    if: needs.plan.outputs.documentation == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            /*
+            !/apps/web/static/image-editor-models/
+          sparse-checkout-cone-mode: false
+      - uses: ./.github/actions/setup
+        with:
+          chromium: shell
+      - id: artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "name=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "public-site-${GITHUB_SHA}-")" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: dist/public-site
+      - name: Test the composed documentation
+        env:
+          OPENPOST_E2E_PREBUILT: "1"
+        run: bunx playwright test --config tests/docs/playwright.config.ts
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browser-docs-failure-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
   packages:
     name: npm and n8n packages
     needs: plan
@@ -582,9 +634,7 @@ jobs:
           N8N: ${{ needs.plan.outputs.n8n }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            BASE_SHA="$(bun scripts/published-release-tag.mjs --exclude "$GITHUB_REF_NAME")"
-          elif [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then
+          if [[ "$GITHUB_EVENT_NAME" != pull_request ]]; then
             # Main and nightly candidates compare with the base the next tag ships against.
             BASE_SHA="$(bun scripts/published-release-tag.mjs)"
           fi
@@ -767,10 +817,14 @@ jobs:
         id: version
         shell: bash
         run: |
+          # A main candidate carries the tag `release ship` computes from the
+          # same history, so the release promotes this exact image unchanged.
           version="sha-${GITHUB_SHA}"
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            version="$GITHUB_REF_NAME"
-            bun scripts/release-notes.mjs "$version" >/dev/null
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            latest_tag="$(git tag --list 'v*' --sort=-v:refname | head -1)"
+            if [[ -n "$latest_tag" ]] && next="$(bun scripts/next-release-version.mjs "$latest_tag")"; then
+              version="$next"
+            fi
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Build and smoke the candidate once
@@ -779,15 +833,8 @@ jobs:
           image="ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}-${{ matrix.arch }}"
           docker buildx build --load --platform "linux/${{ matrix.arch }}" --build-context frontend_artifact=apps/server/cmd/openpost/public --file deploy/docker/Dockerfile --tag "$image" --build-arg VERSION="${{ steps.version.outputs.version }}" --build-arg COMMIT="$GITHUB_SHA" --cache-from type=gha,scope="openpost-production-${{ matrix.arch }}" --cache-to type=gha,mode=max,scope="openpost-production-${{ matrix.arch }}" .
           scripts/smoke-production-image.sh "$image" "$GITHUB_SHA" "${{ steps.version.outputs.version }}" "${{ matrix.arch }}"
-      - name: Generate the final-image SPDX SBOM
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}-${{ matrix.arch }}
-          scan-type: image
-          scanners: vuln
-          format: spdx-json
-          output: openpost-image-${{ matrix.arch }}.spdx.json
-          version: v0.70.0
+      # One vulnerability scan records the full report and the gate reads it;
+      # the SBOM pass only inventories packages.
       - name: Record the full final-image vulnerability report
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -800,6 +847,16 @@ jobs:
           ignore-unfixed: false
           exit-code: 0
           version: v0.70.0
+      - name: Generate the final-image SPDX SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}-${{ matrix.arch }}
+          scan-type: image
+          # SBOM formats disable security scanning unless scanners are named.
+          format: spdx-json
+          output: openpost-image-${{ matrix.arch }}.spdx.json
+          skip-setup-trivy: true
+          version: v0.70.0
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: image-diagnostics-${{ github.sha }}-${{ matrix.arch }}-${{ github.run_attempt }}
@@ -809,16 +866,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Block fixable high-severity vulnerabilities
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ghcr.io/${{ github.repository }}:sha-${{ github.sha }}-${{ matrix.arch }}
-          scan-type: image
-          scanners: vuln
-          format: table
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: 1
-          version: v0.70.0
+        env:
+          REPORT: openpost-image-${{ matrix.arch }}-trivy.json
+        run: |
+          jq -r '
+            [.Results[]?.Vulnerabilities[]?
+              | select((.Severity == "CRITICAL" or .Severity == "HIGH") and ((.FixedVersion // "") != ""))
+              | "\(.Severity) \(.VulnerabilityID) \(.PkgName) \(.InstalledVersion) -> \(.FixedVersion)"]
+            | unique | .[]' "$REPORT" | tee fixable.txt
+          if [[ -s fixable.txt ]]; then
+            echo "::error::Fixable high-severity vulnerabilities in the candidate image."
+            exit 1
+          fi
       - name: Publish the validated candidate and record its digest
         if: github.event_name == 'push'
         shell: bash
@@ -909,12 +968,16 @@ jobs:
               and any($linux[]; .platform.architecture == "arm64" and .digest == $arm64)
             ' >/dev/null
           printf '%s\n' "$digest" > image-digest.txt
+          docker buildx imagetools inspect "$candidate" --format '{{ json .Image }}' \
+            | jq -r '[.[] | .config.Labels["org.opencontainers.image.version"]] | unique | if length == 1 then .[0] else error("platform versions differ") end' \
+            > image-version.txt
           cp tested-platforms/image-linux-amd64-digest.txt tested-platforms/image-linux-arm64-digest.txt .
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: image-digest-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             image-digest.txt
+            image-version.txt
             image-linux-amd64-digest.txt
             image-linux-arm64-digest.txt
           if-no-files-found: error
@@ -936,6 +999,7 @@ jobs:
         browser-app,
         browser-handoff,
         browser-marketing,
+        browser-docs,
         packages,
         mobile-source,
         android,

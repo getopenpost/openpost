@@ -5,7 +5,7 @@ import {
   createVideoEditorProject,
   fixtureDirectory,
   installLocalVideoWorkspace,
-} from "./product-capture-fixtures";
+} from "../app/product-capture-fixtures";
 import { record } from "./product-demo-recording";
 
 export async function videoEditorDemo(page: Page) {

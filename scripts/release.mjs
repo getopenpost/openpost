@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 
+import { readFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 
 import { mobileReleasePaths } from "./release-distribution-plan.mjs";
 import { checkMCPRegistryOwnership } from "./check-mcp-registry.mjs";
-import { releaseCommandEnvironment } from "./release-command-environment.mjs";
 import { publishedStableReleaseTag } from "./published-release-tag.mjs";
 import {
   changedReleasePaths,
@@ -17,6 +17,11 @@ import {
 } from "./release-surfaces.mjs";
 
 const root = path.resolve(import.meta.dir, "..");
+const repository = "getopenpost/openpost";
+// The release job only needs to see production and the published release; the
+// live npm install probe reports CDN propagation after ship returns.
+const optionalReleaseJobs = new Set(["Verify live CLI install from the published release"]);
+const releaseCompletionJobs = ["Publish complete deployed release", "Record release in CHANGELOG"];
 const command = process.argv[2] ?? "plan";
 const args = process.argv.slice(3);
 
@@ -160,22 +165,10 @@ async function checkReleaseMobileIdentity(previousReleaseTag) {
   }
 }
 
-async function verifyLocalCandidate(revision) {
-  // Remote release qualification owns exhaustive gates. Local feedback selects
-  // unpushed changes and fails closed to preflight for shared/configuration work.
-  run(["bun", "run", "doctor"]);
-  run(["bun", "install", "--frozen-lockfile"]);
-  run(["bun", "install", "--cwd", "apps/mobile", "--frozen-lockfile"]);
-  run(["bun", "scripts/tasks.mjs", "check:affected", "--base", "refs/remotes/origin/main"]);
-  if (git(["rev-parse", "HEAD"]) !== revision || isDirty()) {
-    throw new Error(
-      "candidate changed during local checks; commit the intended revision and run ship again",
-    );
-  }
-}
-
-// Local verification precedes every new candidate push. An existing immutable
-// tag resumes independently of newer main commits or canceled main CI runs.
+// A green main CI run is the release qualification for its exact SHA: it runs
+// every core gate and builds the versioned candidate image. Ship validates the
+// cheap release inputs, pushes, waits for that run, then tags. An existing
+// immutable tag resumes independently of newer main commits.
 async function ship() {
   const started = Date.now();
   const phase = (message) => console.log(`\n[${formatDuration(Date.now() - started)}] ${message}`);
@@ -215,19 +208,19 @@ async function ship() {
     phase("Checking release inputs");
     const latestTag = git(["tag", "--list", "v*", "--sort=-v:refname"]).split("\n").find(Boolean);
     if (!latestTag) throw new Error("no v* release tags found");
-    run(["bun", "scripts/check-changelog.mjs"]);
     checkReleaseContracts();
     await checkReleaseMobileIdentity(publishedStableReleaseTag());
     tag ??= runCapture(["bun", "scripts/next-release-version.mjs", latestTag]).trim();
     runCapture(["bun", "scripts/release-notes.mjs", tag]);
 
-    phase(`Verifying ${revision.slice(0, 12)} locally before push`);
-    await verifyLocalCandidate(revision);
     if (ahead > 0) {
-      phase(`Pushing ${ahead} verified commit(s) to main`);
+      phase(`Pushing ${ahead} commit(s) to main`);
       run(["git", "push", "origin", `${revision}:refs/heads/main`]);
     }
-    // Tag CI runs every required gate for the exact tagged revision.
+    phase(`Waiting for main CI on ${revision.slice(0, 12)}`);
+    const ci = await waitForMainRun(revision);
+    await watchRuns([{ id: ci, label: "main CI" }]);
+    requireCandidateVersion(ci, tag, revision);
     phase(`Tagging ${tag} at ${revision.slice(0, 12)}`);
     if (!runOptional(["git", "rev-parse", "--verify", `refs/tags/${tag}`]).ok) {
       run(["git", "tag", tag, revision]);
@@ -241,11 +234,11 @@ async function ship() {
 
   const remoteStarted = Date.now();
   const preparation = formatDuration(remoteStarted - started);
-  phase(`Preparation complete (${preparation}); remote CI, publication, and deployment start`);
-  await watchRuns([
-    { id: await waitForTagRun("CI", tag, revision), label: `${tag} CI` },
-    { id: await waitForTagRun("Build and Release", tag, revision), label: `${tag} release` },
-  ]);
+  phase(`Qualified (${preparation}); publication and deployment start`);
+  await watchRuns(
+    [{ id: await waitForTagRun("Build and Release", tag, revision), label: `${tag} release` }],
+    { optional: optionalReleaseJobs, completion: releaseCompletionJobs },
+  );
   phase("Verifying production");
   await verifyProduction(tag, revision);
   const releaseURL = runCapture([
@@ -259,8 +252,64 @@ async function ship() {
     ".url",
   ]).trim();
   console.log(
-    `\nrelease ship: ${tag} is live at ${revision}\nPreparation: ${preparation}. Remote CI, publication, and deployment observed: ${formatDuration(Date.now() - remoteStarted)}.\n${releaseURL}`,
+    `\nrelease ship: ${tag} is live at ${revision}\nQualification: ${preparation}. Publication and deployment: ${formatDuration(Date.now() - remoteStarted)}.\n${releaseURL}`,
   );
+}
+
+// Main pushes and manual dispatches on main both run every core gate. A
+// changelog-only commit skips push CI, so dispatch CI for it instead.
+async function waitForMainRun(revision) {
+  for (let attempt = 0; attempt < 36; attempt += 1) {
+    const result = runOptional([
+      "gh",
+      "run",
+      "list",
+      "--workflow",
+      "CI",
+      "--branch",
+      "main",
+      "--limit",
+      "30",
+      "--json",
+      "databaseId,headSha,event",
+      "--jq",
+      `[.[] | select(.headSha == "${revision}" and (.event == "push" or .event == "workflow_dispatch")) | .databaseId] | max // empty`,
+    ]);
+    const id = result.ok ? result.stdout.trim() : "";
+    if (/^[1-9][0-9]*$/u.test(id)) return id;
+    await Bun.sleep(5_000);
+  }
+  throw new Error(
+    `CI did not start on main for ${revision}. If the commit only changed CHANGELOG.md or changes/, run gh workflow run CI --ref main and resume ship.`,
+  );
+}
+
+// Main CI labels its candidate image with the tag ship computes from the same
+// history. A tag pushed after CI started changes that prediction.
+function requireCandidateVersion(runId, tag, revision) {
+  const artifact = runCapture([
+    "bun",
+    "scripts/ci-artifacts.mjs",
+    "resolve",
+    "--repository",
+    repository,
+    "--run-id",
+    runId,
+    "--prefix",
+    `image-digest-${revision}-`,
+  ]).trim();
+  const directory = path.join(root, ".devenv", "state", `release-candidate-${process.pid}`);
+  try {
+    run(["gh", "run", "download", runId, "--name", artifact, "--dir", directory]);
+    const version = readFileSync(path.join(directory, "image-version.txt"), "utf8").trim();
+    if (version !== tag) {
+      throw new Error(
+        `main CI built the candidate as ${version}, but this release is ${tag}. Rerun CI with gh run rerun ${runId} so it predicts ${tag}, then resume ship.`,
+      );
+    }
+  } finally {
+    runQuiet(["rm", "-rf", directory]);
+  }
 }
 
 async function waitForTagRun(workflow, tag, revision) {
@@ -290,7 +339,9 @@ async function waitForTagRun(workflow, tag, revision) {
 // Reports each finished job once and stops at the first failure with the
 // failing tests and their local reproduction commands. Remaining jobs keep
 // running in GitHub, so a rerun of ship resumes without losing their work.
-async function watchRuns(runs, { pollMs = 20_000 } = {}) {
+// Optional jobs only report. With completion jobs, watching ends once they
+// succeed and every other non-optional job has finished.
+async function watchRuns(runs, { pollMs = 20_000, optional = new Set(), completion = [] } = {}) {
   const reported = new Set();
   let heartbeat = Date.now();
   for (;;) {
@@ -309,6 +360,10 @@ async function watchRuns(runs, { pollMs = 20_000 } = {}) {
         if (job.conclusion === "success" || job.name === "Release Candidate") {
           continue;
         }
+        if (optional.has(job.name)) {
+          console.log(`  ${job.name} is reporting only: ${job.url}`);
+          continue;
+        }
         printJobFailure(state.id, job);
         throw new Error(
           `${job.name} ${job.conclusion} in ${state.label}. Inspect the reported step and log. ` +
@@ -317,8 +372,22 @@ async function watchRuns(runs, { pollMs = 20_000 } = {}) {
         );
       }
     }
+    const settled = (state) =>
+      completion.length > 0 &&
+      completion.every((name) =>
+        state.jobs.some((job) => job.name === name && job.conclusion === "success"),
+      ) &&
+      state.jobs.every((job) => job.status === "completed" || optional.has(job.name));
+    if (states.every(settled)) return;
     if (states.every((state) => state.status === "completed")) {
-      const unfinished = states.find((state) => state.conclusion !== "success");
+      const unfinished = states.find(
+        (state) =>
+          state.conclusion !== "success" &&
+          state.jobs.some(
+            (job) =>
+              !optional.has(job.name) && !["success", "skipped"].includes(job.conclusion ?? ""),
+          ),
+      );
       if (unfinished?.conclusion === "cancelled") {
         throw new Error(
           `${unfinished.label} was canceled: ${unfinished.url}. The run result alone does not identify the cause. Inspect its annotations, then rerun failed jobs for the same candidate.`,
@@ -366,7 +435,7 @@ function printJobFailure(runId, job) {
     const metadata = runOptional([
       "gh",
       "api",
-      `repos/${repositoryName()}/actions/jobs/${job.databaseId}`,
+      `repos/${repository}/actions/jobs/${job.databaseId}`,
       "--jq",
       ".check_run_url",
     ]);
@@ -413,18 +482,6 @@ function printFailures(runId) {
     return;
   }
   for (const job of failed) printJobFailure(runId, job);
-}
-
-function repositoryName() {
-  return runCapture([
-    "gh",
-    "repo",
-    "view",
-    "--json",
-    "nameWithOwner",
-    "--jq",
-    ".nameWithOwner",
-  ]).trim();
 }
 
 function formatDuration(milliseconds) {
@@ -507,7 +564,7 @@ function run(argv, extraEnv = {}) {
   console.log(`\n==> ${argv.join(" ")}`);
   const result = Bun.spawnSync(argv, {
     cwd: root,
-    env: releaseCommandEnvironment(process.env, extraEnv),
+    env: { ...process.env, ...extraEnv, GH_REPO: repository },
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
@@ -518,7 +575,7 @@ function run(argv, extraEnv = {}) {
 function runCapture(argv, extraEnv = {}) {
   const result = Bun.spawnSync(argv, {
     cwd: root,
-    env: releaseCommandEnvironment(process.env, extraEnv),
+    env: { ...process.env, ...extraEnv, GH_REPO: repository },
     stdout: "pipe",
     stderr: "inherit",
   });
@@ -534,7 +591,7 @@ function runQuiet(argv) {
 function runOptional(argv) {
   const result = Bun.spawnSync(argv, {
     cwd: root,
-    env: releaseCommandEnvironment(),
+    env: { ...process.env, GH_REPO: repository },
     stdout: "pipe",
     stderr: "pipe",
   });

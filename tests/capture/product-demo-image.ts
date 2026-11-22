@@ -2,7 +2,7 @@ import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { record, outputDirectory } from "./product-demo-recording";
-import { uploadImageFixture } from "./product-capture-fixtures";
+import { uploadImageFixture } from "../app/product-capture-fixtures";
 
 import type {
   ImageEditorDocument,

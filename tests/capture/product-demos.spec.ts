@@ -2,12 +2,12 @@ import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import { createWorkspace, registerUser, clickComposerDeliveryAction } from "./helpers";
+import { createWorkspace, registerUser, clickComposerDeliveryAction } from "../app/helpers";
 import {
   fixtureDirectory,
   uploadImageFixture,
   prepareProductPage,
-} from "./product-capture-fixtures";
+} from "../app/product-capture-fixtures";
 
 import { record } from "./product-demo-recording";
 import { imageEditorDemo } from "./product-demo-image";

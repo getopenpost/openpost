@@ -14,7 +14,7 @@
 import { Anime4kUpscaler } from '../upscale/anime4k-upscaler';
 import { canUpscale, upscaledSize } from '../upscale/upscale-size';
 import type { UpscaleVariant } from '../upscale/upscale-variant';
-import { createLogger } from '../../../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { planarRgbToRgba, rgbaToPlanarRgb } from '../planar-rgb';
 import { RenderProgress } from '../render-progress';
 import {

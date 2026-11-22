@@ -8,7 +8,7 @@ import {
 	importRecordedAudio,
 	importRemoteLottie
 } from './import.svelte';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 
 function cloudMedia(overrides: Partial<MediaMetadata> = {}): MediaMetadata {
 	return {

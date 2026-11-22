@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import {
 	applyMediaDirectoryRecovery,
 	planMediaDirectoryRecovery,

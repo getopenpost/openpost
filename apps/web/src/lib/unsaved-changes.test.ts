@@ -1,8 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UnsavedChangesContext } from './unsaved-changes.svelte';
 
 describe('UnsavedChangesContext', () => {
+	beforeEach(() => {
+		vi.stubGlobal('window', {
+			confirm: vi.fn(() => true),
+			alert: vi.fn(() => undefined)
+		});
+	});
+
 	afterEach(() => {
+		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
 	});
 

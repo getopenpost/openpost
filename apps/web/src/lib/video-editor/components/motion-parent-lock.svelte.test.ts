@@ -4,7 +4,7 @@ import { render } from 'vitest-browser-svelte';
 import { createBlankProject, createDefaultTracks } from '../project/defaults';
 import type { Project } from '../project/types';
 import { createProject, getProject } from '../workspace-fs/projects';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { commandHistory } from '../timeline/commands/command-store.svelte';

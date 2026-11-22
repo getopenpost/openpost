@@ -7,7 +7,7 @@ import { beatsToMarkers } from './marker-mapping';
 import { addBeatMarkersAtomic } from './beat-actions';
 import { extractChannels } from '../channel-mix';
 import type { TimelineItem } from '$lib/video-editor/project/types';
-import type { MediaMetadata } from '$lib/video-editor/media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { BeatAnalysisResult, BeatDetectionConfig } from './types';
 
 export type BeatDetectionStatus = 'idle' | 'analyzing' | 'success' | 'error' | 'cancelled';

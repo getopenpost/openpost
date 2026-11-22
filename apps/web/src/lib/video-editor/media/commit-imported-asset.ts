@@ -1,6 +1,10 @@
 import { importCopiedFile, rollbackNewGeneratedMedia } from './import.svelte';
 import { mediaPool } from './pool.svelte';
-import type { MediaAttribution, MediaMetadata, ProjectAssetImporter } from './types';
+import type {
+	MediaAttribution,
+	MediaMetadata,
+	ProjectAssetImporter
+} from '@openpost/editor-shared/media';
 import { insertMediaAtFrame } from '../timeline/actions/insert-media';
 
 export interface CommitImportedAssetOptions {

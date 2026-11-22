@@ -3,7 +3,7 @@
 	import HostedChatPanel from '$lib/editor-agent/hosted-chat-panel.svelte';
 	import LocalAiPanel from './local-ai-panel.svelte';
 	import type { TextVoiceRequest } from '$lib/video-editor/local-ai/types';
-	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 
 	let {

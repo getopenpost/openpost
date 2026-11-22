@@ -1,6 +1,6 @@
 import type { TimelineItem } from '../../project/types';
 import { mediaCanRecoverItemType } from '../../media/media-recovery';
-import type { MediaMetadata } from '../../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { execute } from '../commands/command-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import { isTrackEffectivelyLocked } from '../utils/track-groups';

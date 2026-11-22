@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectSilentRanges, type AudioBufferLike } from './audio-silence';
+import { detectSilentRanges, type AudioBufferLike } from '@openpost/editor-shared/audio';
 
 function bufferFrom(
 	seconds: number,

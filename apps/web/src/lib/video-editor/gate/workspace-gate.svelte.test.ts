@@ -1,12 +1,24 @@
 import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Fixture from './workspace-gate.fixture.svelte';
-import { __resetHandlesDBForTesting, saveWorkspaceHandleRecord } from '../workspace-fs/handles-db';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
-import { readJson } from '../workspace-fs/fs-primitives';
+import {
+	deleteHandle,
+	listKnownWorkspaces,
+	removeKnownWorkspace,
+	saveWorkspaceHandleRecord
+} from '@openpost/editor-shared/workspace';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
+import { readJson } from '@openpost/editor-shared/workspace';
+
+async function clearKnownWorkspaces() {
+	for (const record of await listKnownWorkspaces()) {
+		await removeKnownWorkspace(record.id);
+	}
+	await deleteHandle('workspace', 'current');
+}
 
 it('disconnects a revoked folder even when the saved workspace catalogue is unavailable', async () => {
-	await __resetHandlesDBForTesting();
+	await clearKnownWorkspaces();
 	const storage = await navigator.storage.getDirectory();
 	const name = `gate-permission-${crypto.randomUUID()}`;
 	const folder = await storage.getDirectoryHandle(name, { create: true });
@@ -37,7 +49,7 @@ it('disconnects a revoked folder even when the saved workspace catalogue is unav
 	} finally {
 		await screen.unmount();
 		setWorkspaceRoot(null);
-		await __resetHandlesDBForTesting();
+		await clearKnownWorkspaces();
 		await storage.removeEntry(name, { recursive: true });
 	}
 });

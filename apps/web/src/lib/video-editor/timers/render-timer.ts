@@ -1,5 +1,6 @@
 import type { TimelineItem } from '../project/types';
-import type { TextRasterContext } from '../media/text-raster';
+import type { TextRasterContext } from './timer';
+export type { TextRasterContext };
 import { timerValue } from './timer';
 import { paintSculptedTimer } from './sculpted-timer';
 

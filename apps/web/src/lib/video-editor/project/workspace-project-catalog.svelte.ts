@@ -1,6 +1,6 @@
 import { onDestroy, untrack } from 'svelte';
 import type { WorkspaceGate } from '../gate/workspace-gate.svelte';
-import { getWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { getAllProjects, getProjectThumbnail } from '../workspace-fs/projects';
 import type { Project } from './types';
 

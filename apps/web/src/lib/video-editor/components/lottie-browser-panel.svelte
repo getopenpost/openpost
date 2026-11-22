@@ -16,7 +16,7 @@
 	} from '$lib/video-editor/lottie/lottiefiles-api';
 	import { clearLottieDragData, writeLottieDragData } from '$lib/video-editor/lottie/lottie-drag';
 	import { ProtectedIcon, ThemeIcon } from '$lib/themes/icons';
-	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 
 	const PAGE_SIZE = 24;
 	const categories: LottieBrowseCategory[] = ['featured', 'popular', 'recent'];

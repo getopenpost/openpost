@@ -43,10 +43,7 @@
 	} from '$lib/video-editor/effects/effect-keyframes';
 	import { keyframeValueToHexColor } from '$lib/video-editor/timeline/color-keyframes';
 	import KeyframeEasingEditor, { type SegmentEasingUpdate } from './keyframe-easing-editor.svelte';
-	import {
-		editorDeleteModeForEvent,
-		eventMatchesShortcut
-	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	import { editorDeleteModeForEvent, eventMatchesShortcut } from '@openpost/editor-shared/settings';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { buildKeyframePastePlan } from '$lib/video-editor/timeline/keyframe-dopesheet';

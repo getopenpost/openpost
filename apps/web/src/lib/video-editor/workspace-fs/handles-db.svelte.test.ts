@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { deleteHandle, getHandle, saveHandle } from './handles-db';
+import { deleteHandle, getHandle, saveHandle } from '@openpost/editor-shared/workspace';
 it('reopens a closed handle database before writing without losing existing handles', async () => {
 	const id = crypto.randomUUID();
 	const handle = await navigator.storage.getDirectory();

@@ -1,5 +1,5 @@
 import type { Project } from '../project/types';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type {
 	AudioExportOptions,
 	RenderedExportArtifact,

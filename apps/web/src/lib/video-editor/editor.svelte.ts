@@ -7,7 +7,7 @@
  */
 
 import { registerCloudExportProject } from './workspace-fs/export-storage';
-import { createLogger } from './workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { getMediaForProject } from './workspace-fs/project-media';
 import { getProject, ProjectNotFoundError, updateProject } from './workspace-fs/projects';
 import type { AnimationPreset, Project, ProjectFontAsset } from './project/types';

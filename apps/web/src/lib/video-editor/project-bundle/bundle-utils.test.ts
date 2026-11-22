@@ -4,7 +4,7 @@ import {
 	PROJECT_BUNDLE_SNAPSHOT_PATH,
 	PROJECT_BUNDLE_VERSION,
 	type ProjectBundleManifest
-} from './bundle-types';
+} from '@openpost/editor-shared/project-bundle';
 import {
 	bundleMediaPath,
 	computeBundleManifestChecksum,
@@ -12,7 +12,7 @@ import {
 	isSafeBundlePath,
 	sanitizeBundleFileName,
 	validateBundleManifest
-} from './bundle-utils';
+} from '@openpost/editor-shared/project-bundle';
 
 function manifest(): ProjectBundleManifest {
 	const value: ProjectBundleManifest = {

@@ -4,7 +4,7 @@ import { mixEntryPlaybackRateAtTime, type MixEntry } from '../media/render-plan'
 import { collectMixEntryDuckWindows, type MixEntryDuckWindow } from './audio-ducking';
 import { mediaPool } from '../media/pool.svelte';
 import { resolveMediaBlob } from '../media/resolve-media-blob';
-import { ensureAc3DecoderForCodec } from '../media/ac3-decoder';
+import { ensureAc3DecoderForCodec } from '@openpost/editor-shared/media';
 import { StreamingAudioEq } from './audio-eq';
 import { getAudioEffectTailSeconds, StreamingAudioEffectChain } from './audio-effects';
 import { isNoiseReductionActive, StreamingNoiseReduction } from './audio-noise-reduction';

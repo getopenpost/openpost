@@ -1,5 +1,5 @@
 import type { LibraryEntry } from './types';
-import type { ProjectAssetImporter } from '../media/types';
+import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 import { applyLibraryTextStyle, insertLibrarySelection } from './selection';
 import { addTimer } from '../timers/actions';
 import { addTextTemplateItem } from '../timeline/actions/items';

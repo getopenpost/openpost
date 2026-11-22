@@ -5,7 +5,7 @@ import { importCopiedFile } from '../media/import.svelte';
 import { insertMediaAtFrame } from '../timeline/actions/insert-media';
 import { ScreenCaptureRecorder } from './recorder.svelte';
 import { insertRecordingArtifacts } from './insert-recording';
-import { setWorkspaceRoot } from '../workspace-fs/root';
+import { setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 
 const formats = [

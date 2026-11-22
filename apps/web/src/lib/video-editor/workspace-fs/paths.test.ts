@@ -9,7 +9,7 @@ import {
 	exportFilePath,
 	recordingFilePath,
 	filmstripFramePath
-} from './paths';
+} from '@openpost/editor-shared/workspace';
 
 describe('sanitizeWorkspaceFileName', () => {
 	it('replaces filesystem-invalid characters', () => {

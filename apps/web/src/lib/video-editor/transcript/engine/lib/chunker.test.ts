@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { Chunker } from './chunker';
-import type { PCMChunk } from '../types';
+import type { PCMChunk } from '@openpost/editor-shared/transcript';
 
 const SAMPLE_RATE = 16_000;
 const TOTAL_DURATION = 150;

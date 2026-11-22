@@ -1,4 +1,4 @@
-import type { RecorderKind } from './recorder.svelte';
+export type RecorderKind = 'screen' | 'camera' | 'microphone';
 
 /** Record microphone audio with the camera, or with the screen when no camera is selected. */
 export function createRecordingStreams(input: {

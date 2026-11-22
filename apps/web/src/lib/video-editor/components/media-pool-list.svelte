@@ -39,10 +39,10 @@
 	import * as Select from '$lib/components/ui/select';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import { canExtractEmbeddedSubtitles } from '$lib/video-editor/media/embedded-subtitle-service';
-	import type { MediaMetadata, ProjectAssetImporter } from '$lib/video-editor/media/types';
-	import { readBlob } from '$lib/video-editor/workspace-fs/fs-primitives';
-	import { requireWorkspaceRoot } from '$lib/video-editor/workspace-fs/root';
-	import { mediaThumbnailPath } from '$lib/video-editor/workspace-fs/paths';
+	import type { MediaMetadata, ProjectAssetImporter } from '@openpost/editor-shared/media';
+	import { readBlob } from '@openpost/editor-shared/workspace';
+	import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
+	import { mediaThumbnailPath } from '@openpost/editor-shared/workspace';
 	import {
 		countUnsupportedCodecMedia,
 		filterAndSortMedia,

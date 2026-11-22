@@ -1,4 +1,6 @@
 export type TimerStyle = 'numbers' | 'ring' | 'bar' | 'bomb' | 'tomato';
+export type TextRasterContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+
 export interface TimerSettings {
 	style: TimerStyle;
 	direction: 'down' | 'up';

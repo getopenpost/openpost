@@ -31,7 +31,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	import { loadWorkspaceMediaFile } from '$lib/video-editor/media/workspace-source';
 	import { resolveAppPath } from '$lib/app-path';
 	import type { QuickCutMarker } from '$lib/quick-cut/types';
-	import type { AudioSilenceRange } from '$lib/video-editor/audio/audio-silence';
+	import type { AudioSilenceRange } from '@openpost/editor-shared/audio';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -88,8 +88,8 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	} from '$lib/quick-cut/project';
 	import { prepareSourceRemoval, type SourceRemovalPlan } from '$lib/quick-cut/source-removal';
 	import type { QuickCutProject } from '$lib/quick-cut/types';
-	import { getWorkspaceRoot } from '$lib/video-editor/workspace-fs/root';
-	import { deleteHandle } from '$lib/video-editor/workspace-fs/handles-db';
+	import { getWorkspaceRoot } from '@openpost/editor-shared/workspace';
+	import { deleteHandle } from '@openpost/editor-shared/workspace';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -99,7 +99,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		editorShortcutTargetIsDisabled,
 		formatShortcutBinding,
 		handleGlobalPlayPauseShortcut
-	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	} from '@openpost/editor-shared/settings';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import {
 		formatSegmentInterchange,

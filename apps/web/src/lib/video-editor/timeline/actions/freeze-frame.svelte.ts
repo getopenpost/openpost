@@ -1,4 +1,4 @@
-import type { MediaMetadata } from '../../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { TimelineItem } from '../../project/types';
 import { resolveAnimatedItemAt } from '../animated-properties';
 import { execute } from '../commands/command-store.svelte';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import LibraryShelf from './library-shelf.svelte';
-	import type { ProjectAssetImporter } from '../media/types';
+	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 	import TimerThumbnail from './timer-thumbnail.svelte';
 	import LibraryFavorite from './library-favorite.svelte';
 	import { m } from '$lib/paraglide/messages';

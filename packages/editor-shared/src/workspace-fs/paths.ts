@@ -2,7 +2,6 @@
  * Pure path builders for the workspace filesystem layout.
  *
  * Every file in the workspace is derived from ids via these helpers so the
- // SAFETY: the stored value satisfies the target type here.
  * layout is in one place and easy to audit. Keep these as arrays of segments
  * — consumers compose them with FS primitives rather than string-joining,
  * because File System Access API uses nested getDirectoryHandle calls, not

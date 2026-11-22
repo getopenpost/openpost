@@ -1,5 +1,5 @@
 import { recordingExtension } from './record-mime';
-import { createLogger } from '../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { openScratchWriter, type ScratchWriter } from './scratch-writer';
 
 const logger = createLogger('RecorderScratch');

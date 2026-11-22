@@ -7,10 +7,10 @@
  * evict stale peaks instead of growing without limit.
  */
 
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { WaveformData } from '@openpost/editor-shared/media';
 import type { WaveformWorkerResponse } from './waveform-worker';
-import { SizedAccessedMemoryCache } from './sized-accessed-memory-cache';
+import { SizedAccessedMemoryCache } from '@openpost/editor-shared/media';
 import { loadWaveform, saveWaveform } from './waveform-persistence';
 import { removeOpfsEntry } from './opfs-cache';
 import { mediaTaskId, mediaTasks } from './media-tasks.svelte';

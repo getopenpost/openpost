@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { m } from '$lib/paraglide/messages';
-	import { formatShortcutBinding } from '$lib/video-editor/settings/keyboard-shortcuts';
+	import { formatShortcutBinding } from '@openpost/editor-shared/settings';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 
 	let {

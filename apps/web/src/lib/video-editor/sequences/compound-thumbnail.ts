@@ -1,7 +1,7 @@
 import { createBlankProject } from '../project/defaults';
 import type { ProjectTimeline, SubComposition } from '../project/types';
 import { TimelineFrameRenderer } from '../media/render-export';
-import { createLogger } from '../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { sequenceStore } from './sequence-store.svelte';
 
 const MAX_THUMBNAIL_EDGE = 320;

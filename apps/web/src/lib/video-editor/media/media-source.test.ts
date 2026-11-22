@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { getMediaObjectUrl, revokeMediaObjectUrl } from './media-source';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 
 const ids = new Set<string>();
 const urls = new Set<string>();

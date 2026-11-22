@@ -1,7 +1,10 @@
-import { readBlob } from '../workspace-fs/fs-primitives';
-import { mediaSourceByFileName, sanitizeWorkspaceFileName } from '../workspace-fs/paths';
-import { requireWorkspaceRoot } from '../workspace-fs/root';
-import type { MediaMetadata } from './types';
+import { readBlob } from '@openpost/editor-shared/workspace';
+import {
+	mediaSourceByFileName,
+	sanitizeWorkspaceFileName
+} from '@openpost/editor-shared/workspace';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 
 /** Resolve a linked or collected source without loading media-import UI code. */
 export async function resolveMediaBlob(

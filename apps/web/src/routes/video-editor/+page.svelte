@@ -19,7 +19,7 @@
 	import { createWorkspaceGate } from '$lib/video-editor/gate/workspace-gate.svelte';
 	import { saveProjectBundle } from '$lib/video-editor/project-bundle/bundle-export';
 	import { importProjectBundle } from '$lib/video-editor/project-bundle/bundle-import';
-	import type { BundleProgress } from '$lib/video-editor/project-bundle/bundle-types';
+	import type { BundleProgress } from '@openpost/editor-shared/project-bundle';
 	import {
 		downloadProjectSnapshot,
 		importProjectSnapshotFile
@@ -42,7 +42,7 @@
 	} from '$lib/video-editor/cloud/offline-project-cache';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { createWorkspaceProjectCatalog } from '$lib/video-editor/project/workspace-project-catalog.svelte';
-	import { onPermissionLost } from '$lib/video-editor/workspace-fs/root';
+	import { onPermissionLost } from '@openpost/editor-shared/workspace';
 	import { createProject, updateProject } from '$lib/video-editor/workspace-fs/projects';
 	import {
 		DEFAULT_TRASH_TTL_MS,

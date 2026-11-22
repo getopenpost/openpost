@@ -11,7 +11,7 @@ import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { mediaPool } from '../media/pool.svelte';
 import fixtureUrl from '../../../../../../tests/app/fixtures/product-screenshots/study-sos-demo.mp4?url';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { createProject, getProject } from '../workspace-fs/projects';
 import { createMedia } from '../workspace-fs/media';
 import { associateMediaWithProject } from '../workspace-fs/project-media';

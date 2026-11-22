@@ -2,7 +2,7 @@ import { ALL_FORMATS, BlobSource, CanvasSink, Input } from 'mediabunny';
 import { ensureProResDecoderForCodec } from './prores-decoder';
 import type { TimelineItem } from '../project/types';
 import { frameToSourceSeconds } from './render-plan';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { resolveMediaBlob } from './import.svelte';
 
 export interface ExtractedFreezeFrame {

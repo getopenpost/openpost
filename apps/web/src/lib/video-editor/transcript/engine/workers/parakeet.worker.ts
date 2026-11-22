@@ -10,7 +10,7 @@ import type {
 	MainThreadMessage,
 	PCMChunk,
 	TranscriptionWorkerMessage
-} from '../types';
+} from '@openpost/editor-shared/transcript';
 
 import { getChunkStartProgress, transcribingProgressEvent } from '../lib/chunk-progress';
 import { fetchOnnxModelBytes, fetchOnnxModelText } from '../onnx-model-cache';

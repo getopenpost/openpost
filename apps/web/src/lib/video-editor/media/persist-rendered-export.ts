@@ -1,5 +1,17 @@
 import { saveExportFile } from '../workspace-fs/exports';
-import type { RenderedExportArtifact, RenderExportResult } from './render-export';
+
+export interface RenderExportResult {
+	fileName: string;
+	relPath: string;
+	blob: Blob;
+}
+
+export interface RenderedExportArtifact {
+	fileName: string;
+	blob: Blob;
+	sidecar?: { fileName: string; blob: Blob };
+	renderMethod?: 'smart-copy' | 'rendered';
+}
 
 /** Save one completed in-memory artifact exactly once on the main thread. */
 export async function saveRenderedExportArtifact(

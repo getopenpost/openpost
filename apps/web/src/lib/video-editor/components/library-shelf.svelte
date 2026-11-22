@@ -5,7 +5,7 @@
 	import { videoLibrary } from '../library/library-store.svelte';
 	import { applyLibraryEntry } from '../library/apply';
 	import type { LibraryEntry } from '../library/types';
-	import type { ProjectAssetImporter } from '../media/types';
+	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 	let {
 		kind,
 		selectedIds = [],

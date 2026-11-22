@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { Project, TimelineItem, TimelineTrack } from '../project/types';
 import { editorSession } from '../editor.svelte';
 import { commandHistory } from '../timeline/commands/command-store.svelte';

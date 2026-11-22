@@ -8,14 +8,14 @@ import {
 	loadProjectFromWorkspace
 } from '../../quick-cut/project';
 import { exportSegments, discardScratchFile } from '../../quick-cut/export';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { probeSourceFile } from '../../quick-cut/source';
 import '../../../routes/layout.css';
 import { describe, expect, it, vi } from 'vitest';
 import { createFloat32WavBlob } from '../local-ai/audio';
-import { decodeAudioBlobRangeForAnalysis } from './analysis-decoder';
-import { analyzeAudioBlob } from './analysis-client';
-import { detectSilentRanges } from './audio-silence';
+import { decodeAudioBlobRangeForAnalysis } from '@openpost/editor-shared/audio';
+import { analyzeAudioBlob } from '@openpost/editor-shared/audio';
+import { detectSilentRanges } from '@openpost/editor-shared/audio';
 
 describe('source audio cleanup', () => {
 	it('retains audible opposite-phase stereo through decode and silence detection', async () => {

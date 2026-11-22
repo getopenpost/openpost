@@ -11,7 +11,7 @@
 import { ALL_FORMATS, BlobSource, CanvasSink, EncodedPacketSink, Input } from 'mediabunny';
 import { ensureProResDecoderForCodec, isProResCodec } from './prores-decoder';
 import { isAudioCodecSupported } from './audio-codec-support';
-import type { VideoFrameRateMetrics } from './types';
+import type { VideoFrameRateMetrics } from '@openpost/editor-shared/media';
 import { probeVideoFrameRate } from './video-frame-rate';
 
 export interface MediaProbeResult {

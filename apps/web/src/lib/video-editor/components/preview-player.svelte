@@ -52,7 +52,7 @@
 		editorShortcutTargetIsDisabled,
 		eventMatchesShortcut,
 		type EditorShortcutId
-	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	} from '@openpost/editor-shared/settings';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { isTrackEffectivelyLocked } from '$lib/video-editor/timeline/utils/track-groups';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';

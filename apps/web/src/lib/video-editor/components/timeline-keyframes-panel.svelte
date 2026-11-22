@@ -30,7 +30,7 @@
 		type KeyframeEditorMode
 	} from '$lib/video-editor/timeline/keyframe-shortcuts';
 	import { fitKeyframeSpanToViewport } from '$lib/video-editor/timeline/timeline-viewport';
-	import type { EditorShortcutId } from '$lib/video-editor/settings/keyboard-shortcuts';
+	import type { EditorShortcutId } from '@openpost/editor-shared/settings';
 	import type {
 		EasingConfig,
 		EasingType,

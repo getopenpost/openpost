@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { commandHistory } from '../commands/command-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
-import type { MediaMetadata } from '../../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { insertMediaAtFrame, insertMediaAtSequenceEnd } from './insert-media';
 
 const image = {

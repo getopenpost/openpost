@@ -235,3 +235,44 @@ it('restores each project asset even when its bytes are shared with another asse
 		vi.unstubAllGlobals();
 	}
 });
+
+it.each(['missing', 'denied'] as const)(
+	'keeps conflict history readable with unknown origin when browser identity is %s',
+	async (storage) => {
+		try {
+			const setItem = vi.fn();
+			vi.stubGlobal('localStorage', {
+				getItem: () => {
+					if (storage === 'denied') throw new DOMException('Storage denied', 'SecurityError');
+					return null;
+				},
+				setItem
+			});
+			vi.spyOn(queryClient, 'query').mockResolvedValueOnce([
+				{
+					id: 'conflict',
+					name: 'Conflict from stored-device',
+					base_revision: 2,
+					head_revision: 3,
+					device_id: 'stored-device',
+					document: { name: 'Preserved conflicting edit' },
+					overlap_targets: ['project:name'],
+					created_at: '2026-10-03T10:00:00Z'
+				}
+			]);
+			const repository = new CloudVideoProjectRepository<object>('workspace');
+			await expect(repository.listConflicts('project')).resolves.toMatchObject([
+				{
+					deviceId: 'stored-device',
+					origin: 'unknown',
+					headRevision: 3,
+					document: { name: 'Preserved conflicting edit' }
+				}
+			]);
+			expect(setItem).not.toHaveBeenCalled();
+		} finally {
+			vi.restoreAllMocks();
+			vi.unstubAllGlobals();
+		}
+	}
+);

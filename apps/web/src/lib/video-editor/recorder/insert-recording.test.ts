@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { CaptureArtifact } from './recorder.svelte';
 import { insertRecordingArtifacts, type RecordingImportRuntime } from './insert-recording';
 

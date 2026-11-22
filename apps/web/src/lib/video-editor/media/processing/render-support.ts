@@ -6,9 +6,9 @@
  * Kept out of the feature barrel on purpose: nothing outside `workers/` should reach for this.
  */
 
-import { createLogger } from '../../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { ensureProResDecoderForCodec } from '../prores-decoder';
-import { ensureAc3DecoderForCodec } from '../ac3-decoder';
+import { ensureAc3DecoderForCodec } from '@openpost/editor-shared/media';
 import { isAudioCodecSupported } from '../audio-codec-support';
 import { clampPacketToTimeline } from './audio-packet-timeline';
 

@@ -3,7 +3,7 @@ import {
 	createMediaSourceRecovery,
 	type MediaSourceRecoveryRuntime
 } from './media-source-recovery';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 
 function media(storageType: 'handle' | 'workspace' = 'handle'): MediaMetadata {
 	return {

@@ -4,8 +4,8 @@ import { editorSession } from '../editor.svelte';
 import { CloudVideoProjectRepository } from '../cloud/project-repository';
 import { createBlankProject } from '../project/defaults';
 import { mediaPool } from '../media/pool.svelte';
-import type { MediaMetadata } from '../media/types';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import {
 	getSourceTranscript,
 	saveSourceTranscript,

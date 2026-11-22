@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { firstComposerURL } from './composer-links';
-import type { ComposerSettings } from './modes';
+import type { ComposerSettings } from './settings-types';
 
 export const linkDraftSchema = z.object({
 	destinations: z.record(

@@ -77,7 +77,7 @@ self.onmessage = async (event: MessageEvent<RenderExportWorkerRequest>) => {
 	const controller = new AbortController();
 	activeRequests.set(message.requestId, controller);
 	try {
-		const { setWorkspaceRoot } = await import('../workspace-fs/root');
+		const { setWorkspaceRoot } = await import('@openpost/editor-shared/workspace');
 		const { mediaPool } = await import('./pool.svelte');
 		setWorkspaceRoot(message.workspaceRoot);
 		mediaPool.loadAll(message.media);
@@ -188,7 +188,7 @@ self.onmessage = async (event: MessageEvent<RenderExportWorkerRequest>) => {
 			if (key.startsWith(`${message.requestId}:`)) sequenceBatchAcks.delete(key);
 		}
 		try {
-			const { setWorkspaceRoot } = await import('../workspace-fs/root');
+			const { setWorkspaceRoot } = await import('@openpost/editor-shared/workspace');
 			const { mediaPool } = await import('./pool.svelte');
 			mediaPool.clear();
 			setWorkspaceRoot(null);

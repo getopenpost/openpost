@@ -1,6 +1,6 @@
 /** Bounded main-thread cache for exact frames decoded by the preview prewarm worker. */
 import { resolveMediaBlob } from '../media/resolve-media-blob';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { PreviewDecoderConnection } from './decoder-prewarm-connection';
 
 const PREWARM_HEIGHT = 540;

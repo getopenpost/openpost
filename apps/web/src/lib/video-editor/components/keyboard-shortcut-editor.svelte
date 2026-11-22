@@ -21,7 +21,7 @@
 		type EditorShortcutSection,
 		type EditorShortcutOverrideMap,
 		type ShortcutImportReview
-	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	} from '@openpost/editor-shared/settings';
 	import {
 		keyboardLayoutLabelForToken,
 		loadKeyboardLayoutMap,

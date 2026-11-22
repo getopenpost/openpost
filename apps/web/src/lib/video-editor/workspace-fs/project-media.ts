@@ -12,15 +12,15 @@
  */
 
 import type { Project } from '../project/types';
-import type { MediaMetadata } from '../media/types';
-import { createLogger } from './logger';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
+import { createLogger } from '@openpost/editor-shared/workspace';
 
-import { requireWorkspaceRoot } from './root';
-import { listDirectory, readJson, writeJsonAtomic } from './fs-primitives';
-import { PROJECTS_DIR, projectMediaLinksPath } from './paths';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
+import { listDirectory, readJson, writeJsonAtomic } from '@openpost/editor-shared/workspace';
+import { PROJECTS_DIR, projectMediaLinksPath } from '@openpost/editor-shared/workspace';
 import { getProject } from './projects';
 import { getMedia } from './media';
-import { withKeyLock } from './with-key-lock';
+import { withKeyLock } from '@openpost/editor-shared/workspace';
 
 function linksLockKey(projectId: string): string {
 	return `project-media-links:${projectId}`;

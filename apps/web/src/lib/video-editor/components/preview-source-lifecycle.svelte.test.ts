@@ -8,7 +8,7 @@ import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { mediaPool } from '../media/pool.svelte';
 import { getMediaObjectUrl, revokeMediaObjectUrl } from '../media/media-source';
 import { clearPreviewDecoderPrewarm } from '../preview/decoder-prewarm-client';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import '../../../routes/layout.css';
 
 afterEach(() => {

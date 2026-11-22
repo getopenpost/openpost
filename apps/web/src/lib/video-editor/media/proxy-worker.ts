@@ -18,21 +18,19 @@ import {
 	VideoSampleSource,
 	WebMOutputFormat
 } from 'mediabunny';
-import { PROXY_BITRATE, PROXY_MAX_HEIGHT, proxyDimensions } from './proxy-client';
+import {
+	PROXY_BITRATE,
+	PROXY_MAX_HEIGHT,
+	proxyDimensions,
+	type ProxyRequest,
+	type ProxyWorkerResponse
+} from './proxy-protocol';
 import { ensureProResDecoderForCodec } from './prores-decoder';
+
+export type { ProxyRequest, ProxyWorkerResponse };
 
 const AVC_PROXY_BITRATE = 4_000_000;
 const PROXY_KEYFRAME_SECONDS = 0.25;
-
-export interface ProxyRequest {
-	file: Blob;
-	maxHeight?: number;
-}
-
-export type ProxyWorkerResponse =
-	| { type: 'progress'; progress: number }
-	| { type: 'complete'; blob: Blob }
-	| { type: 'error'; message: string };
 
 self.onmessage = async (event: MessageEvent<ProxyRequest>): Promise<void> => {
 	const maxHeight = event.data.maxHeight ?? PROXY_MAX_HEIGHT;

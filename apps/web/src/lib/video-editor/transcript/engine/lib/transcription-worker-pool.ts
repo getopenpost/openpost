@@ -1,4 +1,4 @@
-import type { TranscriptionEngine } from '../types';
+import type { TranscriptionEngine } from '@openpost/editor-shared/transcript';
 import { localAiRuntimeRegistry } from '../../../local-ai/runtime-registry';
 
 // Transcription model load + compile is the dominant per-job cost: Parakeet's 1.24 GB

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nonSpeechRanges, intersectQuietRanges } from './speech-detection';
+import { nonSpeechRanges, intersectQuietRanges } from '@openpost/editor-shared/audio';
 
 describe('speech-only cut proposals', () => {
 	it('keeps speech and breathing room while proposing long non-speech gaps', () => {

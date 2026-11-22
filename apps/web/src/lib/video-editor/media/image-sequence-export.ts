@@ -11,11 +11,11 @@ import { TimelineFrameRenderer } from './render-export';
 import type { Project } from '../project/types';
 import type { RenderExportProgress } from './render-export';
 import { projectOutputDurationFrames } from './render-plan';
-import { sanitizeWorkspaceFileName } from '../workspace-fs/paths';
-import { writeBlob, removeEntry, exists, listDirectory } from '../workspace-fs/fs-primitives';
-import { projectExportsDir } from '../workspace-fs/paths';
+import { sanitizeWorkspaceFileName } from '@openpost/editor-shared/workspace';
+import { writeBlob, removeEntry, exists, listDirectory } from '@openpost/editor-shared/workspace';
+import { projectExportsDir } from '@openpost/editor-shared/workspace';
 import { exportStorageRoot } from '../workspace-fs/export-storage';
-import { withKeyLock } from '../workspace-fs/with-key-lock';
+import { withKeyLock } from '@openpost/editor-shared/workspace';
 
 export type ImageSequenceFormat = 'png' | 'jpeg' | 'webp';
 

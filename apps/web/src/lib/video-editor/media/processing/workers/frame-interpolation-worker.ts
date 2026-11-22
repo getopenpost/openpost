@@ -17,7 +17,7 @@
 import { clampRenderSize, RifeInterpolator } from '../interpolation/rife-interpolator';
 import { interpolateGap } from '../interpolation/interpolate-gap';
 import type { InterpolationFactor } from '../interpolation/interpolation-factor';
-import { createLogger } from '../../../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { planarRgbToRgba, rgbaToPlanarRgb } from '../planar-rgb';
 import { RenderProgress } from '../render-progress';
 import {

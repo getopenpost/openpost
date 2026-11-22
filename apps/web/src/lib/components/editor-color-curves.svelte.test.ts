@@ -4,10 +4,7 @@ import { userEvent } from 'vitest/browser';
 import '../../routes/layout.css';
 import EditorColorCurves from './editor-color-curves.svelte';
 import type { GpuParamValues } from '$lib/video-editor/effects/gpu/types';
-import {
-	createShortcutMatcher,
-	DEFAULT_EDITOR_SHORTCUTS
-} from '$lib/video-editor/settings/keyboard-shortcuts';
+import { createShortcutMatcher, DEFAULT_EDITOR_SHORTCUTS } from '@openpost/editor-shared/settings';
 
 it('lets assistive technology select a compact color channel by its full name', async () => {
 	const oncommit = vi.fn();

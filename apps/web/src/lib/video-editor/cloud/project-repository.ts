@@ -27,7 +27,7 @@ import { client } from '$lib/api/client';
 import { queryClient } from '$lib/query/client';
 import { mediaQueryAPI } from '$lib/query/media';
 import { videoProjectQueryAPI } from '$lib/query/video-projects';
-import type { MediaMetadata } from '$lib/video-editor/media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import {
 	cacheCloudProjectDocument,
 	offlineMediaURL,
@@ -69,17 +69,8 @@ export function purgeCloudVideoProjectDeviceData(): void {
 	purgeCloudVideoProjectOfflineData();
 }
 
-export interface CloudVideoProject<TDocument extends object> {
-	id: string;
-	workspaceId: string;
-	name: string;
-	headRevision: number;
-	document: TDocument;
-	syncStatus: 'pending' | 'uploading' | 'saving' | 'synced' | 'needs_attention';
-	attentionReason: string;
-	trashedAt: string;
-	updatedAt: string;
-}
+import type { CloudVideoProject } from './types';
+export type { CloudVideoProject };
 
 export interface CloudVideoProjectSummary extends Omit<CloudVideoProject<object>, 'document'> {
 	schemaFamily: string;

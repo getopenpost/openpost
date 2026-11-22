@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	createSoundPreferences,
 	interfaceSoundCue,
 	parseInterfaceSoundSettings
 } from './sound-preferences.svelte';
+
+// oxlint-disable-next-line anti-slop/no-module-mocking
+vi.mock('$app/environment', () => ({ browser: true }));
 
 function memoryStorage(initial: string | null = null) {
 	let value = initial;
@@ -32,7 +35,8 @@ describe('interface sound preferences', () => {
 		const storage = memoryStorage();
 		const engine = recordingEngine();
 		const sounds = createSoundPreferences(storage, engine);
-		sounds.initialize(document);
+		// SAFETY: recordingEngine only passes the Document token through to bind().
+		sounds.initialize({} as Document);
 
 		expect(sounds.enabled).toBe(true);
 		expect(sounds.volume).toBe(0.6);
@@ -88,7 +92,8 @@ describe('interface sound preferences', () => {
 			}
 		};
 		const sounds = createSoundPreferences(blockedStorage, engine);
-		expect(() => sounds.initialize(document)).not.toThrow();
+		// SAFETY: recordingEngine only passes the Document token through to bind().
+		expect(() => sounds.initialize({} as Document)).not.toThrow();
 		sounds.setEnabled(true);
 		expect(sounds.enabled).toBe(true);
 	});

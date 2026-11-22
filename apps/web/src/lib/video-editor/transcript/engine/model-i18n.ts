@@ -1,5 +1,8 @@
 import { m } from '$lib/paraglide/messages';
-import type { TranscriptionModel, TranscriptionQuantization } from './types';
+import type {
+	TranscriptionModel,
+	TranscriptionQuantization
+} from '@openpost/editor-shared/transcript';
 
 export function transcriptionModelUiLabel(model: TranscriptionModel): string {
 	if (model === 'parakeet-tdt-v3') return m.video_editor_transcribe_model_parakeet();

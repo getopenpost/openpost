@@ -1,7 +1,7 @@
 /** Reactive Scene Browser state. Ported from FreeCut (MIT), adapted to Svelte. */
 
 import { mediaPool } from '../pool.svelte';
-import type { MediaMetadata } from '../types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { getSceneAnalysis } from '../../workspace-fs/scene-analysis';
 import { analyzeMediaScenes, isSceneAnalyzableMedia } from './scene-analysis-client';
 import { parseColorQuery } from './color-boost';

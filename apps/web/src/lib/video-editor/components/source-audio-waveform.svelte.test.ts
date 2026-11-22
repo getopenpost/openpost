@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
-import type { MediaMetadata } from '$lib/video-editor/media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { ComponentProps } from 'svelte';
 import SourceAudioWaveform from './source-audio-waveform.svelte';
 

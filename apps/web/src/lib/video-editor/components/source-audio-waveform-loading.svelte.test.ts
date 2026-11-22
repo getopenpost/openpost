@@ -3,7 +3,7 @@ import { tick } from 'svelte';
 import { commands } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { getWaveform, type WaveformData } from '../media/waveform-client';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import SourceAudioWaveform from './source-audio-waveform.svelte';
 import '../../../routes/layout.css';
 
@@ -58,26 +58,31 @@ it.each(['loading', 'ready'] as const)(
 		);
 		const props = { media, durationSeconds: 1, currentTimeSeconds: 0, onseek: vi.fn() };
 		const screen = await render(SourceAudioWaveform, props);
-		screen.container.style.width = '480px';
-		screen.container.style.height = '180px';
-		await expect.poll(() => vi.mocked(getWaveform).mock.calls.length).toBe(1);
-		await screen.rerender({ ...props, media: { ...media, id: 'selected-source' } });
-		await expect.poll(() => vi.mocked(getWaveform).mock.calls.length).toBe(2);
-		let selectedPixels: string | undefined;
-		if (state === 'ready') {
+		try {
+			screen.container.style.width = '480px';
+			screen.container.style.height = '180px';
+			await expect.poll(() => vi.mocked(getWaveform).mock.calls.length).toBe(1);
+			await screen.rerender({ ...props, media: { ...media, id: 'selected-source' } });
+			await expect.poll(() => vi.mocked(getWaveform).mock.calls.length).toBe(2);
+			let selectedPixels: string | undefined;
+			if (state === 'ready') {
+				selected.resolve(samples(0));
+				await expect
+					.poll(() => screen.container.querySelector('canvas')?.height)
+					.toBe(180 * devicePixelRatio);
+				selectedPixels = screen.container.querySelector('canvas')!.toDataURL();
+			}
+			previous.resolve(samples(1));
+			await previous.promise;
+			await tick();
+			if (state === 'loading') expect(screen.container.querySelector('canvas')).toBeNull();
+			else
+				expect(screen.container.querySelector('canvas')!.toDataURL() === selectedPixels).toBe(true);
+		} finally {
+			previous.resolve(samples(0));
 			selected.resolve(samples(0));
-			await expect
-				.poll(() => screen.container.querySelector('canvas')?.height)
-				.toBe(180 * devicePixelRatio);
-			selectedPixels = screen.container.querySelector('canvas')!.toDataURL();
+			await screen.unmount();
 		}
-		previous.resolve(samples(1));
-		await previous.promise;
-		await tick();
-		if (state === 'loading') expect(screen.container.querySelector('canvas')).toBeNull();
-		else
-			expect(screen.container.querySelector('canvas')!.toDataURL() === selectedPixels).toBe(true);
-		selected.resolve(samples(0));
 	}
 );
 
@@ -122,10 +127,11 @@ it('moves both playheads over the waveform and clears their old position after s
 });
 
 it('keeps the paused waveform sharp when display scale changes without a layout change', async () => {
+	let screen: Awaited<ReturnType<typeof render>> | undefined;
 	try {
 		await commands.setDeviceScaleFactor(1);
 		vi.mocked(getWaveform).mockResolvedValue(samples(0));
-		const screen = await render(SourceAudioWaveform, {
+		screen = await render(SourceAudioWaveform, {
 			media,
 			durationSeconds: 1,
 			currentTimeSeconds: 0,
@@ -133,12 +139,12 @@ it('keeps the paused waveform sharp when display scale changes without a layout 
 		});
 		screen.container.style.width = '480px';
 		screen.container.style.height = '180px';
-		await expect.poll(() => screen.container.querySelector('canvas')?.height).toBe(180);
+		await expect.poll(() => screen!.container.querySelector('canvas')?.height).toBe(180);
 		await commands.setDeviceScaleFactor(2);
 		await expect.poll(() => devicePixelRatio).toBe(2);
 		await expect
 			.poll(() =>
-				[...screen.container.querySelectorAll('canvas')].map((canvas) => [
+				[...screen!.container.querySelectorAll('canvas')].map((canvas) => [
 					canvas.width,
 					canvas.height
 				])
@@ -151,6 +157,7 @@ it('keeps the paused waveform sharp when display scale changes without a layout 
 		const [red, green, blue] = displayedPixel(screen.container, 8, 60);
 		expect(red > 200 && green < 100 && blue < 100).toBe(true);
 	} finally {
+		await screen?.unmount();
 		await commands.setDeviceScaleFactor(null);
 	}
 });

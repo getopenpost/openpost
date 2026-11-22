@@ -27,7 +27,7 @@
 		TranscriptionModel,
 		TranscriptionQuantization,
 		TranscriptionSelection
-	} from '$lib/video-editor/transcript/engine/types';
+	} from '@openpost/editor-shared/transcript';
 	import { editorSettings } from '$lib/video-editor/settings/editor-settings.svelte';
 	import type { TranscriptionJobStatus } from '$lib/video-editor/transcript/transcription-service.svelte';
 

@@ -1,5 +1,8 @@
 /* oxlint-disable anti-slop/no-runtime-typeof -- This module parses localStorage JSON at its I/O boundary and validates primitive JSON fields before domain use. */
-import type { TranscriptionModel, TranscriptionQuantization } from '../transcript/engine/types';
+import type {
+	TranscriptionModel,
+	TranscriptionQuantization
+} from '@openpost/editor-shared/transcript';
 import {
 	DEFAULT_TRANSCRIPTION_MODEL,
 	TRANSCRIPTION_LANGUAGE_OPTIONS,

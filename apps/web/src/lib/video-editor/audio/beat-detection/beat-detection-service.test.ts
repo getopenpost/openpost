@@ -4,7 +4,7 @@ import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.
 import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
 import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 import type { TimelineItem } from '$lib/video-editor/project/types';
-import type { MediaMetadata } from '$lib/video-editor/media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { BeatDetectionService } from './beat-detection-service.svelte';
 import { BeatAnalyzer } from './analyzer';
 

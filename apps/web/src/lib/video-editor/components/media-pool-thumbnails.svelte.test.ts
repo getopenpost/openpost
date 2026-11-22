@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { tick } from 'svelte';
 import { cleanup, render } from 'vitest-browser-svelte';
-import { readBlob } from '../workspace-fs/fs-primitives';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { readBlob } from '@openpost/editor-shared/workspace';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { mediaPool } from '../media/pool.svelte';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import MediaPoolList from './media-pool-list.svelte';
 import ColorMiniTimeline from './color-mini-timeline.svelte';
 import { createBlankProject } from '../project/defaults';
@@ -14,8 +14,8 @@ import { commandHistory } from '../timeline/commands/command-store.svelte';
 
 // Hold filesystem reads while the real library publishes and invalidates thumbnails.
 // oxlint-disable-next-line anti-slop/no-module-mocking
-vi.mock('../workspace-fs/fs-primitives', async (original) => ({
-	...(await original<typeof import('../workspace-fs/fs-primitives')>()),
+vi.mock('@openpost/editor-shared/workspace', async (original) => ({
+	...(await original<typeof import('@openpost/editor-shared/workspace')>()),
 	readBlob: vi.fn()
 }));
 

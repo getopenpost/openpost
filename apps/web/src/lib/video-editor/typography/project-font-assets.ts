@@ -1,5 +1,5 @@
 import { loadEditorFontAsset } from '$lib/editor-fonts';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { resolveMediaBlob } from '../media/resolve-media-blob';
 import type { Project, ProjectFontAsset, TimelineItem } from '../project/types';
 

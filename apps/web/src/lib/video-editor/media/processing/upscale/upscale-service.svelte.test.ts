@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mediaTaskId, mediaTasks } from '../../media-tasks.svelte';
-import type { MediaMetadata } from '../../types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { UpscaleWorkerRequest, UpscaleWorkerResponse } from '../workers/upscale-worker';
 import { gpuMediaJobScheduler } from '../gpu-media-job-scheduler';
 import { UpscaleService, type UpscaleServiceDependencies } from './upscale-service.svelte';

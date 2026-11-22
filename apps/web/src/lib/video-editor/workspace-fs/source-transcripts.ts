@@ -1,13 +1,18 @@
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { TranscriptWord } from '../transcript/cues';
 import type {
 	TranscriptionModel,
 	TranscriptionQuantization,
 	TranscriptionSelection
-} from '../transcript/engine/types';
-import { readJson, removeEntry, WorkspaceFileCorruptError, writeJsonAtomic } from './fs-primitives';
-import { sourceTranscriptPath } from './paths';
-import { getWorkspaceRoot } from './root';
+} from '@openpost/editor-shared/transcript';
+import {
+	readJson,
+	removeEntry,
+	WorkspaceFileCorruptError,
+	writeJsonAtomic
+} from '@openpost/editor-shared/workspace';
+import { sourceTranscriptPath } from '@openpost/editor-shared/workspace';
+import { getWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import {
 	captureQueryMutationSession,
 	queryMutationSessionIsCurrent,

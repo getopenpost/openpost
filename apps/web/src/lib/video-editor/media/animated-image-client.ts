@@ -12,9 +12,9 @@
  *   cancellable media task with progress.
  */
 
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { computeCumulativeDelays, isAnimatedImageMedia } from './animated-image-plan';
-import { SizedAccessedMemoryCache } from './sized-accessed-memory-cache';
+import { SizedAccessedMemoryCache } from '@openpost/editor-shared/media';
 import type { AnimatedImageWorkerResponse } from './animated-image-extraction.worker';
 import {
 	loadAnimatedImage,
@@ -23,7 +23,7 @@ import {
 	saveAnimatedImageMeta
 } from './animated-image-persistence';
 import { mediaTaskId, mediaTasks } from './media-tasks.svelte';
-import { createLogger } from '../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 
 const logger = createLogger('AnimatedImageCache');
 

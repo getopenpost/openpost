@@ -89,3 +89,18 @@ export interface ResolvedAudioEqSettings {
 	highCutFrequencyHz: number;
 	highCutSlopeDbPerOct: AudioEqCutSlopeDbPerOct;
 }
+
+export interface AudioNoiseReductionFieldSource {
+	audioNoiseReductionEnabled?: boolean;
+	audioNoiseReductionAmount?: number;
+}
+
+export interface AudioNoiseReductionSettings {
+	enabled?: boolean;
+	amount?: number;
+}
+
+export interface ResolvedAudioNoiseReductionSettings {
+	enabled: boolean;
+	amount: number;
+}

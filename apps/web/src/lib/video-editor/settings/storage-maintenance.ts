@@ -10,12 +10,12 @@ import {
 	getAutomaticProxy,
 	isAutomaticProxyCandidate
 } from '../media/proxy-client';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { clearWaveformCache } from '../media/waveform-client';
 import { clearPreviewDecoderPrewarm } from '../preview/decoder-prewarm-client';
-import { writeBlob } from '../workspace-fs/fs-primitives';
-import { mediaThumbnailPath } from '../workspace-fs/paths';
-import { requireWorkspaceRoot } from '../workspace-fs/root';
+import { writeBlob } from '@openpost/editor-shared/workspace';
+import { mediaThumbnailPath } from '@openpost/editor-shared/workspace';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 
 export interface MaintenanceBatchResult {
 	total: number;

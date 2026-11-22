@@ -1,5 +1,5 @@
 import type { TimelineItem, TimelineItemKind } from '../project/types';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { mediaLibraryKind } from './library-view';
 
 export type MediaSourceIssueKind = 'permission' | 'missing' | 'changed';

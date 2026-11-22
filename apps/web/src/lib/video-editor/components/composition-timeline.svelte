@@ -17,7 +17,7 @@
 		createShortcutMatcher,
 		editorDeleteModeForEvent,
 		type EditorShortcutId
-	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	} from '@openpost/editor-shared/settings';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
 	import { canCreateTrackGroup, createTrackGroup } from '$lib/video-editor/timeline/actions/tracks';

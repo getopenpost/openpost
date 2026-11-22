@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { saveExportFile, listExportEntries, readExportFile, deleteExportEntry } from './exports';
 import { registerCloudExportProject } from './export-storage';
-import { getWorkspaceRoot, setWorkspaceRoot } from './root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { loadProjectRenderQueue, saveProjectRenderQueue } from '../export/render-queue-persistence';
 
 it('keeps cloud exports and queue state in browser storage without a picked folder', async () => {

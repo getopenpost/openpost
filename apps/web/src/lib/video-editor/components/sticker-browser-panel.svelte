@@ -21,7 +21,7 @@
 		clearStickerDragData,
 		writeStickerDragData
 	} from '$lib/video-editor/stickers/sticker-drag';
-	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 
 	const PAGE_SIZE = 60;
 	let {

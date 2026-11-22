@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { createBlankProject } from '../project/defaults';
 import type { Project, TimelineTransition } from '../project/types';
 import { computeSnapshotChecksum } from './snapshot-utils';

@@ -22,9 +22,9 @@
 		eventMatchesShortcut,
 		formatShortcutBinding,
 		handleGlobalPlayPauseShortcut
-	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	} from '@openpost/editor-shared/settings';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
-	import { isAc3AudioCodec } from '$lib/video-editor/media/ac3-decoder';
+	import { isAc3AudioCodec } from '@openpost/editor-shared/media';
 	import {
 		getBrowserMediaPlaybackRate,
 		getNextShuttleRate,

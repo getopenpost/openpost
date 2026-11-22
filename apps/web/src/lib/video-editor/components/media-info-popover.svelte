@@ -7,7 +7,7 @@
 		formatMediaBytes,
 		formatMediaDuration
 	} from '$lib/video-editor/media/library-view';
-	import type { MediaMetadata } from '$lib/video-editor/media/types';
+	import type { MediaMetadata } from '@openpost/editor-shared/media';
 	import { ProtectedIcon } from '$lib/themes/icons';
 
 	let { media }: { media: MediaMetadata } = $props();

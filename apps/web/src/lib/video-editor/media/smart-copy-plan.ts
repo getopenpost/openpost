@@ -12,7 +12,7 @@ import {
 } from 'mediabunny';
 import type { Project, TimelineItem, TimelineTrack } from '../project/types';
 import { effectiveMediaTracks } from '../timeline/utils/track-groups';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import {
 	appendResolvedAudioEqSources,
 	getAudioEqSettings,

@@ -1,11 +1,11 @@
 /** Persistent source-fingerprinted cache for embedded text subtitle tracks. */
 
 import type { EmbeddedSubtitleTrack } from '../media/embedded-subtitles';
-import type { MediaMetadata } from '../media/types';
-import { readJson, writeJsonAtomic } from './fs-primitives';
-import { createLogger } from './logger';
-import { mediaEmbeddedSubtitlesPath } from './paths';
-import { requireWorkspaceRoot } from './root';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
+import { readJson, writeJsonAtomic } from '@openpost/editor-shared/workspace';
+import { createLogger } from '@openpost/editor-shared/workspace';
+import { mediaEmbeddedSubtitlesPath } from '@openpost/editor-shared/workspace';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 
 const logger = createLogger('WorkspaceFS:EmbeddedSubtitles');
 

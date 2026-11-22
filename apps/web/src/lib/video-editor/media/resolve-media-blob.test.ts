@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolveMediaBlob } from './resolve-media-blob';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 
 describe('resolveMediaBlob', () => {
 	afterEach(() => vi.unstubAllGlobals());

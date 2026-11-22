@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { client, type Workspace } from '$lib/api/client';
+
+// oxlint-disable-next-line anti-slop/no-module-mocking
+vi.mock('$app/environment', () => ({ browser: true }));
 import {
 	billingQueryKeys,
 	workspaceCreationCachePlan,
@@ -95,6 +98,22 @@ function deferred<T>() {
 	return { promise, resolve };
 }
 
+const storageData = new Map<string, string>();
+vi.stubGlobal('localStorage', {
+	getItem: (key: string) => storageData.get(key) ?? null,
+	setItem: (key: string, value: string) => void storageData.set(key, String(value)),
+	removeItem: (key: string) => void storageData.delete(key),
+	clear: () => storageData.clear(),
+	key: (index: number) => [...storageData.keys()][index] ?? null,
+	get length() {
+		return storageData.size;
+	}
+});
+vi.stubGlobal('indexedDB', {
+	deleteDatabase: vi.fn()
+});
+vi.stubGlobal('window', {});
+
 describe('workspace settings state', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -103,6 +122,7 @@ describe('workspace settings state', () => {
 		mocks.delete.mockReset();
 		queryClient.clear();
 		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		storageData.clear();
 		localStorage.removeItem('openpost_current_workspace');
 	});
 

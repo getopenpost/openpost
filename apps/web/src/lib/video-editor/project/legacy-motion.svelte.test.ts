@@ -7,9 +7,9 @@ import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { updateItemProperties } from '../timeline/actions/items';
 import { getProject } from '../workspace-fs/projects';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
-import { readJson, writeJsonAtomic } from '../workspace-fs/fs-primitives';
-import { projectJsonPath } from '../workspace-fs/paths';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
+import { readJson, writeJsonAtomic } from '@openpost/editor-shared/workspace';
+import { projectJsonPath } from '@openpost/editor-shared/workspace';
 import type { Project } from './types';
 
 afterEach(() => {

@@ -1,6 +1,6 @@
-import { sanitizeWorkspaceFileName } from '../workspace-fs/paths';
+import { sanitizeWorkspaceFileName } from '@openpost/editor-shared/workspace';
 import { importFile, MediaImportCancelledError, type ImportOptions } from './import.svelte';
-import type { ProjectAssetImporter } from './types';
+import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 
 export const MAX_REMOTE_MEDIA_BYTES = 2 * 1024 * 1024 * 1024;
 

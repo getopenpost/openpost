@@ -1,9 +1,9 @@
-import { createLogger } from '../../../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { localAiRuntimeRegistry } from '../../../local-ai/runtime-registry';
 import { importGeneratedVideo, rollbackNewGeneratedMedia } from '../../import.svelte';
 import { mediaTaskId, mediaTasks } from '../../media-tasks.svelte';
 import { resolveMediaBlob } from '../../resolve-media-blob';
-import type { MediaMetadata, ProjectAssetImporter } from '../../types';
+import type { MediaMetadata, ProjectAssetImporter } from '@openpost/editor-shared/media';
 import { mediaPool } from '../../pool.svelte';
 import { gpuMediaJobScheduler } from '../gpu-media-job-scheduler';
 import { abortable } from '$lib/abortable';

@@ -137,6 +137,20 @@ describe('media-capabilities', () => {
 			}));
 			expect(validateProviderMedia('bluesky', images)).toEqual([]);
 		}
+		for (const count of [1, 4, 5, 10]) {
+			for (const mimeType of ['image/gif', 'application/pdf', '']) {
+				const images = Array.from({ length: count }, (_, index) => ({
+					id: `image-${index}`,
+					mimeType: index === count - 1 ? mimeType : 'image/jpeg'
+				}));
+				expect(validateProviderMedia('bluesky', images)).toContainEqual({
+					provider: 'bluesky',
+					severity: 'error',
+					mediaId: `image-${count - 1}`,
+					message: 'Bluesky images must be JPEG, PNG, or WebP.'
+				});
+			}
+		}
 		const tooMany = Array.from({ length: 11 }, (_, index) => ({
 			id: 'image-' + index,
 			mimeType: 'image/jpeg'

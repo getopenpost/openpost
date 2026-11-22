@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 
-import { parseNpmViewResult } from "./npm-view-result.mjs";
+import { parseNpmViewResult } from "./npm-registry.mjs";
 
 function option(name) {
   const index = process.argv.indexOf(name);

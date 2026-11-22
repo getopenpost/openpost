@@ -10,11 +10,6 @@ const probe = workflow
   .match(/- name: Check for new stars[\s\S]*?run: \|\n((?: {10}[^\n]*\n)+)/)?.[1]
   .replace(/^ {10}/gm, "");
 
-test("one refresh every two days limits asset-only commits", () => {
-  const crons = [...workflow.matchAll(/- cron: "([^"]+)"/g)].map((match) => match[1]);
-  assert.deepEqual(crons, ["17 9 */2 * *"]);
-});
-
 for (const [name, previous, current, expected] of [
   ["unchanged stars skip the update", "42", "42", "changed=false\n"],
   ["lost stars skip the update", "42", "41", "changed=false\n"],

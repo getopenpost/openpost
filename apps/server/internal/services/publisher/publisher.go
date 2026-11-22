@@ -549,6 +549,13 @@ func (s *Service) publishRendition(
 	if err != nil {
 		return err
 	}
+	// Resolve legacy dimensionless gallery assets before any media blob reaches
+	// the provider. The resolved in-memory metadata is used for the record.
+	if strings.EqualFold(account.Platform, "bluesky") {
+		if err := s.preflightBlueskyGalleryMedia(ctx, mediaAttachments); err != nil {
+			return fmt.Errorf("bluesky gallery preflight: %w", err)
+		}
+	}
 	settings = capabilities.NormalizeMediaTextLinkSettings(account.Platform, len(mediaAttachments), settings)
 
 	if err := s.hydratePublicSettingMediaURLs(ctx, publication.WorkspaceID, account.Platform, settings); err != nil {
@@ -860,6 +867,11 @@ func (s *Service) publishRenditionSegments(
 		mediaAttachments, mediaAltTexts, mediaSettings, err := s.loadRenditionSegmentMedia(ctx, segment.ID)
 		if err != nil {
 			return s.persistRenditionSegmentOutcome(ctx, segment, err)
+		}
+		if strings.EqualFold(account.Platform, "bluesky") {
+			if err := s.preflightBlueskyGalleryMedia(ctx, mediaAttachments); err != nil {
+				return s.persistRenditionSegmentOutcome(ctx, segment, fmt.Errorf("bluesky gallery preflight: %w", err))
+			}
 		}
 		requiredMedia := make([]capabilities.MediaItem, 0, len(mediaAttachments))
 		for _, media := range mediaAttachments {

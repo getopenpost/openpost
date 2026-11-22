@@ -1,11 +1,10 @@
 import { expect, test } from "bun:test";
+import braces from "braces";
 import { cpSync, mkdtempSync, mkdirSync, appendFileSync, rmSync, symlinkSync } from "node:fs";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const braces = createRequire(path.resolve("package.json"))("braces");
 const check = fileURLToPath(new URL("./check-braces-security-patch.mjs", import.meta.url));
 
 async function runCheck(cwd) {

@@ -9,11 +9,11 @@ timeout 600 bun run capture:product-demos
 ```
 
 This builds the frontend, starts an isolated test server, creates disposable users,
-and records the scenarios in `tests/app/product-demos.spec.ts`, `product-demo-image.ts`, and
+and records the scenarios in `tests/capture/product-demos.spec.ts`, `product-demo-image.ts`, and
 `product-demo-video.ts`. Each scene declares its caption, browser actions, total
 `seconds`, and final `hold` in milliseconds. Edit those scenes to change the story.
 The fixture data is shared with product stills through
-`tests/app/product-capture-fixtures.ts`.
+`tests/capture/product-capture-fixtures.ts`.
 
 The accounts, provider capabilities, schedule response, analytics and inbox are
 sample data. Meme rendering, image editing, video editing and the scheduling

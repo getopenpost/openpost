@@ -22,6 +22,7 @@ const providerIcons: Record<string, string> = {
   lemmy: docsPath("/assets/logos/lemmy.svg"),
   piefed: docsPath("/assets/logos/piefed.svg"),
   discord: docsPath("/assets/logos/discord.svg"),
+  youtube: docsPath("/assets/logos/youtube.svg"),
 };
 
 /**

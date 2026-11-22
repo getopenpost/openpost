@@ -257,10 +257,20 @@ async function ship() {
 }
 
 // Main pushes and manual dispatches on main both run every core gate. A
+async function pollWorkflowRunId(args, missingMessage) {
+  for (let attempt = 0; attempt < 36; attempt += 1) {
+    const result = runOptional(args);
+    const id = result.ok ? result.stdout.trim() : "";
+    if (/^[1-9][0-9]*$/u.test(id)) return id;
+    await Bun.sleep(5_000);
+  }
+  throw new Error(missingMessage);
+}
+
 // changelog-only commit skips push CI, so dispatch CI for it instead.
 async function waitForMainRun(revision) {
-  for (let attempt = 0; attempt < 36; attempt += 1) {
-    const result = runOptional([
+  return pollWorkflowRunId(
+    [
       "gh",
       "run",
       "list",
@@ -274,12 +284,7 @@ async function waitForMainRun(revision) {
       "databaseId,headSha,event",
       "--jq",
       `[.[] | select(.headSha == "${revision}" and (.event == "push" or .event == "workflow_dispatch")) | .databaseId] | max // empty`,
-    ]);
-    const id = result.ok ? result.stdout.trim() : "";
-    if (/^[1-9][0-9]*$/u.test(id)) return id;
-    await Bun.sleep(5_000);
-  }
-  throw new Error(
+    ],
     `CI did not start on main for ${revision}. If the commit only changed CHANGELOG.md or changes/, run gh workflow run CI --ref main and resume ship.`,
   );
 }
@@ -313,8 +318,8 @@ function requireCandidateVersion(runId, tag, revision) {
 }
 
 async function waitForTagRun(workflow, tag, revision) {
-  for (let attempt = 0; attempt < 36; attempt += 1) {
-    const result = runOptional([
+  return pollWorkflowRunId(
+    [
       "gh",
       "run",
       "list",
@@ -328,12 +333,9 @@ async function waitForTagRun(workflow, tag, revision) {
       "databaseId,headSha",
       "--jq",
       `[.[] | select(.headSha == "${revision}") | .databaseId] | max // empty`,
-    ]);
-    const id = result.ok ? result.stdout.trim() : "";
-    if (/^[1-9][0-9]*$/u.test(id)) return id;
-    await Bun.sleep(5_000);
-  }
-  throw new Error(`${workflow} did not start for ${tag}`);
+    ],
+    `${workflow} did not start for ${tag}`,
+  );
 }
 
 // Reports each finished job once and stops at the first failure with the

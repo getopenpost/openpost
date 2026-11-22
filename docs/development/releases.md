@@ -12,14 +12,14 @@ OpenPost follows [Semantic Versioning 2.0.0](https://semver.org/) and derives th
 
 ## Fast feedback and release qualification
 
-PRs and main pushes run the surfaces their diff touches, selected by `scripts/ci-plan.mjs` from [`config/release-surfaces.json`](https://github.com/getopenpost/openpost/blob/main/config/release-surfaces.json). Shared package changes follow declared dependencies to every consumer, and an unknown push base widens checks to every surface. Tags and the nightly run force the core gates; distributions such as Android and n8n follow the changes since the last published stable release.
+PRs run the surfaces their diff touches, selected by `scripts/ci-plan.mjs` from [`config/release-surfaces.json`](https://github.com/getopenpost/openpost/blob/main/config/release-surfaces.json). Shared package changes follow declared dependencies to every consumer, and an unknown push base widens checks to every surface. `main` pushes and the nightly run force the core gates; distributions such as Android and n8n follow the changes since the last published stable release.
 
 Every job checks out the repository and runs `.github/actions/setup`, which installs the Bun version pinned in `package.json`, restores the Bun download cache, and optionally adds Go, Node, Playwright Chromium and FFmpeg. Consumers of the canonical frontend artifact start through `needs:` once it exists, so no runner waits idle for another job.
 
-- Backend tests run once without the race detector on PRs, main and tags. The nightly run adds `-race` and coverage and splits top-level tests across four shards through `OPENPOST_GO_TEST_SHARD` (`scripts/go-test-shards.mjs`).
-- Component tests run in four Chromium shards beside one unit shard.
-- Core application browser shards assign whole spec files by recorded duration in `scripts/app-e2e-durations.json`. New files receive a median weight and deleted files are ignored. `OPENPOST_APP_E2E_SUITE=core` and `handoff` select disjoint suites; omitting the variable runs both locally. The handoff suite also needs the marketing artifact.
-- The public-site job builds marketing and documentation once, seals the delivery candidate on main and stable tags, and proves both production artifacts.
+- Backend tests run once without the race detector on PRs and `main`. The nightly run adds `-race` and coverage and splits top-level tests across four shards through `OPENPOST_GO_TEST_SHARD` (`scripts/go-test-shards.mjs`).
+- Component tests run in four Chromium shards beside one unit shard, with a 4-minute per-batch watchdog that kills hung batches and names unfinished files.
+- Core application browser shards run against one prebuilt E2E server binary using Playwright's native `--shard` across three shards (two workers each). `OPENPOST_APP_E2E_SUITE=core` and `handoff` select disjoint suites; omitting the variable runs both locally. The handoff suite also needs the marketing artifact.
+- The public-site job builds marketing and documentation once, seals the delivery candidate on `main`, and proves both production artifacts; `browser-docs` and `browser-marketing` verify both static exports.
 
 ## Release bookkeeping
 
@@ -38,7 +38,7 @@ bun run release -- plan   # optional: changed paths, release surfaces, planned v
 bun run release -- ship
 ```
 
-`ship` (also available as `prod`) releases a clean, committed `HEAD`. It validates release notes and identities, installs pinned dependencies, and checks unpushed changes with `check:affected --base refs/remotes/origin/main`. Unknown, shared package, and configuration changes fall back to full local preflight. It then pushes that exact revision, creates its immutable tag, watches tag CI and the release workflow, and verifies Hosted. Tag CI runs every core gate for the tagged revision, so a newer main push cannot cancel the candidate.
+`ship` (also available as `prod`) releases a clean, committed `HEAD`. It validates release notes and identities, pushes that exact revision to `main`, waits for `main` CI green on that SHA (whose run is never canceled by later pushes), verifies that the tested image version matches the release tag, creates and pushes the immutable tag, watches the release workflow, and verifies Hosted.
 
 When a job fails, `ship` stops and prints the failing step and the tail of its log. For canceled jobs it also reads GitHub annotations, which distinguish a job timeout from an ordinary cancellation. Fix a code failure locally and commit a new candidate. For infrastructure failures, rerun only failed jobs with `gh run rerun <run-id> --failed`, then run `ship` again. An existing remote tag resumes on its original revision even if `origin/main` advanced. Never move a failed release tag to changed code.
 

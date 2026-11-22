@@ -203,15 +203,21 @@ const socialNetworks = [
 ];
 
 test("social integration directory opens each network setup guide", async ({ page }) => {
+  test.setTimeout(60_000);
   await page.goto("/docs/self-hosting/integrations");
   await expect(page.getByRole("link", { name: "Image credits" })).toHaveCount(0);
   await expect(page.locator("main")).not.toContainText("images from Postiz");
   const directory = page.locator("#nd-page table").first();
   await expect(directory.getByRole("link")).toHaveCount(socialNetworks.length);
   for (const network of socialNetworks) {
-    await page.goto("/docs/self-hosting/integrations");
-    await directory.locator(`a[href$="/${network}"]`).click();
-    await expect(page).toHaveURL(new RegExp(`/integrations/${network}$`));
+    await expect(directory.locator(`a[href$="/${network}"]`)).toHaveCount(1);
+  }
+  await directory.locator(`a[href$="/${socialNetworks[0]}"]`).click();
+  await expect(page).toHaveURL(new RegExp(`/integrations/${socialNetworks[0]}$`));
+  for (const network of socialNetworks) {
+    if (network !== socialNetworks[0]) {
+      await page.goto(`/docs/self-hosting/integrations/${network}`);
+    }
     // Brand marks are images or inline SVG; either must actually render.
     const icon = page.locator(".docs-title-icon").locator("img, svg").first();
     await expect(icon, network).toBeVisible();

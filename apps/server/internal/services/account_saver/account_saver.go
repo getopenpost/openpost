@@ -90,24 +90,6 @@ func (s *AccountSaver) SetEntitlement(entitlement entitlements.Service) {
 	}
 }
 
-// SaveAccount saves a social account with encrypted tokens.
-// It handles the common logic of extracting account info, encrypting tokens,
-// and inserting into the social_accounts table.
-//
-//nolint:gocyclo
-func (s *AccountSaver) SaveAccount(ctx context.Context, actor workspaceaccess.ActorFacts, platformName, workspaceID, accountID, accountUsername, instanceURL string, tokenResp *platform.TokenResult) (*models.SocialAccount, error) {
-	return s.SaveAccountFromInput(ctx, SaveAccountInput{
-		Actor:           actor,
-		UserID:          actor.UserID,
-		PlatformName:    platformName,
-		WorkspaceID:     workspaceID,
-		AccountID:       accountID,
-		AccountUsername: accountUsername,
-		InstanceURL:     instanceURL,
-		Token:           tokenResp,
-	})
-}
-
 func (s *AccountSaver) SaveAccountFromInput(ctx context.Context, input SaveAccountInput) (*models.SocialAccount, error) {
 	accounts, err := s.SaveAccountsFromInputs(ctx, []SaveAccountInput{input})
 	if err != nil {

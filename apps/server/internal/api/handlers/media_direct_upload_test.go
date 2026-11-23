@@ -936,6 +936,52 @@ func TestCompleteMediaUploadSessionRetryDoesNotRecountQueuedVideo(t *testing.T) 
 	require.Equal(t, int64(12), current)
 }
 
+func TestCompleteMediaUploadSessionRepairsLegacyDeduplicatedImageDimensions(t *testing.T) {
+	t.Parallel()
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	var encoded bytes.Buffer
+	require.NoError(t, png.Encode(&encoded, image.NewRGBA(image.Rect(0, 0, 23, 17))))
+	content := encoded.Bytes()
+	hash := sha256.Sum256(content)
+
+	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{
+		ID:               "legacy-gallery-image",
+		WorkspaceID:      "ws-1",
+		FilePath:         "legacy-gallery-image.png",
+		StorageType:      "s3",
+		MimeType:         "image/png",
+		ProcessingStatus: mediaReadyStatus,
+		Size:             int64(len(content)),
+		OriginalFilename: "legacy-gallery-image.png",
+		FileHash:         hex.EncodeToString(hash[:]),
+		CreatedAt:        time.Now().UTC(),
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	storage.objects["legacy-gallery-image.png"] = content
+
+	mediaID := srv.createUploadSession(t, "gallery.png", "image/png", int64(len(content)))
+	storage.objects[mediaID+".png"] = content
+	response := srv.postJSON(t, "/api/v1/media/upload-session/"+mediaID+"/complete", map[string]any{
+		"workspace_id": "ws-1",
+	})
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var result MediaUploadResult
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
+	require.True(t, result.Deduped)
+	require.Equal(t, "legacy-gallery-image", result.ID)
+	require.Equal(t, 23, result.Width)
+	require.Equal(t, 17, result.Height)
+
+	var stored models.MediaAttachment
+	require.NoError(t, srv.db.NewSelect().Model(&stored).
+		Where("id = ?", "legacy-gallery-image").Scan(t.Context()))
+	require.Equal(t, 23, stored.Width)
+	require.Equal(t, 17, stored.Height)
+	require.Equal(t, mediaReadyStatus, stored.ProcessingStatus)
+	require.Contains(t, storage.deleted, mediaID+".png")
+}
+
 func TestCompleteMediaUploadSessionDedupesExistingMedia(t *testing.T) {
 	t.Parallel()
 

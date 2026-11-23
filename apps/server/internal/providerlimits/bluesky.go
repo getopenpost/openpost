@@ -10,6 +10,7 @@ const (
 	// The gallery Lexicon allows 20 items; Bluesky's current authoring limit is 10.
 	BlueskyImageMaxCount           = 10
 	BlueskyLegacyImageMaxCount     = 4
+	BlueskyImageMaxBytes           = 2_000_000
 	BlueskyVideoMaxBytes           = 300_000_000
 	BlueskyVideoMaxDurationSeconds = 10 * 60
 )

@@ -1267,13 +1267,52 @@ func (b *BlueskyAdapter) attachMediaToRecord(record map[string]interface{}, req 
 	if len(req.PlatformMediaIDs) == 0 {
 		return nil
 	}
+	if err := validateBlueskyRecordMedia(req); err != nil {
+		return err
+	}
 
-	isVideo := len(req.Media) > 0 && isVideoMime(req.Media[0].MimeType)
+	isVideo := len(req.Media) > 0 && strings.EqualFold(strings.TrimSpace(strings.SplitN(req.Media[0].MimeType, ";", 2)[0]), "video/mp4")
 	if isVideo {
 		return b.attachVideoToRecord(record, req)
 	}
-
 	return b.attachImagesToRecord(record, req)
+}
+
+// validateBlueskyRecordMedia is a provider-adapter invariant, not a
+// resurrection of the removed global media-validator registration system.
+// Publisher preflight enforces these rules earlier, before any blob upload.
+func validateBlueskyRecordMedia(req *PublishRequest) error {
+	count := len(req.PlatformMediaIDs)
+	if count > providerlimits.BlueskyImageMaxCount {
+		return fmt.Errorf("bluesky supports up to %d images per post", providerlimits.BlueskyImageMaxCount)
+	}
+	if len(req.Media) == 0 {
+		// Existing legacy call sites may construct an images record without
+		// attaching dimensions; gallery records still require aspect ratios.
+		return nil
+	}
+	if len(req.Media) != count {
+		return fmt.Errorf("bluesky media metadata count does not match uploaded blobs")
+	}
+	for i, item := range req.Media {
+		mimeType := strings.ToLower(strings.TrimSpace(strings.SplitN(item.MimeType, ";", 2)[0]))
+		switch mimeType {
+		case "video/mp4":
+			if count != 1 {
+				return fmt.Errorf("bluesky does not support mixing video with other attachments")
+			}
+			if item.Size > providerlimits.BlueskyVideoMaxBytes {
+				return fmt.Errorf("bluesky video exceeds the supported size limit")
+			}
+		case "image/jpeg", "image/png", "image/webp":
+			if count > providerlimits.BlueskyLegacyImageMaxCount && item.Size > providerlimits.BlueskyImageMaxBytes {
+				return fmt.Errorf("bluesky gallery image %d exceeds the supported size limit", i+1)
+			}
+		default:
+			return fmt.Errorf("bluesky attachment %d must be JPEG, PNG, WebP, or a single MP4 video", i+1)
+		}
+	}
+	return nil
 }
 
 func (b *BlueskyAdapter) attachVideoToRecord(record map[string]interface{}, req *PublishRequest) error {

@@ -843,6 +843,42 @@ func (s *Service) publishRenditionSegments(
 		}
 	}
 
+	// Inspect all outstanding Bluesky segments before the first new provider
+	// mutation. Reuse the inspected metadata below, including recovered image
+	// dimensions, instead of loading a second potentially different snapshot.
+	var preparedBlueskyMedia map[string]blueskyPreparedSegmentMedia
+	if strings.EqualFold(account.Platform, "bluesky") {
+		preparedBlueskyMedia, err = prepareBlueskyThreadMedia(
+			ctx, segments, s.loadRenditionSegmentMedia,
+			func(ctx context.Context, segment *models.RenditionSegment, attachments []models.MediaAttachment) error {
+				segmentSettings := map[string]interface{}{}
+				_ = json.Unmarshal([]byte(segment.SettingsJSON), &segmentSettings)
+				settings := mergePublisherSettings(destinationSettings, segmentSettings)
+				required := make([]capabilities.MediaItem, 0, len(attachments))
+				for _, media := range attachments {
+					if media.TrashedAt.IsZero() && media.ProcessingStatus == "ready" {
+						required = append(required, capabilities.MediaItem{ID: media.ID, MimeType: media.MimeType})
+					}
+				}
+				if issues := capabilities.ValidateAttachmentRequirement(account.Platform, rendition.OutputProfile, required, settings); len(issues) > 0 {
+					return fmt.Errorf("attachment validation: %s", issues[0].Message)
+				}
+				return s.preflightBlueskyGalleryMedia(ctx, attachments)
+			},
+		)
+		if err != nil {
+			var failed *blueskyThreadPreflightError
+			if errors.As(err, &failed) {
+				for i := range segments {
+					if segments[i].ID == failed.segmentID {
+						return s.persistRenditionSegmentOutcome(ctx, &segments[i], err)
+					}
+				}
+			}
+			return err
+		}
+	}
+
 	parentExternalID := ""
 	rootExternalID := ""
 	rootExternalURL := ""
@@ -866,13 +902,19 @@ func (s *Service) publishRenditionSegments(
 		segmentSettings := map[string]interface{}{}
 		_ = json.Unmarshal([]byte(segment.SettingsJSON), &segmentSettings)
 		settings := mergePublisherSettings(destinationSettings, segmentSettings)
-		mediaAttachments, mediaAltTexts, mediaSettings, err := s.loadRenditionSegmentMedia(ctx, segment.ID)
-		if err != nil {
-			return s.persistRenditionSegmentOutcome(ctx, segment, err)
-		}
-		if strings.EqualFold(account.Platform, "bluesky") {
-			if err := s.preflightBlueskyGalleryMedia(ctx, mediaAttachments); err != nil {
-				return s.persistRenditionSegmentOutcome(ctx, segment, fmt.Errorf("bluesky gallery preflight: %w", err))
+		var mediaAttachments []models.MediaAttachment
+		var mediaAltTexts []string
+		var mediaSettings []map[string]interface{}
+		if preparedBlueskyMedia != nil {
+			prepared, ok := preparedBlueskyMedia[segment.ID]
+			if !ok {
+				return s.persistRenditionSegmentOutcome(ctx, segment, fmt.Errorf("bluesky preflight did not prepare this segment"))
+			}
+			mediaAttachments, mediaAltTexts, mediaSettings = prepared.attachments, prepared.altTexts, prepared.mediaSettings
+		} else {
+			mediaAttachments, mediaAltTexts, mediaSettings, err = s.loadRenditionSegmentMedia(ctx, segment.ID)
+			if err != nil {
+				return s.persistRenditionSegmentOutcome(ctx, segment, err)
 			}
 		}
 		requiredMedia := make([]capabilities.MediaItem, 0, len(mediaAttachments))

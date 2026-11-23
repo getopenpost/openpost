@@ -83,7 +83,7 @@ func TestBlueskyGalleryFailsClosedOnLimitsAndIncompleteMedia(t *testing.T) {
 	}{
 		{"zero width", func(r *PublishRequest) { r.Media[2].Width = 0 }, "requires dimensions"},
 		{"negative height", func(r *PublishRequest) { r.Media[2].Height = -1 }, "requires dimensions"},
-		{"missing metadata", func(r *PublishRequest) { r.Media = r.Media[:3] }, "requires dimensions"},
+		{"missing metadata", func(r *PublishRequest) { r.Media = r.Media[:3] }, "metadata count"},
 		{"invalid blob", func(r *PublishRequest) { r.PlatformMediaIDs[2] = "not JSON" }, "decoding bluesky blob"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -94,4 +94,56 @@ func TestBlueskyGalleryFailsClosedOnLimitsAndIncompleteMedia(t *testing.T) {
 		})
 	}
 
+}
+
+func TestBlueskyGalleryAdapterRejectsMixedMediaAndInvalidFormats(t *testing.T) {
+	adapter := NewBlueskyAdapter("")
+	for _, test := range []struct {
+		name string
+		mutate func(*PublishRequest)
+		want string
+	}{
+		{
+			name: "video first followed by image",
+			mutate: func(r *PublishRequest) { r.Media[0].MimeType = "video/mp4" },
+			want: "mixing video",
+		},
+		{
+			name: "video second",
+			mutate: func(r *PublishRequest) { r.Media[1].MimeType = "video/mp4" },
+			want: "mixing video",
+		},
+		{
+			name: "unsupported video format",
+			mutate: func(r *PublishRequest) { r.Media[0].MimeType = "video/quicktime" },
+			want: "single MP4",
+		},
+		{
+			name: "invalid gallery image format",
+			mutate: func(r *PublishRequest) { r.Media[3].MimeType = "image/gif" },
+			want: "single MP4",
+		},
+		{
+			name: "oversized gallery metadata",
+			mutate: func(r *PublishRequest) { r.Media[2].Size = 2_000_001 },
+			want: "supported size limit",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			req := blueskyGalleryFixture(t, 5)
+			test.mutate(req)
+			_, err := adapter.buildPostRecord("did:plc:openpost", req, fixedBlueskyTime())
+			require.ErrorContains(t, err, test.want)
+		})
+	}
+}
+
+func TestBlueskySingleVideoRecordRemainsSupported(t *testing.T) {
+	req := blueskyGalleryFixture(t, 1)
+	req.Media[0].MimeType = "video/mp4"
+	req.PlatformMediaIDs[0] = `{"$type":"blob","mimeType":"video/mp4","size":1}`
+	record, err := NewBlueskyAdapter("").buildPostRecord("did:plc:openpost", req, fixedBlueskyTime())
+	require.NoError(t, err)
+	embed := record["embed"].(map[string]interface{})
+	require.Equal(t, "app.bsky.embed.video", embed["$type"])
 }

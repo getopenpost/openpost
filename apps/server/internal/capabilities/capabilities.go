@@ -44,7 +44,7 @@ const (
 	capabilityRevision   = "2026-09-26.1"
 	xMinVideoAspectRatio = "1:3"
 	xMaxVideoAspectRatio = "3:1"
-	blueskyImageMaxBytes = 2_000_000
+	blueskyImageMaxBytes = providerlimits.BlueskyImageMaxBytes
 )
 
 type Profile struct {

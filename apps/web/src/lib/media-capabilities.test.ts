@@ -26,6 +26,23 @@ describe('media-capabilities', () => {
 		);
 	});
 
+	it('allows a single Bluesky GIF and rejects mixed or oversized GIFs', () => {
+		expect(
+			validateProviderMedia('bluesky', [{ id: 'gif-1', mimeType: 'image/gif', size: 150_000_000 }])
+		).toEqual([]);
+		expect(
+			providerMediaWarningMessages('bluesky', [
+				{ id: 'gif-1', mimeType: 'image/gif' },
+				{ id: 'image-1', mimeType: 'image/jpeg' }
+			])
+		).toContain('Bluesky supports one GIF per post and cannot mix GIFs with other media.');
+		expect(
+			providerMediaWarningMessages('bluesky', [
+				{ id: 'gif-1', mimeType: 'image/gif', size: 300_000_001 }
+			])
+		).toContain('Bluesky GIF must be 300 MB or less.');
+	});
+
 	it('leaves Mastodon attachment counts and MOV support to the connected instance', () => {
 		const media = Array.from({ length: 6 }, (_, index) => ({
 			id: `mastodon-${index}`,

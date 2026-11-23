@@ -86,8 +86,8 @@ const checks = {
     bunTest("packages/changelog/src/index.test.mjs"),
   ]),
   "social-images": stage("social images", [bun("scripts/social-images/catalog.mjs", "--check")]),
+  "go-reachability": stage("Go reachability", [commandStep("scripts/check-go-deadcode.sh")]),
   reachability: stage("production reachability", [
-    commandStep("scripts/check-go-deadcode.sh"),
     commandStep(
       "bunx",
       "knip",
@@ -114,25 +114,33 @@ const checks = {
 };
 
 // Check stages inspect the checkout. Repository regression tests have one
-// owner: `bun test ./scripts` (the `test` task and the CI policy job).
+// owner: `bun test ./scripts` (the `test` task and the CI repository job).
 // Public routes build both production sites twice, so they stay out of the
 // policy aggregate. CI proves them in a dedicated job; local `check` still
-// runs them as their own phase.
-// Phases run in order. Asset surfaces scan the docs tree, so they follow the
-// docs stage that regenerates its API reference pages.
-const policyGroups = [
-  ["build-graph", "workflows", "mcp-registry", "docs", "release-version", "secret-scan"],
-  ["assets", "app-routes", "legal-policy", "provider-certification", "provider-facts"],
-  [
-    "plan-catalog",
-    "changelog",
-    "social-images",
-    "reachability",
-    "compatibility",
-    "ui-consistency",
-    "query-migration",
-  ],
+// runs them as their own phase. Go reachability belongs to the Go quality
+// job in CI and to the full local check.
+// The contract check generates into a snapshot and never writes the checkout,
+// so read-only checks run beside it. The docs stage regenerates checked-in
+// docs outputs, so it follows them; asset surfaces scan the docs tree and
+// production reachability reads sources after it.
+const policyIndependent = [
+  "build-graph",
+  "workflows",
+  "mcp-registry",
+  "release-version",
+  "secret-scan",
+  "app-routes",
+  "legal-policy",
+  "provider-certification",
+  "provider-facts",
+  "plan-catalog",
+  "changelog",
+  "social-images",
+  "compatibility",
+  "ui-consistency",
+  "query-migration",
 ];
+const policyGroups = [["docs"], ["assets", "reachability"]];
 
 if (import.meta.main) {
   try {
@@ -461,15 +469,17 @@ function checkPlan(requestedScope) {
     return plan("check", requestedScope, [[translations], [marketing]]);
   if (requestedScope === "docs") return plan("check", requestedScope, [[checks.docs]]);
 
+  const independent = policyIndependent.map((name) => checks[name]);
   const policy = policyGroups.map((group) => group.map((name) => checks[name]));
   if (requestedScope === "policy") {
-    return plan("check", requestedScope, [[contracts], [translations], ...policy]);
+    return plan("check", requestedScope, [[translations], [contracts, ...independent], ...policy]);
   }
   return plan("check", undefined, [
     [contracts],
     [translations],
     [frontendAndMarketing, backend, cli],
     // Policy checks rewrite Paraglide output, so they run after its readers.
+    [...independent, checks["go-reachability"]],
     ...policy,
     // The production-artifact proof rebuilds both public sites, so it runs
     // after policy work instead of inside the policy aggregate.

@@ -35,6 +35,11 @@ runs:
         cache-dependency-path: |
           apps/server/go.sum
           apps/cli/go.sum
+    # Scripts that fall back to a checkout-local build cache (the contracts
+    # check) otherwise compile the server cold on every run.
+    - if: inputs.go == 'true'
+      shell: bash
+      run: echo "GOCACHE=$(go env GOCACHE)" >> "$GITHUB_ENV"
     - if: inputs.install == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:

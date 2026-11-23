@@ -77,7 +77,7 @@ Reviewed **26 September 2026**. The table above comes from OpenPost's capability
 
 | Provider | What to check |
 | --- | --- |
-| [Bluesky](https://docs.bsky.app/docs/tutorials/creating-a-post) | A segment can contain images or one [video](https://github.com/bluesky-social/atproto/blob/main/lexicons/app/bsky/embed/video.json). |
+| [Bluesky](https://docs.bsky.app/docs/tutorials/creating-a-post) | A segment can contain images, one animated GIF, or one [video](https://github.com/bluesky-social/atproto/blob/main/lexicons/app/bsky/embed/video.json). |
 | [X](https://docs.x.com/x-api/media/quickstart/media-upload-chunked) | Premium and verified accounts can have higher video limits. The destination preview applies them. |
 | [TikTok](https://developers.tiktok.com/docs/en/content-posting-api-media-transfer-guide) | The connected creator determines duration and privacy options. URL uploads need a verified domain and accessible HTTPS file. |
 | [YouTube](https://developers.google.com/youtube/v3/docs/videos/insert) | OpenPost's default size cap is lower than the API maximum. Unverified API projects may be limited to private uploads. |

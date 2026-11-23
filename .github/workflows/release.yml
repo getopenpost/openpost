@@ -276,7 +276,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: apps/cli/go.mod
           cache-dependency-path: apps/cli/go.sum
@@ -421,7 +421,7 @@ jobs:
             --core
       # Promotion only retags an index; the runner's preinstalled Buildx
       # plugin provides imagetools, so no builder setup is needed.
-      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -757,7 +757,7 @@ jobs:
       - name: Create openpost-bot token
         id: app-token
         # Bot writes require the configured OpenPost GitHub App.
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           app-id: ${{ vars.OPENPOST_BOT_APP_ID }}
           private-key: ${{ secrets.OPENPOST_BOT_PRIVATE_KEY }}

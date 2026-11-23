@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/providerlimits"
 
 	"github.com/stretchr/testify/require"
 )
@@ -183,4 +184,109 @@ func hasAttachmentIssue(issues []ValidationIssue) bool {
 		}
 	}
 	return false
+}
+
+func requireIssueForField(t *testing.T, issues []ValidationIssue, code, field string) {
+	t.Helper()
+	for _, issue := range issues {
+		if issue.Code == code && issue.Field == field {
+			return
+		}
+	}
+	require.Failf(t, "missing validation issue", "code %q for field %q not found in %#v", code, field, issues)
+}
+
+func TestAttachmentRequirementsAreSegmentScopedAndValidateShape(t *testing.T) {
+	requirement := map[string]any{"attachment_requirement": map[string]any{"kind": "video"}}
+	resolved := Resolve("x", ResolveInput{RequestedOutputProfile: "x.thread", Segments: []ResolveSegment{{ID: "first", Body: "Watch the demo", Settings: requirement}, {ID: "reply", Body: "Details"}}})
+	require.False(t, resolved.Compatible)
+	missing := 0
+	for _, issue := range resolved.Issues {
+		if issue.Code == "attachment_required" {
+			missing++
+			require.Equal(t, "first", issue.SegmentID)
+		}
+	}
+	require.Equal(t, 1, missing, "the reply must not inherit the first source's attachment requirement")
+	for _, malformed := range []any{"video", true, []string{"video"}, map[string]any{"kind": "audio"}} {
+		require.True(t, hasAttachmentIssue(ValidateAttachmentRequirement("x", "x.post", nil, map[string]any{"attachment_requirement": malformed})))
+	}
+	require.Empty(t, ValidateAttachmentRequirement("x", "x.post", nil, map[string]any{"attachment_requirement": nil}))
+}
+
+func TestYouTubePublishTimeReadiness(t *testing.T) {
+	for _, scenario := range []struct {
+		name, privacy, publishAt string
+		wantCode                 string
+	}{
+		{"private scheduled video", "private", "2030-10-12T20:00:00+08:00", ""},
+		{"private unscheduled video", "private", "", ""},
+		{"past time follows YouTube behavior", "private", "2020-10-12T12:00:00Z", ""},
+		{"invalid time", "private", "tomorrow", "setting_datetime_invalid"},
+		{"missing timezone", "private", "2030-10-12T20:00:00", "setting_datetime_invalid"},
+		{"public schedule", "public", "2030-10-12T12:00:00Z", "setting_dependency"},
+		{"unlisted schedule", "unlisted", "2030-10-12T12:00:00Z", "setting_dependency"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			resolved := Resolve(ProviderYouTube, ResolveInput{
+				RequestedOutputProfile: "youtube.video",
+				Segments: []ResolveSegment{{ID: "source", Title: "Launch", Media: []MediaItem{{
+					ID: "video", MimeType: "video/mp4", Size: 1024, Width: 1920, Height: 1080, DurationMS: 300_000, AnalysisStatus: "ready",
+				}}}},
+				Settings: map[string]any{"privacy": scenario.privacy, "category_id": "22", "publish_at": scenario.publishAt},
+			})
+			if scenario.wantCode == "" {
+				require.True(t, resolved.Compatible, "%+v", resolved.Issues)
+			} else {
+				require.False(t, resolved.Compatible)
+				requireIssueForField(t, resolved.Issues, scenario.wantCode, "publish_at")
+			}
+		})
+	}
+}
+
+func TestYouTubePublishTimeCannotBecomeSocialSetDefault(t *testing.T) {
+	resolved := Resolve(ProviderYouTube, ResolveInput{
+		RequestedOutputProfile: "youtube.video", Context: ResolveContextSocialSetDefaults,
+	})
+	for _, field := range resolved.Settings {
+		require.NotEqual(t, "publish_at", field.Key, "absolute publish times belong to individual posts")
+	}
+	values := map[string]any{"privacy": "private", "publish_at": "2030-10-12T12:00:00Z"}
+	issues := ValidateDefaultSettings(resolved.Capability, SettingScopeDestination, values, values)
+	requireIssueForField(t, issues, "unsupported_setting", "publish_at")
+}
+
+func TestBlueskyGIFValidation(t *testing.T) {
+	// Single animated GIF up to Bluesky's 100 MB video service limit is allowed.
+	resolved := Resolve(ProviderBluesky, ResolveInput{
+		Segments: []ResolveSegment{{
+			ID:    "seg-1",
+			Body:  "Check out this GIF",
+			Media: []MediaItem{{ID: "gif-1", MimeType: "image/gif", Size: 5_000_000}},
+		}},
+	})
+	require.True(t, resolved.Compatible, "single Bluesky GIF should be compatible, got %+v", resolved.Issues)
+	require.Empty(t, resolved.Issues)
+
+	// Static images on Bluesky still enforce the 2 MB image limit.
+	staticOverLimit := Validate(ProviderBluesky, models.ContentProfileImagePost, "Caption", "", "", []MediaItem{
+		{ID: "img-1", MimeType: "image/jpeg", Size: blueskyImageMaxBytes + 1},
+	}, nil)
+	requireIssueCode(t, staticOverLimit, "media_size")
+
+	// Mixing a GIF with another image or GIF is rejected on both single posts and threads.
+	for _, profile := range []string{models.ContentProfileImagePost, models.ContentProfileThread} {
+		mixed := Validate(ProviderBluesky, profile, "Caption", "", "", []MediaItem{
+			{ID: "gif-1", MimeType: "image/gif", Size: 1000},
+			{ID: "img-1", MimeType: "image/jpeg", Size: 1000},
+		}, nil)
+		requireIssueCode(t, mixed, "gif_exclusive")
+	}
+
+	// GIFs exceeding 100 MB are rejected.
+	tooLarge := Validate(ProviderBluesky, models.ContentProfileImagePost, "Caption", "", "", []MediaItem{
+		{ID: "gif-big", MimeType: "image/gif", Size: providerlimits.BlueskyVideoMaxBytes + 1},
+	}, nil)
+	requireIssueCode(t, tooLarge, "media_size")
 }

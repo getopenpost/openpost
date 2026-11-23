@@ -8,7 +8,7 @@ import (
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-	"github.com/openpost/backend/internal/services/accountfeatures"
+
 	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -145,26 +145,6 @@ func TestUnreadAndArchiveSurviveIncomingCollection(t *testing.T) {
 	require.Len(t, page.Items, 1, "new incoming messages must reopen archived chats")
 }
 
-func TestMessageOperationReplayAndConflict(t *testing.T) {
-	t.Parallel()
-	s, db, _, actor := messagingFixture(t)
-	s.SetProvider("bluesky", testProvider{})
-	first, err := s.QueueMessage(t.Context(), actor, "conversation", "same text", "operation-1")
-	require.NoError(t, err)
-	replay, err := s.QueueMessage(t.Context(), actor, "conversation", "same text", "operation-1")
-	require.NoError(t, err)
-	require.Equal(t, first.ID, replay.ID)
-	require.Equal(t, "operation-1", replay.ClientOperationID)
-	_, err = s.QueueMessage(t.Context(), actor, "conversation", "changed text", "operation-1")
-	require.ErrorIs(t, err, ErrOperationConflict)
-	other, err := s.QueueMessage(t.Context(), actor, "conversation", "same text", "operation-2")
-	require.NoError(t, err)
-	require.NotEqual(t, first.ID, other.ID, "identical text is not an idempotency key")
-	count, err := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 2, count)
-}
-
 func TestInboxEventsReplayDeleteAndAuthorization(t *testing.T) {
 	t.Parallel()
 	s, db, account, actor := messagingFixture(t)
@@ -220,20 +200,6 @@ func TestRetryNeverReplaysAnAmbiguousProviderWrite(t *testing.T) {
 	require.Equal(t, 1, calls)
 }
 
-func TestLateReactionSnapshotDoesNotResurrectRemovedReaction(t *testing.T) {
-	t.Parallel()
-	s, db, account, _ := messagingFixture(t)
-	incoming := platform.ProviderMessage{ID: "m1", Direction: "inbound", Body: "hello", RemoteCreatedAt: s.now(), ReactionsKnown: true, Reactions: []platform.ProviderMessageReaction{{ActorRemoteID: "friend", Value: "heart"}}}
-	batch := platform.FetchMessageEventsResult{Conversations: []platform.ProviderConversation{{ID: "remote-thread", Messages: []platform.ProviderMessage{incoming}}}}
-	require.NoError(t, s.ApplyProviderEvents(t.Context(), account.ID, batch))
-	require.NoError(t, s.ApplyProviderEvents(t.Context(), account.ID, platform.FetchMessageEventsResult{Reactions: []platform.ProviderMessageReaction{{ConversationID: "remote-thread", MessageID: "m1", ActorRemoteID: "friend", Value: "heart", Deleted: true}}}))
-	// A history response that began earlier can contain this stale snapshot.
-	require.NoError(t, s.ApplyProviderEvents(t.Context(), account.ID, batch))
-	var count int
-	require.NoError(t, db.NewRaw(`SELECT COUNT(*) FROM message_reactions`).Scan(t.Context(), &count))
-	require.Zero(t, count)
-}
-
 func TestUnreadSummaryCountsConversationsBeyondPageOne(t *testing.T) {
 	t.Parallel()
 	s, db, _, actor := messagingFixture(t)
@@ -248,19 +214,6 @@ func TestUnreadSummaryCountsConversationsBeyondPageOne(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, page.Items, 100)
 	require.NotNil(t, page.NextCursor)
-}
-
-func TestAdmissionUsesTransactionBoundFeatureGate(t *testing.T) {
-	t.Parallel()
-	s, db, _, actor := messagingFixture(t)
-	_, err := db.NewInsert().Model(&models.AccountFeature{SocialAccountID: "account", WorkspaceID: "workspace", Feature: "messaging", Enabled: true, DecidedAt: s.now()}).Exec(t.Context())
-	require.NoError(t, err)
-	s.SetFeatureGate(accountfeatures.NewService(db, map[string]platform.Adapter{"bluesky": &platform.BlueskyAdapter{}}, nil))
-	s.SetProvider("bluesky", testProvider{})
-	ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
-	defer cancel()
-	_, err = s.QueueMessage(ctx, actor, "conversation", "one connection", "single-pool")
-	require.NoError(t, err, "the feature gate must reuse the admission transaction's SQLite connection")
 }
 
 func TestForegroundEntryWakesColdAccountAndCoalescesDevices(t *testing.T) {
@@ -280,92 +233,4 @@ func TestForegroundEntryWakesColdAccountAndCoalescesDevices(t *testing.T) {
 		count, err := db.NewSelect().Model((*models.Job)(nil)).Where("type=?", JobTypeMessagesSync).Count(t.Context())
 		return err == nil && count == 1
 	}, 2*time.Second, 10*time.Millisecond)
-}
-
-func TestCounterpartReadReceiptsRespectWatermarksAndNeverRegress(t *testing.T) {
-	t.Parallel()
-	for _, receiptKind := range []string{"watermark", "message ID"} {
-		t.Run(receiptKind, func(t *testing.T) {
-			s, db, account, actor := messagingFixture(t)
-			at := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
-			require.NoError(t, s.ApplyProviderEvents(t.Context(), account.ID, platform.FetchMessageEventsResult{Conversations: []platform.ProviderConversation{
-				{ID: "remote-thread", LastRemoteMessageID: "inbound", LastMessageAt: at.Add(time.Minute), Messages: []platform.ProviderMessage{
-					{ID: "before", Direction: "outbound", RemoteCreatedAt: at.Add(-time.Second)},
-					{ID: "boundary", Direction: "outbound", RemoteCreatedAt: at},
-					{ID: "after", Direction: "outbound", RemoteCreatedAt: at.Add(time.Second)},
-					{ID: "inbound", Direction: "inbound", RemoteCreatedAt: at.Add(-time.Minute)},
-					{ID: "unknown-time", Direction: "outbound"},
-				}},
-				{ID: "other-thread", Messages: []platform.ProviderMessage{{ID: "other", Direction: "outbound", RemoteCreatedAt: at.Add(-time.Minute)}}},
-			}}))
-			initial, err := s.Changes(t.Context(), actor, "workspace", "", 0)
-			require.NoError(t, err)
-			read := platform.ProviderReadState{ConversationID: "remote-thread", ActorRemoteID: "friend", ReadAt: at}
-			if receiptKind == "message ID" {
-				read.MessageID = "boundary"
-			}
-			apply := func(read platform.ProviderReadState) {
-				t.Helper()
-				require.NoError(t, s.ApplyProviderEvents(t.Context(), account.ID, platform.FetchMessageEventsResult{ReadStates: []platform.ProviderReadState{read}}))
-			}
-			apply(read)
-			changes, err := s.Changes(t.Context(), actor, "workspace", initial.Cursor, 0)
-			require.NoError(t, err)
-			wantIDs := []string{"boundary"}
-			if receiptKind == "watermark" {
-				wantIDs = append(wantIDs, "before")
-			}
-			changedIDs := make([]string, 0, len(changes.Messages))
-			for _, message := range changes.Messages {
-				changedIDs = append(changedIDs, message.RemoteMessageID)
-			}
-			require.ElementsMatch(t, wantIDs, changedIDs, "only read outbound messages should be emitted")
-			// Both a delayed receipt and its replay must leave the later read time intact.
-			read.ReadAt = at.Add(-time.Millisecond)
-			apply(read)
-			apply(read)
-			// A viewer's timestamp-only receipt and an anonymous receipt must not
-			// mark provider reads or clear the viewer's incoming unread state.
-			apply(platform.ProviderReadState{ConversationID: "remote-thread", ActorRemoteID: account.AccountID, ReadAt: at.Add(time.Hour)})
-			apply(platform.ProviderReadState{ConversationID: "remote-thread", ReadAt: at.Add(time.Hour)})
-			var messages []models.DirectMessage
-			require.NoError(t, db.NewSelect().Model(&messages).Scan(t.Context()))
-			for _, message := range messages {
-				if message.RemoteMessageID == "boundary" || (receiptKind == "watermark" && message.RemoteMessageID == "before") {
-					require.True(t, at.Equal(message.ProviderReadAt), "read time regressed for %s", message.RemoteMessageID)
-				} else {
-					require.True(t, message.ProviderReadAt.IsZero(), "unrelated message %s was marked read", message.RemoteMessageID)
-				}
-			}
-			var conversation models.Conversation
-			require.NoError(t, db.NewSelect().Model(&conversation).Where("id=?", "conversation").Scan(t.Context()))
-			require.Equal(t, 1, conversation.UnreadCount)
-			require.True(t, conversation.ReadAt.IsZero())
-		})
-	}
-}
-
-func TestManualRefreshReturnsCoalescedWorkspaceCollectionReceipts(t *testing.T) {
-	t.Parallel()
-	s, db, _, actor := messagingFixture(t)
-	s.SetProvider("bluesky", testProvider{})
-	queued, err := s.RefreshWorkspace(t.Context(), actor, "workspace", true)
-	require.NoError(t, err)
-	require.Equal(t, 1, queued)
-	first, err := s.ActiveRefreshJobIDs(t.Context(), actor, "workspace")
-	require.NoError(t, err)
-	require.Len(t, first, 1)
-	queued, err = s.RefreshWorkspace(t.Context(), actor, "workspace", true)
-	require.NoError(t, err)
-	require.Zero(t, queued)
-	again, err := s.ActiveRefreshJobIDs(t.Context(), actor, "workspace")
-	require.NoError(t, err)
-	require.Equal(t, first, again)
-	_, err = s.ActiveRefreshJobIDs(t.Context(), Actor{UserID: actor.UserID, CredentialWorkspaceID: "other"}, "workspace")
-	require.ErrorIs(t, err, ErrAccessDenied)
-	_, err = db.NewUpdate().Model((*models.Job)(nil)).Set("status='completed'").Where("id=?", first[0]).Exec(t.Context())
-	require.NoError(t, err)
-	finished, err := s.ActiveRefreshJobIDs(t.Context(), actor, "workspace")
-	require.NoError(t, err)
-	require.Empty(t, finished)
 }

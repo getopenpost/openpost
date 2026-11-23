@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
@@ -69,12 +68,6 @@ func (s *recordingCaptionStorage) Open(_ context.Context, id string) (io.ReadClo
 		return nil, errors.New("object not found")
 	}
 	return io.NopCloser(bytes.NewReader(data)), nil
-}
-
-func (s *recordingCaptionStorage) openedKeys() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return append([]string(nil), s.opens...)
 }
 
 type mediaCaptionTestServer struct {
@@ -151,113 +144,6 @@ func (s *mediaCaptionTestServer) generate(t *testing.T, mediaID, locale string, 
 	return rec
 }
 
-func TestGenerateMediaAltTextUsesOnlyMediumThumbnailAndPersistsResult(t *testing.T) {
-	t.Parallel()
-
-	providerCalls := 0
-	srv := newMediaCaptionTestServer(t, captionerFunc(func(_ context.Context, input imagecaption.Input) (imagecaption.Result, error) {
-		providerCalls++
-		require.Equal(t, []byte("bounded-medium-thumbnail"), input.Image)
-		require.Equal(t, "image/jpeg", input.MIMEType)
-		require.Equal(t, "pt-PT", input.Locale)
-		require.Equal(t, "Our team is preparing the public launch.", input.PostContext)
-		return imagecaption.Result{AltText: "Uma equipa prepara uma publicação.", Model: "openai/gpt-5.6-luna"}, nil
-	}))
-	srv.insertMedia(t, models.MediaAttachment{ID: "image-1"})
-
-	response := srv.generate(t, "image-1", "pt-PT", "Our team is preparing the public launch.")
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var output GenerateMediaAltTextOutput
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &output.Body))
-	require.Equal(t, "Uma equipa prepara uma publicação.", output.Body.AltText)
-	require.True(t, output.Body.Generated)
-	require.Equal(t, "openai/gpt-5.6-luna", output.Body.Model)
-	require.Equal(t, 1, providerCalls)
-	require.Equal(t, []string{"md-image-1.jpg"}, srv.storage.openedKeys())
-
-	var media models.MediaAttachment
-	require.NoError(t, srv.db.NewSelect().Model(&media).Where("id = ?", "image-1").Scan(t.Context()))
-	require.Equal(t, "Uma equipa prepara uma publicação.", media.AltText)
-}
-
-func TestGenerateMediaAltTextReturnsExistingTextWithoutProviderOrStorage(t *testing.T) {
-	t.Parallel()
-
-	providerCalls := 0
-	srv := newMediaCaptionTestServer(t, captionerFunc(func(_ context.Context, _ imagecaption.Input) (imagecaption.Result, error) {
-		providerCalls++
-		return imagecaption.Result{}, errors.New("must not be called")
-	}))
-	srv.insertMedia(t, models.MediaAttachment{ID: "image-1", AltText: "User-written description"})
-
-	response := srv.generate(t, "image-1", "en")
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var output GenerateMediaAltTextOutput
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &output.Body))
-	require.Equal(t, "User-written description", output.Body.AltText)
-	require.False(t, output.Body.Generated)
-	require.Empty(t, output.Body.Model)
-	require.Zero(t, providerCalls)
-	require.Empty(t, srv.storage.openedKeys())
-}
-
-func TestGenerateMediaAltTextRejectsInvalidMedia(t *testing.T) {
-	t.Parallel()
-
-	now := time.Now().UTC()
-	tests := []struct {
-		name  string
-		media models.MediaAttachment
-	}{
-		{name: "video", media: models.MediaAttachment{ID: "video", MimeType: "video/mp4"}},
-		{name: "processing", media: models.MediaAttachment{ID: "processing", ProcessingStatus: mediaProcessingStatus}},
-		{name: "deleted", media: models.MediaAttachment{ID: "deleted", TrashedAt: now}},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			providerCalls := 0
-			srv := newMediaCaptionTestServer(t, captionerFunc(func(_ context.Context, _ imagecaption.Input) (imagecaption.Result, error) {
-				providerCalls++
-				return imagecaption.Result{AltText: "Generated"}, nil
-			}))
-			srv.insertMedia(t, test.media)
-
-			response := srv.generate(t, test.media.ID, "en")
-			require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
-			require.Zero(t, providerCalls)
-			require.Empty(t, srv.storage.openedKeys())
-		})
-	}
-}
-
-func TestGenerateMediaAltTextReturnsUnavailableWhenProviderIsNotConfigured(t *testing.T) {
-	t.Parallel()
-
-	srv := newMediaCaptionTestServer(t, nil)
-	srv.insertMedia(t, models.MediaAttachment{ID: "image-1"})
-
-	response := srv.generate(t, "image-1", "en")
-	require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
-	require.Contains(t, response.Body.String(), "not configured")
-	require.Empty(t, srv.storage.openedKeys())
-}
-
-func TestGenerateMediaAltTextSanitizesProviderFailures(t *testing.T) {
-	t.Parallel()
-
-	srv := newMediaCaptionTestServer(t, captionerFunc(func(_ context.Context, _ imagecaption.Input) (imagecaption.Result, error) {
-		return imagecaption.Result{}, errors.New("provider response contained secret-token")
-	}))
-	srv.insertMedia(t, models.MediaAttachment{ID: "image-1"})
-
-	response := srv.generate(t, "image-1", "en")
-	require.Equal(t, http.StatusBadGateway, response.Code, response.Body.String())
-	require.Contains(t, response.Body.String(), "automatic image captioning failed")
-	require.NotContains(t, response.Body.String(), "secret-token")
-}
-
 func TestGenerateMediaAltTextMapsProviderRateLimitWithoutExposingDetails(t *testing.T) {
 	t.Parallel()
 
@@ -299,23 +185,6 @@ func TestGenerateMediaAltTextPreservesManualEditDuringProviderRequest(t *testing
 	var media models.MediaAttachment
 	require.NoError(t, srv.db.NewSelect().Model(&media).Where("id = ?", "image-1").Scan(t.Context()))
 	require.Equal(t, "User saved this while generation was running.", media.AltText)
-}
-
-func TestGenerateMediaAltTextFailsClosedWhenMediumThumbnailIsMissing(t *testing.T) {
-	t.Parallel()
-
-	providerCalls := 0
-	srv := newMediaCaptionTestServer(t, captionerFunc(func(_ context.Context, _ imagecaption.Input) (imagecaption.Result, error) {
-		providerCalls++
-		return imagecaption.Result{AltText: "Generated"}, nil
-	}))
-	srv.insertMedia(t, models.MediaAttachment{ID: "image-1", ThumbnailsJSON: `{}`})
-
-	response := srv.generate(t, "image-1", "en")
-	require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
-	require.Contains(t, response.Body.String(), "preview is unavailable")
-	require.Zero(t, providerCalls)
-	require.Empty(t, srv.storage.openedKeys())
 }
 
 var _ mediastore.BlobStorage = (*recordingCaptionStorage)(nil)

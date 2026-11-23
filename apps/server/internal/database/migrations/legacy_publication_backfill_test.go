@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/publicationauth"
 	"github.com/stretchr/testify/require"

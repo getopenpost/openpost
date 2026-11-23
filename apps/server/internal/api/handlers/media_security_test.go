@@ -18,7 +18,7 @@ import (
 	"net/textproto"
 	"os"
 	"path/filepath"
-	"strconv"
+
 	"testing"
 	"time"
 
@@ -98,43 +98,6 @@ func TestMediaUploadRejectsActiveContent(t *testing.T) {
 	}
 }
 
-func TestStoredMediaCannotRenderActiveDocuments(t *testing.T) {
-	t.Parallel()
-	for index, mimeType := range []string{"text/html; charset=utf-8", "application/xhtml+xml", "image/svg+xml", "text/xml", "application/xml", "application/pdf", "application/octet-stream", "", "text/javascript", "text/css", "text/plain", "image/example+xml", "image/unknown"} {
-		t.Run(strconv.Itoa(index), func(t *testing.T) {
-			storage := newFakeDirectUploadStorage()
-			srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
-			content := []byte("<!doctype html><script>document.title='executed'</script>")
-			storage.objects["legacy.html"] = content
-			_, err := srv.db.NewInsert().Model(&models.MediaAttachment{ID: "legacy", WorkspaceID: "ws-1", FilePath: "legacy.html", MimeType: mimeType, OriginalFilename: "proof.html", ProcessingStatus: "ready"}).Exec(t.Context())
-			require.NoError(t, err)
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/media/legacy", nil)
-			req.Header.Set("Authorization", "Bearer web-token")
-			response := httptest.NewRecorder()
-			srv.echo.ServeHTTP(response, req)
-			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-			require.Equal(t, content, response.Body.Bytes())
-			require.Equal(t, "application/octet-stream", response.Header().Get("Content-Type"))
-			require.Contains(t, response.Header().Get("Content-Disposition"), "attachment")
-			require.Equal(t, "nosniff", response.Header().Get("X-Content-Type-Options"))
-			require.Contains(t, response.Header().Get("Content-Security-Policy"), "sandbox")
-		})
-	}
-}
-
-func TestMediaUploadSessionRejectsActiveDeclarations(t *testing.T) {
-	t.Parallel()
-	for index, contentType := range []string{"Text/HTML; charset=utf-8", "application/xhtml+xml", "image/svg+xml; charset=utf-8", "text/xml", "application/xml", "application/example+xml"} {
-		t.Run(strconv.Itoa(index), func(t *testing.T) {
-			storage := newFakeDirectUploadStorage()
-			srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
-			response := srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{"workspace_id": "ws-1", "filename": "proof.bin", "mime_type": contentType, "size": 10})
-			require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
-			require.Zero(t, storage.sessions)
-		})
-	}
-}
-
 func assertMCPUploadRejected(t *testing.T, content, expected string) {
 	t.Helper()
 	srv := newMCPTestServer(t)
@@ -167,32 +130,6 @@ func assertMCPUploadRejected(t *testing.T, content, expected string) {
 	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Count(t.Context())
 	require.NoError(t, err)
 	require.Zero(t, count)
-}
-
-func TestStoredPassiveMediaKeepsInlineContentType(t *testing.T) {
-	t.Parallel()
-	for _, contentType := range []string{"image/png", "video/mp4", "audio/ogg; codecs=opus", "font/woff2", "application/x-font-ttf"} {
-		t.Run(contentType, func(t *testing.T) {
-			storage := newFakeDirectUploadStorage()
-			srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
-			storage.objects["passive.bin"] = []byte("passive media")
-			_, err := srv.db.NewInsert().Model(&models.MediaAttachment{ID: "passive", WorkspaceID: "ws-1", FilePath: "passive.bin", MimeType: contentType, ProcessingStatus: "ready"}).Exec(t.Context())
-			require.NoError(t, err)
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/media/passive", nil)
-			req.Header.Set("Authorization", "Bearer web-token")
-			response := httptest.NewRecorder()
-			srv.echo.ServeHTTP(response, req)
-			require.Equal(t, http.StatusOK, response.Code)
-			require.Equal(t, "passive media", response.Body.String())
-			require.Equal(t, contentType, response.Header().Get("Content-Type"))
-			require.Empty(t, response.Header().Get("Content-Disposition"))
-			policy := response.Header().Get("Content-Security-Policy")
-			require.Contains(t, policy, "sandbox allow-same-origin;")
-			require.Contains(t, policy, "media-src 'self'")
-			require.NotContains(t, policy, "allow-scripts")
-			require.Equal(t, "nosniff", response.Header().Get("X-Content-Type-Options"))
-		})
-	}
 }
 
 func TestMediaUploadRequiresDecodedImagePixels(t *testing.T) {

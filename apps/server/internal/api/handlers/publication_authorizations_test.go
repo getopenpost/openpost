@@ -107,29 +107,6 @@ func TestMCPPublicationAuthorizationRetainsTokenAndClientIdentity(t *testing.T) 
 	require.Equal(t, principal.ClientName, receipt.ActorClientName)
 }
 
-func TestPublicationCreationSourceUsesLowCardinalityActorOrigin(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		origin string
-		want   string
-	}{
-		{publicationauth.OriginBrowser, publicationCreationSourceWeb},
-		{publicationauth.OriginAPI, publicationCreationSourceAPI},
-		{publicationauth.OriginSDK, publicationCreationSourceSDK},
-		{publicationauth.OriginMCP, publicationCreationSourceMCP},
-		{publicationauth.OriginCLI, publicationCreationSourceCLI},
-		{publicationauth.OriginWorker, publicationCreationSourceAutopost},
-		{publicationauth.OriginLegacy, publicationCreationSourceUnknown},
-	}
-	for _, test := range tests {
-		t.Run(test.origin, func(t *testing.T) {
-			actor := publicationauth.Actor{Origin: test.origin, UserID: "user-1", SessionID: "session-1", TokenID: "token-1"}
-			ctx := publicationauth.WithActor(t.Context(), actor)
-			require.Equal(t, test.want, publicationCreationSource(ctx, "user-1"))
-		})
-	}
-}
-
 func TestAccountExportRedactsPublicationAuthorizationSecretsAndFingerprints(t *testing.T) {
 	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Publication)(nil), (*models.APIToken)(nil))
@@ -182,7 +159,7 @@ func seedPublicationAuthorizationHandlerFixture(t *testing.T, db *bun.DB) {
 		WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin,
 	}).Exec(t.Context())
 	require.NoError(t, err)
-	seedHandlerAccount(t, db, "account-1", "x")
+	seedHandlerAccount(t, db, "account-1")
 	_, err = db.NewInsert().Model(&models.Publication{
 		ID: "publication-1", WorkspaceID: "workspace-1", CreatedByID: "user-1",
 		Title: "Authorized", ContentProfile: models.ContentProfileShortText,

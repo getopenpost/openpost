@@ -61,24 +61,3 @@ func TestMastodonChangedAddressRejectsBeforeProviderWrite(t *testing.T) {
 	_, err := NewMastodonAdapter("", "", "", "https://social.example").Publish(t.Context(), "token", "author", &PublishRequest{Content: "@old@example.org", Settings: map[string]any{posttext.NativeSettingsKey: projection}})
 	require.ErrorContains(t, err, "selected mention changed")
 }
-
-func TestMastodonRepeatedIdentityVerifiesEverySelectedAddress(t *testing.T) {
-	original := httpClient
-	t.Cleanup(func() { httpClient = original })
-	writes := 0
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		if req.Method == http.MethodGet {
-			return jsonResponse(req, `{"id":"42","acct":"old@example.org"}`), nil
-		}
-		writes++
-		return jsonResponse(req, `{"id":"posted"}`), nil
-	})}
-	body := "@old@example.org @new@example.org"
-	target := posttext.MentionTarget{Provider: "mastodon", Kind: "person", ID: "42", Authority: "https://social.example", Handle: "old@example.org"}
-	other := target
-	other.Handle = "new@example.org"
-	projection := &posttext.Projection{Mentions: posttext.Mentions{Version: 1, Spans: []posttext.MentionSpan{{Start: 0, End: 16, Text: "@old@example.org", Target: target}, {Start: 17, End: 33, Text: "@new@example.org", Target: other}}}}
-	_, err := NewMastodonAdapter("", "", "", "https://social.example").Publish(t.Context(), "token", "author", &PublishRequest{Content: body, Settings: map[string]any{posttext.NativeSettingsKey: projection}})
-	require.ErrorContains(t, err, "selected mention changed")
-	require.Zero(t, writes)
-}

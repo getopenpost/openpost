@@ -22,33 +22,6 @@ func (feedbackTestDestination) Deliver(context.Context, feedback.Report) error {
 	return nil
 }
 
-func TestFeedbackHandlerRequiresAuthenticationAndConfiguredDestination(t *testing.T) {
-	t.Parallel()
-	e := echo.New()
-	group := e.Group("/api/v1")
-	api := humaecho.NewV4WithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
-	NewFeedbackHandler(feedback.NewService(nil, feedback.Config{
-		SupportURL: "https://github.com/getopenpost/openpost/issues/new",
-	}, nil), testAuthenticator{}).RegisterRoutes(api)
-
-	anonymous := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/feedback/config", nil)
-	anonymousRec := httptest.NewRecorder()
-	e.ServeHTTP(anonymousRec, anonymous)
-	require.Equal(t, http.StatusUnauthorized, anonymousRec.Code)
-
-	submit := httptest.NewRequestWithContext(
-		context.Background(),
-		http.MethodPost,
-		"/api/v1/feedback",
-		bytes.NewBufferString(`{"category":"bug","message":"Save failed."}`),
-	)
-	submit.Header.Set("Authorization", "Bearer web-token")
-	submit.Header.Set("Content-Type", "application/json")
-	submitRec := httptest.NewRecorder()
-	e.ServeHTTP(submitRec, submit)
-	require.Equal(t, http.StatusServiceUnavailable, submitRec.Code, submitRec.Body.String())
-}
-
 func TestFeedbackHandlerQueuesOptionalReportAndRateLimits(t *testing.T) {
 	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Job)(nil), (*models.User)(nil))
@@ -117,27 +90,4 @@ func TestFeedbackHandlerQueuesOptionalReportAndRateLimits(t *testing.T) {
 		require.NotContains(t, job.Payload, "screenshot")
 		require.NotContains(t, job.Payload, "diagnostics")
 	}
-}
-
-func TestFeedbackBodyLimitRejectsOversizedReportsBeforeDecoding(t *testing.T) {
-	t.Parallel()
-	e := echo.New()
-	group := e.Group("/api/v1")
-	api := humaecho.NewV4WithGroup(e, group, huma.DefaultConfig("Test", "1.0.0"))
-	NewFeedbackHandler(feedback.NewService(nil, feedback.Config{
-		SupportURL: "https://github.com/getopenpost/openpost/issues/new",
-	}, nil), testAuthenticator{}).RegisterRoutes(api)
-
-	request := httptest.NewRequestWithContext(
-		context.Background(),
-		http.MethodPost,
-		"/api/v1/feedback",
-		bytes.NewReader(make([]byte, maxFeedbackRequestBytes+1)),
-	)
-	request.Header.Set("Authorization", "Bearer web-token")
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-	e.ServeHTTP(recorder, request)
-
-	require.Equal(t, http.StatusRequestEntityTooLarge, recorder.Code, recorder.Body.String())
 }

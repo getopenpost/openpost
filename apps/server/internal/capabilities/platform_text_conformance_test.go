@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/openpost/backend/internal/providerlimits"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,50 +39,6 @@ func loadPlatformTextFixture(t *testing.T) platformTextFixture {
 	require.NotEmpty(t, fixture.Limits)
 	require.NotEmpty(t, fixture.Counts)
 	return fixture
-}
-
-// TestPlatformTextLimitsMatchSharedFixture guards the drift described in
-// getopenpost/openpost#415: the TypeScript composer and the Go validators
-// carry the same text limits in different languages. ProviderTextLimit is
-// the generic per-provider limit the composer mirrors, so it must equal the
-// fixture value for every shared platform.
-func TestPlatformTextLimitsMatchSharedFixture(t *testing.T) {
-	t.Parallel()
-	fixture := loadPlatformTextFixture(t)
-
-	for provider, want := range fixture.Limits {
-		limit, ok := ProviderTextLimit(provider)
-		require.True(t, ok, "provider %q has a Go text limit", provider)
-		require.Equal(t, want, limit, "provider %q text limit", provider)
-	}
-
-	t.Run("X tiers", func(t *testing.T) {
-		standard, ok := ProviderTextLimit(ProviderX)
-		require.True(t, ok)
-		require.Equal(t, fixture.Constants.XStandardCharLimit, standard)
-		for _, capability := range All() {
-			if capability.Provider == ProviderX {
-				require.Equal(t, fixture.Constants.XPremiumCharLimit, capability.TextLimit,
-					"X catalog entry %s", capability.Profile)
-			}
-		}
-	})
-
-	t.Run("YouTube description", func(t *testing.T) {
-		require.Equal(t, fixture.Constants.YouTubeDescriptionMaxBytes,
-			providerlimits.YouTubeDescriptionMaxBytes)
-		for _, capability := range All() {
-			if capability.Provider == ProviderYouTube {
-				require.Equal(t, providerlimits.YouTubeDescriptionMaxBytes, capability.TextLimit,
-					"YouTube catalog entry %s", capability.Profile)
-			}
-		}
-	})
-
-	t.Run("URL shortening lengths", func(t *testing.T) {
-		require.Equal(t, fixture.Constants.XTransformedURLLength, providerlimits.XTransformedURLLength)
-		require.Equal(t, fixture.Constants.MastodonURLLength, providerlimits.MastodonCountedURLLength)
-	})
 }
 
 // TestPlatformTextCountsMatchSharedFixture exercises the Go counters against

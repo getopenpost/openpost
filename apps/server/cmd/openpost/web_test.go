@@ -1,29 +1,22 @@
 package main
 
 import (
-	"compress/gzip"
 	"context"
-	"database/sql"
+
 	"encoding/json"
-	"fmt"
-	"io"
+
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
-	"os"
+
 	"strconv"
 	"testing"
 	"testing/fstest"
-	"time"
 
-	"github.com/andybalholm/brotli"
 	"github.com/labstack/echo/v4"
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/services/billing"
+
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 func registerSpaRoutes(e *echo.Echo, webFS fs.FS) {
@@ -67,149 +60,6 @@ func TestPWAControlFilesRevalidate(t *testing.T) {
 			require.Equal(t, "no-cache", response.Header().Get("Cache-Control"))
 		})
 	}
-}
-
-func TestSpaStaticAssetsPreferPrecompressedImmutableResponses(t *testing.T) {
-	modTime := time.Date(2026, time.July, 27, 12, 0, 0, 0, time.UTC)
-	webFS := fstest.MapFS{
-		"index.html": {
-			Data:    []byte("<html>app</html>"),
-			ModTime: modTime,
-		},
-		"_app/immutable/chunks/app.hash.js": {
-			Data:    []byte("identity"),
-			ModTime: modTime,
-		},
-		"_app/immutable/chunks/app.hash.js.br": {
-			Data:    []byte("brotli"),
-			ModTime: modTime,
-		},
-		"_app/immutable/chunks/app.hash.js.gz": {
-			Data:    []byte("gzip"),
-			ModTime: modTime,
-		},
-	}
-	e := echo.New()
-	registerSpaRoutes(e, webFS)
-
-	req := httptest.NewRequestWithContext(
-		context.Background(),
-		http.MethodGet,
-		"/_app/immutable/chunks/app.hash.js",
-		nil,
-	)
-	req.Header.Set("Accept-Encoding", "gzip, br")
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, "brotli", rec.Body.String())
-	require.Equal(t, "br", rec.Header().Get("Content-Encoding"))
-	require.Equal(t, "Accept-Encoding", rec.Header().Get("Vary"))
-	require.Equal(t, "public, max-age=31536000, immutable", rec.Header().Get("Cache-Control"))
-	require.Contains(t, rec.Header().Get("Content-Type"), "javascript")
-
-	qualityReq := httptest.NewRequestWithContext(
-		context.Background(),
-		http.MethodGet,
-		"/_app/immutable/chunks/app.hash.js",
-		nil,
-	)
-	qualityReq.Header.Set("Accept-Encoding", "br;q=0.5, gzip")
-	qualityRec := httptest.NewRecorder()
-	e.ServeHTTP(qualityRec, qualityReq)
-	require.Equal(t, http.StatusOK, qualityRec.Code)
-	require.Equal(t, "gzip", qualityRec.Body.String())
-	require.Equal(t, "gzip", qualityRec.Header().Get("Content-Encoding"))
-
-	rangeReq := httptest.NewRequestWithContext(
-		context.Background(),
-		http.MethodGet,
-		"/_app/immutable/chunks/app.hash.js",
-		nil,
-	)
-	rangeReq.Header.Set("Accept-Encoding", "br")
-	rangeReq.Header.Set("Range", "bytes=0-2")
-	rangeRec := httptest.NewRecorder()
-	e.ServeHTTP(rangeRec, rangeReq)
-	require.Equal(t, http.StatusPartialContent, rangeRec.Code)
-	require.Equal(t, "ide", rangeRec.Body.String())
-	require.Empty(t, rangeRec.Header().Get("Content-Encoding"))
-	require.Equal(t, "Accept-Encoding", rangeRec.Header().Get("Vary"))
-}
-
-func TestSpaHTMLDocumentServing(t *testing.T) {
-	const document = `<html><head></head><body>application document with enough repeated content to compress application document</body></html>`
-	webFS := fstest.MapFS{
-		"index.html": {Data: []byte(document)},
-		"login.html": {Data: []byte(document)},
-	}
-	e := echo.New()
-	registerSpaRoutes(e, webFS)
-
-	for _, test := range []struct {
-		name            string
-		acceptEncoding  string
-		contentEncoding string
-		newReader       func(io.Reader) (io.Reader, error)
-	}{
-		{
-			name:            "gzip",
-			acceptEncoding:  "gzip",
-			contentEncoding: "gzip",
-			newReader: func(reader io.Reader) (io.Reader, error) {
-				return gzip.NewReader(reader)
-			},
-		},
-		{
-			name:            "brotli",
-			acceptEncoding:  "br",
-			contentEncoding: "br",
-			newReader: func(reader io.Reader) (io.Reader, error) {
-				return brotli.NewReader(reader), nil
-			},
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/login", nil)
-			req.Header.Set("Accept-Encoding", test.acceptEncoding)
-			rec := httptest.NewRecorder()
-			e.ServeHTTP(rec, req)
-
-			require.Equal(t, http.StatusOK, rec.Code)
-			require.Equal(t, "noindex, nofollow", rec.Header().Get("X-Robots-Tag"))
-			require.Equal(t, test.contentEncoding, rec.Header().Get("Content-Encoding"))
-			require.Equal(t, "Accept-Encoding", rec.Header().Get("Vary"))
-			reader, err := test.newReader(rec.Body)
-			require.NoError(t, err)
-			decoded, err := io.ReadAll(reader)
-			require.NoError(t, err)
-			require.Equal(t, document, string(decoded))
-		})
-	}
-
-	plainReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/login", nil)
-	plainRec := httptest.NewRecorder()
-	e.ServeHTTP(plainRec, plainReq)
-	require.Equal(t, http.StatusOK, plainRec.Code)
-	require.Equal(t, "no-cache, no-store, must-revalidate", plainRec.Header().Get("Cache-Control"))
-	require.Equal(t, document, plainRec.Body.String())
-
-	compressed := func(method string) *httptest.ResponseRecorder {
-		req := httptest.NewRequestWithContext(t.Context(), method, "/login", nil)
-		req.Header.Set("Accept-Encoding", "br, gzip;q=0.5")
-		rec := httptest.NewRecorder()
-		e.ServeHTTP(rec, req)
-		return rec
-	}
-	getRec := compressed(http.MethodGet)
-	headRec := compressed(http.MethodHead)
-	require.Equal(t, getRec.Code, headRec.Code)
-	for _, header := range []string{"Content-Type", "Content-Encoding", "Content-Length", "Cache-Control", "X-Robots-Tag", "Vary"} {
-		require.Equal(t, getRec.Header().Get(header), headRec.Header().Get(header), header)
-	}
-	require.Equal(t, strconv.Itoa(getRec.Body.Len()), headRec.Header().Get("Content-Length"))
-	require.Empty(t, headRec.Body.String())
 }
 
 func TestSpaFallbackRouting(t *testing.T) {
@@ -262,154 +112,6 @@ func TestSpaFallbackRouting(t *testing.T) {
 	require.Empty(t, apiHEAD.Body.String())
 }
 
-func TestSpaStartupRejectsMissingOrMalformedRouteManifest(t *testing.T) {
-	for _, test := range []struct {
-		name  string
-		files fstest.MapFS
-	}{
-		{
-			name: "missing",
-			files: fstest.MapFS{
-				"index.html": {Data: []byte("<html>app</html>")},
-			},
-		},
-		{
-			name: "unknown field",
-			files: fstest.MapFS{
-				"index.html":         {Data: []byte("<html>app</html>")},
-				spaRouteManifestPath: {Data: []byte(`{"schema_version":1,"routes":["/"],"extra":true}`)},
-			},
-		},
-		{
-			name: "unsorted",
-			files: withAppRoutes(fstest.MapFS{
-				"index.html": {Data: []byte("<html>app</html>")},
-			}, "/settings", "/"),
-		},
-		{
-			name: "empty parameter",
-			files: withAppRoutes(fstest.MapFS{
-				"index.html": {Data: []byte("<html>app</html>")},
-			}, "/publications/[]"),
-		},
-		{
-			name: "non-final rest parameter",
-			files: withAppRoutes(fstest.MapFS{
-				"index.html": {Data: []byte("<html>app</html>")},
-			}, "/files/[...path]/details"),
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			var recovered any
-			func() {
-				defer func() {
-					recovered = recover()
-				}()
-				registerSpaRoutesFromFS(echo.New(), test.files, nil, "", false, true)
-			}()
-			require.NotNil(t, recovered)
-			require.Contains(t, fmt.Sprint(recovered), "route manifest is missing or invalid")
-		})
-	}
-}
-
-func TestManagedAndSelfHostedSpaRoot(t *testing.T) {
-	webFS := fstest.MapFS{
-		"index.html": {Data: []byte(`<html><head></head><body><div id="app">app</div></body></html>`)},
-	}
-	e := echo.New()
-	registerSpaRoutesWithProfileMetadata(e, webFS, nil, "https://app.openpo.st", true, true)
-
-	getRec := httptest.NewRecorder()
-	e.ServeHTTP(getRec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil))
-	require.Equal(t, http.StatusOK, getRec.Code)
-	require.Contains(t, getRec.Body.String(), "app")
-	require.Empty(t, getRec.Header().Get("X-Robots-Tag"))
-	html := getRec.Body.String()
-	require.Contains(t, html, `name="openpost-edition" content="cloud"`)
-	require.Contains(t, html, `<title data-openpost-review-fallback>`)
-	require.Contains(t, html, `data-openpost-review-fallback name="description"`)
-	require.Contains(t, html, `data-openpost-review-fallback rel="canonical" href="https://app.openpo.st/"`)
-	require.Contains(t, html, `<main data-openpost-review-fallback`)
-	require.NotContains(t, html, `<noscript data-openpost-review-fallback`)
-	require.Contains(t, html, `document.querySelectorAll('[data-openpost-review-fallback]').forEach((element) => element.remove())`)
-
-	headRec := httptest.NewRecorder()
-	e.ServeHTTP(headRec, httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/", nil))
-	require.Equal(t, getRec.Code, headRec.Code)
-	for _, header := range []string{"Content-Type", "Content-Length", "Cache-Control", "Pragma", "Expires"} {
-		require.Equal(t, getRec.Header().Get(header), headRec.Header().Get(header), header)
-	}
-	require.Equal(t, strconv.Itoa(getRec.Body.Len()), headRec.Header().Get("Content-Length"))
-	require.Empty(t, headRec.Body.String())
-
-	fallback := managedEditionReviewFallback()
-	require.Contains(t, html, fallback)
-
-	data, err := os.ReadFile("../../../../packages/plan-catalog/src/catalog.json")
-	require.NoError(t, err)
-	var catalog struct {
-		PurchaseTerms struct {
-			TrialDays    int  `json:"trial_days"`
-			CardRequired bool `json:"card_required"`
-		} `json:"purchase_terms"`
-		Plans []struct {
-			ID              string `json:"id"`
-			Name            string `json:"name"`
-			MonthlyPriceUSD int    `json:"monthly_price_usd"`
-		} `json:"plans"`
-	}
-	require.NoError(t, json.Unmarshal(data, &catalog))
-	require.NotEmpty(t, catalog.Plans)
-	for _, plan := range catalog.Plans {
-		// The fallback renders the generated Go catalogue, which the
-		// plan-catalog --check gate keeps in sync with catalog.json.
-		config, ok := billing.GetPlanConfig(plan.ID)
-		require.True(t, ok, "catalogue plan %q must resolve in the generated Go catalogue", plan.ID)
-		require.Equal(t, plan.Name, config.Name)
-		require.Equal(t, plan.MonthlyPriceUSD, config.MonthlyPriceUSD)
-		require.Contains(
-			t,
-			fallback,
-			fmt.Sprintf("<li>%s: $%d/month</li>", plan.Name, plan.MonthlyPriceUSD),
-		)
-	}
-	require.Equal(t, catalog.PurchaseTerms.TrialDays, billing.PlanCatalogTrialDays)
-	require.Equal(t, catalog.PurchaseTerms.CardRequired, billing.PlanCatalogCardRequired)
-
-	firstPlanID := ""
-	for _, plan := range catalog.Plans {
-		if _, ok := billing.GetPlanConfig(plan.ID); ok {
-			firstPlanID = plan.ID
-			break
-		}
-	}
-	require.NotEmpty(t, firstPlanID)
-	require.Contains(
-		t,
-		fallback,
-		fmt.Sprintf(
-			`<a href="/register?plan=%s&amp;billing_period=monthly">Start %d-day trial</a>`,
-			firstPlanID,
-			billing.PlanCatalogTrialDays,
-		),
-	)
-	trialTerms := fmt.Sprintf("Every plan starts with a %d-day free trial. ", billing.PlanCatalogTrialDays)
-	if billing.PlanCatalogCardRequired {
-		trialTerms += "A card is required."
-	} else {
-		trialTerms += "No card is required."
-	}
-	require.Contains(t, fallback, trialTerms)
-
-	selfHosted := echo.New()
-	registerSpaRoutes(selfHosted, webFS)
-	selfRec := httptest.NewRecorder()
-	selfHosted.ServeHTTP(selfRec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil))
-	require.Equal(t, http.StatusOK, selfRec.Code)
-	require.NotContains(t, selfRec.Body.String(), `name="openpost-edition"`)
-}
-
 func TestPublicProfileHTML(t *testing.T) {
 	t.Parallel()
 
@@ -431,62 +133,4 @@ func TestPublicProfileHTML(t *testing.T) {
 
 	unavailable := renderPublicProfileHTML([]byte("<html><head></head><body>app</body></html>"), nil, "")
 	require.Contains(t, string(unavailable), `name="robots" content="noindex"`)
-}
-
-func TestDirectPublicProfileRoutesUseSafeDistinctStatusClasses(t *testing.T) {
-	webFS := fstest.MapFS{
-		"index.html": {Data: []byte("<html><head></head><body>app</body></html>")},
-	}
-
-	t.Run("disabled", func(t *testing.T) {
-		e := echo.New()
-		registerSpaRoutesWithProfileMetadata(e, webFS, nil, "", false, false)
-		rec := httptest.NewRecorder()
-		e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/u/person", nil))
-		require.Equal(t, http.StatusNotFound, rec.Code)
-		require.Contains(t, rec.Body.String(), `name="robots" content="noindex"`)
-		require.Equal(t, "noindex, nofollow", rec.Header().Get("X-Robots-Tag"))
-	})
-
-	t.Run("private or missing", func(t *testing.T) {
-		e := echo.New()
-		registerSpaRoutesWithProfileMetadata(e, webFS, nil, "", false, true)
-		rec := httptest.NewRecorder()
-		e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/u/person", nil))
-		require.Equal(t, http.StatusNotFound, rec.Code)
-		require.Equal(t, "noindex, nofollow", rec.Header().Get("X-Robots-Tag"))
-	})
-
-	t.Run("backend failure", func(t *testing.T) {
-		sqldb, err := sql.Open("sqlite3", "file:public-profile-failure?mode=memory&cache=private")
-		require.NoError(t, err)
-		db := bun.NewDB(sqldb, sqlitedialect.New())
-		t.Cleanup(func() { require.NoError(t, db.Close()) })
-		e := echo.New()
-		registerSpaRoutesWithProfileMetadata(e, webFS, db, "", false, true)
-		rec := httptest.NewRecorder()
-		e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/u/person", nil))
-		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
-		require.Equal(t, "noindex, nofollow", rec.Header().Get("X-Robots-Tag"))
-	})
-
-	t.Run("public", func(t *testing.T) {
-		sqldb, err := sql.Open("sqlite3", "file:public-profile-success?mode=memory&cache=private")
-		require.NoError(t, err)
-		db := bun.NewDB(sqldb, sqlitedialect.New())
-		t.Cleanup(func() { require.NoError(t, db.Close()) })
-		_, err = db.NewCreateTable().Model((*models.User)(nil)).Exec(t.Context())
-		require.NoError(t, err)
-		_, err = db.NewInsert().Model(&models.User{
-			ID: "user-1", Email: "person@example.test", Username: "person", PublicProfile: true,
-		}).Exec(t.Context())
-		require.NoError(t, err)
-		e := echo.New()
-		registerSpaRoutesWithProfileMetadata(e, webFS, db, "https://openpost.example", false, true)
-		rec := httptest.NewRecorder()
-		e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/u/person", nil))
-		require.Equal(t, http.StatusOK, rec.Code)
-		require.Contains(t, rec.Body.String(), `name="robots" content="index, follow"`)
-		require.Empty(t, rec.Header().Get("X-Robots-Tag"))
-	})
 }

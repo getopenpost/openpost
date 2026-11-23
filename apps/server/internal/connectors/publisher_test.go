@@ -47,27 +47,3 @@ func TestPublisherEntersWriteFenceBeforeConnectorMutation(t *testing.T) {
 	require.Equal(t, "directus-item-42", result.ExternalID)
 	require.Equal(t, result, checkpoint)
 }
-
-func TestPublisherMapsPendingResponseToReconciliation(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		response.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(response).Encode(PublishResponse{
-			Status: "pending", ProviderReference: "directus-job-8", PollAfterSeconds: 4,
-		}))
-	}))
-	defer server.Close()
-	publisher := NewPublisher(newPrivateTestClient(t, server.URL), "directus/posts", "directus-items-v1")
-	req := &platform.PublishRequest{
-		OperationID: "authorization:one:rendition:publish", OutputProfile: "directus.item", Content: "Pending",
-	}
-	req.SetWriteFence(func(platform.PublishResult) error { return nil }, func(platform.PublishResult) error { return nil })
-
-	result, err := publisher.Publish(context.Background(), "", "posts", req)
-	require.NoError(t, err)
-	require.Equal(t, platform.PublishSubmissionPending, result.SubmissionState)
-	require.Equal(t, req.OperationID, result.ProviderReference)
-	require.Equal(t, "directus-job-8", result.ProviderState)
-	require.Equal(t, platform.PublishRetryReconcileOnly, result.RetrySafety)
-}

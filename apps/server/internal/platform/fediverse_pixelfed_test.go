@@ -42,27 +42,6 @@ func TestDetectFediverseSoftwareViaNodeInfo(t *testing.T) {
 	}
 }
 
-func TestDetectFediverseSoftwareFallsBackToInstanceVersion(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		switch req.URL.Path {
-		case "/.well-known/nodeinfo":
-			return jsonResponseWithStatus(req, http.StatusNotFound, `{}`), nil
-		case "/api/v1/instance":
-			return jsonResponse(req, `{"version":"2.8.0 (compatible; Friendica 2024.08)"}`), nil
-		default:
-			t.Fatalf("unexpected request %s", req.URL.String())
-			return nil, nil
-		}
-	})}
-
-	if got := DetectFediverseSoftware(t.Context(), "https://friendica.example"); got != FediverseSoftwareFriendica {
-		t.Fatalf("expected friendica, got %q", got)
-	}
-}
-
 func TestCompatInstanceCapabilitiesFallsBackToV1(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

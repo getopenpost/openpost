@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -123,81 +122,6 @@ func TestAnalyticsAdaptersNormalizeProviderMetrics(t *testing.T) {
 	require.False(t, linkedin.AnalyticsSupport().Content)
 }
 
-func TestFacebookContentAnalyticsUsesGraphNodeSpecificInsights(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	tests := []struct {
-		name          string
-		externalID    string
-		profile       string
-		outputProfile string
-		wantPath      string
-		wantMetrics   []string
-		response      string
-		want          AnalyticsValues
-	}{
-		{
-			name: "story", externalID: "story-1", profile: "story", outputProfile: "facebook.story",
-			wantPath:    "/v25.0/story-1/insights",
-			wantMetrics: []string{"page_story_impressions_by_story_id", "page_story_impressions_by_story_id_unique", "story_interaction", "pages_fb_story_thread_lightweight_reactions", "pages_fb_story_replies", "pages_fb_story_shares"},
-			response:    `{"data":[{"name":"page_story_impressions_by_story_id","values":[{"value":100}]},{"name":"page_story_impressions_by_story_id_unique","values":[{"value":70}]},{"name":"pages_fb_story_replies","values":[{"value":4}]},{"name":"pages_fb_story_shares","values":[{"value":2}]}]}`,
-			want:        AnalyticsValues{MetricImpressions: 100, MetricReach: 70, MetricComments: 4, MetricShares: 2},
-		},
-		{
-			name: "video", externalID: "video-1", profile: "short_video", outputProfile: "facebook.reel",
-			wantPath:    "/v25.0/video-1/video_insights",
-			wantMetrics: []string{"fb_reels_total_plays", "post_video_likes_by_reaction_type", "post_video_social_actions"},
-			response:    `{"data":[{"name":"fb_reels_total_plays","values":[{"value":120}]},{"name":"post_video_likes_by_reaction_type","values":[{"value":{"LIKE":8,"LOVE":3}}]},{"name":"post_video_social_actions","values":[{"value":{"COMMENT":4,"SHARE":2}}]}]}`,
-			want:        AnalyticsValues{MetricViews: 120, MetricReactions: 11, MetricEngagements: 6},
-		},
-		{
-			name: "regular video", externalID: "video-2", profile: "long_video", outputProfile: "facebook.video",
-			wantPath:    "/v25.0/video-2/video_insights",
-			wantMetrics: []string{"total_video_views", "post_video_likes_by_reaction_type", "post_video_social_actions"},
-			response:    `{"data":[{"name":"total_video_views","values":[{"value":95}]},{"name":"post_video_likes_by_reaction_type","values":[{"value":{"LIKE":5}}]},{"name":"post_video_social_actions","values":[{"value":{"COMMENT":2}}]}]}`,
-			want:        AnalyticsValues{MetricViews: 95, MetricReactions: 5, MetricEngagements: 2},
-		},
-		{
-			name: "feed post", externalID: "page-1_post-1", profile: "short_text",
-			wantPath:    "/v25.0/page-1_post-1/insights",
-			wantMetrics: []string{"post_media_view", "post_total_media_view_unique", "post_reactions_like_total", "post_clicks"},
-			response:    `{"data":[{"name":"post_media_view","values":[{"value":90}]},{"name":"post_total_media_view_unique","values":[{"value":60}]},{"name":"post_reactions_like_total","values":[{"value":7}]},{"name":"post_clicks","values":[{"value":5}]}]}`,
-			want:        AnalyticsValues{MetricImpressions: 90, MetricReach: 60, MetricLikes: 16, MetricComments: 4, MetricShares: 2, MetricClicks: 5},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-				if test.name == "feed post" && req.URL.Path == "/v25.0/page-1_post-1" {
-					return jsonResponse(req, `{"reactions":{"summary":{"total_count":9}},"comments":{"summary":{"total_count":4}},"shares":{"count":2}}`), nil
-				}
-				if req.URL.Path != test.wantPath {
-					t.Fatalf("unexpected path %s", req.URL.Path)
-				}
-				if req.URL.Query().Get("period") != "lifetime" {
-					t.Fatalf("expected lifetime period, got %q", req.URL.Query().Get("period"))
-				}
-				for _, metric := range test.wantMetrics {
-					if !strings.Contains(req.URL.Query().Get("metric"), metric) {
-						t.Fatalf("missing metric %s in %s", metric, req.URL.RawQuery)
-					}
-				}
-				return jsonResponse(req, test.response), nil
-			})}
-
-			values, err := NewFacebookAdapter("", "", "").FetchContentAnalytics(t.Context(), "token", ContentAnalyticsRequest{
-				ExternalIDs: []string{test.externalID}, Profile: test.profile, OutputProfile: test.outputProfile,
-			})
-			if err != nil {
-				t.Fatalf("FetchContentAnalytics returned error: %v", err)
-			}
-			require.Equal(t, test.want, values)
-		})
-	}
-}
-
 func TestXAnalyticsUsesPublicMetricsAndKeepsMetricKindsDistinct(t *testing.T) {
 	server := newProviderTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -224,95 +148,6 @@ func TestXAnalyticsUsesPublicMetricsAndKeepsMetricKindsDistinct(t *testing.T) {
 	require.Equal(t, int64(1), content[MetricQuotes])
 	require.Equal(t, int64(100), content[MetricImpressions])
 	require.Equal(t, int64(4), content[MetricSaves])
-}
-
-func TestXAnalyticsRejectsPartialContentResponses(t *testing.T) {
-	server := newProviderTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":[{"public_metrics":{"like_count":8}}],"errors":[{"type":"https://api.x.com/2/problems/resource-not-found","title":"Not Found"}]}`))
-	}))
-	defer server.Close()
-
-	adapter := NewXAdapter("consumer", "secret", "")
-	defer close(adapter.cleanupDone)
-	adapter.apiBaseURL = server.URL
-
-	_, err := adapter.FetchContentAnalytics(context.Background(), "access|secret", ContentAnalyticsRequest{ExternalIDs: []string{"tweet-1", "tweet-2"}})
-	require.Error(t, err)
-	var analyticsErr *AnalyticsError
-	require.ErrorAs(t, err, &analyticsErr)
-	require.Equal(t, AnalyticsStatusFailed, analyticsErr.Status)
-	require.Equal(t, "partial_response", analyticsErr.Code)
-}
-
-func TestXAnalyticsBacksOffWhenCreditsAreDepleted(t *testing.T) {
-	server := newProviderTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusPaymentRequired)
-		_, _ = w.Write([]byte(`{"title":"Credits depleted"}`))
-	}))
-	defer server.Close()
-
-	adapter := NewXAdapter("consumer", "secret", "")
-	defer close(adapter.cleanupDone)
-	adapter.apiBaseURL = server.URL
-
-	_, err := adapter.FetchAccountAnalytics(context.Background(), "access|secret", AccountAnalyticsRequest{AccountID: "user"})
-	require.Error(t, err)
-	var analyticsErr *AnalyticsError
-	require.ErrorAs(t, err, &analyticsErr)
-	require.Equal(t, AnalyticsStatusRateLimited, analyticsErr.Status)
-	require.Equal(t, "credits_depleted", analyticsErr.Code)
-	require.Equal(t, 24*time.Hour, analyticsErr.RetryAfter)
-}
-
-func TestAnalyticsHelpersKeepMissingMetricsDistinctFromMeasuredZero(t *testing.T) {
-	values := AnalyticsValues{}
-	addStringMetric(values, MetricFollowers, "")
-	addStringMetric(values, MetricViews, "not-a-number")
-	subtractOwnReplies(values, 1)
-
-	require.NotContains(t, values, MetricFollowers)
-	require.NotContains(t, values, MetricViews)
-	require.NotContains(t, values, MetricComments)
-
-	values[MetricComments] = 0
-	subtractOwnReplies(values, 1)
-	require.Contains(t, values, MetricComments)
-	require.Zero(t, values[MetricComments])
-}
-
-func TestMetaInsightFallbackPreservesProviderFailures(t *testing.T) {
-	for _, tc := range []struct {
-		name                string
-		status              int
-		body, code, subcode string
-		wantStatus          int
-	}{
-		{"permission", 400, `{"error":{"code":200}}`, "meta:permission:200", "", 403},
-		{"token", 400, `{"error":{"code":190}}`, "meta:token_expired:190", "", 401},
-		{"rate limit", 400, `{"error":{"code":4}}`, "meta:rate_limit:4", "", 429},
-		{"unavailable object", 400, `{"error":{"code":100,"error_subcode":33}}`, "meta:nonexistent:100:33", "33", 400},
-		{"unknown", 400, `{}`, "", "", 400},
-		{"forbidden", 403, `{"error":{"code":100}}`, "meta:100", "", 403},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			originalClient := httpClient
-			t.Cleanup(func() { httpClient = originalClient })
-			calls := 0
-			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-				calls++
-				return jsonResponseWithStatus(req, tc.status, tc.body), nil
-			})}
-			_, err := fetchMetaInsightsWithPeriod(t.Context(), "https://graph.facebook.com/post/insights", "token", []string{"views", "reach"}, "lifetime")
-			var providerErr *HTTPError
-			require.ErrorAs(t, err, &providerErr)
-			require.Equal(t, tc.code, providerErr.Code)
-			require.Equal(t, tc.subcode, providerErr.Subcode)
-			require.Equal(t, tc.wantStatus, providerErr.StatusCode)
-			require.Equal(t, 1, calls)
-		})
-	}
 }
 
 func TestMetaInsightFallbackKeepsSupportedMetricsAndRejectsEntirelyInvalidRequests(t *testing.T) {

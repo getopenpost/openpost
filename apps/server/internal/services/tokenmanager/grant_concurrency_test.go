@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
@@ -21,6 +20,7 @@ import (
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/pgdriver"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 type blockingRefreshAdapter struct {
@@ -65,7 +65,7 @@ func (a *blockingRefreshAdapter) Publish(context.Context, string, string, *platf
 
 func newGrantSQLiteDB(t *testing.T) *bun.DB {
 	t.Helper()
-	sqlDB, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
+	sqlDB, err := sql.Open(sqliteshim.ShimName, fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
 	db := bun.NewDB(sqlDB, sqlitedialect.New())

@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 type blockLastUsedUpdateHook struct {
@@ -49,7 +49,7 @@ func (*blockLastUsedUpdateHook) AfterQuery(context.Context, *bun.QueryEvent) {}
 func newServiceTestDB(t *testing.T) *bun.DB {
 	t.Helper()
 
-	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=private", strings.ReplaceAll(t.Name(), "/", "_")))
+	sqldb, err := sql.Open(sqliteshim.ShimName, fmt.Sprintf("file:%s?mode=memory&cache=private", strings.ReplaceAll(t.Name(), "/", "_")))
 	require.NoError(t, err)
 	sqldb.SetMaxOpenConns(1)
 
@@ -72,11 +72,11 @@ func newConcurrentServiceTestDB(t *testing.T) *bun.DB {
 
 	testName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
 	dsn := fmt.Sprintf(
-		"file:%s_%s?mode=memory&cache=shared&_busy_timeout=5000",
+		"file:%s_%s?mode=memory&cache=shared&_pragma=busy_timeout(5000)",
 		testName,
 		uuid.NewString(),
 	)
-	sqldb, err := sql.Open("sqlite3", dsn)
+	sqldb, err := sql.Open(sqliteshim.ShimName, dsn)
 	require.NoError(t, err)
 	sqldb.SetMaxOpenConns(4)
 

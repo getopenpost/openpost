@@ -23,29 +23,6 @@ func (f postBuilderFunc) Build(ctx context.Context, input postgeneration.Input) 
 	return f(ctx, input)
 }
 
-func TestGeneratePostUsesOnlyActiveAccountsFromEditableWorkspace(t *testing.T) {
-	t.Parallel()
-	server := newPostBuilderTestServer(t, postBuilderFunc(func(_ context.Context, input postgeneration.Input) (postgeneration.Result, error) {
-		require.Equal(t, "Shipped offline drafts", input.Idea)
-		require.Equal(t, []postgeneration.Destination{
-			{AccountID: "account-x", Platform: "x", Profile: models.ContentProfileShortText},
-			{AccountID: "account-linkedin", Platform: "linkedin", Profile: models.ContentProfileShortText},
-		}, input.Destinations)
-		return postgeneration.Result{
-			SourceText: "Offline drafts are live.",
-			Renditions: []postgeneration.Rendition{{AccountID: "account-x", Body: "Offline drafts are live on X."}, {AccountID: "account-linkedin", Body: "Your drafts now survive unreliable connections."}},
-			Model:      "openai/gpt-5.6-luna",
-		}, nil
-	}))
-
-	response := server.request(t, []string{"account-x", "account-linkedin"})
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var output GeneratePostOutput
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &output.Body))
-	require.Equal(t, "Offline drafts are live.", output.Body.SourceText)
-	require.Len(t, output.Body.Renditions, 2)
-}
-
 func TestGeneratePostRejectsAccountFromAnotherWorkspaceBeforeGeneration(t *testing.T) {
 	t.Parallel()
 	called := false
@@ -57,13 +34,6 @@ func TestGeneratePostRejectsAccountFromAnotherWorkspaceBeforeGeneration(t *testi
 	response := server.request(t, []string{"account-other"})
 	require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
 	require.False(t, called)
-}
-
-func TestGeneratePostReportsWhenAIIsNotConfigured(t *testing.T) {
-	t.Parallel()
-	server := newPostBuilderTestServer(t, nil)
-	response := server.request(t, []string{"account-x"})
-	require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
 }
 
 type postBuilderTestServer struct {

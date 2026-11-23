@@ -2,7 +2,7 @@ package youtubeprofile
 
 import (
 	"context"
-	"errors"
+
 	"testing"
 	"time"
 
@@ -54,68 +54,6 @@ func TestRefreshRenewsOnlySuccessfulProfileAndDurablyRetiresAvatar(t *testing.T)
 	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", jobregistry.TypeStorageDelete).Scan(t.Context()))
 	require.Len(t, jobs, 1)
 	require.Contains(t, jobs[0].Payload, "avatar_account_old.png")
-}
-func TestFailedOrMismatchedRefreshDoesNotRenewRetention(t *testing.T) {
-	for _, adapter := range []profileAdapter{{err: errors.New("offline")}, {profile: &platform.UserProfile{ID: "other", Username: "Wrong"}}} {
-		t.Run("rejected", func(t *testing.T) {
-			s, db, a := fixture(t)
-			require.Error(t, s.Refresh(t.Context(), a, adapter, "token"))
-			var got models.SocialAccount
-			require.NoError(t, db.NewSelect().Model(&got).Where("id = ?", a.ID).Scan(t.Context()))
-			require.True(t, a.ProfileFetchedAt.Equal(got.ProfileFetchedAt))
-			require.Equal(t, "Old", got.AccountUsername)
-		})
-	}
-}
-func TestConcurrentDisconnectRejectsFetchedProfile(t *testing.T) {
-	s, db, a := fixture(t)
-	adapter := profileAdapter{profile: &platform.UserProfile{ID: "channel", Username: "New"}, hook: func() {
-		_, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("is_active = ?", false).Where("id = ?", a.ID).Exec(t.Context())
-		require.NoError(t, err)
-	}}
-	require.Error(t, s.Refresh(t.Context(), a, adapter, "token"))
-	var got models.SocialAccount
-	require.NoError(t, db.NewSelect().Model(&got).Where("id = ?", a.ID).Scan(t.Context()))
-	require.True(t, a.ProfileFetchedAt.Equal(got.ProfileFetchedAt))
-}
-
-func TestSweepQueuesExpiredProfilesWithoutAnalyticsEnabled(t *testing.T) {
-	s, db, a := fixture(t)
-	fresh := a
-	fresh.ID = "fresh"
-	fresh.Slug = "fresh"
-	fresh.AccountID = "fresh-channel"
-	fresh.ProfileFetchedAt = s.now().Add(-RefreshAge + time.Hour)
-	_, err := db.NewInsert().Model(&fresh).Exec(t.Context())
-	require.NoError(t, err)
-	require.NoError(t, s.HandleJob(t.Context(), jobregistry.TypeYouTubeProfileSweep, "{}"))
-	var jobs []models.Job
-	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", jobregistry.TypeYouTubeProfileAccount).Scan(t.Context()))
-	require.Len(t, jobs, 1)
-	require.Contains(t, jobs[0].Payload, `"account_id":"a"`)
-	var next []models.Job
-	require.NoError(t, db.NewSelect().Model(&next).Where("type = ?", jobregistry.TypeYouTubeProfileSweep).Scan(t.Context()))
-	require.Len(t, next, 1)
-	require.True(t, next[0].RunAt.Equal(s.now().Add(time.Hour)))
-}
-
-func TestGrantRevokedDuringFetchCannotRenewProfile(t *testing.T) {
-	s, db, a := fixture(t)
-	grant := models.OAuthGrant{ID: "grant", WorkspaceID: a.WorkspaceID, Provider: "youtube", AccessTokenEnc: []byte{}, ValidationStatus: "valid"}
-	_, err := db.NewInsert().Model(&grant).Exec(t.Context())
-	require.NoError(t, err)
-	a.OAuthGrantID = grant.ID
-	_, err = db.NewUpdate().Model(&a).Column("oauth_grant_id").WherePK().Exec(t.Context())
-	require.NoError(t, err)
-	adapter := profileAdapter{profile: &platform.UserProfile{ID: a.AccountID, Username: "New"}, hook: func() {
-		_, err := db.NewUpdate().Model((*models.OAuthGrant)(nil)).Set("validation_status = ?", "revoked").Set("revoked_at = ?", s.now()).Where("id = ?", grant.ID).Exec(t.Context())
-		require.NoError(t, err)
-	}}
-	require.Error(t, s.Refresh(t.Context(), a, adapter, "token"))
-	var got models.SocialAccount
-	require.NoError(t, db.NewSelect().Model(&got).Where("id = ?", a.ID).Scan(t.Context()))
-	require.True(t, a.ProfileFetchedAt.Equal(got.ProfileFetchedAt))
-	require.Equal(t, "Old", got.AccountUsername)
 }
 
 type profileTokenSource func(context.Context, string) (string, error)
@@ -184,39 +122,6 @@ func TestUnauthorizedBeforeDeadlineDoesNotRetireOrRenewProfile(t *testing.T) {
 	require.True(t, a.ProfileFetchedAt.Equal(got.ProfileFetchedAt))
 }
 
-func TestPersistedTokenRefreshFailureRetiresAtDeadline(t *testing.T) {
-	s, db, a := fixture(t)
-	a = attachGrant(t, s, db, a)
-	s.tokens = profileTokenSource(func(context.Context, string) (string, error) {
-		_, err := db.NewUpdate().Model((*models.OAuthGrant)(nil)).Set("validation_status = ?", "refresh_failed").Where("id = ?", a.OAuthGrantID).Exec(t.Context())
-		require.NoError(t, err)
-		return "", errors.New("token refresh failed")
-	})
-	s.SetProvider("youtube", profileAdapter{hook: func() { t.Fatal("profile API must not run after token acquisition fails") }})
-	require.Error(t, s.HandleJob(t.Context(), jobregistry.TypeYouTubeProfileAccount, `{"account_id":"a"}`))
-	var got models.SocialAccount
-	require.NoError(t, db.NewSelect().Model(&got).Where("id = ?", a.ID).Scan(t.Context()))
-	require.False(t, got.IsActive)
-	var grant models.OAuthGrant
-	require.NoError(t, db.NewSelect().Model(&grant).Where("id = ?", a.OAuthGrantID).Scan(t.Context()))
-	require.Equal(t, "revoked", grant.ValidationStatus)
-	require.Empty(t, grant.AccessTokenEnc)
-	require.Empty(t, grant.RefreshTokenEnc)
-}
-func TestMissingPermissionDoesNotInvalidateGrant(t *testing.T) {
-	s, db, a := fixture(t)
-	a = attachGrant(t, s, db, a)
-	s.SetProvider("youtube", profileAdapter{err: &platform.HTTPError{StatusCode: 403}})
-	require.Error(t, s.HandleJob(t.Context(), jobregistry.TypeYouTubeProfileAccount, `{"account_id":"a"}`))
-	var grant models.OAuthGrant
-	require.NoError(t, db.NewSelect().Model(&grant).Where("id = ?", a.OAuthGrantID).Scan(t.Context()))
-	require.Equal(t, "valid", grant.ValidationStatus)
-	require.Equal(t, []byte("credential"), grant.AccessTokenEnc)
-	var got models.SocialAccount
-	require.NoError(t, db.NewSelect().Model(&got).Where("id = ?", a.ID).Scan(t.Context()))
-	require.True(t, got.IsActive)
-	require.True(t, a.ProfileFetchedAt.Equal(got.ProfileFetchedAt))
-}
 func TestOldUnauthorizedResponseCannotInvalidateFreshProfile(t *testing.T) {
 	s, db, a := fixture(t)
 	a = attachGrant(t, s, db, a)

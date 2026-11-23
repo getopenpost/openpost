@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 func relayTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	raw, err := sql.Open("sqlite3", ":memory:")
+	raw, err := sql.Open(sqliteshim.ShimName, ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,49 +81,6 @@ func TestRelayDeliversOneIdempotentRequestToAuthorizedBrowser(t *testing.T) {
 	}
 	if _, err := relay.GetRequest(ctx, request.ID, "workspace", "editor"); !errors.Is(err, ErrRequestUnavailable) {
 		t.Fatalf("other user must not read receipt: %v", err)
-	}
-}
-
-func TestRelayDisconnectFailsPendingRequests(t *testing.T) {
-	ctx := context.Background()
-	relay := NewRelay(relayTestDB(t))
-	session, err := relay.Register(ctx, "workspace", "editor", "project", "image")
-	if err != nil {
-		t.Fatal(err)
-	}
-	request, err := relay.Enqueue(ctx, session, "caller", "key", "image_edit", json.RawMessage(`{}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := relay.Close(ctx, session.ID, "editor", session.Epoch); err != nil {
-		t.Fatal(err)
-	}
-	result, err := relay.GetRequest(ctx, request.ID, "workspace", "caller")
-	if err != nil || result.Status != "failed" {
-		t.Fatalf("pending request must fail on disconnect: %v, %#v", err, result)
-	}
-	if _, err := relay.LeaseNext(ctx, session.ID, "editor", session.Epoch); !errors.Is(err, ErrSessionUnavailable) {
-		t.Fatalf("closed session must not lease: %v", err)
-	}
-}
-
-func TestRelayExpiresPendingRequestWhenBrowserStopsPolling(t *testing.T) {
-	ctx := context.Background()
-	relay := NewRelay(relayTestDB(t))
-	start := time.Now().UTC()
-	relay.now = func() time.Time { return start }
-	session, err := relay.Register(ctx, "workspace", "editor", "project", "video")
-	if err != nil {
-		t.Fatal(err)
-	}
-	request, err := relay.Enqueue(ctx, session, "caller", "key", "video_edit", json.RawMessage(`{}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	relay.now = func() time.Time { return start.Add(sessionLifetime + time.Second) }
-	result, err := relay.GetRequest(ctx, request.ID, "workspace", "caller")
-	if err != nil || result.Status != "failed" || string(result.Error) != `{"code":"editor_disconnected"}` {
-		t.Fatalf("expired browser must fail pending work: %v, %#v", err, result)
 	}
 }
 

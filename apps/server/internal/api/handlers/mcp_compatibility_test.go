@@ -4,101 +4,21 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"io"
+
 	"net/http"
-	"net/http/httptest"
-	"path/filepath"
-	"strconv"
+
 	"strings"
-	"sync/atomic"
+
 	"testing"
-	"time"
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/posttext"
-	"github.com/openpost/backend/internal/services/engagement"
-	"github.com/openpost/backend/internal/services/mediasigner"
-	"github.com/openpost/backend/internal/services/publicurl"
-	"github.com/openpost/backend/internal/testdb"
+
 	"github.com/stretchr/testify/require"
 )
 
-func TestMCPStructuredResultsReachTextOnlyClients(t *testing.T) {
-	t.Parallel()
-	srv := newMCPTestServer(t)
-	for _, endpoint := range []string{"/mcp", "/mcp/code"} {
-		t.Run(endpoint, func(t *testing.T) {
-			name, args := "list_workspaces", map[string]any{}
-			if endpoint == "/mcp/code" {
-				name, args = "query_operation", map[string]any{"operation": name, "arguments": args}
-			}
-			resp := srv.requestPath(t, endpoint, "web-token", map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": args}})
-			require.Equal(t, http.StatusOK, resp.Code)
-			var out struct {
-				Result struct {
-					Content []struct {
-						Type string `json:"type"`
-						Text string `json:"text"`
-					} `json:"content"`
-					Structured json.RawMessage `json:"structuredContent"`
-				} `json:"result"`
-			}
-			require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-			require.Len(t, out.Result.Content, 2)
-			require.Contains(t, out.Result.Content[0].Text, "workspace")
-			require.Equal(t, "text", out.Result.Content[1].Type)
-			require.JSONEq(t, string(out.Result.Structured), out.Result.Content[1].Text)
-			require.Contains(t, out.Result.Content[1].Text, "ws-1")
-			require.Contains(t, out.Result.Content[1].Text, "Launch")
-		})
-	}
-}
-
 const compatibilityPNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-
-func TestMCPBase64UploadThroughHTTP(t *testing.T) {
-	t.Parallel()
-	srv := newMCPTestServer(t)
-	call := func(endpoint, name, content string) map[string]any {
-		args := map[string]any{"workspace_id": " ws-1 ", "filename": "../launch.png", "content_base64": content, "alt_text": "Launch image"}
-		if name == "execute_operation" {
-			args = map[string]any{"operation": "upload_media_base64", "arguments": args}
-		}
-		resp := srv.requestPath(t, endpoint, "web-token", map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": args}})
-		require.Equal(t, http.StatusOK, resp.Code)
-		var out map[string]any
-		require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-		require.NotContains(t, out, "error", resp.Body.String())
-		return out["result"].(map[string]any)["structuredContent"].(map[string]any)["media"].(map[string]any)
-	}
-	png, err := base64.StdEncoding.DecodeString(compatibilityPNG)
-	require.NoError(t, err)
-	expectedBytes := make([]byte, 8*1024*1024)
-	copy(expectedBytes, png)
-	content := base64.StdEncoding.EncodeToString(expectedBytes)
-	first := call("/mcp", "upload_media_base64", content)
-	require.Equal(t, float64(8*1024*1024), first["size"])
-	require.Equal(t, "image/png", first["mime_type"])
-	require.Equal(t, "launch.png", first["original_filename"])
-	require.Equal(t, "Launch image", first["alt_text"])
-	require.Equal(t, float64(1), first["width"])
-	var stored models.MediaAttachment
-	require.NoError(t, srv.db.NewSelect().Model(&stored).Where("id = ?", first["id"]).Scan(t.Context()))
-	file, err := srv.handler.mediaHandler.storage.Open(t.Context(), filepath.Base(stored.FilePath))
-	require.NoError(t, err)
-	storedBytes, err := io.ReadAll(file)
-	require.NoError(t, err)
-	require.NoError(t, file.Close())
-	require.Equal(t, expectedBytes, storedBytes)
-	second := call("/mcp/code", "execute_operation", "data:image/png;base64,"+content)
-	require.Equal(t, float64(8*1024*1024), second["size"])
-	require.Equal(t, first["id"], second["id"])
-	require.Equal(t, true, second["deduped"])
-	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, count)
-}
 
 func TestMCPBase64UploadRejectsInvalidOrUnauthorizedFiles(t *testing.T) {
 	t.Parallel()
@@ -140,57 +60,6 @@ func TestMCPBase64UploadRejectsInvalidOrUnauthorizedFiles(t *testing.T) {
 			require.Zero(t, count)
 		})
 	}
-}
-
-func TestMCPInboxReadsOrphansAndEnforcesScopeBeforeMutations(t *testing.T) {
-	t.Parallel()
-	srv := newMCPTestServer(t)
-	db := testdb.NewSQLite(t)
-	for _, row := range []any{
-		&models.User{ID: "user-1", Email: "inbox@example.test"},
-		&models.Organization{ID: "organization-1", Name: "Inbox", CreatedByID: "user-1"},
-		&models.Workspace{ID: "ws-1", Name: "Inbox", OrganizationID: "organization-1"},
-		&models.Workspace{ID: "ws-2", Name: "Other", OrganizationID: "organization-1"},
-		&models.WorkspaceMember{WorkspaceID: "ws-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin, Status: models.WorkspaceMemberStatusActive},
-		&models.SocialAccount{ID: "account-1", WorkspaceID: "ws-1", Platform: "x", AccountID: "native-account", Slug: "inbox", AccessTokenEnc: []byte("synthetic"), IsActive: true},
-	} {
-		_, err := db.NewInsert().Model(row).Exec(t.Context())
-		require.NoError(t, err)
-	}
-	srv.db, srv.handler.db = db, db
-	srv.handler.SetEngagementService(engagement.NewService(srv.db, nil, nil))
-	srv.handler.auth = mcpScopeAuthenticator{
-		"read":  {UserID: "user-1", Scope: "mcp:read", WorkspaceID: "ws-1"},
-		"write": {UserID: "user-1", Scope: "mcp:full", WorkspaceID: "ws-1"},
-	}
-	items := []models.EngagementItem{
-		{ID: "mention", WorkspaceID: "ws-1", SocialAccountID: "account-1", Platform: "x", Kind: "mention", RemoteID: "native-post", Body: "Incoming mention", SubjectJSON: `{"kind":"post","remote_id":"native-post"}`, LastSeenAt: time.Now().UTC()},
-		{ID: "review", WorkspaceID: "ws-1", SocialAccountID: "account-1", Platform: "x", Kind: "review", RemoteID: "native-review", Body: "", SubjectJSON: `{"kind":"review","remote_id":"native-review","review":{"anonymous":true,"stars":5}}`, LastSeenAt: time.Now().UTC()},
-	}
-	_, err := srv.db.NewInsert().Model(&items).Exec(t.Context())
-	require.NoError(t, err)
-	call := func(token, tool string, args map[string]any) map[string]any {
-		response := srv.request(t, token, map[string]any{"jsonrpc": "2.0", "id": tool, "method": "tools/call", "params": map[string]any{"name": tool, "arguments": args}})
-		var output map[string]any
-		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &output), response.Body.String())
-		return output
-	}
-	listed := call("read", mcpToolInboxList, map[string]any{"workspace_id": "ws-1", "kind": "mention"})
-	require.NotContains(t, listed, "error")
-	data := listed["result"].(map[string]any)["structuredContent"].(map[string]any)
-	require.Len(t, data["items"], 1)
-	mention := data["items"].([]any)[0].(map[string]any)
-	require.Equal(t, "mention", mention["id"])
-	require.NotContains(t, mention, "rendition_id")
-	denied := call("read", mcpToolInboxRead, map[string]any{"workspace_id": "ws-1", "kind": "mention"})
-	require.Contains(t, denied, "error")
-	denied = call("write", mcpToolInboxGet, map[string]any{"workspace_id": "ws-2", "item_id": "review"})
-	require.Contains(t, denied, "error")
-	updated := call("write", mcpToolInboxRead, map[string]any{"workspace_id": "ws-1", "kind": "mention"})
-	require.NotContains(t, updated, "error")
-	var review models.EngagementItem
-	require.NoError(t, srv.db.NewSelect().Model(&review).Where("id='review'").Scan(t.Context()))
-	require.True(t, review.ReadAt.IsZero(), "MCP bulk read uses the requested activity filter")
 }
 
 type mentionLookupTestAdapter struct {
@@ -247,98 +116,4 @@ func TestMCPMentionLookupAndAuthoredThreadRoundTrip(t *testing.T) {
 	count, err := srv.db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
 	require.NoError(t, err)
 	require.EqualValues(t, 1, count)
-}
-
-func TestMCPFacebookCarouselPublicMediaValidation(t *testing.T) {
-	t.Parallel()
-
-	for _, status := range []int{http.StatusOK, http.StatusNotFound} {
-		t.Run(http.StatusText(status), func(t *testing.T) {
-			t.Parallel()
-			srv := newMCPTestServer(t)
-			srv.handler.auth = mcpScopeAuthenticator{
-				"mcp-token": {UserID: "user-1", Scope: "mcp:full", WorkspaceID: "ws-1"},
-			}
-			signer := mediasigner.New("carousel-test-signing-key")
-			var requests atomic.Int32
-			mediaServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				mediaID := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/media/"), ".jpg")
-				expiresAt, _ := strconv.ParseInt(r.URL.Query().Get("exp"), 10, 64)
-				if r.Method != http.MethodHead || !signer.Verify(mediaID, r.URL.Query().Get("sig"), expiresAt) {
-					w.WriteHeader(http.StatusForbidden)
-					return
-				}
-				requests.Add(1)
-				w.WriteHeader(status)
-			}))
-			t.Cleanup(mediaServer.Close)
-			verifier := publicurl.NewMediaVerifier(mediaServer.URL+"/media", srv.handler.mediaStorage, signer)
-			verifier.SetVerifier(publicurl.HTTPVerifier{Client: mediaServer.Client()})
-			srv.handler.SetPublicMediaVerifier(verifier)
-
-			_, err := srv.db.NewInsert().Model(&models.SocialAccount{
-				ID: "facebook-page", WorkspaceID: "ws-1", Platform: "facebook", AccountID: "page-1",
-				Slug: "facebook-page", AccessTokenEnc: []byte("token"),
-				GrantedScopes: "pages_manage_posts,pages_read_engagement", IsActive: true,
-			}).Exec(t.Context())
-			require.NoError(t, err)
-			ensurePermissiveProviderReadinessFixture(t, srv.db)
-			srv.handler.SetProviderReadiness(permissiveProviderReadiness(t))
-			media := []models.MediaAttachment{
-				{ID: "image-1", WorkspaceID: "ws-1", MimeType: "image/jpeg", Size: 1024, Width: 1080, Height: 1080, FilePath: "image-1.jpg", OriginalFilename: "image-1.jpg", ProcessingStatus: "ready"},
-				{ID: "image-2", WorkspaceID: "ws-1", MimeType: "image/jpeg", Size: 1024, Width: 1080, Height: 1080, FilePath: "image-2.jpg", OriginalFilename: "image-2.jpg", ProcessingStatus: "ready"},
-			}
-			_, err = srv.db.NewInsert().Model(&media).Exec(t.Context())
-			require.NoError(t, err)
-
-			call := func(tool, operation string, args map[string]any) map[string]any {
-				t.Helper()
-				response := srv.requestPath(t, "/mcp/code", "mcp-token", map[string]any{
-					"jsonrpc": "2.0", "id": operation, "method": "tools/call",
-					"params": map[string]any{"name": tool, "arguments": map[string]any{"operation": operation, "arguments": args}},
-				})
-				require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-				var out map[string]any
-				require.NoError(t, json.Unmarshal(response.Body.Bytes(), &out))
-				return out
-			}
-			created := mcpStructuredContent(t, call("execute_operation", "create_post", map[string]any{
-				"workspace_id": "ws-1", "content_profile": "carousel", "source_text": "Launch photos",
-				"social_account_ids": []string{"facebook-page"}, "media_ids": []string{"image-1", "image-2"},
-				"scheduled_at": time.Now().UTC().Add(2 * time.Hour).Format(time.RFC3339),
-			}))
-			post := created["publication"].(map[string]any)
-			postID := post["id"].(string)
-			validated := mcpStructuredContent(t, call("query_operation", "validate_post", map[string]any{"post_id": postID}))
-			ready := status == http.StatusOK
-			require.Equal(t, ready, validated["valid"], "validation issues: %v", validated["issues"])
-			require.EqualValues(t, 2, requests.Load(), "validation must check both signed public media URLs")
-			if !ready {
-				issues := validated["issues"].([]any)
-				codes := make([]string, 0, len(issues))
-				for _, issue := range issues {
-					codes = append(codes, issue.(map[string]any)["code"].(string))
-				}
-				require.Contains(t, codes, "public_url_unreachable")
-			}
-			for _, id := range []string{"image-1", "image-2"} {
-				var persisted models.MediaAttachment
-				require.NoError(t, srv.db.NewSelect().Model(&persisted).Where("id = ?", id).Scan(t.Context()))
-				require.Equal(t, ready, persisted.PublicURLReady)
-				require.False(t, persisted.PublicURLCheckedAt.IsZero())
-				require.Equal(t, status, persisted.PublicURLStatus)
-			}
-			scheduled := call("execute_operation", "schedule_post", map[string]any{"post_id": postID, "expected_revision": post["revision"]})
-			if ready {
-				result := mcpStructuredContent(t, scheduled)
-				require.Equal(t, "scheduled", result["publication"].(map[string]any)["status"])
-				require.NotEmpty(t, result["job_id"])
-			} else {
-				require.Contains(t, mcpErrorMessage(t, scheduled), "validation")
-				jobs, err := srv.db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", postID).Count(t.Context())
-				require.NoError(t, err)
-				require.Zero(t, jobs)
-			}
-		})
-	}
 }

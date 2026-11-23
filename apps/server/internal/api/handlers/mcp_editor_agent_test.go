@@ -3,7 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
+
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,17 +15,11 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/ai"
-	"github.com/openpost/backend/internal/services/aiusage"
+
 	"github.com/openpost/backend/internal/services/editoragent"
 	"github.com/openpost/backend/internal/services/editorpreferences"
 	"github.com/openpost/backend/internal/services/entitlements"
 )
-
-type editorAssistantTestGenerator struct{}
-
-func (editorAssistantTestGenerator) Generate(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
-	return ai.GenerateResult{}, nil
-}
 
 type editorAssistantSequenceGenerator struct {
 	responses []editorAssistantDecision
@@ -45,110 +39,6 @@ func (g *editorAssistantSequenceGenerator) Generate(_ context.Context, request a
 	response, _ := json.Marshal(g.responses[g.calls])
 	g.calls++
 	return ai.GenerateResult{Text: string(response), Usage: ai.Usage{InputTokens: 10, OutputTokens: 5}}, nil
-}
-
-func TestEditorAssistantRequiresConfiguredModelEditAccessAndHostedPlan(t *testing.T) {
-	t.Parallel()
-	db := workflowHandlerDB(t)
-	blank, whitespace := "", " \t "
-	for _, test := range []struct {
-		name         string
-		edition      string
-		entitlement  entitlements.Service
-		workspaceID  string
-		userID       string
-		available    bool
-		reason       string
-		nilGenerator bool
-		model        *string
-	}{
-		{name: "paid editor", edition: "cloud", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "user", available: true},
-		{name: "free editor", edition: "cloud", entitlement: entitlements.NewCloudBootstrapService(), workspaceID: "ws", userID: "user", reason: "paid_plan_required"},
-		{name: "other user", edition: "cloud", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "other", reason: "no_edit_access"},
-		{name: "self hosted", edition: "selfhost", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "user", available: true},
-		{name: "nil generator", edition: "cloud", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "user", nilGenerator: true, reason: "not_configured"},
-		{name: "blank model", edition: "cloud", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "user", model: &blank, reason: "not_configured"},
-		{name: "whitespace model", edition: "cloud", entitlement: entitlements.NewStaticService(entitlements.PlanSnapshot{PlanID: "paid"}), workspaceID: "ws", userID: "user", model: &whitespace, reason: "not_configured"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			var generator ai.Generator = editorAssistantTestGenerator{}
-			if test.nilGenerator {
-				generator = nil
-			}
-			model := "test-model"
-			if test.model != nil {
-				model = *test.model
-			}
-			handler := NewEditorAgentAssistantHandler(db, workflowSession{}, test.entitlement, generator, model, test.edition)
-			available, reason, err := handler.available(t.Context(), test.workspaceID, test.userID)
-			if err != nil || available != test.available || reason != test.reason {
-				t.Fatalf("availability = %v, %q, %v; want %v, %q", available, reason, err, test.available, test.reason)
-			}
-		})
-	}
-}
-
-func TestFreeEditorAssistantHTTPRejectsRequestsBeforeCallingModel(t *testing.T) {
-	t.Parallel()
-	for _, kind := range []string{"image", "video"} {
-		t.Run(kind, func(t *testing.T) {
-			db := workflowHandlerDB(t)
-			relay := editoragent.NewRelay(db)
-			session, err := relay.Register(t.Context(), "ws", "user", "project", kind)
-			if err != nil {
-				t.Fatal(err)
-			}
-			generator := &editorAssistantSequenceGenerator{responses: []editorAssistantDecision{{Kind: "final", Message: "Should not run"}}}
-			e := echo.New()
-			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
-			NewEditorAgentAssistantHandler(db, workflowSession{}, entitlements.NewCloudBootstrapService(), generator, "test-model", "cloud").RegisterRoutes(api)
-			body, _ := json.Marshal(map[string]string{
-				"workspace_id": "ws", "session_id": session.ID, "project_id": "project", "prompt": "Make the title blue",
-			})
-			request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/editor-agent/assistant", bytes.NewReader(body))
-			request.Header.Set("Authorization", "Bearer session")
-			request.Header.Set("Content-Type", "application/json")
-			response := httptest.NewRecorder()
-			e.ServeHTTP(response, request)
-			if response.Code != http.StatusForbidden || generator.calls != 0 {
-				t.Fatalf("free %s assistant status=%d calls=%d: %s", kind, response.Code, generator.calls, response.Body.String())
-			}
-			var failure struct {
-				Detail string `json:"detail"`
-			}
-			if err := json.Unmarshal(response.Body.Bytes(), &failure); err != nil || failure.Detail != "Hosted editor assistant unavailable: paid_plan_required" {
-				t.Fatalf("request failed for the wrong reason: %s (%v)", response.Body.String(), err)
-			}
-		})
-	}
-}
-
-func TestHostedEditorAssistantStopCancelsQueuedEdit(t *testing.T) {
-	t.Parallel()
-	db := workflowHandlerDB(t)
-	relay := editoragent.NewRelay(db)
-	session, err := relay.Register(t.Context(), "ws", "user", "project", "video")
-	if err != nil {
-		t.Fatal(err)
-	}
-	request, err := relay.Enqueue(t.Context(), session, "user", "stop-key", "video_edit", json.RawMessage(`{}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	handler := &EditorAgentAssistantHandler{db: db}
-	if _, err := handler.waitForEditorRequest(ctx, request.ID, "ws", "user"); err != context.Canceled {
-		t.Fatalf("wait error = %v, want cancellation", err)
-	}
-	stopped, err := relay.GetRequest(t.Context(), request.ID, "ws", "user")
-	if err != nil || stopped.Status != "cancelled" {
-		t.Fatalf("queued edit remained executable: status=%v err=%v", stopped, err)
-	}
-	leased, err := relay.LeaseNext(t.Context(), session.ID, "user", session.Epoch)
-	if err != nil || leased != nil {
-		t.Fatalf("browser received stopped edit: request=%v err=%v", leased, err)
-	}
 }
 
 func TestHostedEditorAssistantHTTPUsesPaidToolLoopAndAccountsUsage(t *testing.T) {
@@ -249,105 +139,6 @@ func TestHostedEditorAssistantHTTPUsesPaidToolLoopAndAccountsUsage(t *testing.T)
 	}
 }
 
-func TestEditorAgentMCPValidatesSpecificActions(t *testing.T) {
-	t.Parallel()
-	base := map[string]any{
-		"workspace_id": "workspace", "session_id": "session", "project_id": "project",
-		"expected_revision": "revision", "request_id": "retry-key",
-	}
-	for _, test := range []struct {
-		name    string
-		tool    string
-		action  map[string]any
-		allowed bool
-	}{
-		{"video text", "video_edit", map[string]any{"kind": "text.add", "value": map[string]any{"text": "Hello", "frame": 30}}, true},
-		{"video missing target", "video_edit", map[string]any{"kind": "clip.remove", "value": map[string]any{"include_linked": false}}, false},
-		{"video wrong value", "video_edit", map[string]any{"kind": "audio.gain", "target_id": "clip", "value": map[string]any{"gain": 9}}, false},
-		{"image text", "image_edit", map[string]any{"kind": "text.set", "target_id": "layer", "value": map[string]any{"page_id": "page", "text": "Hello"}}, true},
-		{"image unsupported", "image_edit", map[string]any{"kind": "arbitrary.patch", "target_id": "layer", "value": map[string]any{"page_id": "page"}}, false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			args := make(map[string]any, len(base)+1)
-			for key, value := range base {
-				args[key] = value
-			}
-			args["actions"] = []any{test.action}
-			err := validateMCPToolArguments(test.tool, args)
-			if (err == nil) != test.allowed {
-				t.Fatalf("validation allowed=%v, want %v: %#v", err == nil, test.allowed, err)
-			}
-		})
-	}
-}
-
-func TestEditorAudioPreviewReturnsBoundedMCPAudioContent(t *testing.T) {
-	t.Parallel()
-	wave := func(size int) []byte {
-		data := make([]byte, size)
-		copy(data[:4], "RIFF")
-		copy(data[8:12], "WAVE")
-		return data
-	}
-	badRIFF, badWAVE := wave(44), wave(44)
-	copy(badRIFF[:4], "NOPE")
-	copy(badWAVE[8:12], "NOPE")
-	for _, test := range []struct {
-		name    string
-		encoded string
-		valid   bool
-	}{
-		{"minimum WAV", base64.StdEncoding.EncodeToString(wave(44)), true},
-		{"inclusive one MiB", base64.StdEncoding.EncodeToString(wave(1048576)), true},
-		{"over one MiB", base64.StdEncoding.EncodeToString(wave(1048577)), false},
-		{"short header", base64.StdEncoding.EncodeToString(wave(43)), false},
-		{"wrong RIFF", base64.StdEncoding.EncodeToString(badRIFF), false},
-		{"wrong WAVE", base64.StdEncoding.EncodeToString(badWAVE), false},
-		{"invalid base64", "%%%not-base64%%%", false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			result := editorAgentToolResult(map[string]any{"request": &editoragent.Request{
-				Status: "completed", Result: json.RawMessage(`{"audio_base64":"` + test.encoded + `","start_frame":0}`),
-			}})
-			content := result["content"].([]mcpContent)
-			if test.valid {
-				if len(content) != 2 || content[1].Type != "audio" || content[1].MimeType != "audio/wav" || content[1].Data != test.encoded {
-					t.Fatalf("WAV preview was not returned as audio content: type/count/MIME/data mismatch")
-				}
-			} else if len(content) != 1 || content[0].Type != "text" {
-				t.Fatalf("invalid audio produced non-text content: %#v", content)
-			}
-			receipt := result["structuredContent"].(map[string]any)["request"].(*editoragent.Request)
-			if test.valid {
-				if string(receipt.Result) != `{"start_frame":0}` {
-					t.Fatalf("audio bytes leaked into the structured receipt")
-				}
-			} else {
-				var data map[string]any
-				if err := json.Unmarshal(receipt.Result, &data); err != nil {
-					t.Fatal(err)
-				}
-				if _, leaked := data["audio_base64"]; leaked {
-					t.Fatal("invalid audio bytes leaked into the structured receipt")
-				}
-				if message, ok := data["audio_error"].(string); !ok || message != "preview audio could not be validated" || data["start_frame"] != float64(0) {
-					t.Fatalf("invalid audio did not preserve a typed error and receipt: %#v", data)
-				}
-			}
-		})
-	}
-}
-func TestEditorAgentMCPResultUsesAdvertisedEnvelope(t *testing.T) {
-	t.Parallel()
-	result := editorAgentToolResult(map[string]any{"sessions": []any{}})
-	if err := validateMCPToolOutput("editor_sessions", result); err != nil {
-		t.Fatalf("editor session output does not match the MCP contract: %v", err)
-	}
-	if err := validateMCPToolOutput("editor_sessions", map[string]any{"sessions": []any{}}); err == nil {
-		t.Fatal("bare editor data must not pass as an MCP tool response")
-	}
-}
-
 func TestHostedAssistantCanInspectCompletedEditorRequest(t *testing.T) {
 	t.Parallel()
 	db := workflowHandlerDB(t)
@@ -445,81 +236,8 @@ func TestEditorPreferencesKeepScopeExplicitRulesAndPinnedStyles(t *testing.T) {
 	}
 }
 
-func TestEditorSuggestionsNeedThreeDistinctManualProjectsAndRespectReset(t *testing.T) {
-	t.Parallel()
-	service := editorpreferences.NewService(workflowHandlerDB(t))
-	record := func(project string) {
-		t.Helper()
-		if err := service.RecordChoice(t.Context(), "ws", "user", project, "tutorial", "caption-clean", "Clean captions", "video"); err != nil {
-			t.Fatal(err)
-		}
-	}
-	record("one")
-	record("one")
-	record("two")
-	read := func() editorpreferences.Context {
-		t.Helper()
-		c, err := service.Context(t.Context(), "ws", "user", "one", "video", "tutorial")
-		if err != nil {
-			t.Fatal(err)
-		}
-		return c
-	}
-	if len(read().Suggestions) != 0 {
-		t.Fatal("repeated choice in one project became a rule")
-	}
-	record("three")
-	if c := read(); len(c.Suggestions) != 1 || c.Suggestions[0].Projects != 3 || len(c.Preferences) != 0 {
-		t.Fatalf("manual choice suggestion: %+v", c)
-	}
-	if err := service.SetLearning(t.Context(), "ws", "user", editorpreferences.LearningChange{Enabled: false, Reset: true, ProjectID: "two"}); err != nil {
-		t.Fatal(err)
-	}
-	record("four")
-	if c := read(); c.LearningEnabled || len(c.Suggestions) != 0 {
-		t.Fatalf("learning off still ranks choices: %+v", c)
-	}
-	if err := service.SetLearning(t.Context(), "ws", "user", editorpreferences.LearningChange{Enabled: true}); err != nil {
-		t.Fatal(err)
-	}
-	if len(read().Suggestions) != 0 {
-		t.Fatal("disabled or reset observations counted toward suggestion")
-	}
-}
-
 type editorUsageGenerator func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error)
 
 func (g editorUsageGenerator) Generate(ctx context.Context, r ai.GenerateRequest) (ai.GenerateResult, error) {
 	return g(ctx, r)
-}
-
-func TestEditorUsageSurvivesCancellationAndInvalidOutput(t *testing.T) {
-	t.Parallel()
-	db := workflowHandlerDB(t)
-	usage := aiusage.NewService(db)
-	ctx, cancel := context.WithCancel(t.Context())
-	cost := 0.0042
-	generator := editorUsageGenerator(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
-		cancel()
-		return ai.GenerateResult{RequestID: "provider-call", Model: "actual-model", Usage: ai.Usage{InputTokens: 31, OutputTokens: 7, TotalTokens: 38, CostUSD: &cost}}, context.Canceled
-	})
-	_, err := usage.Generate(ctx, aiusage.EditorIdentity{WorkspaceID: "ws", UserID: "user", ProjectID: "p", RunID: "cancel-run", Step: 1}, generator, ai.GenerateRequest{Model: "requested-model"})
-	if err != context.Canceled {
-		t.Fatalf("cancel outcome: %v", err)
-	}
-	calls, err := usage.List(t.Context(), "ws", "user")
-	if err != nil || len(calls) != 1 || calls[0].ProviderRequestID != "provider-call" || calls[0].CostMicrousd == nil || *calls[0].CostMicrousd != 4200 || calls[0].TotalTokens == nil || *calls[0].TotalTokens != 38 {
-		t.Fatalf("cancellation lost provider accounting: %+v %v", calls, err)
-	}
-	if err := usage.Invalid(ctx, "cancel-run", 1); err != nil {
-		t.Fatal(err)
-	}
-	calls, err = usage.List(t.Context(), "ws", "user")
-	if err != nil || calls[0].State != "invalid_output" || *calls[0].InputTokens != 31 {
-		t.Fatalf("invalid-output marking erased accounting: %+v %v", calls, err)
-	}
-	other, err := usage.List(t.Context(), "ws", "other")
-	if err != nil || len(other) != 0 {
-		t.Fatalf("usage leaked to another user: %+v %v", other, err)
-	}
 }

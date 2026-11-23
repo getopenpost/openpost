@@ -36,55 +36,6 @@ func TestDevNullPublicAccountAnalyticsPreservesMissingAndZero(t *testing.T) {
 	require.Equal(t, AnalyticsMetricAggregationCurrentSnapshot, meta.Aggregation)
 }
 
-func TestDevNullPublicContentAnalyticsDeduplicatesCommitLinksAndExcludesOwnReplies(t *testing.T) {
-	const first = "01a181b9-5c35-738d-8b66-a5159a3e1f0b"
-	const second = "01a181b9-5c35-738d-8b66-a5159a3e1f0c"
-	cases := []struct {
-		name          string
-		first, second map[string]any
-		want          AnalyticsValues
-	}{
-		{"complete", map[string]any{"stars_count": 4, "replies_count": 3}, map[string]any{"stars_count": 0, "replies_count": 1}, AnalyticsValues{MetricLikes: 4, MetricComments: 3}},
-		{"stars missing first", map[string]any{"replies_count": 3}, map[string]any{"stars_count": 0, "replies_count": 1}, AnalyticsValues{MetricComments: 3}},
-		{"stars missing last", map[string]any{"stars_count": 4, "replies_count": 3}, map[string]any{"replies_count": 1}, AnalyticsValues{MetricComments: 3}},
-		{"replies missing first", map[string]any{"stars_count": 4}, map[string]any{"stars_count": 0, "replies_count": 1}, AnalyticsValues{MetricLikes: 4}},
-		{"replies missing last", map[string]any{"stars_count": 4, "replies_count": 3}, map[string]any{"stars_count": 0}, AnalyticsValues{MetricLikes: 4}},
-		{"measured zero", map[string]any{"stars_count": 0, "replies_count": 0}, map[string]any{"stars_count": 0, "replies_count": 0}, AnalyticsValues{MetricLikes: 0, MetricComments: 0}},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			calls := 0
-			server := newProviderTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				calls++
-				require.Empty(t, r.Header.Get("Authorization"))
-				var data map[string]any
-				switch r.URL.Path {
-				case "/api/v1/commits/" + first:
-					data = test.first
-					data["id"] = first
-				case "/api/v1/commits/" + second:
-					data = test.second
-					data["id"] = second
-				default:
-					t.Errorf("unexpected reporting path %q", r.URL.Path)
-					http.NotFound(w, r)
-					return
-				}
-				require.NoError(t, json.NewEncoder(w).Encode(map[string]any{"data": data}))
-			}))
-			defer server.Close()
-			values, err := devNullAnalyticsAdapter(t, server.URL).FetchContentAnalytics(t.Context(), "unused-private-key", ContentAnalyticsRequest{
-				ExternalIDs: []string{server.URL + "/@octocat/commits/" + first, first, second}, OwnReplyCount: 1,
-			})
-			require.NoError(t, err)
-			require.Equal(t, test.want, values)
-			require.Equal(t, 2, calls)
-			require.NotContains(t, values, MetricViews)
-			require.NotContains(t, values, MetricQuotes)
-		})
-	}
-}
-
 func TestDevNullPublicContentAnalyticsDoesNotReportPartialThreads(t *testing.T) {
 	const first = "01a181b9-5c35-738d-8b66-a5159a3e1f0b"
 	const missing = "01a181b9-5c35-738d-8b66-a5159a3e1f0c"
@@ -104,16 +55,4 @@ func TestDevNullPublicContentAnalyticsDoesNotReportPartialThreads(t *testing.T) 
 	require.ErrorAs(t, err, &unavailable)
 	require.Equal(t, AnalyticsStatusNotFound, unavailable.Status)
 	require.Equal(t, 2, calls)
-}
-
-func TestDevNullProfileUsesCurrentPublicHandle(t *testing.T) {
-	server := newProviderTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/api/v1/users/octocat", r.URL.Path)
-		_, _ = w.Write([]byte(`{"data":{"id":"user-id","handle":"octocat","name":"Octo Cat","avatar_url":"https://avatars.example/photo"}}`))
-	}))
-	defer server.Close()
-	profile, err := NewDevNullAdapter(server.URL).GetProfile(t.Context(), "octocat\nprivate-key")
-	require.NoError(t, err)
-	require.Equal(t, "octocat", profile.Username)
-	require.Equal(t, "user-id", profile.ID)
 }

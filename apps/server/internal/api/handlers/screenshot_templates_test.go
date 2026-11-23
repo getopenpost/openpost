@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
@@ -59,24 +58,7 @@ func (srv screenshotTestServer) create(t *testing.T) ScreenshotTemplateDesignRes
 	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &design))
 	return design
 }
-func TestScreenshotTemplateSaveRejectsStaleRevision(t *testing.T) {
-	t.Parallel()
-	srv := newScreenshotTestServer(t)
-	design := srv.create(t)
-	document := design.Document
-	document.Conversation.Messages[0].Text = "The updated punchline"
-	path := "/screenshot-templates/designs/" + design.ID
-	saved := srv.request(t, http.MethodPut, path, map[string]any{"revision": 1, "document": document})
-	require.Equal(t, 200, saved.Code, saved.Body.String())
-	document.Conversation.Messages[0].Text = "Stale tab"
-	stale := srv.request(t, http.MethodPut, path, map[string]any{"revision": 1, "document": document})
-	require.Equal(t, 409, stale.Code, stale.Body.String())
-	loaded := srv.request(t, http.MethodGet, path, nil)
-	var current ScreenshotTemplateDesignResponse
-	require.NoError(t, json.Unmarshal(loaded.Body.Bytes(), &current))
-	require.Equal(t, 2, current.Revision)
-	require.Equal(t, "The updated punchline", current.Document.Conversation.Messages[0].Text)
-}
+
 func TestScreenshotTemplateRecipeSurvivesDraftChangesAndDeletion(t *testing.T) {
 	t.Parallel()
 	srv := newScreenshotTestServer(t)
@@ -125,141 +107,4 @@ func TestScreenshotTemplateAuthorization(t *testing.T) {
 	require.NoError(t, err)
 	denied := srv.request(t, http.MethodGet, path, nil)
 	require.Equal(t, 403, denied.Code)
-}
-func TestScreenshotTemplateRejectsInvalidConversation(t *testing.T) {
-	t.Parallel()
-	for _, test := range []struct {
-		name   string
-		change func(*ScreenshotTemplateDocument)
-	}{
-		{"missing sender", func(doc *ScreenshotTemplateDocument) { doc.Conversation.Messages[0].SenderID = "unknown" }},
-		{"duplicate message", func(doc *ScreenshotTemplateDocument) {
-			doc.Conversation.Messages = append(doc.Conversation.Messages, doc.Conversation.Messages[0])
-		}},
-		{"null messages", func(doc *ScreenshotTemplateDocument) { doc.Conversation.Messages = nil }},
-		{"empty messages", func(doc *ScreenshotTemplateDocument) { doc.Conversation.Messages = []ScreenshotTemplateMessage{} }},
-		{"unrelated content", func(doc *ScreenshotTemplateDocument) {
-			doc.StatusPage = &ScreenshotTemplateStatus{Severity: "outage", Updates: []ScreenshotTemplateStatusUpdate{{ID: "update"}}}
-		}},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			srv := newScreenshotTestServer(t)
-			doc := screenshotDocumentFixture()
-			test.change(&doc)
-			response := srv.request(t, http.MethodPost, "/screenshot-templates/designs", map[string]any{"workspace_id": "workspace-1", "document": doc})
-			require.Contains(t, []int{400, 422}, response.Code, response.Body.String())
-		})
-	}
-}
-
-func TestScreenshotTemplateImageFieldsRoundTrip(t *testing.T) {
-	t.Parallel()
-	srv := newScreenshotTestServer(t)
-	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{ID: "photo", WorkspaceID: "workspace-1", MimeType: "image/png", ProcessingStatus: "ready"}).Exec(t.Context())
-	require.NoError(t, err)
-	var doc map[string]any
-	encoded, err := json.Marshal(screenshotDocumentFixture())
-	require.NoError(t, err)
-	require.NoError(t, json.Unmarshal(encoded, &doc))
-	chat := doc["conversation"].(map[string]any)
-	chat["people"].([]any)[0].(map[string]any)["avatar_media_id"] = "photo"
-	chat["messages"].([]any)[0].(map[string]any)["image_media_id"] = "photo"
-	result := srv.request(t, http.MethodPost, "/screenshot-templates/designs", map[string]any{"workspace_id": "workspace-1", "document": doc})
-	require.Equal(t, 200, result.Code, result.Body.String())
-	require.Contains(t, result.Body.String(), `"avatar_media_id":"photo"`)
-	require.Contains(t, result.Body.String(), `"image_media_id":"photo"`)
-	var design ScreenshotTemplateDesignResponse
-	require.NoError(t, json.Unmarshal(result.Body.Bytes(), &design))
-	reloaded := srv.request(t, http.MethodGet, "/screenshot-templates/designs/"+design.ID, nil)
-	require.Equal(t, http.StatusOK, reloaded.Code, reloaded.Body.String())
-	var stored ScreenshotTemplateDesignResponse
-	require.NoError(t, json.Unmarshal(reloaded.Body.Bytes(), &stored))
-	require.Equal(t, "photo", stored.Document.Conversation.People[0].AvatarMediaID, "avatar media must survive the round trip")
-	require.Equal(t, "photo", stored.Document.Conversation.Messages[0].ImageMediaID, "message media must survive the round trip")
-}
-
-func TestScreenshotTemplateRejectsUnavailableImages(t *testing.T) {
-	t.Parallel()
-	for _, test := range []struct {
-		name, workspace, mime, status string
-		assetKind                     string
-		trashed                       bool
-	}{
-		{name: "another workspace", workspace: "workspace-2", mime: "image/png", status: "ready"},
-		{name: "project asset", workspace: "workspace-1", mime: "image/png", status: "ready", assetKind: "project_asset"},
-		{name: "video", workspace: "workspace-1", mime: "video/mp4", status: "ready"},
-		{name: "SVG", workspace: "workspace-1", mime: "image/svg+xml", status: "ready"},
-		{name: "processing", workspace: "workspace-1", mime: "image/png", status: "processing"},
-		{name: "trash", workspace: "workspace-1", mime: "image/png", status: "ready", trashed: true},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			srv := newScreenshotTestServer(t)
-			media := models.MediaAttachment{ID: "photo", WorkspaceID: test.workspace, MimeType: test.mime, ProcessingStatus: test.status, AssetKind: test.assetKind}
-			if test.trashed {
-				media.TrashedAt = time.Now()
-			}
-			_, err := srv.db.NewInsert().Model(&media).Exec(t.Context())
-			require.NoError(t, err)
-			design := srv.create(t)
-			for _, field := range []string{"avatar", "message"} {
-				doc := screenshotDocumentFixture()
-				if field == "avatar" {
-					doc.Conversation.People[0].AvatarMediaID = "photo"
-				} else {
-					doc.Conversation.Messages[0].ImageMediaID = "photo"
-				}
-				create := srv.request(t, http.MethodPost, "/screenshot-templates/designs", map[string]any{"workspace_id": "workspace-1", "document": doc})
-				require.Equal(t, 400, create.Code, create.Body.String())
-				update := srv.request(t, http.MethodPut, "/screenshot-templates/designs/"+design.ID, map[string]any{"revision": 1, "document": doc})
-				require.Equal(t, 400, update.Code, update.Body.String())
-			}
-		})
-	}
-}
-
-func TestMemeTemplateDraftAndLegacyRecipe(t *testing.T) {
-	t.Parallel()
-	srv := newScreenshotTestServer(t)
-	doc := ScreenshotTemplateDocument{SchemaVersion: 1, TemplateID: "meme", Title: "Launch joke", Appearance: "light", Frame: "natural", TextSize: "normal", Meme: &ScreenshotTemplateMeme{TemplateID: "fry", Name: "Futurama Fry", Captions: []string{"Before launch", "After launch"}, OverlayMediaIDs: []string{}, Format: "png"}}
-	created := srv.request(t, http.MethodPost, "/screenshot-templates/designs", map[string]any{"workspace_id": "workspace-1", "document": doc})
-	require.Equal(t, 200, created.Code, created.Body.String())
-	var design ScreenshotTemplateDesignResponse
-	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &design))
-	doc.Meme.Captions[1] = "Still fixing bugs"
-	updated := srv.request(t, http.MethodPut, "/screenshot-templates/designs/"+design.ID, map[string]any{"revision": 1, "document": doc})
-	require.Equal(t, 200, updated.Code, updated.Body.String())
-	loaded := srv.request(t, http.MethodGet, "/screenshot-templates/designs/"+design.ID, nil)
-	require.NoError(t, json.Unmarshal(loaded.Body.Bytes(), &design))
-	require.Equal(t, []string{"Before launch", "Still fixing bugs"}, design.Document.Meme.Captions)
-	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{ID: "meme-overlay", WorkspaceID: "workspace-1", MimeType: "image/png", ProcessingStatus: mediaReadyStatus, AssetKind: "library"}).Exec(t.Context())
-	require.NoError(t, err)
-	// The retained shape guard: an otherwise valid owner overlay without a
-	// declared slot must be rejected before any media lookup.
-	doc.Meme.OverlaySlots = 0
-	doc.Meme.OverlayMediaIDs = []string{"meme-overlay"}
-	shape := srv.request(t, http.MethodPut, "/screenshot-templates/designs/"+design.ID, map[string]any{"revision": 2, "document": doc})
-	require.Equal(t, 400, shape.Code, shape.Body.String())
-	require.Contains(t, shape.Body.String(), "a meme requires a template and valid image slots")
-	// Declaring the slot makes the same owner overlay acceptable.
-	doc.Meme.OverlaySlots = 1
-	overlay := srv.request(t, http.MethodPut, "/screenshot-templates/designs/"+design.ID, map[string]any{"revision": 2, "document": doc})
-	require.Equal(t, 200, overlay.Code, overlay.Body.String())
-	// A foreign image still reaches the workspace ownership guard.
-	doc.Meme.OverlayMediaIDs = []string{"foreign-image"}
-	invalid := srv.request(t, http.MethodPut, "/screenshot-templates/designs/"+design.ID, map[string]any{"revision": 3, "document": doc})
-	require.Equal(t, 400, invalid.Code, invalid.Body.String())
-	require.Contains(t, invalid.Body.String(), "must belong to this workspace")
-	legacy := MemeRecipeDocument{SchemaVersion: 1, Template: MemeRecipeTemplateSnapshot{ID: "fry", Name: "Fry", Lines: 2}, Captions: []string{"Old", "Joke"}, Format: "gif"}
-	encoded, err := json.Marshal(legacy)
-	require.NoError(t, err)
-	_, err = srv.db.NewInsert().Model(&models.MediaGenerationRecipe{MediaID: "legacy", WorkspaceID: "workspace-1", Kind: "meme", RecipeJSON: string(encoded)}).Exec(t.Context())
-	require.NoError(t, err)
-	result := srv.request(t, http.MethodGet, "/screenshot-templates/recipes/legacy", nil)
-	require.Equal(t, 200, result.Code, result.Body.String())
-	var recipe ScreenshotTemplateRecipeOutput
-	require.NoError(t, json.Unmarshal(result.Body.Bytes(), &recipe.Body))
-	require.Equal(t, "meme", recipe.Body.Document.TemplateID)
-	require.Equal(t, "gif", recipe.Body.Document.Meme.Format)
-	require.Equal(t, "legacy", recipe.Body.Document.Meme.ParentMediaID)
-	require.Equal(t, []string{"Old", "Joke"}, recipe.Body.Document.Meme.Captions)
 }

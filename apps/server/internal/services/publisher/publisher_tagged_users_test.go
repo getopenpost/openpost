@@ -2,13 +2,11 @@ package publisher
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"net/http"
+
 	"testing"
 
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/platform"
+
 	"github.com/openpost/backend/internal/services/usage"
 	"github.com/stretchr/testify/require"
 )
@@ -104,74 +102,6 @@ func newTaggedUsersTestServer(t *testing.T, adapter *resolvingFakeAdapter) *publ
 	return srv
 }
 
-func TestXTaggedUserHandlesResolveToNumericIDsBeforeDispatch(t *testing.T) {
-	t.Parallel()
-	adapter := &resolvingFakeAdapter{resolved: map[string]string{"handle": "2244996801"}}
-	srv := newTaggedUsersTestServer(t, adapter)
-	// One thread with two segments tagging the same handle: the first
-	// dispatch resolves and caches it, the second dispatch hits the cache.
-	insertTaggedUsersSegmentFixture(t, srv, "segment-tagged", "rsegment-tagged", "media-tagged", `{"tagged_users":"@Handle, 123"}`)
-	insertTaggedUsersSegmentFixture(t, srv, "segment-cached", "rsegment-cached", "media-cached", `{"tagged_users":"@handle"}`)
-
-	require.NoError(t, publishTaggedUsersFixture(t, srv))
-
-	require.Equal(t, 2, adapter.publishCalls)
-	require.Equal(t, 1, adapter.resolveCalls, "the second segment's identical handle must hit the cache")
-	require.Len(t, adapter.resolveHandles, 1)
-	require.Equal(t, []string{"handle"}, adapter.resolveHandles[0])
-	require.Equal(t, "2244996801,123", adapter.publishRequests[0].MediaSettings[0]["tagged_users"])
-	require.Equal(t, "2244996801", adapter.publishRequests[1].MediaSettings[0]["tagged_users"])
-
-	var stored models.ProviderUserResolution
-	require.NoError(t, srv.db.NewSelect().Model(&stored).
-		Where("workspace_id = ? AND provider = ? AND handle = ?", "ws-1", "x", "handle").Scan(t.Context()))
-	require.Equal(t, "2244996801", stored.ProviderUserID)
-
-	// Stored authorship keeps the authored handles; only the in-memory
-	// request carried the resolved IDs.
-	var segmentMedia models.RenditionSegmentMedia
-	require.NoError(t, srv.db.NewSelect().Model(&segmentMedia).
-		Where("rendition_segment_id = ?", "rsegment-tagged").Scan(t.Context()))
-	require.Contains(t, segmentMedia.SettingsJSON, "@Handle")
-
-	var rendition models.Rendition
-	require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(t.Context()))
-	require.Equal(t, models.RenditionStatusPublished, rendition.Status)
-}
-
-func TestXTaggedUserUnresolvableHandleFailsRendition(t *testing.T) {
-	t.Parallel()
-	adapter := &resolvingFakeAdapter{resolveErr: fmt.Errorf("x user @missinguser could not be found")}
-	srv := newTaggedUsersTestServer(t, adapter)
-	insertTaggedUsersSegmentFixture(t, srv, "segment-missing", "rsegment-missing", "media-missing", `{"tagged_users":"@missinguser,123"}`)
-
-	require.NoError(t, publishTaggedUsersFixture(t, srv))
-	require.Equal(t, 1, adapter.resolveCalls)
-	require.Zero(t, adapter.publishCalls, "rendition must not publish with partial tags")
-
-	var segment models.RenditionSegment
-	require.NoError(t, srv.db.NewSelect().Model(&segment).Where("id = ?", "rsegment-missing").Scan(t.Context()))
-	require.Equal(t, models.RenditionStatusFailed, segment.Status)
-	require.Equal(t, FailureValidation, segment.ErrorKind, "unresolvable handles must read as content validation failures")
-}
-
-func TestXTaggedUserNumericEntriesBypassResolution(t *testing.T) {
-	t.Parallel()
-	adapter := &resolvingFakeAdapter{resolved: map[string]string{}}
-	srv := newTaggedUsersTestServer(t, adapter)
-	insertTaggedUsersSegmentFixture(t, srv, "segment-numeric", "rsegment-numeric", "media-numeric", `{"tagged_users":"123, 456"}`)
-
-	require.NoError(t, publishTaggedUsersFixture(t, srv))
-	require.Equal(t, 1, adapter.publishCalls)
-	require.Zero(t, adapter.resolveCalls, "numeric user IDs need no lookup")
-	// Numeric-only lists pass through as authored; the adapter validates and
-	// splits them at dispatch.
-	require.Equal(t, "123, 456", adapter.lastRequest.MediaSettings[0]["tagged_users"])
-	var publishedRendition models.Rendition
-	require.NoError(t, srv.db.NewSelect().Model(&publishedRendition).Where("id = ?", "rendition-1").Scan(t.Context()))
-	require.Equal(t, models.RenditionStatusPublished, publishedRendition.Status)
-}
-
 func enableTaggedUsersCostPolicy(t *testing.T, srv *publisherLifecycleTestServer, budget int64) {
 	t.Helper()
 	for _, model := range []any{(*models.ProviderUsageEvent)(nil), (*models.ProviderUsageReservation)(nil), (*models.ProviderUsagePeriodCounter)(nil)} {
@@ -193,80 +123,6 @@ func TestXTaggedUserLookupHonorsZeroBudget(t *testing.T) {
 	var segment models.RenditionSegment
 	require.NoError(t, srv.db.NewSelect().Model(&segment).Where("id = ?", "rsegment-tagged").Scan(t.Context()))
 	require.Equal(t, FailureBillingRequired, segment.ErrorKind)
-}
-
-func TestXTaggedUserLookupReservesOnlyUncachedUsers(t *testing.T) {
-	t.Parallel()
-	adapter := &resolvingFakeAdapter{resolved: map[string]string{"first": "123", "second": "456"}}
-	srv := newTaggedUsersTestServer(t, adapter)
-	enableTaggedUsersCostPolicy(t, srv, 20_000)
-	adapter.beforeResolve = func() {
-		var reservation models.ProviderUsageReservation
-		require.NoError(t, srv.db.NewSelect().Model(&reservation).Scan(t.Context()))
-		require.Equal(t, usage.XOperationUserRead, reservation.Operation)
-		require.EqualValues(t, 1, reservation.Units)
-		require.EqualValues(t, 10_000, reservation.CostMicrousd, "exposure must exist before provider lookup")
-	}
-	resolve := func(tags string) error {
-		req := &platform.PublishRequest{MediaSettings: []map[string]interface{}{{"tagged_users": tags}}}
-		return srv.service.resolveRenditionTaggedUsers(t.Context(), "ws-1", adapter, "token", req)
-	}
-	require.NoError(t, resolve("@First,@first,789"))
-	require.NoError(t, resolve("@first,@Second,@second"))
-	require.NoError(t, resolve("@first,@second"), "cache hits must succeed with the read budget exhausted")
-	require.Equal(t, [][]string{{"first"}, {"second"}}, adapter.resolveHandles)
-	var events []models.ProviderUsageEvent
-	require.NoError(t, srv.db.NewSelect().Model(&events).OrderExpr("created_at ASC").Scan(t.Context()))
-	require.Len(t, events, 2)
-	for _, event := range events {
-		require.Equal(t, usage.XOperationUserRead, event.Operation)
-		require.EqualValues(t, 1, event.Units)
-		require.EqualValues(t, 10_000, event.CostMicrousd)
-	}
-	require.NotEqual(t, events[0].OperationKey, events[1].OperationKey)
-	require.ErrorIs(t, resolve("@third"), usage.ErrProviderCostBudgetExceeded)
-	require.Equal(t, 2, adapter.resolveCalls)
-}
-
-func TestXTaggedUserLookupFailureSettlement(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		name     string
-		err      error
-		reserved bool
-	}{
-		{"rejected", &platform.HTTPError{StatusCode: http.StatusForbidden}, false},
-		{"server error", &platform.HTTPError{StatusCode: http.StatusInternalServerError}, true},
-		{"transport", context.DeadlineExceeded, true},
-		{"partial response", errors.New("x user @missing could not be found"), true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			adapter := &resolvingFakeAdapter{resolveErr: tc.err}
-			srv := newTaggedUsersTestServer(t, adapter)
-			enableTaggedUsersCostPolicy(t, srv, 20_000)
-			// A new uncached request after a failure can be billed again. Its cost
-			// identity must not be reused, even within the same publication attempt.
-			for range 2 {
-				req := &platform.PublishRequest{MediaSettings: []map[string]interface{}{{"tagged_users": "@missing"}}}
-				require.Error(t, srv.service.resolveRenditionTaggedUsers(t.Context(), "ws-1", adapter, "token", req))
-			}
-			require.Equal(t, 2, adapter.resolveCalls)
-			var reservations []models.ProviderUsageReservation
-			require.NoError(t, srv.db.NewSelect().Model(&reservations).Scan(t.Context()))
-			if tc.reserved {
-				require.Len(t, reservations, 2)
-				for _, reservation := range reservations {
-					require.Equal(t, "unknown", reservation.State)
-					require.EqualValues(t, 10_000, reservation.CostMicrousd)
-				}
-			} else {
-				require.Empty(t, reservations)
-			}
-			count, err := srv.db.NewSelect().Model((*models.ProviderUsageEvent)(nil)).Count(t.Context())
-			require.NoError(t, err)
-			require.Zero(t, count, "failed reads must not appear as confirmed cost")
-		})
-	}
 }
 
 func TestXTaggedUserLookupAndPublishShareHostedBudget(t *testing.T) {

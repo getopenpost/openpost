@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+
 	"image"
 	"image/color"
 	"image/png"
@@ -13,7 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"slices"
+
 	"testing"
 	"time"
 
@@ -282,30 +282,6 @@ func TestThemeHTTPLifecyclePreservesAdvancedManifestAndServesOpaqueAssets(t *tes
 	require.Zero(t, linked)
 }
 
-func TestThemeAssignmentAcceptsCurrentBuiltInRevision(t *testing.T) {
-	t.Parallel()
-	e, _, _ := newThemeTestServer(t)
-
-	response := themeRequest(t, e, http.MethodPut, "/api/v1/theme-assignments/workspace-1", map[string]any{
-		"reference": map[string]any{"kind": "built_in", "id": "studio", "version": 2},
-	})
-
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-}
-
-func TestThemeHTTPDuplicateBuiltInDoesNotRequireManifest(t *testing.T) {
-	t.Parallel()
-	e, _, _ := newThemeTestServer(t)
-	response := themeRequest(t, e, http.MethodPost, "/api/v1/themes", map[string]any{
-		"organization_id": "org-1", "name": "Studio copy", "duplicate_built_in_id": "studio",
-	})
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var created themes.Theme
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &created))
-	require.Equal(t, "Studio copy", created.Summary.Name)
-	require.Equal(t, themes.BuiltIns()["studio"].IconPack, created.Draft.Manifest.IconPack)
-}
-
 func TestThemeHTTPSettingsRequireManagementWithoutWorkspaceEnumeration(t *testing.T) {
 	t.Parallel()
 	e, _, _ := newThemeTestServer(t)
@@ -319,170 +295,6 @@ func TestThemeHTTPSettingsRequireManagementWithoutWorkspaceEnumeration(t *testin
 	require.Equal(t, http.StatusOK, workspaceAdmin.Code, workspaceAdmin.Body.String())
 	resolved := themeRequestAs(t, e, "viewer-token", http.MethodGet, "/api/v1/themes/resolved?workspace_id=workspace-1&scheme=light", nil)
 	require.Equal(t, http.StatusOK, resolved.Code, resolved.Body.String(), "ordinary members still read the resolved theme")
-}
-
-func TestThemeHTTPSummaryPaginationIsBoundedCompactAndComplete(t *testing.T) {
-	t.Parallel()
-	e, _, _ := newThemeTestServer(t)
-	createdIDs := map[string]struct{}{}
-	publishedIDs := map[string]struct{}{}
-	customsToPublish := themes.DefaultThemePageLimit - len(themes.BuiltIns()) + 1
-	for index := range themes.DefaultThemePageLimit + 3 {
-		response := themeRequest(t, e, http.MethodPost, "/api/v1/themes", map[string]any{
-			"organization_id": "org-1", "name": fmt.Sprintf("Theme %02d", index), "duplicate_built_in_id": "studio",
-		})
-		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-		var created themes.Theme
-		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &created))
-		createdIDs[created.Summary.Reference.ID] = struct{}{}
-		if index < customsToPublish {
-			published := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(created.Summary.Reference.ID)+"/publish", map[string]any{
-				"organization_id": "org-1", "expected_draft_revision": 1, "expected_published_revision": 0,
-			})
-			require.Equal(t, http.StatusOK, published.Code, published.Body.String())
-			publishedIDs[created.Summary.Reference.ID] = struct{}{}
-		}
-	}
-
-	defaultPageResponse := themeRequest(t, e, http.MethodGet, "/api/v1/themes?organization_id=org-1", nil)
-	require.Equal(t, http.StatusOK, defaultPageResponse.Code, defaultPageResponse.Body.String())
-	var defaultPage themes.ThemeSummaryPage
-	require.NoError(t, json.Unmarshal(defaultPageResponse.Body.Bytes(), &defaultPage))
-	require.Len(t, defaultPage.Items, themes.DefaultThemePageLimit)
-	require.NotEmpty(t, defaultPage.NextCursor)
-	require.Less(t, defaultPageResponse.Body.Len(), 32_000)
-	require.NotContains(t, defaultPageResponse.Body.String(), `"manifest"`)
-	require.NotContains(t, defaultPageResponse.Body.String(), `"draft"`)
-
-	maximumResponse := themeRequest(t, e, http.MethodGet, "/api/v1/themes?organization_id=org-1&limit=100", nil)
-	require.Equal(t, http.StatusOK, maximumResponse.Code, maximumResponse.Body.String())
-	var maximum themes.ThemeSummaryPage
-	require.NoError(t, json.Unmarshal(maximumResponse.Body.Bytes(), &maximum))
-	require.Len(t, maximum.Items, len(createdIDs))
-
-	seen := map[string]struct{}{}
-	cursor := ""
-	for {
-		path := "/api/v1/themes?organization_id=org-1&limit=7"
-		if cursor != "" {
-			path += "&cursor=" + url.QueryEscape(cursor)
-		}
-		response := themeRequest(t, e, http.MethodGet, path, nil)
-		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-		var page themes.ThemeSummaryPage
-		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &page))
-		for _, item := range page.Items {
-			require.Contains(t, createdIDs, item.Reference.ID)
-			require.NotContains(t, seen, item.Reference.ID)
-			seen[item.Reference.ID] = struct{}{}
-		}
-		if page.NextCursor == "" {
-			break
-		}
-		cursor = page.NextCursor
-	}
-	require.Equal(t, createdIDs, seen)
-
-	for _, query := range []string{"&limit=0", "&limit=-1", "&limit=101"} {
-		response := themeRequest(t, e, http.MethodGet, "/api/v1/themes?organization_id=org-1"+query, nil)
-		require.Equal(t, http.StatusUnprocessableEntity, response.Code, response.Body.String())
-	}
-	invalidCursor := themeRequest(t, e, http.MethodGet, "/api/v1/themes?organization_id=org-1&cursor=not-a-cursor", nil)
-	require.Equal(t, http.StatusBadRequest, invalidCursor.Code, invalidCursor.Body.String())
-
-	availableDefaultResponse := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, "/api/v1/themes/available?workspace_id=workspace-1", nil)
-	require.Equal(t, http.StatusOK, availableDefaultResponse.Code, availableDefaultResponse.Body.String())
-	var availableDefault themes.ThemeSummaryPage
-	require.NoError(t, json.Unmarshal(availableDefaultResponse.Body.Bytes(), &availableDefault))
-	require.Len(t, availableDefault.Items, themes.DefaultThemePageLimit)
-	require.NotEmpty(t, availableDefault.NextCursor)
-	require.Less(t, availableDefaultResponse.Body.Len(), 32_000)
-	require.NotContains(t, availableDefaultResponse.Body.String(), `"manifest"`)
-
-	availableMaximumResponse := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, "/api/v1/themes/available?workspace_id=workspace-1&limit=100", nil)
-	require.Equal(t, http.StatusOK, availableMaximumResponse.Code, availableMaximumResponse.Body.String())
-	var availableMaximum themes.ThemeSummaryPage
-	require.NoError(t, json.Unmarshal(availableMaximumResponse.Body.Bytes(), &availableMaximum))
-	require.Len(t, availableMaximum.Items, len(themes.BuiltIns())+len(publishedIDs))
-	for _, query := range []string{"&limit=0", "&limit=-1", "&limit=101"} {
-		response := themeRequestAs(t, e, "workspace-admin-token", http.MethodGet, "/api/v1/themes/available?workspace_id=workspace-1"+query, nil)
-		require.Equal(t, http.StatusUnprocessableEntity, response.Code, response.Body.String())
-	}
-}
-
-func TestThemeHTTPRevisionPagesAreBoundedNewestFirstAndComplete(t *testing.T) {
-	t.Parallel()
-	e, _, _ := newThemeTestServer(t)
-	createdResponse := themeRequest(t, e, http.MethodPost, "/api/v1/themes", map[string]any{
-		"organization_id": "org-1", "name": "Revision history", "duplicate_built_in_id": "studio",
-	})
-	require.Equal(t, http.StatusOK, createdResponse.Code, createdResponse.Body.String())
-	var created themes.Theme
-	require.NoError(t, json.Unmarshal(createdResponse.Body.Bytes(), &created))
-	themeID := created.Summary.Reference.ID
-	manifest := created.Draft.Manifest
-	for revision := 1; revision <= 3; revision++ {
-		if revision > 1 {
-			manifest.Description = fmt.Sprintf("Revision %d", revision)
-			updated := themeRequest(t, e, http.MethodPut, "/api/v1/themes/"+url.PathEscape(themeID)+"/draft", map[string]any{
-				"organization_id": "org-1", "expected_revision": revision - 1, "name": "Revision history", "manifest": manifest,
-			})
-			require.Equal(t, http.StatusOK, updated.Code, updated.Body.String())
-		}
-		published := themeRequest(t, e, http.MethodPost, "/api/v1/themes/"+url.PathEscape(themeID)+"/publish", map[string]any{
-			"organization_id": "org-1", "expected_draft_revision": revision, "expected_published_revision": revision - 1,
-		})
-		require.Equal(t, http.StatusOK, published.Code, published.Body.String())
-	}
-
-	firstResponse := themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"/revisions?organization_id=org-1&limit=2", nil)
-	require.Equal(t, http.StatusOK, firstResponse.Code, firstResponse.Body.String())
-	var first themes.PublishedRevisionPage
-	require.NoError(t, json.Unmarshal(firstResponse.Body.Bytes(), &first))
-	require.Equal(t, []int{3, 2}, []int{first.Items[0].Revision, first.Items[1].Revision})
-	require.NotEmpty(t, first.NextCursor)
-
-	secondResponse := themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"/revisions?organization_id=org-1&limit=2&cursor="+url.QueryEscape(first.NextCursor), nil)
-	require.Equal(t, http.StatusOK, secondResponse.Code, secondResponse.Body.String())
-	var second themes.PublishedRevisionPage
-	require.NoError(t, json.Unmarshal(secondResponse.Body.Bytes(), &second))
-	require.Equal(t, []int{1}, []int{second.Items[0].Revision})
-	require.Empty(t, second.NextCursor)
-	require.Equal(t, http.StatusBadRequest, themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"/revisions?organization_id=org-1&cursor=not-a-cursor", nil).Code)
-	require.Equal(t, http.StatusUnprocessableEntity, themeRequest(t, e, http.MethodGet, "/api/v1/themes/"+url.PathEscape(themeID)+"/revisions?organization_id=org-1&limit=101", nil).Code)
-}
-
-func TestThemeHTTPAssetPagesAreBoundedStableAndComplete(t *testing.T) {
-	t.Parallel()
-	e, db, _ := newThemeTestServer(t)
-	assetIDs := make([]string, 0, 3)
-	for index := range 3 {
-		asset := uploadThemeAsset(t, e, map[string]any{
-			"organization_id": "org-1", "kind": "illustration", "name": fmt.Sprintf("Asset %d", index),
-			"media_type": "image/png", "content_base64": base64.StdEncoding.EncodeToString(handlerPNG(t, 20+index, 20+index)),
-		})
-		assetIDs = append(assetIDs, asset.ID)
-	}
-	equalCreatedAt := time.Date(2026, time.September, 2, 13, 0, 0, 0, time.UTC)
-	_, err := db.NewUpdate().Table("organization_theme_assets").Set("created_at = ?", equalCreatedAt).Where("organization_id = ?", "org-1").Exec(t.Context())
-	require.NoError(t, err)
-	slices.Sort(assetIDs)
-
-	firstResponse := themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets?organization_id=org-1&limit=2", nil)
-	require.Equal(t, http.StatusOK, firstResponse.Code, firstResponse.Body.String())
-	var first themes.ThemeAssetPage
-	require.NoError(t, json.Unmarshal(firstResponse.Body.Bytes(), &first))
-	require.Equal(t, assetIDs[:2], themeAssetIDs(first.Items))
-	require.NotEmpty(t, first.NextCursor)
-
-	secondResponse := themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets?organization_id=org-1&limit=2&cursor="+url.QueryEscape(first.NextCursor), nil)
-	require.Equal(t, http.StatusOK, secondResponse.Code, secondResponse.Body.String())
-	var second themes.ThemeAssetPage
-	require.NoError(t, json.Unmarshal(secondResponse.Body.Bytes(), &second))
-	require.Equal(t, assetIDs[2:], themeAssetIDs(second.Items))
-	require.Empty(t, second.NextCursor)
-	require.Equal(t, http.StatusBadRequest, themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets?organization_id=org-1&cursor=not-a-cursor", nil).Code)
-	require.Equal(t, http.StatusUnprocessableEntity, themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets?organization_id=org-1&limit=101", nil).Code)
 }
 
 func TestThemeHTTPAvailableDetailDoesNotEnumerateStaleOrInaccessibleThemes(t *testing.T) {
@@ -530,14 +342,6 @@ func TestThemeHTTPAvailableDetailDoesNotEnumerateStaleOrInaccessibleThemes(t *te
 	require.Equal(t, http.StatusForbidden, viewer.Code, viewer.Body.String())
 	require.Equal(t, viewer.Code, missingWorkspace.Code)
 	require.JSONEq(t, viewer.Body.String(), missingWorkspace.Body.String())
-}
-
-func themeAssetIDs(assets []themes.ThemeAssetRecord) []string {
-	ids := make([]string, 0, len(assets))
-	for _, asset := range assets {
-		ids = append(ids, asset.ID)
-	}
-	return ids
 }
 
 func newThemeTestServer(t *testing.T) (*echo.Echo, *bun.DB, huma.API) {

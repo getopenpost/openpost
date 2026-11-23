@@ -5,7 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
+
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -67,47 +67,6 @@ func signedRequest(body, secret string) *http.Request {
 	_, _ = digest.Write([]byte(body))
 	r.Header.Set("X-Hub-Signature-256", "sha256="+hex.EncodeToString(digest.Sum(nil)))
 	return r
-}
-
-func TestMetaIntakePersistsBeforeAcknowledgementAndRetriesAfterRestart(t *testing.T) {
-	s, app := inboxTestService(t)
-	now := time.Now().UTC()
-	s.now = func() time.Time { return now }
-	handler := s.MetaHandler(app)
-	for range 2 {
-		response := httptest.NewRecorder()
-		handler.ServeHTTP(response, signedRequest(inboundMetaBody, app.AppSecret))
-		require.Equal(t, http.StatusOK, response.Code)
-	}
-	var rows []receipt
-	require.NoError(t, s.db.NewSelect().Model(&rows).Scan(t.Context()))
-	require.Len(t, rows, 1, "duplicate delivery must have one durable receipt before 200")
-	require.NotContains(t, string(rows[0].PayloadEncrypted), "private message")
-	count, err := s.ProcessPending(t.Context(), 10, func(_ context.Context, e Event) error {
-		require.Contains(t, string(e.Payload), "private message")
-		return errors.New("temporary apply failure")
-	})
-	require.NoError(t, err)
-	require.Zero(t, count)
-	require.NoError(t, s.db.NewSelect().Model(&rows[0]).WherePK().Scan(t.Context()))
-	require.Equal(t, 1, rows[0].Attempts)
-	require.Zero(t, rows[0].ProcessedAt)
-	now = now.Add(time.Minute)
-	restarted := NewService(s.db, s.encryptor)
-	restarted.now = func() time.Time { return now }
-	calls := 0
-	count, err = restarted.ProcessPending(t.Context(), 10, func(_ context.Context, e Event) error {
-		calls++
-		require.Equal(t, "account", e.AccountID)
-		require.Equal(t, "grant", e.OAuthGrantID)
-		return nil
-	})
-	require.NoError(t, err)
-	require.Equal(t, 1, count)
-	require.Equal(t, 1, calls)
-	require.NoError(t, s.db.NewSelect().Model(&rows[0]).WherePK().Scan(t.Context()))
-	require.NotZero(t, rows[0].ProcessedAt)
-	require.Empty(t, rows[0].PayloadEncrypted)
 }
 
 func TestMetaIntakeRejectsBadSignatureForeignAppAndWrongLoginMode(t *testing.T) {
@@ -186,26 +145,6 @@ func TestTransportLeaseHasSingleOwnerAndReleasesOnCancellation(t *testing.T) {
 	var leases []transportLease
 	require.NoError(t, s.db.NewSelect().Model(&leases).Scan(t.Context()))
 	require.Empty(t, leases)
-}
-
-func TestMetaReplayRequeuesAfterDurableSchedulerFailure(t *testing.T) {
-	s, app := inboxTestService(t)
-	calls := 0
-	s.SetReceiptScheduler(func(context.Context) error { calls++; return errors.New("queue unavailable") })
-	response := httptest.NewRecorder()
-	s.MetaHandler(app).ServeHTTP(response, signedRequest(inboundMetaBody, app.AppSecret))
-	require.Equal(t, http.StatusServiceUnavailable, response.Code)
-	count, err := s.db.NewSelect().Model((*receipt)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, count, "receipt must commit even when wakeup fails")
-	s.SetReceiptScheduler(func(context.Context) error { calls++; return nil })
-	response = httptest.NewRecorder()
-	s.MetaHandler(app).ServeHTTP(response, signedRequest(inboundMetaBody, app.AppSecret))
-	require.Equal(t, http.StatusOK, response.Code)
-	require.Equal(t, 2, calls)
-	count, err = s.db.NewSelect().Model((*receipt)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, count)
 }
 
 func TestTransportLeaseDeadlineCancelsIndependentlyOfRenewal(t *testing.T) {

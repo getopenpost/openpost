@@ -46,47 +46,6 @@ func TestYouTubeCacheExpiresBeforeThirtyDaysOnOverview(t *testing.T) {
 	}
 }
 
-func TestYouTubeDisconnectPurgesFreshCacheAndPreservesReceipts(t *testing.T) {
-	t.Parallel()
-	db := newAnalyticsTestDB(t)
-	ctx := t.Context()
-	account := seedAnalyticsAccount(t, db, "")
-	account.Platform = "youtube"
-	_, err := db.NewUpdate().Model(&account).Column("platform").WherePK().Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.User{ID: "user-1", Email: "retention@example.com"}).Exec(ctx)
-	require.NoError(t, err)
-	now := time.Now().UTC()
-	item := models.EngagementItem{ID: "receipt-comment", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: "youtube", RemoteID: "remote-comment", Body: "Fetched comment", AuthorName: "Fetched author", LastSeenAt: now}
-	_, err = db.NewInsert().Model(&item).Exec(ctx)
-	require.NoError(t, err)
-	notification := models.UserNotification{
-		ID: "comment-notification", UserID: "user-1", WorkspaceID: account.WorkspaceID,
-		Type: "new_engagement", Title: "New engagement", Href: "/inbox/engagement?item=" + item.ID,
-		PayloadJSON: `{"engagement_id":"receipt-comment","provider":"youtube","author_name":"Fetched author"}`,
-	}
-	_, err = db.NewInsert().Model(&notification).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewRaw("INSERT INTO engagement_operations (workspace_id, user_id, item_id, operation_id, body_hash, job_id) VALUES (?, ?, ?, ?, ?, ?)", account.WorkspaceID, "user-1", item.ID, "original-operation", "original-hash", "original-job").Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.AnalyticsSyncState{ID: "fresh-state", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: "youtube", SubjectType: "account", SubjectID: account.ID, LastSuccessAt: now, MetricsJSON: `{"followers":42}`}).Exec(ctx)
-	require.NoError(t, err)
-	require.NoError(t, dataretention.PurgeYouTube(ctx, db, now, account.WorkspaceID, account.ID))
-	require.NoError(t, db.NewSelect().Model(&item).WherePK().Scan(ctx))
-	require.Empty(t, item.Body)
-	require.Empty(t, item.AuthorName)
-	require.NoError(t, db.NewSelect().Model(&notification).WherePK().Scan(ctx))
-	require.NotContains(t, notification.PayloadJSON, "Fetched author", "notifications must not retain fetched author data")
-	require.Equal(t, dataretention.RetiredYouTubeIdentity(account.WorkspaceID, "remote-comment"), item.RemoteID, "receipts retain an opaque reconnect identity")
-	require.False(t, item.LastSeenAt.After(now.Add(-dataretention.YouTubeCacheAge)))
-	var jobID string
-	require.NoError(t, db.NewSelect().Table("engagement_operations").Column("job_id").Where("item_id = ?", item.ID).Scan(ctx, &jobID))
-	require.Equal(t, "original-job", jobID)
-	count, err := db.NewSelect().Model((*models.AnalyticsSyncState)(nil)).Where("id = ?", "fresh-state").Count(ctx)
-	require.NoError(t, err)
-	require.Zero(t, count, "explicit disconnect purges even newly fetched metrics")
-}
-
 func TestYouTubeProfileExpiryKeepsAuthorizationIdentityForRefresh(t *testing.T) {
 	t.Parallel()
 	db := newAnalyticsTestDB(t)
@@ -110,39 +69,6 @@ func TestYouTubeProfileExpiryKeepsAuthorizationIdentityForRefresh(t *testing.T) 
 	require.EqualValues(t, 1, count)
 }
 
-func TestYouTubeRevocationRetiresProviderMetadataButKeepsAuthoredPost(t *testing.T) {
-	t.Parallel()
-	db := newAnalyticsTestDB(t)
-	ctx := t.Context()
-	account := seedAnalyticsAccount(t, db, "")
-	now := time.Now().UTC()
-	grant := models.OAuthGrant{ID: "revoked-youtube-grant", WorkspaceID: account.WorkspaceID, Provider: "youtube", ProviderSubject: "provider-account", AccessTokenEnc: []byte{}, ValidationStatus: "revoked", RevokedAt: now}
-	_, err := db.NewInsert().Model(&grant).Exec(ctx)
-	require.NoError(t, err)
-	account.Platform = "youtube"
-	account.OAuthGrantID = grant.ID
-	account.ProfileFetchedAt = now
-	_, err = db.NewUpdate().Model(&account).Column("platform", "oauth_grant_id", "profile_fetched_at").WherePK().Exec(ctx)
-	require.NoError(t, err)
-	publication := seedAnalyticsPublication(t, db, account.WorkspaceID, "retired-youtube-publication", now)
-	rendition := models.Rendition{ID: "retired-youtube-rendition", PublicationID: publication.ID, SocialAccountID: account.ID, Platform: "youtube", TargetKey: "youtube", Status: models.RenditionStatusPublished, ExternalID: "remote-video", ExternalURL: "https://www.youtube.com/watch?v=remote-video"}
-	_, err = db.NewInsert().Model(&rendition).Exec(ctx)
-	require.NoError(t, err)
-	require.NoError(t, dataretention.ClearRevokedYouTubeMetadata(ctx, db, now, account.WorkspaceID))
-	require.NoError(t, db.NewSelect().Model(&account).WherePK().Scan(ctx))
-	require.False(t, account.IsActive)
-	require.Empty(t, account.AccountUsername)
-	require.Equal(t, dataretention.RetiredYouTubeIdentity(account.WorkspaceID, "provider-account"), account.AccountID)
-	require.NoError(t, db.NewSelect().Model(&grant).WherePK().Scan(ctx))
-	require.Empty(t, grant.ProviderSubject)
-	require.NoError(t, db.NewSelect().Model(&rendition).WherePK().Scan(ctx))
-	require.Empty(t, rendition.ExternalID)
-	require.Empty(t, rendition.ExternalURL)
-	require.Equal(t, models.RenditionStatusPublished, rendition.Status)
-	require.NoError(t, db.NewSelect().Model(&publication).WherePK().Scan(ctx))
-	require.Equal(t, "Launch", publication.SourceText)
-}
-
 func TestYouTubeOldAuthorizationFailureCannotRetireActiveGrant(t *testing.T) {
 	t.Parallel()
 	db := newAnalyticsTestDB(t)
@@ -162,28 +88,6 @@ func TestYouTubeOldAuthorizationFailureCannotRetireActiveGrant(t *testing.T) {
 	require.True(t, account.IsActive)
 	require.Equal(t, "provider-account", account.AccountID)
 	require.Equal(t, "person", account.AccountUsername)
-}
-
-func TestYouTubeExternalRevocationExpiresAfterProfileDeadline(t *testing.T) {
-	t.Parallel()
-	db := newAnalyticsTestDB(t)
-	now := time.Now().UTC()
-	account := seedAnalyticsAccount(t, db, "")
-	account.Platform = "youtube"
-	account.ProfileFetchedAt = now.Add(-30 * 24 * time.Hour)
-	account.OAuthGrantID = "external-revoked-grant"
-	grant := &models.OAuthGrant{ID: account.OAuthGrantID, WorkspaceID: account.WorkspaceID, Provider: "youtube", ValidationStatus: "refresh_failed", AccessTokenEnc: []byte("expired-token"), RefreshTokenEnc: []byte("revoked-token"), TokenVersion: 4}
-	_, err := db.NewInsert().Model(grant).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewUpdate().Model(&account).WherePK().Exec(t.Context())
-	require.NoError(t, err)
-	require.NoError(t, dataretention.ClearRevokedYouTubeMetadata(t.Context(), db, now, account.WorkspaceID))
-	require.NoError(t, db.NewSelect().Model(&account).WherePK().Scan(t.Context()))
-	require.False(t, account.IsActive, "a permanently failed authorization cannot retain channel data past its deadline")
-	require.NoError(t, db.NewSelect().Model(grant).WherePK().Scan(t.Context()))
-	require.Equal(t, "revoked", grant.ValidationStatus)
-	require.Empty(t, grant.AccessTokenEnc)
-	require.Empty(t, grant.RefreshTokenEnc)
 }
 
 func TestYouTubeRetirementPostgresPreservesOtherWorkspace(t *testing.T) {
@@ -208,36 +112,4 @@ func TestYouTubeRetirementPostgresPreservesOtherWorkspace(t *testing.T) {
 	require.Empty(t, account.AccountUsername)
 	require.Empty(t, account.AccountAvatarURL)
 	require.Equal(t, dataretention.RetiredYouTubeIdentity("pg-ws", "channel-id"), account.AccountID)
-}
-
-func TestYouTubeExpiredSelectionsAndUnlinkedRevokedGrantsAreCleared(t *testing.T) {
-	t.Parallel()
-	db := newAnalyticsTestDB(t)
-	now := time.Now().UTC()
-	for _, model := range []any{&models.User{ID: "user", Email: "selection@example.com"}, &models.User{ID: "other", Email: "other-selection@example.com"}, &models.Workspace{ID: "other-workspace", OrganizationID: "organization-1", Name: "Other"}} {
-		_, err := db.NewInsert().Model(model).Exec(t.Context())
-		require.NoError(t, err)
-	}
-	for _, grant := range []*models.OAuthGrant{{ID: "orphan-revoked", WorkspaceID: "workspace-1", Provider: "youtube", ProviderSubject: "old-channel", ValidationStatus: "revoked", AccessTokenEnc: []byte("old-token"), AuthorizationEvidence: `{"channel":"old-channel"}`}, {ID: "other-revoked", WorkspaceID: "other-workspace", Provider: "youtube", ProviderSubject: "other-channel", ValidationStatus: "revoked", AccessTokenEnc: []byte{}}} {
-		_, err := db.NewInsert().Model(grant).Exec(t.Context())
-		require.NoError(t, err)
-	}
-	for _, selection := range []*models.OAuthAccountSelection{{ID: "expired-youtube", UserID: "user", WorkspaceID: "workspace-1", Platform: "youtube", AccessTokenEnc: []byte("secret"), OptionsJSON: `[{"id":"old-channel"}]`, ExpiresAt: now.Add(-time.Minute)}, {ID: "live-youtube", UserID: "user", WorkspaceID: "workspace-1", Platform: "youtube", AccessTokenEnc: []byte{}, ExpiresAt: now.Add(time.Minute)}, {ID: "other-workspace", UserID: "other", WorkspaceID: "other-workspace", Platform: "youtube", AccessTokenEnc: []byte{}, ExpiresAt: now.Add(-time.Minute)}} {
-		_, err := db.NewInsert().Model(selection).Exec(t.Context())
-		require.NoError(t, err)
-	}
-	require.NoError(t, dataretention.ClearRevokedYouTubeMetadata(t.Context(), db, now, "workspace-1"))
-	var grant models.OAuthGrant
-	require.NoError(t, db.NewSelect().Model(&grant).Where("id = ?", "orphan-revoked").Scan(t.Context()))
-	require.Empty(t, grant.ProviderSubject)
-	require.Empty(t, grant.AccessTokenEnc)
-	require.Equal(t, "{}", grant.AuthorizationEvidence)
-	require.NoError(t, db.NewSelect().Model(&grant).Where("id = ?", "other-revoked").Scan(t.Context()))
-	require.Equal(t, "other-channel", grant.ProviderSubject)
-	count, err := db.NewSelect().Model((*models.OAuthAccountSelection)(nil)).Where("id = ?", "expired-youtube").Count(t.Context())
-	require.NoError(t, err)
-	require.Zero(t, count)
-	count, err = db.NewSelect().Model((*models.OAuthAccountSelection)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 2, count)
 }

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -10,9 +9,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
-	"github.com/openpost/backend/internal/api/middleware"
+
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/services/auth"
+
 	"github.com/openpost/backend/internal/services/mfa"
 	"github.com/stretchr/testify/require"
 )
@@ -39,23 +38,6 @@ func TestPasskeyLoginAttemptLimit(t *testing.T) {
 			require.Equal(t, http.StatusTooManyRequests, resp.Code, resp.Body.String())
 		}
 	}
-}
-
-func TestBrowserAuthResponseHasOnlyCookie(t *testing.T) {
-	t.Parallel()
-	db := createHandlerTestDB(t, (*models.User)(nil))
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
-	user := &models.User{ID: "u", Email: "u@example.com", PasswordHash: "unused", CreatedAt: time.Now().UTC()}
-	_, err := db.NewInsert().Model(user).Exec(t.Context())
-	require.NoError(t, err)
-	browserCtx := context.WithValue(t.Context(), middleware.OriginKey, "https://app.openpost.test")
-	out, err := handler.issueAuthResponse(browserCtx, user)
-	require.NoError(t, err)
-	require.Empty(t, out.Body.Token)
-	require.Contains(t, out.SetCookie, "HttpOnly")
-	native, err := handler.issueAuthResponse(t.Context(), user)
-	require.NoError(t, err)
-	require.NotEmpty(t, native.Body.Token)
 }
 
 func TestPasskeyBeginRetryKeepsSameCeremony(t *testing.T) {

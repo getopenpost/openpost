@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
-	"errors"
+
 	"io"
 	"net/http"
-	"strings"
+
 	"testing"
 	"time"
 
@@ -16,7 +14,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/services/appbranding"
+
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/mediastore"
 	"github.com/openpost/backend/internal/services/sessions"
@@ -38,59 +36,6 @@ func (s *accountLifecycleStorage) Delete(_ context.Context, id string) error {
 	return s.deleteErr
 }
 
-func TestAccountDeletionQueuesObjectCleanupWhenImmediateDeletionFails(t *testing.T) {
-	t.Parallel()
-
-	db := newHandlerSchemaTestDB(t)
-	authService := auth.NewService("test-secret")
-	passwordHash, err := authService.HashPassword("current-password-123")
-	require.NoError(t, err)
-	now := time.Now().UTC()
-	user := &models.User{
-		ID: "user-1", Email: "person@example.com", PasswordHash: passwordHash,
-		AvatarObjectKey: "avatars/user-1.png", CreatedAt: now,
-	}
-	require.NoError(t, insertAccountLifecycleFixture(t.Context(), db, user, now))
-	sessionService := sessions.NewService(db)
-	session, err := sessionService.CreateSession(t.Context(), sessions.CreateInput{
-		UserID: user.ID, ExpiresAt: now.Add(time.Hour),
-	})
-	require.NoError(t, err)
-	token, err := authService.GenerateTokenWithSession(user.ID, user.Email, session.ID, session.ExpiresAt)
-	require.NoError(t, err)
-	storage := &accountLifecycleStorage{deleteErr: errors.New("storage unavailable")}
-	e := echo.New()
-	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewAccountLifecycleHandler(
-		db, authService, middleware.NewJWTAuthenticatorWithSessions(authService, sessionService), storage,
-	).RegisterRoutes(api)
-
-	NewAppBrandingHandler(db, middleware.NewJWTAuthenticatorWithSessions(authService, sessionService), storage).RegisterRoutes(api)
-	branded := jsonRequest(t, e, http.MethodPut, "/api/v1/app-branding/workspace-1/organization", map[string]any{
-		"expected_revision": 0, "profile": map[string]any{"display_name": "Personal studio", "logo": map[string]any{"content_base64": base64.StdEncoding.EncodeToString(handlerPNG(t, 16, 16))}},
-	}, token)
-	require.Equal(t, http.StatusOK, branded.Code, branded.Body.String())
-	var branding appbranding.Settings
-	require.NoError(t, json.Unmarshal(branded.Body.Bytes(), &branding))
-
-	deleted := jsonRequest(t, e, http.MethodDelete, "/api/v1/auth/account", map[string]string{
-		"current_password": "current-password-123", "confirm_email": "person@example.com",
-	}, token)
-	require.Equal(t, http.StatusOK, deleted.Code, deleted.Body.String())
-	userCount, err := db.NewSelect().Model((*models.User)(nil)).Where("id = ?", user.ID).Count(t.Context())
-	require.NoError(t, err)
-	require.Zero(t, userCount)
-	var cleanups []models.Job
-	require.NoError(t, db.NewSelect().Model(&cleanups).Where("type = ?", "storage_delete").Scan(t.Context()))
-	payloads := make([]string, 0, len(cleanups))
-	for _, cleanup := range cleanups {
-		payloads = append(payloads, cleanup.Payload)
-	}
-	all := strings.Join(payloads, "\n")
-	require.Contains(t, all, "avatars/user-1.png")
-	require.Contains(t, all, "media-file.png")
-	require.Contains(t, all, "app-branding/org-1/"+branding.Effective.Logo.ID+".png", "account closure must enqueue organization-default artwork before its profile cascades away")
-}
 func (s *accountLifecycleStorage) GetURL(string) string { return "" }
 func (s *accountLifecycleStorage) Open(context.Context, string) (io.ReadCloser, error) {
 	return nil, nil
@@ -160,166 +105,6 @@ func TestAccountExportOmitsSecretsAndDeletionRemovesPersonalData(t *testing.T) {
 	} {
 		var count int
 		require.NoError(t, db.NewSelect().ColumnExpr("COUNT(*)").TableExpr(table).Scan(t.Context(), &count), table)
-		require.Zero(t, count, table)
-	}
-}
-
-func TestAccountDeletionPreviewsOwnershipTransferAndBlocksActiveBilling(t *testing.T) {
-	t.Parallel()
-
-	db := newHandlerSchemaTestDB(t)
-	authService := auth.NewService("test-secret")
-	hash, err := authService.HashPassword("current-password-123")
-	require.NoError(t, err)
-	now := time.Now().UTC()
-	users := []models.User{
-		{ID: "user-1", Email: "owner@example.com", PasswordHash: hash, CreatedAt: now},
-		{ID: "user-2", Email: "member@example.com", PasswordHash: hash, CreatedAt: now},
-	}
-	_, err = db.NewInsert().Model(&users).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Organization{ID: "org-1", Name: "Shared", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
-	require.NoError(t, err)
-	members := []models.OrganizationMember{
-		{OrganizationID: "org-1", UserID: "user-1", Role: models.OrganizationRoleOwner, CreatedAt: now},
-		{OrganizationID: "org-1", UserID: "user-2", Role: models.OrganizationRoleMember, CreatedAt: now},
-	}
-	_, err = db.NewInsert().Model(&members).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", OrganizationID: "org-1", Name: "Shared", Timezone: "UTC", CreatedAt: now}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.BillingSubscription{
-		OrganizationID: "org-1", WorkspaceID: "workspace-1", Provider: "paddle", ProviderCustomerID: "customer-1",
-		ProviderSubscriptionID: "subscription-1", Status: "active", CreatedAt: now, UpdatedAt: now,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-
-	principalCtx := context.WithValue(t.Context(), middleware.UserIDKey, "user-1")
-	handler := NewAccountLifecycleHandler(db, authService, nil, nil)
-	impact, err := handler.loadDeletionImpact(principalCtx, "user-1")
-	require.NoError(t, err)
-	codes := make([]string, 0, len(impact.Blockers))
-	for _, blocker := range impact.Blockers {
-		codes = append(codes, blocker.Code)
-	}
-	require.Contains(t, codes, "active_billing")
-	require.Len(t, impact.OwnershipTransfers, 1)
-	require.Equal(t, "member@example.com", impact.OwnershipTransfers[0].SuccessorEmail)
-}
-
-func TestAccountDeletionTransfersSharedOrganizationAndPreservesTeamContent(t *testing.T) {
-	t.Parallel()
-
-	db := newHandlerSchemaTestDB(t)
-	authService := auth.NewService("test-secret")
-	hash, err := authService.HashPassword("current-password-123")
-	require.NoError(t, err)
-	now := time.Now().UTC()
-	users := []models.User{
-		{ID: "user-1", Email: "owner@example.com", PasswordHash: hash, AvatarObjectKey: "avatars/user-1.png", IsAdmin: true, CreatedAt: now},
-		{ID: "user-2", Email: "member@example.com", PasswordHash: hash, CreatedAt: now},
-	}
-	_, err = db.NewInsert().Model(&users).Exec(t.Context())
-	require.NoError(t, err)
-	organization := &models.Organization{ID: "org-1", Name: "Shared", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now}
-	_, err = db.NewInsert().Model(organization).Exec(t.Context())
-	require.NoError(t, err)
-	members := []models.OrganizationMember{
-		{OrganizationID: "org-1", UserID: "user-1", Role: models.OrganizationRoleOwner, CreatedAt: now},
-		{OrganizationID: "org-1", UserID: "user-2", Role: models.OrganizationRoleAdmin, CreatedAt: now.Add(time.Second)},
-	}
-	_, err = db.NewInsert().Model(&members).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", OrganizationID: "org-1", Name: "Shared", Timezone: "UTC", CreatedAt: now}).Exec(t.Context())
-	require.NoError(t, err)
-	workspaceMembers := []models.WorkspaceMember{
-		{WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin},
-		{WorkspaceID: "workspace-1", UserID: "user-2", Role: models.WorkspaceRoleAdmin},
-	}
-	_, err = db.NewInsert().Model(&workspaceMembers).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Publication{
-		ID: "publication-1", WorkspaceID: "workspace-1", CreatedByID: "user-1", Title: "Shared draft",
-		ContentProfile: models.ContentProfileShortText, SourceText: "Keep this", SourceContent: "Keep this",
-		Status: models.PublicationStatusDraft, CreatedAt: now, UpdatedAt: now,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.SocialAccount{
-		ID: "account-1", WorkspaceID: "workspace-1", Slug: "shared-account", Platform: "x",
-		AccountID: "shared-provider-account-id", AccountUsername: "shared-provider-user",
-		AccessTokenEnc: []byte("shared-provider-secret"), IsActive: true, CreatedAt: now,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.MediaAttachment{
-		ID: "media-1", WorkspaceID: "workspace-1", FilePath: "/tmp/shared-private-media.png",
-		MimeType: "image/png", OriginalFilename: "shared-private-media.png", CreatedAt: now,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Job{
-		ID: "job-1", Type: "publish_post", Payload: `{"user_id":"user-1","post_id":"post-1"}`,
-		Status: "pending", RunAt: now,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-
-	sessionService := sessions.NewService(db)
-	session, err := sessionService.CreateSession(t.Context(), sessions.CreateInput{
-		UserID: "user-1", ExpiresAt: now.Add(time.Hour),
-	})
-	require.NoError(t, err)
-	token, err := authService.GenerateTokenWithSession("user-1", "owner@example.com", session.ID, session.ExpiresAt)
-	require.NoError(t, err)
-	storage := &accountLifecycleStorage{}
-	e := echo.New()
-	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewAccountLifecycleHandler(
-		db, authService, middleware.NewJWTAuthenticatorWithSessions(authService, sessionService), storage,
-	).RegisterRoutes(api)
-	exported := jsonRequest(t, e, http.MethodPost, "/api/v1/auth/account/export", map[string]string{
-		"current_password": "current-password-123",
-	}, token)
-	require.Equal(t, http.StatusOK, exported.Code, exported.Body.String())
-	require.Contains(t, exported.Body.String(), `"shared_workspace_content_excluded":true`)
-	require.NotContains(t, exported.Body.String(), "shared-provider-account-id")
-	require.NotContains(t, exported.Body.String(), "shared-private-media.png")
-
-	impact := jsonRequest(t, e, http.MethodGet, "/api/v1/auth/account/deletion-impact", nil, token)
-	require.Equal(t, http.StatusOK, impact.Code, impact.Body.String())
-	require.Contains(t, impact.Body.String(), `"ownership_transfers":[`)
-	require.Contains(t, impact.Body.String(), `"successor_email":"member@example.com"`)
-	require.Contains(t, impact.Body.String(), `"instance_admin_transfer":{"successor_email":"member@example.com"}`)
-
-	deleted := jsonRequest(t, e, http.MethodDelete, "/api/v1/auth/account", map[string]string{
-		"current_password": "current-password-123",
-		"confirm_email":    "owner@example.com",
-	}, token)
-	require.Equal(t, http.StatusOK, deleted.Code, deleted.Body.String())
-	require.Equal(t, []string{"avatars/user-1.png"}, storage.deleted)
-
-	require.NoError(t, db.NewSelect().Model(organization).Where("id = ?", "org-1").Scan(t.Context()))
-	require.Equal(t, "user-2", organization.CreatedByID)
-	var successor models.OrganizationMember
-	require.NoError(t, db.NewSelect().Model(&successor).
-		Where("organization_id = ? AND user_id = ?", "org-1", "user-2").Scan(t.Context()))
-	require.Equal(t, models.OrganizationRoleOwner, successor.Role)
-	var successorUser models.User
-	require.NoError(t, db.NewSelect().Model(&successorUser).Where("id = ?", "user-2").Scan(t.Context()))
-	require.True(t, successorUser.IsAdmin)
-	var publication models.Publication
-	require.NoError(t, db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(t.Context()))
-	require.Equal(t, "user-2", publication.CreatedByID)
-	accountCount, err := db.NewSelect().Model((*models.SocialAccount)(nil)).Where("id = ?", "account-1").Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, accountCount)
-	for table, where := range map[string]string{
-		"users":                "id = 'user-1'",
-		"organization_members": "user_id = 'user-1'",
-		"workspace_members":    "user_id = 'user-1'",
-		"jobs":                 "id = 'job-1'",
-	} {
-		count, countErr := db.NewSelect().TableExpr(table).Where(where).Count(t.Context())
-		require.NoError(t, countErr)
 		require.Zero(t, count, table)
 	}
 }

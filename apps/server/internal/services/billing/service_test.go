@@ -159,7 +159,7 @@ func TestAcceptPaddleWebhookQueuesSupportedEventOnce(t *testing.T) {
 	require.Equal(t, 1, count)
 	var event models.BillingWebhookEvent
 	require.NoError(t, db.NewSelect().Model(&event).Where("event_id = ?", "evt_1").Scan(context.Background()))
-	require.Equal(t, time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC), event.OccurredAt)
+	require.Equal(t, time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC), event.OccurredAt.UTC())
 }
 
 func recoverySubscription(updatedAt time.Time) *paddle.Subscription {

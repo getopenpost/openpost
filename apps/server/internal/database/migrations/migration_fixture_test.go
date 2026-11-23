@@ -114,7 +114,7 @@ func exerciseProfileFetchedAtMigration(t *testing.T, db *bun.DB) {
 	require.NoError(t, err)
 	var got time.Time
 	require.NoError(t, db.QueryRowContext(t.Context(), `SELECT profile_fetched_at FROM social_accounts WHERE id='profile-account'`).Scan(&got))
-	require.Equal(t, fetched, got)
+	require.Equal(t, fetched, got.UTC())
 }
 
 func TestLegacyPublicationJobRewriteAcceptsNullPayload(t *testing.T) {

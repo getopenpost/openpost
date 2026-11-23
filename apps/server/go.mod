@@ -25,7 +25,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.16.3
-	github.com/mattn/go-sqlite3 v1.14.53
 	github.com/mmcdole/gofeed v1.5.0
 	github.com/openai/openai-go/v3 v3.96.0
 	github.com/posthog/posthog-go v1.42.0
@@ -85,6 +84,7 @@ require (
 	github.com/labstack/gommon v0.5.0 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
+	github.com/mattn/go-sqlite3 v1.14.53 // indirect
 	github.com/mmcdole/goxpp/v2 v2.0.0 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/philhofer/fwd v1.2.1 // indirect

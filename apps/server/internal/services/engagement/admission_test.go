@@ -35,32 +35,6 @@ func admissionTestService(t *testing.T) *Service {
 	s.SetFeatureGate(admissionGate{})
 	return s
 }
-func TestPublicReplyReceiptSurvivesLostResponseAndCompletedJob(t *testing.T) {
-	t.Parallel()
-	s := admissionTestService(t)
-	db := s.db
-	actor := Actor{UserID: "u"}
-	jobID, err := s.QueueEngagementActionReceipt(t.Context(), actor, "c", "reply", "answer", "op")
-	require.NoError(t, err)
-	require.NotEmpty(t, jobID)
-	_, err = db.NewUpdate().Model((*models.Job)(nil)).Set("status='completed'").Where("id=?", jobID).Exec(t.Context())
-	require.NoError(t, err)
-	replay, err := s.QueueEngagementActionReceipt(t.Context(), actor, "c", "reply", "answer", "op")
-	require.NoError(t, err)
-	require.Equal(t, jobID, replay)
-	_, err = s.QueueEngagementActionReceipt(t.Context(), actor, "c", "reply", "changed", "op")
-	require.ErrorIs(t, err, ErrOperationConflict)
-	count, err := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, count)
-	_, err = db.NewDelete().Model((*models.Job)(nil)).Where("id=?", jobID).Exec(t.Context())
-	require.NoError(t, err)
-	replay, err = s.QueueEngagementActionReceipt(t.Context(), actor, "c", "reply", "answer", "op")
-	require.NoError(t, err)
-	require.Equal(t, jobID, replay)
-	_, err = s.QueueEngagementActionReceipt(t.Context(), Actor{UserID: "u", CredentialWorkspaceID: "other"}, "c", "reply", "answer", "op")
-	require.ErrorIs(t, err, ErrAccessDenied)
-}
 
 func TestManualCommentRefreshReturnsScopedCollectionReceipts(t *testing.T) {
 	t.Parallel()

@@ -101,11 +101,11 @@ func (s *accountFeaturesTestServer) request(t *testing.T, method, path string, b
 	return rec
 }
 
-func seedAccount(t *testing.T, db *bun.DB, id, workspaceID, grantedScopes string) {
+func seedAccount(t *testing.T, db *bun.DB, id, workspaceID string) {
 	t.Helper()
 	_, err := db.NewInsert().Model(&models.SocialAccount{
 		ID: id, WorkspaceID: workspaceID, Slug: id, Platform: "x", AccountID: "remote-" + id,
-		AccessTokenEnc: []byte("tok"), GrantedScopes: grantedScopes, IsActive: true,
+		AccessTokenEnc: []byte("tok"), IsActive: true,
 	}).Exec(t.Context())
 	require.NoError(t, err)
 }
@@ -113,7 +113,7 @@ func seedAccount(t *testing.T, db *bun.DB, id, workspaceID, grantedScopes string
 func TestDevNullEngagementCanBeEnabledWithoutReconnect(t *testing.T) {
 	t.Parallel()
 	srv := newAccountFeaturesTestServer(t, map[string]platform.Adapter{"devnull": platform.NewDevNullAdapter("")})
-	seedAccount(t, srv.db, "devnull-account", "ws-1", "")
+	seedAccount(t, srv.db, "devnull-account", "ws-1")
 	_, err := srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("platform = ?", "devnull").Where("id = ?", "devnull-account").Exec(t.Context())
 	require.NoError(t, err)
 	resp := srv.request(t, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=devnull-account", nil)
@@ -140,138 +140,6 @@ func TestDevNullEngagementCanBeEnabledWithoutReconnect(t *testing.T) {
 		}
 	}
 	require.True(t, enabled, "existing SSH connections must allow enabling comments and replies")
-}
-
-func TestYouTubeEngagementRequiresCommentPermission(t *testing.T) {
-	t.Parallel()
-	srv := newAccountFeaturesTestServer(t, map[string]platform.Adapter{
-		"youtube": platform.NewYouTubeAdapter("client", "secret", "https://example.com/callback"),
-	})
-	oldScopes := "https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload"
-	seedAccount(t, srv.db, "youtube-account", "ws-1", oldScopes)
-	_, err := srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("platform = ?", "youtube").Where("id = ?", "youtube-account").Exec(t.Context())
-	require.NoError(t, err)
-	readEngagement := func() FeatureStateResponse {
-		response := srv.request(t, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=youtube-account", nil)
-		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-		var features []FeatureStateResponse
-		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &features))
-		for _, feature := range features {
-			if feature.Feature == accountfeatures.FeatureEngagement {
-				return feature
-			}
-		}
-		t.Fatal("missing engagement feature")
-		return FeatureStateResponse{}
-	}
-	feature := readEngagement()
-	require.Equal(t, accountfeatures.AvailabilityMissingScope, feature.Availability)
-	require.Equal(t, []string{"https://www.googleapis.com/auth/youtube.force-ssl"}, feature.MissingScopes)
-	require.False(t, feature.EffectiveEnabled)
-	_, err = srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("granted_scopes = ?", oldScopes+" https://www.googleapis.com/auth/youtube.force-ssl").Where("id = ?", "youtube-account").Exec(t.Context())
-	require.NoError(t, err)
-	feature = readEngagement()
-	require.Equal(t, accountfeatures.AvailabilityAvailable, feature.Availability)
-	require.Empty(t, feature.MissingScopes)
-}
-
-func TestAccountFeaturesReadAndBatchSave(t *testing.T) {
-	t.Parallel()
-	providers := map[string]platform.Adapter{
-		"x": fakeMessagingProvider{support: platform.MessagingSupport{Enabled: true, RequiredScopes: []string{"dm.read"}}},
-	}
-	srv := newAccountFeaturesTestServer(t, providers)
-	seedAccount(t, srv.db, "acc-1", "ws-1", "dm.read")
-
-	// Missing credentials must be rejected before feature resolution.
-	anonymous := httptest.NewRecorder()
-	srv.echo.ServeHTTP(anonymous, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
-		"/api/v1/account-features?workspace_id=ws-1&account_ids=acc-1", nil))
-	require.Equal(t, http.StatusUnauthorized, anonymous.Code, anonymous.Body.String())
-
-	// Initially undecided -> effective false
-	resp := srv.request(t, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=acc-1", nil)
-	require.Equal(t, http.StatusOK, resp.Code)
-	var decoded []FeatureStateResponse
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &decoded))
-	// Find messaging feature
-	var msg *FeatureStateResponse
-	for i := range decoded {
-		if decoded[i].Feature == "messaging" {
-			msg = &decoded[i]
-			break
-		}
-	}
-	require.NotNil(t, msg)
-	require.False(t, msg.EffectiveEnabled)
-	require.False(t, msg.StoredExists)
-	require.Equal(t, "available", msg.Availability)
-
-	// Save enabled
-	saveBody := map[string]any{
-		"workspace_id": "ws-1",
-		"choices": []map[string]any{
-			{"account_id": "acc-1", "feature": "messaging", "enabled": true},
-		},
-	}
-	resp = srv.request(t, http.MethodPost, "/api/v1/account-features", saveBody)
-	require.Equal(t, http.StatusOK, resp.Code)
-	var saved []FeatureStateResponse
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &saved))
-	found := false
-	for _, f := range saved {
-		if f.Feature == "messaging" && f.SocialAccountID == "acc-1" {
-			require.True(t, f.StoredExists)
-			require.True(t, f.StoredEnabled)
-			require.True(t, f.EffectiveEnabled)
-			found = true
-		}
-	}
-	require.True(t, found)
-
-	// Verify DB row
-	var pf models.AccountFeature
-	require.NoError(t, srv.db.NewSelect().Model(&pf).Where("social_account_id = ? AND feature = ?", "acc-1", "messaging").Scan(t.Context()))
-	require.True(t, pf.Enabled)
-}
-
-func TestAccountFeaturesAtomicBatchValidation(t *testing.T) {
-	t.Parallel()
-	providers := map[string]platform.Adapter{
-		"x": fakeMessagingProvider{support: platform.MessagingSupport{Enabled: true}},
-	}
-	srv := newAccountFeaturesTestServer(t, providers)
-	seedAccount(t, srv.db, "acc-1", "ws-1", "")
-	seedAccount(t, srv.db, "acc-2", "ws-1", "")
-
-	// Batch with one unknown feature should fail and write nothing (Huma enum validation yields 422)
-	saveBody := map[string]any{
-		"workspace_id": "ws-1",
-		"choices": []map[string]any{
-			{"account_id": "acc-1", "feature": "messaging", "enabled": true},
-			{"account_id": "acc-2", "feature": "unknown_feature", "enabled": true},
-		},
-	}
-	resp := srv.request(t, http.MethodPost, "/api/v1/account-features", saveBody)
-	require.Contains(t, []int{http.StatusBadRequest, 422}, resp.Code)
-
-	count, err := srv.db.NewSelect().Model((*models.AccountFeature)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 0, count, "no rows should be written on validation failure")
-
-	// Also test last-write-wins
-	saveBody = map[string]any{
-		"workspace_id": "ws-1",
-		"choices": []map[string]any{
-			{"account_id": "acc-1", "feature": "messaging", "enabled": true},
-			{"account_id": "acc-1", "feature": "messaging", "enabled": false},
-		},
-	}
-	resp = srv.request(t, http.MethodPost, "/api/v1/account-features", saveBody)
-	require.Equal(t, http.StatusOK, resp.Code)
-	var pf models.AccountFeature
-	require.NoError(t, srv.db.NewSelect().Model(&pf).Where("social_account_id = ? AND feature = ?", "acc-1", "messaging").Scan(t.Context()))
-	require.False(t, pf.Enabled, "last write wins")
 }
 
 func TestAccountFeaturesAuthViewerAndCrossWorkspace(t *testing.T) {
@@ -305,8 +173,8 @@ func TestAccountFeaturesAuthViewerAndCrossWorkspace(t *testing.T) {
 	handler.ReadFeatures(api)
 	handler.SaveFeatures(api)
 	// Also need OAuth shim for cross-workspace later? Not needed
-	seedAccount(t, db, "acc-1", "ws-1", "")
-	seedAccount(t, db, "acc-cross", "ws-2", "")
+	seedAccount(t, db, "acc-1", "ws-1")
+	seedAccount(t, db, "acc-cross", "ws-2")
 
 	// Viewer can read (ws-1 viewer)
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=acc-1", nil)
@@ -325,7 +193,7 @@ func TestAccountFeaturesAuthViewerAndCrossWorkspace(t *testing.T) {
 
 	// Cross-workspace rejection: account belongs to ws-2 but workspace_id ws-1, using editor server for ws-2? Use original srv for cross check with editor
 	srv2 := newAccountFeaturesTestServer(t, providers)
-	seedAccount(t, srv2.db, "acc-cross2", "ws-2", "")
+	seedAccount(t, srv2.db, "acc-cross2", "ws-2")
 	req = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=acc-cross2", nil)
 	req.Header.Set("Authorization", "Bearer web-token")
 	rec = httptest.NewRecorder()

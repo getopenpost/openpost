@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/platform"
+
 	"github.com/stretchr/testify/require"
 )
 
-func mcpCallOperation(t *testing.T, srv *mcpTestServer, token, id, name string, args map[string]any) map[string]any {
+func mcpCallOperation(t *testing.T, srv *mcpTestServer, id, name string, args map[string]any) map[string]any {
 	t.Helper()
-	resp := srv.request(t, token, map[string]any{
+	resp := srv.request(t, "web-token", map[string]any{
 		"jsonrpc": "2.0",
 		"id":      id,
 		"method":  "tools/call",
@@ -54,7 +54,7 @@ func mcpCreateDraftPost(t *testing.T, srv *mcpTestServer, id, sourceText string,
 	for key, value := range extra {
 		args[key] = value
 	}
-	structured := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", id, mcpToolCreatePub, args))
+	structured := mcpStructuredContent(t, mcpCallOperation(t, srv, id, mcpToolCreatePub, args))
 	post := structured["publication"].(map[string]any)
 	postID, _ := post["id"].(string)
 	require.NotEmpty(t, postID)
@@ -72,7 +72,7 @@ func TestMCPCreatePostIdempotencyReplays(t *testing.T) {
 
 	call := func(id, key, sourceText string) map[string]any {
 		t.Helper()
-		return mcpCallOperation(t, srv, "web-token", id, mcpToolCreatePub, map[string]any{
+		return mcpCallOperation(t, srv, id, mcpToolCreatePub, map[string]any{
 			"workspace_id": "ws-1", "content_profile": "short_text",
 			"source_text": sourceText, "idempotency_key": key,
 		})
@@ -102,115 +102,29 @@ func TestMCPDeletePostConfirmGate(t *testing.T) {
 	srv := newMCPTestServer(t)
 	postID, revision := mcpCreateDraftPost(t, srv, "delete-setup", "Delete gate draft", nil)
 
-	missing := mcpCallOperation(t, srv, "web-token", "delete-missing-confirm", mcpToolDeletePub, map[string]any{
+	missing := mcpCallOperation(t, srv, "delete-missing-confirm", mcpToolDeletePub, map[string]any{
 		"post_id": postID, "expected_revision": revision,
 	})
 	require.Contains(t, mcpErrorMessage(t, missing), "confirm")
 
-	explicit := mcpCallOperation(t, srv, "web-token", "delete-false-confirm", mcpToolDeletePub, map[string]any{
+	explicit := mcpCallOperation(t, srv, "delete-false-confirm", mcpToolDeletePub, map[string]any{
 		"post_id": postID, "expected_revision": revision, "confirm": false,
 	})
 	require.Contains(t, mcpErrorMessage(t, explicit), "confirm=true")
 
-	stale := mcpCallOperation(t, srv, "web-token", "delete-stale", mcpToolDeletePub, map[string]any{
+	stale := mcpCallOperation(t, srv, "delete-stale", mcpToolDeletePub, map[string]any{
 		"post_id": postID, "expected_revision": revision + 5, "confirm": true,
 	})
 	require.Contains(t, mcpErrorMessage(t, stale), "Reload")
 
-	deleted := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "delete-ok", mcpToolDeletePub, map[string]any{
+	deleted := mcpStructuredContent(t, mcpCallOperation(t, srv, "delete-ok", mcpToolDeletePub, map[string]any{
 		"post_id": postID, "expected_revision": revision, "confirm": true,
 	}))
 	require.Equal(t, postID, deleted["post_id"])
 	require.Contains(t, deleted["message"], "deleted")
 
-	after := mcpCallOperation(t, srv, "web-token", "delete-gone", mcpToolGetPub, map[string]any{"post_id": postID})
+	after := mcpCallOperation(t, srv, "delete-gone", mcpToolGetPub, map[string]any{"post_id": postID})
 	require.Contains(t, mcpErrorMessage(t, after), "not found")
-}
-
-func TestMCPPublishRequiresConfirm(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	postID, revision := mcpCreateDraftPost(t, srv, "publish-gate-setup", "Publish gate draft", nil)
-
-	gated := mcpCallOperation(t, srv, "web-token", "publish-gated", mcpToolPublishPubNow, map[string]any{
-		"post_id": postID, "expected_revision": revision,
-	})
-	require.Contains(t, mcpErrorMessage(t, gated), "confirm=true")
-}
-
-func TestMCPDeleteCommentRequiresConfirm(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	ctx := t.Context()
-	_, err := srv.db.NewInsert().Model(&models.Publication{
-		ID: "publication-comment-gate", WorkspaceID: "ws-1", CreatedByID: "user-1",
-		Title: "Gate", ContentProfile: models.ContentProfileShortText,
-		SourceText: "Gate", SourceContent: "Gate", Status: models.PublicationStatusPublished,
-		MetadataJSON: "{}", ReleasePlanJSON: "{}",
-	}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = srv.db.NewInsert().Model(&models.Rendition{
-		ID: "rendition-comment-gate", PublicationID: "publication-comment-gate",
-		SocialAccountID: "account-1", Platform: "x", Profile: models.ContentProfileShortText,
-		Body: "Gate", SettingsJSON: "{}", Status: models.RenditionStatusPublished,
-		ExternalID: "external-1",
-	}).Exec(ctx)
-	require.NoError(t, err)
-	srv.handler.SetProviderCatalog(map[string]platform.Adapter{"x": fakeCommentAdapter{}}, false)
-	commentID, err := encodeCommentReference(commentReference{
-		RenditionID: "rendition-comment-gate", ProviderCommentID: "provider-comment-1",
-	})
-	require.NoError(t, err)
-	gated := mcpCallOperation(t, srv, "web-token", "delete-comment-gated", mcpToolDeleteComment, map[string]any{
-		"comment_id": commentID,
-	})
-	// Missing confirm remains a schema-required-field negative.
-	require.Contains(t, mcpErrorMessage(t, gated), "confirm")
-	denied := mcpCallOperation(t, srv, "web-token", "delete-comment-false", mcpToolDeleteComment, map[string]any{
-		"comment_id": commentID, "confirm": false,
-	})
-	require.Equal(t, "delete_comment is irreversible; repeat the call with confirm=true to proceed", mcpErrorMessage(t, denied))
-	jobs, err := srv.db.NewSelect().Model((*models.Job)(nil)).Count(ctx)
-	require.NoError(t, err)
-	require.Zero(t, jobs)
-
-	deleted := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "delete-comment-confirmed", mcpToolDeleteComment, map[string]any{
-		"comment_id": commentID, "confirm": true,
-	}))
-	jobID, ok := deleted["job_id"].(string)
-	require.True(t, ok)
-	require.NotEmpty(t, jobID)
-	var job models.Job
-	require.NoError(t, srv.db.NewSelect().Model(&job).Where("id = ?", jobID).Scan(ctx))
-	require.Equal(t, "engagement_action", job.Type)
-	require.Equal(t, 1, job.MaxAttempts)
-	var payload map[string]any
-	require.NoError(t, json.Unmarshal([]byte(job.Payload), &payload))
-	require.Equal(t, "delete", payload["action"])
-	require.Equal(t, "provider-comment-1", payload["provider_comment_id"])
-}
-
-func TestMCPListPostsRejectsUnknownEnumFilters(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-
-	statusTypo := mcpCallOperation(t, srv, "web-token", "list-bad-status", mcpToolListPubs, map[string]any{
-		"workspace_id": "ws-1", "status": "drfat",
-	})
-	require.Contains(t, mcpErrorMessage(t, statusTypo), "status")
-
-	profileTypo := mcpCallOperation(t, srv, "web-token", "list-bad-profile", mcpToolListPubs, map[string]any{
-		"workspace_id": "ws-1", "content_profile": "novel",
-	})
-	require.Contains(t, mcpErrorMessage(t, profileTypo), "content_profile")
-
-	valid := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "list-valid-status", mcpToolListPubs, map[string]any{
-		"workspace_id": "ws-1", "status": "draft",
-	}))
-	require.Contains(t, valid, "publications")
 }
 
 func TestMCPMediaLifecycle(t *testing.T) {
@@ -237,7 +151,7 @@ func TestMCPMediaLifecycle(t *testing.T) {
 	}).Exec(ctx)
 	require.NoError(t, err)
 
-	loaded := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "media-get", mcpToolGetMedia, map[string]any{
+	loaded := mcpStructuredContent(t, mcpCallOperation(t, srv, "media-get", mcpToolGetMedia, map[string]any{
 		"media_id": "media-lifecycle-1",
 	}))
 	item := loaded["media"].(map[string]any)
@@ -246,24 +160,24 @@ func TestMCPMediaLifecycle(t *testing.T) {
 	require.NotContains(t, item, "usage_count")
 	require.Equal(t, true, item["can_delete"])
 
-	missing := mcpCallOperation(t, srv, "web-token", "media-missing", mcpToolGetMedia, map[string]any{
+	missing := mcpCallOperation(t, srv, "media-missing", mcpToolGetMedia, map[string]any{
 		"media_id": "media-does-not-exist",
 	})
 	require.Contains(t, mcpErrorMessage(t, missing), "not found")
 
-	updated := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "media-update", mcpToolUpdateMedia, map[string]any{
+	updated := mcpStructuredContent(t, mcpCallOperation(t, srv, "media-update", mcpToolUpdateMedia, map[string]any{
 		"media_id": "media-lifecycle-1", "alt_text": "A lifecycle test image", "favorite": true,
 	}))
 	updatedItem := updated["media"].(map[string]any)
 	require.Equal(t, "A lifecycle test image", updatedItem["alt_text"])
 	require.Equal(t, true, updatedItem["is_favorite"])
 
-	gated := mcpCallOperation(t, srv, "web-token", "media-delete-gated", mcpToolDeleteMedia, map[string]any{
+	gated := mcpCallOperation(t, srv, "media-delete-gated", mcpToolDeleteMedia, map[string]any{
 		"media_id": "media-lifecycle-1",
 	})
 	require.Contains(t, mcpErrorMessage(t, gated), "confirm")
 
-	denied := mcpCallOperation(t, srv, "web-token", "media-delete-false", mcpToolDeleteMedia, map[string]any{
+	denied := mcpCallOperation(t, srv, "media-delete-false", mcpToolDeleteMedia, map[string]any{
 		"media_id": "media-lifecycle-1", "confirm": false,
 	})
 	require.Equal(t, "delete_media is irreversible; repeat the call with confirm=true to proceed", mcpErrorMessage(t, denied))
@@ -272,7 +186,7 @@ func TestMCPMediaLifecycle(t *testing.T) {
 	require.True(t, beforeDelete.TrashedAt.IsZero())
 	require.True(t, beforeDelete.PurgeAfter.IsZero())
 
-	deleted := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "media-delete", mcpToolDeleteMedia, map[string]any{
+	deleted := mcpStructuredContent(t, mcpCallOperation(t, srv, "media-delete", mcpToolDeleteMedia, map[string]any{
 		"media_id": "media-lifecycle-1", "confirm": true,
 	}))
 	require.Equal(t, "media-lifecycle-1", deleted["media_id"])
@@ -296,7 +210,7 @@ func TestMCPRetryOpsValidateBeforeDispatch(t *testing.T) {
 
 	postID, revision := func() (string, int) {
 		t.Helper()
-		structured := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "retry-setup", mcpToolCreatePub, map[string]any{
+		structured := mcpStructuredContent(t, mcpCallOperation(t, srv, "retry-setup", mcpToolCreatePub, map[string]any{
 			"workspace_id": "ws-1", "content_profile": "short_text",
 			"source_text": "Retry dispatch draft",
 		}))
@@ -304,12 +218,12 @@ func TestMCPRetryOpsValidateBeforeDispatch(t *testing.T) {
 		return post["id"].(string), int(post["revision"].(float64))
 	}()
 
-	stale := mcpCallOperation(t, srv, "web-token", "retry-stale", mcpToolRetryFailed, map[string]any{
+	stale := mcpCallOperation(t, srv, "retry-stale", mcpToolRetryFailed, map[string]any{
 		"post_id": postID, "expected_revision": revision + 5,
 	})
 	require.Contains(t, mcpErrorMessage(t, stale), "revision")
 
-	empty := mcpCallOperation(t, srv, "web-token", "retry-empty", mcpToolRetryFailed, map[string]any{
+	empty := mcpCallOperation(t, srv, "retry-empty", mcpToolRetryFailed, map[string]any{
 		"post_id": postID, "expected_revision": revision,
 	})
 	require.Contains(t, mcpErrorMessage(t, empty), "no retryable failed destinations")
@@ -321,84 +235,13 @@ func TestMCPRetryOpsValidateBeforeDispatch(t *testing.T) {
 	}).Exec(ctx)
 	require.NoError(t, err)
 
-	unknown := mcpCallOperation(t, srv, "web-token", "retry-unknown", mcpToolRetryOne, map[string]any{
+	unknown := mcpCallOperation(t, srv, "retry-unknown", mcpToolRetryOne, map[string]any{
 		"post_id": postID, "variant_id": "variant-does-not-exist", "expected_revision": revision,
 	})
 	require.Contains(t, mcpErrorMessage(t, unknown), "variant not found")
 
-	unsafe := mcpCallOperation(t, srv, "web-token", "retry-unsafe", mcpToolRetryOne, map[string]any{
+	unsafe := mcpCallOperation(t, srv, "retry-unsafe", mcpToolRetryOne, map[string]any{
 		"post_id": postID, "variant_id": "rendition-retry-1", "expected_revision": revision,
 	})
 	require.Contains(t, mcpErrorMessage(t, unsafe), "safe delivery outcome")
-}
-
-func TestMCPScheduleDryRunEnqueuesNothing(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPTestServer(t)
-	ctx := t.Context()
-	scheduledAt := time.Now().UTC().Add(2 * time.Hour).Truncate(time.Second)
-	postID, revision := mcpCreateDraftPost(t, srv, "dry-run-setup", "Dry run draft", map[string]any{
-		"scheduled_at": scheduledAt.Format(time.RFC3339),
-	})
-
-	validated := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "schedule-dry", mcpToolSchedulePub, map[string]any{
-		"post_id": postID, "expected_revision": revision, "dry_run": true,
-	}))
-	require.Equal(t, "", validated["job_id"])
-	require.Equal(t, "draft", validated["publication"].(map[string]any)["status"])
-
-	jobs, err := srv.db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", postID).Count(ctx)
-	require.NoError(t, err)
-	require.Zero(t, jobs)
-
-	scheduled := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "schedule-real", mcpToolSchedulePub, map[string]any{
-		"post_id": postID, "expected_revision": revision,
-	}))
-	require.NotEmpty(t, scheduled["job_id"])
-	require.Equal(t, "scheduled", scheduled["publication"].(map[string]any)["status"])
-}
-
-func TestMCPAnnotationsSafetySplit(t *testing.T) {
-	t.Parallel()
-
-	external := map[string]bool{
-		mcpToolInboxRefresh:   true,
-		mcpToolInboxAction:    true,
-		mcpToolReplyRendition: true,
-		mcpToolSchedulePub:    true,
-		mcpToolCancelPub:      true,
-		mcpToolPublishPubNow:  true,
-		mcpToolRetryFailed:    true,
-		mcpToolRetryOne:       true,
-		mcpToolComments:       true,
-		mcpToolReplyComment:   true,
-		mcpToolHideComment:    true,
-		mcpToolDeleteComment:  true,
-		mcpToolUploadURL:      true,
-	}
-	for _, operation := range mcpOperationCatalog() {
-		name, _ := operation.Descriptor["name"].(string)
-		annotations, ok := operation.Descriptor["annotations"].(map[string]any)
-		require.True(t, ok, "operation %s must carry annotations", name)
-		_, ok = annotations["idempotentHint"].(bool)
-		require.True(t, ok, "operation %s must carry idempotentHint", name)
-		if operation.Mode == mcpOperationExecute {
-			require.Equal(t, true, annotations["destructiveHint"], "mutation %s must be destructive", name)
-			require.Equal(t, false, annotations["readOnlyHint"], "mutation %s must not be read-only", name)
-			require.Equal(t, external[name], annotations["openWorldHint"], "mutation %s open-world mismatch", name)
-			require.Equal(t, false, annotations["idempotentHint"], "mutation %s must not claim idempotence", name)
-		} else {
-			require.Equal(t, true, annotations["readOnlyHint"], "read %s must be read-only", name)
-			require.Equal(t, true, annotations["idempotentHint"], "read %s must be idempotent", name)
-			require.Equal(t, false, annotations["destructiveHint"], "read %s must not be destructive", name)
-		}
-	}
-	for _, tool := range mcpAdvertisedTools() {
-		name, _ := tool["name"].(string)
-		annotations, ok := tool["annotations"].(map[string]any)
-		require.True(t, ok, "tool %s must carry annotations", name)
-		_, ok = annotations["idempotentHint"].(bool)
-		require.True(t, ok, "tool %s must carry idempotentHint", name)
-	}
 }

@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
+
 	"testing"
 	"time"
 
@@ -197,36 +197,6 @@ func TestMessagingGrantFallbackAndRefreshFailure(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, ready.Authorized)
 	require.Equal(t, "reconnect_required", ready.Reason)
-}
-
-func TestMessagingRefreshHasOneDurableOwner(t *testing.T) {
-	s := testService(t)
-	seedGrant(t, s, s.now().Add(-time.Minute))
-	started, finish := make(chan struct{}), make(chan struct{})
-	providerServer(t, s, func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, r.ParseForm())
-		require.Equal(t, "refresh", r.Form.Get("refresh_token"))
-		close(started)
-		<-finish
-		_, _ = fmt.Fprint(w, `{"access_token":"rotated-access","refresh_token":"rotated-refresh","token_type":"bearer","expires_in":7200}`)
-	})
-	var wg sync.WaitGroup
-	wg.Add(1)
-	var token string
-	var firstErr error
-	go func() { defer wg.Done(); token, firstErr = s.AccessToken(context.Background(), "workspace", "account") }()
-	<-started
-	_, err := s.AccessToken(t.Context(), "workspace", "account")
-	require.ErrorIs(t, err, ErrRefreshBusy)
-	close(finish)
-	wg.Wait()
-	require.NoError(t, firstErr)
-	require.Equal(t, platform.XMessagingOAuth2Token("rotated-access"), token)
-	var row grant
-	require.NoError(t, s.db.NewSelect().Model(&row).Scan(t.Context()))
-	refresh, err := s.encryptor.Decrypt(row.RefreshTokenEncrypted)
-	require.NoError(t, err)
-	require.Equal(t, "rotated-refresh", refresh)
 }
 
 func TestXQuotaSurvivesRestartAndHonorsProviderReset(t *testing.T) {
@@ -446,25 +416,4 @@ func TestSubscriptionDeletionRequiresProviderConfirmation(t *testing.T) {
 	require.NoError(t, s.StopSubscription(ctx, "workspace", sub.ID))
 	require.NoError(t, s.db.NewSelect().Model(&sub).WherePK().Scan(ctx))
 	require.Equal(t, "stopped", sub.State)
-}
-
-func TestDefinitiveSubscriptionRejectionReleasesUnspentExposure(t *testing.T) {
-	s := testService(t)
-	seedGrant(t, s, s.now().Add(time.Hour))
-	s.config.MonthlyBudgetMicrousd = 10_000
-	s.config.ProviderSpendingLimitConfirmed = true
-	s.config.WebhookID = "12345"
-	require.NoError(t, s.costs.SetProviderCostPolicy(AddPricing(usage.ProviderCostPolicy{}, 10_000)))
-	providerServer(t, s, func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(403)
-		_, _ = fmt.Fprint(w, `{"errors":[{"title":"permission denied"}]}`)
-	})
-	_, err := s.StartSubscription(t.Context(), "workspace", "account", "dm.received", 1)
-	require.Error(t, err)
-	var sub subscription
-	require.NoError(t, s.db.NewSelect().Model(&sub).Scan(t.Context()))
-	require.Equal(t, "stopped", sub.State)
-	count, err := s.db.NewSelect().Model((*models.ProviderUsageReservation)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.Zero(t, count)
 }

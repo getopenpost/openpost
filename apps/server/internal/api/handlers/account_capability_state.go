@@ -12,8 +12,6 @@ import (
 	"github.com/uptrace/bun"
 )
 
-const accountCapabilityStateFreshness = platform.XCapabilityStateFreshness
-
 func persistAccountCapabilityState(
 	ctx context.Context,
 	db *bun.DB,

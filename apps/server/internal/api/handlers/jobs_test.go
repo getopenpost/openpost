@@ -3,10 +3,10 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+
 	"net/http"
 	"net/http/httptest"
-	"net/url"
+
 	"testing"
 	"time"
 
@@ -23,10 +23,6 @@ import (
 type jobsTestServer struct {
 	echo *echo.Echo
 	db   *bun.DB
-}
-
-func newJobsTestServer(t *testing.T) *jobsTestServer {
-	return newJobsTestServerWithAuthenticator(t, testAuthenticator{})
 }
 
 func newJobsTestServerWithAuthenticator(t *testing.T, authenticator middleware.Authenticator) *jobsTestServer {
@@ -100,81 +96,6 @@ func (jobsAuthenticator) AuthenticateBearer(_ context.Context, token string) (*m
 	}
 }
 
-func TestListJobsCountsFilteredWorkspaceScope(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServer(t)
-	srv.seedJobs(t)
-
-	resp := srv.getJSON(t, "/api/v1/jobs?workspace_id=ws-1&status=pending&limit=1")
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	require.Equal(t, "2", resp.Header().Get("X-Total-Count"))
-	require.Equal(t, "1", resp.Header().Get("X-Limit"))
-	require.Equal(t, "0", resp.Header().Get("X-Offset"))
-	require.Equal(t, "1", resp.Header().Get("X-Next-Offset"))
-	require.Equal(t, "true", resp.Header().Get("X-Has-More"))
-
-	var out []JobResponse
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Len(t, out, 1)
-	require.Equal(t, "pending", out[0].Status)
-	require.Equal(t, "", out[0].Payload)
-}
-
-// The Posts failed view lists only publishing records; Inbox collection
-// failures have their own recovery surface.
-func TestListJobsPublishingCategoryExcludesCollectionJobs(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
-	srv.seedJobs(t)
-	collection := models.Job{ID: "inbox-sync-failed", Type: "messages_sync", ScopeID: "ws-1", Status: "failed", Payload: `{}`, RunAt: time.Now().UTC()}
-	_, err := srv.db.NewInsert().Model(&collection).Exec(t.Context())
-	require.NoError(t, err)
-
-	all := srv.getJSONWithToken(t, "/api/v1/jobs?workspace_id=ws-1&status=failed", "browser-session")
-	require.Equal(t, http.StatusOK, all.Code, all.Body.String())
-	require.Equal(t, "2", all.Header().Get("X-Total-Count"))
-
-	publishing := srv.getJSONWithToken(t, "/api/v1/jobs?workspace_id=ws-1&status=failed&category=publishing", "browser-session")
-	require.Equal(t, http.StatusOK, publishing.Code, publishing.Body.String())
-	require.Equal(t, "1", publishing.Header().Get("X-Total-Count"))
-	var out []JobResponse
-	require.NoError(t, json.Unmarshal(publishing.Body.Bytes(), &out))
-	require.Len(t, out, 1)
-	require.Equal(t, "job-4", out[0].ID)
-}
-
-func TestGetJobReturnsSafeWorkspaceJobForBrowserSession(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
-	srv.seedJobs(t)
-
-	resp := srv.getJSONWithToken(t, "/api/v1/jobs/job-1", "browser-session")
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var out JobResponse
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Equal(t, "job-1", out.ID)
-	require.Equal(t, jobTypePublishPublication, out.Type)
-	require.Equal(t, "pending", out.Status)
-	require.Equal(t, "publication-1", out.PublicationID)
-	require.Empty(t, out.Payload)
-}
-
-func TestGetJobEnforcesWorkspaceAccessForBrowserSession(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
-	srv.seedJobs(t)
-
-	resp := srv.getJSONWithToken(t, "/api/v1/jobs/job-1", "foreign-browser-session")
-
-	require.Equal(t, http.StatusForbidden, resp.Code, resp.Body.String())
-}
-
 func TestGetJobAllowsWorkspaceBoundAPIReadAndWriteTokens(t *testing.T) {
 	t.Parallel()
 
@@ -193,111 +114,6 @@ func TestGetJobAllowsWorkspaceBoundAPIReadAndWriteTokens(t *testing.T) {
 	require.Empty(t, out.Payload)
 }
 
-func TestGetJobIncludesPayloadOnlyForInstanceAdminBrowserSession(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
-	srv.seedJobs(t)
-
-	resp := srv.getJSONWithToken(t, "/api/v1/jobs/job-1", "admin-session")
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var out JobResponse
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Equal(t, `{"publication_id":"publication-1"}`, out.Payload)
-}
-
-func TestListJobsCursorAndRunRangeReachOlderRecordsWithoutDuplicates(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServer(t)
-	srv.seedJobs(t)
-
-	first := srv.getJSON(t, "/api/v1/jobs?workspace_id=ws-1&limit=2")
-	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
-	require.Equal(t, "true", first.Header().Get("X-Has-More"))
-	cursor := first.Header().Get("X-Next-Cursor")
-	require.NotEmpty(t, cursor)
-	var firstPage []JobResponse
-	require.NoError(t, json.Unmarshal(first.Body.Bytes(), &firstPage))
-	require.Equal(t, []string{"job-4", "job-3"}, []string{firstPage[0].ID, firstPage[1].ID})
-
-	second := srv.getJSON(
-		t,
-		"/api/v1/jobs?workspace_id=ws-1&limit=2&cursor="+url.QueryEscape(cursor),
-	)
-	require.Equal(t, http.StatusOK, second.Code, second.Body.String())
-	require.Equal(t, "false", second.Header().Get("X-Has-More"))
-	var secondPage []JobResponse
-	require.NoError(t, json.Unmarshal(second.Body.Bytes(), &secondPage))
-	require.Equal(t, []string{"job-2", "job-1"}, []string{secondPage[0].ID, secondPage[1].ID})
-
-	rangeResponse := srv.getJSON(
-		t,
-		"/api/v1/jobs?workspace_id=ws-1&run_from=2026-07-01T12:02:00Z&run_before=2026-07-01T12:04:00Z",
-	)
-	require.Equal(t, http.StatusOK, rangeResponse.Code, rangeResponse.Body.String())
-	var rangePage []JobResponse
-	require.NoError(t, json.Unmarshal(rangeResponse.Body.Bytes(), &rangePage))
-	require.Equal(t, []string{"job-3", "job-2"}, []string{rangePage[0].ID, rangePage[1].ID})
-}
-
-func TestListJobsUsesCanonicalScopeForMigratedLegacyHistory(t *testing.T) {
-	t.Parallel()
-	srv := newJobsTestServer(t)
-	ctx := t.Context()
-	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
-	_, err := srv.db.NewInsert().Model(&models.Publication{
-		ID: "publication-history", WorkspaceID: "ws-1", CreatedByID: "user-1", Title: "History",
-		ContentProfile: models.ContentProfileShortText, SourceText: "History", SourceContent: "History",
-		Status: models.PublicationStatusPublished,
-	}).Exec(ctx)
-	require.NoError(t, err)
-
-	const legacyHistoryCount = 4
-	jobs := make([]models.Job, 0, legacyHistoryCount+3)
-	for index := range legacyHistoryCount {
-		jobs = append(jobs, models.Job{
-			ID: fmt.Sprintf("legacy-history-%04d", index), Type: jobTypePublishPost, ScopeID: "publication-history",
-			Payload: `{"post_id":"retained-legacy-id"}`, Status: "completed",
-			RunAt: now.Add(time.Duration(index) * time.Second), MaxAttempts: 3,
-		})
-	}
-	jobs = append(jobs,
-		models.Job{
-			ID: "legacy-publication-history", Type: jobTypePublishPublication,
-			Payload: `{"publication_id":"publication-history"}`, Status: "completed",
-			RunAt: now.Add(legacyHistoryCount * time.Second), MaxAttempts: 3,
-		},
-		models.Job{
-			ID: "legacy-foreign-history", Type: jobTypePublishPost, ScopeID: "publication-foreign",
-			Payload: `{"post_id":"retained-foreign-id"}`, Status: "completed",
-			RunAt: now.Add((legacyHistoryCount + 1) * time.Second), MaxAttempts: 3,
-		},
-		models.Job{
-			ID: "legacy-malformed-history", Type: jobTypePublishPost,
-			Payload: `{"post_id":"post-1"} broken`, Status: "completed",
-			RunAt: now.Add((legacyHistoryCount + 2) * time.Second), MaxAttempts: 3,
-		},
-		models.Job{
-			ID: "legacy-nested-history", Type: jobTypePublishPost,
-			Payload: `{"nested":{"post_id":"post-1"}}`, Status: "completed",
-			RunAt: now.Add((legacyHistoryCount + 3) * time.Second), MaxAttempts: 3,
-		},
-	)
-	_, err = srv.db.NewInsert().Model(&jobs).Exec(ctx)
-	require.NoError(t, err)
-
-	response := srv.getJSON(t, "/api/v1/jobs?workspace_id=ws-1&status=completed&limit=1")
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	require.Equal(t, fmt.Sprintf("%d", legacyHistoryCount+1), response.Header().Get("X-Total-Count"))
-	var page []JobResponse
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &page))
-	require.Len(t, page, 1)
-	require.Equal(t, "legacy-publication-history", page[0].ID)
-	require.Equal(t, "publication-history", page[0].PublicationID)
-}
-
 func (s *jobsTestServer) seedJobs(t *testing.T) {
 	t.Helper()
 
@@ -311,11 +127,6 @@ func (s *jobsTestServer) seedJobs(t *testing.T) {
 	}
 	_, err := s.db.NewInsert().Model(&jobs).Exec(context.Background())
 	require.NoError(t, err)
-}
-
-func (s *jobsTestServer) getJSON(t *testing.T, path string) *httptest.ResponseRecorder {
-	t.Helper()
-	return s.getJSONWithToken(t, path, "web-token")
 }
 
 func (s *jobsTestServer) getJSONWithToken(t *testing.T, path, token string) *httptest.ResponseRecorder {

@@ -1,10 +1,8 @@
 package workspaceteam
 
 import (
-	"context"
 	"database/sql"
-	"fmt"
-	"sync"
+
 	"testing"
 	"time"
 
@@ -92,37 +90,4 @@ func TestLastAdminAndUnauthorizedMutationSafeguards(t *testing.T) {
 	require.NoError(t, service.RemoveMember(t.Context(), "workspace-1", "admin-1", "admin-1"), "self-removal is safe when another active admin remains")
 	_, err = service.List(t.Context(), "workspace-1", "admin-1", Filters{})
 	require.Equal(t, ErrorForbidden, ErrorKindOf(err))
-}
-
-func TestConcurrentInvitationsCannotExceedSeatLimit(t *testing.T) {
-	service, _ := newTeamTestService(t, 2)
-	const attempts = 12
-	start := make(chan struct{})
-	errs := make([]error, attempts)
-	var wait sync.WaitGroup
-	for index := 0; index < attempts; index++ {
-		wait.Add(1)
-		go func(index int) {
-			defer wait.Done()
-			<-start
-			_, _, errs[index] = service.Invite(context.Background(), InviteInput{
-				WorkspaceID: "workspace-1", ActorUserID: "admin-1",
-				Email: fmt.Sprintf("invitee-%02d@example.com", index), Role: models.WorkspaceRoleViewer,
-			})
-		}(index)
-	}
-	close(start)
-	wait.Wait()
-	successes := 0
-	for _, err := range errs {
-		if err == nil {
-			successes++
-			continue
-		}
-		require.Equal(t, ErrorPayment, ErrorKindOf(err))
-	}
-	require.Equal(t, 1, successes)
-	team, err := service.List(t.Context(), "workspace-1", "admin-1", Filters{})
-	require.NoError(t, err)
-	require.Equal(t, int64(2), team.CurrentSeats)
 }

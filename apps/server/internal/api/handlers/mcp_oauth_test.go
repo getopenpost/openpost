@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
+
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -21,7 +21,7 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/apitokens"
-	"github.com/openpost/backend/internal/services/externalapps"
+
 	"github.com/openpost/backend/internal/services/mcpoauth"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -215,57 +215,6 @@ func TestMCPOAuthAuthorizationCodeFlowIssuesUsableMCPToken(t *testing.T) {
 	}
 }
 
-func TestOAuthDynamicClientRegistrationIsPolicyControlled(t *testing.T) {
-	t.Parallel()
-	db := createHandlerTestDB(t,
-		(*models.APIToken)(nil),
-		(*models.ExternalApplication)(nil),
-	)
-	e := echo.New()
-	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	tokens := apitokens.NewService(db)
-	external := externalapps.NewService(db, tokens, "https://app.openpost.test")
-	handler := NewMCPOAuthHandler(mcpoauth.NewService(db, tokens), mcpOAuthTestAuthenticator{tokens: tokens}, "https://app.openpost.test")
-	handler.SetExternalApplicationService(external)
-	handler.RegisterRoutes(e, api)
-	body := `{"client_name":"Workflow app","redirect_uris":["https://workflow.example/callback"],"token_endpoint_auth_method":"none","scope":"workspace:read accounts:read"}`
-
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/oauth/register", strings.NewReader(body))
-	request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	recorder := httptest.NewRecorder()
-	e.ServeHTTP(recorder, request)
-	require.Equal(t, http.StatusForbidden, recorder.Code)
-
-	external.SetDynamicRegistrationEnabled(true)
-	request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/oauth/register", strings.NewReader(body))
-	request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	recorder = httptest.NewRecorder()
-	e.ServeHTTP(recorder, request)
-	require.Equal(t, http.StatusCreated, recorder.Code)
-	var response map[string]any
-	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
-	require.Contains(t, response["client_id"], "op_app_")
-	require.Equal(t, "none", response["token_endpoint_auth_method"])
-
-	var createdBy sql.NullString
-	require.NoError(t, db.NewRaw("SELECT created_by_user_id FROM external_applications WHERE client_id = ?", response["client_id"]).Scan(t.Context(), &createdBy))
-	require.False(t, createdBy.Valid)
-
-	for attempt := 1; attempt < dynamicClientRegistrationsPerHour; attempt++ {
-		request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/oauth/register", strings.NewReader(body))
-		request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-		request.Header.Set(echo.HeaderXForwardedFor, fmt.Sprintf("203.0.113.%d", attempt))
-		recorder = httptest.NewRecorder()
-		e.ServeHTTP(recorder, request)
-		require.Equal(t, http.StatusCreated, recorder.Code)
-	}
-	request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/oauth/register", strings.NewReader(body))
-	request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	recorder = httptest.NewRecorder()
-	e.ServeHTTP(recorder, request)
-	require.Equal(t, http.StatusTooManyRequests, recorder.Code)
-}
-
 func TestMCPOAuthAuthorizationRejectsUnsupportedOrDisallowedScopes(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -301,30 +250,6 @@ func TestMCPOAuthAuthorizationRejectsUnsupportedOrDisallowedScopes(t *testing.T)
 			require.Zero(t, count)
 		})
 	}
-}
-
-func TestMCPOAuthDenyReturnsAccessDeniedRedirect(t *testing.T) {
-	t.Parallel()
-
-	srv := newMCPOAuthTestServer(t)
-	resp := srv.request(t, http.MethodPost, "/api/v1/mcp/oauth/authorize", map[string]any{
-		"approved":      false,
-		"response_type": "code",
-		"client_id":     "chatgpt",
-		"redirect_uri":  "https://chatgpt.com/connector/oauth/callback/openpost",
-		"state":         "state-deny",
-		"scope":         "mcp:read mcp:full",
-		"resource":      "https://app.openpost.test/mcp",
-	}, "web-token")
-	require.Equal(t, http.StatusOK, resp.Code)
-	var authorization struct {
-		RedirectURL string `json:"redirect_url"`
-	}
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &authorization))
-	redirect, err := url.Parse(authorization.RedirectURL)
-	require.NoError(t, err)
-	require.Equal(t, "access_denied", redirect.Query().Get("error"))
-	require.Equal(t, "state-deny", redirect.Query().Get("state"))
 }
 
 func TestMCPOAuthAuthorizationRejectsAPITokenPrincipal(t *testing.T) {

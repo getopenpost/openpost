@@ -45,6 +45,7 @@ const checks = {
   assets: stage("asset surfaces", [bun("scripts/asset-surfaces.mjs")]),
   workflows: stage("GitHub Actions workflows", [
     bun("scripts/check-automation-paths.mjs"),
+    bun("scripts/check-release-workflows.mjs"),
     go("run", "github.com/rhysd/actionlint/cmd/actionlint@v1.7.12"),
   ]),
   "mcp-registry": stage("MCP registry", [bun("scripts/check-mcp-registry.mjs")]),

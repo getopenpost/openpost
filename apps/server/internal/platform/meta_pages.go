@@ -113,74 +113,95 @@ func listMetaManagedPages(
 		return nil, err
 	}
 
-	// Business Portfolio edges only add Pages to me/accounts. Meta refuses an
-	// agency portfolio's client_pages when the user granted only some client
-	// Pages (#522), so a refused portfolio request is skipped and fails the
-	// selection only when no Page could be loaded at all.
-	var portfolioErr error
-	skipPortfolioRequest := func(request string, err error) error {
-		if ctxErr := ctx.Err(); ctxErr != nil {
+	if !tokenHasGrantedScope(token, metaBusinessManagementScope) {
+		return mergePublishableMetaPages(pages), nil
+	}
+	portfolio, err := listMetaPortfolioPages(ctx, graphURL, token.AccessToken, query, label, budget)
+	if err != nil {
+		return nil, err
+	}
+	merged := mergePublishableMetaPages(append(pages, portfolio.pages...))
+	if len(merged) == 0 && portfolio.skipped != nil {
+		return nil, portfolio.skipped
+	}
+	return merged, nil
+}
+
+type metaPortfolioWalk struct {
+	pages   []metaPage
+	skipped error // first refused request, reported when no Page loads at all
+}
+
+// listMetaPortfolioPages adds Business Portfolio Pages to me/accounts. Meta
+// refuses an agency portfolio's client_pages when the user granted only some
+// client Pages (#522), so a refused portfolio request is skipped. The error
+// return stops account selection (cancellation, discovery limits).
+func listMetaPortfolioPages(
+	ctx context.Context,
+	graphURL func(string) string,
+	accessToken string,
+	query url.Values,
+	label string,
+	budget *metaGraphBudget,
+) (metaPortfolioWalk, error) {
+	var walk metaPortfolioWalk
+	skip := func(request string, err error) error {
+		if ctx.Err() != nil {
 			return err
 		}
-		if portfolioErr == nil {
-			portfolioErr = err
+		if walk.skipped == nil {
+			walk.skipped = err
 		}
-		diagnostics := []any{"provider", label, "request", request}
-		var providerErr *HTTPError
-		if errors.As(err, &providerErr) {
-			diagnostics = append(diagnostics, "status", providerErr.StatusCode, "code", providerErr.Code)
-		}
-		slog.WarnContext(ctx, "Meta Business Portfolio request failed; skipping it", diagnostics...)
+		warnMetaPortfolioSkipped(ctx, label, request, err)
 		return nil
 	}
 
-	if tokenHasGrantedScope(token, metaBusinessManagementScope) {
-		businessQuery := url.Values{
-			"limit":               {"100"},
-			oauthParamAccessToken: {token.AccessToken},
+	businessQuery := url.Values{
+		"limit":               {"100"},
+		oauthParamAccessToken: {accessToken},
+	}
+	businesses, businessErr := fetchMetaGraphEdge[metaBusiness](
+		ctx,
+		graphURL("me/businesses")+"?"+businessQuery.Encode(),
+		label+" Business Portfolios",
+		budget,
+	)
+	if businessErr != nil {
+		return walk, skip("me/businesses", businessErr)
+	}
+	if len(businesses) > metaPageWalkMaxBusinesses {
+		return walk, fmt.Errorf("%s Business Portfolio discovery exceeded %d portfolios", label, metaPageWalkMaxBusinesses)
+	}
+	for _, business := range businesses {
+		if strings.TrimSpace(business.ID) == "" {
+			continue
 		}
-		businesses, businessErr := fetchMetaGraphEdge[metaBusiness](
-			ctx,
-			graphURL("me/businesses")+"?"+businessQuery.Encode(),
-			label+" Business Portfolios",
-			budget,
-		)
-		if businessErr != nil {
-			if err := skipPortfolioRequest("me/businesses", businessErr); err != nil {
-				return nil, err
-			}
-			businesses = nil
-		}
-		if len(businesses) > metaPageWalkMaxBusinesses {
-			return nil, fmt.Errorf("%s Business Portfolio discovery exceeded %d portfolios", label, metaPageWalkMaxBusinesses)
-		}
-		for _, business := range businesses {
-			if strings.TrimSpace(business.ID) == "" {
-				continue
-			}
-			for _, edge := range []string{"owned_pages", "client_pages"} {
-				// A refused continuation keeps the Pages its earlier pages returned.
-				edgePages, edgeErr := fetchMetaGraphEdgePages[metaPage](
-					ctx,
-					graphURL(url.PathEscape(business.ID)+"/"+edge)+"?"+query.Encode(),
-					label+" Business Portfolio pages",
-					budget,
-				)
-				pages = append(pages, edgePages...)
-				if edgeErr != nil {
-					if err := skipPortfolioRequest(edge, edgeErr); err != nil {
-						return nil, err
-					}
+		for _, edge := range []string{"owned_pages", "client_pages"} {
+			// A refused continuation keeps the Pages its earlier pages returned.
+			edgePages, edgeErr := fetchMetaGraphEdgePages[metaPage](
+				ctx,
+				graphURL(url.PathEscape(business.ID)+"/"+edge)+"?"+query.Encode(),
+				label+" Business Portfolio pages",
+				budget,
+			)
+			walk.pages = append(walk.pages, edgePages...)
+			if edgeErr != nil {
+				if err := skip(edge, edgeErr); err != nil {
+					return walk, err
 				}
 			}
 		}
 	}
+	return walk, nil
+}
 
-	merged := mergePublishableMetaPages(pages)
-	if len(merged) == 0 && portfolioErr != nil {
-		return nil, portfolioErr
+func warnMetaPortfolioSkipped(ctx context.Context, label, request string, err error) {
+	diagnostics := []any{"provider", label, "request", request}
+	var providerErr *HTTPError
+	if errors.As(err, &providerErr) {
+		diagnostics = append(diagnostics, "status", providerErr.StatusCode, "code", providerErr.Code)
 	}
-	return merged, nil
+	slog.WarnContext(ctx, "Meta Business Portfolio request failed; skipping it", diagnostics...)
 }
 
 func fetchMetaGraphEdge[T any](ctx context.Context, firstURL, label string, budget *metaGraphBudget) ([]T, error) {

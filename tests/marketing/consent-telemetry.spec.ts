@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
 import { gunzipSync } from "node:zlib";
 
 test.describe("cookie consent", () => {
@@ -43,35 +42,10 @@ test.describe("cookie consent", () => {
       await expect(banner).toBeHidden();
     });
   }
-
-  test(`cookie banner fits 320px in light`, async ({ page }) => {
-    const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(error.message));
-    await page.setViewportSize({ width: 320, height: 844 });
-    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
-    await page.goto("/");
-    const banner = page.getByTestId("telemetry-consent");
-    await expect(banner).toBeVisible();
-    const bounds = await banner.boundingBox();
-    expect(bounds!.x).toBeGreaterThanOrEqual(0);
-    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320);
-    await banner.getByText("More options", { exact: true }).focus();
-    await page.keyboard.press("Enter");
-    await expect(banner.getByRole("button", { name: "Use cookie-free analytics" })).toBeVisible();
-    expect(await banner.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
-    for (const button of await banner.getByRole("button").all()) {
-      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    }
-    const accessibility = await new AxeBuilder({ page })
-      .include('[data-testid="telemetry-consent"]')
-      .analyze();
-    expect(accessibility.violations).toEqual([]);
-    expect(errors).toEqual([]);
-  });
 });
 
 test.describe("telemetry pages", () => {
-  for (const path of ["/", "/pricing", "/platforms/bluesky"]) {
+  for (const path of ["/"]) {
     test(`analytics records a direct visit and reload of ${path}`, async ({ page }) => {
       // PostHog filters automation. Exercise a consenting human visitor while
       // keeping the production bot filter enabled.

@@ -77,7 +77,7 @@ jobs:
       - name: Create openpost-bot token
         id: app-token
         # Bot writes require the configured OpenPost GitHub App.
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           app-id: ${{ vars.OPENPOST_BOT_APP_ID }}
           private-key: ${{ secrets.OPENPOST_BOT_PRIVATE_KEY }}
@@ -89,7 +89,7 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: apps/server/go.mod
           cache-dependency-path: apps/server/go.sum

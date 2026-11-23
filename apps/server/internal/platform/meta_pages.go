@@ -3,8 +3,10 @@ package platform
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,6 +16,10 @@ const (
 	metaPageWalkMaxRequests   = 250
 	metaPageWalkMaxBusinesses = 100
 )
+
+// errMetaPageWalkBudget marks a walk that ran out of requests; it stops
+// account selection instead of being skipped like a refused request.
+var errMetaPageWalkBudget = errors.New("meta page walk request budget exceeded")
 
 type metaPage struct {
 	ID                       string `json:"id"`
@@ -111,46 +117,110 @@ func listMetaManagedPages(
 		return nil, err
 	}
 
-	if tokenHasGrantedScope(token, metaBusinessManagementScope) {
-		businessQuery := url.Values{
-			"limit":               {"100"},
-			oauthParamAccessToken: {token.AccessToken},
+	if !tokenHasGrantedScope(token, metaBusinessManagementScope) {
+		return mergePublishableMetaPages(pages), nil
+	}
+	portfolio, err := listMetaPortfolioPages(ctx, graphURL, token.AccessToken, query, label, budget)
+	if err != nil {
+		return nil, err
+	}
+	merged := mergePublishableMetaPages(append(pages, portfolio.pages...))
+	if len(merged) == 0 && portfolio.skipped != nil {
+		return nil, portfolio.skipped
+	}
+	return merged, nil
+}
+
+type metaPortfolioWalk struct {
+	pages   []metaPage
+	skipped error // first refused request, reported when no Page loads at all
+}
+
+// listMetaPortfolioPages adds Business Portfolio Pages to me/accounts. Meta
+// refuses an agency portfolio's client_pages when the user granted only some
+// client Pages (#522), so a refused portfolio request is skipped. The error
+// return stops account selection: cancellation, the request budget, or the
+// portfolio limit.
+func listMetaPortfolioPages(
+	ctx context.Context,
+	graphURL func(string) string,
+	accessToken string,
+	query url.Values,
+	label string,
+	budget *metaGraphBudget,
+) (metaPortfolioWalk, error) {
+	var walk metaPortfolioWalk
+	skip := func(request string, err error) error {
+		if ctx.Err() != nil || errors.Is(err, errMetaPageWalkBudget) {
+			return err
 		}
-		businesses, businessErr := fetchMetaGraphEdge[metaBusiness](
-			ctx,
-			graphURL("me/businesses")+"?"+businessQuery.Encode(),
-			label+" Business Portfolios",
-			budget,
-		)
-		if businessErr != nil {
-			return nil, businessErr
+		if walk.skipped == nil {
+			walk.skipped = err
 		}
-		if len(businesses) > metaPageWalkMaxBusinesses {
-			return nil, fmt.Errorf("%s Business Portfolio discovery exceeded %d portfolios", label, metaPageWalkMaxBusinesses)
+		warnMetaPortfolioSkipped(ctx, label, request, err)
+		return nil
+	}
+
+	businessQuery := url.Values{
+		"limit":               {"100"},
+		oauthParamAccessToken: {accessToken},
+	}
+	businesses, businessErr := fetchMetaGraphEdge[metaBusiness](
+		ctx,
+		graphURL("me/businesses")+"?"+businessQuery.Encode(),
+		label+" Business Portfolios",
+		budget,
+	)
+	if businessErr != nil {
+		err := skip("me/businesses", businessErr)
+		return walk, err
+	}
+	if len(businesses) > metaPageWalkMaxBusinesses {
+		return walk, fmt.Errorf("%s Business Portfolio discovery exceeded %d portfolios", label, metaPageWalkMaxBusinesses)
+	}
+	for _, business := range businesses {
+		if strings.TrimSpace(business.ID) == "" {
+			continue
 		}
-		for _, business := range businesses {
-			if strings.TrimSpace(business.ID) == "" {
-				continue
-			}
-			for _, edge := range []string{"owned_pages", "client_pages"} {
-				edgePages, edgeErr := fetchMetaGraphEdge[metaPage](
-					ctx,
-					graphURL(url.PathEscape(business.ID)+"/"+edge)+"?"+query.Encode(),
-					label+" Business Portfolio pages",
-					budget,
-				)
-				if edgeErr != nil {
-					return nil, edgeErr
+		for _, edge := range []string{"owned_pages", "client_pages"} {
+			// A refused continuation keeps the Pages its earlier pages returned.
+			edgePages, edgeErr := fetchMetaGraphEdgePages[metaPage](
+				ctx,
+				graphURL(url.PathEscape(business.ID)+"/"+edge)+"?"+query.Encode(),
+				label+" Business Portfolio pages",
+				budget,
+			)
+			walk.pages = append(walk.pages, edgePages...)
+			if edgeErr != nil {
+				if err := skip(edge, edgeErr); err != nil {
+					return walk, err
 				}
-				pages = append(pages, edgePages...)
 			}
 		}
 	}
+	return walk, nil
+}
 
-	return mergePublishableMetaPages(pages), nil
+func warnMetaPortfolioSkipped(ctx context.Context, label, request string, err error) {
+	diagnostics := []any{"provider", label, "request", request}
+	var providerErr *HTTPError
+	if errors.As(err, &providerErr) {
+		diagnostics = append(diagnostics, "status", providerErr.StatusCode, "code", providerErr.Code)
+	}
+	slog.WarnContext(ctx, "Meta Business Portfolio request failed; skipping it", diagnostics...)
 }
 
 func fetchMetaGraphEdge[T any](ctx context.Context, firstURL, label string, budget *metaGraphBudget) ([]T, error) {
+	items, err := fetchMetaGraphEdgePages[T](ctx, firstURL, label, budget)
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// fetchMetaGraphEdgePages follows an edge's pagination. On error it also
+// returns the items that the pages before the failing request delivered.
+func fetchMetaGraphEdgePages[T any](ctx context.Context, firstURL, label string, budget *metaGraphBudget) ([]T, error) {
 	initial, err := url.Parse(firstURL)
 	if err != nil || initial.Scheme != "https" || initial.Host == "" {
 		return nil, fmt.Errorf("%s URL is invalid", label)
@@ -164,10 +234,10 @@ func fetchMetaGraphEdge[T any](ctx context.Context, firstURL, label string, budg
 	var items []T
 	for nextURL != "" {
 		if budget.requests >= metaPageWalkMaxRequests {
-			return nil, fmt.Errorf("%s pagination exceeded %d requests", label, metaPageWalkMaxRequests)
+			return items, fmt.Errorf("%s pagination exceeded %d requests: %w", label, metaPageWalkMaxRequests, errMetaPageWalkBudget)
 		}
 		if _, exists := seen[nextURL]; exists {
-			return nil, fmt.Errorf("%s pagination repeated a page", label)
+			return items, fmt.Errorf("%s pagination repeated a page", label)
 		}
 		seen[nextURL] = struct{}{}
 		budget.requests++
@@ -178,19 +248,19 @@ func fetchMetaGraphEdge[T any](ctx context.Context, firstURL, label string, budg
 		}
 		body, requestErr := doMetaRequest(ctx, http.MethodGet, nextURL, nil, headers)
 		if requestErr != nil {
-			return nil, fmt.Errorf("%s: %w", label, requestErr)
+			return items, fmt.Errorf("%s: %w", label, requestErr)
 		}
 		var response metaGraphCollection[T]
 		if decodeErr := json.Unmarshal(body, &response); decodeErr != nil {
-			return nil, fmt.Errorf("decoding %s: %w", label, decodeErr)
+			return items, fmt.Errorf("decoding %s: %w", label, decodeErr)
 		}
 		if responseErr := metaGraphEmbeddedError(response.Error); responseErr != nil {
-			return nil, fmt.Errorf("%s returned an error: %w", label, responseErr)
+			return items, fmt.Errorf("%s returned an error: %w", label, responseErr)
 		}
 		items = append(items, response.Data...)
 		nextURL, err = validatedMetaNextURL(initial, response.Paging.Next)
 		if err != nil {
-			return nil, fmt.Errorf("%s pagination: %w", label, err)
+			return items, fmt.Errorf("%s pagination: %w", label, err)
 		}
 	}
 	return items, nil

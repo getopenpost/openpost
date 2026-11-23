@@ -18,28 +18,30 @@ import (
 )
 
 const (
-	instagramCheckpointPrefix         = "ig1:"
-	instagramCheckpointFinalKind      = "f"
-	instagramCheckpointPublishKind    = "p"
-	instagramCheckpointCarouselKind   = "c"
-	instagramCheckpointChildPostKind  = "d"
-	instagramCheckpointParentPostKind = "a"
-	instagramCheckpointStoryKind      = "s"
-	instagramCheckpointStoryMakeKind  = "u"
-	instagramCheckpointStoryPostKind  = "t"
-	instagramFinalProviderState       = "instagram:v1:final_container"
-	instagramPublishProviderState     = "instagram:v1:publish_started"
-	instagramCarouselProviderState    = "instagram:v1:carousel_children"
-	instagramChildPostProviderState   = "instagram:v1:carousel_child_create_started"
-	instagramParentPostProviderState  = "instagram:v1:carousel_parent_create_started"
-	instagramStoryProviderState       = "instagram:v1:story_sequence"
-	instagramStoryMakeProviderState   = "instagram:v1:story_container_create_started"
-	instagramStoryPostProviderState   = "instagram:v1:story_publish_started"
-	instagramPublishedProviderState   = "instagram:v1:published"
-	instagramCheckpointReconcileDelay = 10 * time.Second
-	instagramCheckpointMissingValue   = "-"
-	instagramUnknownPublishedIDPrefix = "~"
-	instagramCheckpointIDMaxLength    = 48
+	instagramCheckpointPrefix           = "ig1:"
+	instagramCheckpointFinalKind        = "f"
+	instagramCheckpointPublishKind      = "p"
+	instagramCheckpointCarouselKind     = "c"
+	instagramCheckpointChildPostKind    = "d"
+	instagramCheckpointParentPostKind   = "a"
+	instagramCheckpointStoryKind        = "s"
+	instagramCheckpointStoryMakeKind    = "u"
+	instagramCheckpointStoryPostKind    = "t"
+	instagramFinalProviderState         = "instagram:v1:final_container"
+	instagramPublishProviderState       = "instagram:v1:publish_started"
+	instagramCarouselProviderState      = "instagram:v1:carousel_children"
+	instagramChildPostProviderState     = "instagram:v1:carousel_child_create_started"
+	instagramParentPostProviderState    = "instagram:v1:carousel_parent_create_started"
+	instagramStoryProviderState         = "instagram:v1:story_sequence"
+	instagramStoryMakeProviderState     = "instagram:v1:story_container_create_started"
+	instagramStoryPostProviderState     = "instagram:v1:story_publish_started"
+	instagramPublishedProviderState     = "instagram:v1:published"
+	instagramCheckpointReconcileDelay   = 10 * time.Second
+	instagramRateLimitMinReconcileDelay = 15 * time.Minute
+	instagramRateLimitMaxReconcileDelay = 60 * time.Minute
+	instagramCheckpointMissingValue     = "-"
+	instagramUnknownPublishedIDPrefix   = "~"
+	instagramCheckpointIDMaxLength      = 48
 )
 
 // ErrNoInstagramProfessionalAccount means Meta returned no professional account
@@ -1106,7 +1108,7 @@ func (i *InstagramAdapter) resumeFinalContainer(ctx context.Context, accessToken
 	}
 	status, detail, err := i.containerStatus(ctx, accessToken, checkpoint.containerID)
 	if err != nil {
-		return pending, normalizeMetaPublishError(err)
+		return instagramPendingWithError(pending, err)
 	}
 	switch status {
 	case "FINISHED":
@@ -1210,7 +1212,7 @@ func (i *InstagramAdapter) resumeCarousel(ctx context.Context, accessToken, inst
 	for _, childID := range checkpoint.references {
 		status, detail, err := i.containerStatus(ctx, accessToken, childID)
 		if err != nil {
-			return pending, normalizeMetaPublishError(err)
+			return instagramPendingWithError(pending, err)
 		}
 		switch status {
 		case "FINISHED":
@@ -1225,9 +1227,9 @@ func (i *InstagramAdapter) resumeCarousel(ctx context.Context, accessToken, inst
 			return pending, nil
 		}
 	}
-	if checkpoint.kind == instagramCheckpointChildPostKind || checkpoint.kind == instagramCheckpointParentPostKind {
-		return pending, nil
-	}
+	// If container creation failed or lost its response at a child or parent
+	// create checkpoint, retrying creation is safe because media_publish has
+	// never been called and unpublished containers cannot reach the feed.
 	if len(checkpoint.references) < len(req.PlatformMediaIDs) {
 		index := len(checkpoint.references)
 		if err := req.Checkpoint(pendingInstagramCarouselCreateResult(checkpoint.references)); err != nil {
@@ -1302,7 +1304,7 @@ func (i *InstagramAdapter) resumeStorySequence(ctx context.Context, accessToken,
 	}
 	status, detail, err := i.containerStatus(ctx, accessToken, checkpoint.containerID)
 	if err != nil {
-		return pending, normalizeMetaPublishError(err)
+		return instagramPendingWithError(pending, err)
 	}
 	externalID := ""
 	switch status {
@@ -1391,8 +1393,32 @@ func instagramPendingOrRejected(pending PublishResult, err error) (PublishResult
 	if errors.As(err, &providerErr) && providerErr.StatusCode >= 400 && providerErr.StatusCode < 500 && providerErr.StatusCode != http.StatusRequestTimeout && providerErr.StatusCode != http.StatusTooManyRequests {
 		pending.SubmissionState = PublishSubmissionRejected
 		pending.RetrySafety = PublishRetryNever
+		return pending, err
+	}
+	return instagramPendingWithError(pending, err)
+}
+
+func instagramPendingWithError(pending PublishResult, err error) (PublishResult, error) {
+	err = normalizeMetaPublishError(err)
+	if delay := instagramRateLimitReconcileDelay(err); delay > pending.ReconcileAfter {
+		pending.ReconcileAfter = delay
 	}
 	return pending, err
+}
+
+func instagramRateLimitReconcileDelay(err error) time.Duration {
+	var providerErr *HTTPError
+	if !errors.As(err, &providerErr) {
+		return 0
+	}
+	delay := providerErr.RetryAfter
+	if providerErr.StatusCode == http.StatusTooManyRequests && delay < instagramRateLimitMinReconcileDelay {
+		delay = instagramRateLimitMinReconcileDelay
+	}
+	if delay > instagramRateLimitMaxReconcileDelay {
+		delay = instagramRateLimitMaxReconcileDelay
+	}
+	return delay
 }
 
 func rejectedInstagramCheckpoint(pending PublishResult, message string) (PublishResult, error) {

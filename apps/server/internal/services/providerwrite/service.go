@@ -298,6 +298,7 @@ func (s *Service) resume(ctx context.Context, attempt *models.ProviderWriteAttem
 	default:
 		result.SubmissionState = platform.PublishSubmissionPending
 		result.RetrySafety = platform.PublishRetryReconcileOnly
+		result = applyPendingReconcileBackoff(current, result, resumeErr, s.now())
 		if err := s.persistResult(ctx, current, result, resumeErr, true); err != nil {
 			return platform.PublishResult{}, err
 		}
@@ -372,6 +373,7 @@ func (s *Service) sendPrepared(ctx context.Context, attempt *models.ProviderWrit
 		return result, nil
 	}
 	if result.SubmissionState == platform.PublishSubmissionPending {
+		result = applyPendingReconcileBackoff(current, result, sendErr, s.now())
 		if err := s.persistResult(ctx, current, result, sendErr, false); err != nil {
 			return platform.PublishResult{}, &OutcomeError{Kind: StatusAmbiguous, Err: errors.Join(ErrOutcomeAmbiguous, err)}
 		}
@@ -403,6 +405,7 @@ func (s *Service) reconcile(ctx context.Context, attempt *models.ProviderWriteAt
 	default:
 		result.SubmissionState = platform.PublishSubmissionPending
 		result.RetrySafety = platform.PublishRetryReconcileOnly
+		result = applyPendingReconcileBackoff(attempt, result, reconcileErr, s.now())
 		if err := s.persistResult(ctx, attempt, result, reconcileErr, true); err != nil {
 			return platform.PublishResult{}, err
 		}
@@ -893,6 +896,73 @@ func resultFromAttempt(attempt *models.ProviderWriteAttempt) platform.PublishRes
 		result.ReconcileAfter = max(0, time.Until(attempt.ReconcileAfter))
 	}
 	return result
+}
+
+const (
+	reconcileRateLimitMinDelay    = 15 * time.Minute
+	reconcileRateLimitRepeatDelay = 30 * time.Minute
+	reconcileRateLimitMaxDelay    = 60 * time.Minute
+	reconcileSlowThreshold        = 5 * time.Minute
+	reconcileSlowInterval         = 5 * time.Minute
+	reconcileLongThreshold        = 30 * time.Minute
+	reconcileLongInterval         = 15 * time.Minute
+)
+
+// applyPendingReconcileBackoff prevents tight reconciliation loops from
+// exhausting provider rate limits: 429/Retry-After responses wait out the
+// cooldown (escalating on repeated rate limits), and long-running pending
+// writes taper their polling interval after the first five minutes.
+func applyPendingReconcileBackoff(
+	attempt *models.ProviderWriteAttempt,
+	result platform.PublishResult,
+	err error,
+	now time.Time,
+) platform.PublishResult {
+	delay := max(result.ReconcileAfter, reconcileAgeFloor(attempt, result.ProviderState, now))
+	delay = max(delay, reconcileErrorCooldown(attempt, err))
+	result.ReconcileAfter = delay
+	return result
+}
+
+func reconcileAgeFloor(attempt *models.ProviderWriteAttempt, providerState string, now time.Time) time.Duration {
+	if attempt == nil || providerState == "scheduled" || providerState == DeliveryProviderScheduled {
+		return 0
+	}
+	started := attempt.SendingStartedAt
+	if started.IsZero() {
+		started = attempt.CreatedAt
+	}
+	if started.IsZero() {
+		return 0
+	}
+	elapsed := now.Sub(started)
+	switch {
+	case elapsed >= reconcileLongThreshold:
+		return reconcileLongInterval
+	case elapsed >= reconcileSlowThreshold:
+		return reconcileSlowInterval
+	default:
+		return 0
+	}
+}
+
+func reconcileErrorCooldown(attempt *models.ProviderWriteAttempt, err error) time.Duration {
+	var providerErr *platform.HTTPError
+	if !errors.As(err, &providerErr) {
+		return 0
+	}
+	var delay time.Duration
+	if providerErr.RetryAfter > 0 {
+		delay = min(providerErr.RetryAfter, reconcileRateLimitMaxDelay)
+	}
+	if providerErr.StatusCode == http.StatusTooManyRequests {
+		minDelay := reconcileRateLimitMinDelay
+		if attempt != nil && attempt.ErrorHTTPStatus == http.StatusTooManyRequests {
+			minDelay = reconcileRateLimitRepeatDelay
+		}
+		delay = max(delay, minDelay)
+	}
+	return delay
 }
 
 func pendingError(result platform.PublishResult) error {

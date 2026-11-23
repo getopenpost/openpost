@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -328,4 +329,32 @@ func TestInstagramResumePublishedIDRecoverySwallowsRecentMediaFailure(t *testing
 	if result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != "" {
 		t.Fatalf("failed recovery must keep the empty ID: %#v", result)
 	}
+}
+
+func TestNormalizeMetaPublishErrorClassifiesRateLimitsAndDownloadTimeout(t *testing.T) {
+	for _, code := range []string{"4", "17", "32", "613", "80000", "80001", "80002", "80003", "80004", "80006"} {
+		t.Run("rate_limit_"+code, func(t *testing.T) {
+			providerErr := normalizedMetaError(t, http.StatusForbidden, `{"error":{"code":`+code+`,"message":"limit reached"}}`)
+			require.Equal(t, http.StatusTooManyRequests, providerErr.StatusCode)
+			require.Equal(t, "meta:rate_limit:"+code, providerErr.Code)
+		})
+	}
+	timeoutErr := normalizedMetaError(t, http.StatusBadRequest, `{"error":{"code":-2,"error_subcode":2207003,"message":"media download took too long"}}`)
+	require.Equal(t, http.StatusServiceUnavailable, timeoutErr.StatusCode)
+	require.Equal(t, "meta:media_download_timeout:2207003", timeoutErr.Code)
+}
+
+func TestNewHTTPErrorParsesMetaBusinessUseCaseUsageCooldown(t *testing.T) {
+	headers := http.Header{}
+	headers.Set("X-Business-Use-Case-Usage", `{"17841400000000000":[{"type":"instagram","call_count":100,"total_cputime":25,"total_time":25,"estimated_time_to_regain_access":19}]}`)
+	err := NewHTTPError(http.StatusForbidden, headers, []byte(`{"error":{"code":4}}`))
+	var providerErr *HTTPError
+	require.ErrorAs(t, err, &providerErr)
+	require.Equal(t, 19*time.Minute, providerErr.RetryAfter)
+
+	clampedHeaders := http.Header{}
+	clampedHeaders.Set("X-Business-Use-Case-Usage", `{"17841400000000000":[{"estimated_time_to_regain_access":240}]}`)
+	err = NewHTTPError(http.StatusForbidden, clampedHeaders, []byte(`{"error":{"code":4}}`))
+	require.ErrorAs(t, err, &providerErr)
+	require.Equal(t, 60*time.Minute, providerErr.RetryAfter)
 }

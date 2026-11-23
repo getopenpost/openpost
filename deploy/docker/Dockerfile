@@ -35,7 +35,7 @@ LABEL org.opencontainers.image.title="OpenPost" \
       org.opencontainers.image.revision="${COMMIT}" \
       org.opencontainers.image.source="https://github.com/getopenpost/openpost" \
       org.opencontainers.image.base.name="docker.io/library/alpine:3.24.4" \
-      org.opencontainers.image.base.digest="sha256:93b41ef40b1677fce8fcc64ff4af09daddfacf5040afde618bc46c1e2d1cc7d4"
+      org.opencontainers.image.base.digest="sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf"
 
 RUN apk add --no-cache ca-certificates ffmpeg tzdata sqlite \
     'libcrypto3>=3.5.8-r0' 'libssl3>=3.5.8-r0'

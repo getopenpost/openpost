@@ -3,8 +3,10 @@ package platform
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -111,6 +113,27 @@ func listMetaManagedPages(
 		return nil, err
 	}
 
+	// Business Portfolio edges only add Pages to me/accounts. Meta refuses an
+	// agency portfolio's client_pages when the user granted only some client
+	// Pages (#522), so a refused portfolio request is skipped and fails the
+	// selection only when no Page could be loaded at all.
+	var portfolioErr error
+	skipPortfolioRequest := func(request string, err error) error {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return err
+		}
+		if portfolioErr == nil {
+			portfolioErr = err
+		}
+		diagnostics := []any{"provider", label, "request", request}
+		var providerErr *HTTPError
+		if errors.As(err, &providerErr) {
+			diagnostics = append(diagnostics, "status", providerErr.StatusCode, "code", providerErr.Code)
+		}
+		slog.WarnContext(ctx, "Meta Business Portfolio request failed; skipping it", diagnostics...)
+		return nil
+	}
+
 	if tokenHasGrantedScope(token, metaBusinessManagementScope) {
 		businessQuery := url.Values{
 			"limit":               {"100"},
@@ -123,7 +146,10 @@ func listMetaManagedPages(
 			budget,
 		)
 		if businessErr != nil {
-			return nil, businessErr
+			if err := skipPortfolioRequest("me/businesses", businessErr); err != nil {
+				return nil, err
+			}
+			businesses = nil
 		}
 		if len(businesses) > metaPageWalkMaxBusinesses {
 			return nil, fmt.Errorf("%s Business Portfolio discovery exceeded %d portfolios", label, metaPageWalkMaxBusinesses)
@@ -140,14 +166,21 @@ func listMetaManagedPages(
 					budget,
 				)
 				if edgeErr != nil {
-					return nil, edgeErr
+					if err := skipPortfolioRequest(edge, edgeErr); err != nil {
+						return nil, err
+					}
+					continue
 				}
 				pages = append(pages, edgePages...)
 			}
 		}
 	}
 
-	return mergePublishableMetaPages(pages), nil
+	merged := mergePublishableMetaPages(pages)
+	if len(merged) == 0 && portfolioErr != nil {
+		return nil, portfolioErr
+	}
+	return merged, nil
 }
 
 func fetchMetaGraphEdge[T any](ctx context.Context, firstURL, label string, budget *metaGraphBudget) ([]T, error) {

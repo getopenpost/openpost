@@ -17,7 +17,7 @@ export interface ProjectPurgeResult {
 	failedMediaIds: string[];
 }
 
-export interface ProjectTrashRuntime {
+interface ProjectTrashRuntime {
 	withProjectLock<T>(projectId: string, operation: () => Promise<T>): Promise<T>;
 	isTrashed(projectId: string): Promise<boolean>;
 	getMediaIds(projectId: string): Promise<string[]>;
@@ -26,7 +26,7 @@ export interface ProjectTrashRuntime {
 	deleteMedia(mediaId: string): Promise<void>;
 }
 
-export function createProjectTrashOperations(runtime: ProjectTrashRuntime) {
+function createProjectTrashOperations(runtime: ProjectTrashRuntime) {
 	async function permanentlyDeleteProject(projectId: string): Promise<ProjectPurgeResult> {
 		return runtime.withProjectLock(projectId, async () => {
 			if (!(await runtime.isTrashed(projectId))) {

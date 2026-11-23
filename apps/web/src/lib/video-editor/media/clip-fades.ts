@@ -66,7 +66,7 @@ function solveExponent(base: number, target: number): number {
 	return Number.isFinite(exponent) ? Math.min(MAX_EXPONENT, Math.max(1, exponent)) : MAX_EXPONENT;
 }
 
-export function audioFadeInCurveGain(
+function audioFadeInCurveGain(
 	progress: number,
 	curve: number | undefined,
 	curveX: number | undefined
@@ -80,7 +80,7 @@ export function audioFadeInCurveGain(
 	return Math.pow(normalized, solveExponent(x, y));
 }
 
-export function audioFadeOutCurveGain(
+function audioFadeOutCurveGain(
 	progress: number,
 	curve: number | undefined,
 	curveX: number | undefined

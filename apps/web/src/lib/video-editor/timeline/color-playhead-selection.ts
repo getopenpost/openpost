@@ -17,7 +17,7 @@ const GRADE_TYPE_PRIORITY = {
 	audio: Number.POSITIVE_INFINITY
 } satisfies Record<TimelineItem['type'], number>;
 
-export function colorItemSpansFrame(item: TimelineItem, frame: number): boolean {
+function colorItemSpansFrame(item: TimelineItem, frame: number): boolean {
 	return frame >= item.from && frame < item.from + item.durationInFrames;
 }
 

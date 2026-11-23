@@ -97,7 +97,7 @@ function statusFrom(error: Error): number {
 	return error instanceof OpenPostQueryError ? (error.status ?? 0) : 0;
 }
 
-export function memeThumbnailURL({
+function memeThumbnailURL({
 	workspaceId,
 	templateId,
 	catalogRevision

@@ -9,7 +9,7 @@ export interface CurvePoint {
 }
 export const CURVE_CHANNELS = EDITOR_COLOR_CURVE_CHANNELS;
 export type CurveChannel = EditorColorCurveChannel;
-export const CURVE_MAX_POINTS = 16;
+const CURVE_MAX_POINTS = 16;
 export const CURVE_POINT_MIN_GAP = 0.04;
 const defaults = { shadowX: 0.25, shadowY: 0.25, highlightX: 0.75, highlightY: 0.75 };
 

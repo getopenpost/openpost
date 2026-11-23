@@ -50,7 +50,7 @@ export interface GeneratedMusic extends GeneratedAudio {
 	prompt: string;
 }
 
-export type AceStepRuntime = Pick<
+type AceStepRuntime = Pick<
 	AceStepWebGpu,
 	'generate' | 'subscribe' | 'cancel' | 'dispose' | 'listCachedModels' | 'clearCache'
 >;
@@ -143,7 +143,7 @@ export async function trimGeneratedWav(blob: Blob, durationSeconds: number): Pro
 	return new Blob([output], { type: 'audio/wav' });
 }
 
-export class AceStepMusicService {
+class AceStepMusicService {
 	private runtime: AceStepRuntime | null = null;
 	private runtimePromise: Promise<AceStepRuntime> | null = null;
 	private generationTail: Promise<void> = Promise.resolve();

@@ -25,7 +25,7 @@ type QuickCutWaveformIdentity = Pick<
 	| 'selectedAudioTrackIndices'
 >;
 
-export function quickCutWaveformKey(source: QuickCutWaveformIdentity): string {
+function quickCutWaveformKey(source: QuickCutWaveformIdentity): string {
 	const fingerprint =
 		source.contentFingerprint ?? `${source.size}:${source.lastModified ?? 'unknown'}`;
 	const audioTrack =

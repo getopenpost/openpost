@@ -359,7 +359,7 @@ function maybeWrapWithOf(fragment: string): string {
 	return /^(?:of|in|on|at)\b/i.test(fragment) ? fragment : `of ${fragment}`;
 }
 
-export function formatSceneCaption(raw: string): string {
+function formatSceneCaption(raw: string): string {
 	let next = normalizeWhitespace(stripOuterQuotes(raw));
 	if (next.length === 0) return '';
 

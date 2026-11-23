@@ -36,7 +36,7 @@ function isStickerDragData(value: unknown): value is StickerDragData {
 	);
 }
 
-export function parseStickerDragData(raw: string): StickerDragData | null {
+function parseStickerDragData(raw: string): StickerDragData | null {
 	if (!raw) return null;
 	try {
 		const parsed: unknown = JSON.parse(raw);

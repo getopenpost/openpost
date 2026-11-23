@@ -53,7 +53,7 @@ export type ComposerClientErrorCategory =
 	| 'not_ready'
 	| 'unavailable';
 
-export const composerErrorCodes = [
+const composerErrorCodes = [
 	'publication_request_failed',
 	'publication_workspace_mismatch',
 	'session_content_missing',

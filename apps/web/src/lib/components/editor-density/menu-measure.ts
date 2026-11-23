@@ -33,7 +33,7 @@ export function longestLabel(labels: string[]): string {
 }
 
 /** Deterministic fallback width; monotonic in label length. */
-export function estimateLabelWidthPx(label: string, options: LabelWidthOptions = {}): number {
+function estimateLabelWidthPx(label: string, options: LabelWidthOptions = {}): number {
 	const fontSizePx = options.fontSizePx ?? DEFAULT_FONT_SIZE_PX;
 	const ratio = options.avgCharRatio ?? DEFAULT_CHAR_RATIO;
 	return Math.ceil(label.length * fontSizePx * ratio);

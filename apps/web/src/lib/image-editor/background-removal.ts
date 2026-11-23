@@ -13,10 +13,7 @@ type BackgroundRemovalWorkerResponse =
 	| { type: 'complete'; result: Blob }
 	| { type: 'error'; message: string };
 
-export function resolveBackgroundRemovalPublicPath(
-	publicPath: string,
-	currentLocation: string
-): string {
+function resolveBackgroundRemovalPublicPath(publicPath: string, currentLocation: string): string {
 	return new URL(publicPath.endsWith('/') ? publicPath : `${publicPath}/`, currentLocation).href;
 }
 
@@ -130,7 +127,7 @@ interface PreparedBackgroundRemovalInput {
 	wasResized: boolean;
 }
 
-export async function prepareBackgroundRemovalInput(
+async function prepareBackgroundRemovalInput(
 	image: Blob,
 	onProgress?: (progress: BackgroundRemovalProgress) => void,
 	signal?: AbortSignal
@@ -186,7 +183,7 @@ export async function prepareBackgroundRemovalInput(
 	};
 }
 
-export async function restoreOriginalResolution(
+async function restoreOriginalResolution(
 	original: Blob,
 	processed: Blob,
 	signal?: AbortSignal

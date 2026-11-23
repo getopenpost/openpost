@@ -142,7 +142,7 @@ export function paintImageEditorCanvasGradient(
 	context.putImageData(image, 0, 0);
 }
 
-export function gradientRatioAtPoint(
+function gradientRatioAtPoint(
 	gradient: ImageEditorGradientValue,
 	point: ImageEditorPaintPoint
 ): number {

@@ -10,7 +10,7 @@ import {
 import { queryAPI } from '$lib/query/api';
 import { queryClient } from '$lib/query/client';
 
-export function createPerformanceCache(client: QueryClient, api: OpenPostQueryAPI) {
+function createPerformanceCache(client: QueryClient, api: OpenPostQueryAPI) {
 	async function loadPublicationDetail(publicationId: string, workspaceId: string, force = false) {
 		const options = publicationDetailQueryOptions(api, workspaceId, publicationId);
 		if (force) {

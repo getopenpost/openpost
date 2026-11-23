@@ -69,7 +69,7 @@ function stockKind(asset: StockAsset): StockDragKind {
 	return asset.kind === 'video' ? 'video' : 'photo';
 }
 
-export function parseStockDragData(raw: string): StockDragData | null {
+function parseStockDragData(raw: string): StockDragData | null {
 	if (!raw) return null;
 	try {
 		const parsed: unknown = JSON.parse(raw);

@@ -142,7 +142,7 @@ export function cloneImageEditorDocument(document: ImageEditorDocument): ImageEd
 	return clone;
 }
 
-export function defaultImageEditorPageBackground(color = '#ffffff'): ImageEditorPageBackground {
+function defaultImageEditorPageBackground(color = '#ffffff'): ImageEditorPageBackground {
 	return { type: 'solid', color, opacity: 1 };
 }
 

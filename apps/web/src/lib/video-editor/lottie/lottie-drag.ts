@@ -38,7 +38,7 @@ function isLottieDragData(value: unknown): value is LottieDragData {
 	);
 }
 
-export function parseLottieDragData(raw: string): LottieDragData | null {
+function parseLottieDragData(raw: string): LottieDragData | null {
 	if (!raw) return null;
 	try {
 		const parsed: unknown = JSON.parse(raw);

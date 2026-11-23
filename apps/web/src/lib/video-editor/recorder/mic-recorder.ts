@@ -34,7 +34,7 @@ export function hasMicRecordingSupport(): boolean {
 	);
 }
 
-export function pickMicRecorderMimeType(): string {
+function pickMicRecorderMimeType(): string {
 	if (typeof MediaRecorder === 'undefined') return '';
 	return MIME_CANDIDATES.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? '';
 }
@@ -156,10 +156,7 @@ export class MicRecorder {
 	private startedAtMs = 0;
 	private accumulatedMs = 0;
 
-	get currentState(): MicRecorderState {
-		return this.state;
-	}
-
+	// fallow-ignore-next-line unused-class-member -- voiceover-recorder.svelte.ts drives MicRecorder through its injected recorder factory.
 	async start(options: MicRecorderOptions = {}): Promise<void> {
 		if (this.state !== 'idle' || this.stream) throw new Error('Microphone recorder is active.');
 		const stream = await navigator.mediaDevices.getUserMedia({
@@ -203,6 +200,7 @@ export class MicRecorder {
 		}
 	}
 
+	// fallow-ignore-next-line unused-class-member -- voiceover-recorder.svelte.ts drives MicRecorder through its injected recorder factory.
 	pause(): void {
 		if (this.state !== 'recording' || !this.mediaRecorder) return;
 		this.accumulatedMs += performance.now() - this.startedAtMs;
@@ -210,6 +208,7 @@ export class MicRecorder {
 		this.state = 'paused';
 	}
 
+	// fallow-ignore-next-line unused-class-member -- voiceover-recorder.svelte.ts drives MicRecorder through its injected recorder factory.
 	resume(): void {
 		if (this.state !== 'paused' || !this.mediaRecorder) return;
 		this.mediaRecorder.resume();
@@ -223,6 +222,7 @@ export class MicRecorder {
 			: this.accumulatedMs;
 	}
 
+	// fallow-ignore-next-line unused-class-member -- voiceover-recorder.svelte.ts drives MicRecorder through its injected recorder factory.
 	async stop(): Promise<MicRecorderResult> {
 		const recorder = this.mediaRecorder;
 		if (!recorder || this.state === 'idle') throw new Error('Microphone recorder is idle.');

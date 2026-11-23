@@ -441,18 +441,15 @@ func (t *TikTokAdapter) uploadVideoFileToInbox(ctx context.Context, accessToken,
 			return "", fmt.Errorf("tiktok video chunk upload: %w", err)
 		}
 	}
-	id, err := t.waitForPublishID(ctx, accessToken, publishID, nil)
-	if err == nil {
-		return id, nil
+	if _, err := t.waitForPublishID(ctx, accessToken, publishID, nil); err != nil {
+		var providerErr *HTTPError
+		if errors.As(err, &providerErr) && strings.HasPrefix(providerErr.Code, "tiktok_publish_failed:") {
+			return "", err
+		}
 	}
-	var providerErr *HTTPError
-	if errors.As(err, &providerErr) && strings.HasPrefix(providerErr.Code, "tiktok_publish_failed:") {
-		return "", err
-	}
-	// All chunks have already been delivered to TikTok for publishID. Any
-	// pending status (PROCESSING_UPLOAD, SEND_TO_USER_INBOX, etc.) or transient
-	// status-check failure must return publishID so Publish checkpoints and
-	// reconciles it rather than re-uploading the video on retry.
+	// All chunks have already been delivered to TikTok for publishID. Always
+	// return the original publishID (never a resolved public post ID) so
+	// Publish checkpoints publishID and resolves the final outcome cleanly.
 	return publishID, nil
 }
 

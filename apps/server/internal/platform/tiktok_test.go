@@ -713,6 +713,50 @@ func TestTikTokVideoFileUploadThenPublishCheckpointsWithoutReuploading(t *testin
 	require.Equal(t, "inbox_delivered", checkpoints[len(checkpoints)-1].ProviderState)
 }
 
+func TestTikTokVideoFileUploadPreservesPublishIDWhenImmediatelyComplete(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	const uploadURL = "https://open-upload.tiktokapis.com/video/?upload_id=inbox-2"
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.String() {
+		case tiktokVideoInboxInitURL:
+			return jsonResponse(req, `{"data":{"publish_id":"v_inbox_file~v2.555","upload_url":"`+uploadURL+`"},"error":{"code":"ok"}}`), nil
+		case uploadURL:
+			return jsonResponseWithStatus(req, http.StatusCreated, `{}`), nil
+		case tiktokPublishStatusURL:
+			var body struct {
+				PublishID string `json:"publish_id"`
+			}
+			require.NoError(t, json.NewDecoder(req.Body).Decode(&body))
+			require.Equal(t, "v_inbox_file~v2.555", body.PublishID)
+			return jsonResponse(req, `{"data":{"status":"PUBLISH_COMPLETE","publicly_available_post_id":["7499999999"]},"error":{"code":"ok"}}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	adapter := NewTikTokAdapter("key", "secret", "https://app.example/callback")
+	publishID, err := adapter.UploadMediaWithMetadata(t.Context(), "access", "open-1", UploadMediaRequest{
+		MimeType: "video/mp4",
+		Settings: map[string]interface{}{"content_posting_method": "UPLOAD"},
+		Reader:   bytes.NewReader([]byte("video-bytes")),
+	})
+	require.NoError(t, err)
+	require.Equal(t, "v_inbox_file~v2.555", publishID)
+
+	result, err := adapter.Publish(t.Context(), "access", "open-1", &PublishRequest{
+		Profile:          "short_video",
+		PlatformMediaIDs: []string{publishID},
+		Media:            []MediaItem{{ID: "vid-1", MimeType: "video/mp4"}},
+		Settings:         map[string]interface{}{"content_posting_method": "UPLOAD"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, PublishSubmissionAccepted, result.SubmissionState)
+	require.Equal(t, "7499999999", result.ExternalID)
+}
+
 func TestTikTokVideoUploadRejectsInsecureHTTPURL(t *testing.T) {
 	adapter := NewTikTokAdapter("key", "secret", "https://app.example/callback")
 	_, err := adapter.Publish(t.Context(), "access", "open-1", &PublishRequest{

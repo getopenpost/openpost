@@ -1271,3 +1271,37 @@ func TestYouTubePublishTimeCannotBecomeSocialSetDefault(t *testing.T) {
 	issues := ValidateDefaultSettings(resolved.Capability, SettingScopeDestination, values, values)
 	requireIssueForField(t, issues, "unsupported_setting", "publish_at")
 }
+
+func TestBlueskyGIFValidation(t *testing.T) {
+	// Single animated GIF up to Bluesky's 100 MB video service limit is allowed.
+	resolved := Resolve(ProviderBluesky, ResolveInput{
+		Segments: []ResolveSegment{{
+			ID:    "seg-1",
+			Body:  "Check out this GIF",
+			Media: []MediaItem{{ID: "gif-1", MimeType: "image/gif", Size: 5_000_000}},
+		}},
+	})
+	require.True(t, resolved.Compatible, "single Bluesky GIF should be compatible, got %+v", resolved.Issues)
+	require.Empty(t, resolved.Issues)
+
+	// Static images on Bluesky still enforce the 2 MB image limit.
+	staticOverLimit := Validate(ProviderBluesky, models.ContentProfileImagePost, "Caption", "", "", []MediaItem{
+		{ID: "img-1", MimeType: "image/jpeg", Size: blueskyImageMaxBytes + 1},
+	}, nil)
+	requireIssueCode(t, staticOverLimit, "media_size")
+
+	// Mixing a GIF with another image or GIF is rejected on both single posts and threads.
+	for _, profile := range []string{models.ContentProfileImagePost, models.ContentProfileThread} {
+		mixed := Validate(ProviderBluesky, profile, "Caption", "", "", []MediaItem{
+			{ID: "gif-1", MimeType: "image/gif", Size: 1000},
+			{ID: "img-1", MimeType: "image/jpeg", Size: 1000},
+		}, nil)
+		requireIssueCode(t, mixed, "gif_exclusive")
+	}
+
+	// GIFs exceeding 100 MB are rejected.
+	tooLarge := Validate(ProviderBluesky, models.ContentProfileImagePost, "Caption", "", "", []MediaItem{
+		{ID: "gif-big", MimeType: "image/gif", Size: providerlimits.BlueskyVideoMaxBytes + 1},
+	}, nil)
+	requireIssueCode(t, tooLarge, "media_size")
+}

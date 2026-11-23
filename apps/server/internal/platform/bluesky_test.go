@@ -1,11 +1,17 @@
 package platform
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/gif"
 	"io"
 	"net"
 	"net/http"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -519,4 +525,114 @@ func TestBlueskyUnrepostOnlyIgnoresMissingRecord(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildBlueskyPostRecordEmbedsGIFAsVideoWithGIFPresentation(t *testing.T) {
+	adapter := NewBlueskyAdapter("")
+	blobJSON := `{"$type":"blob","ref":{"$link":"bafkreigifvideo"},"mimeType":"video/mp4","size":4096}`
+
+	record, err := adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
+		Content:          "Animated reaction",
+		PlatformMediaIDs: []string{blobJSON},
+		MediaAltTexts:    []string{"Waving mascot"},
+		Media:            []MediaItem{{ID: "gif-1", MimeType: "image/gif", Width: 480, Height: 270}},
+	}, fixedBlueskyTime())
+	require.NoError(t, err)
+
+	embed, ok := record["embed"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "app.bsky.embed.video", embed["$type"])
+	require.Equal(t, "gif", embed["presentation"])
+	require.Equal(t, "Waving mascot", embed["alt"])
+	require.Equal(t, map[string]int{"width": 480, "height": 270}, embed["aspectRatio"])
+
+	// Regular video embeds do not carry presentation="gif".
+	videoRecord, err := adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
+		Content:          "Clip",
+		PlatformMediaIDs: []string{blobJSON},
+		Media:            []MediaItem{{ID: "vid-1", MimeType: "video/mp4", Width: 1280, Height: 720}},
+	}, fixedBlueskyTime())
+	require.NoError(t, err)
+	videoEmbed := videoRecord["embed"].(map[string]interface{})
+	require.Equal(t, "app.bsky.embed.video", videoEmbed["$type"])
+	require.NotContains(t, videoEmbed, "presentation")
+
+	// Multiple attachments with a GIF are rejected.
+	_, err = adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
+		Content:          "Too many",
+		PlatformMediaIDs: []string{blobJSON, blobJSON},
+		Media: []MediaItem{
+			{ID: "gif-1", MimeType: "image/gif"},
+			{ID: "img-1", MimeType: "image/jpeg"},
+		},
+	}, fixedBlueskyTime())
+	require.ErrorContains(t, err, "only one gif")
+}
+
+func TestBlueskyUploadMediaConvertsGIFAndUploadsToVideoService(t *testing.T) {
+	originalClient := httpClient
+	originalConverter := blueskyGIFToMP4
+	defer func() {
+		httpClient = originalClient
+		blueskyGIFToMP4 = originalConverter
+	}()
+
+	converted := false
+	blueskyGIFToMP4 = func(_ context.Context, r io.Reader) ([]byte, error) {
+		converted = true
+		data, err := io.ReadAll(r)
+		require.NoError(t, err)
+		require.Equal(t, []byte("GIF89a"), data)
+		return []byte("fake-mp4-bytes"), nil
+	}
+
+	uploadedContentType := ""
+	uploadedBody := ""
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch {
+		case strings.Contains(req.URL.Path, "com.atproto.server.getSession"):
+			return jsonResponse(req, `{"did":"did:plc:openpost","emailConfirmed":true}`), nil
+		case strings.Contains(req.URL.Path, "com.atproto.server.getServiceAuth"):
+			return jsonResponse(req, `{"token":"video-service-token"}`), nil
+		case req.URL.Host == "video.bsky.app" && strings.Contains(req.URL.Path, "app.bsky.video.uploadVideo"):
+			uploadedContentType = req.Header.Get("Content-Type")
+			body, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			uploadedBody = string(body)
+			return jsonResponse(req, `{"jobStatus":{"jobId":"job-1","state":"JOB_STATE_COMPLETED","blob":{"$type":"blob","ref":{"$link":"bafkreigifmp4"},"mimeType":"video/mp4","size":14}}}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	adapter := NewBlueskyAdapter(BlueskyDefaultPDSURL)
+	blobJSON, err := adapter.UploadMedia(t.Context(), base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none"}`))+"."+base64.RawURLEncoding.EncodeToString([]byte(`{"aud":"did:web:bsky.social"}`))+".", "did:plc:openpost", "image/gif", bytes.NewReader([]byte("GIF89a")))
+	require.NoError(t, err)
+	require.True(t, converted)
+	require.Equal(t, "video/mp4", uploadedContentType)
+	require.Equal(t, "fake-mp4-bytes", uploadedBody)
+	require.Contains(t, blobJSON, "bafkreigifmp4")
+}
+
+func TestConvertGIFToMP4ProducesMP4WithOddDimensions(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed in PATH")
+	}
+	palette := color.Palette{color.RGBA{R: 255, A: 255}, color.RGBA{B: 255, A: 255}}
+	frame1 := image.NewPaletted(image.Rect(0, 0, 3, 3), palette)
+	frame2 := image.NewPaletted(image.Rect(0, 0, 3, 3), palette)
+	for i := range frame2.Pix {
+		frame2.Pix[i] = 1
+	}
+	var buf bytes.Buffer
+	require.NoError(t, gif.EncodeAll(&buf, &gif.GIF{
+		Image: []*image.Paletted{frame1, frame2},
+		Delay: []int{10, 10},
+	}))
+
+	mp4Data, err := convertGIFToMP4(t.Context(), &buf)
+	require.NoError(t, err)
+	require.NotEmpty(t, mp4Data)
+	require.True(t, bytes.Contains(mp4Data, []byte("ftyp")), "expected valid MP4 ftyp header")
 }

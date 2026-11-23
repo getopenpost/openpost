@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 	"image"
-	_ "image/jpeg"
-	_ "image/png"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"path/filepath"
 	"strings"
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/providerlimits"
-	_ "golang.org/x/image/webp"
+	"golang.org/x/image/webp"
 )
 
 // preflightBlueskyGalleryMedia checks every gallery attachment before the first
@@ -39,7 +39,8 @@ func checkBlueskyGalleryMedia(
 		return fmt.Errorf("bluesky supports up to %d images per post", providerlimits.BlueskyImageMaxCount)
 	}
 	for i := range media {
-		switch strings.ToLower(strings.TrimSpace(strings.Split(media[i].MimeType, ";")[0])) {
+		mimeType := strings.ToLower(strings.TrimSpace(strings.Split(media[i].MimeType, ";")[0]))
+		switch mimeType {
 		case "image/jpeg", "image/png", "image/webp":
 		default:
 			return fmt.Errorf("bluesky gallery image %d must be JPEG, PNG, or WebP", i+1)
@@ -57,7 +58,16 @@ func checkBlueskyGalleryMedia(
 		if err != nil {
 			return fmt.Errorf("bluesky gallery image %d cannot be inspected", i+1)
 		}
-		config, _, decodeErr := image.DecodeConfig(reader)
+		var config image.Config
+		var decodeErr error
+		switch mimeType {
+		case "image/jpeg":
+			config, decodeErr = jpeg.DecodeConfig(reader)
+		case "image/png":
+			config, decodeErr = png.DecodeConfig(reader)
+		case "image/webp":
+			config, decodeErr = webp.DecodeConfig(reader)
+		}
 		_ = reader.Close()
 		if decodeErr != nil || config.Width <= 0 || config.Height <= 0 ||
 			int64(config.Width) > 64_000_000/int64(config.Height) {

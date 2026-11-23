@@ -71,6 +71,11 @@ func TestBlueskyGalleryPreflightAcceptsJPEGAndPreservesLegacyEmbeds(t *testing.T
 		legacy[0].Width, legacy[0].Height = 0, 0
 		require.NoError(t, checkBlueskyGalleryMedia(t.Context(), legacy, nil))
 	}
+	// Galleries with already-valid dimensions do not need to read files again.
+	require.NoError(t, checkBlueskyGalleryMedia(t.Context(), blueskyGalleryStoredMedia(5),
+		func(context.Context, string) (io.ReadCloser, error) {
+			return nil, errors.New("unexpected storage access")
+		}))
 }
 
 func TestBlueskyGalleryPreflightFailsBeforeUploadOnIncompleteOrUnsupportedMedia(t *testing.T) {

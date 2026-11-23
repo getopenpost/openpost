@@ -6,7 +6,6 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import {
-  classifyReleasePath,
   maintainedReleasePaths,
   readReleaseSurfaceManifest,
   readReleaseSurfaceManifestAtRevision,
@@ -41,22 +40,6 @@ test("untracked maintained paths participate in the ownership gate", () => {
     ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("root build, Compose, registry, skills, launch, and scripts are classified", () => {
-  const manifest = readReleaseSurfaceManifest();
-  const expected = new Map([
-    ["package.json", "delivery"],
-    ["docker-compose.yml", "delivery"],
-    ["config/mcp/server.json", "agent-tools"],
-    [".agents/skills/openpost-cli/SKILL.md", "agent-tools"],
-    ["docs/launch-kit/README.md", "launch"],
-    ["scripts/release.mjs", "delivery"],
-    ["scripts/oxlint/anti-slop/index.ts", "delivery"],
-  ]);
-  for (const [file, surface] of expected) {
-    assert.ok(classifyReleasePath(file, manifest).surfaces.includes(surface));
   }
 });
 

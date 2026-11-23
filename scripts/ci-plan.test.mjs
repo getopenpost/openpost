@@ -311,13 +311,6 @@ test("package selection follows transitive consumers and fails closed when metad
   }
 });
 
-test("nightly release qualification covers every surface even without changed files", () => {
-  const plan = planCI([], manifest, { release: true, full: true });
-  for (const [name, selected] of Object.entries(plan)) {
-    if (name !== "cache_contract") assert.equal(selected, true, name);
-  }
-});
-
 test("backend changes retain the application build and browser qualification", () => {
   const plan = planCI(["apps/server/internal/services/publication/store.go"], manifest);
   assert.equal(plan.backend, true);

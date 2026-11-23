@@ -19,7 +19,9 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const buildEntry = fileURLToPath(new URL("../packages/ui/scripts/build.mjs", import.meta.url));
 const dependencies = fileURLToPath(new URL("../node_modules", import.meta.url));
-const SLOW_BUILD_MS = 25_000;
+// proper-lockfile treats a lock as stale after 10 seconds without a heartbeat.
+// The slow build must outlive that window to prove the heartbeat keeps running.
+const SLOW_BUILD_MS = 11_500;
 
 async function fixture(t) {
   const root = await mkdtemp(path.join(tmpdir(), "openpost-ui-lock-"));
@@ -98,17 +100,17 @@ async function waitForStarted(packageRoot) {
 // Build locking runs in Node. Keep its timers and process lifecycle independent
 // of synchronous fixtures elsewhere in Bun's broad scripts discovery.
 if (process.versions.bun) {
-  test("UI build locking runs under its production Node runtime", { timeout: 60_000 }, () => {
+  test("UI build locking runs under its production Node runtime", { timeout: 45_000 }, () => {
     const result = spawnSync("node", ["--test", fileURLToPath(import.meta.url)], {
       stdio: "inherit",
-      timeout: 55_000,
+      timeout: 40_000,
     });
     assert.equal(result.status, 0);
   });
 } else {
   test(
     "concurrent UI builds keep exclusive output access throughout a slow child build",
-    { timeout: 45_000 },
+    { timeout: 30_000 },
     async (t) => {
       const setup = await fixture(t);
       const first = runBuild(t, setup, { FIXTURE_BUILD_DELAY_MS: String(SLOW_BUILD_MS) });

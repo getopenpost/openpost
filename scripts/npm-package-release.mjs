@@ -24,7 +24,7 @@ const stableVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
 const versionPattern =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/u;
 
-export function compareVersions(left, right) {
+function compareVersions(left, right) {
   const leftVersion = parseVersion(left);
   const rightVersion = parseVersion(right);
   for (let index = 0; index < leftVersion.parts.length; index += 1) {

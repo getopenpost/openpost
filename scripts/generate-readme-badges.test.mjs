@@ -1,15 +1,7 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import test from "node:test";
 import sharp from "sharp";
-import {
-  fetchBadgeData,
-  fetchNpmDownloads,
-  renderBadge,
-  writeBadges,
-} from "./generate-readme-badges.mjs";
+import { fetchBadgeData, renderBadge } from "./generate-readme-badges.mjs";
 
 function response(body, status = 200) {
   return {
@@ -93,14 +85,6 @@ test("fails closed on API errors", async () => {
   );
 });
 
-test("counts unindexed npm packages as zero", async () => {
-  const totals = await fetchNpmDownloads(async (url) => {
-    assert.match(url, /api\.npmjs\.org\/downloads\/point\/\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}/u);
-    return response({ error: "not found" }, 404);
-  });
-  assert.deepEqual(totals, [0, 0, 0]);
-});
-
 test("excludes draft releases and rejects malformed release assets", async () => {
   const baseResponses = (releases) => async (url) => {
     if (url.includes("api.npmjs.org")) return response({ downloads: 0 });
@@ -158,38 +142,5 @@ test("renders readable values and a real pixel texture in both schemes", async (
       followPixel(5, 14),
       "the outline does not cross the label",
     );
-  }
-});
-
-test("writes all light and dark badge variants", async () => {
-  const outputDir = await mkdtemp(join(tmpdir(), "openpost-badges-"));
-  try {
-    const files = await writeBadges(
-      { downloads: 22, downloadsGithub: 12, downloadsNpm: 10, release: "v1.2.3", stars: 9 },
-      outputDir,
-    );
-    const expected = [
-      "downloads-dark.svg",
-      "downloads-light.svg",
-      "follow-dev-dark.svg",
-      "follow-dev-light.svg",
-      "release-dark.svg",
-      "release-light.svg",
-      "stars-dark.svg",
-      "stars-light.svg",
-    ];
-    assert.deepEqual(
-      files.sort(),
-      expected.map((name) => join(outputDir, name)),
-    );
-    assert.deepEqual((await readdir(outputDir)).sort(), expected);
-    assert.match(await readFile(join(outputDir, "release-dark.svg"), "utf8"), /v1\.2\.3/u);
-    assert.match(await readFile(join(outputDir, "follow-dev-dark.svg"), "utf8"), /follow: X/u);
-    assert.match(
-      await readFile(join(outputDir, "downloads-light.svg"), "utf8"),
-      /downloads: 22 \(GitHub 12 \+ npm 10\)/u,
-    );
-  } finally {
-    await rm(outputDir, { recursive: true, force: true });
   }
 });

@@ -36,7 +36,7 @@ const (
 	instagramStoryMakeProviderState     = "instagram:v1:story_container_create_started"
 	instagramStoryPostProviderState     = "instagram:v1:story_publish_started"
 	instagramPublishedProviderState     = "instagram:v1:published"
-	instagramCheckpointReconcileDelay   = 10 * time.Second
+	instagramCheckpointReconcileDelay   = time.Minute
 	instagramRateLimitMinReconcileDelay = 15 * time.Minute
 	instagramRateLimitMaxReconcileDelay = 60 * time.Minute
 	instagramCheckpointMissingValue     = "-"

@@ -265,6 +265,7 @@ func (s *Service) resume(ctx context.Context, attempt *models.ProviderWriteAttem
 	if !attempt.ReconcileAfter.IsZero() && s.now().Before(attempt.ReconcileAfter) {
 		return platform.PublishResult{}, pendingError(resultFromAttempt(attempt))
 	}
+	previousHTTPStatus := attempt.ErrorHTTPStatus
 	control := &Control{service: s, attempt: attempt, ctx: ctx}
 	result, resumeErr := resume(ctx, control, attempt.ProviderReference)
 	current, loadErr := s.loadAttempt(context.WithoutCancel(ctx), attempt.ID)
@@ -298,7 +299,7 @@ func (s *Service) resume(ctx context.Context, attempt *models.ProviderWriteAttem
 	default:
 		result.SubmissionState = platform.PublishSubmissionPending
 		result.RetrySafety = platform.PublishRetryReconcileOnly
-		result = applyPendingReconcileBackoff(current, result, resumeErr, s.now())
+		result = applyPendingReconcileBackoff(current, previousHTTPStatus, result, resumeErr, s.now())
 		if err := s.persistResult(ctx, current, result, resumeErr, true); err != nil {
 			return platform.PublishResult{}, err
 		}
@@ -373,7 +374,7 @@ func (s *Service) sendPrepared(ctx context.Context, attempt *models.ProviderWrit
 		return result, nil
 	}
 	if result.SubmissionState == platform.PublishSubmissionPending {
-		result = applyPendingReconcileBackoff(current, result, sendErr, s.now())
+		result = applyPendingReconcileBackoff(current, current.ErrorHTTPStatus, result, sendErr, s.now())
 		if err := s.persistResult(ctx, current, result, sendErr, false); err != nil {
 			return platform.PublishResult{}, &OutcomeError{Kind: StatusAmbiguous, Err: errors.Join(ErrOutcomeAmbiguous, err)}
 		}
@@ -405,7 +406,7 @@ func (s *Service) reconcile(ctx context.Context, attempt *models.ProviderWriteAt
 	default:
 		result.SubmissionState = platform.PublishSubmissionPending
 		result.RetrySafety = platform.PublishRetryReconcileOnly
-		result = applyPendingReconcileBackoff(attempt, result, reconcileErr, s.now())
+		result = applyPendingReconcileBackoff(attempt, attempt.ErrorHTTPStatus, result, reconcileErr, s.now())
 		if err := s.persistResult(ctx, attempt, result, reconcileErr, true); err != nil {
 			return platform.PublishResult{}, err
 		}
@@ -914,12 +915,13 @@ const (
 // writes taper their polling interval after the first five minutes.
 func applyPendingReconcileBackoff(
 	attempt *models.ProviderWriteAttempt,
+	previousHTTPStatus int,
 	result platform.PublishResult,
 	err error,
 	now time.Time,
 ) platform.PublishResult {
 	delay := max(result.ReconcileAfter, reconcileAgeFloor(attempt, result.ProviderState, now))
-	delay = max(delay, reconcileErrorCooldown(attempt, err))
+	delay = max(delay, reconcileErrorCooldown(previousHTTPStatus, err))
 	result.ReconcileAfter = delay
 	return result
 }
@@ -946,7 +948,7 @@ func reconcileAgeFloor(attempt *models.ProviderWriteAttempt, providerState strin
 	}
 }
 
-func reconcileErrorCooldown(attempt *models.ProviderWriteAttempt, err error) time.Duration {
+func reconcileErrorCooldown(previousHTTPStatus int, err error) time.Duration {
 	var providerErr *platform.HTTPError
 	if !errors.As(err, &providerErr) {
 		return 0
@@ -957,7 +959,7 @@ func reconcileErrorCooldown(attempt *models.ProviderWriteAttempt, err error) tim
 	}
 	if providerErr.StatusCode == http.StatusTooManyRequests {
 		minDelay := reconcileRateLimitMinDelay
-		if attempt != nil && attempt.ErrorHTTPStatus == http.StatusTooManyRequests {
+		if previousHTTPStatus == http.StatusTooManyRequests {
 			minDelay = reconcileRateLimitRepeatDelay
 		}
 		delay = max(delay, minDelay)

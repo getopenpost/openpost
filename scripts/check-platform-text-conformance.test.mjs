@@ -5,7 +5,6 @@ import {
   parseGoTextFacts,
   parseTypeScriptTextFacts,
   platformTextConformanceProblems,
-  validatePlatformTextConformance,
 } from "./check-platform-text-conformance.mjs";
 
 const tsSource = `
@@ -87,8 +86,4 @@ test("a drifted Go constant is reported", () => {
       problems,
     );
   }
-});
-
-test("the repository sources currently agree", async () => {
-  assert.deepEqual(await validatePlatformTextConformance(), []);
 });

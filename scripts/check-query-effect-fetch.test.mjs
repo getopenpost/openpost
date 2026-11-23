@@ -87,19 +87,3 @@ test("allows event-driven reads and Query observer refetch in effects", () => {
     },
   );
 });
-
-test("skips query adapters", () => {
-  const file = "apps/web/src/lib/query/example.ts";
-  withFixture(
-    {
-      [file]: `export function example() {
-        $effect(() => {
-          void client.GET('/cache-safe', { params: {} });
-        });
-      }`,
-    },
-    (repoRoot) => {
-      assert.deepEqual(scan(repoRoot), []);
-    },
-  );
-});

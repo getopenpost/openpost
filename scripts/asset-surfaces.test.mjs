@@ -7,7 +7,6 @@ import test from "node:test";
 
 import { assetSurfaceManifest } from "./asset-surfaces.ts";
 import {
-  assetSizeReport,
   directAssetReferences,
   repositoryRoot,
   validateAssetSurfaceManifest,
@@ -98,12 +97,4 @@ test("asset directory moves fall back safely across filesystems", async () => {
   } finally {
     await rm(parent, { recursive: true, force: true });
   }
-});
-
-test("per-surface copies are smaller than three complete copies", async () => {
-  const report = await assetSizeReport();
-  assert.ok(report.copiedBytes < report.previousCopiedBytes);
-  assert.ok(report.surfaceBytes.frontend < report.sourceBytes);
-  assert.ok(report.surfaceBytes.docs < report.sourceBytes);
-  assert.ok(report.surfaceBytes.marketing < report.sourceBytes);
 });

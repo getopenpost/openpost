@@ -7,6 +7,7 @@ import path from "node:path";
 import { mobileReleasePaths } from "./release-distribution-plan.mjs";
 import { checkMCPRegistryOwnership } from "./check-mcp-registry.mjs";
 import { publishedStableReleaseTag } from "./published-release-tag.mjs";
+import { releaseWatchSettlement } from "./release-watch.mjs";
 import {
   changedReleasePaths,
   maintainedReleasePaths,
@@ -22,6 +23,13 @@ const repository = "getopenpost/openpost";
 // live npm install probe reports CDN propagation after ship returns.
 const optionalReleaseJobs = new Set(["Verify live CLI install from the published release"]);
 const releaseCompletionJobs = ["Publish complete deployed release", "Record release in CHANGELOG"];
+// Independent package publications keep their own identity and recovery. Ship
+// fails if one has already failed, but does not wait for one still running.
+const backgroundReleaseJobs = new Set([
+  "Publish and verify n8n package",
+  "Publish and verify npm SDK package",
+  "Publish and verify npm CLI package",
+]);
 const command = process.argv[2] ?? "plan";
 const args = process.argv.slice(3);
 
@@ -237,7 +245,11 @@ async function ship() {
   phase(`Qualified (${preparation}); publication and deployment start`);
   await watchRuns(
     [{ id: await waitForTagRun("Build and Release", tag, revision), label: `${tag} release` }],
-    { optional: optionalReleaseJobs, completion: releaseCompletionJobs },
+    {
+      optional: optionalReleaseJobs,
+      background: backgroundReleaseJobs,
+      completion: releaseCompletionJobs,
+    },
   );
   phase("Verifying production");
   await verifyProduction(tag, revision);
@@ -342,8 +354,11 @@ async function waitForTagRun(workflow, tag, revision) {
 // failing tests and their local reproduction commands. Remaining jobs keep
 // running in GitHub, so a rerun of ship resumes without losing their work.
 // Optional jobs only report. With completion jobs, watching ends once they
-// succeed and every other non-optional job has finished.
-async function watchRuns(runs, { pollMs = 20_000, optional = new Set(), completion = [] } = {}) {
+// succeed and every other job except optional and background ones finished.
+async function watchRuns(
+  runs,
+  { pollMs = 20_000, optional = new Set(), background = new Set(), completion = [] } = {},
+) {
   const reported = new Set();
   let heartbeat = Date.now();
   for (;;) {
@@ -374,13 +389,15 @@ async function watchRuns(runs, { pollMs = 20_000, optional = new Set(), completi
         );
       }
     }
-    const settled = (state) =>
-      completion.length > 0 &&
-      completion.every((name) =>
-        state.jobs.some((job) => job.name === name && job.conclusion === "success"),
-      ) &&
-      state.jobs.every((job) => job.status === "completed" || optional.has(job.name));
-    if (states.every(settled)) return;
+    const settlements = states.map((state) =>
+      releaseWatchSettlement(state.jobs, { completion, background, optional }),
+    );
+    if (settlements.every((settlement) => settlement.settled)) {
+      for (const job of settlements.flatMap((settlement) => settlement.inFlight)) {
+        console.log(`… ${job.name} continues independently: ${job.url}`);
+      }
+      return;
+    }
     if (states.every((state) => state.status === "completed")) {
       const unfinished = states.find(
         (state) =>

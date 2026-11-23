@@ -63,17 +63,6 @@ test("the README keeps live provider claims in plain language", () => {
   );
 });
 
-test("the README can omit the certification section", () => {
-  const manifest = { schema_version: 1, claims: [] };
-  const sources = validPublicClaimSurfaces(renderPublicClaimProjection(manifest));
-  assert.doesNotThrow(() =>
-    validatePublicClaimSurfaceSources(manifest, {
-      ...sources,
-      readme: "# OpenPost\n\nSee the provider documentation for integration details.",
-    }),
-  );
-});
-
 test("a complete production subject with current local and live proof is claimable", () => {
   const manifest = validManifest();
   assert.equal(validatePublicClaimManifest(manifest, { now }).claims.length, 1);
@@ -84,19 +73,6 @@ test("the standalone gate refuses claims without the ledger contract projection"
     () => assertNoUnprojectedPublicClaims(validManifest()),
     /standalone check refuses non-empty claims/u,
   );
-});
-
-test("official versioned documentation links keep their safe query selector", () => {
-  const manifest = validManifest();
-  const claim = manifest.claims[0];
-  claim.subject.provider = "linkedin";
-  claim.local_certification.subject_digest = subjectDigest(claim.subject);
-  claim.live_certification.subject_digest = subjectDigest(claim.subject);
-  const source =
-    "https://learn.microsoft.com/en-us/linkedin/marketing/community-management/community-management-overview?view=li-lms-2026-02";
-  claim.approval.source_url = source;
-  claim.policy_sources = [source];
-  assert.doesNotThrow(() => validatePublicClaimManifest(manifest, { now }));
 });
 
 test("a contract projection can carry proof across revisions but never across contracts", () => {

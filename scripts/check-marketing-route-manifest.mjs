@@ -53,7 +53,7 @@ export function routePatternRegex(pattern) {
   return new RegExp(`^${expression}$`, "u");
 }
 
-export function catalogSlugs(source, catalog) {
+function catalogSlugs(source, catalog) {
   const boundaries = routeCatalogBoundaries[catalog];
   if (!boundaries) throw new Error(`Unknown route catalog: ${catalog}`);
   const start = source.indexOf(boundaries[0]);

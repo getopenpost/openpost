@@ -11,7 +11,7 @@ const REQUIRED_ARTIFACTS = [
   ".agents/skills/agent-workflow/SKILL.md",
 ];
 
-export function parseTriageLabels(markdown) {
+function parseTriageLabels(markdown) {
   const labels = [];
   for (const line of markdown.split(/\r?\n/)) {
     const cells = line

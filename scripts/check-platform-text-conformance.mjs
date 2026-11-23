@@ -161,7 +161,7 @@ export function platformTextConformanceProblems(ts, go) {
   return problems;
 }
 
-export async function validatePlatformTextConformance(root = repositoryRoot) {
+async function validatePlatformTextConformance(root = repositoryRoot) {
   const [tsSource, capabilities, textLength, youtube] = await Promise.all(
     [
       "packages/platform-text/src/index.ts",

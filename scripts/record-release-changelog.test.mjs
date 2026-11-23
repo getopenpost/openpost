@@ -36,6 +36,9 @@ function setupRepo() {
   git(["init"]);
   git(["config", "user.email", "record-test@openpost.local"]);
   git(["config", "user.name", "OpenPost Record Test"]);
+  // Fixture history must not depend on the developer's signing setup.
+  git(["config", "commit.gpgsign", "false"]);
+  git(["config", "tag.gpgsign", "false"]);
   return { root, env, git };
 }
 

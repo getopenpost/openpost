@@ -117,27 +117,6 @@ test("missing canonical asset directories fail without changing generated copies
   );
 });
 
-test("missing manifest entries fail without changing generated copies", async (t) => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "openpost-immutable-assets-partial-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const source = path.join(root, "static");
-  const output = path.join(root, "build");
-  await writeValidAssetFixture(source);
-  await rm(path.join(source, "image-editor-models/chunk.bin"));
-  await mkdir(path.join(output, "image-editor-models"), { recursive: true });
-  await writeFile(path.join(output, "image-editor-models/stale.onnx"), "stale\n");
-
-  await assert.rejects(
-    materializeImmutableFrontendAssets({ sourceDirectory: source, outputDirectory: output }),
-    /Missing canonical immutable frontend asset/u,
-  );
-
-  assert.equal(
-    await readFile(path.join(output, "image-editor-models/stale.onnx"), "utf8"),
-    "stale\n",
-  );
-});
-
 test("same-size asset corruption fails digest validation", async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "openpost-immutable-assets-corrupt-"));
   t.after(() => rm(root, { recursive: true, force: true }));

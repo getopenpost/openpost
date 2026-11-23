@@ -59,7 +59,9 @@ upload_assets() {
 
     echo "Release asset upload timed out after ${upload_timeout_seconds} seconds." >&2
     kill -TERM "$upload_pid" 2>/dev/null || exit 0
-    sleep 5
+    # Killing this watchdog orphans its grace sleep; keep that sleep off the
+    # caller's output pipes so the caller does not wait for it.
+    sleep 5 </dev/null >/dev/null 2>&1
     kill -KILL "$upload_pid" 2>/dev/null || true
   ) &
   local watchdog_pid=$!

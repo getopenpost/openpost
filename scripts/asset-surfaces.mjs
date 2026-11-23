@@ -226,7 +226,7 @@ async function sha256File(file) {
   return hash.digest("hex");
 }
 
-export async function assetSizeReport(manifest = assetSurfaceManifest, root = repositoryRoot) {
+async function assetSizeReport(manifest = assetSurfaceManifest, root = repositoryRoot) {
   const sourceDirectory = path.join(root, "assets");
   const sourceFiles = await listFiles(sourceDirectory);
   const sourceBytes = (

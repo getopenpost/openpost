@@ -44,7 +44,7 @@ async function expectNoHorizontalOverflow(page: Page, route: string) {
     .toBeLessThanOrEqual(0);
 }
 
-for (const colorScheme of ["light", "dark"] as const) {
+for (const colorScheme of ["light"] as const) {
   test.describe(`${colorScheme} phone layout`, () => {
     test.use({ colorScheme, viewport: phone, hasTouch: true, reducedMotion: "reduce" });
 

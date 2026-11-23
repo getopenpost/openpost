@@ -17,6 +17,10 @@ const (
 	metaPageWalkMaxBusinesses = 100
 )
 
+// errMetaPageWalkBudget marks a walk that ran out of requests; it stops
+// account selection instead of being skipped like a refused request.
+var errMetaPageWalkBudget = errors.New("meta page walk request budget exceeded")
+
 type metaPage struct {
 	ID                       string `json:"id"`
 	Name                     string `json:"name"`
@@ -135,7 +139,8 @@ type metaPortfolioWalk struct {
 // listMetaPortfolioPages adds Business Portfolio Pages to me/accounts. Meta
 // refuses an agency portfolio's client_pages when the user granted only some
 // client Pages (#522), so a refused portfolio request is skipped. The error
-// return stops account selection (cancellation, discovery limits).
+// return stops account selection: cancellation, the request budget, or the
+// portfolio limit.
 func listMetaPortfolioPages(
 	ctx context.Context,
 	graphURL func(string) string,
@@ -146,7 +151,7 @@ func listMetaPortfolioPages(
 ) (metaPortfolioWalk, error) {
 	var walk metaPortfolioWalk
 	skip := func(request string, err error) error {
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || errors.Is(err, errMetaPageWalkBudget) {
 			return err
 		}
 		if walk.skipped == nil {
@@ -167,7 +172,8 @@ func listMetaPortfolioPages(
 		budget,
 	)
 	if businessErr != nil {
-		return walk, skip("me/businesses", businessErr)
+		err := skip("me/businesses", businessErr)
+		return walk, err
 	}
 	if len(businesses) > metaPageWalkMaxBusinesses {
 		return walk, fmt.Errorf("%s Business Portfolio discovery exceeded %d portfolios", label, metaPageWalkMaxBusinesses)
@@ -228,7 +234,7 @@ func fetchMetaGraphEdgePages[T any](ctx context.Context, firstURL, label string,
 	var items []T
 	for nextURL != "" {
 		if budget.requests >= metaPageWalkMaxRequests {
-			return items, fmt.Errorf("%s pagination exceeded %d requests", label, metaPageWalkMaxRequests)
+			return items, fmt.Errorf("%s pagination exceeded %d requests: %w", label, metaPageWalkMaxRequests, errMetaPageWalkBudget)
 		}
 		if _, exists := seen[nextURL]; exists {
 			return items, fmt.Errorf("%s pagination repeated a page", label)

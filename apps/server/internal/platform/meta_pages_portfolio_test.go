@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 )
@@ -126,5 +127,25 @@ func TestListMetaManagedPagesKeepsPagesLoadedBeforeARefusedContinuation(t *testi
 	}
 	if len(pages) != 1 || pages[0].ID != "page-2" {
 		t.Fatalf("expected the Page from the first owned_pages page, got %#v", pages)
+	}
+}
+
+func TestListMetaManagedPagesStopsWhenThePortfolioWalkRunsOutOfRequests(t *testing.T) {
+	cursor := 0
+	withMetaPortfolioGraph(t, map[string]func(*http.Request) *http.Response{
+		"/v25.0/me/accounts": func(req *http.Request) *http.Response {
+			return jsonResponse(req, `{"data":[{"id":"page-1","name":"Granted Page","access_token":"page-1-token"}]}`)
+		},
+		"/v25.0/me/businesses": func(req *http.Request) *http.Response { return jsonResponse(req, `{"data":[{"id":"portfolio-b"}]}`) },
+		"/v25.0/portfolio-b/owned_pages": func(req *http.Request) *http.Response {
+			cursor++
+			return jsonResponse(req, fmt.Sprintf(`{"data":[],"paging":{"next":"https://graph.facebook.com/v25.0/portfolio-b/owned_pages?after=c%d"}}`, cursor))
+		},
+		"/v25.0/portfolio-b/client_pages": func(req *http.Request) *http.Response { return jsonResponse(req, `{"data":[]}`) },
+	})
+
+	pages, err := listMetaManagedPages(context.Background(), metaPortfolioGraphURL, metaPortfolioToken(), "id,name,access_token", "instagram")
+	if err == nil {
+		t.Fatalf("an exhausted request budget must stop account selection, got %#v", pages)
 	}
 }

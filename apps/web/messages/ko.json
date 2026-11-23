@@ -3286,6 +3286,7 @@
 	"settings_token_expiry_90_days": "90일",
 	"settings_token_expiry_one_year": "1년",
 	"settings_token_expiry_custom": "사용자 지정 날짜",
+	"settings_token_expiry_never_description": "이 토큰은 접근을 제거할 때까지 계속 작동합니다. 안전하게 보관하세요.",
 	"settings_token_custom_expiry": "만료일",
 	"settings_token_status_active": "활성",
 	"settings_token_status_expired": "만료됨",

@@ -3286,6 +3286,7 @@
 	"settings_token_expiry_90_days": "90 jours",
 	"settings_token_expiry_one_year": "1 an",
 	"settings_token_expiry_custom": "Date personnalisée",
+	"settings_token_expiry_never_description": "Ce jeton reste actif jusqu’à ce que vous retiriez son accès. Conservez-le en lieu sûr.",
 	"settings_token_custom_expiry": "Date d’expiration",
 	"settings_token_status_active": "Actif",
 	"settings_token_status_expired": "Expiré",

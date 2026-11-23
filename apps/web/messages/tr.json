@@ -3286,6 +3286,7 @@
 	"settings_token_expiry_90_days": "90 gün",
 	"settings_token_expiry_one_year": "1 yıl",
 	"settings_token_expiry_custom": "Özel tarih",
+	"settings_token_expiry_never_description": "Bu jeton, erişimini kaldırana kadar çalışmaya devam eder. Güvenli bir yerde sakla.",
 	"settings_token_custom_expiry": "Son kullanma tarihi",
 	"settings_token_status_active": "Etkin",
 	"settings_token_status_expired": "Süresi dolmuş",

@@ -88,7 +88,7 @@ export function isAPITokenScope(value: string): value is APITokenScope {
 	return apiTokenScopes.has(value);
 }
 
-export type APITokenExpiryPreset = '30' | '90' | '365' | 'custom';
+export type APITokenExpiryPreset = '30' | '90' | '365' | 'never' | 'custom';
 
 const dayMilliseconds = 24 * 60 * 60 * 1000;
 
@@ -104,16 +104,23 @@ export function apiTokenCustomExpiryMax(now = new Date()) {
 	return new Date(now.getTime() + 364 * dayMilliseconds).toISOString().slice(0, 10);
 }
 
-export function apiTokenExpiresAt(
+type APITokenExpiryRequest = { expires_at: string } | { never_expires: true };
+
+// A token never expires only when the owner picks Never; every other preset
+// sends a date. Returns null while a custom date is still missing.
+export function apiTokenExpiryRequest(
 	preset: APITokenExpiryPreset,
 	customExpiry: string,
 	now = new Date()
-) {
+): APITokenExpiryRequest | null {
+	if (preset === 'never') return { never_expires: true };
 	if (preset === 'custom') {
-		if (!customExpiry) return '';
-		return new Date(`${customExpiry}T23:59:59.000Z`).toISOString();
+		if (!customExpiry) return null;
+		return { expires_at: new Date(`${customExpiry}T23:59:59.000Z`).toISOString() };
 	}
-	return new Date(now.getTime() + Number(preset) * dayMilliseconds).toISOString();
+	return {
+		expires_at: new Date(now.getTime() + Number(preset) * dayMilliseconds).toISOString()
+	};
 }
 
 export function buildProfileUpdateBody(input: {

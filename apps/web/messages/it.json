@@ -3322,6 +3322,7 @@
 	"settings_token_expiry_90_days": "90 giorni",
 	"settings_token_expiry_one_year": "1 anno",
 	"settings_token_expiry_custom": "Data personalizzata",
+	"settings_token_expiry_never_description": "Questo token resta attivo finché non ne rimuovi l'accesso. Conservalo in modo sicuro.",
 	"settings_token_custom_expiry": "Data di scadenza",
 	"settings_token_status_active": "Attivo",
 	"settings_token_status_expired": "Scaduto",

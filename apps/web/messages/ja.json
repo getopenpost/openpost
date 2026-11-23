@@ -3286,6 +3286,7 @@
 	"settings_token_expiry_90_days": "90日間",
 	"settings_token_expiry_one_year": "1年間",
 	"settings_token_expiry_custom": "任意の日付",
+	"settings_token_expiry_never_description": "このトークンはアクセスを削除するまで使えます。安全に保管してください。",
 	"settings_token_custom_expiry": "有効期限の日付",
 	"settings_token_status_active": "アクティブ",
 	"settings_token_status_expired": "期限切れ",

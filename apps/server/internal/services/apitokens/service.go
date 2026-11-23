@@ -73,7 +73,11 @@ type GeneratedToken struct {
 }
 
 type GenerateOptions struct {
-	ExpiresAt          *time.Time
+	ExpiresAt *time.Time
+	// NeverExpires stores the token without an expiry, so it stays valid
+	// until it is revoked. It is an explicit choice: a nil ExpiresAt still
+	// means the default lifetime, and combining both is rejected.
+	NeverExpires       bool
 	WorkspaceID        string
 	OrganizationID     string
 	IdentityProviderID string
@@ -133,14 +137,9 @@ func (s *Service) generateTokenWithOptions(
 	tokenPrefix, tokenHash := HashToken(secret)
 	rawToken := strings.Join([]string{TokenPrefix, tokenPrefix, secret}, "_")
 
-	var expiry time.Time
-	if options.ExpiresAt != nil {
-		expiry = options.ExpiresAt.UTC()
-	} else {
-		expiry = now.Add(DefaultExpiration)
-	}
-	if !expiry.After(now) || expiry.After(now.Add(MaximumExpiration+expiryClockSkewLeeway)) {
-		return nil, ErrInvalidExpiry
+	expiry, err := tokenExpiry(options, now)
+	if err != nil {
+		return nil, err
 	}
 
 	model := &models.APIToken{
@@ -166,6 +165,27 @@ func (s *Service) generateTokenWithOptions(
 	}
 
 	return &GeneratedToken{Token: rawToken, Model: model}, nil
+}
+
+// tokenExpiry resolves the stored expiry. A zero result means the token
+// never expires and is stored as NULL. Dated tokens keep the one-year cap,
+// so every long-lived token is visibly marked as never expiring rather than
+// hidden behind a distant date.
+func tokenExpiry(options GenerateOptions, now time.Time) (time.Time, error) {
+	if options.NeverExpires {
+		if options.ExpiresAt != nil {
+			return time.Time{}, ErrInvalidExpiry
+		}
+		return time.Time{}, nil
+	}
+	expiry := now.Add(DefaultExpiration)
+	if options.ExpiresAt != nil {
+		expiry = options.ExpiresAt.UTC()
+	}
+	if !expiry.After(now) || expiry.After(now.Add(MaximumExpiration+expiryClockSkewLeeway)) {
+		return time.Time{}, ErrInvalidExpiry
+	}
+	return expiry, nil
 }
 
 func NormalizeScope(scope string) (string, error) {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	apiTokenCustomExpiryMax,
 	apiTokenCustomExpiryMin,
-	apiTokenExpiresAt,
+	apiTokenExpiryRequest,
 	activeReauthProviderID,
 	buildProfileUpdateBody,
 	isAPITokenScope,
@@ -75,9 +75,20 @@ describe('API token expiry boundary', () => {
 		expect(apiTokenCustomExpiryMin(now)).toBe('2026-08-10');
 		expect(apiTokenCustomExpiryMax(now)).toBe('2027-08-08');
 
-		const customMaximum = new Date(apiTokenExpiresAt('custom', apiTokenCustomExpiryMax(now), now));
+		const request = apiTokenExpiryRequest('custom', apiTokenCustomExpiryMax(now), now);
+		if (!request || !('expires_at' in request)) throw new Error('expected a dated request');
+		const customMaximum = new Date(request.expires_at);
 		expect(customMaximum.getTime()).toBeGreaterThan(now.getTime());
 		expect(customMaximum.getTime()).toBeLessThanOrEqual(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+	});
+
+	it('requests a token without an expiry only for the Never preset', () => {
+		const now = new Date('2026-08-09T12:00:00.000Z');
+		expect(apiTokenExpiryRequest('never', '', now)).toEqual({ never_expires: true });
+		expect(apiTokenExpiryRequest('90', '', now)).toEqual({
+			expires_at: '2026-11-07T12:00:00.000Z'
+		});
+		expect(apiTokenExpiryRequest('custom', '', now)).toBeNull();
 	});
 });
 

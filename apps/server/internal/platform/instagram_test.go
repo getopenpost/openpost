@@ -1138,3 +1138,90 @@ func TestInstagramListCommentsCollectsNestedReplies(t *testing.T) {
 	require.Equal(t, "openpost", byID["c2"].AuthorName)
 	require.Equal(t, "fan", byID["c3"].AuthorName)
 }
+
+func TestInstagramResumeCarouselRateLimitBacksOff(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	original := httpClient
+	t.Cleanup(func() { httpClient = original })
+
+	req := &PublishRequest{
+		PlatformMediaIDs: []string{"https://media.example/1.jpg", "https://media.example/2.jpg"},
+		Media:            []MediaItem{{MimeType: "image/jpeg"}, {MimeType: "image/jpeg"}},
+	}
+
+	t.Run("default 15m backoff on Meta code 4", func(t *testing.T) {
+		httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			return jsonResponseWithStatus(r, http.StatusForbidden, `{"error":{"code":4,"message":"Application request limit reached"}}`), nil
+		})}
+		result, err := NewInstagramAdapter("", "", "").ResumePublish(t.Context(), "token", "ig-1", req, "ig1:d:child-1")
+		require.Error(t, err)
+		require.Equal(t, PublishSubmissionPending, result.SubmissionState)
+		require.Equal(t, 15*time.Minute, result.ReconcileAfter)
+	})
+
+	t.Run("honors X-Business-Use-Case-Usage regain window", func(t *testing.T) {
+		httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			resp := jsonResponseWithStatus(r, http.StatusForbidden, `{"error":{"code":80002,"message":"Rate limit"}}`)
+			resp.Header.Set("X-Business-Use-Case-Usage", `{"ig-1":[{"type":"instagram","estimated_time_to_regain_access":25}]}`)
+			return resp, nil
+		})}
+		result, err := NewInstagramAdapter("", "", "").ResumePublish(t.Context(), "token", "ig-1", req, "ig1:d:child-1")
+		require.Error(t, err)
+		require.Equal(t, PublishSubmissionPending, result.SubmissionState)
+		require.Equal(t, 25*time.Minute, result.ReconcileAfter)
+	})
+}
+
+func TestInstagramResumeCarouselCreateCheckpointsAdvance(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	original := httpClient
+	t.Cleanup(func() { httpClient = original })
+
+	req := &PublishRequest{
+		Content:          "Carousel caption",
+		PlatformMediaIDs: []string{"https://media.example/1.jpg", "https://media.example/2.jpg"},
+		Media:            []MediaItem{{MimeType: "image/jpeg"}, {MimeType: "image/jpeg"}},
+	}
+
+	t.Run("child create checkpoint retries missing child instead of looping forever", func(t *testing.T) {
+		created := 0
+		httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			switch {
+			case r.Method == http.MethodGet && r.URL.Path == "/v25.0/child-1":
+				return jsonResponse(r, `{"status_code":"FINISHED"}`), nil
+			case r.Method == http.MethodPost && r.URL.Path == "/v25.0/ig-1/media":
+				created++
+				return jsonResponse(r, `{"id":"child-2"}`), nil
+			default:
+				t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+				return nil, nil
+			}
+		})}
+		result, err := NewInstagramAdapter("", "", "").ResumePublish(t.Context(), "token", "ig-1", req, "ig1:d:child-1")
+		require.NoError(t, err)
+		require.Equal(t, 1, created)
+		require.Equal(t, PublishSubmissionPending, result.SubmissionState)
+		require.Equal(t, "ig1:c:child-1,child-2", result.ProviderReference)
+	})
+
+	t.Run("parent create checkpoint retries carousel parent creation", func(t *testing.T) {
+		created := 0
+		httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			switch {
+			case r.Method == http.MethodGet && (r.URL.Path == "/v25.0/child-1" || r.URL.Path == "/v25.0/child-2"):
+				return jsonResponse(r, `{"status_code":"FINISHED"}`), nil
+			case r.Method == http.MethodPost && r.URL.Path == "/v25.0/ig-1/media":
+				created++
+				return jsonResponse(r, `{"id":"parent-1"}`), nil
+			default:
+				t.Fatalf("unexpected request %s %s", r.Method, r.URL.Path)
+				return nil, nil
+			}
+		})}
+		result, err := NewInstagramAdapter("", "", "").ResumePublish(t.Context(), "token", "ig-1", req, "ig1:a:child-1,child-2")
+		require.NoError(t, err)
+		require.Equal(t, 1, created)
+		require.Equal(t, PublishSubmissionPending, result.SubmissionState)
+		require.Equal(t, "ig1:f:parent-1", result.ProviderReference)
+	})
+}

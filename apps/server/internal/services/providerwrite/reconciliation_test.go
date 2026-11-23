@@ -2,6 +2,7 @@ package providerwrite
 
 import (
 	"context"
+	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -186,4 +187,71 @@ func TestProviderScheduledDeliveryOutlivesProcessingWindow(t *testing.T) {
 	require.Equal(t, "live-post", result.ExternalID)
 	require.Equal(t, 1, sends, "a reconcile-only receipt must never send the write again")
 	require.Equal(t, 1, reconciliations, "the expired receipt is reconciled exactly once")
+}
+
+func TestReconciliationBacksOffOnRateLimitAndLongProcessing(t *testing.T) {
+	db := newProviderWriteTestDB(t)
+	service := New(db)
+	now := time.Now().UTC().Truncate(time.Second)
+	service.now = func() time.Time { return now }
+
+	input := providerWriteTestInput(t, "instagram-rate-limit-backoff")
+	input.Provider = "instagram"
+	pending := platform.PublishResult{
+		SubmissionState:   platform.PublishSubmissionPending,
+		ProviderState:     "instagram:v1:carousel_child_create_started",
+		ProviderReference: "ig1:d:child-1",
+		RetrySafety:       platform.PublishRetryReconcileOnly,
+		ReconcileAfter:    10 * time.Second,
+	}
+	send := func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		return pending, control.Begin(pending)
+	}
+
+	_, err := service.Execute(t.Context(), input, send, nil)
+	retryAfter, ok := IsPending(err)
+	require.True(t, ok)
+	require.Equal(t, 10*time.Second, retryAfter)
+
+	// First rate-limited reconciliation backs off at least 15 minutes.
+	now = now.Add(15 * time.Second)
+	rateLimitErr := &platform.HTTPError{StatusCode: http.StatusTooManyRequests, Code: "meta:rate_limit:4"}
+	_, err = service.Execute(t.Context(), input, send, nil, func(_ context.Context, _ *Control, _ string) (platform.PublishResult, error) {
+		return pending, rateLimitErr
+	})
+	retryAfter, ok = IsPending(err)
+	require.True(t, ok)
+	require.Equal(t, 15*time.Minute, retryAfter)
+	attempt := latestProviderWriteAttempt(t, db, input.OperationID)
+	require.Equal(t, now.Add(15*time.Minute), attempt.ReconcileAfter)
+
+	// A repeated rate limit escalates to 30 minutes even when the resume callback
+	// writes a creation checkpoint before failing with 429.
+	now = now.Add(15 * time.Minute)
+	_, err = service.Execute(t.Context(), input, send, nil, func(_ context.Context, control *Control, _ string) (platform.PublishResult, error) {
+		require.NoError(t, control.Checkpoint(pending))
+		return pending, rateLimitErr
+	})
+	retryAfter, ok = IsPending(err)
+	require.True(t, ok)
+	require.Equal(t, 30*time.Minute, retryAfter)
+
+	// An explicit provider Retry-After longer than 30m is honored (capped at 60m).
+	now = now.Add(30 * time.Minute)
+	explicitErr := &platform.HTTPError{StatusCode: http.StatusTooManyRequests, Code: "meta:rate_limit:4", RetryAfter: 45 * time.Minute}
+	_, err = service.Execute(t.Context(), input, send, nil, func(_ context.Context, _ *Control, _ string) (platform.PublishResult, error) {
+		return pending, explicitErr
+	})
+	retryAfter, ok = IsPending(err)
+	require.True(t, ok)
+	require.Equal(t, 45*time.Minute, retryAfter)
+
+	// Even after rate limits clear, sustained processing beyond 30m tapers to 15m.
+	now = now.Add(45 * time.Minute)
+	_, err = service.Execute(t.Context(), input, send, nil, func(_ context.Context, _ *Control, _ string) (platform.PublishResult, error) {
+		return pending, nil
+	})
+	retryAfter, ok = IsPending(err)
+	require.True(t, ok)
+	require.Equal(t, 15*time.Minute, retryAfter)
 }

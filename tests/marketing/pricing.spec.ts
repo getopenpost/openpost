@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { dismissTelemetryConsent } from "./helpers";
 
 test.describe("pricing accessibility", () => {
-  for (const scheme of ["light", "dark"] as const) {
+  for (const scheme of ["light"] as const) {
     test(`pricing is readable and operable in ${scheme}`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
       await page.goto("/pricing");

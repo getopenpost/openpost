@@ -159,19 +159,19 @@ func listMetaManagedPages(
 				continue
 			}
 			for _, edge := range []string{"owned_pages", "client_pages"} {
-				edgePages, edgeErr := fetchMetaGraphEdge[metaPage](
+				// A refused continuation keeps the Pages its earlier pages returned.
+				edgePages, edgeErr := fetchMetaGraphEdgePages[metaPage](
 					ctx,
 					graphURL(url.PathEscape(business.ID)+"/"+edge)+"?"+query.Encode(),
 					label+" Business Portfolio pages",
 					budget,
 				)
+				pages = append(pages, edgePages...)
 				if edgeErr != nil {
 					if err := skipPortfolioRequest(edge, edgeErr); err != nil {
 						return nil, err
 					}
-					continue
 				}
-				pages = append(pages, edgePages...)
 			}
 		}
 	}
@@ -184,6 +184,16 @@ func listMetaManagedPages(
 }
 
 func fetchMetaGraphEdge[T any](ctx context.Context, firstURL, label string, budget *metaGraphBudget) ([]T, error) {
+	items, err := fetchMetaGraphEdgePages[T](ctx, firstURL, label, budget)
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// fetchMetaGraphEdgePages follows an edge's pagination. On error it also
+// returns the items that the pages before the failing request delivered.
+func fetchMetaGraphEdgePages[T any](ctx context.Context, firstURL, label string, budget *metaGraphBudget) ([]T, error) {
 	initial, err := url.Parse(firstURL)
 	if err != nil || initial.Scheme != "https" || initial.Host == "" {
 		return nil, fmt.Errorf("%s URL is invalid", label)
@@ -197,10 +207,10 @@ func fetchMetaGraphEdge[T any](ctx context.Context, firstURL, label string, budg
 	var items []T
 	for nextURL != "" {
 		if budget.requests >= metaPageWalkMaxRequests {
-			return nil, fmt.Errorf("%s pagination exceeded %d requests", label, metaPageWalkMaxRequests)
+			return items, fmt.Errorf("%s pagination exceeded %d requests", label, metaPageWalkMaxRequests)
 		}
 		if _, exists := seen[nextURL]; exists {
-			return nil, fmt.Errorf("%s pagination repeated a page", label)
+			return items, fmt.Errorf("%s pagination repeated a page", label)
 		}
 		seen[nextURL] = struct{}{}
 		budget.requests++
@@ -211,19 +221,19 @@ func fetchMetaGraphEdge[T any](ctx context.Context, firstURL, label string, budg
 		}
 		body, requestErr := doMetaRequest(ctx, http.MethodGet, nextURL, nil, headers)
 		if requestErr != nil {
-			return nil, fmt.Errorf("%s: %w", label, requestErr)
+			return items, fmt.Errorf("%s: %w", label, requestErr)
 		}
 		var response metaGraphCollection[T]
 		if decodeErr := json.Unmarshal(body, &response); decodeErr != nil {
-			return nil, fmt.Errorf("decoding %s: %w", label, decodeErr)
+			return items, fmt.Errorf("decoding %s: %w", label, decodeErr)
 		}
 		if responseErr := metaGraphEmbeddedError(response.Error); responseErr != nil {
-			return nil, fmt.Errorf("%s returned an error: %w", label, responseErr)
+			return items, fmt.Errorf("%s returned an error: %w", label, responseErr)
 		}
 		items = append(items, response.Data...)
 		nextURL, err = validatedMetaNextURL(initial, response.Paging.Next)
 		if err != nil {
-			return nil, fmt.Errorf("%s pagination: %w", label, err)
+			return items, fmt.Errorf("%s pagination: %w", label, err)
 		}
 	}
 	return items, nil

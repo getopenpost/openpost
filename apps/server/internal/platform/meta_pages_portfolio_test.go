@@ -106,3 +106,25 @@ func TestListMetaManagedPagesFailsWhenNoPageCouldBeLoaded(t *testing.T) {
 		t.Fatalf("expected the portfolio error when no Page could be loaded, got %#v", pages)
 	}
 }
+
+func TestListMetaManagedPagesKeepsPagesLoadedBeforeARefusedContinuation(t *testing.T) {
+	withMetaPortfolioGraph(t, map[string]func(*http.Request) *http.Response{
+		"/v25.0/me/accounts":   func(req *http.Request) *http.Response { return jsonResponse(req, `{"data":[]}`) },
+		"/v25.0/me/businesses": func(req *http.Request) *http.Response { return jsonResponse(req, `{"data":[{"id":"portfolio-b"}]}`) },
+		"/v25.0/portfolio-b/owned_pages": func(req *http.Request) *http.Response {
+			if req.URL.Query().Get("after") != "" {
+				return jsonResponseWithStatus(req, http.StatusBadRequest, metaClientPagesRefusal)
+			}
+			return jsonResponse(req, `{"data":[{"id":"page-2","name":"Agency Page","access_token":"page-2-token"}],"paging":{"next":"https://graph.facebook.com/v25.0/portfolio-b/owned_pages?after=cursor-2"}}`)
+		},
+		"/v25.0/portfolio-b/client_pages": func(req *http.Request) *http.Response { return jsonResponse(req, `{"data":[]}`) },
+	})
+
+	pages, err := listMetaManagedPages(context.Background(), metaPortfolioGraphURL, metaPortfolioToken(), "id,name,access_token", "instagram")
+	if err != nil {
+		t.Fatalf("a refused continuation must keep the Pages already loaded: %v", err)
+	}
+	if len(pages) != 1 || pages[0].ID != "page-2" {
+		t.Fatalf("expected the Page from the first owned_pages page, got %#v", pages)
+	}
+}

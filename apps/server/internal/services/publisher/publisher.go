@@ -1323,7 +1323,7 @@ func isExpiredTokenError(err error) bool {
 //nolint:dupl
 
 func (s *Service) platformMediaIDForRendition(ctx context.Context, publication *models.Publication, rendition *models.Rendition, account *models.SocialAccount, provider platform.Publisher, token string, media models.MediaAttachment) (string, error) {
-	if requiresPublicMedia(account.Platform, rendition.Profile) {
+	if usesPublicMediaURLForRendition(account.Platform, rendition, media.MimeType) {
 		return s.uploadRenditionMediaToPlatform(ctx, account, provider, token, rendition, media)
 	}
 	if err := s.validateRenditionMediaDeliveryOwner(ctx, publication, rendition, account, media); err != nil {
@@ -2194,7 +2194,7 @@ func (s *Service) uploadRenditionMediaToPlatform(ctx context.Context, account *m
 	_ = json.Unmarshal([]byte(rendition.SettingsJSON), &settings)
 	delete(settings, posttext.NativeSettingsKey)
 
-	if requiresPublicMedia(account.Platform, rendition.Profile) && !usesTikTokFileUpload(account.Platform, settings) {
+	if requiresPublicMedia(account.Platform, rendition.Profile) && !usesTikTokFileUpload(account.Platform, settings, media.MimeType) {
 		return s.getPublicMediaURL(media), nil
 	}
 	if err := publicationauth.RequireReview(ctx, s.db, rendition.PublicationID); err != nil {
@@ -2792,8 +2792,21 @@ func requiresPublicMedia(platformName, profile string) bool {
 	return false
 }
 
-func usesTikTokFileUpload(platformName string, settings map[string]interface{}) bool {
+func usesPublicMediaURLForRendition(platformName string, rendition *models.Rendition, mimeType string) bool {
+	if rendition == nil || !requiresPublicMedia(platformName, rendition.Profile) {
+		return false
+	}
+	settings := map[string]interface{}{}
+	_ = json.Unmarshal([]byte(rendition.SettingsJSON), &settings)
+	delete(settings, posttext.NativeSettingsKey)
+	return !usesTikTokFileUpload(platformName, settings, mimeType)
+}
+
+func usesTikTokFileUpload(platformName string, settings map[string]interface{}, mimeType string) bool {
 	if platformName != "tiktok" {
+		return false
+	}
+	if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(mimeType)), "video/") {
 		return false
 	}
 	mode := strings.ToUpper(strings.TrimSpace(settingStringPublisher(settings, "content_posting_method")))

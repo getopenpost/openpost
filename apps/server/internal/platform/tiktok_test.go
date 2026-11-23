@@ -650,3 +650,115 @@ func TestTikTokPublicPhotoWaitsForProviderPostIdentity(t *testing.T) {
 	require.Empty(t, result.ExternalID)
 	require.Equal(t, "publish-1", result.ProviderReference)
 }
+
+func TestTikTokVideoFileUploadThenPublishCheckpointsWithoutReuploading(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	const uploadURL = "https://open-upload.tiktokapis.com/video/?upload_id=inbox-1"
+	initCalls := 0
+	putCalls := 0
+	statusCalls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.String() {
+		case tiktokVideoInboxInitURL:
+			initCalls++
+			return jsonResponse(req, `{"data":{"publish_id":"v_inbox_file~v2.999","upload_url":"`+uploadURL+`"},"error":{"code":"ok"}}`), nil
+		case uploadURL:
+			putCalls++
+			return jsonResponseWithStatus(req, http.StatusCreated, `{}`), nil
+		case tiktokPublishStatusURL:
+			statusCalls++
+			if statusCalls == 1 {
+				// Immediately after upload TikTok typically reports PROCESSING_UPLOAD.
+				return jsonResponse(req, `{"data":{"status":"PROCESSING_UPLOAD"},"error":{"code":"ok"}}`), nil
+			}
+			return jsonResponse(req, `{"data":{"status":"SEND_TO_USER_INBOX"},"error":{"code":"ok"}}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	adapter := NewTikTokAdapter("key", "secret", "https://app.example/callback")
+	publishID, err := adapter.UploadMediaWithMetadata(t.Context(), "access", "open-1", UploadMediaRequest{
+		MimeType: "video/mp4",
+		Settings: map[string]interface{}{"content_posting_method": "UPLOAD"},
+		Reader:   bytes.NewReader([]byte("video-bytes")),
+	})
+	require.NoError(t, err)
+	require.Equal(t, "v_inbox_file~v2.999", publishID)
+
+	var checkpoints []PublishResult
+	req := &PublishRequest{
+		Profile:          "short_video",
+		PlatformMediaIDs: []string{publishID},
+		Media:            []MediaItem{{ID: "vid-1", MimeType: "video/mp4"}},
+		Settings:         map[string]interface{}{"content_posting_method": "UPLOAD"},
+	}
+	req.SetWriteFence(nil, func(result PublishResult) error {
+		checkpoints = append(checkpoints, result)
+		return nil
+	})
+
+	result, err := adapter.Publish(t.Context(), "access", "open-1", req)
+	require.NoError(t, err)
+	require.Equal(t, PublishSubmissionPending, result.SubmissionState)
+	require.Equal(t, "inbox_delivered", result.ProviderState)
+	require.Equal(t, "v_inbox_file~v2.999", result.ProviderReference)
+	require.Equal(t, PublishRetryReconcileOnly, result.RetrySafety)
+	require.Equal(t, 1, initCalls, "Publish must not re-initialize an already uploaded FILE_UPLOAD video")
+	require.Equal(t, 1, putCalls, "video must only be uploaded once")
+	require.GreaterOrEqual(t, len(checkpoints), 2)
+	require.Equal(t, "inbox_delivered", checkpoints[len(checkpoints)-1].ProviderState)
+}
+
+func TestTikTokVideoUploadRejectsInsecureHTTPURL(t *testing.T) {
+	adapter := NewTikTokAdapter("key", "secret", "https://app.example/callback")
+	_, err := adapter.Publish(t.Context(), "access", "open-1", &PublishRequest{
+		Profile:          "short_video",
+		PlatformMediaIDs: []string{"http://media.example/video.mp4"},
+		Media:            []MediaItem{{ID: "vid-1", MimeType: "video/mp4"}},
+		Settings:         map[string]interface{}{"content_posting_method": "UPLOAD"},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "HTTPS media URL")
+}
+
+func TestTikTokPhotoUploadModeUsesPullFromURLAndMediaUpload(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	var gotPayload map[string]any
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.String() {
+		case tiktokContentInitURL:
+			require.NoError(t, json.NewDecoder(req.Body).Decode(&gotPayload))
+			return jsonResponse(req, `{"data":{"publish_id":"p_inbox_url~v2.123"},"error":{"code":"ok"}}`), nil
+		case tiktokPublishStatusURL:
+			return jsonResponse(req, `{"data":{"status":"SEND_TO_USER_INBOX"},"error":{"code":"ok"}}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	adapter := NewTikTokAdapter("key", "secret", "https://app.example/callback")
+	result, err := adapter.Publish(t.Context(), "access", "open-1", &PublishRequest{
+		Profile:          "carousel",
+		Content:          "Photo caption",
+		PlatformMediaIDs: []string{"https://media.example/photo.jpg?exp=123&sig=abc"},
+		Media:            []MediaItem{{ID: "img-1", MimeType: "image/jpeg"}},
+		Settings:         map[string]interface{}{"content_posting_method": "UPLOAD"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, PublishSubmissionPending, result.SubmissionState)
+	require.Equal(t, "inbox_delivered", result.ProviderState)
+	require.Equal(t, "p_inbox_url~v2.123", result.ProviderReference)
+	require.Equal(t, "MEDIA_UPLOAD", gotPayload["post_mode"])
+	require.Equal(t, "PHOTO", gotPayload["media_type"])
+	sourceInfo, ok := gotPayload["source_info"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "PULL_FROM_URL", sourceInfo["source"])
+	require.Equal(t, []any{"https://media.example/photo.jpg?exp=123&sig=abc"}, sourceInfo["photo_images"])
+}

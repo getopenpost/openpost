@@ -282,8 +282,10 @@ func (t *TikTokAdapter) publish(ctx context.Context, accessToken string, req *Pu
 	if len(req.PlatformMediaIDs) == 0 || len(req.PlatformMediaIDs) != len(req.Media) {
 		return "", fmt.Errorf("tiktok publishing requires media URLs and metadata")
 	}
-	if err := validateTikTokPublicMediaURLs(req.PlatformMediaIDs); err != nil {
-		return "", err
+	if !isTikTokUploadMode(req.Settings) || req.Profile == "carousel" || allTikTokMediaImages(req.Media) {
+		if err := validateTikTokPublicMediaURLs(req.PlatformMediaIDs); err != nil {
+			return "", err
+		}
 	}
 	if req.Profile == "carousel" || allTikTokMediaImages(req.Media) {
 		return t.publishPhotoPost(ctx, accessToken, req)
@@ -296,9 +298,32 @@ func (t *TikTokAdapter) publish(ctx context.Context, accessToken string, req *Pu
 		return "", err
 	}
 	if postingMethod == "UPLOAD" {
-		return t.publishInboxVideoFromURL(ctx, accessToken, req.PlatformMediaIDs[0], req)
+		return t.publishInboxVideo(ctx, accessToken, req)
 	}
 	return t.publishDirectVideoFromURL(ctx, accessToken, req)
+}
+
+func (t *TikTokAdapter) publishInboxVideo(ctx context.Context, accessToken string, req *PublishRequest) (string, error) {
+	mediaRef := strings.TrimSpace(req.PlatformMediaIDs[0])
+	if mediaRef == "" {
+		return "", fmt.Errorf("tiktok inbox upload requires a video URL or publish_id")
+	}
+	if strings.Contains(mediaRef, "://") {
+		if err := validateTikTokPublicMediaURLs([]string{mediaRef}); err != nil {
+			return "", err
+		}
+		return t.publishInboxVideoFromURL(ctx, accessToken, mediaRef, req)
+	}
+	if strings.ContainsAny(mediaRef, " \t\r\n") {
+		return "", fmt.Errorf("tiktok requires a publicly-accessible HTTPS media URL. Set OPENPOST_MEDIA_URL to your public media base URL")
+	}
+	// Video was already uploaded via FILE_UPLOAD in UploadMediaWithMetadata;
+	// mediaRef is the TikTok publish_id. Checkpoint and reconcile it directly
+	// instead of re-initializing or rejecting it as a missing public URL.
+	if err := checkpointTikTokSubmission(req, mediaRef); err != nil {
+		return "", err
+	}
+	return t.waitForPublishID(ctx, accessToken, mediaRef, req)
 }
 
 func (t *TikTokAdapter) publishDirectVideoFromURL(ctx context.Context, accessToken string, req *PublishRequest) (string, error) {
@@ -417,11 +442,18 @@ func (t *TikTokAdapter) uploadVideoFileToInbox(ctx context.Context, accessToken,
 		}
 	}
 	id, err := t.waitForPublishID(ctx, accessToken, publishID, nil)
-	var pending *tiktokPendingError
-	if errors.As(err, &pending) && pending.result.ProviderState == "inbox_delivered" {
-		return publishID, nil
+	if err == nil {
+		return id, nil
 	}
-	return id, err
+	var providerErr *HTTPError
+	if errors.As(err, &providerErr) && strings.HasPrefix(providerErr.Code, "tiktok_publish_failed:") {
+		return "", err
+	}
+	// All chunks have already been delivered to TikTok for publishID. Any
+	// pending status (PROCESSING_UPLOAD, SEND_TO_USER_INBOX, etc.) or transient
+	// status-check failure must return publishID so Publish checkpoints and
+	// reconciles it rather than re-uploading the video on retry.
+	return publishID, nil
 }
 
 // tiktokUploadChunks splits a FILE_UPLOAD the way TikTok's Media Transfer

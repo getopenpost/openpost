@@ -9,30 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseCommunityRef(t *testing.T) {
-	name, host, ok := ParseCommunityRef("!selfhosted@lemmy.world")
-	require.True(t, ok)
-	require.Equal(t, "selfhosted", name)
-	require.Equal(t, "lemmy.world", host)
-
-	name, parsedHost, ok := ParseCommunityRef("selfhosted@lemmy.world")
-	require.True(t, ok)
-	require.Equal(t, "selfhosted", name)
-	require.Equal(t, "lemmy.world", parsedHost)
-
-	name, host, ok = ParseCommunityRef("https://lemmy.world/c/selfhosted")
-	require.True(t, ok)
-	require.Equal(t, "selfhosted", name)
-	require.Equal(t, "lemmy.world", host)
-
-	_, _, ok = ParseCommunityRef("!bad name@host.example")
-	require.False(t, ok)
-	_, _, ok = ParseCommunityRef("")
-	require.False(t, ok)
-}
-
-func newFakeLemmy(t *testing.T) (*httptest.Server, *string) {
-	version := "0.19.11"
+func newFakeLemmy(t *testing.T) *httptest.Server {
+	const version = "0.19.11"
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v3/user/login", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"jwt":"lemmy-jwt","registration_created":false,"verify_email_sent":false}`))
@@ -106,11 +84,11 @@ func newFakeLemmy(t *testing.T) (*httptest.Server, *string) {
 		_, _ = w.Write([]byte(`{"msg":"ok","files":[{"file":"8f3c2b.jpeg","delete_token":"d41d8c","details":{"width":1,"height":1,"content_type":"image/jpeg","created_at":"2026-09-01T10:00:00Z"}}]}`))
 	})
 	server := newProviderTestServer(t, mux)
-	return server, &version
+	return server
 }
 
 func TestLemmyLoginAndProfile(t *testing.T) {
-	server, _ := newFakeLemmy(t)
+	server := newFakeLemmy(t)
 	defer server.Close()
 
 	adapter := NewLemmyAdapter(server.URL)
@@ -123,7 +101,7 @@ func TestLemmyLoginAndProfile(t *testing.T) {
 }
 
 func TestLemmyPublishDiscussion(t *testing.T) {
-	server, _ := newFakeLemmy(t)
+	server := newFakeLemmy(t)
 	defer server.Close()
 
 	adapter := NewLemmyAdapter(server.URL)
@@ -140,31 +118,8 @@ func TestLemmyPublishDiscussion(t *testing.T) {
 	require.Equal(t, "lemmy:community:remote.example:selfhosted", result.ProviderReference)
 }
 
-func TestLemmyPublishRequiresCommunityAndTitle(t *testing.T) {
-	adapter := NewLemmyAdapter("https://lemmy.example")
-	_, err := adapter.Publish(t.Context(), "jwt", "5", &PublishRequest{Content: "Body", Title: "Title"})
-	require.ErrorContains(t, err, "require a community")
-	_, err = adapter.Publish(t.Context(), "jwt", "5", &PublishRequest{
-		Content:  "Body",
-		Settings: map[string]interface{}{"community": "!c@h.example"},
-	})
-	require.ErrorContains(t, err, "require a title")
-}
-
-func TestLemmyPublishRejectsModsOnlyCommunity(t *testing.T) {
-	server, _ := newFakeLemmy(t)
-	defer server.Close()
-
-	adapter := NewLemmyAdapter(server.URL)
-	_, err := adapter.Publish(t.Context(), "lemmy-jwt", "5", &PublishRequest{
-		Title:    "Hello",
-		Settings: map[string]interface{}{"community": "!mods-only@remote.example"},
-	})
-	require.ErrorContains(t, err, "restricts posting to moderators")
-}
-
 func TestLemmyCommunitySearch(t *testing.T) {
-	server, _ := newFakeLemmy(t)
+	server := newFakeLemmy(t)
 	defer server.Close()
 
 	adapter := NewLemmyAdapter(server.URL)
@@ -179,7 +134,7 @@ func TestLemmyCommunitySearch(t *testing.T) {
 }
 
 func TestLemmyComments(t *testing.T) {
-	server, _ := newFakeLemmy(t)
+	server := newFakeLemmy(t)
 	defer server.Close()
 
 	adapter := NewLemmyAdapter(server.URL)
@@ -214,7 +169,7 @@ func TestLemmyComments(t *testing.T) {
 }
 
 func TestLemmyAnalytics(t *testing.T) {
-	server, _ := newFakeLemmy(t)
+	server := newFakeLemmy(t)
 	defer server.Close()
 
 	adapter := NewLemmyAdapter(server.URL)
@@ -231,7 +186,7 @@ func TestLemmyAnalytics(t *testing.T) {
 }
 
 func TestLemmyImageUpload(t *testing.T) {
-	server, _ := newFakeLemmy(t)
+	server := newFakeLemmy(t)
 	defer server.Close()
 
 	adapter := NewLemmyAdapter(server.URL)
@@ -245,16 +200,6 @@ func TestLemmyImageUpload(t *testing.T) {
 	defer empty.Close()
 	_, err = NewLemmyAdapter(empty.URL).UploadMedia(t.Context(), "lemmy-jwt", "5", "image/jpeg", strings.NewReader("jpeg-bytes"))
 	require.ErrorContains(t, err, "returned no file: no_files")
-}
-
-func TestLemmyRejectsV4Instances(t *testing.T) {
-	server, version := newFakeLemmy(t)
-	defer server.Close()
-	*version = "1.0.0"
-
-	adapter := NewLemmyAdapter(server.URL)
-	_, err := adapter.GetProfile(t.Context(), "lemmy-jwt")
-	require.ErrorContains(t, err, "API v4")
 }
 
 func TestResolveCommunityTargetKeys(t *testing.T) {

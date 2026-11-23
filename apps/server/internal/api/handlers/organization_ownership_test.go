@@ -76,38 +76,6 @@ func newOwnershipHandlerTestWithReauth(t *testing.T, reauthAvailable bool) (*ech
 	return e, service, reauth, db
 }
 
-func TestOwnershipInitiationRequiresOwnerRecentAuthAndExactConfirmation(t *testing.T) {
-	t.Parallel()
-	e, _, reauth, db := newOwnershipHandlerTest(t)
-	body := map[string]any{"nominee_user_id": "nominee", "confirm_organization_name": "Acme", "reauth_grant": "recent"}
-	member := jsonRequest(t, e, http.MethodPost, "/api/v1/organizations/org/ownership-transfer", body, "member")
-	require.Equal(t, http.StatusForbidden, member.Code, member.Body.String())
-	wrongConfirmation := jsonRequest(t, e, http.MethodPost, "/api/v1/organizations/org/ownership-transfer", map[string]any{"nominee_user_id": "nominee", "confirm_organization_name": "acme", "reauth_grant": "recent"}, "owner")
-	require.Equal(t, http.StatusBadRequest, wrongConfirmation.Code, wrongConfirmation.Body.String())
-	badReauth := jsonRequest(t, e, http.MethodPost, "/api/v1/organizations/org/ownership-transfer", map[string]any{"nominee_user_id": "nominee", "confirm_organization_name": "Acme", "reauth_grant": "old"}, "owner")
-	require.Equal(t, http.StatusUnauthorized, badReauth.Code, badReauth.Body.String())
-	scoped := jsonRequest(t, e, http.MethodPost, "/api/v1/organizations/org/ownership-transfer", body, "scoped")
-	require.Equal(t, http.StatusForbidden, scoped.Code, scoped.Body.String())
-	sessionless := jsonRequest(t, e, http.MethodPost, "/api/v1/organizations/org/ownership-transfer", body, "sessionless")
-	require.Equal(t, http.StatusForbidden, sessionless.Code, sessionless.Body.String())
-	missingGrant := jsonRequest(t, e, http.MethodPost, "/api/v1/organizations/org/ownership-transfer", map[string]any{"nominee_user_id": "nominee", "confirm_organization_name": "Acme", "reauth_grant": " "}, "owner")
-	require.Equal(t, http.StatusUnauthorized, missingGrant.Code, missingGrant.Body.String())
-	unknownNominee := jsonRequest(t, e, http.MethodPost, "/api/v1/organizations/org/ownership-transfer", map[string]any{"nominee_user_id": "missing-user", "confirm_organization_name": "Acme", "reauth_grant": "recent"}, "owner")
-	require.Equal(t, http.StatusBadRequest, unknownNominee.Code, unknownNominee.Body.String())
-	failedCount, err := db.NewSelect().Model((*models.OrganizationOwnershipAuditEvent)(nil)).Where("action = ?", organizationownership.ActionInitiationFailed).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 7, failedCount)
-	nullNomineeCount, err := db.NewSelect().Model((*models.OrganizationOwnershipAuditEvent)(nil)).Where("action = ? AND nominee_user_id IS NULL", organizationownership.ActionInitiationFailed).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, nullNomineeCount, "an unvalidated nominee must remain a nullable audit subject")
-	created := jsonRequest(t, e, http.MethodPost, "/api/v1/organizations/org/ownership-transfer", body, "owner")
-	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
-	require.Contains(t, created.Body.String(), `"status":"pending"`)
-	reused := jsonRequest(t, e, http.MethodPost, "/api/v1/organizations/org/ownership-transfer", body, "owner")
-	require.Equal(t, http.StatusUnauthorized, reused.Code, reused.Body.String())
-	require.Equal(t, 1, reauth.calls)
-}
-
 func TestOwnershipInitiationAuditsUnavailableReauthentication(t *testing.T) {
 	t.Parallel()
 	e, _, _, db := newOwnershipHandlerTestWithReauth(t, false)

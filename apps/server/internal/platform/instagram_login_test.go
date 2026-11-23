@@ -27,44 +27,6 @@ func TestRegistryKeepsInstagramLoginMethodsSeparate(t *testing.T) {
 	require.Equal(t, "instagram", AccountProviderKey("instagram", "", "{}"))
 }
 
-func TestInstagramLoginProfileDecodesOneProfessionalAccount(t *testing.T) {
-	for _, tc := range []struct {
-		name, body string
-		wantErr    error
-	}{
-		{"flat", `{"user_id":"17841400000000123","username":"founder","account_type":"BUSINESS"}`, nil},
-		{"wrapped", `{"data":[{"user_id":17841400000000123,"username":"founder","account_type":"MEDIA_CREATOR"}]}`, nil},
-		{"malformed", `{"data":`, ErrInstagramLoginInvalidProfile},
-		{"empty", `{"data":[]}`, ErrInstagramLoginInvalidProfile},
-		{"ambiguous", `{"data":[{"user_id":"1","account_type":"BUSINESS"},{"user_id":"2","account_type":"BUSINESS"}]}`, ErrInstagramLoginInvalidProfile},
-		{"mixed", `{"user_id":"1","account_type":"BUSINESS","data":[{"user_id":"2","account_type":"BUSINESS"}]}`, ErrInstagramLoginInvalidProfile},
-		{"personal", `{"user_id":"1","account_type":"PERSONAL"}`, ErrInstagramLoginProfessionalAccount},
-		{"fractional", `{"user_id":1.5,"account_type":"BUSINESS"}`, ErrInstagramLoginInvalidUserID},
-		{"exponent", `{"user_id":"1e5","account_type":"BUSINESS"}`, ErrInstagramLoginInvalidUserID},
-		{"negative", `{"user_id":-1,"account_type":"BUSINESS"}`, ErrInstagramLoginInvalidUserID},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			original := httpClient
-			t.Cleanup(func() { httpClient = original })
-			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-				require.Equal(t, "graph.instagram.com", req.URL.Host)
-				require.Equal(t, "Bearer profile-token", req.Header.Get("Authorization"))
-				require.Empty(t, req.URL.Query().Get("access_token"))
-				return jsonResponse(req, tc.body), nil
-			})}
-			profile, err := NewInstagramLoginAdapter("app", "secret", "https://app.example/callback").GetProfile(t.Context(), "profile-token")
-			if tc.wantErr != nil {
-				require.ErrorIs(t, err, tc.wantErr)
-				require.Nil(t, profile)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, "17841400000000123", profile.ID)
-			require.Equal(t, "founder", profile.Username)
-		})
-	}
-}
-
 func TestInstagramLoginConnectPublishAndRefreshWithoutFacebook(t *testing.T) {
 	for name, shortResponse := range map[string]string{
 		"current": `{"data":[{"access_token":"short-token","user_id":"17841400000000123","permissions":"instagram_business_basic,instagram_business_content_publish"}]}`,

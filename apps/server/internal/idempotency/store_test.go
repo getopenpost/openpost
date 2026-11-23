@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 type testResult struct {
@@ -22,7 +22,7 @@ type testResult struct {
 
 func newStoreTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	sqldb, err := sql.Open("sqlite3", "file:"+t.Name()+"?mode=memory&cache=shared&_busy_timeout=5000")
+	sqldb, err := sql.Open(sqliteshim.ShimName, "file:"+t.Name()+"?mode=memory&cache=shared&_pragma=busy_timeout(5000)")
 	require.NoError(t, err)
 	sqldb.SetMaxOpenConns(1)
 	db := bun.NewDB(sqldb, sqlitedialect.New())

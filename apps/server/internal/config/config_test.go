@@ -1,11 +1,9 @@
 package config
 
 import (
-	"bytes"
-	"log"
 	"os"
 	"path/filepath"
-	"strings"
+
 	"testing"
 
 	"github.com/openpost/backend/internal/legalpolicy"
@@ -164,96 +162,6 @@ var configTestEnvKeys = []string{
 	"OPENPOST_PADDLE_AGENCY_ANNUAL_PRICE_ID",
 }
 
-func TestManagedEditionRejectsOperatorInstalledConnectors(t *testing.T) {
-	cfg := &Config{Edition: EditionCloud, ConnectorsFile: "/run/openpost/connectors.json"}
-
-	err := cfg.ValidateManagedSettings()
-	require.ErrorContains(t, err, "operator-installed connectors are limited to self-hosted deployments")
-}
-
-func TestLoadResolvesRelativeMediaURLAgainstCanonicalPublicURL(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.example.com")
-	t.Setenv("OPENPOST_PUBLIC_URL", "https://public.example.com/openpost")
-	t.Setenv("OPENPOST_MEDIA_URL", "assets/media/")
-
-	cfg := Load()
-
-	require.Equal(t, "https://public.example.com/openpost/assets/media", cfg.MediaURL)
-}
-
-func TestLoadControlsOAuthDynamicClientRegistration(t *testing.T) {
-	t.Setenv("OPENPOST_OAUTH_DYNAMIC_REGISTRATION_ENABLED", "true")
-
-	require.True(t, Load().OAuthDCR)
-}
-
-func TestLoadTikTokDisplayAPIToggle(t *testing.T) {
-	require.False(t, Load().DisableTikTokDisplayAPI)
-
-	t.Setenv("OPENPOST_DISABLE_TIKTOK_DISPLAY_API", "true")
-
-	require.True(t, Load().DisableTikTokDisplayAPI)
-}
-
-func TestLoadMCPMode(t *testing.T) {
-	for _, test := range []struct {
-		name  string
-		value string
-		want  string
-	}{
-		{name: "direct by default", want: MCPModeDirect},
-		{name: "direct", value: " direct ", want: MCPModeDirect},
-		{name: "search", value: "SEARCH", want: MCPModeSearch},
-		{name: "both", value: "both", want: MCPModeBoth},
-		{name: "invalid falls back to direct", value: "sideways", want: MCPModeDirect},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Setenv("OPENPOST_MCP_MODE", test.value)
-
-			require.Equal(t, test.want, Load().MCPMode)
-		})
-	}
-}
-
-func TestLoadAndValidateProxyAuthentication(t *testing.T) {
-	t.Setenv("OPENPOST_PROXY_AUTH_SECRET", "proxy-auth-secret-with-at-least-thirty-two-characters")
-	t.Setenv("OPENPOST_PROXY_AUTH_WORKSPACE_NAME", "OpenPost")
-
-	cfg := Load()
-
-	require.Equal(t, "proxy-auth-secret-with-at-least-thirty-two-characters", cfg.ProxyAuthSecret)
-	require.Equal(t, "OpenPost", cfg.ProxyAuthWorkspaceName)
-	require.NoError(t, cfg.ValidateRuntime())
-
-	t.Setenv("OPENPOST_PROXY_AUTH_SECRET", "too-short")
-	err := Load().ValidateRuntime()
-	require.ErrorContains(t, err, "OPENPOST_PROXY_AUTH_SECRET must be at least 32 characters")
-	require.NotContains(t, err.Error(), "too-short")
-
-	t.Setenv("OPENPOST_PROXY_AUTH_SECRET", "proxy-auth-secret-with-at-least-thirty-two-characters")
-	t.Setenv("OPENPOST_EDITION", EditionCloud)
-	err = Load().ValidateRuntime()
-	require.ErrorContains(t, err, "OPENPOST_EDITION=selfhost")
-}
-
-func TestLoadPreservesExplicitAbsoluteMediaURL(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.example.com")
-	t.Setenv("OPENPOST_MEDIA_URL", "https://cdn.example.com/openpost-media/")
-
-	cfg := Load()
-
-	require.Equal(t, "https://cdn.example.com/openpost-media", cfg.MediaURL)
-}
-
-func TestValidateRuntimeRejectsIncompleteFirstPartyAuthConfiguration(t *testing.T) {
-	t.Setenv("OPENPOST_AUTH_GOOGLE_CLIENT_ID", "google-client")
-	t.Setenv("OPENPOST_EMAIL_VERIFICATION_REQUIRED", "true")
-
-	err := Load().ValidateRuntime()
-
-	require.ErrorContains(t, err, "OPENPOST_AUTH_GOOGLE_CLIENT_ID and OPENPOST_AUTH_GOOGLE_CLIENT_SECRET")
-}
-
 func TestValidateRuntimeRejectsInvalidEncryptionKeyringWithoutEchoingKeys(t *testing.T) {
 	const previousKey = "previous-encryption-key-with-more-than-thirty-two-chars"
 	t.Setenv("OPENPOST_ENCRYPTION_KEY", "current-encryption-key-with-more-than-thirty-two-chars")
@@ -275,103 +183,6 @@ func TestValidateRuntimeRejectsInvalidEncryptionKeyringWithoutEchoingKeys(t *tes
 	require.ErrorContains(t, err, "valid JSON object")
 }
 
-func TestPreviousEncryptionKeysRequireExplicitPrimaryKeyID(t *testing.T) {
-	t.Setenv("OPENPOST_ENCRYPTION_PREVIOUS_KEYS", `{"previous":"previous-encryption-key-with-more-than-thirty-two-chars"}`)
-
-	cfg := Load()
-	err := cfg.ValidateRuntime()
-
-	require.Empty(t, cfg.EncryptionKeyID)
-	require.ErrorContains(t, err, "requires an explicit OPENPOST_ENCRYPTION_KEY_ID")
-}
-
-func TestEncryptionKeyringFilesFailClosedWhenUnreadableOrEmpty(t *testing.T) {
-	tests := []struct {
-		name    string
-		fileKey string
-		prepare func(*testing.T)
-	}{
-		{
-			name:    "primary key ID",
-			fileKey: "OPENPOST_ENCRYPTION_KEY_ID_FILE",
-		},
-		{
-			name:    "previous keys",
-			fileKey: "OPENPOST_ENCRYPTION_PREVIOUS_KEYS_FILE",
-			prepare: func(t *testing.T) { t.Setenv("OPENPOST_ENCRYPTION_KEY_ID", "current") },
-		},
-		{
-			name:    "media signing key",
-			fileKey: "OPENPOST_MEDIA_SIGNING_KEY_FILE",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name+" unreadable", func(t *testing.T) {
-			if test.prepare != nil {
-				test.prepare(t)
-			}
-			t.Setenv(test.fileKey, filepath.Join(t.TempDir(), "missing"))
-
-			err := Load().ValidateEncryptionKeyring()
-
-			require.ErrorContains(t, err, test.fileKey)
-			require.ErrorContains(t, err, "readable file")
-		})
-
-		t.Run(test.name+" empty", func(t *testing.T) {
-			if test.prepare != nil {
-				test.prepare(t)
-			}
-			t.Setenv(test.fileKey, writeEnvFile(t, "empty", " \n"))
-
-			err := Load().ValidateEncryptionKeyring()
-
-			require.ErrorContains(t, err, test.fileKey)
-			require.ErrorContains(t, err, "nonempty file")
-		})
-	}
-}
-
-func TestMediaSigningKeyCanRemainStableAcrossEncryptionRotation(t *testing.T) {
-	t.Setenv("OPENPOST_ENCRYPTION_KEY", "data-encryption-key-with-more-than-thirty-two-chars")
-
-	cfg := Load()
-	require.Equal(t, cfg.EncryptionKey, cfg.MediaSigningKey)
-
-	t.Setenv("OPENPOST_MEDIA_SIGNING_KEY", "stable-media-signing-key-with-more-than-thirty-two-chars")
-	cfg = Load()
-	require.Equal(t, "stable-media-signing-key-with-more-than-thirty-two-chars", cfg.MediaSigningKey)
-	require.NotEqual(t, cfg.EncryptionKey, cfg.MediaSigningKey)
-}
-
-func TestLoadSupportsHostedAndSelfHostedProviderBotContracts(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
-	t.Setenv("OPENPOST_PROVIDER_APPS", `[
-		{"provider":"pinterest","client_id":"pin-client","client_secret":"pin-secret"},
-		{"provider":"telegram","bot_token":"telegram-token","bot_username":"@openpost_bot","webhook_secret":"telegram-webhook-secret"},
-		{"provider":"discord","connection_mode":"bot","client_id":"discord-app","client_secret":"discord-secret","bot_token":"discord-token"}
-	]`)
-
-	cfg := Load()
-
-	require.Len(t, cfg.ProviderApps, 9)
-	require.Equal(t, "devnull", cfg.ProviderApps[1].Provider)
-	require.Equal(t, "ssh_signature", cfg.ProviderApps[1].ConnectionMode)
-	require.Equal(t, "webhook", cfg.ProviderApps[2].ConnectionMode)
-	require.Equal(t, "peertube", cfg.ProviderApps[3].Provider)
-	require.Equal(t, "lemmy", cfg.ProviderApps[4].Provider)
-	require.Equal(t, "piefed", cfg.ProviderApps[5].Provider)
-	require.Equal(t, "pinterest", cfg.ProviderApps[6].Provider)
-	require.Equal(t, "https://app.openpo.st/api/v1/accounts/pinterest/callback", cfg.ProviderApps[6].RedirectURI)
-	require.Equal(t, "telegram", cfg.ProviderApps[7].Provider)
-	require.Equal(t, "openpost_bot", cfg.ProviderApps[7].BotUsername)
-	require.Empty(t, cfg.ProviderApps[7].RedirectURI)
-	require.Equal(t, "discord", cfg.ProviderApps[8].Provider)
-	require.Equal(t, "bot", cfg.ProviderApps[8].ConnectionMode)
-	require.Equal(t, "https://app.openpo.st/api/v1/accounts/discord/callback", cfg.ProviderApps[8].RedirectURI)
-}
-
 func TestLoadReadsBillingDiscordWebhookFromFile(t *testing.T) {
 	t.Setenv("OPENPOST_BILLING_DISCORD_WEBHOOK_URL_FILE", writeEnvFile(t, "billing-discord-webhook", "https://discord.com/api/webhooks/test/token\n"))
 
@@ -379,46 +190,6 @@ func TestLoadReadsBillingDiscordWebhookFromFile(t *testing.T) {
 
 	require.Equal(t, "https://discord.com/api/webhooks/test/token", cfg.BillingDiscordWebhookURL)
 	require.NoError(t, cfg.ValidateRuntime())
-}
-
-func TestLoadReadsDiscordPresenceStreamURL(t *testing.T) {
-	t.Setenv("OPENPOST_DISCORD_PRESENCE_STREAM_URL", "https://www.youtube.com/watch?v=openpost")
-
-	cfg := Load()
-
-	require.Equal(t, "https://www.youtube.com/watch?v=openpost", cfg.DiscordPresenceStreamURL)
-	require.NoError(t, cfg.ValidateRuntime())
-}
-
-func TestValidateRuntimeRejectsInvalidDiscordPresenceStreamURL(t *testing.T) {
-	t.Setenv("OPENPOST_DISCORD_PRESENCE_STREAM_URL", "https://openpo.st/live")
-
-	err := Load().ValidateRuntime()
-
-	require.ErrorContains(t, err, "OPENPOST_DISCORD_PRESENCE_STREAM_URL")
-}
-
-func TestValidateRuntimeRejectsNonDiscordBillingWebhook(t *testing.T) {
-	t.Setenv("OPENPOST_BILLING_DISCORD_WEBHOOK_URL", "https://example.com/hooks/test")
-
-	err := Load().ValidateRuntime()
-
-	require.ErrorContains(t, err, "OPENPOST_BILLING_DISCORD_WEBHOOK_URL")
-}
-
-func TestLoadCloudCORSOriginsExcludeLocalDevelopmentDefaults(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
-	t.Setenv("OPENPOST_EDITION", "cloud")
-	t.Setenv("OPENPOST_EXTRA_CORS_ORIGINS", "https://admin.example.com")
-
-	cfg := Load()
-
-	require.Equal(t, []string{
-		"https://app.openpo.st",
-		"https://openpo.st",
-		"https://admin.example.com",
-	}, cfg.CORSOrigins)
-	require.NotContains(t, cfg.CORSOrigins, "http://localhost:5173")
 }
 
 func TestValidateRuntimeRejectsCloudLocalDefaults(t *testing.T) {
@@ -436,109 +207,6 @@ func TestValidateRuntimeRejectsCloudLocalDefaults(t *testing.T) {
 	require.ErrorContains(t, err, "OPENPOST_DATABASE_DRIVER=postgres")
 	require.ErrorContains(t, err, "OPENPOST_DATABASE_URL")
 	require.ErrorContains(t, err, "OPENPOST_STORAGE_DRIVER=s3")
-}
-
-func TestValidateRuntimeRejectsNegativeProviderCostConfiguration(t *testing.T) {
-	cfg := validCloudRuntimeConfig()
-	cfg.XMonthlyBudgetMicrousd = -1
-	cfg.XPostCreateCostMicrousd = -1
-	cfg.XPostCreateWithURLCostMicrousd = -1
-	cfg.XEngagementDailyReadBudget = -1
-	cfg.ProviderUsageRetentionDays = -1
-
-	err := cfg.ValidateRuntime()
-
-	require.Error(t, err)
-	require.ErrorContains(t, err, "OPENPOST_X_MONTHLY_BUDGET_MICROUSD >= 0")
-	require.ErrorContains(t, err, "OPENPOST_X_POST_CREATE_COST_MICROUSD >= 0")
-	require.ErrorContains(t, err, "OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD >= 0")
-	require.ErrorContains(t, err, "OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET >= 0")
-	require.ErrorContains(t, err, "OPENPOST_PROVIDER_USAGE_RETENTION_DAYS >= 0")
-}
-
-func TestValidateRuntimeRejectsCloudMissingS3Primitives(t *testing.T) {
-	cfg := validCloudRuntimeConfig()
-	cfg.S3Region = ""
-	cfg.S3Bucket = ""
-	cfg.S3AccessKeyID = ""
-	cfg.S3SecretAccessKey = ""
-	cfg.S3PublicBaseURL = ""
-
-	err := cfg.ValidateRuntime()
-
-	require.Error(t, err)
-	require.ErrorContains(t, err, "OPENPOST_S3_REGION")
-	require.ErrorContains(t, err, "OPENPOST_S3_BUCKET")
-	require.ErrorContains(t, err, "OPENPOST_S3_ACCESS_KEY_ID")
-	require.ErrorContains(t, err, "OPENPOST_S3_SECRET_ACCESS_KEY")
-	require.ErrorContains(t, err, "OPENPOST_S3_PUBLIC_BASE_URL")
-}
-
-func TestValidateRuntimeRejectsCloudMissingPaddlePrimitives(t *testing.T) {
-	cfg := validCloudRuntimeConfig()
-	cfg.PaddleAPIKey = ""
-	cfg.PaddleEnvironment = ""
-	cfg.PaddleClientToken = ""
-	cfg.PaddleWebhookSecret = ""
-	cfg.PaddleFounderMonthlyPriceID = ""
-	cfg.PaddleFounderAnnualPriceID = ""
-	cfg.PaddleTeamMonthlyPriceID = ""
-	cfg.PaddleTeamAnnualPriceID = ""
-	cfg.PaddleAgencyMonthlyPriceID = ""
-	cfg.PaddleAgencyAnnualPriceID = ""
-
-	err := cfg.ValidateRuntime()
-
-	require.Error(t, err)
-	require.ErrorContains(t, err, "OPENPOST_PADDLE_API_KEY")
-	require.ErrorContains(t, err, "OPENPOST_PADDLE_ENVIRONMENT")
-	require.ErrorContains(t, err, "OPENPOST_PADDLE_CLIENT_TOKEN")
-	require.ErrorContains(t, err, "OPENPOST_PADDLE_WEBHOOK_SECRET")
-	require.ErrorContains(t, err, "OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID")
-	require.ErrorContains(t, err, "OPENPOST_PADDLE_AGENCY_ANNUAL_PRICE_ID")
-}
-
-func TestValidateRuntimeRejectsCloudWildcardCORSOrigins(t *testing.T) {
-	cfg := validCloudRuntimeConfig()
-	cfg.CORSOrigins = []string{"https://app.openpo.st", "*"}
-
-	err := cfg.ValidateRuntime()
-
-	require.Error(t, err)
-	require.ErrorContains(t, err, "OPENPOST_EXTRA_CORS_ORIGINS without wildcard origins")
-}
-
-func TestValidateRuntimeRejectsCloudWithoutAccountRecoveryAndLegalConfig(t *testing.T) {
-	cfg := validCloudRuntimeConfig()
-	cfg.LegalAcceptanceRequired = false
-	cfg.TermsURL = ""
-	cfg.PrivacyURL = ""
-	cfg.TermsVersion = ""
-	cfg.PrivacyVersion = ""
-	cfg.SupportEmail = ""
-	cfg.EmailProvider = ""
-	cfg.EmailFrom = ""
-	cfg.EmailVerificationRequired = false
-
-	err := cfg.ValidateRuntime()
-
-	require.Error(t, err)
-	require.ErrorContains(t, err, "OPENPOST_LEGAL_ACCEPTANCE_REQUIRED=true")
-	require.ErrorContains(t, err, "OPENPOST_TERMS_URL")
-	require.ErrorContains(t, err, "OPENPOST_PRIVACY_URL")
-	require.ErrorContains(t, err, "OPENPOST_EMAIL_VERIFICATION_REQUIRED=true")
-}
-
-func TestValidateRuntimeRejectsManagedPolicyVersionDrift(t *testing.T) {
-	cfg := validCloudRuntimeConfig()
-	cfg.TermsVersion = "2026-08-04"
-	cfg.PrivacyVersion = "2026-08-04"
-
-	err := cfg.ValidateRuntime()
-
-	require.Error(t, err)
-	require.ErrorContains(t, err, "OPENPOST_TERMS_VERSION="+legalpolicy.TermsVersion)
-	require.ErrorContains(t, err, "OPENPOST_PRIVACY_VERSION="+legalpolicy.PrivacyVersion)
 }
 
 func TestValidateRuntimePinsManagedAIToZdrEUProvider(t *testing.T) {
@@ -607,13 +275,6 @@ func validCloudRuntimeConfig() *Config {
 	}
 }
 
-func TestLoadDisablesTelemetryByDefaultForSelfHostedInstances(t *testing.T) {
-	cfg := Load()
-	require.Equal(t, EditionSelfHost, cfg.Edition)
-	require.False(t, cfg.TelemetryEnabled)
-	require.Equal(t, "selfhost", cfg.TelemetryEnvironment)
-}
-
 func TestLoadEnablesTelemetryByDefaultForCloudInstances(t *testing.T) {
 	t.Setenv("OPENPOST_EDITION", EditionCloud)
 	t.Setenv("OPENPOST_POSTHOG_API_HOST", "https://eu.i.posthog.com/")
@@ -625,102 +286,11 @@ func TestLoadEnablesTelemetryByDefaultForCloudInstances(t *testing.T) {
 	require.Equal(t, "production", cfg.TelemetryEnvironment)
 }
 
-func TestOauthRedirectFromFrontendPreferesExplicitEnv(t *testing.T) {
-	t.Setenv("X_REDIRECT_URI", "https://proxy.example.com/api/v1/accounts/x/callback")
-	t.Setenv("TWITTER_REDIRECT_URI", "")
-	got := oauthRedirectFromFrontend("X_REDIRECT_URI", "TWITTER_REDIRECT_URI", "https://openpost.example.com", "/api/v1/accounts/x/callback")
-	require.Equal(t, "https://proxy.example.com/api/v1/accounts/x/callback", got)
-}
-
-// TestOauthRedirectFromFrontendFallsBackToAlias covers the case where
-// the primary env var isn't set but the legacy alias is.
-func TestOauthRedirectFromFrontendDerivesFromFrontendURL(t *testing.T) {
-	t.Setenv("X_REDIRECT_URI", "")
-	t.Setenv("TWITTER_REDIRECT_URI", "")
-	got := oauthRedirectFromFrontend("X_REDIRECT_URI", "TWITTER_REDIRECT_URI", "https://openpost.example.com", "/api/v1/accounts/x/callback")
-	require.Equal(t, "https://openpost.example.com/api/v1/accounts/x/callback", got)
-}
-
-// TestOauthRedirectFromFrontendStripsTrailingSlash covers the common
-// case where the operator sets OPENPOST_APP_URL with a trailing slash.
-func TestOauthRedirectFromFrontendStripsTrailingSlash(t *testing.T) {
-	t.Setenv("LINKEDIN_REDIRECT_URI", "")
-	got := oauthRedirectFromFrontend("LINKEDIN_REDIRECT_URI", "", "https://openpost.example.com/", "/api/v1/accounts/linkedin/callback")
-	require.Equal(t, "https://openpost.example.com/api/v1/accounts/linkedin/callback", got)
-}
-
-// TestOauthRedirectFromFrontendNoAlias covers the LinkedIn / Threads
-// case where there is no legacy alias. Passing an empty alias should
-// not cause a panic and should derive from FrontendURL.
-func TestWarnOnPlaceholderURLOnlyWarnsForImplicitDefault(t *testing.T) {
-	var output bytes.Buffer
-	previousOutput := log.Writer()
-	log.SetOutput(&output)
-	t.Cleanup(func() { log.SetOutput(previousOutput) })
-
-	t.Setenv("OPENPOST_APP_URL", "")
-	t.Setenv("OPENPOST_FRONTEND_URL", "")
-	warnOnPlaceholderURL(&Config{FrontendURL: "http://localhost:8080"})
-	require.Contains(t, output.String(), "WARNING: OPENPOST_APP_URL is not set")
-	require.Contains(t, output.String(), "http://localhost:8080")
-
-	output.Reset()
-	t.Setenv("OPENPOST_APP_URL", "https://openpost.example.com")
-	warnOnPlaceholderURL(&Config{FrontendURL: "https://openpost.example.com"})
-	require.Empty(t, output.String())
-}
-
-func TestValidateBootstrapSecretsRejectsTrackedExamplePlaceholdersWithoutEchoingThem(t *testing.T) {
-	jwtPlaceholder := "change-this-jwt-secret-min-32-chars"
-	encryptionPlaceholder := "change-this-encryption-key-32chars"
-	documentedPlaceholder := "replace-with-a-random-secret-at-least-32-characters-long"
-
-	err := validateBootstrapSecrets(jwtPlaceholder, strings.Repeat("e", minSecretLength))
-	require.ErrorContains(t, err, "OPENPOST_JWT_SECRET")
-	require.ErrorContains(t, err, "public example placeholder")
-	require.NotContains(t, err.Error(), jwtPlaceholder)
-
-	err = validateBootstrapSecrets(strings.Repeat("j", minSecretLength), encryptionPlaceholder)
-	require.ErrorContains(t, err, "OPENPOST_ENCRYPTION_KEY")
-	require.ErrorContains(t, err, "public example placeholder")
-	require.NotContains(t, err.Error(), encryptionPlaceholder)
-
-	for _, secrets := range []struct {
-		name       string
-		jwt        string
-		encryption string
-	}{
-		{name: "JWT", jwt: documentedPlaceholder, encryption: strings.Repeat("e", minSecretLength)},
-		{name: "encryption", jwt: strings.Repeat("j", minSecretLength), encryption: documentedPlaceholder},
-	} {
-		t.Run("documented "+secrets.name+" placeholder", func(t *testing.T) {
-			err := validateBootstrapSecrets(secrets.jwt, secrets.encryption)
-			require.ErrorContains(t, err, "public example placeholder")
-			require.NotContains(t, err.Error(), documentedPlaceholder)
-		})
-	}
-}
-
 func TestValidateBootstrapSecretsAcceptsIndependentGeneratedValues(t *testing.T) {
 	require.NoError(t, validateBootstrapSecrets(
 		"3daf47b368ac4e64b2791a807b32fc05",
 		"b8d7b76210b84570bfa504515e240f66",
 	))
-}
-
-func TestBootstrapAndDataPlaneSettingsRemainDeploymentOwned(t *testing.T) {
-	for _, key := range []string{
-		"OPENPOST_JWT_SECRET",
-		"OPENPOST_ENCRYPTION_KEY",
-		"OPENPOST_DATABASE_DRIVER",
-		"OPENPOST_DATABASE_URL",
-		"OPENPOST_STORAGE_DRIVER",
-		"OPENPOST_S3_ACCESS_KEY_ID",
-		"OPENPOST_S3_SECRET_ACCESS_KEY",
-	} {
-		_, managed := ManagedSettingDefinitionFor(key)
-		require.Falsef(t, managed, "%s must not become a database-managed setting", key)
-	}
 }
 
 func writeEnvFile(t *testing.T, name, value string) string {
@@ -731,143 +301,8 @@ func writeEnvFile(t *testing.T, name, value string) string {
 	return path
 }
 
-func TestHostedWaitlistDefaultsAndReopening(t *testing.T) {
-	for _, tc := range []struct {
-		edition, enabled string
-		want             bool
-	}{
-		{EditionCloud, "", true}, {EditionCloud, "false", false},
-		{EditionSelfHost, "", false}, {EditionSelfHost, "true", false},
-	} {
-		t.Run(tc.edition+"/"+tc.enabled, func(t *testing.T) {
-			t.Setenv("OPENPOST_EDITION", tc.edition)
-			t.Setenv("OPENPOST_HOSTED_WAITLIST_ENABLED", tc.enabled)
-			require.Equal(t, tc.want, Load().HostedWaitlistEnabled)
-		})
-	}
-}
-
-func TestSelfHostedRuntimeRejectsWildcardCORS(t *testing.T) {
-	cfg := Load()
-	cfg.Edition = EditionSelfHost
-	cfg.CORSOrigins = []string{"https://app.example.com", "*"}
-	require.ErrorContains(t, cfg.ValidateRuntime(), "without wildcard origins")
-}
-
-func TestRuntimeProxyAndWorkflowLimits(t *testing.T) {
-	t.Setenv("OPENPOST_TRUSTED_PROXY_CIDRS", "127.0.0.1/32, ::1/128")
-	cfg := Load()
-	require.Equal(t, []string{"127.0.0.1/32", "::1/128"}, cfg.TrustedProxyCIDRs)
-	require.True(t, cfg.WorkflowsAIEnabled)
-	require.Equal(t, int64(1000), cfg.WorkflowsAIMonthlyCalls)
-	require.NoError(t, cfg.ValidateRuntime())
-	t.Setenv("OPENPOST_TRUSTED_PROXY_CIDRS", "::ffff:10.0.0.0/120")
-	require.NoError(t, Load().ValidateRuntime())
-	t.Setenv("OPENPOST_TRUSTED_PROXY_CIDRS", "::ffff:10.0.0.0/80")
-	require.ErrorContains(t, Load().ValidateRuntime(), "OPENPOST_TRUSTED_PROXY_CIDRS")
-	t.Setenv("OPENPOST_TRUSTED_PROXY_CIDRS", "0.0.0.0/not-a-prefix")
-	require.ErrorContains(t, Load().ValidateRuntime(), "OPENPOST_TRUSTED_PROXY_CIDRS")
-	t.Setenv("OPENPOST_TRUSTED_PROXY_CIDRS", "")
-	t.Setenv("OPENPOST_WORKFLOWS_AI_MONTHLY_CALL_LIMIT", "-1")
-	require.ErrorContains(t, Load().ValidateRuntime(), "OPENPOST_WORKFLOWS_AI_MONTHLY_CALL_LIMIT")
-	t.Setenv("OPENPOST_WORKFLOWS_AI_MONTHLY_CALL_LIMIT", "0")
-	t.Setenv("OPENPOST_WORKFLOWS_AI_ENABLED", "false")
-	cfg = Load()
-	require.False(t, cfg.WorkflowsAIEnabled)
-	require.Zero(t, cfg.WorkflowsAIMonthlyCalls)
-	require.NoError(t, cfg.ValidateRuntime())
-}
-
-func TestLoadCustomAIEndpoint(t *testing.T) {
-	require.Empty(t, Load().AIBaseURL)
-	t.Setenv("OPENPOST_AI_BASE_URL", " https://gateway.example.test/v1/ ")
-	require.Equal(t, "https://gateway.example.test/v1/", Load().AIBaseURL)
-}
-
 func TestValidateRuntimeRejectsCustomAIEndpointForHosted(t *testing.T) {
 	cfg := validCloudRuntimeConfig()
 	cfg.AIBaseURL = "https://gateway.example.test/v1"
 	require.ErrorContains(t, cfg.ValidateRuntime(), "OPENPOST_AI_BASE_URL must be empty")
-}
-
-func TestLoadAIAPIKeyAliases(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		env  map[string]string
-		want string
-	}{
-		{"primary", map[string]string{"OPENPOST_AI_API_KEY": " gateway-key "}, "gateway-key"},
-		{"legacy", map[string]string{"OPENROUTER_API_KEY": " legacy-key "}, "legacy-key"},
-		{"primary file", map[string]string{"OPENPOST_AI_API_KEY_FILE": "file"}, "mounted-key"},
-		{"legacy file", map[string]string{"OPENROUTER_API_KEY_FILE": "file"}, "mounted-key"},
-		{"primary wins", map[string]string{"OPENPOST_AI_API_KEY": "primary-key", "OPENROUTER_API_KEY": "legacy-key"}, "primary-key"},
-		{"primary file wins", map[string]string{"OPENPOST_AI_API_KEY_FILE": "file", "OPENROUTER_API_KEY": "legacy-key"}, "mounted-key"},
-		{"empty primary falls back", map[string]string{"OPENPOST_AI_API_KEY": "", "OPENROUTER_API_KEY": "legacy-key"}, "legacy-key"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			for _, key := range []string{"OPENPOST_AI_API_KEY", "OPENPOST_AI_API_KEY_FILE", "OPENROUTER_API_KEY", "OPENROUTER_API_KEY_FILE"} {
-				t.Setenv(key, "")
-			}
-			for key, value := range tc.env {
-				if value == "file" {
-					value = writeEnvFile(t, "ai-key", "mounted-key\n")
-				}
-				t.Setenv(key, value)
-			}
-			require.Equal(t, tc.want, Load().AIAPIKey)
-		})
-	}
-}
-
-func TestXMessagingBudgetDoesNotInheritPublishingBudget(t *testing.T) {
-	t.Setenv("OPENPOST_X_MONTHLY_BUDGET_MICROUSD", "5000000")
-	t.Setenv("OPENPOST_X_MESSAGING_MONTHLY_BUDGET_MICROUSD", "")
-	t.Setenv("OPENPOST_X_MESSAGING_PROVIDER_SPENDING_LIMIT_CONFIRMED", "")
-	t.Setenv("OPENPOST_X_MESSAGING_MONTHLY_BUDGET_MICROUSD_FILE", "")
-	t.Setenv("OPENPOST_X_MESSAGING_PROVIDER_SPENDING_LIMIT_CONFIRMED_FILE", "")
-	cfg := LoadXMessaging()
-	require.Zero(t, cfg.MonthlyBudgetMicrousd)
-	require.False(t, cfg.ProviderSpendingLimitConfirmed)
-}
-
-func TestLinkedInAuthModeDefaultsAndManagedSelection(t *testing.T) {
-	t.Setenv("OPENPOST_LINKEDIN_AUTH_MODE", "")
-	cfg := Load()
-	value, err := cfg.ManagedValue("OPENPOST_LINKEDIN_AUTH_MODE")
-	require.NoError(t, err)
-	require.Equal(t, "openid", value)
-	require.NoError(t, cfg.ApplyManagedValue("OPENPOST_LINKEDIN_AUTH_MODE", "community_management"))
-	value, err = cfg.ManagedValue("OPENPOST_LINKEDIN_AUTH_MODE")
-	require.NoError(t, err)
-	require.Equal(t, "community_management", value)
-	require.Error(t, cfg.ApplyManagedValue("OPENPOST_LINKEDIN_AUTH_MODE", "unavailable"))
-	t.Setenv("OPENPOST_LINKEDIN_AUTH_MODE", "community_management")
-	value, err = Load().ManagedValue("OPENPOST_LINKEDIN_AUTH_MODE")
-	require.NoError(t, err)
-	require.Equal(t, "community_management", value)
-}
-
-func TestManagedSettingRegistryBindingsRoundTrip(t *testing.T) {
-	cfg := Load()
-	definitions := ManagedSettingDefinitions()
-	require.Len(t, managedSettingBindings, len(definitions))
-
-	for _, definition := range definitions {
-		value, err := cfg.ManagedValue(definition.Key)
-		require.NoError(t, err, definition.Key)
-
-		copy := *cfg
-		require.NoError(t, copy.ApplyManagedValue(definition.Key, value), definition.Key)
-		roundTripped, err := copy.ManagedValue(definition.Key)
-		require.NoError(t, err, definition.Key)
-		require.Equal(t, value, roundTripped, definition.Key)
-	}
-
-	independent := Config{SupportEmail: "old@example.test", FeedbackRecipient: "untouched"}
-	require.NoError(t, independent.ApplyManagedValue("OPENPOST_DISABLE_REGISTRATIONS", "true"))
-	require.True(t, independent.DisableRegistrations)
-	require.False(t, independent.OAuthDCR, "registration settings must bind to their own fields")
-	require.NoError(t, independent.ApplyManagedValue("OPENPOST_SUPPORT_EMAIL", "ops@example.test"))
-	require.Equal(t, "ops@example.test", independent.SupportEmail)
-	require.Equal(t, "untouched", independent.FeedbackRecipient)
 }

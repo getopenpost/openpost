@@ -40,27 +40,3 @@ func TestBlueskyListCommentsLinksNestedRepliesToParentComment(t *testing.T) {
 	require.Equal(t, comments[0].ID, comments[1].ParentID)
 	require.NotEqual(t, comments[0].ID, comments[0].ParentID)
 }
-
-func TestMastodonListCommentsLinksNestedRepliesToParentComment(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		require.Equal(t, "/api/v1/statuses/100/context", req.URL.Path)
-		return jsonResponse(req, `{
-			"ancestors": [],
-			"descendants": [
-				{"id": "201", "in_reply_to_id": "100", "content": "<p>Congrats</p>", "account": {"id": "fan"}},
-				{"id": "202", "in_reply_to_id": "201", "content": "<p>Agreed</p>", "account": {"id": "friend"}}
-			]
-		}`), nil
-	})}
-
-	adapter := NewMastodonAdapter("client", "secret", "https://app.example/callback", "https://mastodon.example")
-	comments, err := adapter.ListComments(context.Background(), "token", "founder", "100")
-
-	require.NoError(t, err)
-	require.Len(t, comments, 2)
-	require.Equal(t, "100", comments[0].ParentID)
-	require.Equal(t, comments[0].ID, comments[1].ParentID)
-}

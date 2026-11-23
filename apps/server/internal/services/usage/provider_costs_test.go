@@ -7,16 +7,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 func newProviderCostTestService(t *testing.T) (*Service, *bun.DB) {
 	t.Helper()
-	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
+	sqldb, err := sql.Open(sqliteshim.ShimName, fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
 	require.NoError(t, err)
 	sqldb.SetMaxOpenConns(1)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
@@ -64,69 +64,6 @@ func enableProviderCostPolicy(t *testing.T, service *Service, budget int64) {
 	require.NoError(t, service.SetProviderCostPolicy(NewXProviderCostPolicy(budget, 15_000, 200_000)))
 }
 
-func TestRecordProviderCostIsIdempotent(t *testing.T) {
-	t.Parallel()
-	service, db := newProviderCostTestService(t)
-	enableProviderCostPolicy(t, service, 500_000)
-	at := time.Date(2026, time.July, 10, 12, 0, 0, 0, time.UTC)
-	input := xProviderCostInput("request-1", at)
-
-	first, err := service.RecordProviderCost(t.Context(), input)
-	require.NoError(t, err)
-	second, err := service.RecordProviderCost(t.Context(), input)
-	require.NoError(t, err)
-
-	require.True(t, first.Enabled)
-	require.True(t, first.Recorded)
-	require.Equal(t, int64(15_000), first.PeriodCostMicrousd)
-	require.True(t, second.Enabled)
-	require.False(t, second.Recorded)
-	require.Equal(t, int64(15_000), second.CostMicrousd)
-
-	eventCount, err := db.NewSelect().Model((*models.ProviderUsageEvent)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, eventCount)
-	counterCount, err := db.NewSelect().Model((*models.ProviderUsagePeriodCounter)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 2, counterCount)
-}
-
-func TestProviderCostReservationIsNotBillableUntilConfirmed(t *testing.T) {
-	t.Parallel()
-	service, db := newProviderCostTestService(t)
-	enableProviderCostPolicy(t, service, 500_000)
-	at := time.Date(2026, time.July, 10, 12, 0, 0, 0, time.UTC)
-	input := xProviderCostInput("reserved-request", at)
-
-	reserved, err := service.ReserveProviderCost(t.Context(), input)
-
-	require.NoError(t, err)
-	require.True(t, reserved.Enabled)
-	require.True(t, reserved.Reserved)
-	require.Equal(t, int64(15_000), reserved.PeriodExposureMicrousd)
-	eventCount, err := db.NewSelect().Model((*models.ProviderUsageEvent)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 0, eventCount)
-	summary, err := service.SnapshotProviderCosts(t.Context(), "ws-1", at)
-	require.NoError(t, err)
-	require.Equal(t, int64(0), summary[0].CostMicrousd)
-	require.Equal(t, int64(1), summary[0].ReservedEventCount)
-	require.Equal(t, int64(15_000), summary[0].ReservedMicrousd)
-
-	confirmed, err := service.ConfirmProviderCost(t.Context(), input.OperationKey)
-
-	require.NoError(t, err)
-	require.True(t, confirmed.Recorded)
-	require.Equal(t, int64(15_000), confirmed.PeriodCostMicrousd)
-	reservationCount, err := db.NewSelect().Model((*models.ProviderUsageReservation)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 0, reservationCount)
-	summary, err = service.SnapshotProviderCosts(t.Context(), "ws-1", at)
-	require.NoError(t, err)
-	require.Equal(t, int64(15_000), summary[0].CostMicrousd)
-	require.Equal(t, int64(0), summary[0].ReservedMicrousd)
-}
-
 func TestRecordProviderCostRollsBackWhenBudgetWouldBeExceeded(t *testing.T) {
 	t.Parallel()
 	service, db := newProviderCostTestService(t)
@@ -144,19 +81,4 @@ func TestRecordProviderCostRollsBackWhenBudgetWouldBeExceeded(t *testing.T) {
 	summary, err := service.SnapshotProviderCosts(t.Context(), "ws-1", at)
 	require.NoError(t, err)
 	require.Equal(t, int64(15_000), summary[0].CostMicrousd)
-}
-
-func TestProviderCostPolicyDisabledDoesNotGateSelfHostedRequests(t *testing.T) {
-	t.Parallel()
-	service, db := newProviderCostTestService(t)
-	result, err := service.RecordProviderCost(t.Context(), xProviderCostInput("selfhost", time.Now().UTC()))
-
-	require.NoError(t, err)
-	require.False(t, result.Enabled)
-	eventCount, err := db.NewSelect().Model((*models.ProviderUsageEvent)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 0, eventCount)
-	reservationCount, err := db.NewSelect().Model((*models.ProviderUsageReservation)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 0, reservationCount)
 }

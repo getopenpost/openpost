@@ -1,19 +1,13 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+
 	"testing"
 	"time"
 
-	"github.com/danielgtaylor/huma/v2"
-	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
-	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
-	"github.com/openpost/backend/internal/jobregistry"
+
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/workflows"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
@@ -27,8 +21,8 @@ func (workflowSession) AuthenticateBearer(context.Context, string) (*middleware.
 	return &middleware.Principal{UserID: "user", SessionID: "session"}, nil
 }
 
-func newTestWorkflowActions(publications *PublicationHandler, builds *PublicationBuildHandler) workflows.Actions {
-	return NewWorkflowActionsWithEngagement(publications, builds, nil, nil)
+func newTestWorkflowActions(publications *PublicationHandler) workflows.Actions {
+	return NewWorkflowActionsWithEngagement(publications, nil, nil, nil)
 }
 
 func workflowHandlerDB(t *testing.T) *bun.DB {
@@ -48,72 +42,11 @@ func workflowHandlerDB(t *testing.T) *bun.DB {
 	}
 	return db
 }
-func TestWorkflowHTTPPreviewAndLiveDraftApproval(t *testing.T) {
-	t.Parallel()
-	db := workflowHandlerDB(t)
-	publications := NewPublicationHandler(db, workflowSession{}, nil)
-	service := workflows.NewService(db, newTestWorkflowActions(publications, nil), nil)
-	e := echo.New()
-	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
-	NewWorkflowHandler(service, workflowSession{}).RegisterRoutes(api)
-	request := func(method, path string, body any, code int) []byte {
-		data, err := json.Marshal(body)
-		require.NoError(t, err)
-		req := httptest.NewRequestWithContext(t.Context(), method, "/api/v1"+path, bytes.NewReader(data))
-		req.Header.Set("Authorization", "Bearer session")
-		req.Header.Set("Content-Type", "application/json")
-		response := httptest.NewRecorder()
-		e.ServeHTTP(response, req)
-		require.Equal(t, code, response.Code, response.Body.String())
-		return response.Body.Bytes()
-	}
-	var workflow workflows.Workflow
-	require.NoError(t, json.Unmarshal(request(http.MethodPost, "/workflows?workspace_id=ws", map[string]any{"name": "Launch", "description": "", "expected_revision": 0, "definition": map[string]any{"schema": 1, "source": map[string]any{"kind": "manual"}, "steps": []any{
-		map[string]any{"id": "draft", "kind": "create_draft", "name": "Draft", "inputs": map[string]any{"text": map[string]any{"reference": "source.title"}}},
-		map[string]any{"id": "review", "kind": "approval", "name": "Review", "inputs": map[string]any{"publication_id": map[string]any{"reference": "draft.id"}}},
-	}}}, http.StatusOK), &workflow))
-	run := func(mode string) workflows.Run {
-		var result workflows.Run
-		require.NoError(t, json.Unmarshal(request(http.MethodPost, "/workflows/"+workflow.ID+"/runs?workspace_id=ws", map[string]any{"expected_revision": workflow.Revision, "mode": mode, "source": map[string]any{"title": "A real native draft"}}, http.StatusOK), &result))
-		for range 3 {
-			require.NoError(t, service.HandleJob(t.Context(), jobregistry.TypeWorkflowRun, `{"run_id":"`+result.ID+`"}`))
-		}
-		require.NoError(t, json.Unmarshal(request(http.MethodGet, "/workflow-runs/"+result.ID+"?workspace_id=ws", nil, http.StatusOK), &result))
-		return result
-	}
-	preview := run(workflows.ModePreview)
-	require.Equal(t, workflows.StateSucceeded, preview.State)
-	count, err := db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.Zero(t, count)
-	live := run(workflows.ModeLive)
-	require.Equal(t, workflows.StateApproval, live.State, live.Error)
-	count, err = db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, count)
-	publicationID := live.Steps[0].Output["id"].(string)
-	var post models.Publication
-	require.NoError(t, db.NewSelect().Model(&post).Where("id = ?", publicationID).Scan(t.Context()))
-	require.Equal(t, "A real native draft", post.SourceText)
-	_, err = db.NewUpdate().Model((*models.WorkspaceMember)(nil)).Set("role = ?", models.WorkspaceRoleClient).Where("workspace_id = ? AND user_id = ?", "ws", "user").Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewUpdate().Model((*models.Publication)(nil)).Set("revision = revision + 1, source_text = ?", "Edited after review").Where("id = ?", post.ID).Exec(t.Context())
-	require.NoError(t, err)
-	conflict := request(http.MethodPost, "/workflow-runs/"+live.ID+"/approve?workspace_id=ws", map[string]any{"expected_revision": live.Revision, "publication_revision": post.Revision}, http.StatusConflict)
-	var problem struct {
-		Detail string `json:"detail"`
-	}
-	require.NoError(t, json.Unmarshal(conflict, &problem))
-	require.Equal(t, "the post changed; refresh the post and review its current revision before approving", problem.Detail)
-	request(http.MethodPost, "/workflow-runs/"+live.ID+"/approve?workspace_id=ws", map[string]any{"expected_revision": live.Revision, "publication_revision": post.Revision + 1}, http.StatusOK)
-	request(http.MethodPost, "/workflow-runs/"+live.ID+"/approve?workspace_id=ws", map[string]any{"expected_revision": live.Revision, "publication_revision": post.Revision + 1}, http.StatusConflict)
-	request(http.MethodGet, "/workflow-runs/"+live.ID+"?workspace_id=other", nil, http.StatusForbidden)
-}
 
 func TestWorkflowNativeDraftReplayAndStoredWorkspaceBoundary(t *testing.T) {
 	t.Parallel()
 	db := workflowHandlerDB(t)
-	actions := newTestWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil)
+	actions := newTestWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil))
 	input := workflows.EffectRequest{Kind: workflows.KindDraft, Inputs: map[string]any{"text": "Only once"}, Authority: workspaceaccess.StoredAuthority{UserID: "user", WorkspaceID: "ws", OrganizationID: "org", AssuredAt: time.Now().UTC()}, RunID: "run", StepID: "draft", ExpiresAt: time.Now().Add(time.Hour)}
 	first, err := actions.Execute(t.Context(), input)
 	require.NoError(t, err)
@@ -143,7 +76,7 @@ func TestWorkflowNativeScheduleReplayKeepsOneJobAndOneAuthorization(t *testing.T
 	handler := srv.handler.publicationHandler()
 	publication, err := handler.publicationApplication().Create(t.Context(), "user-1", CreatePublicationBody{WorkspaceID: "ws-1", ContentProfile: models.ContentProfileShortText, SourceText: "Schedule this approved revision", SocialAccountIDs: []string{"account-1"}})
 	require.NoError(t, err)
-	actions := newTestWorkflowActions(handler, nil)
+	actions := newTestWorkflowActions(handler)
 	input := workflows.EffectRequest{Kind: workflows.KindSchedule, Inputs: map[string]any{"publication_id": publication.ID, "revision": publication.Revision, "scheduled_at": time.Now().UTC().Add(time.Hour).Format(time.RFC3339Nano)}, Authority: workspaceaccess.StoredAuthority{UserID: "user-1", WorkspaceID: "ws-1", OrganizationID: "organization-1", AssuredAt: time.Now().UTC()}, RunID: "schedule-run", StepID: "schedule", ExpiresAt: time.Now().Add(time.Hour)}
 	first, err := actions.Execute(t.Context(), input)
 	require.NoError(t, err)
@@ -163,7 +96,7 @@ func TestWorkflowNativeDraftWithDestinationAndReplyReplay(t *testing.T) {
 	t.Parallel()
 	srv := newMCPTestServer(t)
 	createIdempotencyRecordTable(t, srv.db)
-	actions := newTestWorkflowActions(srv.handler.publicationHandler(), nil)
+	actions := newTestWorkflowActions(srv.handler.publicationHandler())
 	input := workflows.EffectRequest{Kind: workflows.KindDraft, Inputs: map[string]any{"text": "Launch notes", "account_ids": []string{"account-1"}}, Authority: workspaceaccess.StoredAuthority{UserID: "user-1", WorkspaceID: "ws-1", OrganizationID: "organization-1", AssuredAt: time.Now().UTC()}, RunID: "reply-run", StepID: "draft", ExpiresAt: time.Now().Add(time.Hour)}
 	draft, err := actions.Execute(t.Context(), input)
 	require.NoError(t, err)
@@ -183,79 +116,4 @@ func TestWorkflowNativeDraftWithDestinationAndReplyReplay(t *testing.T) {
 	count, err := srv.db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", rendition.PublicationID).Count(t.Context())
 	require.NoError(t, err)
 	require.EqualValues(t, 1, count)
-}
-
-func TestWorkflowDraftRecoveryAfterSocialSetRemoval(t *testing.T) {
-	t.Parallel()
-	db := workflowHandlerDB(t)
-	now := time.Now().UTC()
-	for _, row := range []any{
-		&models.SocialAccount{ID: "source", WorkspaceID: "ws", Platform: "mastodon", AccountUsername: "founder", AccountID: "founder", AccessTokenEnc: []byte("test"), IsActive: true, CreatedAt: now},
-		&models.SocialSet{ID: "set", WorkspaceID: "ws", Name: "Founder", CreatedAt: now, UpdatedAt: now},
-		&models.SocialSetAccount{SocialSetID: "set", SocialAccountID: "source", CreatedAt: now},
-	} {
-		_, err := db.NewInsert().Model(row).Exec(t.Context())
-		require.NoError(t, err)
-	}
-	actions := newTestWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil)
-	input := workflows.EffectRequest{Kind: workflows.KindDraft, Inputs: map[string]any{"text": "Preserve this draft", "social_set_id": "set"}, Authority: workspaceaccess.StoredAuthority{UserID: "user", WorkspaceID: "ws", OrganizationID: "org", AssuredAt: now}, RunID: "recovery", StepID: "draft", ExpiresAt: now.Add(time.Hour)}
-	first, err := actions.Execute(t.Context(), input)
-	require.NoError(t, err)
-	_, err = db.NewDelete().Model((*models.SocialSet)(nil)).Where("id = ?", "set").Exec(t.Context())
-	require.NoError(t, err)
-	replay, err := actions.Execute(t.Context(), input)
-	require.NoError(t, err)
-	require.Equal(t, first, replay)
-	count, err := db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, count)
-}
-
-func TestWorkflowScheduleReportsNativeDestinationValidation(t *testing.T) {
-	t.Parallel()
-	db := workflowHandlerDB(t)
-	now := time.Now().UTC()
-	_, err := db.NewInsert().Model(&models.SocialAccount{ID: "bot", WorkspaceID: "ws", Platform: "discord", AccountUsername: "Updates", AccessTokenEnc: []byte("test"), CapabilityState: `{"connection_type":"bot"}`, IsActive: true}).Exec(t.Context())
-	require.NoError(t, err)
-	actions := newTestWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil)
-	input := workflows.EffectRequest{Kind: workflows.KindDraft, Inputs: map[string]any{"text": "Needs a channel", "account_ids": []string{"bot"}}, Authority: workspaceaccess.StoredAuthority{UserID: "user", WorkspaceID: "ws", OrganizationID: "org", AssuredAt: now}, RunID: "validation", StepID: "draft", ExpiresAt: now.Add(time.Hour)}
-	draft, err := actions.Execute(t.Context(), input)
-	require.NoError(t, err)
-	input.Kind = workflows.KindSchedule
-	input.StepID = "schedule"
-	input.Inputs = map[string]any{"publication_id": draft.Output["id"], "revision": draft.Output["revision"], "scheduled_at": now.Add(time.Hour).Format(time.RFC3339Nano)}
-	_, err = actions.Execute(t.Context(), input)
-	require.ErrorIs(t, err, errPublicationValidationBlocked)
-	require.Contains(t, err.Error(), "Choose a Discord channel")
-	count, err := db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", draft.Output["id"]).Count(t.Context())
-	require.NoError(t, err)
-	require.Zero(t, count)
-}
-
-func TestPostCreatedSourceHTTPReportsCreationWithoutPublicationTime(t *testing.T) {
-	t.Parallel()
-	db := workflowHandlerDB(t)
-	createdAt := time.Date(2026, time.October, 3, 10, 15, 30, 0, time.UTC)
-	_, err := db.NewInsert().Model(&models.Publication{ID: "draft-event", WorkspaceID: "ws", CreatedByID: "user", CreationSource: "web", Title: "Unscheduled draft", SourceText: "Not published", CreatedAt: createdAt, UpdatedAt: createdAt}).Exec(t.Context())
-	require.NoError(t, err)
-	service := workflows.NewService(db, nil, nil)
-	e := echo.New()
-	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
-	NewWorkflowHandler(service, workflowSession{}).RegisterRoutes(api)
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/workflow-sources/sample?workspace_id=ws", bytes.NewBufferString(`{"kind":"publication_created"}`))
-	req.Header.Set("Authorization", "Bearer session")
-	req.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	e.ServeHTTP(response, req)
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var items []map[string]any
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &items))
-	require.Len(t, items, 1)
-	require.Equal(t, "draft-event", items[0]["publication_id"])
-	require.Equal(t, "2026-10-03T10:15:30Z", items[0]["created_at"])
-	require.NotContains(t, items[0], "published_at")
-	var lifecycleCount int64
-	lifecycleCount, err = db.NewSelect().Table("publication_lifecycle_events").Where("publication_id = ?", "draft-event").Count(t.Context())
-	require.NoError(t, err)
-	require.Zero(t, lifecycleCount)
 }

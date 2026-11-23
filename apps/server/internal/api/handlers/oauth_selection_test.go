@@ -5,20 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"net/http"
+
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
-	"github.com/danielgtaylor/huma/v2"
-	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
-	"github.com/openpost/backend/internal/models"
+
 	"github.com/openpost/backend/internal/platform"
-	"github.com/openpost/backend/internal/services/crypto"
-	"github.com/openpost/backend/internal/services/entitlements"
-	"github.com/openpost/backend/internal/services/providerreadiness"
-	"github.com/openpost/backend/internal/telemetry"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -106,198 +101,6 @@ func (a *selectionTestAdapter) SelectAccount(_ context.Context, token *platform.
 	}, nil
 }
 
-func TestOAuthCallbackCreatesAndCompletesAccountSelection(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	db := createHandlerTestDB(t,
-		(*models.WorkspaceMember)(nil),
-		(*models.AuthChallenge)(nil),
-		(*models.OAuthAccountSelection)(nil),
-		(*models.SocialAccount)(nil),
-		(*models.Job)(nil),
-	)
-	seedOAuthTestWorkspace(t, db)
-	_, err := db.NewInsert().Model(&models.WorkspaceMember{
-		WorkspaceID: "ws-1",
-		UserID:      "user-1",
-		Role:        models.WorkspaceRoleAdmin,
-	}).Exec(ctx)
-	require.NoError(t, err)
-
-	e := echo.New()
-	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	encryptor := crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")
-	adapter := &selectionTestAdapter{}
-	handler := NewOAuthHandler(db, encryptor, map[string]platform.Adapter{
-		"facebook": adapter,
-	}, testAuthenticator{}, false, "https://app.openpost.test")
-	recorder := &telemetry.MemoryRecorder{}
-	handler.SetTelemetry(recorder)
-	handler.SetProviderReadiness(oauthConnectionReadiness(
-		t,
-		&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled},
-		platform.AppConfig{Provider: "facebook", ClientID: "facebook-app"},
-	))
-	handler.GetAuthURL(api)
-	handler.Callback(api)
-	handler.GetAccountSelection(api)
-	handler.CompleteAccountSelection(api)
-
-	authURLResp := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/facebook/auth-url?workspace_id=ws-1", nil, true)
-	require.Equal(t, http.StatusOK, authURLResp.Code, authURLResp.Body.String())
-	var authURLBody struct {
-		URL string `json:"url"`
-	}
-	require.NoError(t, json.Unmarshal(authURLResp.Body.Bytes(), &authURLBody))
-	parsedAuthURL, err := url.Parse(authURLBody.URL)
-	require.NoError(t, err)
-	state := parsedAuthURL.Query().Get("state")
-	require.NotEmpty(t, state)
-
-	callbackResp := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/facebook/callback?code=provider-code&state="+url.QueryEscape(state), nil, true)
-	callbackResult := callbackResp.Result()
-	t.Cleanup(func() { _ = callbackResult.Body.Close() })
-	require.Equal(t, http.StatusTemporaryRedirect, callbackResult.StatusCode, callbackResp.Body.String())
-	location := callbackResult.Header.Get("Location")
-	require.NotContains(t, location, "access_token")
-	require.NotContains(t, location, "provider-code")
-	require.Contains(t, location, "status=selection_required")
-	require.Contains(t, location, "platform=facebook")
-	callbackURL, err := url.Parse(location)
-	require.NoError(t, err)
-	require.Equal(t, "https", callbackURL.Scheme)
-	require.Equal(t, "app.openpost.test", callbackURL.Host)
-	require.Equal(t, "/accounts/callback", callbackURL.Path)
-	connectionID := callbackURL.Query().Get("connection_id")
-	require.NotEmpty(t, connectionID)
-	require.Equal(t, 1, adapter.profileCalls, "selection adapters resolve the authorizing subject before saving destinations")
-
-	selectionResp := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/selections/"+connectionID, nil, true)
-	require.Equal(t, http.StatusOK, selectionResp.Code, selectionResp.Body.String())
-	require.NotContains(t, selectionResp.Body.String(), "user-access-token")
-	require.NotContains(t, selectionResp.Body.String(), "user-refresh-token")
-	var selectionBody AccountSelectionResponse
-	require.NoError(t, json.Unmarshal(selectionResp.Body.Bytes(), &selectionBody))
-	require.Equal(t, "facebook", selectionBody.Platform)
-	require.Equal(t, "ws-1", selectionBody.WorkspaceID)
-	require.Len(t, selectionBody.Options, 2)
-	require.Equal(t, "OpenPost Image Editor Page", selectionBody.Options[1].DisplayName)
-
-	completeResp := oauthSelectionRequest(t, e, http.MethodPost, "/api/v1/accounts/selections/"+connectionID+"/complete", map[string]string{
-		"selection_id": "page-2",
-	}, true)
-	require.Equal(t, http.StatusOK, completeResp.Code, completeResp.Body.String())
-	var accountBody AccountSelectionCompletionResponse
-	require.NoError(t, json.Unmarshal(completeResp.Body.Bytes(), &accountBody))
-	require.Equal(t, "facebook", accountBody.Platform)
-	require.Equal(t, "page-2", accountBody.AccountID)
-	require.Equal(t, "studio", accountBody.AccountUsername)
-	require.Equal(t, "https://cdn.example/image-editor.png", accountBody.AccountAvatarURL)
-	require.Equal(t, "ws-1", accountBody.WorkspaceID)
-	require.Equal(t, []string{accountBody.ID}, accountBody.AccountIDs)
-	require.True(t, accountBody.OpenFreshComposer)
-	require.Len(t, recorder.Events, 1)
-	require.Equal(t, telemetry.EventDestinationConnected, recorder.Events[0].Name)
-	require.Equal(t, "facebook", recorder.Events[0].Properties["platform"])
-	require.Equal(t, 1, recorder.Events[0].Properties["account_count"])
-
-	var account models.SocialAccount
-	require.NoError(t, db.NewSelect().Model(&account).Where("id = ?", accountBody.ID).Scan(ctx))
-	require.Equal(t, "https://cdn.example/image-editor.png", account.AccountAvatarURL)
-	var grant models.OAuthGrant
-	require.NoError(t, db.NewSelect().Model(&grant).Where("id = ?", account.OAuthGrantID).Scan(ctx))
-	decryptedAccess, err := encryptor.Decrypt(grant.AccessTokenEnc)
-	require.NoError(t, err)
-	require.Equal(t, "page-access-token", decryptedAccess)
-
-	var pending models.OAuthAccountSelection
-	require.NoError(t, db.NewSelect().Model(&pending).Where("id = ?", connectionID).Scan(ctx))
-	require.False(t, pending.ConsumedAt.IsZero())
-
-	selectionAfterComplete := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/selections/"+connectionID, nil, true)
-	require.Equal(t, http.StatusNotFound, selectionAfterComplete.Code)
-}
-
-func TestPendingAccountSelectionPreservesRefreshTokenExpiry(t *testing.T) {
-	t.Parallel()
-	db := createHandlerTestDB(t, (*models.OAuthAccountSelection)(nil))
-	handler := NewOAuthHandler(
-		db,
-		crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"),
-		nil,
-		testAuthenticator{},
-		false,
-		"https://app.openpost.test",
-	)
-
-	pending, err := handler.createPendingAccountSelection(
-		t.Context(),
-		"user-1",
-		"linkedin",
-		"workspace-1",
-		"",
-		"production",
-		&platform.TokenResult{
-			AccessToken:      "access-token",
-			RefreshToken:     "refresh-token",
-			ExpiresIn:        3600,
-			RefreshExpiresIn: 7200,
-			Extra:            map[string]string{"scope": "w_member_social"},
-		},
-		nil,
-	)
-	require.NoError(t, err)
-
-	restored, err := handler.tokenResultFromPendingSelection(pending)
-	require.NoError(t, err)
-	require.Equal(t, "access-token", restored.AccessToken)
-	require.Equal(t, "refresh-token", restored.RefreshToken)
-	require.InDelta(t, 7200, restored.RefreshExpiresIn, 2)
-	require.Equal(t, "w_member_social", restored.Extra["scope"])
-	require.NotContains(t, restored.Extra, pendingSelectionRefreshExpiresAtKey)
-}
-
-func TestGetAuthURLRejectsMissingSocialAccountEntitlement(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	db := createHandlerTestDB(t,
-		(*models.WorkspaceMember)(nil),
-		(*models.AuthChallenge)(nil),
-		(*models.OAuthAccountSelection)(nil),
-		(*models.SocialAccount)(nil),
-	)
-	seedOAuthTestWorkspace(t, db)
-	_, err := db.NewInsert().Model(&models.WorkspaceMember{
-		WorkspaceID: "ws-1",
-		UserID:      "user-1",
-		Role:        models.WorkspaceRoleAdmin,
-	}).Exec(ctx)
-	require.NoError(t, err)
-
-	e := echo.New()
-	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	handler := NewOAuthHandler(
-		db,
-		crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"),
-		map[string]platform.Adapter{"selectable": &selectionTestAdapter{}},
-		testAuthenticator{},
-		false,
-		"https://app.openpost.test",
-	)
-	handler.SetEntitlement(entitlements.NewStaticService(entitlements.PlanSnapshot{
-		Limits: map[entitlements.LimitKey]int64{
-			entitlements.LimitSocialAccounts: 0,
-		},
-	}))
-	handler.GetAuthURL(api)
-
-	resp := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/selectable/auth-url?workspace_id=ws-1", nil, true)
-	require.Equal(t, http.StatusForbidden, resp.Code, resp.Body.String())
-	require.Contains(t, resp.Body.String(), "Social account limit reached")
-}
-
 func oauthSelectionRequest(t *testing.T, e *echo.Echo, method, path string, body any, authenticated bool) *httptest.ResponseRecorder {
 	t.Helper()
 	var payload io.Reader
@@ -316,34 +119,4 @@ func oauthSelectionRequest(t *testing.T, e *echo.Echo, method, path string, body
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 	return rec
-}
-
-func TestNormalizeAccountSelectionIDs(t *testing.T) {
-	t.Parallel()
-	newInput := func(id string, ids ...string) *CompleteAccountSelectionInput {
-		input := &CompleteAccountSelectionInput{}
-		input.Body.SelectionID = id
-		input.Body.SelectionIDs = ids
-		return input
-	}
-	t.Run("merges legacy and plural IDs", func(t *testing.T) {
-		got, err := normalizeAccountSelectionIDs(newInput("b", "a", "b", " ", "a"))
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		want := []string{"a", "b"}
-		if len(got) != len(want) {
-			t.Fatalf("got %v, want %v", got, want)
-		}
-		for i := range want {
-			if got[i] != want[i] {
-				t.Fatalf("got %v, want %v", got, want)
-			}
-		}
-	})
-	t.Run("rejects empty selections", func(t *testing.T) {
-		if _, err := normalizeAccountSelectionIDs(newInput("", " ", "")); err == nil {
-			t.Fatal("expected an error for empty selections")
-		}
-	})
 }

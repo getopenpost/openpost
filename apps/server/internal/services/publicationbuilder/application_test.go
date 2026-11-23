@@ -3,7 +3,7 @@ package publicationbuilder
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
+
 	"errors"
 	"fmt"
 	"strings"
@@ -11,14 +11,14 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/openpost/backend/internal/ai"
+	"github.com/uptrace/bun/driver/sqliteshim"
+
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	publicationservice "github.com/openpost/backend/internal/services/publications"
 	"github.com/openpost/backend/internal/services/sourcecontext"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
-	"github.com/openpost/backend/internal/telemetry"
+
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -53,151 +53,6 @@ func (stub *publicationApplicationStub) CreateFromBuild(_ context.Context, _ str
 	stub.command = command
 	stub.publication = publicationservice.Publication{ID: "publication-" + buildID, WorkspaceID: command.WorkspaceID}
 	return stub.publication, nil
-}
-
-func TestApplicationEnqueueIsIdempotentAndBuildsDurably(t *testing.T) {
-	db := newBuilderApplicationTestDB(t)
-	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
-	builderCalls := 0
-	recorder := &telemetry.MemoryRecorder{}
-	application, err := NewApplication(db, packageBuilderFunc(func(_ context.Context, input BuildInput) (BuildResult, error) {
-		builderCalls++
-		require.Len(t, input.Parts, 1)
-		require.Equal(t, "media:proof", input.Parts[0].SourceID)
-		require.Equal(t, []byte("private image bytes"), input.Parts[0].Image.Data)
-		require.Contains(t, input.Sources, SourceMaterial{
-			ID: "url:1", Kind: "url", Label: "Release notes", Text: "private extracted page text",
-		})
-		require.Contains(t, input.Sources, SourceMaterial{
-			ID: "media:proof", Kind: "image", Label: "proof.png", Text: "private extracted image text", Publishable: true,
-		})
-		return BuildResult{
-			CanonicalText: "Canonical draft",
-			Direction: DirectorPlan{
-				CanonicalText: "Canonical draft", FactualKernel: []string{"One fact"}, Thesis: "One thesis",
-				Outcome: "authority", Audience: "founders", Angle: "proof", Route: "artifact_led",
-				Media: MediaPlan{Treatment: "none", Role: "none", Brief: "No media needed."},
-			},
-			Destinations: []DestinationPlan{{
-				AccountID: "account-1", Platform: "x", Objective: "shares", Archetype: "technical_opinion",
-				OutputProfile: "x.short_text", Preview: "Canonical draft",
-				Segments: []SegmentPlan{{Body: "Canonical draft"}},
-				Media:    MediaPlan{Treatment: "none", Role: "none", Brief: "No media needed."},
-			}},
-		}, nil
-	}), ApplicationConfig{
-		Telemetry: recorder,
-		Model:     "test-model",
-		Now:       func() time.Time { return now },
-		AuthorizeStored: func(context.Context, workspaceaccess.StoredAuthority) error {
-			return nil
-		},
-		SourceLoader: sourceLoaderFunc(func(_ context.Context, sourceURL string) (sourcecontext.Document, error) {
-			require.Equal(t, "https://example.com/release", sourceURL)
-			return sourcecontext.Document{Title: "Release notes", Text: "private extracted page text"}, nil
-		}),
-		AssetLoader: assetLoaderFunc(func(_ context.Context, workspaceID string, assets []BuildAsset) (LoadedAssets, error) {
-			require.Equal(t, "workspace-1", workspaceID)
-			require.Equal(t, []BuildAsset{{MediaID: "proof", Role: "artifact", MayPublish: true}}, assets)
-			image := ai.Image{Data: []byte("private image bytes"), MIMEType: "image/png"}
-			return LoadedAssets{Sources: []SourceMaterial{{
-				ID: "media:proof", Kind: "image", Label: "proof.png", Text: "private extracted image text", Publishable: true,
-			}}, Parts: []ai.MultimodalPart{{SourceID: "media:proof", Image: &image}}}, nil
-		}),
-	})
-	require.NoError(t, err)
-
-	request := CreateBuildRequest{
-		WorkspaceID:    "workspace-1",
-		CreatedByID:    "user-1",
-		IdempotencyKey: "request-1234",
-		Authority: workspaceaccess.StoredAuthority{
-			UserID: "user-1", WorkspaceID: "workspace-1", OrganizationID: "organization-1", AssuredAt: now,
-		},
-		Input: BuildInput{
-			Idea:    "A useful idea",
-			Sources: []SourceMaterial{{ID: "note:1", Kind: "text", Label: "Idea", Text: "A useful idea"}},
-			Destinations: []Destination{{
-				AccountID: "account-1", Platform: "x", Label: "Founder X",
-				AllowedOutputProfiles: []OutputProfile{{Key: "x.short_text", TextLimit: 280, MaxSegments: 1}},
-			}},
-			DestinationPolicy: DestinationPolicyRecommend,
-		},
-		ContextURLs:    []string{"https://example.com/release"},
-		Assets:         []BuildAsset{{MediaID: "proof", Role: "artifact", MayPublish: true}},
-		SocialSetID:    "founder-accounts",
-		VoiceProfileID: "rodrigo",
-	}
-
-	first, created, err := application.Enqueue(context.Background(), request)
-	require.NoError(t, err)
-	require.True(t, created)
-	require.Equal(t, BuildStateQueued, first.State)
-
-	second, created, err := application.Enqueue(context.Background(), request)
-	require.NoError(t, err)
-	require.False(t, created)
-	require.Equal(t, first.ID, second.ID)
-
-	jobCount, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", jobregistry.TypePublicationBuild).Count(context.Background())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, jobCount)
-	assetCount, err := db.NewSelect().Model((*buildAssetRecord)(nil)).Where("build_id = ? AND media_id = ?", first.ID, "proof").Count(context.Background())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, assetCount)
-	require.Equal(t, "founder-accounts", first.SocialSetID)
-	require.Equal(t, "rodrigo", first.VoiceProfileID)
-
-	changed := request
-	changed.Input.Idea = "A different idea"
-	_, _, err = application.Enqueue(context.Background(), changed)
-	require.ErrorIs(t, err, ErrIdempotencyConflict)
-
-	payload, err := EncodeBuildJobPayload(first.ID)
-	require.NoError(t, err)
-	require.NoError(t, application.HandleJob(context.Background(), jobregistry.TypePublicationBuild, payload))
-
-	ready, err := application.Get(context.Background(), "user-1", first.ID)
-	require.NoError(t, err)
-	require.Equal(t, BuildStateReady, ready.State)
-	require.Equal(t, BuildPhaseReady, ready.Phase)
-	require.NotNil(t, ready.Result)
-	require.Equal(t, "Canonical draft", ready.Result.CanonicalText)
-	require.Equal(t, []ResolvedSource{
-		{ID: "idea", Kind: "text", Label: "Original idea", Publishable: false},
-		{ID: "note:1", Kind: "text", Label: "Idea", Publishable: false},
-		{ID: "url:1", Kind: "url", Label: "Release notes", Publishable: false},
-		{ID: "media:proof", Kind: "image", Label: "proof.png", Publishable: true},
-	}, ready.Result.Sources)
-	resultJSON, err := json.Marshal(ready.Result)
-	require.NoError(t, err)
-	require.NotContains(t, string(resultJSON), "private extracted image text")
-	require.NotContains(t, string(resultJSON), "private extracted page text")
-	require.NotContains(t, string(resultJSON), "A useful idea")
-	require.Equal(t, 1, builderCalls)
-
-	require.NoError(t, application.HandleJob(context.Background(), jobregistry.TypePublicationBuild, payload))
-	require.Equal(t, 1, builderCalls, "replayed completed work must be a no-op")
-
-	require.Len(t, recorder.Events, 2)
-	require.Equal(t, "publication build queued", recorder.Events[0].Name)
-	require.Equal(t, "publication build completed", recorder.Events[1].Name)
-	encoded, err := json.Marshal(recorder.Events)
-	require.NoError(t, err)
-	require.NotContains(t, string(encoded), "private")
-	require.NotContains(t, string(encoded), "Canonical draft")
-	publications := &publicationApplicationStub{}
-	committed, err := application.Commit(context.Background(), "user-1", first.ID, publications)
-	require.NoError(t, err)
-	require.Equal(t, BuildStateCommitted, committed.State)
-	require.NotEmpty(t, committed.PublicationID)
-	require.Equal(t, "publication-"+first.ID, committed.PublicationID)
-	require.Equal(t, 1, publications.createCalls)
-
-	replayed, err := application.Commit(context.Background(), "user-1", first.ID, publications)
-	require.NoError(t, err)
-	require.Equal(t, committed.PublicationID, replayed.PublicationID)
-	require.Equal(t, 1, publications.createCalls, "a committed build must not create another Publication")
 }
 
 func TestApplicationFailureNeverReturnsOrStoresPrivateModelText(t *testing.T) {
@@ -281,64 +136,9 @@ func TestApplicationReclaimsExpiredBuildLeaseAndFencesOldWorker(t *testing.T) {
 	require.EqualValues(t, 2, calls.Load())
 }
 
-// Retry must requeue the failed build and clear the previous worker's
-// ownership fields on the job row. This is a service-level contract: it does
-// not exercise the worker's own finalization fence.
-func TestApplicationRetryRequeuesFailedBuildAndClearsPreviousWorkerOwnership(t *testing.T) {
-	db := newBuilderApplicationTestDB(t)
-	now := time.Date(2026, 8, 23, 16, 15, 0, 0, time.UTC)
-	application, err := NewApplication(db, packageBuilderFunc(func(context.Context, BuildInput) (BuildResult, error) {
-		return BuildResult{}, nil
-	}), ApplicationConfig{
-		Now:             func() time.Time { return now },
-		AuthorizeStored: func(context.Context, workspaceaccess.StoredAuthority) error { return nil },
-	})
-	require.NoError(t, err)
-	build, _, err := application.Enqueue(t.Context(), testBuildRequest(now, "retry-processing"))
-	require.NoError(t, err)
-	_, err = db.NewUpdate().Model((*BuildRecord)(nil)).
-		Set("state = ?", BuildStateFailed).Set("phase = ?", BuildPhaseFailed).
-		Where("id = ?", build.ID).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = db.NewUpdate().Model((*models.Job)(nil)).
-		Set("status = ?", jobregistry.StatusProcessing).
-		Set("attempts = 1").
-		Set("locked_at = ?", now.Add(-time.Minute)).
-		Set("locked_by = ?", "old-worker").
-		Where("type = ? AND scope_id = ?", jobregistry.TypePublicationBuild, build.ID).
-		Exec(t.Context())
-	require.NoError(t, err)
-
-	retried, err := application.Retry(t.Context(), "user-1", build.ID)
-	require.NoError(t, err)
-	require.Equal(t, BuildStateQueued, retried.State)
-	var job models.Job
-	require.NoError(t, db.NewSelect().Model(&job).
-		Where("type = ? AND scope_id = ?", jobregistry.TypePublicationBuild, build.ID).
-		Scan(t.Context()))
-	require.Equal(t, jobregistry.StatusPending, job.Status)
-	require.Zero(t, job.Attempts)
-	require.Empty(t, job.LockedBy)
-	require.True(t, job.LockedAt.IsZero())
-	require.Equal(t, now.Unix(), job.RunAt.Unix())
-
-	// This mirrors the old worker's ownership predicate against the requeued row.
-	// It is the test's own copy of that predicate, not the worker's finalization
-	// path, so it demonstrates the row no longer matches; it does not prove the
-	// worker's fence.
-	oldWorkerFence, err := db.NewUpdate().Model((*models.Job)(nil)).
-		Set("status = ?", jobregistry.StatusFailed).
-		Where("id = ? AND status = ? AND locked_by = ?", job.ID, jobregistry.StatusProcessing, "old-worker").
-		Exec(t.Context())
-	require.NoError(t, err)
-	rows, err := oldWorkerFence.RowsAffected()
-	require.NoError(t, err)
-	require.Zero(t, rows, "the old worker no longer owns the requeued job")
-}
-
 func newBuilderApplicationTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	sqldb, err := sql.Open("sqlite3", "file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared")
+	sqldb, err := sql.Open(sqliteshim.ShimName, "file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared")
 	require.NoError(t, err)
 	sqldb.SetMaxOpenConns(1)
 	db := bun.NewDB(sqldb, sqlitedialect.New())

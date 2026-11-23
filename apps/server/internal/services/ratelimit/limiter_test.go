@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 func TestSharedLimitAcrossReplicas(t *testing.T) {
-	raw, err := sql.Open("sqlite3", ":memory:")
+	raw, err := sql.Open(sqliteshim.ShimName, ":memory:")
 	require.NoError(t, err)
 	raw.SetMaxOpenConns(1)
 	db := bun.NewDB(raw, sqlitedialect.New())

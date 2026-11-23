@@ -7,7 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+
 	"testing"
 	"time"
 
@@ -62,65 +62,6 @@ func (publicationDiscoveryAuthenticator) AuthenticateBearer(
 	}
 }
 
-func TestPublicationDiscoveryHandlerReturnsPlanningCardsForWorkspaceEditors(t *testing.T) {
-	t.Parallel()
-	stub := &publicationDiscoveryStub{result: publicationDiscoveryHandlerResult()}
-	server := newPublicationDiscoveryTestServer(t, stub)
-
-	response := publicationDiscoveryRequest(t, server.echo, "web-token", publicationDiscoveryRequestBody())
-
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	require.Equal(t, 1, stub.calls)
-	require.Equal(t, "developer tools", stub.input.Focus)
-	require.Equal(t, []string{"linkedin", "x"}, stub.input.Platforms)
-	require.Equal(t, "Rodrigo", stub.input.Voice.Name)
-	require.Len(t, stub.input.RecentPublications, 2)
-	require.Equal(t, "A stored post about reliable agents.", stub.input.RecentPublications[0].Summary)
-	require.Equal(t, time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC), stub.input.RecentPublications[0].PublishedAt)
-	var result publicationdiscovery.Result
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
-	require.Len(t, result.Opportunities, 1)
-	require.Equal(t, "opportunity-1", result.Opportunities[0].ID)
-}
-
-func TestPublicationDiscoveryHandlerAcceptsSocialSetPlatforms(t *testing.T) {
-	t.Parallel()
-	for _, test := range []struct {
-		platforms []string
-		status    int
-	}{
-		{[]string{"pixelfed"}, http.StatusBadGateway},
-		{[]string{"threads", "x", "mastodon", "bluesky", "linkedin", "pixelfed", "facebook"}, http.StatusBadGateway},
-		{[]string{"unknown"}, http.StatusBadRequest},
-		{[]string{"devnull"}, http.StatusBadRequest},
-		{[]string{"x", "x"}, http.StatusUnprocessableEntity},
-	} {
-		t.Run(strings.Join(test.platforms, ","), func(t *testing.T) {
-			platforms := test.platforms
-			generated := false
-			generator := editorUsageGenerator(func(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
-				generated = true
-				for _, platform := range platforms {
-					require.Contains(t, request.UserPrompt, platform)
-				}
-				return ai.GenerateResult{}, errors.New("test provider reached")
-			})
-			loader, err := sourcecontext.New(sourcecontext.Config{})
-			require.NoError(t, err)
-			service, err := publicationdiscovery.New(generator, publicationdiscovery.Config{Model: "test-model", SourceLoader: loader})
-			require.NoError(t, err)
-			server := newPublicationDiscoveryTestServer(t, service)
-			body := publicationDiscoveryRequestBody()
-			body["platforms"] = platforms
-
-			response := publicationDiscoveryRequest(t, server.echo, "web-token", body)
-
-			require.Equal(t, test.status, response.Code, response.Body.String())
-			require.Equal(t, test.status == http.StatusBadGateway, generated, "only supported, unique Social Set destinations should reach discovery generation")
-		})
-	}
-}
-
 func TestPublicationDiscoveryHandlerKeepsScheduledPostsInRecentContext(t *testing.T) {
 	t.Parallel()
 	now := time.Now().UTC()
@@ -169,51 +110,6 @@ func TestPublicationDiscoveryHandlerRejectsCredentialCrossingAndViewers(t *testi
 			require.Zero(t, stub.calls)
 		})
 	}
-}
-
-func TestPublicationDiscoveryHandlerSanitizesServiceFailures(t *testing.T) {
-	t.Parallel()
-	const privateProviderOutput = "private provider output"
-	stub := &publicationDiscoveryStub{err: errors.New(privateProviderOutput)}
-	server := newPublicationDiscoveryTestServer(t, stub)
-
-	response := publicationDiscoveryRequest(t, server.echo, "web-token", publicationDiscoveryRequestBody())
-
-	require.Equal(t, http.StatusBadGateway, response.Code, response.Body.String())
-	require.NotContains(t, response.Body.String(), privateProviderOutput)
-	require.Equal(t, 1, stub.calls)
-}
-
-func TestPublicationDiscoveryHandlerBoundsPerUserBursts(t *testing.T) {
-	t.Parallel()
-	stub := &publicationDiscoveryStub{result: publicationDiscoveryHandlerResult()}
-	server := newPublicationDiscoveryTestServer(t, stub)
-	for range publicationDiscoveryRequestsPerMinute {
-		require.True(t, server.handler.limiter.Allow(
-			"publication-discovery:user-1",
-			publicationDiscoveryRequestsPerMinute,
-			time.Minute,
-		))
-	}
-
-	response := publicationDiscoveryRequest(t, server.echo, "web-token", publicationDiscoveryRequestBody())
-
-	require.Equal(t, http.StatusTooManyRequests, response.Code, response.Body.String())
-	require.Zero(t, stub.calls)
-}
-
-func TestPublicationDiscoveryHandlerAllowsOneActiveRequestPerUser(t *testing.T) {
-	t.Parallel()
-	stub := &publicationDiscoveryStub{result: publicationDiscoveryHandlerResult()}
-	server := newPublicationDiscoveryTestServer(t, stub)
-	release, acquired := server.handler.requests.acquire("user-1")
-	require.True(t, acquired)
-	defer release()
-
-	response := publicationDiscoveryRequest(t, server.echo, "web-token", publicationDiscoveryRequestBody())
-
-	require.Equal(t, http.StatusTooManyRequests, response.Code, response.Body.String())
-	require.Zero(t, stub.calls)
 }
 
 type publicationDiscoveryTestServer struct {

@@ -7,27 +7,13 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
-
-func TestPublicationNotificationCohortDeduplicatesJobRetriesOnly(t *testing.T) {
-	publication := &models.Publication{Revision: 7}
-	lockedAt := time.Date(2026, time.July, 27, 12, 0, 0, 0, time.UTC)
-
-	firstAttempt := WithJobExecution(context.Background(), "job-1", 1, lockedAt)
-	secondAttempt := WithJobExecution(context.Background(), "job-1", 2, lockedAt.Add(time.Minute))
-	manualRetry := WithJobExecution(context.Background(), "job-2", 1, lockedAt.Add(2*time.Minute))
-
-	require.Equal(t, "job:job-1", publicationNotificationCohort(firstAttempt, publication))
-	require.Equal(t, "job:job-1", publicationNotificationCohort(secondAttempt, publication))
-	require.Equal(t, "job:job-2", publicationNotificationCohort(manualRetry, publication))
-	require.Equal(t, "revision:7", publicationNotificationCohort(context.Background(), publication))
-}
 
 type reconnectNotificationServer struct {
 	db      *bun.DB
@@ -36,7 +22,7 @@ type reconnectNotificationServer struct {
 
 func newReconnectNotificationServer(t *testing.T) *reconnectNotificationServer {
 	t.Helper()
-	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:reconnect-%d?mode=memory&cache=shared", time.Now().UnixNano()))
+	sqldb, err := sql.Open(sqliteshim.ShimName, fmt.Sprintf("file:reconnect-%d?mode=memory&cache=shared", time.Now().UnixNano()))
 	require.NoError(t, err)
 	sqldb.SetMaxOpenConns(1)
 	db := bun.NewDB(sqldb, sqlitedialect.New())

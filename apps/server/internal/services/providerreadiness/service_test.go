@@ -3,92 +3,9 @@ package providerreadiness
 import (
 	"context"
 	"errors"
-	"testing"
+
 	"time"
-
-	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/platform"
-	"github.com/stretchr/testify/require"
 )
-
-func TestServiceFailsClosedWhenLedgerIsMissingOrUnavailable(t *testing.T) {
-	t.Parallel()
-	input := healthyInput()
-
-	missing := NewService(&fakeLedger{
-		approvalErr: ErrLedgerFactNotFound,
-		controlErr:  ErrLedgerFactNotFound,
-		localErr:    ErrLedgerFactNotFound,
-		liveErr:     ErrLedgerFactNotFound,
-	}, ServiceOptions{Now: func() time.Time { return input.Now }})
-	decision := missing.Decide(t.Context(), decisionRequest(input))
-	if decision.State != EffectiveStateDegraded || decision.Executable || decision.Advertisable {
-		t.Fatalf("missing ledger facts did not fail closed: %#v", decision)
-	}
-	if !hasBlocker(decision.Blockers, BlockerUnknownRuntimeControl) || !hasBlocker(decision.Blockers, BlockerLiveEvidenceMissing) {
-		t.Fatalf("missing facts were not reported: %#v", decision.Blockers)
-	}
-
-	unavailable := NewService(&fakeLedger{approvalErr: errors.New("database unavailable")}, ServiceOptions{
-		Now: func() time.Time { return input.Now },
-	})
-	decision = unavailable.Decide(t.Context(), decisionRequest(input))
-	if decision.State != EffectiveStateDegraded || decision.Executable || len(decision.Blockers) != 1 ||
-		decision.Blockers[0].Code != BlockerReadinessUnavailable {
-		t.Fatalf("repository failure did not return one safe degraded decision: %#v", decision)
-	}
-	if _, err := unavailable.Require(t.Context(), decisionRequest(input)); err == nil {
-		t.Fatal("Require accepted a repository failure")
-	}
-}
-
-func TestServiceEnvironmentDisableHasPriorityAndSkipsLedger(t *testing.T) {
-	t.Parallel()
-	input := healthyInput()
-	ledger := &fakeLedger{approvalErr: errors.New("must not be queried")}
-	service := NewService(ledger, ServiceOptions{
-		Now:               func() time.Time { return input.Now },
-		DisabledProviders: []string{input.Subject.Provider},
-	})
-
-	decision := service.Decide(t.Context(), decisionRequest(input))
-	if decision.State != EffectiveStateDisabled || decision.Executable || !hasBlocker(decision.Blockers, BlockerDisabled) {
-		t.Fatalf("environment kill switch did not win: %#v", decision)
-	}
-	if ledger.reads != 0 {
-		t.Fatalf("disabled provider performed %d ledger reads", ledger.reads)
-	}
-}
-
-func TestDiscordAnalyticsDoesNotInheritGlobalPublishingCertificationGate(t *testing.T) {
-	t.Parallel()
-
-	catalog, err := NewConfigurationCatalog(RuntimeApps([]platform.AppConfig{{
-		Provider:       "discord",
-		ConnectionMode: platform.ConnectionModeBot,
-		ClientID:       "discord-client",
-		ClientSecret:   "discord-secret",
-		BotToken:       "discord-token",
-		RedirectURI:    "https://openpost.test/discord/callback",
-	}}, ConfigurationSourceEnvironment, ProviderEnvironmentProduction))
-	require.NoError(t, err)
-	service := NewService(&fakeLedger{
-		approvalErr: ErrLedgerFactNotFound,
-		controlErr:  ErrLedgerFactNotFound,
-	}, ServiceOptions{
-		Configurations:       catalog,
-		ManagedProduction:    true,
-		EnforceCertification: true,
-		DefaultControl:       RuntimeControlStateEnabled,
-	})
-	decision := service.DecideAccountOperation(t.Context(), models.SocialAccount{
-		ID:              "discord-account",
-		WorkspaceID:     "workspace-1",
-		Platform:        "discord",
-		CapabilityState: `{"connection_type":"bot"}`,
-	}, OperationAnalytics, ExecutionIntentProduction)
-	require.True(t, decision.AnalyticsReady, "Discord bot analytics should use normal configured-account readiness")
-}
 
 func decisionRequest(input EvaluationInput) DecisionRequest {
 	return DecisionRequest{

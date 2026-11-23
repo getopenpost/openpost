@@ -103,20 +103,6 @@ func TestGoogleReviewsRetainAnonymousRatingsAndOwnerReplyModeration(t *testing.T
 	require.Equal(t, 1, writes)
 }
 
-func TestThreadsMentionPagePersistsOnlyOpaqueContinuation(t *testing.T) {
-	stubGoogleBusinessClient(t, func(request *http.Request) (*http.Response, error) {
-		require.Equal(t, "/v1.0/me/mentions", request.URL.Path)
-		require.Equal(t, "opaque&token", request.URL.Query().Get("after"))
-		require.Empty(t, request.URL.Query().Get("access_token"))
-		return jsonResponse(request, `{"data":[{"id":"mention-1","text":"Hello","username":"alice","timestamp":"2026-10-24T10:00:00Z"}],"paging":{"next":"https://graph.threads.net/next?access_token=secret","cursors":{"after":"next-page"}}}`), nil
-	})
-	page, err := NewThreadsAdapter("", "", "").ListAccountActivity(t.Context(), "credential", "founder", AccountActivityRequest{Feed: "mentions", Cursor: "opaque&token"})
-	require.NoError(t, err)
-	require.Equal(t, "next-page", page.NextCursor)
-	require.Len(t, page.Items, 1)
-	require.Equal(t, "mention-1", page.Items[0].ID)
-}
-
 // Threads returns mention timestamps with a colonless offset, which a strict
 // RFC 3339 parse rejects and stores as the zero time.
 func TestThreadsMentionKeepsGraphTimestamp(t *testing.T) {

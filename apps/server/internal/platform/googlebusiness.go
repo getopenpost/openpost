@@ -671,18 +671,6 @@ func pendingGoogleBusinessPostResult(postName string) (PublishResult, error) {
 	}, nil
 }
 
-// settleGoogleBusinessDisabledDestination settles pending reviews when the
-// destination can no longer operate local posts. Disabled destinations never
-// retry; the operator reconnects or duplicates the post elsewhere.
-func settleGoogleBusinessDisabledDestination(reference string) PublishResult {
-	return PublishResult{
-		SubmissionState:   PublishSubmissionRejected,
-		ProviderState:     "destination_disabled",
-		ProviderReference: reference,
-		RetrySafety:       PublishRetryNever,
-	}
-}
-
 func buildGoogleBusinessLocalPost(req *PublishRequest) (googleBusinessLocalPostRequest, error) {
 	if req == nil {
 		return googleBusinessLocalPostRequest{}, fmt.Errorf("google business publish request is required")

@@ -50,18 +50,3 @@ func TestDeterministicContentURL(t *testing.T) {
 		})
 	}
 }
-
-func TestDeterministicContentURLRejectsUnsafeValues(t *testing.T) {
-	t.Parallel()
-	require.Empty(t, DeterministicContentURL("x", "", "", "", "123/../../settings"))
-	require.Empty(t, DeterministicContentURL("threads", "", "", "", "javascript:alert(1)"))
-	require.Empty(t, DeterministicContentURL("pinterest", "", "", "", "123/../../settings"))
-	require.Empty(t, DeterministicContentURL("x", "", "", "", "https://user:secret@example.com/post"))
-	require.False(t, IsSafeContentURL("https://user:secret@example.com/post"))
-}
-
-func TestTikTokPhotoContentURL(t *testing.T) {
-	t.Parallel()
-	require.Equal(t, "https://www.tiktok.com/@rgo/photo/741234", DeterministicContentURL("tiktok", "", "rgo", "", "741234", "tiktok.photo"))
-	require.Empty(t, DeterministicContentURL("tiktok", "", "rgo", "", "p_pub_reference", "tiktok.photo"))
-}

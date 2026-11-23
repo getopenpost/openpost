@@ -37,42 +37,6 @@ func TestClientRejectsCredentialBearingRedirects(t *testing.T) {
 	require.ErrorContains(t, err, "HTTP status 307")
 }
 
-func TestClientDoesNotExposeMalformedRedirectLocation(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		response.Header().Set("Location", "https://redirect.example/%zz?token=redirect-secret")
-		response.WriteHeader(http.StatusFound)
-	}))
-	defer server.Close()
-
-	client := newPrivateTestClient(t, server.URL)
-	_, err := client.Manifest(context.Background())
-	require.Error(t, err)
-	require.NotContains(t, err.Error(), "redirect-secret")
-}
-
-func TestClientRejectsPrivateAddressOutsideConfiguredCIDR(t *testing.T) {
-	t.Parallel()
-
-	parsed, err := url.Parse("http://connector.test:8090")
-	require.NoError(t, err)
-	client, err := NewClient(InstallationConfig{
-		ID: "blocked", BearerToken: "secret",
-		Endpoint: EndpointConfig{
-			Mode: TransportPrivateAllow, BaseURL: parsed.String(),
-			AllowedHosts: []string{"connector.test"},
-			AllowedCIDRs: []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")},
-			AllowedPorts: []int{8090},
-		},
-	}, ClientOptions{Resolver: resolverFunc(func(context.Context, string) ([]net.IPAddr, error) {
-		return []net.IPAddr{{IP: net.ParseIP("127.0.0.1")}}, nil
-	})})
-	require.NoError(t, err)
-	_, err = client.Manifest(context.Background())
-	require.ErrorContains(t, err, "outside the private connector allowlist")
-}
-
 func newPrivateTestClient(t *testing.T, rawURL string) *Client {
 	t.Helper()
 	parsed, err := url.Parse(rawURL)

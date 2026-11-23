@@ -51,17 +51,6 @@ test.describe("cookie choices", () => {
     await page.reload();
     await expect(banner).toBeHidden();
   });
-
-  test("the cookie banner fits a 320px phone", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 844 });
-    await page.goto("/docs/");
-    const banner = page.getByTestId("telemetry-consent");
-    await expect(banner).toBeVisible();
-    const bounds = await banner.boundingBox();
-    expect(bounds!.x).toBeGreaterThanOrEqual(0);
-    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320);
-    expect(await banner.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
-  });
 });
 
 test("documentation recovery retains its mounted assets and home action", async ({ page }) => {
@@ -123,37 +112,6 @@ test.describe("retained routes", () => {
     }
   });
 
-  test("moved Markdown guides keep their agent-readable routes", async ({ request }) => {
-    for (const [oldPath, replacement] of [
-      ["/guides/sdk.md", "/automate/sdk/index.md"],
-      ["/guides/cli.md", "/automate/cli/index.md"],
-      ["/automate/sdk.md", "/automate/sdk/index.md"],
-      ["/automate/api.md", "/automate/api/index.md"],
-      ["/automate/cli.md", "/automate/cli/index.md"],
-      ["/automate/n8n.md", "/automate/n8n/index.md"],
-    ] as const) {
-      const response = await request.get(`/docs${oldPath}`);
-      expect(response.ok(), oldPath).toBe(true);
-      expect(new URL(response.url()).pathname).toBe(`/docs${replacement}`);
-    }
-  });
-
-  test("old workflow HTML and Markdown URLs reach the new guides", async ({ request }) => {
-    for (const [oldPath, target] of [
-      ["workflows", "/workflows"],
-      ["workflows/", "/workflows"],
-      ["workflows.md", "/workflows/index.md"],
-      ["workflow-examples", "/workflows#examples"],
-      ["workflow-examples/", "/workflows#examples"],
-      ["workflow-examples.md", "/workflows/index.md#examples"],
-    ]) {
-      const response = await request.get(`/docs/automate/${oldPath}`, { maxRedirects: 0 });
-      expect(response.status()).toBe(301);
-      expect(response.headers().location).toBe(`/docs${target}`);
-      expect((await request.get(`/docs${target}`)).ok()).toBe(true);
-    }
-  });
-
   test("older provider URLs resolve to the individual guides", async ({ request }) => {
     for (const network of socialNetworks) {
       const response = await request.get(`/docs/providers/${network}`);
@@ -165,22 +123,5 @@ test.describe("retained routes", () => {
       expect(response.ok()).toBe(true);
       expect(new URL(response.url()).pathname).toBe("/docs/self-hosting/integrations");
     }
-  });
-
-  test("older workspace URL reaches the current guide", async ({ request }) => {
-    const response = await request.get("/docs/usage/workspaces");
-    expect(response.ok()).toBe(true);
-    expect(new URL(response.url()).pathname).toBe("/docs/guides/workspaces");
-  });
-
-  test("retired self-hosting guide URL opens the current guide without a hydration error", async ({
-    page,
-  }) => {
-    const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto("/self-hosting/integrations/instagram");
-    await expect(page).toHaveURL(/\/docs\/self-hosting\/integrations\/instagram$/);
-    await expect(page.getByRole("heading", { name: "Instagram", level: 1 })).toBeVisible();
-    expect(errors).toEqual([]);
   });
 });

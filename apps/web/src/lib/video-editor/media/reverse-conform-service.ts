@@ -1,9 +1,9 @@
 import type { Project, TimelineItem, TimelineTrack } from '../project/types';
-import { readBlob, writeBlob } from '../workspace-fs/fs-primitives';
-import { mediaReversePreviewPath } from '../workspace-fs/paths';
-import { requireWorkspaceRoot } from '../workspace-fs/root';
+import { readBlob, writeBlob } from '@openpost/editor-shared/workspace';
+import { mediaReversePreviewPath } from '@openpost/editor-shared/workspace';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { renderMultiTrackVideoBlob, type RenderExportProgress } from './render-export';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { mediaTaskId, mediaTasks } from './media-tasks.svelte';
 
 const PREVIEW_MAX_WIDTH = 1280;

@@ -8,7 +8,7 @@
  * {@link embeddingsProvider} rather than constructing anything themselves.
  */
 
-import { createLogger } from '../../../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import {
 	EMBEDDING_MODEL_DIM,
 	EMBEDDING_MODEL_ID,

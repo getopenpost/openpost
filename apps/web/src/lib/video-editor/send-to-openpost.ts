@@ -5,7 +5,7 @@
  */
 
 import { uploadMediaFile } from '$lib/media-upload-client';
-import { createLogger } from './workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 
 const logger = createLogger('SendToOpenPost');
 

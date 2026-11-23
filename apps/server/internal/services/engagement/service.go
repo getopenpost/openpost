@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/inboxactivity"
 	"github.com/openpost/backend/internal/jobregistry"
@@ -640,15 +642,15 @@ func engagementItemFromComment(
 	return models.EngagementItem{
 		ID:                  itemID,
 		WorkspaceID:         account.WorkspaceID,
-		RenditionID:         firstNonEmpty(rendition.ID, existing.RenditionID),
-		Kind:                firstNonEmpty(existing.Kind, "comment"),
-		SubjectJSON:         firstNonEmpty(existing.SubjectJSON, "{}"),
+		RenditionID:         textutil.FirstNonEmpty(rendition.ID, existing.RenditionID),
+		Kind:                textutil.FirstNonEmpty(existing.Kind, "comment"),
+		SubjectJSON:         textutil.FirstNonEmpty(existing.SubjectJSON, "{}"),
 		AutomationStoppedAt: existing.AutomationStoppedAt, RepliedAt: existing.RepliedAt,
 		ReviewReplyCheckAt:   existing.ReviewReplyCheckAt,
 		ReviewReplyWrittenAt: existing.ReviewReplyWrittenAt,
 		SocialAccountID:      account.ID,
 		Platform:             account.Platform,
-		RemoteID:             firstNonEmpty(existing.RemoteID, boundedText(comment.ID, 512)),
+		RemoteID:             textutil.FirstNonEmpty(existing.RemoteID, boundedText(comment.ID, 512)),
 		NativeRemoteID:       inboxactivity.NativeIdentity(account.Platform, comment.ID),
 		ParentRemoteID:       boundedText(comment.ParentID, 512),
 		ConversationRemoteID: boundedText(comment.ConversationID, 512),
@@ -711,7 +713,7 @@ func (s *Service) notifyNewEngagement(
 	outcome, err := notifications.NewEngagementReceivedOutcome(notifications.EngagementReceivedFacts{
 		RecipientUserID: publication.CreatedByID, WorkspaceID: account.WorkspaceID,
 		EngagementID: item.ID, PublicationID: publication.ID, RenditionID: rendition.ID,
-		Provider: account.Platform, AuthorName: firstNonEmpty(item.AuthorName, item.AuthorHandle),
+		Provider: account.Platform, AuthorName: textutil.FirstNonEmpty(item.AuthorName, item.AuthorHandle),
 	})
 	if err != nil {
 		return err
@@ -928,7 +930,7 @@ func (s *Service) notifyReplyFailed(ctx context.Context, userID string, item mod
 	}
 	outcome, err := notifications.NewReplyFailedOutcome(notifications.ReplyFailedFacts{
 		RecipientUserID: userID, WorkspaceID: item.WorkspaceID, EngagementID: item.ID,
-		AttemptID: firstNonEmpty(input.JobID, item.ID+":"+input.Action), Provider: account.Platform,
+		AttemptID: textutil.FirstNonEmpty(input.JobID, item.ID+":"+input.Action), Provider: account.Platform,
 	})
 	if err != nil {
 		return err
@@ -1674,7 +1676,7 @@ func (s *Service) blockXReadsForError(ctx context.Context, account models.Social
 	}
 	now := s.now()
 	blockedUntil := now.Add(delay)
-	code := firstNonEmpty(providerErr.Code, "rate_limited")
+	code := textutil.FirstNonEmpty(providerErr.Code, "rate_limited")
 	result, updateErr := s.db.NewUpdate().Model((*models.XEngagementReadBudget)(nil)).
 		Set("blocked_until = ?", blockedUntil).
 		Set("block_code = ?", code).
@@ -1888,15 +1890,6 @@ func xEngagementCadence(publishedAt, now time.Time, quiet bool) time.Duration {
 	}
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
-}
-
 func boolToInt(value bool) int {
 	if value {
 		return 1
@@ -1909,25 +1902,25 @@ func classifyEngagementReadError(err error) (status, code, message string, caden
 	if errors.As(err, &providerErr) {
 		switch {
 		case providerErr.StatusCode == 401 || providerErr.StatusCode == 403:
-			return "permission_required", firstNonEmpty(providerErr.Code, "authentication"), "Reconnect this account to resume engagement collection.", 24 * time.Hour
+			return "permission_required", textutil.FirstNonEmpty(providerErr.Code, "authentication"), "Reconnect this account to resume engagement collection.", 24 * time.Hour
 		case providerErr.StatusCode == 404:
-			return "not_found", firstNonEmpty(providerErr.Code, "not_found"), "The provider no longer exposes this post or its replies.", 7 * 24 * time.Hour
+			return "not_found", textutil.FirstNonEmpty(providerErr.Code, "not_found"), "The provider no longer exposes this post or its replies.", 7 * 24 * time.Hour
 		case providerErr.StatusCode == 402:
 			retryAfter := providerErr.RetryAfter
 			if retryAfter <= 0 {
 				retryAfter = 24 * time.Hour
 			}
-			return "rate_limited", firstNonEmpty(providerErr.Code, "credits_depleted"), "X API read credits are depleted. OpenPost will wait before collecting replies again.", retryAfter
+			return "rate_limited", textutil.FirstNonEmpty(providerErr.Code, "credits_depleted"), "X API read credits are depleted. OpenPost will wait before collecting replies again.", retryAfter
 		case providerErr.StatusCode == 429:
 			retryAfter := providerErr.RetryAfter
 			if retryAfter <= 0 {
 				retryAfter = time.Hour
 			}
-			return "rate_limited", firstNonEmpty(providerErr.Code, "rate_limited"), "The provider asked OpenPost to wait before collecting replies again.", retryAfter
+			return "rate_limited", textutil.FirstNonEmpty(providerErr.Code, "rate_limited"), "The provider asked OpenPost to wait before collecting replies again.", retryAfter
 		case providerErr.StatusCode >= 500:
-			return "temporarily_unavailable", firstNonEmpty(providerErr.Code, "provider_server"), "The provider is temporarily unavailable. OpenPost will try again.", time.Hour
+			return "temporarily_unavailable", textutil.FirstNonEmpty(providerErr.Code, "provider_server"), "The provider is temporarily unavailable. OpenPost will try again.", time.Hour
 		default:
-			return "failed", firstNonEmpty(providerErr.Code, "provider_error"), "OpenPost could not collect engagement from this provider.", time.Hour
+			return "failed", textutil.FirstNonEmpty(providerErr.Code, "provider_error"), "OpenPost could not collect engagement from this provider.", time.Hour
 		}
 	}
 	return "temporarily_unavailable", "network", "OpenPost could not reach the provider. It will try again.", time.Hour
@@ -1967,12 +1960,7 @@ func safeExternalURL(value string) string {
 }
 
 func boundedText(value string, limit int) string {
-	value = strings.TrimSpace(value)
-	runes := []rune(value)
-	if len(runes) <= limit {
-		return value
-	}
-	return string(runes[:limit])
+	return textutil.TruncateRunes(value, limit)
 }
 
 func saveEngagementItem(ctx context.Context, tx bun.Tx, item models.EngagementItem) error {

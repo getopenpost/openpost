@@ -393,6 +393,7 @@ func repostCredentialCounts(t *testing.T, db *bun.DB, policyCount, grantCount in
 }
 
 func TestRepostPolicySaveKeepsExistingIdentity(t *testing.T) {
+	t.Parallel()
 	db := workflowHandlerDB(t)
 	now := time.Date(2026, time.September, 1, 12, 0, 0, 123456789, time.UTC)
 	account := &models.SocialAccount{ID: "repost-account", WorkspaceID: "ws", Platform: "x", AccountID: "founder", AccountUsername: "founder", AccessTokenEnc: []byte("test"), IsActive: true, CreatedAt: now}
@@ -442,6 +443,7 @@ func TestRepostPolicySaveKeepsExistingIdentity(t *testing.T) {
 }
 
 func TestNewRepostRuleStaysPaused(t *testing.T) {
+	t.Parallel()
 	server := newRepostCredentialTestServer(t, workspaceTestAuthenticator{
 		"browser": {UserID: "user-1", SessionID: repostCredentialBrowserSessionID},
 	})

@@ -1,4 +1,4 @@
-import { intersectQuietRanges } from '../audio/speech-detection';
+import { intersectQuietRanges } from '@openpost/editor-shared/audio';
 import { mediaPool } from '../media/pool.svelte';
 import { analyzeSilenceSignal } from '../media/silence';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';

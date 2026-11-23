@@ -18,6 +18,7 @@ import (
 )
 
 func TestVoiceProfileRoutesPreserveInheritanceAndRevisionSafety(t *testing.T) {
+	t.Parallel()
 	server := newVoiceProfilesTestServer(t)
 
 	response := server.request(t, http.MethodPost, "/api/v1/voice-profiles", map[string]any{
@@ -110,6 +111,7 @@ func TestVoiceProfileRoutesPreserveInheritanceAndRevisionSafety(t *testing.T) {
 }
 
 func TestVoiceProfileRoutesRejectCredentialAndEntityWorkspaceCrossing(t *testing.T) {
+	t.Parallel()
 	server := newVoiceProfilesTestServer(t)
 	response := server.request(t, http.MethodPost, "/api/v1/voice-profiles", map[string]any{
 		"workspace_id": "ws-1", "name": "Private", "definition": map[string]any{},
@@ -216,6 +218,7 @@ func decodeVoiceProfile(t *testing.T, response *httptest.ResponseRecorder) voice
 }
 
 func TestVoiceProfileRoutesEditEncodedWorkspaceDefaultID(t *testing.T) {
+	t.Parallel()
 	server := newVoiceProfilesTestServer(t)
 	response := server.request(t, http.MethodPost, "/api/v1/voice-profiles", map[string]any{"workspace_id": "ws-1", "name": "Default voice", "definition": map[string]any{}}, "web-token")
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())

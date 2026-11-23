@@ -28,6 +28,7 @@ func (p failingIncrementalProvider) FetchMessageEvents(context.Context, string, 
 }
 
 func TestCollectionFailureBackoffSurvivesForegroundAndPeriodicWakeups(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		for _, tc := range []struct {
 			name        string
@@ -100,6 +101,7 @@ func TestCollectionFailureBackoffSurvivesForegroundAndPeriodicWakeups(t *testing
 }
 
 func TestCollectionSchedulingPreservesStoredPermissionDeadline(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		t.Run(backend, func(t *testing.T) {
 			s, db, account, actor := messagingBackendFixture(t, backend)
@@ -130,6 +132,7 @@ func TestCollectionSchedulingPreservesStoredPermissionDeadline(t *testing.T) {
 // does not implement chat for this account) record a durable state with a
 // daily deadline and complete the job instead of failing it every cycle.
 func TestPermanentProviderRefusalRecordsStateWithoutFailingTheJob(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		failure     error

@@ -13,7 +13,7 @@
  */
 
 import { startProfileSpan } from '$lib/performance/profiling';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import {
 	buildTargetIndices,
 	FILMSTRIP_EXTRACT_HEIGHT,
@@ -22,7 +22,7 @@ import {
 	prioritizeFilmstripTargetIndices,
 	type FrameRange
 } from './filmstrip-plan';
-import { SizedAccessedMemoryCache } from './sized-accessed-memory-cache';
+import { SizedAccessedMemoryCache } from '@openpost/editor-shared/media';
 import { createManagedWorkerPool } from './managed-worker-pool';
 import type {
 	FilmstripExtractRequest,

@@ -8,7 +8,7 @@
 	import { commitImportedAsset } from '$lib/video-editor/media/commit-imported-asset';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { clearStockDragData, writeStockDragData } from '$lib/video-editor/media/stock-drag';
-	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 
 	let {
 		projectId,

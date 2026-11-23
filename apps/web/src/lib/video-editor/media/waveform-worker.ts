@@ -7,7 +7,7 @@
  */
 
 import { Input, AudioSampleSink, ALL_FORMATS, BlobSource } from 'mediabunny';
-import { ensureAc3DecoderForCodec } from './ac3-decoder';
+import { ensureAc3DecoderForCodec } from '@openpost/editor-shared/media';
 import type {
 	WaveformAbortRequest,
 	WaveformChunkMessage,

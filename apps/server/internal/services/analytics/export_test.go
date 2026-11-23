@@ -11,6 +11,7 @@ import (
 )
 
 func TestBuildExportDailyPreservesMeasuredZeroChanges(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		t.Run(backend, func(t *testing.T) {
 			db := analyticsSnapshotTestDB(t, backend,
@@ -63,6 +64,7 @@ func TestBuildExportDailyPreservesMeasuredZeroChanges(t *testing.T) {
 }
 
 func TestExportGroupKeyFollowsTimezone(t *testing.T) {
+	t.Parallel()
 	rome, err := time.LoadLocation("Europe/Rome")
 	require.NoError(t, err)
 	// 23:30 UTC on Sunday 4 Oct is already Monday 5 Oct in Rome.
@@ -83,6 +85,7 @@ func TestExportGroupKeyFollowsTimezone(t *testing.T) {
 }
 
 func TestExportGroupedTableKeepsUnmeasuredMetricsEmpty(t *testing.T) {
+	t.Parallel()
 	published := time.Date(2026, time.October, 1, 10, 0, 0, 0, time.UTC)
 	content := []ContentOverview{
 		{Platform: "x", PublishedAt: published, MetricAvailability: "available", Engagement: 10, Metrics: platform.AnalyticsValues{"views": 100, "impressions": 200, "likes": 0, "comments": 10}},
@@ -116,6 +119,7 @@ func TestExportGroupedTableKeepsUnmeasuredMetricsEmpty(t *testing.T) {
 }
 
 func TestNormalizeExportGroupBy(t *testing.T) {
+	t.Parallel()
 	value, err := NormalizeExportGroupBy("")
 	require.NoError(t, err)
 	require.Equal(t, ExportGroupPost, value)
@@ -124,11 +128,13 @@ func TestNormalizeExportGroupBy(t *testing.T) {
 }
 
 func TestUnpagedOverviewRejectsCursor(t *testing.T) {
+	t.Parallel()
 	_, err := (&Service{}).OverviewWithOptions(t.Context(), "ws-1", 30, OverviewOptions{Unpaged: true, Cursor: "stale"})
 	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
 }
 
 func TestExportDailyFilteringDoesNotInventMeasurements(t *testing.T) {
+	t.Parallel()
 	trends := TrendSeries{
 		Engagement: []DailyBreakdownPoint{{Date: "2026-10-01", Value: 3, Items: []DailyBreakdownItem{{Platform: "bluesky", Value: 3}}}},
 		Views:      []DailyBreakdownPoint{{Date: "2026-10-01", Value: 12, Items: []DailyBreakdownItem{{Platform: "youtube", Value: 12}}}},
@@ -138,6 +144,7 @@ func TestExportDailyFilteringDoesNotInventMeasurements(t *testing.T) {
 }
 
 func TestExportGroupedTableDoesNotSumAverages(t *testing.T) {
+	t.Parallel()
 	metadata := map[string]platform.AnalyticsMetricMetadata{"average_view_percentage": {Unit: platform.AnalyticsMetricUnitBasisPoints, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodAverage}}
 	content := []ContentOverview{
 		{Platform: "youtube", Metrics: platform.AnalyticsValues{"average_view_percentage": 8000}, MetricMetadata: metadata},
@@ -150,6 +157,7 @@ func TestExportGroupedTableDoesNotSumAverages(t *testing.T) {
 }
 
 func TestExportEngagementRequiresCompatibleProjection(t *testing.T) {
+	t.Parallel()
 	content := []ContentOverview{
 		{Platform: "facebook", MetricAvailability: "available", Metrics: platform.AnalyticsValues{"views": 10, "reactions": 3, "engagements": 999}, MetricMetadata: map[string]platform.AnalyticsMetricMetadata{"views": {Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationLifetimeTotal}, "reactions": {Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationLifetimeTotal}}},
 		{Platform: "facebook", MetricAvailability: "available", Metrics: platform.AnalyticsValues{"likes": 0}, MetricMetadata: map[string]platform.AnalyticsMetricMetadata{"likes": {Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationLifetimeTotal}}},
@@ -162,6 +170,7 @@ func TestExportEngagementRequiresCompatibleProjection(t *testing.T) {
 }
 
 func TestExportSourceFetchTimesStayUTCAndDoNotBecomeGenerationTimes(t *testing.T) {
+	t.Parallel()
 	local := time.FixedZone("UTC+2", 2*60*60)
 	oldest := time.Date(2026, 10, 1, 16, 30, 12, 0, local)
 	newest := oldest.Add(24 * time.Hour)

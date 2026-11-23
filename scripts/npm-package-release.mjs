@@ -12,8 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseNpmPackResult } from "./npm-pack-result.mjs";
-import { parseNpmViewResult } from "./npm-view-result.mjs";
+import { parseNpmPackResult, parseNpmViewResult } from "./npm-registry.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // npm may accept publication several minutes before its read replicas serve the version.

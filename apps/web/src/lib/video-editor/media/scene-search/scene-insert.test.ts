@@ -1,7 +1,7 @@
 import { beforeEach, expect, it } from 'vitest';
 import { commandHistory } from '../../timeline/commands/command-store.svelte';
 import { timelineStore } from '../../timeline/stores/timeline-store.svelte';
-import type { MediaMetadata } from '../types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { MediaScene } from './types';
 import { insertSceneAtFrame } from './scene-insert';
 

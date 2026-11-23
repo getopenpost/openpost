@@ -14,10 +14,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
 	"github.com/openpost/backend/internal/api/middleware"
+	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/connectors"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
@@ -596,6 +599,9 @@ func (h *OAuthHandler) getProvider(platform, serverName string) (platform.Adapte
 		}
 		key := platform + ":" + serverName
 		adapter, ok := h.provider(key)
+		if !ok && !strings.Contains(serverName, "://") {
+			adapter, ok = h.provider(platform + ":https://" + strings.ToLower(serverName))
+		}
 		if !ok {
 			return nil, fmt.Errorf("unknown %s server: %s", platform, serverName)
 		}
@@ -690,20 +696,11 @@ func (h *OAuthHandler) isDynamicMastodonConfigured() bool {
 	return h.mastodonApps != nil
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
-}
-
 func selectedAccountInstanceURL(provider string, values ...string) string {
 	if provider == "discord" || provider == "instagram" {
 		return ""
 	}
-	return firstNonEmpty(values...)
+	return textutil.FirstNonEmpty(values...)
 }
 
 // fediverseCapabilityState records the detected server software alongside a
@@ -879,9 +876,9 @@ func providerInfoWithStatus(providers map[string]platform.Adapter, item Provider
 
 func compatProviderDisplayName(provider string) string {
 	if provider == pixelfedProvider {
-		return "Pixelfed"
+		return capabilities.ProviderDisplayName(pixelfedProvider)
 	}
-	return "Mastodon"
+	return capabilities.ProviderDisplayName(capabilities.ProviderMastodon)
 }
 
 func compatProviderAvailability(providers map[string]platform.Adapter, provider string, dynamicMastodonConfigured bool) []ProviderInfo {
@@ -1175,7 +1172,7 @@ func (h *OAuthHandler) generateProviderAuthURL(
 	}
 	state, err := h.oauthStates.Create(ctx, oauthstate.Payload{
 		UserID: userID, WorkspaceID: input.WorkspaceID, Platform: input.Platform,
-		ServerName: firstNonEmpty(serverNameForState, input.ServerName), ExecutionIntent: string(intent),
+		ServerName: textutil.FirstNonEmpty(serverNameForState, input.ServerName), ExecutionIntent: string(intent),
 	})
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to create oauth state")
@@ -1576,7 +1573,7 @@ func (h *OAuthHandler) saveAccountAndRedirect(
 	if platformName == "instagram" && instanceURL == platform.ConnectionModeInstagramLogin {
 		// The code exchange identifies the app-scoped authorization subject;
 		// /me.user_id identifies the professional destination used by Graph.
-		grantSubject = firstNonEmpty(firstNonEmptyTokenValue(tokenResp, "user_id"), accountID)
+		grantSubject = textutil.FirstNonEmpty(firstNonEmptyTokenValue(tokenResp, "user_id"), accountID)
 	}
 	if err := h.requireProviderConnectionCompletion(
 		ctx, platformName, instanceURL, executionIntent, userID,
@@ -1691,14 +1688,18 @@ func (h *OAuthHandler) exchangeCompatCode(ctx context.Context, provider string, 
 	if err := h.ensureCanStartAccountConnection(ctx, input.Body.WorkspaceID, userID); err != nil {
 		return nil, err
 	}
-	requestedInstance := strings.TrimRight(strings.TrimSpace(firstNonEmpty(
-		input.Body.InstanceURL, input.Body.ServerName,
-	)), "/")
+	serverName := strings.TrimRight(strings.TrimSpace(input.Body.ServerName), "/")
+	requestedInstance := textutil.FirstNonEmpty(strings.TrimRight(strings.TrimSpace(input.Body.InstanceURL), "/"), serverName)
+	if strings.TrimSpace(input.Body.InstanceURL) == "" {
+		if adapter, lookupErr := h.getProvider(provider, requestedInstance); lookupErr == nil {
+			requestedInstance = textutil.FirstNonEmpty(mastodonInstanceURL(adapter), requestedInstance)
+		}
+	}
 	if err := h.requireProviderConnection(ctx, provider, requestedInstance, intent); err != nil {
 		return nil, err
 	}
 
-	adapter, _, err := h.getCompatProvider(ctx, provider, input.Body.ServerName, input.Body.InstanceURL)
+	adapter, _, err := h.getCompatProvider(ctx, provider, serverName, input.Body.InstanceURL)
 	if err != nil {
 		return nil, huma.Error400BadRequest(err.Error())
 	}
@@ -1827,14 +1828,14 @@ func (h *OAuthHandler) BlueskyLogin(api huma.API) {
 		}
 		profile := &platform.UserProfile{
 			ID:       did,
-			Username: firstNonEmpty(handle, input.Body.Handle),
+			Username: textutil.FirstNonEmpty(handle, input.Body.Handle),
 		}
 		providerProfile, profileErr := loginAdapter.GetProfile(ctx, accessToken)
 		if profileErr != nil {
 			log.Printf("[BlueskyLogin] Profile unavailable after session creation: %v", profileErr)
 		} else if providerProfile != nil {
-			profile.ID = firstNonEmpty(providerProfile.ID, profile.ID)
-			profile.Username = firstNonEmpty(providerProfile.Username, profile.Username)
+			profile.ID = textutil.FirstNonEmpty(providerProfile.ID, profile.ID)
+			profile.Username = textutil.FirstNonEmpty(providerProfile.Username, profile.Username)
 			profile.DisplayName = providerProfile.DisplayName
 			profile.AvatarURL = providerProfile.AvatarURL
 			profile.CapabilityState = providerProfile.CapabilityState
@@ -1844,7 +1845,7 @@ func (h *OAuthHandler) BlueskyLogin(api huma.API) {
 		); err != nil {
 			return nil, err
 		}
-		accountID := firstNonEmpty(profile.ID, did)
+		accountID := textutil.FirstNonEmpty(profile.ID, did)
 		if providerKey := platform.AccountProviderKey("bluesky", pdsURL, ""); providerKey != "bluesky" {
 			h.registerProvider(providerKey, loginAdapter)
 		}
@@ -1855,7 +1856,7 @@ func (h *OAuthHandler) BlueskyLogin(api huma.API) {
 			PlatformName:     "bluesky",
 			WorkspaceID:      input.Body.WorkspaceID,
 			AccountID:        accountID,
-			AccountUsername:  firstNonEmpty(profile.Username, input.Body.Handle),
+			AccountUsername:  textutil.FirstNonEmpty(profile.Username, input.Body.Handle),
 			AccountAvatarURL: profile.AvatarURL,
 			InstanceURL:      pdsURL,
 			Token:            tokenResp,
@@ -1934,7 +1935,7 @@ func (h *OAuthHandler) DevNullLogin(api huma.API) {
 			PlatformName:     "devnull",
 			WorkspaceID:      input.Body.WorkspaceID,
 			AccountID:        profile.ID,
-			AccountUsername:  firstNonEmpty(profile.Username, input.Body.Username),
+			AccountUsername:  textutil.FirstNonEmpty(profile.Username, input.Body.Username),
 			AccountAvatarURL: profile.AvatarURL,
 			InstanceURL:      platform.DevNullDefaultBaseURL,
 			Token:            tokenResp,
@@ -2026,7 +2027,7 @@ func (h *OAuthHandler) fediverseLogin(ctx context.Context, provider string, body
 		PlatformName:     provider,
 		WorkspaceID:      body.Body.WorkspaceID,
 		AccountID:        profile.ID,
-		AccountUsername:  firstNonEmpty(profile.Username, body.Body.Username),
+		AccountUsername:  textutil.FirstNonEmpty(profile.Username, body.Body.Username),
 		AccountAvatarURL: profile.AvatarURL,
 		InstanceURL:      instanceURL,
 		Token:            tokenResp,
@@ -2235,7 +2236,7 @@ func (h *OAuthHandler) DiscordWebhookLogin(api huma.API) {
 			PlatformName:     "discord",
 			WorkspaceID:      input.Body.WorkspaceID,
 			AccountID:        profile.ID,
-			AccountUsername:  firstNonEmpty(profile.DisplayName, profile.Username),
+			AccountUsername:  textutil.FirstNonEmpty(profile.DisplayName, profile.Username),
 			AccountAvatarURL: profile.AvatarURL,
 			Token:            token,
 			CapabilityState:  profile.CapabilityState,
@@ -2912,7 +2913,7 @@ func (h *OAuthHandler) SetAccountAvatarStorage(storage mediastore.BlobStorage) {
 }
 
 func (h *OAuthHandler) updateAccountProfileMetadata(ctx context.Context, account models.SocialAccount, profile *platform.UserProfile) error {
-	username := strings.TrimSpace(firstNonEmpty(profile.Username, profile.DisplayName))
+	username := strings.TrimSpace(textutil.FirstNonEmpty(profile.Username, profile.DisplayName))
 	avatarURL := strings.TrimSpace(profile.AvatarURL)
 	if username == "" && avatarURL == "" {
 		return nil
@@ -3387,7 +3388,7 @@ func accountResponse(acc models.SocialAccount, disableLinkedInThreadReplies bool
 			fediverseSoftware = acc.Platform
 		}
 	}
-	accountKind := firstNonEmpty(
+	accountKind := textutil.FirstNonEmpty(
 		capabilityState["linkedin_account_type"],
 		capabilityState["instagram_account_type"],
 		capabilityState["connection_type"],

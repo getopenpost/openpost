@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mediaTaskId, mediaTasks } from '../../media-tasks.svelte';
-import type { MediaMetadata } from '../../types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type {
 	InterpolationWorkerRequest,
 	InterpolationWorkerResponse

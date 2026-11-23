@@ -82,12 +82,17 @@ import {
 	resolveLottieRenderSpec,
 	type LottieRenderSpec
 } from '../lottie/render-spec';
-import { saveRenderedExportArtifact } from './persist-rendered-export';
+import {
+	saveRenderedExportArtifact,
+	type RenderedExportArtifact,
+	type RenderExportResult
+} from './persist-rendered-export';
+export type { RenderedExportArtifact, RenderExportResult };
 import { assessSmartCopy } from './smart-copy-plan';
 import { smartCopy } from './smart-copy';
 import { applyCompositionControlOverrides } from '../sequences/composition-controls';
 import { ensureProResDecoderForCodec } from './prores-decoder';
-import { ensureAc3DecoderForCodec } from './ac3-decoder';
+import { ensureAc3DecoderForCodec } from '@openpost/editor-shared/media';
 import { mixAudioWindows } from '../audio/bounded-audio-mixer';
 import { RenderDisposalGate } from './render-disposal';
 import { ResilientVideoFrameDecoder } from './render-video-decoder';
@@ -110,19 +115,6 @@ export interface RenderExportOptions {
 	subtitleMode?: 'none' | 'burn' | 'sidecar' | 'embedded';
 	signal?: AbortSignal;
 	onProgress?: (progress: RenderExportProgress) => void;
-}
-
-export interface RenderExportResult {
-	fileName: string;
-	relPath: string;
-	blob: Blob;
-}
-
-export interface RenderedExportArtifact {
-	fileName: string;
-	blob: Blob;
-	sidecar?: { fileName: string; blob: Blob };
-	renderMethod?: 'smart-copy' | 'rendered';
 }
 
 export interface AudioExportOptions {

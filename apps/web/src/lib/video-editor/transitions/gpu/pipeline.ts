@@ -1,7 +1,7 @@
 /**
  * Ported from FreeCut (MIT) - src/infrastructure/gpu-transitions/transition-pipeline.ts
  */
-import { createLogger } from '$lib/video-editor/workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { TRANSITION_COMMON_WGSL } from './common';
 import type { GpuTransitionDefinition } from './types';
 import { getGpuTransition } from './registry';

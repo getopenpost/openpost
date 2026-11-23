@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 const (
@@ -132,7 +134,7 @@ func (p *PinterestAdapter) exchangeToken(ctx context.Context, values map[string]
 		RefreshToken:     response.RefreshToken,
 		ExpiresIn:        response.ExpiresIn,
 		RefreshExpiresIn: response.RefreshTokenExpiresIn,
-		TokenType:        firstNonEmptyString(response.TokenType, tokenTypeBearer),
+		TokenType:        textutil.FirstNonEmpty(response.TokenType, tokenTypeBearer),
 		Extra:            map[string]string{"scope": response.Scope},
 	}, nil
 }
@@ -174,7 +176,7 @@ func (p *PinterestAdapter) GetProfile(ctx context.Context, accessToken string) (
 	return &UserProfile{
 		ID:          account.Username,
 		Username:    account.Username,
-		DisplayName: firstNonEmptyString(account.BusinessName, account.Username),
+		DisplayName: textutil.FirstNonEmpty(account.BusinessName, account.Username),
 		AvatarURL:   account.ProfileImage,
 		CapabilityState: map[string]string{
 			"pinterest_account_type": account.AccountType,
@@ -727,7 +729,7 @@ func uploadPinterestVideo(ctx context.Context, session pinterestUploadSession, r
 		}
 		if writeErr == nil {
 			var part io.Writer
-			part, writeErr = writer.CreateFormFile("file", firstNonEmptyString(req.Filename, "video.mp4"))
+			part, writeErr = writer.CreateFormFile("file", textutil.FirstNonEmpty(req.Filename, "video.mp4"))
 			if writeErr == nil {
 				_, writeErr = io.Copy(part, reader)
 			}
@@ -1074,8 +1076,8 @@ func validatePinterestPublishMedia(req *PublishRequest) error {
 }
 
 func pinterestPinMetadata(req *PublishRequest) (string, string, string, string, *pinterestAIDisclosures, error) {
-	title := strings.TrimSpace(firstNonEmptyString(settingString(req.Settings, "pin_title"), req.Title))
-	description := strings.TrimSpace(firstNonEmptyString(req.Description, req.Content))
+	title := strings.TrimSpace(textutil.FirstNonEmpty(settingString(req.Settings, "pin_title"), req.Title))
+	description := strings.TrimSpace(textutil.FirstNonEmpty(req.Description, req.Content))
 	link := strings.TrimSpace(settingString(req.Settings, "destination_link"))
 	if utf8.RuneCountInString(title) > 100 {
 		return "", "", "", "", nil, fmt.Errorf("pinterest Pin title must be 100 characters or fewer")
@@ -1159,9 +1161,9 @@ func pinterestVideoPinPayload(req *PublishRequest) (map[string]any, error) {
 	if !pinterestSafeHTTPSURL(coverURL) {
 		return nil, fmt.Errorf("pinterest video Pin requires a public HTTPS cover image")
 	}
-	title := firstNonEmptyString(settingString(req.Settings, "pin_title"), req.Title)
-	description := firstNonEmptyString(strings.TrimSpace(req.Description), strings.TrimSpace(req.Content))
-	altText := firstNonEmptyString(settingString(req.Settings, "alt_text"), firstPinterestAltText(req.MediaAltTexts))
+	title := textutil.FirstNonEmpty(settingString(req.Settings, "pin_title"), req.Title)
+	description := textutil.FirstNonEmpty(strings.TrimSpace(req.Description), strings.TrimSpace(req.Content))
+	altText := textutil.FirstNonEmpty(settingString(req.Settings, "alt_text"), firstPinterestAltText(req.MediaAltTexts))
 	if utf8.RuneCountInString(title) > 100 {
 		return nil, fmt.Errorf("pinterest Pin title supports at most 100 characters")
 	}
@@ -1277,38 +1279,6 @@ func (p *PinterestAdapter) ReconcilePublish(ctx context.Context, accessToken, _ 
 	result.ProviderReference = pinterestPinReferencePrefix + pinID
 	result.ExternalURL = "https://www.pinterest.com/pin/" + pinID + "/"
 	return result, nil
-}
-
-func validatePinterestMedia(media []MediaItem) []MediaValidationIssue {
-	if len(media) == 0 {
-		return []MediaValidationIssue{{Provider: providerPinterest, Severity: severityError, Message: "Pinterest requires media."}}
-	}
-	videos := 0
-	issues := []MediaValidationIssue{}
-	for _, item := range media {
-		mimeType := strings.ToLower(strings.TrimSpace(item.MimeType))
-		if mimeType == "video/mp4" {
-			videos++
-			if item.Size > pinterestVideoMaxSize {
-				issues = append(issues, MediaValidationIssue{Provider: providerPinterest, MediaID: item.ID, Severity: severityError, Message: "Pinterest videos must not exceed 2 GiB."})
-			}
-			continue
-		}
-		if !pinterestImageMIME(mimeType) {
-			issues = append(issues, MediaValidationIssue{Provider: providerPinterest, MediaID: item.ID, Severity: severityError, Message: "Pinterest supports JPEG, PNG, WebP, or MP4 media."})
-			continue
-		}
-		if item.Size > 20*1024*1024 {
-			issues = append(issues, MediaValidationIssue{Provider: providerPinterest, MediaID: item.ID, Severity: severityError, Message: "Pinterest images must be 20MB or smaller."})
-		}
-	}
-	if videos > 0 && (videos != 1 || len(media) != 1) {
-		issues = append(issues, MediaValidationIssue{Provider: providerPinterest, Severity: severityError, Message: "Pinterest video Pins require exactly one video."})
-	}
-	if videos == 0 && len(media) > 5 {
-		issues = append(issues, MediaValidationIssue{Provider: providerPinterest, Severity: severityError, Message: "Pinterest supports at most five images."})
-	}
-	return issues
 }
 
 type pinterestBoard struct {
@@ -1434,7 +1404,7 @@ func pinterestBoardOptions(items []pinterestBoard) []DestinationOption {
 		if board.ID == "" {
 			continue
 		}
-		options = append(options, DestinationOption{Value: board.ID, Label: firstNonEmptyString(board.Name, board.ID)})
+		options = append(options, DestinationOption{Value: board.ID, Label: textutil.FirstNonEmpty(board.Name, board.ID)})
 	}
 	return options
 }
@@ -1445,7 +1415,7 @@ func pinterestSectionOptions(items []pinterestSection) []DestinationOption {
 		if section.ID == "" {
 			continue
 		}
-		options = append(options, DestinationOption{Value: section.ID, Label: firstNonEmptyString(section.Name, section.ID)})
+		options = append(options, DestinationOption{Value: section.ID, Label: textutil.FirstNonEmpty(section.Name, section.ID)})
 	}
 	return options
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { ProxyRequest, ProxyWorkerResponse } from './proxy-worker';
 import { mediaTaskId, mediaTasks } from './media-tasks.svelte';
 import { cachedProxy, clearProxyCache, getAutomaticProxy, getProxy } from './proxy-client';

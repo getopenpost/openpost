@@ -15,6 +15,7 @@ import (
 )
 
 func TestDiscordChannelRequirementAtComposerBoundary(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{"bot", "webhook"} {
 		for _, settings := range []string{`{}`, `{"channel_id":null}`, `{"channel_id":"  "}`, `{"channel_id":"channel-1"}`} {
 			t.Run(mode+settings, func(t *testing.T) {
@@ -62,6 +63,7 @@ func TestDiscordChannelRequirementAtComposerBoundary(t *testing.T) {
 }
 
 func TestDiscordPublicationValidationRequiresChannelWithoutProviderLookup(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{"bot", "webhook"} {
 		t.Run(mode, func(t *testing.T) {
 			db := createHandlerTestDB(t, (*models.Publication)(nil), (*models.SocialAccount)(nil), (*models.MediaAttachment)(nil), (*models.RenditionMedia)(nil))
@@ -79,6 +81,7 @@ func TestDiscordPublicationValidationRequiresChannelWithoutProviderLookup(t *tes
 }
 
 func TestTelegramComposerCompatibilityDoesNotDuplicateReadinessGate(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Workspace)(nil), (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil), (*models.MediaAttachment)(nil))
 	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws", Name: "Test"}).Exec(t.Context())
 	require.NoError(t, err)

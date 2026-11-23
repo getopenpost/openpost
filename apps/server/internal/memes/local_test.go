@@ -160,6 +160,7 @@ func TestBuiltinProviderReturnsSmallCacheableTemplateImages(t *testing.T) {
 }
 
 func TestBuiltinProviderRendersEveryCatalogTemplate(t *testing.T) {
+	t.Parallel()
 	provider, err := NewBuiltinProvider()
 	require.NoError(t, err)
 	catalog, err := provider.Templates(t.Context())

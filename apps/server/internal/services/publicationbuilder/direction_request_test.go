@@ -14,6 +14,7 @@ import (
 )
 
 func TestBuildPreservesAuthorDirectionAtProviderBoundary(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name         string
 		lockedFields []string
@@ -306,6 +307,7 @@ func (g *directionProbeGenerator) Generate(context.Context, ai.GenerateRequest) 
 }
 
 func TestBuildRejectsOversizedDirectionBeforeGeneration(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name      string
 		direction DirectionInput

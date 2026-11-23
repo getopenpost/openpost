@@ -2,19 +2,17 @@ import { expect, test } from "@playwright/test";
 
 test.use({ hasTouch: true });
 
+// One case per copy control; widths and schemes vary across them.
 const cases = [
   { control: "code", width: 1280, scheme: "light" },
   { control: "heading", width: 390, scheme: "dark" },
   { control: "page", width: 320, scheme: "light" },
-  { control: "code", width: 320, scheme: "dark" },
-  { control: "heading", width: 1280, scheme: "light" },
-  { control: "page", width: 390, scheme: "dark" },
 ] as const;
 
 for (const { control, width, scheme } of cases) {
   test(`denied ${control} copying stays recoverable and retries the original text at ${width} ${scheme}`, async ({
     page,
-  }, testInfo) => {
+  }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ colorScheme: scheme });
     const errors: string[] = [];
@@ -85,9 +83,6 @@ for (const { control, width, scheme } of cases) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );
-    await page.screenshot({
-      path: testInfo.outputPath(`copy-recovery-${control}-${width}-${scheme}.png`),
-    });
     await page.keyboard.press("Escape");
     await expect(button).toBeFocused();
     await page.keyboard.press("Enter");

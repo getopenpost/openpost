@@ -8,7 +8,7 @@ import { sequenceStore } from '../sequences/sequence-store.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { renderQueueStore } from '../export/render-queue-store';
 import ExportDialog from './export-dialog.svelte';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { renderVideoExport } from '../media/render-execution';
 import { loadProjectRenderQueue, saveProjectRenderQueue } from '../export/render-queue-persistence';
 

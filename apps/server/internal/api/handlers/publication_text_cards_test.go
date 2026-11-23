@@ -267,7 +267,7 @@ func TestTextCardWorkflowReplayKeepsExactDeliveryImage(t *testing.T) {
 	ctx := t.Context()
 	_, err := srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("platform = 'pixelfed'").Where("id = 'account-1'").Exec(ctx)
 	require.NoError(t, err)
-	app := srv.handler.publicationHandler().publicationApplicationForTesting()
+	app := srv.handler.publicationHandler().publicationApplication()
 	input := CreatePublicationBody{WorkspaceID: "ws-1", SourceText: "Created by a workflow", SocialAccountIDs: []string{"account-1"}}
 	request := idempotency.Request{PrincipalID: "workflow:run-1", WorkspaceID: "ws-1", OperationID: "create-publication", Key: "step-1", ExpiresAt: time.Now().Add(time.Hour)}
 	first, err := app.CreateFromWorkflow(ctx, "user-1", input, request)

@@ -1,16 +1,16 @@
 import { Unzip, UnzipInflate, UnzipPassThrough, type UnzipFile } from 'fflate';
 import { bytesToHex } from '@noble/hashes/utils';
 import { resolveMediaBlob } from '../media/resolve-media-blob';
-import type { MediaMetadata } from '../media/types';
-import { openBlobWriter, writeBlob } from '../workspace-fs/fs-primitives';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
+import { openBlobWriter, writeBlob } from '@openpost/editor-shared/workspace';
 import { createMedia, deleteMedia, getAllMedia } from '../workspace-fs/media';
 import {
 	mediaSourceByFileName,
 	projectThumbnailPath,
 	sanitizeWorkspaceFileName
-} from '../workspace-fs/paths';
+} from '@openpost/editor-shared/workspace';
 import { deleteProject } from '../workspace-fs/projects';
-import { requireWorkspaceRoot } from '../workspace-fs/root';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import {
 	PROJECT_BUNDLE_COVER_PATH,
 	PROJECT_BUNDLE_MANIFEST_PATH,
@@ -20,7 +20,7 @@ import {
 	type BundleMediaWriter,
 	type BundleProgress,
 	type ProjectBundleManifest
-} from './bundle-types';
+} from '@openpost/editor-shared/project-bundle';
 import {
 	createSha256,
 	hashBlob,
@@ -28,7 +28,7 @@ import {
 	sha256Hex,
 	throwIfBundleAborted,
 	validateBundleManifest
-} from './bundle-utils';
+} from '@openpost/editor-shared/project-bundle';
 import { importProjectSnapshot, type SnapshotImportOptions } from './snapshot-service';
 import type { JsonValue, ProjectSnapshot, SnapshotImportResult } from './snapshot-types';
 import { validateProjectSnapshot } from './snapshot-utils';

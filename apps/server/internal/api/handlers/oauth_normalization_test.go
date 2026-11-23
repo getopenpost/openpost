@@ -125,6 +125,7 @@ func (m *normMessagingAdapter) Publish(_ context.Context, _, _ string, _ *platfo
 }
 
 func TestBlueskyLoginUsesSessionIdentityWhenActorProfileIsUnavailable(t *testing.T) {
+	t.Parallel()
 	const pdsURL = "https://pds.example"
 
 	e, handler := newNormServer(t, map[string]platform.Adapter{
@@ -154,6 +155,7 @@ func TestBlueskyLoginUsesSessionIdentityWhenActorProfileIsUnavailable(t *testing
 }
 
 func TestOAuthProviderMapReturnsSnapshot(t *testing.T) {
+	t.Parallel()
 	adapter := platform.NewBlueskyAdapter("")
 	handler := NewOAuthHandler(nil, nil, map[string]platform.Adapter{"bluesky": adapter}, nil, false, "")
 	snapshot := handler.ProviderMap()
@@ -168,6 +170,7 @@ func TestOAuthProviderMapReturnsSnapshot(t *testing.T) {
 
 // A hostile PDS must not be able to claim a DID the handle does not resolve to.
 func TestBlueskyLoginRejectsPDSAssertingAnotherDID(t *testing.T) {
+	t.Parallel()
 	const pdsURL = "https://pds.example"
 
 	e, handler := newNormServer(t, map[string]platform.Adapter{"bluesky": platform.NewBlueskyAdapter("https://bsky.social")})
@@ -195,6 +198,7 @@ func TestBlueskyLoginRejectsPDSAssertingAnotherDID(t *testing.T) {
 // A resolution failure must fail the login instead of falling back to the
 // configured PDS, which may not hold the account's repository.
 func TestBlueskyLoginFailsWhenPDSResolutionErrors(t *testing.T) {
+	t.Parallel()
 	e, handler := newNormServer(t, map[string]platform.Adapter{"bluesky": platform.NewBlueskyAdapter("https://bsky.social")})
 	handler.setBlueskyPDSResolver(func(context.Context, string) (string, string, error) {
 		return "", "", errors.New("plc.directory is unreachable")
@@ -243,4 +247,33 @@ func (a *loginSessionFixture) CreateSession(context.Context, string, string) (st
 }
 func (a *loginSessionFixture) GetProfile(context.Context, string) (*platform.UserProfile, error) {
 	return nil, errors.New("profile unavailable")
+}
+
+func TestLegacyMessagingUpdateAcceptsNullCapabilityState(t *testing.T) {
+	t.Parallel()
+	for _, state := range []string{"null", "{}", `{"custom":"preserved"}`} {
+		t.Run(state, func(t *testing.T) {
+			e, handler := newNormServer(t, nil)
+			handler.SetAccountFeaturesService(nil)
+			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+			handler.UpdateAccount(api)
+			_, err := handler.db.NewInsert().Model(&models.SocialAccount{
+				ID: "account-null", WorkspaceID: "ws-1", Platform: "facebook", AccountID: "page-1",
+				Slug: "facebook", AccessTokenEnc: []byte("test-token"), IsActive: true, CapabilityState: state,
+			}).Exec(t.Context())
+			require.NoError(t, err)
+			require.NotPanics(t, func() {
+				response := oauthSelectionRequest(t, e, http.MethodPatch, "/api/v1/accounts/account-null", map[string]any{"slug": "facebook", "messages_enabled": false}, true)
+				require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			})
+			var account models.SocialAccount
+			require.NoError(t, handler.db.NewSelect().Model(&account).Where("id = ?", "account-null").Scan(t.Context()))
+			var saved map[string]string
+			require.NoError(t, json.Unmarshal([]byte(account.CapabilityState), &saved))
+			require.Equal(t, "false", saved["messages_enabled"])
+			if state != "null" && state != "{}" {
+				require.Equal(t, "preserved", saved["custom"])
+			}
+		})
+	}
 }

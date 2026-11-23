@@ -1,6 +1,10 @@
 import { TranscriptionBridge } from './bridge';
 import { DEFAULT_TRANSCRIPTION_MODEL, resolveTranscriptionEngine } from './models';
-import type { ResolvedTranscriptionEngine, TranscriptSegment, TranscribeOptions } from './types';
+import type {
+	ResolvedTranscriptionEngine,
+	TranscriptSegment,
+	TranscribeOptions
+} from '@openpost/editor-shared/transcript';
 
 export class BrowserTranscriber {
 	private readonly defaults: TranscribeOptions;

@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 const (
@@ -270,7 +272,7 @@ func resultFromProbe(probe probeOutput) (Result, float64, error) {
 			ContainerFormat: strings.Split(probe.Format.FormatName, ",")[0],
 			AudioCodec:      audioStream.CodecName,
 			AudioChannels:   audioStream.Channels,
-			BitRate:         parsePositiveInt64(firstNonEmpty(audioStream.BitRate, probe.Format.BitRate)),
+			BitRate:         parsePositiveInt64(textutil.FirstNonEmpty(audioStream.BitRate, probe.Format.BitRate)),
 			AnalysisStatus:  AnalysisStatusReady,
 			DominantType:    "audio",
 		}, durationSeconds, nil
@@ -290,8 +292,8 @@ func resultFromProbe(probe probeOutput) (Result, float64, error) {
 		VideoProfile:    videoStream.Profile,
 		AudioCodec:      audioCodec,
 		PixelFormat:     videoStream.PixelFormat,
-		ColorSpace:      firstNonEmpty(videoStream.ColorSpace, videoStream.ColorPrimaries, videoStream.ColorTransfer),
-		BitRate:         parsePositiveInt64(firstNonEmpty(videoStream.BitRate, probe.Format.BitRate)),
+		ColorSpace:      textutil.FirstNonEmpty(videoStream.ColorSpace, videoStream.ColorPrimaries, videoStream.ColorTransfer),
+		BitRate:         parsePositiveInt64(textutil.FirstNonEmpty(videoStream.BitRate, probe.Format.BitRate)),
 		Rotation:        streamRotation(videoStream.Tags.Rotate, videoStream.SideData),
 		AudioChannels:   audioChannels,
 		AnalysisStatus:  AnalysisStatusReady,
@@ -394,15 +396,6 @@ func (a FFmpegAnalyzer) renderPoster(ctx context.Context, filename string, durat
 		return nil, errors.New("poster generation returned no image")
 	}
 	return poster, nil
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }
 
 func parsePositiveFloat(value string) float64 {

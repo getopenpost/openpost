@@ -1,10 +1,10 @@
-import { createLogger } from '../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { editorSession } from '../editor.svelte';
 import { importRecordedAudio } from '../media/import.svelte';
 import { insertVoiceoverOnNewTrack } from '../local-ai/insert-generated-audio';
 import { previewPlaybackSettings } from '../preview/playback-settings.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
-import type { ProjectAssetImporter } from '../media/types';
+import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 import {
 	MicRecorder,
 	createBestEffortAudioContext,

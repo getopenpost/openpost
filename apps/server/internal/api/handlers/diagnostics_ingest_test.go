@@ -45,6 +45,7 @@ func ingestTestBody(t *testing.T) []byte {
 }
 
 func TestIngestHandlerDisabledWithoutReceiver(t *testing.T) {
+	t.Parallel()
 	e := newIngestTestAPI(diagnostics.NewIngester(diagnostics.IngestConfig{}))
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/diagnostics/ingest", bytes.NewReader(ingestTestBody(t)))
 	request.Header.Set("Content-Type", "application/json")
@@ -54,6 +55,7 @@ func TestIngestHandlerDisabledWithoutReceiver(t *testing.T) {
 }
 
 func TestIngestHandlerAcceptsAnonymousValidReport(t *testing.T) {
+	t.Parallel()
 	e := newIngestTestAPI(diagnostics.NewIngester(diagnostics.IngestConfig{
 		Enabled:           true,
 		DiscordWebhookURL: "https://discord.example/hooks",
@@ -67,6 +69,7 @@ func TestIngestHandlerAcceptsAnonymousValidReport(t *testing.T) {
 }
 
 func TestIngestHandlerRejectsInvalidReport(t *testing.T) {
+	t.Parallel()
 	e := newIngestTestAPI(diagnostics.NewIngester(diagnostics.IngestConfig{
 		Enabled:           true,
 		DiscordWebhookURL: "https://discord.example/hooks",
@@ -86,6 +89,7 @@ func TestIngestHandlerRejectsInvalidReport(t *testing.T) {
 }
 
 func TestIngestHandlerForwardsDiagnosticContext(t *testing.T) {
+	t.Parallel()
 	received := make(chan string, 1)
 	webhook := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var payload map[string]any
@@ -124,6 +128,7 @@ func TestIngestHandlerForwardsDiagnosticContext(t *testing.T) {
 }
 
 func TestIngestHandlerEnforcesQuota(t *testing.T) {
+	t.Parallel()
 	e := newIngestTestAPI(diagnostics.NewIngester(diagnostics.IngestConfig{
 		Enabled:           true,
 		DiscordWebhookURL: "https://discord.example/hooks",

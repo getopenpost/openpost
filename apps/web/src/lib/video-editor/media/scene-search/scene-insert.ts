@@ -5,7 +5,7 @@ import { execute } from '../../timeline/commands/command-store.svelte';
 import { timelineStore } from '../../timeline/stores/timeline-store.svelte';
 import { trackRangeIsOpen } from '../../timeline/track-occupancy';
 import { effectiveMediaTracks } from '../../timeline/utils/track-groups';
-import type { MediaMetadata } from '../types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { MediaScene } from './types';
 import { m } from '$lib/paraglide/messages';
 import { insertMediaAtFrame } from '../../timeline/actions/insert-media';

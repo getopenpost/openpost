@@ -1,4 +1,4 @@
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { SubComposition, TimelineItem, TimelineTrack } from '../project/types';
 import { effectiveTrackState, isTrackGroup } from '../timeline/utils/track-groups';
 import { exclusivelyOccupiesTrack, timelineRangesOverlap } from '../timeline/track-occupancy';

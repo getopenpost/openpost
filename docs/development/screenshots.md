@@ -3,7 +3,7 @@
 Canonical product images live in `assets/screenshots/` and are embedded by user
 guides and marketing surfaces. They are captured deterministically (seeded
 fixtures, fixed clock, 1440×960 at 2x, dark and light) by
-`tests/app/product-screenshots.spec.ts`.
+`tests/capture/product-screenshots.spec.ts`.
 
 ## Refreshing after a UI change
 

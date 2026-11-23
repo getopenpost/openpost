@@ -7,7 +7,7 @@ import { sequenceStore } from '../sequences/sequence-store.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { createTrackGroup } from '../timeline/actions/tracks';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { createProject, getProject } from '../workspace-fs/projects';
 import { WebThemeRuntime } from '$lib/themes/runtime';
 import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins';

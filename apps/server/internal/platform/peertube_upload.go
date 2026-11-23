@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 // peertubeUploadChunkSize bounds each resumable PUT so interrupted workers
@@ -154,7 +156,7 @@ func spoolPeerTubeMedia(req *UploadMediaRequest) (func(), error) {
 }
 
 func peertubeUploadMetadata(req UploadMediaRequest, channelID int64) (map[string]any, error) {
-	title := strings.TrimSpace(firstNonEmptyString(req.Title, settingString(req.Settings, "title")))
+	title := strings.TrimSpace(textutil.FirstNonEmpty(req.Title, settingString(req.Settings, "title")))
 	if title == "" {
 		return nil, fmt.Errorf("peertube upload requires an explicit title")
 	}
@@ -166,12 +168,12 @@ func peertubeUploadMetadata(req UploadMediaRequest, channelID int64) (map[string
 		return nil, err
 	}
 	metadata := map[string]any{
-		"filename":  firstNonEmptyString(req.Filename, "video.mp4"),
+		"filename":  textutil.FirstNonEmpty(req.Filename, "video.mp4"),
 		"name":      title,
 		"channelId": channelID,
 		"privacy":   privacy,
 	}
-	if description := strings.TrimSpace(firstNonEmptyString(req.Description, settingString(req.Settings, "description"))); description != "" {
+	if description := strings.TrimSpace(textutil.FirstNonEmpty(req.Description, settingString(req.Settings, "description"))); description != "" {
 		metadata["description"] = description
 	}
 	if language := settingString(req.Settings, "language"); language != "" {
@@ -330,7 +332,7 @@ func (p *PeerTubeAdapter) runPeerTubeUploadWithCheckpoint(
 	session peertubeUploadSession,
 	checkpoint MediaUploadCheckpoint,
 ) (string, error) {
-	mimeType := firstNonEmptyString(req.MimeType, videoTypeMP4)
+	mimeType := textutil.FirstNonEmpty(req.MimeType, videoTypeMP4)
 	if session.UploadURL == "" {
 		if err := checkUploadWrite(ctx, req); err != nil {
 			return "", err
@@ -575,7 +577,7 @@ func (p *PeerTubeAdapter) finalizePeerTubeCaption(ctx context.Context, accessTok
 		if err := checkUploadWrite(ctx, req); err != nil {
 			return err
 		}
-		language := firstNonEmptyString(settingString(req.Settings, "caption_language"), "en")
+		language := textutil.FirstNonEmpty(settingString(req.Settings, "caption_language"), "en")
 		if err := p.uploadPeerTubeCaption(ctx, accessToken, uuid, language, caption, req); err != nil {
 			return err
 		}
@@ -597,7 +599,7 @@ func checkpointPeerTubeFinalization(session peertubeUploadSession, state *Resuma
 func (p *PeerTubeAdapter) uploadPeerTubeThumbnail(ctx context.Context, accessToken, uuid string, thumbnail []byte, req UploadMediaRequest) error {
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
-	part, err := writer.CreateFormFile("thumbnailfile", firstNonEmptyString(req.ThumbnailFilename, "thumbnail.jpg"))
+	part, err := writer.CreateFormFile("thumbnailfile", textutil.FirstNonEmpty(req.ThumbnailFilename, "thumbnail.jpg"))
 	if err != nil {
 		return fmt.Errorf("building peertube thumbnail upload: %w", err)
 	}
@@ -625,7 +627,7 @@ func (p *PeerTubeAdapter) uploadPeerTubeCaption(ctx context.Context, accessToken
 	if err := writer.WriteField("language", language); err != nil {
 		return fmt.Errorf("building peertube caption upload: %w", err)
 	}
-	part, err := writer.CreateFormFile("captionfile", firstNonEmptyString(req.CaptionFilename, "captions.vtt"))
+	part, err := writer.CreateFormFile("captionfile", textutil.FirstNonEmpty(req.CaptionFilename, "captions.vtt"))
 	if err != nil {
 		return fmt.Errorf("building peertube caption upload: %w", err)
 	}

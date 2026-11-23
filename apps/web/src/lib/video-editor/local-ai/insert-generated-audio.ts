@@ -1,4 +1,4 @@
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { TimelineItem, TimelineTrack } from '../project/types';
 import { execute, executeAtomic } from '../timeline/commands/command-store.svelte';
 import { linkItems } from '../timeline/actions/items';

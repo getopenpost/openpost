@@ -55,7 +55,7 @@ func TestPublicationApplicationReplaysEnqueueActionsWithoutCreatingAnotherJob(t 
 				OperationID: test.operationID, Key: "upstream-event-42",
 				ExpiresAt: time.Now().UTC().Add(time.Hour),
 			}
-			commands := handler.publicationApplicationForTesting()
+			commands := handler.publicationApplication()
 			var first, replay publicationEnqueueResult
 			var replayed bool
 			if test.scheduled {
@@ -175,7 +175,7 @@ func TestPublicationApplicationUsesOneMutationTimestamp(t *testing.T) {
 	srv := newMCPTestServer(t)
 	ctx := context.Background()
 	handler := srv.handler.publicationHandler()
-	application := handler.publicationApplicationForTesting()
+	application := handler.publicationApplication()
 	createdAt := time.Date(2026, time.August, 9, 8, 0, 0, 0, time.UTC)
 	application.now = func() time.Time { return createdAt }
 	publication, err := application.Create(ctx, "user-1", CreatePublicationBody{
@@ -381,6 +381,7 @@ func TestPublicationApplicationCancelsScheduledWork(t *testing.T) {
 }
 
 func TestConcurrentFirstPublicationsRecordOneWorkspaceActivation(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t,
 		(*models.User)(nil), (*models.Workspace)(nil), (*models.WorkspaceMember)(nil),
 		(*models.SocialAccount)(nil), (*models.Publication)(nil), (*models.Rendition)(nil),
@@ -571,6 +572,7 @@ func assertPublicationStateParity(t *testing.T, srv *mcpTestServer, restID, mcpI
 }
 
 func TestSchedulingRechecksQuotaInsideQueueTransaction(t *testing.T) {
+	t.Parallel()
 	srv := newMCPTestServer(t)
 	createIdempotencyRecordTable(t, srv.db)
 	handler := srv.handler.publicationHandler()
@@ -582,7 +584,7 @@ func TestSchedulingRechecksQuotaInsideQueueTransaction(t *testing.T) {
 		_, err := handler.usage.IncrementMonthly(ctx, "ws-1", entitlements.LimitScheduledPostsMonthly, 1, scheduledAt)
 		return err
 	}
-	result, _, err := handler.publicationApplicationForTesting().ScheduleIdempotent(t.Context(), "user-1", publication.ID, 1, providerreadiness.ExecutionIntentProduction, idempotency.Request{PrincipalID: "token:quota", WorkspaceID: "ws-1", OperationID: "schedule-publication", Key: "last-slot", ExpiresAt: time.Now().Add(time.Hour)})
+	result, _, err := handler.publicationApplication().ScheduleIdempotent(t.Context(), "user-1", publication.ID, 1, providerreadiness.ExecutionIntentProduction, idempotency.Request{PrincipalID: "token:quota", WorkspaceID: "ws-1", OperationID: "schedule-publication", Key: "last-slot", ExpiresAt: time.Now().Add(time.Hour)})
 	require.Error(t, err)
 	require.Empty(t, result.JobID)
 	count, err := srv.db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", publication.ID).Count(t.Context())

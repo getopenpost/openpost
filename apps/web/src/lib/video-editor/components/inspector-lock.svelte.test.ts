@@ -5,7 +5,7 @@ import { m } from '$lib/paraglide/messages';
 import { createBlankProject } from '../project/defaults';
 import type { Project, TimelineTrack } from '../project/types';
 import { createProject, getProject } from '../workspace-fs/projects';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
 import { commandHistory } from '../timeline/commands/command-store.svelte';

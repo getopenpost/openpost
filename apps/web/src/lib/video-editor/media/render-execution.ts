@@ -1,3 +1,4 @@
+import { ignoreAsyncCleanupError, ignoreCleanupError } from '$lib/cleanup';
 import { isProfilingEnabled, startProfileSpan } from '$lib/performance/profiling';
 import type { Project } from '../project/types';
 import { exportStorageRoot } from '../workspace-fs/export-storage';
@@ -17,7 +18,7 @@ import type {
 	WorkerImageSequenceExportOptions,
 	WorkerVideoExportOptions
 } from './render-export-worker.types';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { ImageSequenceExportOptions, ImageSequenceResult } from './image-sequence-export';
 
 export interface RenderExecutionOutcome {
@@ -367,46 +368,36 @@ async function renderImageSequenceInWorker(
 			await activeWrite.catch(() => undefined);
 			if (workspaceAllocation) {
 				const root = workspaceRoot;
-				const { listDirectory, removeEntry } = await import('../workspace-fs/fs-primitives');
+				const { listDirectory, removeEntry } = await import('@openpost/editor-shared/workspace');
 				for (const fileName of writtenFiles) {
-					try {
-						await removeEntry(root, [...workspaceAllocation.dirSegments, fileName]);
-					} catch {
-						// The export owns this unique directory; cleanup remains best-effort.
-					}
+					await ignoreAsyncCleanupError(() =>
+						removeEntry(root, [...workspaceAllocation.dirSegments, fileName])
+					);
 				}
-				try {
+				await ignoreAsyncCleanupError(async () => {
 					if ((await listDirectory(root, workspaceAllocation.dirSegments)).length === 0) {
 						await removeEntry(root, workspaceAllocation.dirSegments);
 					}
-				} catch {
-					// Preserve the render error when empty-directory cleanup fails.
-				}
+				});
 				return;
 			}
 			if (externalAllocation && directoryDestination) {
 				for (const fileName of writtenFiles) {
-					try {
-						await externalAllocation.directoryHandle.removeEntry(fileName);
-					} catch {
-						// The export owns this unique directory; cleanup remains best-effort.
-					}
+					await ignoreAsyncCleanupError(() =>
+						externalAllocation.directoryHandle.removeEntry(fileName)
+					);
 				}
-				try {
-					await directoryDestination.removeEntry(externalAllocation.directoryName);
-				} catch {
-					// Preserve the render error when empty-directory cleanup fails.
-				}
+				await ignoreAsyncCleanupError(() =>
+					directoryDestination.removeEntry(externalAllocation.directoryName)
+				);
 			}
 		};
 		const failWithCleanup = (error: Error): void => {
 			if (settled || finalizing) return;
 			finalizing = true;
-			try {
-				worker.postMessage({ type: 'cancel', requestId } satisfies RenderExportWorkerRequest);
-			} catch {
-				// Termination after cleanup is the authoritative cancellation path.
-			}
+			ignoreCleanupError(() =>
+				worker.postMessage({ type: 'cancel', requestId } satisfies RenderExportWorkerRequest)
+			);
 			void cleanupOwnedOutput().finally(() => {
 				if (settled) return;
 				settled = true;
@@ -436,15 +427,11 @@ async function renderImageSequenceInWorker(
 						await writable.write(frame.blob);
 						await writable.close();
 					} catch (error) {
-						try {
-							await writable.abort();
-						} catch {
-							// The original write error is more useful than an abort failure.
-						}
+						await ignoreAsyncCleanupError(() => writable.abort());
 						throw error;
 					}
 				} else if (workspaceAllocation) {
-					const { writeBlob } = await import('../workspace-fs/fs-primitives');
+					const { writeBlob } = await import('@openpost/editor-shared/workspace');
 					const root = workspaceRoot;
 					await writeBlob(root, [...workspaceAllocation.dirSegments, frame.fileName], frame.blob);
 				} else {

@@ -1,4 +1,4 @@
-import { createLogger } from '../../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { fetchOnnxModelBytes, fetchOnnxModelText } from '../../transcript/engine/onnx-model-cache';
 import { sanitizeAiOutputFileNameSegment } from '../output-file-name';
 import type { GeneratedAudio, LocalGenerationProgress } from '../types';

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/netguard"
 )
 
@@ -83,7 +85,7 @@ func (m *MastodonAdapter) messageStreamOrigin(ctx context.Context) (string, erro
 		if json.Unmarshal(body, &info) != nil {
 			return "", errors.New("invalid Mastodon instance metadata")
 		}
-		if raw := firstNonEmptyString(info.Configuration.URLs.Streaming, info.URLs.StreamingAPI); raw != "" {
+		if raw := textutil.FirstNonEmpty(info.Configuration.URLs.Streaming, info.URLs.StreamingAPI); raw != "" {
 			return raw, nil
 		}
 	}

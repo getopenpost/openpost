@@ -158,6 +158,7 @@ func (f *resumableStorageFixture) UploadMediaResumable(_ context.Context, _ stri
 }
 
 func TestResumableUploadReadsStoredMediaAtRequestedOffsets(t *testing.T) {
+	t.Parallel()
 	const chunkSize = 8 * 1024 * 1024
 	media := bytes.Repeat([]byte("v"), chunkSize+1)
 	storage := &rangedPublisherStorage{fakePublisherStorage: &fakePublisherStorage{}, content: media}
@@ -195,6 +196,7 @@ func (c *capturingDirectPublisher) PublishWithMedia(_ context.Context, _, _ stri
 }
 
 func TestPublishProviderPassesVideoSizeToDirectMediaPublisher(t *testing.T) {
+	t.Parallel()
 	provider := &capturingDirectPublisher{}
 	service := &Service{storage: &fakePublisherStorage{body: "fixture-video"}}
 
@@ -211,6 +213,7 @@ func TestPublishProviderPassesVideoSizeToDirectMediaPublisher(t *testing.T) {
 }
 
 func TestRenditionUploadRequestPreservesVideoMetadata(t *testing.T) {
+	t.Parallel()
 	for _, openReader := range []bool{true, false} {
 		service := &Service{storage: &fakePublisherStorage{body: "video"}}
 		req, closeReaders, err := service.renditionUploadRequest(t.Context(), &models.Rendition{}, models.MediaAttachment{
@@ -226,6 +229,7 @@ func TestRenditionUploadRequestPreservesVideoMetadata(t *testing.T) {
 }
 
 func TestPublicationPublishingPreservesAnalyzedMediaMetadata(t *testing.T) {
+	t.Parallel()
 	for _, segmented := range []bool{false, true} {
 		name := "post"
 		if segmented {

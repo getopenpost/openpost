@@ -24,6 +24,7 @@ func (f postBuilderFunc) Build(ctx context.Context, input postgeneration.Input) 
 }
 
 func TestGeneratePostUsesOnlyActiveAccountsFromEditableWorkspace(t *testing.T) {
+	t.Parallel()
 	server := newPostBuilderTestServer(t, postBuilderFunc(func(_ context.Context, input postgeneration.Input) (postgeneration.Result, error) {
 		require.Equal(t, "Shipped offline drafts", input.Idea)
 		require.Equal(t, []postgeneration.Destination{
@@ -46,6 +47,7 @@ func TestGeneratePostUsesOnlyActiveAccountsFromEditableWorkspace(t *testing.T) {
 }
 
 func TestGeneratePostRejectsAccountFromAnotherWorkspaceBeforeGeneration(t *testing.T) {
+	t.Parallel()
 	called := false
 	server := newPostBuilderTestServer(t, postBuilderFunc(func(_ context.Context, _ postgeneration.Input) (postgeneration.Result, error) {
 		called = true
@@ -58,6 +60,7 @@ func TestGeneratePostRejectsAccountFromAnotherWorkspaceBeforeGeneration(t *testi
 }
 
 func TestGeneratePostReportsWhenAIIsNotConfigured(t *testing.T) {
+	t.Parallel()
 	server := newPostBuilderTestServer(t, nil)
 	response := server.request(t, []string{"account-x"})
 	require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
@@ -129,6 +132,7 @@ func (s *postBuilderTestServer) shorten(t *testing.T, workspaceID string) *httpt
 }
 
 func TestShortenPostChecksWorkspaceEditAccessBeforeGeneration(t *testing.T) {
+	t.Parallel()
 	stub := &shortenStub{}
 	server := newPostBuilderTestServer(t, stub)
 

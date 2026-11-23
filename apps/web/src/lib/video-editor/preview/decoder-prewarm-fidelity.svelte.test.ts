@@ -5,7 +5,7 @@ import {
 	clonePrewarmedPreviewFrame,
 	prewarmPreviewFrame
 } from './decoder-prewarm-client';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 
 afterEach(clearPreviewDecoderPrewarm);
 

@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/automationcatalog"
@@ -295,7 +297,7 @@ func (s *CompositeService) AuthenticateBearer(ctx context.Context, token string)
 		Scope:           apiPrincipal.Scope,
 		WorkspaceID:     apiPrincipal.WorkspaceID,
 		Audience:        apiPrincipal.Audience,
-		ClientID:        firstNonEmpty(apiPrincipal.ClientID, apiPrincipal.TokenID),
+		ClientID:        textutil.FirstNonEmpty(apiPrincipal.ClientID, apiPrincipal.TokenID),
 		TokenID:         apiPrincipal.TokenID,
 		ClientName:      apiPrincipal.TokenName,
 		TokenPrefix:     apiPrincipal.TokenPrefix,
@@ -511,15 +513,6 @@ func RequestMetadataMiddleware() func(ctx huma.Context, next func(huma.Context))
 func IsSecureRequest(ctx context.Context) bool {
 	secure, _ := ctx.Value(SecureKey).(bool)
 	return secure
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }
 
 func JWTMiddleware(authService *auth.Service) echo.MiddlewareFunc {

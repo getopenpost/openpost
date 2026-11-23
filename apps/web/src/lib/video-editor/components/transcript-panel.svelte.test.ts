@@ -7,7 +7,7 @@ import { planTrimGesture } from '../timeline/edit-gesture';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { createBlankProject, createDefaultTracks } from '../project/defaults';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { createProject, getProject } from '../workspace-fs/projects';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 import TranscriptPanel from './transcript-panel.svelte';

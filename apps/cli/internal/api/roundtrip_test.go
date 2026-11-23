@@ -359,6 +359,7 @@ const fullPublicationFixture = `{
 }`
 
 func TestPublicationJSONProjectionMatchesOpenAPI(t *testing.T) {
+	t.Parallel()
 	var pub Publication
 	out := assertFaithfulProjection(t, "PublicationResponse", fullPublicationFixture, &pub)
 
@@ -387,6 +388,7 @@ func TestPublicationJSONProjectionMatchesOpenAPI(t *testing.T) {
 }
 
 func TestWorkspaceJSONProjectionMatchesOpenAPI(t *testing.T) {
+	t.Parallel()
 	const fixture = `{
 		"id": "ws_1",
 		"organization_id": "org_1",
@@ -411,6 +413,7 @@ func TestWorkspaceJSONProjectionMatchesOpenAPI(t *testing.T) {
 }
 
 func TestSocialAccountJSONProjectionMatchesOpenAPI(t *testing.T) {
+	t.Parallel()
 	const fixture = `{
 		"id": "acc_1",
 		"slug": "main-x",
@@ -437,6 +440,7 @@ func TestSocialAccountJSONProjectionMatchesOpenAPI(t *testing.T) {
 }
 
 func TestJobJSONProjectionMatchesOpenAPI(t *testing.T) {
+	t.Parallel()
 	const fixture = `{
 		"id": "job_1",
 		"type": "publish",

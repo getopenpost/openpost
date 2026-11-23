@@ -2,16 +2,12 @@ package queue
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
@@ -23,9 +19,9 @@ import (
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/telemetry"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 type stubStorage struct{}
@@ -64,16 +60,9 @@ func (*emptyReader) Read([]byte) (int, error) { return 0, io.EOF }
 func createTestDB(t *testing.T) *bun.DB {
 	t.Helper()
 
-	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
-	require.NoError(t, err)
-
-	db := bun.NewDB(sqldb, sqlitedialect.New())
-	for _, model := range []interface{}{(*models.Organization)(nil), (*models.Workspace)(nil), (*models.OAuthGrant)(nil), (*models.SocialAccount)(nil), (*models.Publication)(nil), (*publicationbuilder.BuildRecord)(nil), (*models.Job)(nil), (*models.ProviderWriteAttempt)(nil)} {
-		_, err = db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
-		require.NoError(t, err)
-	}
+	db := testdb.NewSQLiteBase(t, (*publicationbuilder.BuildRecord)(nil))
 	now := time.Now().UTC()
-	_, err = db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Queue", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
+	_, err := db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Queue", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&[]models.Workspace{
 		{ID: "workspace-1", OrganizationID: "organization-1", Name: "One", CreatedAt: now},
@@ -82,7 +71,6 @@ func createTestDB(t *testing.T) *bun.DB {
 	}).Exec(t.Context())
 	require.NoError(t, err)
 	require.NoError(t, jobregistry.EnsureActiveDedupeIndex(context.Background(), db))
-
 	return db
 }
 
@@ -510,10 +498,7 @@ func (reviewRecoveryGate) IsEffectiveEnabled(context.Context, string, string) (b
 	return true, nil
 }
 func TestReviewReplyCrashRecoveryKeepsItsDurableIntent(t *testing.T) {
-	db, err := database.InitDBWithDriver("sqlite", "file:review-recovery-"+t.Name()+"?mode=memory&cache=shared")
-	require.NoError(t, err)
-	defer db.Close()
-	require.NoError(t, database.CreateSchema(db))
+	db := testdb.NewSQLite(t)
 	for _, row := range []any{
 		&models.User{ID: "u", Email: "review-recovery@example.test"},
 		&models.Organization{ID: "o", Name: "Org", CreatedByID: "u"},
@@ -522,7 +507,7 @@ func TestReviewReplyCrashRecoveryKeepsItsDurableIntent(t *testing.T) {
 		&models.SocialAccount{ID: "a", WorkspaceID: "w", Slug: "reviews", Platform: "googlebusiness", AccountID: "accounts/1/locations/2", AccessTokenEnc: []byte("synthetic"), IsActive: true},
 		&models.EngagementItem{ID: "review", WorkspaceID: "w", SocialAccountID: "a", Platform: "googlebusiness", RemoteID: "accounts/1/locations/2/reviews/3", Kind: "review", CanReply: true, SubjectJSON: `{"kind":"review","remote_id":"accounts/1/locations/2/reviews/3","review":{"anonymous":true}}`, LastSeenAt: time.Now().UTC()},
 	} {
-		_, err = db.NewInsert().Model(row).Exec(t.Context())
+		_, err := db.NewInsert().Model(row).Exec(t.Context())
 		require.NoError(t, err)
 	}
 	service := engagement.NewService(db, nil, nil)

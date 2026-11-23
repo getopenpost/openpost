@@ -1,6 +1,6 @@
 import { unzipSync, zipSync } from 'fflate';
 import { describe, expect, it, vi } from 'vitest';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { createBlankProject } from '../project/defaults';
 import type { Project } from '../project/types';
 import {
@@ -8,10 +8,10 @@ import {
 	type BundleMediaWriter,
 	type BundleOutput,
 	type ProjectBundleManifest
-} from './bundle-types';
+} from '@openpost/editor-shared/project-bundle';
 import { createBundleExportService, type BundleExportRuntime } from './bundle-export';
 import { createBundleImportService, type BundleImportRuntime } from './bundle-import';
-import { computeBundleManifestChecksum } from './bundle-utils';
+import { computeBundleManifestChecksum } from '@openpost/editor-shared/project-bundle';
 import { PROJECT_SNAPSHOT_VERSION, type ProjectSnapshot } from './snapshot-types';
 import { computeSnapshotChecksum } from './snapshot-utils';
 

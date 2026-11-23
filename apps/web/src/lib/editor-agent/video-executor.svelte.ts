@@ -67,7 +67,7 @@ import { videoLibrary } from '$lib/video-editor/library/library-store.svelte';
 import { applyLibraryEntry } from '$lib/video-editor/library/apply';
 import { captureLibrarySelection } from '$lib/video-editor/library/selection';
 import type { LibraryTextSlot } from '$lib/video-editor/library/types';
-import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 import type { EditorStyleDefinition } from './preferences';
 import { observedStyle, videoStylePatch, validateStyleFont } from './style';
 import type { SceneAnalysis } from '$lib/video-editor/media/scene-search/types';

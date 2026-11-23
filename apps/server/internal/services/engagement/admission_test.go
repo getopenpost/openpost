@@ -2,12 +2,11 @@ package engagement
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,10 +17,7 @@ func (admissionGate) IsEffectiveEnabled(context.Context, string, string) (bool, 
 }
 func admissionTestService(t *testing.T) *Service {
 	t.Helper()
-	db, err := database.InitDBWithDriver("sqlite", fmt.Sprintf("file:reply-%d?mode=memory&cache=shared", time.Now().UnixNano()))
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	require.NoError(t, database.CreateSchema(db))
+	db := testdb.NewSQLite(t)
 	for _, row := range []any{
 		&models.User{ID: "u", Email: "reply@example.test", PasswordHash: "hash"},
 		&models.Organization{ID: "o", Name: "Org", CreatedByID: "u"},
@@ -32,7 +28,7 @@ func admissionTestService(t *testing.T) *Service {
 		&models.Rendition{ID: "r", PublicationID: "p", SocialAccountID: "a", Platform: "bluesky", TargetKey: "bluesky", Status: models.RenditionStatusPublished},
 		&models.EngagementItem{ID: "c", WorkspaceID: "w", RenditionID: "r", SocialAccountID: "a", Platform: "bluesky", RemoteID: "comment", CanReply: true, Body: "question", LastSeenAt: time.Now().UTC()},
 	} {
-		_, err = db.NewInsert().Model(row).Exec(t.Context())
+		_, err := db.NewInsert().Model(row).Exec(t.Context())
 		require.NoError(t, err)
 	}
 	s := NewService(db, nil, nil)
@@ -40,6 +36,7 @@ func admissionTestService(t *testing.T) *Service {
 	return s
 }
 func TestPublicReplyReceiptSurvivesLostResponseAndCompletedJob(t *testing.T) {
+	t.Parallel()
 	s := admissionTestService(t)
 	db := s.db
 	actor := Actor{UserID: "u"}
@@ -66,6 +63,7 @@ func TestPublicReplyReceiptSurvivesLostResponseAndCompletedJob(t *testing.T) {
 }
 
 func TestManualCommentRefreshReturnsScopedCollectionReceipts(t *testing.T) {
+	t.Parallel()
 	s := admissionTestService(t)
 	s.SetProvider("bluesky", &moderationProvider{})
 	_, err := s.db.NewUpdate().Model((*models.Rendition)(nil)).Set("external_id='remote-post'").Where("id='r'").Exec(t.Context())

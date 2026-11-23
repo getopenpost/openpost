@@ -14,7 +14,7 @@ import {
 	type EmbeddedSubtitleScanOptions,
 	type EmbeddedSubtitleTrack
 } from './embedded-subtitles';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import {
 	getEmbeddedSubtitleCache,
 	saveEmbeddedSubtitleCache

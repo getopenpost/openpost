@@ -8,19 +8,19 @@
  * Ported from FreeCut (MIT) — workspace-fs/media.ts.
  */
 
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { normalizeRecordingCaptureMetadata } from '../media/recording-capture-schema';
-import { createLogger } from './logger';
-import { deleteHandle, getHandle, saveHandle } from './handles-db';
-import { requireWorkspaceRoot } from './root';
+import { createLogger } from '@openpost/editor-shared/workspace';
+import { deleteHandle, getHandle, saveHandle } from '@openpost/editor-shared/workspace';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import {
 	listDirectory,
 	readJson,
 	removeEntry,
 	writeJsonAtomic,
 	WorkspaceFileCorruptError
-} from './fs-primitives';
-import { MEDIA_DIR, mediaDir, mediaMetadataPath } from './paths';
+} from '@openpost/editor-shared/workspace';
+import { MEDIA_DIR, mediaDir, mediaMetadataPath } from '@openpost/editor-shared/workspace';
 
 const logger = createLogger('WorkspaceFS:Media');
 

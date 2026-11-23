@@ -72,6 +72,7 @@ func newFederatedCommentsTestDB(t *testing.T) (*bun.DB, map[string]platform.Adap
 }
 
 func TestListRenditionCommentsUsesInstanceSpecificProvider(t *testing.T) {
+	t.Parallel()
 	db, providers, encryptor := newFederatedCommentsTestDB(t)
 	e := echo.New()
 	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
@@ -96,6 +97,7 @@ func TestListRenditionCommentsUsesInstanceSpecificProvider(t *testing.T) {
 }
 
 func TestReplyToCommentUsesInstanceSpecificProvider(t *testing.T) {
+	t.Parallel()
 	db, providers, encryptor := newFederatedCommentsTestDB(t)
 	e := echo.New()
 	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
@@ -120,6 +122,7 @@ func TestReplyToCommentUsesInstanceSpecificProvider(t *testing.T) {
 }
 
 func TestMCPListRenditionCommentsUsesInstanceSpecificProvider(t *testing.T) {
+	t.Parallel()
 	db, providers, encryptor := newFederatedCommentsTestDB(t)
 	handler := NewMCPHandler(db, testAuthenticator{})
 	handler.SetProviderCatalog(providers, false)

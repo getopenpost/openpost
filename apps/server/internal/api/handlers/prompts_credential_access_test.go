@@ -92,6 +92,7 @@ func TestPromptReadsFilterCredentialAccessibleActiveMemberships(t *testing.T) {
 }
 
 func TestPromptUpdatesRespectCreatorAdminAndCredentialWorkspace(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name, token, promptID string
 		admin                 bool

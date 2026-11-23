@@ -7,7 +7,7 @@ import {
 	type OrphanedTimelineClip
 } from './media-recovery';
 import { scanMediaSourceIssues } from './media-source-recovery';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 
 class MediaRecoveryStore {
 	sourceIssues = $state<MediaSourceIssue[]>([]);

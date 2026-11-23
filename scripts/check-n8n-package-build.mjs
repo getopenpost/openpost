@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseNpmPackResult } from "./npm-pack-result.mjs";
+import { parseNpmPackResult } from "./npm-registry.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packageRoot = path.join(root, "packages/n8n-nodes-openpost");

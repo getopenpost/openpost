@@ -9,6 +9,7 @@ import (
 )
 
 func TestPublicationVideoCoverWithNullableMediaSettings(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, settings string
 		timestamp      int

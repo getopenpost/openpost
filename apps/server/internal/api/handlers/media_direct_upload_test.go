@@ -37,6 +37,7 @@ import (
 )
 
 func TestAudioProjectAssetUploadsPersistMetadata(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ extension, mimeType, encoder, codec string }{
 		{"webm", "audio/webm", "libopus", "opus"},
 		{"wav", "audio/wave", "pcm_s16le", "pcm_s16le"},
@@ -323,6 +324,7 @@ func (s *mediaDirectUploadTestServer) postJSON(t *testing.T, path string, body a
 }
 
 func TestCanceledStreamingUploadReturnsSessionToPending(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	storage := &cancelingUploadStorage{cancel: cancel}
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
@@ -397,6 +399,7 @@ func (zeroMediaReader) Read(buffer []byte) (int, error) {
 }
 
 func TestLocalMediaUploadSessionStreamsVideoPastBufferedLimit(t *testing.T) {
+	t.Parallel()
 	mediaPath := t.TempDir()
 	srv := newMediaDirectUploadTestServer(t, mediastore.NewLocalStorage(mediaPath, "/media"), entitlements.NewSelfHostedService())
 	size := MaxBufferedMediaUploadBytes + 1
@@ -443,6 +446,7 @@ func TestLocalMediaUploadSessionStreamsVideoPastBufferedLimit(t *testing.T) {
 }
 
 func TestAPIWriteScopeCompletesBoundLocalMediaUploadSession(t *testing.T) {
+	t.Parallel()
 	content := []byte("scoped upload")
 	authenticator := &mutableMediaScopeAuthenticator{
 		scope:       apitokens.ScopeAPIWrite,
@@ -497,6 +501,7 @@ func TestAPIWriteScopeCompletesBoundLocalMediaUploadSession(t *testing.T) {
 }
 
 func TestAPIWriteScopeRejectsUncataloguedLegacyMediaRoutes(t *testing.T) {
+	t.Parallel()
 	authenticator := &mutableMediaScopeAuthenticator{
 		scope:       apitokens.ScopeAPIWrite,
 		workspaceID: "ws-1",
@@ -669,6 +674,7 @@ func TestCreateMediaUploadSessionRejectsMalformedMimeType(t *testing.T) {
 }
 
 func TestMediaUploadSessionTTLScalesForLargeVideos(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, MediaUploadSessionTTL, mediaUploadSessionTTL(12))
 	require.Greater(t, mediaUploadSessionTTL(MaxDirectMediaUploadBytes), time.Hour)
 	require.Greater(t, mediaUploadSessionTTL(MaxMediaUploadBytes), 4*time.Hour)
@@ -803,6 +809,7 @@ func TestDetectedMediaMimeTypeKeepsDeclaredContainerKinds(t *testing.T) {
 }
 
 func TestProjectAssetUploadStaysOutOfMediaLibraryAndCompletesProject(t *testing.T) {
+	t.Parallel()
 	storage := newFakeDirectUploadStorage()
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
 
@@ -987,6 +994,7 @@ func TestCompleteMediaUploadSessionDedupesExistingMedia(t *testing.T) {
 }
 
 func TestFailedMediaInsertReconcilesCommittedRowBeforeDeletingFiles(t *testing.T) {
+	t.Parallel()
 	storage := newFakeDirectUploadStorage()
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
 	_, err := srv.db.ExecContext(t.Context(), `
@@ -1016,6 +1024,7 @@ func TestFailedMediaInsertReconcilesCommittedRowBeforeDeletingFiles(t *testing.T
 }
 
 func TestStreamingMediaRollbackCompletesAfterRequestCancellation(t *testing.T) {
+	t.Parallel()
 	storage := newFakeDirectUploadStorage()
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
 	_, err := srv.db.NewCreateTable().Model((*models.MediaProvenance)(nil)).IfNotExists().Exec(t.Context())
@@ -1083,6 +1092,7 @@ func TestValidateMediaAssetContentKeepsSVGTextInsideBinaryAudio(t *testing.T) {
 }
 
 func TestCompleteMediaUploadSessionConcurrentRetryMetersOnce(t *testing.T) {
+	t.Parallel()
 	storage := newFakeDirectUploadStorage()
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
 	mediaID := srv.createUploadSession(t, "copy.txt", "text/plain", 12)
@@ -1126,6 +1136,7 @@ func (s *inspectionFailureStorage) Open(ctx context.Context, key string) (io.Rea
 	return reader, err
 }
 func TestDirectUploadCompletionRetriesAfterStorageInspectionFailure(t *testing.T) {
+	t.Parallel()
 	for _, failure := range []string{"object unavailable", "read failure"} {
 		t.Run(failure, func(t *testing.T) {
 			storage := &inspectionFailureStorage{fakeDirectUploadStorage: newFakeDirectUploadStorage()}
@@ -1153,6 +1164,7 @@ func TestDirectUploadCompletionRetriesAfterStorageInspectionFailure(t *testing.T
 }
 
 func TestDirectUploadAdmissionHidesDatabaseFailures(t *testing.T) {
+	t.Parallel()
 	for _, operation := range []string{"reserve", "complete"} {
 		t.Run(operation, func(t *testing.T) {
 			storage := newFakeDirectUploadStorage()
@@ -1203,6 +1215,7 @@ func (s *inspectionRaceStorage) Open(ctx context.Context, key string) (io.ReadCl
 	return &inspectionRaceReader{ReadCloser: reader, callback: callback}, nil
 }
 func TestStaleInvalidInspectionCannotDiscardFinalizedUpload(t *testing.T) {
+	t.Parallel()
 	storage := &inspectionRaceStorage{fakeDirectUploadStorage: newFakeDirectUploadStorage()}
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
 	var encoded bytes.Buffer
@@ -1228,6 +1241,7 @@ func TestStaleInvalidInspectionCannotDiscardFinalizedUpload(t *testing.T) {
 }
 
 func TestInvalidSignedUploadRetainsAccountingUntilCapabilityExpiry(t *testing.T) {
+	t.Parallel()
 	base := newMCPTestServer(t)
 	for _, model := range []any{(*models.VideoProjectRevision)(nil), (*models.VideoProjectMutation)(nil), (*models.VideoProjectCheckpoint)(nil), (*models.VideoProjectConflict)(nil)} {
 		_, err := base.db.NewCreateTable().Model(model).IfNotExists().Exec(t.Context())

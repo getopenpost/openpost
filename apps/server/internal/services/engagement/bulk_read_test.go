@@ -11,6 +11,7 @@ import (
 )
 
 func TestMarkAllReadUsesListFiltersBeyondLoadedPages(t *testing.T) {
+	t.Parallel()
 	s := admissionTestService(t)
 	actor := Actor{UserID: "u"}
 	_, err := s.db.NewInsert().Model(&models.SocialAccount{ID: "a2", WorkspaceID: "w", Platform: "bluesky", AccountID: "remote2", Slug: "remote2", AccessTokenEnc: []byte("token"), IsActive: true}).Exec(t.Context())

@@ -25,6 +25,7 @@ import (
 )
 
 func TestViewerCannotModerateComments(t *testing.T) {
+	t.Parallel()
 	srv := newCommentsTestServer(t, map[string]platform.Adapter{"x": fakeCommentAdapter{}})
 	_, err := srv.db.NewUpdate().Model((*models.WorkspaceMember)(nil)).
 		Set("role = ?", models.WorkspaceRoleViewer).
@@ -41,6 +42,7 @@ func TestViewerCannotModerateComments(t *testing.T) {
 }
 
 func TestRESTCommentActionRejectsCredentialBoundToAnotherWorkspace(t *testing.T) {
+	t.Parallel()
 	srv := newCommentsTestServer(t, map[string]platform.Adapter{"x": fakeCommentAdapter{}})
 	commentID, err := encodeCommentReference(commentReference{RenditionID: "rendition-1", ProviderCommentID: "provider-comment-1"})
 	require.NoError(t, err)
@@ -51,6 +53,7 @@ func TestRESTCommentActionRejectsCredentialBoundToAnotherWorkspace(t *testing.T)
 }
 
 func TestListRenditionCommentsEncodesProviderCommentIDs(t *testing.T) {
+	t.Parallel()
 	srv := newCommentsTestServer(t, map[string]platform.Adapter{
 		"x": fakeCommentAdapter{comments: []platform.Comment{{
 			ID:        "provider-comment-1",
@@ -77,6 +80,7 @@ func TestListRenditionCommentsEncodesProviderCommentIDs(t *testing.T) {
 }
 
 func TestReplyToCommentRecordsLifecycleEvent(t *testing.T) {
+	t.Parallel()
 	srv := newCommentsTestServer(t, map[string]platform.Adapter{"x": fakeCommentAdapter{}})
 	commentID, err := encodeCommentReference(commentReference{RenditionID: "rendition-1", ProviderCommentID: "provider-comment-1"})
 	require.NoError(t, err)
@@ -104,6 +108,7 @@ func TestReplyToCommentRecordsLifecycleEvent(t *testing.T) {
 }
 
 func TestHideCommentProviderFailureRecordsLifecycleEvent(t *testing.T) {
+	t.Parallel()
 	srv := newCommentsTestServer(t, map[string]platform.Adapter{
 		"x": fakeCommentAdapter{hideErr: errors.New("provider moderation failed")},
 	})

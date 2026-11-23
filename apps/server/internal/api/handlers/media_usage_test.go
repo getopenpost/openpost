@@ -60,6 +60,7 @@ func TestMediaUsageSummaryUsesCanonicalPublicationReferences(t *testing.T) {
 }
 
 func TestMediaUsageSummaryCountsOnePublicationAcrossReferenceKinds(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		t.Run(backend, func(t *testing.T) {
 			db := mediaUsageTestDB(t, backend)

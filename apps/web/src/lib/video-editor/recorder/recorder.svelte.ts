@@ -9,7 +9,7 @@
  * Blob[] accumulation.
  */
 
-import { createLogger } from '../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import {
 	estimateBytesPerMinute as estimateBytesPerMinutePure,
 	formatBytes as formatBytesPure,
@@ -36,7 +36,8 @@ import {
 	type ScratchSink
 } from './recorder-scratch';
 import { microphoneConstraints, startMicLevelMeter } from './mic-recorder';
-import { createRecordingStreams } from './recording-streams';
+import { createRecordingStreams, type RecorderKind } from './recording-streams';
+export type { RecorderKind };
 import {
 	deriveSystemAudioStatus,
 	detectRecordingCapabilities,
@@ -67,8 +68,6 @@ export interface ScreenCaptureTruth {
 	systemAudioActive: boolean;
 	systemAudioStatus: SystemAudioStatus;
 }
-
-export type RecorderKind = 'screen' | 'camera' | 'microphone';
 
 export interface RecorderSelection {
 	screen: boolean;

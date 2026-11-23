@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { DecoderPrewarmWorkerRequest } from './decoder-prewarm.worker';
 import {
 	clearPreviewDecoderPrewarm,

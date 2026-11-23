@@ -62,6 +62,7 @@ func insertOrganizationDeletionFixture(t *testing.T, db *bun.DB) {
 }
 
 func TestOrganizationDeletionPreviewEnumeratesImpactAndAllBlockers(t *testing.T) {
+	t.Parallel()
 	server := newDeleteOrganizationTestServer(t)
 	insertOrganizationDeletionFixture(t, server.db)
 	now := time.Now().UTC()
@@ -104,6 +105,7 @@ func TestOrganizationDeletionPreviewEnumeratesImpactAndAllBlockers(t *testing.T)
 }
 
 func TestOrganizationDeletionFailsClosedForEveryUnconfirmedBillingState(t *testing.T) {
+	t.Parallel()
 	for _, status := range []string{"paused", "unknown", ""} {
 		t.Run(status, func(t *testing.T) {
 			server := newDeleteOrganizationTestServer(t)
@@ -118,6 +120,7 @@ func TestOrganizationDeletionFailsClosedForEveryUnconfirmedBillingState(t *testi
 }
 
 func TestOrganizationDeletionRequiresCurrentOwnerExactNameAndRecentAuthentication(t *testing.T) {
+	t.Parallel()
 	server := newDeleteOrganizationTestServer(t)
 	insertOrganizationDeletionFixture(t, server.db)
 	_, err := server.db.NewUpdate().Model((*models.OrganizationMember)(nil)).Set("role = ?", models.OrganizationRoleAdmin).Where("organization_id = ? AND user_id = ?", "org-1", "user-1").Exec(t.Context())
@@ -142,6 +145,7 @@ func TestOrganizationDeletionRequiresCurrentOwnerExactNameAndRecentAuthenticatio
 }
 
 func TestOrganizationDeletionRemovesWholeBoundaryAndRetainsSafeAudit(t *testing.T) {
+	t.Parallel()
 	server := newDeleteOrganizationTestServer(t)
 	insertOrganizationDeletionFixture(t, server.db)
 	_, err := server.db.NewInsert().Model(&models.MediaAttachment{ID: "media", WorkspaceID: "workspace-1", FilePath: "/uploads/media.jpg", MimeType: "image/jpeg", CreatedAt: time.Now().UTC()}).Exec(t.Context())
@@ -255,6 +259,7 @@ func TestOrganizationDeletionRemovesWholeBoundaryAndRetainsSafeAudit(t *testing.
 }
 
 func TestOrganizationDeletionFailureIsAtomic(t *testing.T) {
+	t.Parallel()
 	server := newDeleteOrganizationTestServer(t)
 	insertOrganizationDeletionFixture(t, server.db)
 	_, err := server.db.Exec("DROP TABLE organization_lifecycle_audit_events")

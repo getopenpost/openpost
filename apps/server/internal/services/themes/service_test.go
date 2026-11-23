@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -731,4 +732,58 @@ func seedThemeTestAccess(t *testing.T, db *bun.DB) {
 		_, err := db.Exec(statement)
 		require.NoError(t, err)
 	}
+}
+
+func TestDecodeWOFF2RejectsDeclaredSFNTSizeThatDoesNotMatchDirectory(t *testing.T) {
+	content := append([]byte(nil), realWOFF2(t)...)
+	declared := binary.BigEndian.Uint32(content[16:20])
+	binary.BigEndian.PutUint32(content[16:20], declared+4)
+
+	_, err := decodeWOFF2Tables(content)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "declared SFNT size")
+}
+
+func TestValidateFontAcceptsTransformedWOFF2Metrics(t *testing.T) {
+	// Derived from the existing Roboto fixture with FontTools 4.61.1, enabling
+	// glyf, loca and hmtx WOFF2 transforms. This exercises omitted side bearings.
+	content, err := os.ReadFile("testdata/roboto-latin-400-hmtx-transform.woff2")
+	require.NoError(t, err)
+	require.NoError(t, ValidateFontContent(content, "woff2"))
+	require.NoError(t, validateWOFF2(content, "Roboto", 400, "normal"))
+	derivative, err := prepareNativeFontDerivative(content, "Roboto", 400, "normal")
+	require.NoError(t, err)
+	require.Equal(t, "ttf", derivative.Format)
+	require.NoError(t, ValidateFontContent(derivative.Content, "ttf"))
+}
+
+func TestUnconfiguredOrganizationUsesCalmAndKeepsSavedChoices(t *testing.T) {
+	service, _ := newThemeTestService(t)
+	actor := Actor{UserID: "admin-1"}
+
+	for _, scheme := range []ColorScheme{SchemeLight, SchemeDark} {
+		resolved, err := service.Resolve(t.Context(), actor, ResolveInput{WorkspaceID: "workspace-1", Scheme: scheme})
+		require.NoError(t, err)
+		require.Equal(t, "calm", resolved.ID)
+		require.Equal(t, scheme, resolved.Scheme)
+		require.Equal(t, FallbackNone, resolved.FallbackReason)
+	}
+	settings, err := service.Settings(t.Context(), actor, "workspace-1")
+	require.NoError(t, err)
+	require.Equal(t, "calm", settings.OrganizationDefault.ID)
+
+	_, err = service.SetOrganizationSettings(t.Context(), actor, OrganizationSettingsInput{
+		OrganizationID: "org-1", DefaultReference: builtInReference(BuiltIns()["workshop"]),
+	})
+	require.NoError(t, err)
+	resolved, err := service.Resolve(t.Context(), actor, ResolveInput{WorkspaceID: "workspace-1", Scheme: SchemeLight})
+	require.NoError(t, err)
+	require.Equal(t, "workshop", resolved.ID, "an explicitly saved choice must take precedence over the app default")
+
+	workspaceChoice := builtInReference(BuiltIns()["dither-moss"])
+	_, err = service.AssignWorkspace(t.Context(), actor, WorkspaceAssignmentInput{WorkspaceID: "workspace-1", Reference: &workspaceChoice})
+	require.NoError(t, err)
+	resolved, err = service.Resolve(t.Context(), actor, ResolveInput{WorkspaceID: "workspace-1", Scheme: SchemeDark})
+	require.NoError(t, err)
+	require.Equal(t, "dither-moss", resolved.ID, "a Workspace override must still take precedence")
 }

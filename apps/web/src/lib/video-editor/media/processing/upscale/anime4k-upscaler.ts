@@ -18,8 +18,12 @@
  * Worker-safe: no DOM access.
  */
 
-import { createLogger } from '../../../workspace-fs/logger';
-import { getOrt, type OrtModule, type OrtSession } from '../ort-runtime';
+import { createLogger } from '@openpost/editor-shared/workspace';
+import {
+	getOrt,
+	type OrtModule,
+	type OrtSession
+} from '@openpost/editor-shared/media/processing/ort-runtime';
 import { planarRgbLength } from '../planar-rgb';
 import animationUrl from './models/anime4k_cnn_2x_m_an.onnx?url';
 import threeDUrl from './models/anime4k_cnn_2x_m_3d.onnx?url';

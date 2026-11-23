@@ -15,6 +15,7 @@ import (
 )
 
 func TestSavedMentionLibraryUsesCurrentWorkspacePermissions(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SavedMention)(nil))
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "ws", UserID: "user-1", Role: models.WorkspaceRoleEditor}).Exec(t.Context())
 	require.NoError(t, err)

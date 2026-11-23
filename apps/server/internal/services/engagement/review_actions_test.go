@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/inboxactivity"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/providerwrite"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -306,7 +306,7 @@ func TestAcceptedReviewRecoversFromReadAndLocalCommitFailuresWithoutResending(t 
 				job.Status, job.LockedAt = "processing", time.Now().UTC()
 				_, err = s.db.NewUpdate().Model(&job).Column("status", "locked_at").WherePK().Exec(t.Context())
 				require.NoError(t, err)
-				unavailable, openErr := database.InitDBWithDriver("sqlite", "file:unavailable-review-"+t.Name()+"?mode=memory&cache=shared")
+				unavailable, openErr := testdb.OpenWithDriver("sqlite", "file:unavailable-review-"+t.Name()+"?mode=memory&cache=shared")
 				require.NoError(t, openErr)
 				require.NoError(t, unavailable.Close())
 				s.db = unavailable

@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { createBlankProject } from '../project/defaults';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import {
 	renderImageSequenceFrames,
 	renderImageSequenceToDirectoryHandle,

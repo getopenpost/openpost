@@ -5,7 +5,7 @@ import type { Project, TimelineItem, TimelineTrack, TimelineTransition } from '.
 import { effectiveMediaTracks } from '../timeline/utils/track-groups';
 import type { MediaPreparationStatus } from './pool.svelte';
 import { assessSmartCopy, type SmartCopyFormat } from './smart-copy-plan';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 
 export type ExportPreflightSeverity = 'ok' | 'info' | 'warning' | 'error';
 export type ExportPreflightCheckId =

@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,6 +32,7 @@ func (a xCapabilityResolverAdapter) ResolveAccountPublishingCapabilities(context
 }
 
 func TestAccountCapabilityTTLAndExpiry(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, 5*time.Minute, accountCapabilityTTL(capabilities.ProviderTikTok))
 	require.Equal(t, 15*time.Minute, accountCapabilityTTL(capabilities.ProviderYouTube))
 	require.Equal(t, time.Hour, accountCapabilityTTL(capabilities.ProviderMastodon))
@@ -47,6 +50,7 @@ func TestAccountCapabilityTTLAndExpiry(t *testing.T) {
 }
 
 func TestDynamicCapabilityFailureOnlyBlocksRequiredActiveChoice(t *testing.T) {
+	t.Parallel()
 	resolved := capabilities.ResolvedCapability{
 		Compatible: true,
 		Capability: capabilities.Capability{
@@ -85,6 +89,7 @@ func TestDynamicCapabilityFailureOnlyBlocksRequiredActiveChoice(t *testing.T) {
 }
 
 func TestAccountCapabilityTenantKeyTracksIdentityOnly(t *testing.T) {
+	t.Parallel()
 	account := models.SocialAccount{
 		ID: "account-1", WorkspaceID: "workspace-1", Platform: capabilities.ProviderX,
 		OAuthGrantID: "grant-1", GrantedScopes: "tweet.read", InstanceURL: "",
@@ -115,6 +120,7 @@ func TestAccountCapabilityTenantKeyTracksIdentityOnly(t *testing.T) {
 }
 
 func TestAccountCapabilityCacheEvictsOldestEntry(t *testing.T) {
+	t.Parallel()
 	handler := NewCapabilityResolverHandler(nil, nil, nil, nil)
 	result := platform.AccountCapabilityResult{Revision: "revision-1"}
 	now := time.Now().UTC()
@@ -141,6 +147,7 @@ func TestAccountCapabilityCacheEvictsOldestEntry(t *testing.T) {
 }
 
 func TestCapabilityCacheWriteFailureKeepsVerifiedDestinationCompatible(t *testing.T) {
+	t.Parallel()
 	// Removing the table makes persisting capability state fail.
 	db := createHandlerTestDB(t, (*models.SocialAccount)(nil))
 	_, err := db.ExecContext(t.Context(), "DROP TABLE social_accounts")
@@ -171,6 +178,7 @@ func TestCapabilityCacheWriteFailureKeepsVerifiedDestinationCompatible(t *testin
 }
 
 func TestXAccountCapabilityResolutionFailsClosedAndUpgradesVerifiedPremium(t *testing.T) {
+	t.Parallel()
 	segments := []capabilities.ResolveSegment{{
 		ID:   "segment-1",
 		Body: strings.Repeat("x", 500),
@@ -203,6 +211,7 @@ func TestXAccountCapabilityResolutionFailsClosedAndUpgradesVerifiedPremium(t *te
 }
 
 func TestDynamicDiscordCapabilityKeepsSavedChannelAndCanonicalReadinessContract(t *testing.T) {
+	t.Parallel()
 	segments := []capabilities.ResolveSegment{{ID: "segment-1", Body: "A normal update"}}
 	settings := map[string]any{"channel_id": "channel-1"}
 	account := models.SocialAccount{
@@ -249,4 +258,63 @@ func capabilityIssueCodes(issues []capabilities.ValidationIssue) []string {
 		codes = append(codes, issue.Code)
 	}
 	return codes
+}
+
+func TestAccountLimitProfileRequiresFreshVerifiedXSubscription(t *testing.T) {
+	t.Parallel()
+	account := models.SocialAccount{
+		Platform:            "x",
+		CapabilityState:     `{"x_subscription_type":"Premium"}`,
+		CapabilityCheckedAt: time.Now().UTC(),
+	}
+	require.Equal(t, "x-premium", accountLimitProfile(account))
+
+	account.CapabilityCheckedAt = time.Now().UTC().Add(-accountCapabilityStateFreshness - time.Minute)
+	require.Equal(t, "standard", accountLimitProfile(account))
+
+	account.CapabilityCheckedAt = time.Now().UTC().Add(10 * time.Minute)
+	require.Equal(t, "standard", accountLimitProfile(account))
+
+	account.CapabilityCheckedAt = time.Now().UTC()
+	account.CapabilityState = `{"x_subscription_type":"None"}`
+	require.Equal(t, "standard", accountLimitProfile(account))
+
+	account.CapabilityState = `{"x_subscription_type":"PremiumPlus"}`
+	account.Platform = "mastodon"
+	require.Empty(t, accountLimitProfile(account))
+}
+
+func TestCoordinateCapabilityRefreshIsolatesFailureAndStartsBothCapabilities(t *testing.T) {
+	t.Parallel()
+	var engagementStarted atomic.Bool
+	var messagingStarted atomic.Bool
+	release := make(chan struct{})
+
+	resultChannel := make(chan RefreshCapabilitiesResult, 1)
+	go func() {
+		resultChannel <- coordinateCapabilityRefresh(t.Context(), func(context.Context) (int, error) {
+			engagementStarted.Store(true)
+			<-release
+			return 0, errors.New("provider discovery failed")
+		}, func(context.Context) (int, error) {
+			messagingStarted.Store(true)
+			return 3, nil
+		})
+	}()
+
+	require.Eventually(t, func() bool {
+		return engagementStarted.Load() && messagingStarted.Load()
+	}, time.Second, time.Millisecond)
+	close(release)
+	result := <-resultChannel
+	require.Equal(t, RefreshCapabilityOutcome{Status: "failed", ErrorCode: "refresh_failed"}, result.Engagement)
+	require.Equal(t, RefreshCapabilityOutcome{Status: "queued", Queued: 3}, result.Messaging)
+}
+
+func TestCoordinateCapabilityRefreshReportsUnavailableIndependently(t *testing.T) {
+	t.Parallel()
+	result := coordinateCapabilityRefresh(t.Context(), nil, func(context.Context) (int, error) { return 1, nil })
+	require.Equal(t, "unavailable", result.Engagement.Status)
+	require.Equal(t, "service_unavailable", result.Engagement.ErrorCode)
+	require.Equal(t, "queued", result.Messaging.Status)
 }

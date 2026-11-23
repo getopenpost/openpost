@@ -21,6 +21,7 @@ import (
 )
 
 func TestScheduleRequiresMatchingReviewedPublication(t *testing.T) {
+	t.Parallel()
 	for _, changed := range []string{"publication", "revision"} {
 		t.Run(changed, func(t *testing.T) {
 			calls := 0
@@ -56,6 +57,7 @@ func TestScheduleRequiresMatchingReviewedPublication(t *testing.T) {
 	}
 }
 func TestHTTPResponseRedactsEncodedCredentials(t *testing.T) {
+	t.Parallel()
 	secret := "private/+ token\"value"
 	quoted, _ := json.Marshal(secret)
 	for _, encoded := range []string{url.QueryEscape(secret), url.PathEscape(secret), hex.EncodeToString([]byte(secret)), string(quoted[1 : len(quoted)-1])} {
@@ -69,6 +71,7 @@ func TestHTTPResponseRedactsEncodedCredentials(t *testing.T) {
 	}
 }
 func TestHTTPRejectsInlineCredentialsBeforeSavingAndResolvedDispatch(t *testing.T) {
+	t.Parallel()
 	for _, inputs := range []map[string]any{
 		{"url": "https://8.8.8.8/?access_token=private"},
 		{"url": "https://8.8.8.8/?access_token=&access_token=private"},
@@ -111,6 +114,7 @@ func TestHTTPRejectsInlineCredentialsBeforeSavingAndResolvedDispatch(t *testing.
 }
 
 func TestWorkflowAIBudgetCountsFailedCalls(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, nil)
 	calls := 0
 	s.SetAI(generatorFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
@@ -136,6 +140,7 @@ func TestWorkflowAIBudgetCountsFailedCalls(t *testing.T) {
 }
 
 func TestAutomaticRenditionSourcesExcludeWorkflowCreatedPosts(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []string{"rendition_published", "rendition_failed"} {
 		t.Run(kind, func(t *testing.T) {
 			s, actor := workflowTestService(t, nil)

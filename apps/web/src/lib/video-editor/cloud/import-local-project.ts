@@ -2,7 +2,7 @@ import { browser } from '$app/environment';
 import { z } from 'zod';
 import { uploadMediaFile } from '$lib/media-upload-client';
 import type { Project } from '$lib/video-editor/project/types';
-import { hashBlob } from '$lib/video-editor/project-bundle/bundle-utils';
+import { hashBlob } from '@openpost/editor-shared/project-bundle';
 import { resolveMediaBlob } from '$lib/video-editor/media/resolve-media-blob';
 import { getMediaForProject } from '$lib/video-editor/workspace-fs/project-media';
 import type { CloudVideoProject, CloudVideoProjectRepository } from './project-repository';

@@ -9,6 +9,7 @@ import (
 )
 
 func TestGetPublicationDecodesCreationSource(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/publications/pub_1" {
 			t.Fatalf("path = %s, want /api/v1/publications/pub_1", r.URL.Path)
@@ -29,6 +30,7 @@ func TestGetPublicationDecodesCreationSource(t *testing.T) {
 }
 
 func TestPublicationMutationMethods_WireFormat(t *testing.T) {
+	t.Parallel()
 	requests := make(chan string, 5)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests <- r.Method + " " + r.URL.EscapedPath()
@@ -90,6 +92,7 @@ func TestPublicationMutationMethods_WireFormat(t *testing.T) {
 // into Go value of type struct { Body []SocialAccount }".
 
 func TestUpdateAccount_WireFormat(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPatch {
 			t.Errorf("method = %s, want PATCH", r.Method)
@@ -125,6 +128,7 @@ func TestUpdateAccount_WireFormat(t *testing.T) {
 // body envelope and silently produced a nil slice for real items,
 // making the user believe there was no media.
 func TestListMedia_WireFormat(t *testing.T) {
+	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("workspace_id") != "ws_1" {
 			t.Fatalf("workspace_id = %q, want ws_1", r.URL.Query().Get("workspace_id"))
@@ -153,6 +157,7 @@ func TestListMedia_WireFormat(t *testing.T) {
 // TestGetWorkspaceSettings_WireFormat: server returns a flat object.
 
 func TestListAndRevokeAPITokensWireFormat(t *testing.T) {
+	t.Parallel()
 	var revoked bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodDelete {
@@ -188,6 +193,7 @@ func TestListAndRevokeAPITokensWireFormat(t *testing.T) {
 }
 
 func TestAPIClientDoesNotForwardCredentialsThroughRedirects(t *testing.T) {
+	t.Parallel()
 	forwarded := false
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { forwarded = true; w.WriteHeader(200) }))
 	defer target.Close()

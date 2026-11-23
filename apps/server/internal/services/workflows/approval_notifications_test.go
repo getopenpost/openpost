@@ -104,6 +104,7 @@ func emitWaitingTwice(t *testing.T, s *Service, run Run) {
 // administrator role alone would leave the client out, which is the one person
 // the notification is for.
 func TestParkedApprovalNotifiesClientsBecauseTheyCanApprove(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	addApprover(t, s, "client", models.WorkspaceRoleClient)
@@ -121,6 +122,7 @@ func TestParkedApprovalNotifiesClientsBecauseTheyCanApprove(t *testing.T) {
 // and a viewer cannot approve, so telling them would be noise pointing at a
 // button they do not have.
 func TestParkedApprovalSkipsRolesThatCannotApprove(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	addApprover(t, s, "editor", models.WorkspaceRoleEditor)
@@ -146,6 +148,7 @@ func TestParkedApprovalSkipsRolesThatCannotApprove(t *testing.T) {
 // problem. Demoting the author mid-run would fail the run's own authorization,
 // so this drives the resolver that makes the decision.
 func TestWaitingAudienceMarksAnAuthorWhoCannotApprove(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	run := parkApproval(t, s, actor)
 
@@ -167,6 +170,7 @@ func TestWaitingAudienceMarksAnAuthorWhoCannotApprove(t *testing.T) {
 // An inactive member keeps their role but has left the workspace, so they must
 // not be addressed.
 func TestParkedApprovalSkipsInactiveMembers(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	now := time.Now().UTC()
@@ -184,6 +188,7 @@ func TestParkedApprovalSkipsInactiveMembers(t *testing.T) {
 // emission twice rather than re-running a job that cannot claim an
 // awaiting_approval run, so it actually reaches the insert both times.
 func TestParkedApprovalNotifiesOncePerWait(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	addApprover(t, s, "approver", models.WorkspaceRoleAdmin)
@@ -198,6 +203,7 @@ func TestParkedApprovalNotifiesOncePerWait(t *testing.T) {
 // are told, because the author's post just died — and they are told different
 // things.
 func TestExpiredApprovalNotifiesApproversAndAuthor(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	recorder := &telemetry.MemoryRecorder{}
@@ -254,6 +260,7 @@ func TestExpiredApprovalNotifiesApproversAndAuthor(t *testing.T) {
 // on it. Without this the only notice arrives thirty days later, when the post
 // is already dead.
 func TestApprovalReminderFiresInsideTheReminderWindow(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	addApprover(t, s, "approver", models.WorkspaceRoleAdmin)
@@ -299,6 +306,7 @@ func TestApprovalReminderFiresInsideTheReminderWindow(t *testing.T) {
 // re-enqueued it and the step replayed — forever, invisibly. The state change
 // must survive a notification that cannot be written.
 func TestParkedApprovalSurvivesAPoisonedRecipient(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	addApprover(t, s, "approver", models.WorkspaceRoleAdmin)
@@ -320,6 +328,7 @@ func TestParkedApprovalSurvivesAPoisonedRecipient(t *testing.T) {
 // Before this, expireApprovals returned on the first error, so a single poisoned
 // run left every other wait unexpired, every minute.
 func TestExpiryBatchIsNotStoppedByOneRun(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	addApprover(t, s, "approver", models.WorkspaceRoleAdmin)
@@ -353,6 +362,7 @@ func TestExpiryBatchIsNotStoppedByOneRun(t *testing.T) {
 // A stale compare-and-set must not expire a row that moved on. The revision is
 // part of the guard, so a caller holding an older revision loses the race.
 func TestExpireApprovalWaitRequiresTheCurrentRevision(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	addApprover(t, s, "approver", models.WorkspaceRoleAdmin)
@@ -380,6 +390,7 @@ func TestExpireApprovalWaitRequiresTheCurrentRevision(t *testing.T) {
 // Deciding a wait must resolve the notices it left behind, or the other
 // approvers keep a button that now answers ErrState.
 func TestApprovingResolvesTheOtherApproversNotices(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	addApprover(t, s, "approver", models.WorkspaceRoleAdmin)
@@ -401,6 +412,7 @@ func TestApprovingResolvesTheOtherApproversNotices(t *testing.T) {
 }
 
 func TestApprovalRemindersReachBeyondFirstBatch(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	run := parkApproval(t, s, actor)
@@ -421,6 +433,7 @@ func TestApprovalRemindersReachBeyondFirstBatch(t *testing.T) {
 }
 
 func TestApprovalResolutionIncludesFormerApprovers(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	addApprover(t, s, "client", models.WorkspaceRoleClient)
@@ -440,6 +453,7 @@ func TestApprovalResolutionIncludesFormerApprovers(t *testing.T) {
 }
 
 func TestApprovalExpiryNotificationRetriesAfterRecipientFailure(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	addApprover(t, s, "approver", models.WorkspaceRoleClient)
@@ -463,6 +477,7 @@ func TestApprovalExpiryNotificationRetriesAfterRecipientFailure(t *testing.T) {
 }
 
 func TestDelayedApprovalNoticeDoesNotReopenDecidedWait(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	run := parkApproval(t, s, actor)
@@ -481,6 +496,7 @@ func TestDelayedApprovalNoticeDoesNotReopenDecidedWait(t *testing.T) {
 }
 
 func TestApprovalRecipientRechecksRoleBeforeDelivery(t *testing.T) {
+	t.Parallel()
 	s, actor := workflowTestService(t, approvalAction())
 	approvalNotificationService(t, s)
 	addApprover(t, s, "client", models.WorkspaceRoleClient)
@@ -497,6 +513,7 @@ func TestApprovalRecipientRechecksRoleBeforeDelivery(t *testing.T) {
 }
 
 func TestApprovedNoticeRetainsDecisionAfterRunEnds(t *testing.T) {
+	t.Parallel()
 	for _, state := range []string{StateFailed, StateCancelled} {
 		t.Run(state, func(t *testing.T) {
 			s, actor := workflowTestService(t, approvalAction())

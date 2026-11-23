@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { reconcileSystemAudioWithProbe } from './recording-capture-schema';
-import type { RecordingSystemAudioStatus } from './types';
+import type { RecordingSystemAudioStatus } from '@openpost/editor-shared/media';
 
 describe('recording system audio provenance', () => {
 	it.each<RecordingSystemAudioStatus>(['inactive', 'denied', 'unavailable', 'not-requested'])(

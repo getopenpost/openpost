@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { filmstripCache } from './filmstrip-client';
 import { saveFilmstripFrame, saveFilmstripIndex } from './filmstrip-persistence';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { mediaTasks } from './media-tasks.svelte';
 import type {
 	FilmstripAbortRequest,

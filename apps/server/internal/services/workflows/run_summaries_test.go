@@ -12,6 +12,7 @@ import (
 )
 
 func TestRunSummariesPreserveStoredHistoryAndBoundaries(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		t.Run(backend, func(t *testing.T) {
 			s, actor := workflowTestServiceWithDB(t, nil, workflowRunListTestDB(t, backend))
@@ -63,6 +64,7 @@ func TestRunSummariesPreserveStoredHistoryAndBoundaries(t *testing.T) {
 }
 
 func TestRunSummariesKeepJSONStatusTypesAndOrder(t *testing.T) {
+	t.Parallel()
 	for _, backend := range []string{"sqlite", "postgres"} {
 		t.Run(backend, func(t *testing.T) {
 			s, actor := workflowTestServiceWithDB(t, nil, workflowRunListTestDB(t, backend))

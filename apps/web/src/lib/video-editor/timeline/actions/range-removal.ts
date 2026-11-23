@@ -23,10 +23,8 @@ import {
 import { effectiveMediaTracks } from '../utils/track-groups';
 import { isTrackSyncLockEnabled } from '../utils/track-sync-lock';
 
-export interface SourceRange {
-	start: number;
-	end: number;
-}
+import type { SourceRange } from '../source-range';
+export type { SourceRange };
 
 export interface RangeRemovalResult {
 	analyzedItemCount: number;

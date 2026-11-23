@@ -1,5 +1,5 @@
 import { timerTiming } from './timer';
-import type { MixEntry } from '../media/render-plan';
+import type { MixEntry } from '../media/mix-types';
 import type { TimelineItem, TimelineTrack } from '../project/types';
 const TONE_SECONDS = 0.12;
 const TONE_FREQUENCY = 880;

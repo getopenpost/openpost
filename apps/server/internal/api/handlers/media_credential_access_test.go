@@ -219,6 +219,7 @@ func TestMediaBearerQueryAuthorizationAndCachePolicy(t *testing.T) {
 }
 
 func TestDeniedMediaRequestsDoNotReturnOriginalsOrPreviews(t *testing.T) {
+	t.Parallel()
 	storage := newFakeDirectUploadStorage()
 	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
 	for _, key := range []string{"original.bin", "small.PNG", "medium.jpg", "poster.jpg"} {

@@ -1,5 +1,5 @@
 import type { TransitionDirection, Project } from '../project/types';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { TimerSettings } from '../timers/timer';
 import type { TextStylePresetId, AnimationPreset } from '../project/types';
 import type { EffectTemplate } from '../timeline/effect-drop';

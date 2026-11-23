@@ -119,7 +119,7 @@
 		createShortcutMatcher,
 		formatShortcutBinding,
 		type EditorShortcutId
-	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	} from '@openpost/editor-shared/settings';
 	import { type KeyframeEditorMode } from '$lib/video-editor/timeline/keyframe-shortcuts';
 	import TimelineKeyframesPanel from './timeline-keyframes-panel.svelte';
 	import { isAnimatedImageMedia } from '$lib/video-editor/media/animated-image-plan';
@@ -369,7 +369,7 @@
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import type { SceneScanMode } from '$lib/video-editor/media/scene-scan';
 	import { canExtractEmbeddedSubtitles } from '$lib/video-editor/media/embedded-subtitle-service';
-	import type { ProjectAssetImporter } from '$lib/video-editor/media/types';
+	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 	import { showToast } from '$lib/toast';
 
 	let {

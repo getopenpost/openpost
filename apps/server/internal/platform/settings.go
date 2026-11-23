@@ -3,6 +3,8 @@ package platform
 import (
 	"strings"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/settingx"
 )
 
@@ -32,7 +34,7 @@ func settingInt(settings map[string]interface{}, key string) int {
 // that append a configured destination URL.
 func ContentWithSettingURL(content string, settings map[string]interface{}) string {
 	content = strings.TrimSpace(content)
-	link := firstNonEmptyString(settingString(settings, "url"), settingString(settings, "link_url"))
+	link := textutil.FirstNonEmpty(settingString(settings, "url"), settingString(settings, "link_url"))
 	if link == "" || strings.Contains(content, link) {
 		return content
 	}

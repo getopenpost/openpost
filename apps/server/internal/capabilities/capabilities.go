@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/providerlimits"
 	"github.com/openpost/backend/internal/settingx"
@@ -496,11 +498,11 @@ func buildCatalog() []Capability {
 		defaultQueued(Capability{Provider: ProviderGoogleBusiness, Profile: models.ContentProfileShortText, Label: "Google Business update", TextLimit: 1500, Media: text, Settings: googlebusinessSettings(), RequiresAppReview: true, UnavailableReason: "Google Business delivery is not enabled until Google API access and live certification are complete."}),
 		defaultQueued(Capability{Provider: ProviderGoogleBusiness, Profile: models.ContentProfileImagePost, Label: "Google Business photo update", TextLimit: 1500, Media: googlebusinessPhoto, RequiresPublicMedia: true, Settings: googlebusinessSettings(), RequiresAppReview: true, UnavailableReason: "Google Business delivery is not enabled until Google API access and live certification are complete."}),
 
-		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileShortText, Label: "Telegram message", TextLimit: 4096, Media: text, Settings: telegramSettings()}),
+		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileShortText, Label: "Telegram message", TextLimit: 4096, Media: text, MediaShapes: []string{MediaShapeText, MediaShapeLink}, Settings: telegramSettings()}),
 		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileImagePost, Label: "Telegram media", TextLimit: 1024, Media: telegramMedia, Settings: telegramSettings()}),
 		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileShortVideo, Label: "Telegram video", TextLimit: 1024, Media: telegramMedia, Settings: telegramSettings()}),
 
-		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileShortText, Label: "Discord message", TextLimit: 2000, Media: text, Settings: discordSettings()}),
+		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileShortText, Label: "Discord message", TextLimit: 2000, Media: text, MediaShapes: []string{MediaShapeText, MediaShapeLink}, Settings: discordSettings()}),
 		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileImagePost, Label: "Discord attachment", TextLimit: 2000, Media: MediaConstraint{MinCount: 1, MaxCount: 10, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "image/gif"}, MaxSizeBytes: 10 * 1024 * 1024}, Settings: discordSettings()}),
 		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileShortVideo, Label: "Discord video", TextLimit: 2000, Media: discordVideo, Settings: discordSettings()}),
 		defaultQueued(Capability{Provider: ProviderDiscord, Profile: models.ContentProfileLongVideo, Label: "Discord video", TextLimit: 2000, Media: discordVideo, Settings: discordSettings()}),
@@ -755,7 +757,7 @@ func Resolve(provider string, input ResolveInput) ResolvedCapability {
 // built-in catalog.
 func ResolveCatalog(provider string, catalog []Capability, input ResolveInput) ResolvedCapability {
 	provider = strings.ToLower(strings.TrimSpace(provider))
-	preset := normalizeIntent(firstNonEmptyCapability(input.CreationPreset, input.Intent))
+	preset := normalizeIntent(textutil.FirstNonEmpty(input.CreationPreset, input.Intent))
 	var textCardApplied bool
 	var textCardIssues []ValidationIssue
 	input.Segments, textCardApplied, textCardIssues = resolveInputTextCards(provider, preset, input)
@@ -865,7 +867,7 @@ func resolvedSettingApplies(setting SettingDefinition, intent, outputProfile, sh
 	}
 	// Preserved posts own their media independently. Joined destinations have
 	// one effective segment, so its combined media still determines eligibility.
-	preset := normalizeIntent(firstNonEmptyCapability(input.CreationPreset, input.Intent))
+	preset := normalizeIntent(textutil.FirstNonEmpty(input.CreationPreset, input.Intent))
 	for _, segment := range segments {
 		if settingApplies(setting, intent, outputProfile, intendedMediaShape(preset, resolveMediaShape([]ResolveSegment{segment}, input.SourceURL))) {
 			return true
@@ -963,11 +965,18 @@ var providerDisplayNames = map[string]string{
 	ProviderDiscord:        "Discord",
 }
 
-func providerDisplayName(provider string) string {
-	if name := providerDisplayNames[provider]; name != "" {
+// ProviderDisplayName returns the human-readable display name for a provider key,
+// or the normalized key itself if unknown.
+func ProviderDisplayName(provider string) string {
+	normalized := strings.ToLower(strings.TrimSpace(provider))
+	if name := providerDisplayNames[normalized]; name != "" {
 		return name
 	}
 	return provider
+}
+
+func providerDisplayName(provider string) string {
+	return ProviderDisplayName(provider)
 }
 
 func selectDestinationCapability(catalog []Capability, provider string, input ResolveInput, shape, preset string) *Capability {
@@ -1692,8 +1701,8 @@ func ValidateTextContent(capability Capability, body, title, description string,
 	provider := capability.Provider
 	profile := capability.Profile
 	authoredDescription := description
-	title = firstNonEmptyCapability(settingsValue(settings, "title"), title)
-	description = firstNonEmptyCapability(description, settingsValue(settings, "description"))
+	title = textutil.FirstNonEmpty(settingsValue(settings, "title"), title)
+	description = textutil.FirstNonEmpty(description, settingsValue(settings, "description"))
 	issues := []ValidationIssue{}
 	if provider == ProviderYouTube {
 		if err := providerlimits.ValidateYouTubeTitleCharacters(title); err != nil {
@@ -2173,15 +2182,6 @@ func splitSettingItems(value string) []string {
 	return out
 }
 
-func firstNonEmptyCapability(values ...string) string {
-	for _, value := range values {
-		if value = strings.TrimSpace(value); value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
 // validateUnsupportedSettings flags provider settings that are not in the
 // capability catalog. Mention metadata is validated by the publication text
 // owners, not the provider settings catalog. Null values clear stored settings
@@ -2394,7 +2394,7 @@ func validateMediaItem(capability Capability, item MediaItem) []ValidationIssue 
 		issues = append(issues, ValidationIssue{Severity: "error", Code: "media_analysis_pending", Message: "Video analysis must finish before scheduling or publishing", Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID})
 	}
 	if strings.HasPrefix(item.MimeType, "video/") && item.AnalysisStatus == "failed" {
-		issues = append(issues, ValidationIssue{Severity: "error", Code: "media_analysis_failed", Message: firstNonEmpty(item.AnalysisError, "Video analysis failed"), Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID})
+		issues = append(issues, ValidationIssue{Severity: "error", Code: "media_analysis_failed", Message: textutil.FirstNonEmpty(item.AnalysisError, "Video analysis failed"), Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID})
 	}
 	if capability.Media.MaxDurationSeconds > 0 && item.DurationMS > int64(capability.Media.MaxDurationSeconds)*1000 {
 		issues = append(issues, ValidationIssue{Severity: "error", Code: "media_duration", Message: fmt.Sprintf("Video must be %d seconds or less", capability.Media.MaxDurationSeconds), Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID})
@@ -2419,7 +2419,7 @@ func validateMediaItem(capability Capability, item MediaItem) []ValidationIssue 
 		}
 	}
 	if capability.Media.RequiresPublicURL && !item.PublicURLReady {
-		issues = append(issues, ValidationIssue{Severity: "error", Code: "public_url_unreachable", Message: firstNonEmpty(item.PublicURLError, "Media publishing to this account requires a public HTTPS media URL. Ask an OpenPost administrator to configure OPENPOST_MEDIA_URL."), Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID})
+		issues = append(issues, ValidationIssue{Severity: "error", Code: "public_url_unreachable", Message: textutil.FirstNonEmpty(item.PublicURLError, "Media publishing to this account requires a public HTTPS media URL. Ask an OpenPost administrator to configure OPENPOST_MEDIA_URL."), Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID})
 	} else if !capability.Media.RequiresPublicURL && capability.Media.RequiresHTTPSFetchable && item.URL != "" {
 		parsed, err := url.Parse(item.URL)
 		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
@@ -2471,15 +2471,6 @@ func validationCategories(c Capability) []string {
 		categories = append(categories, "app_review")
 	}
 	return categories
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func mimeAllowed(mimeType string, allowed []string) bool {

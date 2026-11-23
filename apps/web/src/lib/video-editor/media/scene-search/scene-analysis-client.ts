@@ -1,16 +1,16 @@
 /** Scene analysis client and persistent cache coordinator. */
 
 import { resolveMediaBlob } from '../import.svelte';
-import type { MediaMetadata } from '../types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import {
 	getSceneAnalysis,
 	saveSceneAnalysis,
 	saveSceneThumbnail,
 	sceneAnalysisMatchesMedia
 } from '../../workspace-fs/scene-analysis';
-import { readBlob } from '../../workspace-fs/fs-primitives';
-import { mediaThumbnailPath } from '../../workspace-fs/paths';
-import { requireWorkspaceRoot } from '../../workspace-fs/root';
+import { readBlob } from '@openpost/editor-shared/workspace';
+import { mediaThumbnailPath } from '@openpost/editor-shared/workspace';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import type {
 	SceneAnalysisWorkerComplete,
 	SceneAnalysisWorkerResponse

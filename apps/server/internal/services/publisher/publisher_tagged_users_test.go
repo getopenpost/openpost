@@ -105,6 +105,7 @@ func newTaggedUsersTestServer(t *testing.T, adapter *resolvingFakeAdapter) *publ
 }
 
 func TestXTaggedUserHandlesResolveToNumericIDsBeforeDispatch(t *testing.T) {
+	t.Parallel()
 	adapter := &resolvingFakeAdapter{resolved: map[string]string{"handle": "2244996801"}}
 	srv := newTaggedUsersTestServer(t, adapter)
 	// One thread with two segments tagging the same handle: the first
@@ -139,6 +140,7 @@ func TestXTaggedUserHandlesResolveToNumericIDsBeforeDispatch(t *testing.T) {
 }
 
 func TestXTaggedUserUnresolvableHandleFailsRendition(t *testing.T) {
+	t.Parallel()
 	adapter := &resolvingFakeAdapter{resolveErr: fmt.Errorf("x user @missinguser could not be found")}
 	srv := newTaggedUsersTestServer(t, adapter)
 	insertTaggedUsersSegmentFixture(t, srv, "segment-missing", "rsegment-missing", "media-missing", `{"tagged_users":"@missinguser,123"}`)
@@ -154,6 +156,7 @@ func TestXTaggedUserUnresolvableHandleFailsRendition(t *testing.T) {
 }
 
 func TestXTaggedUserNumericEntriesBypassResolution(t *testing.T) {
+	t.Parallel()
 	adapter := &resolvingFakeAdapter{resolved: map[string]string{}}
 	srv := newTaggedUsersTestServer(t, adapter)
 	insertTaggedUsersSegmentFixture(t, srv, "segment-numeric", "rsegment-numeric", "media-numeric", `{"tagged_users":"123, 456"}`)
@@ -179,6 +182,7 @@ func enableTaggedUsersCostPolicy(t *testing.T, srv *publisherLifecycleTestServer
 }
 
 func TestXTaggedUserLookupHonorsZeroBudget(t *testing.T) {
+	t.Parallel()
 	adapter := &resolvingFakeAdapter{resolved: map[string]string{"handle": "2244996801"}}
 	srv := newTaggedUsersTestServer(t, adapter)
 	enableTaggedUsersCostPolicy(t, srv, 0)
@@ -192,6 +196,7 @@ func TestXTaggedUserLookupHonorsZeroBudget(t *testing.T) {
 }
 
 func TestXTaggedUserLookupReservesOnlyUncachedUsers(t *testing.T) {
+	t.Parallel()
 	adapter := &resolvingFakeAdapter{resolved: map[string]string{"first": "123", "second": "456"}}
 	srv := newTaggedUsersTestServer(t, adapter)
 	enableTaggedUsersCostPolicy(t, srv, 20_000)
@@ -224,6 +229,7 @@ func TestXTaggedUserLookupReservesOnlyUncachedUsers(t *testing.T) {
 }
 
 func TestXTaggedUserLookupFailureSettlement(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name     string
 		err      error
@@ -264,6 +270,7 @@ func TestXTaggedUserLookupFailureSettlement(t *testing.T) {
 }
 
 func TestXTaggedUserLookupAndPublishShareHostedBudget(t *testing.T) {
+	t.Parallel()
 	adapter := &resolvingFakeAdapter{resolved: map[string]string{"handle": "2244996801"}}
 	srv := newTaggedUsersTestServer(t, adapter)
 	// One user read costs 10,000, followed by one post create at 15,000.

@@ -1,4 +1,4 @@
-import type { MediaAttribution } from '../media/types';
+import type { MediaAttribution } from '@openpost/editor-shared/media';
 
 const ENDPOINT = 'https://graphql.lottiefiles.com/2022-08';
 export const LOTTIEFILES_LICENSE = 'Lottie Simple License (FL 9.13.21)';

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import TimelineVoiceoverControl from '../components/timeline-voiceover-control.svelte';
 import TimelineVoiceoverOverlay from '../components/timeline-voiceover-overlay.svelte';
 import type {

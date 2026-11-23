@@ -24,6 +24,7 @@ func (repurposeGenerator) Generate(context.Context, ai.GenerateRequest) (ai.Gene
 }
 
 func TestRepurposeHTTPReviewBoundary(t *testing.T) {
+	t.Parallel()
 	db := newHandlerSchemaTestDB(t)
 	for _, model := range []any{
 		&models.User{ID: "user-1", Email: "one@example.com"}, &models.User{ID: "user-2", Email: "two@example.com"},

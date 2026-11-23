@@ -13,7 +13,7 @@
  */
 
 import type { TransitionDefinition, WipeDirection, SlideDirection, FlipDirection } from './types';
-import { createLogger } from '$lib/video-editor/workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 
 const log = createLogger('TransitionRegistry');
 

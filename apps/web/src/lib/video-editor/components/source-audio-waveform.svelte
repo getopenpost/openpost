@@ -2,7 +2,7 @@
 	import { onDestroy } from 'svelte';
 	import { devicePixelRatio } from 'svelte/reactivity/window';
 	import { m } from '$lib/paraglide/messages';
-	import type { MediaMetadata } from '$lib/video-editor/media/types';
+	import type { MediaMetadata } from '@openpost/editor-shared/media';
 	import {
 		getWaveform,
 		subscribeWaveform,

@@ -42,6 +42,7 @@ func (a *instagramLoginTestAdapter) GetProfile(context.Context, string) (*platfo
 }
 
 func TestInstagramLoginCallbackKeepsChosenMethodAndCanonicalAccount(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.AuthChallenge)(nil),
 		(*models.OAuthAccountSelection)(nil), (*models.SocialAccount)(nil), (*models.Job)(nil))
 	seedOAuthTestWorkspace(t, db)

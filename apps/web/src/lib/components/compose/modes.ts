@@ -46,18 +46,8 @@ export interface PublicationComposerFields {
 	linkUrl?: string;
 }
 
-export type ComposerSettingValue =
-	| null
-	| string
-	| number
-	| boolean
-	| string[]
-	| number[]
-	| boolean[];
-
-export interface ComposerSettings {
-	[key: string]: ComposerSettingValue;
-}
+import type { ComposerSettings, ComposerSettingValue } from './settings-types';
+export type { ComposerSettings, ComposerSettingValue };
 
 export interface PublicationMediaPayload {
 	media_id: string;

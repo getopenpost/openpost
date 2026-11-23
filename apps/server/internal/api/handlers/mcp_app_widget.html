@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenPost Scheduler</title>
+    <style>
+      /*MCP_UI_STYLES*/
+      .shell {
+        min-height: 100vh;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+      .panel {
+        overflow: hidden;
+      }
+      .header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .brand {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+      .eyebrow {
+        color: var(--muted-foreground);
+        font-size: 12px;
+        font-weight: 600;
+      }
+      h1 {
+        margin: 0;
+        font-size: 20px;
+        line-height: 1.2;
+        letter-spacing: 0;
+      }
+      .workspace {
+        color: var(--muted-foreground);
+        font-size: 12px;
+        overflow-wrap: anywhere;
+      }
+      .content {
+        padding: 14px;
+        display: grid;
+        gap: 10px;
+      }
+      .grid {
+        display: grid;
+        gap: 10px;
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--theme-radius-md);
+        background: var(--card);
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-top: 1px solid var(--border);
+        padding-top: 8px;
+      }
+      .row:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+      .title {
+        color: var(--foreground);
+        font-size: 14px;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+      }
+      .muted {
+        color: var(--muted-foreground);
+        font-size: 12px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 22px;
+        border-radius: var(--theme-radius-pill);
+        padding: 0 8px;
+        background: var(--success);
+        color: var(--success-foreground);
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .warn {
+        background: var(--warning);
+        color: var(--warning-foreground);
+      }
+      .idle {
+        background: var(--muted);
+        color: var(--muted-foreground);
+      }
+      .json {
+        margin: 0;
+        max-height: 280px;
+        overflow: auto;
+        border-radius: var(--theme-radius-md);
+        background: var(--muted);
+        color: var(--foreground);
+        padding: 12px;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .empty {
+        border: 1px dashed var(--border);
+        border-radius: var(--theme-radius-md);
+        padding: 18px;
+        text-align: center;
+        color: var(--muted-foreground);
+        font-size: 13px;
+      }
+      @media (min-width: 620px) {
+        .grid.cards {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      ::selection {
+        background: var(--selection);
+        color: var(--selection-foreground);
+      }
+    </style>
+  </head>
+  <body data-theme-button="dither">
+    <div class="shell">
+      <main class="panel" id="root">
+        <div class="content"><div class="empty">Waiting for OpenPost scheduler data.</div></div>
+      </main>
+    </div>
+    <script>
+      (function () {
+        var root = document.getElementById("root");
+        function escapeHTML(value) {
+          return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char];
+          });
+        }
+        function array(value) {
+          return Array.isArray(value) ? value : [];
+        }
+        function payloadFromBridge() {
+          var bridge = window.openai || {};
+          if (bridge.toolOutput) return bridge.toolOutput;
+          if (bridge.structuredContent) return bridge.structuredContent;
+          if (bridge.response && bridge.response.structuredContent)
+            return bridge.response.structuredContent;
+          if (bridge.toolInput) return bridge.toolInput;
+          return {};
+        }
+        function normalizePayload(payload) {
+          if (!payload) return {};
+          if (payload.structuredContent) return payload.structuredContent;
+          if (payload.toolOutput) return payload.toolOutput;
+          return payload;
+        }
+        function inferView(data) {
+          if (data.publication) return "publication";
+          if (data.publications) return "publications";
+          if (data.post) return "post";
+          if (data.posts) return "posts";
+          if (data.media) return "media";
+          if (data.accounts) return "accounts";
+          if (data.providers) return "providers";
+          if (data.workspaces) return "workspaces";
+          if (data.suggestion) return "suggestion";
+          if (data.renditions) return "renditions";
+          if (data.variants) return "variants";
+          return "summary";
+        }
+        function statusClass(value) {
+          var status = String(value || "").toLowerCase();
+          if (
+            status.indexOf("fail") >= 0 ||
+            status.indexOf("error") >= 0 ||
+            status.indexOf("needs") >= 0
+          )
+            return "pill warn";
+          if (!status) return "pill idle";
+          return "pill";
+        }
+        function itemTitle(item) {
+          return (
+            item.title ||
+            item.name ||
+            item.content ||
+            item.slug ||
+            item.original_filename ||
+            item.display_name ||
+            item.id ||
+            "Item"
+          );
+        }
+        function itemStatus(item) {
+          return (
+            item.status ||
+            item.role ||
+            item.platform ||
+            item.processing_status ||
+            item.provider ||
+            item.state ||
+            ""
+          );
+        }
+        function renderCards(items) {
+          if (!items.length) return '<div class="empty">No items to show.</div>';
+          return (
+            '<div class="grid cards">' +
+            items
+              .map(function (item) {
+                var title = escapeHTML(itemTitle(item));
+                var status = escapeHTML(itemStatus(item));
+                var secondary =
+                  item.scheduled_at ||
+                  item.created_at ||
+                  item.account_username ||
+                  item.mime_type ||
+                  item.description ||
+                  item.message ||
+                  "";
+                return (
+                  '<section class="card"><div class="row"><div class="title">' +
+                  title +
+                  '</div><span class="' +
+                  statusClass(status) +
+                  '">' +
+                  (status || "ready") +
+                  '</span></div><div class="muted">' +
+                  escapeHTML(secondary) +
+                  "</div></section>"
+                );
+              })
+              .join("") +
+            "</div>"
+          );
+        }
+        function renderPublication(publication) {
+          if (!publication) return '<div class="empty">No Post data to show.</div>';
+          var renditions = array(publication.renditions || publication.destinations)
+            .map(function (rendition) {
+              return (
+                '<div class="row"><span class="muted">' +
+                escapeHTML(rendition.platform || rendition.social_account_id || "destination") +
+                '</span><span class="' +
+                statusClass(rendition.status) +
+                '">' +
+                escapeHTML(rendition.status || "pending") +
+                "</span></div>"
+              );
+            })
+            .join("");
+          var media = array(publication.media)
+            .map(function (item) {
+              return (
+                '<div class="row"><span class="muted">' +
+                escapeHTML(item.original_filename || item.media_id || "media") +
+                '</span><span class="pill idle">' +
+                escapeHTML(item.mime_type || "asset") +
+                "</span></div>"
+              );
+            })
+            .join("");
+          var title =
+            publication.title ||
+            publication.source_text ||
+            publication.content ||
+            publication.id ||
+            "Post";
+          return (
+            '<section class="card"><div class="title">' +
+            escapeHTML(title) +
+            '</div><div class="muted">' +
+            escapeHTML(publication.scheduled_at || publication.created_at || "") +
+            "</div>" +
+            renditions +
+            media +
+            "</section>"
+          );
+        }
+        function renderData(view, data) {
+          if (view === "publication") return renderPublication(data.publication);
+          if (view === "publications") return renderCards(array(data.publications));
+          if (view === "post") return renderPublication(data.post);
+          if (view === "posts") return renderCards(array(data.posts));
+          if (view === "media") return renderCards(array(data.media));
+          if (view === "accounts") return renderCards(array(data.accounts));
+          if (view === "providers") return renderCards(array(data.providers));
+          if (view === "workspaces") return renderCards(array(data.workspaces));
+          if (view === "suggestion") return renderCards(data.suggestion ? [data.suggestion] : []);
+          if (view === "renditions") return renderCards(array(data.renditions));
+          if (view === "variants") return renderCards(array(data.variants));
+          return '<pre class="json">' + escapeHTML(JSON.stringify(data, null, 2)) + "</pre>";
+        }
+        function render(payload) {
+          var state = normalizePayload(payload);
+          var data = state.data || {};
+          var view = state.view || inferView(data);
+          var title = state.title || "OpenPost Scheduler";
+          var workspace = state.workspace_id
+            ? "Workspace " + state.workspace_id
+            : "Agentic social scheduler";
+          root.innerHTML =
+            '<header class="header" data-dither-panel><div class="brand"><div class="eyebrow">OpenPost</div><h1>' +
+            escapeHTML(title) +
+            '</h1></div><div class="workspace">' +
+            escapeHTML(workspace) +
+            '</div></header><section class="content">' +
+            renderData(view, data) +
+            "</section>";
+        }
+        window.addEventListener("message", function (event) {
+          if (event.source !== window.parent) return;
+          var message = event.data || {};
+          if (message.jsonrpc === "2.0" && message.method === "ui/notifications/tool-result") {
+            render(message.params || {});
+            return;
+          }
+          if (message.jsonrpc === "2.0" && message.method === "ui/notifications/tool-input") {
+            render(message.params || {});
+            return;
+          }
+          if (message.structuredContent || message.toolOutput) render(message);
+        });
+        render(payloadFromBridge());
+      })();
+    </script>
+  </body>
+</html>

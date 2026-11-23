@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { getWorkspaceRoot, setWorkspaceRoot } from './root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import {
 	deleteSceneAnalysis,
 	getSceneAnalysis,

@@ -27,13 +27,13 @@ func TestTikTokPhotoValidationRejectsOversizedShortSide(t *testing.T) {
 		{name: "unknown dimensions", media: MediaItem{ID: "legacy", MimeType: "image/jpeg"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			issues := validateTikTokMedia([]MediaItem{test.media})
+			err := validateTikTokMedia([]MediaItem{test.media})
 			if test.shouldReject {
-				if len(issues) != 1 || issues[0].MediaID != test.media.ID || !strings.Contains(issues[0].Message, "1080 pixels on the shorter side") {
-					t.Fatalf("unexpected validation issues: %#v", issues)
+				if err == nil || !strings.Contains(err.Error(), "1080 pixels on the shorter side") {
+					t.Fatalf("unexpected validation error: %v", err)
 				}
-			} else if len(issues) != 0 {
-				t.Fatalf("unexpected validation issues: %#v", issues)
+			} else if err != nil {
+				t.Fatalf("unexpected validation error: %v", err)
 			}
 		})
 	}

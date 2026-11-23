@@ -32,8 +32,20 @@ export default defineConfig({
 					entries: [...browserTestFiles, '../../packages/ui/dist/**/*.{js,svelte}'],
 					// Keep wrapper components and their mount helpers on the same Svelte runtime.
 					exclude: ['@testing-library/svelte-core', 'vitest-browser-svelte'],
-					// Worker-loaded GIF encoding must not trigger a mid-test optimizer reload.
-					include: ['gifenc', 'html-to-image']
+					// Prebundle browser test dependencies so fresh CI runners do not trigger
+					// mid-test Vite optimizer reloads.
+					include: [
+						'gifenc',
+						'html-to-image',
+						'bits-ui',
+						'@tanstack/svelte-query',
+						'openapi-fetch',
+						'posthog-js',
+						'tabbable',
+						'tailwind-merge',
+						'tailwind-variants',
+						'zod'
+					]
 				},
 				resolve: {
 					// Browser tests assert computed font-family names, which resolve
@@ -61,16 +73,21 @@ export default defineConfig({
 							setDeviceScaleFactor: defineBrowserCommand(async ({ page }, scale: number | null) => {
 								let session = deviceScaleSessions.get(page);
 								if (scale === null) {
-									await session?.detach();
-									deviceScaleSessions.delete(page);
+									if (session) {
+										await session.send('Emulation.clearDeviceMetricsOverride').catch(() => {});
+										await session.send('Emulation.setEmulatedMedia', { media: '' }).catch(() => {});
+										await session.detach().catch(() => {});
+										deviceScaleSessions.delete(page);
+									}
 									return;
 								}
 								if (!session) {
 									session = await page.context().newCDPSession(page);
 									deviceScaleSessions.set(page, session);
 								}
+								const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
 								await session.send('Emulation.setDeviceMetricsOverride', {
-									...page.viewportSize(),
+									...viewport,
 									deviceScaleFactor: scale,
 									mobile: false
 								});

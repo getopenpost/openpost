@@ -12,7 +12,7 @@
 		readExportFile,
 		type ExportEntry
 	} from '../workspace-fs/exports';
-	import { createLogger } from '../workspace-fs/logger';
+	import { createLogger } from '@openpost/editor-shared/workspace';
 	import { formatBytes as formatByteSize } from '$lib/byte-size';
 
 	const logger = createLogger('SavedExports');

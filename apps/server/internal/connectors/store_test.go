@@ -3,11 +3,14 @@ package connectors
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -117,9 +120,86 @@ func TestStoreSavesConnectorAccountsAndBindingsAtomically(t *testing.T) {
 
 func newConnectorStoreDB(t *testing.T) *bun.DB {
 	t.Helper()
-	db, err := database.InitDB("file:" + t.Name() + "?mode=memory&cache=shared")
+	db, err := testdb.Open("file:" + t.Name() + "?mode=memory&cache=shared")
 	require.NoError(t, err)
 	require.NoError(t, database.CreateSchema(db))
 	t.Cleanup(func() { _ = db.Close() })
 	return db
+}
+
+func TestValidateManifestFailsClosedForUnknownProtocolAndControls(t *testing.T) {
+	t.Parallel()
+
+	manifest := validManifest()
+	manifest.ProtocolVersion = "2.0"
+	require.ErrorContains(t, ValidateManifest(&manifest), "unsupported connector protocol")
+
+	manifest = validManifest()
+	manifest.Publishing.OutputProfiles[0].Settings = []SettingDefinition{{
+		Key: "status", Label: "Status", Control: "connector_html",
+	}}
+	require.ErrorContains(t, ValidateManifest(&manifest), "unsupported control")
+}
+
+func validManifest() Manifest {
+	return Manifest{
+		ProtocolVersion:       "1.0",
+		ImplementationVersion: "0.1.0",
+		Provider: ProviderDescriptor{
+			ID:          "io.directus.items",
+			DisplayName: "Directus",
+		},
+		CapabilityRevision: "directus-items-v1",
+		Connection:         ConnectionDescriptor{Modes: []string{"preconfigured"}},
+		Publishing: PublishingDescriptor{OutputProfiles: []OutputProfile{{
+			ID:          "directus.item",
+			DisplayName: "Create Directus item",
+			Profile:     "short_text",
+			Intents:     []string{"post"},
+			Content:     TextConstraint{Required: true, MaxLength: 100_000},
+			Media:       MediaConstraint{MinItems: 0, MaxItems: 0},
+		}}},
+		Operations: OperationDescriptor{Polling: true},
+	}
+}
+
+func TestLoadConfigRejectsInlineSecretsAndUnknownFields(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "connectors.json")
+	require.NoError(t, os.WriteFile(configPath, []byte(`{
+  "version": 1,
+  "installations": [{
+    "id": "directus-main",
+    "endpoint": {
+      "mode": "public_https",
+      "base_url": "https://connector.example.com"
+    },
+    "auth": {
+      "bearer_token": "must-not-be-inline"
+    }
+  }]
+}`), 0o600))
+
+	_, err := LoadConfig(configPath)
+	require.ErrorContains(t, err, "unknown field")
+}
+
+func TestLoadConfigRejectsRelativeSecretFiles(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "connectors.json")
+	require.NoError(t, os.WriteFile(configPath, []byte(`{
+  "version": 1,
+  "installations": [{
+    "id": "directus-main",
+    "endpoint": {"mode": "public_https", "base_url": "https://connector.example.com"},
+    "auth": {"bearer_token_file": "relative-token"}
+  }]
+}`), 0o600))
+
+	_, err := LoadConfig(configPath)
+	require.ErrorContains(t, err, "must be an absolute path")
 }

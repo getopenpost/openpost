@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/netguard"
 )
 
@@ -57,7 +59,7 @@ func trimURLTail(candidate string) string {
 // EffectiveLinkURL prefers an explicit native link setting and falls back to
 // the first URL detected in post text so providers can build a native card.
 func EffectiveLinkURL(settings map[string]interface{}, content string) string {
-	if explicit := firstNonEmptyString(settingString(settings, "url"), settingString(settings, "link_url")); explicit != "" {
+	if explicit := textutil.FirstNonEmpty(settingString(settings, "url"), settingString(settings, "link_url")); explicit != "" {
 		if parsed, err := url.Parse(strings.TrimSpace(explicit)); err == nil && parsed.Host != "" && (parsed.Scheme == "https" || parsed.Scheme == "http") {
 			return strings.TrimSpace(explicit)
 		}
@@ -116,11 +118,11 @@ func FetchLinkPreview(ctx context.Context, rawURL string) (LinkPreview, error) {
 }
 
 func parseOpenGraphMetadata(document string) (string, string) {
-	title := firstNonEmptyString(
+	title := textutil.FirstNonEmpty(
 		metaContentByProperty(document, "og:title"),
 		htmlTagContent(document, "title"),
 	)
-	description := firstNonEmptyString(
+	description := textutil.FirstNonEmpty(
 		metaContentByProperty(document, "og:description"),
 		metaContentByName(document, "description"),
 	)
@@ -196,7 +198,7 @@ func linkedInArticleFields(ctx context.Context, req *PublishRequest, articleURL 
 	if err != nil {
 		return title, description
 	}
-	return firstNonEmptyString(title, preview.Title), firstNonEmptyString(description, preview.Description)
+	return textutil.FirstNonEmpty(title, preview.Title), textutil.FirstNonEmpty(description, preview.Description)
 }
 
 // facebookFeedLink resolves the native feed link: explicit settings win, then

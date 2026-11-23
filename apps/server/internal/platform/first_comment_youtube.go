@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 var errMissingYouTubeCommentID = errors.New("youtube comment publish: missing comment id")
@@ -52,7 +54,7 @@ func (y *YouTubeAdapter) PostFirstComment(ctx context.Context, accessToken, _, e
 	if err := json.Unmarshal(response.body, &result); err != nil {
 		return "", err
 	}
-	commentID := strings.TrimSpace(firstNonEmptyString(result.Snippet.TopLevelComment.ID, result.ID))
+	commentID := strings.TrimSpace(textutil.FirstNonEmpty(result.Snippet.TopLevelComment.ID, result.ID))
 	if commentID == "" {
 		return "", errMissingYouTubeCommentID
 	}

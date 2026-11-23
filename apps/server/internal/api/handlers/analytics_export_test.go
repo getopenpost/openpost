@@ -78,6 +78,7 @@ func exportRequest(t *testing.T, e *echo.Echo, query string) *httptest.ResponseR
 }
 
 func TestAnalyticsExportCSVGroupsByPlatformAndNeutralizesFormulas(t *testing.T) {
+	t.Parallel()
 	e, db := newAnalyticsExportServerWithDB(t)
 
 	grouped := exportRequest(t, e, "format=csv&group_by=platform&timezone=Europe/Rome")
@@ -115,6 +116,7 @@ func TestAnalyticsExportCSVGroupsByPlatformAndNeutralizesFormulas(t *testing.T) 
 }
 
 func TestAnalyticsExportWorkbookHasSheetsAndCharts(t *testing.T) {
+	t.Parallel()
 	e := newAnalyticsExportServer(t)
 
 	response := exportRequest(t, e, "format=xlsx&group_by=day&timezone=America/New_York")
@@ -138,6 +140,7 @@ func TestAnalyticsExportWorkbookHasSheetsAndCharts(t *testing.T) {
 }
 
 func TestAnalyticsExportRejectsInvalidInput(t *testing.T) {
+	t.Parallel()
 	e := newAnalyticsExportServer(t)
 	for _, query := range []string{
 		"timezone=Mars/Base",
@@ -152,6 +155,7 @@ func TestAnalyticsExportRejectsInvalidInput(t *testing.T) {
 }
 
 func TestAnalyticsExportIncludesEveryPageOfContent(t *testing.T) {
+	t.Parallel()
 	e, db := newAnalyticsExportServerWithDB(t)
 	now := time.Now().UTC()
 	extra := make([]models.Rendition, 0, 130)
@@ -173,6 +177,7 @@ func TestAnalyticsExportIncludesEveryPageOfContent(t *testing.T) {
 }
 
 func TestAnalyticsExportSelectsIndividualAccountsAcrossEveryTable(t *testing.T) {
+	t.Parallel()
 	e, db := newAnalyticsExportServerWithDB(t)
 	ctx := t.Context()
 	now := time.Now().UTC()

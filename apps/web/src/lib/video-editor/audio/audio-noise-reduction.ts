@@ -1,19 +1,15 @@
 import type { TimelineItem } from '../project/types';
+import type {
+	AudioNoiseReductionFieldSource,
+	AudioNoiseReductionSettings,
+	ResolvedAudioNoiseReductionSettings
+} from './types';
 
-export interface AudioNoiseReductionFieldSource {
-	audioNoiseReductionEnabled?: boolean;
-	audioNoiseReductionAmount?: number;
-}
-
-export interface AudioNoiseReductionSettings {
-	enabled?: boolean;
-	amount?: number;
-}
-
-export interface ResolvedAudioNoiseReductionSettings {
-	enabled: boolean;
-	amount: number;
-}
+export type {
+	AudioNoiseReductionFieldSource,
+	AudioNoiseReductionSettings,
+	ResolvedAudioNoiseReductionSettings
+};
 
 export const NOISE_REDUCTION_AMOUNT_MIN = 0;
 export const NOISE_REDUCTION_AMOUNT_MAX = 100;

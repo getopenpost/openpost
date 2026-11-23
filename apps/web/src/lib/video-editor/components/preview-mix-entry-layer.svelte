@@ -37,7 +37,7 @@
 	} from '$lib/video-editor/audio/soundtouch-preview-worklet';
 	import { prepareAudioBufferForSoundTouchPreview } from '$lib/video-editor/audio/soundtouch-preview-buffer';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
-	import { isAc3AudioCodec } from '$lib/video-editor/media/ac3-decoder';
+	import { isAc3AudioCodec } from '@openpost/editor-shared/media';
 	import {
 		attachAudioSourceToMixer,
 		setMixerMaster,

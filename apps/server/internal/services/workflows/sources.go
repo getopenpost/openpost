@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/openpost/backend/internal/services/lifecycle"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/netguard"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
+	"github.com/openpost/backend/internal/textutil"
 	"github.com/uptrace/bun"
 )
 
@@ -260,15 +260,7 @@ func (s *Service) feedItems(ctx context.Context, address string) ([]SourceItem, 
 	return result, nil
 }
 func boundedText(value string) string {
-	value = strings.TrimSpace(value)
-	if len(value) <= MaxTextBytes {
-		return value
-	}
-	end := MaxTextBytes
-	for !utf8.RuneStart(value[end]) {
-		end--
-	}
-	return value[:end]
+	return textutil.TruncateUTF8Bytes(value, MaxTextBytes)
 }
 func (s *Service) publishedItems(ctx context.Context, workspaceID string, accounts []string, since time.Time, workflow *workflowRecord) ([]SourceItem, error) {
 	type row struct {

@@ -17,6 +17,7 @@ import (
 // carries the distinct-post count so readers can reconcile the tile with the
 // Posts "Published" tab, which filters by publication status.
 func TestOverviewPublishedCountsPublishedDestinations(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	ctx := t.Context()
 	account := seedAnalyticsAccount(t, db, "")
@@ -67,6 +68,7 @@ func TestOverviewPublishedCountsPublishedDestinations(t *testing.T) {
 }
 
 func TestOverviewIncludesOlderPublishedContentInLongRanges(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	account := seedAnalyticsAccount(t, db, "")
 	now := time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC)
@@ -88,6 +90,7 @@ func TestOverviewIncludesOlderPublishedContentInLongRanges(t *testing.T) {
 }
 
 func TestCustomRangeBoundsPostsExportAndCursor(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	account := seedAnalyticsAccount(t, db, "")
 	now := time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC)
@@ -126,6 +129,7 @@ func TestCustomRangeBoundsPostsExportAndCursor(t *testing.T) {
 }
 
 func TestManualAnalyticsRefreshCollectsOlderPublishedRenditions(t *testing.T) {
+	t.Parallel()
 	db := newAnalyticsTestDB(t)
 	account := seedAnalyticsAccount(t, db, "")
 	now := time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC)

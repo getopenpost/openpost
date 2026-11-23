@@ -4,21 +4,12 @@ import {
 	hasStrokeTaper,
 	hasTrimPath,
 	maximumTaperScale,
-	renderShapeStroke
+	renderShapeStroke,
+	type ShapePathTarget
 } from './stroke-path';
+export type { ShapePathTarget };
 
 type ShapeContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
-export type ShapePathTarget = Pick<
-	ShapeContext,
-	| 'beginPath'
-	| 'moveTo'
-	| 'lineTo'
-	| 'bezierCurveTo'
-	| 'quadraticCurveTo'
-	| 'closePath'
-	| 'ellipse'
-	| 'rect'
-> & { roundRect?: (x: number, y: number, width: number, height: number, radius: number) => void };
 
 interface Point {
 	x: number;

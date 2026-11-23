@@ -4,7 +4,7 @@ import {
 	mediaDurationInFrames,
 	mediaTimelineKind
 } from '../../media/media-drop-placement';
-import type { MediaMetadata } from '../../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { TimelineItem, TimelineTrack } from '../../project/types';
 import { sequenceStore } from '../../sequences/sequence-store.svelte';
 import { execute } from '../commands/command-store.svelte';

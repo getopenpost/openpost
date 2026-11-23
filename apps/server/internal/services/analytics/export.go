@@ -10,6 +10,8 @@ import (
 	"time"
 	_ "time/tzdata" // IANA zones must resolve on hosts without a system zoneinfo database.
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/platform"
 )
 
@@ -242,7 +244,7 @@ func exportPostsTable(content []ContentOverview, metrics []string, location *tim
 		row := make([]any, 0, 8+len(metrics))
 		row = append(row,
 			item.PublishedAt.In(location).Format("2006-01-02 15:04"),
-			firstNonEmpty(item.Title, item.Excerpt), item.Platform, item.Username, item.ContentProfile, item.ExternalURL,
+			textutil.FirstNonEmptyRaw(item.Title, item.Excerpt), item.Platform, item.Username, item.ContentProfile, item.ExternalURL,
 			exportEngagement(item),
 		)
 		for _, key := range metrics {
@@ -411,7 +413,7 @@ func exportGroupKey(item ContentOverview, groupBy string, location *time.Locatio
 	case ExportGroupPlatform:
 		return item.Platform, item.Platform
 	default:
-		label := firstNonEmpty(item.Username, item.AccountID)
+		label := textutil.FirstNonEmptyRaw(item.Username, item.AccountID)
 		return item.Platform + "/" + item.AccountID, fmt.Sprintf("%s (%s)", label, item.Platform)
 	}
 }
@@ -497,13 +499,4 @@ func exportAccountsTable(accounts []AccountOverview, scope exportScope, location
 		table.Rows = append(table.Rows, row)
 	}
 	return table
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
 }

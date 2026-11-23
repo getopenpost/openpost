@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/openpost/backend/internal/textutil"
 )
 
 // lemmyAPIVersionBoundary is the newest Lemmy line OpenPost publishes
@@ -23,6 +25,7 @@ const lemmyAPIVersionBoundary = "1.0"
 // server API (v3). The connected account ID is the numeric person ID; each
 // rendition targets one concrete community destination.
 type LemmyAdapter struct {
+	BaseAdapter
 	instanceURL string
 }
 
@@ -42,16 +45,8 @@ func (l *LemmyAdapter) AuthorizationGrantDescriptor() AuthorizationGrantDescript
 	}
 }
 
-func (l *LemmyAdapter) GenerateAuthURL(_ string) (string, map[string]string) {
-	return "", nil
-}
-
 func (l *LemmyAdapter) ExchangeCode(_ context.Context, _ string, _ map[string]string) (*TokenResult, error) {
 	return nil, fmt.Errorf("lemmy uses instance credentials, not OAuth redirect")
-}
-
-func (l *LemmyAdapter) RefreshCapability() RefreshCapability {
-	return RefreshCapability{Supported: false, CredentialSource: RefreshCredentialNone}
 }
 
 func (l *LemmyAdapter) RefreshToken(_ context.Context, _ RefreshTokenInput) (*TokenResult, error) {
@@ -214,7 +209,7 @@ func (l *LemmyAdapter) resolveCommunity(ctx context.Context, jwt, ref string) (C
 // SearchPublishingOptions searches communities on the connected instance for
 // the composer destination picker. Values are canonical actor IDs.
 func (l *LemmyAdapter) SearchPublishingOptions(ctx context.Context, accessToken string, input PublishingOptionsInput) (PublishingOptionsPage, error) {
-	query := strings.TrimSpace(firstNonEmptyString(input.Search, input.Context["value"], input.Context["query"]))
+	query := strings.TrimSpace(textutil.FirstNonEmpty(input.Search, input.Context["value"], input.Context["query"]))
 	limit := input.Limit
 	if limit <= 0 || limit > 25 {
 		limit = 10
@@ -312,7 +307,7 @@ func (l *LemmyAdapter) Publish(ctx context.Context, accessToken, _ string, req *
 	if body := communityBody(req.Content, req.Settings); body != "" {
 		payload["body"] = body
 	}
-	if link := firstNonEmptyString(settingString(req.Settings, CommunitySettingURL), firstCommunityMediaURL(req)); link != "" {
+	if link := textutil.FirstNonEmpty(settingString(req.Settings, CommunitySettingURL), firstCommunityMediaURL(req)); link != "" {
 		payload["url"] = link
 		if altText := settingString(req.Settings, "alt_text"); altText != "" {
 			payload["alt_text"] = altText

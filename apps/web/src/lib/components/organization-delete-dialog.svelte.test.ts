@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render } from 'vitest-browser-svelte';
+import { cleanup, render } from 'vitest-browser-svelte';
 import { client } from '$lib/api/client';
 import { setLocale } from '$lib/paraglide/runtime';
 import OrganizationDeleteDialog from './organization-delete-dialog.svelte';
@@ -32,13 +32,14 @@ function previewResponse(overrides = {}) {
 }
 
 describe('OrganizationDeleteDialog shared flow', () => {
-	afterEach(() => {
+	afterEach(async () => {
+		await cleanup();
 		getMock.mockReset();
 		setLocale('en', { reload: false });
 	});
 
 	it('enables delete only after the exact organization name and password', async () => {
-		// SAFETY: the cast bridges the mock's declared response type to the canned preview payload.
+		// SAFETY: previewResponse returns the exact API payload shape consumed by OrganizationDeleteDialog.
 		getMock.mockResolvedValue(previewResponse() as never);
 		const onConfirm = vi.fn().mockResolvedValue(undefined);
 		const screen = await render(OrganizationDeleteDialog, {
@@ -64,10 +65,11 @@ describe('OrganizationDeleteDialog shared flow', () => {
 				reauthGrant: undefined
 			})
 		);
+		await screen.rerender({ open: false });
 	});
 
 	it('reports preview blockers and keeps delete disabled', async () => {
-		// SAFETY: the cast bridges the mock's declared response type to the canned preview payload.
+		// SAFETY: previewResponse returns the exact API payload shape consumed by OrganizationDeleteDialog.
 		getMock.mockResolvedValue(
 			previewResponse({
 				blockers: [{ code: 'active_billing', message: 'Resolve billing first' }]
@@ -92,5 +94,6 @@ describe('OrganizationDeleteDialog shared flow', () => {
 			.element(screen.getByRole('button', { name: 'Delete Organization' }))
 			.toBeDisabled();
 		expect(onConfirm).not.toHaveBeenCalled();
+		await screen.rerender({ open: false });
 	});
 });

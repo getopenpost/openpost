@@ -1,6 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
 import { fileURLToPath } from "node:url";
-import { appShardFiles, appTestPattern } from "../../scripts/app-e2e-shards.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -18,10 +17,10 @@ const mastodonKeyPath = `/tmp/openpost-app-e2e-${port}-mastodon.key`;
 const dbPath = `/tmp/openpost-app-e2e-${port}.db`;
 const reuseExistingServer = process.env.OPENPOST_APP_E2E_REUSE_SERVER === "1";
 const usePrebuiltArtifact = process.env.OPENPOST_E2E_PREBUILT === "1";
-const workers = Number(process.env.OPENPOST_APP_E2E_WORKERS ?? (process.env.CI ? 1 : 2));
-const shardParts = process.env.OPENPOST_APP_E2E_SHARD
-  ? process.env.OPENPOST_APP_E2E_SHARD.split("/").map(Number)
-  : undefined;
+// CI builds the dev-tagged server once (with the frontend embedded) and every
+// shard starts that binary instead of compiling it again with `go run`.
+const serverBinary = process.env.OPENPOST_APP_E2E_SERVER_BINARY;
+const workers = Number(process.env.OPENPOST_APP_E2E_WORKERS ?? 2);
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 // Extra Chromium flags for local runs whose browser renders differently from
 // the pinned CI browser (for example newer engines without overlay
@@ -46,46 +45,24 @@ const chromiumUse = {
   },
 };
 
+// The handoff suite also needs the marketing artifact, so CI runs it apart.
+// Shard the core suite with Playwright's native `--shard`.
 const suite = process.env.OPENPOST_APP_E2E_SUITE;
 if (suite && suite !== "core" && suite !== "handoff")
   throw new Error("Unknown application browser suite");
-// CI and local failure reproduction share this exact assignment. Keep an
-// unsharded core run exhaustive; timings never determine suite membership.
-const balancedFiles =
-  suite === "core" && process.env.OPENPOST_APP_E2E_SHARD
-    ? appShardFiles(process.env.OPENPOST_APP_E2E_SHARD)
-    : undefined;
 
 export default defineConfig({
   testDir: ".",
   ...(suite === "handoff" ? { testMatch: "tool-draft-handoff.spec.ts" } : {}),
   ...(suite === "core" ? { testIgnore: "tool-draft-handoff.spec.ts" } : {}),
-  ...(balancedFiles
-    ? {
-        testMatch: balancedFiles.map(appTestPattern),
-      }
-    : {}),
   outputDir: `${repositoryRoot}/test-results`,
   fullyParallel: true,
-  shard:
-    !balancedFiles && shardParts ? { current: shardParts[0], total: shardParts[1] } : undefined,
   workers,
   forbidOnly: !!process.env.CI,
   failOnFlakyTests: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: 0,
   reporter: process.env.CI
-    ? [
-        ["github"],
-        ["html", { open: "never", outputFolder: `${repositoryRoot}/playwright-report` }],
-        [
-          "json",
-          {
-            outputFile:
-              process.env.PLAYWRIGHT_JSON_OUTPUT_FILE ??
-              `${repositoryRoot}/test-results/app-timings-${shardParts?.[0] ?? 1}.json`,
-          },
-        ],
-      ]
+    ? [["github"], ["html", { open: "never", outputFolder: `${repositoryRoot}/playwright-report` }]]
     : "list",
   use: {
     baseURL,
@@ -129,7 +106,7 @@ export default defineConfig({
       },
       command: [
         `rm -f ${dbPath}`,
-        ...(usePrebuiltArtifact ? [] : ["bun run build -- frontend"]),
+        ...(usePrebuiltArtifact || serverBinary ? [] : ["bun run build -- frontend"]),
         [
           "cd apps/server &&",
           `OPENPOST_PORT=${port}`,
@@ -145,7 +122,7 @@ export default defineConfig({
           `OPENPOST_SMTP_PORT=${smtpPort}`,
           "OPENPOST_SMTP_TLS_MODE=none",
           `OPENPOST_APP_URL="${baseURL}"`,
-          "go run -tags dev ./cmd/openpost",
+          serverBinary ? JSON.stringify(serverBinary) : "go run -tags dev ./cmd/openpost",
         ].join(" "),
       ].join(" && "),
       url: baseURL,

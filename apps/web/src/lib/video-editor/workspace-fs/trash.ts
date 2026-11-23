@@ -9,8 +9,8 @@
  * Ported from FreeCut (MIT) — workspace-fs/trash.ts.
  */
 
-import { createLogger } from './logger';
-import { requireWorkspaceRoot } from './root';
+import { createLogger } from '@openpost/editor-shared/workspace';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import {
 	exists,
 	listDirectory,
@@ -18,15 +18,15 @@ import {
 	removeEntry,
 	writeJsonAtomic,
 	WorkspaceFileCorruptError
-} from './fs-primitives';
+} from '@openpost/editor-shared/workspace';
 import {
 	PROJECTS_DIR,
 	projectJsonPath,
 	projectMediaLinksPath,
 	projectTrashedMarkerPath
-} from './paths';
+} from '@openpost/editor-shared/workspace';
 import { writeWorkspaceIndex, type WorkspaceIndexEntry } from './workspace-index';
-import { withKeyLock } from './with-key-lock';
+import { withKeyLock } from '@openpost/editor-shared/workspace';
 
 const logger = createLogger('WorkspaceFS:Trash');
 

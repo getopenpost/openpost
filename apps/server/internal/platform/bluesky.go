@@ -16,6 +16,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/netguard"
 	"github.com/openpost/backend/internal/posttext"
 	"github.com/openpost/backend/internal/providerlimits"
@@ -23,6 +25,7 @@ import (
 )
 
 type BlueskyAdapter struct {
+	BaseAdapter
 	pdsURL    string
 	pdsPolicy *netguard.URLPolicy
 	pdsClient *http.Client
@@ -121,10 +124,6 @@ func (b *BlueskyAdapter) AuthorizationGrantDescriptor() AuthorizationGrantDescri
 		ExecutionMode: "app_password",
 		Evidence:      map[string]string{"protocol": "atproto", "exchange": "create_session", "pds_url": b.pdsURL},
 	}
-}
-
-func (b *BlueskyAdapter) GenerateAuthURL(_ string) (string, map[string]string) {
-	return "", nil
 }
 
 func (b *BlueskyAdapter) CreateSession(ctx context.Context, handle, appPassword string) (did string, canonicalHandle string, accessToken string, refreshToken string, expiresIn int, err error) {
@@ -261,8 +260,8 @@ func (b *BlueskyAdapter) GetProfile(ctx context.Context, accessToken string) (*U
 	}
 
 	return &UserProfile{
-		ID:              firstNonEmptyString(profile.Did, session.Did),
-		Username:        firstNonEmptyString(profile.Handle, session.Handle),
+		ID:              textutil.FirstNonEmpty(profile.Did, session.Did),
+		Username:        textutil.FirstNonEmpty(profile.Handle, session.Handle),
 		DisplayName:     profile.DisplayName,
 		AvatarURL:       profile.Avatar,
 		CapabilityState: blueskyEmailCapabilityState(session.EmailConfirmed),
@@ -962,7 +961,7 @@ func (b *BlueskyAdapter) resolveBlueskyHandle(ctx context.Context, accessToken, 
 }
 
 func (b *BlueskyAdapter) putThreadGate(ctx context.Context, accessToken, accountID, postURI string, req *PublishRequest) error {
-	gate := firstNonEmptyString(settingString(req.Settings, "thread_gate"), settingString(req.Settings, "reply_gate"))
+	gate := textutil.FirstNonEmpty(settingString(req.Settings, "thread_gate"), settingString(req.Settings, "reply_gate"))
 	if gate == "" || gate == "everyone" || gate == "inherit" {
 		return nil
 	}
@@ -1217,7 +1216,7 @@ func buildBlueskySelfLabels(settings map[string]interface{}) []map[string]string
 }
 
 func attachBlueskySettingsEmbed(record map[string]interface{}, settings map[string]interface{}) error {
-	externalURL := firstNonEmptyString(settingString(settings, "link_url"), settingString(settings, "url"))
+	externalURL := textutil.FirstNonEmpty(settingString(settings, "link_url"), settingString(settings, "url"))
 	quoteURI := settingString(settings, "quote_uri")
 	quoteCID := settingString(settings, "quote_cid")
 	if externalURL != "" && quoteURI != "" {
@@ -1379,93 +1378,6 @@ func attachReplyToRecord(record map[string]interface{}, replyToID string) {
 		"root":   rootRef,
 		"parent": parentRef,
 	}
-}
-
-func validateBlueskyMedia(media []MediaItem) []MediaValidationIssue {
-	if len(media) == 0 {
-		return nil
-	}
-
-	hasVideo := false
-	for _, item := range media {
-		if isVideoMime(item.MimeType) {
-			if hasVideo {
-				return []MediaValidationIssue{{
-					Provider: providerBluesky,
-					MediaID:  item.ID,
-					Severity: severityError,
-					Message:  "Bluesky supports only 1 video per post.",
-				}}
-			}
-			hasVideo = true
-			if item.MimeType != videoTypeMP4 {
-				return []MediaValidationIssue{{
-					Provider: providerBluesky,
-					MediaID:  item.ID,
-					Severity: severityError,
-					Message:  "Bluesky supports MP4 video only.",
-				}}
-			}
-			if item.Size > providerlimits.BlueskyVideoMaxBytes {
-				return []MediaValidationIssue{{
-					Provider: providerBluesky,
-					MediaID:  item.ID,
-					Severity: severityError,
-					Message:  fmt.Sprintf("Bluesky video must be %d bytes or less.", providerlimits.BlueskyVideoMaxBytes),
-				}}
-			}
-			if item.DurationMS > int64(providerlimits.BlueskyVideoMaxDurationSeconds)*1000 {
-				return []MediaValidationIssue{{Provider: providerBluesky, MediaID: item.ID, Severity: severityError,
-					Message: fmt.Sprintf("Bluesky video must be %d seconds or less.", providerlimits.BlueskyVideoMaxDurationSeconds)}}
-			}
-		}
-	}
-
-	if hasVideo {
-		if len(media) > 1 {
-			return []MediaValidationIssue{{
-				Provider: providerBluesky,
-				Severity: severityError,
-				Message:  "Bluesky does not support mixing video and images in one post.",
-			}}
-		}
-		return nil
-	}
-
-	if len(media) > providerlimits.BlueskyImageMaxCount {
-		return []MediaValidationIssue{{
-			Provider: providerBluesky,
-			Severity: severityError,
-			Message:  fmt.Sprintf("Bluesky supports up to %d images per post.", providerlimits.BlueskyImageMaxCount),
-		}}
-	}
-
-	if len(media) > providerlimits.BlueskyLegacyImageMaxCount {
-		return validateBlueskyGalleryImages(media)
-	}
-	return nil
-}
-
-// Gallery-only constraints live in a separate helper to keep the video
-// validator below the lint complexity threshold.
-func validateBlueskyGalleryImages(media []MediaItem) []MediaValidationIssue {
-	for _, item := range media {
-		switch strings.ToLower(strings.TrimSpace(item.MimeType)) {
-		case "image/jpeg", "image/png", "image/webp":
-		default:
-			return []MediaValidationIssue{{
-				Provider: providerBluesky, MediaID: item.ID, Severity: severityError,
-				Message: "Bluesky galleries accept JPEG, PNG, or WebP images only.",
-			}}
-		}
-		if item.Width <= 0 || item.Height <= 0 {
-			return []MediaValidationIssue{{
-				Provider: providerBluesky, MediaID: item.ID, Severity: severityError,
-				Message: "Bluesky gallery images require width and height.",
-			}}
-		}
-	}
-	return nil
 }
 
 func getParentRoot(replyToID string) interface{} {

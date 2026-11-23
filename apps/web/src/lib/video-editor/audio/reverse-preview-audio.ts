@@ -1,7 +1,7 @@
-import { SizedAccessedMemoryCache } from '../media/sized-accessed-memory-cache';
+import { SizedAccessedMemoryCache } from '@openpost/editor-shared/media';
 import { getSharedPreviewAudioContext } from './preview-audio-graph';
 import { ALL_FORMATS, AudioSampleSink, BlobSource, Input } from 'mediabunny';
-import { ensureAc3DecoderForCodec, isAc3AudioCodec } from '$lib/video-editor/media/ac3-decoder';
+import { ensureAc3DecoderForCodec, isAc3AudioCodec } from '@openpost/editor-shared/media';
 
 interface CachedPreviewAudio {
 	buffer: AudioBuffer;

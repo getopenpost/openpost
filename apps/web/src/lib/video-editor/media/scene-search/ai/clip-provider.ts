@@ -8,7 +8,7 @@
  * off-thread so the UI stays responsive while the model downloads.
  */
 
-import { createLogger } from '../../../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import type { EmbeddingsOptions } from './embedding-types';
 import { addAbortableWorkerMessageListener } from './worker-message-listener';
 import { localAiRuntimeRegistry } from '../../../local-ai/runtime-registry';

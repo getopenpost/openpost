@@ -18,6 +18,7 @@ import (
 )
 
 func TestSavedMentionProjectionRoundTripDoesNotBecomeAnAuthoredOverride(t *testing.T) {
+	t.Parallel()
 	for _, shape := range []string{"body", "segments"} {
 		for _, mapping := range []string{"@guest_x", "@different"} {
 			t.Run(shape+mapping, func(t *testing.T) {
@@ -63,6 +64,7 @@ func TestSavedMentionProjectionRoundTripDoesNotBecomeAnAuthoredOverride(t *testi
 }
 
 func TestPublicationMentionIdentitySurvivesLegacyEditsAndCountsInRevisions(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.Job)(nil), (*models.Publication)(nil), (*models.PublicationSegment)(nil), (*models.PublicationSegmentMedia)(nil), (*models.Rendition)(nil), (*models.RenditionSegment)(nil), (*models.RenditionSegmentMedia)(nil), (*models.RenditionMedia)(nil))
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin}).Exec(t.Context())
 	require.NoError(t, err)
@@ -201,6 +203,7 @@ func TestPublicationMentionIdentitySurvivesLegacyEditsAndCountsInRevisions(t *te
 // TestPublicationMentionValidationSeparatesMetadataFromProviderSettings exercises
 // persisted thread overrides through the same HTTP validation used by scheduling.
 func TestPublicationMentionValidationSeparatesMetadataFromProviderSettings(t *testing.T) {
+	t.Parallel()
 	for _, provider := range []string{"bluesky", "mastodon", "linkedin", "x"} {
 		t.Run(provider, func(t *testing.T) {
 			db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.Job)(nil),
@@ -288,6 +291,7 @@ func TestPublicationMentionValidationSeparatesMetadataFromProviderSettings(t *te
 }
 
 func TestCrossProviderCaptionStillRejectedWithoutUnsupportedSetting(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.Publication)(nil), (*models.Rendition)(nil),
 		(*models.PublicationSegment)(nil), (*models.PublicationSegmentMedia)(nil),
 		(*models.RenditionSegment)(nil), (*models.RenditionSegmentMedia)(nil),
@@ -312,6 +316,7 @@ func TestCrossProviderCaptionStillRejectedWithoutUnsupportedSetting(t *testing.T
 }
 
 func TestNativeCaptionLegacyClearAndProjectionEcho(t *testing.T) {
+	t.Parallel()
 	caption := &publicationsource.CaptionMentions{Field: "description", Body: "Hi @alice", Mentions: &posttext.Mentions{Version: 1, Spans: []posttext.MentionSpan{{Start: 3, End: 9, Text: "@alice", Target: posttext.MentionTarget{Provider: "workspace", Kind: "profile", ID: "caption-person", Profiles: []posttext.MentionProfile{{Provider: "youtube", Text: "@alice_video"}}}}}}}
 	data, err := json.Marshal(map[string]any{publicationsource.CaptionMentionsKey: caption})
 	require.NoError(t, err)

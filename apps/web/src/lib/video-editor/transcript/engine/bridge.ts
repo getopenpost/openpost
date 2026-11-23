@@ -1,12 +1,16 @@
 import { m } from '$lib/paraglide/messages';
-import { MODEL_IDS, type MainThreadMessage, type TranscriptionEngine } from './types';
+import {
+	MODEL_IDS,
+	type MainThreadMessage,
+	type TranscriptionEngine
+} from '@openpost/editor-shared/transcript';
 import type {
 	TranscribeProgress,
 	TranscribeRuntimeInfo,
 	TranscriptionModel,
 	TranscriptionQuantization,
 	TranscriptSegment
-} from './types';
+} from '@openpost/editor-shared/transcript';
 import {
 	acquireTranscriptionWorker,
 	disposeTranscriptionWorker,

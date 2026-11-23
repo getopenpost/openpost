@@ -2,7 +2,7 @@ import type {
 	ResolvedTranscriptionEngine,
 	TranscriptionModel,
 	TranscriptionQuantization
-} from './types';
+} from '@openpost/editor-shared/transcript';
 
 export const DEFAULT_TRANSCRIPTION_MODEL: TranscriptionModel = 'parakeet-tdt-v3';
 export const PARAKEET_FALLBACK_MODEL: TranscriptionModel = 'whisper-base';

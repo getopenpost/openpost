@@ -12,6 +12,7 @@ import (
 )
 
 func TestClassifyFailureUsesStableTaxonomyAndRetryPolicy(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		err       error
@@ -49,6 +50,7 @@ func TestClassifyFailureUsesStableTaxonomyAndRetryPolicy(t *testing.T) {
 }
 
 func TestRetryDelayIsBoundedAndHonorsRetryAfter(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, 30*time.Second, RetryDelay(1, 0, 0))
 	require.Equal(t, 2*time.Minute, RetryDelay(1, 2*time.Minute, 0))
 	require.Equal(t, 24*time.Minute, RetryDelay(20, 2*time.Hour, -0.2))
@@ -56,6 +58,7 @@ func TestRetryDelayIsBoundedAndHonorsRetryAfter(t *testing.T) {
 }
 
 func TestClassifyMetaFailuresUseDistinctRecoveryActions(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		err       error
@@ -90,6 +93,7 @@ func TestClassifyMetaFailuresUseDistinctRecoveryActions(t *testing.T) {
 }
 
 func TestClassifyMetaFailuresPreserveBoundedDiagnostics(t *testing.T) {
+	t.Parallel()
 	failure := ClassifyFailure(&platform.HTTPError{
 		StatusCode: 401,
 		Code:       "meta:checkpoint:190:459",
@@ -101,6 +105,7 @@ func TestClassifyMetaFailuresPreserveBoundedDiagnostics(t *testing.T) {
 }
 
 func TestDiscordAttachmentPermissionFailureExplainsHowToPublish(t *testing.T) {
+	t.Parallel()
 	failure := ClassifyFailure(&platform.HTTPError{
 		StatusCode: http.StatusForbidden,
 		Code:       "discord_attach_files_permission_lost",
@@ -113,6 +118,7 @@ func TestDiscordAttachmentPermissionFailureExplainsHowToPublish(t *testing.T) {
 }
 
 func TestClassifyDiscordBotTokenInvalidDoesNotReconnectUserAccount(t *testing.T) {
+	t.Parallel()
 	failure := ClassifyFailure(&platform.HTTPError{
 		StatusCode: http.StatusUnauthorized,
 		Code:       "discord:bot_token_invalid",
@@ -124,6 +130,7 @@ func TestClassifyDiscordBotTokenInvalidDoesNotReconnectUserAccount(t *testing.T)
 }
 
 func TestPinterestBoardFailureIsTerminalAndNamesBoard(t *testing.T) {
+	t.Parallel()
 	failure := ClassifyFailure(&platform.HTTPError{StatusCode: 403, Code: "pinterest:board_permission:29"})
 	require.Equal(t, FailurePermission, failure.Kind)
 	require.False(t, failure.Retryable)
@@ -132,6 +139,7 @@ func TestPinterestBoardFailureIsTerminalAndNamesBoard(t *testing.T) {
 }
 
 func TestProviderPrerequisiteFailuresGiveProviderGuidance(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		code    string
 		status  int
@@ -145,6 +153,7 @@ func TestProviderPrerequisiteFailuresGiveProviderGuidance(t *testing.T) {
 }
 
 func TestYouTubeDailyUploadQuotaRequiresRescheduling(t *testing.T) {
+	t.Parallel()
 	failure := ClassifyFailure(&platform.HTTPError{StatusCode: 429, Code: "youtube:daily_upload_quota_exceeded", RetryAfter: time.Minute})
 	require.Equal(t, FailureRateLimited, failure.Kind)
 	require.False(t, failure.Retryable)

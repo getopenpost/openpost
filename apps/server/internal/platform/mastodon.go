@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 )
 
@@ -13,6 +12,7 @@ import (
 // in fediverse.go; this file keeps Mastodon's provider identity,
 // validation copy, and capability features.
 type MastodonAdapter struct {
+	BaseAdapter
 	compat mastodonCompatCredentials
 }
 
@@ -35,28 +35,6 @@ func (m *MastodonAdapter) AuthorizationGrantDescriptor() AuthorizationGrantDescr
 	}
 }
 
-func validateMastodonMedia(media []MediaItem) []MediaValidationIssue {
-	if len(media) == 0 {
-		return nil
-	}
-	for _, item := range media {
-		if isVideoMime(item.MimeType) && !isMastodonLikelyVideoMime(item.MimeType) {
-			return []MediaValidationIssue{{
-				Provider: providerMastodon,
-				MediaID:  item.ID,
-				Severity: severityWarning,
-				Message:  "Mastodon video support depends on the instance; MP4, MOV, and WebM are the safest formats.",
-			}}
-		}
-	}
-	return nil
-}
-
-func isMastodonLikelyVideoMime(mimeType string) bool {
-	mimeType = strings.ToLower(mimeType)
-	return mimeType == videoTypeMP4 || mimeType == "video/quicktime" || mimeType == "video/webm" || mimeType == "image/gif"
-}
-
 func (m *MastodonAdapter) InstanceURL() string {
 	return m.compat.instanceURL
 }
@@ -67,13 +45,6 @@ func (m *MastodonAdapter) GenerateAuthURL(state string) (string, map[string]stri
 
 func (m *MastodonAdapter) ExchangeCode(ctx context.Context, code string, _ map[string]string) (*TokenResult, error) {
 	return m.compat.exchangeCode(ctx, code)
-}
-
-func (m *MastodonAdapter) RefreshCapability() RefreshCapability {
-	return RefreshCapability{
-		Supported:        false,
-		CredentialSource: RefreshCredentialNone,
-	}
 }
 
 func (m *MastodonAdapter) RefreshToken(_ context.Context, _ RefreshTokenInput) (*TokenResult, error) {

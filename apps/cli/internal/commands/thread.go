@@ -67,8 +67,8 @@ func newThreadCreateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			accountCSV := firstSet(flags.accounts, fm.Accounts)
-			scheduleRaw := firstSet(flags.schedule, fm.Schedule)
+			accountCSV := firstNonEmpty(flags.accounts, fm.Accounts)
+			scheduleRaw := firstNonEmpty(flags.schedule, fm.Schedule)
 			var randomDelay *int
 			if cmd.Flags().Changed("random-delay") {
 				randomDelay = &flags.randomDelay
@@ -196,13 +196,6 @@ func parseFrontMatter(raw string) threadFrontMatter {
 
 func isRuleLine(line string) bool {
 	return strings.TrimSpace(line) == "---"
-}
-
-func firstSet(primary, fallback string) string {
-	if strings.TrimSpace(primary) != "" {
-		return primary
-	}
-	return fallback
 }
 
 func scheduleTimeLabel(t *time.Time) string {

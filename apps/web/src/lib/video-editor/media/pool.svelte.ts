@@ -5,7 +5,7 @@
  * per-media preparation progress.
  */
 
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 
 export type MediaPreparationStatus = 'importing' | 'ready' | 'failed';
 

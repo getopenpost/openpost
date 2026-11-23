@@ -10,6 +10,7 @@ import (
 )
 
 func TestCloudVideoProjectReadsPreserveStoredDocumentValues(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	const document = `{"timeline":{"items":[]},"metadata":{"source_id":9007199254740993,"caption":"<launch> & \u2028"}}`
 	project := &models.VideoProject{ID: "stored", WorkspaceID: "ws-1", Name: "Stored", DocumentJSON: document}
@@ -55,6 +56,7 @@ func TestCloudVideoProjectReadsPreserveStoredDocumentValues(t *testing.T) {
 }
 
 func TestCloudVideoProjectReadsRejectCorruptStoredDocuments(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	for _, document := range []string{"", "{", "[]", "true", "12", `"wrong"`, `{"tail":}`, "\u00a0{}", "{}\v"} {
 		t.Run(document, func(t *testing.T) {
@@ -69,6 +71,7 @@ func TestCloudVideoProjectReadsRejectCorruptStoredDocuments(t *testing.T) {
 }
 
 func TestCloudVideoProjectDocumentSchemaRemainsAnOpenObject(t *testing.T) {
+	t.Parallel()
 	server := newVideoProjectTestServer(t)
 	response := server.request(t, "viewer-token", http.MethodGet, "/api/v1/openapi.json", nil)
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())

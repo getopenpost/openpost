@@ -63,6 +63,7 @@ func (publicationDiscoveryAuthenticator) AuthenticateBearer(
 }
 
 func TestPublicationDiscoveryHandlerReturnsPlanningCardsForWorkspaceEditors(t *testing.T) {
+	t.Parallel()
 	stub := &publicationDiscoveryStub{result: publicationDiscoveryHandlerResult()}
 	server := newPublicationDiscoveryTestServer(t, stub)
 
@@ -83,6 +84,7 @@ func TestPublicationDiscoveryHandlerReturnsPlanningCardsForWorkspaceEditors(t *t
 }
 
 func TestPublicationDiscoveryHandlerAcceptsSocialSetPlatforms(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		platforms []string
 		status    int
@@ -120,6 +122,7 @@ func TestPublicationDiscoveryHandlerAcceptsSocialSetPlatforms(t *testing.T) {
 }
 
 func TestPublicationDiscoveryHandlerKeepsScheduledPostsInRecentContext(t *testing.T) {
+	t.Parallel()
 	now := time.Now().UTC()
 	generated := false
 	generator := editorUsageGenerator(func(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
@@ -147,6 +150,7 @@ func TestPublicationDiscoveryHandlerKeepsScheduledPostsInRecentContext(t *testin
 }
 
 func TestPublicationDiscoveryHandlerRejectsCredentialCrossingAndViewers(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name  string
 		token string
@@ -168,6 +172,7 @@ func TestPublicationDiscoveryHandlerRejectsCredentialCrossingAndViewers(t *testi
 }
 
 func TestPublicationDiscoveryHandlerSanitizesServiceFailures(t *testing.T) {
+	t.Parallel()
 	const privateProviderOutput = "private provider output"
 	stub := &publicationDiscoveryStub{err: errors.New(privateProviderOutput)}
 	server := newPublicationDiscoveryTestServer(t, stub)
@@ -180,6 +185,7 @@ func TestPublicationDiscoveryHandlerSanitizesServiceFailures(t *testing.T) {
 }
 
 func TestPublicationDiscoveryHandlerBoundsPerUserBursts(t *testing.T) {
+	t.Parallel()
 	stub := &publicationDiscoveryStub{result: publicationDiscoveryHandlerResult()}
 	server := newPublicationDiscoveryTestServer(t, stub)
 	for range publicationDiscoveryRequestsPerMinute {
@@ -197,6 +203,7 @@ func TestPublicationDiscoveryHandlerBoundsPerUserBursts(t *testing.T) {
 }
 
 func TestPublicationDiscoveryHandlerAllowsOneActiveRequestPerUser(t *testing.T) {
+	t.Parallel()
 	stub := &publicationDiscoveryStub{result: publicationDiscoveryHandlerResult()}
 	server := newPublicationDiscoveryTestServer(t, stub)
 	release, acquired := server.handler.requests.acquire("user-1")

@@ -27,9 +27,13 @@
  * Worker-safe: no DOM access.
  */
 
-import { createLogger } from '../../../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { fetchOnnxModelBytes } from '../../../transcript/engine/onnx-model-cache';
-import { getOrt, type OrtModule, type OrtSession } from '../ort-runtime';
+import {
+	getOrt,
+	type OrtModule,
+	type OrtSession
+} from '@openpost/editor-shared/media/processing/ort-runtime';
 import { planarRgbLength } from '../planar-rgb';
 import { concatPlanarPair } from './frame-tensor';
 

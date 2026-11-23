@@ -4,7 +4,7 @@ import type {
 	TranscriptionQuantization,
 	EngineTranscriptWord,
 	TranscriptionWorkerMessage
-} from '../types';
+} from '@openpost/editor-shared/transcript';
 
 import { getChunkStartProgress, transcribingProgressEvent } from '../lib/chunk-progress';
 import { updateDownloadProgress, type DownloadProgressCache } from '../download-progress';

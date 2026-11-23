@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/PaddleHQ/paddle-go-sdk/v5"
 	"github.com/openpost/backend/internal/discordwebhook"
 	"github.com/openpost/backend/internal/models"
@@ -163,18 +165,18 @@ func newPaddleBillingNotification(event paddleEvent, customer *paddle.Customer, 
 		notification.name = customerName(customer.Name)
 	}
 	if subscription != nil {
-		notification.customerID = firstNonEmpty(notification.customerID, subscription.CustomerID)
+		notification.customerID = textutil.FirstNonEmpty(notification.customerID, subscription.CustomerID)
 		notification.subscriptionID = strings.TrimSpace(subscription.ID)
 		notification.status = strings.TrimSpace(string(subscription.Status))
 	}
 	if transaction != nil {
-		notification.customerID = firstNonEmpty(notification.customerID, pointerString(transaction.CustomerID), transaction.Customer.ID)
+		notification.customerID = textutil.FirstNonEmpty(notification.customerID, pointerString(transaction.CustomerID), transaction.Customer.ID)
 		notification.transactionID = strings.TrimSpace(transaction.ID)
-		notification.status = firstNonEmpty(string(transaction.Status), notification.status)
+		notification.status = textutil.FirstNonEmpty(string(transaction.Status), notification.status)
 		notification.amount = formatPaddleAmount(transaction.Details.Totals.Total, transaction.CurrencyCode)
-		notification.email = firstNonEmpty(notification.email, transaction.Customer.Email)
-		notification.name = firstNonEmpty(notification.name, customerName(transaction.Customer.Name))
-		notification.subscriptionID = firstNonEmpty(notification.subscriptionID, pointerString(transaction.SubscriptionID))
+		notification.email = textutil.FirstNonEmpty(notification.email, transaction.Customer.Email)
+		notification.name = textutil.FirstNonEmpty(notification.name, customerName(transaction.Customer.Name))
+		notification.subscriptionID = textutil.FirstNonEmpty(notification.subscriptionID, pointerString(transaction.SubscriptionID))
 	}
 	return notification
 }
@@ -185,14 +187,14 @@ func (s *Service) applyBillingNotificationUser(ctx context.Context, notification
 		return err
 	}
 	notification.checkout, notification.organization, notification.user = attempt, organization, user
-	notification.email = firstNonEmpty(notification.email, s.billingCustomerEmail(ctx, notification.customerID))
+	notification.email = textutil.FirstNonEmpty(notification.email, s.billingCustomerEmail(ctx, notification.customerID))
 	if user != nil {
-		notification.email = firstNonEmpty(user.Email, notification.email)
-		notification.name = firstNonEmpty(user.DisplayName, user.Username, notification.name)
+		notification.email = textutil.FirstNonEmpty(user.Email, notification.email)
+		notification.name = textutil.FirstNonEmpty(user.DisplayName, user.Username, notification.name)
 		notification.avatarURL = s.publicAvatarURL(user.AvatarURL)
 	}
-	notification.email = firstNonEmpty(notification.email, "Unavailable")
-	notification.name = firstNonEmpty(notification.name, "Unavailable")
+	notification.email = textutil.FirstNonEmpty(notification.email, "Unavailable")
+	notification.name = textutil.FirstNonEmpty(notification.name, "Unavailable")
 	return nil
 }
 
@@ -211,9 +213,9 @@ func (s *Service) resolveBillingNotificationPlan(notification *paddleBillingNoti
 		}
 	}
 	if plan, ok := s.paddle.Plans[planID]; ok {
-		notification.planName = firstNonEmpty(plan.Name, planID)
+		notification.planName = textutil.FirstNonEmpty(plan.Name, planID)
 	} else {
-		notification.planName = firstNonEmpty(planID, "Unavailable")
+		notification.planName = textutil.FirstNonEmpty(planID, "Unavailable")
 	}
 }
 
@@ -404,7 +406,7 @@ func formatPaddleAmount(raw string, currency paddle.CurrencyCode) string {
 		return ""
 	}
 	if !allDigitsWithOptionalSign(raw) {
-		return firstNonEmpty(code+" "+raw, raw)
+		return textutil.FirstNonEmpty(code+" "+raw, raw)
 	}
 	digits := 2
 	switch code {
@@ -456,13 +458,4 @@ func pointerString(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }

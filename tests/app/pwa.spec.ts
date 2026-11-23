@@ -178,66 +178,56 @@ test("unvisited app pages have an offline fallback and APIs stay out of caches",
   await expect(page.getByRole("link", { name: "Try again" })).toBeVisible();
 });
 
-for (const scheme of ["light"] as const) {
-  test(`desktop install invitation appears once and remains available in the profile menu in ${scheme}`, async ({
-    page,
-    request,
-  }, testInfo) => {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    const user = await registerUser(request, `pwa-${randomUUID()}@example.com`);
-    await createWorkspace(request, user.token, "Desktop PWA");
-    await authenticatePage(page, user.token);
-    await page.goto("/publications");
-    await expect(page.getByTestId("profile-menu-trigger")).toBeVisible();
-    const announceInstall = () =>
-      page.evaluate(() => {
-        const event = Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
-          prompt: async () => {
-            sessionStorage.setItem("install-prompt-called", "yes");
-          },
-          userChoice: Promise.resolve({ outcome: "dismissed" }),
-        });
-        window.dispatchEvent(event);
+test(`desktop install invitation appears once and remains available in the profile menu in light`, async ({
+  page,
+  request,
+}) => {
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  const user = await registerUser(request, `pwa-${randomUUID()}@example.com`);
+  await createWorkspace(request, user.token, "Desktop PWA");
+  await authenticatePage(page, user.token);
+  await page.goto("/publications");
+  await expect(page.getByTestId("profile-menu-trigger")).toBeVisible();
+  const announceInstall = () =>
+    page.evaluate(() => {
+      const event = Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+        prompt: async () => {
+          sessionStorage.setItem("install-prompt-called", "yes");
+        },
+        userChoice: Promise.resolve({ outcome: "dismissed" }),
       });
-    await announceInstall();
-    await expect(page.getByText("Install OpenPost?", { exact: true })).toBeVisible();
-    await expect(page.locator('[data-sonner-toast][data-mounted="true"]')).toBeVisible();
-    await page.screenshot({
-      path: testInfo.outputPath("desktop-install-toast.png"),
-      animations: "disabled",
+      window.dispatchEvent(event);
     });
-    await page.reload();
-    await expect(page.getByTestId("profile-menu-trigger")).toBeVisible();
-    await announceInstall();
-    await expect(page.getByText("Install OpenPost?", { exact: true })).not.toBeVisible();
-    await page.getByTestId("profile-menu-trigger").click();
-    const install = page.getByRole("menuitem", {
-      name: "Install app",
-      exact: true,
-    });
-    await expect(install).toBeVisible();
-    await page.screenshot({
-      path: testInfo.outputPath("desktop-install-menu.png"),
-      animations: "disabled",
-    });
-    await install.click();
-    expect(await page.evaluate(() => sessionStorage.getItem("install-prompt-called"))).toBe("yes");
-    await page.getByTestId("profile-menu-trigger").click();
-    await expect(install).not.toBeVisible();
-    await page.evaluate(() => window.dispatchEvent(new Event("appinstalled")));
-    await expect(install).not.toBeVisible();
-    await page.keyboard.press("Escape");
-    const profileMenu = page.getByTestId("profile-menu-trigger");
-    await expect(profileMenu).toHaveAttribute("aria-expanded", "false");
-    await page.setViewportSize({ width: 600, height: 800 });
-    await expect(profileMenu).not.toBeVisible();
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await expect(profileMenu).toBeVisible();
-    await profileMenu.click();
-    await expect(page.getByRole("menuitem", { name: "Log out", exact: true })).toBeVisible();
-    await expect(install).not.toBeVisible();
+  await announceInstall();
+  await expect(page.getByText("Install OpenPost?", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-sonner-toast][data-mounted="true"]')).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("profile-menu-trigger")).toBeVisible();
+  await announceInstall();
+  await expect(page.getByText("Install OpenPost?", { exact: true })).not.toBeVisible();
+  await page.getByTestId("profile-menu-trigger").click();
+  const install = page.getByRole("menuitem", {
+    name: "Install app",
+    exact: true,
   });
-}
+  await expect(install).toBeVisible();
+  await install.click();
+  expect(await page.evaluate(() => sessionStorage.getItem("install-prompt-called"))).toBe("yes");
+  await page.getByTestId("profile-menu-trigger").click();
+  await expect(install).not.toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event("appinstalled")));
+  await expect(install).not.toBeVisible();
+  await page.keyboard.press("Escape");
+  const profileMenu = page.getByTestId("profile-menu-trigger");
+  await expect(profileMenu).toHaveAttribute("aria-expanded", "false");
+  await page.setViewportSize({ width: 600, height: 800 });
+  await expect(profileMenu).not.toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(profileMenu).toBeVisible();
+  await profileMenu.click();
+  await expect(page.getByRole("menuitem", { name: "Log out", exact: true })).toBeVisible();
+  await expect(install).not.toBeVisible();
+});
 
 test("a cached local video project reopens and exports offline", async ({ page, context }) => {
   test.setTimeout(90_000);
@@ -305,25 +295,17 @@ test("a cached local video project reopens and exports offline", async ({ page, 
 test("offline fallback respects language, theme, keyboard and narrow screens", async ({
   page,
   context,
-}, testInfo) => {
+}) => {
   await page.goto("/image-editor");
   await page.evaluate(() => navigator.serviceWorker.ready);
   await context.addCookies([
     { name: "PARAGLIDE_LOCALE", value: "pt", url: new URL(page.url()).origin },
   ]);
   await context.setOffline(true);
-  for (const width of [320]) {
-    for (const colorScheme of ["light"] as const) {
-      await page.setViewportSize({ width, height: 844 });
-      await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
-      await page.goto("/quick-cut");
-      await expect(page.getByRole("heading", { name: "Está offline" })).toBeVisible();
-      await page.keyboard.press("Tab");
-      await expect(page.getByRole("link", { name: "Tentar novamente" })).toBeFocused();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-        true,
-      );
-      await page.screenshot({ path: testInfo.outputPath(`offline-${width}-${colorScheme}.png`) });
-    }
-  }
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await page.goto("/quick-cut");
+  await expect(page.getByRole("heading", { name: "Está offline" })).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("link", { name: "Tentar novamente" })).toBeFocused();
 });

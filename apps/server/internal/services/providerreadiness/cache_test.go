@@ -8,6 +8,7 @@ import (
 )
 
 func TestRequestScopedServiceSharesProviderFactsWithinOneRequest(t *testing.T) {
+	t.Parallel()
 	input := healthyInput()
 	ledger := &fakeLedger{
 		controls: map[Operation]RuntimeControl{
@@ -36,6 +37,7 @@ func TestRequestScopedServiceSharesProviderFactsWithinOneRequest(t *testing.T) {
 }
 
 func TestRequestScopedDecisionsMatchFreshService(t *testing.T) {
+	t.Parallel()
 	input := healthyInput()
 	ledger := &fakeLedger{
 		approval: &ApprovalReview{Evidence: input.Approval},
@@ -63,6 +65,7 @@ func TestRequestScopedDecisionsMatchFreshService(t *testing.T) {
 }
 
 func TestRequestScopedServiceFreezesFactsForTheRequest(t *testing.T) {
+	t.Parallel()
 	input := healthyInput()
 	ledger := &fakeLedger{
 		approval: &ApprovalReview{Evidence: input.Approval},
@@ -89,6 +92,7 @@ func TestRequestScopedServiceFreezesFactsForTheRequest(t *testing.T) {
 }
 
 func TestRequestScopedServiceDoesNotOutliveItsRequest(t *testing.T) {
+	t.Parallel()
 	input := healthyInput()
 	ledger := &fakeLedger{}
 	base := NewService(ledger, ServiceOptions{Now: func() time.Time { return input.Now }})
@@ -100,6 +104,7 @@ func TestRequestScopedServiceDoesNotOutliveItsRequest(t *testing.T) {
 }
 
 func TestWithLedgerDoesNotInheritRequestCache(t *testing.T) {
+	t.Parallel()
 	input := healthyInput()
 	first := &fakeLedger{}
 	second := &fakeLedger{}

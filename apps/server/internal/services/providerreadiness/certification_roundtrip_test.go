@@ -11,6 +11,7 @@ import (
 )
 
 func TestCertificationRoundTrip(t *testing.T) {
+	t.Parallel()
 	deployments := []struct {
 		name                string
 		managedProduction   bool

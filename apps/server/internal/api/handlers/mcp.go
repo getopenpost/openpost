@@ -295,7 +295,6 @@ type MCPHandler struct {
 }
 
 func NewMCPHandler(db *bun.DB, authenticator middleware.Authenticator, entitlement ...entitlements.Service) *MCPHandler {
-	platform.RegisterAllMediaValidators()
 	entitlementService := entitlements.Service(entitlements.NewSelfHostedService())
 	if len(entitlement) > 0 && entitlement[0] != nil {
 		entitlementService = entitlement[0]
@@ -1057,175 +1056,12 @@ func mcpWidgetDomain(publicURL string) string {
 }
 
 func mcpAppWidgetHTML() string {
-	return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpenPost Scheduler</title>
-<style>` + mcpUIStyles + `
-.shell { min-height: 100vh; padding: 16px; box-sizing: border-box; }
-.panel { overflow: hidden; }
-.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid var(--border); }
-.brand { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.eyebrow { color: var(--muted-foreground); font-size: 12px; font-weight: 600; }
-h1 { margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: 0; }
-.workspace { color: var(--muted-foreground); font-size: 12px; overflow-wrap: anywhere; }
-.content { padding: 14px; display: grid; gap: 10px; }
-.grid { display: grid; gap: 10px; }
-.card { border: 1px solid var(--border); border-radius: var(--theme-radius-md); background: var(--card); padding: 12px; display: grid; gap: 8px; }
-.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
-.row:first-child { border-top: 0; padding-top: 0; }
-.title { color: var(--foreground); font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
-.muted { color: var(--muted-foreground); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
-.pill { display: inline-flex; align-items: center; min-height: 22px; border-radius: var(--theme-radius-pill); padding: 0 8px; background: var(--success); color: var(--success-foreground); font-size: 12px; font-weight: 700; white-space: nowrap; }
-.warn { background: var(--warning); color: var(--warning-foreground); }
-.idle { background: var(--muted); color: var(--muted-foreground); }
-.json { margin: 0; max-height: 280px; overflow: auto; border-radius: var(--theme-radius-md); background: var(--muted); color: var(--foreground); padding: 12px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
-.empty { border: 1px dashed var(--border); border-radius: var(--theme-radius-md); padding: 18px; text-align: center; color: var(--muted-foreground); font-size: 13px; }
-@media (min-width: 620px) { .grid.cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-::selection { background: var(--selection); color: var(--selection-foreground); }
-</style>
-</head>
-<body data-theme-button="dither">
-<div class="shell"><main class="panel" id="root"><div class="content"><div class="empty">Waiting for OpenPost scheduler data.</div></div></main></div>
-<script>
-(function () {
-  var root = document.getElementById("root");
-  function escapeHTML(value) {
-    return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
-      return {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"}[char];
-    });
-  }
-  function array(value) { return Array.isArray(value) ? value : []; }
-  function payloadFromBridge() {
-    var bridge = window.openai || {};
-    if (bridge.toolOutput) return bridge.toolOutput;
-    if (bridge.structuredContent) return bridge.structuredContent;
-    if (bridge.response && bridge.response.structuredContent) return bridge.response.structuredContent;
-    if (bridge.toolInput) return bridge.toolInput;
-    return {};
-  }
-  function normalizePayload(payload) {
-    if (!payload) return {};
-    if (payload.structuredContent) return payload.structuredContent;
-    if (payload.toolOutput) return payload.toolOutput;
-    return payload;
-  }
-  function inferView(data) {
-    if (data.publication) return "publication";
-    if (data.publications) return "publications";
-    if (data.post) return "post";
-    if (data.posts) return "posts";
-    if (data.media) return "media";
-    if (data.accounts) return "accounts";
-    if (data.providers) return "providers";
-    if (data.workspaces) return "workspaces";
-    if (data.suggestion) return "suggestion";
-    if (data.renditions) return "renditions";
-    if (data.variants) return "variants";
-    return "summary";
-  }
-  function statusClass(value) {
-    var status = String(value || "").toLowerCase();
-    if (status.indexOf("fail") >= 0 || status.indexOf("error") >= 0 || status.indexOf("needs") >= 0) return "pill warn";
-    if (!status) return "pill idle";
-    return "pill";
-  }
-  function itemTitle(item) {
-    return item.title || item.name || item.content || item.slug || item.original_filename || item.display_name || item.id || "Item";
-  }
-  function itemStatus(item) {
-    return item.status || item.role || item.platform || item.processing_status || item.provider || item.state || "";
-  }
-  function renderCards(items) {
-    if (!items.length) return '<div class="empty">No items to show.</div>';
-    return '<div class="grid cards">' + items.map(function (item) {
-      var title = escapeHTML(itemTitle(item));
-      var status = escapeHTML(itemStatus(item));
-      var secondary = item.scheduled_at || item.created_at || item.account_username || item.mime_type || item.description || item.message || "";
-      return '<section class="card"><div class="row"><div class="title">' + title + '</div><span class="' + statusClass(status) + '">' + (status || "ready") + '</span></div><div class="muted">' + escapeHTML(secondary) + '</div></section>';
-    }).join("") + '</div>';
-  }
-  function renderPublication(publication) {
-    if (!publication) return '<div class="empty">No Post data to show.</div>';
-    var renditions = array(publication.renditions || publication.destinations).map(function (rendition) {
-      return '<div class="row"><span class="muted">' + escapeHTML(rendition.platform || rendition.social_account_id || "destination") + '</span><span class="' + statusClass(rendition.status) + '">' + escapeHTML(rendition.status || "pending") + '</span></div>';
-    }).join("");
-    var media = array(publication.media).map(function (item) {
-      return '<div class="row"><span class="muted">' + escapeHTML(item.original_filename || item.media_id || "media") + '</span><span class="pill idle">' + escapeHTML(item.mime_type || "asset") + '</span></div>';
-    }).join("");
-    var title = publication.title || publication.source_text || publication.content || publication.id || "Post";
-    return '<section class="card"><div class="title">' + escapeHTML(title) + '</div><div class="muted">' + escapeHTML(publication.scheduled_at || publication.created_at || "") + '</div>' + renditions + media + '</section>';
-  }
-  function renderData(view, data) {
-    if (view === "publication") return renderPublication(data.publication);
-    if (view === "publications") return renderCards(array(data.publications));
-    if (view === "post") return renderPublication(data.post);
-    if (view === "posts") return renderCards(array(data.posts));
-    if (view === "media") return renderCards(array(data.media));
-    if (view === "accounts") return renderCards(array(data.accounts));
-    if (view === "providers") return renderCards(array(data.providers));
-    if (view === "workspaces") return renderCards(array(data.workspaces));
-    if (view === "suggestion") return renderCards(data.suggestion ? [data.suggestion] : []);
-    if (view === "renditions") return renderCards(array(data.renditions));
-    if (view === "variants") return renderCards(array(data.variants));
-    return '<pre class="json">' + escapeHTML(JSON.stringify(data, null, 2)) + '</pre>';
-  }
-  function render(payload) {
-    var state = normalizePayload(payload);
-    var data = state.data || {};
-    var view = state.view || inferView(data);
-    var title = state.title || "OpenPost Scheduler";
-    var workspace = state.workspace_id ? "Workspace " + state.workspace_id : "Agentic social scheduler";
-    root.innerHTML = '<header class="header" data-dither-panel><div class="brand"><div class="eyebrow">OpenPost</div><h1>' + escapeHTML(title) + '</h1></div><div class="workspace">' + escapeHTML(workspace) + '</div></header><section class="content">' + renderData(view, data) + '</section>';
-  }
-  window.addEventListener("message", function (event) {
-    if (event.source !== window.parent) return;
-    var message = event.data || {};
-    if (message.jsonrpc === "2.0" && message.method === "ui/notifications/tool-result") {
-      render(message.params || {});
-      return;
-    }
-    if (message.jsonrpc === "2.0" && message.method === "ui/notifications/tool-input") {
-      render(message.params || {});
-      return;
-    }
-    if (message.structuredContent || message.toolOutput) render(message);
-  });
-  render(payloadFromBridge());
-}());
-</script>
-</body>
-</html>`
+	return strings.Replace(mcpAppWidgetTemplate, "/*MCP_UI_STYLES*/", mcpUIStyles, 1)
 }
 
 func mcpUploadWidgetHTML() string {
-	return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Upload media to OpenPost</title>
-<style>` + mcpUIStyles + `
-body{padding:16px}.panel{display:grid;gap:14px;padding:16px;max-width:36rem;margin-inline:auto}h1{font-size:18px;margin:0}p{margin:0;color:var(--muted-foreground);line-height:1.45}.field{display:grid;gap:6px}label{font-size:13px;font-weight:650}input{box-sizing:border-box;width:100%;font:inherit;min-height:44px;border:1px solid var(--input);border-radius:var(--theme-radius-md);padding:8px 12px;background:var(--background);color:var(--foreground)}input:focus-visible{outline:2px solid var(--ring);outline-offset:3px}.status{min-height:22px;font-size:13px;overflow-wrap:anywhere}.error{color:var(--destructive)}.success{color:var(--success-foreground)}
-::selection { background: var(--selection); color: var(--selection-foreground); }
-</style></head><body data-theme-button="dither"><main class="panel"><div><h1>Add local media</h1><p>Add an image or video to your media library.</p></div><div class="field"><label for="file">Media file</label><input id="file" type="file" accept="image/*,video/*"></div><div class="field"><label for="alt">Alt text <span aria-hidden="true">(optional)</span></label><input id="alt" type="text" maxlength="2000"></div><button id="upload" type="button" data-static-action data-dither-button="always">Upload to OpenPost</button><div id="status" class="status" role="status" aria-live="polite"></div></main>
-<script>
-(function(){` + mcpUploadWidgetToolNames() + `var file=document.getElementById('file'),alt=document.getElementById('alt'),button=document.getElementById('upload'),status=document.getElementById('status');
-function input(){return (window.openai&&window.openai.toolInput)||{};} function show(text,kind){status.textContent=text;status.className='status '+(kind||'');}
-// Gateways in front of MCP servers (Cloudflare MCP Server Portals, mcphub,
-// admin aliases) rewrite tool names, commonly to {server_id}_{tool_name}.
-// A bare ticket tool call then fails as tool-not-found even though this
-// widget rendered fine. The MCP Apps ui/initialize handshake answers with
-// hostContext.toolInfo.tool.name, the host-exposed name of the tool that
-// rendered this widget, so recover the prefix from it and reapply it to the
-// ticket tool. Without host metadata the bare name is used, which is what
-// direct connections expect.
-var ticketToolPromise=null;
-function resolveTicketTool(){if(ticketToolPromise)return ticketToolPromise;ticketToolPromise=new Promise(function(resolve){var request={jsonrpc:'2.0',id:'openpost-upload-init',method:'ui/initialize',params:{appInfo:{name:'openpost-local-upload',version:'1.0.0'},appCapabilities:{},protocolVersion:'2026-01-26'}};var timer=null;function finish(name){if(timer!==null)window.clearTimeout(timer);window.removeEventListener('message',onHostMessage);resolve(name)}function onHostMessage(event){if(event.source!==window.parent)return;var data=event.data;if(!data||data.jsonrpc!=='2.0'||data.id!==request.id)return;window.parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/initialized',params:{}},'*');var invoked=data.result&&data.result.hostContext&&data.result.hostContext.toolInfo&&data.result.hostContext.toolInfo.tool&&data.result.hostContext.toolInfo.tool.name;if(typeof invoked==='string'&&invoked.slice(-renderTool.length)===renderTool){finish(invoked.slice(0,invoked.length-renderTool.length)+ticketToolDefault)}else{finish(ticketToolDefault)}}timer=window.setTimeout(function(){finish(ticketToolDefault)},3000);window.addEventListener('message',onHostMessage);window.parent.postMessage(request,'*')});return ticketToolPromise}
-function isToolNotFound(error){var text=error&&error.message?String(error.message):'';return /tool/i.test(text)&&/unknown|no such|not (found|exist|supported|available)/i.test(text)}
-button.addEventListener('click',async function(){var selected=file.files&&file.files[0],workspace=input().workspace_id;if(!selected){show('Choose a file first.','error');file.focus();return}if(!workspace){show('The upload is missing a workspace. Ask the agent to reopen it.','error');return}if(!window.openai||!window.openai.callTool){show('This MCP client does not support app tool calls.','error');return}button.disabled=true;show('Preparing secure upload…');try{var ticketTool=await resolveTicketTool();var ticket;try{ticket=await window.openai.callTool(ticketTool,{workspace_id:workspace,filename:selected.name,mime_type:selected.type||'application/octet-stream',size:selected.size,alt_text:alt.value.trim()})}catch(error){if(isToolNotFound(error)){throw new Error('This MCP client does not expose the OpenPost upload tool ('+ticketTool+'). If it renames tools, connect the OpenPost MCP server directly and try again.')}throw error}var upload=ticket&&ticket._meta&&ticket._meta.upload;if(!upload)throw new Error('OpenPost did not return an upload ticket');show('Uploading '+selected.name+'…');var response=await fetch(upload.url,{method:upload.method||'PUT',headers:upload.headers||{},body:selected});var result=await response.json();if(!response.ok)throw new Error(result.error||'Upload failed');show('Uploaded '+(result.original_filename||selected.name)+'.','success');if(window.openai.sendFollowUpMessage){await window.openai.sendFollowUpMessage({prompt:'Use the OpenPost media item '+result.id+' ('+(result.original_filename||selected.name)+') in this conversation.'});}}catch(error){show(error&&error.message?error.message:'Upload failed.','error')}finally{button.disabled=false}});
-resolveTicketTool();
-}());
-</script></body></html>`
+	html := strings.Replace(mcpUploadWidgetTemplate, "/*MCP_UI_STYLES*/", mcpUIStyles, 1)
+	return strings.Replace(html, "/*MCP_UPLOAD_TOOL_NAMES*/", mcpUploadWidgetToolNames(), 1)
 }
 
 // mcpUploadWidgetToolNames injects the bare MCP tool names into the upload
@@ -3912,7 +3748,7 @@ func (h *MCPHandler) createPublicationIdempotent(ctx context.Context, userID str
 		}
 		return h.mcpPostResult(ctx, userID, publication.ID, "Post created: "+publication.ID, "", args)
 	}
-	publication, _, err := h.publicationHandler().publicationApplicationForTesting().CreateIdempotent(ctx, userID, body, request)
+	publication, _, err := h.publicationHandler().publicationApplication().CreateIdempotent(ctx, userID, body, request)
 	if err != nil {
 		if errors.Is(err, idempotency.ErrConflict) {
 			return nil, mcpIdempotencyError(err, "failed to create post")
@@ -4075,7 +3911,7 @@ func (h *MCPHandler) updatePublication(ctx context.Context, userID string, args 
 			return nil, rpcErr
 		}
 		if ok {
-			publication, _, err := h.publicationHandler().publicationApplicationForTesting().UpdateIdempotent(ctx, userID, input.PublicationID, body, request)
+			publication, _, err := h.publicationHandler().publicationApplication().UpdateIdempotent(ctx, userID, input.PublicationID, body, request)
 			if err != nil {
 				if errors.Is(err, idempotency.ErrConflict) {
 					return nil, mcpIdempotencyError(err, "failed to update post")
@@ -4326,7 +4162,7 @@ func (h *MCPHandler) schedulePublication(ctx context.Context, userID string, arg
 			return nil, rpcErr
 		}
 		if ok {
-			result, _, err := handler.publicationApplicationForTesting().ScheduleIdempotent(ctx, userID, publicationID, expectedRevision, intent, request)
+			result, _, err := handler.publicationApplication().ScheduleIdempotent(ctx, userID, publicationID, expectedRevision, intent, request)
 			if err != nil {
 				if errors.Is(err, idempotency.ErrConflict) {
 					return nil, mcpIdempotencyError(err, "failed to schedule post")
@@ -4360,7 +4196,7 @@ func (h *MCPHandler) cancelPublication(ctx context.Context, userID string, args 
 			return nil, rpcErr
 		}
 		if ok {
-			publication, _, err := h.publicationHandler().publicationApplicationForTesting().CancelIdempotent(ctx, userID, input.PublicationID, input.ExpectedRevision, request)
+			publication, _, err := h.publicationHandler().publicationApplication().CancelIdempotent(ctx, userID, input.PublicationID, input.ExpectedRevision, request)
 			if err != nil {
 				if errors.Is(err, idempotency.ErrConflict) {
 					return nil, mcpIdempotencyError(err, "failed to cancel post")
@@ -4408,7 +4244,7 @@ func (h *MCPHandler) publishPublicationNow(ctx context.Context, userID string, a
 			return nil, rpcErr
 		}
 		if ok {
-			result, _, err := handler.publicationApplicationForTesting().PublishNowIdempotent(ctx, userID, publicationID, expectedRevision, intent, request)
+			result, _, err := handler.publicationApplication().PublishNowIdempotent(ctx, userID, publicationID, expectedRevision, intent, request)
 			if err != nil {
 				if errors.Is(err, idempotency.ErrConflict) {
 					return nil, mcpIdempotencyError(err, "failed to queue post")
@@ -4517,7 +4353,7 @@ func (h *MCPHandler) retryFailedVariants(ctx context.Context, userID string, arg
 			return nil, rpcErr
 		}
 		if ok {
-			jobID, _, err := handler.publicationApplicationForTesting().RetryFailedRenditionsIdempotent(ctx, userID, publicationID, request)
+			jobID, _, err := handler.publicationApplication().RetryFailedRenditionsIdempotent(ctx, userID, publicationID, request)
 			if err != nil {
 				if errors.Is(err, idempotency.ErrConflict) {
 					return nil, mcpIdempotencyError(err, "failed to queue variant retry")
@@ -4565,7 +4401,7 @@ func (h *MCPHandler) retryVariant(ctx context.Context, userID string, args map[s
 		return nil, &mcpError{Code: -32602, Message: "variant not found for this post"}
 	}
 	retry := func() (string, *mcpError) {
-		jobID, err := h.publicationHandler().publicationApplicationForTesting().RetryRendition(ctx, userID, input.PublicationID, rendition.SocialAccountID, rendition.TargetKey)
+		jobID, err := h.publicationHandler().publicationApplication().RetryRendition(ctx, userID, input.PublicationID, rendition.SocialAccountID, rendition.TargetKey)
 		if err != nil {
 			return "", publicationMutationMCPError(err, "failed to queue variant retry")
 		}

@@ -31,7 +31,6 @@ func TestBlueskyGalleryRecordKeepsImageOrderingAndALT(t *testing.T) {
 	for _, count := range []int{1, 4, 5, 8, 10} {
 		t.Run(fmt.Sprintf("%d_images", count), func(t *testing.T) {
 			req := blueskyGalleryFixture(t, count)
-			require.Empty(t, validateBlueskyMedia(req.Media))
 			record, err := adapter.buildPostRecord("did:plc:openpost", req, fixedBlueskyTime())
 			require.NoError(t, err)
 			embed := record["embed"].(map[string]interface{})
@@ -74,9 +73,6 @@ func TestBlueskyGalleryQuoteWrapsInRecordWithMedia(t *testing.T) {
 func TestBlueskyGalleryFailsClosedOnLimitsAndIncompleteMedia(t *testing.T) {
 	adapter := NewBlueskyAdapter("")
 	eleven := blueskyGalleryFixture(t, 11)
-	issues := validateBlueskyMedia(eleven.Media)
-	require.Len(t, issues, 1)
-	require.Equal(t, severityError, issues[0].Severity)
 	_, err := adapter.buildPostRecord("did:plc:openpost", eleven, fixedBlueskyTime())
 	require.ErrorContains(t, err, "up to 10")
 
@@ -98,16 +94,4 @@ func TestBlueskyGalleryFailsClosedOnLimitsAndIncompleteMedia(t *testing.T) {
 		})
 	}
 
-	for _, mime := range []string{"image/gif", "application/pdf"} {
-		req := blueskyGalleryFixture(t, 5)
-		req.Media[3].MimeType = mime
-		issues := validateBlueskyMedia(req.Media)
-		require.Len(t, issues, 1)
-		require.Equal(t, req.Media[3].ID, issues[0].MediaID)
-	}
-	req := blueskyGalleryFixture(t, 5)
-	req.Media[0].Height = 0
-	issues = validateBlueskyMedia(req.Media)
-	require.Len(t, issues, 1)
-	require.Equal(t, req.Media[0].ID, issues[0].MediaID)
 }

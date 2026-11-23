@@ -2,7 +2,7 @@ import { TimelineFrameRenderer } from '../media/render-export';
 import { createBlankProject } from '../project/defaults';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
-import { getWorkspaceRoot, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { createProject, getProject } from '../workspace-fs/projects';
 import { afterEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';

@@ -1,11 +1,11 @@
-import { createLogger } from '../workspace-fs/logger';
+import { createLogger } from '@openpost/editor-shared/workspace';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { executeAtomic } from '../timeline/commands/command-store.svelte';
 import type { TimelineItem, TimelineTrack } from '../project/types';
 import { importGeneratedVideo, importRecordedAudio } from '../media/import.svelte';
 import { rollbackNewGeneratedMedia } from '../media/import.svelte';
 import type { CaptureArtifact, RecorderKind } from './recorder.svelte';
-import type { MediaMetadata, RecordingCaptureMetadata } from '../media/types';
+import type { MediaMetadata, RecordingCaptureMetadata } from '@openpost/editor-shared/media';
 import { recordingExtension } from './record-mime';
 
 const logger = createLogger('InsertRecording');

@@ -1,4 +1,4 @@
-import type { PCMChunk } from '../types';
+import type { PCMChunk } from '@openpost/editor-shared/transcript';
 
 const SAMPLE_RATE = 16_000;
 // Feed Whisper large, near-contiguous spans rather than 30 s windows. transformers.js

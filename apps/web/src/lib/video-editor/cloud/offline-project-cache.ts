@@ -1,7 +1,7 @@
 import { browser } from '$app/environment';
 import { z } from 'zod';
-import type { MediaMetadata } from '../media/types';
-import type { CloudVideoProject, CloudVideoProjectRepository } from './project-repository';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
+import type { CloudVideoProject, CloudVideoProjectOfflineReader } from './types';
 
 const CACHE_NAME = 'openpost-cloud-video-projects-v1';
 
@@ -109,7 +109,7 @@ export async function isCloudProjectAvailableOffline(
 }
 
 export async function keepCloudProjectAvailableOffline<TDocument extends object>(
-	repository: CloudVideoProjectRepository<TDocument>,
+	repository: CloudVideoProjectOfflineReader<TDocument>,
 	projectId: string
 ): Promise<void> {
 	if (!browser || !('caches' in window)) throw new Error('Offline storage is not available');

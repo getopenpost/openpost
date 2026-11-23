@@ -1,8 +1,8 @@
 import { ALL_FORMATS, AudioSampleSink, BlobSource, EncodedPacketSink, Input } from 'mediabunny';
 import { Chunker } from '../lib/chunker';
-import { downmixToMono, resampleTo16kHz } from '../lib/resampler';
-import type { MainThreadMessage, PCMChunk } from '../types';
-import { ensureAc3DecoderForCodec, isAc3AudioCodec } from '$lib/video-editor/media/ac3-decoder';
+import { downmixToMono, resampleTo16kHz } from '@openpost/editor-shared/transcript';
+import type { MainThreadMessage, PCMChunk } from '@openpost/editor-shared/transcript';
+import { ensureAc3DecoderForCodec, isAc3AudioCodec } from '@openpost/editor-shared/media';
 
 let port: MessagePort | null = null;
 let whisperQueueSize = 0;

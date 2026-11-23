@@ -18,6 +18,7 @@ import (
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	servicecrypto "github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -27,7 +28,7 @@ func inboxTestService(t *testing.T) (*Service, MetaApp) {
 	var db *bun.DB
 	var err error
 	if dsn := os.Getenv("OPENPOST_TEST_POSTGRES_URL"); dsn != "" {
-		db, err = database.InitDBWithDriver("postgres", dsn)
+		db, err = testdb.OpenWithDriver("postgres", dsn)
 		require.NoError(t, err)
 		db.SetMaxOpenConns(1)
 		schema := "provider_inbox_test_" + strings.ReplaceAll(uuid.NewString(), "-", "")
@@ -41,7 +42,7 @@ func inboxTestService(t *testing.T) (*Service, MetaApp) {
 			require.NoError(t, db.Close())
 		})
 	} else {
-		db, err = database.InitDB(filepath.Join(t.TempDir(), "inbox.db"))
+		db, err = testdb.Open(filepath.Join(t.TempDir(), "inbox.db"))
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, db.Close()) })
 	}

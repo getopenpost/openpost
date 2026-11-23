@@ -3,7 +3,7 @@ import type { components } from '$lib/api/types';
 import { stockProvidersQueryOptions, stockSearchQueryOptions } from '@openpost/query-catalog';
 import { mediaQueryAPI } from '$lib/query/media';
 import { queryClient } from '$lib/query/client';
-import type { MediaAttribution } from '$lib/video-editor/media/types';
+import type { MediaAttribution } from '@openpost/editor-shared/media';
 
 export type StockProvider = components['schemas']['StockProviderResponse'];
 export type StockSearchPage = components['schemas']['SearchPage'];

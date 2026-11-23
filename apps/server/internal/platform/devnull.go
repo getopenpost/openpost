@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/providerlimits"
 	"golang.org/x/crypto/ssh"
 )
@@ -41,6 +43,7 @@ import (
 // or WebP images. Polls, quotes, and image descriptions exist only in the web
 // UI and are not part of the CLI contract, so they stay unavailable.
 type DevNullAdapter struct {
+	BaseAdapter
 	baseURL string
 }
 
@@ -75,16 +78,8 @@ func (d *DevNullAdapter) AuthorizationGrantDescriptor() AuthorizationGrantDescri
 	}
 }
 
-func (d *DevNullAdapter) GenerateAuthURL(_ string) (string, map[string]string) {
-	return "", nil
-}
-
 func (d *DevNullAdapter) ExchangeCode(_ context.Context, _ string, _ map[string]string) (*TokenResult, error) {
 	return nil, fmt.Errorf("dev/null uses SSH keys, not OAuth redirect")
-}
-
-func (d *DevNullAdapter) RefreshCapability() RefreshCapability {
-	return RefreshCapability{Supported: false, CredentialSource: RefreshCredentialNone}
 }
 
 func (d *DevNullAdapter) RefreshToken(_ context.Context, _ RefreshTokenInput) (*TokenResult, error) {
@@ -233,14 +228,14 @@ func (d *DevNullAdapter) fetchUserProfile(ctx context.Context, username string) 
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("decoding dev/null profile: %w", err)
 	}
-	handle := firstNonEmptyString(response.Data.Handle, response.Data.Username)
+	handle := textutil.FirstNonEmpty(response.Data.Handle, response.Data.Username)
 	if strings.TrimSpace(handle) == "" {
 		return nil, fmt.Errorf("dev/null user %q was not found", username)
 	}
 	return &UserProfile{
-		ID:              firstNonEmptyString(response.Data.ID, handle),
+		ID:              textutil.FirstNonEmpty(response.Data.ID, handle),
 		Username:        handle,
-		DisplayName:     firstNonEmptyString(response.Data.Name, handle),
+		DisplayName:     textutil.FirstNonEmpty(response.Data.Name, handle),
 		AvatarURL:       strings.TrimSpace(response.Data.AvatarURL),
 		CapabilityState: map[string]string{"devnull_key_type": "ssh_signature"},
 	}, nil
@@ -418,7 +413,7 @@ func readDevNullImage(item UploadMediaRequest) (devNullImagePayload, error) {
 	if len(data) > providerlimits.DevNullMaxImageBytes {
 		return devNullImagePayload{}, fmt.Errorf("dev/null images must be 10 MB or less")
 	}
-	return devNullImagePayload{filename: firstNonEmptyString(item.Filename, "image"), mimeType: mimeType, data: data}, nil
+	return devNullImagePayload{filename: textutil.FirstNonEmpty(item.Filename, "image"), mimeType: mimeType, data: data}, nil
 }
 
 func devNullSHA256Hex(data []byte) string {
@@ -588,38 +583,4 @@ func asDevNullHTTPError(err error) (*HTTPError, bool) {
 		return httpErr, true
 	}
 	return nil, false
-}
-
-func validateDevNullMedia(media []MediaItem) []MediaValidationIssue {
-	if len(media) == 0 {
-		return nil
-	}
-	if len(media) > providerlimits.DevNullMaxImages {
-		return []MediaValidationIssue{{
-			Provider: providerDevNull,
-			Severity: severityError,
-			Message:  fmt.Sprintf("dev/null commits carry up to %d images.", providerlimits.DevNullMaxImages),
-		}}
-	}
-	for _, item := range media {
-		switch strings.ToLower(strings.TrimSpace(item.MimeType)) {
-		case "image/jpeg", "image/png", "image/webp":
-		default:
-			return []MediaValidationIssue{{
-				Provider: providerDevNull,
-				MediaID:  item.ID,
-				Severity: severityError,
-				Message:  "dev/null commits accept JPEG, PNG, or WebP images.",
-			}}
-		}
-		if item.Size > int64(providerlimits.DevNullMaxImageBytes) {
-			return []MediaValidationIssue{{
-				Provider: providerDevNull,
-				MediaID:  item.ID,
-				Severity: severityError,
-				Message:  "dev/null images must be 10 MB or less.",
-			}}
-		}
-	}
-	return nil
 }

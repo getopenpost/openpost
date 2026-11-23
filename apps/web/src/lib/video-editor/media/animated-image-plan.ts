@@ -6,7 +6,7 @@
  * geometry), retargeted to OpenPost's TimelineItem model.
  */
 
-import type { MediaMetadata } from './types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 
 export type AnimatedImageFormat = 'gif' | 'webp';
 

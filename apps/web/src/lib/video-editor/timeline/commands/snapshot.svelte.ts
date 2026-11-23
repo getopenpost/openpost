@@ -10,7 +10,7 @@
  */
 
 import { timelineStore } from '../stores/timeline-store.svelte';
-import { transitionsStore } from '../actions/transitions.svelte';
+import { transitionsStore } from '../actions/transitions-store.svelte';
 import { sanitizeInOutPoints } from '../utils/in-out-points';
 import type { TimelineSnapshot } from './types';
 import { sequenceStore } from '../../sequences/sequence-store.svelte';

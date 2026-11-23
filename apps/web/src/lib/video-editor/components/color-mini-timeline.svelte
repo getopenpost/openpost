@@ -31,9 +31,9 @@
 		resolveColorTimelineMaxFrame
 	} from '$lib/video-editor/timeline/color-mini-timeline';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	import { readBlob } from '$lib/video-editor/workspace-fs/fs-primitives';
-	import { mediaThumbnailPath } from '$lib/video-editor/workspace-fs/paths';
-	import { getWorkspaceRoot } from '$lib/video-editor/workspace-fs/root';
+	import { readBlob } from '@openpost/editor-shared/workspace';
+	import { mediaThumbnailPath } from '@openpost/editor-shared/workspace';
+	import { getWorkspaceRoot } from '@openpost/editor-shared/workspace';
 
 	const LABEL_WIDTH = 32;
 	const RULER_RATIOS = [0, 0.25, 0.5, 0.75, 1] as const;

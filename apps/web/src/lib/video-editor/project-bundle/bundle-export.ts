@@ -1,11 +1,11 @@
 import { Zip, ZipDeflate, ZipPassThrough } from 'fflate';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { resolveMediaBlob } from '../media/resolve-media-blob';
-import { readBlob } from '../workspace-fs/fs-primitives';
+import { readBlob } from '@openpost/editor-shared/workspace';
 import { getMedia } from '../workspace-fs/media';
 import { getProjectMediaIds } from '../workspace-fs/project-media';
-import { projectThumbnailPath } from '../workspace-fs/paths';
-import { requireWorkspaceRoot } from '../workspace-fs/root';
+import { projectThumbnailPath } from '@openpost/editor-shared/workspace';
+import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import {
 	PROJECT_BUNDLE_COVER_PATH,
 	PROJECT_BUNDLE_MANIFEST_PATH,
@@ -17,7 +17,7 @@ import {
 	type BundleOutput,
 	type BundleProgress,
 	type ProjectBundleManifest
-} from './bundle-types';
+} from '@openpost/editor-shared/project-bundle';
 import {
 	bundleMediaPath,
 	computeBundleManifestChecksum,
@@ -25,7 +25,7 @@ import {
 	sanitizeBundleFileName,
 	sha256Hex,
 	throwIfBundleAborted
-} from './bundle-utils';
+} from '@openpost/editor-shared/project-bundle';
 import { exportProjectSnapshot } from './snapshot-service';
 import { m } from '$lib/paraglide/messages';
 

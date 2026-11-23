@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/connectors"
 	"github.com/openpost/backend/internal/diagnostics"
@@ -592,7 +594,7 @@ func (s *Service) publishRendition(
 		RenditionID:      rendition.ID,
 		Profile:          rendition.Profile,
 		OutputProfile:    rendition.OutputProfile,
-		Title:            firstNonEmptyPublisherString(rendition.Title, publication.Title),
+		Title:            textutil.FirstNonEmptyRaw(rendition.Title, publication.Title),
 		Description:      rendition.Description,
 		SettingsJSON:     mustPublisherJSON(settings),
 		Settings:         settings,
@@ -891,7 +893,7 @@ func (s *Service) publishRenditionSegments(
 		_, publishesMediaDirectly := provider.(platform.DirectMediaPublisher)
 		uploadRendition := *rendition
 		uploadRendition.Body = segment.Body
-		uploadRendition.Description = firstNonEmptyPublisherString(segment.Description, rendition.Description)
+		uploadRendition.Description = textutil.FirstNonEmptyRaw(segment.Description, rendition.Description)
 		uploadRendition.SettingsJSON = mustPublisherJSON(settings)
 		for _, media := range mediaAttachments {
 			s.recordPublicationLifecycleEvent(ctx, publication.WorkspaceID, publication.ID, rendition.ID, lifecycle.EventUploadStarted, lifecycle.StatusStarted, "segment media upload started", map[string]any{
@@ -937,8 +939,8 @@ func (s *Service) publishRenditionSegments(
 			RenditionID:      rendition.ID,
 			Profile:          rendition.Profile,
 			OutputProfile:    rendition.OutputProfile,
-			Title:            firstNonEmptyPublisherString(segment.Title, rendition.Title, publication.Title),
-			Description:      firstNonEmptyPublisherString(segment.Description, rendition.Description),
+			Title:            textutil.FirstNonEmptyRaw(segment.Title, rendition.Title, publication.Title),
+			Description:      textutil.FirstNonEmptyRaw(segment.Description, rendition.Description),
 			SettingsJSON:     mustPublisherJSON(settings),
 			Settings:         settings,
 			PlatformMediaIDs: platformMediaIDs,
@@ -996,7 +998,7 @@ func (s *Service) publishRenditionSegments(
 		}
 
 		externalID := publishResult.ExternalID
-		externalURL := firstNonEmptyPublisherString(publishResult.ExternalURL, publisherExternalURL(externalID))
+		externalURL := textutil.FirstNonEmptyRaw(publishResult.ExternalURL, publisherExternalURL(externalID))
 		if err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 			if _, err := tx.NewUpdate().Model(segment).
 				Set("status = ?", models.RenditionStatusPublished).
@@ -1147,7 +1149,7 @@ func (s *Service) loadRenditionSegmentMedia(ctx context.Context, segmentID strin
 	settings := make([]map[string]interface{}, 0, len(rows))
 	for _, row := range rows {
 		media = append(media, row.MediaAttachment)
-		altTexts = append(altTexts, firstNonEmptyPublisherString(row.AltText, row.MediaAttachment.AltText))
+		altTexts = append(altTexts, textutil.FirstNonEmptyRaw(row.AltText, row.MediaAttachment.AltText))
 		itemSettings := map[string]interface{}{}
 		_ = json.Unmarshal([]byte(row.SettingsJSON), &itemSettings)
 		if itemSettings == nil {
@@ -1242,7 +1244,7 @@ func (s *Service) publishRenditionReply(
 		Description:  rendition.Description,
 		Settings:     settings,
 		SettingsJSON: mustPublisherJSON(settings),
-		ReplyToID:    firstNonEmptyPublisherString(parentID, rendition.ExternalID),
+		ReplyToID:    textutil.FirstNonEmptyRaw(parentID, rendition.ExternalID),
 	}
 	if req.ReplyToID == "" {
 		return fmt.Errorf("reply requires a parent external id")
@@ -1948,7 +1950,7 @@ func (s *Service) publishProvider(
 		readers = append(readers, reader)
 		inputs = append(inputs, platform.UploadMediaRequest{
 			MimeType:   item.MimeType,
-			Filename:   firstNonEmptyPublisherString(item.OriginalFilename, filepath.Base(item.FilePath)),
+			Filename:   textutil.FirstNonEmptyRaw(item.OriginalFilename, filepath.Base(item.FilePath)),
 			Size:       item.Size,
 			Reader:     reader,
 			Width:      item.Width,
@@ -2302,13 +2304,13 @@ func (s *Service) renditionUploadRequest(ctx context.Context, rendition *models.
 			return nil
 		},
 		MimeType:    media.MimeType,
-		Filename:    firstNonEmptyPublisherString(media.OriginalFilename, storageKey),
+		Filename:    textutil.FirstNonEmptyRaw(media.OriginalFilename, storageKey),
 		Size:        media.Size,
 		Width:       media.Width,
 		Height:      media.Height,
 		DurationMS:  media.DurationMS,
-		Title:       firstNonEmptyPublisherString(rendition.Title, firstContentLine(rendition.Body)),
-		Description: strings.TrimSpace(firstNonEmptyPublisherString(rendition.Description, rendition.Body)),
+		Title:       textutil.FirstNonEmptyRaw(rendition.Title, firstContentLine(rendition.Body)),
+		Description: strings.TrimSpace(textutil.FirstNonEmptyRaw(rendition.Description, rendition.Body)),
 		Settings:    settings,
 		Reader:      data,
 		OpenReaderAt: func(offset int64) (io.ReadCloser, error) {
@@ -2317,13 +2319,13 @@ func (s *Service) renditionUploadRequest(ctx context.Context, rendition *models.
 	}
 	if thumbnail != nil {
 		req.ThumbnailMimeType = thumbnail.MimeType
-		req.ThumbnailFilename = firstNonEmptyPublisherString(thumbnail.OriginalFilename, filepath.Base(thumbnail.FilePath))
+		req.ThumbnailFilename = textutil.FirstNonEmptyRaw(thumbnail.OriginalFilename, filepath.Base(thumbnail.FilePath))
 		req.ThumbnailSize = thumbnail.Size
 		req.ThumbnailReader = thumbnailReader
 	}
 	if caption != nil {
 		req.CaptionMimeType = caption.MimeType
-		req.CaptionFilename = firstNonEmptyPublisherString(caption.OriginalFilename, filepath.Base(caption.FilePath))
+		req.CaptionFilename = textutil.FirstNonEmptyRaw(caption.OriginalFilename, filepath.Base(caption.FilePath))
 		req.CaptionSize = caption.Size
 		req.CaptionReader = captionReader
 	}
@@ -2352,7 +2354,7 @@ func (s *Service) openMediaReaderAt(ctx context.Context, storageKey string, offs
 }
 
 func (s *Service) openThumbnailFromSettings(ctx context.Context, settings map[string]interface{}) (*models.MediaAttachment, io.ReadCloser, error) {
-	thumbnailID := firstNonEmptyPublisherString(
+	thumbnailID := textutil.FirstNonEmptyRaw(
 		settingStringPublisher(settings, "thumbnail_media_id"),
 		settingStringPublisher(settings, "cover_media_id"),
 	)
@@ -2446,7 +2448,7 @@ func (s *Service) loadRenditionMedia(ctx context.Context, renditionID string) ([
 	for _, row := range rows {
 		item := row.MediaAttachment
 		media = append(media, item)
-		altTexts = append(altTexts, firstNonEmptyPublisherString(row.AltText, item.AltText))
+		altTexts = append(altTexts, textutil.FirstNonEmptyRaw(row.AltText, item.AltText))
 		itemSettings := map[string]interface{}{}
 		if row.ThumbnailTimestampMS > 0 {
 			itemSettings["thumbnail_timestamp_ms"] = row.ThumbnailTimestampMS
@@ -2769,38 +2771,11 @@ func publisherAccountLabel(account models.SocialAccount) string {
 }
 
 func publisherProviderLabel(provider string) string {
-	switch strings.ToLower(strings.TrimSpace(provider)) {
-	case "x":
-		return "X"
-	case "youtube":
-		return "YouTube"
-	case "tiktok":
-		return "TikTok"
-	case "linkedin":
-		return "LinkedIn"
-	case "bluesky":
-		return "Bluesky"
-	case "devnull":
-		return "dev/null"
-	case "mastodon":
-		return "Mastodon"
-	case "pixelfed":
-		return "Pixelfed"
-	case "peertube":
-		return "PeerTube"
-	case "lemmy":
-		return "Lemmy"
-	case "piefed":
-		return "PieFed"
-	case "instagram":
-		return "Instagram"
-	case "facebook":
-		return "Facebook"
-	case "threads":
-		return "Threads"
-	default:
-		return "Destination"
+	normalized := strings.ToLower(strings.TrimSpace(provider))
+	if name := capabilities.ProviderDisplayName(normalized); name != "" && name != normalized {
+		return name
 	}
+	return "Destination"
 }
 
 func mustPublisherJSON(value interface{}) string {
@@ -2841,15 +2816,6 @@ func firstContentLine(content string) string {
 	for _, line := range strings.Split(content, "\n") {
 		if trimmed := strings.TrimSpace(line); trimmed != "" {
 			return trimmed
-		}
-	}
-	return ""
-}
-
-func firstNonEmptyPublisherString(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
 		}
 	}
 	return ""

@@ -2,45 +2,27 @@ package usage
 
 import (
 	"context"
-	"database/sql"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/entitlements"
+	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
 func newUsageTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-
-	sqldb, err := sql.Open("sqlite3", "file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=private")
+	db := testdb.NewSQLiteNoFK(t)
+	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws-1", Name: "Launch"}).Exec(context.Background())
 	require.NoError(t, err)
-	sqldb.SetMaxOpenConns(1)
-
-	db := bun.NewDB(sqldb, sqlitedialect.New())
-	for _, model := range []interface{}{
-		(*models.Workspace)(nil),
-		(*models.UsageCounter)(nil),
-	} {
-		_, err := db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
-		require.NoError(t, err)
-	}
-	_, err = db.NewInsert().Model(&models.Workspace{ID: "ws-1", Name: "Launch"}).Exec(context.Background())
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
 	return db
 }
 
 func TestIncrementMonthlyKeepsPeriodsSeparate(t *testing.T) {
+	t.Parallel()
 	db := newUsageTestDB(t)
 	service := NewService(db)
 	ctx := context.Background()
@@ -60,6 +42,7 @@ func TestIncrementMonthlyKeepsPeriodsSeparate(t *testing.T) {
 }
 
 func TestLimitedMonthlyUsageAdmitsOnlyRemainingCapacity(t *testing.T) {
+	t.Parallel()
 	db := newUsageTestDB(t)
 	at := time.Now().UTC()
 	service := NewService(db)

@@ -18,6 +18,7 @@ import (
 )
 
 func TestImageGenerationRequiresSignInEvenWhenProviderIsUnconfigured(t *testing.T) {
+	t.Parallel()
 	e := echo.New()
 	api := humaecho.NewV4(e, huma.DefaultConfig("test", "1"))
 	NewImageGenerationHandler(nil, publicationBuildTestAuthenticator{}).RegisterRoutes(api)
@@ -55,6 +56,7 @@ func TestImageGenerationRequiresSignInEvenWhenProviderIsUnconfigured(t *testing.
 }
 
 func TestGeneratedImageImportRecoversAfterRecipeFailureWithoutAnotherUpload(t *testing.T) {
+	t.Parallel()
 	srv := newMediaQuotaTestServer(t, entitlements.NewStaticService(entitlements.PlanSnapshot{}))
 	_, err := srv.db.NewCreateTable().Model((*models.MediaGenerationRecipe)(nil)).Exec(t.Context())
 	require.NoError(t, err)

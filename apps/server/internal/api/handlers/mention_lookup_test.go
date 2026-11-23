@@ -23,6 +23,7 @@ func (mentionExternalAuthenticator) AuthenticateBearer(context.Context, string) 
 	return &middleware.Principal{UserID: "user-1", WorkspaceID: "workspace-1", TokenID: "external-token", Scope: apitokens.ScopeExternalApp, Audience: "https://app.example/api/v1", InstallationID: "installation-1", DelegatedScopes: "accounts:read"}, nil
 }
 func TestMentionLookupHonorsCurrentDelegatedAccountGrantsBeforeProviderIO(t *testing.T) {
+	t.Parallel()
 	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.ExternalAppInstallation)(nil), (*models.ExternalAppWorkspaceGrant)(nil), (*models.ExternalAppAccountGrant)(nil))
 	_, err := db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin}).Exec(t.Context())
 	require.NoError(t, err)

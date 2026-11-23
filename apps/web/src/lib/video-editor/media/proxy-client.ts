@@ -9,13 +9,10 @@
  */
 
 import { startProfileSpan } from '$lib/performance/profiling';
-import type { MediaMetadata } from './types';
-import type { ProxyRequest, ProxyWorkerResponse } from './proxy-worker';
-import { SizedAccessedMemoryCache } from './sized-accessed-memory-cache';
+import type { MediaMetadata } from '@openpost/editor-shared/media';
+import { PROXY_MAX_HEIGHT, type ProxyRequest, type ProxyWorkerResponse } from './proxy-protocol';
+import { SizedAccessedMemoryCache } from '@openpost/editor-shared/media';
 import { mediaTaskId, mediaTasks } from './media-tasks.svelte';
-
-export const PROXY_MAX_HEIGHT = 540;
-export const PROXY_BITRATE = 1_000_000;
 
 interface ProxyCacheEntry {
 	blob: Blob | null;
@@ -33,11 +30,6 @@ interface ProxyJob {
 const inflight = new Map<string, ProxyJob>();
 const automaticInflight = new Map<string, ProxyJob>();
 let automaticQueue: Promise<void> = Promise.resolve();
-
-export interface ProxyDimensions {
-	width: number;
-	height: number;
-}
 
 /**
  * Keep ordinary HD clips on their source. Auto proxies target footage that is
@@ -63,24 +55,6 @@ export function shouldUseAutomaticProxy(
 ): boolean {
 	if (media.videoCodecSupported === false) return true;
 	return previewQuality === 'auto' && isAutomaticProxyCandidate(media);
-}
-
-/**
- * Pure sizing math: cap height at `maxHeight`, preserve aspect ratio, and
- * keep even dimensions (a codec requirement for VP9).
- */
-export function proxyDimensions(
-	width: number,
-	height: number,
-	maxHeight: number = PROXY_MAX_HEIGHT
-): ProxyDimensions {
-	if (!(width > 0) || !(height > 0)) return { width: 0, height: 0 };
-	const scale = Math.min(1, maxHeight / height);
-	let nextWidth = Math.max(2, Math.round(width * scale));
-	let nextHeight = Math.max(2, Math.round(height * scale));
-	nextWidth -= nextWidth % 2;
-	nextHeight -= nextHeight % 2;
-	return { width: nextWidth, height: nextHeight };
 }
 
 /** The cached proxy blob for a media id, if one has been generated. */

@@ -1,4 +1,4 @@
-import type { EngineTranscriptWord } from '../types';
+import type { EngineTranscriptWord } from '@openpost/editor-shared/transcript';
 
 export interface RawWhisperWord {
 	text: string;

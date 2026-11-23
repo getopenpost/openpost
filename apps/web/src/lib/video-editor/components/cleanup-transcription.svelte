@@ -8,7 +8,7 @@
 	import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 	import { isTrackEffectivelyLocked } from '../timeline/utils/track-groups';
 	import { transcriptionService } from '../transcript/transcription-service.svelte';
-	import type { TranscriptionSelection } from '../transcript/engine/types';
+	import type { TranscriptionSelection } from '@openpost/editor-shared/transcript';
 	import { editorSession } from '../editor.svelte';
 	import TranscriptionControls from './transcription-controls.svelte';
 

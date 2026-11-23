@@ -14,6 +14,8 @@ import (
 	"time"
 	"unicode/utf16"
 
+	"github.com/openpost/backend/internal/textutil"
+
 	"github.com/openpost/backend/internal/providerlimits"
 )
 
@@ -176,7 +178,7 @@ func (t *TikTokAdapter) exchangeToken(ctx context.Context, values map[string]str
 		RefreshToken:     tokenResp.RefreshToken,
 		ExpiresIn:        tokenResp.ExpiresIn,
 		RefreshExpiresIn: tokenResp.RefreshExpiresIn,
-		TokenType:        firstNonEmptyString(tokenResp.TokenType, tokenTypeBearer),
+		TokenType:        textutil.FirstNonEmpty(tokenResp.TokenType, tokenTypeBearer),
 		Extra:            extra,
 	}, nil
 }
@@ -235,7 +237,7 @@ func (t *TikTokAdapter) fetchTikTokProfile(ctx context.Context, accessToken, end
 		return nil, "", fmt.Errorf("tiktok profile: missing open_id")
 	}
 
-	username := firstNonEmptyString(profileResp.Data.User.Username, profileResp.Data.User.DisplayName)
+	username := textutil.FirstNonEmpty(profileResp.Data.User.Username, profileResp.Data.User.DisplayName)
 	return &UserProfile{
 		ID:          profileResp.Data.User.OpenID,
 		Username:    username,
@@ -538,8 +540,8 @@ func validateTikTokPhotoPost(req *PublishRequest) (postingMethod, title, descrip
 	if !allTikTokPhotoImages(req.Media) {
 		return "", "", "", fmt.Errorf("tiktok photo posts support JPEG or WebP images only")
 	}
-	if issues := validateTikTokMedia(req.Media); len(issues) > 0 {
-		return "", "", "", errors.New(issues[0].Message)
+	if err := validateTikTokMedia(req.Media); err != nil {
+		return "", "", "", err
 	}
 	postingMethod, err = tiktokPostingMethod(req.Settings)
 	if err != nil {
@@ -792,66 +794,34 @@ func (t *TikTokAdapter) completedPublishID(publishID string, req *PublishRequest
 	return pendingTikTokPublication(req, publishID, "published_unresolved")
 }
 
-func validateTikTokMedia(media []MediaItem) []MediaValidationIssue {
+func validateTikTokMedia(media []MediaItem) error {
 	if len(media) == 0 {
-		return []MediaValidationIssue{{
-			Provider: providerTikTok,
-			Severity: severityError,
-			Message:  "TikTok publishing requires media.",
-		}}
+		return errors.New("tiktok publishing requires media")
 	}
 	if len(media) == 1 && isVideoMime(media[0].MimeType) {
 		if isTikTokVideoMime(media[0].MimeType) {
 			return nil
 		}
-		return []MediaValidationIssue{{
-			Provider: providerTikTok,
-			MediaID:  media[0].ID,
-			Severity: severityError,
-			Message:  "TikTok video publishing supports MP4, MOV, or WebM video.",
-		}}
+		return errors.New("tiktok video publishing supports MP4, MOV, or WebM video")
 	}
 	if allTikTokMediaImages(media) {
 		if len(media) > 35 {
-			return []MediaValidationIssue{{
-				Provider: providerTikTok,
-				Severity: severityError,
-				Message:  "TikTok photo posts support 1-35 images.",
-			}}
+			return errors.New("tiktok photo posts support 1-35 images")
 		}
 		for _, item := range media {
 			if !isTikTokPhotoMime(item.MimeType) {
-				return []MediaValidationIssue{{
-					Provider: providerTikTok,
-					MediaID:  item.ID,
-					Severity: severityError,
-					Message:  "TikTok photo posts support JPEG or WebP images only.",
-				}}
+				return errors.New("tiktok photo posts support JPEG or WebP images only")
 			}
 			if item.Width > 0 && item.Height > 0 && min(item.Width, item.Height) > providerlimits.TikTokPhotoMaxShortSidePixels {
-				return []MediaValidationIssue{{
-					Provider: providerTikTok,
-					MediaID:  item.ID,
-					Severity: severityError,
-					Message:  fmt.Sprintf("TikTok photo posts support at most %d pixels on the shorter side; this image is %dx%d.", providerlimits.TikTokPhotoMaxShortSidePixels, item.Width, item.Height),
-				}}
+				return fmt.Errorf("tiktok photo posts support at most %d pixels on the shorter side; this image is %dx%d", providerlimits.TikTokPhotoMaxShortSidePixels, item.Width, item.Height)
 			}
 		}
 		return nil
 	}
 	if !isVideoMime(media[0].MimeType) {
-		return []MediaValidationIssue{{
-			Provider: providerTikTok,
-			MediaID:  media[0].ID,
-			Severity: severityError,
-			Message:  "TikTok publishing supports one video or an image photo post.",
-		}}
+		return errors.New("tiktok publishing supports one video or an image photo post")
 	}
-	return []MediaValidationIssue{{
-		Provider: providerTikTok,
-		Severity: severityError,
-		Message:  "TikTok publishing supports one MP4, MOV, or WebM video, or 1-35 JPEG or WebP images.",
-	}}
+	return errors.New("tiktok publishing supports one MP4, MOV, or WebM video, or 1-35 JPEG or WebP images")
 }
 
 func allTikTokPhotoImages(media []MediaItem) bool {
@@ -1077,15 +1047,6 @@ func truncateRunes(value string, max int) string {
 		return value
 	}
 	return string(runes[:max])
-}
-
-func firstNonEmptyString(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func firstNonEmptyStringSlice(values ...[]string) []string {

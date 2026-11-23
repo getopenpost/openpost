@@ -1,5 +1,5 @@
-import { readJson, writeJsonAtomic } from '../workspace-fs/fs-primitives';
-import { projectRenderQueuePath } from '../workspace-fs/paths';
+import { readJson, writeJsonAtomic } from '@openpost/editor-shared/workspace';
+import { projectRenderQueuePath } from '@openpost/editor-shared/workspace';
 import { exportStorageRoot } from '../workspace-fs/export-storage';
 import type { RenderQueueJob, RenderQueueSnapshot } from './render-queue-store';
 

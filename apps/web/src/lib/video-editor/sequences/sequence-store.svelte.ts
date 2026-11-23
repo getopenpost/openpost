@@ -8,7 +8,7 @@ import type {
 	TimelineTransition
 } from '../project/types';
 import { createEmptyTimeline } from '../project/defaults';
-import { transitionsStore } from '../timeline/actions/transitions.svelte';
+import { transitionsStore } from '../timeline/actions/transitions-store.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { snapshotTimelineState } from '../timeline/utils/state-snapshot.svelte';
 import { sanitizeCompositionControlSchema } from './composition-controls';

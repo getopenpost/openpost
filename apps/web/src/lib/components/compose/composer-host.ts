@@ -3,9 +3,10 @@ import type { components } from '$lib/api/types';
 import type { MentionMetadata } from '@openpost/platform-text/mentions';
 import type { ProviderReadinessDecision } from '$lib/provider-readiness';
 import type { PostItem, VariantPost } from './draft-utils';
-import type { ComposerPublicationPayload } from './modes';
+import type { ComposerModeKey, ComposerPublicationPayload, ComposerSettings } from './modes';
 import type { ComposerIssue } from './validation';
-import type { ComposerSettings } from './modes';
+import type { resolvePollPreview } from './polls';
+import type { AttachmentRequirement } from './ai-build-metadata';
 import type { QueryMutationSession } from '$lib/query/authorization-boundary';
 import type { ComposerHandoffPayload } from '$lib/composer/handoff-payload';
 import type { ComposerSession } from '$lib/composer/session';
@@ -51,17 +52,24 @@ export interface ComposerHost {
 	selectedSocialSetId: string;
 	requestedOutputProfiles: Record<string, string>;
 	formatLockedByAccount: Record<string, boolean>;
-	readonly settingsByAccount: Record<string, ComposerSettings>;
+	settingsByAccount: Record<string, ComposerSettings>;
+	readonly captionMentionsByAccount: Record<
+		string,
+		{ field: string; body: string; mentions: MentionMetadata } | null
+	>;
 	readonly segmentSettingsByPost: Record<string, Record<string, ComposerSettings>>;
 	mediaSettingsByAccount: Record<string, Record<string, ComposerSettings>>;
 	posts: PostItem[];
 	readonly activePost: PostItem;
 	activePostIndex: number;
 	readonly isThread: boolean;
+	readonly textComposerMode: ComposerModeKey;
 	variants: Map<string, Record<string, VariantPost>>;
 	activeVariantAccountId: string | null;
 	linkUrl: string;
 	readonly composerMediaLimit: number;
+	readonly mediaAltTexts: Map<string, string>;
+	readonly attachmentRequirements: Record<string, AttachmentRequirement>;
 	readonly hasPendingPasteMediaUploads: boolean;
 	/** Changes whenever authored media or destination choices could change image preparation. */
 	readonly imagePreparationContext: string;
@@ -82,6 +90,14 @@ export interface ComposerHost {
 	readonly setEditorMediaIds: (postIndex: number, mediaIds: string[]) => void;
 	readonly mergeMediaIds: (current: string[], incoming: string[]) => string[];
 	readonly settingsForAccount: (account: SocialAccount) => ComposerSettings;
+	readonly destinationSettingsForAccount: (account: SocialAccount) => ComposerSettings;
+	readonly pollProjection: (
+		post: PostItem,
+		account: SocialAccount
+	) => ReturnType<typeof resolvePollPreview>;
+	readonly accountNeedsOwnSegmentCopy: (accountID: string) => boolean;
+	readonly refreshSavedTextCardPreviews: () => void;
+	readonly mediaAltTextForAccount: (mediaId: string, accountId: string) => string;
 	readonly visibleSettings: (account: SocialAccount, post?: PostItem) => SettingDefinition[];
 	readonly updateAccountSetting: (
 		account: SocialAccount,

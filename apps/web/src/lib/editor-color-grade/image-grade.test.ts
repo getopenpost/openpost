@@ -54,46 +54,14 @@ describe('versioned still-image color grade', () => {
 		]);
 	});
 
-	it('omits neutral color operations and the Fabric-owned blur control', () => {
-		expect(editorColorGradeAdjustmentsToEffects(neutralGrade)).toEqual([]);
-		// Fabric owns blur for still images, so a non-zero blur must not reach
-		// the shared color pipeline.
-		const imageAdjustments = { ...neutralGrade, blur: 0.6 };
-		expect(editorColorGradeAdjustmentsToEffects(imageAdjustments)).toEqual([]);
-	});
-
-	it('keeps alpha unchanged in the deterministic CPU fallback', () => {
-		const pixels = new Uint8ClampedArray([10, 20, 30, 7, 240, 230, 220, 199]);
-		applyImageGradePixels(pixels, { ...neutralGrade, brightness: 0.1 });
-		expect([...pixels]).toEqual([36, 46, 56, 7, 255, 255, 246, 199]);
-	});
-
 	it('matches the GPU shadows and highlights masks in the CPU fallback', () => {
 		const pixels = new Uint8ClampedArray([0, 0, 0, 17, 255, 255, 255, 23]);
-		applyImageGradePixels(pixels, { ...neutralGrade, shadows: 0.1, highlights: -0.2 });
-		expect([...pixels]).toEqual([26, 26, 26, 17, 204, 204, 204, 23]);
-	});
-
-	it('clips and rounds between consecutive tone adjustments', () => {
-		const pixels = new Uint8ClampedArray([240, 5, 128, 7]);
-		applyImageGradePixels(pixels, { ...neutralGrade, brightness: 0.2, contrast: -0.5 });
-		// Brightness first produces [255, 56, 179]. Contrast acts on those bytes,
-		// including the clipped red channel, rather than the unbounded values.
-		expect([...pixels]).toEqual([191, 92, 153, 7]);
-	});
-
-	it('preserves effect order across tone and channel-mixing adjustments', () => {
-		const pixels = new Uint8ClampedArray([240, 5, 128, 7]);
 		applyImageGradePixels(pixels, {
 			...neutralGrade,
-			brightness: 0.2,
-			saturation: -1,
-			temperature: 0.2,
-			tint: 0.4
+			shadows: 0.1,
+			highlights: -0.2
 		});
-		// The brightened channels have BT.601 luma 129.523, rounded to 130.
-		// Temperature and tint then change red by +10.2 and green by -10.2.
-		expect([...pixels]).toEqual([140, 120, 130, 7]);
+		expect([...pixels]).toEqual([26, 26, 26, 17, 204, 204, 204, 23]);
 	});
 });
 

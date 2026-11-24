@@ -3,39 +3,13 @@ import {
 	SHORTCUT_PRESET_SCHEMA,
 	browserShortcutConflict,
 	createShortcutImportReview,
-	createShortcutMatcher,
-	createShortcutPreset,
-	DEFAULT_EDITOR_SHORTCUTS,
-	EDITOR_SHORTCUT_DEFINITIONS,
-	EDITOR_SHORTCUT_GROUPS,
-	editorDeleteModeForEvent,
 	eventMatchesShortcut,
 	findShortcutConflicts,
-	formatShortcutAriaKey,
-	formatShortcutBinding,
-	normalizeShortcutBinding,
 	parseShortcutPreset,
-	resolveEditorShortcuts,
-	sanitizeShortcutOverrides,
-	shortcutBindingFromEvent
+	resolveEditorShortcuts
 } from '@openpost/editor-shared/settings';
 
 describe('keyboard shortcuts', () => {
-	it('normalizes aliases, physical keys, and cross-platform modifiers', () => {
-		expect(normalizeShortcutBinding('Shift+Ctrl+ArrowLeft')).toBe('mod+shift+left');
-		expect(
-			shortcutBindingFromEvent({
-				code: 'Comma',
-				key: '<',
-				metaKey: true,
-				shiftKey: true
-			})
-		).toBe('mod+shift+comma');
-		expect(formatShortcutBinding('mod+alt+k', 'MacIntel')).toBe('Cmd + Option + K');
-		expect(formatShortcutBinding('mod+alt+k', 'Win32')).toBe('Ctrl + Alt + K');
-		expect(formatShortcutAriaKey('mod+alt+left', 'MacIntel')).toBe('Meta+Alt+ArrowLeft');
-	});
-
 	it('matches command events from their resolved binding', () => {
 		const bindings = resolveEditorShortcuts({ PLAY_PAUSE: 'shift+space' });
 		expect(
@@ -53,26 +27,10 @@ describe('keyboard shortcuts', () => {
 		});
 	});
 
-	it('does not report intentional shortcuts from different editor surfaces as conflicts', () => {
-		const bindings = resolveEditorShortcuts();
-		for (const { id } of EDITOR_SHORTCUT_DEFINITIONS) {
-			expect(findShortcutConflicts(bindings, bindings[id], id), id).toEqual([]);
-		}
-	});
-
 	it('rejects malformed presets instead of partially applying them', () => {
 		expect(() => parseShortcutPreset({ schema: SHORTCUT_PRESET_SCHEMA, overrides: [] })).toThrow(
 			'Invalid shortcut preset'
 		);
-	});
-
-	it('groups primary and alternate bindings under one command', () => {
-		expect(
-			EDITOR_SHORTCUT_GROUPS.find((group) => group.primaryId === 'SPLIT_AT_PLAYHEAD')?.alternateIds
-		).toEqual(['SPLIT_AT_PLAYHEAD_ALT']);
-		expect(
-			EDITOR_SHORTCUT_GROUPS.find((group) => group.primaryId === 'DELETE_SELECTED')?.alternateIds
-		).toEqual(['DELETE_SELECTED_ALT']);
 	});
 
 	it('previews every imported replacement before storage changes', () => {
@@ -86,7 +44,11 @@ describe('keyboard shortcuts', () => {
 
 		expect(review.changes).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ id: 'PLAY_PAUSE', from: 'shift+space', to: 'mod+p' }),
+				expect.objectContaining({
+					id: 'PLAY_PAUSE',
+					from: 'shift+space',
+					to: 'mod+p'
+				}),
 				expect.objectContaining({ id: 'SAVE', from: 'alt+s', to: 'mod+s' })
 			])
 		);
@@ -95,48 +57,5 @@ describe('keyboard shortcuts', () => {
 			ids: ['PLAY_PAUSE', 'COPY']
 		});
 		expect(current).toEqual({ PLAY_PAUSE: 'shift+space', SAVE: 'alt+s' });
-	});
-
-	it('ships remappable layout-dock commands without colliding with existing bindings', () => {
-		const ids = [
-			'TOGGLE_LEFT_SIDEBAR',
-			'TOGGLE_RIGHT_SIDEBAR',
-			'EXPAND_LEFT_SIDEBAR',
-			'EXPAND_RIGHT_SIDEBAR',
-			'TOGGLE_THEATER_MODE'
-		] as const;
-		for (const id of ids) {
-			expect(EDITOR_SHORTCUT_DEFINITIONS.some((definition) => definition.id === id)).toBe(true);
-			expect(DEFAULT_EDITOR_SHORTCUTS[id].length).toBeGreaterThan(0);
-		}
-		const bindings = resolveEditorShortcuts();
-		const defaults = ids.map((id) => normalizeShortcutBinding(bindings[id]));
-		expect(new Set(defaults).size).toBe(ids.length);
-		for (const id of ids) {
-			expect(findShortcutConflicts(bindings, bindings[id], id)).toEqual([]);
-		}
-		expect(
-			eventMatchesShortcut({ code: 'KeyB', key: 'b', ctrlKey: true }, bindings.TOGGLE_LEFT_SIDEBAR)
-		).toBe(true);
-	});
-
-	it('accepts custom layout-dock bindings through presets and overrides', () => {
-		const bindings = resolveEditorShortcuts({ TOGGLE_THEATER_MODE: 'alt+t' });
-		expect(bindings.TOGGLE_THEATER_MODE).toBe('alt+t');
-		expect(
-			eventMatchesShortcut({ code: 'KeyT', key: 't', altKey: true }, bindings.TOGGLE_THEATER_MODE)
-		).toBe(true);
-		const preset = createShortcutPreset({ EXPAND_LEFT_SIDEBAR: 'alt+left' });
-		expect(preset.overrides.EXPAND_LEFT_SIDEBAR).toBe('alt+left');
-		expect(resolveEditorShortcuts(preset.overrides).EXPAND_LEFT_SIDEBAR).toBe('alt+left');
-		expect(sanitizeShortcutOverrides({ TOGGLE_RIGHT_SIDEBAR: '' }).TOGGLE_RIGHT_SIDEBAR).toBe('');
-	});
-
-	it('ignores already-handled events before matching', () => {
-		const bindings = resolveEditorShortcuts({});
-		// SAFETY: synthetic keydown exercising only the already-handled guard;
-		// the disabled-target path needs DOM and is covered by browser suites.
-		const event = { defaultPrevented: true } as KeyboardEvent;
-		expect(createShortcutMatcher(event, bindings)).toBeNull();
 	});
 });

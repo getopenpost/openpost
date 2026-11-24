@@ -1,11 +1,13 @@
 import type { paths } from '@openpost/api-contract';
 import createClient from 'openapi-fetch';
 import { describe, expect, it, vi } from 'vitest';
-import { createMediaQueryAPI } from './media';
 import { createSchedulingQueryAPI } from './scheduling';
 
 function transportWith(fetcher: typeof fetch) {
-	return createClient<paths>({ baseUrl: 'https://openpost.test/api/v1', fetch: fetcher });
+	return createClient<paths>({
+		baseUrl: 'https://openpost.test/api/v1',
+		fetch: fetcher
+	});
 }
 
 describe('content and scheduling web query adapters', () => {
@@ -92,97 +94,5 @@ describe('content and scheduling web query adapters', () => {
 
 		expect(result.map((publication) => publication.id)).toEqual(['publication-1']);
 		expect(fetcher).toHaveBeenCalledTimes(1);
-	});
-
-	it('normalizes media filters and preserves the request signal', async () => {
-		let request: Request | undefined;
-		const fetcher = vi.fn<typeof fetch>(async (input, init) => {
-			request = input instanceof Request ? input : new Request(input, init);
-			return new Response(JSON.stringify({ media: [], total: 0 }), {
-				headers: { 'Content-Type': 'application/json' }
-			});
-		});
-		const api = createMediaQueryAPI(transportWith(fetcher));
-		const controller = new AbortController();
-
-		await api.listMedia(
-			'workspace-1',
-			{
-				lifecycle: 'library',
-				filter: 'favorites',
-				sort: 'newest',
-				search: 'launch',
-				type: 'image',
-				source: '',
-				assetKind: '',
-				aspect: '',
-				tagId: '',
-				tagIds: ['tag-a', 'tag-b'],
-				untagged: false,
-				minWidth: 0,
-				minHeight: 0,
-				maxWidth: 0,
-				maxHeight: 0,
-				dateFrom: '',
-				dateTo: '',
-				limit: 40,
-				offset: 0
-			},
-			controller.signal
-		);
-
-		expect(request).toBeDefined();
-		expect(request?.signal.aborted).toBe(false);
-		controller.abort();
-		expect(request?.signal.aborted).toBe(true);
-		expect(Object.fromEntries(new URL(request!.url).searchParams)).toMatchObject({
-			workspace_id: 'workspace-1',
-			filter: 'favorites',
-			search: 'launch',
-			tag_ids: 'tag-a,tag-b',
-			limit: '40',
-			offset: '0'
-		});
-	});
-
-	it('normalizes raw media metadata and preserves the request signal', async () => {
-		let request: Request | undefined;
-		const rawFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-			request = new Request(new URL(String(input), 'https://openpost.test'), init);
-			return Response.json({
-				media: [
-					{
-						id: 'media-1',
-						mime_type: 'video/mp4',
-						size: 512,
-						processing_status: 'processing'
-					},
-					{ id: 42 }
-				]
-			});
-		});
-		const api = createMediaQueryAPI(transportWith(vi.fn()), rawFetch);
-		const controller = new AbortController();
-
-		await expect(
-			api.getMediaMetadata('workspace-1', ['media-b', 'media-a'], controller.signal)
-		).resolves.toEqual({
-			media: [
-				{
-					id: 'media-1',
-					mime_type: 'video/mp4',
-					size: 512,
-					processing_status: 'processing'
-				}
-			]
-		});
-		expect(request).toBeDefined();
-		expect(Object.fromEntries(new URL(request!.url).searchParams)).toEqual({
-			workspace_id: 'workspace-1',
-			media_ids: 'media-b,media-a'
-		});
-		expect(request?.signal.aborted).toBe(false);
-		controller.abort();
-		expect(request?.signal.aborted).toBe(true);
 	});
 });

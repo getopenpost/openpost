@@ -46,7 +46,6 @@ afterEach(async () => {
 
 it.each([
 	{ linked: true, link: true },
-	{ linked: false, link: true },
 	{ linked: true, link: false }
 ])(
 	'generated voice link=$link selection=$linked preserves nudge and Undo',

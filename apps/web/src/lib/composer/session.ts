@@ -241,10 +241,6 @@ export class ComposerSession {
 		return structuredClone(this.#snapshot);
 	}
 
-	get draft(): Readonly<PublicationDraft> | null {
-		return this.#draft ? structuredClone(this.#draft) : null;
-	}
-
 	subscribe(listener: (snapshot: Readonly<ComposerSessionSnapshot>) => void): () => void {
 		this.#listeners.add(listener);
 		listener(this.snapshot);

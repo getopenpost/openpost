@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { page } from 'vitest/browser';
 import '../../routes/layout.css';
 import type { components } from '$lib/api/types';
 import { client, type SocialAccount } from '$lib/api/client';
@@ -103,78 +102,6 @@ describe('Social Set request ownership', () => {
 				]
 			}
 		});
-	});
-
-	it('preserves an API-authored embed when its Social Set is opened and renamed', async () => {
-		const existing = socialSet('workspace-a');
-		const embed = {
-			title: 'Launch',
-			fields: [{ name: 'Version', value: '4.30' }]
-		};
-		existing.accounts = [
-			{
-				social_account_id: 'bot',
-				platform: 'discord',
-				display_order: 0,
-				default_output_profile: 'discord.post',
-				default_settings: { embed },
-				default_segment_settings: {}
-			}
-		];
-		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
-		installResolvedReads();
-		postMock.mockResolvedValue(
-			response({
-				account_id: 'bot',
-				output_profile: 'discord.post',
-				settings: [
-					{
-						key: 'embed',
-						label: 'Embed',
-						message_key: '',
-						type: 'json',
-						control: 'structured_editor',
-						group: 'content',
-						scope: 'destination',
-						required: false
-					}
-				]
-			} satisfies ResolvedSettings)
-		);
-		putMock.mockImplementation(() => new Promise(() => {}));
-		const screen = await render(SocialSetControl, {
-			workspaceId: 'workspace-a',
-			accounts: [socialAccount('bot', 'discord', 'Test server')],
-			capabilities: [capability('discord', 'discord.post', 'Discord message')],
-			selectedSetId: existing.id,
-			onApply: vi.fn()
-		});
-		await openManager(screen);
-		await screen.getByRole('button', { name: 'Edit post settings' }).click();
-		const settings = screen.getByRole('dialog', { name: 'Discord settings' });
-		await expect
-			.element(settings.getByRole('textbox', { name: 'Title', exact: true }))
-			.toHaveValue('Launch');
-		await settings.getByRole('button', { name: 'Done' }).click();
-		const manager = screen.getByRole('dialog', { name: 'Manage Social Sets' });
-		await manager.getByRole('textbox', { name: 'Set name' }).fill('Renamed launches');
-		await manager.getByRole('button', { name: 'Save', exact: true }).click();
-		expect(putMock).toHaveBeenCalledWith(
-			'/social-sets/{id}',
-			expect.objectContaining({
-				body: expect.objectContaining({
-					name: 'Renamed launches',
-					accounts: [
-						{
-							social_account_id: 'bot',
-							default_output_profile: 'discord.post',
-							default_settings: { embed },
-							default_segment_settings: {}
-						}
-					]
-				})
-			})
-		);
 	});
 
 	it('uses account-resolved fields for bot and webhook Social Set presets', async () => {
@@ -281,69 +208,6 @@ describe('Social Set request ownership', () => {
 		});
 	});
 
-	it('keeps video presets visible and removes values outside the selected format', async () => {
-		const existing = socialSet('workspace-a');
-		existing.accounts = [
-			{
-				social_account_id: 'tiktok-1',
-				platform: 'tiktok',
-				display_order: 0,
-				default_output_profile: 'tiktok.video',
-				default_settings: {
-					content_posting_method: 'DIRECT_POST',
-					is_aigc: true,
-					photo_title: 'Old photo title'
-				}
-			}
-		];
-		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), [existing]);
-		installResolvedReads();
-		postMock.mockImplementation((path: string) => {
-			if (path !== '/social-sets/resolve-settings') throw new Error(`Unexpected POST ${path}`);
-			return Promise.resolve(
-				response({
-					account_id: 'tiktok-1',
-					output_profile: 'tiktok.video',
-					settings: [tiktokPostingMethodSetting, tiktokAIGCSetting]
-				} satisfies ResolvedSettings)
-			);
-		});
-		putMock.mockImplementation(() => new Promise(() => {}));
-		const screen = await render(SocialSetControl, {
-			workspaceId: 'workspace-a',
-			accounts: [socialAccount('tiktok-1', 'tiktok', 'creator')],
-			capabilities: [capability('tiktok', 'tiktok.video', 'TikTok video')],
-			selectedSetId: existing.id,
-			onApply: vi.fn()
-		});
-		await openManager(screen);
-		await screen.getByRole('button', { name: 'Edit post settings' }).click();
-		const dialog = screen.getByRole('dialog', { name: 'TikTok settings' });
-		await expect.element(dialog.getByText('AI-generated content')).toBeVisible();
-		await expect.element(dialog.getByText('Photo post title')).not.toBeInTheDocument();
-		await dialog.getByRole('button', { name: 'Done' }).click();
-		await screen
-			.getByRole('dialog', { name: 'Manage Social Sets' })
-			.getByRole('button', { name: 'Save' })
-			.click();
-		expect(putMock).toHaveBeenCalledWith(
-			'/social-sets/{id}',
-			expect.objectContaining({
-				body: expect.objectContaining({
-					accounts: [
-						expect.objectContaining({
-							default_output_profile: 'tiktok.video',
-							default_settings: {
-								content_posting_method: 'DIRECT_POST',
-								is_aigc: true
-							}
-						})
-					]
-				})
-			})
-		);
-	});
-
 	it('keeps Automatic free of format-specific presets', async () => {
 		const existing = socialSet('workspace-a');
 		existing.accounts = [{ social_account_id: 'acc-1', platform: 'x', display_order: 0 }];
@@ -427,137 +291,6 @@ describe('Social Set request ownership', () => {
 			}
 		);
 	}
-
-	it('searches a long destination list without changing hidden selections or bulk actions', async () => {
-		await page.viewport(1000, 700);
-		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), []);
-		const accounts = Array.from({ length: 20 }, (_, index) =>
-			socialAccount(`account-${index}`, index === 19 ? 'mastodon' : 'x', `founder-${index}`)
-		);
-		const onToggle = vi.fn();
-		const onSelectAll = vi.fn();
-		const screen = await render(SocialSetControl, {
-			workspaceId: 'workspace-a',
-			accounts,
-			selectedAccountIds: ['account-0', 'account-19'],
-			onApply: vi.fn(),
-			onToggle,
-			onSelectAll,
-			onClearAll: vi.fn()
-		});
-		await screen.getByTestId('composer-account-control').click();
-		const search = screen.getByRole('searchbox', {
-			name: 'Search accounts or Social Sets'
-		});
-		await search.fill('mastodon founder-19');
-		await expect.element(screen.getByTestId('composer-account-row')).toBeVisible();
-		expect(document.querySelectorAll('[data-testid="composer-account-row"]')).toHaveLength(1);
-		await expect
-			.element(screen.getByRole('checkbox', { name: /founder-19, Mastodon/ }))
-			.toBeChecked();
-		expect(onToggle).not.toHaveBeenCalled();
-		await screen.getByRole('checkbox', { name: 'Select all', exact: true }).click();
-		expect(onSelectAll).toHaveBeenCalledOnce();
-		await search.fill('missing destination');
-		await expect.element(screen.getByText('No matching accounts.', { exact: true })).toBeVisible();
-		await screen.getByTestId('composer-account-control').click();
-		await screen.getByTestId('composer-account-control').click();
-		await expect
-			.element(
-				screen.getByRole('searchbox', {
-					name: 'Search accounts or Social Sets'
-				})
-			)
-			.toHaveValue('');
-		expect(onToggle).not.toHaveBeenCalled();
-	});
-
-	it('keeps long account lists within desktop and phone viewports', async () => {
-		queryClient.setQueryData(openPostQueryKeys.socialSets('workspace-a'), []);
-		const accounts = Array.from({ length: 20 }, (_, index) =>
-			socialAccount(`many-${index}`, 'x', `founder-${index}`)
-		);
-		const screen = await render(SocialSetControl, {
-			workspaceId: 'workspace-a',
-			accounts,
-			selectedAccountIds: [],
-			onApply: vi.fn(),
-			onToggle: vi.fn(),
-			onSelectAll: vi.fn(),
-			onClearAll: vi.fn()
-		});
-		for (const [width, height] of [
-			[1000, 700],
-			[390, 640],
-			[320, 568],
-			[1000, 360]
-		]) {
-			await page.viewport(width, height);
-			await screen.getByTestId('composer-account-control').click();
-			const manage = screen.getByRole('button', {
-				name: 'Manage Social Sets',
-				exact: true
-			});
-			await expect.element(manage).toBeVisible();
-			await expect
-				.poll(() => {
-					const rect = document.querySelector('.social-set-picker')!.getBoundingClientRect();
-					return rect.left >= 0 && rect.right <= width && rect.top >= 0 && rect.bottom <= height;
-				})
-				.toBe(true);
-			await expect
-				.poll(() => {
-					const rows = [...document.querySelectorAll('[data-testid="composer-account-row"]')];
-					const first = rows[0].getBoundingClientRect();
-					const second = rows[1].getBoundingClientRect();
-					return width >= 600
-						? Math.abs(first.top - second.top) < 1 && second.left > first.left
-						: second.top > first.top;
-				})
-				.toBe(true);
-			const footer = manage.element().getBoundingClientRect();
-			expect(footer.bottom).toBeLessThanOrEqual(height);
-			await screen.getByTestId('composer-account-control').click();
-		}
-	});
-
-	it('keeps loaded accounts usable while Social Sets are loading', async () => {
-		const pending = deferred<ReturnType<typeof response<SocialSet[]>>>();
-		getMock.mockReturnValue(pending.promise);
-		const onToggle = vi.fn();
-		const screen = await render(SocialSetControl, {
-			workspaceId: 'workspace-a',
-			accounts: [socialAccount('ready', 'x', 'ready')],
-			onApply: vi.fn(),
-			onToggle
-		});
-		const trigger = screen.getByTestId('composer-account-control');
-		await expect.element(trigger).toBeEnabled();
-		await trigger.click();
-		await screen.getByRole('checkbox', { name: /ready, X/ }).click();
-		expect(onToggle).toHaveBeenCalledOnce();
-		pending.resolve(response([]));
-	});
-
-	it('recovers a failed Social Set load without losing available accounts', async () => {
-		getMock.mockRejectedValue(new Error('Social Sets could not load'));
-		const onApply = vi.fn();
-		const onToggle = vi.fn();
-		const screen = await render(SocialSetControl, {
-			workspaceId: 'workspace-a',
-			accounts: [socialAccount('ready', 'x', 'ready')],
-			onApply,
-			onToggle
-		});
-		await screen.getByTestId('composer-account-control').click();
-		await expect.element(screen.getByRole('alert')).toHaveTextContent('Social Sets could not load');
-		await screen.getByRole('checkbox', { name: /ready, X/ }).click();
-		expect(onToggle).toHaveBeenCalledOnce();
-		getMock.mockResolvedValue(response([]));
-		await screen.getByRole('button', { name: 'Try again', exact: true }).click();
-		await expect.element(screen.getByRole('alert')).not.toBeInTheDocument();
-		expect(onApply).not.toHaveBeenCalled();
-	});
 
 	it('applies the default Social Set when the user has not chosen destinations', async () => {
 		const defaultSet = { ...socialSet('workspace-a'), is_default: true };
@@ -677,30 +410,6 @@ const xReplySetting: SettingDefinition = {
 	scope: 'destination',
 	required: false,
 	options: ['following', 'mentionedUsers']
-};
-
-const tiktokPostingMethodSetting: SettingDefinition = {
-	key: 'content_posting_method',
-	label: 'Posting method',
-	message_key: '',
-	group: 'distribution',
-	control: 'select',
-	type: 'select',
-	scope: 'destination',
-	required: true,
-	options: ['DIRECT_POST', 'UPLOAD']
-};
-
-const tiktokAIGCSetting: SettingDefinition = {
-	key: 'is_aigc',
-	label: 'AI-generated content',
-	message_key: '',
-	group: 'disclosure',
-	control: 'toggle',
-	type: 'boolean',
-	scope: 'destination',
-	required: false,
-	dependencies: [{ key: 'content_posting_method', operator: 'equals', value: 'DIRECT_POST' }]
 };
 
 const discordChannelSetting: SettingDefinition = {

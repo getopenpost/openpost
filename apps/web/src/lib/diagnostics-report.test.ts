@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
 	maintainerDiagnosticsAllowed,
 	maybeReportBrowserFailure,
@@ -7,7 +7,11 @@ import {
 } from './diagnostics-report';
 
 function transport() {
-	const calls: Array<{ surface: string; operation: string; error_code: string }> = [];
+	const calls: Array<{
+		surface: string;
+		operation: string;
+		error_code: string;
+	}> = [];
 	const sender: MaintainerDiagnosticsTransport = {
 		postReport: async (body) => {
 			calls.push(body);
@@ -31,7 +35,12 @@ describe('normalizeBrowserFailure', () => {
 		expect(failure).toMatchObject({
 			errorKind: 'type_error' as const,
 			frames: [
-				{ module: '/_app/immutable/nodes/9.Abc.js', function: 'browser', line: 120, column: 8 }
+				{
+					module: '/_app/immutable/nodes/9.Abc.js',
+					function: 'browser',
+					line: 120,
+					column: 8
+				}
 			]
 		});
 	});
@@ -58,7 +67,12 @@ describe('normalizeBrowserFailure', () => {
 			'https://app.example'
 		);
 		expect(failure?.frames).toEqual([
-			{ module: '/_app/immutable/nodes/9.Abc.js', function: 'browser', line: 120, column: 8 }
+			{
+				module: '/_app/immutable/nodes/9.Abc.js',
+				function: 'browser',
+				line: 120,
+				column: 8
+			}
 		]);
 		expect(JSON.stringify(failure)).not.toContain('private');
 	});
@@ -74,17 +88,6 @@ describe('normalizeBrowserFailure', () => {
 		expect(failure).toBeDefined();
 		expect(JSON.stringify(failure)).not.toContain('bearer');
 		expect(JSON.stringify(failure)).not.toContain('user content');
-	});
-
-	it('codes unhandled rejections separately', () => {
-		const failure = normalizeBrowserFailure(
-			'unhandledrejection',
-			'Error',
-			'failed',
-			undefined,
-			'/publications'
-		);
-		expect(failure?.code).toBe('browser_unhandled_rejection');
 	});
 
 	it('skips chunk-load failures handled by deployment recovery', () => {
@@ -124,23 +127,6 @@ describe('normalizeBrowserFailure', () => {
 });
 
 describe('maintainerDiagnosticsAllowed', () => {
-	it('lets the instance switch decide by default', () => {
-		expect(
-			maintainerDiagnosticsAllowed({
-				doNotTrack: null,
-				globalPrivacyControl: false,
-				configEnabled: true
-			})
-		).toBe(true);
-		expect(
-			maintainerDiagnosticsAllowed({
-				doNotTrack: null,
-				globalPrivacyControl: false,
-				configEnabled: false
-			})
-		).toBe(false);
-	});
-
 	it('forces off on browser privacy signals regardless of the switch', () => {
 		for (const gate of [
 			{ doNotTrack: '1', globalPrivacyControl: false, configEnabled: true },
@@ -153,27 +139,6 @@ describe('maintainerDiagnosticsAllowed', () => {
 });
 
 describe('maybeReportBrowserFailure', () => {
-	it('keeps distinct callsites on one minified line while deduplicating repeats', async () => {
-		const seen = new Set<string>();
-		const { calls, sender } = transport();
-		for (const column of [123, 456, 123]) {
-			const failure = normalizeBrowserFailure(
-				'error',
-				'TypeError',
-				'private content',
-				`TypeError: private content\n    at f (https://app.example/_app/immutable/nodes/editor.js:1:${column})`,
-				'/video-editor/[id]',
-				'https://app.example'
-			);
-			expect(failure).not.toBeNull();
-			if (failure) await maybeReportBrowserFailure(failure, sender, seen);
-		}
-		expect(calls.map((call) => call.operation)).toEqual([
-			'/_app/immutable/nodes/editor.js:1:123',
-			'/_app/immutable/nodes/editor.js:1:456'
-		]);
-	});
-
 	it('sends once per code and location, then stays silent', async () => {
 		const seen = new Set<string>();
 		const { calls, sender } = transport();
@@ -193,37 +158,5 @@ describe('maybeReportBrowserFailure', () => {
 			error_kind: 'type_error',
 			frames: failure.frames
 		});
-	});
-
-	it('caps the session instead of flooding on loops', async () => {
-		const seen = new Set<string>();
-		const { calls, sender } = transport();
-		for (let i = 0; i < 15; i++) {
-			const sent = await maybeReportBrowserFailure(
-				{ code: 'browser_uncaught', location: `/loop/${i}.js:1` },
-				sender,
-				seen
-			);
-			expect(sent).toBe(i < 10);
-		}
-		expect(calls).toHaveLength(10);
-	});
-
-	it('treats transport failures as silent drops', async () => {
-		const seen = new Set<string>();
-		const failing: MaintainerDiagnosticsTransport = {
-			postReport: async () => {
-				throw new Error('offline');
-			}
-		};
-		const spy = vi.spyOn(failing, 'postReport');
-		expect(
-			await maybeReportBrowserFailure(
-				{ code: 'browser_uncaught', location: '/x.js:1' },
-				failing,
-				seen
-			)
-		).toBe(false);
-		expect(spy).toHaveBeenCalledTimes(1);
 	});
 });

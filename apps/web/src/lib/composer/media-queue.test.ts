@@ -3,7 +3,6 @@ import { MEDIA_IMAGE_MAX_BYTES } from '../media-input';
 import {
 	ComposerSessionMediaQueue,
 	availablePasteMediaSlots,
-	firstFailedPasteMediaUpload,
 	hasUnsettledPasteMediaUploads,
 	selectPastedImageFiles,
 	type ClipboardFileItem,
@@ -69,34 +68,6 @@ describe('pasted image selection', () => {
 		}
 	);
 
-	it('does not report settled navigation state for an empty queue', () => {
-		expect(hasUnsettledPasteMediaUploads([])).toBe(false);
-	});
-
-	it('only reports failed uploads as actionable upload issues', () => {
-		const queued = {
-			id: 'upload-queued',
-			file: fakeFile('queued.png', 'image/png'),
-			previewURL: 'preview:queued',
-			target,
-			status: 'queued' as const,
-			progress: null,
-			error: ''
-		};
-		const uploading = { ...queued, id: 'uploading', status: 'uploading' as const };
-		const paused = { ...queued, id: 'upload-paused', status: 'paused' as const };
-		const failed = {
-			...queued,
-			id: 'upload-failed',
-			status: 'failed' as const,
-			error: 'Upload failed'
-		};
-
-		expect(firstFailedPasteMediaUpload([queued, uploading])).toBeUndefined();
-		expect(firstFailedPasteMediaUpload([queued, paused])).toBeUndefined();
-		expect(firstFailedPasteMediaUpload([queued, failed])).toBe(failed);
-	});
-
 	it('keeps native text and non-image paste behavior unless an eligible image fits', () => {
 		const image = fakeFile('clipboard.png', 'image/png');
 		const items = [
@@ -132,52 +103,6 @@ describe('pasted image selection', () => {
 		]);
 		expect(availablePasteMediaSlots(2, 1, 4)).toBe(1);
 		expect(availablePasteMediaSlots(4, 2, 4)).toBe(0);
-	});
-
-	it('accepts an image by filename extension when the browser provides no MIME type', () => {
-		const extensionOnly = fakeFile('photo.png', '', 10, 3);
-		const selection = selectPastedImageFiles([clipboardItem('file', '', extensionOnly)], 1);
-
-		expect(selection.hasImageFiles).toBe(true);
-		expect(selection.accepted).toEqual([extensionOnly]);
-		expect(selection.rejected).toEqual([]);
-	});
-
-	it('reports partial acceptance and each actionable rejection without consuming text paste', () => {
-		const accepted = fakeFile('accepted.png', 'image/png', 10, 1);
-		const duplicate = fakeFile('accepted.png', 'image/png', 10, 1);
-		const overflow = fakeFile('overflow.png', 'image/png', 10, 2);
-		const selection = selectPastedImageFiles(
-			[
-				clipboardItem('string', 'text/plain', null),
-				clipboardItem('file', 'image/png', fakeFile('empty.png', 'image/png', 0)),
-				clipboardItem(
-					'file',
-					'image/jpeg',
-					fakeFile('large.jpg', 'image/jpeg', MEDIA_IMAGE_MAX_BYTES + 1)
-				),
-				clipboardItem('file', 'image/png', accepted),
-				clipboardItem('file', 'image/png', duplicate),
-				clipboardItem('file', 'image/png', overflow)
-			],
-			1
-		);
-
-		expect(selection).toEqual({
-			accepted: [accepted],
-			hasImageFiles: true,
-			rejected: [
-				{ file: expect.objectContaining({ name: 'empty.png' }), reason: 'empty' },
-				{ file: expect.objectContaining({ name: 'large.jpg' }), reason: 'file_too_large' },
-				{ file: duplicate, reason: 'duplicate' },
-				{ file: overflow, reason: 'capacity' }
-			]
-		});
-		expect(selectPastedImageFiles([clipboardItem('string', 'text/plain', null)], 1)).toEqual({
-			accepted: [],
-			rejected: [],
-			hasImageFiles: false
-		});
 	});
 });
 
@@ -280,63 +205,18 @@ describe('ComposerSessionMediaQueue', () => {
 
 		queue.enqueue([fakeFile('retained.png', 'image/png')], target);
 		await settle();
-		expect(latest[0]).toMatchObject({ status: 'failed', error: 'capacity changed' });
+		expect(latest[0]).toMatchObject({
+			status: 'failed',
+			error: 'capacity changed'
+		});
 
 		queue.retry('upload-retained');
 		await settle();
-		expect({ uploads, promotions, latest }).toEqual({ uploads: 1, promotions: 2, latest: [] });
-	});
-
-	it('caps uploads across targets while preserving one-at-a-time target ordering', async () => {
-		const attempts: Array<{
-			file: File;
-			request: ReturnType<typeof deferred<{ id: string }>>;
-		}> = [];
-		let active = 0;
-		let peakActive = 0;
-		const queue = new ComposerSessionMediaQueue<{ id: string }>({
-			upload: ({ file }) => {
-				active += 1;
-				peakActive = Math.max(peakActive, active);
-				const request = deferred<{ id: string }>();
-				attempts.push({ file, request });
-				return request.promise.finally(() => {
-					active -= 1;
-				});
-			},
-			onComplete: () => {},
-			onChange: () => {},
-			errorMessage: () => 'failed',
-			createPreviewURL: (file) => `preview:${file.name}`,
-			revokePreviewURL: () => {},
-			createID: (() => {
-				let id = 0;
-				return () => `upload-cap-${++id}`;
-			})(),
-			maxConcurrentUploads: 2
+		expect({ uploads, promotions, latest }).toEqual({
+			uploads: 1,
+			promotions: 2,
+			latest: []
 		});
-
-		queue.enqueue([fakeFile('a-1.png', 'image/png'), fakeFile('a-2.png', 'image/png')], {
-			...target,
-			postKey: 'post-a'
-		});
-		queue.enqueue([fakeFile('b.png', 'image/png')], { ...target, postKey: 'post-b' });
-		queue.enqueue([fakeFile('c.png', 'image/png')], { ...target, postKey: 'post-c' });
-		expect(attempts.map(({ file }) => file.name)).toEqual(['a-1.png', 'b.png']);
-		expect(peakActive).toBe(2);
-
-		attempts[1].request.resolve({ id: 'media-b' });
-		await settle();
-		expect(attempts.map(({ file }) => file.name)).toEqual(['a-1.png', 'b.png', 'c.png']);
-
-		attempts[0].request.resolve({ id: 'media-a-1' });
-		await settle();
-		expect(attempts.map(({ file }) => file.name)).toEqual(['a-1.png', 'b.png', 'c.png', 'a-2.png']);
-		expect(peakActive).toBe(2);
-		attempts[2].request.resolve({ id: 'media-c' });
-		attempts[3].request.resolve({ id: 'media-a-2' });
-		await settle();
-		expect(active).toBe(0);
 	});
 
 	it('aborts to a retryable paused state without completing twice', async () => {

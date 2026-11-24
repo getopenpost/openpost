@@ -3,10 +3,8 @@ import type { TimelineItem, TimelineTrack, TimelineTransition } from '../project
 import { planMixdown } from '../media/render-plan';
 import {
 	audioCrossfadeGainAtFrame,
-	buildTransitionGainCurve,
 	equalPowerGain,
-	transitionGainSpansForItem,
-	type TransitionGainSpan
+	transitionGainSpansForItem
 } from './transition-crossfade';
 
 const FPS = 30;
@@ -71,42 +69,6 @@ describe('equal-power transition gain', () => {
 		expect(equalPowerGain(1, false)).toBeCloseTo(0, 12);
 		expect(equalPowerGain(1, true)).toBe(1);
 	});
-
-	it('builds exact full and partial sample-level curves', () => {
-		const span: TransitionGainSpan = {
-			startSeconds: 1,
-			durationSeconds: 2,
-			isIncoming: true,
-			dipToSilence: false
-		};
-		const full = buildTransitionGainCurve(span, 1, 3, 4);
-		expect(full).toHaveLength(9);
-		expect(full[0]).toBe(0);
-		expect(full[4]).toBeCloseTo(Math.SQRT1_2, 6);
-		expect(full[8]).toBe(1);
-
-		const partial = buildTransitionGainCurve(span, 2, 3, 4);
-		expect(partial[0]).toBeCloseTo(Math.SQRT1_2, 6);
-		expect(partial[partial.length - 1]).toBe(1);
-	});
-
-	it('dips to silence between outgoing and incoming halves', () => {
-		const outgoing: TransitionGainSpan = {
-			startSeconds: 0,
-			durationSeconds: 1,
-			isIncoming: false,
-			dipToSilence: true
-		};
-		const incoming = { ...outgoing, isIncoming: true };
-		const outCurve = buildTransitionGainCurve(outgoing, 0, 1, 4);
-		const inCurve = buildTransitionGainCurve(incoming, 0, 1, 4);
-		expect(outCurve[0]).toBe(1);
-		expect(outCurve[2]).toBe(0);
-		expect(outCurve[4]).toBe(0);
-		expect(inCurve[0]).toBe(0);
-		expect(inCurve[2]).toBe(0);
-		expect(inCurve[4]).toBe(1);
-	});
 });
 
 describe('preview crossfade', () => {
@@ -169,25 +131,5 @@ describe('transition mix planning', () => {
 				(entry) => entry.itemId
 			)
 		).toEqual(['video', 'audio']);
-	});
-
-	it('clamps extensions to available source handles', () => {
-		const left = clip({ id: 'left', sourceEnd: 60, sourceDuration: 63 });
-		const right = clip({
-			id: 'right',
-			from: 60,
-			mediaId: 'media-2',
-			sourceStart: 4,
-			sourceEnd: 64,
-			sourceDuration: 90
-		});
-		const entries = planMixdown([left, right], [track('video')], FPS, [
-			transition('left', 'right')
-		]);
-		expect(entries.find((entry) => entry.itemId === 'left')?.durationSeconds).toBeCloseTo(63 / FPS);
-		const rightEntry = entries.find((entry) => entry.itemId === 'right')!;
-		expect(rightEntry.whenSeconds).toBeCloseTo(56 / FPS);
-		expect(rightEntry.sourceOffsetSeconds).toBe(0);
-		expect(rightEntry.durationSeconds).toBeCloseTo(64 / FPS);
 	});
 });

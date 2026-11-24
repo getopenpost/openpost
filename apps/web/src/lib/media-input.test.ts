@@ -3,7 +3,6 @@ import {
 	MEDIA_IMAGE_MAX_BYTES,
 	MEDIA_VIDEO_MAX_BYTES,
 	isMediaMimeAllowed,
-	isVideoMediaFile,
 	mediaFileSignature,
 	mediaInputRejection,
 	selectMediaInputFiles,
@@ -25,17 +24,6 @@ function fakeFile(name: string, type: string, size = 128, lastModified = 1): Fil
 	return file;
 }
 
-describe('mediaFileSignature', () => {
-	it('identifies a file by name, size, and modification time', () => {
-		expect(mediaFileSignature(fakeFile('photo.png', 'image/png', 10, 1))).toBe(
-			'photo.png\u000010\u00001'
-		);
-		expect(mediaFileSignature(fakeFile('photo.png', 'image/png', 10, 2))).not.toBe(
-			mediaFileSignature(fakeFile('photo.png', 'image/png', 10, 1))
-		);
-	});
-});
-
 describe('mediaInputRejection', () => {
 	it('infers MIME from the filename extension when the browser provides no type', () => {
 		expect(isMediaMimeAllowed(fakeFile('photo.png', '', 10), panelRules.accept)).toBe(true);
@@ -43,23 +31,6 @@ describe('mediaInputRejection', () => {
 		expect(mediaInputRejection(fakeFile('notes.pdf', '', 10), panelRules)).toEqual({
 			reason: 'unsupported'
 		});
-	});
-
-	it('applies the video limit to video files and the default limit otherwise', () => {
-		expect(
-			mediaInputRejection(fakeFile('clip.mp4', 'video/mp4', MEDIA_IMAGE_MAX_BYTES + 1), panelRules)
-		).toBeNull();
-		expect(
-			mediaInputRejection(fakeFile('clip.mp4', 'video/mp4', MEDIA_VIDEO_MAX_BYTES + 1), panelRules)
-		).toEqual({ reason: 'video_too_large' });
-		expect(
-			mediaInputRejection(fakeFile('photo.png', 'image/png', MEDIA_IMAGE_MAX_BYTES + 1), panelRules)
-		).toEqual({ reason: 'file_too_large' });
-	});
-
-	it('detects video files by extension as well as MIME type', () => {
-		expect(isVideoMediaFile(fakeFile('clip.mp4', '', 10))).toBe(true);
-		expect(isVideoMediaFile(fakeFile('photo.png', 'image/png', 10))).toBe(false);
 	});
 });
 

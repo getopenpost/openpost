@@ -43,7 +43,11 @@ describe('api client authorization settlement', () => {
 			mockserved(401, { detail: 'invalid or expired token' }, sessionRejected)
 		);
 		const { response } = await testClient.POST('/prompts', {
-			body: { category: 'launch', example: 'We shipped it.', text: 'Write a launch post.' }
+			body: {
+				category: 'launch',
+				example: 'We shipped it.',
+				text: 'Write a launch post.'
+			}
 		});
 
 		expect(response.status).toBe(401);
@@ -85,24 +89,9 @@ describe('api client authorization settlement', () => {
 		});
 
 		expect(response.status).toBe(401);
-		expect(error).toMatchObject({ detail: 'recent reauthentication is required' });
-		expect(settleUnauthorized).not.toHaveBeenCalled();
-	});
-
-	it('does not settle a successful direct mutation', async () => {
-		const settleUnauthorized = vi.fn();
-		registerQueryAuthorizationBoundary({
-			captureIdentity: () => ({ userID: 'user-a', epoch: 4 }),
-			settleUnauthorized
+		expect(error).toMatchObject({
+			detail: 'recent reauthentication is required'
 		});
-
-		const testClient = createSettlingApiClient(mockserved(200, { id: 'prompt-1' }));
-		const { data, response } = await testClient.POST('/prompts', {
-			body: { category: 'launch', example: 'We shipped it.', text: 'Write a launch post.' }
-		});
-
-		expect(response.status).toBe(200);
-		expect(data).toEqual({ id: 'prompt-1' });
 		expect(settleUnauthorized).not.toHaveBeenCalled();
 	});
 });

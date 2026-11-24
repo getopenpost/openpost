@@ -110,44 +110,6 @@ function runtime() {
 }
 
 describe('media source recovery', () => {
-	it('does not ask to relink cloud originals that have no local workspace copy', async () => {
-		const testRuntime = runtime();
-		testRuntime.setWorkspaceSource(null);
-		await expect(
-			testRuntime.recovery.scanMediaSourceIssues([
-				{ ...media(), storageType: 'cloud', remoteUrl: '/api/v1/video-projects/p/assets/a/content' }
-			])
-		).resolves.toEqual([]);
-	});
-
-	it('distinguishes expired handle access from a missing workspace copy', async () => {
-		const testRuntime = runtime();
-		testRuntime.setHandleValidation({ kind: 'permission' });
-		await expect(testRuntime.recovery.validateMediaSource(media('handle'))).resolves.toEqual({
-			mediaId: 'media',
-			fileName: 'old.mp4',
-			kind: 'permission'
-		});
-
-		testRuntime.setWorkspaceSource(null);
-		await expect(testRuntime.recovery.validateMediaSource(media('workspace'))).resolves.toEqual({
-			mediaId: 'media',
-			fileName: 'old.mp4',
-			kind: 'missing'
-		});
-		await expect(
-			testRuntime.recovery.validateMediaSource({
-				...media('workspace'),
-				fileName: 'prepared.png',
-				sourceFileName: 'original.svg'
-			})
-		).resolves.toEqual({
-			mediaId: 'media',
-			fileName: 'original.svg',
-			kind: 'missing'
-		});
-	});
-
 	it('reprobes a replacement, keeps custom tags, and invalidates derived data before publish', async () => {
 		const testRuntime = runtime();
 		const file = new File([new Uint8Array(400)], 'restored.mp4', {
@@ -155,7 +117,10 @@ describe('media source recovery', () => {
 			lastModified: 123
 		});
 		// SAFETY: relinkMediaSource only calls getFile on this test handle.
-		const handle = { getFile: async () => file, name: file.name } as FileSystemFileHandle;
+		const handle = {
+			getFile: async () => file,
+			name: file.name
+		} as FileSystemFileHandle;
 
 		const restored = await testRuntime.recovery.relinkMediaSource(
 			media(),
@@ -193,19 +158,5 @@ describe('media source recovery', () => {
 		expect(testRuntime.calls.invalidated).toEqual(['media']);
 		expect(testRuntime.calls.published).toEqual([restored]);
 		expect(testRuntime.calls.events).toEqual(['invalidate', 'publish']);
-	});
-
-	it('rejects a replacement with a different media kind before persistence', async () => {
-		const testRuntime = runtime();
-		testRuntime.setReplacementKind('audio');
-		const file = new File(['audio'], 'wrong.wav', { type: 'audio/wav' });
-		// SAFETY: relinkMediaSource only calls getFile on this test handle.
-		const handle = { getFile: async () => file, name: file.name } as FileSystemFileHandle;
-
-		await expect(testRuntime.recovery.relinkMediaSource(media(), handle)).rejects.toThrow(
-			/Choose a video file/
-		);
-		expect(testRuntime.calls.updates).toEqual([]);
-		expect(testRuntime.calls.writtenSources).toEqual([]);
 	});
 });

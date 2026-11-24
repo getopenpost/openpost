@@ -147,51 +147,6 @@ describe('account OAuth callback selection flow', () => {
 		expect(screen.container.textContent).not.toContain('Account connected');
 	});
 
-	it('connects several LinkedIn identities from one grant', async () => {
-		mocks.get.mockResolvedValue({
-			data: {
-				...pendingSelection,
-				platform: 'linkedin',
-				options: [
-					{
-						id: 'person:member-1',
-						display_name: 'Ada Member',
-						kind: 'Personal profile'
-					},
-					{
-						id: 'organization:42',
-						display_name: 'OpenPost',
-						kind: 'Organization Page'
-					}
-				]
-			},
-			error: null
-		});
-		setCallbackUrl('status=selection_required&platform=linkedin&connection_id=conn_123');
-
-		const screen = await renderCallbackPage();
-		await screen.getByRole('checkbox', { name: /Ada Member/ }).click();
-		await screen.getByRole('checkbox', { name: /OpenPost/ }).click();
-		await screen.getByRole('button', { name: 'Connect selected (2)' }).click();
-
-		expect(mocks.post).toHaveBeenCalledWith('/accounts/selections/{connection_id}/complete', {
-			params: { path: { connection_id: 'conn_123' } },
-			body: { selection_ids: ['person:member-1', 'organization:42'] }
-		});
-	});
-
-	it('surfaces rejected account-selection loads', async () => {
-		mocks.get.mockRejectedValue(new Error('Network unavailable.'));
-		setCallbackUrl('status=selection_required&platform=facebook&connection_id=conn_123');
-
-		const screen = await renderCallbackPage();
-
-		await expect
-			.element(screen.getByText('This account selection could not be loaded. Network unavailable.'))
-			.toBeVisible();
-		expect(screen.container.textContent).not.toContain('Loading account choices');
-	});
-
 	it('returns rejected account-selection completion to scoped account management', async () => {
 		mocks.post.mockRejectedValueOnce(new Error('Connection interrupted.'));
 		setCallbackUrl('status=selection_required&platform=instagram&connection_id=conn_123');

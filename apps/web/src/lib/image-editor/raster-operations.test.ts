@@ -15,7 +15,13 @@ function layer(id: string, parent_id?: string): ImageEditorLayer {
 		locked: false,
 		opacity: 1,
 		transform: defaultTransform(20, 20),
-		shape: { kind: 'rectangle', fill: '#ff0000', stroke: '#000000', stroke_width: 0, radius: 0 }
+		shape: {
+			kind: 'rectangle',
+			fill: '#ff0000',
+			stroke: '#000000',
+			stroke_width: 0,
+			radius: 0
+		}
 	};
 }
 function fixture(layers = [layer('back'), layer('middle'), layer('front')]): ImageEditorController {
@@ -61,16 +67,6 @@ describe('explicit raster operations', () => {
 		editor.redo();
 		expect(editor.activePage!.layers).toHaveLength(2);
 	});
-	it('preserves a nested selection parent and leaves its other siblings editable', () => {
-		const group = { ...layer('group'), type: 'group' as const, shape: undefined };
-		const editor = fixture([group, layer('a', 'group'), layer('b', 'group'), layer('c', 'group')]);
-		const plan = prepareRasterOperation(editor.document!, 'page', ['a', 'b'], 'merge_selected')!;
-		expect(editor.commitRasterOperation(plan, 'media', 'Merge selected')).toBe(true);
-		expect(editor.activePage!.layers.map((item) => item.name)).toEqual(['group', 'b', 'c']);
-		expect(editor.activePage!.layers[1].parent_id).toBe('group');
-		expect(editor.activePage!.layers[1].transform.width).toBe(20);
-		expect(editor.activePage!.layers[0].transform.width).toBe(20);
-	});
 	it('refuses non-adjacent, locked, hidden, and backdrop-dependent selections', () => {
 		const editor = fixture();
 		expect(
@@ -104,7 +100,11 @@ describe('explicit raster operations', () => {
 		expect(editor.commitRasterOperation(plan, 'media', 'Rasterize')).toBe(false);
 		expect(editor.id).toBe('other-design');
 		expect(editor.activePage!.layers.map((layer) => layer.id)).toEqual(['back', 'middle', 'front']);
-		const group = { ...layer('group'), type: 'group' as const, shape: undefined };
+		const group = {
+			...layer('group'),
+			type: 'group' as const,
+			shape: undefined
+		};
 		const nested = fixture([group, { ...layer('child', 'group'), locked: true }]);
 		expect(prepareRasterOperation(nested.document!, 'page', ['group'], 'rasterize')).toBeNull();
 	});

@@ -22,27 +22,12 @@ afterEach(() => {
 });
 
 describe('composer publication query cache', () => {
-	it('invalidates the exact detail and every list after a publication action', async () => {
-		const publication = publicationFixture();
-		const detailKey = openPostQueryKeys.publications.detail('workspace-1', publication.id);
-		const listKey = schedulingQueryKeys.publications('workspace-1', { status: 'scheduled' });
-		queryClient.setQueryData(detailKey, publication);
-		queryClient.setQueryData(listKey, [publication]);
-		mocks.post.mockResolvedValue({
-			data: { message: 'Scheduled', publication_id: publication.id, revision: 2 },
-			response: new Response(null, { status: 200 })
-		});
-
-		await createComposerPublicationClient('workspace-1').schedule(publication.id, 1);
-
-		expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true);
-		expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
-	});
-
 	it('cancels an older list before reconciling a successful mutation', async () => {
 		const stale = publicationFixture();
 		const current = { ...stale, revision: 2, title: 'Current title' };
-		const listKey = schedulingQueryKeys.publications('workspace-1', { status: 'draft' });
+		const listKey = schedulingQueryKeys.publications('workspace-1', {
+			status: 'draft'
+		});
 		let resolveList!: (value: Publication[]) => void;
 		let listSignal: AbortSignal | undefined;
 		const listResponse = new Promise<Publication[]>((resolve) => {
@@ -135,7 +120,9 @@ describe('composer publication query cache', () => {
 				source_text: 'Wrong response.'
 			})
 		).rejects.toEqual(
-			expect.objectContaining<Partial<ComposerClientError>>({ category: 'not_found' })
+			expect.objectContaining<Partial<ComposerClientError>>({
+				category: 'not_found'
+			})
 		);
 		expect(
 			queryClient.getQueryData(

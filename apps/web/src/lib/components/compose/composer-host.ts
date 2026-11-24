@@ -30,11 +30,30 @@ export type ProviderSettings = NonNullable<components['schemas']['RenditionInput
  * read and write it through these accessors and never keep a parallel copy.
  */
 export interface ComposerHost {
+	readonly composerDestroyed: boolean;
 	readonly selectedWorkspaceId: string;
-	posts: PostItem[];
-	variants: Map<string, Record<string, VariantPost>>;
-	readonly activeVariantAccountId: string | null;
+	readonly publicationId: string;
+	error: string;
+	readonly accounts: SocialAccount[];
+	selectedAccountIds: string[];
 	readonly selectedAccounts: SocialAccount[];
+	selectedSocialSetId: string;
+	requestedOutputProfiles: Record<string, string>;
+	formatLockedByAccount: Record<string, boolean>;
+	posts: PostItem[];
+	activePostIndex: number;
+	readonly isThread: boolean;
+	variants: Map<string, Record<string, VariantPost>>;
+	activeVariantAccountId: string | null;
+	linkUrl: string;
+	readonly composerMediaLimit: number;
+	readonly hasPendingPasteMediaUploads: boolean;
+	/** Changes whenever authored media or destination choices could change image preparation. */
+	readonly imagePreparationContext: string;
+	mediaPickerOpen: boolean;
+	mediaPickerPostIndex: number;
+	mediaPickerInitialFiles: File[];
+	mediaPickerInitialMode: 'upload' | 'meme';
 	readonly resolvedCapabilities: Record<string, ResolvedAccountCapabilityWithReadiness>;
 	readonly getVariantContent: (accountId: string, postKey: string) => string | null;
 	readonly getVariantPost: (accountId: string, postKey: string) => VariantPost | null;
@@ -46,5 +65,20 @@ export interface ComposerHost {
 	) => void;
 	readonly setPostContent: (index: number, value: string, mentions?: MentionMetadata) => void;
 	readonly composerIssuePostIndex: (issue: ComposerIssue) => number;
+	readonly accountContextLabel: (account: SocialAccount) => string;
+	readonly prepareNewImageIds: (ids: string[], workspaceId: string) => Promise<string[] | null>;
+	readonly hydrateMediaMetadata: (
+		workspaceId: string,
+		mediaIds: string[],
+		force?: boolean
+	) => Promise<void>;
+	readonly generateMissingMediaAltText: (mediaIds: string[], postContext: string) => Promise<void>;
+	readonly saveDraft: (options?: {
+		saveAsCopy?: boolean;
+		scheduledAt?: string | null;
+		allowEmpty?: boolean;
+	}) => Promise<string | null>;
 	readonly scheduleAutoSave: () => void;
+	readonly resolveCapabilities: () => Promise<void>;
+	readonly startFirstComposition: (signal: 'text' | 'media' | 'content_mode') => Promise<void>;
 }

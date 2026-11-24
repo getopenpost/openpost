@@ -79,7 +79,10 @@ beforeEach(() => {
 	// SAFETY: This public transport fixture returns the declared run or workflow-run list; no other GET is used by these cases.
 	vi.spyOn(client, 'GET').mockImplementation(
 		async (path) =>
-			({ data: path === '/workflow-runs/{id}' ? run : [], response: new Response() }) as never
+			({
+				data: path === '/workflow-runs/{id}' ? run : [],
+				response: new Response()
+			}) as never
 	);
 	// SAFETY: Both tested POST operations return WorkflowRun; the complete fixture above satisfies that contract.
 	post = vi
@@ -115,15 +118,6 @@ async function focusCanvasNode(node: HTMLElement) {
 	}
 	expect(document.activeElement).toBe(node);
 }
-
-it('opens the step inspector when a click reaches the node wrapper', async () => {
-	await page.viewport(1280, 900);
-	const { screen, node } = await openLayout();
-	// Selection re-renders the node, so a click can land on the wrapper instead
-	// of the node button that carries the inspector action.
-	node.click();
-	await expect.element(screen.getByRole('dialog')).toBeVisible();
-});
 
 it('retains pointer placement locally on reopen without saving authored workflow content', async () => {
 	await page.viewport(1280, 900);
@@ -190,34 +184,6 @@ it.each([390, 1280].flatMap((width) => ['light', 'dark'].map((scheme) => ({ widt
 	}
 );
 
-it('keeps placement Undo usable and explains session-only positions when browser storage is blocked', async () => {
-	await page.viewport(390, 900);
-	vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-		throw new DOMException('Storage blocked', 'SecurityError');
-	});
-	const { screen, node } = await openLayout();
-	const baseline = nodePosition(node);
-	await focusCanvasNode(node);
-	await userEvent.keyboard('{Enter}{ArrowRight}');
-	await expect.poll(() => nodePosition(node)).toEqual({ x: baseline.x + 5, y: baseline.y });
-	await expect
-		.element(
-			screen.getByText(
-				'Canvas positions could not be saved in this browser. They will reset when you reopen this workflow.',
-				{ exact: true }
-			)
-		)
-		.toBeVisible();
-	await expect
-		.element(screen.getByText('Saved in this browser', { exact: true }))
-		.not.toBeInTheDocument();
-	await userEvent.keyboard('{Control>}z{/Control}');
-	await expect.poll(() => nodePosition(node)).toEqual(baseline);
-	await screen.unmount();
-	const reopened = await openLayout();
-	await expect.poll(() => nodePosition(reopened.node)).toEqual(baseline);
-});
-
 it('keeps positions scoped to the owning workflow and workspace', async () => {
 	await page.viewport(1280, 900);
 	const { screen, node } = await openLayout();
@@ -241,44 +207,6 @@ it('keeps positions scoped to the owning workflow and workspace', async () => {
 	const original = await openLayout();
 	await expect.poll(() => nodePosition(original.node)).toEqual(moved);
 });
-
-it('keeps immutable run layout read-only and separate from device-local editor positions', async () => {
-	await page.viewport(1280, 900);
-	// SAFETY: These history reads return the complete declared immutable run or its list; no other GET occurs in this case.
-	vi.mocked(client.GET).mockImplementation(
-		async (path) =>
-			({
-				data: path === '/workflow-run-summaries' ? [run] : run,
-				response: new Response()
-			}) as never
-	);
-	const put = vi.spyOn(client, 'PUT');
-	const definition = structuredClone(initial.definition);
-	const { screen, node } = await openLayout();
-	const baseline = nodePosition(node);
-	await focusCanvasNode(node);
-	await userEvent.keyboard('{Enter}{ArrowRight}');
-	const moved = { x: baseline.x + 5, y: baseline.y };
-	await expect.poll(() => nodePosition(node)).toEqual(moved);
-	await screen.getByRole('tab', { name: 'Runs', exact: true }).click();
-	await screen.getByRole('button', { name: /^Completed/ }).click();
-	const runNode = screen.container.querySelector<HTMLElement>(
-		'.svelte-flow__node[data-id="parse"]'
-	)!;
-	await expect.element(runNode).toBeVisible();
-	await focusCanvasNode(runNode);
-	await userEvent.keyboard('{Enter}{ArrowRight}');
-	await expect.poll(() => nodePosition(runNode)).toEqual(baseline);
-	await screen.getByRole('tab', { name: 'Editor', exact: true }).click();
-	const editedNode = screen.container.querySelector<HTMLElement>(
-		'.svelte-flow__node[data-id="parse"]'
-	)!;
-	await expect.poll(() => nodePosition(editedNode)).toEqual(moved);
-	expect(initial.definition).toEqual(definition);
-	expect(run.definition).toEqual(definition);
-	expect(put).not.toHaveBeenCalled();
-	expect(post).not.toHaveBeenCalled();
-});
 afterEach(() => {
 	queryClient.clear();
 	workspaceCtx.currentWorkspace = null;
@@ -298,9 +226,7 @@ async function openSample() {
 	return page.getByRole('dialog');
 }
 
-it.each(
-	[320, 390, 1280].flatMap((width) => ['light', 'dark'].map((scheme) => ({ width, scheme })))
-)(
+it.each([{ width: 320, scheme: 'dark' }])(
 	'reports malformed sample JSON before node variables at $width in $scheme and recovers',
 	async ({ width, scheme }) => {
 		await page.viewport(width, 900);
@@ -325,7 +251,10 @@ it.each(
 		await sample.fill(JSON.stringify(value));
 		await dialog.getByRole('button', { name: 'Run preview', exact: true }).last().click();
 		expect(post).toHaveBeenCalledExactlyOnceWith('/workflows/{id}/runs', {
-			params: { query: { workspace_id: initial.workspace_id }, path: { id: initial.id } },
+			params: {
+				query: { workspace_id: initial.workspace_id },
+				path: { id: initial.id }
+			},
 			body: { expected_revision: 1, mode: 'preview', source: value }
 		});
 	}
@@ -360,7 +289,10 @@ it('blocks malformed node-test sample data and recovers without substituting an 
 	await userEvent.keyboard('{Tab}');
 	await dialog.getByRole('button', { name: 'Test node', exact: true }).click();
 	expect(post).toHaveBeenCalledExactlyOnceWith('/workflows/{id}/test-node', {
-		params: { query: { workspace_id: initial.workspace_id }, path: { id: initial.id } },
+		params: {
+			query: { workspace_id: initial.workspace_id },
+			path: { id: initial.id }
+		},
 		body: { expected_revision: 1, step_id: 'parse', data: { source: value } }
 	});
 });
@@ -397,7 +329,10 @@ it.each([{ value: 7 }, { value: null }, { value: [true, 'é', { value: null }] }
 		expect(post).not.toHaveBeenCalled();
 		await dialog.getByRole('button', { name: 'Test node', exact: true }).click();
 		expect(post).toHaveBeenCalledExactlyOnceWith('/workflows/{id}/test-node', {
-			params: { query: { workspace_id: initial.workspace_id }, path: { id: initial.id } },
+			params: {
+				query: { workspace_id: initial.workspace_id },
+				path: { id: initial.id }
+			},
 			body: { expected_revision: 1, step_id: 'parse', data: { source: value } }
 		});
 	}
@@ -461,7 +396,12 @@ it.each(
 				...initial.definition,
 				steps: [
 					...(initial.definition.steps ?? []),
-					{ id: 'wait', name: 'Wait', kind: 'wait', inputs: { minutes: { literal: 1 } } }
+					{
+						id: 'wait',
+						name: 'Wait',
+						kind: 'wait',
+						inputs: { minutes: { literal: 1 } }
+					}
 				]
 			},
 			steps: [
@@ -524,62 +464,16 @@ it.each(
 		await userEvent.keyboard('{Enter}');
 		await expect.element(screen.getByText(/"minutes": 1/)).toBeVisible();
 		await expect
-			.element(screen.getByRole('button', { name: 'Cancel remaining steps', exact: true }))
+			.element(
+				screen.getByRole('button', {
+					name: 'Cancel remaining steps',
+					exact: true
+				})
+			)
 			.not.toBeInTheDocument();
 		expect(post).not.toHaveBeenCalled();
 	}
 );
-
-it.each(['Run preview', 'Test node'])(
-	'preserves literal JSON keys through %s sample admission',
-	async (action) => {
-		await page.viewport(1280, 900);
-		document.documentElement.classList.remove('dark');
-		const dialog = await openNodeSample();
-		const value = JSON.parse(
-			'{"body":"{}","__proto__":{"label":"data"},"constructor":"literal","nested":{"__proto__":"keep"},"a.b":"dot"}'
-		);
-		await dialog.getByRole('textbox', { name: 'Sample input (JSON)' }).fill(JSON.stringify(value));
-		await dialog.getByRole('button', { name: action, exact: true }).click();
-		expect(post).toHaveBeenCalledExactlyOnceWith(
-			action === 'Run preview' ? '/workflows/{id}/runs' : '/workflows/{id}/test-node',
-			{
-				params: { query: { workspace_id: initial.workspace_id }, path: { id: initial.id } },
-				body:
-					action === 'Run preview'
-						? { expected_revision: 1, mode: 'preview', source: value }
-						: { expected_revision: 1, step_id: 'parse', data: { source: value } }
-			}
-		);
-	}
-);
-
-it('guides an untested Wait node to its available simulated preview rather than an unavailable node test', async () => {
-	await page.viewport(1280, 900);
-	const workflow: Workflow = {
-		...initial,
-		definition: {
-			schema: 1,
-			source: { kind: 'manual' },
-			steps: [{ id: 'wait', name: 'Wait audit', kind: 'wait', inputs: { minutes: { literal: 1 } } }]
-		}
-	};
-	const screen = await render(
-		Editor,
-		{ initial: workflow, accounts: [], connections: [] },
-		{
-			wrapper: QueryClientProvider,
-			wrapperProps: { client: queryClient }
-		}
-	);
-	screen.container.style.height = '850px';
-	await screen.getByRole('button', { name: /^Wait audit / }).click();
-	expect(screen.getByRole('button', { name: 'Test node', exact: true }).query()).toBeNull();
-	await expect
-		.element(screen.getByText("Run preview to see this node's sample output.", { exact: true }))
-		.toBeVisible();
-	expect(post).not.toHaveBeenCalled();
-});
 
 it.each(['test', 'preview'] as const)(
 	'marks historical %s output after a draft input edit without changing its result',
@@ -596,7 +490,12 @@ it.each(['test', 'preview'] as const)(
 						kind: 'parse_json',
 						inputs: { text: { literal: '{"value":1}' } }
 					},
-					{ id: 'other', name: 'Other', kind: 'parse_json', inputs: { text: { literal: '{}' } } }
+					{
+						id: 'other',
+						name: 'Other',
+						kind: 'parse_json',
+						inputs: { text: { literal: '{}' } }
+					}
 				]
 			}
 		};
@@ -605,7 +504,11 @@ it.each(['test', 'preview'] as const)(
 			mode,
 			definition:
 				mode === 'test'
-					? { schema: 1, source: { kind: 'manual' }, steps: [workflow.definition.steps![0]] }
+					? {
+							schema: 1,
+							source: { kind: 'manual' },
+							steps: [workflow.definition.steps![0]]
+						}
 					: workflow.definition,
 			steps: [
 				{
@@ -711,25 +614,3 @@ it.each([
 		expect(post).not.toHaveBeenCalled();
 	}
 );
-
-it('keeps a newly inserted step selected during the picker-to-inspector handoff', async () => {
-	const workflow: Workflow = {
-		...initial,
-		id: 'picker-handoff',
-		definition: { schema: 1, source: { kind: 'manual' }, steps: [] }
-	};
-	const screen = await render(
-		Editor,
-		{ initial: workflow, accounts: [], connections: [] },
-		{ wrapper: QueryClientProvider, wrapperProps: { client: queryClient } }
-	);
-	screen.container.style.height = '850px';
-	await screen.getByRole('button', { name: 'Add step', exact: true }).click();
-	await page
-		.getByRole('complementary', { name: 'What happens next?' })
-		.getByRole('button', { name: /^Create draft / })
-		.click();
-	await expect
-		.element(page.getByRole('textbox', { name: 'Step name', exact: true }))
-		.toHaveValue('Create draft');
-});

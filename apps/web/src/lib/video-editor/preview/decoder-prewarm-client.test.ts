@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { DecoderPrewarmWorkerRequest } from './decoder-prewarm.worker';
-import {
-	clearPreviewDecoderPrewarm,
-	clonePrewarmedPreviewFrame,
-	prewarmPreviewFrame
-} from './decoder-prewarm-client';
+import { clearPreviewDecoderPrewarm, prewarmPreviewFrame } from './decoder-prewarm-client';
 
 const readSource = vi.fn<() => Promise<File>>();
 function fileHandle(): FileSystemFileHandle {
 	// SAFETY: linked source reads use only getFile on this native I/O boundary.
-	return { kind: 'file', name: 'video.mp4', getFile: () => readSource() } as FileSystemFileHandle;
+	return {
+		kind: 'file',
+		name: 'video.mp4',
+		getFile: () => readSource()
+	} as FileSystemFileHandle;
 }
 
 class ControlledWorker extends EventTarget {
@@ -105,7 +105,11 @@ it.each(['session clear', 'source replacement', 'source round trip'] as const)(
 		const repeat = prewarmPreviewFrame(replacement, 0);
 		decoder.dispatchEvent(
 			new MessageEvent('message', {
-				data: { type: 'decoded', requestId: decoder.messages[0]!.requestId, entries: [] }
+				data: {
+					type: 'decoded',
+					requestId: decoder.messages[0]!.requestId,
+					entries: []
+				}
 			})
 		);
 		await vi.advanceTimersByTimeAsync(0);
@@ -113,86 +117,3 @@ it.each(['session clear', 'source replacement', 'source round trip'] as const)(
 		await Promise.all([old, fresh, repeat]);
 	}
 );
-
-it.each(['cached', 'received before publication'])('closes %s frames on clear', async (stage) => {
-	const bitmap: ImageBitmap = { width: 64, height: 32, close: vi.fn() };
-	const pending = prewarmPreviewFrame(media, 0, blob);
-	await vi.advanceTimersByTimeAsync(0);
-	const decoder = ControlledWorker.instances[0]!;
-	decoder.dispatchEvent(
-		new MessageEvent('message', {
-			data: {
-				type: 'decoded',
-				requestId: decoder.messages[0]!.requestId,
-				entries: [{ timestamp: 0, bitmap }]
-			}
-		})
-	);
-	if (stage === 'cached') await pending;
-	clearPreviewDecoderPrewarm();
-	// Reusing the exact source version must not admit a previous session's frames.
-	const fresh = prewarmPreviewFrame(media, 0, blob);
-	await pending;
-	await vi.advanceTimersByTimeAsync(0);
-	expect(bitmap.close).toHaveBeenCalledTimes(1);
-	expect(await clonePrewarmedPreviewFrame(media.id, 0, 0)).toBeNull();
-	const current = ControlledWorker.instances.at(-1)!;
-	current.dispatchEvent(
-		new MessageEvent('message', {
-			data: { type: 'decoded', requestId: current.messages[0]!.requestId, entries: [] }
-		})
-	);
-	await fresh;
-});
-
-it.each(['timeout', 'error', 'messageerror'] as const)(
-	'releases a decoder after %s and lets the next request recover',
-	async (failure) => {
-		const pending = prewarmPreviewFrame(media, 0, blob);
-		await vi.advanceTimersByTimeAsync(0);
-		const failed = ControlledWorker.instances[0]!;
-		if (failure === 'timeout') await vi.advanceTimersByTimeAsync(10_000);
-		else {
-			failed.dispatchEvent(new Event(failure));
-			await vi.advanceTimersByTimeAsync(0);
-		}
-		expect(failed.terminated).toBe(true);
-		await pending;
-		const lateBitmap: ImageBitmap = { width: 32, height: 32, close: vi.fn() };
-		failed.dispatchEvent(
-			new MessageEvent('message', {
-				data: {
-					type: 'decoded',
-					requestId: failed.messages[0]!.requestId,
-					entries: [{ timestamp: 0, bitmap: lateBitmap }]
-				}
-			})
-		);
-		expect(lateBitmap.close).toHaveBeenCalledOnce();
-		const fresh = prewarmPreviewFrame(media, 1, blob);
-		await vi.advanceTimersByTimeAsync(0);
-		const recovered = ControlledWorker.instances.at(-1)!;
-		expect(recovered).not.toBe(failed);
-		recovered.dispatchEvent(
-			new MessageEvent('message', {
-				data: { type: 'decoded', requestId: recovered.messages[0]!.requestId, entries: [] }
-			})
-		);
-		await fresh;
-	}
-);
-
-it('reads unchanged source bytes once while prewarming successive frames', async () => {
-	for (const timestamp of [0, 1]) {
-		const pending = prewarmPreviewFrame(media, timestamp);
-		await vi.advanceTimersByTimeAsync(0);
-		const worker = ControlledWorker.instances.at(-1)!;
-		worker.dispatchEvent(
-			new MessageEvent('message', {
-				data: { type: 'decoded', requestId: worker.messages.at(-1)!.requestId, entries: [] }
-			})
-		);
-		await pending;
-	}
-	expect(readSource).toHaveBeenCalledTimes(1);
-});

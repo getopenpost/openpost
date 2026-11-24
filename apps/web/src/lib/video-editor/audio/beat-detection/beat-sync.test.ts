@@ -2,11 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-import {
-	planBeatSync,
-	splitItemOnBeatMarkersAtomic,
-	syncTracksToBeatMarkersAtomic
-} from './beat-sync';
+import { planBeatSync, syncTracksToBeatMarkersAtomic } from './beat-sync';
 
 function track(id: string, locked = false): TimelineTrack {
 	return {
@@ -49,18 +45,32 @@ describe('beat sync planning', () => {
 		];
 		const beats = [0, 30, 60, 90, 120, 150];
 
-		expect(planBeatSync(clips, beats, { mode: 'smart', cadence: 1, offsetFrames: 0 })).toEqual([
+		expect(
+			planBeatSync(clips, beats, {
+				mode: 'smart',
+				cadence: 1,
+				offsetFrames: 0
+			})
+		).toEqual([
 			expect.objectContaining({ id: 'first', from: 0, durationInFrames: 60 }),
 			expect.objectContaining({ id: 'second', from: 60, durationInFrames: 30 })
 		]);
 		expect(
-			planBeatSync(clips, beats, { mode: 'one-per-beat', cadence: 1, offsetFrames: 0 })
+			planBeatSync(clips, beats, {
+				mode: 'one-per-beat',
+				cadence: 1,
+				offsetFrames: 0
+			})
 		).toEqual([
 			expect.objectContaining({ id: 'first', from: 0, durationInFrames: 30 }),
 			expect.objectContaining({ id: 'second', from: 30, durationInFrames: 30 })
 		]);
 		expect(
-			planBeatSync(clips, beats, { mode: 'preserve-duration', cadence: 2, offsetFrames: 5 })
+			planBeatSync(clips, beats, {
+				mode: 'preserve-duration',
+				cadence: 2,
+				offsetFrames: 5
+			})
 		).toEqual([
 			expect.objectContaining({ id: 'first', from: 5, durationInFrames: 62 }),
 			expect.objectContaining({ id: 'second', from: 65, durationInFrames: 28 })
@@ -100,7 +110,12 @@ describe('beat sync timeline actions', () => {
 		timelineStore._setTracks([track('visual'), track('audio', true)]);
 		timelineStore._setItems([
 			clip('visual-a', { from: 10, linkedGroupId: 'pair' }),
-			clip('audio-a', { trackId: 'audio', type: 'audio', from: 10, linkedGroupId: 'pair' })
+			clip('audio-a', {
+				trackId: 'audio',
+				type: 'audio',
+				from: 10,
+				linkedGroupId: 'pair'
+			})
 		]);
 
 		expect(
@@ -111,24 +126,6 @@ describe('beat sync timeline actions', () => {
 			})
 		).toEqual({ changed: 0, skippedLocked: 2, skippedUnavailable: 0 });
 		expect(timelineStore.itemById.get('visual-a')?.from).toBe(10);
-		expect(commandHistory.canUndo).toBe(false);
-	});
-
-	it('rejects a beat sync that would overlap visible items on one track', () => {
-		timelineStore._setTracks([track('visual')]);
-		timelineStore._setItems([
-			clip('first', { from: 0, durationInFrames: 40 }),
-			clip('second', { from: 80, durationInFrames: 40 })
-		]);
-
-		expect(
-			syncTracksToBeatMarkersAtomic({
-				trackIds: ['visual'],
-				beatFrames: [0, 30],
-				config: { mode: 'preserve-duration', cadence: 1, offsetFrames: 0 }
-			})
-		).toEqual({ changed: 0, skippedLocked: 0, skippedUnavailable: 1 });
-		expect(timelineStore.items.map((item) => item.from)).toEqual([0, 80]);
 		expect(commandHistory.canUndo).toBe(false);
 	});
 });

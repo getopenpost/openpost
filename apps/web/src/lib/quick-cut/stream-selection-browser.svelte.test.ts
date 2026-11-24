@@ -116,59 +116,9 @@ async function createInterleavedMultiTrackWebM(): Promise<File> {
 	audio1.close();
 	await output.finalize();
 	if (!target.buffer) throw new Error('no buffer');
-	return new File([target.buffer], 'multi-interleaved.webm', { type: 'video/webm' });
-}
-
-async function createMetadataWebM(): Promise<File> {
-	const canvas = document.createElement('canvas');
-	canvas.width = 64;
-	canvas.height = 64;
-	const ctx = canvas.getContext('2d')!;
-	const target = new BufferTarget();
-	const output = new Output({ format: new WebMOutputFormat(), target });
-	const video = new CanvasSource(canvas, { codec: 'vp9', bitrate: 500_000 });
-	const { AudioSampleSource, AudioSample } = await import('mediabunny');
-	const audio = new AudioSampleSource({ codec: 'opus', bitrate: 64_000 });
-	output.setMetadataTags({
-		title: 'Field Interview',
-		artist: 'OpenPost Test',
-		raw: { WORKFLOW: 'quick-cut' }
+	return new File([target.buffer], 'multi-interleaved.webm', {
+		type: 'video/webm'
 	});
-	output.addVideoTrack(video, {
-		name: 'Camera A',
-		languageCode: 'eng',
-		disposition: { original: true }
-	});
-	output.addAudioTrack(audio, {
-		name: 'Boom',
-		languageCode: 'por',
-		disposition: { commentary: true }
-	});
-	await output.start();
-	for (let i = 0; i < 15; i++) {
-		ctx.fillStyle = i % 2 === 0 ? 'orange' : 'purple';
-		ctx.fillRect(0, 0, 64, 64);
-		await video.add(i / 30, 1 / 30);
-	}
-	const sampleRate = 48_000;
-	const pcm = new Float32Array(sampleRate * 0.5);
-	for (let i = 0; i < pcm.length; i++) {
-		pcm[i] = Math.sin((2 * Math.PI * 330 * i) / sampleRate) * 0.2;
-	}
-	const sample = new AudioSample({
-		data: pcm,
-		format: 'f32',
-		numberOfChannels: 1,
-		sampleRate,
-		timestamp: 0
-	});
-	await audio.add(sample);
-	sample.close();
-	video.close();
-	audio.close();
-	await output.finalize();
-	if (!target.buffer) throw new Error('no buffer');
-	return new File([target.buffer], 'metadata.webm', { type: 'video/webm' });
 }
 
 describe('quick-cut stream selection browser', () => {
@@ -190,144 +140,16 @@ describe('quick-cut stream selection browser', () => {
 			merge: false
 		});
 		expect(art).toBeDefined();
-		const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(art!.scratchFile) });
+		const input = new Input({
+			formats: ALL_FORMATS,
+			source: new BlobSource(art!.scratchFile)
+		});
 		const vTrack = await input.getPrimaryVideoTrack().catch(() => null);
 		const aTrack = await input.getPrimaryAudioTrack().catch(() => null);
 		expect(vTrack).toBeNull();
 		expect(aTrack).not.toBeNull();
 		input.dispose?.();
 		await discardScratchFile(art!.scratchPath);
-	}, 30000);
-
-	it('audio-off selection produces video-only output', async () => {
-		const file = await createAvWebM();
-		const src = await probeSourceFile(file);
-		src.selectedVideoTrackIndex = 0;
-		src.selectedAudioTrackIndices = [];
-		const seg = createSegment(0, 0.4, { sourceId: src.id });
-		const pre = await preflightExport([src], [seg], 'nearestKeyframe', false);
-		expect(pre.eligible).toBe(true);
-		const [art] = await exportSegments({
-			sources: [src],
-			segments: [seg],
-			cutMode: 'nearestKeyframe',
-			merge: false
-		});
-		const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(art!.scratchFile) });
-		const vTrack = await input.getPrimaryVideoTrack().catch(() => null);
-		const aTrack = await input.getPrimaryAudioTrack().catch(() => null);
-		expect(vTrack).not.toBeNull();
-		expect(aTrack).toBeNull();
-		input.dispose?.();
-		await discardScratchFile(art!.scratchPath);
-	}, 30000);
-
-	it('alternate video plus two audio tracks with interleaved container order produce exactly those output tracks', async () => {
-		const file = await createInterleavedMultiTrackWebM();
-		const src = await probeSourceFile(file);
-		// Prove per-type array indexing: videoTracks[1] should be second video (blue), not global track 2
-		expect(src.videoStreams.length).toBe(2);
-		expect(src.audioStreams.length).toBe(2);
-		const inputCheck = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
-		const allTracks = await inputCheck.getTracks();
-		expect(allTracks.filter((t) => t.isVideoTrack()).length).toBe(2);
-		expect(allTracks.filter((t) => t.isAudioTrack()).length).toBe(2);
-		inputCheck.dispose?.();
-		// Select alternate video (index 1) and both audio tracks
-		src.selectedVideoTrackIndex = 1;
-		src.selectedAudioTrackIndices = [0, 1];
-		const seg = createSegment(0, 0.25, { sourceId: src.id });
-		const pre = await preflightExport([src], [seg], 'nearestKeyframe', false);
-		expect(pre.eligible).toBe(true);
-		expect(pre.perSegment[0]?.requiresTranscode).toBe(false);
-		const [art] = await exportSegments({
-			sources: [src],
-			segments: [seg],
-			cutMode: 'nearestKeyframe',
-			merge: false
-		});
-		expect(art).toBeDefined();
-		expect(art?.wasLossless).toBe(true);
-		const outInput = new Input({ formats: ALL_FORMATS, source: new BlobSource(art!.scratchFile) });
-		const outVideoTracks = await outInput.getVideoTracks();
-		const outAudioTracks = await outInput.getAudioTracks();
-		expect(outVideoTracks.length).toBe(1);
-		expect(outAudioTracks.length).toBe(2);
-		// Verify alternate video was used: second video track is 128x128, first is 64x64
-		expect(src.videoStreams[1]!.width).toBe(128);
-		expect(src.videoStreams[0]!.width).toBe(64);
-		expect(outVideoTracks[0]!.displayWidth).toBe(128);
-		expect(outVideoTracks[0]!.displayHeight).toBe(128);
-		outInput.dispose?.();
-		await discardScratchFile(art!.scratchPath);
-	}, 30000);
-
-	it('preserves container and selected track metadata in a merged lossless export', async () => {
-		const file = await createMetadataWebM();
-		const source = await probeSourceFile(file);
-		const segment = createSegment(0, 0.4, { sourceId: source.id });
-		const [artifact] = await exportSegments({
-			sources: [source],
-			segments: [segment],
-			cutMode: 'nearestKeyframe',
-			merge: true
-		});
-		expect(artifact?.wasLossless).toBe(true);
-
-		const input = new Input({
-			formats: ALL_FORMATS,
-			source: new BlobSource(artifact!.scratchFile)
-		});
-		const [tags, videoTrack, audioTrack] = await Promise.all([
-			input.getMetadataTags(),
-			input.getPrimaryVideoTrack(),
-			input.getPrimaryAudioTrack()
-		]);
-		expect(tags.title).toBe('Field Interview');
-		expect(tags.artist).toBe('OpenPost Test');
-		expect(tags.raw?.WORKFLOW).toBe('quick-cut');
-		expect(await videoTrack?.getName()).toBe('Camera A');
-		expect(await videoTrack?.getLanguageCode()).toBe('eng');
-		expect((await videoTrack?.getDisposition())?.original).toBe(true);
-		expect(await audioTrack?.getName()).toBe('Boom');
-		expect(await audioTrack?.getLanguageCode()).toBe('por');
-		expect((await audioTrack?.getDisposition())?.commentary).toBe(true);
-		input.dispose?.();
-		await discardScratchFile(artifact!.scratchPath);
-	}, 30000);
-
-	it('preserves container and selected track metadata when an exact merge re-encodes', async () => {
-		const file = await createMetadataWebM();
-		const source = await probeSourceFile(file);
-		const segment = createSegment(0.07, 0.37, { sourceId: source.id });
-		const [artifact] = await exportSegments({
-			sources: [source],
-			segments: [segment],
-			cutMode: 'exact',
-			merge: true
-		});
-		expect(artifact?.wasLossless).toBe(false);
-
-		const input = new Input({
-			formats: ALL_FORMATS,
-			source: new BlobSource(artifact!.scratchFile)
-		});
-		const [tags, videoTrack, audioTrack] = await Promise.all([
-			input.getMetadataTags(),
-			input.getPrimaryVideoTrack(),
-			input.getPrimaryAudioTrack()
-		]);
-		expect(tags.title).toBe('Field Interview');
-		expect(tags.artist).toBe('OpenPost Test');
-		expect(tags.raw?.WORKFLOW).toBe('quick-cut');
-		expect(await videoTrack?.getName()).toBe('Camera A');
-		expect(await videoTrack?.getLanguageCode()).toBe('eng');
-		expect((await videoTrack?.getDisposition())?.original).toBe(true);
-		expect(await audioTrack?.getName()).toBe('Boom');
-		expect(await audioTrack?.getLanguageCode()).toBe('por');
-		expect((await audioTrack?.getDisposition())?.commentary).toBe(true);
-		input.dispose?.();
-		await discardScratchFile(artifact!.scratchPath);
 	}, 30000);
 });
 

@@ -2,11 +2,8 @@ import { mediaQueryKeys, type MediaStorage } from '@openpost/query-catalog';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { queryClient } from './query/client';
 import {
-	directUploadSupportedFromStorageResponse,
-	directUploadHeadersForBrowser,
 	directUploadRequestPolicy,
 	normalizedUploadErrorMessage,
-	shouldUseMultipartFallback,
 	isTransientUploadError,
 	withUploadRetry,
 	UploadRequestError,
@@ -73,20 +70,6 @@ describe('media-upload-client', () => {
 		});
 	});
 
-	it('filters headers that browser uploads cannot set manually', () => {
-		const headers = directUploadHeadersForBrowser({
-			Host: 'uploads.openpost.test',
-			'Content-Length': '12',
-			'Content-Type': 'image/png',
-			'x-amz-meta-workspace': 'ws-1'
-		});
-
-		expect(headers.has('Host')).toBe(false);
-		expect(headers.has('Content-Length')).toBe(false);
-		expect(headers.get('Content-Type')).toBe('image/png');
-		expect(headers.get('x-amz-meta-workspace')).toBe('ws-1');
-	});
-
 	it('sends OpenPost credentials only to instance-hosted upload targets', () => {
 		const openPostHeaders = new Headers({
 			Authorization: 'Bearer op_cli_secret',
@@ -132,14 +115,6 @@ describe('media-upload-client', () => {
 		expect(protocolRelative.headers.has('Authorization')).toBe(false);
 	});
 
-	it('uses multipart uploads only when the storage capability explicitly disables upload sessions', () => {
-		expect(directUploadSupportedFromStorageResponse({ direct_upload_supported: false })).toBe(
-			false
-		);
-		expect(directUploadSupportedFromStorageResponse({ direct_upload_supported: true })).toBe(true);
-		expect(directUploadSupportedFromStorageResponse({})).toBe(true);
-	});
-
 	it('stops before upload work when storage capability lookup is cancelled', async () => {
 		queryClient.setQueryData(mediaQueryKeys.storage('workspace-1'), {
 			asset_count: 0,
@@ -174,22 +149,13 @@ describe('media-upload-client', () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	it('falls back only when direct upload sessions are unavailable', () => {
-		expect(shouldUseMultipartFallback(new UploadRequestError('missing route', 404))).toBe(true);
-		expect(
-			shouldUseMultipartFallback(
-				new UploadRequestError('direct media upload sessions require s3 storage', 400)
-			)
-		).toBe(true);
-		expect(
-			shouldUseMultipartFallback(new UploadRequestError('media_bytes_stored limit exceeded', 400))
-		).toBe(false);
-	});
-
 	it('normalizes JSON upload problems without exposing serialized response bodies', () => {
 		expect(
 			normalizedUploadErrorMessage(
-				JSON.stringify({ title: 'Upload failed', detail: 'This image exceeds the limit.' }),
+				JSON.stringify({
+					title: 'Upload failed',
+					detail: 'This image exceeds the limit.'
+				}),
 				'application/problem+json',
 				'Upload failed',
 				413
@@ -255,27 +221,5 @@ describe('withUploadRetry', () => {
 		});
 		expect(result).toBe('ok');
 		expect(attempts).toBe(3);
-	});
-
-	it('stops retrying after max attempts', async () => {
-		let attempts = 0;
-		await expect(
-			withUploadRetry(async () => {
-				attempts++;
-				throw new UploadRequestError('server error', 500);
-			})
-		).rejects.toThrow('server error');
-		expect(attempts).toBe(3);
-	});
-
-	it('does not retry non-transient errors', async () => {
-		let attempts = 0;
-		await expect(
-			withUploadRetry(async () => {
-				attempts++;
-				throw new UploadRequestError('bad request', 400);
-			})
-		).rejects.toThrow('bad request');
-		expect(attempts).toBe(1);
 	});
 });

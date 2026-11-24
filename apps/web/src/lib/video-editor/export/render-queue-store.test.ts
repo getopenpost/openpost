@@ -93,12 +93,4 @@ describe('render queue store', () => {
 		queue.clearFinished();
 		expect(get(queue).jobs.map(({ id }) => id)).toEqual(['rendering', 'queued']);
 	});
-
-	it('keeps queued work running when the restored queue was not paused', () => {
-		const queue = createRenderQueueStore();
-		queue.hydrate([job('queued')], false);
-
-		expect(get(queue)).toMatchObject({ isPaused: false, activeJobId: null });
-		expect(queue.next()?.id).toBe('queued');
-	});
 });

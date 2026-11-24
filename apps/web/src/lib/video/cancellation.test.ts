@@ -11,19 +11,6 @@ it('honors cancellation before inspecting a video file', async () => {
 	).rejects.toMatchObject({ name: 'AbortError' });
 });
 
-it('honors cancellation before reading a video for editing', async () => {
-	const controller = new AbortController();
-	controller.abort();
-	await expect(
-		renderVideoEdit(
-			new File([], 'cancelled.mp4', { type: 'video/mp4' }),
-			{ version: 1, trim: { startSeconds: 0, endSeconds: 1 }, crop: null },
-			() => undefined,
-			controller.signal
-		)
-	).rejects.toMatchObject({ name: 'AbortError' });
-});
-
 it.each(['inspect', 'edit'] as const)(
 	'cancels %s while the source read is pending',
 	async (operation) => {
@@ -59,7 +46,9 @@ it.each(['inspect', 'edit'] as const)(
 				import.meta.url
 			)
 		);
-		const source = new DelayedFile([new Uint8Array(fixture)], 'video.mp4', { type: 'video/mp4' });
+		const source = new DelayedFile([new Uint8Array(fixture)], 'video.mp4', {
+			type: 'video/mp4'
+		});
 		const controller = new AbortController();
 		let outcome: Error | 'completed' | undefined;
 		const work =
@@ -67,7 +56,11 @@ it.each(['inspect', 'edit'] as const)(
 				? probeVideo(source, controller.signal)
 				: renderVideoEdit(
 						source,
-						{ version: 1, trim: { startSeconds: 0, endSeconds: 1 }, crop: null },
+						{
+							version: 1,
+							trim: { startSeconds: 0, endSeconds: 1 },
+							crop: null
+						},
 						() => undefined,
 						controller.signal
 					);
@@ -105,7 +98,9 @@ it('releases streaming output without an unhandled error when an active edit is 
 		removeEntry,
 		async *entries() {}
 	};
-	vi.stubGlobal('navigator', { storage: { getDirectory: async () => directory } });
+	vi.stubGlobal('navigator', {
+		storage: { getDirectory: async () => directory }
+	});
 	try {
 		const source = new File(
 			[

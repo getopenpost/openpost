@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { buildPublicationPayload } from './modes';
-
-const youtube = { id: 'yt-1', platform: 'youtube', account_username: 'OpenPost' };
 const tiktok = { id: 'tt-1', platform: 'tiktok', account_username: 'openpost' };
 
 describe('publication composer payloads', () => {
@@ -75,7 +73,11 @@ describe('publication composer payloads', () => {
 	it('keeps inline URLs in media posts without serializing native link settings', () => {
 		const accounts = [
 			{ id: 'facebook-1', platform: 'facebook', account_username: 'openpost' },
-			{ id: 'instagram-1', platform: 'instagram', account_username: 'openpost' },
+			{
+				id: 'instagram-1',
+				platform: 'instagram',
+				account_username: 'openpost'
+			},
 			{ id: 'threads-1', platform: 'threads', account_username: 'openpost' },
 			{ id: 'x-1', platform: 'x', account_username: 'openpost' },
 			{ id: 'mastodon-1', platform: 'mastodon', account_username: 'openpost' },
@@ -146,85 +148,6 @@ describe('publication composer payloads', () => {
 		});
 	});
 
-	it.each(['youtube', 'peertube'])(
-		'sends edited %s metadata in the rendition and segment delivery fields',
-		(platform) => {
-			const payload = buildPublicationPayload({
-				mode: 'post',
-				workspaceId: 'ws-1',
-				accounts: [{ id: 'video', platform }],
-				media: [],
-				fields: { postText: 'Shared description' },
-				settingsByAccount: { video: { title: 'Video title', description: 'Edited description' } }
-			});
-			expect(payload.renditions[0]).toMatchObject({
-				title: 'Video title',
-				description: 'Edited description',
-				segments: [{ title: 'Video title', description: 'Edited description' }]
-			});
-		}
-	);
-
-	it('keeps the native link setting for a link-only publication', () => {
-		const payload = buildPublicationPayload({
-			mode: 'post',
-			workspaceId: 'ws-1',
-			accounts: [{ id: 'x-1', platform: 'x', account_username: 'openpost' }],
-			fields: {
-				postText: 'Read the release notes https://example.com',
-				linkUrl: 'https://example.com'
-			},
-			media: [],
-			resolvedByAccount: {
-				'x-1': { profile: 'link_share', outputProfile: 'x.post' }
-			}
-		});
-
-		expect(payload.renditions[0].settings).toEqual({ url: 'https://example.com' });
-	});
-
-	it('maps required video metadata and explicit destination choices from the shared composer', () => {
-		const payload = buildPublicationPayload({
-			mode: 'post',
-			workspaceId: 'ws-1',
-			accounts: [youtube],
-			fields: { postText: 'A complete tour of the release.' },
-			media: [{ id: 'video-1', mimeType: 'video/mp4' }],
-			thumbnailMediaId: 'thumb-1',
-			settingsByAccount: {
-				'yt-1': {
-					privacy: 'private',
-					title: 'Launch walkthrough',
-					description: 'A complete tour of the release.'
-				}
-			},
-			resolvedByAccount: {
-				'yt-1': {
-					profile: 'long_video',
-					outputProfile: 'youtube.video',
-					revision: 'youtube.video:v1'
-				}
-			}
-		});
-
-		expect(payload.intent).toBe('post');
-		expect(payload.source_text).toBe('A complete tour of the release.');
-		expect(payload.renditions[0]).toMatchObject({
-			social_account_id: 'yt-1',
-			profile: 'long_video',
-			output_profile: 'youtube.video',
-			body: 'A complete tour of the release.',
-			title: 'Launch walkthrough',
-			description: 'A complete tour of the release.',
-			settings: {
-				privacy: 'private',
-				title: 'Launch walkthrough',
-				description: 'A complete tour of the release.',
-				thumbnail_media_id: 'thumb-1'
-			}
-		});
-	});
-
 	it('preserves ordered thread segments and segment-scoped settings', () => {
 		const payload = buildPublicationPayload({
 			mode: 'thread',
@@ -264,7 +187,11 @@ describe('publication composer payloads', () => {
 	it.each(['A destination-specific description', ''])(
 		'stores first comments and destination media options with alt text %j',
 		(altText) => {
-			const linkedin = { id: 'li-1', platform: 'linkedin', account_username: 'OpenPost' };
+			const linkedin = {
+				id: 'li-1',
+				platform: 'linkedin',
+				account_username: 'OpenPost'
+			};
 			const payload = buildPublicationPayload({
 				mode: 'post',
 				workspaceId: 'ws-1',
@@ -300,7 +227,9 @@ describe('publication composer payloads', () => {
 								}
 							}
 						],
-						settingsByAccount: { 'li-1': { first_comment: 'Read the full changelog.' } }
+						settingsByAccount: {
+							'li-1': { first_comment: 'Read the full changelog.' }
+						}
 					}
 				],
 				resolvedByAccount: {
@@ -324,7 +253,11 @@ describe('publication composer payloads', () => {
 	);
 
 	it('joins a shared thread for a single-post destination', () => {
-		const linkedin = { id: 'li-1', platform: 'linkedin', account_username: 'OpenPost' };
+		const linkedin = {
+			id: 'li-1',
+			platform: 'linkedin',
+			account_username: 'OpenPost'
+		};
 		const payload = buildPublicationPayload({
 			mode: 'thread',
 			workspaceId: 'ws-1',

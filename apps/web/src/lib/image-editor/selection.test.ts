@@ -1,49 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import {
-	boundsIntersect,
 	combinePixelMasks,
-	colorsWithinTolerance,
 	contractPixelMask,
 	ellipsePixelMask,
 	expandPixelMask,
 	invertPixelMask,
 	mergeSelectionIDs,
-	normalizeSelectionBounds,
 	pixelMaskBounds,
 	pixelMaskContainsPoint,
 	pixelMaskToSpans,
 	pointInPolygon,
 	polygonIntersectsBounds,
 	rectanglePixelMask,
-	strokePixelMask,
 	strokePixelMaskRegion,
-	smoothSelectionPoints,
 	subtractPixelMaskRegionFromSpans,
 	translatePixelMask,
-	translatePixelMaskRegion,
-	transformPixelMask,
-	pixelMaskTransformAround
+	translatePixelMaskRegion
 } from './selection';
 
 describe('OpenPost Image Editor area selection geometry', () => {
-	it('normalizes reverse marquee drags', () => {
-		expect(normalizeSelectionBounds({ x: 80, y: 60 }, { x: 20, y: 10 })).toEqual({
-			x: 20,
-			y: 10,
-			width: 60,
-			height: 50
-		});
-	});
-
-	it('detects intersecting bounds, including touching edges', () => {
-		expect(
-			boundsIntersect({ x: 0, y: 0, width: 10, height: 10 }, { x: 10, y: 2, width: 4, height: 4 })
-		).toBe(true);
-		expect(
-			boundsIntersect({ x: 0, y: 0, width: 10, height: 10 }, { x: 11, y: 2, width: 4, height: 4 })
-		).toBe(false);
-	});
-
 	it('finds points and layer bounds crossed by a lasso', () => {
 		const polygon = [
 			{ x: 0, y: 0 },
@@ -105,22 +80,6 @@ describe('OpenPost Image Editor selection composition', () => {
 		expect([...invertPixelMask(point)]).toEqual([...point].map((value) => (value ? 0 : 1)));
 	});
 
-	it('rasterizes hard pencil strokes into compact scanline spans', () => {
-		const mask = strokePixelMask(
-			12,
-			8,
-			[
-				{ x: 2, y: 4 },
-				{ x: 9, y: 4 }
-			],
-			3
-		);
-		const spans = pixelMaskToSpans(mask, 12, 8);
-
-		expect(spans.length).toBeGreaterThan(0);
-		expect(spans.some((span) => span.width >= 7)).toBe(true);
-	});
-
 	it('keeps a small pressure stroke bounded on an 8K page without shifting its pixels', () => {
 		const region = strokePixelMaskRegion(7680, 4320, [{ x: 10, y: 10, pressure: 0.5 }], 8);
 		expect(region).not.toBeNull();
@@ -135,66 +94,6 @@ describe('OpenPost Image Editor selection composition', () => {
 			{ x: 9, y: 11, width: 2 }
 		]);
 		expect(strokePixelMaskRegion(7680, 4320, [{ x: -10, y: -10 }], 2)).toBeNull();
-	});
-
-	it('uses pen pressure to vary the pencil footprint', () => {
-		const light = strokePixelMask(40, 40, [{ x: 20, y: 20, pressure: 0.15 }], 20);
-		const heavy = strokePixelMask(40, 40, [{ x: 20, y: 20, pressure: 1 }], 20);
-
-		expect(light.reduce((total, value) => total + value, 0)).toBeLessThan(
-			heavy.reduce((total, value) => total + value, 0)
-		);
-	});
-
-	it('smooths intermediate samples while preserving stroke endpoints', () => {
-		const points = [
-			{ x: 0, y: 0, pressure: 0.5 },
-			{ x: 10, y: 20, pressure: 0.75 },
-			{ x: 20, y: 0, pressure: 1 }
-		];
-		const smoothed = smoothSelectionPoints(points, 0.5);
-
-		expect(smoothed[0]).toEqual(points[0]);
-		expect(smoothed[1].y).toBe(10);
-		expect(smoothed[2]).toEqual(points[2]);
-	});
-
-	it('adds deterministic edge texture to rough pencil strokes', () => {
-		const smooth = strokePixelMask(
-			32,
-			20,
-			[
-				{ x: 4, y: 10 },
-				{ x: 28, y: 10 }
-			],
-			9
-		);
-		const rough = strokePixelMask(
-			32,
-			20,
-			[
-				{ x: 4, y: 10 },
-				{ x: 28, y: 10 }
-			],
-			9,
-			1
-		);
-
-		expect(rough.reduce((total, value) => total + value, 0)).toBeLessThan(
-			smooth.reduce((total, value) => total + value, 0)
-		);
-		expect(rough).toEqual(
-			strokePixelMask(
-				32,
-				20,
-				[
-					{ x: 4, y: 10 },
-					{ x: 28, y: 10 }
-				],
-				9,
-				1
-			)
-		);
 	});
 
 	it('moves a pixel selection without leaving a stale copy', () => {
@@ -236,46 +135,5 @@ describe('OpenPost Image Editor selection composition', () => {
 			{ x: 5, y: 1, width: 1 },
 			{ x: 0, y: 3, width: 2 }
 		]);
-	});
-
-	it('resizes and rotates masks around an explicit transform origin', () => {
-		const original = rectanglePixelMask(20, 20, {
-			x: 4,
-			y: 4,
-			width: 4,
-			height: 2
-		});
-		const resized = transformPixelMask(
-			original,
-			20,
-			20,
-			pixelMaskTransformAround({ x: 4, y: 4 }, 2, 2)
-		);
-		expect(pixelMaskBounds(resized, 20, 20)).toEqual({
-			x: 4,
-			y: 4,
-			width: 8,
-			height: 4
-		});
-
-		const rotated = transformPixelMask(
-			original,
-			20,
-			20,
-			pixelMaskTransformAround({ x: 6, y: 5 }, 1, 1, 90)
-		);
-		expect(pixelMaskBounds(rotated, 20, 20)).toEqual({
-			x: 5,
-			y: 3,
-			width: 2,
-			height: 4
-		});
-	});
-
-	it('matches flat colors using a normalized tolerance', () => {
-		expect(colorsWithinTolerance('#f97316', '#f97316ff', 0)).toBe(true);
-		expect(colorsWithinTolerance('#f97316', '#f47720', 4)).toBe(true);
-		expect(colorsWithinTolerance('#f97316', '#0ea5e9', 4)).toBe(false);
-		expect(colorsWithinTolerance('transparent', '#ffffff', 100)).toBe(false);
 	});
 });

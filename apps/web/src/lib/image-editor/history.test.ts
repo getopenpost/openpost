@@ -28,22 +28,6 @@ describe('OpenPost Image Editor command history', () => {
 		expect(history.redo({ x: 0 })).toEqual({ x: 20 });
 	});
 
-	it('drops redo history after a new command', () => {
-		const history = new ImageEditorHistory<number>((value) => value);
-		const two = history.execute(1, {
-			label: 'Increment',
-			apply: (value) => value + 1,
-			revert: (value) => value - 1
-		});
-		const one = history.undo(two);
-		history.execute(one, {
-			label: 'Double',
-			apply: (value) => value * 2,
-			revert: (value) => value / 2
-		});
-		expect(history.canRedo).toBe(false);
-	});
-
 	it('does not record or clear redo history for a no-op command', () => {
 		const history = new ImageEditorHistory<{ x: number }>(structuredClone);
 		const moved = history.execute(

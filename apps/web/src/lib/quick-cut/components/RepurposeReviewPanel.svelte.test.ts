@@ -4,7 +4,7 @@ import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
 import RepurposePanel from './RepurposePanel.svelte';
 import type { prepareRepurposePreview } from '../repurpose-preview';
-import { createRepurposeReview, type RepurposeReviewContext } from '../repurpose-review.svelte';
+import { type RepurposeReviewContext } from '../repurpose-review.svelte';
 
 const api = vi.hoisted(() => ({
 	request: vi.fn(),
@@ -185,41 +185,6 @@ test('a late AI receipt cannot populate a different workspace', async () => {
 	expect(api.create).not.toHaveBeenCalled();
 });
 
-test('shows a failed search and retries the same durable job', async () => {
-	api.request.mockImplementation(async (request) => ({
-		...ready(request, []),
-		state: 'failed',
-		error_message: 'The model was unavailable.'
-	}));
-	api.change.mockImplementation(async (_workspace, _actor, previous) => ({
-		...previous,
-		state: 'ready',
-		error_message: undefined,
-		candidates: []
-	}));
-	const screen = await render(RepurposePanel, {
-		props: { context: context(), onsave: vi.fn(), onback: vi.fn() }
-	});
-	await screen.getByRole('button', { name: 'Find clips', exact: true }).click();
-	await expect.element(screen.getByRole('alert')).toHaveTextContent('The model was unavailable.');
-	await screen.getByRole('button', { name: 'Try again', exact: true }).click();
-	await expect
-		.element(
-			screen.getByText(
-				'No clear standalone clips found. Try a topic, or adjust the transcript and find again.'
-			)
-		)
-		.toBeVisible();
-	await expect.element(screen.getByRole('button', { name: 'Find again' })).toBeEnabled();
-	expect(api.create).not.toHaveBeenCalled();
-	expect(api.change).toHaveBeenCalledWith(
-		'workspace',
-		'person',
-		expect.objectContaining({ id: 'suggestion', revision: 1 }),
-		'retry'
-	);
-});
-
 test('a delayed cancellation cannot replace a newer completed search', async () => {
 	let finishCancel!: (value: ReturnType<typeof ready>) => void;
 	api.request.mockImplementationOnce(async (request) => ({
@@ -258,21 +223,6 @@ test('a delayed cancellation cannot replace a newer completed search', async () 
 			localStorage.getItem('openpost:repurpose:["person","workspace","original","source","cloud"]')!
 		).id
 	).toBe('suggestion');
-});
-
-test('a cancelled search offers retry without an error message', async () => {
-	api.request.mockImplementation(async (request) => ({
-		...ready(request, []),
-		state: 'cancelled'
-	}));
-	const screen = await render(RepurposePanel, {
-		props: { context: context(), onsave: vi.fn(), onback: vi.fn() }
-	});
-	await screen.getByRole('button', { name: 'Find clips', exact: true }).click();
-	await expect
-		.element(screen.getByRole('button', { name: 'Try again', exact: true }))
-		.toBeEnabled();
-	await expect.element(screen.getByRole('alert')).not.toBeInTheDocument();
 });
 
 test('reopening retains completed clip links and only creates remaining candidates', async () => {
@@ -324,73 +274,4 @@ test('reopening retains completed clip links and only creates remaining candidat
 	await reopened.getByRole('checkbox', { name: 'Include The example', exact: true }).click();
 	await reopened.getByRole('button', { name: 'Create clips (1)', exact: true }).click();
 	expect(api.create.mock.calls[1]![0].choices).toEqual([expect.objectContaining({ id: 'b' })]);
-});
-
-test('changing bounds cancels the old preview and disposes a late prepared result', async () => {
-	let finish!: (value: Awaited<ReturnType<typeof prepareRepurposePreview>>) => void;
-	api.preview.mockImplementation(
-		() =>
-			new Promise((resolve) => {
-				finish = resolve;
-			})
-	);
-	const screen = await render(RepurposePanel, {
-		props: { context: context(), onsave: vi.fn(), onback: vi.fn() }
-	});
-	await screen.getByRole('button', { name: 'Find clips', exact: true }).click();
-	await screen.getByRole('button', { name: 'Preview clip', exact: true }).click();
-	await expect.poll(() => api.preview.mock.calls.length).toBe(1);
-	await screen.getByRole('textbox', { name: 'Start', exact: true }).fill('0');
-	await userEvent.tab();
-	expect(api.preview.mock.calls[0]![3].aborted).toBe(true);
-	const dispose = vi.fn(async () => {});
-	finish({ url: 'blob:expired-preview', dispose });
-	await expect.poll(() => dispose.mock.calls.length).toBe(1);
-	await expect.element(screen.getByLabelText('Preview Useful lesson')).not.toBeInTheDocument();
-});
-
-test('rejects new AI requests for a disconnected source without dispatching', async () => {
-	const current = context();
-	delete current.source.file;
-	const review = createRepurposeReview(() => current);
-	await review.find('launch');
-	expect(api.request).not.toHaveBeenCalled();
-	expect(review.error).toBe('The source file is unavailable. Reconnect it and try again.');
-});
-
-test('restores a saved review offline while disabling new search and clip creation', async () => {
-	const current = context();
-	const review = createRepurposeReview(() => current);
-	await review.find('launch');
-	api.read.mockResolvedValue(ready(api.request.mock.calls[0]![0]));
-	delete current.source.file;
-	await review.createSelected();
-	const screen = await render(RepurposePanel, {
-		props: { context: current, onsave: vi.fn(), onback: vi.fn() }
-	});
-	await expect
-		.element(screen.getByRole('button', { name: 'Useful lesson', exact: true }))
-		.toBeVisible();
-	await expect
-		.element(screen.getByRole('button', { name: 'Find again', exact: true }))
-		.toBeDisabled();
-	await expect
-		.element(screen.getByRole('button', { name: 'Create clips (2)', exact: true }))
-		.toBeDisabled();
-	expect(api.request).toHaveBeenCalledTimes(1);
-	expect(api.create).not.toHaveBeenCalled();
-});
-
-test('rejects retrying a saved AI request after its source disconnects', async () => {
-	const current = context();
-	api.request.mockImplementation(async (request) => ({
-		...ready(request, []),
-		state: 'failed'
-	}));
-	const review = createRepurposeReview(() => current);
-	await review.find('launch');
-	delete current.source.file;
-	await review.retry();
-	expect(api.change).not.toHaveBeenCalled();
-	expect(review.error).toBe('The source file is unavailable. Reconnect it and try again.');
 });

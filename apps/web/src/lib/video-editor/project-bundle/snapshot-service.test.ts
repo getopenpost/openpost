@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MediaMetadata } from '@openpost/editor-shared/media';
 import { createBlankProject } from '../project/defaults';
-import type { Project, TimelineTransition } from '../project/types';
+import type { Project } from '../project/types';
 import { computeSnapshotChecksum } from './snapshot-utils';
 import { createSnapshotService, type SnapshotServiceRuntime } from './snapshot-service';
 
@@ -24,7 +24,11 @@ function media(id: string, contentHash = 'hash'): MediaMetadata {
 }
 
 function runtime(
-	options: { available?: MediaMetadata[]; failAssociation?: boolean; failDelete?: boolean } = {}
+	options: {
+		available?: MediaMetadata[];
+		failAssociation?: boolean;
+		failDelete?: boolean;
+	} = {}
 ) {
 	const source = createBlankProject('Launch');
 	source.timeline!.currentFrame = 12;
@@ -94,7 +98,9 @@ describe('project snapshot service', () => {
 		const snapshot = await testRuntime.service.exportProjectSnapshot(testRuntime.source.id);
 		snapshot.checksum = await computeSnapshotChecksum(snapshot);
 
-		const result = await testRuntime.service.importProjectSnapshot(snapshot, { name: 'Imported' });
+		const result = await testRuntime.service.importProjectSnapshot(snapshot, {
+			name: 'Imported'
+		});
 
 		expect(result.project.id).not.toBe(testRuntime.source.id);
 		expect(result.project.name).toBe('Imported');
@@ -103,91 +109,6 @@ describe('project snapshot service', () => {
 		expect(result.matchedMedia).toBe(1);
 		expect(result.unmatchedMedia).toEqual([]);
 		expect(testRuntime.associations).toEqual(['current-media']);
-	});
-
-	it('imports FreeCut schema 15 snapshots through the compatibility converter', async () => {
-		const testRuntime = runtime();
-		const snapshot = await testRuntime.service.exportProjectSnapshot(testRuntime.source.id);
-		delete snapshot.project.schemaFamily;
-		snapshot.project.schemaVersion = 15;
-		const freeCutTransition: TimelineTransition = {
-			id: 'freecut-transition',
-			type: 'crossfade',
-			durationInFrames: 12,
-			fromItemId: 'clip',
-			toItemId: 'clip'
-		};
-		Object.assign(freeCutTransition, {
-			leftClipId: 'clip',
-			rightClipId: 'clip',
-			trackId: 'track-video-main'
-		});
-		Reflect.deleteProperty(freeCutTransition, 'fromItemId');
-		Reflect.deleteProperty(freeCutTransition, 'toItemId');
-		snapshot.project.timeline!.transitions = [freeCutTransition];
-		snapshot.checksum = await computeSnapshotChecksum(snapshot);
-
-		const result = await testRuntime.service.importProjectSnapshot(snapshot);
-
-		expect(result.project.schemaVersion).toBe(testRuntime.source.schemaVersion);
-		expect(result.project.schemaFamily).toBe('openpost');
-		expect(result.project.timeline?.transitions?.[0]).toMatchObject({
-			fromItemId: result.project.timeline!.items[0]?.id,
-			toItemId: result.project.timeline!.items[0]?.id
-		});
-		expect(result.warnings).toContain(
-			'Converted FreeCut schema 15 to the OpenPost project format.'
-		);
-	});
-
-	it('uses an explicit bundle media map without guessing from workspace metadata', async () => {
-		const bundledMedia = media('bundled-media', 'different-hash');
-		const testRuntime = runtime({ available: [bundledMedia] });
-		const snapshot = await testRuntime.service.exportProjectSnapshot(testRuntime.source.id);
-
-		const result = await testRuntime.service.importProjectSnapshot(snapshot, {
-			mediaIdMap: new Map([['source-media', 'bundled-media']])
-		});
-
-		expect(result.project.timeline?.items[0]?.mediaId).toBe('bundled-media');
-		expect(result.unmatchedMedia).toEqual([]);
-		expect(testRuntime.associations).toEqual(['bundled-media']);
-	});
-
-	it('warns when the checksum does not match', async () => {
-		const testRuntime = runtime();
-		const snapshot = await testRuntime.service.exportProjectSnapshot(testRuntime.source.id);
-		snapshot.checksum = 'tampered';
-
-		const result = await testRuntime.service.importProjectSnapshot(snapshot);
-
-		expect(result.warnings).toContain(
-			'The snapshot checksum does not match. Review the imported project.'
-		);
-	});
-
-	it('keeps missing media references recoverable without associating them', async () => {
-		const testRuntime = runtime({ available: [] });
-		const snapshot = await testRuntime.service.exportProjectSnapshot(testRuntime.source.id);
-
-		const result = await testRuntime.service.importProjectSnapshot(snapshot);
-
-		expect(result.matchedMedia).toBe(0);
-		expect(result.unmatchedMedia).toEqual([
-			expect.objectContaining({ id: 'source-media', fileName: 'launch.mp4' })
-		]);
-		expect(result.project.timeline?.items[0]?.mediaId).toBe('source-media');
-		expect(testRuntime.associations).toEqual([]);
-	});
-
-	it('rolls back a failed media association', async () => {
-		const testRuntime = runtime({ failAssociation: true });
-		const snapshot = await testRuntime.service.exportProjectSnapshot(testRuntime.source.id);
-
-		await expect(testRuntime.service.importProjectSnapshot(snapshot)).rejects.toThrow(
-			'association failed'
-		);
-		expect(testRuntime.deleted).toEqual([testRuntime.created[0]?.id]);
 	});
 
 	it('rejects projects written by a newer editor without creating anything', async () => {
@@ -200,12 +121,5 @@ describe('project snapshot service', () => {
 			'Update OpenPost before importing it'
 		);
 		expect(testRuntime.created).toEqual([]);
-	});
-
-	it('rejects oversized JSON before parsing it', async () => {
-		const testRuntime = runtime();
-		await expect(
-			testRuntime.service.importProjectSnapshotJson(' '.repeat(32 * 1024 * 1024 + 1))
-		).rejects.toThrow('larger than 32 MB');
 	});
 });

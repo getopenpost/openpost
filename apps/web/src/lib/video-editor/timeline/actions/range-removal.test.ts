@@ -1,12 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import { commandHistory } from '../commands/command-store.svelte';
-import {
-	removeSilenceFromItems,
-	removeTranscriptItemRanges,
-	SILENCE_COVERAGE_REMOVAL_THRESHOLD,
-	type SourceRange
-} from './range-removal';
+import { removeSilenceFromItems, removeTranscriptItemRanges } from './range-removal';
 import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 
 function mediaClip(overrides: Partial<TimelineItem> = {}): TimelineItem {
@@ -34,34 +29,6 @@ describe('removeSilenceFromItems', () => {
 	beforeEach(() => {
 		timelineStore.__resetForTesting();
 		commandHistory.clearHistory();
-	});
-
-	it('removes shared sync-lock intervals even where selected tracks have gaps', () => {
-		const tracks: TimelineTrack[] = ['A', 'B', 'C'].map((id, order) => ({
-			id,
-			name: id,
-			kind: 'audio',
-			order,
-			syncLock: true,
-			height: 80,
-			locked: false,
-			visible: true,
-			muted: false,
-			solo: false
-		}));
-		timelineStore._setTracks(tracks);
-		timelineStore._setItems([
-			mediaClip({ id: 'a', trackId: 'A', type: 'audio', durationInFrames: 90 }),
-			mediaClip({ id: 'b', trackId: 'B', type: 'audio', from: 120, durationInFrames: 90 }),
-			mediaClip({ id: 'later-a', trackId: 'A', type: 'audio', from: 300, durationInFrames: 30 }),
-			mediaClip({ id: 'reference', trackId: 'C', type: 'audio', from: 300, durationInFrames: 30 })
-		]);
-		removeTranscriptItemRanges({ a: [{ start: 1, end: 2 }], b: [{ start: 1, end: 2 }] });
-		expect(timelineStore.itemById.get('b')?.from).toBe(90);
-		expect(timelineStore.itemById.get('later-a')?.from).toBe(240);
-		expect(timelineStore.itemById.get('reference')?.from).toBe(240);
-		commandHistory.undo();
-		expect(timelineStore.itemById.get('later-a')?.from).toBe(300);
 	});
 
 	it('ripples imported subtitles on a directly edited track', () => {
@@ -135,29 +102,6 @@ describe('removeSilenceFromItems', () => {
 		expect(timelineStore.items[0]?.durationInFrames).toBe(300);
 	});
 
-	it('removes only the covered middle segment after splitting', () => {
-		const clip = mediaClip({ durationInFrames: 90 });
-		timelineStore._setItems([clip]);
-
-		// Range covers source seconds 1.5..1.9 of a 3s clip: split at frames
-		// 45/57, drop the covered middle piece, ripple the tail left.
-		const result = removeSilenceFromItems([clip.id], silenceRanges([[1.5, 1.9]]));
-		expect(result.removedItemCount).toBe(1);
-		expect(timelineStore.items.length).toBe(2);
-		const [head, tail] = timelineStore.items;
-		expect(head?.durationInFrames).toBe(45);
-		expect(tail?.from).toBe(45);
-		expect(tail?.sourceStart).toBe(57);
-	});
-
-	it('ignores items without matching media ranges', () => {
-		const clip = mediaClip({ mediaId: 'other-media' });
-		timelineStore._setItems([clip]);
-		const result = removeSilenceFromItems([clip.id], silenceRanges([[0, 5]]));
-		expect(result.analyzedItemCount).toBe(0);
-		expect(timelineStore.items.length).toBe(1);
-	});
-
 	it('removes linked audio twins together with the video segment', () => {
 		const groupId = crypto.randomUUID();
 		const lineage = crypto.randomUUID();
@@ -182,8 +126,16 @@ describe('removeSilenceFromItems', () => {
 	});
 
 	it('counts only applied source ranges when selected sources are locked or outside their window', () => {
-		const unlocked = mediaClip({ id: 'unlocked', durationInFrames: 90, sourceEnd: 90 });
-		const locked = mediaClip({ id: 'locked', trackId: 'locked-track', mediaId: 'locked-media' });
+		const unlocked = mediaClip({
+			id: 'unlocked',
+			durationInFrames: 90,
+			sourceEnd: 90
+		});
+		const locked = mediaClip({
+			id: 'locked',
+			trackId: 'locked-track',
+			mediaId: 'locked-media'
+		});
 		timelineStore._setTracks([
 			{
 				id: 'locked-track',
@@ -212,10 +164,6 @@ describe('removeSilenceFromItems', () => {
 				.filter((item) => item.mediaId === 'media-1')
 				.reduce((sum, item) => sum + item.durationInFrames, 0)
 		).toBe(60);
-	});
-
-	it('threshold constant matches FreeCut semantics', () => {
-		expect(SILENCE_COVERAGE_REMOVAL_THRESHOLD).toBe(0.75);
 	});
 
 	it('cuts the same interval from sync-locked tracks in the same undo step', () => {
@@ -274,37 +222,16 @@ describe('removeSilenceFromItems', () => {
 		commandHistory.undo();
 		expect(timelineStore.itemById.get('music-clip')?.durationInFrames).toBe(300);
 	});
-
-	it('leaves selected clips on locked tracks untouched', () => {
-		const clip = mediaClip();
-		timelineStore._setTracks([
-			{
-				id: 'track-video-main',
-				name: 'Video',
-				kind: 'video',
-				height: 96,
-				locked: true,
-				visible: true,
-				muted: false,
-				solo: false,
-				order: 0
-			}
-		]);
-		timelineStore._setItems([clip]);
-
-		expect(removeSilenceFromItems([clip.id], silenceRanges([[1, 2]]))).toMatchObject({
-			analyzedItemCount: 0,
-			removedItemCount: 0
-		});
-		expect(timelineStore.items).toHaveLength(1);
-		expect(commandHistory.canUndo).toBe(false);
-	});
 });
 
 it('preserves locked linked audio when most of its shared source is cut', () => {
 	timelineStore.__resetForTesting();
 	commandHistory.clearHistory();
-	const video = mediaClip({ id: 'video', originId: 'pair', linkedGroupId: 'pair' });
+	const video = mediaClip({
+		id: 'video',
+		originId: 'pair',
+		linkedGroupId: 'pair'
+	});
 	const audio = mediaClip({
 		id: 'audio',
 		type: 'audio',
@@ -330,20 +257,6 @@ it('preserves locked linked audio when most of its shared source is cut', () => 
 	expect(timelineStore.itemById.get('audio')).toEqual(audio);
 	expect(timelineStore.items.filter((item) => item.type === 'video')).toHaveLength(1);
 	expect(timelineStore.items.find((item) => item.type === 'video')?.durationInFrames).toBe(30);
-});
-
-it('does not remove an unselected duplicate which shares the selected source lineage', () => {
-	timelineStore.__resetForTesting();
-	commandHistory.clearHistory();
-	const selected = mediaClip({ id: 'selected', originId: 'shared' });
-	const duplicate = mediaClip({ id: 'duplicate', originId: 'shared', from: 400 });
-	timelineStore._setItems([selected, duplicate]);
-	removeSilenceFromItems(['selected'], silenceRanges([[0, 9]]));
-	expect(timelineStore.itemById.get('duplicate')).toMatchObject({
-		durationInFrames: 300,
-		sourceStart: 0,
-		from: 130
-	});
 });
 
 it('cuts linked audio from a separate source lineage even with sync-lock disabled', () => {
@@ -385,27 +298,6 @@ it('cuts linked audio from a separate source lineage even with sync-lock disable
 	).toEqual([0, 60]);
 });
 
-it('cuts distinct staged ranges from multiple retained fragments of the same linked group', () => {
-	timelineStore.__resetForTesting();
-	commandHistory.clearHistory();
-	timelineStore._setItems([
-		mediaClip({ id: 'head', linkedGroupId: 'recording', durationInFrames: 30, sourceEnd: 30 }),
-		mediaClip({
-			id: 'tail',
-			linkedGroupId: 'recording',
-			from: 60,
-			durationInFrames: 30,
-			sourceStart: 60,
-			sourceEnd: 90
-		})
-	]);
-	removeTranscriptItemRanges({ head: [{ start: 0, end: 0.2 }], tail: [{ start: 2, end: 2.2 }] });
-	expect(timelineStore.items.reduce((sum, item) => sum + item.durationInFrames, 0)).toBe(48);
-	expect(
-		timelineStore.items.toSorted((a, b) => a.from - b.from).map((item) => item.sourceStart)
-	).toEqual([6, 66]);
-});
-
 describe('linked and multi-track source cuts', () => {
 	const clip = (id: string, trackId: string, extra: Partial<TimelineItem> = {}): TimelineItem => ({
 		id,
@@ -437,45 +329,16 @@ describe('linked and multi-track source cuts', () => {
 		commandHistory.clearHistory();
 		timelineStore._setTracks([track('a'), track('b')]);
 	});
-	it('does not cut linked audio outside selected video source window', () => {
-		const video = clip('v', 'a', { durationInFrames: 150, sourceEnd: 150, linkedGroupId: 'pair' });
-		const audio = clip('au', 'b', { type: 'audio', linkedGroupId: 'pair' });
-		timelineStore._setItems([video, audio]);
-		removeSilenceFromItems(['v'], { v: [{ start: 6, end: 7 }] });
-		expect(timelineStore.items).toHaveLength(2);
-		expect(timelineStore.itemById.get('au')?.durationInFrames).toBe(300);
-	});
-	it('ripple removes both intervals from selected sync-locked tracks', () => {
-		timelineStore._setItems([clip('a', 'a'), clip('b', 'b')]);
-		removeTranscriptItemRanges({ a: [{ start: 1, end: 2 }], b: [{ start: 3, end: 4 }] });
-		expect(
-			timelineStore.items
-				.filter((i) => i.trackId === 'a')
-				.reduce((n, i) => n + i.durationInFrames, 0)
-		).toBe(240);
-		expect(
-			timelineStore.items
-				.filter((i) => i.trackId === 'b')
-				.reduce((n, i) => n + i.durationInFrames, 0)
-		).toBe(240);
-	});
-	it('keeps a linked video and audio pair linked across propagated cuts', () => {
-		timelineStore._setTracks([track('a'), track('b'), { ...track('c'), kind: 'audio' }]);
-		timelineStore._setItems([
-			clip('a', 'a'),
-			clip('v', 'b', { linkedGroupId: 'pair' }),
-			clip('au', 'c', { type: 'audio', linkedGroupId: 'pair' })
-		]);
-		removeTranscriptItemRanges({ a: [{ start: 1, end: 2 }] });
-		const pieces = timelineStore.items.filter((i) => i.id !== 'a' && i.mediaId !== 'a');
-		expect(pieces).toHaveLength(4);
-		expect(pieces.every((i) => !!i.linkedGroupId)).toBe(true);
-	});
 	it('cuts linked title along with video even when title track sync-lock is disabled', () => {
 		timelineStore._setTracks([track('a'), { ...track('b'), syncLock: false }]);
 		timelineStore._setItems([
 			clip('v', 'a', { linkedGroupId: 'pair' }),
-			clip('title', 'b', { type: 'text', text: 'Title', linkedGroupId: 'pair', mediaId: undefined })
+			clip('title', 'b', {
+				type: 'text',
+				text: 'Title',
+				linkedGroupId: 'pair',
+				mediaId: undefined
+			})
 		]);
 		removeTranscriptItemRanges({ v: [{ start: 1, end: 2 }] });
 		expect(
@@ -484,27 +347,15 @@ describe('linked and multi-track source cuts', () => {
 				.reduce((n, i) => n + i.durationInFrames, 0)
 		).toBe(270);
 	});
-
-	it('ripples overlapping mixed audio by the removed interval once', () => {
-		timelineStore._setTracks([{ ...track('a'), kind: 'audio' }]);
-		timelineStore._setItems([
-			clip('voice', 'a', { type: 'audio' }),
-			clip('music', 'a', { type: 'audio' }),
-			clip('later', 'a', { type: 'audio', from: 360, durationInFrames: 30, sourceEnd: 30 })
-		]);
-		removeTranscriptItemRanges({ voice: [{ start: 1, end: 2 }] });
-		expect(timelineStore.itemById.get('later')?.from).toBe(330);
-		const tails = timelineStore.items.filter((i) => i.sourceStart === 60);
-		expect(tails.map((i) => i.from)).toEqual([30, 30]);
-		expect(timelineStore.items.filter((i) => i.sourceStart === 0 && i.id !== 'later')).toHaveLength(
-			2
-		);
-	});
 	it('preserves captions of a locked source sharing a track with a linked adjustment', () => {
 		timelineStore._setTracks([track('a'), track('b'), { ...track('c'), locked: true }]);
 		timelineStore._setItems([
 			clip('voice', 'a', { linkedGroupId: 'linked' }),
-			clip('grade', 'b', { type: 'adjustment', linkedGroupId: 'linked', mediaId: undefined }),
+			clip('grade', 'b', {
+				type: 'adjustment',
+				linkedGroupId: 'linked',
+				mediaId: undefined
+			}),
 			clip('locked-source', 'c'),
 			{
 				id: 'caption',

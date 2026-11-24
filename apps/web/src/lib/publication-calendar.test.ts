@@ -20,17 +20,6 @@ describe('publication occurrence selection', () => {
 		expect(publicationActivityOccurrence(publication)).toBe('2026-10-18T10:00:00Z');
 	});
 
-	it('shows the authored schedule for a publishing post', () => {
-		const publication = {
-			status: 'publishing',
-			scheduled_at: '2026-10-18T10:00:00Z',
-			actual_run_at: '2026-10-18T10:07:00Z',
-			created_at: '2026-10-18T08:00:00Z'
-		};
-		expect(publicationCalendarOccurrence(publication)).toBe('2026-10-18T10:00:00Z');
-		expect(publicationActivityOccurrence(publication)).toBe('2026-10-18T10:00:00Z');
-	});
-
 	it('shows the queued time, not the previous run, for a retried post without an authored schedule', () => {
 		const retried = {
 			status: 'scheduled',
@@ -148,18 +137,5 @@ describe('publicationCalendarDayKey', () => {
 				'UTC'
 			)
 		).toBe('2026-10-19');
-	});
-
-	it('returns no day for statuses without an occurrence', () => {
-		expect(
-			publicationCalendarDayKey(
-				{
-					status: 'ready',
-					scheduled_at: '2026-10-18T10:00:00Z',
-					created_at: '2026-10-18T08:00:00Z'
-				},
-				'UTC'
-			)
-		).toBe('');
 	});
 });

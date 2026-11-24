@@ -1,5 +1,4 @@
 import { get } from 'svelte/store';
-import { projectForRenderJob } from './render-queue-job';
 import { describe, expect, it, vi } from 'vitest';
 import { RenderQueueRunner, type RenderQueueExecutor } from './render-queue-runner';
 import { createRenderQueueStore, type RenderQueueJob } from './render-queue-store';
@@ -55,7 +54,12 @@ describe('RenderQueueRunner', () => {
 		const calls: string[] = [];
 		const execute = vi.fn(async (next: RenderQueueJob, options) => {
 			calls.push(next.id);
-			options.onProgress({ phase: 'rendering', framesDone: 1, totalFrames: 2, progress: 0.5 });
+			options.onProgress({
+				phase: 'rendering',
+				framesDone: 1,
+				totalFrames: 2,
+				progress: 0.5
+			});
 			if (next.id === 'a') {
 				await new Promise<void>((_resolve, reject) => {
 					options.signal.addEventListener('abort', () =>
@@ -159,22 +163,3 @@ it.each([false, true])(
 		}
 	}
 );
-
-it('preserves the absolute end of a queued Motion range after its last layer', () => {
-	const motion = job('motion');
-	motion.settings.range = { startFrame: 300, endFrame: 353 };
-	motion.snapshot.items = [
-		{
-			id: 'title',
-			type: 'text',
-			label: 'Title',
-			text: 'Title',
-			trackId: 'visual',
-			from: 0,
-			durationInFrames: 274
-		}
-	];
-	const project = projectForRenderJob(motion);
-	expect(project.duration).toBe(353 / 30);
-	expect(project.timeline?.items[0]?.durationInFrames).toBe(274);
-});

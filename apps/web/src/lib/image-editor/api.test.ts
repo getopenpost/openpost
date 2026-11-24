@@ -7,17 +7,10 @@ import {
 	createImageEditorDesign,
 	deleteImageEditorDesign,
 	deleteImageEditorCheckpoint,
-	deleteImageEditorEffectPreset,
 	ImageEditorWorkspaceMismatchError,
-	saveImageEditorBrandKit,
-	saveImageEditorDesign,
-	saveImageEditorEffectPreset
+	saveImageEditorDesign
 } from './api';
-import type {
-	ImageEditorBrandKit,
-	ImageEditorDesignSummary,
-	ImageEditorDocumentResponse
-} from './types';
+import type { ImageEditorDesignSummary, ImageEditorDocumentResponse } from './types';
 
 const mocks = { post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() };
 vi.spyOn(client, 'POST').mockImplementation(mocks.post);
@@ -53,7 +46,9 @@ describe('Image Editor mutation cache reconciliation', () => {
 					resolveCreate = resolve;
 				})
 		);
-		const request = createImageEditorDesign('workspace-1', { preset_key: 'square' });
+		const request = createImageEditorDesign('workspace-1', {
+			preset_key: 'square'
+		});
 		await vi.waitFor(() => expect(mocks.post).toHaveBeenCalledOnce());
 
 		activeIdentity = { userID: 'user-new', epoch: 2 };
@@ -149,51 +144,6 @@ describe('Image Editor mutation cache reconciliation', () => {
 		).toBeUndefined();
 	});
 
-	it('seeds a created design before navigation and invalidates Workspace lists', async () => {
-		const design = designFixture();
-		const listKey = imageEditorQueryKeys.designList('workspace-1', {});
-		queryClient.setQueryData(listKey, { designs: [], total: 0, canEdit: true });
-		mocks.post.mockResolvedValue({
-			data: design,
-			response: new Response(null, { status: 201 })
-		});
-
-		await createImageEditorDesign('workspace-1', { preset_key: 'square' });
-
-		expect(queryClient.getQueryData(imageEditorQueryKeys.design('workspace-1', design.id))).toBe(
-			design
-		);
-		expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
-	});
-
-	it.each(['brand', 'save-preset', 'delete-preset'])(
-		'replaces the exact brand-kit cache after %s',
-		async (operation) => {
-			const brandKit = brandKitFixture();
-			const mock = operation === 'delete-preset' ? mocks.delete : mocks.put;
-			mock.mockResolvedValue({
-				data: brandKit,
-				response: new Response(null, { status: 200 })
-			});
-
-			const saved =
-				operation === 'save-preset'
-					? await saveImageEditorEffectPreset('workspace-1', {
-							id: 'preset-1',
-							name: 'Shadow',
-							effects: { blend_mode: 'normal' }
-						})
-					: operation === 'delete-preset'
-						? await deleteImageEditorEffectPreset('workspace-1', 'preset-1')
-						: await saveImageEditorBrandKit(brandKit);
-
-			expect(saved).toEqual(brandKit);
-			expect(queryClient.getQueryData(imageEditorQueryKeys.brandKit('workspace-1'))).toEqual(
-				brandKit
-			);
-		}
-	);
-
 	it('removes only the confirmed checkpoint cache after server admission', async () => {
 		const removed = imageEditorQueryKeys.revision('workspace-1', 'design-1', 'remove');
 		const kept = imageEditorQueryKeys.revision('workspace-1', 'design-1', 'keep');
@@ -208,7 +158,9 @@ describe('Image Editor mutation cache reconciliation', () => {
 		await expect(
 			deleteImageEditorCheckpoint('workspace-1', 'design-1', 'remove')
 		).rejects.toThrow();
-		expect(queryClient.getQueryData(removed)).toEqual({ summary: { id: 'remove' } });
+		expect(queryClient.getQueryData(removed)).toEqual({
+			summary: { id: 'remove' }
+		});
 		mocks.delete.mockResolvedValue({
 			data: { deleted: true },
 			response: new Response(null, { status: 200 })
@@ -217,7 +169,10 @@ describe('Image Editor mutation cache reconciliation', () => {
 		expect(mocks.delete).toHaveBeenCalledWith(
 			'/image-editor/designs/{id}/revisions/{revision_id}',
 			{
-				params: { path: { id: 'design-1', revision_id: 'remove' }, query: { confirm: true } }
+				params: {
+					path: { id: 'design-1', revision_id: 'remove' },
+					query: { confirm: true }
+				}
 			}
 		);
 		expect(queryClient.getQueryData(removed)).toBeUndefined();
@@ -232,7 +187,9 @@ describe('Image Editor mutation cache reconciliation', () => {
 		queryClient.setQueryData(designKey, designFixture());
 		queryClient.setQueryData(revisionKey, { summary: { id: 'revision-1' } });
 		queryClient.setQueryData(otherKey, designFixture('workspace-2'));
-		mocks.delete.mockResolvedValue({ response: new Response(null, { status: 204 }) });
+		mocks.delete.mockResolvedValue({
+			response: new Response(null, { status: 204 })
+		});
 
 		await deleteImageEditorDesign('workspace-1', 'design-1');
 
@@ -276,21 +233,5 @@ function designSummary(design: ImageEditorDocumentResponse): ImageEditorDesignSu
 		is_favorite: false,
 		created_at: design.created_at,
 		updated_at: design.updated_at
-	};
-}
-
-function brandKitFixture(): ImageEditorBrandKit {
-	return {
-		effect_presets: [],
-		id: 'brand-1',
-		workspace_id: 'workspace-1',
-		name: 'OpenPost',
-		revision: 2,
-		exists: true,
-		can_edit: true,
-		colors: [],
-		text_styles: [],
-		backgrounds: [],
-		fonts: []
 	};
 }

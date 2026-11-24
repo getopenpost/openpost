@@ -53,7 +53,8 @@ export interface ComposerHost {
 	requestedOutputProfiles: Record<string, string>;
 	formatLockedByAccount: Record<string, boolean>;
 	settingsByAccount: Record<string, ComposerSettings>;
-	readonly captionMentionsByAccount: Record<
+	scheduleOverridesByAccount: Record<string, string>;
+	captionMentionsByAccount: Record<
 		string,
 		{ field: string; body: string; mentions: MentionMetadata } | null
 	>;
@@ -71,6 +72,7 @@ export interface ComposerHost {
 	readonly mediaAltTexts: Map<string, string>;
 	readonly attachmentRequirements: Record<string, AttachmentRequirement>;
 	readonly hasPendingPasteMediaUploads: boolean;
+	readonly pasteMediaUploadBlocker: () => string;
 	/** Changes whenever authored media or destination choices could change image preparation. */
 	readonly imagePreparationContext: string;
 	mediaPickerOpen: boolean;
@@ -91,6 +93,7 @@ export interface ComposerHost {
 	readonly mergeMediaIds: (current: string[], incoming: string[]) => string[];
 	readonly settingsForAccount: (account: SocialAccount) => ComposerSettings;
 	readonly destinationSettingsForAccount: (account: SocialAccount) => ComposerSettings;
+	readonly joinedDescriptionKey: (account: SocialAccount) => string | undefined;
 	readonly pollProjection: (
 		post: PostItem,
 		account: SocialAccount

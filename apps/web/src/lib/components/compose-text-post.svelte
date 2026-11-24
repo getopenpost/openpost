@@ -69,12 +69,9 @@
 	import { workspaceCtx, type WorkspaceSwitchRequest } from '$lib/stores/workspace.svelte';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
-	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import SocialSetControl from './social-set-control.svelte';
-	import SocialAccountIdentity from './social-account-identity.svelte';
 	import ComposerRequiredFields from './composer-required-fields.svelte';
 	import ComposerPublishActions from './composer-publish-actions.svelte';
 	import ComposerAIActionButton from './composer-ai-action-button.svelte';
@@ -201,6 +198,8 @@
 	import ComposerAIWorkspace from './compose/composer-ai-workspace.svelte';
 	import ComposerSettingsSheet from './compose/composer-settings-sheet.svelte';
 	import WorkspaceSwitchDialog from './compose/workspace-switch-dialog.svelte';
+	import { ComposerDestinationAction } from './compose/destination-action.svelte';
+	import DestinationActionDialog from './compose/destination-action-dialog.svelte';
 	import {
 		ComposerAIBuilder,
 		localizedAIMediaTreatment,
@@ -324,6 +323,15 @@
 		},
 		get captionMentionsByAccount() {
 			return captionMentionsByAccount;
+		},
+		set captionMentionsByAccount(value) {
+			captionMentionsByAccount = value;
+		},
+		get scheduleOverridesByAccount() {
+			return scheduleOverridesByAccount;
+		},
+		set scheduleOverridesByAccount(value) {
+			scheduleOverridesByAccount = value;
 		},
 		get attachmentRequirements() {
 			return ai.aiAttachmentRequirements;
@@ -456,6 +464,8 @@
 		settingsForAccount,
 		visibleSettings,
 		updateAccountSetting,
+		joinedDescriptionKey,
+		pasteMediaUploadBlocker: () => composerMedia.pasteMediaUploadBlocker(),
 		saveMutationViewIsCurrent,
 		sessionFor,
 		canonicalPublicationForHandoff,
@@ -607,13 +617,10 @@
 
 	let variants = $state<Map<string, Record<string, VariantPost>>>(new Map());
 	let activeVariantAccountId = $state<string | null>(null);
-	let destinationActionOpen = $state(false);
-	let destinationCopyError = $state('');
-	let destinationAction = $state<'copy' | 'media'>('copy');
-	let destinationActionTargetIds = $state<string[]>([]);
 
 	const composerMedia = new ComposerMedia(composer);
 	const editorHandoff = new ComposerEditorHandoff(composer, composerMedia);
+	const destinationActions = new ComposerDestinationAction(composer);
 
 	let settingsByAccount = $state<Record<string, ComposerSettings>>({});
 	let captionMentionsByAccount = $state<
@@ -4011,145 +4018,6 @@
 		scheduleAutoSave();
 	}
 
-	function openDestinationAction(action: 'copy' | 'media') {
-		if (!activeVariantAccountId) return;
-		if (hasPendingPasteMediaUploads) {
-			error = composerMedia.pasteMediaUploadBlocker();
-			return;
-		}
-		destinationAction = action;
-		destinationCopyError = '';
-		destinationActionTargetIds = selectedAccountIds.filter(
-			(accountId) => accountId !== activeVariantAccountId
-		);
-		destinationActionOpen = true;
-	}
-
-	function toggleDestinationActionTarget(accountId: string) {
-		if (hasPendingPasteMediaUploads || !selectedAccountIds.includes(accountId)) return;
-		destinationCopyError = '';
-		destinationActionTargetIds = destinationActionTargetIds.includes(accountId)
-			? destinationActionTargetIds.filter((id) => id !== accountId)
-			: [...destinationActionTargetIds, accountId];
-	}
-
-	function inheritedVariantRecord(): Record<string, VariantPost> {
-		return makeVariantRecord(posts);
-	}
-
-	function applyDestinationAction() {
-		const sourceAccountId = activeVariantAccountId;
-		if (hasPendingPasteMediaUploads) {
-			error = composerMedia.pasteMediaUploadBlocker();
-			return;
-		}
-		if (!sourceAccountId || !selectedAccountIds.includes(sourceAccountId)) {
-			destinationActionOpen = false;
-			return;
-		}
-		const currentTargetIds = destinationActionTargetIds.filter(
-			(accountId) => accountId !== sourceAccountId && selectedAccountIds.includes(accountId)
-		);
-		destinationActionTargetIds = currentTargetIds;
-		if (currentTargetIds.length === 0) return;
-		const source = normalizeVariantRecord(
-			variants.get(sourceAccountId) ?? inheritedVariantRecord(),
-			posts
-		);
-		const sourceCaption = $state.snapshot(captionMentionsByAccount[sourceAccountId]);
-		const sourceMentions = sourceCaption
-			? [sourceCaption.mentions]
-			: posts.map((post) => {
-					const variant = source[post.key];
-					return variant?.contentInherited ? post.mentions : variant?.mentions;
-				});
-		if (
-			destinationAction === 'copy' &&
-			currentTargetIds.some((targetId) => {
-				const account = selectedAccounts.find((account) => account.id === targetId);
-				return sourceMentions.some((metadata) => {
-					return metadata?.spans.some(
-						(span) =>
-							(span.target.provider !== 'workspace' &&
-								span.target.provider !== account?.platform) ||
-							(span.target.provider === 'mastodon' &&
-								span.target.authority?.replace(/\/$/, '').toLowerCase() !==
-									account?.instance_url?.replace(/\/$/, '').toLowerCase())
-					);
-				});
-			})
-		) {
-			destinationCopyError = m.compose_copy_mentions_incompatible();
-			return;
-		}
-		const nextVariants = new SvelteMap(variants);
-		const nextSchedules = { ...scheduleOverridesByAccount };
-
-		for (const targetId of currentTargetIds) {
-			const targetAccount = selectedAccounts.find((account) => account.id === targetId);
-			const captionKey = targetAccount ? joinedDescriptionKey(targetAccount) : undefined;
-			const target = normalizeVariantRecord(
-				nextVariants.get(targetId) ?? inheritedVariantRecord(),
-				posts
-			);
-			for (const post of posts) {
-				const sourceVariant = source[post.key];
-				const targetVariant = target[post.key];
-				if (!sourceVariant || !targetVariant) continue;
-				if (destinationAction === 'copy') {
-					if (sourceCaption && !captionKey) {
-						targetVariant.content = post === posts[0] ? sourceCaption.body : '';
-						targetVariant.contentInherited = false;
-						targetVariant.mentions =
-							post === posts[0]
-								? structuredClone(sourceCaption.mentions)
-								: { version: 1, spans: [] };
-					} else {
-						targetVariant.content = sourceVariant.contentInherited
-							? post.content
-							: sourceVariant.content;
-						targetVariant.contentInherited = sourceVariant.contentInherited;
-						targetVariant.mentions = sourceVariant.contentInherited
-							? post.mentions
-							: (sourceVariant.mentions ?? { version: 1, spans: [] });
-					}
-				}
-				targetVariant.mediaIds = sourceVariant.mediaInherited
-					? [...post.mediaIds]
-					: [...sourceVariant.mediaIds];
-				targetVariant.mediaInherited = sourceVariant.mediaInherited;
-			}
-			if (
-				Object.values(target).every((variant) => variant.contentInherited && variant.mediaInherited)
-			) {
-				nextVariants.delete(targetId);
-			} else {
-				nextVariants.set(targetId, target);
-			}
-			if (destinationAction === 'copy') {
-				captionMentionsByAccount = {
-					...captionMentionsByAccount,
-					[targetId]:
-						sourceCaption && captionKey
-							? { ...structuredClone(sourceCaption), field: captionKey }
-							: null
-				};
-				if (targetAccount && captionKey)
-					updateAccountSetting(targetAccount, captionKey, sourceCaption?.body ?? '');
-				if (scheduleOverridesByAccount[sourceAccountId]) {
-					nextSchedules[targetId] = scheduleOverridesByAccount[sourceAccountId];
-				} else {
-					delete nextSchedules[targetId];
-				}
-			}
-		}
-
-		variants = nextVariants;
-		scheduleOverridesByAccount = nextSchedules;
-		destinationActionOpen = false;
-		scheduleAutoSave();
-	}
-
 	// --------------------------------------------------------------------------
 	// Scheduling
 	// --------------------------------------------------------------------------
@@ -5342,7 +5210,7 @@
 									else detachSharedContent(account.id);
 								}}
 								onResync={() => restoreSharedContent(activeVariantAccount!)}
-								onDestinationAction={openDestinationAction}
+								onDestinationAction={destinationActions.openDestinationAction}
 							/>
 						{/if}
 					</section>
@@ -5880,52 +5748,13 @@
 
 <ComposerAIWorkspace {ai} accounts={selectedAccounts} workspaceId={selectedWorkspaceId} />
 
-<Dialog.Root bind:open={destinationActionOpen}>
-	<Dialog.Content class="sm:max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>
-				{destinationAction === 'copy' ? m.compose_copy_rendition() : m.compose_apply_media()}
-			</Dialog.Title>
-			<Dialog.Description>
-				{destinationAction === 'copy'
-					? m.compose_copy_rendition_description()
-					: m.compose_apply_media_description()}
-			</Dialog.Description>
-		</Dialog.Header>
-		<div class="space-y-2 py-2">
-			{#each selectedAccounts.filter((account) => account.id !== activeVariantAccountId) as account (account.id)}
-				<label class="flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm">
-					<Checkbox
-						checked={destinationActionTargetIds.includes(account.id)}
-						disabled={hasPendingPasteMediaUploads}
-						onCheckedChange={() => toggleDestinationActionTarget(account.id)}
-					/>
-					<SocialAccountIdentity
-						class="min-w-0 flex-1"
-						name={accountLabel(account)}
-						platform={account.platform}
-						avatarUrl={account.account_avatar_url}
-					/>
-				</label>
-			{/each}
-		</div>
-		<Dialog.Footer>
-			{#if destinationCopyError}<p role="alert" class="text-sm text-destructive">
-					{destinationCopyError}
-				</p>{/if}
-			<Button type="button" variant="outline" onclick={() => (destinationActionOpen = false)}>
-				{m.common_cancel()}
-			</Button>
-			<Button
-				type="button"
-				disabled={hasPendingPasteMediaUploads || destinationActionTargetIds.length === 0}
-				onclick={applyDestinationAction}
-			>
-				{m.compose_apply_changes()}
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+<DestinationActionDialog
+	action={destinationActions}
+	accounts={selectedAccounts}
+	activeAccountId={activeVariantAccountId}
+	uploadsPending={hasPendingPasteMediaUploads}
+	{accountLabel}
+/>
 
 <ComposerSettingsSheet
 	bind:open={composerSettingsOpen}

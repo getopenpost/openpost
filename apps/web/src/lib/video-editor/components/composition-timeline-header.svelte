@@ -6,13 +6,13 @@
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import * as Select from '$lib/components/ui/select';
+	import CompositionPicker from './composition-picker.svelte';
 	import { Slider } from '$lib/components/ui/slider';
 	import { ThemeIcon } from '$lib/themes/icons';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { TIMELINE_ZOOM_MAX, TIMELINE_ZOOM_MIN } from '$lib/video-editor/timeline/zoom';
 
-	export type GeneratedLayerKind = 'text' | 'solid' | 'gradient' | 'shape' | 'controller';
+	type GeneratedLayerKind = 'text' | 'solid' | 'gradient' | 'shape' | 'controller';
 
 	let {
 		composition,
@@ -54,25 +54,16 @@
 		<label class="header-label" for="composition-picker"
 			>{m.video_editor_composition_timeline_picker()}</label
 		>
-		<Select.Root
-			type="single"
+		<CompositionPicker
+			{compositions}
 			value={composition.id}
-			onValueChange={(value) => value && onswitch(value)}
-		>
-			<Select.Trigger
-				id="composition-picker"
-				class="composition-picker"
-				aria-label={m.video_editor_composition_timeline_picker()}
-				data-testid="composition-picker"
-			>
-				<span class="truncate">{composition.name}</span>
-			</Select.Trigger>
-			<Select.Content>
-				{#each compositions as comp (comp.id)}
-					<Select.Item value={comp.id}>{comp.name}</Select.Item>
-				{/each}
-			</Select.Content>
-		</Select.Root>
+			label={composition.name}
+			triggerId="composition-picker"
+			triggerClass="composition-picker"
+			ariaLabel={m.video_editor_composition_timeline_picker()}
+			testId="composition-picker"
+			{onswitch}
+		/>
 		<Button
 			size="sm"
 			variant="ghost"

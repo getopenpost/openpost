@@ -132,6 +132,16 @@ export interface TimelineTrackDropPreview {
 	label: string;
 }
 
+/** Clears a drop preview once the browser ends the drag anywhere in the window. */
+function clearWhenDragEnds(clear: () => void): () => void {
+	window.addEventListener('dragend', clear);
+	window.addEventListener('drop', clear);
+	return () => {
+		window.removeEventListener('dragend', clear);
+		window.removeEventListener('drop', clear);
+	};
+}
+
 /**
  * Drop targets for the timeline: catalog drops onto clips (effects and
  * transitions), track drops (generated items, stickers, stock, Lottie, scenes,
@@ -195,44 +205,26 @@ export function createTimelineDropTargets(deps: TimelineDropTargetsInput) {
 			!transitionBridgeDropPreviewId
 		)
 			return;
-		const clear = () => {
+		return clearWhenDragEnds(() => {
 			clearEffectDropPreview();
 			clearTransitionDropPreview();
-		};
-		window.addEventListener('dragend', clear);
-		window.addEventListener('drop', clear);
-		return () => {
-			window.removeEventListener('dragend', clear);
-			window.removeEventListener('drop', clear);
-		};
+		});
 	});
 
 	$effect(() => {
 		if (!mediaDropPreview || mediaPlacement.request) return;
-		const clear = () => {
+		return clearWhenDragEnds(() => {
 			clearMediaDropPreview();
 			clearActiveMediaDrag();
-		};
-		window.addEventListener('dragend', clear);
-		window.addEventListener('drop', clear);
-		return () => {
-			window.removeEventListener('dragend', clear);
-			window.removeEventListener('drop', clear);
-		};
+		});
 	});
 
 	$effect(() => {
 		if (!generatedItemDropPreview) return;
-		const clear = () => {
+		return clearWhenDragEnds(() => {
 			generatedItemDropPreview = null;
 			clearGeneratedItemDragData();
-		};
-		window.addEventListener('dragend', clear);
-		window.addEventListener('drop', clear);
-		return () => {
-			window.removeEventListener('dragend', clear);
-			window.removeEventListener('drop', clear);
-		};
+		});
 	});
 
 	$effect(() => {

@@ -145,6 +145,7 @@
 		motionRowKey
 	} from './composition-timeline-guards';
 	import CompositionTimelineHeader from './composition-timeline-header.svelte';
+	import CompositionPicker from './composition-picker.svelte';
 	import CompositionNewDialog from './composition-new-dialog.svelte';
 	import CompositionRuler from './composition-ruler.svelte';
 	import CompositionTimelineFooter from './composition-timeline-footer.svelte';
@@ -3397,20 +3398,14 @@
 		{#if compositions.length > 0}
 			<div class="empty-picker">
 				<label for="empty-picker-select">{m.video_editor_composition_timeline_picker()}</label>
-				<Select.Root
-					type="single"
+				<CompositionPicker
+					{compositions}
 					value=""
-					onValueChange={(value) => value && switchComposition(value)}
-				>
-					<Select.Trigger id="empty-picker-select" data-testid="empty-composition-picker">
-						<span class="truncate">{m.video_editor_composition_timeline_choose()}</span>
-					</Select.Trigger>
-					<Select.Content>
-						{#each compositions as comp (comp.id)}
-							<Select.Item value={comp.id}>{comp.name}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
+					label={m.video_editor_composition_timeline_choose()}
+					triggerId="empty-picker-select"
+					testId="empty-composition-picker"
+					onswitch={switchComposition}
+				/>
 			</div>
 		{/if}
 		<Button

@@ -78,7 +78,8 @@ const COUNTER_PLATFORM_DETAILS = {
 // so the advertised number can never disagree with the tool.
 export const COUNTER_PLATFORMS: PlatformCountDefinition[] = counterPlatforms.map((platform) => {
 	// SAFETY: the shared catalogue and COUNTER_PLATFORM_DETAILS cover the same
-	// PlatformKey set; tool-utils.test.ts compares both key lists.
+	// PlatformKey set; tool-utils.test.ts checks every catalogue key resolves
+	// to a limit and note.
 	const key = platform.key as PlatformKey;
 	return {
 		key,

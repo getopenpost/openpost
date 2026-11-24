@@ -37,6 +37,7 @@ jobs:
       frontend: ${{ steps.plan.outputs.frontend }}
       marketing: ${{ steps.plan.outputs.marketing }}
       documentation: ${{ steps.plan.outputs.documentation }}
+      public_proof: ${{ steps.plan.outputs.public_proof }}
       cli: ${{ steps.plan.outputs.cli }}
       n8n: ${{ steps.plan.outputs.n8n }}
       npm: ${{ steps.plan.outputs.npm }}
@@ -77,6 +78,19 @@ jobs:
             [[ -n "$previous_tag" ]]
             bun scripts/ci-plan.mjs --release --base "$previous_tag" --head "$GITHUB_SHA"
           fi
+
+          # The public rebuild proof follows public-site inputs changed by this
+          # pull request or push, not since the last release. Unknown push
+          # history fails closed; scheduled and manual runs always prove.
+          public_proof=true
+          if [[ "$EVENT_NAME" == pull_request ]]; then
+            grep -qxE '(marketing|documentation)=true' "$GITHUB_OUTPUT" || public_proof=false
+          elif [[ "$EVENT_NAME" == push && "$BEFORE_SHA" =~ ^[0-9a-f]{40}$ && ! "$BEFORE_SHA" =~ ^0+$ ]] &&
+            timeout 60 git merge-base --is-ancestor "$BEFORE_SHA" "$GITHUB_SHA"; then
+            push_plan="$(GITHUB_OUTPUT='' GITHUB_STEP_SUMMARY='' bun scripts/ci-plan.mjs --base "$BEFORE_SHA" --head "$GITHUB_SHA")"
+            grep -qxE '(marketing|documentation)=true' <<<"$push_plan" || public_proof=false
+          fi
+          echo "public_proof=$public_proof" >> "$GITHUB_OUTPUT"
 
   web-quality:
     name: Format, policy and security
@@ -448,7 +462,7 @@ jobs:
           config=$(bun scripts/public-site-artifact.mjs config)
           timeout 120 bun scripts/public-site-artifact.mjs seal delivery/site delivery/manifest.json "$GITHUB_SHA" "$config"
       # Public Pages delivery waits for this whole CI run, including the
-      # independent rebuild proof below.
+      # independent rebuild proof below when it is planned.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
@@ -459,10 +473,14 @@ jobs:
           retention-days: 90
 
   # Browser suites start from the canonical artifacts while this job proves
-  # that independent forced rebuilds reproduce them.
+  # that independent forced rebuilds reproduce them. Pushes that leave
+  # marketing and documentation inputs unchanged skip it; the nightly full
+  # run still proves every candidate. Delivery qualifies only on the contract
+  # job and the run's success, so a skipped proof keeps delivery intact.
   public-site-proof:
     name: Public artifact rebuild proof
     needs: [plan, public-site]
+    if: needs.plan.outputs.public_proof == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

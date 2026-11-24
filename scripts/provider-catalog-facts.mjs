@@ -58,9 +58,9 @@ export function backendProviderCatalog(source) {
   const start = source.indexOf("var providerCatalog = []ProviderInfo{");
   if (start < 0) throw new Error("backend providerCatalog declaration is missing");
   const remainder = source.slice(start);
-  const end = remainder.indexOf("\n}\n\nfunc ");
-  if (end < 0) throw new Error("backend providerCatalog boundary is not recognized");
-  const block = remainder.slice(0, end);
+  const endMatch = /\n\}(?:\r?\n|$)/u.exec(remainder);
+  if (!endMatch) throw new Error("backend providerCatalog boundary is not recognized");
+  const block = remainder.slice(0, endMatch.index);
   const constants = new Map(
     [...source.matchAll(/^\s*(?:const\s+)?([A-Za-z][A-Za-z0-9_]*)\s*=\s*"([^"]+)"/gmu)].map(
       (match) => [match[1], match[2]],

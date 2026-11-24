@@ -87,7 +87,6 @@
 	import ComposerValidationMenu from './composer-validation-menu.svelte';
 	import DestinationSettingsDialog from './destination-settings-dialog.svelte';
 	import InlineNotice from './inline-notice.svelte';
-	import Disclosure from './disclosure.svelte';
 	import TextCardPreview from './text-card-preview.svelte';
 	import {
 		supportsTextCards,
@@ -200,11 +199,8 @@
 	import WorkspaceSwitchDialog from './compose/workspace-switch-dialog.svelte';
 	import { ComposerDestinationAction } from './compose/destination-action.svelte';
 	import DestinationActionDialog from './compose/destination-action-dialog.svelte';
-	import {
-		ComposerAIBuilder,
-		localizedAIMediaTreatment,
-		localizedAIObjective
-	} from './compose/ai-builder.svelte';
+	import { ComposerAIBuilder } from './compose/ai-builder.svelte';
+	import AIStrategySummary from './compose/ai-strategy-summary.svelte';
 	import {
 		AI_BUILD_METADATA_KEY,
 		aiBuildMetadataSchema,
@@ -5232,33 +5228,7 @@
 				{/if}
 
 				{#if ai.visibleAIStrategies.length > 0}
-					<Disclosure summary={m.compose_ai_strategy_label()} summaryClass="text-muted-foreground">
-						<div
-							class="mb-3 flex gap-2 overflow-x-auto border-y py-3"
-							aria-label={m.compose_ai_strategy_label()}
-						>
-							{#each ai.visibleAIStrategies as destination (destination.account_id)}
-								<div class="min-w-48 rounded-lg border bg-muted/30 px-3 py-2 text-xs">
-									<p class="font-medium text-foreground">
-										{getPlatformName(destination.platform)} · {localizedAIObjective(
-											destination.objective
-										)}
-									</p>
-									<p class="mt-1 text-muted-foreground">
-										{destination.media.treatment === 'none'
-											? m.compose_ai_no_media_recommended()
-											: destination.media.brief ||
-												localizedAIMediaTreatment(destination.media.treatment)}
-									</p>
-									{#if destination.warnings?.length}
-										<p class="mt-1 text-amber-700 dark:text-amber-300">
-											{destination.warnings.join(' ')}
-										</p>
-									{/if}
-								</div>
-							{/each}
-						</div>
-					</Disclosure>
+					<AIStrategySummary strategies={ai.visibleAIStrategies} />
 				{/if}
 
 				{#if textCardAccounts.length && !textCardNoticeDismissed}

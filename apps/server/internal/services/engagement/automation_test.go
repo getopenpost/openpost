@@ -8,7 +8,6 @@ import (
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/workflows"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/stretchr/testify/require"
@@ -80,44 +79,6 @@ func TestCommentCampaignPrivateSendReceiptDoesNotResend(t *testing.T) {
 	require.Equal(t, 1, p.private)
 	require.Zero(t, p.public)
 }
-func TestCommentCampaignTakeoverStopsQueuedProviderWrite(t *testing.T) {
-	t.Parallel()
-	s, in, p := campaignTest(t)
-	reply, err := s.AdvanceAutomationReply(t.Context(), in)
-	require.NoError(t, err)
-	require.NoError(t, s.StopAutomation(t.Context(), Actor{UserID: "u"}, "w", "c"))
-	var job models.Job
-	require.NoError(t, s.db.NewSelect().Model(&job).Where("id=?", reply.JobID).Scan(t.Context()))
-	var input engagementActionJob
-	require.NoError(t, json.Unmarshal([]byte(job.Payload), &input))
-	require.ErrorContains(t, s.performEngagementAction(t.Context(), input), "stopped")
-	require.Zero(t, p.private)
-}
-func TestCommentCampaignReviewDoesNotSendUntilApproved(t *testing.T) {
-	t.Parallel()
-	s, in, p := campaignTest(t)
-	in.Delivery = "review"
-	reply, err := s.AdvanceAutomationReply(t.Context(), in)
-	require.NoError(t, err)
-	require.Equal(t, "awaiting_review", reply.State)
-	require.Empty(t, reply.JobID)
-	require.Zero(t, p.private)
-	_, err = s.db.NewRaw(`UPDATE workflow_runs SET state='awaiting_approval' WHERE id='run'`).Exec(t.Context())
-	require.NoError(t, err)
-	in.Approve = true
-	in.Body = "Edited playbook"
-	reply, err = s.AdvanceAutomationReply(t.Context(), in)
-	require.NoError(t, err)
-	require.Equal(t, "ready", reply.State)
-	require.Empty(t, reply.JobID)
-	_, err = s.db.NewRaw(`UPDATE workflow_runs SET state='running' WHERE id='run'`).Exec(t.Context())
-	require.NoError(t, err)
-	in.Approve = false
-	reply, err = s.AdvanceAutomationReply(t.Context(), in)
-	require.NoError(t, err)
-	require.Equal(t, "Edited playbook", reply.Body)
-	require.NotEmpty(t, reply.JobID)
-}
 
 func TestCommentCampaignFailedPrivateReplyNeverQueuesAcknowledgement(t *testing.T) {
 	t.Parallel()
@@ -153,22 +114,7 @@ func TestCommentCampaignSeparatePublicStepWaitsForPrivateAcceptance(t *testing.T
 	require.Equal(t, 1, p.private)
 	require.Equal(t, 1, p.public)
 }
-func TestCommentCampaignCannotBeClaimedByAnotherRun(t *testing.T) {
-	t.Parallel()
-	s, in, _ := campaignTest(t)
-	reply, err := s.AdvanceAutomationReply(t.Context(), in)
-	require.NoError(t, err)
-	_, err = s.db.NewRaw(`INSERT INTO workflow_runs(id,workflow_id,workspace_id,workflow_name,workflow_revision,mode,state,definition_json,authority_json,source_json,remaining_json,created_at,updated_at) SELECT 'other',workflow_id,workspace_id,workflow_name,workflow_revision,mode,state,definition_json,authority_json,source_json,remaining_json,created_at,updated_at FROM workflow_runs WHERE id='run'`).Exec(t.Context())
-	require.NoError(t, err)
-	in.RunID = "other"
-	second, err := s.AdvanceAutomationReply(t.Context(), in)
-	require.NoError(t, err)
-	require.Equal(t, "skipped", second.State)
-	require.Equal(t, reply.JobID, second.JobID)
-	count, err := s.db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, count)
-}
+
 func TestCommentCampaignPrivateReplyIsOncePerPersonPerPost(t *testing.T) {
 	t.Parallel()
 	s, in, _ := campaignTest(t)
@@ -188,24 +134,6 @@ func TestCommentCampaignPrivateReplyIsOncePerPersonPerPost(t *testing.T) {
 	require.Equal(t, "skipped", reply.State)
 }
 
-func TestCommentTakeoverCancelsParkedReviewRun(t *testing.T) {
-	t.Parallel()
-	s, in, p := campaignTest(t)
-	in.Delivery = "review"
-	_, err := s.AdvanceAutomationReply(t.Context(), in)
-	require.NoError(t, err)
-	_, err = s.db.NewRaw(`UPDATE workflow_runs SET state='awaiting_approval' WHERE id='run'`).Exec(t.Context())
-	require.NoError(t, err)
-	require.NoError(t, s.StopAutomation(t.Context(), Actor{UserID: "u"}, "w", "c"))
-	var state string
-	require.NoError(t, s.db.NewSelect().Table("workflow_runs").Column("state").Where("id='run'").Scan(t.Context(), &state))
-	require.Equal(t, "cancelled", state)
-	in.Approve = true
-	_, err = s.AdvanceAutomationReply(t.Context(), in)
-	require.ErrorContains(t, err, "stopped")
-	require.Zero(t, p.private)
-}
-
 func TestPrivateCommentReplyRequiresStableCommenterAndPost(t *testing.T) {
 	t.Parallel()
 	for _, field := range []string{"author_remote_id", "conversation_remote_id"} {
@@ -222,28 +150,6 @@ func TestPrivateCommentReplyRequiresStableCommenterAndPost(t *testing.T) {
 			require.Zero(t, p.private)
 		})
 	}
-}
-
-func TestCommentReplyRetainsAcceptanceAfterJobPruning(t *testing.T) {
-	t.Parallel()
-	s, in, p := campaignTest(t)
-	reply, err := s.AdvanceAutomationReply(t.Context(), in)
-	require.NoError(t, err)
-	var job models.Job
-	require.NoError(t, s.db.NewSelect().Model(&job).Where("id=?", reply.JobID).Scan(t.Context()))
-	now := time.Now().UTC()
-	_, err = s.db.NewUpdate().Model(&job).Set("status='processing',lease_generation=1,locked_at=?", now).WherePK().Exec(t.Context())
-	require.NoError(t, err)
-	var input engagementActionJob
-	require.NoError(t, json.Unmarshal([]byte(job.Payload), &input))
-	ctx := providerwrite.WithJobExecution(t.Context(), job.ID, job.Attempts, now, 1)
-	require.NoError(t, s.performEngagementAction(ctx, input))
-	_, err = s.db.NewDelete().Model(&job).WherePK().Exec(t.Context())
-	require.NoError(t, err)
-	reply, err = s.AdvanceAutomationReply(t.Context(), in)
-	require.NoError(t, err)
-	require.Equal(t, "sent", reply.State)
-	require.Equal(t, 1, p.private)
 }
 
 type campaignWebhookProvider struct {

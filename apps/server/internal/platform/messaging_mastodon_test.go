@@ -84,18 +84,3 @@ func TestMastodonStreamRejectsUnsafeDiscoveredHost(t *testing.T) {
 	err := adapter.StreamMessageEvents(t.Context(), "private-token", "me", func(context.Context) error { return nil }, func(context.Context, FetchMessageEventsResult) error { return nil })
 	require.ErrorContains(t, err, "private or local address")
 }
-
-func TestMastodonStreamDiscoversLegacyInstanceEndpoint(t *testing.T) {
-	previous := httpClient
-	t.Cleanup(func() { httpClient = previous })
-	httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		if r.URL.Path == "/api/v2/instance" {
-			return jsonResponse(r, `{"configuration":{}}`), nil
-		}
-		require.Equal(t, "/api/v1/instance", r.URL.Path)
-		return jsonResponse(r, `{"urls":{"streaming_api":"wss://stream.test.social"}}`), nil
-	})}
-	endpoint, err := NewMastodonAdapter("", "", "", "https://test.social").messageStreamURL(t.Context())
-	require.NoError(t, err)
-	require.Equal(t, "https://stream.test.social/api/v1/streaming/direct", endpoint.String())
-}

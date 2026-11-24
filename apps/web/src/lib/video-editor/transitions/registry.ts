@@ -107,13 +107,6 @@ export class TransitionRegistry {
 	}
 
 	/**
-	 * Get all registered IDs.
-	 */
-	getIds(): string[] {
-		return Array.from(this.entries.keys());
-	}
-
-	/**
 	 * Get count of registered transitions.
 	 */
 	get size(): number {

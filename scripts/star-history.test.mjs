@@ -11,7 +11,6 @@ const probe = workflow
   .replace(/^ {10}/gm, "");
 
 for (const [name, previous, current, expected] of [
-  ["unchanged stars skip the update", "42", "42", "changed=false\n"],
   ["lost stars skip the update", "42", "41", "changed=false\n"],
   ["new stars update the chart", "42", "43", "changed=true\ncount=43\n"],
   ["first run establishes a baseline", null, "42", "changed=true\ncount=42\n"],

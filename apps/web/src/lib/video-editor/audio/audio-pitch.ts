@@ -40,22 +40,6 @@ export function getAudioPitchShiftSemitones(source?: AudioPitchFieldSource | nul
 	);
 }
 
-export function resolvePreviewAudioPitchShiftSemitones(params: {
-	base?: AudioPitchFieldSource | null;
-	preview?: AudioPitchFieldSource | null;
-	additionalSemitones?: number;
-}): number {
-	const { base, preview, additionalSemitones } = params;
-	const resolvedLocalSemitones = hasAudioPitchOverride(preview)
-		? getAudioPitchShiftSemitones({
-				audioPitchSemitones: preview?.audioPitchSemitones ?? base?.audioPitchSemitones,
-				audioPitchCents: preview?.audioPitchCents ?? base?.audioPitchCents
-			})
-		: getAudioPitchShiftSemitones(base);
-
-	return normalizeAdditionalPitchShiftSemitones(additionalSemitones) + resolvedLocalSemitones;
-}
-
 export function isAudioPitchShiftActive(semitones: number | undefined): boolean {
 	return Math.abs(semitones ?? 0) > AUDIO_PITCH_ACTIVE_EPSILON;
 }

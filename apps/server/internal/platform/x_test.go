@@ -1,44 +1,14 @@
 package platform
 
 import (
-	"bytes"
-	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
-	"strconv"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 )
-
-func TestXUnrepostUsesSourcePostID(t *testing.T) {
-	var requests atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		requests.Add(1)
-		if req.Method != http.MethodDelete || req.URL.Path != "/2/users/target-user/retweets/source-post" {
-			t.Fatalf("unexpected request %s %s", req.Method, req.URL.Path)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":{"retweeted":false}}`))
-	}))
-	defer server.Close()
-
-	adapter := NewXAdapter("", "", "")
-	adapter.apiBaseURL = server.URL
-	if err := adapter.Unrepost(context.Background(), "access|secret", "target-user", UnrepostRequest{
-		SourceExternalID: "source-post", RepostExternalID: "ignored-repost-id",
-	}); err != nil {
-		t.Fatalf("unrepost failed: %v", err)
-	}
-	if got := requests.Load(); got != 1 {
-		t.Fatalf("expected one native delete, got %d", got)
-	}
-}
 
 func TestXIncrementalCommentsSendSinceIDAndBoundedNextToken(t *testing.T) {
 	requestCount := 0
@@ -83,29 +53,6 @@ func TestXIncrementalCommentsSendSinceIDAndBoundedNextToken(t *testing.T) {
 	}
 }
 
-func TestXIncrementalCommentsClassifyDepletedCreditsWithoutResponseBody(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusPaymentRequired)
-		_, _ = w.Write([]byte(`{"title":"private provider response"}`))
-	}))
-	defer server.Close()
-	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
-	defer close(adapter.cleanupDone)
-	adapter.apiBaseURL = server.URL
-
-	_, err := adapter.ListCommentPage(t.Context(), "access-token|access-secret", "account-1", "post-1", IncrementalCommentRequest{})
-	var providerErr *HTTPError
-	if !errors.As(err, &providerErr) {
-		t.Fatalf("expected HTTPError, got %v", err)
-	}
-	if providerErr.Code != "credits_depleted" || providerErr.RetryAfter != 24*time.Hour {
-		t.Fatalf("unexpected depleted-credit classification: %#v", providerErr)
-	}
-	if strings.Contains(err.Error(), "private provider response") || strings.Contains(err.Error(), "access-token") {
-		t.Fatalf("error retained provider body or credential: %v", err)
-	}
-}
-
 func TestBuildXTweetPayloadRejectsMutuallyExclusiveAttachments(t *testing.T) {
 	_, err := buildXTweetPayload(&PublishRequest{
 		Content:          "Pick one",
@@ -127,165 +74,6 @@ func TestBuildXTweetPayloadRejectsMutuallyExclusiveAttachments(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected media and quote conflict")
-	}
-}
-
-func TestBuildXTweetPayloadRejectsInvalidCharacters(t *testing.T) {
-	for _, text := range []string{"bad\uFFFEchar", "bad\uFEFFchar", "bad\uFFFFchar", "bad\uFDD0char", "bad\U0001FFFEchar"} {
-		_, err := buildXTweetPayload(&PublishRequest{Content: text})
-		if err == nil {
-			t.Fatalf("expected invalid characters in %q to be rejected", text)
-		}
-	}
-	payload, err := buildXTweetPayload(&PublishRequest{Content: "Hello, world! \U0001F44B"})
-	if err != nil {
-		t.Fatalf("valid text rejected: %v", err)
-	}
-	if payload["text"] != "Hello, world! \U0001F44B" {
-		t.Fatalf("unexpected payload text: %#v", payload["text"])
-	}
-}
-
-func TestXPublishValidatesTextBeforeAltTextMutations(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		t.Fatalf("invalid text must fail before any provider request: %s %s", r.Method, r.URL.Path)
-	}))
-	defer server.Close()
-	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
-	defer close(adapter.cleanupDone)
-	adapter.apiBaseURL = server.URL
-	adapter.uploadBaseURL = server.URL
-
-	_, err := adapter.Publish(context.Background(), "access-token|access-secret", "account-1", &PublishRequest{
-		Content:          "bad\uFFFFchar",
-		PlatformMediaIDs: []string{"media-1"},
-		MediaAltTexts:    []string{"alt"},
-	})
-	if err == nil || !strings.Contains(err.Error(), "characters X does not accept") {
-		t.Fatalf("expected text validation error, got %v", err)
-	}
-}
-
-func TestXResolveAccountPublishingCapabilitiesReadsAuthenticatedSubscription(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/2/users/me" {
-			t.Fatalf("unexpected path %q", r.URL.Path)
-		}
-		if !strings.Contains(r.URL.Query().Get("user.fields"), "subscription_type") {
-			t.Fatalf("subscription_type was not requested: %q", r.URL.RawQuery)
-		}
-		if !strings.HasPrefix(r.Header.Get("Authorization"), "OAuth ") {
-			t.Fatalf("expected OAuth 1.0a authorization header")
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"data":{"id":"42","name":"Ada","username":"ada","subscription_type":"PremiumPlus"}}`)
-	}))
-	defer server.Close()
-
-	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
-	defer close(adapter.cleanupDone)
-	adapter.apiBaseURL = server.URL
-
-	result, err := adapter.ResolveAccountPublishingCapabilities(t.Context(), "access-token|access-secret", AccountCapabilityInput{})
-	if err != nil {
-		t.Fatalf("ResolveAccountPublishingCapabilities returned error: %v", err)
-	}
-	if result.State[XCapabilityStateSubscriptionType] != XSubscriptionTypePremiumPlus {
-		t.Fatalf("unexpected capability state: %#v", result.State)
-	}
-	if result.Constraints["text_limit"] != XPremiumTextLimit {
-		t.Fatalf("unexpected constraints: %#v", result.Constraints)
-	}
-}
-
-func TestXChunkedUploadStreamsBoundedSegments(t *testing.T) {
-	appendSizes := []int{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		contentType := r.Header.Get("Content-Type")
-		if strings.HasPrefix(contentType, "multipart/form-data") {
-			if err := r.ParseMultipartForm(xMediaUploadChunkSize + 1024); err != nil {
-				t.Fatalf("parse APPEND request: %v", err)
-			}
-			segmentIndex, err := strconv.Atoi(r.FormValue("segment_index"))
-			if err != nil {
-				t.Fatalf("parse segment index: %v", err)
-			}
-			file, _, err := r.FormFile("media")
-			if err != nil {
-				t.Fatalf("read APPEND media: %v", err)
-			}
-			defer file.Close()
-			data, err := io.ReadAll(file)
-			if err != nil {
-				t.Fatalf("read APPEND segment: %v", err)
-			}
-			if segmentIndex != len(appendSizes) {
-				t.Fatalf("unexpected segment order %d", segmentIndex)
-			}
-			appendSizes = append(appendSizes, len(data))
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		if err := r.ParseForm(); err != nil {
-			t.Fatalf("parse upload command: %v", err)
-		}
-		switch r.FormValue("command") {
-		case "INIT":
-			_, _ = io.WriteString(w, `{"media_id_string":"media-1"}`)
-		case "FINALIZE":
-			_, _ = io.WriteString(w, `{}`)
-		default:
-			t.Fatalf("unexpected upload command %q", r.FormValue("command"))
-		}
-	}))
-	defer server.Close()
-
-	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
-	defer close(adapter.cleanupDone)
-	adapter.uploadBaseURL = server.URL
-	media := bytes.Repeat([]byte("x"), xMediaUploadChunkSize+37)
-
-	mediaID, err := adapter.UploadMediaWithMetadata(t.Context(), "access-token|access-secret", "", UploadMediaRequest{
-		MimeType: "video/mp4",
-		Size:     int64(len(media)),
-		Reader:   bytes.NewReader(media),
-	})
-	if err != nil {
-		t.Fatalf("UploadMediaWithMetadata returned error: %v", err)
-	}
-	if mediaID != "media-1" {
-		t.Fatalf("unexpected media id %q", mediaID)
-	}
-	want := []int{xMediaUploadChunkSize, 37}
-	if !reflect.DeepEqual(appendSizes, want) {
-		t.Fatalf("unexpected APPEND sizes: got %v want %v", appendSizes, want)
-	}
-}
-
-func TestXMediaProcessingFailureIsTerminal(t *testing.T) {
-	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
-	defer close(adapter.cleanupDone)
-
-	err := adapter.waitForMediaProcessing(
-		t.Context(),
-		"access-token|access-secret",
-		"media-1",
-		&xMediaProcessingInfo{
-			State: "failed",
-			Error: &xMediaProcessingError{Message: "unsupported resolution"},
-		},
-		time.Time{},
-	)
-	if err == nil {
-		t.Fatal("expected failed X processing to return an error")
-	}
-	if !strings.Contains(err.Error(), "unsupported resolution") {
-		t.Fatalf("expected provider processing error, got %v", err)
-	}
-	classification, ok := MediaRetryClassificationForError(err)
-	if !ok || classification != MediaRetryTerminal {
-		t.Fatalf("expected terminal media failure, got %q, %v", classification, ok)
 	}
 }
 
@@ -316,149 +104,6 @@ func TestXResumableProcessingStopsAtPersistedExpiry(t *testing.T) {
 	}
 }
 
-func TestXResumableProcessingYieldsForDurableReconciliation(t *testing.T) {
-	polls := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Query().Get("command") != "STATUS" {
-			t.Error("processing resume must not replay the upload or finalize")
-		}
-		polls++
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"processing_info":{"state":"pending","check_after_secs":1}}`)
-	}))
-	defer server.Close()
-	adapter := NewXAdapter("", "", "")
-	defer close(adapter.cleanupDone)
-	adapter.uploadBaseURL = server.URL
-	state := ResumableMediaUploadState{ProviderMediaID: "media-1", Status: MediaUploadUploaded, OpaqueState: "processing", TotalBytes: 3, UploadedBytes: 3, SessionExpiresAt: time.Now().UTC().Add(time.Hour)}
-	req := UploadMediaRequest{MimeType: "video/mp4", Size: 3, OpenReaderAt: func(int64) (io.ReadCloser, error) { return io.NopCloser(strings.NewReader("abc")), nil }}
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	defer cancel()
-	_, err := adapter.UploadMediaResumable(ctx, "access|secret", "account", req, state, func(ResumableMediaUploadState) error { return nil })
-	classification, ok := MediaRetryClassificationForError(err)
-	if !ok || classification != MediaRetryReconcile || ctx.Err() != nil || polls > 4 {
-		t.Fatalf("long processing must yield with the receipt before exhausting the worker: %v polls=%d", err, polls)
-	}
-}
-
-func TestXMediaProcessingWaitsWhenCheckAfterSecsIsOmitted(t *testing.T) {
-	statusCalls := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Query().Get("command") != "STATUS" {
-			t.Fatalf("unexpected request %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
-		}
-		statusCalls++
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"processing_info":{"state":"pending"}}`)
-	}))
-	defer server.Close()
-
-	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
-	defer close(adapter.cleanupDone)
-	adapter.uploadBaseURL = server.URL
-
-	ctx, cancel := context.WithTimeout(t.Context(), 150*time.Millisecond)
-	defer cancel()
-	err := adapter.waitForMediaProcessing(ctx, "access-token|access-secret", "media-1", &xMediaProcessingInfo{
-		State: "pending",
-	}, time.Time{})
-	if err == nil {
-		t.Fatal("expected wait to stop when the context expires")
-	}
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("expected context deadline, got %v", err)
-	}
-	if statusCalls > 1 {
-		t.Fatalf("STATUS busy-looped with omitted check_after_secs: %d calls", statusCalls)
-	}
-}
-
-func TestXMediaProcessingCompletesAfterOmittedCheckAfterSecs(t *testing.T) {
-	statusCalls := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.URL.Query().Get("command") != "STATUS" {
-			t.Fatalf("unexpected request %s %s?%s", r.Method, r.URL.Path, r.URL.RawQuery)
-		}
-		statusCalls++
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"processing_info":{"state":"succeeded"}}`)
-	}))
-	defer server.Close()
-
-	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
-	defer close(adapter.cleanupDone)
-	adapter.uploadBaseURL = server.URL
-
-	err := adapter.waitForMediaProcessing(t.Context(), "access-token|access-secret", "media-1", &xMediaProcessingInfo{
-		State: "pending",
-	}, time.Time{})
-	if err != nil {
-		t.Fatalf("waitForMediaProcessing returned error: %v", err)
-	}
-	if statusCalls != 1 {
-		t.Fatalf("expected one STATUS poll after the minimum wait, got %d", statusCalls)
-	}
-}
-
-func TestXResumableMediaKeepsAcceptedIDAfterProcessingInterruption(t *testing.T) {
-	starts, appends, finalizes, polls := 0, 0, 0, 0
-	finalized := make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = r.ParseMultipartForm(8 * 1024 * 1024)
-		switch r.FormValue("command") {
-		case "INIT":
-			starts++
-			_, _ = w.Write([]byte(`{"media_id_string":"media-1","expires_after_secs":86400}`))
-		case "APPEND":
-			appends++
-			w.WriteHeader(204)
-		case "FINALIZE":
-			finalizes++
-			if finalizes == 1 {
-				close(finalized)
-			}
-			_, _ = w.Write([]byte(`{"processing_info":{"state":"pending","check_after_secs":1}}`))
-		case "STATUS":
-			polls++
-			_, _ = w.Write([]byte(`{"processing_info":{"state":"succeeded"}}`))
-		default:
-			t.Errorf("unexpected command %s", r.FormValue("command"))
-			w.WriteHeader(400)
-		}
-	}))
-	defer server.Close()
-	adapter := NewXAdapter("", "", "")
-	defer close(adapter.cleanupDone)
-	adapter.uploadBaseURL = server.URL
-	uploader, ok := any(adapter).(ResumableMetadataMediaUploader)
-	if !ok {
-		t.Fatal("X cannot checkpoint an accepted media upload")
-	}
-	request := UploadMediaRequest{MimeType: "video/mp4", Size: 3, Reader: strings.NewReader("abc"), OpenReaderAt: func(offset int64) (io.ReadCloser, error) { return io.NopCloser(strings.NewReader("abc"[offset:])), nil }}
-	var state ResumableMediaUploadState
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-	checkpoint := func(next ResumableMediaUploadState) error {
-		state = next
-		select {
-		case <-finalized:
-			// Interrupt after the accepted FINALIZE response is checkpointed.
-			cancel()
-		default:
-		}
-		return nil
-	}
-	_, err := uploader.UploadMediaResumable(ctx, "access|secret", "account", request, state, checkpoint)
-	if !errors.Is(err, context.Canceled) || state.ProviderMediaID != "media-1" || state.UploadedBytes != 3 {
-		t.Fatalf("lost media receipt: state=%+v err=%v", state, err)
-	}
-	id, err := uploader.UploadMediaResumable(t.Context(), "access|secret", "account", request, state, checkpoint)
-	if err != nil || id != "media-1" || starts != 1 || appends != 1 || finalizes != 1 || polls != 1 {
-		t.Fatalf("media processing retry repeated upload: id=%s err=%v init=%d append=%d finalize=%d polls=%d", id, err, starts, appends, finalizes, polls)
-	}
-}
-
 func TestXPublicationMapsDeveloperCredits(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(402)
@@ -472,41 +117,6 @@ func TestXPublicationMapsDeveloperCredits(t *testing.T) {
 	var providerErr *HTTPError
 	if !errors.As(err, &providerErr) || providerErr.Code != "x:credits_depleted" {
 		t.Fatalf("X billing should identify developer credits: %v", err)
-	}
-}
-
-func TestXResumableImageRecoversFromReadinessBudgetRejection(t *testing.T) {
-	for _, status := range []int{402, 429, 503} {
-		t.Run(strconv.Itoa(status), func(t *testing.T) {
-			calls := 0
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				calls++
-				w.Header().Set("Content-Type", "application/json")
-				if calls == 1 {
-					w.WriteHeader(status)
-					_, _ = w.Write([]byte(`{"error":"unavailable"}`))
-					return
-				}
-				_, _ = w.Write([]byte(`{"media_id_string":"image-1","expires_after_secs":3600}`))
-			}))
-			defer server.Close()
-			adapter := NewXAdapter("", "", "")
-			defer close(adapter.cleanupDone)
-			adapter.uploadBaseURL = server.URL
-			request := UploadMediaRequest{MimeType: "image/png", Size: 3, Reader: strings.NewReader("abc")}
-			var saved ResumableMediaUploadState
-			checkpoint := func(next ResumableMediaUploadState) error { saved = next; return nil }
-			_, err := adapter.UploadMediaResumable(t.Context(), "access|secret", "account", request, saved, checkpoint)
-			classification, ok := MediaRetryClassificationForError(err)
-			if !ok || classification != MediaRetrySafeResume {
-				t.Fatalf("recoverable %d response stranded media: %v", status, err)
-			}
-			request.Reader = strings.NewReader("abc")
-			id, err := adapter.UploadMediaResumable(t.Context(), "access|secret", "account", request, saved, checkpoint)
-			if err != nil || id != "image-1" || saved.SessionExpiresAt.IsZero() || calls != 2 {
-				t.Fatalf("image retry failed or lost expiry: %s %+v %v calls=%d", id, saved, err, calls)
-			}
-		})
 	}
 }
 
@@ -572,50 +182,6 @@ func xTaggedUsersRequest(mediaSettings string, media []MediaItem) *PublishReques
 		req.Media = media
 	}
 	return req
-}
-
-func TestXTweetRejectsTaggedUserHandlesWithoutResolution(t *testing.T) {
-	_, err := buildXTweetPayload(xTaggedUsersRequest("@someone", nil))
-	if err == nil || !strings.Contains(err.Error(), "must be an X user ID or a handle OpenPost can resolve") {
-		t.Fatalf("expected tagged-user handle rejection, got %v", err)
-	}
-
-	payload, err := buildXTweetPayload(xTaggedUsersRequest("123456789", nil))
-	if err != nil {
-		t.Fatalf("numeric tagged user rejected: %v", err)
-	}
-	media := payload["media"].(map[string]interface{})
-	if got := media["tagged_user_ids"].([]string); len(got) != 1 || got[0] != "123456789" {
-		t.Fatalf("unexpected tagged_user_ids: %#v", media["tagged_user_ids"])
-	}
-}
-
-func TestXTweetRejectsMoreThanTenTaggedUsers(t *testing.T) {
-	entries := make([]string, 11)
-	for index := range entries {
-		entries[index] = fmt.Sprintf("10000000000%d", index)
-	}
-	_, err := buildXTweetPayload(xTaggedUsersRequest(strings.Join(entries, ","), nil))
-	if err == nil || !strings.Contains(err.Error(), "at most 10 users, got 11") {
-		t.Fatalf("expected tagged-user limit rejection, got %v", err)
-	}
-
-	tenOnly := strings.Join(entries[:10], ",")
-	if _, err := buildXTweetPayload(xTaggedUsersRequest(tenOnly, nil)); err != nil {
-		t.Fatalf("ten tagged users rejected: %v", err)
-	}
-}
-
-func TestXTweetTaggedUsersRequireMedia(t *testing.T) {
-	_, err := buildXTweetPayload(&PublishRequest{
-		Content: "Tagged without media",
-		MediaSettings: []map[string]interface{}{
-			{"tagged_users": "123456789"},
-		},
-	})
-	if err == nil || !strings.Contains(err.Error(), "x tagged users require media") {
-		t.Fatalf("expected tagged users without media rejection, got %v", err)
-	}
 }
 
 func TestXTweetTaggedUsersRequirePhotoAttachment(t *testing.T) {

@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 // synchronizeRecoveryCodeReadsHook holds each successful reader of the
@@ -133,7 +133,7 @@ func TestConcurrentConsumeAllowsExactlyOneAttempt(t *testing.T) {
 
 func newRecoveryTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	return newRecoveryTestDBAt(t, fmt.Sprintf("file:%s?mode=memory&cache=shared&_foreign_keys=1", t.Name()))
+	return newRecoveryTestDBAt(t, fmt.Sprintf("file:%s?mode=memory&cache=shared&_pragma=foreign_keys(1)", t.Name()))
 }
 
 // newConcurrentRecoveryTestDB keeps the concurrent harness on its own
@@ -142,13 +142,13 @@ func newRecoveryTestDB(t *testing.T) *bun.DB {
 // nothing about the production PRAGMA set.
 func newConcurrentRecoveryTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	dsn := "file:" + filepath.Join(t.TempDir(), "mfa-recovery.db") + "?_busy_timeout=10000&_journal_mode=WAL&_foreign_keys=1"
+	dsn := "file:" + filepath.Join(t.TempDir(), "mfa-recovery.db") + "?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)"
 	return newRecoveryTestDBAt(t, dsn)
 }
 
 func newRecoveryTestDBAt(t *testing.T, dsn string) *bun.DB {
 	t.Helper()
-	sqldb, err := sql.Open("sqlite3", dsn)
+	sqldb, err := sql.Open(sqliteshim.ShimName, dsn)
 	require.NoError(t, err)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 	t.Cleanup(func() { require.NoError(t, db.Close()) })

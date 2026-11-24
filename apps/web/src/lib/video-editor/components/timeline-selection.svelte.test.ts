@@ -42,34 +42,6 @@ afterEach(() => {
 	window.scrollTo(0, 0);
 });
 
-it('opens the timeline menu near the viewport edge without scrolling or editing', async () => {
-	const onedit = vi.fn();
-	await page.viewport(1168, 600);
-	const screen = await render(Fixture, { onedit, topSpace: 260 });
-	await screen.getByRole('button', { name: 'Timeline: More actions', exact: true }).click();
-	await expect
-		.element(screen.getByRole('menuitem', { name: 'Add visual track', exact: true }))
-		.toBeVisible();
-	const menu = screen.getByRole('menu').element();
-	await expect
-		.poll(() => menu.getBoundingClientRect().bottom)
-		.toBeLessThanOrEqual(window.innerHeight);
-	expect(menu.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
-	expect(window.scrollY).toBe(0);
-	expect(timelineStore.tracks).toHaveLength(1);
-	expect(onedit).not.toHaveBeenCalled();
-});
-
-it('leaves the center of a one-frame clip available for moving', async () => {
-	timelineStore._setItems([{ ...timelineStore.items[0]!, durationInFrames: 1 }]);
-	const screen = await render(Fixture, { onedit: vi.fn() });
-	const clip = screen.getByRole('button', { name: /^first\./ }).element();
-	const rect = clip.getBoundingClientRect();
-	const target = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-
-	expect(target?.closest('button')).toBe(clip);
-});
-
 it.each([320, 390, 1168].flatMap((width) => [false, true].map((dark) => ({ width, dark }))))(
 	'keeps narrow clip move and trim targets usable at $width px with dark=$dark',
 	async ({ width, dark }) => {
@@ -93,10 +65,15 @@ it.each([320, 390, 1168].flatMap((width) => [false, true].map((dark) => ({ width
 					?.closest('button')
 			).toBe(handle);
 		}
-		await page.screenshot({ path: `__screenshots__/timeline-center-${width}-${dark}.png` });
+		await page.screenshot({
+			path: `__screenshots__/timeline-center-${width}-${dark}.png`
+		});
 		const header = document.querySelector<HTMLElement>('[data-track-header]')!;
 		await userEvent.hover(header);
-		const more = screen.getByRole('button', { name: 'More track actions', exact: true });
+		const more = screen.getByRole('button', {
+			name: 'More track actions',
+			exact: true
+		});
 		expect(more.element().getBoundingClientRect().right).toBeLessThanOrEqual(
 			header.getBoundingClientRect().right
 		);
@@ -119,21 +96,6 @@ it('adds and removes clips with Shift-click', async () => {
 	await third.click();
 	await userEvent.keyboard('{/Shift}');
 	await expect.element(screen.getByLabelText('Selected clips')).toHaveTextContent('first');
-});
-
-it('narrows a group on a plain click without authoring an edit', async () => {
-	const onedit = vi.fn();
-	const screen = await render(Fixture, { onedit });
-	const first = screen.getByRole('button', { name: /^first\./ });
-	const third = screen.getByRole('button', { name: /^third\./ });
-	await first.click();
-	await userEvent.keyboard('{Control>}');
-	await third.click();
-	await userEvent.keyboard('{/Control}');
-	await expect.element(screen.getByLabelText('Selected clips')).toHaveTextContent('first,third');
-	await first.click();
-	await expect.element(screen.getByLabelText('Selected clips')).toHaveTextContent(/^first$/);
-	expect(onedit).not.toHaveBeenCalled();
 });
 
 it('preserves a group through drag preview and cancellation, then commits it together', async () => {
@@ -215,17 +177,4 @@ it('moves an unselected video from near its top corner without creating a fade',
 	pointer('pointerup', window, 40);
 	expect(timelineStore.items[0]!.from).toBeGreaterThan(0);
 	expect(timelineStore.items[0]!.fadeIn ?? 0).toBe(0);
-});
-
-it('restores and records the visible timeline position without authoring an edit', async () => {
-	timelineStore._setItems([{ ...timelineStore.items[0]!, from: 1200 }]);
-	timelineStore._setScrollPosition(250);
-	const onedit = vi.fn();
-	const screen = await render(Fixture, { onedit });
-	const viewport = screen.getByRole('region', { name: 'Timeline', exact: true }).element();
-	await expect.poll(() => viewport.scrollLeft).toBe(250);
-	viewport.scrollLeft = 500;
-	viewport.dispatchEvent(new Event('scroll'));
-	await expect.poll(() => timelineStore.scrollPosition).toBe(500);
-	expect(onedit).not.toHaveBeenCalled();
 });

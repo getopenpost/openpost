@@ -389,11 +389,11 @@ export function resolveWeekCalendarTarget(
 	};
 }
 
-export function calendarDragRotation(velocityX: number): number {
+function calendarDragRotation(velocityX: number): number {
 	return clamp(velocityX * 0.007, -CALENDAR_DRAG_MAX_ROTATION, CALENDAR_DRAG_MAX_ROTATION);
 }
 
-export function calendarDragVisualPosition(
+function calendarDragVisualPosition(
 	pointer: CalendarPoint,
 	grabOffset: CalendarPoint,
 	velocity: CalendarPoint
@@ -405,7 +405,7 @@ export function calendarDragVisualPosition(
 	};
 }
 
-export function calendarEdgeScrollVelocity(
+function calendarEdgeScrollVelocity(
 	pointerY: number,
 	scrollBounds: { top: number; bottom: number }
 ): number {

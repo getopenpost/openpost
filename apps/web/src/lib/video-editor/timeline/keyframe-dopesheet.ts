@@ -204,7 +204,7 @@ export type DopesheetPropertyGroup =
 	| 'audio'
 	| 'other';
 
-export const DOPESHEET_GROUP_ORDER: readonly DopesheetPropertyGroup[] = [
+const DOPESHEET_GROUP_ORDER: readonly DopesheetPropertyGroup[] = [
 	'transform',
 	'crop',
 	'typography',
@@ -241,7 +241,7 @@ const TRANSFORM_PROPERTIES: ReadonlySet<string> = new Set([
 ]);
 
 /** Group a keyframe property the same way the dope-sheet headers do. */
-export function dopesheetPropertyGroup(property: KeyframeProperty): DopesheetPropertyGroup {
+function dopesheetPropertyGroup(property: KeyframeProperty): DopesheetPropertyGroup {
 	if (property.startsWith('pathVertex:')) return 'path';
 	if (property.startsWith('crop')) return 'crop';
 	if (property === 'volume') return 'audio';

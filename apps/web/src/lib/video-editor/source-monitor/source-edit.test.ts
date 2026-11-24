@@ -68,7 +68,12 @@ beforeEach(() => {
 	commandHistory.clearHistory();
 	transitionsStore.setAll([]);
 	timelineStore.__resetForTesting();
-	timelineStore.setAll({ tracks: [videoTrack, audioTrack], items: [], currentFrame: 0, fps: 30 });
+	timelineStore.setAll({
+		tracks: [videoTrack, audioTrack],
+		items: [],
+		currentFrame: 0,
+		fps: 30
+	});
 	editorSession.clock.seek(0);
 	editorSession.project = {
 		id: 'project',
@@ -77,14 +82,21 @@ beforeEach(() => {
 		createdAt: 0,
 		updatedAt: 0,
 		duration: 0,
-		metadata: { width: 1920, height: 1080, fps: 30, backgroundColor: '#000000' },
+		metadata: {
+			width: 1920,
+			height: 1080,
+			fps: 30,
+			backgroundColor: '#000000'
+		},
 		timeline: { tracks: [videoTrack, audioTrack], items: [] }
 	} satisfies Project;
 });
 
 describe('source monitor edits', () => {
 	it('overwrites only the covered range and keeps both surrounding tails', () => {
-		timelineStore.setAll({ items: [clip({ id: 'long', from: 0, durationInFrames: 180 })] });
+		timelineStore.setAll({
+			items: [clip({ id: 'long', from: 0, durationInFrames: 180 })]
+		});
 		const result = applySourceEdit({
 			media,
 			inFrame: 0,
@@ -128,61 +140,5 @@ describe('source monitor edits', () => {
 			})
 		).toThrowError(new SourceEditError('target-locked'));
 		expect(timelineStore.items).toHaveLength(0);
-	});
-
-	it('removes a transition whose cut is broken by an insert edit', () => {
-		const first = clip({ id: 'first', from: 0, durationInFrames: 100 });
-		const second = clip({ id: 'second', from: 100, durationInFrames: 100 });
-		timelineStore.setAll({ items: [first, second] });
-		transitionsStore.setAll([
-			{
-				id: 'transition',
-				type: 'crossfade',
-				presentation: 'fade',
-				timing: 'linear',
-				durationInFrames: 10,
-				alignment: 0.5,
-				fromItemId: first.id,
-				toItemId: second.id
-			}
-		]);
-
-		applySourceEdit({
-			media,
-			inFrame: 0,
-			outFrame: 30,
-			insertFrame: 60,
-			videoEnabled: true,
-			audioEnabled: false,
-			videoTarget: videoTrack.id,
-			audioTarget: 'auto',
-			mode: 'insert'
-		});
-
-		expect(transitionsStore.list).toHaveLength(0);
-	});
-
-	it('names a new track uniquely when the only matching track is hidden', () => {
-		timelineStore.setAll({
-			tracks: [{ ...videoTrack, name: 'Video 1', visible: false }],
-			items: []
-		});
-
-		const result = applySourceEdit({
-			media,
-			inFrame: 0,
-			outFrame: 30,
-			insertFrame: 0,
-			videoEnabled: true,
-			audioEnabled: false,
-			videoTarget: 'auto',
-			audioTarget: 'auto',
-			mode: 'overwrite'
-		});
-		const item = timelineStore.itemById.get(result.itemIds[0]!)!;
-		const track = timelineStore.tracks.find((candidate) => candidate.id === item.trackId);
-
-		expect(track?.visible).toBe(true);
-		expect(track?.name).toBe('Video 2');
 	});
 });

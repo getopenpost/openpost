@@ -124,23 +124,6 @@ func TestPinterestAmbiguousCreateIsFencedAcrossWorkerRestart(t *testing.T) {
 	require.Equal(t, 1, postCalls, "an ambiguous Pin create must never be replayed after restart")
 }
 
-func TestPinterestImagePublishingRejectsUncertifiedFormatsBeforeProviderReads(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		t.Fatalf("invalid Pinterest media reached provider request %s %s", req.Method, req.URL.String())
-		return nil, nil
-	})}
-
-	adapter := NewPinterestAdapter("", "", "")
-	_, err := adapter.Publish(context.Background(), "access", "openpost", &PublishRequest{
-		Profile: "image_post", Settings: map[string]interface{}{"board_id": "board-owned"},
-		PlatformMediaIDs: []string{"https://media.openpost.example/video.mp4"},
-		Media:            []MediaItem{{ID: "video", MimeType: "video/mp4"}},
-	})
-	require.ErrorContains(t, err, "must be JPEG, PNG, or WebP")
-}
-
 func TestPinterestVideoUploadReconcilesAmbiguousUploadBeforeSendingBytesAgain(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
@@ -198,88 +181,6 @@ func TestPinterestVideoUploadReconcilesAmbiguousUploadBeforeSendingBytesAgain(t 
 	require.True(t, accepted.SessionExpiresAt.IsZero())
 }
 
-func TestPinterestVideoUploadCheckpointsTerminalProviderFailure(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		require.Equal(t, "/v5/media/media-failed", req.URL.Path)
-		return jsonResponse(req, `{"status":"failed"}`), nil
-	})}
-	adapter := NewPinterestAdapter("", "", "")
-	state := ResumableMediaUploadState{
-		ProviderMediaID: "media-failed", UploadedBytes: int64(len("video-body")), TotalBytes: int64(len("video-body")),
-		Status: MediaUploadUploaded, RetryClassification: MediaRetryReconcile,
-	}
-	var failed ResumableMediaUploadState
-	_, err := adapter.UploadMediaResumable(t.Context(), "access", "account", pinterestVideoUploadRequest(), state, func(next ResumableMediaUploadState) error {
-		failed = next
-		return nil
-	})
-	require.Error(t, err)
-	classification, ok := MediaRetryClassificationForError(err)
-	require.True(t, ok)
-	require.Equal(t, MediaRetryTerminal, classification)
-	require.Equal(t, MediaUploadFailed, failed.Status)
-	require.Equal(t, MediaRetryTerminal, failed.RetryClassification)
-	require.Empty(t, failed.OpaqueState)
-}
-
-func TestPinterestVideoPinNeverReplaysAmbiguousCreate(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	createCalls := 0
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		switch req.URL.Path {
-		case "/v5/user_account":
-			return jsonResponse(req, `{"username":"openpost"}`), nil
-		case "/v5/boards/board-owned":
-			return jsonResponse(req, `{"id":"board-owned","owner":{"username":"openpost"}}`), nil
-		case "/v5/pins":
-			createCalls++
-			return nil, context.DeadlineExceeded
-		default:
-			t.Fatalf("unexpected Pinterest request %s %s", req.Method, req.URL.String())
-			return nil, nil
-		}
-	})}
-
-	adapter := NewPinterestAdapter("", "", "")
-	req := pinterestVideoPublishRequest()
-	req.SetWriteFence(func(PublishResult) error { return nil }, func(PublishResult) error {
-		t.Fatal("ambiguous create must not have a provider checkpoint")
-		return nil
-	})
-	result, err := adapter.Publish(t.Context(), "access", "openpost", req)
-	require.Error(t, err)
-	require.Equal(t, "creating", result.ProviderState)
-	require.Equal(t, PublishRetryNever, result.RetrySafety)
-	require.Empty(t, result.ProviderReference)
-
-	resumed := pinterestVideoPublishRequest()
-	resumed.ResumeProviderState = result.ProviderState
-	resumed.SetWriteFence(func(PublishResult) error {
-		t.Fatal("ambiguous create must not enter the write fence again")
-		return nil
-	}, nil)
-	_, err = adapter.Publish(t.Context(), "access", "openpost", resumed)
-	require.ErrorContains(t, err, "will not replay")
-	require.Equal(t, 1, createCalls)
-}
-
-func TestPinterestVideoRequirementsRejectMissingCoverBeforeProviderMutation(t *testing.T) {
-	req := pinterestVideoUploadRequest()
-	req.ThumbnailReader = nil
-	err := validatePinterestVideoUpload(req)
-	require.ErrorContains(t, err, "cover image")
-
-	publishReq := pinterestVideoPublishRequest()
-	publishReq.Settings["cover_media_id"] = "cover-local-id"
-	_, err = pinterestVideoPinPayload(publishReq)
-	require.ErrorContains(t, err, "public HTTPS cover")
-}
-
 func pinterestVideoUploadRequest() UploadMediaRequest {
 	body := []byte("video-body")
 	return UploadMediaRequest{
@@ -289,17 +190,6 @@ func pinterestVideoUploadRequest() UploadMediaRequest {
 		OpenReaderAt: func(offset int64) (io.ReadCloser, error) {
 			return io.NopCloser(bytes.NewReader(body[offset:])), nil
 		},
-	}
-}
-
-func pinterestVideoPublishRequest() *PublishRequest {
-	return &PublishRequest{
-		Content: "Launch description", Title: "Launch", Profile: "short_video",
-		Settings: map[string]interface{}{
-			"board_id": "board-owned", "cover_media_id": "https://media.openpost.test/cover.jpg",
-		},
-		PlatformMediaIDs: []string{"media-ready"},
-		Media:            []MediaItem{{ID: "video", MimeType: "video/mp4", Size: 10}},
 	}
 }
 

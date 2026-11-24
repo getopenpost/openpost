@@ -55,12 +55,6 @@ export interface CanvasStackDiagnostics {
 	webgpuTransitionsReady: boolean;
 }
 
-export interface BackgroundDiagnostics {
-	gpuCalls: number;
-	cpuFallbacks: number;
-	lastKey: string | null;
-}
-
 export interface CanvasStackCompositorOptions {
 	backgroundAdapter?: BackgroundGpuAdapter | null;
 	referenceSize?: { width: number; height: number };
@@ -262,8 +256,6 @@ export class CanvasStackCompositor {
 	private shaderRenderer: ShaderBackgroundRenderer | null = null;
 	private readonly createBackgroundGpuOnDemand: boolean;
 	private lastBackgroundKey: string | null = null;
-	private gpuCallCount = 0;
-	private cpuFallbackCount = 0;
 	private lastBackgroundW = 0;
 	private lastBackgroundH = 0;
 	private transitionLeftCanvas: StackCanvas | null;
@@ -510,15 +502,12 @@ export class CanvasStackCompositor {
 		if (this.backgroundGpu && width * height >= GPU_BACKGROUND_PIXEL_THRESHOLD) {
 			const ok = this.backgroundGpu.render(bg, width, height);
 			if (ok) {
-				this.gpuCallCount++;
 				this.backgroundContext.drawImage(this.backgroundGpu.canvas, 0, 0);
 			} else {
-				this.cpuFallbackCount++;
 				renderBackgroundCpu(this.backgroundContext, bg, width, height);
 				return { source: this.backgroundCanvas, width, height };
 			}
 		} else {
-			this.cpuFallbackCount++;
 			renderBackgroundCpu(this.backgroundContext, bg, width, height);
 		}
 		this.lastBackgroundKey = key;
@@ -838,32 +827,6 @@ export class CanvasStackCompositor {
 			webgl2Ready: this.sharedGpu !== null,
 			webgpuTransitionsReady: this.transitionPipeline !== null
 		};
-	}
-
-	getBackgroundDiagnostics(): BackgroundDiagnostics {
-		return {
-			gpuCalls: this.gpuCallCount,
-			cpuFallbacks: this.cpuFallbackCount,
-			lastKey: this.lastBackgroundKey
-		};
-	}
-
-	setBackgroundAdapter(adapter: BackgroundGpuAdapter | null): void {
-		if (this.backgroundGpu) this.backgroundGpu.dispose();
-		this.backgroundGpu = adapter;
-		this.lastBackgroundKey = null;
-	}
-
-	getBackgroundCanvasForTest(): StackCanvas {
-		return this.backgroundCanvas;
-	}
-
-	getCanvasForTest(): StackCanvas {
-		return this.canvas;
-	}
-
-	getBackgroundAdapterForTest(): BackgroundGpuAdapter | null {
-		return this.backgroundGpu;
 	}
 
 	dispose(): void {

@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/pgdriver"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 func TestConfirmFirstWorkspaceConcurrentKeysPostgres(t *testing.T) {
@@ -47,7 +47,7 @@ func TestConfirmFirstWorkspaceConcurrentKeysPostgres(t *testing.T) {
 }
 
 func TestConfirmFirstWorkspaceConcurrentKeysSQLite(t *testing.T) {
-	sqlDB, err := sql.Open("sqlite3", "file:"+filepath.Join(t.TempDir(), "billing.db")+"?_busy_timeout=10000&_journal_mode=WAL")
+	sqlDB, err := sql.Open(sqliteshim.ShimName, "file:"+filepath.Join(t.TempDir(), "billing.db")+"?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)")
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(24)
 	db := bun.NewDB(sqlDB, sqlitedialect.New())

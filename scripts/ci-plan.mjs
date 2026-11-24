@@ -109,11 +109,14 @@ function planFiltered(files, manifest, { full = false, repositoryRoot = root } =
   const touched = new Set(files.flatMap((file) => classifyReleasePath(file, manifest).surfaces));
   // A changelog entry is required on every PR. It must not force the complete
   // test matrix; the policy job still validates the entry on every PR.
+  // Repository script tests run in the unconditional repository test job;
+  // packages that run their own script tests list them explicitly below.
   const delivery = full
     ? true
     : files.some(
         (file) =>
           !file.startsWith("changes/") &&
+          !/^scripts\/.+\.test\.(?:mjs|ts)$/u.test(file) &&
           classifyReleasePath(file, manifest).surfaces.includes("delivery"),
       );
   const sharedAssets = manifest.surfaces["shared-assets"].prefixes;

@@ -10,7 +10,7 @@ import { UPSCALE_FACTOR } from './upscale-variant';
  * 4096 is the per-dimension ceiling most hardware encoders share; the pixel budget separately keeps
  * an extreme aspect ratio (a 7000x400 banner, say) from sliding under it.
  */
-export const UPSCALE_MAX_OUTPUT_DIMENSION = 4096;
+const UPSCALE_MAX_OUTPUT_DIMENSION = 4096;
 export const UPSCALE_MAX_OUTPUT_PIXELS = 3840 * 2160;
 
 export interface UpscaleSize {

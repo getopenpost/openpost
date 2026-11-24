@@ -1,4 +1,4 @@
-export function initialEditorAccountId(
+function initialEditorAccountId(
 	selectedAccountIds: string[],
 	variantAccountIds: Iterable<string>
 ): string | null {

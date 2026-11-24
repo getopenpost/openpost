@@ -223,7 +223,7 @@ func TestReconciliationBacksOffOnRateLimitAndLongProcessing(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, 15*time.Minute, retryAfter)
 	attempt := latestProviderWriteAttempt(t, db, input.OperationID)
-	require.Equal(t, now.Add(15*time.Minute), attempt.ReconcileAfter)
+	require.Equal(t, now.Add(15*time.Minute), attempt.ReconcileAfter.UTC())
 
 	// A repeated rate limit escalates to 30 minutes even when the resume callback
 	// writes a creation checkpoint before failing with 429.

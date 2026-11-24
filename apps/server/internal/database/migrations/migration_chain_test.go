@@ -12,19 +12,19 @@ import (
 	"testing/fstest"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/pgdriver"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 func newMigrationsTestDB(t *testing.T) *bun.DB {
 	t.Helper()
 
-	sqldb, err := sql.Open("sqlite3", "file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=private")
+	sqldb, err := sql.Open(sqliteshim.ShimName, "file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=private")
 	require.NoError(t, err)
 
 	// Match production: single connection so PRAGMA settings (foreign

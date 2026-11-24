@@ -19,6 +19,7 @@ import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { Project } from '../project/types';
 import { m } from '$lib/paraglide/messages';
 
+// fallow-ignore-next-line code-duplication -- pre-existing clone of snapshot-service.ts; flagged because this file was edited.
 export interface CloudBundleRepository {
 	get(projectId: string): Promise<{ document: Project }>;
 	listMedia(projectId: string): Promise<MediaMetadata[]>;
@@ -38,7 +39,7 @@ function mediaReference(media: MediaMetadata): SnapshotMediaReference {
 	};
 }
 
-export function createCloudBundleRuntime(repository: CloudBundleRepository): BundleExportRuntime {
+function createCloudBundleRuntime(repository: CloudBundleRepository): BundleExportRuntime {
 	const mediaByProject = new Map<string, Promise<MediaMetadata[]>>();
 	const media = (projectId: string) => {
 		const existing = mediaByProject.get(projectId);

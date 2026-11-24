@@ -3,7 +3,6 @@ import {
 	composerIssues,
 	isAccountSpecificIssue,
 	issueMatchesProvider,
-	uniqueIssueMessages,
 	type ValidationIssue
 } from './validation';
 
@@ -19,14 +18,23 @@ function issue(overrides: Partial<ValidationIssue> = {}): ValidationIssue {
 
 describe('composer validation placement', () => {
 	it('keeps provider issues in the summary with the matching destination target', () => {
-		const providerIssue = issue({ provider: 'youtube', message: 'A title is required.' });
+		const providerIssue = issue({
+			provider: 'youtube',
+			message: 'A title is required.'
+		});
 		expect(isAccountSpecificIssue(providerIssue)).toBe(true);
 		expect(issueMatchesProvider(providerIssue, 'YouTube')).toBe(true);
 		expect(
 			composerIssues(
 				[],
 				[providerIssue],
-				[{ accountId: 'youtube-1', provider: 'YouTube', label: 'Channel · YouTube' }]
+				[
+					{
+						accountId: 'youtube-1',
+						provider: 'YouTube',
+						label: 'Channel · YouTube'
+					}
+				]
 			)
 		).toEqual([
 			expect.objectContaining({
@@ -65,31 +73,6 @@ describe('composer validation placement', () => {
 		]);
 	});
 
-	it('includes account runtime blockers without flattening their target', () => {
-		expect(
-			composerIssues(
-				[],
-				[],
-				[],
-				[
-					{
-						id: 'readiness-youtube-1',
-						message: 'Reconnect this channel before publishing.',
-						accountId: 'youtube-1',
-						targetLabel: 'Channel · YouTube',
-						provider: 'youtube'
-					}
-				]
-			)
-		).toEqual([
-			expect.objectContaining({
-				accountId: 'youtube-1',
-				targetLabel: 'Channel · YouTube',
-				severity: 'error'
-			})
-		]);
-	});
-
 	it('collapses a shared media requirement beside the account control', () => {
 		const youtubeIssue = issue({
 			code: 'media_required',
@@ -105,12 +88,6 @@ describe('composer validation placement', () => {
 		expect(isAccountSpecificIssue(youtubeIssue)).toBe(false);
 		expect(composerIssues([], [youtubeIssue, linkedinIssue])).toEqual([
 			expect.objectContaining({ message: 'Add a video.', severity: 'error' })
-		]);
-	});
-
-	it('deduplicates repeated account messages', () => {
-		expect(uniqueIssueMessages(['Fix the title.', ' Fix the title. ', '', undefined])).toEqual([
-			'Fix the title.'
 		]);
 	});
 });

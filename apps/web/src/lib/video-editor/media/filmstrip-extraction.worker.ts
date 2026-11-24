@@ -23,12 +23,12 @@ export interface FilmstripExtractRequest {
 	targetIndices: number[];
 }
 
-export interface FilmstripAbortRequest {
+interface FilmstripAbortRequest {
 	type: 'abort';
 	requestId: string;
 }
 
-export interface FilmstripWarmRequest {
+interface FilmstripWarmRequest {
 	type: 'warm';
 	requestId: string;
 }

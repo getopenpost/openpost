@@ -189,7 +189,7 @@ export function backgroundGeneratedItemDragData(
 	};
 }
 
-export function parseGeneratedItemDragData(raw: string): GeneratedItemDragData | null {
+function parseGeneratedItemDragData(raw: string): GeneratedItemDragData | null {
 	if (!raw) return null;
 	try {
 		const parsed: unknown = JSON.parse(raw);

@@ -217,30 +217,10 @@ export function packCubeLutForStorage(lut: ParsedCubeLut): EncodedCubeLut {
 	return { size: stored.size, data: encodeLutData(stored.data) };
 }
 
-export function decodeLutData(encoded: string): Uint8Array {
+function decodeLutData(encoded: string): Uint8Array {
 	const binary = atob(encoded);
 	const data = new Uint8Array(binary.length);
 	for (let i = 0; i < binary.length; i++) data[i] = binary.charCodeAt(i);
-	return data;
-}
-
-export function createIdentityLutData(size: number): Uint8Array {
-	const data = new Uint8Array(size * size * size * 4);
-	const denom = size > 1 ? size - 1 : 1;
-	let offset = 0;
-	for (let b = 0; b < size; b++) {
-		const blue = Math.round((b / denom) * 255);
-		for (let g = 0; g < size; g++) {
-			const green = Math.round((g / denom) * 255);
-			for (let r = 0; r < size; r++) {
-				data[offset] = Math.round((r / denom) * 255);
-				data[offset + 1] = green;
-				data[offset + 2] = blue;
-				data[offset + 3] = 255;
-				offset += 4;
-			}
-		}
-	}
 	return data;
 }
 

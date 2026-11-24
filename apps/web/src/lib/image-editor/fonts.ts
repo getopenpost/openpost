@@ -6,7 +6,6 @@ import { m } from '$lib/paraglide/messages';
 import type { ImageEditorTextValue } from './types';
 
 export {
-	hasRegisteredEditorBrandFont as hasRegisteredImageEditorBrandFont,
 	loadEditorBrandFonts as loadImageEditorBrandFonts,
 	loadEditorBrandFontsWithReport as loadImageEditorBrandFontsWithReport
 } from '$lib/editor-fonts';

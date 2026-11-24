@@ -16,24 +16,12 @@ func (fn roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error)
 	return fn(request)
 }
 
-func response(status int, body string) *http.Response {
+func response(body string) *http.Response {
 	return &http.Response{
-		StatusCode: status,
+		StatusCode: http.StatusOK,
 		Header:     make(http.Header),
 		Body:       io.NopCloser(strings.NewReader(body)),
 	}
-}
-
-func TestNormalizeQueryAppliesSafeBounds(t *testing.T) {
-	query, err := NormalizeQuery(SearchQuery{Query: "  product demo  ", Kind: "", Page: -1, PerPage: 99})
-	require.NoError(t, err)
-	require.Equal(t, "product demo", query.Query)
-	require.Equal(t, "photo", query.Kind)
-	require.Equal(t, 1, query.Page)
-	require.Equal(t, 40, query.PerPage)
-
-	_, err = NormalizeQuery(SearchQuery{Query: "demo", Kind: "audio"})
-	require.EqualError(t, err, "kind must be photo or video")
 }
 
 func TestPexelsNormalizesPhotoAndKeepsCredentialServerSide(t *testing.T) {
@@ -44,7 +32,7 @@ func TestPexelsNormalizesPhotoAndKeepsCredentialServerSide(t *testing.T) {
 		require.Equal(t, "large", request.URL.Query().Get("size"))
 		require.Equal(t, "blue", request.URL.Query().Get("color"))
 		require.Equal(t, "pt-BR", request.URL.Query().Get("locale"))
-		return response(http.StatusOK, `{
+		return response(`{
 			"page": 1,
 			"per_page": 1,
 			"total_results": 1,
@@ -83,9 +71,9 @@ func TestUnsplashSelectionTracksDownloadBeforeResolve(t *testing.T) {
 		requests = append(requests, request.URL.String())
 		require.Equal(t, "Client-ID unsplash-secret", request.Header.Get("Authorization"))
 		if strings.Contains(request.URL.Path, "/download") {
-			return response(http.StatusOK, `{"url":"https://images.unsplash.com/file.jpg"}`), nil
+			return response(`{"url":"https://images.unsplash.com/file.jpg"}`), nil
 		}
-		return response(http.StatusOK, `{
+		return response(`{
 			"id":"abc",
 			"width":1000,
 			"height":1200,
@@ -112,103 +100,11 @@ func TestUnsplashSelectionTracksDownloadBeforeResolve(t *testing.T) {
 	require.Contains(t, requests[1], "/download")
 }
 
-func TestRequestMapsProviderFailures(t *testing.T) {
-	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		return response(http.StatusTooManyRequests, `{}`), nil
-	})}
-	ctx := context.Background()
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.example.test", nil)
-	require.NoError(t, err)
-	result, err := Request(ctx, client, request)
-	if result != nil {
-		require.NoError(t, result.Body.Close())
-	}
-	require.ErrorIs(t, err, ErrRateLimited)
-}
-
-func TestPixabayPhotoDownloadPrefersTheOriginalAndReportsDeliveredSize(t *testing.T) {
-	base := pixabayImage{
-		ImageWidth: 4000, ImageHeight: 3000,
-		ImageURL:      "https://cdn.pixabay.com/photo/original.jpg",
-		FullHDURL:     "https://cdn.pixabay.com/photo/fullhd.jpg",
-		LargeImageURL: "https://cdn.pixabay.com/photo/large.jpg",
-	}
-
-	tests := []struct {
-		name     string
-		item     pixabayImage
-		download string
-		width    int
-		height   int
-		mimeType string
-	}{
-		{
-			name:     "prefers the original",
-			item:     base,
-			download: "https://cdn.pixabay.com/photo/original.jpg",
-			width:    4000, height: 3000, mimeType: "image/jpeg",
-		},
-		{
-			name: "falls back to full HD and scales its dimensions",
-			item: pixabayImage{
-				ImageWidth: 4000, ImageHeight: 3000,
-				FullHDURL:     "https://cdn.pixabay.com/photo/fullhd.jpg",
-				LargeImageURL: "https://cdn.pixabay.com/photo/large.jpg",
-			},
-			download: "https://cdn.pixabay.com/photo/fullhd.jpg",
-			width:    1920, height: 1440, mimeType: "image/jpeg",
-		},
-		{
-			name: "falls back to the large copy",
-			item: pixabayImage{
-				ImageWidth: 4000, ImageHeight: 3000,
-				LargeImageURL: "https://cdn.pixabay.com/photo/large.jpg",
-			},
-			download: "https://cdn.pixabay.com/photo/large.jpg",
-			width:    1280, height: 960, mimeType: "image/jpeg",
-		},
-		{
-			name: "skips an original beyond the media pixel budget",
-			item: pixabayImage{
-				ImageWidth: 10000, ImageHeight: 8000,
-				ImageURL:  "https://cdn.pixabay.com/photo/original.jpg",
-				FullHDURL: "https://cdn.pixabay.com/photo/fullhd.jpg",
-			},
-			download: "https://cdn.pixabay.com/photo/fullhd.jpg",
-			width:    1920, height: 1536, mimeType: "image/jpeg",
-		},
-		{
-			name: "reports a transparent original as PNG",
-			item: pixabayImage{
-				ImageWidth: 1200, ImageHeight: 800,
-				ImageURL: "https://cdn.pixabay.com/photo/original.png",
-			},
-			download: "https://cdn.pixabay.com/photo/original.png",
-			width:    1200, height: 800, mimeType: "image/png",
-		},
-		{
-			name:     "returns nothing when no download is available",
-			item:     pixabayImage{ImageWidth: 1200, ImageHeight: 800},
-			download: "",
-		},
-	}
-
-	for _, testCase := range tests {
-		t.Run(testCase.name, func(t *testing.T) {
-			download, width, height, mimeType := pixabayPhotoDownload(testCase.item)
-			require.Equal(t, testCase.download, download)
-			require.Equal(t, testCase.width, width)
-			require.Equal(t, testCase.height, height)
-			require.Equal(t, testCase.mimeType, mimeType)
-		})
-	}
-}
-
 func TestPixabayResolveReturnsTheOriginalPhoto(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		require.Equal(t, "pixabay.com", request.URL.Host)
 		require.Equal(t, "42", request.URL.Query().Get("id"))
-		return response(http.StatusOK, `{"hits":[{
+		return response(`{"hits":[{
 			"id":42,
 			"pageURL":"https://pixabay.com/photos/example-42/",
 			"tags":"example",

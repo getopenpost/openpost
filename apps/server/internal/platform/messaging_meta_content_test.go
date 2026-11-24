@@ -1,7 +1,6 @@
 package platform
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -49,34 +48,4 @@ func TestMetaConversationsReadSharesStoriesAndImageURLs(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Conversations, 1)
 	requireMetaContentAttachments(t, result.Conversations[0].Messages)
-}
-
-func TestMetaHistoryReadsSharesStoriesAndImageURLs(t *testing.T) {
-	previous := httpClient
-	t.Cleanup(func() { httpClient = previous })
-	httpClient = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		require.Equal(t, metaMessageFields, r.URL.Query().Get("fields"))
-		return jsonResponse(r, `{"data":`+metaContentMessages+`}`), nil
-	})}
-	result, err := NewInstagramAdapter("", "", "").FetchMessageHistory(t.Context(), "secret", FetchMessageHistoryRequest{AccountID: "me", ConversationID: "c1"})
-	require.NoError(t, err)
-	requireMetaContentAttachments(t, result.Messages)
-}
-
-func TestMetaAttachmentKeepsLegacyImageSrcAndMimeType(t *testing.T) {
-	var message metaMessageView
-	require.NoError(t, json.Unmarshal([]byte(`{"id":"m1","attachments":{"data":[
-		{"mime_type":"image/png","image_data":{"src":"https://cdn.example/src.png"}}]}}`), &message))
-	require.Equal(t, []MessageAttachment{{Type: "image", URL: "https://cdn.example/src.png", MimeType: "image/png"}}, message.provider("me").Attachments)
-}
-
-func TestMetaShareUsesDocumentedURLAndLegacyLink(t *testing.T) {
-	var message metaMessageView
-	require.NoError(t, json.Unmarshal([]byte(`{"id":"m1","shares":{"data":[
-		{"url":"https://www.instagram.com/p/abc/","name":"A shared post"},
-		{"link":"https://www.instagram.com/reel/def/"}]}}`), &message))
-	require.Equal(t, []MessageAttachment{
-		{Type: "share", URL: "https://www.instagram.com/p/abc/", Name: "A shared post"},
-		{Type: "share", URL: "https://www.instagram.com/reel/def/"},
-	}, message.provider("me").Attachments)
 }

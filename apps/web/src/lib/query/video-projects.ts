@@ -4,7 +4,7 @@ import { queryGET } from './transport';
 
 type QueryTransport = Pick<typeof client, 'GET'>;
 
-export function createVideoProjectQueryAPI(transport: QueryTransport): VideoProjectQueryAPI {
+function createVideoProjectQueryAPI(transport: QueryTransport): VideoProjectQueryAPI {
 	return {
 		async listVideoProjectSummaries(workspaceId, includeTrash, signal) {
 			const { data } = await queryGET({

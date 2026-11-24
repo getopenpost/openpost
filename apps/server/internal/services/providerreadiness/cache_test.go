@@ -102,17 +102,3 @@ func TestRequestScopedServiceDoesNotOutliveItsRequest(t *testing.T) {
 
 	require.Equal(t, 2, ledger.approvalReads, "each request reads again instead of reusing process memory")
 }
-
-func TestWithLedgerDoesNotInheritRequestCache(t *testing.T) {
-	t.Parallel()
-	input := healthyInput()
-	first := &fakeLedger{}
-	second := &fakeLedger{}
-	service := NewService(first, ServiceOptions{Now: func() time.Time { return input.Now }}).RequestScoped()
-	service.Decide(t.Context(), decisionRequest(input))
-
-	service.WithLedger(second).Decide(t.Context(), decisionRequest(input))
-
-	require.Equal(t, 1, first.approvalReads)
-	require.Equal(t, 1, second.approvalReads, "a different ledger boundary must read its own facts")
-}

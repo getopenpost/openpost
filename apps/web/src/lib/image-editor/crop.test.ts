@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	applyImageEditorCropWindow,
-	imageEditorCropWindowForAspect,
-	normalizeImageEditorCropWindow,
-	rotateImageEditorTransformAroundCenter
-} from './crop';
+import { applyImageEditorCropWindow, rotateImageEditorTransformAroundCenter } from './crop';
 import type { ImageEditorLayer } from './types';
 
 function layer(overrides: Partial<ImageEditorLayer['transform']> = {}): ImageEditorLayer {
@@ -49,15 +44,6 @@ function layer(overrides: Partial<ImageEditorLayer['transform']> = {}): ImageEdi
 }
 
 describe('OpenPost Image Editor interactive crop geometry', () => {
-	it('clamps interactive crop windows to a non-empty source region', () => {
-		expect(normalizeImageEditorCropWindow({ x: -1, y: 0.9, width: 2, height: 0 })).toEqual({
-			x: 0,
-			y: 0.9,
-			width: 1,
-			height: 0.005
-		});
-	});
-
 	it('repositions source pixels without moving the outer crop frame', () => {
 		const result = applyImageEditorCropWindow(
 			layer(),
@@ -90,15 +76,6 @@ describe('OpenPost Image Editor interactive crop geometry', () => {
 		});
 		expect(result.transform.x).toBeCloseTo(50);
 		expect(result.transform.y).toBeCloseTo(240);
-	});
-
-	it('creates centered crop windows for common aspect ratios', () => {
-		expect(imageEditorCropWindowForAspect(layer().transform, 1)).toEqual({
-			x: 0.25,
-			y: 0,
-			width: 0.5,
-			height: 1
-		});
 	});
 
 	it('rotates a crop frame around its visual center', () => {

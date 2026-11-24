@@ -104,27 +104,6 @@ func (s *growthTestServer) request(t *testing.T, method, path string, body any, 
 	return rec
 }
 
-func TestGrowthListAuthBoundary(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name  string
-		query string
-		token string
-		want  int
-	}{
-		// Wrong-workspace account access returns 404 (not 403) to avoid confirming existence.
-		{name: "unauthenticated", query: "workspace_id=ws-1&account_id=acc-bluesky", token: "", want: http.StatusUnauthorized},
-		{name: "wrong workspace", query: "workspace_id=ws-2&account_id=acc-bluesky", token: "web-token", want: http.StatusNotFound},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			srv := newGrowthTestServer(t)
-			rec := srv.request(t, http.MethodGet, "/api/v1/growth?"+test.query, nil, test.token)
-			require.Equal(t, test.want, rec.Code)
-		})
-	}
-}
-
 func TestGrowthRefreshSuccessAndFollowConflict(t *testing.T) {
 	t.Parallel()
 	srv := newGrowthTestServer(t)

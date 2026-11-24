@@ -984,19 +984,6 @@ export class OpenPostFabricAdapter {
 		}
 	}
 
-	samplePagePixel(point: SelectionPoint): Uint8ClampedArray | null {
-		if (!this.canvas || this.staticMode) return null;
-		const x = Math.floor(point.x);
-		const y = Math.floor(point.y);
-		if (x < 0 || y < 0 || x >= this.pageDimensions.width || y >= this.pageDimensions.height)
-			return null;
-		try {
-			return this.canvas.getContext().getImageData(x, y, 1, 1).data;
-		} catch {
-			return null;
-		}
-	}
-
 	samplePagePixelGrid(point: SelectionPoint, radius = 4): ImageEditorPixelGrid | null {
 		if (!this.canvas || this.staticMode) return null;
 		const centerX = Math.floor(point.x);
@@ -1062,6 +1049,7 @@ export class OpenPostFabricAdapter {
 		);
 	}
 
+	// fallow-ignore-next-line unused-class-member -- called from image-editor-canvas and crop-session.svelte.ts, which Fallow does not trace.
 	previewImageLayer(id: string, preview?: ImageEditorLayer): void {
 		if (!this.canvas || this.staticMode) return;
 		const object = this.objectByLayerID.get(id);
@@ -1239,6 +1227,7 @@ export class OpenPostFabricAdapter {
 		canvas.requestRenderAll();
 	}
 
+	// fallow-ignore-next-line unused-class-member -- called from image-editor-canvas.svelte, which Fallow does not trace.
 	setSelection(ids: string[]): void {
 		this.desiredSelectionIDs = [...ids];
 		if (this.syncing) return;
@@ -1252,6 +1241,7 @@ export class OpenPostFabricAdapter {
 		return Boolean(this.interactiveCanvas()?.findTarget(event).target);
 	}
 
+	// fallow-ignore-next-line unused-class-member -- called from image-editor-canvas.svelte, which Fallow does not trace.
 	enterTextEditing(id: string): void {
 		if (this.readOnly || this.staticMode) return;
 		this.pendingTextEditingID = id;

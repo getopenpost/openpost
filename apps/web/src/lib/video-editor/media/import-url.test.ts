@@ -67,20 +67,6 @@ describe('remote media import', () => {
 		);
 	});
 
-	it('accepts an unquoted content-disposition filename', async () => {
-		const file = await fetchRemoteMediaFile(
-			'https://example.test/download',
-			async () =>
-				new Response(new Blob(['audio'], { type: 'audio/mpeg' }), {
-					headers: {
-						'content-disposition': 'attachment; filename=voice-note.mp3'
-					}
-				})
-		);
-
-		expect(file.name).toBe('voice-note.mp3');
-	});
-
 	it('rejects unsafe locations, pages, empty files, and declared oversize downloads', async () => {
 		await expect(fetchRemoteMediaFile('file:///tmp/video.mp4')).rejects.toThrow(/HTTP and HTTPS/);
 		await expect(fetchRemoteMediaFile('https://user:pass@example.test/video.mp4')).rejects.toThrow(

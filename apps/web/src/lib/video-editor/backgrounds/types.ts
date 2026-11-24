@@ -32,7 +32,7 @@ export const DEFAULT_MESH_BACKGROUND: BackgroundMeshBackground = {
 	offsetY: 0
 };
 
-export const DEFAULT_PATTERN_BACKGROUND: BackgroundPatternBackground = {
+const DEFAULT_PATTERN_BACKGROUND: BackgroundPatternBackground = {
 	kind: 'pattern',
 	pattern: 'dots',
 	foreground: '#ff7a18',

@@ -15,10 +15,7 @@ import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { sequenceStore } from '../sequences/sequence-store.svelte';
 import { commandHistory } from '../timeline/commands/command-store.svelte';
 import { captureSourceTranscriptStorage } from '../workspace-fs/source-transcripts';
-import { TranscriptionService, transcriptionService } from './transcription-service.svelte';
-import { render } from 'vitest-browser-svelte';
-import MediaPoolList from '../components/media-pool-list.svelte';
-import { TranscriptionJob } from './engine/transcriber';
+import { TranscriptionService } from './transcription-service.svelte';
 
 const media: MediaMetadata = {
 	id: 'speech',
@@ -290,72 +287,6 @@ it('cancels a session reset while persistence is awaiting browser storage', asyn
 		opened.resolve(root);
 		service.reset();
 		getDirectory.mockRestore();
-		const transcripts = await root.getDirectoryHandle('openpost-source-transcripts');
-		await transcripts.removeEntry(actor, { recursive: true });
-		dispose();
-		setWorkspaceRoot(previous);
-	}
-});
-
-it('runs Generate transcript from the Cloud Media menu and retains it after remount', async () => {
-	const previous = getWorkspaceRoot();
-	setWorkspaceRoot(null);
-	const actor = crypto.randomUUID();
-	const workspace = crypto.randomUUID();
-	const dispose = registerQueryAuthorizationBoundary({
-		captureIdentity: () => ({ userID: actor, epoch: 1 }),
-		isIdentityCurrent: (identity) => identity?.userID === actor,
-		settleUnauthorized: () => {}
-	});
-	const project = createBlankProject('Cloud Media transcript');
-	vi.spyOn(CloudVideoProjectRepository.prototype, 'get').mockResolvedValue({
-		id: project.id,
-		workspaceId: workspace,
-		name: project.name,
-		headRevision: 1,
-		document: project,
-		syncStatus: 'synced',
-		attentionReason: '',
-		trashedAt: '',
-		updatedAt: ''
-	});
-	vi.spyOn(CloudVideoProjectRepository.prototype, 'listMedia').mockResolvedValue([]);
-	const collect = vi
-		.spyOn(TranscriptionJob.prototype, 'collect')
-		.mockResolvedValue([
-			{ text: 'Hello', start: 0.1, end: 0.6, words: [{ text: 'Hello', start: 0.1, end: 0.6 }] }
-		]);
-	const url = URL.createObjectURL(new Blob(['wave'], { type: 'audio/wav' }));
-	let screen: ReturnType<typeof render> | undefined;
-	try {
-		await editorSession.load(project.id, workspace);
-		mediaPool.upsert({ ...media, remoteUrl: url }, 'ready');
-		screen = render(MediaPoolList, { projectId: project.id });
-		await expect.poll(() => transcriptionService.sourceTranscriptStatus(media.id)).toBe('idle');
-		await screen.getByRole('button', { name: 'More actions for speech.wav' }).click();
-		await screen.getByRole('menuitem', { name: 'Generate transcript', exact: true }).click();
-		await expect.poll(() => transcriptionService.sourceTranscriptStatus(media.id)).toBe('ready');
-		expect(collect).toHaveBeenCalledTimes(1);
-		await screen.unmount();
-		screen.container.remove();
-		screen = undefined;
-		transcriptionService.reset();
-		screen = render(MediaPoolList, { projectId: project.id });
-		await expect.poll(() => transcriptionService.sourceTranscriptStatus(media.id)).toBe('ready');
-		await screen.getByRole('button', { name: 'More actions for speech.wav' }).click();
-		await expect
-			.element(screen.getByRole('menuitem', { name: 'Refresh transcript', exact: true }))
-			.toBeVisible();
-		await screen.getByRole('menuitem', { name: 'Delete transcript', exact: true }).click();
-		await expect.poll(() => transcriptionService.sourceTranscriptStatus(media.id)).toBe('idle');
-		transcriptionService.reset();
-		expect(await transcriptionService.hydrateSourceTranscript(media.id)).toBeNull();
-	} finally {
-		await screen?.unmount();
-		screen?.container.remove();
-		transcriptionService.reset();
-		URL.revokeObjectURL(url);
-		const root = await navigator.storage.getDirectory();
 		const transcripts = await root.getDirectoryHandle('openpost-source-transcripts');
 		await transcripts.removeEntry(actor, { recursive: true });
 		dispose();

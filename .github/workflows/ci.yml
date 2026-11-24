@@ -79,10 +79,10 @@ jobs:
           fi
 
   web-quality:
-    name: Format, policy, lint and types
+    name: Format, policy and security
     needs: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -110,27 +110,63 @@ jobs:
       # Reachability analysis loads the app's Vitest config, which extends the
       # generated SvelteKit tsconfig.
       - run: bun run --cwd apps/web sync
+      # Repository script tests and Go reachability run in their own jobs.
       - name: Generated contracts and repository policy
         env:
           OPENPOST_SECRET_SCAN_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           OPENPOST_SECRET_SCAN_HEAD: ${{ github.sha }}
-        run: bun run check -- policy && bun test --timeout 30000 ./scripts
-      - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
-        run: bun run lint -- frontend && bun run lint -- marketing
-      # The policy step already generated contracts and translations.
-      - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
-        name: Frontend and marketing types
+        run: bun run check -- policy
+      - if: needs.plan.outputs.security == 'true'
+        run: scripts/security-check.sh
+
+  web-lint:
+    name: Lint, types and dead code
+    needs: plan
+    if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Fallow compares changed files against a base.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          node: "true"
+      # `bun run fallow` also audits the standalone mobile app.
+      - name: Install the standalone mobile app for dead-code analysis
+        working-directory: apps/mobile
+        run: bun install --frozen-lockfile
+      - name: Prepare SvelteKit and translations
+        run: |
+          bun run --cwd apps/web sync
+          bun run --filter @openpost/web generate:i18n
+      - run: bun run lint -- frontend && bun run lint -- marketing
+      - name: Frontend and marketing types
         env:
           OPENPOST_CHECK_PREPARED: "1"
         run: bunx turbo run check --filter @openpost/web --filter @openpost/site
-      - if: needs.plan.outputs.frontend == 'true' || needs.plan.outputs.marketing == 'true'
-        name: Changed-source dead-code gate
+      - name: Changed-source dead-code gate
         env:
           OPENPOST_FALLOW_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           OPENPOST_FALLOW_CI: "1"
         run: bun run fallow
-      - if: needs.plan.outputs.security == 'true'
-        run: scripts/security-check.sh
+
+  repository-tests:
+    name: Repository script tests
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Release and changelog tests read tags and history.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          go: "true"
+          node: "true"
+      - run: bun test --timeout 30000 ./scripts
 
   go-quality:
     name: Go lint and CLI
@@ -164,6 +200,8 @@ jobs:
         run: bun run lint -- backend
       - if: needs.plan.outputs.cli == 'true'
         run: bun run lint -- cli && bun run build -- cli && bun run test -- cli
+      - name: Unreachable Go declarations
+        run: bun run check -- go-reachability
 
   backend:
     name: Backend tests${{ matrix.shard != 'all' && format(' ({0})', matrix.shard) || '' }}
@@ -370,20 +408,16 @@ jobs:
           path: .turbo/docs-inputs
           key: docs-inputs-${{ runner.os }}-${{ github.sha }}
           restore-keys: docs-inputs-${{ runner.os }}-
-      - name: Build marketing
+      # One Turbo graph builds marketing and documentation in parallel, then
+      # composes the public site. Pushes use the production analytics
+      # configuration; pull requests use the local fixture so the browser
+      # suites see consent.
+      - name: Build and compose marketing and documentation
         env:
           VITE_POSTHOG_PROJECT_TOKEN: ${{ env.OPENPOST_MARKETING_POSTHOG_PROJECT_TOKEN }}
           VITE_POSTHOG_API_HOST: ${{ env.OPENPOST_MARKETING_POSTHOG_API_HOST }}
           VITE_POSTHOG_UI_HOST: ${{ env.OPENPOST_MARKETING_POSTHOG_UI_HOST }}
-        run: bun run build -- marketing
-      # Pushes use the production analytics configuration; pull requests use
-      # the local fixture so the documentation browser suite sees consent.
-      - name: Build documentation
-        env:
-          VITE_POSTHOG_PROJECT_TOKEN: ${{ env.OPENPOST_MARKETING_POSTHOG_PROJECT_TOKEN }}
-          VITE_POSTHOG_API_HOST: ${{ env.OPENPOST_MARKETING_POSTHOG_API_HOST }}
-          VITE_POSTHOG_UI_HOST: ${{ env.OPENPOST_MARKETING_POSTHOG_UI_HOST }}
-        run: bun run build -- docs
+        run: bun run build -- public-site
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: marketing-static-${{ github.sha }}-${{ github.run_attempt }}
@@ -391,7 +425,13 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 14
-      - run: timeout 120 bun scripts/compose-public-site.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docs-static-${{ github.sha }}-${{ github.run_attempt }}
+          path: apps/docs/out
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 3
       - if: needs.plan.outputs.documentation == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -407,6 +447,68 @@ jobs:
           cp -R dist/public-site delivery/site
           config=$(bun scripts/public-site-artifact.mjs config)
           timeout 120 bun scripts/public-site-artifact.mjs seal delivery/site delivery/manifest.json "$GITHUB_SHA" "$config"
+      # Public Pages delivery waits for this whole CI run, including the
+      # independent rebuild proof below.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: public-site-qualified-${{ github.sha }}-${{ github.run_attempt }}
+          path: delivery
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+
+  # Browser suites start from the canonical artifacts while this job proves
+  # that independent forced rebuilds reproduce them.
+  public-site-proof:
+    name: Public artifact rebuild proof
+    needs: [plan, public-site]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+    env:
+      VITE_OPENPOST_ENVIRONMENT: ${{ github.event_name == 'push' && 'production' || 'ci' }}
+      VITE_OPENPOST_REVISION: ${{ github.sha }}
+      POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+      POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+      POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
+      POSTHOG_SOURCEMAPS_ENABLED: ${{ github.event_name == 'push' && secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
+      GITHUB_SHA: ${{ github.sha }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
+      # Fork pull requests cannot read repository variables. The marketing
+      # browser artifact needs analytics enabled against the local fixture.
+      OPENPOST_MARKETING_POSTHOG_PROJECT_TOKEN: ${{ github.event_name == 'pull_request' && 'phc_browser_fixture' || vars.POSTHOG_PROJECT_TOKEN }}
+      OPENPOST_MARKETING_POSTHOG_API_HOST: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4322' || vars.POSTHOG_BROWSER_HOST }}
+      OPENPOST_MARKETING_POSTHOG_UI_HOST: ${{ github.event_name == 'pull_request' && 'http://127.0.0.1:4322' || vars.POSTHOG_UI_HOST }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+        with:
+          go: "true"
+          node: "true"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/docs-inputs
+          key: docs-inputs-${{ runner.os }}-${{ github.sha }}
+          restore-keys: docs-inputs-${{ runner.os }}-
+      - id: artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "marketing=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "marketing-static-${GITHUB_SHA}-")"
+            echo "docs=$(bun scripts/ci-artifacts.mjs resolve --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --prefix "docs-static-${GITHUB_SHA}-")"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ steps.artifacts.outputs.marketing }}
+          path: apps/marketing/dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ steps.artifacts.outputs.docs }}
+          path: apps/docs/out
       - name: Prove both production artifacts and their agent surfaces
         env:
           # Independent rebuilds prove semantics without uploading duplicate symbols.
@@ -416,16 +518,8 @@ jobs:
           VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
           VITE_POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
         run: |
-          bun test ./tests/build/generate-agent-surfaces.test.mjs
           bun scripts/check-marketing-route-manifest.mjs
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        with:
-          name: public-site-qualified-${{ github.sha }}-${{ github.run_attempt }}
-          path: delivery
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 90
+          bun test ./tests/build/generate-agent-surfaces.test.mjs
 
   browser-app:
     name: Application browser suite (${{ matrix.suite }})
@@ -440,7 +534,7 @@ jobs:
       fail-fast: false
       matrix:
         # Playwright's native shards; each runs two workers against one server.
-        suite: [1/3, 2/3, 3/3]
+        suite: [1/6, 2/6, 3/6, 4/6, 5/6, 6/6]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -693,7 +787,10 @@ jobs:
         run: |
           bun install --frozen-lockfile
           bun ../../scripts/check-mobile-install.mjs
-          bun run check
+          bun run check:source
+          if [[ "${{ github.event_name }}" == schedule ]]; then
+            bunx expo-doctor
+          fi
 
   android:
     name: Native mobile Android candidate
@@ -1005,12 +1102,15 @@ jobs:
       [
         plan,
         web-quality,
+        web-lint,
+        repository-tests,
         go-quality,
         backend,
         hosted-data-plane,
         frontend-tests,
         frontend-build,
         public-site,
+        public-site-proof,
         browser-app,
         browser-handoff,
         browser-marketing,

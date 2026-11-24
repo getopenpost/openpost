@@ -6,7 +6,7 @@ import { requireWorkspaceRoot } from '@openpost/editor-shared/workspace';
 import { cloneProjectDocument } from './project-clone';
 import type { Project } from './types';
 
-export interface ProjectOperationsRuntime {
+interface ProjectOperationsRuntime {
 	getProject(id: string): Promise<Project | undefined>;
 	createProject(project: Project): Promise<Project>;
 	deleteProject(id: string): Promise<void>;
@@ -17,7 +17,7 @@ export interface ProjectOperationsRuntime {
 	writeThumbnail(projectId: string, thumbnail: Blob): Promise<void>;
 }
 
-export function createProjectOperations(runtime: ProjectOperationsRuntime) {
+function createProjectOperations(runtime: ProjectOperationsRuntime) {
 	async function duplicateProjectWithMedia(projectId: string, name?: string): Promise<Project> {
 		const source = await runtime.getProject(projectId);
 		if (!source) throw new Error(`Project not found: ${projectId}`);

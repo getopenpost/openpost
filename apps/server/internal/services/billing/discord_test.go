@@ -63,5 +63,5 @@ func TestHandleJobSendsBillingEmbedOnceWithUserDetails(t *testing.T) {
 
 	var event models.BillingWebhookEvent
 	require.NoError(t, db.NewSelect().Model(&event).Where("event_id = ?", "evt_discord").Scan(t.Context()))
-	require.Equal(t, now.Add(time.Minute), event.DiscordNotificationSentAt)
+	require.Equal(t, now.Add(time.Minute), event.DiscordNotificationSentAt.UTC())
 }

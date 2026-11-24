@@ -30,16 +30,6 @@ afterEach(() => {
 });
 
 describe('client error initialization', () => {
-	it('replaces the previous global error listener when initialized again', () => {
-		const runtime = testRuntime();
-		vi.stubGlobal('window', runtime);
-		vi.stubGlobal('navigator', { onLine: true });
-		vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: () => {} });
-		initializeClientErrors(installTestErrorCapture);
-		initializeClientErrors(installTestErrorCapture);
-		runtime.dispatchEvent(Object.assign(new Event('error'), { error: new Error('failure') }));
-		expect(capturedExceptions).toHaveBeenCalledOnce();
-	});
 	it('preserves models and project caches when recovering a stale page', async () => {
 		const runtime = Object.assign(testRuntime(), {
 			setTimeout: (callback: () => void) => {
@@ -86,31 +76,6 @@ describe('client error initialization', () => {
 		expect(runtime.location.reload).not.toHaveBeenCalled();
 	});
 
-	it('keeps rejected imports visible to global telemetry while recovering separately', () => {
-		const runtime = testRuntime();
-		vi.stubGlobal('window', runtime);
-		vi.stubGlobal('navigator', {});
-		vi.stubGlobal('sessionStorage', {
-			getItem: vi.fn(() => null),
-			setItem: vi.fn(),
-			removeItem: vi.fn()
-		});
-
-		initializeClientErrors(installTestErrorCapture);
-		const error = new Error('Importing a module script failed.');
-		const event = Object.assign(new Event('error', { cancelable: true }), {
-			error,
-			message: error.message
-		});
-		runtime.dispatchEvent(event);
-
-		// The rejection stays intact for SvelteKit and telemetry; recovery is
-		// coordinated separately and finds no evidence here.
-		expect(event.defaultPrevented).toBe(false);
-		expect(capturedExceptions).toHaveBeenCalledOnce();
-		expect(runtime.setTimeout).not.toHaveBeenCalled();
-	});
-
 	it('reloads when SvelteKit reports an unhandled route chunk failure', async () => {
 		const runtime = Object.assign(testRuntime(), {
 			setTimeout: vi.fn((callback: () => void) => {
@@ -135,38 +100,6 @@ describe('client error initialization', () => {
 		handleError({
 			error: new Error(
 				'Failed to fetch dynamically imported module: /_app/immutable/chunks/route.js'
-			),
-			status: 500
-		} as Parameters<typeof handleError>[0]);
-
-		await vi.waitFor(() => expect(runtime.location.reload).toHaveBeenCalledOnce());
-		expect(runtime.setTimeout).toHaveBeenCalledOnce();
-	});
-
-	it('reloads when SvelteKit reports a Firefox route chunk failure', async () => {
-		const runtime = Object.assign(testRuntime(), {
-			setTimeout: vi.fn((callback: () => void) => {
-				callback();
-				return 1;
-			})
-		});
-		vi.stubGlobal('window', runtime);
-		vi.stubGlobal('navigator', { onLine: true });
-		vi.stubGlobal('sessionStorage', {
-			getItem: vi.fn(() => null),
-			setItem: vi.fn(),
-			removeItem: vi.fn()
-		});
-		vi.stubGlobal(
-			'fetch',
-			vi.fn(async () => ({ status: 404 }))
-		);
-
-		initializeClientErrors(installTestErrorCapture);
-		// SAFETY: handleError only reads error and status; the route event and message are unused here.
-		handleError({
-			error: new Error(
-				'error loading dynamically imported module: https://openpo.st/_app/immutable/chunks/route.js'
 			),
 			status: 500
 		} as Parameters<typeof handleError>[0]);

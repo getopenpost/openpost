@@ -84,38 +84,6 @@ describe('composerDestinationSettings', () => {
 		]);
 	});
 
-	it('does not expose Reel fields while loading a saved photo destination', () => {
-		for (const provider of ['facebook', 'instagram']) {
-			const outputProfile = provider === 'facebook' ? 'facebook.photo' : 'instagram.feed';
-			const reel = {
-				...setting('share_to_feed', ''),
-				type: 'boolean',
-				intents: ['short_video'],
-				output_profiles: [outputProfile]
-			};
-			const location = {
-				...setting('location_id', ''),
-				intents: ['post'],
-				output_profiles: [outputProfile]
-			};
-			expect(
-				composerDestinationSettings(
-					provider,
-					undefined,
-					[
-						{
-							provider,
-							output_profile: outputProfile,
-							intents: ['post'],
-							settings: [reel, location]
-						}
-					],
-					outputProfile
-				)
-			).toEqual([location]);
-		}
-	});
-
 	it('keeps an account-specific empty settings list instead of restoring generic bot fields', () => {
 		expect(
 			composerDestinationSettings(

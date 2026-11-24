@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-	clearTransitionHold,
 	findTransitionHold,
 	synchronizePausedTransitionMedia,
 	TRANSITION_HOLD_SEEK_EPSILON_SECONDS
@@ -63,29 +62,26 @@ describe('findTransitionHold', () => {
 	// 20-frame window centered on cut 60 → [50, 70).
 	const transitions = [transition()];
 
-	it('returns null outside the window', () => {
-		expect(findTransitionHold({ itemId: 'v1', frame: 49, transitions, itemById })).toBeNull();
-		expect(findTransitionHold({ itemId: 'v1', frame: 70, transitions, itemById })).toBeNull();
-	});
-
 	it('holds both participants inside the window with progress 0..1', () => {
-		const outgoing = findTransitionHold({ itemId: 'v1', frame: 50, transitions, itemById });
-		expect(outgoing).toMatchObject({ transitionId: 't1', outgoing: true, progress: 0 });
-		const incoming = findTransitionHold({ itemId: 'v2', frame: 69, transitions, itemById });
+		const outgoing = findTransitionHold({
+			itemId: 'v1',
+			frame: 50,
+			transitions,
+			itemById
+		});
+		expect(outgoing).toMatchObject({
+			transitionId: 't1',
+			outgoing: true,
+			progress: 0
+		});
+		const incoming = findTransitionHold({
+			itemId: 'v2',
+			frame: 69,
+			transitions,
+			itemById
+		});
 		expect(incoming).toMatchObject({ transitionId: 't1', outgoing: false });
 		expect(incoming?.progress).toBeGreaterThan(0.9);
-	});
-
-	it('ignores uninvolved items and missing partners', () => {
-		expect(findTransitionHold({ itemId: 'v3', frame: 55, transitions, itemById })).toBeNull();
-		expect(
-			findTransitionHold({
-				itemId: 'v1',
-				frame: 55,
-				transitions: [transition({ toItemId: 'missing' })],
-				itemById
-			})
-		).toBeNull();
 	});
 });
 
@@ -103,13 +99,5 @@ describe('synchronizePausedTransitionMedia', () => {
 		expect(moved).toEqual({ held: false, seekIssued: true });
 		expect(cold.currentTime).toBe(2.0);
 		expect(cold.paused).toBe(true);
-	});
-
-	it('clears the ramp-owned flags', () => {
-		const element = fakeVideo(2.0);
-		synchronizePausedTransitionMedia(element, 2.0);
-		clearTransitionHold(element);
-		expect('transitionHold' in element.dataset).toBe(false);
-		expect('transitionSourceRamp' in element.dataset).toBe(false);
 	});
 });

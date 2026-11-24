@@ -1,4 +1,4 @@
-export interface LocalAiRuntimeController {
+interface LocalAiRuntimeController {
 	id: string;
 	label: string;
 	isLoaded: () => boolean;
@@ -16,7 +16,7 @@ export interface LocalAiRuntimeUnloadResult {
 	failures: Array<{ id: string; error: unknown }>;
 }
 
-export class LocalAiRuntimeRegistry {
+class LocalAiRuntimeRegistry {
 	private readonly controllers = new Map<string, LocalAiRuntimeController>();
 
 	constructor(private readonly unloadTimeoutMs = 10_000) {}

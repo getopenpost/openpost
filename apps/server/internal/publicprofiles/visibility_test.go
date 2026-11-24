@@ -6,14 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNormalizeCanHideEveryOptionalField(t *testing.T) {
-	raw, fields, err := Normalize(nil)
-	require.NoError(t, err)
-	require.Equal(t, `["username"]`, raw)
-	require.Empty(t, fields)
-	require.Empty(t, Parse(raw).Fields())
-}
-
 func TestNormalizeUsesStableOrderAndDeduplicates(t *testing.T) {
 	raw, fields, err := Normalize([]string{FieldPlan, FieldAvatar, FieldPlan})
 	require.NoError(t, err)

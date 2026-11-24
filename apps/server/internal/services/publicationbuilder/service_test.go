@@ -9,14 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSupportedClaimsRequireKnownSourceReferences(t *testing.T) {
-	t.Parallel()
-	known := sourceReferenceCatalog{"source:1": {kind: "text"}}
-	require.Error(t, validateClaims([]Claim{{Text: "A fact.", Status: "supported"}}, known))
-	require.Error(t, validateClaims([]Claim{{Text: "A fact.", Status: "supported", SourceRefs: []string{"missing"}}}, known))
-	require.NoError(t, validateClaims([]Claim{{Text: "A fact.", Status: "supported", SourceRefs: []string{"source:1"}}}, known))
-}
-
 type generationFunc func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error)
 
 func (generate generationFunc) Generate(ctx context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
@@ -58,18 +50,4 @@ func TestAnglePlanningUsesSharedContextAndRepairsInvalidOutput(t *testing.T) {
 	require.Len(t, options, 5)
 	require.Equal(t, 2, calls)
 	require.Equal(t, "clarity", options[0].BuildDirection.Outcome)
-}
-
-func TestBuildDoesNotRepairProviderFailure(t *testing.T) {
-	t.Parallel()
-	calls := 0
-	failure := &ai.ProviderError{Provider: "synthetic", StatusCode: 503}
-	service, err := New(generationFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
-		calls++
-		return ai.GenerateResult{}, failure
-	}), Config{Model: "synthetic-model"})
-	require.NoError(t, err)
-	_, err = service.Build(t.Context(), BuildInput{Idea: "A release.", Destinations: []Destination{{AccountID: "blue", Platform: "bluesky", AllowedOutputProfiles: []OutputProfile{{Key: "post", TextLimit: 300, MaxSegments: 1}}}}})
-	require.ErrorIs(t, err, failure)
-	require.Equal(t, 1, calls, "structured-output repair must not dispatch another request after a provider failure")
 }

@@ -1,10 +1,55 @@
 #!/usr/bin/env bash
-# Reuse runner media tools only when the fixture encoders and probe actually work.
+# Reuse runner media and browser libraries when already satisfied so CI jobs do
+# not burn minutes or time out on slow Ubuntu apt mirrors.
 set -euo pipefail
 
-if [[ "${1:-}" != media || $# != 1 ]]; then
-  echo 'Usage: bash scripts/ci-setup-tools.sh media' >&2
-  exit 2
+mode="${1:-}"
+case "$mode" in
+  media)
+    if [[ $# != 1 ]]; then
+      echo 'Usage: bash scripts/ci-setup-tools.sh media' >&2
+      exit 2
+    fi
+    ;;
+  chromium)
+    if [[ $# != 2 || ( "$2" != full && "$2" != shell ) ]]; then
+      echo 'Usage: bash scripts/ci-setup-tools.sh chromium <full|shell>' >&2
+      exit 2
+    fi
+    chromium_mode="$2"
+    ;;
+  *)
+    echo 'Usage: bash scripts/ci-setup-tools.sh <media|chromium <full|shell>>' >&2
+    exit 2
+    ;;
+esac
+
+if [[ "$mode" == chromium ]]; then
+  flag=--no-shell
+  [[ "$chromium_mode" == shell ]] && flag=--only-shell
+  PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=60000 bunx --no-install playwright install "$flag" chromium
+
+  chrome_bin=""
+  if [[ "$chromium_mode" == shell ]]; then
+    chrome_bin="$(find "${HOME}/.cache/ms-playwright" -type f -name 'chrome-headless-shell' -perm -111 2>/dev/null | head -1 || true)"
+  else
+    chrome_bin="$(find "${HOME}/.cache/ms-playwright" -type f -name 'chrome' -perm -111 2>/dev/null | head -1 || true)"
+  fi
+  if [[ -n "$chrome_bin" ]] && ! ldd "$chrome_bin" 2>/dev/null | grep -q 'not found'; then
+    echo "Chromium shared libraries already satisfied for $chrome_bin; skipping apt install-deps."
+    exit 0
+  fi
+
+  echo 'Missing Chromium shared libraries; installing Playwright system deps.' >&2
+  # Bound apt network calls so an EC2/Azure Ubuntu mirror stall fails fast.
+  sudo -n tee /etc/apt/apt.conf.d/99openpost-ci-timeouts >/dev/null <<'EOF'
+Acquire::Retries "2";
+Acquire::http::Timeout "20";
+Acquire::https::Timeout "20";
+DPkg::Lock::Timeout "30";
+EOF
+  bunx --no-install playwright install-deps chromium
+  exit 0
 fi
 
 fixture_dir="$(mktemp -d)"

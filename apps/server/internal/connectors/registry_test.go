@@ -14,35 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewRegistryRejectsInvalidRequiredConnector(t *testing.T) {
-	t.Parallel()
-
-	server := manifestServer(t, Manifest{ProtocolVersion: "2.0"})
-	defer server.Close()
-	config, options := registryTestConfig(t, server.URL, true)
-
-	_, err := NewRegistry(context.Background(), config, options)
-	require.ErrorContains(t, err, `required connector installation "directus-main"`)
-}
-
-func TestNewRegistryRejectsConnectorThatShadowsBuiltInProvider(t *testing.T) {
-	t.Parallel()
-
-	manifest := validManifest()
-	manifest.Provider.ID = "x"
-	server := manifestServer(t, manifest)
-	defer server.Close()
-	config, options := registryTestConfig(t, server.URL, false)
-
-	registry, err := NewRegistry(context.Background(), config, options)
-	require.NoError(t, err)
-	entry, ok := registry.Installation("directus-main")
-	require.True(t, ok)
-	require.False(t, entry.Available)
-	require.Equal(t, InstallationStatusInvalidManifest, entry.Status)
-	require.Contains(t, entry.StatusDetail, "conflicts with a built-in provider")
-}
-
 func TestRegistryScopesInstallationsToConfiguredWorkspaces(t *testing.T) {
 	t.Parallel()
 

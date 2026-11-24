@@ -21,7 +21,7 @@ import (
 func TestWorkflowRunSummariesKeepPayloadsInAuthorizedDetail(t *testing.T) {
 	t.Parallel()
 	db := workflowHandlerDB(t)
-	service := workflows.NewService(db, newTestWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil), nil), nil)
+	service := workflows.NewService(db, newTestWorkflowActions(NewPublicationHandler(db, workflowSession{}, nil)), nil)
 	actor := workspaceaccess.ActorFacts{UserID: "user", SessionID: "session"}
 	workflow, err := service.Save(t.Context(), actor, "ws", "", workflows.SaveRequest{Name: "Original workflow", Definition: workflows.Definition{Schema: 1, Source: workflows.Source{Kind: "manual"}, Steps: []workflows.Step{{ID: "draft", Kind: workflows.KindDraft, Inputs: map[string]workflows.Value{"text": {Reference: "source.body"}}}}}})
 	require.NoError(t, err)

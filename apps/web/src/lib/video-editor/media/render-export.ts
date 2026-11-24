@@ -1218,7 +1218,7 @@ export function defaultVideoCodec(format: NonNullable<RenderExportOptions['forma
 	return format === 'webm' ? 'vp9' : 'avc';
 }
 
-export function resolveSubtitleMode(
+function resolveSubtitleMode(
 	mode: NonNullable<RenderExportOptions['subtitleMode']>,
 	format: NonNullable<RenderExportOptions['format']>
 ): NonNullable<RenderExportOptions['subtitleMode']> {

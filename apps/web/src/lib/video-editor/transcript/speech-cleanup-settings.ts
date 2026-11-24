@@ -22,22 +22,6 @@ export interface SpeechCleanupPersistedSettings {
 	audioThresholdDb: number;
 }
 
-export const DEFAULT_SPEECH_CLEANUP_SETTINGS: SpeechCleanupPersistedSettings = {
-	fillerPreset: 'balanced',
-	fillerSettings: {
-		...DEFAULT_FILLER_REMOVAL_SETTINGS,
-		fillerWords: [...DEFAULT_FILLER_REMOVAL_SETTINGS.fillerWords],
-		fillerPhrases: [...DEFAULT_FILLER_REMOVAL_SETTINGS.fillerPhrases]
-	},
-	silenceMode: 'signal',
-	minSilenceMs: 500,
-	paddingStartMs: 100,
-	paddingEndMs: 100,
-	autoThresholds: true,
-	silenceThresholdDb: -45,
-	audioThresholdDb: -35
-};
-
 function boundedNumber(min: number, max: number, fallback: number) {
 	return z
 		.number()

@@ -3,7 +3,7 @@ import type { TimelineItem } from '$lib/video-editor/project/types';
 import { captionTimelineOffset } from './caption-source-mapping';
 import { formatSrt } from './srt';
 
-export function collectSubtitleCues(
+function collectSubtitleCues(
 	items: TimelineItem[],
 	fps: number,
 	startFrame = 0,

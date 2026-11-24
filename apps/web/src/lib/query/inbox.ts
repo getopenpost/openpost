@@ -26,7 +26,7 @@ export class InboxMessageQueryError extends OpenPostQueryError {
 	}
 }
 
-export function createInboxQueryAPI(
+function createInboxQueryAPI(
 	transport: QueryTransport
 ): InboxQueryAPI & InboxSummaryQueryAPI & JobStatusQueryAPI {
 	return {

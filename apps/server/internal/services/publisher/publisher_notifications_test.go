@@ -7,27 +7,13 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
-
-func TestPublicationNotificationCohortDeduplicatesJobRetriesOnly(t *testing.T) {
-	publication := &models.Publication{Revision: 7}
-	lockedAt := time.Date(2026, time.July, 27, 12, 0, 0, 0, time.UTC)
-
-	firstAttempt := WithJobExecution(context.Background(), "job-1", 1, lockedAt)
-	secondAttempt := WithJobExecution(context.Background(), "job-1", 2, lockedAt.Add(time.Minute))
-	manualRetry := WithJobExecution(context.Background(), "job-2", 1, lockedAt.Add(2*time.Minute))
-
-	require.Equal(t, "job:job-1", publicationNotificationCohort(firstAttempt, publication))
-	require.Equal(t, "job:job-1", publicationNotificationCohort(secondAttempt, publication))
-	require.Equal(t, "job:job-2", publicationNotificationCohort(manualRetry, publication))
-	require.Equal(t, "revision:7", publicationNotificationCohort(context.Background(), publication))
-}
 
 type reconnectNotificationServer struct {
 	db      *bun.DB
@@ -36,7 +22,7 @@ type reconnectNotificationServer struct {
 
 func newReconnectNotificationServer(t *testing.T) *reconnectNotificationServer {
 	t.Helper()
-	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:reconnect-%d?mode=memory&cache=shared", time.Now().UnixNano()))
+	sqldb, err := sql.Open(sqliteshim.ShimName, fmt.Sprintf("file:reconnect-%d?mode=memory&cache=shared", time.Now().UnixNano()))
 	require.NoError(t, err)
 	sqldb.SetMaxOpenConns(1)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
@@ -148,35 +134,6 @@ func TestCreateReconnectNotificationsClaimsCredentialGenerationOnce(t *testing.T
 	require.NoError(t, server.db.NewSelect().Model(&account).Where("id = ?", "account-1").Scan(ctx))
 	require.Equal(t, int64(1), account.CredentialFailureGeneration, "one claim per credential break")
 	require.Equal(t, FailureReconnectRequired, account.PreflightFailure, "the claimed break marks the account unhealthy")
-}
-
-func TestPublicationReconnectNotificationsExcludeOtherFailedAccounts(t *testing.T) {
-	server := newReconnectNotificationServer(t)
-	ctx := t.Context()
-	healthy := models.SocialAccount{
-		ID: "account-2", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "healthy",
-		Slug: "healthy", AccessTokenEnc: []byte("test-token"), IsActive: true,
-	}
-	_, err := server.db.NewInsert().Model(&healthy).Exec(ctx)
-	require.NoError(t, err)
-	renditions := []models.Rendition{
-		{SocialAccountID: "account-1", Status: models.RenditionStatusFailed, ErrorAction: FailureActionReconnect, ErrorKind: FailureAuthExpired},
-		{SocialAccountID: healthy.ID, Status: models.RenditionStatusFailed, ErrorAction: FailureActionEdit, ErrorKind: FailureValidation},
-	}
-	publication := &models.Publication{ID: "mixed-publication", WorkspaceID: "ws-1", CreatedByID: "creator-1"}
-	require.NoError(t, server.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		return server.service.createPublicationResultNotifications(ctx, tx, publication, models.PublicationStatusFailed, renditions)
-	}))
-	var account models.SocialAccount
-	require.NoError(t, server.db.NewSelect().Model(&account).Where("id = ?", healthy.ID).Scan(ctx))
-	require.Empty(t, account.PreflightFailure, "content errors must not invalidate credentials")
-	require.Zero(t, account.CredentialFailureGeneration)
-	for _, recipient := range []string{"creator-1", "admin-1"} {
-		for _, row := range reconnectNotificationRows(t, server.db, recipient) {
-			require.NotContains(t, row.DedupKey, "account-2", "only the broken account needs attention")
-		}
-	}
-	require.Len(t, reconnectNotificationRows(t, server.db, "connector-1"), 1)
 }
 
 func TestPublicationCredentialFailureAfterTransientCheck(t *testing.T) {

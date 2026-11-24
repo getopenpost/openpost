@@ -79,7 +79,7 @@ export type ImageSequenceResult =
 	| ImageSequenceDirectoryHandleResult;
 
 export const IMAGE_SEQUENCE_BATCH_SIZE = 8;
-export const ZIP_MAX_FRAMES = 2500;
+const ZIP_MAX_FRAMES = 2500;
 export const ZIP_MAX_ESTIMATED_BYTES = 500 * 1024 * 1024;
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
@@ -118,7 +118,7 @@ export function formatSequenceFileName(
 	return `${baseName}_${String(index + 1).padStart(pad, '0')}.${ext}`;
 }
 
-export function estimateSequenceBytes(
+function estimateSequenceBytes(
 	format: ImageSequenceFormat,
 	width: number,
 	height: number,
@@ -128,7 +128,7 @@ export function estimateSequenceBytes(
 	return Math.ceil(width * height * bytesPerPixel * frameCount);
 }
 
-export function resolveSequenceRange(project: Project, range: ImageSequenceExportOptions['range']) {
+function resolveSequenceRange(project: Project, range: ImageSequenceExportOptions['range']) {
 	const full = projectOutputDurationFrames(project);
 	const startFrame = Math.max(0, Math.floor(range?.startFrame ?? 0));
 	const endFrame = Math.min(full, Math.ceil(range?.endFrame ?? full));
@@ -136,7 +136,7 @@ export function resolveSequenceRange(project: Project, range: ImageSequenceExpor
 	return { startFrame, endFrame, totalFrames };
 }
 
-export function isZipFallbackSafe(
+function isZipFallbackSafe(
 	format: ImageSequenceFormat,
 	width: number,
 	height: number,

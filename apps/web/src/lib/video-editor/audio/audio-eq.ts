@@ -1416,14 +1416,6 @@ function getResolvedAudioEqResponseGainDb(
 	return gainDb;
 }
 
-export function getAudioEqResponseGainDb(
-	source?: AudioEqSettings | AudioEqFieldSource | null,
-	frequencyHz = AUDIO_EQ_MID_FREQUENCY_HZ,
-	sampleRate = 48000
-): number {
-	return getResolvedAudioEqResponseGainDb(resolveAudioEqSettings(source), frequencyHz, sampleRate);
-}
-
 export function sampleAudioEqResponseCurve(
 	source?: AudioEqSettings | AudioEqFieldSource | null,
 	options?: {
@@ -1649,6 +1641,7 @@ export class StreamingAudioEq {
 		});
 	}
 
+	// fallow-ignore-next-line unused-class-member -- bounded-audio-mixer.ts calls it through a non-null assertion.
 	process(channels: Float32Array[]): Float32Array[] {
 		return channels.map((channel, index) => {
 			let output = channel;

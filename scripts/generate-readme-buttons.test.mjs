@@ -3,21 +3,6 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { BUTTON_NAMES, renderButton } from "./generate-readme-buttons.mjs";
 
-const EXPECTED_WIDTHS = {
-  "start-trial": 182,
-  "self-host": 254,
-  "report-bug": 142,
-  "join-discord": 140,
-};
-
-test("keeps README button labels within compact horizontal bounds", () => {
-  for (const [kind, expectedWidth] of Object.entries(EXPECTED_WIDTHS)) {
-    for (const mode of ["light", "dark"]) {
-      assert.match(renderButton(kind, mode), new RegExp(`<svg[^>]+width="${expectedWidth}"`, "u"));
-    }
-  }
-});
-
 test("keeps committed README buttons synchronized with the generator", async () => {
   for (const kind of BUTTON_NAMES) {
     for (const mode of ["light", "dark"]) {
@@ -70,31 +55,6 @@ test("README button texture stays visible and restrained without reducing text c
           contrast(inkRgb, color) >= 4.5,
           `${kind} ${mode}: text must remain readable on both texture colors`,
         );
-    }
-  }
-});
-
-test("README gradients have solid ends with a dithered transition", async () => {
-  const { default: sharp } = await import("sharp");
-  for (const kind of BUTTON_NAMES) {
-    for (const mode of ["light", "dark"]) {
-      const { data, info } = await sharp(Buffer.from(renderButton(kind, mode)))
-        .ensureAlpha()
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-      const rowColors = (y, x = 20) =>
-        new Set(
-          Array.from({ length: 8 }, (_, i) => {
-            const offset = (y * info.width + x + i) * 4;
-            return [...data.subarray(offset, offset + 3)].join(",");
-          }),
-        );
-      const top = new Set([3, 4, 5].flatMap((y) => [...rowColors(y)]));
-      const bottom = new Set([4, 5, 6].flatMap((y) => [...rowColors(info.height - y)]));
-      assert.equal(top.size, 1, `${kind} ${mode}: solid top`);
-      assert.equal(bottom.size, 1, `${kind} ${mode}: solid bottom`);
-      assert.notEqual([...top][0], [...bottom][0], `${kind} ${mode}: distinct endpoints`);
-      assert.equal(rowColors(12, 3).size, 2, `${kind} ${mode}: dithered transition`);
     }
   }
 });

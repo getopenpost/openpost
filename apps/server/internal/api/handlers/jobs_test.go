@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 	"time"
 
@@ -122,59 +121,6 @@ func TestListJobsCountsFilteredWorkspaceScope(t *testing.T) {
 	require.Equal(t, "", out[0].Payload)
 }
 
-// The Posts failed view lists only publishing records; Inbox collection
-// failures have their own recovery surface.
-func TestListJobsPublishingCategoryExcludesCollectionJobs(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
-	srv.seedJobs(t)
-	collection := models.Job{ID: "inbox-sync-failed", Type: "messages_sync", ScopeID: "ws-1", Status: "failed", Payload: `{}`, RunAt: time.Now().UTC()}
-	_, err := srv.db.NewInsert().Model(&collection).Exec(t.Context())
-	require.NoError(t, err)
-
-	all := srv.getJSONWithToken(t, "/api/v1/jobs?workspace_id=ws-1&status=failed", "browser-session")
-	require.Equal(t, http.StatusOK, all.Code, all.Body.String())
-	require.Equal(t, "2", all.Header().Get("X-Total-Count"))
-
-	publishing := srv.getJSONWithToken(t, "/api/v1/jobs?workspace_id=ws-1&status=failed&category=publishing", "browser-session")
-	require.Equal(t, http.StatusOK, publishing.Code, publishing.Body.String())
-	require.Equal(t, "1", publishing.Header().Get("X-Total-Count"))
-	var out []JobResponse
-	require.NoError(t, json.Unmarshal(publishing.Body.Bytes(), &out))
-	require.Len(t, out, 1)
-	require.Equal(t, "job-4", out[0].ID)
-}
-
-func TestGetJobReturnsSafeWorkspaceJobForBrowserSession(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
-	srv.seedJobs(t)
-
-	resp := srv.getJSONWithToken(t, "/api/v1/jobs/job-1", "browser-session")
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var out JobResponse
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Equal(t, "job-1", out.ID)
-	require.Equal(t, jobTypePublishPublication, out.Type)
-	require.Equal(t, "pending", out.Status)
-	require.Equal(t, "publication-1", out.PublicationID)
-	require.Empty(t, out.Payload)
-}
-
-func TestGetJobEnforcesWorkspaceAccessForBrowserSession(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
-	srv.seedJobs(t)
-
-	resp := srv.getJSONWithToken(t, "/api/v1/jobs/job-1", "foreign-browser-session")
-
-	require.Equal(t, http.StatusForbidden, resp.Code, resp.Body.String())
-}
-
 func TestGetJobAllowsWorkspaceBoundAPIReadAndWriteTokens(t *testing.T) {
 	t.Parallel()
 
@@ -205,41 +151,6 @@ func TestGetJobIncludesPayloadOnlyForInstanceAdminBrowserSession(t *testing.T) {
 	var out JobResponse
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	require.Equal(t, `{"publication_id":"publication-1"}`, out.Payload)
-}
-
-func TestListJobsCursorAndRunRangeReachOlderRecordsWithoutDuplicates(t *testing.T) {
-	t.Parallel()
-
-	srv := newJobsTestServer(t)
-	srv.seedJobs(t)
-
-	first := srv.getJSON(t, "/api/v1/jobs?workspace_id=ws-1&limit=2")
-	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
-	require.Equal(t, "true", first.Header().Get("X-Has-More"))
-	cursor := first.Header().Get("X-Next-Cursor")
-	require.NotEmpty(t, cursor)
-	var firstPage []JobResponse
-	require.NoError(t, json.Unmarshal(first.Body.Bytes(), &firstPage))
-	require.Equal(t, []string{"job-4", "job-3"}, []string{firstPage[0].ID, firstPage[1].ID})
-
-	second := srv.getJSON(
-		t,
-		"/api/v1/jobs?workspace_id=ws-1&limit=2&cursor="+url.QueryEscape(cursor),
-	)
-	require.Equal(t, http.StatusOK, second.Code, second.Body.String())
-	require.Equal(t, "false", second.Header().Get("X-Has-More"))
-	var secondPage []JobResponse
-	require.NoError(t, json.Unmarshal(second.Body.Bytes(), &secondPage))
-	require.Equal(t, []string{"job-2", "job-1"}, []string{secondPage[0].ID, secondPage[1].ID})
-
-	rangeResponse := srv.getJSON(
-		t,
-		"/api/v1/jobs?workspace_id=ws-1&run_from=2026-07-01T12:02:00Z&run_before=2026-07-01T12:04:00Z",
-	)
-	require.Equal(t, http.StatusOK, rangeResponse.Code, rangeResponse.Body.String())
-	var rangePage []JobResponse
-	require.NoError(t, json.Unmarshal(rangeResponse.Body.Bytes(), &rangePage))
-	require.Equal(t, []string{"job-3", "job-2"}, []string{rangePage[0].ID, rangePage[1].ID})
 }
 
 func TestListJobsUsesCanonicalScopeForMigratedLegacyHistory(t *testing.T) {

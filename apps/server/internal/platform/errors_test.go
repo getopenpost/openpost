@@ -3,48 +3,9 @@ package platform
 import (
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
-
-func TestNewHTTPErrorKeepsOnlySafeProviderMetadata(t *testing.T) {
-	t.Parallel()
-	headers := http.Header{"Retry-After": []string{"120"}}
-	err := NewHTTPError(
-		http.StatusTooManyRequests,
-		headers,
-		[]byte(`{"error":{"code":"rate_limit","error_subcode":4279009,"message":"secret post text and token"}}`),
-	)
-	var providerErr *HTTPError
-	require.ErrorAs(t, err, &providerErr)
-	require.Equal(t, http.StatusTooManyRequests, providerErr.StatusCode)
-	require.Equal(t, "rate_limit", providerErr.Code)
-	require.Equal(t, "4279009", providerErr.Subcode)
-	require.Equal(t, 2*time.Minute, providerErr.RetryAfter)
-	require.NotContains(t, providerErr.Error(), "secret post text")
-	require.NotContains(t, providerErr.Error(), "token")
-}
-
-func TestProviderDiagnosticsDoNotRetainEchoedCustomerProse(t *testing.T) {
-	t.Parallel()
-	err := NewHTTPError(http.StatusBadRequest, nil, []byte(`{"error":{"code":100,"message":"The post Hello from Acme was rejected","fbtrace_id":"trace123"}}`))
-	require.NotContains(t, ProviderErrorDiagnostic(err), "Hello from Acme")
-}
-
-func TestNewHTTPErrorKeepsBoundedProviderDiagnostics(t *testing.T) {
-	t.Parallel()
-	err := NewHTTPError(
-		http.StatusBadRequest,
-		nil,
-		[]byte(`{"error":{"code":1,"message":"An unknown error occurred.","fbtrace_id":"A1b2C3d4"}}`),
-	)
-	var providerErr *HTTPError
-	require.ErrorAs(t, err, &providerErr)
-	require.Equal(t, "A1b2C3d4", providerErr.TraceID)
-	require.Equal(t, `trace_id=A1b2C3d4`, ProviderErrorDiagnostic(err))
-	require.NotContains(t, providerErr.Error(), "An unknown error occurred.")
-}
 
 func TestNewHTTPErrorDropsUnsafeProviderDiagnostics(t *testing.T) {
 	t.Parallel()

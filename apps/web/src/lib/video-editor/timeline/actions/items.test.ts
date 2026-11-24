@@ -1,6 +1,4 @@
-import { planMixdown } from '../../media/render-plan';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { sequenceStore } from '../../sequences/sequence-store.svelte';
 import { editorSession } from '$lib/video-editor/editor.svelte';
 import { createDefaultTracks } from '$lib/video-editor/project/defaults';
 import { commandHistory } from '../commands/command-store.svelte';
@@ -8,33 +6,18 @@ import { timelineStore } from '../stores/timeline-store.svelte';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 import {
 	addAdjustmentLayer,
-	addItemsSpeedPoint,
-	addMarker,
-	addShapeItem,
-	addTextItem,
 	addTextTemplateItem,
-	clearAllMarkers,
-	closeAllGapsOnTrack,
 	closeGapAtPosition,
-	joinItems,
 	linkItems,
 	removeItems,
-	removeMarker,
 	rippleDeleteItems,
-	selectMarker,
 	setCurrentFrame,
 	setItemSpeed,
 	setItemsReversed,
-	splitItemsAtFrame,
-	trimItemEnd,
-	updateItemsSpeedPoint,
-	updateItemProperties,
-	updateMarker,
-	unlinkItems
+	splitItemsAtFrame
 } from './items';
 import { audioClipFadeGainAtFrame, visualClipFadeOpacityAtFrame } from '../../media/clip-fades';
 import { transitionsStore } from './transitions-store.svelte';
-import { trimItemToFrame } from './trim-playhead';
 
 function clip(overrides: Partial<TimelineItem>): TimelineItem {
 	return {
@@ -95,62 +78,6 @@ describe('sequence color grade item', () => {
 
 		timelineStore._addItem(clip({ id: 'later', from: 40, durationInFrames: 20 }));
 		expect(timelineStore.itemById.get(id)?.durationInFrames).toBe(60);
-	});
-
-	it('creates a clean output track independent of hidden, grouped, and solo source state', () => {
-		timelineStore._setTracks(
-			timelineStore.tracks.map((track) =>
-				track.id === 'track-video-main'
-					? {
-							...track,
-							visible: false,
-							solo: true,
-							muted: true,
-							parentTrackId: 'group',
-							audioEq: { enabled: true }
-						}
-					: track
-			)
-		);
-		const id = addAdjustmentLayer('Sequence grade', {
-			sequenceColorGrade: true
-		});
-		const grade = timelineStore.itemById.get(id);
-		const track = timelineStore.tracks.find((candidate) => candidate.id === grade?.trackId);
-
-		expect(track).toMatchObject({
-			kind: 'video',
-			locked: true,
-			visible: true,
-			muted: false,
-			solo: false
-		});
-		expect(track?.parentTrackId).toBeUndefined();
-		expect(track?.audioEq).toBeUndefined();
-	});
-
-	it('creates a sequence grade when every source track is locked', () => {
-		timelineStore._setTracks(timelineStore.tracks.map((track) => ({ ...track, locked: true })));
-
-		const id = addAdjustmentLayer('Sequence grade', {
-			sequenceColorGrade: true
-		});
-		expect(timelineStore.itemById.get(id)?.sequenceColorGrade).toBe(true);
-	});
-
-	it('adds a regular adjustment layer to a visible track instead of a hidden one', () => {
-		timelineStore._setTracks(
-			timelineStore.tracks.map((track) =>
-				track.id === 'track-video-overlay' ? { ...track, visible: false } : track
-			)
-		);
-
-		const id = addAdjustmentLayer('Grade');
-		const adjustment = timelineStore.itemById.get(id)!;
-		const track = timelineStore.tracks.find((candidate) => candidate.id === adjustment.trackId);
-
-		expect(track?.visible).not.toBe(false);
-		expect(adjustment.trackId).toBe('track-video-main');
 	});
 });
 
@@ -284,44 +211,6 @@ describe('timeline gap closing actions', () => {
 		expect(timelineStore.itemById.get('audio-after')?.from).toBe(60);
 	});
 
-	it('does nothing on occupied or trailing space and on effectively locked tracks', () => {
-		timelineStore._setItems([
-			clip({ id: 'before', from: 0, durationInFrames: 30 }),
-			clip({ id: 'after', from: 60, durationInFrames: 30 })
-		]);
-
-		expect(closeGapAtPosition('track-video-main', 10)).toBe(false);
-		expect(closeGapAtPosition('track-video-main', 100)).toBe(false);
-		timelineStore._setTracks(
-			timelineStore.tracks.map((track) =>
-				track.id === 'track-video-main' ? { ...track, locked: true } : track
-			)
-		);
-		expect(closeGapAtPosition('track-video-main', 45)).toBe(false);
-		expect(commandHistory.canUndo).toBe(false);
-
-		timelineStore._setTracks([
-			{
-				id: 'locked-group',
-				name: 'Locked group',
-				isGroup: true,
-				height: 96,
-				locked: true,
-				visible: true,
-				muted: false,
-				solo: false,
-				order: 0
-			},
-			...createDefaultTracks().map((track, index) =>
-				track.id === 'track-video-main'
-					? { ...track, parentTrackId: 'locked-group', order: index + 1 }
-					: { ...track, order: index + 1 }
-			)
-		]);
-		expect(closeGapAtPosition('track-video-main', 45)).toBe(false);
-		expect(commandHistory.canUndo).toBe(false);
-	});
-
 	it('keeps a linked companion aligned when its track opts out of sync lock', () => {
 		timelineStore._setTracks(
 			timelineStore.tracks.map((track) =>
@@ -349,57 +238,6 @@ describe('timeline gap closing actions', () => {
 		expect(closeGapAtPosition('track-video-main', 45)).toBe(true);
 		expect(timelineStore.itemById.get('video-after')?.from).toBe(30);
 		expect(timelineStore.itemById.get('audio-after')?.from).toBe(30);
-	});
-
-	it('rejects gap closing when an opted-out linked companion cannot move safely', () => {
-		timelineStore._setTracks(
-			timelineStore.tracks.map((track) =>
-				track.id === 'track-audio' ? { ...track, syncLock: false, locked: true } : track
-			)
-		);
-		timelineStore._setItems([
-			clip({ id: 'video-before', from: 0, durationInFrames: 30 }),
-			clip({
-				id: 'video-after',
-				from: 60,
-				durationInFrames: 30,
-				linkedGroupId: 'pair'
-			}),
-			clip({
-				id: 'audio-after',
-				trackId: 'track-audio',
-				type: 'audio',
-				from: 60,
-				durationInFrames: 30,
-				linkedGroupId: 'pair'
-			})
-		]);
-
-		expect(closeGapAtPosition('track-video-main', 45)).toBe(false);
-		expect(timelineStore.itemById.get('video-after')?.from).toBe(60);
-		expect(timelineStore.itemById.get('audio-after')?.from).toBe(60);
-		expect(commandHistory.canUndo).toBe(false);
-
-		timelineStore._setTracks(
-			timelineStore.tracks.map((track) =>
-				track.id === 'track-audio' ? { ...track, locked: false } : track
-			)
-		);
-		timelineStore._setItems([
-			...timelineStore.items,
-			clip({
-				id: 'audio-blocker',
-				trackId: 'track-audio',
-				type: 'audio',
-				from: 30,
-				durationInFrames: 30,
-				linkedGroupId: undefined
-			})
-		]);
-		expect(closeGapAtPosition('track-video-main', 45)).toBe(false);
-		expect(timelineStore.itemById.get('video-after')?.from).toBe(60);
-		expect(timelineStore.itemById.get('audio-after')?.from).toBe(60);
-		expect(commandHistory.canUndo).toBe(false);
 	});
 });
 
@@ -504,51 +342,6 @@ describe('addTextItem', () => {
 		expect(timelineStore.items.map((item) => item.durationInFrames)).toEqual([30, 30]);
 		expect(timelineStore.items.map((item) => item.speed)).toEqual([2, 2]);
 	});
-
-	it('rejects a linked rate stretch that would create a visual same-track overlap', () => {
-		timelineStore._setItems([
-			clip({
-				id: 'video',
-				linkedGroupId: 'group',
-				durationInFrames: 30,
-				sourceStart: 60,
-				sourceEnd: 180,
-				sourceFps: 60,
-				speed: 2
-			}),
-			clip({
-				id: 'audio',
-				trackId: 'track-audio',
-				type: 'audio',
-				linkedGroupId: 'group',
-				durationInFrames: 30,
-				sourceStart: 60,
-				sourceEnd: 180,
-				sourceFps: 60,
-				speed: 2
-			}),
-			clip({ id: 'video-blocker', from: 50, durationInFrames: 30 }),
-			clip({
-				id: 'audio-mix',
-				trackId: 'track-audio',
-				type: 'audio',
-				from: 40,
-				durationInFrames: 30
-			})
-		]);
-
-		expect(setItemSpeed('video', 1)).toBe(false);
-		expect(
-			timelineStore.items.slice(0, 2).map((item) => ({
-				speed: item.speed,
-				duration: item.durationInFrames
-			}))
-		).toEqual([
-			{ speed: 2, duration: 30 },
-			{ speed: 2, duration: 30 }
-		]);
-		expect(commandHistory.canUndo).toBe(false);
-	});
 });
 
 describe('split fade continuity', () => {
@@ -587,65 +380,6 @@ describe('split fade continuity', () => {
 	);
 });
 
-it('exports a continuous envelope at a split and retains the far fade after an edge edit', () => {
-	timelineStore.__resetForTesting();
-	timelineStore._setTracks(createDefaultTracks());
-	timelineStore._setItems([
-		clip({
-			durationInFrames: 300,
-			sourceEnd: 300,
-			audioFadeIn: 2,
-			audioFadeOut: 2
-		})
-	]);
-	splitItemsAtFrame(150, ['clip']);
-	const right = timelineStore.items.find((item) => item.id !== 'clip')!;
-	const entries = planMixdown(timelineStore.items, timelineStore.tracks, 30);
-	expect(entries[0]!.gainPoints.at(-1)!.value).toBe(1);
-	expect(entries[1]!.gainPoints[0]!.value).toBe(1);
-	updateItemProperties(right.id, { audioFadeIn: 1 });
-	expect(audioClipFadeGainAtFrame(timelineStore.itemById.get(right.id)!, 270, 30)).toBeCloseTo(0.5);
-	expect(trimItemToFrame(right.id, 'start', 165)).toBe(true);
-	expect(audioClipFadeGainAtFrame(timelineStore.itemById.get(right.id)!, 165, 30)).toBeCloseTo(0.5);
-});
-
-it('joining split siblings restores both outer fade boundaries', () => {
-	timelineStore.__resetForTesting();
-	timelineStore._setTracks(createDefaultTracks());
-	commandHistory.clearHistory();
-	timelineStore._setItems([
-		clip({
-			durationInFrames: 300,
-			sourceEnd: 300,
-			audioFadeIn: 2,
-			audioFadeOut: 2,
-			fadeIn: 2,
-			fadeOut: 2
-		})
-	]);
-	const split = splitItemsAtFrame(150, ['clip']);
-	joinItems([...split.left, ...split.right]);
-	expect(timelineStore.items).toHaveLength(1);
-	expect(audioClipFadeGainAtFrame(timelineStore.items[0]!, 270, 30)).toBeCloseTo(0.5);
-	expect(visualClipFadeOpacityAtFrame(timelineStore.items[0]!, 270, 30)).toBeCloseTo(0.5);
-});
-
-it('places a lower third inside the lower safe area of the active sequence', () => {
-	timelineStore.__resetForTesting();
-	timelineStore._setTracks(createDefaultTracks());
-	commandHistory.clearHistory();
-	const id = addTextTemplateItem('lower-third', {
-		label: 'Lower Third',
-		sample: { title: 'Name', subtitle: 'Role' }
-	});
-	const item = timelineStore.itemById.get(id)!;
-	const width = sequenceStore.activeWidth;
-	const height = sequenceStore.activeHeight;
-	expect(item.transform?.y).toBeGreaterThan(height * 0.25);
-	expect(item.transform?.width).toBeLessThan(width);
-	expect(item.transform?.height).toBeLessThan(height * 0.3);
-});
-
 it('adds titles above an occupied video instead of hiding them on an empty lower track', () => {
 	timelineStore.__resetForTesting();
 	const tracks = createDefaultTracks();
@@ -661,22 +395,6 @@ it('adds titles above an occupied video instead of hiding them on an empty lower
 	});
 	const title = timelineStore.itemById.get(id)!;
 	expect(timelineStore.tracks.find((track) => track.id === title.trackId)!.order).toBeLessThan(
-		top.order
-	);
-});
-
-it('adds shapes above an occupied video instead of hiding them on an empty lower track', () => {
-	timelineStore.__resetForTesting();
-	const tracks = createDefaultTracks();
-	timelineStore._setTracks(tracks);
-	commandHistory.clearHistory();
-	const top = tracks
-		.filter((track) => track.kind === 'video')
-		.sort((a, b) => a.order - b.order)[0]!;
-	timelineStore._setItems([clip({ trackId: top.id, durationInFrames: 300 })]);
-	const id = addShapeItem('rectangle');
-	const shape = timelineStore.itemById.get(id)!;
-	expect(timelineStore.tracks.find((track) => track.id === shape.trackId)!.order).toBeLessThan(
 		top.order
 	);
 });

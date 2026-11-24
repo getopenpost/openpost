@@ -42,12 +42,6 @@ function getWorker(): Worker | null {
 	}
 }
 
-export function disposeNoiseReductionPreviewWorker(): void {
-	if (worker) {
-		failWorker(worker, new DOMException('Noise-reduction preview closed.', 'AbortError'));
-	}
-}
-
 function previewTransferOptions(buffers: ArrayBuffer[]): StructuredSerializeOptions {
 	return { transfer: buffers };
 }
@@ -57,7 +51,7 @@ type WorkerResponse =
 	| NoiseReductionCompleteResponse
 	| NoiseReductionErrorResponse;
 
-export async function processPreviewNoiseReduction(
+async function processPreviewNoiseReduction(
 	channels: Float32Array[],
 	sampleRate: number,
 	settings: ResolvedAudioNoiseReductionSettings,

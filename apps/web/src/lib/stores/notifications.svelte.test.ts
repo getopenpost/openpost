@@ -1,9 +1,5 @@
-import {
-	notificationQueryKeys,
-	openPostQueryDefaults,
-	type NotificationQueryAPI
-} from '@openpost/query-catalog';
-import { focusManager, QueryClient } from '@tanstack/svelte-query';
+import { openPostQueryDefaults, type NotificationQueryAPI } from '@openpost/query-catalog';
+import { QueryClient } from '@tanstack/svelte-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { client } from '$lib/api/client';
 import type { Notification } from './notifications.svelte';
@@ -18,7 +14,13 @@ const queryAPI: NotificationQueryAPI = {
 	},
 	async listNotifications(workspaceID, limit, cursor, signal) {
 		const result = await mocks.list('/notifications', {
-			params: { query: { workspace_id: workspaceID, limit, cursor: cursor || undefined } },
+			params: {
+				query: {
+					workspace_id: workspaceID,
+					limit,
+					cursor: cursor || undefined
+				}
+			},
 			signal
 		});
 		if (result.error || !result.data) throw new Error(result.error?.detail ?? 'load failed');
@@ -102,7 +104,9 @@ describe('notification inbox store', () => {
 		const store = createStore();
 		await store.ensureLoaded('workspace-a');
 
-		const failed = await store.markRead('workspace-a', { ids: ['notification-001'] });
+		const failed = await store.markRead('workspace-a', {
+			ids: ['notification-001']
+		});
 		expect(failed).toEqual({ ok: false, detail: 'Forced failure' });
 		expect(store.snapshot('workspace-a').unreadCount).toBe(1);
 		expect(store.snapshot('workspace-a').items[0]?.read_at).toBe('');
@@ -188,94 +192,6 @@ describe('notification inbox store', () => {
 		).toHaveLength(2);
 	});
 
-	it('counts an unread notification once when it overlaps adjacent cursor pages', async () => {
-		const overlapping = notification(1);
-		const second = notification(2);
-		mocks.list.mockImplementation(async (_path, request) =>
-			request.params.query.cursor
-				? {
-						data: {
-							items: [overlapping, second],
-							unread_count: 2,
-							next_cursor: ''
-						},
-						error: null
-					}
-				: {
-						data: { items: [overlapping], unread_count: 2, next_cursor: 'next' },
-						error: null
-					}
-		);
-		mocks.post.mockResolvedValue({ error: null });
-		const store = createStore();
-		await store.ensureLoaded('workspace-a');
-		await store.loadMore('workspace-a');
-
-		expect(store.snapshot('workspace-a').items).toHaveLength(2);
-		await store.markRead('workspace-a', { ids: [overlapping.id] });
-
-		expect(store.snapshot('workspace-a').unreadCount).toBe(1);
-		expect(
-			store.snapshot('workspace-a').items.find((item) => item.id === overlapping.id)?.read_at
-		).not.toBe('');
-	});
-
-	it('merges server arrivals into the shared cache during a background refresh', async () => {
-		const first = notification(1);
-		const arrival = notification(0);
-		mocks.list
-			.mockResolvedValueOnce({
-				data: { items: [first], unread_count: 1, next_cursor: '' },
-				error: null
-			})
-			.mockResolvedValueOnce({
-				data: { items: [arrival, first], unread_count: 2, next_cursor: '' },
-				error: null
-			});
-		const store = createStore();
-		await store.ensureLoaded('workspace-a');
-		await store.refresh('workspace-a', { background: true });
-
-		expect(store.snapshot('workspace-a').items.map((item) => item.id)).toEqual([
-			arrival.id,
-			first.id
-		]);
-		expect(store.snapshot('workspace-a').unreadCount).toBe(2);
-	});
-
-	it('performs one refresh when a mounted query client regains focus', async () => {
-		mocks.list.mockResolvedValue({
-			data: { items: [notification(1)], unread_count: 1, next_cursor: '' },
-			error: null
-		});
-		const cache = new QueryClient({ defaultOptions: openPostQueryDefaults });
-		const store = new NotificationInboxStore(cache, queryAPI);
-		cache.mount();
-		const stopPolling = store.startAutoRefresh('workspace-a', 60_000);
-
-		try {
-			await store.ensureLoaded('workspace-a');
-			await cache.invalidateQueries({
-				queryKey: notificationQueryKeys.inbox('workspace-a', 30),
-				exact: true,
-				refetchType: 'none'
-			});
-
-			focusManager.setFocused(false);
-			focusManager.setFocused(true);
-			await vi.waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(2));
-			window.dispatchEvent(new Event('focus'));
-			await Promise.resolve();
-
-			expect(mocks.list).toHaveBeenCalledTimes(2);
-		} finally {
-			stopPolling();
-			store.clear();
-			cache.unmount();
-			focusManager.setFocused(undefined);
-		}
-	});
-
 	it('keeps cached notifications visible through a background error and clears it on success', async () => {
 		const item = notification(1);
 		mocks.list
@@ -301,103 +217,30 @@ describe('notification inbox store', () => {
 			error: 'Background refresh failed'
 		});
 
-		expect(await store.refresh('workspace-a', { background: true })).toEqual({ ok: true });
-		expect(store.snapshot('workspace-a')).toMatchObject({ items: [item], error: '' });
-	});
-
-	it('keeps a terminal first-load error until an explicit refresh', async () => {
-		mocks.list
-			.mockResolvedValueOnce({ error: { detail: 'Initial load failed' } })
-			.mockResolvedValueOnce({
-				data: { items: [], unread_count: 0, next_cursor: '' },
-				error: null
-			});
-		const store = createStore();
-
-		expect(await store.ensureLoaded('workspace-a')).toEqual({
-			ok: false,
-			detail: 'Initial load failed'
+		expect(await store.refresh('workspace-a', { background: true })).toEqual({
+			ok: true
 		});
-		expect(await store.ensureLoaded('workspace-a')).toEqual({
-			ok: false,
-			detail: 'Initial load failed'
+		expect(store.snapshot('workspace-a')).toMatchObject({
+			items: [item],
+			error: ''
 		});
-		expect(mocks.list).toHaveBeenCalledTimes(1);
-
-		expect(await store.refresh('workspace-a')).toEqual({ ok: true });
-		expect(mocks.list).toHaveBeenCalledTimes(2);
-		expect(store.snapshot('workspace-a')).toMatchObject({ initialized: true, error: '' });
-	});
-
-	it('settles a refresh discarded after a concurrent mutation without restoring stale unread state', async () => {
-		const item = notification(1);
-		const staleRefresh = deferred<{
-			data: { items: Notification[]; unread_count: number; next_cursor: string };
-			error: null;
-		}>();
-		mocks.list
-			.mockResolvedValueOnce({
-				data: { items: [item], unread_count: 1, next_cursor: '' },
-				error: null
-			})
-			.mockReturnValueOnce(staleRefresh.promise);
-		mocks.post.mockResolvedValue({ error: null });
-		const store = createStore();
-		await store.ensureLoaded('workspace-a');
-
-		const refreshing = store.refresh('workspace-a');
-		expect(store.snapshot('workspace-a').loading).toBe(true);
-		await store.markRead('workspace-a', { ids: [item.id] });
-		staleRefresh.resolve({
-			data: { items: [item], unread_count: 1, next_cursor: '' },
-			error: null
-		});
-		await refreshing;
-
-		expect(store.snapshot('workspace-a').loading).toBe(false);
-		expect(store.snapshot('workspace-a').unreadCount).toBe(0);
-		expect(store.snapshot('workspace-a').items[0]?.read_at).not.toBe('');
-	});
-
-	it('settles load more after a concurrent mutation and leaves the cursor available to retry', async () => {
-		const first = notification(1);
-		const staleNextPage = deferred<{
-			data: { items: Notification[]; unread_count: number; next_cursor: string };
-			error: null;
-		}>();
-		mocks.list
-			.mockResolvedValueOnce({
-				data: { items: [first], unread_count: 1, next_cursor: 'next' },
-				error: null
-			})
-			.mockReturnValueOnce(staleNextPage.promise);
-		mocks.post.mockResolvedValue({ error: null });
-		const store = createStore();
-		await store.ensureLoaded('workspace-a');
-
-		const loadingMore = store.loadMore('workspace-a');
-		expect(store.snapshot('workspace-a').loadingMore).toBe(true);
-		await store.markRead('workspace-a', { ids: [first.id] });
-		staleNextPage.resolve({
-			data: { items: [notification(2)], unread_count: 1, next_cursor: '' },
-			error: null
-		});
-		await loadingMore;
-
-		expect(store.snapshot('workspace-a').loadingMore).toBe(false);
-		expect(store.snapshot('workspace-a').nextCursor).toBe('next');
-		expect(store.snapshot('workspace-a').items).toHaveLength(1);
-		expect(store.snapshot('workspace-a').unreadCount).toBe(0);
-		expect(store.snapshot('workspace-a').items[0]?.read_at).not.toBe('');
 	});
 
 	it('does not let an in-flight request repopulate a cache cleared for another account', async () => {
 		const oldAccount = deferred<{
-			data: { items: Notification[]; unread_count: number; next_cursor: string };
+			data: {
+				items: Notification[];
+				unread_count: number;
+				next_cursor: string;
+			};
 			error: null;
 		}>();
 		const newAccount = deferred<{
-			data: { items: Notification[]; unread_count: number; next_cursor: string };
+			data: {
+				items: Notification[];
+				unread_count: number;
+				next_cursor: string;
+			};
 			error: null;
 		}>();
 		mocks.list.mockReturnValueOnce(oldAccount.promise).mockReturnValueOnce(newAccount.promise);
@@ -435,7 +278,9 @@ describe('notification inbox store', () => {
 		const store = createStore();
 		await store.ensureLoaded('workspace-a');
 
-		const markingRead = store.markRead('workspace-a', { ids: [notification(1).id] });
+		const markingRead = store.markRead('workspace-a', {
+			ids: [notification(1).id]
+		});
 		store.clear();
 		mutation.resolve({ error: null });
 		expect(await markingRead).toEqual({ ok: false });

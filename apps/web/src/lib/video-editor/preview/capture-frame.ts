@@ -14,7 +14,7 @@ export interface ResolveCaptureFrameParams {
 	livePlaybackFrame?: number | null;
 }
 
-export const MAX_LIVE_PLAYBACK_CAPTURE_DRIFT_FRAMES = 2;
+const MAX_LIVE_PLAYBACK_CAPTURE_DRIFT_FRAMES = 2;
 
 function normalizeFrame(frame: number): number {
 	if (!Number.isFinite(frame)) return 0;

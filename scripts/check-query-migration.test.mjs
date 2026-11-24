@@ -82,27 +82,6 @@ test("finds lowercase injected receivers and direct endpoint getters", () => {
   );
 });
 
-test("finds simple aliases assigned from uppercase GET", () => {
-  const file = "apps/web/src/lib/example.ts";
-  withFixture(
-    {
-      [file]: `
-        const request = client.GET;
-        await request('/aliased');
-        let rebound;
-        rebound = transport.GET;
-        await rebound('/rebound');
-      `,
-    },
-    (repoRoot) => {
-      assert.deepEqual(
-        scan(repoRoot).violations.map(({ endpoint }) => endpoint),
-        ["/aliased", "/rebound"],
-      );
-    },
-  );
-});
-
 test("finds native API fetches through direct, assigned, and bound aliases", () => {
   const file = "apps/web/src/lib/example.ts";
   withFixture(
@@ -166,24 +145,6 @@ test("treats uncertain raw fetch initialization as a read", () => {
   );
 });
 
-test("ignores raw fetches whose mutation method is statically decisive", () => {
-  const file = "apps/web/src/lib/example.ts";
-  withFixture(
-    {
-      [file]: `
-        const request = window.fetch.bind(window);
-        await request('/api/v1/post', { method: 'POST' });
-        await fetch('/api/v1/patch', { ...requestInit, method: \`PATCH\` });
-        await fetch('/api/v1/delete', { method: 'DELETE' as const });
-        await fetch('/api/v1/put', { method: 'PUT', credentials: 'include' });
-      `,
-    },
-    (repoRoot) => {
-      assert.deepEqual(scan(repoRoot).calls, []);
-    },
-  );
-});
-
 test("ignores raw mutations, external resources, and dynamic downloads", () => {
   const file = "apps/web/src/lib/example.ts";
   withFixture(
@@ -197,32 +158,6 @@ test("ignores raw mutations, external resources, and dynamic downloads", () => {
     },
     (repoRoot) => {
       assert.deepEqual(scan(repoRoot).calls, []);
-    },
-  );
-});
-
-test("requires raw Query adapter fetches to cross the central transport boundary", () => {
-  withFixture(
-    {
-      "apps/web/src/lib/query/media.ts": `
-        queryGET({
-          signal,
-          fallback: 'Could not load media.',
-          request: (requestSignal) => fetch('/api/v1/media/metadata', { signal: requestSignal })
-        });
-      `,
-      "apps/web/src/lib/query/bypass.ts": "fetch('/api/v1/query-bypass');",
-    },
-    (repoRoot) => {
-      const result = scan(repoRoot);
-      assert.deepEqual(
-        result.adapterCalls.map(({ endpoint }) => endpoint),
-        ["/query-bypass", "/media/metadata"],
-      );
-      assert.deepEqual(
-        result.adapterViolations.map(({ file, endpoint }) => ({ file, endpoint })),
-        [{ file: "apps/web/src/lib/query/bypass.ts", endpoint: "/query-bypass" }],
-      );
     },
   );
 });

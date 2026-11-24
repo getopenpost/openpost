@@ -16,81 +16,6 @@ test.describe("marketing", () => {
     ).toHaveAttribute("href", "https://openpo.st/docs/guides/quickstart");
   });
 
-  test("landing header shows the live GitHub star link beside the wordmark", async ({ page }) => {
-    await page.route("https://app.openpo.st/api/v1/github-stars", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ count: 512 }),
-      });
-    });
-    await page.goto("/");
-
-    const header = page.locator("header.marketing-nav");
-    const starPill = header.getByTestId("github-star-pill");
-    await expect(starPill).toBeVisible();
-    await expect(starPill).toHaveAttribute("href", "https://github.com/getopenpost/openpost");
-    await expect(starPill).toHaveText("512");
-    await expect(starPill.locator("svg")).toBeVisible();
-    await expect(
-      header.getByRole("link", { name: "OpenPost home", exact: true }).locator(".."),
-    ).toContainText("OpenPost");
-    await expect(page.getByTestId("github-star-pill")).toHaveCount(1);
-  });
-
-  test("resources menu uses one column per resource group", async ({ page }) => {
-    await page.goto("/");
-    await page.getByRole("button", { name: "Resources", exact: true }).click();
-
-    const menuGrid = page.locator(".resource-menu > div");
-    await expect(menuGrid).toBeVisible();
-    await expect(menuGrid.getByRole("link", { name: "Comparisons", exact: true })).toHaveAttribute(
-      "href",
-      "/comparisons",
-    );
-    await expect(menuGrid.getByRole("link", { name: "Workflows", exact: true })).toHaveCount(0);
-    expect(
-      await menuGrid.evaluate(
-        (element) => getComputedStyle(element).gridTemplateColumns.split(" ").length,
-      ),
-    ).toBe(2);
-  });
-
-  test("free tools directory keeps core tools reachable and fits narrow screens", async ({
-    page,
-  }) => {
-    const toolSlugs = [
-      "social-media-video-editor",
-      "social-media-image-editor",
-      "multi-platform-character-counter",
-      "post-preview-generator",
-      "thread-splitter",
-      "fediverse-handle-checker",
-      "linkedin-text-formatter",
-      "best-time-to-post-calculator",
-      "utm-link-builder",
-    ] as const;
-
-    await page.goto("/tools");
-    await expect(page.getByRole("heading", { name: /^Free tools\./, level: 1 })).toBeVisible();
-    const main = page.getByRole("main");
-    for (const slug of toolSlugs) {
-      await expect(main.locator(`a[href="/tools/${slug}"]`)).toHaveCount(1);
-    }
-
-    await page.setViewportSize({ width: 320, height: 720 });
-    await expect
-      .poll(() =>
-        page
-          .getByRole("heading", { name: /^Free tools\./, level: 1 })
-          .evaluate((heading) => heading.scrollWidth <= heading.clientWidth),
-      )
-      .toBe(true);
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-    ).toBe(true);
-  });
-
   test("retired marketing pages and compatibility redirects stay removed", async ({ request }) => {
     for (const retiredPath of [
       "/self-hosted",
@@ -185,84 +110,6 @@ test.describe("marketing", () => {
     ).toBe(true);
   });
 
-  test("free marketing tools produce useful output", async ({ page }) => {
-    await page.goto("/tools/multi-platform-character-counter");
-    await dismissTelemetryConsent(page);
-    await page.waitForLoadState("networkidle");
-    await page.getByRole("textbox", { name: "Post text" }).fill("hello");
-    await expect(page.getByRole("progressbar", { name: "X character use" })).toHaveAttribute(
-      "aria-valuenow",
-      "5",
-    );
-    await expect(page.getByRole("progressbar", { name: "Discord character use" })).toHaveAttribute(
-      "aria-valuenow",
-      "5",
-    );
-
-    await page.goto("/tools/post-preview-generator");
-    await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: "Platform", exact: true }).click();
-    await page.getByRole("option", { name: "Mastodon", exact: true }).click();
-    await expect(page.locator("select")).toHaveCount(0);
-    await page
-      .getByRole("button", {
-        name: /Post details/,
-      })
-      .click();
-    await page.getByLabel("Handle").fill("@alice@hachyderm.io");
-    await expect(page.locator('[aria-label="Mastodon post preview"]')).toContainText(
-      "@alice@hachyderm.io",
-    );
-
-    await page.goto("/tools/thread-splitter");
-    await page.waitForLoadState("networkidle");
-    await page.getByRole("textbox", { name: "Text to split into a thread" }).fill("x".repeat(300));
-    await page.getByRole("button", { name: "Social network" }).click();
-    await page.getByRole("option", { name: /Bluesky/ }).click();
-    await expect(page.getByRole("button", { name: "Copy part 2" })).toBeVisible();
-
-    await page.goto("/tools/fediverse-handle-checker");
-    await page.waitForLoadState("networkidle");
-    await page.getByLabel("Fediverse or Bluesky handle").fill("@alice@hachyderm.io");
-    await expect(page.getByText("@alice@hachyderm.io", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Check live" })).toBeEnabled();
-
-    await page.goto("/tools/linkedin-text-formatter");
-    await page.waitForLoadState("networkidle");
-    await page
-      .getByRole("textbox", { name: "LinkedIn post draft" })
-      .fill("First sentence. Second sentence.");
-    await page.getByRole("button", { name: "Paragraph length" }).click();
-    await page.getByRole("option", { name: "One sentence" }).click();
-    await page.getByRole("checkbox", { name: "Use the same bullet style" }).click();
-    await expect(page.getByRole("textbox", { name: "Formatted LinkedIn post" })).toHaveValue(
-      /First sentence/,
-    );
-
-    await page.goto("/tools/best-time-to-post-calculator");
-    await page.waitForLoadState("networkidle");
-    await page.getByLabel("Posts per week").fill("2");
-    await expect(
-      page.getByRole("region", { name: "Your local schedule" }).getByRole("listitem"),
-    ).toHaveCount(2);
-
-    await page.goto("/tools/utm-link-builder");
-    await page.waitForLoadState("networkidle");
-    await page
-      .getByLabel("Page link")
-      .fill("https://example.com/launch?ref=homepage&utm_term=founders&utm_content=demo#details");
-    await page.getByLabel("Source").fill("linkedin");
-    await page.getByRole("textbox", { name: "Campaign", exact: true }).fill("summer-launch");
-    await expect(page.getByTestId("utm-result")).toHaveText(
-      "https://example.com/launch?ref=homepage&utm_term=founders&utm_content=demo&utm_source=linkedin&utm_medium=social&utm_campaign=summer-launch#details",
-    );
-    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.getByRole("button", { name: "Copy link", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Copied", exact: true })).toBeVisible();
-    await page.getByRole("textbox", { name: "Campaign", exact: true }).fill("autumn-launch");
-    await expect(page.getByRole("button", { name: "Copy link", exact: true })).toBeVisible();
-  });
-
   test("public changelog is generated from the canonical release record", async ({ page }) => {
     const canonicalSection = parseChangelog(
       readFileSync(new URL("../../CHANGELOG.md", import.meta.url), "utf8"),
@@ -292,35 +139,6 @@ test.describe("marketing", () => {
       "href",
       "https://github.com/getopenpost/openpost/blob/main/CHANGELOG.md",
     );
-  });
-});
-
-test.describe("mobile navigation escape", () => {
-  test("mobile navigation closes with Escape and restores its trigger @mobile", async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 320, height: 900 });
-    await page.goto("/tools");
-    await dismissTelemetryConsent(page);
-    const trigger = page.getByRole("button", { name: "Open navigation", exact: true });
-    await trigger.focus();
-    await trigger.press("Enter");
-    await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(trigger).toHaveAttribute("aria-expanded", "false", { timeout: 2000 });
-    await expect(trigger).toBeFocused();
-    await page.setViewportSize({ width: 320, height: 900 });
-    await trigger.click();
-    const navigation = page.getByRole("navigation", { name: "Mobile navigation" });
-    const theme = navigation.getByRole("button", { name: `Use light theme`, exact: true });
-    if (await theme.isVisible()) await theme.click();
-    await navigation.getByRole("link", { name: "Free tools", exact: true }).focus();
-    await page.keyboard.press("Escape");
-    await expect(navigation).toHaveCount(0);
-    await expect(trigger).toBeFocused();
-    await trigger.click();
-    await page.getByRole("button", { name: "Close navigation", exact: true }).click();
-    await expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 });
 

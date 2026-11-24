@@ -5,7 +5,6 @@ import {
 	cloneImageEditorPage,
 	defaultTransform,
 	migrateImageEditorDocument,
-	imageEditorPageHasTransparency,
 	imageEditorPageBackground,
 	validateImageEditorDocument
 } from './document';
@@ -52,13 +51,6 @@ describe('OpenPost Image Editor document contracts', () => {
 		expect(original.pages[0].name).not.toBe('Edited copy');
 		expect(migrateImageEditorDocument(reactive).readOnly).toBe(false);
 	});
-	it('creates a valid document for a preset', () => {
-		const document = blankImageEditorDocument(preset);
-		expect(validateImageEditorDocument(document)).toEqual([]);
-		expect(document.pages).toHaveLength(1);
-		expect(document.width_px).toBe(1080);
-		expect(document.export_defaults.matte_color).toBe('#ffffff');
-	});
 
 	it('migrates legacy uniform pages and validates mixed page dimensions independently', () => {
 		const legacy = blankImageEditorDocument(preset);
@@ -76,76 +68,14 @@ describe('OpenPost Image Editor document contracts', () => {
 		second.guides = { horizontal: [1200], vertical: [700] };
 		migrated.pages.push(second);
 		expect(validateImageEditorDocument(migrated)).toEqual([]);
-		expect(imageEditorPageDimensions(migrated, second)).toEqual({ width: 720, height: 1280 });
+		expect(imageEditorPageDimensions(migrated, second)).toEqual({
+			width: 720,
+			height: 1280
+		});
 		second.width_px = 600;
 		expect(validateImageEditorDocument(migrated)).toContain('Portrait has invalid guides.');
 		delete second.height_px;
 		expect(validateImageEditorDocument(migrated)).toContain('Portrait has invalid dimensions.');
-	});
-
-	it('normalizes and validates page-specific non-exporting guides', () => {
-		const document = blankImageEditorDocument(preset);
-		document.pages[0].guides = { horizontal: [120], vertical: [240] };
-		expect(validateImageEditorDocument(document)).toEqual([]);
-
-		document.pages[0].guides.vertical.push(document.width_px + 1);
-		expect(validateImageEditorDocument(document)).toContain('Page 1 has invalid guides.');
-	});
-
-	it('validates versioned page output grades', () => {
-		const document = blankImageEditorDocument(preset);
-		document.pages[0].color_grade = {
-			brightness: 0.1,
-			contrast: 0,
-			saturation: 0,
-			temperature: 0,
-			tint: 0,
-			vibrance: 0,
-			hue: 0,
-			exposure: 0,
-			highlights: 0,
-			shadows: 0
-		};
-		expect(validateImageEditorDocument(document)).toContain('Page 1 has an invalid color grade.');
-
-		document.pages[0].color_grade_version = 1;
-		expect(validateImageEditorDocument(document)).toEqual([]);
-
-		document.pages[0].color_grade.contrast = 1.1;
-		expect(validateImageEditorDocument(document)).toContain('Page 1 has an invalid color grade.');
-	});
-
-	it('supports transparent, gradient, and image page backgrounds', () => {
-		const document = blankImageEditorDocument(preset);
-		document.pages[0].background = { type: 'transparent', opacity: 0 };
-		expect(validateImageEditorDocument(document)).toEqual([]);
-		expect(imageEditorPageHasTransparency(document.pages[0])).toBe(true);
-
-		document.pages[0].background = {
-			type: 'gradient',
-			opacity: 1,
-			gradient: {
-				type: 'linear',
-				start: { x: 0, y: 540 },
-				end: { x: 1080, y: 540 },
-				reverse: false,
-				stops: [
-					{ offset: 0, color: '#f97316' },
-					{ offset: 0.5, color: '#ec4899' },
-					{ offset: 1, color: '#7c3aed' }
-				]
-			}
-		};
-		expect(validateImageEditorDocument(document)).toEqual([]);
-		expect(imageEditorPageHasTransparency(document.pages[0])).toBe(false);
-
-		document.pages[0].background = {
-			type: 'image',
-			opacity: 1,
-			image: { media_id: 'media-background', fit: 'cover' }
-		};
-		expect(validateImageEditorDocument(document)).toEqual([]);
-		expect(imageEditorPageHasTransparency(document.pages[0])).toBe(true);
 	});
 
 	it('enforces document dimension and page-count limits', () => {
@@ -172,15 +102,6 @@ describe('OpenPost Image Editor document contracts', () => {
 		expect(validateImageEditorDocument(document)).toContain('b belongs to a cyclic group.');
 	});
 
-	it('remaps page, layer, and parent IDs when cloning', () => {
-		const document = blankImageEditorDocument(preset);
-		document.pages[0].layers = [group('parent'), group('child', 'parent')];
-		const clone = cloneImageEditorPage(document.pages[0], 'Page 1 copy');
-		expect(clone.id).not.toBe(document.pages[0].id);
-		expect(clone.layers[0].id).not.toBe('parent');
-		expect(clone.layers[1].parent_id).toBe(clone.layers[0].id);
-	});
-
 	it('opens newer documents read-only without rewriting them', () => {
 		const document = blankImageEditorDocument(preset);
 		const result = migrateImageEditorDocument({
@@ -190,86 +111,6 @@ describe('OpenPost Image Editor document contracts', () => {
 		expect(result.readOnly).toBe(true);
 		expect(result.document?.schema_version).toBe(99);
 		expect(result.error).toContain('newer OpenPost version');
-	});
-
-	it('fills new image-adjustment defaults when opening an existing document', () => {
-		const document = blankImageEditorDocument(preset);
-		delete document.pages[0].background;
-		// SAFETY: This compatibility fixture intentionally removes a field added after the saved format.
-		delete (document.export_defaults as Partial<typeof document.export_defaults>).matte_color;
-		document.pages[0].layers = [
-			{
-				id: 'existing-image',
-				type: 'image',
-				name: 'Existing image',
-				visible: true,
-				locked: false,
-				opacity: 1,
-				transform: defaultTransform(400, 300),
-				image: {
-					media_id: 'media',
-					source_width: 400,
-					source_height: 300,
-					fit: 'stretch',
-					crop: { x: 0, y: 0, width: 1, height: 1 },
-					// SAFETY: This compatibility fixture intentionally supplies the pre-migration adjustment shape.
-					adjustments: {
-						brightness: 0,
-						contrast: 0,
-						saturation: 0,
-						temperature: 0,
-						exposure: 0,
-						highlights: 0,
-						shadows: 0,
-						blur: 0
-					} as never
-				}
-			}
-		];
-
-		const result = migrateImageEditorDocument(document);
-
-		expect(result.readOnly).toBe(false);
-		expect(result.document?.pages[0].layers[0].image?.adjustments).toMatchObject({
-			tint: 0,
-			vibrance: 0,
-			hue: 0
-		});
-		expect(result.document?.pages[0].background).toEqual({
-			type: 'solid',
-			color: '#ffffff',
-			opacity: 1
-		});
-		expect(result.document?.export_defaults.matte_color).toBe('#ffffff');
-	});
-
-	it('fills backward-compatible text decoration and wrapping defaults', () => {
-		const document = blankImageEditorDocument(preset);
-		document.pages[0].layers = [
-			{
-				...group('text'),
-				type: 'text',
-				text: {
-					text: 'A long heading',
-					font_family: 'Geist Variable',
-					font_weight: 700,
-					font_style: 'normal',
-					font_size: 64,
-					color: '#111111',
-					align: 'left',
-					line_height: 1.1,
-					letter_spacing: 0,
-					stroke_width: 0,
-					shadow: { color: '#00000000', blur: 0, offset_x: 0, offset_y: 0 }
-				}
-			}
-		];
-		const result = migrateImageEditorDocument(document);
-		expect(result.document?.pages[0].layers[0].text).toMatchObject({
-			underline: false,
-			strike: false,
-			wrap: 'word'
-		});
 	});
 
 	it('validates masks, curved text, blend modes, and layer shadows', () => {

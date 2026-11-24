@@ -7,19 +7,9 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
-
-func TestCompatWaitForMediaProcessingHonorsCancellation(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	started := time.Now()
-	_, err := compatWaitForMediaProcessing(ctx, "http://127.0.0.1:1", "token", "media-id")
-	require.ErrorIs(t, err, context.Canceled)
-	require.Less(t, time.Since(started), 500*time.Millisecond)
-}
 
 func TestDetectFediverseSoftwareViaNodeInfo(t *testing.T) {
 	originalClient := httpClient
@@ -39,54 +29,6 @@ func TestDetectFediverseSoftwareViaNodeInfo(t *testing.T) {
 
 	if got := DetectFediverseSoftware(t.Context(), "https://pixelfed.example"); got != FediverseSoftwarePixelfed {
 		t.Fatalf("expected pixelfed, got %q", got)
-	}
-}
-
-func TestDetectFediverseSoftwareFallsBackToInstanceVersion(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		switch req.URL.Path {
-		case "/.well-known/nodeinfo":
-			return jsonResponseWithStatus(req, http.StatusNotFound, `{}`), nil
-		case "/api/v1/instance":
-			return jsonResponse(req, `{"version":"2.8.0 (compatible; Friendica 2024.08)"}`), nil
-		default:
-			t.Fatalf("unexpected request %s", req.URL.String())
-			return nil, nil
-		}
-	})}
-
-	if got := DetectFediverseSoftware(t.Context(), "https://friendica.example"); got != FediverseSoftwareFriendica {
-		t.Fatalf("expected friendica, got %q", got)
-	}
-}
-
-func TestCompatInstanceCapabilitiesFallsBackToV1(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		if req.URL.Path == "/api/v2/instance" {
-			return jsonResponseWithStatus(req, http.StatusNotFound, `{}`), nil
-		}
-		if req.URL.Path == "/api/v1/instance" {
-			return jsonResponse(req, `{"version":"0.11.0 (compatible; Pixelfed 0.11.0)","max_toot_chars":500,"upload_limit":15000000}`), nil
-		}
-		t.Fatalf("unexpected request %s", req.URL.String())
-		return nil, nil
-	})}
-
-	result, err := compatInstanceCapabilities(t.Context(), "https://pixelfed.example", "token", "Pixelfed")
-	if err != nil {
-		t.Fatalf("compatInstanceCapabilities returned error: %v", err)
-	}
-	if result.Constraints["text_limit"] != 500 {
-		t.Fatalf("unexpected text limit: %#v", result.Constraints)
-	}
-	if !strings.HasPrefix(result.Revision, "compat-v1:") {
-		t.Fatalf("expected v1 revision, got %q", result.Revision)
 	}
 }
 

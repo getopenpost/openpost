@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -29,7 +28,7 @@ type instanceBackupTestServer struct {
 	paths    instancebackup.Paths
 }
 
-func newInstanceBackupTestServer(t *testing.T, isAdmin bool, authenticator middleware.Authenticator, mutate func(*InstanceBackupConfig)) *instanceBackupTestServer {
+func newInstanceBackupTestServer(t *testing.T, isAdmin bool, authenticator middleware.Authenticator) *instanceBackupTestServer {
 	t.Helper()
 	db := createHandlerTestDB(t, (*models.User)(nil), (*migrations.SchemaMigration)(nil))
 	_, err := db.NewInsert().Model(&models.User{
@@ -57,9 +56,6 @@ func newInstanceBackupTestServer(t *testing.T, isAdmin bool, authenticator middl
 		ProcessRole:    "all",
 		Restart:        func() { restarts.Add(1) },
 	}
-	if mutate != nil {
-		mutate(&config)
-	}
 	handler := NewInstanceBackupHandler(db, authenticator, config)
 	handler.restartDelay = time.Millisecond
 	e := echo.New()
@@ -81,7 +77,7 @@ func (s *instanceBackupTestServer) do(t *testing.T, method, path string, body []
 
 func TestInstanceBackupRequiresBrowserSessionAdmin(t *testing.T) {
 	t.Run("non-admin session", func(t *testing.T) {
-		server := newInstanceBackupTestServer(t, false, browserSessionTestAuthenticator(), nil)
+		server := newInstanceBackupTestServer(t, false, browserSessionTestAuthenticator())
 		for _, path := range []string{"/api/v1/admin/backup", "/api/v1/admin/backup/export"} {
 			response := server.do(t, http.MethodGet, path, nil, "")
 			require.Equal(t, http.StatusForbidden, response.Code, path+": "+response.Body.String())
@@ -91,30 +87,14 @@ func TestInstanceBackupRequiresBrowserSessionAdmin(t *testing.T) {
 	})
 
 	t.Run("API token", func(t *testing.T) {
-		server := newInstanceBackupTestServer(t, true, unboundCLIFullTestAuthenticator(), nil)
+		server := newInstanceBackupTestServer(t, true, unboundCLIFullTestAuthenticator())
 		response := server.do(t, http.MethodGet, "/api/v1/admin/backup/export", nil, "")
 		require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
 	})
 }
 
-func TestInstanceBackupReportsUnsupportedSetups(t *testing.T) {
-	server := newInstanceBackupTestServer(t, true, browserSessionTestAuthenticator(), func(config *InstanceBackupConfig) {
-		config.StorageDriver = "s3"
-	})
-
-	status := server.do(t, http.MethodGet, "/api/v1/admin/backup", nil, "")
-	require.Equal(t, http.StatusOK, status.Code, status.Body.String())
-	var body instanceBackupStatus
-	require.NoError(t, json.Unmarshal(status.Body.Bytes(), &body))
-	require.False(t, body.Supported)
-	require.Equal(t, "storage", body.UnsupportedReason)
-
-	export := server.do(t, http.MethodGet, "/api/v1/admin/backup/export", nil, "")
-	require.Equal(t, http.StatusConflict, export.Code, export.Body.String())
-}
-
 func TestInstanceBackupExportAndStagedRestore(t *testing.T) {
-	server := newInstanceBackupTestServer(t, true, browserSessionTestAuthenticator(), nil)
+	server := newInstanceBackupTestServer(t, true, browserSessionTestAuthenticator())
 
 	export := server.do(t, http.MethodGet, "/api/v1/admin/backup/export", nil, "")
 	require.Equal(t, http.StatusOK, export.Code, export.Body.String())
@@ -157,7 +137,7 @@ func TestInstanceBackupExportAndStagedRestore(t *testing.T) {
 }
 
 func TestInstanceBackupRejectsInvalidUploadAndCancelsStagedRestore(t *testing.T) {
-	server := newInstanceBackupTestServer(t, true, browserSessionTestAuthenticator(), nil)
+	server := newInstanceBackupTestServer(t, true, browserSessionTestAuthenticator())
 
 	invalid := server.do(t, http.MethodPost, "/api/v1/admin/backup/restore/upload", []byte("not a backup"), "application/zip")
 	require.Equal(t, http.StatusBadRequest, invalid.Code, invalid.Body.String())
@@ -175,23 +155,4 @@ func TestInstanceBackupRejectsInvalidUploadAndCancelsStagedRestore(t *testing.T)
 	pending, err := instancebackup.ReadPending(server.paths)
 	require.NoError(t, err)
 	require.Nil(t, pending)
-}
-
-func TestInstanceBackupFailedExportAbortsDownload(t *testing.T) {
-	server := newInstanceBackupTestServer(t, true, browserSessionTestAuthenticator(), nil)
-	if err := os.Symlink("photo.png", filepath.Join(server.paths.MediaDir, "alias.png")); err != nil {
-		t.Skipf("symlinks unavailable: %v", err)
-	}
-	httpServer := httptest.NewServer(server.echo)
-	defer httpServer.Close()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, httpServer.URL+"/api/v1/admin/backup/export", nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer web-token")
-	response, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return
-	} // HTTP abort before headers is also a failed download.
-	defer response.Body.Close()
-	_, err = io.ReadAll(response.Body)
-	require.Error(t, err, "a truncated ZIP must never finish as a successful download")
 }

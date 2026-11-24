@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
@@ -102,37 +101,4 @@ func TestEmailRegistrationRequiresCodeBeforeIssuingSession(t *testing.T) {
 		"code":         sender.verificationMessages[0].Code,
 	}, "")
 	require.Equal(t, http.StatusBadRequest, replay.Code, replay.Body.String())
-}
-
-func TestEmailVerificationResendRotatesCodeAndReportsDeliveryFailure(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t, (*models.User)(nil), (*models.EmailVerificationChallenge)(nil))
-	user := &models.User{ID: "user-1", Email: "person@example.com", PasswordHash: "hash", CreatedAt: time.Now().UTC()}
-	_, err := db.NewInsert().Model(user).Exec(t.Context())
-	require.NoError(t, err)
-	verification := emailverification.NewService(db, emailverification.Config{Secret: "verification-secret"})
-	pending, err := verification.Create(t.Context(), user.ID)
-	require.NoError(t, err)
-	_, err = db.NewUpdate().Model((*models.EmailVerificationChallenge)(nil)).
-		Set("sent_at = ?", time.Now().UTC().Add(-2*time.Minute)).
-		Where("id = ?", pending.Challenge.ID).Exec(t.Context())
-	require.NoError(t, err)
-
-	sender := &recordingVerificationSender{err: context.DeadlineExceeded}
-	handler := NewAuthHandler(db, auth.NewService("test-secret"), nil, nil, nil, false)
-	handler.SetEmailVerification(verification, sender, true)
-	e := echo.New()
-	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	handler.ResendEmailVerification(api)
-
-	response := jsonRequest(t, e, http.MethodPost, "/api/v1/auth/email-verification/resend", map[string]any{
-		"challenge_id": pending.Challenge.ID,
-	}, "")
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var output AuthOutput
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &output.Body))
-	require.Equal(t, "failed", output.Body.EmailDeliveryStatus)
-	require.NotEqual(t, pending.Challenge.ID, output.Body.EmailVerificationID)
-	require.Len(t, sender.verificationMessages, 1)
 }

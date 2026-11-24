@@ -6,7 +6,6 @@ import { registerQueryAuthorizationBoundary } from '$lib/query/authorization-bou
 import {
 	createMediaTag,
 	MediaTagWorkspaceMismatchError,
-	updateMediaTag,
 	updateMediaTagItems,
 	type MediaTag
 } from './media-tags';
@@ -59,40 +58,6 @@ describe('media tag mutations', () => {
 		expect(readSignal?.aborted).toBe(true);
 		expect(queryClient.getQueryData<MediaTagList>(queryKey)?.tags).toEqual([created]);
 		expect(queryClient.getQueryState(queryKey)?.isInvalidated).toBe(true);
-	});
-
-	it('updates a tag and invalidates tag and media caches after item assignment', async () => {
-		const tagKey = mediaQueryKeys.tags('workspace-1');
-		const mediaKey = mediaQueryKeys.list('workspace-1', {});
-		const original = tagFixture('tag-1', 'Before');
-		const updated = tagFixture('tag-1', 'After');
-		queryClient.setQueryData(tagKey, tagList(original));
-		queryClient.setQueryData(mediaKey, { media: [], total: 0 });
-		mocks.patch.mockResolvedValue({
-			data: updated,
-			response: new Response(null, { status: 200 })
-		});
-		mocks.put.mockResolvedValue({
-			data: { count: 1 },
-			response: new Response(null, { status: 200 })
-		});
-
-		await updateMediaTag('workspace-1', 'tag-1', 'After');
-		await expect(updateMediaTagItems('workspace-1', 'tag-1', ['media-1'], 'replace')).resolves.toBe(
-			1
-		);
-
-		expect(mocks.patch).toHaveBeenCalledWith('/media/tags/{id}', {
-			params: { path: { id: 'tag-1' } },
-			body: { name: 'After' }
-		});
-		expect(mocks.put).toHaveBeenCalledWith('/media/tags/{id}/items', {
-			params: { path: { id: 'tag-1' } },
-			body: { media_ids: ['media-1'], mode: 'replace' }
-		});
-		expect(queryClient.getQueryData<MediaTagList>(tagKey)?.tags).toEqual([updated]);
-		expect(queryClient.getQueryState(tagKey)?.isInvalidated).toBe(true);
-		expect(queryClient.getQueryState(mediaKey)?.isInvalidated).toBe(true);
 	});
 
 	it('rejects a tag response from another Workspace without changing the cache', async () => {

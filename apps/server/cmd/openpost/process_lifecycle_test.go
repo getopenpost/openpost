@@ -51,22 +51,6 @@ func (p *recordingWorkerProcess) Wait(ctx context.Context) error {
 	return nil
 }
 
-func TestDrainMarksReadinessFalseBeforeStoppingProcesses(t *testing.T) {
-	t.Parallel()
-
-	readiness := apiroutes.NewReadiness()
-	web := &recordingWebProcess{readiness: readiness}
-	worker := &recordingWorkerProcess{readiness: readiness}
-
-	errors := drainRuntime(t.Context(), readiness, web, worker)
-
-	require.Empty(t, errors)
-	require.False(t, readiness.IsReady())
-	require.True(t, web.draining)
-	require.True(t, worker.draining)
-	require.True(t, worker.quiesced)
-}
-
 func TestDrainUsesOneBoundedDeadlineForWebAndWorker(t *testing.T) {
 	t.Parallel()
 

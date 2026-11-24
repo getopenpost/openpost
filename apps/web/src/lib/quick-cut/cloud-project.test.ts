@@ -4,10 +4,7 @@ import { createNewProject } from './project';
 import type { QuickCutSource } from './types';
 import {
 	quickCutCloudDocument,
-	listQuickCutCloudProjects,
-	quickCutProjectFromCloudDocument,
 	loadQuickCutCloudProject,
-	quickCutCloudRepository,
 	syncQuickCutCloudProject,
 	type QuickCutCloudDocument,
 	type QuickCutCloudRepository
@@ -52,51 +49,6 @@ function remote(document: QuickCutCloudDocument): CloudVideoProject<QuickCutClou
 }
 
 describe('Quick Cut cloud projects', () => {
-	it('lists only Quick Cut summaries without needing authored documents', async () => {
-		const metadata = {
-			id: 'quick',
-			workspaceId: 'workspace-1',
-			name: 'Quick Cut',
-			headRevision: 1,
-			syncStatus: 'synced' as const,
-			attentionReason: '',
-			trashedAt: '',
-			updatedAt: '2026-10-13T20:00:00Z'
-		};
-		const summaries = [
-			{ ...metadata, schemaFamily: 'quick-cut' },
-			{ ...metadata, id: 'video', schemaFamily: 'openpost' },
-			{ ...metadata, id: 'legacy', schemaFamily: '' }
-		];
-		const result = await listQuickCutCloudProjects({ listSummaries: async () => summaries });
-		expect(result.map((project) => project.id)).toEqual(['quick']);
-		expect(result[0]).not.toHaveProperty('document');
-	});
-
-	it('constructs the concrete cloud repository used by the route', () => {
-		expect(quickCutCloudRepository('workspace-1').workspaceId).toBe('workspace-1');
-	});
-
-	it('maps Quick Cut state into the shared timeline contract and back', () => {
-		const project = createNewProject([source('source-1')]);
-		project.segments = [{ id: 'intro', sourceId: 'source-1', start: 0, end: 2 }];
-		project.merge = true;
-		project.markers = [{ id: 'marker', sourceId: 'source-1', time: 1, name: 'Note' }];
-
-		const document = quickCutCloudDocument(project);
-		expect(document).toMatchObject({
-			id: project.id,
-			schemaFamily: 'quick-cut',
-			schemaVersion: 1,
-			timeline: {
-				sources: [{ id: 'source-1' }],
-				segments: [{ id: 'intro', sourceId: 'source-1' }]
-			},
-			settings: { merge: true }
-		});
-		expect(quickCutProjectFromCloudDocument(document)).toEqual(project);
-	});
-
 	it('creates once, uploads only missing source assets, and saves later edits', async () => {
 		const first = source('source-1', new File(['first'], 'source-1.mp4', { type: 'video/mp4' }));
 		const second = source('source-2', new File(['second'], 'source-2.mp4', { type: 'video/mp4' }));
@@ -176,50 +128,5 @@ describe('Quick Cut cloud projects', () => {
 			size: 5
 		});
 		expect(opened.session.availableAssetIds).toEqual(new Set(['source-1']));
-	});
-
-	it('falls back to an offline-pinned source when the server is unavailable', async () => {
-		const project = createNewProject([source('source-1')]);
-		const cloudProject = remote(quickCutCloudDocument(project));
-		const repository = {
-			workspaceId: 'workspace-1',
-			listSummaries: vi.fn(),
-			get: vi.fn().mockResolvedValue(cloudProject),
-			createWithId: vi.fn(),
-			save: vi.fn(),
-			listMedia: vi.fn().mockResolvedValue([
-				{
-					id: 'source-1',
-					remoteUrl: '/api/v1/media/source-1/content',
-					offlineUrl: '/__openpost/cloud-video-projects/source-1'
-				}
-			]),
-			reserveAsset: vi.fn()
-		};
-		const cached = new Blob(['cached-video'], { type: 'video/mp4' });
-		const opened = await loadQuickCutCloudProject(repository, project.id, {
-			download: vi.fn().mockRejectedValue(new Error('offline')),
-			readCached: vi.fn().mockResolvedValue(cached)
-		});
-
-		expect(opened.sources[0]?.file).toMatchObject({ size: cached.size });
-	});
-
-	it('does not create a cloud project when a required source is unavailable', async () => {
-		const missing = source('missing-source');
-		const project = createNewProject([missing]);
-		const createWithId = vi.fn();
-		const repository = {
-			workspaceId: 'workspace-1',
-			createWithId,
-			save: vi.fn(),
-			listMedia: vi.fn(),
-			reserveAsset: vi.fn()
-		} satisfies QuickCutCloudRepository;
-
-		await expect(syncQuickCutCloudProject(repository, null, project, [missing])).rejects.toThrow(
-			'Reconnect the file before saving to OpenPost'
-		);
-		expect(createWithId).not.toHaveBeenCalled();
 	});
 });

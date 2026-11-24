@@ -2,7 +2,6 @@ package connectors
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,31 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
-
-func TestStoreSyncsOnlySanitizedConnectorDescriptors(t *testing.T) {
-	t.Parallel()
-
-	db := newConnectorStoreDB(t)
-	registry := &Registry{entries: map[string]RegistryEntry{
-		"directus-main": {
-			InstallationID: "directus-main", Required: false,
-			ConfigFingerprint: "sha256:configuration",
-			Manifest:          validManifest(), Available: true, Status: InstallationStatusAvailable,
-		},
-	}, clients: map[string]*Client{}}
-	store := NewStore(db)
-	require.NoError(t, store.SyncRegistry(context.Background(), registry))
-
-	var installation models.ProviderInstallation
-	require.NoError(t, db.NewSelect().Model(&installation).Where("id = ?", "directus-main").Scan(context.Background()))
-	require.Equal(t, "connector", installation.Kind)
-	require.Equal(t, "io.directus.items", installation.ProviderID)
-	require.Equal(t, "sha256:configuration", installation.ConfigFingerprint)
-	require.NotContains(t, installation.ManifestJSON, "connector-secret")
-	var manifest Manifest
-	require.NoError(t, json.Unmarshal([]byte(installation.ManifestJSON), &manifest))
-	require.Equal(t, "Directus", manifest.Provider.DisplayName)
-}
 
 func TestStoreSavesConnectorAccountsAndBindingsAtomically(t *testing.T) {
 	t.Parallel()

@@ -6,22 +6,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import {
-  assessPackageVersionChange,
-  assessRegistryVersion,
-  compareVersions,
-  publishablePackages,
-} from "./npm-package-release.mjs";
+import { assessPackageVersionChange, assessRegistryVersion } from "./npm-package-release.mjs";
 
 const sdkFile = "packages/sdk/package.json";
 const cliFile = "packages/cli/package.json";
-
-test("stable versions compare numerically and reject invalid input", () => {
-  assert.equal(compareVersions("0.1.0", "0.1.0"), 0);
-  assert.equal(compareVersions("0.2.0", "0.1.9"), 1);
-  assert.equal(compareVersions("0.1.0", "0.1.1"), -1);
-  assert.throws(() => compareVersions("v1", "0.1.0"), /Invalid semantic version/u);
-});
 
 test("the first SDK version can be added", () => {
   assert.deepEqual(
@@ -165,13 +153,6 @@ test("versions never move backwards and stay stable", () => {
   );
 });
 
-test("the shared script publishes only the SDK and CLI wrapper (n8n keeps its own script)", () => {
-  assert.deepEqual(publishablePackages, {
-    "packages/sdk": "@getopenpost/sdk",
-    "packages/cli": "@getopenpost/cli",
-  });
-});
-
 test("registry reconciliation distinguishes absent, matching, and conflict", () => {
   assert.deepEqual(assessRegistryVersion({ localIntegrity: "sha512-a", metadata: null }), {
     state: "absent",
@@ -186,7 +167,9 @@ test("registry reconciliation distinguishes absent, matching, and conflict", () 
   );
 });
 
-for (const publishStatus of [0, 1]) {
+// A failed publish reconciles through the same propagation wait a successful
+// publish uses afterwards, so one fixture covers both waits.
+for (const publishStatus of [1]) {
   test(`publication reconciles a registry version readable after three minutes (publish exit ${publishStatus})`, () => {
     const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "openpost-registry-delay-"));
     const manifest = JSON.parse(

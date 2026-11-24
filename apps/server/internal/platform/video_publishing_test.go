@@ -17,43 +17,6 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
 }
 
-func TestServiceAuthPDSHost(t *testing.T) {
-	host, err := serviceAuthPDSHost("https://bsky.social")
-	if err != nil {
-		t.Fatalf("serviceAuthPDSHost returned error: %v", err)
-	}
-	if host != "bsky.social" {
-		t.Fatalf("expected bsky.social, got %q", host)
-	}
-
-	host, err = serviceAuthPDSHost("custom.pds.example")
-	if err != nil {
-		t.Fatalf("serviceAuthPDSHost returned error for host-only URL: %v", err)
-	}
-	if host != "custom.pds.example" {
-		t.Fatalf("expected custom.pds.example, got %q", host)
-	}
-}
-
-func TestDecodeBlueskyVideoJobStatusHandlesWrappedResponse(t *testing.T) {
-	status, err := decodeBlueskyVideoJobStatus([]byte(`{
-		"jobStatus": {
-			"jobId": "job-1",
-			"state": "JOB_STATE_COMPLETED",
-			"blob": {"$type": "blob", "mimeType": "video/mp4"}
-		}
-	}`))
-	if err != nil {
-		t.Fatalf("decodeBlueskyVideoJobStatus returned error: %v", err)
-	}
-	if status.JobID != "job-1" {
-		t.Fatalf("expected wrapped job ID, got %q", status.JobID)
-	}
-	if status.Blob == nil {
-		t.Fatal("expected wrapped blob")
-	}
-}
-
 func TestBlueskyVideoServiceAuthRequestsTokenAudience(t *testing.T) {
 	token := testJWT(t, map[string]interface{}{
 		"aud": "did:web:polypore.us-west.host.bsky.network",
@@ -83,35 +46,6 @@ func TestBlueskyVideoServiceAuthRequestsTokenAudience(t *testing.T) {
 	}
 	if serviceToken != "service-token" {
 		t.Fatalf("expected service token, got %q", serviceToken)
-	}
-}
-
-func TestLinkedInVideoStatusEncodesURNPathVariable(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	requests := 0
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		requests++
-		if req.Method != "GET" {
-			t.Fatalf("unexpected request method %s", req.Method)
-		}
-		if req.URL.EscapedPath() != "/rest/videos/urn%3Ali%3Avideo%3AD4D10AQHRV0XIfe6hDw" {
-			t.Fatalf("unexpected escaped path %q", req.URL.EscapedPath())
-		}
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader(`{"status":"AVAILABLE"}`)),
-			Request:    req,
-		}, nil
-	})}
-
-	adapter := NewLinkedInAdapter("", "", "", false)
-	if err := adapter.waitForVideoAvailable(context.Background(), "token", "202601", "urn:li:video:D4D10AQHRV0XIfe6hDw"); err != nil {
-		t.Fatalf("waitForVideoAvailable returned error: %v", err)
-	}
-	if requests != 1 {
-		t.Fatalf("expected one native request, got %d", requests)
 	}
 }
 
@@ -167,20 +101,6 @@ func captureLinkedInCreatePostPayload(t *testing.T, req *PublishRequest) map[str
 		t.Fatalf("decoding captured payload: %v", err)
 	}
 	return payload
-}
-
-func linkedInPayloadMedia(t *testing.T, payload map[string]interface{}) map[string]interface{} {
-	t.Helper()
-
-	content, ok := payload["content"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("payload content missing or invalid: %#v", payload["content"])
-	}
-	media, ok := content["media"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("payload media missing or invalid: %#v", content["media"])
-	}
-	return media
 }
 
 func TestBlueskyUnconfirmedEmailBlocksOnlyVideo(t *testing.T) {

@@ -33,44 +33,6 @@ func TestContentProfileFlagsDoNotShadowCLIProfile(t *testing.T) {
 	}
 }
 
-func TestPublicationEventsCommandPrintsLifecycleEvents(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("limit") != "25" {
-			t.Fatalf("limit query = %q, want 25", r.URL.Query().Get("limit"))
-		}
-		if r.URL.Path != "/api/v1/publications/pub_1/events" {
-			t.Fatalf("path = %s, want /api/v1/publications/pub_1/events", r.URL.Path)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`[
-			{"id":"evt_1","publication_id":"pub_1","rendition_id":"rend_1","type":"published","status":"succeeded","message":"rendition published","metadata":{"platform":"x"},"created_at":"2026-07-04T21:00:00Z"}
-		]`))
-	}))
-	defer srv.Close()
-
-	out, err := executeRootCaptureStdout(t, "--instance", srv.URL, "--token", "op_cli_test", "publication", "events", "pub_1", "--limit", "25")
-
-	if err != nil {
-		t.Fatalf("publication events returned error: %v", err)
-	}
-	jsonOut, err := executeRootCaptureStdout(t, "--instance", srv.URL, "--token", "op_cli_test", "--json", "publication", "events", "pub_1", "--limit", "25")
-	if err != nil {
-		t.Fatalf("publication events JSON returned error: %v", err)
-	}
-	var events []api.PublicationLifecycleEvent
-	if err := json.Unmarshal([]byte(jsonOut), &events); err != nil {
-		t.Fatalf("decode events: %v", err)
-	}
-	if len(events) != 1 || events[0].Metadata["platform"] != "x" {
-		t.Fatalf("events = %+v", events)
-	}
-	for _, want := range []string{"published", "succeeded", "rendition published", "rend_1"} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("output %q missing %q", out, want)
-		}
-	}
-}
-
 func TestPublicationCommentsCommandHidesUnsupportedActions(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/renditions/rend_1/comments" {

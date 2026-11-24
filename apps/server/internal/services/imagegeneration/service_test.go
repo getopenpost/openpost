@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/ai"
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
@@ -23,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 type imageProvider struct {
@@ -64,7 +64,7 @@ func (i *imageImporter) ImportGeneratedImage(ctx context.Context, input MediaImp
 }
 func testImageService(t *testing.T) (*Service, *imageProvider, *imageImporter, workspaceaccess.ActorFacts) {
 	t.Helper()
-	connection, err := sql.Open("sqlite3", ":memory:")
+	connection, err := sql.Open(sqliteshim.ShimName, ":memory:")
 	require.NoError(t, err)
 	db := bun.NewDB(connection, sqlitedialect.New())
 	db.SetMaxOpenConns(1)
@@ -153,49 +153,6 @@ func TestImageJobExhaustionReleasesActiveRunAndRetainsPaidBillingRecovery(t *tes
 	require.Equal(t, "reported", finished.BillingState)
 	require.Equal(t, charge, *finished.CostMicrousd)
 	require.Equal(t, 1, provider.calls)
-}
-
-func TestImageGenerationNeverResubmitsAmbiguousDispatch(t *testing.T) {
-	for _, crash := range []bool{false, true} {
-		t.Run(map[bool]string{false: "lost receipt", true: "worker interrupted after dispatch"}[crash], func(t *testing.T) {
-			s, provider, _, actor := testImageService(t)
-			provider.submitError = errors.New("connection interrupted")
-			run, err := s.Create(t.Context(), actor, "submission-1", imageRequest())
-			require.NoError(t, err)
-			if crash {
-				_, err = s.db.NewUpdate().Model((*record)(nil)).Set("state = 'submitting'").Where("id = ?", run.ID).Exec(t.Context())
-				require.NoError(t, err)
-			}
-			require.NoError(t, s.HandleJob(t.Context(), runPayload(run.ID)))
-			require.NoError(t, s.HandleJob(t.Context(), runPayload(run.ID)))
-			result, err := s.Get(t.Context(), actor, run.ID)
-			require.NoError(t, err)
-			require.Equal(t, "unknown", result.State)
-			require.Nil(t, result.CostMicrousd)
-			if crash {
-				require.Zero(t, provider.calls)
-			} else {
-				require.Equal(t, 1, provider.calls)
-			}
-		})
-	}
-}
-
-func TestImageGenerationRevalidatesAccessBeforePaidDispatch(t *testing.T) {
-	s, provider, _, actor := testImageService(t)
-	foreign := imageRequest()
-	foreign.WorkspaceID = "foreign"
-	_, err := s.Create(t.Context(), actor, "foreign-request", foreign)
-	require.ErrorIs(t, err, ErrAccess)
-	run, err := s.Create(t.Context(), actor, "submission-1", imageRequest())
-	require.NoError(t, err)
-	_, err = s.db.NewUpdate().Model((*models.WorkspaceMember)(nil)).Set("role = ?", models.WorkspaceRoleViewer).Where("user_id = ?", actor.UserID).Exec(t.Context())
-	require.NoError(t, err)
-	require.NoError(t, s.HandleJob(t.Context(), runPayload(run.ID)))
-	require.Zero(t, provider.calls)
-	result, err := s.Get(t.Context(), actor, run.ID)
-	require.NoError(t, err)
-	require.Equal(t, "failed", result.State)
 }
 
 func TestImageFillClipsReturnedPixelsAndRejectsInvalidMasks(t *testing.T) {

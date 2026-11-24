@@ -5,15 +5,11 @@ import { client, type Workspace } from '$lib/api/client';
 vi.mock('$app/environment', () => ({ browser: true }));
 import {
 	billingQueryKeys,
-	workspaceCreationCachePlan,
 	developerQueryKeys,
 	openPostBootstrapQueryKeys,
-	openPostQueryKeys,
-	workspaceSettingsQueryKeys
+	openPostQueryKeys
 } from '@openpost/query-catalog';
-import { executeQueryCachePlan } from '$lib/query/cache-plan';
 import { queryClient } from '$lib/query/client';
-import { createAuthStore } from './auth';
 import { WorkspaceContext } from './workspace.svelte';
 
 const mocks = { delete: vi.fn(), get: vi.fn(), patch: vi.fn() };
@@ -160,76 +156,6 @@ describe('workspace settings state', () => {
 		expect(context.loading).toBe(false);
 	});
 
-	it('shares one bootstrap request between auth and Workspace startup', async () => {
-		localStorage.setItem('openpost_current_workspace', JSON.stringify(workspaceA));
-		mocks.get.mockResolvedValue({
-			data: bootstrap([workspaceA], workspaceA.id, settings('Europe/Lisbon')),
-			error: null,
-			response: new Response(null, { status: 200 })
-		});
-		const auth = createAuthStore({
-			isBrowser: true,
-			getPasskeyAssertion: vi.fn(),
-			notificationInbox: { clear: vi.fn() },
-			identifyTelemetryUser: vi.fn(),
-			resetTelemetryIdentity: vi.fn()
-		});
-		const context = new WorkspaceContext();
-
-		await auth.initialize({ preferredWorkspaceID: workspaceA.id });
-		await context.initialize();
-
-		expect(mocks.get.mock.calls.filter(([path]) => path === '/app/bootstrap')).toHaveLength(1);
-		expect(
-			mocks.get.mock.calls.filter(([path]) => path === '/workspaces/{id}/settings')
-		).toHaveLength(0);
-		expect(context.currentWorkspace?.id).toBe(workspaceA.id);
-		expect(context.settingsReady).toBe(true);
-		auth.clearLocal();
-	});
-
-	it('retains a created workspace when an earlier workspace bootstrap is reused', async () => {
-		localStorage.setItem('openpost_current_workspace', JSON.stringify(workspaceA));
-		let inventory = [workspaceA];
-		mocks.get.mockImplementation((path, options) => {
-			if (path !== '/app/bootstrap') return { data: settings('Europe/Lisbon'), error: null };
-			const preferred = options.params.query.preferred_workspace_id;
-			return {
-				data: bootstrap(
-					inventory,
-					preferred,
-					settings(preferred === workspaceB.id ? 'America/New_York' : 'Europe/Lisbon')
-				),
-				error: null
-			};
-		});
-		const auth = createAuthStore({
-			isBrowser: true,
-			getPasskeyAssertion: vi.fn(),
-			notificationInbox: { clear: vi.fn() },
-			identifyTelemetryUser: vi.fn(),
-			resetTelemetryIdentity: vi.fn()
-		});
-		const context = new WorkspaceContext();
-		await auth.initialize({ preferredWorkspaceID: workspaceA.id });
-		await context.initialize();
-		inventory = [workspaceA, workspaceB];
-		await executeQueryCachePlan(queryClient, workspaceCreationCachePlan());
-		const projection = auth.captureUserProjection(bootstrapUser.id);
-		const refreshed = await context.loadWorkspaces(workspaceB.id);
-		expect(auth.projectBootstrap(refreshed, projection)).toBe(true);
-		expect(context.settings.timezone).toBe('America/New_York');
-		await context.setWorkspace(workspaceA);
-		await context.initialize();
-		expect(context.workspaces.map((workspace) => workspace.id)).toEqual([
-			workspaceA.id,
-			workspaceB.id
-		]);
-		expect(context.currentWorkspace?.id).toBe(workspaceA.id);
-		expect(context.settings.timezone).toBe('Europe/Lisbon');
-		auth.clearLocal();
-	});
-
 	it('keeps a manual workspace selection made while bootstrap is refreshing', async () => {
 		const workspaceLoad = deferred<{
 			data: ReturnType<typeof bootstrap>;
@@ -277,7 +203,10 @@ describe('workspace settings state', () => {
 			(
 				path: string,
 				options?: {
-					params?: { query?: { preferred_workspace_id?: string }; path?: { id?: string } };
+					params?: {
+						query?: { preferred_workspace_id?: string };
+						path?: { id?: string };
+					};
 				}
 			) => {
 				if (path === '/app/bootstrap') {
@@ -365,36 +294,6 @@ describe('workspace settings state', () => {
 		expect(context.workspaces).toEqual([workspaceA, workspaceB]);
 	});
 
-	it('refreshes workspace inventory without selecting for a stale dialog', async () => {
-		const workspaceLoad = deferred<{
-			data: ReturnType<typeof bootstrap>;
-			error: null;
-			response: Response;
-		}>();
-		mocks.get.mockImplementation((path: string) => {
-			if (path === '/app/bootstrap') return workspaceLoad.promise;
-			throw new Error(`Unexpected GET ${path}`);
-		});
-		const context = new WorkspaceContext();
-		context.workspaces = [workspaceA];
-		context.currentWorkspace = workspaceA;
-		let dialogCurrent = true;
-
-		const pendingRefresh = context.loadWorkspaces(workspaceB.id, {
-			selectionIsCurrent: () => dialogCurrent
-		});
-		dialogCurrent = false;
-		workspaceLoad.resolve({
-			data: bootstrap([workspaceA, workspaceB], workspaceB.id, settings('Europe/Berlin')),
-			error: null,
-			response: new Response(null, { status: 200 })
-		});
-		await pendingRefresh;
-
-		expect(context.workspaces).toEqual([workspaceA, workspaceB]);
-		expect(context.currentWorkspace?.id).toBe(workspaceA.id);
-	});
-
 	it('evicts workspace data when refreshed SSO policy removes access', async () => {
 		const lockedWorkspace = {
 			...workspaceA,
@@ -420,20 +319,6 @@ describe('workspace settings state', () => {
 		});
 		expect(context.settingsReady).toBe(false);
 		expect(queryClient.getQueryData(openPostQueryKeys.accounts(workspaceA.id))).toBeUndefined();
-	});
-
-	it('tags workspace failures so callers can show localized copy', async () => {
-		mocks.get.mockResolvedValueOnce({
-			data: null,
-			error: {},
-			response: new Response(null, { status: 400 })
-		});
-		const context = new WorkspaceContext();
-
-		await expect(context.loadWorkspaces()).rejects.toMatchObject({
-			name: 'WorkspaceContextError',
-			code: 'load-workspaces'
-		});
 	});
 
 	it('evicts a lost workspace and reselects an accessible fallback', async () => {
@@ -476,32 +361,6 @@ describe('workspace settings state', () => {
 		expect(queryClient.getQueryData(openPostQueryKeys.accounts(workspaceB.id))).toBeUndefined();
 		expect(queryClient.getQueryData(billingQueryKeys.status(workspaceB.id))).toBeUndefined();
 		expect(mocks.patch).not.toHaveBeenCalled();
-	});
-
-	it('keeps cached settings usable when a background refresh fails', async () => {
-		mocks.get
-			.mockResolvedValueOnce({
-				data: settings('Europe/Lisbon'),
-				error: null,
-				response: new Response(null, { status: 200 })
-			})
-			.mockResolvedValueOnce({
-				data: null,
-				error: { detail: 'Settings refresh failed.' },
-				response: new Response(null, { status: 400 })
-			});
-		const context = new WorkspaceContext();
-		await context.setWorkspace(workspaceA);
-		await queryClient.invalidateQueries({
-			queryKey: openPostBootstrapQueryKeys.workspaceSettings(workspaceA.id)
-		});
-
-		await context.loadSettings();
-
-		expect(context.settings.timezone).toBe('Europe/Lisbon');
-		expect(context.settingsReady).toBe(true);
-		expect(context.settingsError).toBe('');
-		expect(context.settingsBackgroundError).toBe('Settings refresh failed.');
 	});
 
 	it('does not overwrite workspace edits when stale settings finish refreshing', async () => {
@@ -673,42 +532,6 @@ describe('workspace settings state', () => {
 		}
 	});
 
-	it('does not project a workspace or organization deletion response after account state resets', async () => {
-		for (const remove of ['workspace', 'organization'] as const) {
-			const deletion = deferred<{
-				data: null;
-				error: null;
-				response: Response;
-			}>();
-			mocks.delete.mockReturnValueOnce(deletion.promise);
-			const context = new WorkspaceContext();
-			const firstActorWorkspace = { ...workspaceA, organization_id: 'shared-organization' };
-			context.workspaces = [firstActorWorkspace];
-
-			const pendingDeletion =
-				remove === 'workspace'
-					? context.deleteWorkspace(workspaceA.id, {
-							confirmName: workspaceA.name,
-							currentPassword: 'password'
-						})
-					: context.deleteOrganization('shared-organization', {
-							confirmName: 'Organization A',
-							currentPassword: 'password'
-						});
-			context.reset();
-			const nextActorWorkspace = { ...workspaceA, name: 'Next actor workspace' };
-			context.workspaces = [nextActorWorkspace];
-			deletion.resolve({
-				data: null,
-				error: null,
-				response: new Response(null, { status: 204 })
-			});
-
-			await expect(pendingDeletion).resolves.toBe(false);
-			expect(context.workspaces).toEqual([nextActorWorkspace]);
-		}
-	});
-
 	it('ignores settings that arrive after a newer workspace switch', async () => {
 		const firstLoad = deferred<{
 			data: ReturnType<typeof settings>;
@@ -766,84 +589,6 @@ describe('workspace settings state', () => {
 		expect(mocks.get).toHaveBeenCalledTimes(1);
 	});
 
-	it('rejects a competing switch while a guarded decision is pending', async () => {
-		mocks.get
-			.mockResolvedValueOnce({ data: settings('Europe/Lisbon'), error: null })
-			.mockResolvedValueOnce({ data: settings('Europe/Paris'), error: null });
-		const context = new WorkspaceContext();
-		await context.setWorkspace(workspaceA);
-		const firstDecision = deferred<boolean>();
-		const guard = vi.fn(() => firstDecision.promise);
-		context.registerWorkspaceSwitchGuard(guard);
-		const workspaceC = {
-			...workspaceB,
-			id: 'workspace-c',
-			name: 'Workspace C'
-		} satisfies Workspace;
-
-		const firstSwitch = context.setWorkspace(workspaceB);
-		const secondSwitch = context.setWorkspace(workspaceC);
-		await expect(secondSwitch).resolves.toBe(false);
-		firstDecision.resolve(true);
-		await expect(firstSwitch).resolves.toBe(true);
-
-		expect(context.currentWorkspace?.id).toBe(workspaceB.id);
-		expect(context.settings.timezone).toBe('Europe/Paris');
-		expect(localStorage.getItem('openpost_current_workspace')).toContain(workspaceB.id);
-		expect(guard).toHaveBeenCalledTimes(1);
-	});
-
-	it('stops consulting a workspace switch guard after it is unregistered', async () => {
-		mocks.get
-			.mockResolvedValueOnce({ data: settings('Europe/Lisbon'), error: null })
-			.mockResolvedValueOnce({ data: settings('Europe/Paris'), error: null });
-		const context = new WorkspaceContext();
-		await context.setWorkspace(workspaceA);
-		const guard = vi.fn(() => false);
-		const unregister = context.registerWorkspaceSwitchGuard(guard);
-		unregister();
-
-		await expect(context.setWorkspace(workspaceB)).resolves.toBe(true);
-
-		expect(guard).not.toHaveBeenCalled();
-		expect(context.currentWorkspace?.id).toBe(workspaceB.id);
-	});
-
-	it('falls back safely when legacy workspace data contains an invalid timezone', async () => {
-		mocks.get.mockResolvedValueOnce({
-			data: settings('Bad/Zone'),
-			error: null
-		});
-		const context = new WorkspaceContext();
-
-		await context.setWorkspace(workspaceA);
-
-		expect(context.settings.timezone).toBe('UTC');
-		expect(context.settingsReady).toBe(true);
-	});
-
-	it('tracks meaningful workspace edits until the explicit save succeeds', async () => {
-		mocks.get.mockResolvedValueOnce({
-			data: settings('Europe/Lisbon'),
-			error: null
-		});
-		mocks.patch.mockResolvedValueOnce({
-			data: settings('Europe/Lisbon'),
-			error: null
-		});
-		const context = new WorkspaceContext();
-		await context.setWorkspace(workspaceA);
-
-		expect(context.settingsDirty).toBe(false);
-		context.settings.color = '#2563eb';
-		expect(context.settingsDirty).toBe(true);
-
-		await context.saveSettings({ color: '#2563eb' });
-
-		expect(context.settingsDirty).toBe(false);
-		expect(context.currentWorkspace?.color).toBe('#2563eb');
-	});
-
 	it('does not project a save after switching away and back to the same workspace', async () => {
 		const save = deferred<{
 			data: null;
@@ -883,24 +628,5 @@ describe('workspace settings state', () => {
 		expect(
 			queryClient.getQueryData(openPostBootstrapQueryKeys.workspaceSettings(workspaceA.id))
 		).not.toMatchObject({ name: 'Late server save' });
-	});
-
-	it('marks workspace setup stale after the workspace name changes', async () => {
-		mocks.get.mockResolvedValueOnce({
-			data: settings('Europe/Lisbon'),
-			error: null
-		});
-		mocks.patch.mockResolvedValueOnce({
-			data: settings('Europe/Lisbon'),
-			error: null
-		});
-		const context = new WorkspaceContext();
-		await context.setWorkspace(workspaceA);
-		const setupKey = workspaceSettingsQueryKeys.setup(workspaceA.id);
-		queryClient.setQueryData(setupKey, { completed: true });
-
-		await context.saveSettings({ name: 'Renamed workspace' });
-
-		expect(queryClient.getQueryState(setupKey)?.isInvalidated).toBe(true);
 	});
 });

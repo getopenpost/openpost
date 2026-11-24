@@ -21,7 +21,7 @@ export interface BakeMotionPlanEntry {
 	clearProperties: KeyframeProperty[];
 }
 
-export interface BakedMotionSampleSet {
+interface BakedMotionSampleSet {
 	keyframes: BakedMotionKeyframe[];
 	properties: MotionModifierChannel[];
 }
@@ -94,7 +94,7 @@ function resolvedValue(
  * cycle; seeded shake uses its noise rate. The first and final visible frames
  * are always present so removing the procedural source cannot change the ends.
  */
-export function bakeMotionModifiersToKeyframes(
+function bakeMotionModifiersToKeyframes(
 	item: TimelineItem,
 	context: AnimatedItemMotionContext
 ): BakedMotionSampleSet {

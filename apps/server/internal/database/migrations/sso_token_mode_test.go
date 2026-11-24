@@ -4,14 +4,14 @@ import (
 	"database/sql"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 func TestRetireOrganizationWideSSOTokensMigrationUpgradedSQLite(t *testing.T) {
-	sqlDB, err := sql.Open("sqlite3", "file:"+t.Name()+"?mode=memory&cache=private")
+	sqlDB, err := sql.Open(sqliteshim.ShimName, "file:"+t.Name()+"?mode=memory&cache=private")
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
 	db := bun.NewDB(sqlDB, sqlitedialect.New())
@@ -21,7 +21,7 @@ func TestRetireOrganizationWideSSOTokensMigrationUpgradedSQLite(t *testing.T) {
 }
 
 func TestRetireOrganizationWideSSOTokensMigrationFailsOnSparseSchema(t *testing.T) {
-	sqlDB, err := sql.Open("sqlite3", "file:"+t.Name()+"?mode=memory&cache=private")
+	sqlDB, err := sql.Open(sqliteshim.ShimName, "file:"+t.Name()+"?mode=memory&cache=private")
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
 	db := bun.NewDB(sqlDB, sqlitedialect.New())

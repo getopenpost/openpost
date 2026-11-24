@@ -174,7 +174,7 @@ export function loadSchemas(spec) {
 
 // Declared SDK properties for one interface, mirroring the
 // types-parity.test.ts reader so both gates see the same shape.
-export function parseSdkInterface(sourceText, typeName) {
+function parseSdkInterface(sourceText, typeName) {
   const source = ts.createSourceFile("types.ts", sourceText, ts.ScriptTarget.Latest, true);
   for (const statement of source.statements) {
     if (!ts.isInterfaceDeclaration(statement) || statement.name.text !== typeName) continue;

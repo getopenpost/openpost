@@ -69,7 +69,7 @@ export function disposeTranscriptionWorker(engine: TranscriptionEngine): void {
 	worker?.terminate();
 }
 
-export function hasTranscriptionWorker(engine: TranscriptionEngine): boolean {
+function hasTranscriptionWorker(engine: TranscriptionEngine): boolean {
 	return workers[engine] !== undefined;
 }
 

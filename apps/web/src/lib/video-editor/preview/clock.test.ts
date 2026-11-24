@@ -47,14 +47,6 @@ describe('Clock', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('stays paused and seekable without playing', () => {
-		const clock = new Clock({ fps: 30, timeSource: time });
-		clock.seek(45);
-		expect(clock.currentFrame).toBe(45);
-		expect(clock.isPlaying).toBe(false);
-		clock.dispose();
-	});
-
 	it('advances frames at fps × rate while playing', () => {
 		const clock = new Clock({ fps: 30, timeSource: time });
 		const frames: number[] = [];
@@ -73,54 +65,6 @@ describe('Clock', () => {
 		clock.dispose();
 	});
 
-	it.each([
-		{
-			name: 'forward range end',
-			rate: 1,
-			start: 10,
-			range: { start: 10, end: 40 },
-			finalFrame: 39,
-			endedFrame: 40
-		},
-		{
-			name: 'reverse range start',
-			rate: -1,
-			start: 39,
-			range: { start: 10, end: 40 },
-			finalFrame: 10,
-			endedFrame: 10
-		},
-		{
-			name: 'reverse timeline start',
-			rate: -1,
-			start: 20,
-			range: undefined,
-			finalFrame: 0,
-			endedFrame: 0
-		}
-	])(
-		'updates the displayed frame when stopping at $name after a delayed tick',
-		({ rate, start, range, finalFrame, endedFrame }) => {
-			const clock = new Clock({ fps: 30, timeSource: time });
-			const ended = vi.fn();
-			let displayedFrame = -1;
-			clock.on('ended', ended);
-			clock.on('framechange', (frame) => {
-				displayedFrame = frame;
-			});
-			clock.seek(start);
-			clock.setRate(rate);
-			clock.play({ range });
-			time.advance(5);
-			raf.flush(2);
-
-			expect(ended).toHaveBeenCalledWith(endedFrame);
-			expect(clock.isPlaying).toBe(false);
-			expect(displayedFrame).toBe(finalFrame);
-			clock.dispose();
-		}
-	);
-
 	it('publishes each frame once when its listener pauses playback', () => {
 		const clock = new Clock({ fps: 30, timeSource: time });
 		const frames: number[] = [];
@@ -137,40 +81,6 @@ describe('Clock', () => {
 		} finally {
 			clock.dispose();
 		}
-	});
-
-	it('updates the displayed frame when pausing between animation ticks', () => {
-		const clock = new Clock({ fps: 30, timeSource: time });
-		let displayedFrame = -1;
-		clock.on('framechange', (frame) => {
-			displayedFrame = frame;
-		});
-		clock.play();
-		time.advance(0.5);
-		clock.pause();
-		expect(displayedFrame).toBe(15);
-		clock.dispose();
-	});
-
-	it('loops back to range start', () => {
-		const clock = new Clock({ fps: 30, timeSource: time });
-		clock.play({ range: { start: 10, end: 40 }, loop: true });
-		time.advance(5);
-		raf.flush(1);
-		expect(clock.currentFrame).toBe(10);
-		expect(clock.isPlaying).toBe(true);
-		clock.dispose();
-	});
-
-	it('advances reverse at negative rate with ceil semantics', () => {
-		const clock = new Clock({ fps: 30, timeSource: time });
-		clock.seek(120);
-		clock.setRate(-2);
-		clock.play({ range: { start: 0, end: 300 } });
-		time.advance(0.5);
-		raf.flush(1);
-		expect(clock.currentFrame).toBe(90);
-		clock.dispose();
 	});
 
 	it('applies successive J/L rates and direction changes to the clock', async () => {

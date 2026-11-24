@@ -12,7 +12,7 @@ export interface TextMeasurer {
 
 type CanvasContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-export function parseFontSizePx(cssFont: string): number {
+function parseFontSizePx(cssFont: string): number {
 	const match = /(\d+(?:\.\d+)?)px/.exec(cssFont);
 	return match ? Number.parseFloat(match[1]!) : 16;
 }

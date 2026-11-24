@@ -42,7 +42,6 @@
 		type SharedPoll
 	} from './compose/polls';
 	import { onDestroy, onMount, tick } from 'svelte';
-	import PublicationReviewControl from '$lib/components/publication-review-control.svelte';
 	import { z } from 'zod';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { page } from '$app/stores';
@@ -73,7 +72,6 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import SocialSetControl from './social-set-control.svelte';
 	import SocialAccountIdentity from './social-account-identity.svelte';
@@ -89,7 +87,6 @@
 	import PasteUploadList from './paste-upload-list.svelte';
 	import SaveIndicator from './save-indicator.svelte';
 	import ComposerScheduleDialog from './composer-schedule-dialog.svelte';
-	import ComposerRepostControl from './composer-repost-control.svelte';
 	import ComposerValidationMenu from './composer-validation-menu.svelte';
 	import DestinationSettingsDialog from './destination-settings-dialog.svelte';
 	import InlineNotice from './inline-notice.svelte';
@@ -202,6 +199,8 @@
 	import { ComposerEditorHandoff } from './compose/editor-handoff.svelte';
 	import { ComposerCapabilityResolver } from './compose/capability-resolver.svelte';
 	import ComposerAIWorkspace from './compose/composer-ai-workspace.svelte';
+	import ComposerSettingsSheet from './compose/composer-settings-sheet.svelte';
+	import WorkspaceSwitchDialog from './compose/workspace-switch-dialog.svelte';
 	import {
 		ComposerAIBuilder,
 		localizedAIMediaTreatment,
@@ -549,12 +548,6 @@
 		} catch {
 			// Storage is optional; the choice still applies to this session.
 		}
-	}
-
-	async function openVersionHistory() {
-		composerSettingsOpen = false;
-		await tick();
-		onOpenVersionHistory?.();
 	}
 
 	let workspaces = $state.raw<Workspace[]>([]);
@@ -5934,73 +5927,23 @@
 	</Dialog.Content>
 </Dialog.Root>
 
-<Sheet.Root bind:open={composerSettingsOpen}>
-	<Sheet.Content
-		side="right"
-		class="w-full! gap-0 overflow-y-auto p-0 sm:max-w-lg!"
-		data-testid="composer-settings-sheet"
-	>
-		<Sheet.Header class="border-b px-5 py-5 pr-16 text-left">
-			<Sheet.Title>{m.compose_post_settings()}</Sheet.Title>
-			<Sheet.Description>{m.compose_post_settings_body()}</Sheet.Description>
-		</Sheet.Header>
-		{#if onOpenVersionHistory || onCopyAsDraft}
-			<div class="grid gap-1 border-b p-3">
-				{#if onOpenVersionHistory}
-					<Button
-						type="button"
-						variant="ghost"
-						class="h-11 w-full justify-start gap-3 px-3"
-						onclick={openVersionHistory}
-					>
-						<ThemeIcon role="history" class="size-4 text-muted-foreground" />
-						{m.image_editor_version_history()}
-					</Button>
-				{/if}
-				{#if onCopyAsDraft}
-					<Button
-						type="button"
-						variant="ghost"
-						class="h-11 w-full justify-start gap-3 px-3"
-						onclick={onCopyAsDraft}
-						disabled={copyingDraft}
-					>
-						{#if copyingDraft}
-							<ProtectedIcon
-								icon="loading"
-								class="size-4 animate-spin text-muted-foreground motion-reduce:animate-none"
-							/>
-							{m.publication_copying()}
-						{:else}
-							<ThemeIcon role="copy" class="size-4 text-muted-foreground" />
-							{m.publication_copy_as_draft()}
-						{/if}
-					</Button>
-				{/if}
-			</div>
-		{/if}
-		<div class="px-5">
-			<PublicationReviewControl
-				workspaceId={selectedWorkspaceId}
-				{publicationId}
-				{reviewState}
-				prepare={prepareClientReview}
-				onChanged={applyClientReview}
-			/>
-		</div>
-		<div class="p-5">
-			<ComposerRepostControl
-				workspaceID={selectedWorkspaceId}
-				sourcePlatforms={[
-					...new Set(selectedAccounts.map((account) => getPlatformKey(account.platform)))
-				]}
-				bind:value={repostOverride}
-				disabled={!selectedWorkspaceId || isSaving || isSubmitting}
-				onChange={scheduleAutoSave}
-			/>
-		</div>
-	</Sheet.Content>
-</Sheet.Root>
+<ComposerSettingsSheet
+	bind:open={composerSettingsOpen}
+	workspaceId={selectedWorkspaceId}
+	{publicationId}
+	{reviewState}
+	prepareReview={prepareClientReview}
+	onReviewChanged={applyClientReview}
+	sourcePlatforms={[
+		...new Set(selectedAccounts.map((account) => getPlatformKey(account.platform)))
+	]}
+	bind:repostOverride
+	busy={isSaving || isSubmitting}
+	onRepostChange={scheduleAutoSave}
+	{onOpenVersionHistory}
+	{onCopyAsDraft}
+	{copyingDraft}
+/>
 
 <MediaPicker
 	bind:open={mediaPickerOpen}
@@ -6142,57 +6085,13 @@
 	onEditCover={editorHandoff.editDestinationCover}
 />
 
-<Dialog.Root
-	open={workspaceSwitchState !== null}
-	onOpenChange={(open) => {
-		if (!open && workspaceSwitchState && !workspaceSwitchState.intent) stayInComposerWorkspace();
-	}}
->
-	<Dialog.Content class="sm:max-w-lg" data-testid="composer-workspace-switch-dialog">
-		<Dialog.Header>
-			<Dialog.Title>{m.compose_workspace_switch_title()}</Dialog.Title>
-			<Dialog.Description>
-				{m.compose_workspace_switch_body({
-					workspace: workspaceSwitchState?.toWorkspaceName ?? ''
-				})}
-			</Dialog.Description>
-		</Dialog.Header>
-		{#if workspaceSwitchState?.error}
-			<p class="text-sm text-destructive" role="alert">{workspaceSwitchState.error}</p>
-		{/if}
-		<Dialog.Footer class="gap-2 sm:justify-between">
-			<Button
-				type="button"
-				variant="ghost"
-				onclick={stayInComposerWorkspace}
-				disabled={Boolean(workspaceSwitchState?.intent)}
-			>
-				{m.compose_workspace_switch_stay()}
-			</Button>
-			<div class="flex flex-col-reverse gap-2 sm:flex-row">
-				<Button
-					type="button"
-					variant="destructive"
-					onclick={discardBeforeWorkspaceSwitch}
-					disabled={Boolean(workspaceSwitchState?.intent)}
-				>
-					{m.compose_workspace_switch_discard()}
-				</Button>
-				<Button
-					type="button"
-					onclick={saveBeforeWorkspaceSwitch}
-					disabled={Boolean(workspaceSwitchState?.intent)}
-					aria-busy={workspaceSwitchState?.intent === 'save'}
-				>
-					{#if workspaceSwitchState?.intent === 'save'}
-						<ProtectedIcon icon="loading" class="size-4 animate-spin motion-reduce:animate-none" />
-					{/if}
-					{isEditMode ? m.compose_save_changes() : m.compose_save_draft()}
-				</Button>
-			</div>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+<WorkspaceSwitchDialog
+	state={workspaceSwitchState}
+	editMode={isEditMode}
+	onStay={stayInComposerWorkspace}
+	onDiscard={discardBeforeWorkspaceSwitch}
+	onSave={saveBeforeWorkspaceSwitch}
+/>
 
 <DestructiveConfirmDialog
 	bind:open={showDeleteConfirm}

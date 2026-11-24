@@ -44,9 +44,6 @@
 </script>
 
 <script lang="ts">
-	import { videoLibrary } from '../library/library-store.svelte';
-	import { applyLibraryEntry } from '../library/apply';
-	import { addTimer } from '../timers/actions';
 	import { onDestroy, onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import ColorPicker from '$lib/components/color-picker.svelte';
@@ -54,9 +51,6 @@
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
 		addMarker,
-		addShapeItem,
-		addTextItemAtFrame,
-		addTextTemplateItem,
 		canCloseAllGapsOnTrack,
 		canCloseGapAtPosition,
 		closeAllGapsOnTrack,
@@ -71,14 +65,6 @@
 		canTrimItemToPlayhead,
 		trimItemToPlayhead
 	} from '$lib/video-editor/timeline/actions/trim-playhead';
-	import {
-		clearGeneratedItemDragData,
-		getGeneratedItemDragData,
-		type GeneratedItemDragData
-	} from '$lib/video-editor/timeline/generated-item-drag';
-	import { localizedTextStylePresetCopy } from '$lib/video-editor/typography/text-style-preset-copy';
-	import { addBackgroundItem } from '$lib/video-editor/timeline/actions/backgrounds';
-	import { trackRangeIsOpen } from '$lib/video-editor/timeline/track-occupancy';
 	import { findTrackGapAtFrame } from '$lib/video-editor/timeline/gap-closing';
 	import {
 		DEFAULT_MARKER_COLOR,
@@ -131,9 +117,6 @@
 	import { TimelineMarkerControls } from './timeline-markers.svelte';
 	import { TimelineAudioVolume } from './timeline-audio-volume.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
-	import { getTextItemPlainText } from '$lib/video-editor/typography/text-item-spans';
-	import { hasColorGrade } from '$lib/video-editor/effects/color-grade';
-	import { colorPreviewStore } from '$lib/video-editor/effects/color-preview-store.svelte';
 	import { createTimelineAudioSkimController } from '$lib/video-editor/audio/audio-skim-controller.svelte';
 	import { previewPlaybackSettings } from '$lib/video-editor/preview/playback-settings.svelte';
 	import {
@@ -167,10 +150,7 @@
 	import { pathVertexSelectionStore } from '$lib/video-editor/timeline/stores/path-vertex-selection-store.svelte';
 	import { visiblePathVertexProperties } from '$lib/video-editor/timeline/path-vertex-visibility';
 	import { effectPropertyLabel } from '$lib/video-editor/effects/effect-keyframes';
-	import {
-		canJoinMultipleItems,
-		joinableItemNeighbors
-	} from '$lib/video-editor/timeline/join-items';
+	import { canJoinMultipleItems } from '$lib/video-editor/timeline/join-items';
 	import {
 		isRateStretchableType,
 		planCanvasNudge,
@@ -218,13 +198,11 @@
 	import { itemClipboardStore } from '$lib/video-editor/timeline/stores/item-clipboard-store.svelte';
 	import type { TimelineSnapshot } from '$lib/video-editor/timeline/commands/types';
 	import {
-		addTransition,
 		pruneInvalidTransitions,
 		pruneOrphanedTransitions,
 		removeTransition,
 		transitionsStore,
-		updateTransition,
-		updateTransitionPresentation
+		updateTransition
 	} from '$lib/video-editor/timeline/actions/transitions.svelte';
 	import {
 		buildInsertedGapPreviewUpdatesForSyncLockedTracks,
@@ -268,6 +246,9 @@
 	} from '$lib/video-editor/timeline/utils/track-groups';
 	import TimelineTrackHeader from './timeline-track-header.svelte';
 	import { createTrackReorder } from './timeline-track-reorder.svelte';
+	import { createTimelineDropTargets } from './timeline-drop-targets.svelte';
+	import TimelineTrackDropPreviews from './timeline-track-drop-previews.svelte';
+	import TimelineItemContextMenu from './timeline-item-context-menu.svelte';
 	import TimelineDensityOverview from './timeline-density-overview.svelte';
 	import TimelineNavigator from './timeline-navigator.svelte';
 	import AudioMixerPanel from './audio-mixer-panel.svelte';
@@ -286,92 +267,22 @@
 		getSynchronizedLinkedSelection
 	} from '$lib/video-editor/timeline/utils/linked-items';
 	import TimelineLinkedSyncBadge from './timeline-linked-sync-badge.svelte';
-	import { canDetachAudio, detachAudio } from '../timeline/actions/detach-audio';
+	import { detachAudio } from '../timeline/actions/detach-audio';
 	import { formatLinkedSyncOffset } from '$lib/video-editor/timeline/linked-sync-display';
 	import { updateTimelineItemSelection } from '$lib/video-editor/timeline/selection';
-	import {
-		areItemIdListsEqual,
-		clearEffectDragData,
-		getEffectDragData,
-		isDragPointInsideElement,
-		resolveEffectDropTargetIds,
-		type EffectDragData
-	} from '$lib/video-editor/timeline/effect-drop';
-	import {
-		clearTransitionDragData,
-		getTransitionDragData,
-		resolveTransitionDropTarget,
-		type TransitionDropTarget
-	} from '$lib/video-editor/timeline/transition-drop';
-	import {
-		addAdjustmentLayerWithEffects,
-		addEffectTemplates
-	} from '$lib/video-editor/timeline/actions/effects';
+	import { clearEffectDragData } from '$lib/video-editor/timeline/effect-drop';
 	import {
 		consolidateCaptionItems,
 		type CaptionConsolidationOptions
 	} from '$lib/video-editor/timeline/actions/captions';
-	import {
-		clearSceneDragData,
-		getSceneDragData
-	} from '$lib/video-editor/media/scene-search/scene-drag';
-	import { insertSceneAtFrame } from '$lib/video-editor/media/scene-search/scene-insert';
-	import {
-		clearActiveMediaDrag,
-		getMediaDragData,
-		type MediaDragData
-	} from '$lib/video-editor/media/media-drag';
+	import { clearActiveMediaDrag } from '$lib/video-editor/media/media-drag';
 	import { mediaPlacement } from '$lib/video-editor/media/media-placement.svelte';
-	import {
-		clearStickerDragData,
-		getActiveStickerForDrag,
-		getStickerDragData
-	} from '$lib/video-editor/stickers/sticker-drag';
-	import {
-		fluentEmojiAttribution,
-		fluentEmojiStickerFile,
-		loadFluentEmojiCatalog
-	} from '$lib/video-editor/stickers/fluent-emoji';
-	import { commitImportedAsset } from '$lib/video-editor/media/commit-imported-asset';
-	import {
-		clearStockDragData,
-		getActiveStockAsset,
-		getStockDragData,
-		type StockDragData
-	} from '$lib/video-editor/media/stock-drag';
-	import { downloadStockAsset, resolveStockAsset, stockAssetAttribution } from '$lib/stock-media';
-	import {
-		clearLottieDragData,
-		getActiveLottieAnimation,
-		getLottieDragData,
-		type LottieDragData
-	} from '$lib/video-editor/lottie/lottie-drag';
-	import {
-		LOTTIEFILES_LICENSE,
-		LOTTIEFILES_LICENSE_URL,
-		lottieFilesAttribution
-	} from '$lib/video-editor/lottie/lottiefiles-api';
-	import { importRemoteLottie } from '$lib/video-editor/media/import.svelte';
-	import {
-		evaluateExactMediaPlacement,
-		mediaDropAutoScrollDelta,
-		mediaDurationInFrames,
-		mediaTimelineKind,
-		planExactSequencePlacement,
-		type MediaDropRejection
-	} from '$lib/video-editor/media/media-drop-placement';
-	import { insertMediaAtFrame } from '$lib/video-editor/timeline/actions/insert-media';
-	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
-	import { nestSequenceOnExactTracks } from '$lib/video-editor/sequences/sequence-actions';
-	import { wouldCreateCompositionCycle } from '$lib/video-editor/sequences/composition-graph';
 	import { Button } from '$lib/components/ui/button';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
 	import type { SceneScanMode } from '$lib/video-editor/media/scene-scan';
-	import { canExtractEmbeddedSubtitles } from '$lib/video-editor/media/embedded-subtitle-service';
 	import type { ProjectAssetImporter } from '@openpost/editor-shared/media';
 	import { showToast } from '$lib/toast';
-
 	let {
 		onedit,
 		ontransitionbreak = () => {},
@@ -680,134 +591,28 @@
 		basePrimary: string | null;
 		baseTransition: string | null;
 	} | null>(null);
-	let effectDropTargetIds = $state<string[]>([]);
-	let effectDropHoveredItemId = $state<string | null>(null);
-	let effectAdjustmentDropPreview = $state<{
-		trackId: string;
-		from: number;
-		durationInFrames: number;
-		label: string;
-	} | null>(null);
-	let transitionDropPreview = $state<(TransitionDropTarget & { hoveredItemId: string }) | null>(
-		null
-	);
-	let transitionBridgeDropPreviewId = $state<string | null>(null);
-	let sceneDropPreview = $state<{
-		trackId: string | null;
-		from: number;
-		durationInFrames: number;
-		label: string;
-	} | null>(null);
-	let generatedItemDropPreview = $state<{
-		trackId: string;
-		from: number;
-		durationInFrames: number;
-		label: string;
-	} | null>(null);
-	let stickerDropPreview = $state<{
-		trackId: string;
-		from: number;
-		durationInFrames: number;
-		label: string;
-	} | null>(null);
-	let stickerDropPending = $state(false);
-	let stockDropPreview = $state<{
-		trackId: string;
-		from: number;
-		durationInFrames: number;
-		label: string;
-	} | null>(null);
-	let stockDropPending = $state(false);
-	let lottieDropPreview = $state<{
-		trackId: string;
-		from: number;
-		durationInFrames: number;
-		label: string;
-	} | null>(null);
-	let lottieDropPending = $state(false);
-	let mediaDropPreview = $state<{
-		trackId: string;
-		secondaryTrackId: string | null;
-		from: number;
-		durationInFrames: number;
-		label: string;
-		valid: boolean;
-		reason: MediaDropRejection | null;
-		snapTarget: SnapTarget | null;
-	} | null>(null);
 	let rejectedMove = $state(false);
-	let pendingMediaDrop = $state<{
-		clientX: number;
-		trackId: string;
-		payload: MediaDragData;
-	} | null>(null);
-	let activeNativeMediaDrop: {
-		clientX: number;
-		trackId: string;
-		payload: MediaDragData;
-	} | null = null;
-	let mediaDropAnimationFrame: number | null = null;
-	let mediaDropAutoScrollFrame: number | null = null;
-	let mediaDropSnapTargets: SnapTarget[] | null = null;
-	let handledPlacementRequestId = 0;
-	interface SnappedMediaFrame {
-		from: number;
-		snapTarget: SnapTarget | null;
-	}
-
-	$effect(() => {
-		if (
-			effectDropTargetIds.length === 0 &&
-			!effectAdjustmentDropPreview &&
-			!transitionDropPreview &&
-			!transitionBridgeDropPreviewId
-		)
-			return;
-		const clear = () => {
-			clearEffectDropPreview();
-			clearTransitionDropPreview();
-		};
-		window.addEventListener('dragend', clear);
-		window.addEventListener('drop', clear);
-		return () => {
-			window.removeEventListener('dragend', clear);
-			window.removeEventListener('drop', clear);
-		};
-	});
-
-	$effect(() => {
-		if (!mediaDropPreview || mediaPlacement.request) return;
-		const clear = () => {
-			clearMediaDropPreview();
-			clearActiveMediaDrag();
-		};
-		window.addEventListener('dragend', clear);
-		window.addEventListener('drop', clear);
-		return () => {
-			window.removeEventListener('dragend', clear);
-			window.removeEventListener('drop', clear);
-		};
-	});
-
-	$effect(() => {
-		if (!generatedItemDropPreview) return;
-		const clear = () => {
-			generatedItemDropPreview = null;
-			clearGeneratedItemDragData();
-		};
-		window.addEventListener('dragend', clear);
-		window.addEventListener('drop', clear);
-		return () => {
-			window.removeEventListener('dragend', clear);
-			window.removeEventListener('drop', clear);
-		};
-	});
-
-	$effect(() => {
-		const request = mediaPlacement.request;
-		if (!request || request.requestId === handledPlacementRequestId) return;
-		handledPlacementRequestId = request.requestId;
-		beginAccessibleMediaPlacement(request.payload);
+	const drops = createTimelineDropTargets({
+		scrollContainer: () => scrollContainer,
+		headerWidth: TRACK_HEADER_WIDTH,
+		pxToFrame: (px) => pxToFrame(px),
+		zoom: () => zoom,
+		pxPerFrame: () => pxPerFrame,
+		snapTargets: () => snapTargetsFor([]),
+		setActiveSnapTarget: (target) => (activeSnapTarget = target),
+		selectedItemIds: () => selectedItemIds,
+		selectItems: (ids) => {
+			selectedItemId = ids[0] ?? null;
+			selectedItemIds = ids;
+		},
+		selectTransition: (id) => {
+			selectedTransitionId = id;
+			selectedItemId = null;
+			selectedItemIds = [];
+		},
+		projectId: () => projectId,
+		importProjectAsset: () => importProjectAsset,
+		onedit: () => onedit()
 	});
 
 	// Reactive filmstrip state per video mediaId; frames stream in from the
@@ -1583,1101 +1388,6 @@
 		markers.selectMarker(marker);
 	}
 
-	function clearEffectDropPreview(): void {
-		effectDropTargetIds = [];
-		effectDropHoveredItemId = null;
-		effectAdjustmentDropPreview = null;
-	}
-
-	function clearTransitionDropPreview(): void {
-		transitionDropPreview = null;
-		transitionBridgeDropPreviewId = null;
-	}
-
-	function transitionTargetAtPointer(
-		event: DragEvent,
-		itemId: string
-	): TransitionDropTarget | null {
-		const payload = getTransitionDragData();
-		if (!payload || !(event.currentTarget instanceof HTMLElement)) return null;
-		const rect = event.currentTarget.getBoundingClientRect();
-		const edge = event.clientX - rect.left < rect.width / 2 ? 'left' : 'right';
-		return resolveTransitionDropTarget({
-			itemId,
-			edge,
-			items: timelineStore.items,
-			tracks: effectiveMediaTracks(timelineStore.tracks),
-			transitions: transitionsStore.list,
-			fps: timelineStore.fps,
-			presentation: payload.presentation
-		});
-	}
-
-	function previewTransitionDrop(event: DragEvent, itemId: string): void {
-		const target = transitionTargetAtPointer(event, itemId);
-		if (!target) {
-			clearTransitionDropPreview();
-			return;
-		}
-		event.preventDefault();
-		event.stopPropagation();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-		transitionDropPreview = { ...target, hoveredItemId: itemId };
-	}
-
-	function leaveTransitionDrop(event: DragEvent, itemId: string): void {
-		if (!(event.currentTarget instanceof HTMLElement)) return;
-		if (isDragPointInsideElement(event, event.currentTarget)) return;
-		if (transitionDropPreview?.hoveredItemId === itemId) clearTransitionDropPreview();
-	}
-
-	function dropTransition(event: DragEvent, itemId: string): boolean {
-		const payload = getTransitionDragData();
-		if (!payload) return false;
-		const target = transitionTargetAtPointer(event, itemId);
-		clearTransitionDropPreview();
-		clearTransitionDragData();
-		event.preventDefault();
-		event.stopPropagation();
-		if (!target) return true;
-		try {
-			let transitionId = target.existingTransitionId;
-			if (transitionId) {
-				if (!updateTransitionPresentation(transitionId, payload.presentation, payload.direction)) {
-					emitEditorSound('error', editorSession.clock.isPlaying);
-					return true;
-				}
-			} else {
-				transitionId = addTransition(
-					target.fromItemId,
-					target.toItemId,
-					'crossfade',
-					target.suggestedDurationInFrames,
-					{ presentation: payload.presentation, direction: payload.direction }
-				);
-			}
-			selectedTransitionId = transitionId ?? null;
-			selectedItemId = null;
-			selectedItemIds = [];
-			onedit();
-		} catch {
-			emitEditorSound('error', editorSession.clock.isPlaying);
-		}
-		return true;
-	}
-
-	function transitionTargetForBridge(transitionId: string): TransitionDropTarget | null {
-		const payload = getTransitionDragData();
-		const transition = transitionsStore.list.find((candidate) => candidate.id === transitionId);
-		if (!payload || !transition) return null;
-		const target = resolveTransitionDropTarget({
-			itemId: transition.fromItemId,
-			edge: 'right',
-			items: timelineStore.items,
-			tracks: effectiveMediaTracks(timelineStore.tracks),
-			transitions: transitionsStore.list,
-			fps: timelineStore.fps,
-			presentation: payload.presentation
-		});
-		return target?.existingTransitionId === transitionId ? target : null;
-	}
-
-	function previewTransitionBridgeDrop(event: DragEvent, transitionId: string): void {
-		if (!transitionTargetForBridge(transitionId)) {
-			clearTransitionDropPreview();
-			return;
-		}
-		event.preventDefault();
-		event.stopPropagation();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-		transitionDropPreview = null;
-		transitionBridgeDropPreviewId = transitionId;
-	}
-
-	function leaveTransitionBridgeDrop(event: DragEvent, transitionId: string): void {
-		if (!(event.currentTarget instanceof HTMLElement)) return;
-		if (isDragPointInsideElement(event, event.currentTarget)) return;
-		if (transitionBridgeDropPreviewId === transitionId) clearTransitionDropPreview();
-	}
-
-	function dropTransitionOnBridge(event: DragEvent, transitionId: string): void {
-		const payload = getTransitionDragData();
-		const target = transitionTargetForBridge(transitionId);
-		clearTransitionDropPreview();
-		clearTransitionDragData();
-		if (!payload) return;
-		event.preventDefault();
-		event.stopPropagation();
-		if (
-			!target ||
-			!updateTransitionPresentation(transitionId, payload.presentation, payload.direction)
-		) {
-			emitEditorSound('error', editorSession.clock.isPlaying);
-			return;
-		}
-		selectedTransitionId = transitionId;
-		selectedItemId = null;
-		selectedItemIds = [];
-		onedit();
-	}
-
-	function previewCatalogDrop(event: DragEvent, itemId: string): void {
-		if (getTransitionDragData()) {
-			clearEffectDropPreview();
-			previewTransitionDrop(event, itemId);
-			return;
-		}
-		previewEffectDrop(event, itemId);
-	}
-
-	function leaveCatalogDrop(event: DragEvent, itemId: string): void {
-		leaveEffectDrop(event, itemId);
-		leaveTransitionDrop(event, itemId);
-	}
-
-	function dropCatalogItem(event: DragEvent, itemId: string): void {
-		if (dropTransition(event, itemId)) return;
-		dropEffect(event, itemId);
-	}
-
-	function resolveEffectTargets(itemId: string, payload: EffectDragData | null): string[] {
-		if (!payload) return [];
-		const lockedTrackIds = new Set(
-			effectiveMediaTracks(timelineStore.tracks)
-				.filter((track) => track.locked)
-				.map((track) => track.id)
-		);
-		return resolveEffectDropTargetIds({
-			hoveredItemId: itemId,
-			items: timelineStore.items,
-			selectedItemIds
-		}).filter((targetId) => {
-			const target = timelineStore.itemById.get(targetId);
-			return !!target && !lockedTrackIds.has(target.trackId);
-		});
-	}
-
-	function previewEffectDrop(event: DragEvent, itemId: string): void {
-		const targetItemIds = resolveEffectTargets(itemId, getEffectDragData());
-		if (targetItemIds.length === 0) {
-			clearEffectDropPreview();
-			return;
-		}
-		event.preventDefault();
-		event.stopPropagation();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-		if (
-			effectDropHoveredItemId === itemId &&
-			areItemIdListsEqual(effectDropTargetIds, targetItemIds)
-		) {
-			return;
-		}
-		effectDropTargetIds = targetItemIds;
-		effectDropHoveredItemId = itemId;
-	}
-
-	function leaveEffectDrop(event: DragEvent, itemId: string): void {
-		if (!(event.currentTarget instanceof HTMLElement)) return;
-		if (isDragPointInsideElement(event, event.currentTarget)) return;
-		if (effectDropHoveredItemId === itemId) clearEffectDropPreview();
-	}
-
-	function dropEffect(event: DragEvent, itemId: string): void {
-		const payload = getEffectDragData();
-		const targetItemIds = resolveEffectTargets(itemId, payload);
-		clearEffectDropPreview();
-		clearEffectDragData();
-		if (!payload || targetItemIds.length === 0) return;
-		event.preventDefault();
-		event.stopPropagation();
-		if (addEffectTemplates(targetItemIds, payload.effects)) onedit();
-	}
-
-	function previewEffectAdjustmentDrop(event: DragEvent, trackId: string): boolean {
-		const payload = getEffectDragData();
-		if (!payload) return false;
-		const track = effectiveMediaTracks(timelineStore.tracks).find(
-			(candidate) => candidate.id === trackId
-		);
-		if (!track || track.kind === 'audio' || track.locked) {
-			effectAdjustmentDropPreview = null;
-			if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
-			return true;
-		}
-		event.preventDefault();
-		event.stopPropagation();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-		effectAdjustmentDropPreview = {
-			trackId,
-			from: sceneFrameAtPointer(event),
-			durationInFrames: timelineStore.fps * 3,
-			label: payload.label
-		};
-		return true;
-	}
-
-	function leaveEffectAdjustmentDrop(event: DragEvent): void {
-		if (!(event.currentTarget instanceof HTMLElement)) return;
-		if (isDragPointInsideElement(event, event.currentTarget)) return;
-		effectAdjustmentDropPreview = null;
-	}
-
-	function dropEffectAdjustment(event: DragEvent, trackId: string): boolean {
-		const payload = getEffectDragData();
-		if (!payload) return false;
-		const preview = effectAdjustmentDropPreview;
-		clearEffectDropPreview();
-		clearEffectDragData();
-		event.preventDefault();
-		event.stopPropagation();
-		if (!preview || preview.trackId !== trackId) return true;
-		try {
-			const itemId = addAdjustmentLayerWithEffects(payload.label, payload.effects, {
-				frame: preview.from,
-				preferredTrackId: trackId
-			});
-			selectedItemId = itemId;
-			selectedItemIds = [itemId];
-			onedit();
-		} catch {
-			emitEditorSound('error', editorSession.clock.isPlaying);
-		}
-		return true;
-	}
-
-	function sceneFrameAtPointer(event: DragEvent): number {
-		if (!scrollContainer) return timelineStore.currentFrame;
-		const rect = scrollContainer.getBoundingClientRect();
-		return Math.max(
-			0,
-			pxToFrame(event.clientX - rect.left + scrollContainer.scrollLeft - TRACK_HEADER_WIDTH)
-		);
-	}
-
-	function previewGeneratedItemDrop(event: DragEvent, trackId: string): boolean {
-		const payload = getGeneratedItemDragData(event.dataTransfer);
-		if (!payload) return false;
-		const track = effectiveMediaTracks(timelineStore.tracks).find(
-			(candidate) => candidate.id === trackId
-		);
-		const libraryEntry =
-			payload.kind === 'library'
-				? videoLibrary.entries.find((entry) => entry.id === payload.entryId)
-				: undefined;
-		const recipe = libraryEntry?.recipe;
-		const libraryTimeline = recipe?.kind === 'selection' ? recipe.project.timeline : undefined;
-		const audioOnly = libraryTimeline?.items.every((item) => item.type === 'audio') ?? false;
-		if (
-			(payload.kind === 'library' && !libraryEntry) ||
-			!track ||
-			(audioOnly ? track.kind !== 'audio' : track.kind === 'audio') ||
-			track.locked
-		) {
-			generatedItemDropPreview = null;
-			return true;
-		}
-		const from = sceneFrameAtPointer(event);
-		const timer =
-			payload.kind === 'timer'
-				? payload.timer
-				: recipe?.kind === 'timer'
-					? recipe.timer
-					: undefined;
-		const durationInFrames =
-			libraryTimeline && recipe?.kind === 'selection'
-				? Math.round(
-						(Math.max(...libraryTimeline.items.map((item) => item.from + item.durationInFrames)) *
-							timelineStore.fps) /
-							recipe.project.metadata.fps
-					)
-				: Math.round(timelineStore.fps * (timer ? 10 + (timer.finishHoldSeconds ?? 0) : 3));
-		const itemType = audioOnly
-			? 'audio'
-			: payload.kind === 'shape'
-				? 'shape'
-				: payload.kind === 'background'
-					? 'background'
-					: 'text';
-		if (!trackRangeIsOpen(timelineStore.items, trackId, from, durationInFrames, itemType)) {
-			generatedItemDropPreview = null;
-			if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
-			return true;
-		}
-		event.preventDefault();
-		event.stopPropagation();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-		generatedItemDropPreview = {
-			trackId,
-			from,
-			durationInFrames,
-			label: payload.label
-		};
-		sceneDropPreview = null;
-		return true;
-	}
-
-	function leaveGeneratedItemDrop(event: DragEvent): void {
-		if (!(event.currentTarget instanceof HTMLElement)) return;
-		if (isDragPointInsideElement(event, event.currentTarget)) return;
-		generatedItemDropPreview = null;
-	}
-
-	function insertGeneratedItem(
-		payload: GeneratedItemDragData,
-		frame: number,
-		preferredTrackId: string
-	): string {
-		if (payload.kind === 'library')
-			throw new Error('Library entries require asynchronous insertion.');
-		if (payload.kind === 'timer')
-			return addTimer(payload.timer, payload.label, { from: frame, trackId: preferredTrackId });
-		if (payload.kind === 'shape') {
-			return addShapeItem(payload.shapeType, payload.label, payload.style, {
-				frame,
-				preferredTrackId
-			});
-		}
-		if (payload.kind === 'background') {
-			return addBackgroundItem(payload.presetId, { frame, preferredTrackId });
-		}
-		return payload.presetId
-			? addTextTemplateItem(payload.presetId, localizedTextStylePresetCopy(payload.presetId), {
-					frame,
-					preferredTrackId
-				})
-			: addTextItemAtFrame(payload.label, frame, preferredTrackId);
-	}
-
-	function dropGeneratedItem(event: DragEvent, trackId: string): boolean {
-		const payload = getGeneratedItemDragData(event.dataTransfer);
-		if (!payload) return false;
-		const preview = generatedItemDropPreview;
-		generatedItemDropPreview = null;
-		clearGeneratedItemDragData();
-		event.preventDefault();
-		event.stopPropagation();
-		if (!preview || preview.trackId !== trackId) return true;
-		if (payload.kind === 'library') {
-			const entry = videoLibrary.entries.find((entry) => entry.id === payload.entryId);
-			if (!entry) return true;
-			void applyLibraryEntry($state.snapshot(entry), {
-				selectedIds: [],
-				importAsset: importProjectAsset,
-				placement: { from: preview.from, trackId }
-			})
-				.then((ids) => {
-					if (!ids.length) return;
-					selectedItemId = ids[0] ?? null;
-					selectedItemIds = ids;
-					onedit();
-				})
-				.catch((cause) =>
-					showToast(cause instanceof Error ? cause.message : String(cause), 'error')
-				);
-			return true;
-		}
-		try {
-			const itemId = insertGeneratedItem(payload, preview.from, trackId);
-			selectedItemId = itemId;
-			selectedItemIds = [itemId];
-			onedit();
-		} catch {
-			emitEditorSound('error', editorSession.clock.isPlaying);
-		}
-		return true;
-	}
-
-	function previewStickerDrop(event: DragEvent, trackId: string): boolean {
-		const payload = getStickerDragData(event.dataTransfer);
-		if (!payload) return false;
-		if (!projectId || stickerDropPending) {
-			stickerDropPreview = null;
-			return true;
-		}
-		const durationInFrames = Math.max(1, timelineStore.fps * 3);
-		const from = sceneFrameAtPointer(event);
-		const result = evaluateExactMediaPlacement({
-			trackId,
-			from,
-			durationInFrames,
-			kind: 'video',
-			tracks: timelineStore.tracks,
-			items: timelineStore.items
-		});
-		if (!result.valid) {
-			stickerDropPreview = null;
-			if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
-			return true;
-		}
-		event.preventDefault();
-		event.stopPropagation();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-		stickerDropPreview = {
-			trackId,
-			from: result.placement.from,
-			durationInFrames,
-			label: payload.label
-		};
-		return true;
-	}
-
-	function leaveStickerDrop(event: DragEvent): void {
-		if (!(event.currentTarget instanceof HTMLElement)) return;
-		if (isDragPointInsideElement(event, event.currentTarget)) return;
-		stickerDropPreview = null;
-	}
-
-	function dropSticker(event: DragEvent, trackId: string): boolean {
-		const payload = getStickerDragData(event.dataTransfer);
-		if (!payload) return false;
-		const preview = stickerDropPreview;
-		stickerDropPreview = null;
-		event.preventDefault();
-		event.stopPropagation();
-		if (!preview || preview.trackId !== trackId || !projectId || stickerDropPending) {
-			clearStickerDragData();
-			return true;
-		}
-		void commitStickerDrop(payload.name, payload.label, preview.from, preview.trackId);
-		return true;
-	}
-
-	function stockDropDuration(payload: StockDragData): number {
-		if (payload.kind === 'video' && payload.durationSeconds) {
-			return Math.max(1, Math.round(payload.durationSeconds * timelineStore.fps));
-		}
-		return Math.max(1, timelineStore.fps * 3);
-	}
-
-	function previewStockDrop(event: DragEvent, trackId: string): boolean {
-		const payload = getStockDragData(event.dataTransfer);
-		if (!payload) return false;
-		if (!projectId || stockDropPending) {
-			stockDropPreview = null;
-			return true;
-		}
-		const durationInFrames = stockDropDuration(payload);
-		const from = sceneFrameAtPointer(event);
-		const result = evaluateExactMediaPlacement({
-			trackId,
-			from,
-			durationInFrames,
-			kind: 'video',
-			tracks: timelineStore.tracks,
-			items: timelineStore.items
-		});
-		if (!result.valid) {
-			stockDropPreview = null;
-			if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
-			return true;
-		}
-		event.preventDefault();
-		event.stopPropagation();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-		stockDropPreview = {
-			trackId,
-			from: result.placement.from,
-			durationInFrames,
-			label: payload.label
-		};
-		return true;
-	}
-
-	function leaveStockDrop(event: DragEvent): void {
-		if (!(event.currentTarget instanceof HTMLElement)) return;
-		if (isDragPointInsideElement(event, event.currentTarget)) return;
-		stockDropPreview = null;
-	}
-
-	function dropStock(event: DragEvent, trackId: string): boolean {
-		const payload = getStockDragData(event.dataTransfer);
-		if (!payload) return false;
-		const preview = stockDropPreview;
-		stockDropPreview = null;
-		event.preventDefault();
-		event.stopPropagation();
-		if (!preview || preview.trackId !== trackId || !projectId || stockDropPending) {
-			clearStockDragData();
-			return true;
-		}
-		void commitStockDrop(payload, preview.from, preview.trackId);
-		return true;
-	}
-
-	async function commitStockDrop(
-		payload: StockDragData,
-		from: number,
-		trackId: string
-	): Promise<void> {
-		stockDropPending = true;
-		try {
-			if (!projectId) throw new Error('The project is not ready for stock imports.');
-			const asset = getActiveStockAsset(payload.provider, payload.externalId);
-			const resolved = await resolveStockAsset(payload.provider, payload.externalId);
-			const file = await downloadStockAsset(
-				asset ?? { provider: payload.provider, external_id: payload.externalId },
-				resolved
-			);
-			const committed = await commitImportedAsset(file, {
-				projectId,
-				attribution: asset
-					? stockAssetAttribution(asset)
-					: {
-							provider: payload.provider,
-							author: payload.author,
-							authorUrl: payload.authorUrl,
-							sourceId: payload.externalId,
-							license: payload.license ?? '',
-							licenseUrl: payload.licenseUrl
-						},
-				tags: ['stock', payload.provider],
-				insertAtFrame: from,
-				label: payload.label,
-				exactTrackId: trackId,
-				importAsset: importProjectAsset
-			});
-			selectedItemId = committed.itemId;
-			selectedItemIds = [committed.itemId];
-			clearStockDragData();
-			onedit();
-		} catch (error) {
-			emitEditorSound('error', editorSession.clock.isPlaying);
-			showToast(
-				error instanceof Error ? error.message : 'The stock asset could not be added.',
-				'error'
-			);
-		} finally {
-			stockDropPending = false;
-		}
-	}
-
-	async function commitStickerDrop(
-		name: string,
-		label: string,
-		from: number,
-		trackId: string
-	): Promise<void> {
-		stickerDropPending = true;
-		try {
-			const sticker =
-				getActiveStickerForDrag(name) ?? (await loadFluentEmojiCatalog()).byName.get(name);
-			if (!sticker || !projectId) throw new Error('The sticker is no longer available.');
-			const committed = await commitImportedAsset(fluentEmojiStickerFile(sticker), {
-				projectId,
-				attribution: fluentEmojiAttribution(sticker),
-				tags: ['sticker', 'fluent-emoji'],
-				insertAtFrame: from,
-				label,
-				exactTrackId: trackId,
-				importAsset: importProjectAsset
-			});
-			selectedItemId = committed.itemId;
-			selectedItemIds = [committed.itemId];
-			clearStickerDragData();
-			onedit();
-		} catch (error) {
-			emitEditorSound('error', editorSession.clock.isPlaying);
-			showToast(
-				error instanceof Error ? error.message : m.video_editor_sticker_add_failed(),
-				'error'
-			);
-		} finally {
-			stickerDropPending = false;
-		}
-	}
-
-	function previewLottieDrop(event: DragEvent, trackId: string): boolean {
-		const payload = getLottieDragData(event.dataTransfer);
-		if (!payload) return false;
-		if (!projectId || lottieDropPending) {
-			lottieDropPreview = null;
-			return true;
-		}
-		const durationInFrames = Math.max(1, timelineStore.fps * 3);
-		const from = sceneFrameAtPointer(event);
-		const result = evaluateExactMediaPlacement({
-			trackId,
-			from,
-			durationInFrames,
-			kind: 'video',
-			tracks: timelineStore.tracks,
-			items: timelineStore.items
-		});
-		if (!result.valid) {
-			lottieDropPreview = null;
-			if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
-			return true;
-		}
-		event.preventDefault();
-		event.stopPropagation();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-		lottieDropPreview = {
-			trackId,
-			from: result.placement.from,
-			durationInFrames,
-			label: payload.label
-		};
-		return true;
-	}
-
-	function leaveLottieDrop(event: DragEvent): void {
-		if (!(event.currentTarget instanceof HTMLElement)) return;
-		if (isDragPointInsideElement(event, event.currentTarget)) return;
-		lottieDropPreview = null;
-	}
-
-	function dropLottie(event: DragEvent, trackId: string): boolean {
-		const payload = getLottieDragData(event.dataTransfer);
-		if (!payload) return false;
-		const preview = lottieDropPreview;
-		lottieDropPreview = null;
-		event.preventDefault();
-		event.stopPropagation();
-		if (!preview || preview.trackId !== trackId || !projectId || lottieDropPending) {
-			clearLottieDragData();
-			return true;
-		}
-		void commitLottieDrop(payload, preview.from, preview.trackId);
-		return true;
-	}
-
-	async function commitLottieDrop(
-		payload: LottieDragData,
-		from: number,
-		trackId: string
-	): Promise<void> {
-		lottieDropPending = true;
-		try {
-			if (!projectId) throw new Error('The project is not ready for animation imports.');
-			const animation = getActiveLottieAnimation(payload.id);
-			const existing = mediaPool.mediaList.find(
-				(media) =>
-					media.attribution?.provider === 'LottieFiles' && media.attribution.sourceId === payload.id
-			);
-			const mediaId =
-				existing?.id ??
-				(await importRemoteLottie({
-					projectId,
-					url: animation?.lottieUrl ?? payload.url,
-					fileName: animation?.name ?? payload.label,
-					attribution: animation
-						? lottieFilesAttribution(animation)
-						: {
-								provider: 'LottieFiles',
-								sourceId: payload.id,
-								license: LOTTIEFILES_LICENSE,
-								licenseUrl: LOTTIEFILES_LICENSE_URL
-							},
-					importAsset: importProjectAsset
-				}));
-			const media = mediaPool.get(mediaId);
-			if (!media) throw new Error('The imported animation did not reach the media pool.');
-			const itemId = insertMediaAtFrame(media, from, {
-				exactTrackId: trackId,
-				label: payload.label
-			});
-			selectedItemId = itemId;
-			selectedItemIds = [itemId];
-			clearLottieDragData();
-			onedit();
-		} catch (error) {
-			emitEditorSound('error', editorSession.clock.isPlaying);
-			showToast(
-				error instanceof Error ? error.message : m.video_editor_lottiefiles_import_error(),
-				'error'
-			);
-		} finally {
-			lottieDropPending = false;
-		}
-	}
-
-	function openSceneTrack(preferredTrackId: string, from: number, end: number): string | null {
-		const effectiveTracks = effectiveMediaTracks(timelineStore.tracks);
-		const preferred = effectiveTracks.find((track) => track.id === preferredTrackId);
-		const candidates = [
-			...(preferred ? [preferred] : []),
-			...effectiveTracks
-				.filter((track) => track.id !== preferredTrackId)
-				.toSorted((left, right) => right.order - left.order)
-		];
-		return (
-			candidates.find(
-				(track) =>
-					track.kind === 'video' &&
-					!track.locked &&
-					(track.visible !== false || track.id === preferredTrackId) &&
-					trackRangeIsOpen(timelineStore.items, track.id, from, end - from, 'video')
-			)?.id ?? null
-		);
-	}
-
-	function previewSceneDrop(event: DragEvent, preferredTrackId: string): void {
-		const payload = getSceneDragData(event.dataTransfer);
-		const media = payload ? mediaPool.get(payload.scene.mediaId) : undefined;
-		if (!payload || !media) {
-			sceneDropPreview = null;
-			return;
-		}
-		event.preventDefault();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-		const from = sceneFrameAtPointer(event);
-		const durationInFrames = Math.max(
-			1,
-			Math.round((payload.scene.endSec - payload.scene.startSec) * timelineStore.fps)
-		);
-		const nextPreview = {
-			trackId: openSceneTrack(preferredTrackId, from, from + durationInFrames),
-			from,
-			durationInFrames,
-			label: payload.scene.text || media.fileName
-		};
-		if (
-			sceneDropPreview?.trackId === nextPreview.trackId &&
-			sceneDropPreview.from === nextPreview.from &&
-			sceneDropPreview.durationInFrames === nextPreview.durationInFrames &&
-			sceneDropPreview.label === nextPreview.label
-		) {
-			return;
-		}
-		sceneDropPreview = nextPreview;
-	}
-
-	function leaveSceneDrop(event: DragEvent): void {
-		if (!(event.currentTarget instanceof HTMLElement)) return;
-		if (isDragPointInsideElement(event, event.currentTarget)) return;
-		sceneDropPreview = null;
-	}
-
-	function dropScene(event: DragEvent, preferredTrackId: string): void {
-		const payload = getSceneDragData(event.dataTransfer);
-		const media = payload ? mediaPool.get(payload.scene.mediaId) : undefined;
-		if (!payload || !media) return;
-		event.preventDefault();
-		event.stopPropagation();
-		const preview = sceneDropPreview;
-		const from = preview?.from ?? sceneFrameAtPointer(event);
-		const itemId = insertSceneAtFrame(
-			payload.scene,
-			media,
-			from,
-			preview?.trackId ?? preferredTrackId
-		);
-		selectedItemId = itemId;
-		selectedItemIds = [itemId];
-		sceneDropPreview = null;
-		clearSceneDragData();
-		onedit();
-	}
-
-	function resolveDraggedMedia(payload: MediaDragData) {
-		if (payload.source === 'media') {
-			const media = mediaPool.get(payload.id);
-			const entry = mediaPool.entry(payload.id);
-			if (!media || entry?.status !== 'ready') return null;
-			return {
-				source: 'media' as const,
-				media,
-				composition: null,
-				kind: mediaTimelineKind(media),
-				durationInFrames: mediaDurationInFrames(media, timelineStore.fps),
-				label: media.fileName
-			};
-		}
-		const composition = sequenceStore.compositionById.get(payload.id);
-		if (
-			!composition ||
-			wouldCreateCompositionCycle(
-				sequenceStore.activeSequenceId,
-				composition.id,
-				sequenceStore.compositionById
-			)
-		) {
-			return null;
-		}
-		const visual = composition.items.some((item) => item.type !== 'audio');
-		const audio = composition.items.some((item) => item.type === 'audio' || item.type === 'video');
-		if (!visual && !audio) return null;
-		return {
-			source: 'composition' as const,
-			media: null,
-			composition,
-			kind: visual ? ('video' as const) : ('audio' as const),
-			durationInFrames: Math.max(1, composition.durationInFrames),
-			label: composition.name
-		};
-	}
-
-	function snappedMediaFrame(clientX: number, durationInFrames: number): SnappedMediaFrame {
-		if (!scrollContainer) {
-			return { from: timelineStore.currentFrame, snapTarget: null };
-		}
-		const rect = scrollContainer.getBoundingClientRect();
-		const rawFrame = pxToFrame(
-			clientX - rect.left + scrollContainer.scrollLeft - TRACK_HEADER_WIDTH
-		);
-		if (!timelineStore.snapEnabled) {
-			return { from: Math.max(0, Math.round(rawFrame)), snapTarget: null };
-		}
-		mediaDropSnapTargets ??= snapTargetsFor([]);
-		const threshold = calculateAdaptiveSnapThreshold(zoom, pxPerFrame);
-		const result = calculateMoveSnap(rawFrame, durationInFrames, mediaDropSnapTargets, threshold);
-		return {
-			from: Math.max(0, result.snappedFrame),
-			snapTarget: result.snapTarget ?? null
-		};
-	}
-
-	function exactMediaDropResult(
-		resolved: NonNullable<ReturnType<typeof resolveDraggedMedia>>,
-		trackId: string,
-		from: number
-	) {
-		return resolved.composition
-			? planExactSequencePlacement({
-					composition: resolved.composition,
-					preferredTrackId: trackId,
-					from,
-					tracks: timelineStore.tracks,
-					items: timelineStore.items
-				})
-			: evaluateExactMediaPlacement({
-					trackId,
-					from,
-					durationInFrames: resolved.durationInFrames,
-					kind: resolved.kind,
-					tracks: timelineStore.tracks,
-					items: timelineStore.items
-				});
-	}
-
-	function updateMediaDropPreview(
-		payload: MediaDragData,
-		trackId: string,
-		from: number,
-		snapTarget: SnapTarget | null = null
-	): boolean {
-		const resolved = resolveDraggedMedia(payload);
-		if (!resolved) {
-			clearMediaDropPreview();
-			return false;
-		}
-		const result = exactMediaDropResult(resolved, trackId, from);
-		mediaDropPreview = {
-			trackId,
-			secondaryTrackId:
-				result.valid &&
-				'audioTrackId' in result.placement &&
-				result.placement.audioTrackId !== trackId
-					? (result.placement.audioTrackId ?? null)
-					: null,
-			from: Math.max(0, Math.round(from)),
-			durationInFrames: resolved.durationInFrames,
-			label: resolved.label,
-			valid: result.valid,
-			reason: result.valid ? null : result.reason,
-			snapTarget
-		};
-		activeSnapTarget = snapTarget;
-		return result.valid;
-	}
-
-	function clearMediaDropPreview(cancelRequest = false): void {
-		mediaDropPreview = null;
-		pendingMediaDrop = null;
-		activeNativeMediaDrop = null;
-		mediaDropSnapTargets = null;
-		activeSnapTarget = null;
-		if (mediaDropAnimationFrame !== null) {
-			cancelAnimationFrame(mediaDropAnimationFrame);
-			mediaDropAnimationFrame = null;
-		}
-		if (mediaDropAutoScrollFrame !== null) {
-			cancelAnimationFrame(mediaDropAutoScrollFrame);
-			mediaDropAutoScrollFrame = null;
-		}
-		if (cancelRequest) mediaPlacement.cancel();
-	}
-
-	function runMediaDropAutoScroll(): void {
-		mediaDropAutoScrollFrame = null;
-		const active = activeNativeMediaDrop;
-		if (!active || !scrollContainer) return;
-		const rect = scrollContainer.getBoundingClientRect();
-		const delta = mediaDropAutoScrollDelta(active.clientX, rect.left, rect.right);
-		if (delta === 0) return;
-		const before = scrollContainer.scrollLeft;
-		scrollContainer.scrollLeft += delta;
-		if (scrollContainer.scrollLeft === before) return;
-		pendingMediaDrop = active;
-		if (mediaDropAnimationFrame === null) {
-			mediaDropAnimationFrame = requestAnimationFrame(flushMediaDropPreview);
-		}
-		mediaDropAutoScrollFrame = requestAnimationFrame(runMediaDropAutoScroll);
-	}
-
-	function scheduleMediaDropAutoScroll(): void {
-		if (mediaDropAutoScrollFrame === null) {
-			mediaDropAutoScrollFrame = requestAnimationFrame(runMediaDropAutoScroll);
-		}
-	}
-
-	function flushMediaDropPreview(): void {
-		mediaDropAnimationFrame = null;
-		const pending = pendingMediaDrop;
-		pendingMediaDrop = null;
-		if (!pending) return;
-		const resolved = resolveDraggedMedia(pending.payload);
-		if (!resolved) {
-			clearMediaDropPreview();
-			return;
-		}
-		const position = snappedMediaFrame(pending.clientX, resolved.durationInFrames);
-		updateMediaDropPreview(pending.payload, pending.trackId, position.from, position.snapTarget);
-	}
-
-	function previewMediaDrop(event: DragEvent, trackId: string): boolean {
-		const payload = getMediaDragData(event.dataTransfer);
-		if (!payload || !resolveDraggedMedia(payload)) return false;
-		event.preventDefault();
-		event.stopPropagation();
-		pendingMediaDrop = { clientX: event.clientX, trackId, payload };
-		activeNativeMediaDrop = pendingMediaDrop;
-		if (mediaDropAnimationFrame === null) {
-			mediaDropAnimationFrame = requestAnimationFrame(flushMediaDropPreview);
-		}
-		if (event.dataTransfer) {
-			event.dataTransfer.dropEffect =
-				mediaDropPreview?.trackId === trackId && mediaDropPreview.valid ? 'copy' : 'none';
-		}
-		scheduleMediaDropAutoScroll();
-		return true;
-	}
-
-	function leaveMediaDrop(event: DragEvent): void {
-		if (!(event.currentTarget instanceof HTMLElement)) return;
-		if (isDragPointInsideElement(event, event.currentTarget)) return;
-		clearMediaDropPreview();
-	}
-
-	function commitMediaPlacement(payload: MediaDragData): boolean {
-		const preview = mediaDropPreview;
-		const resolved = resolveDraggedMedia(payload);
-		if (!preview || !preview.valid || !resolved) return false;
-		try {
-			const ids = resolved.media
-				? [
-						insertMediaAtFrame(resolved.media, preview.from, {
-							exactTrackId: preview.trackId,
-							label: resolved.label
-						})
-					]
-				: nestSequenceOnExactTracks(resolved.composition!.id, preview.from, {
-						visualTrackId: resolved.kind === 'video' ? preview.trackId : undefined,
-						audioTrackId:
-							resolved.kind === 'audio' ? preview.trackId : (preview.secondaryTrackId ?? undefined)
-					});
-			selectedItemId = ids[0] ?? null;
-			selectedItemIds = ids;
-			clearMediaDropPreview(true);
-			clearActiveMediaDrag();
-			onedit();
-			return true;
-		} catch {
-			updateMediaDropPreview(payload, preview.trackId, preview.from, preview.snapTarget);
-			return false;
-		}
-	}
-
-	function dropMedia(event: DragEvent, trackId: string): boolean {
-		const payload = getMediaDragData(event.dataTransfer);
-		const resolved = payload ? resolveDraggedMedia(payload) : null;
-		if (!payload || !resolved) return false;
-		event.preventDefault();
-		event.stopPropagation();
-		const position = snappedMediaFrame(event.clientX, resolved.durationInFrames);
-		updateMediaDropPreview(payload, trackId, position.from, position.snapTarget);
-		const inserted = commitMediaPlacement(payload);
-		if (!inserted) {
-			clearMediaDropPreview();
-			clearActiveMediaDrag();
-		}
-		return true;
-	}
-
-	function candidatePlacementTracks(payload: MediaDragData) {
-		const resolved = resolveDraggedMedia(payload);
-		if (!resolved) return [];
-		return visibleTrackRows(timelineStore.tracks).filter(
-			(track) => !isTrackGroup(track) && track.kind === resolved.kind
-		);
-	}
-
-	function beginAccessibleMediaPlacement(payload: MediaDragData): void {
-		const resolved = resolveDraggedMedia(payload);
-		const candidates = candidatePlacementTracks(payload);
-		if (!resolved || candidates.length === 0) {
-			clearMediaDropPreview(true);
-			return;
-		}
-		const from = timelineStore.currentFrame;
-		const open = candidates.find((track) => exactMediaDropResult(resolved, track.id, from).valid);
-		updateMediaDropPreview(payload, (open ?? candidates[0])!.id, from);
-		queueMicrotask(() => scrollContainer?.focus({ preventScroll: true }));
-	}
-
-	function moveAccessibleMediaTrack(payload: MediaDragData, direction: -1 | 1): void {
-		if (!mediaDropPreview) return;
-		const candidates = candidatePlacementTracks(payload);
-		if (candidates.length === 0) return;
-		const currentIndex = candidates.findIndex((track) => track.id === mediaDropPreview?.trackId);
-		const nextIndex = (currentIndex + direction + candidates.length) % candidates.length;
-		const next = candidates[nextIndex];
-		if (next) updateMediaDropPreview(payload, next.id, mediaDropPreview.from);
-	}
-
-	function handleAccessibleMediaPlacementKey(event: KeyboardEvent): boolean {
-		const request = mediaPlacement.request;
-		if (!request || !mediaDropPreview) return false;
-		if (event.key === 'Escape') {
-			event.preventDefault();
-			clearMediaDropPreview(true);
-			return true;
-		}
-		if (event.key === 'Enter') {
-			event.preventDefault();
-			commitMediaPlacement(request.payload);
-			return true;
-		}
-		if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-			event.preventDefault();
-			moveAccessibleMediaTrack(request.payload, event.key === 'ArrowUp' ? -1 : 1);
-			return true;
-		}
-		if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-			event.preventDefault();
-			const delta = (event.shiftKey ? 10 : 1) * (event.key === 'ArrowLeft' ? -1 : 1);
-			updateMediaDropPreview(
-				request.payload,
-				mediaDropPreview.trackId,
-				Math.max(0, mediaDropPreview.from + delta)
-			);
-			return true;
-		}
-		return false;
-	}
-
-	function placeMediaWithPointer(event: PointerEvent, trackId: string): boolean {
-		const request = mediaPlacement.request;
-		const resolved = request ? resolveDraggedMedia(request.payload) : null;
-		if (!request || !resolved) return false;
-		event.preventDefault();
-		event.stopPropagation();
-		const position = snappedMediaFrame(event.clientX, resolved.durationInFrames);
-		updateMediaDropPreview(request.payload, trackId, position.from, position.snapTarget);
-		commitMediaPlacement(request.payload);
-		return true;
-	}
-
 	function marqueeStyle(): string {
 		if (!marquee || !scrollContainer) return '';
 		const rect = scrollContainer.getBoundingClientRect();
@@ -2963,9 +1673,8 @@
 		if (!unlinkItems(selectedItemIds)) return;
 		onedit();
 	}
-	function detachContextAudio(): void {
-		if (!contextPrimaryItem) return;
-		const audioId = detachAudio(contextPrimaryItem.id);
+	function detachItemAudio(itemId: string): void {
+		const audioId = detachAudio(itemId);
 		if (!audioId) return;
 		selectedItemIds = expandSelectionWithLinkedItems(timelineStore.items, [audioId]);
 		selectedItemId = audioId;
@@ -2984,10 +1693,6 @@
 		joinSelectionItems(selectedItemIds);
 	}
 
-	function joinContextNeighbor(neighborId: string): void {
-		if (contextPrimaryItem) joinSelectionItems([contextPrimaryItem.id, neighborId]);
-	}
-
 	function consolidateSelection(): void {
 		if (!captionConsolidationTarget) return;
 		const result = consolidateCaptionItems(captionConsolidationTarget);
@@ -2998,7 +1703,7 @@
 	}
 
 	function onPanelKeydown(event: KeyboardEvent): void {
-		if (handleAccessibleMediaPlacementKey(event)) return;
+		if (drops.handleAccessibleMediaPlacementKey(event)) return;
 		const matches = createShortcutMatcher(event, keyboardShortcuts.bindings);
 		if (!matches) return;
 		if (keyframesPanel?.handleKeyframeEditorShortcut(event, matches) ?? false) return;
@@ -4061,7 +2766,7 @@
 
 	onDestroy(() => {
 		if (mixerOpen) onmixerlayoutchange(false, mixerHeight);
-		clearMediaDropPreview(true);
+		drops.clearMediaDropPreview(true);
 		clearActiveMediaDrag();
 		clearHoverPreview();
 		editPreviewStore.clear();
@@ -4077,7 +2782,7 @@
 		if (timelineViewportAnimationFrame !== null)
 			cancelAnimationFrame(timelineViewportAnimationFrame);
 		audioSkimController.dispose();
-		clearEffectDropPreview();
+		drops.clearEffectDropPreview();
 		clearEffectDragData();
 		tiles.dispose();
 		timelineItemObserver?.disconnect();
@@ -4213,10 +2918,10 @@
 				marquee ||
 				trackHeightResize ||
 				markers.markerDrag ||
-				mediaDropPreview ||
-				effectDropTargetIds.length > 0 ||
-				transitionDropPreview ||
-				sceneDropPreview ||
+				drops.mediaDropPreview ||
+				drops.effectDropTargetIds.length > 0 ||
+				drops.transitionDropPreview ||
+				drops.sceneDropPreview ||
 				deleteGroupDialogOpen ||
 				bentoLayoutOpen ||
 				clearKeyframesDialogOpen
@@ -4392,111 +3097,12 @@
 			? transitionsStore.list.find((transition) => transition.id === target.transitionId)
 			: undefined;
 	});
-	const contextPrimaryItem = $derived(
-		timelineContextTarget?.kind === 'items'
-			? timelineStore.itemById.get(timelineContextTarget.primaryId)
-			: undefined
-	);
-	const contextPrimaryMedia = $derived(
-		contextPrimaryItem?.mediaId ? mediaPool.get(contextPrimaryItem.mediaId) : undefined
-	);
-	const transcriptionPendingSet = $derived(new Set(transcriptionPendingItemIds));
-	const aiCaptionPendingSet = $derived(new Set(aiCaptionPendingItemIds));
-	const contextHasTranscriptCaptions = $derived(
-		contextPrimaryItem
-			? timelineStore.items.some(
-					(item) =>
-						item.captionSource?.type === 'transcript' &&
-						item.captionSource.clipId === contextPrimaryItem.id
-				)
-			: false
-	);
-	const contextHasAiCaptions = $derived(
-		contextPrimaryItem
-			? timelineStore.items.some(
-					(item) =>
-						item.captionSource?.type === 'ai-captions' &&
-						item.captionSource.clipId === contextPrimaryItem.id
-				)
-			: false
-	);
-	const contextCanManageCaptions = $derived(
-		Boolean(
-			contextPrimaryItem &&
-			(contextPrimaryItem.type === 'video' || contextPrimaryItem.type === 'audio') &&
-			contextPrimaryItem.mediaId &&
-			contextPrimaryItem.isReversed !== true &&
-			!isTrackEffectivelyLocked(contextPrimaryItem.trackId, timelineStore.tracks) &&
-			(contextPrimaryItem.type !== 'audio' ||
-				!timelineStore.items.some(
-					(item) =>
-						item.type === 'video' &&
-						item.mediaId === contextPrimaryItem.mediaId &&
-						item.linkedGroupId !== undefined &&
-						item.linkedGroupId === contextPrimaryItem.linkedGroupId
-				))
-		)
-	);
-	const contextCanExtractEmbeddedSubtitles = $derived(
-		contextCanManageCaptions &&
-			contextPrimaryMedia !== undefined &&
-			canExtractEmbeddedSubtitles(contextPrimaryMedia)
-	);
-	const contextItems = $derived.by(() =>
-		timelineContextTarget?.kind === 'items'
-			? timelineContextTarget.itemIds
-					.map((id) => timelineStore.itemById.get(id))
-					.filter((item): item is TimelineItem => item !== undefined)
-			: []
-	);
-	const contextMediaItemIds = $derived(
-		contextItems
-			.filter((item) => item.type === 'video' || item.type === 'audio')
-			.map((item) => item.id)
-	);
-	const contextVoiceText = $derived(
-		contextPrimaryItem?.type === 'text' ? getTextItemPlainText(contextPrimaryItem).trim() : ''
-	);
-	const hasContextPrimaryEditTools = $derived.by(
-		() =>
-			contextPrimaryItem?.type === 'video' ||
-			contextPrimaryItem?.type === 'audio' ||
-			(contextPrimaryItem?.type === 'text' && contextVoiceText.length > 0) ||
-			captionConsolidationTarget !== null
-	);
-	const contextGradeSourceItem = $derived(contextItems.find((item) => hasColorGrade(item.effects)));
-	const contextGradeTargetItemIds = $derived(
-		contextItems.filter((item) => item.type !== 'audio').map((item) => item.id)
-	);
-	const hasContextGradeActions = $derived(
-		contextGradeSourceItem !== undefined ||
-			(Boolean(colorPreviewStore.gradeClipboard?.length) && contextGradeTargetItemIds.length > 0)
-	);
-	const hasContextEditTools = $derived(hasContextPrimaryEditTools || hasContextGradeActions);
 	const contextMarker = $derived.by(() => {
 		const target = timelineContextTarget;
 		return target?.kind === 'marker'
 			? timelineStore.markers.find((marker) => marker.id === target.markerId)
 			: undefined;
 	});
-	const contextItemsEditable = $derived.by(() => {
-		if (timelineContextTarget?.kind !== 'items') return false;
-		return timelineContextTarget.itemIds.some((id) => {
-			const item = timelineStore.itemById.get(id);
-			return item && !isTrackEffectivelyLocked(item.trackId, timelineStore.tracks);
-		});
-	});
-	const contextItemsAllEditable = $derived(
-		contextItems.length > 0 &&
-			contextItems.every((item) => !isTrackEffectivelyLocked(item.trackId, timelineStore.tracks))
-	);
-	const contextMediaItemsEditable = $derived(
-		contextItems.some(
-			(item) =>
-				(item.type === 'video' || item.type === 'audio') &&
-				!isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)
-		)
-	);
 	const canJoinSelectedItems = $derived.by(() => {
 		const lockedTrackIds = new Set(
 			effectiveMediaTracks(timelineStore.tracks)
@@ -4513,29 +3119,6 @@
 			groups.set(key, group);
 		}
 		return [...groups.values()].some(canJoinMultipleItems);
-	});
-	const contextJoinableNeighbors = $derived.by(() => {
-		if (
-			!contextPrimaryItem ||
-			isTrackEffectivelyLocked(contextPrimaryItem.trackId, timelineStore.tracks)
-		) {
-			return {};
-		}
-		return joinableItemNeighbors(timelineStore.items, contextPrimaryItem);
-	});
-	const contextCrossfadeAvailable = $derived.by(() => {
-		if (
-			!contextPrimaryItem ||
-			isTrackEffectivelyLocked(contextPrimaryItem.trackId, timelineStore.tracks)
-		)
-			return false;
-		const neighbors = (timelineStore.itemsByTrackId.get(contextPrimaryItem.trackId) ?? [])
-			.filter(
-				(other) => other.from >= contextPrimaryItem.from + contextPrimaryItem.durationInFrames - 1
-			)
-			.sort((a, b) => a.from - b.from);
-		const next = neighbors[0];
-		return Boolean(next && !isTrackEffectivelyLocked(next.trackId, timelineStore.tracks));
 	});
 	const captionConsolidationTarget = $derived.by<CaptionConsolidationOptions | null>(() => {
 		const lockedTrackIds = new Set(
@@ -4583,16 +3166,6 @@
 		);
 	});
 	const bentoEligibleIds = $derived(eligibleBentoItemIds(selectedItemIds));
-	const hasContextClipActions = $derived(
-		Boolean(
-			contextPrimaryItem ||
-			canJoinSelectedItems ||
-			bentoEligibleIds.length >= 2 ||
-			captionConsolidationTarget ||
-			clearableKeyframeCount > 0 ||
-			lockedAnimatedSelectionCount > 0
-		)
-	);
 	const pathVertexSelection = $derived(
 		selectedItem ? pathVertexSelectionStore.forItem(selectedItem.id) : null
 	);
@@ -4667,11 +3240,6 @@
 	function trimSelectedToPlayhead(edge: 'start' | 'end'): void {
 		if (!selectedItem) return;
 		if (trimItemToPlayhead(selectedItem.id, edge)) onedit();
-	}
-
-	function trimContextItemToPlayhead(edge: 'start' | 'end'): void {
-		if (!contextPrimaryItem) return;
-		if (trimItemToPlayhead(contextPrimaryItem.id, edge)) onedit();
 	}
 </script>
 
@@ -5239,14 +3807,16 @@
 								data-media-placement-status
 							>
 								<span class="font-medium"
-									>{mediaDropPreview?.label ?? mediaPlacement.request?.payload.label ?? ''}</span
+									>{drops.mediaDropPreview?.label ??
+										mediaPlacement.request?.payload.label ??
+										''}</span
 								>
 								<span class="ml-1 text-[oklch(0.7_0.015_55)]">
 									{rejectedMove
 										? m.video_editor_media_placement_unavailable()
-										: !mediaDropPreview
+										: !drops.mediaDropPreview
 											? m.video_editor_media_placement_instruction()
-											: mediaDropPreview.valid
+											: drops.mediaDropPreview.valid
 												? m.video_editor_media_placement_ready()
 												: m.video_editor_media_placement_unavailable()}
 								</span>
@@ -5352,77 +3922,18 @@
 									aria-label={track.name}
 									onpointerdown={track.isGroup
 										? undefined
-										: (event) => placeMediaWithPointer(event, track.id)}
+										: (event) => drops.placeMediaWithPointer(event, track.id)}
 									onpointermove={track.isGroup
 										? undefined
-										: (event) => {
-												const request = mediaPlacement.request;
-												const resolved = request ? resolveDraggedMedia(request.payload) : null;
-												if (!request || !resolved) return;
-												const position = snappedMediaFrame(
-													event.clientX,
-													resolved.durationInFrames
-												);
-												updateMediaDropPreview(
-													request.payload,
-													track.id,
-													position.from,
-													position.snapTarget
-												);
-											}}
+										: (event) => drops.hoverMediaPlacement(event, track.id)}
 									ondragenter={track.isGroup
 										? undefined
-										: (event) => {
-												if (
-													!previewMediaDrop(event, track.id) &&
-													!previewGeneratedItemDrop(event, track.id) &&
-													!previewStickerDrop(event, track.id) &&
-													!previewStockDrop(event, track.id) &&
-													!previewLottieDrop(event, track.id) &&
-													!previewEffectAdjustmentDrop(event, track.id)
-												) {
-													previewSceneDrop(event, track.id);
-												}
-											}}
+										: (event) => drops.previewTrackDrop(event, track.id)}
 									ondragover={track.isGroup
 										? undefined
-										: (event) => {
-												if (
-													!previewMediaDrop(event, track.id) &&
-													!previewGeneratedItemDrop(event, track.id) &&
-													!previewStickerDrop(event, track.id) &&
-													!previewStockDrop(event, track.id) &&
-													!previewLottieDrop(event, track.id) &&
-													!previewEffectAdjustmentDrop(event, track.id)
-												) {
-													previewSceneDrop(event, track.id);
-												}
-											}}
-									ondragleave={track.isGroup
-										? undefined
-										: (event) => {
-												leaveMediaDrop(event);
-												leaveGeneratedItemDrop(event);
-												leaveStickerDrop(event);
-												leaveStockDrop(event);
-												leaveLottieDrop(event);
-												leaveEffectAdjustmentDrop(event);
-												leaveSceneDrop(event);
-											}}
-									ondrop={track.isGroup
-										? undefined
-										: (event) => {
-												if (
-													!dropMedia(event, track.id) &&
-													!dropSticker(event, track.id) &&
-													!dropStock(event, track.id) &&
-													!dropLottie(event, track.id) &&
-													!dropGeneratedItem(event, track.id) &&
-													!dropEffectAdjustment(event, track.id)
-												) {
-													dropScene(event, track.id);
-												}
-											}}
+										: (event) => drops.previewTrackDrop(event, track.id)}
+									ondragleave={track.isGroup ? undefined : drops.leaveTrackDrop}
+									ondrop={track.isGroup ? undefined : (event) => drops.dropOnTrack(event, track.id)}
 								>
 									<div
 										class="sticky left-0 z-30 h-full"
@@ -5498,101 +4009,13 @@
 											ondelete={() => deleteTrack(track.id)}
 										/>
 									</div>
-									{#if sceneDropPreview?.trackId === track.id}
-										<div
-											class="pointer-events-none absolute top-1 z-20 h-[calc(100%-8px)] overflow-hidden rounded-sm border border-dashed border-[oklch(0.72_0.13_45)] bg-[oklch(0.4_0.04_250_/_0.78)] px-2 py-1 text-xs text-white shadow-lg"
-											style={clipStyle({
-												from: sceneDropPreview.from,
-												durationInFrames: sceneDropPreview.durationInFrames,
-												type: 'video'
-											})}
-											data-scene-drop-preview
-										>
-											<span class="block truncate">{sceneDropPreview.label}</span>
-											<span class="sr-only" role="status" aria-live="polite">
-												{m.video_editor_scene_drop_ready()}
-											</span>
-										</div>
-									{/if}
-									{#if generatedItemDropPreview?.trackId === track.id}
-										<div
-											class="pointer-events-none absolute top-1 z-20 flex h-[calc(100%-8px)] items-center overflow-hidden rounded-sm border border-dashed border-fuchsia-300 bg-fuchsia-950/80 px-2 py-1 text-xs text-white shadow-lg"
-											style={clipStyle({
-												from: generatedItemDropPreview.from,
-												durationInFrames: generatedItemDropPreview.durationInFrames,
-												type: 'text'
-											})}
-											data-generated-item-drop-preview
-										>
-											<span class="block truncate">{generatedItemDropPreview.label}</span>
-										</div>
-									{/if}
-									{#if stickerDropPreview?.trackId === track.id}
-										<div
-											class="pointer-events-none absolute top-1 z-20 flex h-[calc(100%-8px)] items-center overflow-hidden rounded-sm border border-dashed border-amber-300 bg-amber-950/80 px-2 py-1 text-xs text-white shadow-lg"
-											style={clipStyle({
-												from: stickerDropPreview.from,
-												durationInFrames: stickerDropPreview.durationInFrames,
-												type: 'image'
-											})}
-											data-sticker-drop-preview
-										>
-											<span class="block truncate">{stickerDropPreview.label}</span>
-										</div>
-									{/if}
-									{#if stockDropPreview?.trackId === track.id}
-										<div
-											class="pointer-events-none absolute top-1 z-20 flex h-[calc(100%-8px)] items-center overflow-hidden rounded-sm border border-dashed border-sky-300 bg-sky-950/80 px-2 py-1 text-xs text-white shadow-lg"
-											style={clipStyle({
-												from: stockDropPreview.from,
-												durationInFrames: stockDropPreview.durationInFrames,
-												type: 'video'
-											})}
-											data-stock-drop-preview
-										>
-											<span class="block truncate">{stockDropPreview.label}</span>
-										</div>
-									{/if}
-									{#if lottieDropPreview?.trackId === track.id}
-										<div
-											class="pointer-events-none absolute top-1 z-20 flex h-[calc(100%-8px)] items-center overflow-hidden rounded-sm border border-dashed border-violet-300 bg-violet-950/80 px-2 py-1 text-xs text-white shadow-lg"
-											style={clipStyle({
-												from: lottieDropPreview.from,
-												durationInFrames: lottieDropPreview.durationInFrames,
-												type: 'video'
-											})}
-											data-lottie-drop-preview
-										>
-											<span class="block truncate">{lottieDropPreview.label}</span>
-										</div>
-									{/if}
-									{#if effectAdjustmentDropPreview?.trackId === track.id}
-										<div
-											class="pointer-events-none absolute top-1 z-20 flex h-[calc(100%-8px)] items-center overflow-hidden rounded-sm border border-dashed border-[oklch(0.72_0.14_45)] bg-[oklch(0.3_0.08_45_/_0.84)] px-2 py-1 text-xs text-white shadow-lg"
-											style={clipStyle({
-												from: effectAdjustmentDropPreview.from,
-												durationInFrames: effectAdjustmentDropPreview.durationInFrames,
-												type: 'adjustment'
-											})}
-											data-effect-adjustment-drop-preview
-										>
-											<span class="block truncate">{effectAdjustmentDropPreview.label}</span>
-										</div>
-									{/if}
-									{#if mediaDropPreview && (mediaDropPreview.trackId === track.id || mediaDropPreview.secondaryTrackId === track.id)}
-										<div
-											class="pointer-events-none absolute top-1 z-20 flex h-[calc(100%-8px)] items-center overflow-hidden rounded-sm border border-dashed px-2 py-1 text-xs text-white shadow-lg {mediaDropPreview.valid
-												? 'border-[oklch(0.72_0.14_145)] bg-[oklch(0.32_0.09_145_/_0.86)]'
-												: 'border-red-400 bg-red-500/25'}"
-											style={`left:${timelineX(mediaDropPreview.from)}px;width:${frameToPx(mediaDropPreview.durationInFrames)}px`}
-											data-media-drop-preview
-											data-valid={String(mediaDropPreview.valid)}
-											data-reason={mediaDropPreview.reason ?? undefined}
-											data-secondary={String(mediaDropPreview.secondaryTrackId === track.id)}
-										>
-											<span class="block truncate">{mediaDropPreview.label}</span>
-										</div>
-									{/if}
+									<TimelineTrackDropPreviews
+										{drops}
+										trackId={track.id}
+										{clipStyle}
+										{timelineX}
+										{frameToPx}
+									/>
 									{#if renderPlan.isDense}
 										<TimelineDensityOverview
 											buckets={renderPlan.densityBuckets}
@@ -5623,39 +4046,39 @@
 												data-timeline-item-id={item.id}
 												data-editor-shortcuts-enabled
 												use:observeTimelineItem={item.id}
-												ondragenter={(event) => previewCatalogDrop(event, item.id)}
-												ondragover={(event) => previewCatalogDrop(event, item.id)}
-												ondragleave={(event) => leaveCatalogDrop(event, item.id)}
-												ondrop={(event) => dropCatalogItem(event, item.id)}
+												ondragenter={(event) => drops.previewCatalogDrop(event, item.id)}
+												ondragover={(event) => drops.previewCatalogDrop(event, item.id)}
+												ondragleave={(event) => drops.leaveCatalogDrop(event, item.id)}
+												ondrop={(event) => drops.dropCatalogItem(event, item.id)}
 											>
-												{#if transitionDropPreview?.hoveredItemId === item.id}
+												{#if drops.transitionDropPreview?.hoveredItemId === item.id}
 													<div
-														class="pointer-events-none absolute inset-y-0 z-40 w-1/3 border border-dashed border-[oklch(0.72_0.14_45)] bg-[oklch(0.66_0.14_45_/_0.2)] {transitionDropPreview.edge ===
-														'left'
+														class="pointer-events-none absolute inset-y-0 z-40 w-1/3 border border-dashed border-[oklch(0.72_0.14_45)] bg-[oklch(0.66_0.14_45_/_0.2)] {drops
+															.transitionDropPreview.edge === 'left'
 															? 'left-0 rounded-l-sm'
 															: 'right-0 rounded-r-sm'}"
 														data-transition-drop-preview
-														data-transition-edge={transitionDropPreview.edge}
+														data-transition-edge={drops.transitionDropPreview.edge}
 													></div>
 												{/if}
-												{#if effectDropTargetIds.includes(item.id)}
+												{#if drops.effectDropTargetIds.includes(item.id)}
 													<div
 														class="pointer-events-none absolute inset-0 z-40 rounded-sm border border-dashed border-[oklch(0.66_0.14_45_/_0.95)] bg-[oklch(0.66_0.14_45_/_0.16)] shadow-[inset_0_0_0_1px_oklch(0.66_0.14_45_/_0.35)]"
 														data-effect-drop-preview
 													>
-														{#if effectDropHoveredItemId === item.id}
+														{#if drops.effectDropHoveredItemId === item.id}
 															<span class="sr-only" role="status" aria-live="polite">
 																{m.video_editor_effects_drop_ready({
-																	count: effectDropTargetIds.length
+																	count: drops.effectDropTargetIds.length
 																})}
 															</span>
 														{/if}
-														{#if effectDropHoveredItemId === item.id && effectDropTargetIds.length > 1}
+														{#if drops.effectDropHoveredItemId === item.id && drops.effectDropTargetIds.length > 1}
 															<span
 																class="absolute top-1 right-1 rounded-full bg-[oklch(0.66_0.14_45)] px-1.5 py-0.5 text-xs font-medium text-[oklch(0.16_0.008_55)]"
 															>
 																{m.video_editor_effects_drop_count({
-																	count: effectDropTargetIds.length
+																	count: drops.effectDropTargetIds.length
 																})}
 															</span>
 														{/if}
@@ -5893,12 +4316,15 @@
 													: 'border-[oklch(0.76_0.14_45_/_0.7)]'}"
 												style="left:{geometry.left}px;width:{geometry.width}px"
 												data-transition-id={transition.id}
-												ondragenter={(event) => previewTransitionBridgeDrop(event, transition.id)}
-												ondragover={(event) => previewTransitionBridgeDrop(event, transition.id)}
-												ondragleave={(event) => leaveTransitionBridgeDrop(event, transition.id)}
-												ondrop={(event) => dropTransitionOnBridge(event, transition.id)}
+												ondragenter={(event) =>
+													drops.previewTransitionBridgeDrop(event, transition.id)}
+												ondragover={(event) =>
+													drops.previewTransitionBridgeDrop(event, transition.id)}
+												ondragleave={(event) =>
+													drops.leaveTransitionBridgeDrop(event, transition.id)}
+												ondrop={(event) => drops.dropTransitionOnBridge(event, transition.id)}
 											>
-												{#if transitionBridgeDropPreviewId === transition.id}
+												{#if drops.transitionBridgeDropPreviewId === transition.id}
 													<div
 														class="pointer-events-none absolute inset-0 z-30 rounded-sm border border-dashed border-[oklch(0.88_0.17_65)] bg-[oklch(0.66_0.14_45_/_0.28)]"
 														data-transition-bridge-drop-preview
@@ -6051,299 +4477,50 @@
 						{m.video_editor_transition_delete()}
 					</ContextMenu.Item>
 				{:else if timelineContextTarget?.kind === 'items'}
-					{#if contextPrimaryItem?.compositionId}
-						<ContextMenu.Item
-							onclick={() => {
-								if (contextPrimaryItem?.compositionId) {
-									onopencomposition(contextPrimaryItem.compositionId);
-								}
-							}}
-						>
-							{m.video_editor_sequence_open()}
-						</ContextMenu.Item>
-						<ContextMenu.Item
-							disabled={!contextItemsAllEditable}
-							onclick={() => ondissolvecompound(contextPrimaryItem.id)}
-						>
-							{m.video_editor_dissolve_compound()}
-						</ContextMenu.Item>
-					{:else if contextPrimaryItem}
-						<ContextMenu.Item
-							disabled={!contextItemsAllEditable}
-							onclick={() => oncreatecompound(contextItems.map((item) => item.id))}
-						>
-							{m.video_editor_create_compound()}
-						</ContextMenu.Item>
-					{/if}
-					{#if contextPrimaryItem && ['video', 'audio', 'image', 'composition'].includes(contextPrimaryItem.type)}
-						<ContextMenu.Item
-							disabled={!canTrimItemToPlayhead(contextPrimaryItem.id, 'start')}
-							onSelect={() => trimContextItemToPlayhead('start')}
-						>
-							{m.video_editor_trim_start_playhead()}
-						</ContextMenu.Item>
-						<ContextMenu.Item
-							disabled={!canTrimItemToPlayhead(contextPrimaryItem.id, 'end')}
-							onSelect={() => trimContextItemToPlayhead('end')}
-						>
-							{m.video_editor_trim_end_playhead()}
-						</ContextMenu.Item>
-					{/if}
-					{#if hasContextEditTools}
-						<ContextMenu.Sub>
-							<ContextMenu.SubTrigger>{m.video_editor_tools()}</ContextMenu.SubTrigger>
-							<ContextMenu.SubContent class="video-editor-theme w-56">
-								{#if contextPrimaryItem?.type === 'video' || contextPrimaryItem?.type === 'audio'}
-									<ContextMenu.Item
-										disabled={!contextMediaItemsEditable}
-										onclick={() =>
-											onreverseitems(contextMediaItemIds, contextPrimaryItem?.isReversed !== true)}
-									>
-										{m.video_editor_clip_reverse()}
-										<ContextMenu.Shortcut>
-											{contextPrimaryItem?.isReversed
-												? m.video_editor_clip_reverse_on()
-												: m.video_editor_clip_reverse_off()}
-										</ContextMenu.Shortcut>
-									</ContextMenu.Item>
-									{#if contextPrimaryItem?.type === 'video'}
-										<ContextMenu.Sub>
-											<ContextMenu.SubTrigger
-												disabled={sceneScanPending ||
-													isTrackEffectivelyLocked(
-														contextPrimaryItem.trackId,
-														timelineStore.tracks
-													)}
-											>
-												{m.video_editor_scene_split()}
-											</ContextMenu.SubTrigger>
-											<ContextMenu.SubContent class="video-editor-theme w-52">
-												<ContextMenu.Item
-													onclick={() => onsplitscenes(contextPrimaryItem.id, 'fast')}
-												>
-													{m.video_editor_scene_split_fast()}
-													<ContextMenu.Shortcut>4 fps</ContextMenu.Shortcut>
-												</ContextMenu.Item>
-												<ContextMenu.Item
-													title={m.video_editor_scene_split_adaptive_help()}
-													onclick={() => onsplitscenes(contextPrimaryItem.id, 'adaptive-lfm')}
-												>
-													{m.video_editor_scene_split_adaptive()}
-													<ContextMenu.Shortcut>{m.video_editor_local()}</ContextMenu.Shortcut>
-												</ContextMenu.Item>
-											</ContextMenu.SubContent>
-										</ContextMenu.Sub>
-									{/if}
-									<ContextMenu.Separator />
-									<ContextMenu.Item
-										onclick={() => onopenspeechcleanup('fillers', contextMediaItemIds)}
-									>
-										{m.video_editor_cleanup_fillers_short()}
-									</ContextMenu.Item>
-									<ContextMenu.Item
-										onclick={() => onopenspeechcleanup('silence', contextMediaItemIds)}
-									>
-										{m.video_editor_cleanup_silence_short()}
-									</ContextMenu.Item>
-								{:else if contextPrimaryItem?.type === 'text' && contextVoiceText}
-									<ContextMenu.Item
-										onclick={() => oncreatevoice(contextPrimaryItem.id, contextVoiceText)}
-									>
-										{m.video_editor_text_create_voice()}
-									</ContextMenu.Item>
-								{/if}
-								{#if contextPrimaryItem && (contextCanManageCaptions || captionConsolidationTarget)}
-									<ContextMenu.Sub>
-										<ContextMenu.SubTrigger>{m.video_editor_tool_captions()}</ContextMenu.SubTrigger
-										>
-										<ContextMenu.SubContent class="video-editor-theme w-60">
-											{#if contextCanManageCaptions}
-												<ContextMenu.Item
-													disabled={transcriptionPendingSet.has(contextPrimaryItem.id)}
-													onclick={() => ontranscribecaptions(contextPrimaryItem.id)}
-												>
-													{transcriptionPendingSet.has(contextPrimaryItem.id)
-														? m.video_editor_captions_updating()
-														: contextHasTranscriptCaptions
-															? m.video_editor_captions_regenerate()
-															: m.video_editor_captions_generate()}
-												</ContextMenu.Item>
-												<ContextMenu.Item
-													disabled={aiCaptionPendingSet.has(contextPrimaryItem.id)}
-													onclick={() => onaicaptions(contextPrimaryItem.id)}
-												>
-													{aiCaptionPendingSet.has(contextPrimaryItem.id)
-														? m.video_editor_ai_scene_captions_updating()
-														: contextHasAiCaptions
-															? m.video_editor_ai_scene_captions_refresh()
-															: m.video_editor_ai_scene_captions_generate()}
-												</ContextMenu.Item>
-											{/if}
-											{#if contextCanExtractEmbeddedSubtitles}
-												<ContextMenu.Item onclick={() => onextractsubtitles(contextPrimaryItem.id)}>
-													{m.video_editor_extract_embedded_subtitles()}
-												</ContextMenu.Item>
-											{/if}
-											{#if captionConsolidationTarget}
-												<ContextMenu.Item onclick={consolidateSelection}>
-													{m.video_editor_consolidate_captions()}
-												</ContextMenu.Item>
-											{/if}
-										</ContextMenu.SubContent>
-									</ContextMenu.Sub>
-								{/if}
-								{#if hasContextGradeActions}
-									{#if hasContextPrimaryEditTools}<ContextMenu.Separator />{/if}
-									{#if contextGradeSourceItem}
-										<ContextMenu.Item onclick={() => oncopygrade(contextGradeSourceItem.id)}>
-											{m.video_editor_color_copy_grade()}
-										</ContextMenu.Item>
-									{/if}
-									{#if colorPreviewStore.gradeClipboard?.length && contextGradeTargetItemIds.length > 0}
-										<ContextMenu.Item onclick={() => onpastegrade(contextGradeTargetItemIds)}>
-											{m.video_editor_color_paste_grade()}
-										</ContextMenu.Item>
-									{/if}
-								{/if}
-							</ContextMenu.SubContent>
-						</ContextMenu.Sub>
-					{/if}
-					{#if contextPrimaryItem?.type === 'video'}
-						<ContextMenu.Item
-							disabled={!canFreezeSelectedItem || freezeFramePending}
-							onclick={() => {
-								if (contextPrimaryItem) onfreezeframe(contextPrimaryItem.id);
-							}}
-						>
-							{m.video_editor_freeze_frame()}
-						</ContextMenu.Item>
-					{/if}
-					{#if contextJoinableNeighbors.previous}
-						<ContextMenu.Item
-							onclick={() => {
-								const previous = contextJoinableNeighbors.previous;
-								if (previous) joinContextNeighbor(previous.id);
-							}}
-						>
-							{m.video_editor_join_previous()}
-							<ContextMenu.Shortcut
-								>{formatShortcutBinding(
-									keyboardShortcuts.bindings.JOIN_ITEMS
-								)}</ContextMenu.Shortcut
-							>
-						</ContextMenu.Item>
-					{/if}
-					{#if contextJoinableNeighbors.next}
-						<ContextMenu.Item
-							onclick={() => {
-								const next = contextJoinableNeighbors.next;
-								if (next) joinContextNeighbor(next.id);
-							}}
-						>
-							{m.video_editor_join_next()}
-							<ContextMenu.Shortcut
-								>{formatShortcutBinding(
-									keyboardShortcuts.bindings.JOIN_ITEMS
-								)}</ContextMenu.Shortcut
-							>
-						</ContextMenu.Item>
-					{/if}
-					{#if canJoinSelectedItems}
-						<ContextMenu.Item onclick={joinSelection}>
-							{m.video_editor_join_selected()}
-							<ContextMenu.Shortcut
-								>{formatShortcutBinding(
-									keyboardShortcuts.bindings.JOIN_ITEMS
-								)}</ContextMenu.Shortcut
-							>
-						</ContextMenu.Item>
-					{/if}
-					<ContextMenu.Item disabled={!contextCrossfadeAvailable} onclick={onaddcrossfade}>
-						{m.video_editor_crossfade()}
-					</ContextMenu.Item>
-					{#if bentoEligibleIds.length >= 2}
-						<ContextMenu.Item onclick={() => (bentoLayoutOpen = true)}>
-							{m.video_editor_bento_open()}
-						</ContextMenu.Item>
-					{/if}
-					{#if clearableKeyframeCount > 0 || lockedAnimatedSelectionCount > 0}
-						<ContextMenu.Item
-							disabled={clearableKeyframeCount === 0}
-							onclick={openClearKeyframesDialog}
-						>
-							{m.video_editor_clear_keyframes_toolbar()}
-							<ContextMenu.Shortcut
-								>{formatShortcutBinding(
-									keyboardShortcuts.bindings.CLEAR_KEYFRAMES
-								)}</ContextMenu.Shortcut
-							>
-						</ContextMenu.Item>
-					{/if}
-					{#if hasContextClipActions}<ContextMenu.Separator />{/if}
-					<ContextMenu.Item onclick={() => oncutselection()}>
-						{m.video_editor_shortcuts_command_cut()}
-						<ContextMenu.Shortcut
-							>{formatShortcutBinding(keyboardShortcuts.bindings.CUT)}</ContextMenu.Shortcut
-						>
-					</ContextMenu.Item>
-					<ContextMenu.Item onclick={() => oncopyselection()}>
-						{m.common_copy()}
-						<ContextMenu.Shortcut
-							>{formatShortcutBinding(keyboardShortcuts.bindings.COPY)}</ContextMenu.Shortcut
-						>
-					</ContextMenu.Item>
-					<ContextMenu.Separator />
-					<ContextMenu.Item disabled={!contextItemsEditable} onclick={onsplitselection}>
-						{m.video_editor_shortcuts_command_split()}
-						<ContextMenu.Shortcut
-							>{[
-								keyboardShortcuts.bindings.SPLIT_AT_PLAYHEAD,
-								keyboardShortcuts.bindings.SPLIT_AT_PLAYHEAD_ALT
-							]
-								.filter(Boolean)
-								.map((binding) => formatShortcutBinding(binding))
-								.join(' / ')}</ContextMenu.Shortcut
-						>
-					</ContextMenu.Item>
-					{#if contextPrimaryItem && canDetachAudio(contextPrimaryItem)}
-						<ContextMenu.Item onclick={detachContextAudio}
-							>{m.video_editor_detach_audio()}</ContextMenu.Item
-						>
-					{/if}
-					{#if canLinkSelectedItems}
-						<ContextMenu.Item onclick={linkSelection}
-							>{m.video_editor_link_selected()}</ContextMenu.Item
-						>
-					{:else if canUnlinkSelectedItems}
-						<ContextMenu.Item onclick={unlinkSelection}
-							>{m.video_editor_unlink_selected()}</ContextMenu.Item
-						>
-					{/if}
-					<ContextMenu.Separator />
-					<ContextMenu.Item
-						variant="destructive"
-						disabled={!contextItemsEditable}
-						onclick={ondeleteselection}
-					>
-						{m.video_editor_delete_leave_gap()}
-						<ContextMenu.Shortcut
-							>{formatShortcutBinding(
-								keyboardShortcuts.bindings.DELETE_SELECTED
-							)}</ContextMenu.Shortcut
-						>
-					</ContextMenu.Item>
-					<ContextMenu.Item
-						variant="destructive"
-						disabled={!contextItemsEditable}
-						onclick={onrippledeleteselection}
-					>
-						{m.video_editor_ripple_delete()}
-						<ContextMenu.Shortcut
-							>{formatShortcutBinding(
-								keyboardShortcuts.bindings.RIPPLE_DELETE
-							)}</ContextMenu.Shortcut
-						>
-					</ContextMenu.Item>
+					<TimelineItemContextMenu
+						itemIds={timelineContextTarget.itemIds}
+						primaryId={timelineContextTarget.primaryId}
+						canFreeze={canFreezeSelectedItem}
+						canJoinSelection={canJoinSelectedItems}
+						canLinkSelection={canLinkSelectedItems}
+						canUnlinkSelection={canUnlinkSelectedItems}
+						bentoAvailable={bentoEligibleIds.length >= 2}
+						{captionConsolidationTarget}
+						{clearableKeyframeCount}
+						{lockedAnimatedSelectionCount}
+						{freezeFramePending}
+						{sceneScanPending}
+						{transcriptionPendingItemIds}
+						{aiCaptionPendingItemIds}
+						{onedit}
+						{onopencomposition}
+						{ondissolvecompound}
+						{oncreatecompound}
+						{onreverseitems}
+						{onsplitscenes}
+						{onopenspeechcleanup}
+						{oncreatevoice}
+						{ontranscribecaptions}
+						{onaicaptions}
+						{onextractsubtitles}
+						{oncopygrade}
+						{onpastegrade}
+						{onfreezeframe}
+						{onaddcrossfade}
+						{oncutselection}
+						{oncopyselection}
+						{onsplitselection}
+						{ondeleteselection}
+						{onrippledeleteselection}
+						onconsolidatecaptions={consolidateSelection}
+						onjoinitems={joinSelectionItems}
+						onjoinselection={joinSelection}
+						onopenbento={() => (bentoLayoutOpen = true)}
+						onclearkeyframes={openClearKeyframesDialog}
+						ondetachaudio={detachItemAudio}
+						onlinkselection={linkSelection}
+						onunlinkselection={unlinkSelection}
+					/>
 				{:else if contextMarker}
 					<ContextMenu.Item onclick={() => markers.selectMarker(contextMarker)}>
 						{markers.markerName(contextMarker)} · {m.video_editor_marker_frame_value({

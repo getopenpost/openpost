@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { imageEditorErrorMessage } from '$lib/image-editor/animation-error-message';
-	import { onMount, tick, untrack } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { replaceEqualDeep } from '@tanstack/svelte-query';
-	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -12,10 +11,7 @@
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Button } from '$lib/components/ui/button';
-	import AppToast from '$lib/components/app-toast.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import EmptyState from '$lib/components/empty-state.svelte';
-	import PageLoading from '$lib/components/page-loading.svelte';
 	import {
 		prepareRasterOperation,
 		rasterRenderDocument,
@@ -27,54 +23,34 @@
 	import EditorHeader from '$lib/components/editor-header.svelte';
 	import EditorTitleInput from '$lib/components/editor-title-input.svelte';
 	import EditorWorkspaceTabs from '$lib/components/editor-workspace-tabs.svelte';
-	import { Checkbox } from '$lib/components/ui/checkbox';
 	import FeedbackDialog from '$lib/components/feedback-dialog.svelte';
 	import ImageEditorGuideDialog from './image-editor-guide-dialog.svelte';
 	import ImageEditorAssistant from './image-editor-assistant.svelte';
 	import ImageAIStudio from './image-ai-studio.svelte';
 	let imageAIStudioOpen = $state(false);
 	let imageAIStudio = $state<{ openFor: (operation: 'generate' | 'edit' | 'fill') => void }>();
-	import CheckpointRemove from './checkpoint-remove.svelte';
+	import ImageEditorVersionsDialogs from './image-editor-versions-dialogs.svelte';
+	import ImageEditorExportDialog from './image-editor-export-dialog.svelte';
+	import {
+		apiErrorStatus,
+		imageEditorImportErrorMessage,
+		isAbortError
+	} from './image-editor-errors';
 	import ImageEditorResizeDialog from './image-editor-resize-dialog.svelte';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { auth } from '$lib/stores/auth';
 	import { Input } from '$lib/components/ui/input';
-	import * as RadioGroup from '$lib/components/ui/radio-group';
-	import { Slider } from '$lib/components/ui/slider';
-	import AppSelect from '$lib/components/app-select.svelte';
 	import ImageEditorCanvas from './image-editor-canvas.svelte';
 	import AssetPanel from './asset-panel.svelte';
 	import LayerTree from './layer-tree.svelte';
 	import PropertiesPanel from './properties-panel.svelte';
 	import PageStrip from './page-strip.svelte';
 	import ToolFamilyButton from './tool-family-button.svelte';
-	import TemplatePreview from './template-preview.svelte';
-	import ColorPicker from '$lib/components/color-picker.svelte';
 	import { provideImageEditor, ImageEditorController } from '../editor.svelte';
 	import { connectEditorAgent } from '$lib/editor-agent/browser-relay';
 	import { handleImageAgentRequest } from '$lib/editor-agent/image-executor';
-	import {
-		completeImageEditorReturnToken,
-		createImageEditorDesign,
-		createImageEditorCheckpoint,
-		createImageEditorTemplate,
-		restoreImageEditorRevision,
-		deleteImageEditorCheckpoint,
-		saveImageEditorDesign,
-		updateImageEditorTemplate
-	} from '../api';
-	import {
-		queryImageEditorDesign,
-		queryImageEditorRevision,
-		queryImageEditorRevisions,
-		queryImageEditorTemplates,
-		refreshImageEditorDesign
-	} from '$lib/query/image-editor';
-	import {
-		imageEditorRevisionHasChanges,
-		summarizeImageEditorRevision,
-		type ImageEditorRevisionChanges
-	} from '../revision-summary';
+	import { createImageEditorDesign, saveImageEditorDesign } from '../api';
+	import { queryImageEditorDesign, refreshImageEditorDesign } from '$lib/query/image-editor';
 	import {
 		clearLocalImageEditorRecovery,
 		loadLocalImageEditorRecovery,
@@ -94,35 +70,17 @@
 		getGuestImageEditorMediaForMigration,
 		replaceGuestImageEditorMediaIDs
 	} from '../local-persistence';
-	import {
-		publicImageEditorPageCountBucket,
-		trackPublicImageEditorEvent
-	} from '../public-telemetry';
+	import { trackPublicImageEditorEvent } from '../public-telemetry';
 	import {
 		cloneImageEditorDocument,
 		cloneImageEditorLayer,
-		imageEditorPageHasTransparency,
 		validateImageEditorDocument
 	} from '../document';
-	import {
-		downloadRenderedPages,
-		renderImageEditorPages,
-		renderImageEditorPreview,
-		type ImageEditorRenderedPage
-	} from '../static-renderer';
-	import { imageEditorExportBudget } from '../export-budget';
-	import { imageEditorPageAnimations } from '../animation';
-	import { imageEditorPageDimensions } from '../page-dimensions';
-	import {
-		imageEditorPageExportFingerprint,
-		reusableImageEditorExports,
-		type ImageEditorExportResumeLedger
-	} from '../export-resume';
+	import { renderImageEditorPreview } from '../static-renderer';
 	import { canAttachImageEditorPreview } from '../preview-generation';
 	import { saveImageEditorConflictCopy } from '../conflict-recovery';
 	import {
 		parseImageEditorClipboardLayers,
-		parseImageEditorExportResumeLedger,
 		parseImageEditorLayoutPreferences,
 		parseImageEditorRecentColors,
 		parseImageEditorTabMessage,
@@ -132,12 +90,8 @@
 	import { ImageEditorBackgroundRemoval } from '../background-removal';
 	import type {
 		ImageEditorBrandKit,
-		ImageEditorDocument,
 		ImageEditorDocumentResponse,
 		ImageEditorLayer,
-		ImageEditorRevisionResponse,
-		ImageEditorRevisionSummary,
-		ImageEditorTemplate,
 		ImageEditorTool
 	} from '../types';
 	import type { SelectionPoint } from '../selection';
@@ -153,7 +107,6 @@
 	import type { ThemeIconRole } from '$lib/themes/contracts.js';
 	import type { ProtectedIconRole } from '$lib/themes/icons/protected-icon.js';
 	import { m } from '$lib/paraglide/messages';
-	import { getLocaleTag } from '$lib/i18n';
 	import { startImageEditorMetric } from '../telemetry';
 	import {
 		imageEditorCommand,
@@ -240,8 +193,6 @@
 	const LEGACY_DEFAULT_LAYERS_HEIGHT = 280;
 	const EDIT_LAYERS_USER_SIZED_KEY = 'openpost-image-editor-edit-layers-user-sized-v2';
 	const COLOR_LAYERS_HEIGHT_KEY = 'openpost-image-editor-color-layers-height-v1';
-	const EXPORT_PREVIEW_DEBOUNCE_MS = 250;
-	const EXPORT_QUALITY_DECIMAL_PLACES = 2;
 	type SaveRequest = {
 		coverPreviewMediaID?: string;
 		recoveryReason: 'idle' | 'export' | 'close';
@@ -282,7 +233,7 @@
 	let lastPreviewAt = 0;
 	let coverPreviewMediaID = '';
 	let exportDialogOpen = $state(false);
-	let exportToastVisible = $state(false);
+	let exportDialog = $state<{ openExport: (mode: 'download' | 'media' | 'attach') => void }>();
 	let helpDialogOpen = $state(false);
 	type CompactMenuSection = ImageEditorCompactMenuCategory | 'file' | 'view' | 'help';
 	const compactMenuSections: readonly CompactMenuSection[] = [
@@ -330,32 +281,13 @@
 	let missingMedia = $state.raw<Array<{ mediaID: string; layerID?: string }>>([]);
 	let initialMissingMediaLoaded = false;
 	let historyDialogOpen = $state(false);
-	let historyMutationSequence = 0;
+	let versionsDialogs = $state<{
+		openHistory: () => Promise<void>;
+		openTemplateDialog: () => Promise<void>;
+	}>();
 	let checkpointDialogOpen = $state(false);
 	let templateDialogOpen = $state(false);
 	let resizeDialogOpen = $state(false);
-	let exportMode = $state<'download' | 'media' | 'attach'>('download');
-	let exportAllPages = $state(true);
-	let exportBusy = $state(false);
-	let exportProgress = $state('');
-	let exportError = $state('');
-	let exportSuccessfulByPage = $state.raw<Record<string, string>>({});
-	let exportResumeLedger = $state.raw<ImageEditorExportResumeLedger>({});
-	let exportAbort: AbortController | null = null;
-	let exportPreview = $state.raw<{
-		document: ImageEditorDocument;
-		pageIDsKey: string;
-		pages: ImageEditorRenderedPage[];
-		objectURL: string;
-		totalBytes: number;
-	} | null>(null);
-	let exportPreviewBusy = $state(false);
-	let exportPreviewError = $state('');
-	let exportPreviewProgress = $state('');
-	let exportPreviewGeneration = 0;
-	let exportPreviewTimer: ReturnType<typeof setTimeout> | undefined;
-	let exportPreviewTask: Promise<void> | null = null;
-	let exportPreviewAbort: AbortController | null = null;
 	let externalDropBusy = $state(false);
 	let externalDropProgress = $state('');
 	let externalDropError = $state('');
@@ -465,30 +397,6 @@
 	let pixelSelectionActions = $state.raw<PixelSelectionActions | null>(null);
 	let statusAnnouncement = $state('');
 	let suppressSavedAnnouncementUntil = 0;
-	let revisions = $state<ImageEditorRevisionSummary[]>([]);
-	let historyBusy = $state(false);
-	let historyPageBusy = $state(false);
-	let historyError = $state('');
-	let revisionNextCursor = $state('');
-	let revisionPreview = $state.raw<ImageEditorRevisionResponse | null>(null);
-	let revisionPreviewBusy = $state(false);
-	let revisionPreviewPage = $state(0);
-	let restoreConfirmOpen = $state(false);
-	let revisionPreviewRequest = 0;
-	let revisionPreviewController: AbortController | null = null;
-	let revisionChanges = $derived.by<ImageEditorRevisionChanges | null>(() =>
-		editor.document && revisionPreview
-			? summarizeImageEditorRevision(editor.document, revisionPreview.document, {
-					currentCoverPreviewMediaID: coverPreviewMediaID,
-					targetCoverPreviewMediaID: revisionPreview.cover_preview_media_id
-				})
-			: null
-	);
-	let checkpointName = $state('');
-	let templateName = $state('');
-	let templateCategory = $state<string>(m.image_editor_workspace_category());
-	let templateTargetID = $state('new');
-	let workspaceTemplates = $state<ImageEditorTemplate[]>([]);
 	type SelectSlotTool = Extract<
 		ImageEditorTool,
 		'select' | 'marquee' | 'ellipse_marquee' | 'lasso' | 'polygonal_lasso' | 'magic_wand'
@@ -539,173 +447,6 @@
 				startSize: number;
 		  }
 		| undefined;
-	let exportPages = $derived.by(() => {
-		if (!editor.document) return [];
-		return exportAllPages && !(coverHandoff && exportMode === 'attach')
-			? editor.document.pages
-			: editor.document.pages.filter((page) => page.id === editor.activePageID);
-	});
-	let exportHasTransparency = $derived(exportPages.some(imageEditorPageHasTransparency));
-	let exportFormat = $derived(editor.document?.export_defaults.format ?? 'png');
-	let exportSupportsTransparency = $derived(exportFormat !== 'jpeg');
-	let exportPixelCount = $derived(
-		editor.document
-			? exportPages.reduce((total, page) => {
-					const size = imageEditorPageDimensions(editor.document!, page);
-					return total + size.width * size.height;
-				}, 0)
-			: 0
-	);
-	let exportSizeLabel = $derived.by(() => {
-		if (!editor.document || exportPages.length === 0) return '';
-		const first = imageEditorPageDimensions(editor.document, exportPages[0]);
-		return exportPages.every((page) => {
-			const size = imageEditorPageDimensions(editor.document!, page);
-			return size.width === first.width && size.height === first.height;
-		})
-			? `${first.width} × ${first.height}`
-			: m.image_editor_mixed_sizes();
-	});
-	let exportBudget = $derived(
-		editor.document
-			? imageEditorExportBudget(
-					editor.document,
-					exportPages.map((page) => page.id)
-				)
-			: null
-	);
-
-	function exportPageIDsKey(pageIDs: readonly string[]): string {
-		return pageIDs.join('\u0000');
-	}
-
-	function clearEncodedExportPreview(): void {
-		if (exportPreview) URL.revokeObjectURL(exportPreview.objectURL);
-		exportPreview = null;
-	}
-
-	async function prepareEncodedExportPreview(
-		document: ImageEditorDocument,
-		pageIDs: string[],
-		pageIDsKey: string,
-		generation: number,
-		controller: AbortController
-	): Promise<void> {
-		try {
-			const pages = await renderImageEditorPages(
-				document,
-				pageIDs,
-				(done, total) => {
-					if (generation !== exportPreviewGeneration) return;
-					exportPreviewProgress = m.image_editor_export_preview_encoding_progress({
-						done,
-						total
-					});
-				},
-				controller.signal
-			);
-			controller.signal.throwIfAborted();
-			if (generation !== exportPreviewGeneration || pages.length === 0) return;
-			const objectURL = URL.createObjectURL(pages[0].blob);
-			if (generation !== exportPreviewGeneration || controller.signal.aborted) {
-				URL.revokeObjectURL(objectURL);
-				return;
-			}
-			clearEncodedExportPreview();
-			exportPreview = {
-				document,
-				pageIDsKey,
-				pages,
-				objectURL,
-				totalBytes: pages.reduce((total, page) => total + page.blob.size, 0)
-			};
-		} catch (cause) {
-			if (
-				generation !== exportPreviewGeneration ||
-				(cause instanceof DOMException && cause.name === 'AbortError')
-			)
-				return;
-			exportPreviewError = imageEditorErrorMessage(cause) || m.image_editor_export_preview_failed();
-		} finally {
-			if (generation === exportPreviewGeneration) {
-				exportPreviewBusy = false;
-				exportPreviewProgress = '';
-			}
-		}
-	}
-
-	async function queueEncodedExportPreview(
-		document: ImageEditorDocument,
-		pageIDs: string[],
-		pageIDsKey: string,
-		generation: number
-	): Promise<void> {
-		if (exportPreviewTask) await exportPreviewTask.catch(() => undefined);
-		if (generation !== exportPreviewGeneration || !editorViewActive) return;
-		const controller = new AbortController();
-		exportPreviewAbort = controller;
-		const task = prepareEncodedExportPreview(document, pageIDs, pageIDsKey, generation, controller);
-		exportPreviewTask = task;
-		try {
-			await task;
-		} finally {
-			if (exportPreviewTask === task) exportPreviewTask = null;
-			if (exportPreviewAbort === controller) exportPreviewAbort = null;
-		}
-	}
-
-	function restartEncodedExportPreview(
-		document: ImageEditorDocument | null,
-		pageIDs: string[],
-		allowed: boolean
-	): void {
-		exportPreviewGeneration++;
-		const generation = exportPreviewGeneration;
-		if (exportPreviewTimer) clearTimeout(exportPreviewTimer);
-		exportPreviewTimer = undefined;
-		exportPreviewAbort?.abort();
-		clearEncodedExportPreview();
-		exportPreviewError = '';
-		exportPreviewProgress = '';
-		exportPreviewBusy = false;
-		if (!exportDialogOpen || !document || !allowed || pageIDs.length === 0) return;
-
-		exportPreviewBusy = true;
-		exportPreviewProgress = m.image_editor_export_preview_encoding();
-		const pageIDsKey = exportPageIDsKey(pageIDs);
-		exportPreviewTimer = setTimeout(() => {
-			exportPreviewTimer = undefined;
-			void queueEncodedExportPreview(document, pageIDs, pageIDsKey, generation);
-		}, EXPORT_PREVIEW_DEBOUNCE_MS);
-	}
-
-	$effect(() => {
-		const document = editor.document;
-		const pageIDs = exportPages.map((page) => page.id);
-		const allowed = exportBudget?.allowed ?? false;
-		const open = exportDialogOpen;
-		untrack(() => restartEncodedExportPreview(open ? document : null, pageIDs, allowed));
-	});
-
-	function retryEncodedExportPreview(): void {
-		const document = editor.document;
-		const pageIDs = exportPages.map((page) => page.id);
-		restartEncodedExportPreview(document, pageIDs, exportBudget?.allowed ?? false);
-	}
-
-	function preparedExportPages(
-		document: ImageEditorDocument,
-		pageIDs: readonly string[]
-	): ImageEditorRenderedPage[] | null {
-		return exportPreview?.document === document &&
-			exportPreview.pageIDsKey === exportPageIDsKey(pageIDs)
-			? exportPreview.pages
-			: null;
-	}
-
-	function formattedExportBytes(bytes: number): string {
-		return new Intl.NumberFormat(getLocaleTag()).format(bytes);
-	}
 
 	$effect(() => {
 		if (!toolPreferencesReady) return;
@@ -745,65 +486,6 @@
 			editor.pagesExpanded = initial.document.pages.length > 1;
 			coverPreviewMediaID = initial.cover_preview_media_id ?? '';
 		}
-	}
-
-	$effect(() => {
-		if (
-			coverHandoff &&
-			exportMode === 'attach' &&
-			['webp', 'gif'].includes(editor.document?.export_defaults.format ?? '')
-		) {
-			editor.mutate('Change cover export format', (document) => {
-				document.export_defaults.format = 'png';
-			});
-		}
-	});
-
-	function openExport(mode: 'download' | 'media' | 'attach'): void {
-		if (editor.floatingPixelSelection) editor.commitFloatingPixelSelection();
-		exportMode = guestMode ? 'download' : mode;
-		exportError = '';
-		loadExportResumeLedger();
-		exportDialogOpen = true;
-	}
-
-	function exportResumeKey(): string {
-		return `openpost-image-editor-export-v1:${editor.id}:${exportMode}:${editor.document?.export_defaults.format ?? 'png'}`;
-	}
-
-	function loadExportResumeLedger(): void {
-		if (!editor.document || exportMode === 'download') {
-			exportResumeLedger = {};
-			exportSuccessfulByPage = {};
-			return;
-		}
-		try {
-			exportResumeLedger = parseImageEditorExportResumeLedger(
-				sessionStorage.getItem(exportResumeKey()) || '{}'
-			);
-		} catch {
-			exportResumeLedger = {};
-		}
-		exportSuccessfulByPage = reusableImageEditorExports(editor.document, exportResumeLedger);
-	}
-
-	function storeExportResumeLedger(): void {
-		if (exportMode === 'download') return;
-		try {
-			sessionStorage.setItem(exportResumeKey(), JSON.stringify(exportResumeLedger));
-		} catch {
-			// Resume state is optional when session storage is unavailable.
-		}
-	}
-
-	function clearExportResumeLedger(): void {
-		try {
-			sessionStorage.removeItem(exportResumeKey());
-		} catch {
-			// Session storage may be unavailable in hardened browser contexts.
-		}
-		exportResumeLedger = {};
-		exportSuccessfulByPage = {};
 	}
 
 	async function saveToOpenPost(): Promise<void> {
@@ -1003,13 +685,9 @@
 			editorViewActive = false;
 			if (guestMode) releaseLocalImageEditorMediaForDesign(editor.id);
 			rasterAbort?.abort();
-			exportPreviewGeneration++;
 			unsubscribe();
 			clearTimeout(saveTimer);
 			clearTimeout(previewTimer);
-			if (exportPreviewTimer) clearTimeout(exportPreviewTimer);
-			exportPreviewAbort?.abort();
-			clearEncodedExportPreview();
 			backgroundRemoval.dispose();
 			designChannel?.close();
 			window.removeEventListener('beforeunload', beforeUnload);
@@ -1817,240 +1495,6 @@
 		await goto(resolveAppPath(guestMode ? '/image-editor' : '/media'));
 	}
 
-	async function openHistory(): Promise<void> {
-		if (guestMode) return;
-		setHistoryDialogOpen(true);
-		invalidateRevisionPreview();
-		historyBusy = true;
-		historyError = '';
-		revisionPreview = null;
-		revisionPreviewPage = 0;
-		restoreConfirmOpen = false;
-		revisionNextCursor = '';
-		try {
-			if (!(await saveNow())) throw new Error(m.image_editor_checkpoint_save_first());
-			const page = await queryImageEditorRevisions(editor.workspaceID, editor.id);
-			revisions = page.revisions;
-			revisionNextCursor = page.nextCursor ?? '';
-		} catch (cause) {
-			historyError = imageEditorErrorMessage(cause) ?? m.image_editor_history_load_failed();
-		} finally {
-			historyBusy = false;
-		}
-	}
-
-	async function loadMoreRevisions(): Promise<void> {
-		if (!revisionNextCursor || historyPageBusy) return;
-		historyPageBusy = true;
-		historyError = '';
-		try {
-			const page = await queryImageEditorRevisions(editor.workspaceID, editor.id, {
-				cursor: revisionNextCursor
-			});
-			const known = new Set(revisions.map((revision) => revision.id));
-			revisions = [...revisions, ...page.revisions.filter((revision) => !known.has(revision.id))];
-			revisionNextCursor = page.nextCursor ?? '';
-		} catch (cause) {
-			historyError = imageEditorErrorMessage(cause) ?? m.image_editor_history_load_failed();
-		} finally {
-			historyPageBusy = false;
-		}
-	}
-
-	function invalidateRevisionPreview(): void {
-		revisionPreviewRequest += 1;
-		revisionPreviewController?.abort();
-		revisionPreviewController = null;
-		revisionPreviewBusy = false;
-		revisionPreview = null;
-	}
-
-	function setHistoryDialogOpen(open: boolean): void {
-		if (historyDialogOpen === open) return;
-		historyDialogOpen = open;
-		invalidateRevisionPreview();
-		if (!open) restoreConfirmOpen = false;
-	}
-
-	async function inspectRevision(revision: ImageEditorRevisionSummary): Promise<void> {
-		revisionPreviewController?.abort();
-		const controller = new AbortController();
-		revisionPreviewController = controller;
-		const request = ++revisionPreviewRequest;
-		revisionPreviewBusy = true;
-		historyError = '';
-		revisionPreviewPage = 0;
-		try {
-			const preview = await queryImageEditorRevision(
-				editor.workspaceID,
-				editor.id,
-				revision.id,
-				controller.signal
-			);
-			if (request === revisionPreviewRequest) revisionPreview = preview;
-		} catch (cause) {
-			if (request === revisionPreviewRequest) {
-				historyError = imageEditorErrorMessage(cause) ?? m.image_editor_history_load_failed();
-			}
-		} finally {
-			if (request === revisionPreviewRequest) {
-				revisionPreviewBusy = false;
-				revisionPreviewController = null;
-			}
-		}
-	}
-
-	async function createCheckpoint(): Promise<void> {
-		if (!checkpointName.trim()) return;
-		const view = captureEditorMutationView();
-		const operationSequence = ++historyMutationSequence;
-		historyBusy = true;
-		historyError = '';
-		try {
-			if (!(await saveNow())) throw new Error(m.image_editor_checkpoint_save_first());
-			await createImageEditorCheckpoint(
-				editor.workspaceID,
-				editor.id,
-				checkpointName.trim(),
-				editor.revision
-			);
-			if (!editorMutationViewIsCurrent(view)) return;
-			checkpointName = '';
-			checkpointDialogOpen = false;
-			await openHistory();
-			statusAnnouncement = m.image_editor_checkpoint_created();
-		} catch (cause) {
-			if (!editorMutationViewIsCurrent(view)) return;
-			if (apiErrorStatus(cause) === 409) {
-				checkpointDialogOpen = false;
-				setHistoryDialogOpen(false);
-				openConflictRecovery();
-			} else {
-				historyError = imageEditorErrorMessage(cause) ?? m.image_editor_checkpoint_failed();
-			}
-		} finally {
-			if (operationSequence === historyMutationSequence) historyBusy = false;
-		}
-	}
-
-	async function removeCheckpoint(revision: ImageEditorRevisionSummary): Promise<void> {
-		if (!editor.canEdit || historyBusy || revision.kind !== 'checkpoint') return;
-		const view = captureEditorMutationView();
-		const operationSequence = ++historyMutationSequence;
-		historyBusy = true;
-		try {
-			await deleteImageEditorCheckpoint(editor.workspaceID, editor.id, revision.id);
-			if (!editorMutationViewIsCurrent(view)) return;
-			revisions = revisions.filter((entry) => entry.id !== revision.id);
-			if (revisionPreview?.summary.id === revision.id) invalidateRevisionPreview();
-		} finally {
-			if (operationSequence === historyMutationSequence) historyBusy = false;
-		}
-	}
-
-	async function restoreRevision(): Promise<void> {
-		if (!revisionPreview || !revisionChanges || !imageEditorRevisionHasChanges(revisionChanges)) {
-			return;
-		}
-		const view = captureEditorMutationView();
-		const operationSequence = ++historyMutationSequence;
-		historyBusy = true;
-		historyError = '';
-		try {
-			if (!(await saveNow())) throw new Error(m.image_editor_checkpoint_save_first());
-			const response = await restoreImageEditorRevision(
-				editor.workspaceID,
-				editor.id,
-				revisionPreview.summary.id,
-				editor.revision
-			);
-			if (!editorMutationViewIsCurrent(view)) return;
-			editor.load(response);
-			coverPreviewMediaID = response.cover_preview_media_id ?? '';
-			await clearLocalImageEditorRecovery(editor.id);
-			restoreConfirmOpen = false;
-			setHistoryDialogOpen(false);
-			statusAnnouncement = m.image_editor_version_restored();
-		} catch (cause) {
-			if (!editorMutationViewIsCurrent(view)) return;
-			if (apiErrorStatus(cause) === 409) {
-				restoreConfirmOpen = false;
-				setHistoryDialogOpen(false);
-				openConflictRecovery();
-			} else {
-				historyError = imageEditorErrorMessage(cause) ?? m.image_editor_restore_failed();
-			}
-		} finally {
-			if (operationSequence === historyMutationSequence) historyBusy = false;
-		}
-	}
-
-	function revisionLabel(revision: ImageEditorRevisionSummary): string {
-		if (revision.kind === 'checkpoint') return revision.name || m.image_editor_checkpoint();
-		if (revision.kind === 'restore_point') {
-			return m.version_restore_point_label({ revision: revision.revision });
-		}
-		return m.image_editor_autosave_revision({ revision: revision.revision });
-	}
-
-	async function saveAsTemplate(): Promise<void> {
-		if (!editor.document || !templateName.trim()) return;
-		const view = captureEditorMutationView();
-		const operationSequence = ++historyMutationSequence;
-		historyBusy = true;
-		historyError = '';
-		try {
-			if (!(await saveNow())) throw new Error(m.image_editor_template_save_first());
-			const templateInput = {
-				name: templateName.trim(),
-				category: templateCategory.trim() || m.image_editor_workspace_category(),
-				preview_media_id: editor.document.pages[0]?.latest_export_media_id,
-				document: editor.document
-			};
-			if (templateTargetID === 'new') {
-				await createImageEditorTemplate({ workspace_id: editor.workspaceID, ...templateInput });
-			} else {
-				await updateImageEditorTemplate(editor.workspaceID, templateTargetID, templateInput);
-			}
-			if (!editorMutationViewIsCurrent(view)) return;
-			templateDialogOpen = false;
-			templateName = '';
-			statusAnnouncement =
-				templateTargetID === 'new'
-					? m.image_editor_template_created()
-					: m.image_editor_template_replaced();
-		} catch (cause) {
-			if (!editorMutationViewIsCurrent(view)) return;
-			historyError = imageEditorErrorMessage(cause) ?? m.image_editor_template_save_failed();
-		} finally {
-			if (operationSequence === historyMutationSequence) historyBusy = false;
-		}
-	}
-
-	async function openTemplateDialog(): Promise<void> {
-		historyError = '';
-		templateTargetID = 'new';
-		templateName = editor.document?.title ?? '';
-		templateCategory = m.image_editor_workspace_category();
-		templateDialogOpen = true;
-		try {
-			workspaceTemplates = (await queryImageEditorTemplates(editor.workspaceID)).filter(
-				(template) => !template.built_in
-			);
-		} catch (cause) {
-			historyError = imageEditorErrorMessage(cause) ?? m.image_editor_templates_load_failed();
-		}
-	}
-
-	function selectTemplateTarget(id: string): void {
-		templateTargetID = id;
-		const template = workspaceTemplates.find((item) => item.id === id);
-		if (template) {
-			templateName = template.name;
-			templateCategory = template.category;
-		}
-	}
-
 	function setTool(tool: ImageEditorTool): void {
 		if (editor.floatingPixelSelection) editor.commitFloatingPixelSelection();
 		if (tool === 'shape') {
@@ -2275,39 +1719,6 @@
 		);
 	}
 
-	function isAbortError(cause: unknown): boolean {
-		return cause instanceof DOMException && cause.name === 'AbortError';
-	}
-
-	function apiErrorStatus(cause: unknown): number | undefined {
-		if (cause === null || !(cause instanceof Object) || !('status' in cause)) {
-			return undefined;
-		}
-		return Number.isFinite(cause.status) ? Number(cause.status) : undefined;
-	}
-
-	function imageEditorImportErrorMessage(cause: unknown): string {
-		if (!(cause instanceof ImageEditorImportError)) {
-			return imageEditorErrorMessage(cause) ?? m.image_editor_external_drop_failed();
-		}
-		switch (cause.code) {
-			case 'unsupported_type':
-				return m.image_editor_import_unsupported_type();
-			case 'file_too_large':
-				return m.image_editor_import_file_too_large();
-			case 'unsafe_svg':
-				return m.image_editor_import_unsafe_svg();
-			case 'decode_failed':
-				return m.image_editor_import_decode_failed();
-			case 'dimensions_too_large':
-				return m.image_editor_import_dimensions_too_large();
-			case 'batch_memory_limit':
-				return m.image_editor_import_batch_too_large();
-			case 'layer_limit':
-				return m.image_editor_import_layer_limit();
-		}
-	}
-
 	function editableTarget(target: EventTarget | null): boolean {
 		return (
 			target instanceof HTMLInputElement ||
@@ -2365,13 +1776,13 @@
 	const commandHandlers = {
 		save: () => void saveNow(),
 		save_to_openpost: () => void saveToOpenPost(),
-		version_history: () => void openHistory(),
+		version_history: () => void versionsDialogs?.openHistory(),
 		create_checkpoint: () => (checkpointDialogOpen = true),
-		save_template: () => void openTemplateDialog(),
+		save_template: () => void versionsDialogs?.openTemplateDialog(),
 		resize_design: () => (resizeDialogOpen = true),
 		export_project: () => void exportProject(),
 		import_project: () => projectFileInput?.click(),
-		export_design: () => openExport('download'),
+		export_design: () => exportDialog?.openExport('download'),
 		undo: undoEditor,
 		redo: redoEditor,
 		duplicate: () =>
@@ -2909,161 +2320,6 @@
 				'image/png'
 			);
 		});
-	}
-
-	async function exportDesign(): Promise<void> {
-		if (!editor.document || exportBusy) return;
-		if (!exportBudget?.allowed) {
-			exportError = m.image_editor_export_budget_exceeded();
-			return;
-		}
-		const pageIDs =
-			exportAllPages && !(coverHandoff && exportMode === 'attach')
-				? editor.document.pages.map((page) => page.id)
-				: [editor.activePageID];
-		const preparedPages = preparedExportPages(editor.document, pageIDs);
-		if (!preparedPages) {
-			exportError = m.image_editor_export_preview_required();
-			return;
-		}
-		const view = captureEditorMutationView();
-		exportBusy = true;
-		const controller = new AbortController();
-		exportAbort = controller;
-		const finishMetric = startImageEditorMetric('export');
-		exportError = '';
-		exportProgress = m.image_editor_export_saving();
-		try {
-			const saved = await saveNow();
-			if (!editorMutationViewIsCurrent(view)) return;
-			if (!saved && exportMode !== 'download') {
-				throw new Error(m.image_editor_export_save_first());
-			}
-			if (exportMode !== 'download') loadExportResumeLedger();
-			const pagesToRender =
-				exportMode === 'download'
-					? pageIDs
-					: pageIDs.filter((pageID) => !exportSuccessfulByPage[pageID]);
-			const rendered = preparedPages.filter((page) => pagesToRender.includes(page.page.id));
-			controller.signal.throwIfAborted();
-			if (!editorMutationViewIsCurrent(view)) return;
-			if (exportMode === 'download') {
-				await downloadRenderedPages(rendered, editor.document.title, controller.signal);
-				controller.signal.throwIfAborted();
-				if (!editorMutationViewIsCurrent(view)) return;
-				exportDialogOpen = false;
-				exportSuccessfulByPage = {};
-				suppressSavedAnnouncementUntil = Date.now() + 5_000;
-				statusAnnouncement = m.image_editor_export_downloaded();
-				captureTelemetryEvent('image design exported', {
-					mode: 'download',
-					pages: rendered.length
-				});
-				if (guestMode) {
-					trackPublicImageEditorEvent('image_editor_export_completed', {
-						format: exportFormat,
-						pages: publicImageEditorPageCountBucket(rendered.length)
-					});
-					exportToastVisible = true;
-				}
-				finishMetric();
-				return;
-			}
-			const renderedByPage = new Map(rendered.map((page) => [page.page.id, page] as const));
-			const mediaIDs: string[] = [];
-			for (let index = 0; index < pageIDs.length; index++) {
-				const pageID = pageIDs[index];
-				const existingMediaID = exportSuccessfulByPage[pageID];
-				if (existingMediaID) {
-					mediaIDs.push(existingMediaID);
-					continue;
-				}
-				const page = renderedByPage.get(pageID);
-				if (!page) throw new Error(m.image_editor_page_render_failed());
-				exportProgress = m.image_editor_saving_media_progress({
-					done: index + 1,
-					total: pageIDs.length
-				});
-				const file = new File([page.blob], page.filename, { type: page.blob.type });
-				const uploaded = await uploadMediaFile({
-					workspaceId: editor.workspaceID,
-					file,
-					source: 'image_editor_export',
-					designDocumentId: editor.id,
-					designPageId: page.page.id,
-					retentionClass: exportMode === 'attach' ? 'temporary' : 'library',
-					signal: controller.signal
-				});
-				if (!editorMutationViewIsCurrent(view)) return;
-				mediaIDs.push(uploaded.id);
-				exportSuccessfulByPage = {
-					...exportSuccessfulByPage,
-					[page.page.id]: uploaded.id
-				};
-				exportResumeLedger = {
-					...exportResumeLedger,
-					[page.page.id]: {
-						mediaID: uploaded.id,
-						fingerprint: imageEditorPageExportFingerprint(editor.document, page.page)
-					}
-				};
-				storeExportResumeLedger();
-				editor.mutate('Record page export', (document) => {
-					const target = document.pages.find((item) => item.id === page.page.id);
-					if (target) target.latest_export_media_id = uploaded.id;
-				});
-			}
-			await saveNow(mediaIDs[0] ?? '', 'export');
-			if (!editorMutationViewIsCurrent(view)) return;
-			if (exportMode === 'attach') {
-				if (!returnToken) throw new Error(m.image_editor_attach_missing());
-				const returnURL = await completeImageEditorReturnToken(returnToken, editor.id, mediaIDs);
-				if (!editorMutationViewIsCurrent(view)) return;
-				captureTelemetryEvent('image design exported', {
-					mode: exportMode,
-					pages: mediaIDs.length
-				});
-				clearExportResumeLedger();
-				await goto(
-					resolveAppPath(
-						`${returnURL}${returnURL.includes('?') ? '&' : '?'}image_editor_return=${encodeURIComponent(returnToken)}`
-					)
-				);
-				finishMetric();
-				return;
-			}
-			exportDialogOpen = false;
-			clearExportResumeLedger();
-			captureTelemetryEvent('image design exported', {
-				mode: exportMode,
-				pages: mediaIDs.length
-			});
-			suppressSavedAnnouncementUntil = Date.now() + 5_000;
-			statusAnnouncement = m.image_editor_exported_pages({
-				count: mediaIDs.length
-			});
-			finishMetric();
-		} catch (cause) {
-			finishMetric('error');
-			if (!editorMutationViewIsCurrent(view)) return;
-			exportError =
-				cause instanceof DOMException && cause.name === 'AbortError'
-					? m.image_editor_export_cancelled_resume({
-							count: Object.keys(exportSuccessfulByPage).length
-						})
-					: (imageEditorErrorMessage(cause) ?? m.image_editor_export_failed());
-			statusAnnouncement = exportError;
-		} finally {
-			if (exportAbort === controller) {
-				exportBusy = false;
-				exportProgress = '';
-				exportAbort = null;
-			}
-		}
-	}
-
-	function cancelExport(): void {
-		exportAbort?.abort();
 	}
 
 	type ToolGlyph =
@@ -3629,7 +2885,8 @@
 					size="sm"
 					class="size-11 px-0 sm:h-8 sm:w-auto sm:px-2.5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
 					aria-label={returnToken ? attachLabel : m.image_editor_export()}
-					onclick={() => openExport(returnToken && editor.canEdit ? 'attach' : 'download')}
+					onclick={() =>
+						exportDialog?.openExport(returnToken && editor.canEdit ? 'attach' : 'download')}
 				>
 					<ThemeIcon role="download" class="size-3.5" />
 					<span class="hidden sm:inline"
@@ -4404,620 +3661,43 @@
 	</Dialog.Content>
 </Dialog.Root>
 
-<Dialog.Root open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-	<Dialog.Content class="max-h-[90dvh] overflow-hidden sm:max-w-4xl">
-		<Dialog.Header>
-			<Dialog.Title>{m.image_editor_version_history()}</Dialog.Title>
-			<Dialog.Description>{m.image_editor_history_body()}</Dialog.Description>
-		</Dialog.Header>
-		<div
-			class="grid max-h-[65dvh] min-h-72 gap-4 overflow-hidden sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]"
-		>
-			<div class="space-y-2 overflow-y-auto pr-1">
-				{#if historyBusy && revisions.length === 0}
-					<PageLoading layout="list" label={m.image_editor_loading_history()} items={3} />
-				{:else if revisions.length === 0}
-					<EmptyState
-						themeIconRole="history"
-						title={m.image_editor_no_history()}
-						variant="muted"
-						size="sm"
-						headingLevel={3}
-					/>
-				{:else}
-					{#each revisions as revision (revision.id)}
-						<Button
-							multiline
-							variant={revisionPreview?.summary.id === revision.id ? 'secondary' : 'outline'}
-							class="h-auto min-h-16 w-full justify-start p-3 text-left whitespace-normal"
-							disabled={revisionPreviewBusy}
-							onclick={() => void inspectRevision(revision)}
-						>
-							<div class="min-w-0 flex-1">
-								<p class="truncate text-sm font-medium">
-									{revisionLabel(revision)}
-								</p>
-								<p class="mt-0.5 text-xs font-normal text-muted-foreground">
-									{new Date(revision.created_at).toLocaleString()}
-									{#if revision.expires_at}
-										·
-										{m.image_editor_expires({
-											date: new Date(revision.expires_at).toLocaleDateString()
-										})}
-									{/if}
-								</p>
-								<p class="mt-0.5 truncate text-xs font-normal text-muted-foreground">
-									{revision.actor.is_current_user
-										? m.version_saved_by_you({ actor: revision.actor.name })
-										: m.version_saved_by({ actor: revision.actor.name })}
-								</p>
-							</div>
-						</Button>
-					{/each}
-					{#if revisionNextCursor}
-						<Button
-							variant="outline"
-							class="w-full"
-							disabled={historyPageBusy}
-							onclick={() => void loadMoreRevisions()}
-						>
-							{#if historyPageBusy}<ProtectedIcon
-									icon="loading"
-									class="mr-2 size-4 animate-spin motion-reduce:animate-none"
-								/>{/if}
-							{m.notifications_load_more()}
-						</Button>
-					{/if}
-				{/if}
-				{#if historyError}
-					<InlineNotice tone="error" message={historyError} />
-				{/if}
-			</div>
-			<section class="min-h-0 overflow-y-auto rounded-lg border bg-muted/20 p-3" aria-live="polite">
-				{#if revisionPreviewBusy}
-					<div class="flex min-h-56 items-center justify-center text-sm text-muted-foreground">
-						<ProtectedIcon
-							icon="loading"
-							class="mr-2 size-4 animate-spin motion-reduce:animate-none"
-						/>
-						{m.version_preview_loading()}
-					</div>
-				{:else if !revisionPreview}
-					<div
-						class="grid min-h-56 place-items-center px-4 text-center text-sm text-muted-foreground"
-					>
-						{m.version_preview_select()}
-					</div>
-				{:else}
-					<div class="space-y-3">
-						<div class="h-52 overflow-hidden rounded-md border bg-neutral-900">
-							<TemplatePreview
-								document={revisionPreview.document}
-								page={revisionPreview.document.pages[revisionPreviewPage]}
-								label={revisionLabel(revisionPreview.summary)}
-							/>
-						</div>
-						{#if revisionPreview.document.pages.length > 1}
-							<div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-								<Button
-									variant="outline"
-									size="sm"
-									disabled={revisionPreviewPage === 0}
-									onclick={() => (revisionPreviewPage = Math.max(0, revisionPreviewPage - 1))}
-									>{m.media_previous_page()}</Button
-								>
-								<span>
-									{m.version_preview_page({
-										current: revisionPreviewPage + 1,
-										total: revisionPreview.document.pages.length
-									})}
-								</span>
-								<Button
-									variant="outline"
-									size="sm"
-									disabled={revisionPreviewPage >= revisionPreview.document.pages.length - 1}
-									onclick={() =>
-										(revisionPreviewPage = Math.min(
-											revisionPreview!.document.pages.length - 1,
-											revisionPreviewPage + 1
-										))}>{m.media_next_page()}</Button
-								>
-							</div>
-						{/if}
-						<div>
-							<h3 class="text-sm font-medium">{m.version_changes()}</h3>
-							{#if revisionChanges && imageEditorRevisionHasChanges(revisionChanges)}
-								<ul class="mt-1 grid gap-1 text-xs text-muted-foreground">
-									{#if revisionChanges.titleChanged}<li>{m.version_change_title()}</li>{/if}
-									{#if revisionChanges.coverChanged}<li>{m.version_change_cover()}</li>{/if}
-									{#if revisionChanges.canvasChanged}<li>{m.version_change_canvas()}</li>{/if}
-									{#if revisionChanges.exportSettingsChanged}<li>
-											{m.version_change_export()}
-										</li>{/if}
-									{#if revisionChanges.brandKitChanged}<li>{m.version_change_brand_kit()}</li>{/if}
-									{#if revisionChanges.pagesAdded}<li>
-											{m.version_change_pages_added({ count: revisionChanges.pagesAdded })}
-										</li>{/if}
-									{#if revisionChanges.pagesRemoved}<li>
-											{m.version_change_pages_removed({ count: revisionChanges.pagesRemoved })}
-										</li>{/if}
-									{#if revisionChanges.pagesChanged}<li>
-											{m.version_change_pages_changed({ count: revisionChanges.pagesChanged })}
-										</li>{/if}
-									{#if revisionChanges.layersAdded}<li>
-											{m.version_change_layers_added({ count: revisionChanges.layersAdded })}
-										</li>{/if}
-									{#if revisionChanges.layersRemoved}<li>
-											{m.version_change_layers_removed({ count: revisionChanges.layersRemoved })}
-										</li>{/if}
-									{#if revisionChanges.layersChanged}<li>
-											{m.version_change_layers_changed({ count: revisionChanges.layersChanged })}
-										</li>{/if}
-									{#if revisionChanges.guidePagesChanged}<li>
-											{m.version_change_guides({ count: revisionChanges.guidePagesChanged })}
-										</li>{/if}
-								</ul>
-							{:else}
-								<p class="mt-1 text-xs text-muted-foreground">{m.version_no_changes()}</p>
-							{/if}
-						</div>
-						<Button
-							class="w-full"
-							disabled={!editor.canEdit ||
-								!revisionChanges ||
-								!imageEditorRevisionHasChanges(revisionChanges)}
-							onclick={() => (restoreConfirmOpen = true)}>{m.version_restore_version()}</Button
-						>
-						<CheckpointRemove
-							revision={revisionPreview.summary}
-							canEdit={editor.canEdit}
-							disabled={historyBusy || revisionPreviewBusy}
-							onremove={removeCheckpoint}
-						/>
-					</div>
-				{/if}
-			</section>
-		</div>
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => setHistoryDialogOpen(false)}
-				>{m.common_close()}</Button
-			>
-			<Button
-				onclick={() => {
-					setHistoryDialogOpen(false);
-					checkpointDialogOpen = true;
-				}}
-				disabled={!editor.canEdit}>{m.image_editor_create_checkpoint()}</Button
-			>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
-
-<Dialog.Root bind:open={restoreConfirmOpen}>
-	<Dialog.Content class="sm:max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>{m.version_restore_confirm_title()}</Dialog.Title>
-			<Dialog.Description>{m.version_restore_confirm_body()}</Dialog.Description>
-		</Dialog.Header>
-		{#if revisionPreview}
-			<div class="rounded-md border bg-muted/30 p-3 text-sm">
-				<p class="font-medium">{revisionLabel(revisionPreview.summary)}</p>
-				<p class="mt-1 text-xs text-muted-foreground">
-					{new Date(revisionPreview.summary.created_at).toLocaleString()}
-				</p>
-			</div>
-		{/if}
-		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (restoreConfirmOpen = false)}>
-				{m.common_cancel()}
-			</Button>
-			<Button
-				disabled={historyBusy ||
-					!revisionChanges ||
-					!imageEditorRevisionHasChanges(revisionChanges)}
-				onclick={() => void restoreRevision()}
-			>
-				{#if historyBusy}<ProtectedIcon
-						icon="loading"
-						class="animate-spin motion-reduce:animate-none"
-					/>{/if}
-				{m.version_restore_confirm()}
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
-
-<Dialog.Root bind:open={checkpointDialogOpen}>
-	<Dialog.Content class="sm:max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>{m.image_editor_create_checkpoint()}</Dialog.Title>
-			<Dialog.Description>{m.image_editor_checkpoint_body()}</Dialog.Description>
-		</Dialog.Header>
-		<label class="grid gap-1.5 text-sm">
-			<span class="font-medium">{m.image_editor_checkpoint_name()}</span>
-			<Input
-				bind:value={checkpointName}
-				maxlength={100}
-				placeholder={m.image_editor_checkpoint_placeholder()}
-			/>
-		</label>
-		{#if historyError}
-			<p class="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-				{historyError}
-			</p>
-		{/if}
-		<Dialog.Footer>
-			<Button variant="ghost" onclick={() => (checkpointDialogOpen = false)}
-				>{m.common_cancel()}</Button
-			>
-			<Button onclick={createCheckpoint} disabled={!checkpointName.trim() || historyBusy}>
-				{#if historyBusy}<ProtectedIcon
-						icon="loading"
-						class="animate-spin motion-reduce:animate-none"
-					/>{/if}
-				{m.image_editor_create_checkpoint()}
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
-
-<Dialog.Root bind:open={templateDialogOpen}>
-	<Dialog.Content class="sm:max-w-md">
-		<Dialog.Header>
-			<Dialog.Title>{m.image_editor_save_template()}</Dialog.Title>
-			<Dialog.Description>{m.image_editor_template_body()}</Dialog.Description>
-		</Dialog.Header>
-		<div class="grid gap-3">
-			<label class="grid gap-1.5 text-sm">
-				<span class="font-medium">{m.image_editor_save_behavior()}</span>
-				<AppSelect
-					value={templateTargetID}
-					ariaLabel={m.image_editor_save_behavior()}
-					onValueChange={selectTemplateTarget}
-					options={[
-						{ value: 'new', label: m.image_editor_create_new_template() },
-						...workspaceTemplates.map((template) => ({
-							value: template.id,
-							label: m.image_editor_replace_named_template({ name: template.name })
-						}))
-					]}
-					class="h-10 w-full"
-				/>
-			</label>
-			<label class="grid gap-1.5 text-sm">
-				<span class="font-medium">{m.image_editor_template_name()}</span>
-				<Input bind:value={templateName} maxlength={120} />
-			</label>
-			<label class="grid gap-1.5 text-sm">
-				<span class="font-medium">{m.image_editor_category()}</span>
-				<Input bind:value={templateCategory} maxlength={80} />
-			</label>
-			{#if historyError}
-				<p class="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-					{historyError}
-				</p>
-			{/if}
-		</div>
-		<Dialog.Footer>
-			<Button variant="ghost" onclick={() => (templateDialogOpen = false)}
-				>{m.common_cancel()}</Button
-			>
-			<Button onclick={saveAsTemplate} disabled={!templateName.trim() || historyBusy}>
-				{#if historyBusy}<ProtectedIcon
-						icon="loading"
-						class="animate-spin motion-reduce:animate-none"
-					/>{/if}
-				{templateTargetID === 'new'
-					? m.image_editor_save_template_action()
-					: m.image_editor_replace_template_action()}
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+<ImageEditorVersionsDialogs
+	bind:this={versionsDialogs}
+	{guestMode}
+	bind:historyOpen={historyDialogOpen}
+	bind:checkpointOpen={checkpointDialogOpen}
+	bind:templateOpen={templateDialogOpen}
+	coverPreviewMediaID={() => coverPreviewMediaID}
+	saveNow={() => saveNow()}
+	captureMutationView={captureEditorMutationView}
+	mutationViewIsCurrent={editorMutationViewIsCurrent}
+	onconflict={openConflictRecovery}
+	onrestored={(response) => (coverPreviewMediaID = response.cover_preview_media_id ?? '')}
+	onannounce={(message) => (statusAnnouncement = message)}
+/>
 
 <ImageEditorResizeDialog bind:open={resizeDialogOpen} />
 
 <ImageEditorGuideDialog bind:open={guideDialogOpen} />
 
-<Dialog.Root bind:open={exportDialogOpen}>
-	<Dialog.Content class="sm:max-w-2xl">
-		<Dialog.Header>
-			<Dialog.Title>{m.image_editor_export_design()}</Dialog.Title>
-			<Dialog.Description>{m.image_editor_export_body()}</Dialog.Description>
-		</Dialog.Header>
-		<div class="space-y-4">
-			<section
-				class="overflow-hidden rounded-xl border bg-muted/20"
-				aria-labelledby="export-preview-title"
-			>
-				<div class="flex min-h-11 items-center justify-between gap-3 border-b px-3 py-2">
-					<h3 id="export-preview-title" class="text-sm font-medium">
-						{m.image_editor_export_preview()}
-					</h3>
-					{#if exportPreview}
-						<p class="text-xs text-muted-foreground tabular-nums">
-							{m.image_editor_export_preview_bytes({
-								bytes: formattedExportBytes(exportPreview.totalBytes)
-							})}
-						</p>
-					{/if}
-				</div>
-				<div class="grid min-h-32 place-items-center p-3 sm:min-h-52">
-					{#if exportPreviewBusy}
-						<div
-							class="grid justify-items-center gap-2 text-sm text-muted-foreground"
-							role="status"
-						>
-							<ProtectedIcon
-								icon="loading"
-								class="size-5 animate-spin motion-reduce:animate-none"
-							/>
-							<span>{exportPreviewProgress || m.image_editor_export_preview_encoding()}</span>
-						</div>
-					{:else if exportPreviewError}
-						<div class="grid max-w-sm justify-items-center gap-3 text-center">
-							<p class="text-sm text-destructive" role="alert">{exportPreviewError}</p>
-							<Button variant="outline" size="sm" onclick={retryEncodedExportPreview}>
-								{m.image_editor_export_preview_retry()}
-							</Button>
-						</div>
-					{:else if exportPreview}
-						<img
-							src={exportPreview.objectURL}
-							alt={m.image_editor_export_preview_alt()}
-							class="max-h-36 max-w-full rounded-md object-contain sm:max-h-56"
-						/>
-					{/if}
-				</div>
-			</section>
-			<div class="rounded-xl border bg-muted/35 p-3">
-				<div class="flex flex-wrap items-center justify-between gap-2">
-					<div>
-						<p class="text-sm font-semibold">
-							{exportFormat.toUpperCase()} · {exportSizeLabel}
-						</p>
-						<p class="mt-0.5 text-xs text-muted-foreground">
-							{m.image_editor_export_summary({
-								pages: exportPages.length,
-								megapixels: (exportPixelCount / 1_000_000).toFixed(1)
-							})}
-						</p>
-					</div>
-					<span
-						class={[
-							'rounded-full border px-2 py-1 text-xs font-medium',
-							exportHasTransparency && exportSupportsTransparency
-								? 'border-primary/40 bg-primary/8'
-								: ''
-						]}
-					>
-						{exportHasTransparency && exportSupportsTransparency
-							? m.image_editor_transparency_preserved()
-							: exportHasTransparency
-								? m.image_editor_transparency_flattened()
-								: m.image_editor_opaque_output()}
-					</span>
-				</div>
-			</div>
-			{#if exportBudget && !exportBudget.allowed}
-				<p
-					class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
-					role="alert"
-				>
-					{m.image_editor_export_budget_exceeded()}
-				</p>
-			{/if}
-			{#if Object.keys(exportSuccessfulByPage).length > 0}
-				<p class="rounded-md border border-primary/30 bg-primary/8 p-3 text-sm" role="status">
-					{m.image_editor_export_resume_ready({
-						count: Object.keys(exportSuccessfulByPage).length
-					})}
-				</p>
-			{/if}
-
-			{#if (editor.document?.pages.length ?? 0) > 1 && !(coverHandoff && exportMode === 'attach')}
-				<label class="flex min-h-11 items-center gap-2 rounded-lg border px-3">
-					<Checkbox bind:checked={exportAllPages} />
-					<span
-						>{m.image_editor_export_all_pages({ count: editor.document?.pages.length ?? 0 })}</span
-					>
-				</label>
-			{/if}
-
-			<div class="grid gap-3 sm:grid-cols-2">
-				<label class="grid gap-1.5 text-sm">
-					<span class="font-medium">{m.image_editor_format()}</span>
-					<AppSelect
-						value={editor.document?.export_defaults.format ?? 'png'}
-						ariaLabel={m.image_editor_format()}
-						disabled={!editor.canEdit}
-						onValueChange={(value) =>
-							editor.mutate('Change export format', (document) => {
-								document.export_defaults.format = value as 'png' | 'jpeg' | 'webp' | 'gif';
-							})}
-						options={[
-							{ value: 'png', label: 'PNG' },
-							{ value: 'jpeg', label: 'JPEG' },
-							...(!(coverHandoff && exportMode === 'attach')
-								? [
-										{ value: 'webp', label: 'WebP' },
-										{
-											value: 'gif',
-											label: 'GIF',
-											disabled: !exportPages.every(
-												(page) => imageEditorPageAnimations(page).length > 0
-											)
-										}
-									]
-								: [])
-						]}
-						class="h-10 w-full"
-					/>
-				</label>
-				<label class="grid gap-1.5 text-sm">
-					<span class="font-medium">
-						{m.image_editor_quality({
-							quality: Math.round((editor.document?.export_defaults.quality ?? 0.92) * 100)
-						})}
-					</span>
-					<Slider
-						class="h-10"
-						min={0.5}
-						max={1}
-						step={0.01}
-						value={editor.document?.export_defaults.quality ?? 0.92}
-						disabled={!editor.canEdit || ['png', 'gif'].includes(exportFormat)}
-						ariaLabel={m.image_editor_quality({
-							quality: Math.round((editor.document?.export_defaults.quality ?? 0.92) * 100)
-						})}
-						onValueChange={(quality) => {
-							if (['png', 'gif'].includes(exportFormat) || !editor.document) return;
-							const nextQuality = Number(quality.toFixed(EXPORT_QUALITY_DECIMAL_PLACES));
-							const currentQuality = Number(
-								editor.document.export_defaults.quality.toFixed(EXPORT_QUALITY_DECIMAL_PLACES)
-							);
-							if (nextQuality === currentQuality) return;
-							editor.mutate(
-								'Change export quality',
-								(document) => {
-									document.export_defaults.quality = nextQuality;
-								},
-								'export-quality'
-							);
-						}}
-					/>
-				</label>
-			</div>
-
-			{#if exportFormat === 'gif'}
-				<p class="text-sm text-muted-foreground">{m.image_editor_animation_export_help()}</p>
-			{/if}
-			{#if exportHasTransparency && !exportSupportsTransparency}
-				<InlineNotice tone="warning">
-					<div class="grid gap-2">
-						<p class="text-sm leading-relaxed">{m.image_editor_jpeg_transparency_warning()}</p>
-						<ColorPicker
-							label={m.image_editor_jpeg_matte_color()}
-							value={editor.document?.export_defaults.matte_color ?? '#ffffff'}
-							disabled={!editor.canEdit}
-							brandColors={editor.brandKit?.colors ?? []}
-							recentColors={editor.recentColors}
-							onChange={(matteColor) =>
-								editor.mutate(
-									'Change export matte color',
-									(document) => {
-										document.export_defaults.matte_color = matteColor;
-									},
-									'export-matte-color'
-								)}
-							onCommit={(color) => editor.rememberColor(color)}
-						/>
-					</div>
-				</InlineNotice>
-			{/if}
-
-			{#if !guestMode}
-				<div class="space-y-2">
-					<p class="text-sm font-medium">{m.image_editor_export_destination()}</p>
-					<RadioGroup.Root bind:value={exportMode} class="grid gap-2 sm:grid-cols-2">
-						<label
-							class="flex min-h-14 cursor-pointer items-start gap-2 rounded-lg border p-3 has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
-						>
-							<RadioGroup.Item value="download" aria-label={m.image_editor_download()} />
-							<span class="grid gap-0.5">
-								<span class="text-sm font-medium">{m.image_editor_download()}</span>
-								<span class="text-xs text-muted-foreground"
-									>{m.image_editor_download_description()}</span
-								>
-							</span>
-						</label>
-						<label
-							class="flex min-h-14 cursor-pointer items-start gap-2 rounded-lg border p-3 has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5 has-data-disabled:cursor-not-allowed has-data-disabled:opacity-50"
-						>
-							<RadioGroup.Item
-								value="media"
-								disabled={!editor.canEdit}
-								aria-label={m.image_editor_media()}
-							/>
-							<span class="grid gap-0.5">
-								<span class="text-sm font-medium">{m.image_editor_media()}</span>
-								<span class="text-xs text-muted-foreground"
-									>{m.image_editor_media_description()}</span
-								>
-							</span>
-						</label>
-						{#if returnToken}
-							<label
-								class="flex min-h-14 cursor-pointer items-start gap-2 rounded-lg border p-3 has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5 sm:col-span-2"
-							>
-								<RadioGroup.Item
-									value="attach"
-									disabled={!editor.canEdit}
-									aria-label={attachLabel}
-								/>
-								<span class="grid gap-0.5">
-									<span class="text-sm font-medium">{attachLabel}</span>
-									<span class="text-xs text-muted-foreground"
-										>{coverHandoff
-											? m.compose_cover_return_description()
-											: m.image_editor_attach_description()}</span
-									>
-								</span>
-							</label>
-						{/if}
-					</RadioGroup.Root>
-				</div>
-			{/if}
-			{#if exportProgress}
-				<p class="text-sm text-muted-foreground" aria-live="polite">{exportProgress}</p>
-			{/if}
-			{#if exportError}
-				<p class="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-					{exportError}
-				</p>
-			{/if}
-		</div>
-		<Dialog.Footer>
-			<Button
-				variant="ghost"
-				onclick={() => (exportBusy ? cancelExport() : (exportDialogOpen = false))}
-			>
-				{m.common_cancel()}
-			</Button>
-			<Button
-				onclick={exportDesign}
-				disabled={exportBusy ||
-					exportPreviewBusy ||
-					!exportPreview ||
-					!editor.document ||
-					!exportBudget?.allowed}
-			>
-				{#if exportBusy}<ProtectedIcon
-						icon="loading"
-						class="animate-spin motion-reduce:animate-none"
-					/>{/if}
-				{exportMode === 'download'
-					? m.image_editor_download()
-					: exportMode === 'attach'
-						? coverHandoff
-							? attachLabel
-							: m.image_editor_export_attach()
-						: m.image_editor_export_media()}
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
-
-{#if exportToastVisible}
-	<AppToast
-		message={m.image_editor_export_downloaded()}
-		tone="success"
-		dismissLabel={m.common_dismiss()}
-		onDismiss={() => (exportToastVisible = false)}
-		actionLabel={guestMode ? m.image_editor_public_save_openpost() : undefined}
-		onAction={guestMode ? saveToOpenPost : undefined}
-	/>
-{/if}
+<ImageEditorExportDialog
+	bind:this={exportDialog}
+	bind:open={exportDialogOpen}
+	{guestMode}
+	{returnToken}
+	{coverHandoff}
+	{attachLabel}
+	isViewActive={() => editorViewActive}
+	{saveNow}
+	captureMutationView={captureEditorMutationView}
+	mutationViewIsCurrent={editorMutationViewIsCurrent}
+	onexported={(message) => {
+		suppressSavedAnnouncementUntil = Date.now() + 5_000;
+		statusAnnouncement = message;
+	}}
+	onannounce={(message) => (statusAnnouncement = message)}
+	onsaveguest={saveToOpenPost}
+/>
 
 <Dialog.Root bind:open={helpDialogOpen}>
 	<Dialog.Content class="sm:max-w-md">

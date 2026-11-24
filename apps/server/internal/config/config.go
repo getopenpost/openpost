@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/netip"
 	"net/url"
 	"os"
 	"slices"
@@ -55,6 +56,7 @@ type Config struct {
 	PublicURL                string
 	CORSOrigins              []string
 	TrustedProxyCIDRs        []string
+	AllowedPrivateCIDRs      []string
 	WorkflowsAIEnabled       bool
 	WorkflowsAIMonthlyCalls  int64
 	WebAuthnRPID             string
@@ -437,6 +439,12 @@ func finalizeLoadedConfig(cfg *Config, encryptionKeyIDErr error) {
 	for _, cidr := range strings.Split(getEnvDefault("OPENPOST_TRUSTED_PROXY_CIDRS", ""), ",") {
 		if cidr = strings.TrimSpace(cidr); cidr != "" {
 			cfg.TrustedProxyCIDRs = append(cfg.TrustedProxyCIDRs, cidr)
+		}
+	}
+	cfg.AllowedPrivateCIDRs = nil
+	for _, cidr := range strings.Split(getEnvDefault("OPENPOST_ALLOWED_PRIVATE_CIDRS", ""), ",") {
+		if cidr = strings.TrimSpace(cidr); cidr != "" {
+			cfg.AllowedPrivateCIDRs = append(cfg.AllowedPrivateCIDRs, cidr)
 		}
 	}
 	cfg.WorkflowsAIEnabled = getEnvBoolWithAliases(true, "OPENPOST_WORKFLOWS_AI_ENABLED")
@@ -906,6 +914,9 @@ func (c *Config) ValidateManagedSettings() error {
 	if c.Edition == EditionCloud && strings.TrimSpace(c.ConnectorsFile) != "" {
 		return fmt.Errorf("operator-installed connectors are limited to self-hosted deployments")
 	}
+	if c.Edition == EditionCloud && len(c.AllowedPrivateCIDRs) > 0 {
+		return fmt.Errorf("allowed private networks are limited to self-hosted deployments")
+	}
 	if invalid := c.invalidAuthenticationConfig(); len(invalid) > 0 {
 		return fmt.Errorf("invalid authentication configuration: %s", strings.Join(invalid, ", "))
 	}
@@ -1327,6 +1338,9 @@ func (c *Config) validateSecurityRuntime() error {
 			return fmt.Errorf("OPENPOST_TRUSTED_PROXY_CIDRS contains an invalid CIDR")
 		}
 	}
+	if _, err := c.AllowedPrivateNetworks(); err != nil {
+		return err
+	}
 	if c.WorkflowsAIMonthlyCalls < 0 {
 		return fmt.Errorf("OPENPOST_WORKFLOWS_AI_MONTHLY_CALL_LIMIT must be >= 0")
 	}
@@ -1334,6 +1348,20 @@ func (c *Config) validateSecurityRuntime() error {
 		return fmt.Errorf("%s", strings.Join(invalid, ", "))
 	}
 	return nil
+}
+
+// AllowedPrivateNetworks parses OPENPOST_ALLOWED_PRIVATE_CIDRS for
+// netguard.AllowPrivateNetworks.
+func (c *Config) AllowedPrivateNetworks() ([]netip.Prefix, error) {
+	prefixes := make([]netip.Prefix, 0, len(c.AllowedPrivateCIDRs))
+	for _, cidr := range c.AllowedPrivateCIDRs {
+		prefix, err := netguard.ParsePrivateNetworkPrefix(cidr)
+		if err != nil {
+			return nil, fmt.Errorf("OPENPOST_ALLOWED_PRIVATE_CIDRS contains an invalid CIDR")
+		}
+		prefixes = append(prefixes, prefix)
+	}
+	return prefixes, nil
 }
 
 // ClientReviewsEnabled is a rollout gate, not a permission. Enable only after

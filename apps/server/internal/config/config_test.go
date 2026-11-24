@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/netip"
 	"os"
 	"path/filepath"
 	"testing"
@@ -108,6 +109,7 @@ var configTestEnvKeys = []string{
 	"OPENPOST_EXTRA_CORS_ORIGINS",
 	"OPENPOST_CORS_EXTRA_ORIGINS",
 	"OPENPOST_TRUSTED_PROXY_CIDRS",
+	"OPENPOST_ALLOWED_PRIVATE_CIDRS",
 	"OPENPOST_WORKFLOWS_AI_ENABLED",
 	"OPENPOST_WORKFLOWS_AI_MONTHLY_CALL_LIMIT",
 	"X_CLIENT_ID",
@@ -159,6 +161,26 @@ var configTestEnvKeys = []string{
 	"OPENPOST_PADDLE_TEAM_ANNUAL_PRICE_ID",
 	"OPENPOST_PADDLE_AGENCY_MONTHLY_PRICE_ID",
 	"OPENPOST_PADDLE_AGENCY_ANNUAL_PRICE_ID",
+}
+
+func TestLoadAndValidateAllowedPrivateNetworks(t *testing.T) {
+	t.Setenv("OPENPOST_ALLOWED_PRIVATE_CIDRS", " 10.7.7.0/24, ::ffff:192.168.1.9/120 ,")
+
+	cfg := Load()
+	require.Equal(t, []string{"10.7.7.0/24", "::ffff:192.168.1.9/120"}, cfg.AllowedPrivateCIDRs)
+	prefixes, err := cfg.AllowedPrivateNetworks()
+	require.NoError(t, err)
+	require.Equal(t, []netip.Prefix{netip.MustParsePrefix("10.7.7.0/24"), netip.MustParsePrefix("192.168.1.0/24")}, prefixes)
+
+	cfg.AllowedPrivateCIDRs = []string{"10.7.7.5"}
+	require.EqualError(t, cfg.validateSecurityRuntime(), "OPENPOST_ALLOWED_PRIVATE_CIDRS contains an invalid CIDR")
+}
+
+func TestManagedEditionRejectsAllowedPrivateNetworks(t *testing.T) {
+	cfg := &Config{Edition: EditionCloud, AllowedPrivateCIDRs: []string{"10.7.7.0/24"}}
+
+	err := cfg.ValidateManagedSettings()
+	require.ErrorContains(t, err, "allowed private networks are limited to self-hosted deployments")
 }
 
 func TestValidateRuntimeRejectsInvalidEncryptionKeyringWithoutEchoingKeys(t *testing.T) {

@@ -37,6 +37,6 @@ The Fabric adapter applies the effect after grading and blur, before crop, masks
 
 ## Verify changes
 
-Use the configured frontend Vitest projects for `commands.test.ts`, `animation.test.ts`, `animation-render.svelte.test.ts`, portable-project and property-control tests. The Go handler roundtrip test verifies saved animation and lens properties and rejects invalid timing or effect values. `tests/app/image-editor-animation.spec.ts` covers the complete guest editing route at desktop, 390 px and 320 px in both schemes.
+Use the configured frontend Vitest projects for `commands.test.ts` and `portable-project.test.ts`, which round-trips animated image frames through local projects. The `image editor animation` block in `tests/app/image-editor.spec.ts` covers touch GIF edits that persist across reload and download as an animated GIF, at 390 px and 320 px in both schemes.
 
 The keyboard owner falls back to physical `KeyA` through `KeyZ` positions only for unmodified non-Latin tool keys. Typed Latin keys retain their layout mapping. Ctrl/Cmd, Alt, composition and dead keys keep their existing behavior. Input fields and Fabric text editing remain guarded by the shell's editable-target check.

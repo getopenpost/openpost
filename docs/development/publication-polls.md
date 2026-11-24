@@ -55,9 +55,7 @@ Removing the shared poll clears only generated poll text and settings. Independe
 
 ## Verification
 
-- `publications_polls_test.go` exercises real HTTP persistence, canonical-only edits, custom and omitted choices, deletion, legacy preservation, and unresolved validation.
-- `publicationpoll/poll_test.go` checks joined destination decisions.
-- `linkedin_test.go` checks the outgoing poll payload, question, commas and duration aliases.
+- `publicationpoll/poll_test.go` checks that joined destinations require explicit text or omission.
 - `compose-preview.test.ts` checks per-segment options and comma preservation.
-- `tests/app/composer-polls.spec.ts` checks editing, saving, reopening and editable text versions in both schemes at desktop, 390px and 320px. Provider readiness is a fixture; persistence uses the real API. It does not post to social networks.
-- `capability_destination_media_test.go` checks the real resolver's mixed thread fields, account limits, joined outputs and all-media exclusions. `tests/app/composer-thread-poll-media.spec.ts` checks real capability resolution, thread authoring, persisted poll projection, cold reopening and same-post media refusal. Synthetic credentials cannot publish.
+- The `polls` block in `tests/app/composer-authoring.spec.ts` checks shared choices, account text or omit decisions, the edit dialog, editable text versions and reopening a saved post. Provider readiness is a fixture; persistence uses the real API. It does not post to social networks.
+- `capability_destination_media_test.go` checks the real resolver's destination media fields across accounts.

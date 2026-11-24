@@ -5,6 +5,8 @@ import type { ProviderReadinessDecision } from '$lib/provider-readiness';
 import type { PostItem, VariantPost } from './draft-utils';
 import type { ComposerPublicationPayload } from './modes';
 import type { ComposerIssue } from './validation';
+import type { ComposerSettings } from './modes';
+import type { QueryMutationSession } from '$lib/query/authorization-boundary';
 
 export type Publication = components['schemas']['PublicationResponse'];
 export type SocialSet = components['schemas']['SocialSetResponse'];
@@ -33,13 +35,20 @@ export interface ComposerHost {
 	readonly composerDestroyed: boolean;
 	readonly selectedWorkspaceId: string;
 	readonly publicationId: string;
+	readonly isSubmitting: boolean;
 	error: string;
+	validationIssues: ValidationIssue[];
+	/** Increments when pending saves must no longer apply their results. */
+	readonly saveGeneration: number;
 	readonly accounts: SocialAccount[];
 	selectedAccountIds: string[];
 	readonly selectedAccounts: SocialAccount[];
 	selectedSocialSetId: string;
 	requestedOutputProfiles: Record<string, string>;
 	formatLockedByAccount: Record<string, boolean>;
+	readonly settingsByAccount: Record<string, ComposerSettings>;
+	readonly segmentSettingsByPost: Record<string, Record<string, ComposerSettings>>;
+	mediaSettingsByAccount: Record<string, Record<string, ComposerSettings>>;
 	posts: PostItem[];
 	activePostIndex: number;
 	readonly isThread: boolean;
@@ -54,9 +63,21 @@ export interface ComposerHost {
 	mediaPickerPostIndex: number;
 	mediaPickerInitialFiles: File[];
 	mediaPickerInitialMode: 'upload' | 'meme';
+	readonly clearPickerMeme: () => void;
 	readonly resolvedCapabilities: Record<string, ResolvedAccountCapabilityWithReadiness>;
 	readonly getVariantContent: (accountId: string, postKey: string) => string | null;
 	readonly getVariantPost: (accountId: string, postKey: string) => VariantPost | null;
+	readonly getVariantMediaIds: (accountId: string, postKey: string) => string[] | null;
+	readonly getEditorContentForPost: (post: PostItem) => string;
+	readonly getEditorMediaIdsForPost: (post: PostItem) => string[];
+	readonly setEditorMediaIds: (postIndex: number, mediaIds: string[]) => void;
+	readonly mergeMediaIds: (current: string[], incoming: string[]) => string[];
+	readonly settingsForAccount: (account: SocialAccount) => ComposerSettings;
+	readonly saveMutationViewIsCurrent: (
+		session: QueryMutationSession,
+		generation: number,
+		workspaceId: string
+	) => boolean;
 	readonly handleVariantChange: (
 		accountId: string,
 		index: number,
@@ -80,5 +101,6 @@ export interface ComposerHost {
 	}) => Promise<string | null>;
 	readonly scheduleAutoSave: () => void;
 	readonly resolveCapabilities: () => Promise<void>;
+	readonly scheduleCapabilityResolve: () => void;
 	readonly startFirstComposition: (signal: 'text' | 'media' | 'content_mode') => Promise<void>;
 }

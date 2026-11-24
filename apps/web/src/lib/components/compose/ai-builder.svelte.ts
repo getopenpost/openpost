@@ -1260,6 +1260,13 @@ export class ComposerAIBuilder {
 		return true;
 	};
 
+	/** Returns the media picker to plain uploads before it opens for another purpose. */
+	clearPickerMeme = () => {
+		this.mediaPickerMemeIdea = '';
+		this.mediaPickerMemeCandidate = undefined;
+		this.mediaPickerMemePreview = '';
+	};
+
 	keepCurrentComposerEdits = (): void => {
 		this.aiApplyPending = false;
 		this.aiPendingResult = null;

@@ -7,6 +7,9 @@ import type { ComposerPublicationPayload } from './modes';
 import type { ComposerIssue } from './validation';
 import type { ComposerSettings } from './modes';
 import type { QueryMutationSession } from '$lib/query/authorization-boundary';
+import type { ComposerHandoffPayload } from '$lib/composer/handoff-payload';
+import type { ComposerSession } from '$lib/composer/session';
+import type { ComposerRecoverySnapshot } from '$lib/editor-handoff';
 
 export type Publication = components['schemas']['PublicationResponse'];
 export type SocialSet = components['schemas']['SocialSetResponse'];
@@ -33,6 +36,8 @@ export type ProviderSettings = NonNullable<components['schemas']['RenditionInput
  */
 export interface ComposerHost {
 	readonly composerDestroyed: boolean;
+	/** The current page URL, read from the SvelteKit page store at call time. */
+	readonly pageURL: URL;
 	readonly selectedWorkspaceId: string;
 	readonly publicationId: string;
 	readonly isSubmitting: boolean;
@@ -50,6 +55,7 @@ export interface ComposerHost {
 	readonly segmentSettingsByPost: Record<string, Record<string, ComposerSettings>>;
 	mediaSettingsByAccount: Record<string, Record<string, ComposerSettings>>;
 	posts: PostItem[];
+	readonly activePost: PostItem;
 	activePostIndex: number;
 	readonly isThread: boolean;
 	variants: Map<string, Record<string, VariantPost>>;
@@ -64,6 +70,9 @@ export interface ComposerHost {
 	mediaPickerInitialFiles: File[];
 	mediaPickerInitialMode: 'upload' | 'meme';
 	readonly clearPickerMeme: () => void;
+	readonly settingsAccount: SocialAccount | null;
+	settingsAccountId: string;
+	settingsDialogOpen: boolean;
 	readonly resolvedCapabilities: Record<string, ResolvedAccountCapabilityWithReadiness>;
 	readonly getVariantContent: (accountId: string, postKey: string) => string | null;
 	readonly getVariantPost: (accountId: string, postKey: string) => VariantPost | null;
@@ -73,6 +82,12 @@ export interface ComposerHost {
 	readonly setEditorMediaIds: (postIndex: number, mediaIds: string[]) => void;
 	readonly mergeMediaIds: (current: string[], incoming: string[]) => string[];
 	readonly settingsForAccount: (account: SocialAccount) => ComposerSettings;
+	readonly visibleSettings: (account: SocialAccount, post?: PostItem) => SettingDefinition[];
+	readonly updateAccountSetting: (
+		account: SocialAccount,
+		key: string,
+		value: ProviderSettingValue
+	) => void;
 	readonly saveMutationViewIsCurrent: (
 		session: QueryMutationSession,
 		generation: number,
@@ -94,6 +109,16 @@ export interface ComposerHost {
 		force?: boolean
 	) => Promise<void>;
 	readonly generateMissingMediaAltText: (mediaIds: string[], postContext: string) => Promise<void>;
+	readonly sessionFor: (
+		workspaceId: string,
+		existingPublicationId?: string
+	) => Promise<ComposerSession>;
+	readonly canonicalPublicationForHandoff: () => Promise<Publication | null>;
+	readonly composerHandoffPayload: () => ComposerHandoffPayload;
+	readonly restoreComposerHandoff: (
+		snapshot: ComposerRecoverySnapshot,
+		returnToken: string
+	) => Promise<ComposerHandoffPayload>;
 	readonly saveDraft: (options?: {
 		saveAsCopy?: boolean;
 		scheduledAt?: string | null;

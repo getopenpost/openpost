@@ -82,6 +82,49 @@ func TestDiscordPublishWithMediaStreamsMultipart(t *testing.T) {
 	}
 }
 
+func TestDiscordWebhookVerificationDoesNotFollowRedirects(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+	calls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		calls++
+		return &http.Response{
+			StatusCode: http.StatusFound,
+			Header:     http.Header{"Location": {"https://example.com/collect"}},
+			Body:       io.NopCloser(strings.NewReader("")),
+			Request:    req,
+		}, nil
+	})}
+
+	_, err := NewDiscordAdapter().GetProfile(t.Context(), "https://discord.com/api/webhooks/123/secret")
+	if err == nil {
+		t.Fatal("expected redirect response to fail verification")
+	}
+	if calls != 1 {
+		t.Fatalf("expected one Discord request, got %d", calls)
+	}
+}
+
+func TestDiscordBotAuthURLUsesInstallAndGuildSelectionScopes(t *testing.T) {
+	adapter := NewDiscordBotAdapter("app-123", "secret", "bot-secret", "https://openpost.test/api/v1/accounts/discord/callback")
+	raw, _ := adapter.GenerateAuthURL("state-token")
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Host != "discord.com" || parsed.Path != "/oauth2/authorize" {
+		t.Fatalf("unexpected authorization URL %s", raw)
+	}
+	query := parsed.Query()
+	if query.Get("state") != "state-token" || query.Get("scope") != "identify guilds bot" {
+		t.Fatalf("unexpected OAuth query %v", query)
+	}
+	// Discord requires View Channel, Send Messages, Embed Links, Attach Files, and Read Message History.
+	if query.Get("permissions") != "117760" {
+		t.Fatalf("unexpected bot permissions %q", query.Get("permissions"))
+	}
+}
+
 func TestDiscordBotExchangesAuthorizationCodeWithoutBotToken(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()
@@ -196,6 +239,83 @@ func TestDiscordBotListsOnlyPermittedTextAndAnnouncementChannels(t *testing.T) {
 	got := groups["discord_channels"]
 	if len(got) != 2 || got[0].Value != "announcement" || got[1].Value != "text" {
 		t.Fatalf("unexpected permitted channels %#v", got)
+	}
+}
+
+func TestDiscordBotAttachmentPermissionLossFailsBeforeMessageMutation(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	messageMutations := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Path {
+		case "/api/v10/guilds/100":
+			// View Channel and Send Messages are granted, Attach Files is not.
+			return jsonResponse(request, `{"id":"100","roles":[{"id":"100","permissions":"3072"}]}`), nil
+		case "/api/v10/users/@me":
+			return jsonResponse(request, `{"id":"bot-1"}`), nil
+		case "/api/v10/guilds/100/members/bot-1":
+			return jsonResponse(request, `{"user":{"id":"bot-1"}}`), nil
+		case "/api/v10/guilds/100/channels":
+			return jsonResponse(request, `[{"id":"channel-1","guild_id":"100","name":"general","type":0}]`), nil
+		case "/api/v10/channels/channel-1/messages":
+			messageMutations++
+			_, _ = io.Copy(io.Discard, request.Body)
+			return jsonResponse(request, `{"id":"message-1","channel_id":"channel-1"}`), nil
+		default:
+			t.Fatalf("unexpected request %s", request.URL.String())
+			return nil, errors.New("unexpected request")
+		}
+	})}
+
+	writeStarted := false
+	request := &PublishRequest{Content: "Launch update", Settings: map[string]interface{}{"channel_id": "channel-1"}}
+	request.SetWriteFence(func(PublishResult) error { writeStarted = true; return nil }, nil)
+	_, err := NewDiscordBotAdapter("app", "secret", "global-bot-token", "https://openpost.test/callback").PublishWithMedia(
+		t.Context(), "ignored", "100", request,
+		[]UploadMediaRequest{{MimeType: "image/png", Filename: "launch.png", Size: 11, Reader: strings.NewReader("image-bytes")}},
+	)
+	var providerError *HTTPError
+	if !errors.As(err, &providerError) || providerError.Code != discordAttachmentPermissionLostCode || writeStarted || messageMutations != 0 {
+		t.Fatalf("attachment permission loss must block before write: error %v, started %t, mutations %d", err, writeStarted, messageMutations)
+	}
+}
+
+func TestDiscordBotPermissionLossFailsBeforeMessageMutation(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	postCalls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.Method == http.MethodPost {
+			postCalls++
+			t.Fatalf("message mutation must not run after permission loss")
+		}
+		switch req.URL.Path {
+		case "/api/v10/guilds/100":
+			return jsonResponse(req, `{"id":"100","roles":[{"id":"100","permissions":"3072"}]}`), nil
+		case "/api/v10/users/@me":
+			return jsonResponse(req, `{"id":"bot-1"}`), nil
+		case "/api/v10/guilds/100/members/bot-1":
+			return jsonResponse(req, `{"user":{"id":"bot-1"}}`), nil
+		case "/api/v10/guilds/100/channels":
+			return jsonResponse(req, `[{"id":"channel-1","guild_id":"100","name":"private","type":0,"permission_overwrites":[{"id":"100","type":0,"allow":"0","deny":"2048"}]}]`), nil
+		default:
+			t.Fatalf("unexpected request %s", req.URL.String())
+			return nil, errors.New("unexpected request")
+		}
+	})}
+
+	writeStarted := false
+	req := &PublishRequest{Content: "Do not send", Settings: map[string]interface{}{"channel_id": "channel-1"}}
+	req.SetWriteFence(func(PublishResult) error { writeStarted = true; return nil }, nil)
+	_, err := NewDiscordBotAdapter("app", "secret", "global-bot-token", "https://openpost.test/callback").Publish(t.Context(), "ignored", "100", req)
+	var providerErr *HTTPError
+	if !errors.As(err, &providerErr) || providerErr.StatusCode != http.StatusForbidden || providerErr.Code != discordChannelPermissionLostCode {
+		t.Fatalf("expected safe permission error, got %v", err)
+	}
+	if writeStarted || postCalls != 0 {
+		t.Fatalf("mutation boundary crossed after permission loss: write=%v posts=%d", writeStarted, postCalls)
 	}
 }
 

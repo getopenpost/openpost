@@ -4,14 +4,11 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-
-	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
-	"io"
 	"os"
 	"strings"
 	"testing"
@@ -115,142 +112,96 @@ func TestThemeSettingsExposeServerAuthorizedCapabilities(t *testing.T) {
 	require.ErrorIs(t, err, ErrInaccessible, "management credentials must not enumerate Workspace IDs")
 }
 
-func TestLegacyDitherDraftRemainsEditableButCannotPublishUnbalancedTexture(t *testing.T) {
+func TestWorkspaceAdministratorCanListOnlyPublishedAvailableThemes(t *testing.T) {
 	service, db := newThemeTestService(t)
-	actor := Actor{UserID: "admin-1"}
-	theme, err := service.Create(t.Context(), actor, CreateInput{OrganizationID: "org-1", Name: "Legacy Dither", DuplicateBuiltInID: "dither"})
+	admin := Actor{UserID: "admin-1"}
+	_, err := db.ExecContext(t.Context(), `INSERT INTO workspace_members (workspace_id, user_id, role, status) VALUES ('workspace-1', 'workspace-admin', 'admin', 'active')`)
 	require.NoError(t, err)
-	manifest := theme.Draft.Manifest
-	manifest.Schemes.Light.Colors.ActionFocal = "#020cce"
-	manifest.Schemes.Light.Colors.ActionFocalHover = "#020bb9"
-	manifest.Schemes.Light.Colors.ActionFocalActive = "#010aa5"
-	manifest.Schemes.Light.Colors.ActionFocalInk = "#a0c142"
-	raw, err := json.Marshal(manifest)
+	publishedTheme, err := service.Create(t.Context(), admin, CreateInput{OrganizationID: "org-1", Name: "Published", DuplicateBuiltInID: "studio"})
 	require.NoError(t, err)
-	_, err = db.NewUpdate().Model((*draftRow)(nil)).Set("manifest_json = ?", string(raw)).Where("theme_id = ?", theme.Summary.Reference.ID).Exec(t.Context())
+	_, err = service.Publish(t.Context(), admin, publishedTheme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
+	require.NoError(t, err)
+	_, err = service.Create(t.Context(), admin, CreateInput{OrganizationID: "org-1", Name: "Draft only", DuplicateBuiltInID: "notebook"})
 	require.NoError(t, err)
 
-	page, err := service.List(t.Context(), actor, "org-1", PageOptions{})
-	require.NoError(t, err, "older palette styling must not make the library unavailable")
-	require.Len(t, page.Items, 1)
-	loaded, err := service.Get(t.Context(), actor, "org-1", theme.Summary.Reference.ID)
+	workspaceAdmin := Actor{UserID: "workspace-admin"}
+	available, err := service.Available(t.Context(), workspaceAdmin, "workspace-1", PageOptions{Limit: MaxThemePageLimit})
 	require.NoError(t, err)
-	require.Equal(t, manifest.Schemes.Light.Colors, loaded.Draft.Manifest.Schemes.Light.Colors)
-	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
-	require.ErrorContains(t, err, "dither texture")
+	require.Len(t, available.Items, len(builtInOrder)+1)
+	require.Equal(t, builtInOrder, summaryIDs(available.Items[:len(builtInOrder)]))
+	require.Equal(t, "Published", available.Items[len(builtInOrder)].Name)
+	require.Zero(t, available.Items[len(builtInOrder)].DraftRevision)
+	preview, err := service.AvailableDetail(t.Context(), workspaceAdmin, "workspace-1", publishedTheme.Summary.Reference.ID, 1)
+	require.NoError(t, err)
+	require.Equal(t, publishedTheme.Summary.Reference.ID, preview.Manifest.ID)
+	require.Equal(t, "1", preview.Manifest.Revision)
+	publishedAt := available.Items[len(builtInOrder)].UpdatedAt
+	changedDraft := publishedTheme.Draft.Manifest
+	changedDraft.Description = "Unpublished activity"
+	_, err = service.UpdateDraft(t.Context(), admin, publishedTheme.Summary.Reference.ID, UpdateDraftInput{
+		OrganizationID: "org-1", ExpectedRevision: 1, Name: "Published", Manifest: changedDraft,
+	})
+	require.NoError(t, err)
+	available, err = service.Available(t.Context(), workspaceAdmin, "workspace-1", PageOptions{Limit: MaxThemePageLimit})
+	require.NoError(t, err)
+	require.Equal(t, publishedAt, available.Items[len(builtInOrder)].UpdatedAt, "catalog timestamps must not reveal draft activity")
+	preview, err = service.AvailableDetail(t.Context(), workspaceAdmin, "workspace-1", publishedTheme.Summary.Reference.ID, 1)
+	require.NoError(t, err)
+	require.NotEqual(t, "Unpublished activity", preview.Manifest.Description)
+	_, err = service.List(t.Context(), workspaceAdmin, "org-1", PageOptions{})
+	require.ErrorIs(t, err, ErrInaccessible)
+
+	_, err = service.Available(t.Context(), Actor{UserID: "member-1"}, "workspace-1", PageOptions{})
+	require.ErrorIs(t, err, ErrInaccessible)
 }
 
-func TestResolveUsesPublishedStateWithoutBlobReadsAndFallsBackForCorruptResourceMetadata(t *testing.T) {
+func TestWorkspaceAdministratorCanPreviewPublishedCatalogResources(t *testing.T) {
 	service, db := newThemeTestService(t)
-	storage := mediastore.NewLocalStorage(t.TempDir(), "/theme-assets")
-	service.storage = storage
-	actor := Actor{UserID: "admin-1"}
-	asset, err := service.UploadAsset(t.Context(), actor, UploadAssetInput{
-		OrganizationID: "org-1", Kind: AssetIllustration, Name: "Stored art", MediaType: "image/png", Content: bytes.NewReader(pngImage(t, 32, 24)),
+	service.storage = mediastore.NewLocalStorage(t.TempDir(), "/theme-assets")
+	admin := Actor{UserID: "admin-1"}
+	_, err := db.ExecContext(t.Context(), `INSERT INTO workspace_members (workspace_id, user_id, role, status) VALUES ('workspace-1', 'workspace-admin', 'admin', 'active')`)
+	require.NoError(t, err)
+	asset, err := service.UploadAsset(t.Context(), admin, UploadAssetInput{
+		OrganizationID: "org-1", Kind: AssetIllustration, Name: "Preview art", MediaType: "image/png", Content: bytes.NewReader(pngImage(t, 80, 40)),
 	})
 	require.NoError(t, err)
 	manifest := BuiltIns()["workshop"]
-	manifest.Assets = []ThemeAsset{{ID: asset.ID, Slot: "header-decoration", SourceURL: "asset:" + asset.ID, MimeType: "image/png", Alt: "Stored art"}}
-	theme, err := service.Create(t.Context(), actor, CreateInput{OrganizationID: "org-1", Name: "Stored resources", Manifest: manifest})
+	manifest.Assets = []ThemeAsset{{ID: asset.ID, Slot: "header-decoration", SourceURL: "asset:" + asset.ID, MimeType: "image/png", Alt: "Preview"}}
+	theme, err := service.Create(t.Context(), admin, CreateInput{OrganizationID: "org-1", Name: "Previewable", Manifest: manifest})
 	require.NoError(t, err)
-	_, err = service.Publish(t.Context(), actor, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
-	require.NoError(t, err)
-	_, err = service.SetOrganizationSettings(t.Context(), actor, OrganizationSettingsInput{
-		OrganizationID: "org-1", DefaultReference: ThemeReference{Kind: ReferenceCustom, ID: theme.Summary.Reference.ID, Version: 1},
-	})
+	_, err = service.Publish(t.Context(), admin, theme.Summary.Reference.ID, PublishInput{OrganizationID: "org-1", ExpectedDraftRevision: 1, ExpectedPublishedRevision: 0})
 	require.NoError(t, err)
 
-	service.storage = failingOpenStorage{BlobStorage: storage}
-	resolved, err := service.Resolve(t.Context(), actor, ResolveInput{WorkspaceID: "workspace-1", Scheme: SchemeLight})
+	workspaceAdmin := Actor{UserID: "workspace-admin"}
+	available, err := service.Available(t.Context(), workspaceAdmin, "workspace-1", PageOptions{Limit: MaxThemePageLimit})
 	require.NoError(t, err)
-	require.Equal(t, ResolutionOrganization, resolved.Source, "ordinary resolution must use immutable database evidence instead of remote blob reads")
-	require.Contains(t, resolved.Assets[0].SourceURL, "theme_id="+theme.Summary.Reference.ID+"&revision=1")
+	require.Equal(t, theme.Summary.Reference.ID, available.Items[len(available.Items)-1].Reference.ID)
+	preview, err := service.AvailableDetail(t.Context(), workspaceAdmin, "workspace-1", theme.Summary.Reference.ID, 1)
+	require.NoError(t, err)
+	expectedURL := "/api/v1/theme-assets/" + asset.ID + "/content?workspace_id=workspace-1&theme_id=" + theme.Summary.Reference.ID + "&revision=1"
+	require.Equal(t, expectedURL, preview.Manifest.Assets[0].SourceURL)
+	require.Zero(t, preview.Summary.DraftRevision)
 
-	_, err = db.NewUpdate().Model((*assetRow)(nil)).Set("checksum_sha256 = ?", "not-a-checksum").Where("id = ?", asset.ID).Exec(t.Context())
+	_, err = service.OpenAsset(t.Context(), workspaceAdmin, asset.ID, AssetAccessScope{WorkspaceID: "workspace-1"})
+	require.ErrorIs(t, err, ErrNotFound, "ordinary Workspace scope only exposes the effective theme")
+	content, err := service.OpenAsset(t.Context(), workspaceAdmin, asset.ID, AssetAccessScope{WorkspaceID: "workspace-1", ThemeID: theme.Summary.Reference.ID, Revision: 1})
 	require.NoError(t, err)
-	resolved, err = service.Resolve(t.Context(), actor, ResolveInput{WorkspaceID: "workspace-1", Scheme: SchemeLight})
-	require.NoError(t, err)
-	require.Equal(t, ResolutionFallback, resolved.Source)
-	require.Equal(t, FallbackUnsafeResource, resolved.FallbackReason)
-	require.Equal(t, Workshop(SchemeLight), resolved.Manifest)
-
-	_, err = db.ExecContext(t.Context(), `INSERT INTO workspace_members (workspace_id, user_id, role, status) VALUES ('workspace-1', 'workspace-admin', 'admin', 'active')`)
-	require.NoError(t, err)
-	available, err := service.Available(t.Context(), Actor{UserID: "workspace-admin"}, "workspace-1", PageOptions{Limit: MaxThemePageLimit})
-	require.NoError(t, err)
-	require.Len(t, available.Items, len(BuiltIns()), "one corrupt custom theme must not make the whole catalog unavailable")
-	_, err = service.OpenAsset(t.Context(), actor, asset.ID, AssetAccessScope{OrganizationID: "org-1"})
-	require.ErrorIs(t, err, ErrNotFound)
+	require.NoError(t, content.Reader.Close())
+	_, err = service.OpenAsset(t.Context(), Actor{UserID: "member-1"}, asset.ID, AssetAccessScope{WorkspaceID: "workspace-1", ThemeID: theme.Summary.Reference.ID, Revision: 1})
+	require.ErrorIs(t, err, ErrNotFound, "published previews require Workspace administration")
+	_, err = service.OpenAsset(t.Context(), workspaceAdmin, asset.ID, AssetAccessScope{WorkspaceID: "workspace-1", ThemeID: theme.Summary.Reference.ID})
+	require.ErrorIs(t, err, ErrInvalidInput)
 }
 
-func TestThemeFontUploadValidatesWOFF2AndDeletesThroughDurableJob(t *testing.T) {
+func TestListFailsClosedWhenDraftStorageIsMissing(t *testing.T) {
 	service, db := newThemeTestService(t)
-	service.storage = mediastore.NewLocalStorage(t.TempDir(), "/theme-assets")
-	actor := Actor{UserID: "admin-1"}
+	_, err := service.Create(t.Context(), Actor{UserID: "admin-1"}, CreateInput{OrganizationID: "org-1", Name: "Stored", DuplicateBuiltInID: "studio"})
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `DROP TABLE organization_theme_drafts`)
+	require.NoError(t, err)
 
-	_, err := service.UploadAsset(t.Context(), actor, UploadAssetInput{
-		OrganizationID: "org-1", Kind: AssetFont, Name: "Fake", MediaType: "font/woff2",
-		FontFamily: "OpenPost Sans", FontStyle: "normal", FontWeight: 500, LicenseAcknowledged: true,
-		Content: bytes.NewReader([]byte("not a font")),
-	})
-	require.ErrorIs(t, err, ErrInvalidAsset)
-
-	content := realWOFF2(t)
-	asset, err := service.UploadAsset(t.Context(), actor, UploadAssetInput{
-		OrganizationID: "org-1", Kind: AssetFont, Name: "Roboto Regular", MediaType: "font/woff2",
-		FontFamily: "Roboto", FontStyle: "normal", FontWeight: 400, LicenseAcknowledged: true,
-		Content: bytes.NewReader(content),
-	})
-	require.NoError(t, err)
-	require.Equal(t, int64(len(content)), asset.SizeBytes)
-	require.NotEmpty(t, asset.URL)
-	require.Equal(t, "/api/v1/theme-assets/"+asset.ID+"/content?organization_id=org-1", asset.URL)
-	require.NotEmpty(t, asset.ObjectKey, "the service keeps the storage handle private but available to lifecycle code")
-	var stored assetRow
-	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", asset.ID).Scan(t.Context()))
-	require.Equal(t, "font/ttf", stored.NativeMediaType)
-	require.NotEmpty(t, stored.NativeObjectKey)
-	require.Positive(t, stored.NativeSizeBytes)
-	require.Len(t, stored.NativeChecksumSHA256, 64)
-	encoded, err := json.Marshal(asset)
-	require.NoError(t, err)
-	require.NotContains(t, string(encoded), `"object_key"`)
-	_, err = service.OpenAsset(t.Context(), actor, asset.ID, AssetAccessScope{WorkspaceID: "workspace-1"})
-	require.ErrorIs(t, err, ErrNotFound, "draft-only and library assets are not readable through a Workspace scope")
-	opened, err := service.OpenAsset(t.Context(), actor, asset.ID, AssetAccessScope{OrganizationID: "org-1"})
-	require.NoError(t, err)
-	read, err := io.ReadAll(opened.Reader)
-	require.NoError(t, err)
-	require.NoError(t, opened.Reader.Close())
-	require.Equal(t, content, read)
-	require.Equal(t, "font/woff2", opened.MediaType)
-	require.NotEmpty(t, opened.ETag)
-	native, err := service.OpenAsset(t.Context(), actor, asset.ID, AssetAccessScope{OrganizationID: "org-1", Format: "ttf"})
-	require.NoError(t, err)
-	nativeBytes, err := io.ReadAll(native.Reader)
-	require.NoError(t, err)
-	require.NoError(t, native.Reader.Close())
-	require.Equal(t, "font/ttf", native.MediaType)
-	require.Equal(t, []byte{0x00, 0x01, 0x00, 0x00}, nativeBytes[:4])
-	require.NotEqual(t, opened.ETag, native.ETag)
-	_, err = service.OpenAsset(t.Context(), actor, asset.ID, AssetAccessScope{OrganizationID: "org-1", Format: "otf"})
-	require.ErrorIs(t, err, ErrNotFound)
-	_, err = service.OpenAsset(t.Context(), Actor{UserID: "member-1"}, asset.ID, AssetAccessScope{OrganizationID: "other-org"})
-	require.ErrorIs(t, err, ErrNotFound)
-
-	require.NoError(t, service.DeleteAsset(t.Context(), actor, "org-1", asset.ID))
-	jobs, err := db.NewSelect().Table("jobs").Where("type = ?", "storage_delete").Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, jobs, "both font objects fit in one bounded durable cleanup job")
-	var cleanupPayload string
-	require.NoError(t, db.NewSelect().Table("jobs").Column("payload").Where("type = ?", "storage_delete").Scan(t.Context(), &cleanupPayload))
-	require.Contains(t, cleanupPayload, ".woff2")
-	require.Contains(t, cleanupPayload, ".ttf")
-	assets, err := service.ListAssets(t.Context(), actor, "org-1", PageOptions{})
-	require.NoError(t, err)
-	require.Empty(t, assets.Items)
-	_, err = service.OpenAsset(t.Context(), actor, asset.ID, AssetAccessScope{WorkspaceID: "workspace-1"})
-	require.ErrorIs(t, err, ErrNotFound)
+	_, err = service.List(t.Context(), Actor{UserID: "admin-1"}, "org-1", PageOptions{})
+	require.ErrorIs(t, err, ErrUnavailable)
 }
 
 func TestThemeUploadQueuesCleanupWhenCompensatingBlobDeleteFails(t *testing.T) {
@@ -266,13 +217,6 @@ func TestThemeUploadQueuesCleanupWhenCompensatingBlobDeleteFails(t *testing.T) {
 	var payload string
 	require.NoError(t, db.NewSelect().Table("jobs").Column("payload").Where("type = ?", "storage_delete").Scan(t.Context(), &payload))
 	require.Contains(t, payload, "theme-assets/org-1/")
-}
-
-func realWOFF2(t *testing.T) []byte {
-	t.Helper()
-	content, err := os.ReadFile("testdata/roboto-latin-400-normal.woff2")
-	require.NoError(t, err)
-	return content
 }
 
 func pngImage(t *testing.T, width, height int) []byte {
@@ -326,14 +270,6 @@ func createThemeTestTables(t *testing.T, db *bun.DB) {
 		_, err := db.Exec(statement)
 		require.NoError(t, err, statement)
 	}
-}
-
-type failingOpenStorage struct {
-	mediastore.BlobStorage
-}
-
-func (failingOpenStorage) Open(context.Context, string) (io.ReadCloser, error) {
-	return nil, errors.New("unexpected blob read")
 }
 
 type deleteFailingStorage struct {

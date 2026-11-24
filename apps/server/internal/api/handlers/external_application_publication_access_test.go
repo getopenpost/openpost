@@ -15,7 +15,6 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/apitokens"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,8 +59,8 @@ func TestExternalApplicationPublicationWritersRequireStoredAccountGrants(t *test
 				}
 				_, err = db.NewInsert().Model(&publication).Exec(t.Context())
 				require.NoError(t, err)
-				seedHandlerAccount(t, db, "account-1")
-				seedHandlerAccount(t, db, "account-2")
+				seedHandlerAccount(t, db, "account-1", "x")
+				seedHandlerAccount(t, db, "account-2", "x")
 				seedHandlerRendition(t, db, "rendition-1", publication.ID, "account-1", "x", "Original content", models.RenditionStatusDraft)
 				_, err = db.NewInsert().Model(&models.ExternalAppAccountGrant{InstallationID: "installation-1", WorkspaceID: "workspace-1", SocialAccountID: "account-2"}).Exec(t.Context())
 				require.NoError(t, err)
@@ -118,4 +117,37 @@ func TestExternalApplicationPublicationWritersRequireStoredAccountGrants(t *test
 			})
 		}
 	}
+}
+
+func TestExternalApplicationPublicationActionsRequireEveryDestinationGrant(t *testing.T) {
+	t.Parallel()
+	db := createHandlerTestDB(t, (*models.Rendition)(nil), (*models.ExternalAppAccountGrant)(nil))
+	ctx := context.WithValue(t.Context(), middleware.InstallationIDKey, "installation-1")
+	handler := NewPublicationHandler(db, nil, nil)
+	_, err := db.NewInsert().Model(&[]models.Rendition{
+		{ID: "rendition-1", PublicationID: "publication-1", SocialAccountID: "account-1", TargetKey: "x:account-1"},
+		{ID: "rendition-2", PublicationID: "publication-1", SocialAccountID: "account-2", TargetKey: "x:account-2"},
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.ExternalAppAccountGrant{InstallationID: "installation-1", WorkspaceID: "workspace-1", SocialAccountID: "account-1"}).Exec(ctx)
+	require.NoError(t, err)
+
+	err = handler.requireExternalPublicationAccounts(ctx, "publication-1")
+	require.Error(t, err)
+
+	_, err = db.NewInsert().Model(&models.ExternalAppAccountGrant{InstallationID: "installation-1", WorkspaceID: "workspace-1", SocialAccountID: "account-2"}).Exec(ctx)
+	require.NoError(t, err)
+	require.NoError(t, handler.requireExternalPublicationAccounts(ctx, "publication-1"))
+}
+
+func TestExternalApplicationScheduleFieldsRequireScheduleOrCancelScope(t *testing.T) {
+	t.Parallel()
+	ctx := context.WithValue(t.Context(), middleware.InstallationIDKey, "installation-1")
+	ctx = context.WithValue(ctx, middleware.DelegatedScopesKey, "drafts:write")
+	require.Error(t, requireExternalDelegatedScope(ctx, "publications:schedule"))
+	require.Error(t, requireExternalDelegatedScope(ctx, "publications:cancel"))
+
+	ctx = context.WithValue(ctx, middleware.DelegatedScopesKey, "drafts:write publications:schedule publications:cancel")
+	require.NoError(t, requireExternalDelegatedScope(ctx, "publications:schedule"))
+	require.NoError(t, requireExternalDelegatedScope(ctx, "publications:cancel"))
 }

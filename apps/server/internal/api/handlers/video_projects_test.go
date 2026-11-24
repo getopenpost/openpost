@@ -15,7 +15,6 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/apitokens"
-
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )

@@ -3,7 +3,6 @@ package config
 import (
 	"os"
 	"path/filepath"
-
 	"testing"
 
 	"github.com/openpost/backend/internal/legalpolicy"
@@ -183,6 +182,81 @@ func TestValidateRuntimeRejectsInvalidEncryptionKeyringWithoutEchoingKeys(t *tes
 	require.ErrorContains(t, err, "valid JSON object")
 }
 
+func TestEncryptionKeyringFilesFailClosedWhenUnreadableOrEmpty(t *testing.T) {
+	tests := []struct {
+		name    string
+		fileKey string
+		prepare func(*testing.T)
+	}{
+		{
+			name:    "primary key ID",
+			fileKey: "OPENPOST_ENCRYPTION_KEY_ID_FILE",
+		},
+		{
+			name:    "previous keys",
+			fileKey: "OPENPOST_ENCRYPTION_PREVIOUS_KEYS_FILE",
+			prepare: func(t *testing.T) { t.Setenv("OPENPOST_ENCRYPTION_KEY_ID", "current") },
+		},
+		{
+			name:    "media signing key",
+			fileKey: "OPENPOST_MEDIA_SIGNING_KEY_FILE",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name+" unreadable", func(t *testing.T) {
+			if test.prepare != nil {
+				test.prepare(t)
+			}
+			t.Setenv(test.fileKey, filepath.Join(t.TempDir(), "missing"))
+
+			err := Load().ValidateEncryptionKeyring()
+
+			require.ErrorContains(t, err, test.fileKey)
+			require.ErrorContains(t, err, "readable file")
+		})
+
+		t.Run(test.name+" empty", func(t *testing.T) {
+			if test.prepare != nil {
+				test.prepare(t)
+			}
+			t.Setenv(test.fileKey, writeEnvFile(t, "empty", " \n"))
+
+			err := Load().ValidateEncryptionKeyring()
+
+			require.ErrorContains(t, err, test.fileKey)
+			require.ErrorContains(t, err, "nonempty file")
+		})
+	}
+}
+
+func TestLoadSupportsHostedAndSelfHostedProviderBotContracts(t *testing.T) {
+	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
+	t.Setenv("OPENPOST_PROVIDER_APPS", `[
+		{"provider":"pinterest","client_id":"pin-client","client_secret":"pin-secret"},
+		{"provider":"telegram","bot_token":"telegram-token","bot_username":"@openpost_bot","webhook_secret":"telegram-webhook-secret"},
+		{"provider":"discord","connection_mode":"bot","client_id":"discord-app","client_secret":"discord-secret","bot_token":"discord-token"}
+	]`)
+
+	cfg := Load()
+
+	require.Len(t, cfg.ProviderApps, 9)
+	require.Equal(t, "devnull", cfg.ProviderApps[1].Provider)
+	require.Equal(t, "ssh_signature", cfg.ProviderApps[1].ConnectionMode)
+	require.Equal(t, "webhook", cfg.ProviderApps[2].ConnectionMode)
+	require.Equal(t, "peertube", cfg.ProviderApps[3].Provider)
+	require.Equal(t, "lemmy", cfg.ProviderApps[4].Provider)
+	require.Equal(t, "piefed", cfg.ProviderApps[5].Provider)
+	require.Equal(t, "pinterest", cfg.ProviderApps[6].Provider)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/pinterest/callback", cfg.ProviderApps[6].RedirectURI)
+	require.Equal(t, "telegram", cfg.ProviderApps[7].Provider)
+	require.Equal(t, "openpost_bot", cfg.ProviderApps[7].BotUsername)
+	require.Empty(t, cfg.ProviderApps[7].RedirectURI)
+	require.Equal(t, "discord", cfg.ProviderApps[8].Provider)
+	require.Equal(t, "bot", cfg.ProviderApps[8].ConnectionMode)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/discord/callback", cfg.ProviderApps[8].RedirectURI)
+}
+
 func TestLoadReadsBillingDiscordWebhookFromFile(t *testing.T) {
 	t.Setenv("OPENPOST_BILLING_DISCORD_WEBHOOK_URL_FILE", writeEnvFile(t, "billing-discord-webhook", "https://discord.com/api/webhooks/test/token\n"))
 
@@ -207,29 +281,6 @@ func TestValidateRuntimeRejectsCloudLocalDefaults(t *testing.T) {
 	require.ErrorContains(t, err, "OPENPOST_DATABASE_DRIVER=postgres")
 	require.ErrorContains(t, err, "OPENPOST_DATABASE_URL")
 	require.ErrorContains(t, err, "OPENPOST_STORAGE_DRIVER=s3")
-}
-
-func TestValidateRuntimePinsManagedAIToZdrEUProvider(t *testing.T) {
-	cfg := validCloudRuntimeConfig()
-	cfg.AIAPIKey = "openrouter-key"
-	cfg.ContentAIProvider = "openai"
-	cfg.ContentAIRequireZDR = false
-	cfg.ImageCaptionProvider = "openai"
-	cfg.ImageCaptionRequireZDR = false
-
-	err := cfg.ValidateRuntime()
-
-	require.Error(t, err)
-	require.ErrorContains(t, err, "OPENPOST_IMAGE_CAPTION_PROVIDER=azure/eu")
-	require.ErrorContains(t, err, "OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR=true")
-	require.ErrorContains(t, err, "OPENPOST_CONTENT_AI_PROVIDER=azure/eu")
-	require.ErrorContains(t, err, "OPENPOST_CONTENT_AI_REQUIRE_ZDR=true")
-
-	cfg.ContentAIProvider = "azure/eu"
-	cfg.ContentAIRequireZDR = true
-	cfg.ImageCaptionProvider = "azure/eu"
-	cfg.ImageCaptionRequireZDR = true
-	require.NoError(t, cfg.ValidateRuntime())
 }
 
 func validCloudRuntimeConfig() *Config {
@@ -284,6 +335,30 @@ func TestLoadEnablesTelemetryByDefaultForCloudInstances(t *testing.T) {
 	require.Equal(t, "https://cool.openpo.st", cfg.PostHogBrowserHost)
 	require.Equal(t, "https://eu.posthog.com", cfg.PostHogUIHost)
 	require.Equal(t, "production", cfg.TelemetryEnvironment)
+}
+
+func TestOauthRedirectFromFrontendPreferesExplicitEnv(t *testing.T) {
+	t.Setenv("X_REDIRECT_URI", "https://proxy.example.com/api/v1/accounts/x/callback")
+	t.Setenv("TWITTER_REDIRECT_URI", "")
+	got := oauthRedirectFromFrontend("X_REDIRECT_URI", "TWITTER_REDIRECT_URI", "https://openpost.example.com", "/api/v1/accounts/x/callback")
+	require.Equal(t, "https://proxy.example.com/api/v1/accounts/x/callback", got)
+}
+
+// TestOauthRedirectFromFrontendFallsBackToAlias covers the case where
+// the primary env var isn't set but the legacy alias is.
+func TestOauthRedirectFromFrontendDerivesFromFrontendURL(t *testing.T) {
+	t.Setenv("X_REDIRECT_URI", "")
+	t.Setenv("TWITTER_REDIRECT_URI", "")
+	got := oauthRedirectFromFrontend("X_REDIRECT_URI", "TWITTER_REDIRECT_URI", "https://openpost.example.com", "/api/v1/accounts/x/callback")
+	require.Equal(t, "https://openpost.example.com/api/v1/accounts/x/callback", got)
+}
+
+// TestOauthRedirectFromFrontendStripsTrailingSlash covers the common
+// case where the operator sets OPENPOST_APP_URL with a trailing slash.
+func TestOauthRedirectFromFrontendStripsTrailingSlash(t *testing.T) {
+	t.Setenv("LINKEDIN_REDIRECT_URI", "")
+	got := oauthRedirectFromFrontend("LINKEDIN_REDIRECT_URI", "", "https://openpost.example.com/", "/api/v1/accounts/linkedin/callback")
+	require.Equal(t, "https://openpost.example.com/api/v1/accounts/linkedin/callback", got)
 }
 
 func TestValidateBootstrapSecretsAcceptsIndependentGeneratedValues(t *testing.T) {

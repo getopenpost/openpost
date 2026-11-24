@@ -2,10 +2,8 @@ package platform
 
 import (
 	"context"
-
 	"io"
 	"net/http"
-
 	"testing"
 
 	"github.com/stretchr/testify/require"

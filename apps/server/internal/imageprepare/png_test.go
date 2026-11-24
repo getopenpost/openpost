@@ -3,9 +3,7 @@ package imageprepare
 import (
 	"bytes"
 	"context"
-
 	"image"
-
 	"image/png"
 	"testing"
 

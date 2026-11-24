@@ -3,7 +3,6 @@ package memes
 import (
 	"bytes"
 	"context"
-
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"

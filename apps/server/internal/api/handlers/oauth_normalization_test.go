@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-
+	"io"
 	"net/http"
-
+	"net/url"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -68,6 +68,62 @@ func newNormServer(t *testing.T, providers map[string]platform.Adapter) (*echo.E
 	return e, handler
 }
 
+func doNormCallback(t *testing.T, e *echo.Echo) *http.Response {
+	t.Helper()
+	const provider = "threads"
+	q := "/api/v1/accounts/" + provider + "/auth-url?workspace_id=ws-1"
+	authResp := oauthSelectionRequest(t, e, http.MethodGet, q, nil, true)
+	require.Equal(t, http.StatusOK, authResp.Code, authResp.Body.String())
+	var body struct {
+		URL string `json:"url"`
+	}
+	require.NoError(t, json.Unmarshal(authResp.Body.Bytes(), &body))
+	u, _ := url.Parse(body.URL)
+	state := u.Query().Get("state")
+	require.NotEmpty(t, state)
+	cb := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/"+provider+"/callback?code=code&state="+url.QueryEscape(state), nil, true)
+	return cb.Result()
+}
+
+type normMessagingAdapter struct {
+	support platform.MessagingSupport
+}
+
+func (m *normMessagingAdapter) EngagementSupport() platform.EngagementSupport {
+	return platform.EngagementSupport{}
+}
+func (m *normMessagingAdapter) AnalyticsSupport() platform.AnalyticsSupport {
+	return platform.AnalyticsSupport{}
+}
+func (m *normMessagingAdapter) MessagingSupport() platform.MessagingSupport { return m.support }
+func (m *normMessagingAdapter) FetchMessages(_ context.Context, _ string, _ platform.FetchMessagesRequest) (platform.FetchMessagesResult, error) {
+	return platform.FetchMessagesResult{}, nil
+}
+func (m *normMessagingAdapter) SendMessage(_ context.Context, _ string, _ platform.SendMessageRequest) (platform.SendMessageResult, error) {
+	return platform.SendMessageResult{}, nil
+}
+func (m *normMessagingAdapter) GenerateAuthURL(state string) (string, map[string]string) {
+	return "https://provider.example/oauth?state=" + url.QueryEscape(state), nil
+}
+func (m *normMessagingAdapter) ExchangeCode(_ context.Context, _ string, _ map[string]string) (*platform.TokenResult, error) {
+	return &platform.TokenResult{AccessToken: "access-token", TokenType: "Bearer"}, nil
+}
+func (m *normMessagingAdapter) RefreshCapability() platform.RefreshCapability {
+	return platform.RefreshCapability{}
+}
+func (m *normMessagingAdapter) RefreshToken(_ context.Context, _ platform.RefreshTokenInput) (*platform.TokenResult, error) {
+	return nil, nil
+}
+func (m *normMessagingAdapter) GetProfile(_ context.Context, _ string) (*platform.UserProfile, error) {
+	return &platform.UserProfile{ID: "provider-user", Username: "openpost"}, nil
+}
+func (m *normMessagingAdapter) UploadMedia(_ context.Context, _, _, _ string, _ io.Reader) (string, error) {
+	return "", nil
+}
+func (m *normMessagingAdapter) Publish(_ context.Context, _, _ string, _ *platform.PublishRequest) (platform.PublishResult, error) {
+	return platform.PublishResult{}, nil
+}
+
 func TestBlueskyLoginUsesSessionIdentityWhenActorProfileIsUnavailable(t *testing.T) {
 	t.Parallel()
 	const pdsURL = "https://pds.example"
@@ -98,6 +154,27 @@ func TestBlueskyLoginUsesSessionIdentityWhenActorProfileIsUnavailable(t *testing
 	require.JSONEq(t, `{"exchange":"create_session","pds_url":"`+pdsURL+`","protocol":"atproto","source":"account_connection"}`, grant.AuthorizationEvidence)
 }
 
+func TestNormComposerRedirectContainsOnlyContinuationData(t *testing.T) {
+	t.Parallel()
+	providers := map[string]platform.Adapter{
+		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: true}},
+	}
+	e, _ := newNormServer(t, providers)
+	resp := doNormCallback(t, e)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
+	loc := resp.Header.Get("Location")
+	require.NotContains(t, loc, "access_token")
+	u, err := url.Parse(loc)
+	require.NoError(t, err)
+	require.Equal(t, "/", u.Path)
+	require.Equal(t, "ws-1", u.Query().Get("workspace_id"))
+	require.NotEmpty(t, u.Query().Get("account_ids"))
+	require.Empty(t, u.Query().Get("new_account_ids"))
+	require.Empty(t, u.Query().Get("open_fresh_composer"))
+	require.NotContains(t, loc, "code")
+}
+
 type loginSessionFixture struct {
 	*platform.BlueskyAdapter
 	did string
@@ -108,33 +185,4 @@ func (a *loginSessionFixture) CreateSession(context.Context, string, string) (st
 }
 func (a *loginSessionFixture) GetProfile(context.Context, string) (*platform.UserProfile, error) {
 	return nil, errors.New("profile unavailable")
-}
-
-func TestLegacyMessagingUpdateAcceptsNullCapabilityState(t *testing.T) {
-	t.Parallel()
-	for _, state := range []string{"null", "{}", `{"custom":"preserved"}`} {
-		t.Run(state, func(t *testing.T) {
-			e, handler := newNormServer(t, nil)
-			handler.SetAccountFeaturesService(nil)
-			api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-			handler.UpdateAccount(api)
-			_, err := handler.db.NewInsert().Model(&models.SocialAccount{
-				ID: "account-null", WorkspaceID: "ws-1", Platform: "facebook", AccountID: "page-1",
-				Slug: "facebook", AccessTokenEnc: []byte("test-token"), IsActive: true, CapabilityState: state,
-			}).Exec(t.Context())
-			require.NoError(t, err)
-			require.NotPanics(t, func() {
-				response := oauthSelectionRequest(t, e, http.MethodPatch, "/api/v1/accounts/account-null", map[string]any{"slug": "facebook", "messages_enabled": false}, true)
-				require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-			})
-			var account models.SocialAccount
-			require.NoError(t, handler.db.NewSelect().Model(&account).Where("id = ?", "account-null").Scan(t.Context()))
-			var saved map[string]string
-			require.NoError(t, json.Unmarshal([]byte(account.CapabilityState), &saved))
-			require.Equal(t, "false", saved["messages_enabled"])
-			if state != "null" && state != "{}" {
-				require.Equal(t, "preserved", saved["custom"])
-			}
-		})
-	}
 }

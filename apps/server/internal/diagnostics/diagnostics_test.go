@@ -3,9 +3,7 @@ package diagnostics
 import (
 	"net/http"
 	"net/http/httptest"
-
 	"path/filepath"
-
 	"sync/atomic"
 	"testing"
 	"time"
@@ -26,6 +24,26 @@ func validReport() Report {
 		},
 		FirstSeen: now,
 		LastSeen:  now,
+	}
+}
+
+func TestValidateReportRejectsUnknownProvider(t *testing.T) {
+	report := validReport()
+	report.Provider = "geocities"
+	if err := ValidateReport(report); err == nil {
+		t.Fatal("expected unknown provider to be rejected")
+	}
+}
+
+func TestValidateReportRejectsSensitiveFrames(t *testing.T) {
+	report := validReport()
+	report.Frames = []Frame{{Module: "https://selfhost.example.com/app/main.go", Function: "main", Line: 1}}
+	if err := ValidateReport(report); err == nil {
+		t.Fatal("expected frame with custom domain to be rejected before sanitization")
+	}
+	report.Frames = []Frame{{Module: "app", Function: "run authorization: Bearer secret", Line: 1}}
+	if err := ValidateReport(report); err == nil {
+		t.Fatal("expected frame with credential text to be rejected")
 	}
 }
 

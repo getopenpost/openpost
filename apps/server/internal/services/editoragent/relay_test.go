@@ -84,6 +84,26 @@ func TestRelayDeliversOneIdempotentRequestToAuthorizedBrowser(t *testing.T) {
 	}
 }
 
+func TestRelayExpiresPendingRequestWhenBrowserStopsPolling(t *testing.T) {
+	ctx := context.Background()
+	relay := NewRelay(relayTestDB(t))
+	start := time.Now().UTC()
+	relay.now = func() time.Time { return start }
+	session, err := relay.Register(ctx, "workspace", "editor", "project", "video")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := relay.Enqueue(ctx, session, "caller", "key", "video_edit", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	relay.now = func() time.Time { return start.Add(sessionLifetime + time.Second) }
+	result, err := relay.GetRequest(ctx, request.ID, "workspace", "caller")
+	if err != nil || result.Status != "failed" || string(result.Error) != `{"code":"editor_disconnected"}` {
+		t.Fatalf("expired browser must fail pending work: %v, %#v", err, result)
+	}
+}
+
 func TestRelayMarksLeasedDisconnectAsIndeterminate(t *testing.T) {
 	ctx := context.Background()
 	relay := NewRelay(relayTestDB(t))

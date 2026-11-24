@@ -2,9 +2,7 @@ package handlers
 
 import (
 	"context"
-
 	"net/http"
-
 	"testing"
 	"time"
 
@@ -14,7 +12,7 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/auth"
-
+	"github.com/openpost/backend/internal/services/billing"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/stretchr/testify/require"
 )
@@ -30,6 +28,67 @@ func (passwordReauthTestAuthenticator) AuthenticateBearer(
 		Email:     "user@example.com",
 		SessionID: "session-1",
 	}, nil
+}
+
+func TestOIDCSignupRequiresTheHostedPurchaseChoiceBeforeRedirecting(t *testing.T) {
+	t.Parallel()
+	choiceService := billing.NewService(nil, "", billing.PaddleConfig{
+		Plans: billing.DefaultPlanCatalog(
+			billing.PaddlePriceIDs{}, billing.PaddlePriceIDs{}, billing.PaddlePriceIDs{},
+		),
+		PurchaseChoiceSecret: "pppppppppppppppppppppppppppppppp",
+	})
+	authHandler := NewAuthHandler(nil, auth.NewService("oidc-choice-secret"), nil, nil, nil, false)
+	authHandler.SetPurchaseChoices(choiceService, true)
+	e := echo.New()
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	NewOIDCHandler(nil, authHandler, nil).registerPublicRoutes(api)
+
+	missing := jsonRequest(
+		t,
+		e,
+		http.MethodGet,
+		"/api/v1/auth/oidc/google/start?signup=true&return_path=%2Fonboarding%3Fplan%3Dfounder%26billing_period%3Dmonthly",
+		nil,
+		"",
+	)
+	require.Equal(t, http.StatusBadRequest, missing.Code, missing.Body.String())
+	require.Contains(t, missing.Body.String(), "purchase choice is required")
+
+	invalid := jsonRequest(
+		t,
+		e,
+		http.MethodGet,
+		"/api/v1/auth/oidc/google/start?signup=true&plan_id=founder&billing_period=monthly&purchase_choice_token=invalid&return_path=%2Fonboarding%3Fplan%3Dfounder%26billing_period%3Dmonthly",
+		nil,
+		"",
+	)
+	require.Equal(t, http.StatusBadRequest, invalid.Code, invalid.Body.String())
+	require.Contains(t, invalid.Body.String(), "purchase choice is invalid")
+
+	choice, err := choiceService.CreatePurchaseChoice("team", "annual")
+	require.NoError(t, err)
+	missingSelection := jsonRequest(
+		t,
+		e,
+		http.MethodGet,
+		"/api/v1/auth/oidc/google/start?signup=true&purchase_choice_token="+choice.Token,
+		nil,
+		"",
+	)
+	require.Equal(t, http.StatusBadRequest, missingSelection.Code, missingSelection.Body.String())
+	require.Contains(t, missingSelection.Body.String(), "purchase choice is required")
+
+	mismatched := jsonRequest(
+		t,
+		e,
+		http.MethodGet,
+		"/api/v1/auth/oidc/google/start?signup=true&plan_id=founder&billing_period=monthly&purchase_choice_token="+choice.Token,
+		nil,
+		"",
+	)
+	require.Equal(t, http.StatusBadRequest, mismatched.Code, mismatched.Body.String())
+	require.Contains(t, mismatched.Body.String(), "does not match")
 }
 
 func TestPasswordReauthenticationRejectsPasswordDisabledByRequiredSSO(t *testing.T) {
@@ -90,4 +149,25 @@ func TestPasswordReauthenticationRejectsPasswordDisabledByRequiredSSO(t *testing
 	grantCount, err := db.NewSelect().Model((*models.ReauthGrant)(nil)).Count(t.Context())
 	require.NoError(t, err)
 	require.Zero(t, grantCount, "a disabled password must not mint a reauthentication grant")
+}
+
+func TestOIDCPolicyContractOnlyAdvertisesSupportedAPITokenModes(t *testing.T) {
+	t.Parallel()
+
+	db := createHandlerTestDB(t)
+	authService := auth.NewService("oidc-policy-openapi-test-secret")
+	authenticator := passwordReauthTestAuthenticator{}
+	authHandler := NewAuthHandler(db, authService, authenticator, nil, nil, false)
+	identityService := identity.NewService(db, nil, identity.Config{})
+	e := echo.New()
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	NewOIDCHandler(identityService, authHandler, authenticator).registerAdministrationRoutes(api)
+
+	for _, schemaName := range []string{"OIDCPolicyInputBody", "Policy"} {
+		schema := api.OpenAPI().Components.Schemas.Map()[schemaName]
+		require.NotNil(t, schema, schemaName)
+		apiTokenMode := schema.Properties["api_token_mode"]
+		require.NotNil(t, apiTokenMode, schemaName)
+		require.Equal(t, []any{"scoped", "deny"}, apiTokenMode.Enum, schemaName)
+	}
 }

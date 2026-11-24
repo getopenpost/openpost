@@ -62,7 +62,7 @@ func TestRetryPublicationRenditionPreservesAcceptedWriteIdentityUntilExactTarget
 				WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleEditor,
 			}).Exec(ctx)
 			require.NoError(t, err)
-			seedHandlerAccount(t, db, "account-1")
+			seedHandlerAccount(t, db, "account-1", "x")
 			publication := &models.Publication{
 				ID: "publication-1", WorkspaceID: "workspace-1", CreatedByID: "user-1",
 				Title: "Retry", ContentProfile: models.ContentProfileShortText,

@@ -2,7 +2,6 @@ package publisher
 
 import (
 	"context"
-
 	"testing"
 	"time"
 

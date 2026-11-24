@@ -3,17 +3,15 @@ package platform
 import (
 	"bytes"
 	"context"
-
 	"errors"
-
 	"io"
 	"net/http"
-
 	"strings"
 	"testing"
+	"time"
 )
 
-func TestYouTubeGetProfileRejectsAccountsWithoutChannels(t *testing.T) {
+func TestYouTubeGetProfileUsesGrantedYouTubeReadScope(t *testing.T) {
 	originalClient := httpClient
 	t.Cleanup(func() { httpClient = originalClient })
 	requests := 0
@@ -22,15 +20,32 @@ func TestYouTubeGetProfileRejectsAccountsWithoutChannels(t *testing.T) {
 		if req.URL.Path != "/youtube/v3/channels" {
 			t.Fatalf("unexpected profile endpoint %s", req.URL)
 		}
-		return jsonResponse(req, `{"items":[]}`), nil
+		if req.Header.Get(headerAuthorization) != "Bearer channel-token" {
+			t.Fatalf("unexpected authorization header %q", req.Header.Get(headerAuthorization))
+		}
+		return jsonResponse(req, `{"items":[{"id":"channel-1","snippet":{"title":"Founder channel","customUrl":"@founder","thumbnails":{"default":{"url":"https://yt.example/avatar.jpg"}}}}]}`), nil
 	})}
 
 	profile, err := NewYouTubeAdapter("client", "secret", "https://app.example/callback").GetProfile(t.Context(), "channel-token")
-	if err == nil || !strings.Contains(err.Error(), "no YouTube channels") {
-		t.Fatalf("GetProfile error = %v, want no-channels error", err)
+	if err != nil {
+		t.Fatalf("GetProfile returned error: %v", err)
 	}
-	if profile != nil || requests != 1 {
-		t.Fatalf("GetProfile returned profile %#v after %d requests, want nil after one channel lookup", profile, requests)
+	if profile.ID != "channel-1" || profile.Username != "@founder" || profile.DisplayName != "Founder channel" {
+		t.Fatalf("unexpected YouTube profile: %#v", profile)
+	}
+	if requests != 1 {
+		t.Fatalf("GetProfile made %d requests, want exactly one authorized channel lookup", requests)
+	}
+}
+
+func TestYouTubeAnalyticsSupportRequiresReconnectForOldGrants(t *testing.T) {
+	support := NewYouTubeAdapter("", "", "").AnalyticsSupport()
+	oldGrant := "https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/youtube.readonly"
+	if missing := MissingAnalyticsScopes(oldGrant, support.AccountRequiredScopes); len(missing) != 1 || missing[0] != youtubeAnalyticsReadScope {
+		t.Fatalf("old grant should require analytics reconnect, got %v", missing)
+	}
+	if missing := MissingAnalyticsScopes(oldGrant, support.ContentRequiredScopes); len(missing) != 1 || missing[0] != youtubeAnalyticsReadScope {
+		t.Fatalf("old content grant should require analytics reconnect, got %v", missing)
 	}
 }
 
@@ -46,6 +61,43 @@ func TestYouTubeThumbnailPhoneVerificationUsesStableError(t *testing.T) {
 	var providerErr *HTTPError
 	if !errors.As(err, &providerErr) || providerErr.Code != "youtube:thumbnail_channel_verification_required" || strings.Contains(err.Error(), "private provider detail") {
 		t.Fatalf("unexpected thumbnail error: %v", err)
+	}
+}
+
+func TestYouTubeResumableUploadRejectsExpiredSessionWithoutProviderMutation(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	requests := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requests++
+		t.Fatalf("expired session must not make a provider request: %s", req.URL.String())
+		return nil, nil
+	})}
+	adapter := NewYouTubeAdapter("client-id", "client-secret", "https://app.example/callback")
+	_, err := adapter.UploadMediaResumable(context.Background(), "access-token", "channel-1", UploadMediaRequest{
+		MimeType: "video/mp4",
+		Size:     11,
+		Title:    "Expired session",
+		Settings: map[string]interface{}{"privacy": "private", "category_id": "22"},
+		OpenReaderAt: func(int64) (io.ReadCloser, error) {
+			t.Fatal("expired session must not reopen media")
+			return nil, nil
+		},
+	}, ResumableMediaUploadState{
+		OpaqueState:         `{"session_url":"https://upload.youtube.test/session?upload_id=expired-secret"}`,
+		SessionExpiresAt:    time.Now().Add(-time.Minute),
+		Status:              MediaUploadUploading,
+		RetryClassification: MediaRetrySafeResume,
+	}, func(ResumableMediaUploadState) error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "session expired") {
+		t.Fatalf("expected expired session error, got %v", err)
+	}
+	if retryClass, ok := MediaRetryClassificationForError(err); !ok || retryClass != MediaRetryTerminal {
+		t.Fatalf("expected terminal media classification, got %q, %v", retryClass, ok)
+	}
+	if requests != 0 {
+		t.Fatalf("expected no provider requests, got %d", requests)
 	}
 }
 

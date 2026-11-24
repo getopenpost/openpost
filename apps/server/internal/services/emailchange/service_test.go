@@ -3,14 +3,13 @@ package emailchange
 import (
 	"context"
 	"database/sql"
-
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -18,88 +17,106 @@ import (
 	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
-type verifyLockContextKey struct{}
+func TestVerifiedEmailChangeKeepsOldAddressUntilCompletionAndRevokesOtherSessions(t *testing.T) {
+	t.Parallel()
 
-type blockVerifyUserLockHook struct {
-	started chan struct{}
-	release chan struct{}
-	once    sync.Once
-}
-
-func newBlockVerifyUserLockHook() *blockVerifyUserLockHook {
-	return &blockVerifyUserLockHook{started: make(chan struct{}), release: make(chan struct{})}
-}
-
-func (hook *blockVerifyUserLockHook) BeforeQuery(ctx context.Context, event *bun.QueryEvent) context.Context {
-	if ctx.Value(verifyLockContextKey{}) != true || event.Operation() != "UPDATE" ||
-		!strings.Contains(event.Query, "email = email") || !strings.Contains(event.Query, "users") {
-		return ctx
-	}
-	hook.once.Do(func() { close(hook.started) })
-	select {
-	case <-hook.release:
-	case <-ctx.Done():
-	}
-	return ctx
-}
-
-func (*blockVerifyUserLockHook) AfterQuery(context.Context, *bun.QueryEvent) {}
-
-func TestResendCannotRotateBetweenCodeVerificationAndConsumption(t *testing.T) {
-	db, service, now := newConcurrentTestService(t)
+	db, service, now := newTestService(t)
+	ctx := context.Background()
 	seedUser(t, db, "user-1", "old@example.test")
-	pending, err := service.Begin(t.Context(), "user-1", "new@example.test")
+	seedUser(t, db, "user-2", "taken@example.test")
+
+	_, err := service.Begin(ctx, "user-1", "taken@example.test")
+	require.ErrorIs(t, err, ErrEmailUnavailable)
+
+	pending, err := service.Begin(ctx, "user-1", "New@Example.test")
 	require.NoError(t, err)
-	require.NoError(t, service.MarkSent(t.Context(), "user-1", pending.Challenge.ID))
+	require.Equal(t, "new@example.test", pending.Challenge.NewEmail)
+	require.Equal(t, "old@example.test", userEmail(t, db))
+
+	for _, session := range []models.UserSession{
+		{ID: "session-current", UserID: "user-1", ExpiresAt: now.Add(time.Hour), CreatedAt: now},
+		{ID: "session-other", UserID: "user-1", ExpiresAt: now.Add(time.Hour), CreatedAt: now},
+	} {
+		_, err = db.NewInsert().Model(&session).Exec(ctx)
+		require.NoError(t, err)
+	}
+	reset := &models.PasswordResetToken{
+		ID: "reset-1", UserID: "user-1", TokenHash: "reset-hash", ExpiresAt: now.Add(time.Hour), CreatedAt: now,
+	}
+	_, err = db.NewInsert().Model(reset).Exec(ctx)
+	require.NoError(t, err)
+
+	wrongCode := "000000"
+	if pending.Code == wrongCode {
+		wrongCode = "999999"
+	}
+	_, err = service.Verify(ctx, "user-1", "session-current", pending.Challenge.ID, wrongCode)
+	require.ErrorIs(t, err, ErrInvalidCode)
+	require.Equal(t, "old@example.test", userEmail(t, db))
+
+	completed, err := service.Verify(ctx, "user-1", "session-current", pending.Challenge.ID, pending.Code)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), completed.RevokedSessions)
+	require.Equal(t, "new@example.test", completed.User.Email)
+	require.Equal(t, "new@example.test", userEmail(t, db))
+
+	var sessions []models.UserSession
+	require.NoError(t, db.NewSelect().Model(&sessions).Order("id ASC").Scan(ctx))
+	require.True(t, sessions[0].RevokedAt.IsZero())
+	require.False(t, sessions[1].RevokedAt.IsZero())
+	var storedReset models.PasswordResetToken
+	require.NoError(t, db.NewSelect().Model(&storedReset).Where("id = ?", reset.ID).Scan(ctx))
+	require.False(t, storedReset.UsedAt.IsZero())
+
+	_, err = service.Verify(ctx, "user-1", "session-current", pending.Challenge.ID, pending.Code)
+	require.ErrorIs(t, err, ErrChallengeNotFound)
+}
+
+func TestConcurrentResendsRotateTheCodeOnlyOnce(t *testing.T) {
+	t.Parallel()
+
+	db, service, now := newTestService(t)
+	ctx := context.Background()
+	seedUser(t, db, "user-1", "old@example.test")
+
+	pending, err := service.Begin(ctx, "user-1", "new@example.test")
+	require.NoError(t, err)
+	require.NoError(t, service.MarkSent(ctx, "user-1", pending.Challenge.ID))
 	service.now = func() time.Time { return now.Add(ResendDelay + time.Second) }
 
-	hook := newBlockVerifyUserLockHook()
-	db.AddQueryHook(hook)
-	verifyResult := make(chan error, 1)
-	verifyCtx := context.WithValue(context.Background(), verifyLockContextKey{}, true)
-	go func() {
-		_, verifyErr := service.Verify(
-			verifyCtx,
-			"user-1",
-			"",
-			pending.Challenge.ID,
-			pending.Code,
-		)
-		verifyResult <- verifyErr
-	}()
-
-	select {
-	case <-hook.started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("verification did not reach the serialized user mutation fence")
+	results := make(chan error, 2)
+	var start sync.WaitGroup
+	start.Add(1)
+	for range 2 {
+		go func() {
+			start.Wait()
+			_, resendErr := service.Resend(ctx, "user-1", pending.Challenge.ID)
+			results <- resendErr
+		}()
 	}
-	replacement, err := service.Resend(t.Context(), "user-1", pending.Challenge.ID)
-	require.NoError(t, err)
-	close(hook.release)
+	start.Done()
 
-	select {
-	case verifyErr := <-verifyResult:
-		require.ErrorIs(t, verifyErr, ErrChallengeNotFound)
-	case <-time.After(5 * time.Second):
-		t.Fatal("verification did not finish after the resend")
+	var successes, fenced int
+	for range 2 {
+		resendErr := <-results
+		switch {
+		case resendErr == nil:
+			successes++
+		case errors.Is(resendErr, ErrResendTooSoon):
+			fenced++
+		default:
+			require.NoError(t, resendErr)
+		}
 	}
-	require.Equal(t, "old@example.test", userEmail(t, db))
-	_, err = service.Verify(t.Context(), "user-1", "", pending.Challenge.ID, replacement.Code)
-	require.NoError(t, err)
-	require.Equal(t, "new@example.test", userEmail(t, db))
+	require.Equal(t, 1, successes)
+	require.Equal(t, 1, fenced)
 }
 
-func newConcurrentTestService(t *testing.T) (*bun.DB, *Service, time.Time) {
+func newTestService(t *testing.T) (*bun.DB, *Service, time.Time) {
 	t.Helper()
-	testName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
-	dsn := fmt.Sprintf(
-		"file:%s_%s?mode=memory&cache=shared&_pragma=busy_timeout(5000)",
-		testName,
-		uuid.NewString(),
-	)
-	sqldb, err := sql.Open(sqliteshim.ShimName, dsn)
+	sqldb, err := sql.Open(sqliteshim.ShimName, fmt.Sprintf("file:%s?mode=memory&cache=private", strings.ReplaceAll(t.Name(), "/", "_")))
 	require.NoError(t, err)
-	sqldb.SetMaxOpenConns(4)
+	sqldb.SetMaxOpenConns(1)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	_, err = db.Exec("PRAGMA foreign_keys=ON")
@@ -110,7 +127,7 @@ func newConcurrentTestService(t *testing.T) (*bun.DB, *Service, time.Time) {
 		(*models.UserSession)(nil),
 		(*models.PasswordResetToken)(nil),
 	} {
-		_, err = db.NewCreateTable().Model(model).IfNotExists().Exec(t.Context())
+		_, err = db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
 		require.NoError(t, err)
 	}
 	now := time.Date(2026, time.August, 9, 12, 0, 0, 0, time.UTC)

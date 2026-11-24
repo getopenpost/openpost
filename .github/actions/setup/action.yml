@@ -64,12 +64,8 @@ runs:
     - if: inputs.chromium != 'none'
       shell: bash
       env:
-        PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "60000"
         CHROMIUM: ${{ inputs.chromium }}
-      run: |
-        flag=--no-shell
-        [[ "$CHROMIUM" == shell ]] && flag=--only-shell
-        timeout 300 bunx --no-install playwright install --with-deps "$flag" chromium
+      run: timeout 300 bash scripts/ci-setup-tools.sh chromium "$CHROMIUM"
     - if: inputs.media == 'true'
       shell: bash
       run: timeout 300 bash scripts/ci-setup-tools.sh media

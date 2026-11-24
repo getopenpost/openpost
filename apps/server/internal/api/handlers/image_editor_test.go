@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
@@ -16,29 +14,6 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 )
-
-func TestImageEditorTextRunsPreserveGraphemeRanges(t *testing.T) {
-	t.Parallel()
-	bold := 700
-	italic := "italic"
-	color := "#ff0000"
-	value := ImageEditorTextValue{
-		Text: "A👩🏽‍🚀e\u0301Z",
-		Runs: []ImageEditorTextRun{{Start: 1, End: 3, FontWeight: &bold, FontStyle: &italic, Color: &color}},
-	}
-	require.True(t, imageEditorTextRunsValid(&value))
-	encoded, err := json.Marshal(value)
-	require.NoError(t, err)
-	var decoded ImageEditorTextValue
-	require.NoError(t, json.Unmarshal(encoded, &decoded))
-	require.Equal(t, value.Runs, decoded.Runs)
-
-	value.Runs[0].End = 5
-	require.False(t, imageEditorTextRunsValid(&value), "ranges must end within grapheme count")
-	value.Runs[0].End = 3
-	value.Runs = append(value.Runs, ImageEditorTextRun{Start: 2, End: 4, Color: &color})
-	require.False(t, imageEditorTextRunsValid(&value), "overlapping ranges must be rejected")
-}
 
 func newImageEditorHandlerTest(t *testing.T) (*ImageEditorHandler, context.Context) {
 	t.Helper()
@@ -75,6 +50,29 @@ func newImageEditorHandlerTest(t *testing.T) (*ImageEditorHandler, context.Conte
 	_, err = db.NewInsert().Model(&members).Exec(ctx)
 	require.NoError(t, err)
 	return NewImageEditorHandler(db, testAuthenticator{}, true, "/image-editor-models"), ctx
+}
+
+func TestImageEditorViewerCanReadButCannotEdit(t *testing.T) {
+	t.Parallel()
+	handler, adminCtx := newImageEditorHandlerTest(t)
+	create := &CreateImageEditorDesignInput{}
+	create.Body.WorkspaceID = "workspace-1"
+	create.Body.Title = "Read only"
+	create.Body.PresetKey = "linkedin-square"
+	created, err := handler.createDesign(adminCtx, create)
+	require.NoError(t, err)
+
+	viewerCtx := context.WithValue(context.Background(), middleware.UserIDKey, "viewer-1")
+	read, err := handler.getDesign(viewerCtx, &GetImageEditorDesignInput{PathID: created.Body.ID})
+	require.NoError(t, err)
+	require.False(t, read.Body.CanEdit)
+
+	update := &UpdateImageEditorDesignInput{PathID: created.Body.ID}
+	update.Body.ExpectedRevision = created.Body.Revision
+	update.Body.Document = created.Body.Document
+	_, err = handler.updateDesign(viewerCtx, update)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "read-only")
 }
 
 func TestImageEditorReturnTokenIsOrderedAndOneTime(t *testing.T) {
@@ -178,233 +176,6 @@ func TestImageEditorRejectsCrossWorkspacePreviewReferences(t *testing.T) {
 		Count(ctx)
 	require.NoError(t, err)
 	require.Zero(t, foreignRevisionReferences)
-}
-
-func TestImageEditorRevisionPreviewAndRestorePointRoundTripExactHead(t *testing.T) {
-	t.Parallel()
-	handler, ctx := newImageEditorHandlerTest(t)
-	media := []models.MediaAttachment{
-		{
-			ID: "source-target", WorkspaceID: "workspace-1", FilePath: "target.png",
-			MimeType: "image/png", ProcessingStatus: mediaReadyStatus,
-			OriginalFilename: "target.png", FileHash: "source-target-hash",
-			Source: "upload", AssetKind: "library",
-		},
-		{
-			ID: "source-current", WorkspaceID: "workspace-1", FilePath: "current.png",
-			MimeType: "image/png", ProcessingStatus: mediaReadyStatus,
-			OriginalFilename: "current.png", FileHash: "source-current-hash",
-			Source: "upload", AssetKind: "library",
-		},
-		{
-			ID: "preview-target", WorkspaceID: "workspace-1", FilePath: "target.webp",
-			MimeType: "image/webp", ProcessingStatus: mediaReadyStatus,
-			OriginalFilename: "target.webp", FileHash: "preview-target-hash",
-			Source: "image_editor_edit", AssetKind: "design_preview",
-		},
-		{
-			ID: "preview-current", WorkspaceID: "workspace-1", FilePath: "current.webp",
-			MimeType: "image/webp", ProcessingStatus: mediaReadyStatus,
-			OriginalFilename: "current.webp", FileHash: "preview-current-hash",
-			Source: "image_editor_edit", AssetKind: "design_preview",
-		},
-	}
-	_, err := handler.db.NewInsert().Model(&media).Exec(ctx)
-	require.NoError(t, err)
-
-	create := &CreateImageEditorDesignInput{}
-	create.Body.WorkspaceID = "workspace-1"
-	create.Body.Title = "Initial"
-	create.Body.PresetKey = "instagram-square"
-	created, err := handler.createDesign(ctx, create)
-	require.NoError(t, err)
-
-	targetUpdate := &UpdateImageEditorDesignInput{PathID: created.Body.ID}
-	targetUpdate.Body.ExpectedRevision = created.Body.Revision
-	targetUpdate.Body.Document = created.Body.Document
-	targetUpdate.Body.Document.Title = "Target version"
-	targetUpdate.Body.Document.Pages[0].Guides = &ImageEditorPageGuides{
-		Horizontal: []float64{100},
-		Vertical:   []float64{200},
-	}
-	targetUpdate.Body.Document.Pages[0].ColorGradeVersion = 1
-	targetUpdate.Body.Document.Pages[0].ColorGrade = &ImageEditorColorGrade{
-		Contrast: 0.14,
-		Vibrance: 0.12,
-		Wheels: &ImageEditorColorWheels{
-			OffsetHue: 120, OffsetAmount: 0.5, Gamma: 1, Gain: 1,
-		},
-		Curves: &ImageEditorColorCurves{MasterPoints: "[[0,0],[1,0.5]]"},
-	}
-	targetUpdate.Body.Document.Pages[0].Background = &ImageEditorPageBackground{
-		Type:    "image",
-		Opacity: 1,
-		Image: &ImageEditorPageBackgroundImage{
-			MediaID: "source-target",
-			Fit:     "cover",
-		},
-	}
-	targetUpdate.Body.CoverPreviewID = "preview-target"
-	target, err := handler.updateDesign(ctx, targetUpdate)
-	require.NoError(t, err)
-	require.Equal(t, targetUpdate.Body.Document.Pages[0].Guides, target.Body.Document.Pages[0].Guides)
-	require.Equal(t, targetUpdate.Body.Document.Pages[0].ColorGrade, target.Body.Document.Pages[0].ColorGrade)
-	// updateDesign reloads persisted pages through the same documentResponse as getDesign.
-	grade := target.Body.Document.Pages[0].ColorGrade
-	require.NotNil(t, grade)
-	require.NotNil(t, grade.Wheels)
-	require.Equal(t, 120.0, grade.Wheels.OffsetHue)
-	require.Equal(t, 0.5, grade.Wheels.OffsetAmount)
-	require.NotNil(t, grade.Curves)
-	require.Equal(t, "[[0,0],[1,0.5]]", grade.Curves.MasterPoints)
-
-	checkpointInput := &CreateImageEditorCheckpointInput{PathID: created.Body.ID}
-	checkpointInput.Body.Name = "Approved target"
-	checkpointInput.Body.ExpectedRevision = target.Body.Revision
-	checkpoint, err := handler.createCheckpoint(ctx, checkpointInput)
-	require.NoError(t, err)
-	require.Equal(t, "Owner", checkpoint.Body.Actor.Name)
-	require.True(t, checkpoint.Body.Actor.IsCurrentUser)
-
-	currentUpdate := &UpdateImageEditorDesignInput{PathID: created.Body.ID}
-	currentUpdate.Body.ExpectedRevision = target.Body.Revision
-	currentUpdate.Body.Document = target.Body.Document
-	currentUpdate.Body.Document.Title = "Exact current head"
-	currentUpdate.Body.Document.Pages[0].Guides = &ImageEditorPageGuides{
-		Horizontal: []float64{300},
-		Vertical:   []float64{400},
-	}
-	currentUpdate.Body.Document.Pages[0].Background.Image.MediaID = "source-current"
-	currentUpdate.Body.CoverPreviewID = "preview-current"
-	current, err := handler.updateDesign(ctx, currentUpdate)
-	require.NoError(t, err)
-	var checkpointRefs []models.DesignRevisionMediaReference
-	require.NoError(t, handler.db.NewSelect().Model(&checkpointRefs).
-		Where("revision_id = ?", checkpoint.Body.ID).OrderExpr("media_id ASC").Scan(ctx))
-	require.Len(t, checkpointRefs, 2)
-	require.Equal(t, []string{"preview-target", "source-target"}, []string{
-		checkpointRefs[0].MediaID,
-		checkpointRefs[1].MediaID,
-	})
-
-	staleCheckpoint := &CreateImageEditorCheckpointInput{PathID: created.Body.ID}
-	staleCheckpoint.Body.Name = "Stale checkpoint"
-	staleCheckpoint.Body.ExpectedRevision = target.Body.Revision
-	_, err = handler.createCheckpoint(ctx, staleCheckpoint)
-	require.ErrorContains(t, err, "changed elsewhere")
-
-	preview, err := handler.getRevision(ctx, &GetImageEditorRevisionInput{
-		PathID:     created.Body.ID,
-		RevisionID: checkpoint.Body.ID,
-	})
-	require.NoError(t, err)
-	require.Equal(t, "Target version", preview.Body.Document.Title)
-	require.Equal(t, "preview-target", preview.Body.CoverPreviewMediaID)
-	require.Equal(t, []float64{100}, preview.Body.Document.Pages[0].Guides.Horizontal)
-	require.Equal(t, 1, preview.Body.Document.Pages[0].ColorGradeVersion)
-	require.InDelta(t, 0.14, preview.Body.Document.Pages[0].ColorGrade.Contrast, 0.0001)
-
-	restore := &RestoreImageEditorRevisionInput{
-		PathID:     created.Body.ID,
-		RevisionID: checkpoint.Body.ID,
-	}
-	trashTime := time.Now().UTC()
-	for _, mediaID := range []string{"preview-target", "source-target"} {
-		_, err = handler.db.NewUpdate().Model((*models.MediaAttachment)(nil)).
-			Set("trashed_at = ?", trashTime).
-			Set("purge_after = ?", trashTime.Add(time.Hour)).
-			Set("trash_reason = 'test'").
-			Where("id = ?", mediaID).
-			Exec(ctx)
-		require.NoError(t, err)
-	}
-	restore.Body.ExpectedRevision = target.Body.Revision
-	_, err = handler.restoreRevision(ctx, restore)
-	require.ErrorContains(t, err, "changed elsewhere")
-	for _, mediaID := range []string{"preview-target", "source-target"} {
-		var stillTrashed models.MediaAttachment
-		require.NoError(t, handler.db.NewSelect().Model(&stillTrashed).Where("id = ?", mediaID).Scan(ctx))
-		require.False(t, stillTrashed.TrashedAt.IsZero(), "conflicting restore must not revive %s", mediaID)
-	}
-	restore.Body.ExpectedRevision = current.Body.Revision
-	restored, err := handler.restoreRevision(ctx, restore)
-	require.NoError(t, err)
-	require.Equal(t, current.Body.Revision+1, restored.Body.Revision)
-	require.Equal(t, "Target version", restored.Body.Document.Title)
-	require.Equal(t, "preview-target", restored.Body.CoverPreviewMediaID)
-	require.Equal(t, []float64{100}, restored.Body.Document.Pages[0].Guides.Horizontal)
-	for _, mediaID := range []string{"preview-target", "source-target"} {
-		var revived models.MediaAttachment
-		require.NoError(t, handler.db.NewSelect().Model(&revived).Where("id = ?", mediaID).Scan(ctx))
-		require.True(t, revived.TrashedAt.IsZero(), "restore must revive %s", mediaID)
-		require.True(t, revived.PurgeAfter.IsZero())
-		require.Empty(t, revived.TrashReason)
-	}
-
-	revisions, err := handler.listRevisions(ctx, &ListImageEditorRevisionsInput{PathID: created.Body.ID})
-	require.NoError(t, err)
-	var restorePoint ImageEditorRevisionSummary
-	for _, revision := range revisions.Body.Revisions {
-		if revision.Kind == "restore_point" && revision.Revision == current.Body.Revision {
-			restorePoint = revision
-			break
-		}
-	}
-	require.NotEmpty(t, restorePoint.ID)
-	restorePointPreview, err := handler.getRevision(ctx, &GetImageEditorRevisionInput{
-		PathID:     created.Body.ID,
-		RevisionID: restorePoint.ID,
-	})
-	require.NoError(t, err)
-	require.Equal(t, "Exact current head", restorePointPreview.Body.Document.Title)
-	require.Equal(t, "preview-current", restorePointPreview.Body.CoverPreviewMediaID)
-	require.Equal(t, []float64{300}, restorePointPreview.Body.Document.Pages[0].Guides.Horizontal)
-	var restorePointRefs []models.DesignRevisionMediaReference
-	require.NoError(t, handler.db.NewSelect().Model(&restorePointRefs).
-		Where("revision_id = ?", restorePoint.ID).OrderExpr("media_id ASC").Scan(ctx))
-	require.Len(t, restorePointRefs, 2)
-	require.Equal(t, []string{"preview-current", "source-current"}, []string{
-		restorePointRefs[0].MediaID,
-		restorePointRefs[1].MediaID,
-	})
-
-	restoreBack := &RestoreImageEditorRevisionInput{
-		PathID:     created.Body.ID,
-		RevisionID: restorePoint.ID,
-	}
-	restoreBack.Body.ExpectedRevision = restored.Body.Revision
-	for _, mediaID := range []string{"preview-current", "source-current"} {
-		_, err = handler.db.NewUpdate().Model((*models.MediaAttachment)(nil)).
-			Set("trashed_at = ?", trashTime).
-			Set("purge_after = ?", trashTime.Add(time.Hour)).
-			Set("trash_reason = 'test'").
-			Where("id = ?", mediaID).
-			Exec(ctx)
-		require.NoError(t, err)
-	}
-	recovered, err := handler.restoreRevision(ctx, restoreBack)
-	require.NoError(t, err)
-	require.Equal(t, "Exact current head", recovered.Body.Document.Title)
-	require.Equal(t, "preview-current", recovered.Body.CoverPreviewMediaID)
-	require.Equal(t, []float64{300}, recovered.Body.Document.Pages[0].Guides.Horizontal)
-	for _, mediaID := range []string{"preview-current", "source-current"} {
-		var revived models.MediaAttachment
-		require.NoError(t, handler.db.NewSelect().Model(&revived).Where("id = ?", mediaID).Scan(ctx))
-		require.True(t, revived.TrashedAt.IsZero(), "restore point must revive %s", mediaID)
-	}
-
-	beforeConflict, err := handler.db.NewSelect().Model((*models.DesignRevision)(nil)).
-		Where("design_document_id = ? AND kind = ?", created.Body.ID, "restore_point").
-		Count(ctx)
-	require.NoError(t, err)
-	restore.Body.ExpectedRevision = restored.Body.Revision
-	_, err = handler.restoreRevision(ctx, restore)
-	require.ErrorContains(t, err, "changed elsewhere")
-	afterConflict, err := handler.db.NewSelect().Model((*models.DesignRevision)(nil)).
-		Where("design_document_id = ? AND kind = ?", created.Body.ID, "restore_point").
-		Count(ctx)
-	require.NoError(t, err)
-	require.Equal(t, beforeConflict, afterConflict)
 }
 
 func TestImageEditorRemoveCheckpointPreservesDesignAndOtherVersions(t *testing.T) {

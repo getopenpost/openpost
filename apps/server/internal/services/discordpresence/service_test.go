@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 	"testing"
-
 	"time"
 
 	"github.com/bwmarrin/discordgo"

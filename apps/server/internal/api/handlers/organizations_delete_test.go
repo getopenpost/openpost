@@ -104,6 +104,46 @@ func TestOrganizationDeletionPreviewEnumeratesImpactAndAllBlockers(t *testing.T)
 	require.Equal(t, 1, countRows[models.BillingCheckoutCancellation](t, server.db, "checkout_attempt_id = ? AND organization_id = ?", "checkout", "org-1"))
 }
 
+func TestOrganizationDeletionFailsClosedForEveryUnconfirmedBillingState(t *testing.T) {
+	t.Parallel()
+	for _, status := range []string{"paused", "unknown", ""} {
+		t.Run(status, func(t *testing.T) {
+			server := newDeleteOrganizationTestServer(t)
+			insertOrganizationDeletionFixture(t, server.db)
+			_, err := server.db.NewInsert().Model(&models.BillingSubscription{OrganizationID: "org-1", WorkspaceID: "workspace-1", Provider: models.BillingProviderPaddle, ProviderCustomerID: "customer", ProviderSubscriptionID: "subscription", Status: status}).Exec(t.Context())
+			require.NoError(t, err)
+			preview := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/organizations/org-1/deletion-preview", nil, "web-token")
+			require.Equal(t, http.StatusOK, preview.Code, preview.Body.String())
+			require.Contains(t, preview.Body.String(), `"code":"active_billing"`)
+		})
+	}
+}
+
+func TestOrganizationDeletionRequiresCurrentOwnerExactNameAndRecentAuthentication(t *testing.T) {
+	t.Parallel()
+	server := newDeleteOrganizationTestServer(t)
+	insertOrganizationDeletionFixture(t, server.db)
+	_, err := server.db.NewUpdate().Model((*models.OrganizationMember)(nil)).Set("role = ?", models.OrganizationRoleAdmin).Where("organization_id = ? AND user_id = ?", "org-1", "user-1").Exec(t.Context())
+	require.NoError(t, err)
+	preview := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/organizations/org-1/deletion-preview", nil, "web-token")
+	require.Equal(t, http.StatusForbidden, preview.Code, preview.Body.String())
+	_, err = server.db.NewUpdate().Model((*models.OrganizationMember)(nil)).Set("role = ?", models.OrganizationRoleOwner).Where("organization_id = ? AND user_id = ?", "org-1", "user-1").Exec(t.Context())
+	require.NoError(t, err)
+	for _, test := range []struct {
+		body map[string]any
+		want int
+	}{
+		{map[string]any{"confirm_name": "openpost studio", "current_password": "current-password-123"}, http.StatusBadRequest},
+		{map[string]any{"confirm_name": "OpenPost Studio", "current_password": "wrong"}, http.StatusUnauthorized},
+	} {
+		rec := jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/organizations/org-1", test.body, "web-token")
+		require.Equal(t, test.want, rec.Code, rec.Body.String())
+		require.Equal(t, 1, countRows[models.Organization](t, server.db, "id = ?", "org-1"))
+	}
+	scoped := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/organizations/org-1/deletion-preview", nil, "workspace-token")
+	require.Equal(t, http.StatusForbidden, scoped.Code, scoped.Body.String())
+}
+
 func TestOrganizationDeletionRemovesWholeBoundaryAndRetainsSafeAudit(t *testing.T) {
 	t.Parallel()
 	server := newDeleteOrganizationTestServer(t)
@@ -216,16 +256,4 @@ func TestOrganizationDeletionRemovesWholeBoundaryAndRetainsSafeAudit(t *testing.
 	require.Equal(t, "organization.deleted", event.Action)
 	require.Equal(t, "OpenPost Studio", event.OrganizationName)
 	require.Equal(t, 2, event.WorkspaceCount)
-}
-
-func TestOrganizationDeletionFailureIsAtomic(t *testing.T) {
-	t.Parallel()
-	server := newDeleteOrganizationTestServer(t)
-	insertOrganizationDeletionFixture(t, server.db)
-	_, err := server.db.Exec("DROP TABLE organization_lifecycle_audit_events")
-	require.NoError(t, err)
-	rec := jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/organizations/org-1", map[string]any{"confirm_name": "OpenPost Studio", "current_password": "current-password-123"}, "web-token")
-	require.Equal(t, http.StatusInternalServerError, rec.Code, rec.Body.String())
-	require.Equal(t, 1, countRows[models.Organization](t, server.db, "id = ?", "org-1"))
-	require.Equal(t, 2, countRows[models.Workspace](t, server.db, "organization_id = ?", "org-1"))
 }

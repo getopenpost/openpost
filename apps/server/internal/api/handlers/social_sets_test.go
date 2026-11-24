@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,70 +13,28 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
-	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
 
-func TestSocialSetsPreserveMembershipOrderAndFormatDefaults(t *testing.T) {
+func TestSocialSetRejectsSettingsOutsideAccountAndScope(t *testing.T) {
 	server := newSocialSetsTestServer(t)
-	response := server.request(t, http.MethodPost, "/api/v1/social-sets", map[string]any{
-		"workspace_id": "ws-1",
-		"name":         "Launch",
-		"is_default":   true,
-		"accounts": []map[string]any{
-			{"social_account_id": "acc-2", "default_output_profile": "instagram.story"},
-			{"social_account_id": "acc-1", "default_output_profile": "x.thread", "default_settings": map[string]any{"reply_settings": "following"}},
-		},
-	})
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-
-	var created SocialSetResponse
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &created))
-	require.Equal(t, "Launch", created.Name)
-	require.True(t, created.IsDefault)
-	require.Equal(t, []string{"acc-2", "acc-1"}, []string{
-		created.Accounts[0].SocialAccountID,
-		created.Accounts[1].SocialAccountID,
-	})
-	require.Equal(t, "instagram.story", created.Accounts[0].DefaultOutputProfile)
-	require.Equal(t, "x.thread", created.Accounts[1].DefaultOutputProfile)
-	require.Equal(t, "following", created.Accounts[1].DefaultSettings["reply_settings"])
-
-	response = server.request(t, http.MethodGet, "/api/v1/social-sets?workspace_id=ws-1", nil)
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var listed []SocialSetResponse
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &listed))
-	require.Len(t, listed, 1)
-	require.Equal(t, created.ID, listed[0].ID)
-	require.Equal(t, created.Accounts[1].DefaultSettings, listed[0].Accounts[1].DefaultSettings)
-
-	response = server.request(t, http.MethodPut, "/api/v1/social-sets/"+created.ID, map[string]any{
-		"name": "Launch", "is_default": true,
-		"accounts": []map[string]any{{"social_account_id": "acc-1", "default_output_profile": "x.post", "default_settings": map[string]any{"made_with_ai": true}}},
-	})
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var updated SocialSetResponse
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &updated))
-	require.Equal(t, true, updated.Accounts[0].DefaultSettings["made_with_ai"])
-	require.Empty(t, updated.Accounts[0].DefaultSegmentSettings)
-}
-
-func TestSocialSetSegmentDefaultPersists(t *testing.T) {
-	server := newSocialSetsTestServer(t)
-	response := server.request(t, http.MethodPost, "/api/v1/social-sets", map[string]any{
-		"workspace_id": "ws-1", "name": "Facebook comments",
-		"accounts": []map[string]any{{
-			"social_account_id": "acc-3", "default_output_profile": "facebook.post",
-			"default_segment_settings": map[string]any{"first_comment": "More details"},
-		}},
-	})
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var created SocialSetResponse
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &created))
-	require.Equal(t, "More details", created.Accounts[0].DefaultSegmentSettings["first_comment"])
+	for _, setting := range []map[string]any{
+		{"default_settings": map[string]any{"poll_options": "Yes\nNo"}},
+		{"default_settings": map[string]any{"instagram_product_type": "STORY"}},
+		{"default_segment_settings": map[string]any{"reply_settings": "following"}},
+	} {
+		account := map[string]any{"social_account_id": "acc-1", "default_output_profile": "x.post"}
+		for key, value := range setting {
+			account[key] = value
+		}
+		response := server.request(t, http.MethodPost, "/api/v1/social-sets", map[string]any{
+			"workspace_id": "ws-1", "name": "Invalid", "accounts": []map[string]any{account},
+		})
+		require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+	}
 }
 
 func TestSocialSetDefaultsValidateValuesAndAccountMode(t *testing.T) {
@@ -123,63 +81,60 @@ func TestSocialSetDefaultsValidateValuesAndAccountMode(t *testing.T) {
 	}
 }
 
-func TestSocialSetPresetUsesAccountResolvedVideoSettings(t *testing.T) {
+type unavailableAccountCapabilityAdapter struct {
+	platform.Adapter
+	calls *int
+}
+
+func (a unavailableAccountCapabilityAdapter) ResolveAccountPublishingCapabilities(context.Context, string, platform.AccountCapabilityInput) (platform.AccountCapabilityResult, error) {
+	(*a.calls)++
+	return platform.AccountCapabilityResult{}, errors.New("provider temporarily unavailable")
+}
+
+func TestSocialSetNameEditKeepsUnchangedDefaultsDuringProviderOutage(t *testing.T) {
 	server := newSocialSetsTestServer(t)
-	_, err := server.db.NewInsert().Model(&models.SocialAccount{
-		ID: "tiktok-1", WorkspaceID: "ws-1", Platform: "tiktok", AccountID: "creator-1",
-		AccessTokenEnc: []byte("token"), IsActive: true,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-	server.socialSets.SetCapabilityResolver(NewCapabilityResolverHandler(server.db, testAuthenticator{}, map[string]platform.Adapter{
-		"tiktok": xCapabilityResolverAdapter{result: platform.AccountCapabilityResult{
-			AvailableFeatures:     map[string]bool{"duet": false, "stitch": false, "is_aigc": true},
-			CompleteOptionSources: []string{"tiktok_privacy_levels"},
-			Options: map[string][]platform.DestinationOption{
-				"tiktok_privacy_levels": {{Value: "PUBLIC_TO_EVERYONE", Label: "Everyone"}},
-			},
-		}},
-	}, capabilityResolverTokenSource{}))
-
-	response := server.request(t, http.MethodPost, "/api/v1/social-sets/resolve-settings", map[string]any{
-		"social_account_id": "tiktok-1", "default_output_profile": "tiktok.video",
-		"settings": map[string]any{"content_posting_method": "DIRECT_POST"},
+	created := server.request(t, http.MethodPost, "/api/v1/social-sets", map[string]any{
+		"workspace_id": "ws-1", "name": "Before",
+		"accounts": []map[string]any{{"social_account_id": "acc-1", "default_output_profile": "x.post", "default_settings": map[string]any{"reply_settings": "following"}}},
 	})
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var resolved struct {
-		OutputProfile string                           `json:"output_profile"`
-		Settings      []capabilities.SettingDefinition `json:"settings"`
-	}
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &resolved))
-	require.Equal(t, "tiktok.video", resolved.OutputProfile)
-	fields := map[string]capabilities.SettingDefinition{}
-	for _, setting := range resolved.Settings {
-		fields[setting.Key] = setting
-	}
-	require.NotEmpty(t, fields["duet"].UnavailableReason)
-	require.Empty(t, fields["is_aigc"].UnavailableReason)
-	require.NotContains(t, fields, "photo_title")
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	var set SocialSetResponse
+	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &set))
+	empty := server.request(t, http.MethodPost, "/api/v1/social-sets", map[string]any{
+		"workspace_id": "ws-1", "name": "Empty",
+		"accounts": []map[string]any{{"social_account_id": "acc-1", "default_output_profile": "x.post"}},
+	})
+	require.Equal(t, http.StatusOK, empty.Code, empty.Body.String())
+	var emptySet SocialSetResponse
+	require.NoError(t, json.Unmarshal(empty.Body.Bytes(), &emptySet))
+	calls := 0
+	server.socialSets.SetCapabilityResolver(NewCapabilityResolverHandler(server.db, testAuthenticator{}, map[string]platform.Adapter{
+		"x": unavailableAccountCapabilityAdapter{calls: &calls},
+	}, capabilityResolverTokenSource{}))
+	updated := server.request(t, http.MethodPut, "/api/v1/social-sets/"+set.ID, map[string]any{
+		"name": "After", "is_default": true,
+		"accounts": []map[string]any{{"social_account_id": "acc-1", "default_output_profile": "x.post", "default_settings": map[string]any{"reply_settings": "following"}}},
+	})
+	require.Equal(t, http.StatusOK, updated.Code, updated.Body.String())
+	var saved SocialSetResponse
+	require.NoError(t, json.Unmarshal(updated.Body.Bytes(), &saved))
+	require.Equal(t, "After", saved.Name)
+	require.Equal(t, "following", saved.Accounts[0].DefaultSettings["reply_settings"])
+	require.Zero(t, calls)
 
-	for _, scenario := range []struct {
-		name     string
-		settings map[string]any
-		status   int
-	}{
-		{"disabled duet", map[string]any{"content_posting_method": "DIRECT_POST", "duet": false}, http.StatusBadRequest},
-		{"privacy outside creator choices", map[string]any{"content_posting_method": "DIRECT_POST", "privacy_level": "FRIENDS"}, http.StatusBadRequest},
-		{"privacy in creator choices", map[string]any{"content_posting_method": "DIRECT_POST", "privacy_level": "PUBLIC_TO_EVERYONE"}, http.StatusOK},
-		{"available video option", map[string]any{"content_posting_method": "DIRECT_POST", "is_aigc": true}, http.StatusOK},
-	} {
-		t.Run(scenario.name, func(t *testing.T) {
-			created := server.request(t, http.MethodPost, "/api/v1/social-sets", map[string]any{
-				"workspace_id": "ws-1", "name": scenario.name,
-				"accounts": []map[string]any{{
-					"social_account_id": "tiktok-1", "default_output_profile": "tiktok.video",
-					"default_settings": scenario.settings,
-				}},
-			})
-			require.Equal(t, scenario.status, created.Code, created.Body.String())
-		})
-	}
+	unchangedEmpty := server.request(t, http.MethodPut, "/api/v1/social-sets/"+emptySet.ID, map[string]any{
+		"name": "Empty renamed", "is_default": false,
+		"accounts": []map[string]any{{"social_account_id": "acc-1", "default_output_profile": "x.post", "default_settings": map[string]any{}}},
+	})
+	require.Equal(t, http.StatusOK, unchangedEmpty.Code, unchangedEmpty.Body.String())
+	require.Zero(t, calls)
+
+	changed := server.request(t, http.MethodPut, "/api/v1/social-sets/"+set.ID, map[string]any{
+		"name": "After", "is_default": true,
+		"accounts": []map[string]any{{"social_account_id": "acc-1", "default_output_profile": "x.post", "default_settings": map[string]any{"reply_settings": "mentionedUsers"}}},
+	})
+	require.Equal(t, http.StatusBadGateway, changed.Code, changed.Body.String())
+	require.Equal(t, 1, calls)
 }
 
 type socialSetsTestServer struct {

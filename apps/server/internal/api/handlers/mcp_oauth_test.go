@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -21,7 +20,6 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/apitokens"
-
 	"github.com/openpost/backend/internal/services/mcpoauth"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -250,6 +248,30 @@ func TestMCPOAuthAuthorizationRejectsUnsupportedOrDisallowedScopes(t *testing.T)
 			require.Zero(t, count)
 		})
 	}
+}
+
+func TestMCPOAuthDenyReturnsAccessDeniedRedirect(t *testing.T) {
+	t.Parallel()
+
+	srv := newMCPOAuthTestServer(t)
+	resp := srv.request(t, http.MethodPost, "/api/v1/mcp/oauth/authorize", map[string]any{
+		"approved":      false,
+		"response_type": "code",
+		"client_id":     "chatgpt",
+		"redirect_uri":  "https://chatgpt.com/connector/oauth/callback/openpost",
+		"state":         "state-deny",
+		"scope":         "mcp:read mcp:full",
+		"resource":      "https://app.openpost.test/mcp",
+	}, "web-token")
+	require.Equal(t, http.StatusOK, resp.Code)
+	var authorization struct {
+		RedirectURL string `json:"redirect_url"`
+	}
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &authorization))
+	redirect, err := url.Parse(authorization.RedirectURL)
+	require.NoError(t, err)
+	require.Equal(t, "access_denied", redirect.Query().Get("error"))
+	require.Equal(t, "state-deny", redirect.Query().Get("state"))
 }
 
 func TestMCPOAuthAuthorizationRejectsAPITokenPrincipal(t *testing.T) {

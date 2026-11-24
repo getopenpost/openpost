@@ -3,7 +3,6 @@ package publicationbuilder
 import (
 	"context"
 	"encoding/json"
-
 	"testing"
 	"time"
 

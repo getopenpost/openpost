@@ -101,45 +101,46 @@ func (s *accountFeaturesTestServer) request(t *testing.T, method, path string, b
 	return rec
 }
 
-func seedAccount(t *testing.T, db *bun.DB, id, workspaceID string) {
+func seedAccount(t *testing.T, db *bun.DB, id, workspaceID, grantedScopes string) {
 	t.Helper()
 	_, err := db.NewInsert().Model(&models.SocialAccount{
 		ID: id, WorkspaceID: workspaceID, Slug: id, Platform: "x", AccountID: "remote-" + id,
-		AccessTokenEnc: []byte("tok"), IsActive: true,
+		AccessTokenEnc: []byte("tok"), GrantedScopes: grantedScopes, IsActive: true,
 	}).Exec(t.Context())
 	require.NoError(t, err)
 }
 
-func TestDevNullEngagementCanBeEnabledWithoutReconnect(t *testing.T) {
+func TestYouTubeEngagementRequiresCommentPermission(t *testing.T) {
 	t.Parallel()
-	srv := newAccountFeaturesTestServer(t, map[string]platform.Adapter{"devnull": platform.NewDevNullAdapter("")})
-	seedAccount(t, srv.db, "devnull-account", "ws-1")
-	_, err := srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("platform = ?", "devnull").Where("id = ?", "devnull-account").Exec(t.Context())
-	require.NoError(t, err)
-	resp := srv.request(t, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=devnull-account", nil)
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var features []FeatureStateResponse
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &features))
-	for _, feature := range features {
-		if feature.Feature == "engagement" {
-			require.True(t, feature.Supported)
-			require.Equal(t, "available", feature.Availability)
-			require.Empty(t, feature.MissingScopes)
-		}
-	}
-	resp = srv.request(t, http.MethodPost, "/api/v1/account-features", map[string]any{
-		"workspace_id": "ws-1",
-		"choices":      []map[string]any{{"account_id": "devnull-account", "feature": "engagement", "enabled": true}},
+	srv := newAccountFeaturesTestServer(t, map[string]platform.Adapter{
+		"youtube": platform.NewYouTubeAdapter("client", "secret", "https://example.com/callback"),
 	})
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &features))
-	var enabled bool
-	for _, feature := range features {
-		if feature.Feature == "engagement" {
-			enabled = feature.EffectiveEnabled
+	oldScopes := "https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.upload"
+	seedAccount(t, srv.db, "youtube-account", "ws-1", oldScopes)
+	_, err := srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("platform = ?", "youtube").Where("id = ?", "youtube-account").Exec(t.Context())
+	require.NoError(t, err)
+	readEngagement := func() FeatureStateResponse {
+		response := srv.request(t, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=youtube-account", nil)
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		var features []FeatureStateResponse
+		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &features))
+		for _, feature := range features {
+			if feature.Feature == accountfeatures.FeatureEngagement {
+				return feature
+			}
 		}
+		t.Fatal("missing engagement feature")
+		return FeatureStateResponse{}
 	}
-	require.True(t, enabled, "existing SSH connections must allow enabling comments and replies")
+	feature := readEngagement()
+	require.Equal(t, accountfeatures.AvailabilityMissingScope, feature.Availability)
+	require.Equal(t, []string{"https://www.googleapis.com/auth/youtube.force-ssl"}, feature.MissingScopes)
+	require.False(t, feature.EffectiveEnabled)
+	_, err = srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("granted_scopes = ?", oldScopes+" https://www.googleapis.com/auth/youtube.force-ssl").Where("id = ?", "youtube-account").Exec(t.Context())
+	require.NoError(t, err)
+	feature = readEngagement()
+	require.Equal(t, accountfeatures.AvailabilityAvailable, feature.Availability)
+	require.Empty(t, feature.MissingScopes)
 }
 
 func TestAccountFeaturesAuthViewerAndCrossWorkspace(t *testing.T) {
@@ -173,8 +174,8 @@ func TestAccountFeaturesAuthViewerAndCrossWorkspace(t *testing.T) {
 	handler.ReadFeatures(api)
 	handler.SaveFeatures(api)
 	// Also need OAuth shim for cross-workspace later? Not needed
-	seedAccount(t, db, "acc-1", "ws-1")
-	seedAccount(t, db, "acc-cross", "ws-2")
+	seedAccount(t, db, "acc-1", "ws-1", "")
+	seedAccount(t, db, "acc-cross", "ws-2", "")
 
 	// Viewer can read (ws-1 viewer)
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=acc-1", nil)
@@ -193,7 +194,7 @@ func TestAccountFeaturesAuthViewerAndCrossWorkspace(t *testing.T) {
 
 	// Cross-workspace rejection: account belongs to ws-2 but workspace_id ws-1, using editor server for ws-2? Use original srv for cross check with editor
 	srv2 := newAccountFeaturesTestServer(t, providers)
-	seedAccount(t, srv2.db, "acc-cross2", "ws-2")
+	seedAccount(t, srv2.db, "acc-cross2", "ws-2", "")
 	req = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/account-features?workspace_id=ws-1&account_ids=acc-cross2", nil)
 	req.Header.Set("Authorization", "Bearer web-token")
 	rec = httptest.NewRecorder()

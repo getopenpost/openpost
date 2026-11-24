@@ -2,7 +2,6 @@ package themes
 
 import (
 	"bytes"
-
 	"testing"
 
 	"github.com/openpost/backend/internal/services/mediastore"

@@ -14,22 +14,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewRegistryRejectsConnectorThatShadowsBuiltInProvider(t *testing.T) {
+func TestRegistryScopesInstallationsToConfiguredWorkspaces(t *testing.T) {
 	t.Parallel()
 
-	manifest := validManifest()
-	manifest.Provider.ID = "x"
-	server := manifestServer(t, manifest)
+	server := manifestServer(t, validManifest())
 	defer server.Close()
 	config, options := registryTestConfig(t, server.URL, false)
+	config.Installations[0].WorkspaceAllowlist = []string{"workspace-1"}
 
 	registry, err := NewRegistry(context.Background(), config, options)
 	require.NoError(t, err)
-	entry, ok := registry.Installation("directus-main")
-	require.True(t, ok)
-	require.False(t, entry.Available)
-	require.Equal(t, InstallationStatusInvalidManifest, entry.Status)
-	require.Contains(t, entry.StatusDetail, "conflicts with a built-in provider")
+	allowed := registry.AvailableForWorkspace("workspace-1")
+	require.Len(t, allowed, 1)
+	require.Equal(t, "io.directus.items", allowed[0].Manifest.Provider.ID)
+	require.Empty(t, registry.AvailableForWorkspace("workspace-2"))
+
+	client, entry, err := registry.ClientForWorkspace("directus-main", "workspace-2")
+	require.Nil(t, client)
+	require.Empty(t, entry.InstallationID)
+	require.ErrorContains(t, err, "not available to this Workspace")
 }
 
 func manifestServer(t *testing.T, manifest Manifest) *httptest.Server {

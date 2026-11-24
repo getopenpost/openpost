@@ -3,7 +3,6 @@ package publicationbuilder
 import (
 	"context"
 	"database/sql"
-
 	"errors"
 	"fmt"
 	"strings"
@@ -11,17 +10,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/uptrace/bun/driver/sqliteshim"
-
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	publicationservice "github.com/openpost/backend/internal/services/publications"
 	"github.com/openpost/backend/internal/services/sourcecontext"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
-
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 type packageBuilderFunc func(context.Context, BuildInput) (BuildResult, error)
@@ -134,6 +131,61 @@ func TestApplicationReclaimsExpiredBuildLeaseAndFencesOldWorker(t *testing.T) {
 	require.Equal(t, BuildStateReady, ready.State)
 	require.Equal(t, "reclaimed worker result", ready.Result.CanonicalText)
 	require.EqualValues(t, 2, calls.Load())
+}
+
+// Retry must requeue the failed build and clear the previous worker's
+// ownership fields on the job row. This is a service-level contract: it does
+// not exercise the worker's own finalization fence.
+func TestApplicationRetryRequeuesFailedBuildAndClearsPreviousWorkerOwnership(t *testing.T) {
+	db := newBuilderApplicationTestDB(t)
+	now := time.Date(2026, 8, 23, 16, 15, 0, 0, time.UTC)
+	application, err := NewApplication(db, packageBuilderFunc(func(context.Context, BuildInput) (BuildResult, error) {
+		return BuildResult{}, nil
+	}), ApplicationConfig{
+		Now:             func() time.Time { return now },
+		AuthorizeStored: func(context.Context, workspaceaccess.StoredAuthority) error { return nil },
+	})
+	require.NoError(t, err)
+	build, _, err := application.Enqueue(t.Context(), testBuildRequest(now, "retry-processing"))
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*BuildRecord)(nil)).
+		Set("state = ?", BuildStateFailed).Set("phase = ?", BuildPhaseFailed).
+		Where("id = ?", build.ID).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewUpdate().Model((*models.Job)(nil)).
+		Set("status = ?", jobregistry.StatusProcessing).
+		Set("attempts = 1").
+		Set("locked_at = ?", now.Add(-time.Minute)).
+		Set("locked_by = ?", "old-worker").
+		Where("type = ? AND scope_id = ?", jobregistry.TypePublicationBuild, build.ID).
+		Exec(t.Context())
+	require.NoError(t, err)
+
+	retried, err := application.Retry(t.Context(), "user-1", build.ID)
+	require.NoError(t, err)
+	require.Equal(t, BuildStateQueued, retried.State)
+	var job models.Job
+	require.NoError(t, db.NewSelect().Model(&job).
+		Where("type = ? AND scope_id = ?", jobregistry.TypePublicationBuild, build.ID).
+		Scan(t.Context()))
+	require.Equal(t, jobregistry.StatusPending, job.Status)
+	require.Zero(t, job.Attempts)
+	require.Empty(t, job.LockedBy)
+	require.True(t, job.LockedAt.IsZero())
+	require.Equal(t, now.Unix(), job.RunAt.Unix())
+
+	// This mirrors the old worker's ownership predicate against the requeued row.
+	// It is the test's own copy of that predicate, not the worker's finalization
+	// path, so it demonstrates the row no longer matches; it does not prove the
+	// worker's fence.
+	oldWorkerFence, err := db.NewUpdate().Model((*models.Job)(nil)).
+		Set("status = ?", jobregistry.StatusFailed).
+		Where("id = ? AND status = ? AND locked_by = ?", job.ID, jobregistry.StatusProcessing, "old-worker").
+		Exec(t.Context())
+	require.NoError(t, err)
+	rows, err := oldWorkerFence.RowsAffected()
+	require.NoError(t, err)
+	require.Zero(t, rows, "the old worker no longer owns the requeued job")
 }
 
 func newBuilderApplicationTestDB(t *testing.T) *bun.DB {

@@ -2,11 +2,11 @@ package messaging
 
 import (
 	"context"
-
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/stretchr/testify/require"
 )
@@ -18,6 +18,34 @@ type failingIncrementalProvider struct {
 
 func (p failingIncrementalProvider) FetchMessageEvents(context.Context, string, platform.FetchMessageEventsRequest) (platform.FetchMessageEventsResult, error) {
 	return p.fetchEvents()
+}
+
+func TestCollectionSchedulingPreservesStoredPermissionDeadline(t *testing.T) {
+	t.Parallel()
+	for _, backend := range []string{"sqlite", "postgres"} {
+		t.Run(backend, func(t *testing.T) {
+			s, db, account, actor := messagingBackendFixture(t, backend)
+			now := time.Now().UTC().Truncate(time.Second)
+			s.now = func() time.Time { return now }
+			s.SetProvider("bluesky", testProvider{})
+			owner, acquired, err := s.acquireCollection(t.Context(), account.ID)
+			require.NoError(t, err)
+			require.True(t, acquired)
+			require.NoError(t, s.states.record(t.Context(), syncStateUpdate{account: account, status: syncStatePermissionRequired, cadence: 24 * time.Hour, attemptedAt: now}))
+			s.finishCollection(t.Context(), account.ID, owner, time.Minute, true)
+			var checkpoint time.Time
+			require.NoError(t, db.NewRaw(`SELECT next_poll_at FROM message_event_checkpoints WHERE social_account_id=?`, account.ID).Scan(t.Context(), &checkpoint))
+			require.True(t, now.Add(24*time.Hour).Equal(checkpoint))
+			now = now.Add(time.Minute)
+			require.NoError(t, s.Heartbeat(t.Context(), actor, Activity{WorkspaceID: "workspace", ClientID: "new-device", View: "chats"}))
+			_, err = db.NewRaw(`UPDATE message_event_checkpoints SET next_poll_at=? WHERE social_account_id=?`, now, account.ID).Exec(t.Context())
+			require.NoError(t, err)
+			require.NoError(t, s.enqueueActiveAccounts(t.Context()))
+			jobs, err := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
+			require.NoError(t, err)
+			require.Zero(t, jobs)
+		})
+	}
 }
 
 // Provider refusals that retrying cannot fix (access denied, or the provider

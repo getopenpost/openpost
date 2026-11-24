@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-
 	"errors"
 	"sync/atomic"
 	"testing"

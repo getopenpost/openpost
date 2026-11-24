@@ -7,7 +7,6 @@ import (
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-
 	"github.com/stretchr/testify/require"
 )
 

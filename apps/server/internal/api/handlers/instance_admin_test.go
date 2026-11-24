@@ -322,6 +322,43 @@ func TestInstanceAdminAuthorization(t *testing.T) {
 	})
 }
 
+func TestInstanceAdminImpersonationGuards(t *testing.T) {
+	t.Parallel()
+
+	t.Run("creation requires browser session and non-admin target", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newInstanceAdminTestServer(t, true, workspaceTestAuthenticator{
+			"api-token": {
+				UserID: "user-1", Email: "admin@example.com", Scope: apitokens.ScopeCLI, TokenID: "cli-token",
+			},
+			"admin-session-token": {
+				UserID: "user-1", Email: "admin@example.com", SessionID: "admin-session",
+			},
+		})
+		noSession := srv.post(t, "/api/v1/admin/users/user-2/impersonation-links", map[string]string{}, "api-token")
+		require.Equal(t, http.StatusForbidden, noSession.Code, noSession.Body.String())
+		require.Contains(t, noSession.Body.String(), "browser session")
+
+		adminTarget := srv.post(t, "/api/v1/admin/users/user-1/impersonation-links", map[string]string{}, "admin-session-token")
+		require.Equal(t, http.StatusConflict, adminTarget.Code, adminTarget.Body.String())
+	})
+
+	t.Run("consumption rejects signed-in browser", func(t *testing.T) {
+		t.Parallel()
+
+		srv := newInstanceAdminTestServer(t, true, testAuthenticator{})
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/impersonation", strings.NewReader(`{"code":"unused-code"}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.AddCookie(&http.Cookie{Name: "openpost_session", Value: "existing-session"})
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusConflict, rec.Code, rec.Body.String())
+		require.Contains(t, rec.Body.String(), "private browser window")
+	})
+}
+
 func TestInstanceAdminUserPlanOverride(t *testing.T) {
 	t.Parallel()
 

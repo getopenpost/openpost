@@ -2,19 +2,15 @@ package main
 
 import (
 	"context"
-
 	"encoding/json"
-
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
-
 	"strconv"
 	"testing"
 	"testing/fstest"
 
 	"github.com/labstack/echo/v4"
-
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )

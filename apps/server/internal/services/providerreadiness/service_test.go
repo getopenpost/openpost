@@ -3,9 +3,40 @@ package providerreadiness
 import (
 	"context"
 	"errors"
-
+	"testing"
 	"time"
 )
+
+func TestServiceFailsClosedWhenLedgerIsMissingOrUnavailable(t *testing.T) {
+	t.Parallel()
+	input := healthyInput()
+
+	missing := NewService(&fakeLedger{
+		approvalErr: ErrLedgerFactNotFound,
+		controlErr:  ErrLedgerFactNotFound,
+		localErr:    ErrLedgerFactNotFound,
+		liveErr:     ErrLedgerFactNotFound,
+	}, ServiceOptions{Now: func() time.Time { return input.Now }})
+	decision := missing.Decide(t.Context(), decisionRequest(input))
+	if decision.State != EffectiveStateDegraded || decision.Executable || decision.Advertisable {
+		t.Fatalf("missing ledger facts did not fail closed: %#v", decision)
+	}
+	if !hasBlocker(decision.Blockers, BlockerUnknownRuntimeControl) || !hasBlocker(decision.Blockers, BlockerLiveEvidenceMissing) {
+		t.Fatalf("missing facts were not reported: %#v", decision.Blockers)
+	}
+
+	unavailable := NewService(&fakeLedger{approvalErr: errors.New("database unavailable")}, ServiceOptions{
+		Now: func() time.Time { return input.Now },
+	})
+	decision = unavailable.Decide(t.Context(), decisionRequest(input))
+	if decision.State != EffectiveStateDegraded || decision.Executable || len(decision.Blockers) != 1 ||
+		decision.Blockers[0].Code != BlockerReadinessUnavailable {
+		t.Fatalf("repository failure did not return one safe degraded decision: %#v", decision)
+	}
+	if _, err := unavailable.Require(t.Context(), decisionRequest(input)); err == nil {
+		t.Fatal("Require accepted a repository failure")
+	}
+}
 
 func decisionRequest(input EvaluationInput) DecisionRequest {
 	return DecisionRequest{

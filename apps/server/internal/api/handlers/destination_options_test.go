@@ -12,7 +12,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,7 +48,7 @@ func (s *destinationOptionsTokenSource) GetValidAccessToken(_ context.Context, a
 	return "valid-access-token", nil
 }
 
-func TestDestinationOptionsUsesDynamicallyRegisteredInstanceAdapter(t *testing.T) {
+func TestThreadsLocationOptionsRequireLocationTaggingScope(t *testing.T) {
 	t.Parallel()
 	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil))
 	ctx := context.Background()
@@ -60,12 +59,13 @@ func TestDestinationOptionsUsesDynamicallyRegisteredInstanceAdapter(t *testing.T
 	}).Exec(ctx)
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.SocialAccount{
-		ID:             "lemmy-1",
+		ID:             "threads-1",
 		WorkspaceID:    "ws-1",
-		Slug:           "lemmy-main",
-		Platform:       "lemmy",
-		InstanceURL:    "https://lemmy.example",
+		Slug:           "threads-main",
+		Platform:       "threads",
+		AccountID:      "threads-user-1",
 		AccessTokenEnc: []byte("encrypted"),
+		GrantedScopes:  "threads_basic threads_content_publish",
 		IsActive:       true,
 	}).Exec(ctx)
 	require.NoError(t, err)
@@ -74,23 +74,39 @@ func TestDestinationOptionsUsesDynamicallyRegisteredInstanceAdapter(t *testing.T
 	tokenSource := &destinationOptionsTokenSource{}
 	e := echo.New()
 	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	handler := NewDestinationOptionsHandler(db, testAuthenticator{}, map[string]platform.Adapter{
-		"lemmy": platform.NewLemmyAdapter(""),
-	}, tokenSource)
-	handler.SetProvider(platform.AccountProviderKey("lemmy", "https://lemmy.example", ""), adapter)
-	handler.RegisterRoutes(api)
+	NewDestinationOptionsHandler(db, testAuthenticator{}, map[string]platform.Adapter{
+		"threads": adapter,
+	}, tokenSource).RegisterRoutes(api)
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
-		"/api/v1/accounts/lemmy-1/publishing-options/lemmy_communities", nil)
+	emptyReq := httptest.NewRequestWithContext(
+		t.Context(),
+		http.MethodGet,
+		"/api/v1/accounts/threads-1/publishing-options/threads_locations?search=",
+		nil,
+	)
+	emptyReq.Header.Set("Authorization", "Bearer web-token")
+	emptyRec := httptest.NewRecorder()
+	e.ServeHTTP(emptyRec, emptyReq)
+	require.Equal(t, http.StatusOK, emptyRec.Code, emptyRec.Body.String())
+	var emptyOutput struct {
+		Options []platform.DestinationOption `json:"options"`
+	}
+	require.NoError(t, json.Unmarshal(emptyRec.Body.Bytes(), &emptyOutput))
+	require.Empty(t, emptyOutput.Options)
+	require.Empty(t, tokenSource.accountID)
+
+	req := httptest.NewRequestWithContext(
+		t.Context(),
+		http.MethodGet,
+		"/api/v1/accounts/threads-1/publishing-options/threads_locations?search=Lisbon",
+		nil,
+	)
 	req.Header.Set("Authorization", "Bearer web-token")
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	var output struct {
-		Options []platform.DestinationOption `json:"options"`
-	}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &output))
-	require.Equal(t, []platform.DestinationOption{{Value: "playlist-2", Label: "Lisbon launches"}}, output.Options)
-	require.Equal(t, "lemmy-1", tokenSource.accountID)
+	require.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+	require.Contains(t, rec.Body.String(), "Reconnect this Threads account")
+	require.Empty(t, tokenSource.accountID)
+	require.Empty(t, adapter.token)
 }

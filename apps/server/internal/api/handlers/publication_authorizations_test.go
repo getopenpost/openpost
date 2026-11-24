@@ -159,7 +159,7 @@ func seedPublicationAuthorizationHandlerFixture(t *testing.T, db *bun.DB) {
 		WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin,
 	}).Exec(t.Context())
 	require.NoError(t, err)
-	seedHandlerAccount(t, db, "account-1")
+	seedHandlerAccount(t, db, "account-1", "x")
 	_, err = db.NewInsert().Model(&models.Publication{
 		ID: "publication-1", WorkspaceID: "workspace-1", CreatedByID: "user-1",
 		Title: "Authorized", ContentProfile: models.ContentProfileShortText,

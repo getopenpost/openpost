@@ -15,7 +15,7 @@ func createHandlerTestDB(t testing.TB, modelsToCreate ...interface{}) *bun.DB {
 	return testdb.NewSQLiteBase(t, modelsToCreate...)
 }
 
-func seedHandlerAccount(t *testing.T, db *bun.DB, id string) {
+func seedHandlerAccount(t *testing.T, db *bun.DB, id, platform string) {
 	t.Helper()
 	for _, model := range []any{
 		(*models.SocialAccount)(nil), (*models.MediaAttachment)(nil), (*models.RenditionMedia)(nil),
@@ -24,7 +24,7 @@ func seedHandlerAccount(t *testing.T, db *bun.DB, id string) {
 		require.NoError(t, err)
 	}
 	_, err := db.NewInsert().Model(&models.SocialAccount{
-		ID: id, WorkspaceID: "workspace-1", Slug: id, Platform: "x",
+		ID: id, WorkspaceID: "workspace-1", Slug: id, Platform: platform,
 		AccountID: id, AccessTokenEnc: []byte("ciphertext"), IsActive: true,
 	}).Exec(t.Context())
 	require.NoError(t, err)

@@ -3,13 +3,12 @@ package handlers
 import (
 	"bytes"
 	"context"
-
+	"encoding/base64"
 	"encoding/json"
 	"errors"
-
 	"net/http"
 	"net/http/httptest"
-
+	"strings"
 	"testing"
 	"time"
 
@@ -19,7 +18,7 @@ import (
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/mediastore"
-
+	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -194,6 +193,87 @@ func (s *mcpTestServer) requestPath(t *testing.T, path, token string, body any) 
 	return rec
 }
 
+func TestMCPLocalMediaUploadTicketIsHiddenAndOneUse(t *testing.T) {
+	t.Parallel()
+	for _, state := range []string{"live", "member removed", "session revoked"} {
+		t.Run(state, func(t *testing.T) {
+			srv := newMCPTestServer(t)
+			_, err := srv.db.NewCreateTable().Model((*models.UserSession)(nil)).Exec(t.Context())
+			require.NoError(t, err)
+			_, err = srv.db.NewInsert().Model(&models.UserSession{ID: "session-1", UserID: "user-1", ExpiresAt: time.Now().Add(time.Hour), CreatedAt: time.Now()}).Exec(t.Context())
+			require.NoError(t, err)
+			srv.handler.auth = mcpScopeAuthenticator{
+				"mcp-token": {UserID: "user-1", Scope: "mcp:full", WorkspaceID: "ws-1", SessionID: "session-1", ClientID: "client-1"},
+			}
+			png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+			require.NoError(t, err)
+			response := srv.request(t, "mcp-token", map[string]any{
+				"jsonrpc": "2.0", "id": "ticket", "method": "tools/call",
+				"params": map[string]any{"name": mcpToolCreateTicket, "arguments": map[string]any{
+					"workspace_id": "ws-1", "filename": "../profile.png", "mime_type": "image/png", "size": len(png), "alt_text": "Profile",
+				}},
+			})
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			var ticketResult struct {
+				Result struct {
+					Structured map[string]any `json:"structuredContent"`
+					Meta       struct {
+						Upload struct {
+							URL     string            `json:"url"`
+							Headers map[string]string `json:"headers"`
+						} `json:"upload"`
+					} `json:"_meta"`
+				} `json:"result"`
+			}
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &ticketResult))
+			require.NotContains(t, response.Body.String(), `"structuredContent":{"ticket"`)
+			require.Equal(t, "https://app.openpost.test/mcp/media-upload", ticketResult.Result.Meta.Upload.URL)
+			authorization := ticketResult.Result.Meta.Upload.Headers["Authorization"]
+			require.True(t, strings.HasPrefix(authorization, "Upload "))
+			var publicResult struct {
+				Result struct {
+					Content    json.RawMessage `json:"content"`
+					Structured json.RawMessage `json:"structuredContent"`
+				} `json:"result"`
+			}
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &publicResult))
+			require.NotContains(t, string(publicResult.Result.Content), authorization)
+			require.NotContains(t, string(publicResult.Result.Structured), authorization)
+
+			var stored models.MCPMediaUploadTicket
+			require.NoError(t, srv.db.NewSelect().Model(&stored).Scan(t.Context()))
+			require.Equal(t, "profile.png", stored.Filename)
+			require.Equal(t, "session-1", stored.SessionID)
+			require.NotContains(t, authorization, stored.TicketHash)
+
+			upload := func() *httptest.ResponseRecorder {
+				req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/mcp/media-upload", bytes.NewReader(png))
+				req.Header.Set("Authorization", authorization)
+				req.Header.Set("Content-Type", "image/png")
+				rec := httptest.NewRecorder()
+				srv.echo.ServeHTTP(rec, req)
+				return rec
+			}
+			if state == "member removed" {
+				_, err := srv.db.NewDelete().Model((*models.WorkspaceMember)(nil)).Where("workspace_id = ? AND user_id = ?", "ws-1", "user-1").Exec(t.Context())
+				require.NoError(t, err)
+			}
+			if state == "session revoked" {
+				_, err := srv.db.NewUpdate().Model((*models.UserSession)(nil)).Set("revoked_at = ?", time.Now()).Where("id = ?", "session-1").Exec(t.Context())
+				require.NoError(t, err)
+			}
+			first := upload()
+			if state != "live" {
+				require.True(t, first.Code == http.StatusUnauthorized || first.Code == http.StatusForbidden, first.Body.String())
+				return
+			}
+			require.Equal(t, http.StatusCreated, first.Code, first.Body.String())
+			require.Contains(t, first.Body.String(), `"original_filename":"profile.png"`)
+			require.Equal(t, http.StatusUnauthorized, upload().Code)
+		})
+	}
+}
+
 type mcpScopeAuthenticator map[string]middleware.Principal
 
 func (a mcpScopeAuthenticator) AuthenticateBearer(_ context.Context, token string) (*middleware.Principal, error) {
@@ -252,6 +332,202 @@ func TestMCPRejectsUntrustedBrowserOrigins(t *testing.T) {
 	}
 }
 
+func TestMCPAuthenticatesSupportedTokenScopes(t *testing.T) {
+	t.Parallel()
+
+	srv := newMCPTestServer(t)
+	srv.handler.auth = mcpScopeAuthenticator{
+		"web-token":   {UserID: "user-1", Email: "user@example.com"},
+		"read-token":  {UserID: "user-1", Email: "user@example.com", Scope: "mcp:read"},
+		"mcp-token":   {UserID: "user-1", Email: "user@example.com", Scope: "mcp:full"},
+		"cli-token":   {UserID: "user-1", Email: "user@example.com", Scope: "cli:full"},
+		"api-read":    {UserID: "user-1", Email: "user@example.com", Scope: "api:read"},
+		"api-write":   {UserID: "user-1", Email: "user@example.com", Scope: "api:write"},
+		"media-token": {UserID: "user-1", Email: "user@example.com", Scope: "media:read"},
+	}
+
+	for _, token := range []string{"web-token", "read-token", "mcp-token", "cli-token"} {
+		resp := srv.request(t, token, map[string]any{
+			"jsonrpc": "2.0",
+			"id":      token,
+			"method":  "tools/list",
+		})
+		require.Equal(t, http.StatusOK, resp.Code, token)
+	}
+
+	for _, token := range []string{"api-read", "api-write", "media-token"} {
+		resp := srv.request(t, token, map[string]any{
+			"jsonrpc": "2.0",
+			"id":      "bad-scope-" + token,
+			"method":  "tools/list",
+		})
+		require.Equal(t, http.StatusForbidden, resp.Code, token)
+		require.Contains(t, resp.Header().Get("WWW-Authenticate"), `scope="mcp:full"`, token)
+		require.Contains(t, resp.Header().Get("WWW-Authenticate"), `error="insufficient_scope"`, token)
+	}
+}
+
+func TestMCPReadOnlyScopeHidesAndRejectsMutations(t *testing.T) {
+	t.Parallel()
+
+	srv := newMCPTestServer(t)
+	srv.handler.auth = mcpScopeAuthenticator{
+		"read-token": {
+			UserID:      "user-1",
+			Email:       "user@example.com",
+			Scope:       "mcp:read",
+			WorkspaceID: "ws-1",
+			ClientID:    "token-read-only",
+			ClientName:  "Read-only MCP",
+		},
+	}
+
+	toolsResp := srv.request(t, "read-token", map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "read-tools",
+		"method":  "tools/list",
+	})
+	require.Equal(t, http.StatusOK, toolsResp.Code)
+	var toolsOut map[string]any
+	require.NoError(t, json.Unmarshal(toolsResp.Body.Bytes(), &toolsOut))
+	tools := toolsOut["result"].(map[string]any)["tools"].([]any)
+	// The default direct surface lists query operations themselves: no
+	// mutation operations and no discovery trio.
+	names := make([]string, 0, len(tools))
+	for _, item := range tools {
+		names = append(names, item.(map[string]any)["name"].(string))
+	}
+	require.Contains(t, names, mcpToolWorkspaces)
+	require.Contains(t, names, mcpToolRenderWidget)
+	require.Contains(t, names, mcpToolRenderUpload)
+	require.NotContains(t, names, mcpToolCreateTicket)
+	require.NotContains(t, names, mcpToolDeletePub)
+	require.NotContains(t, names, mcpToolDeleteMedia)
+
+	rendered := mcpStructuredContent(t, mcpCallOperation(t, srv, "read-token", "read-render", mcpToolRenderUpload, map[string]any{
+		"workspace_id": "ws-1",
+	}))
+	require.Equal(t, "ws-1", rendered["workspace_id"])
+	require.NotContains(t, names, mcpToolCreatePub)
+	require.NotContains(t, names, mcpToolExecute)
+	require.NotContains(t, names, mcpToolSearch)
+	require.NotContains(t, names, mcpToolQuery)
+
+	initializeResp := srv.request(t, "read-token", map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "read-initialize",
+		"method":  "initialize",
+		"params": map[string]any{
+			"protocolVersion": mcpProtocolVersion,
+			"capabilities":    map[string]any{},
+			"clientInfo":      map[string]any{"name": "test", "version": "1"},
+		},
+	})
+	var initializeOut map[string]any
+	require.NoError(t, json.Unmarshal(initializeResp.Body.Bytes(), &initializeOut))
+	require.Contains(t, initializeOut["result"].(map[string]any)["instructions"], "This connection is read-only")
+
+	promptsResp := srv.request(t, "read-token", map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "read-prompts",
+		"method":  "prompts/list",
+	})
+	var promptsOut map[string]any
+	require.NoError(t, json.Unmarshal(promptsResp.Body.Bytes(), &promptsOut))
+	prompts := promptsOut["result"].(map[string]any)["prompts"].([]any)
+	require.Len(t, prompts, 1)
+	require.Equal(t, mcpPromptReviewQueue, prompts[0].(map[string]any)["name"])
+
+	searchResp := srv.request(t, "read-token", map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "read-search",
+		"method":  "tools/call",
+		"params": map[string]any{
+			"name":      mcpToolSearch,
+			"arguments": map[string]any{"query": "delete a provider comment"},
+		},
+	})
+	var searchOut map[string]any
+	require.NoError(t, json.Unmarshal(searchResp.Body.Bytes(), &searchOut))
+	operations := searchOut["result"].(map[string]any)["structuredContent"].(map[string]any)["operations"].([]any)
+	require.Empty(t, operations)
+
+	queryResp := srv.request(t, "read-token", map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "read-query",
+		"method":  "tools/call",
+		"params": map[string]any{
+			"name": mcpToolQuery,
+			"arguments": map[string]any{
+				"operation": "list_accounts",
+				"arguments": map[string]any{"workspace_id": "ws-1"},
+			},
+		},
+	})
+	var queryOut map[string]any
+	require.NoError(t, json.Unmarshal(queryResp.Body.Bytes(), &queryOut))
+	require.NotContains(t, queryOut, "error")
+
+	for _, toolName := range []string{mcpToolExecute, mcpToolCreatePub} {
+		mutationResp := srv.request(t, "read-token", map[string]any{
+			"jsonrpc": "2.0",
+			"id":      "read-mutation-" + toolName,
+			"method":  "tools/call",
+			"params": map[string]any{
+				"name": toolName,
+				"arguments": map[string]any{
+					"operation": mcpToolCreatePub,
+					"arguments": map[string]any{
+						"workspace_id":    "ws-1",
+						"content_profile": "short_text",
+						"source_text":     "This must not be created",
+					},
+				},
+			},
+		})
+		var mutationOut map[string]any
+		require.NoError(t, json.Unmarshal(mutationResp.Body.Bytes(), &mutationOut))
+		require.Contains(t, mutationOut["error"].(map[string]any)["message"], "mcp:read")
+	}
+}
+
+func TestMCPPublicationExecutionIntentDefaultsAndRequiresInstanceAdmin(t *testing.T) {
+	t.Parallel()
+	srv := newMCPTestServer(t)
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey, "user-1")
+	created, rpcErr := srv.handler.createPublication(ctx, "user-1", map[string]any{
+		"workspace_id": "ws-1", "content_profile": "short_text", "source_text": "Certification test",
+		"social_account_ids": []string{"account-1"},
+	})
+	require.Nil(t, rpcErr)
+	publicationID := created.(map[string]any)["structuredContent"].(map[string]any)["publication"].(mcpPublicationStatus).ID
+
+	_, _, intent, rpcErr := srv.handler.loadMCPPublicationAction(ctx, map[string]any{
+		"post_id": publicationID, "expected_revision": 1,
+	}, "invalid")
+	require.Nil(t, rpcErr)
+	require.Equal(t, providerreadiness.ExecutionIntentProduction, intent)
+
+	rejectedPublicationID, rejectedRevision, rejectedIntent, rpcErr := srv.handler.loadMCPPublicationAction(ctx, map[string]any{
+		"post_id": publicationID, "expected_revision": 1,
+		"execution_intent": "certification_test",
+	}, "invalid")
+	require.NotNil(t, rpcErr)
+	require.Empty(t, rejectedPublicationID)
+	require.Zero(t, rejectedRevision)
+	require.Empty(t, rejectedIntent)
+	require.Contains(t, rpcErr.Message, "instance admin role required")
+
+	_, err := srv.db.NewUpdate().Model((*models.User)(nil)).Set("is_admin = ?", true).Where("id = ?", "user-1").Exec(ctx)
+	require.NoError(t, err)
+	_, _, intent, rpcErr = srv.handler.loadMCPPublicationAction(ctx, map[string]any{
+		"post_id": publicationID, "expected_revision": 1,
+		"execution_intent": "certification_test",
+	}, "invalid")
+	require.Nil(t, rpcErr)
+	require.Equal(t, providerreadiness.ExecutionIntentCertificationTest, intent)
+}
+
 func TestMCPSearchRefusesOutOfScopeAndAmbiguousMutations(t *testing.T) {
 	t.Parallel()
 
@@ -274,6 +550,43 @@ func TestMCPSearchRefusesOutOfScopeAndAmbiguousMutations(t *testing.T) {
 	operations := result.(map[string]any)["structuredContent"].(map[string]any)["operations"].([]map[string]any)
 	require.NotEmpty(t, operations)
 	require.Equal(t, mcpToolDeleteComment, operations[0]["name"])
+}
+
+func TestMCPResourcesReadRejectsUnknownResource(t *testing.T) {
+	t.Parallel()
+
+	srv := newMCPTestServer(t)
+	resp := srv.request(t, "web-token", map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "unknown-resource",
+		"method":  "resources/read",
+		"params": map[string]any{
+			"uri": "ui://widget/unknown.html",
+		},
+	})
+
+	require.Equal(t, http.StatusOK, resp.Code)
+	var out map[string]any
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+	require.Equal(t, "unknown resource", out["error"].(map[string]any)["message"])
+}
+
+func TestMCPPromptsGetRejectsUnknownPrompt(t *testing.T) {
+	t.Parallel()
+
+	srv := newMCPTestServer(t)
+	resp := srv.request(t, "web-token", map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "bad-prompt",
+		"method":  "prompts/get",
+		"params": map[string]any{
+			"name": "unknown",
+		},
+	})
+	require.Equal(t, http.StatusOK, resp.Code)
+	var out map[string]any
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+	require.Equal(t, "unknown prompt", out["error"].(map[string]any)["message"])
 }
 
 func TestMCPWorkspaceScopedTokenFiltersAndRejectsOtherWorkspaces(t *testing.T) {
@@ -362,7 +675,7 @@ func TestMCPCommentMutationRejectsCredentialBoundToAnotherWorkspace(t *testing.T
 	require.NoError(t, err)
 	require.Zero(t, jobs)
 
-	allowed := mcpStructuredContent(t, mcpCallOperation(t, srv, "allowed-comment", mcpToolExecute, map[string]any{
+	allowed := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "allowed-comment", mcpToolExecute, map[string]any{
 		"operation": mcpToolHideComment,
 		"arguments": map[string]any{"comment_id": commentID},
 	}))

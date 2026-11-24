@@ -2,11 +2,8 @@ package platform
 
 import (
 	"context"
-
 	"fmt"
-
 	"net/http"
-
 	"testing"
 )
 
@@ -14,6 +11,27 @@ const (
 	devNullCommentRoot = "00000000-0000-4000-8000-000000000001"
 	devNullCommentOne  = "00000000-0000-4000-8000-000000000002"
 )
+
+func TestDevNullCommentsOwnership(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		author    devNullCommentAuthor
+		accountID string
+		ours      bool
+	}{
+		{"account ID", devNullCommentAuthor{ID: "ours", Handle: "renamed"}, "ours", true},
+		{"handle", devNullCommentAuthor{ID: "new-id", Handle: "TESTUSER"}, "old-id", true},
+		{"other", devNullCommentAuthor{ID: "other", Handle: "someone"}, "ours", false},
+		{"missing", devNullCommentAuthor{}, "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			comment := (devNullCommentCommit{Author: tc.author}).comment("testuser", tc.accountID, devNullCommentRoot, devNullCommentRoot)
+			if comment.IsOurs != tc.ours {
+				t.Fatalf("ownership = %v, want %v", comment.IsOurs, tc.ours)
+			}
+		})
+	}
+}
 
 func TestDevNullCommentsRejectIncompleteCollection(t *testing.T) {
 	for _, mode := range []string{"later-page-error", "nested-page-error", "cursor-cycle", "request-limit", "malformed-page", "missing-data", "missing-cursor", "invalid-reply"} {

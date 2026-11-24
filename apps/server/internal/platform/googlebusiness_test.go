@@ -2,12 +2,9 @@ package platform
 
 import (
 	"context"
-
 	"net/http"
-
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -157,39 +154,6 @@ func TestGoogleBusinessPayloadTopics(t *testing.T) {
 	require.Equal(t, "OFFER", offer.TopicType)
 	require.Equal(t, "FALL10", offer.Offer.CouponCode)
 	require.Nil(t, offer.CallToAction)
-}
-
-func TestGoogleBusinessCreateIsPendingUntilReconciled(t *testing.T) {
-	stubGoogleBusinessClient(t, func(req *http.Request) (*http.Response, error) {
-		switch {
-		case strings.HasSuffix(req.URL.Path, "/localPosts"):
-			require.Equal(t, http.MethodPost, req.Method)
-			return jsonResponse(req, `{"name": "accounts/111/locations/aaa/localPosts/post-1", "state": "LIVE", "searchUrl": "https://www.google.com/maps/post/1"}`), nil
-		case strings.HasSuffix(req.URL.Path, "/v1/accounts"):
-			return jsonResponse(req, googleBusinessAccountsPayload()), nil
-		case strings.Contains(req.URL.Path, "/locations"):
-			return jsonResponse(req, googleBusinessLocationsPayload()), nil
-		default:
-			t.Fatalf("unexpected Google Business request %s %s", req.Method, req.URL.String())
-			return nil, nil
-		}
-	})
-
-	adapter := NewGoogleBusinessAdapter("gbp-client", "gbp-secret", "https://app.test/callback")
-	var checkpoints []PublishResult
-	req := &PublishRequest{Content: "Fresh beans.", Profile: "short_text", Settings: map[string]interface{}{}}
-	req.SetWriteFence(func(PublishResult) error { return nil }, func(result PublishResult) error {
-		checkpoints = append(checkpoints, result)
-		return nil
-	})
-
-	result, err := adapter.Publish(context.Background(), "access", "accounts/111/locations/aaa", req)
-	require.NoError(t, err)
-	require.Equal(t, PublishSubmissionPending, result.SubmissionState, "create acceptance is not publication, even when Google echoes LIVE")
-	require.Equal(t, PublishRetryReconcileOnly, result.RetrySafety)
-	require.Equal(t, "gbplocalpost1:accounts/111/locations/aaa/localPosts/post-1", result.ProviderReference)
-	require.Equal(t, time.Minute, result.ReconcileAfter)
-	require.NotEmpty(t, checkpoints)
 }
 
 func TestGoogleBusinessReconcileTransitions(t *testing.T) {

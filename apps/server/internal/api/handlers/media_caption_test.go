@@ -70,6 +70,12 @@ func (s *recordingCaptionStorage) Open(_ context.Context, id string) (io.ReadClo
 	return io.NopCloser(bytes.NewReader(data)), nil
 }
 
+func (s *recordingCaptionStorage) openedKeys() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.opens...)
+}
+
 type mediaCaptionTestServer struct {
 	echo    *echo.Echo
 	db      *bun.DB
@@ -158,33 +164,21 @@ func TestGenerateMediaAltTextMapsProviderRateLimitWithoutExposingDetails(t *test
 	require.NotContains(t, response.Body.String(), "openrouter")
 }
 
-func TestGenerateMediaAltTextPreservesManualEditDuringProviderRequest(t *testing.T) {
+func TestGenerateMediaAltTextFailsClosedWhenMediumThumbnailIsMissing(t *testing.T) {
 	t.Parallel()
 
-	var srv *mediaCaptionTestServer
-	captioner := captionerFunc(func(ctx context.Context, _ imagecaption.Input) (imagecaption.Result, error) {
-		_, err := srv.db.NewUpdate().
-			Model((*models.MediaAttachment)(nil)).
-			Set("alt_text = ?", "User saved this while generation was running.").
-			Where("id = ?", "image-1").
-			Exec(ctx)
-		require.NoError(t, err)
-		return imagecaption.Result{AltText: "Generated description", Model: "openai/gpt-5.6-luna"}, nil
-	})
-	srv = newMediaCaptionTestServer(t, captioner)
-	srv.insertMedia(t, models.MediaAttachment{ID: "image-1"})
+	providerCalls := 0
+	srv := newMediaCaptionTestServer(t, captionerFunc(func(_ context.Context, _ imagecaption.Input) (imagecaption.Result, error) {
+		providerCalls++
+		return imagecaption.Result{AltText: "Generated"}, nil
+	}))
+	srv.insertMedia(t, models.MediaAttachment{ID: "image-1", ThumbnailsJSON: `{}`})
 
 	response := srv.generate(t, "image-1", "en")
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var output GenerateMediaAltTextOutput
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &output.Body))
-	require.Equal(t, "User saved this while generation was running.", output.Body.AltText)
-	require.False(t, output.Body.Generated)
-	require.Empty(t, output.Body.Model)
-
-	var media models.MediaAttachment
-	require.NoError(t, srv.db.NewSelect().Model(&media).Where("id = ?", "image-1").Scan(t.Context()))
-	require.Equal(t, "User saved this while generation was running.", media.AltText)
+	require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
+	require.Contains(t, response.Body.String(), "preview is unavailable")
+	require.Zero(t, providerCalls)
+	require.Empty(t, srv.storage.openedKeys())
 }
 
 var _ mediastore.BlobStorage = (*recordingCaptionStorage)(nil)

@@ -11,7 +11,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
-
 	notificationservice "github.com/openpost/backend/internal/services/notifications"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -79,6 +78,21 @@ func TestNotificationMuteAPIValidatesScopeAuthorizationAndEndsEarly(t *testing.T
 	ended := jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/notifications/mutes/"+body.Mutes[0].ID, nil, "web-token")
 	require.Equal(t, http.StatusOK, ended.Code, ended.Body.String())
 	require.Contains(t, ended.Body.String(), `"mutes":[]`)
+}
+
+func TestNotificationMuteAPIRejectsPastAndMismatchedScopes(t *testing.T) {
+	t.Parallel()
+	server := newNotificationTestServer(t)
+	server.seed(t)
+
+	for _, body := range []map[string]any{
+		{"scope": "account", "workspace_id": "workspace-1", "ends_at": time.Now().UTC().Add(time.Hour).Format(time.RFC3339)},
+		{"scope": "workspace", "ends_at": time.Now().UTC().Add(time.Hour).Format(time.RFC3339)},
+		{"scope": "account", "ends_at": time.Now().UTC().Add(-time.Minute).Format(time.RFC3339)},
+	} {
+		response := jsonRequest(t, server.echo, http.MethodPost, "/api/v1/notifications/mutes", body, "web-token")
+		require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+	}
 }
 
 func (s *notificationTestServer) seed(t *testing.T) {

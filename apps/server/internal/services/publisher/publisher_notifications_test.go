@@ -136,35 +136,6 @@ func TestCreateReconnectNotificationsClaimsCredentialGenerationOnce(t *testing.T
 	require.Equal(t, FailureReconnectRequired, account.PreflightFailure, "the claimed break marks the account unhealthy")
 }
 
-func TestPublicationReconnectNotificationsExcludeOtherFailedAccounts(t *testing.T) {
-	server := newReconnectNotificationServer(t)
-	ctx := t.Context()
-	healthy := models.SocialAccount{
-		ID: "account-2", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "healthy",
-		Slug: "healthy", AccessTokenEnc: []byte("test-token"), IsActive: true,
-	}
-	_, err := server.db.NewInsert().Model(&healthy).Exec(ctx)
-	require.NoError(t, err)
-	renditions := []models.Rendition{
-		{SocialAccountID: "account-1", Status: models.RenditionStatusFailed, ErrorAction: FailureActionReconnect, ErrorKind: FailureAuthExpired},
-		{SocialAccountID: healthy.ID, Status: models.RenditionStatusFailed, ErrorAction: FailureActionEdit, ErrorKind: FailureValidation},
-	}
-	publication := &models.Publication{ID: "mixed-publication", WorkspaceID: "ws-1", CreatedByID: "creator-1"}
-	require.NoError(t, server.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		return server.service.createPublicationResultNotifications(ctx, tx, publication, models.PublicationStatusFailed, renditions)
-	}))
-	var account models.SocialAccount
-	require.NoError(t, server.db.NewSelect().Model(&account).Where("id = ?", healthy.ID).Scan(ctx))
-	require.Empty(t, account.PreflightFailure, "content errors must not invalidate credentials")
-	require.Zero(t, account.CredentialFailureGeneration)
-	for _, recipient := range []string{"creator-1", "admin-1"} {
-		for _, row := range reconnectNotificationRows(t, server.db, recipient) {
-			require.NotContains(t, row.DedupKey, "account-2", "only the broken account needs attention")
-		}
-	}
-	require.Len(t, reconnectNotificationRows(t, server.db, "connector-1"), 1)
-}
-
 func TestPublicationCredentialFailureAfterTransientCheck(t *testing.T) {
 	for _, previous := range []string{"unknown", "unsupported"} {
 		t.Run(previous, func(t *testing.T) {

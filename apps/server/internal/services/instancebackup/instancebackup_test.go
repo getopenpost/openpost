@@ -3,7 +3,6 @@ package instancebackup_test
 import (
 	"bytes"
 	"context"
-
 	"os"
 	"path/filepath"
 	"testing"

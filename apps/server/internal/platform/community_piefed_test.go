@@ -168,6 +168,26 @@ func TestPieFedComments(t *testing.T) {
 	require.NoError(t, adapter.DeleteComment(t.Context(), "piefed-jwt", "6", replyID))
 }
 
+func TestPieFedCommentsMissingVoteStaysUnknown(t *testing.T) {
+	// A reply without my_vote carries no vote information. It must not be
+	// reported as a known no-vote, or stored like state would be clobbered.
+	server := newProviderTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"comments":[` +
+			`{"comment":{"id":21,"post_id":200,"body":"Nice","published":"2026-09-01T10:00:00.000000Z","ap_id":"https://piefed.social/comment/21","path":"0.21","deleted":false,"removed":false},"creator":{"id":8,"user_name":"viewer"},"replies":[]}` +
+			`],"next_page":null}`))
+	}))
+	defer server.Close()
+
+	adapter := NewPieFedAdapter(server.URL)
+	comments, err := adapter.ListComments(t.Context(), "piefed-jwt", "6", "200")
+	require.NoError(t, err)
+	require.Len(t, comments, 1)
+	require.False(t, comments[0].LikeStateKnown)
+	require.False(t, comments[0].Liked)
+	require.True(t, comments[0].CanLike)
+	require.True(t, comments[0].CanUnlike)
+}
+
 func TestPieFedImageUploadAndAnalytics(t *testing.T) {
 	server := newFakePieFed(t)
 	defer server.Close()

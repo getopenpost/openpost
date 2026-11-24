@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
-
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -19,6 +19,66 @@ func pinterestFixture(t *testing.T, name string) string {
 	body, err := os.ReadFile("testdata/pinterest/" + name)
 	require.NoError(t, err)
 	return string(body)
+}
+
+func TestPinterestOAuthRefreshRotationAndRevocationFixtures(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	var grants []url.Values
+	var revokedToken string
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		require.Equal(t, http.MethodPost, req.Method)
+		require.Equal(t, "Basic cGluLWNsaWVudDpwdG4tc2VjcmV0", req.Header.Get(headerAuthorization))
+		body, err := io.ReadAll(req.Body)
+		require.NoError(t, err)
+		values, err := url.ParseQuery(string(body))
+		require.NoError(t, err)
+		if req.URL.String() == pinterestTokenURL+"/revoke" {
+			revokedToken = values.Get("token")
+			require.Equal(t, "access_token", values.Get("token_type_hint"))
+			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("")), Request: req}, nil
+		}
+		require.Equal(t, pinterestTokenURL, req.URL.String())
+		grants = append(grants, values)
+		if values.Get(grantType) == oauthGrantRefresh {
+			return jsonResponse(req, pinterestFixture(t, "oauth_refresh_rotated.json")), nil
+		}
+		if values.Get(oauthParamCode) == "reconnect-code" {
+			return jsonResponse(req, pinterestFixture(t, "oauth_reconnect.json")), nil
+		}
+		return jsonResponse(req, pinterestFixture(t, "oauth_exchange.json")), nil
+	})}
+
+	adapter := NewPinterestAdapter("pin-client", "ptn-secret", "https://app.test/api/v1/accounts/pinterest/callback")
+	authURL, _ := adapter.GenerateAuthURL("oauth-state")
+	parsed, err := url.Parse(authURL)
+	require.NoError(t, err)
+	require.Equal(t, "oauth-state", parsed.Query().Get("state"))
+	require.Equal(t, strings.Join(pinterestOAuthScopes, ","), parsed.Query().Get("scope"))
+
+	exchanged, err := adapter.ExchangeCode(context.Background(), "auth-code", nil)
+	require.NoError(t, err)
+	require.Equal(t, "pin-access-1", exchanged.AccessToken)
+	require.Equal(t, "pin-refresh-1", exchanged.RefreshToken)
+	require.Equal(t, 31536000, exchanged.RefreshExpiresIn)
+
+	refreshed, err := adapter.RefreshToken(context.Background(), RefreshTokenInput{RefreshToken: exchanged.RefreshToken})
+	require.NoError(t, err)
+	require.Equal(t, "pin-access-2", refreshed.AccessToken)
+	require.Equal(t, "pin-refresh-2", refreshed.RefreshToken, "Pinterest refresh-token rotation must be persisted by the grant manager")
+
+	reconnected, err := adapter.ExchangeCode(context.Background(), "reconnect-code", nil)
+	require.NoError(t, err)
+	require.Equal(t, "pin-access-reconnected", reconnected.AccessToken)
+	require.Equal(t, "pin-refresh-reconnected", reconnected.RefreshToken)
+	require.Len(t, grants, 3)
+	require.Equal(t, "auth-code", grants[0].Get(oauthParamCode))
+	require.Equal(t, "pin-refresh-1", grants[1].Get(string(RefreshCredentialRefreshToken)))
+	require.Equal(t, "reconnect-code", grants[2].Get(oauthParamCode))
+
+	require.NoError(t, adapter.RevokeAuthorization(context.Background(), refreshed.AccessToken))
+	require.Equal(t, "pin-access-2", revokedToken)
 }
 
 func TestPinterestAmbiguousCreateIsFencedAcrossWorkerRestart(t *testing.T) {

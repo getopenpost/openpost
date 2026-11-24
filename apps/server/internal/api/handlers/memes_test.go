@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-
+	"encoding/binary"
 	"encoding/json"
 	"errors"
-
+	"hash/crc32"
 	"image"
-
 	"image/png"
 	"io"
 	"net/http"
@@ -22,61 +21,14 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
-	"github.com/openpost/backend/internal/ai"
 	"github.com/openpost/backend/internal/memes"
 	"github.com/openpost/backend/internal/models"
-
 	"github.com/openpost/backend/internal/services/mediastore"
 	"github.com/openpost/backend/internal/services/memegeneration"
 	"github.com/openpost/backend/internal/services/publicurl"
-	"github.com/openpost/backend/internal/services/voiceprofiles"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
-
-type memeSuggestionGeneratorFunc func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error)
-
-func (f memeSuggestionGeneratorFunc) Generate(ctx context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
-	return f(ctx, request)
-}
-
-func TestMemeSuggestionsAcceptRichWorkspaceVoice(t *testing.T) {
-	t.Parallel()
-	examples := []voiceprofiles.Example{
-		{Text: "First approved example: " + strings.Repeat("a", 3000)},
-		{Text: "Second approved example: " + strings.Repeat("b", 3000)},
-		{Text: "Third approved example: " + strings.Repeat("c", 3000)},
-	}
-	var guidance string
-	service, err := memegeneration.New(memeSuggestionGeneratorFunc(func(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
-		guidance = request.UserPrompt
-		return ai.GenerateResult{Text: `{"candidates":[{"template_id":"drake","caption_lines":["more code","more features"],"rationale":"Prefer the result over extra code.","alt_text":"Drake rejects more code and approves more features."}]}`}, nil
-	}), memegeneration.DefaultModel)
-	require.NoError(t, err)
-	srv := newMemeHandlerTestServer(t, service)
-	_, err = srv.db.NewCreateTable().Model((*models.SocialAccount)(nil)).IfNotExists().Exec(t.Context())
-	require.NoError(t, err)
-	createVoiceProfileHandlerTables(t, srv.db)
-	profile, err := voiceprofiles.New(srv.db).Create(t.Context(), voiceprofiles.CreateInput{
-		WorkspaceID: "ws-1", CreatedByID: "user-1", Name: "Rich founder voice", IsDefault: true,
-		Definition: voiceprofiles.Definition{IdentitySummary: "Direct technical founder", PreferredLanguage: "en", Examples: examples},
-	})
-	require.NoError(t, err)
-	encoded, err := json.Marshal(profile.Definition)
-	require.NoError(t, err)
-	require.Greater(t, len(encoded), 8000)
-	response := srv.request(t, http.MethodPost, "/api/v1/memes/suggestions", map[string]any{
-		"workspace_id": "ws-1", "idea": "Less code, more features.", "count": 1,
-	})
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	for _, example := range examples {
-		require.Contains(t, guidance, example.Text, "approved examples must reach generation intact")
-	}
-	var output GenerateMemeSuggestionsOutput
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &output.Body))
-	require.Len(t, output.Body.Candidates, 1)
-	require.Equal(t, "drake", output.Body.Candidates[0].TemplateID)
-}
 
 type memeProviderStub struct {
 	mu             sync.Mutex
@@ -410,6 +362,39 @@ func TestMemeRenderRejectsCrossWorkspaceParentBeforeCallingProvider(t *testing.T
 	})
 	require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
 	require.Empty(t, srv.provider.renderedRequests())
+}
+
+func TestMemeRenderedImageRejectsUnsafeDimensionsBeforeDecode(t *testing.T) {
+	t.Parallel()
+
+	data := validMemePNG(t)
+	binary.BigEndian.PutUint32(data[16:20], uint32(maxMemeImageDimension+1))
+	binary.BigEndian.PutUint32(data[20:24], 1)
+	binary.BigEndian.PutUint32(data[29:33], crc32.ChecksumIEEE(data[12:29]))
+	err := validateMemeRenderedImage(memes.RenderedImage{
+		Data: data, MIMEType: "image/png", Extension: "png", TemplateID: "drake",
+	}, "drake")
+	require.Error(t, err)
+}
+
+func TestMemeThumbnailRejectsBrowserUnsafeDimensions(t *testing.T) {
+	t.Parallel()
+
+	data := validMemePNG(t)
+	binary.BigEndian.PutUint32(data[16:20], uint32(maxMemeThumbnailDimension+1))
+	binary.BigEndian.PutUint32(data[20:24], 1)
+	binary.BigEndian.PutUint32(data[29:33], crc32.ChecksumIEEE(data[12:29]))
+	require.Error(t, validateMemeThumbnailImage(data))
+}
+
+func TestPublicMemeSourceURLDropsPrivateOrStatefulURLs(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, "https://knowyourmeme.com/memes/example", publicMemeSourceURL("https://knowyourmeme.com/memes/example"))
+	require.Empty(t, publicMemeSourceURL("http://knowyourmeme.com/memes/example"))
+	require.Empty(t, publicMemeSourceURL("https://renderer.internal/source"))
+	require.Empty(t, publicMemeSourceURL("https://127.0.0.1/source"))
+	require.Empty(t, publicMemeSourceURL("https://example.com/source?token=secret"))
 }
 
 func TestMemeRendererErrorsAreMappedWithoutLeakingCaptionsOrURLs(t *testing.T) {

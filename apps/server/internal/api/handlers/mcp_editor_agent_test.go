@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"context"
-
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,7 +14,6 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/ai"
-
 	"github.com/openpost/backend/internal/services/editoragent"
 	"github.com/openpost/backend/internal/services/editorpreferences"
 	"github.com/openpost/backend/internal/services/entitlements"

@@ -173,6 +173,40 @@ func TestAcceptWorkspaceInvitationRequiresCredentialSSOAccess(t *testing.T) {
 	require.EqualValues(t, 1, membershipCount)
 }
 
+func TestListWorkspacesFiltersTokenDeniedRowsButKeepsBrowserDiscovery(t *testing.T) {
+	t.Parallel()
+
+	authenticator := workspaceTestAuthenticator{
+		"browser-token": {
+			UserID: workspaceCredentialAdminUserID, Email: "admin@example.com", SessionID: "browser-session",
+		},
+		"unbound-token": {
+			UserID: workspaceCredentialAdminUserID, Email: "admin@example.com",
+			Scope: apitokens.ScopeCLI, TokenID: workspaceCredentialUnboundToken,
+		},
+		"bound-token": {
+			UserID: workspaceCredentialAdminUserID, Email: "admin@example.com",
+			Scope: apitokens.ScopeCLI, TokenID: workspaceCredentialBoundToken,
+			WorkspaceID: workspaceCredentialTestID,
+		},
+	}
+	server := newWorkspaceCredentialAccessTestServer(t, authenticator)
+	seedWorkspaceCredentialAccessFixture(t, server.db)
+
+	browser := server.getJSON(t, "/api/v1/workspaces", "browser-token")
+	require.Equal(t, http.StatusOK, browser.Code, browser.Body.String())
+	browserWorkspaces := workspaceResponseIDsFromBody(t, browser.Body.Bytes())
+	require.ElementsMatch(t, []string{workspaceCredentialTestID, workspaceCredentialPublicID}, browserWorkspaces)
+
+	unbound := server.getJSON(t, "/api/v1/workspaces", "unbound-token")
+	require.Equal(t, http.StatusOK, unbound.Code, unbound.Body.String())
+	require.Equal(t, []string{workspaceCredentialPublicID}, workspaceResponseIDsFromBody(t, unbound.Body.Bytes()))
+
+	bound := server.getJSON(t, "/api/v1/workspaces", "bound-token")
+	require.Equal(t, http.StatusOK, bound.Code, bound.Body.String())
+	require.Equal(t, []string{workspaceCredentialTestID}, workspaceResponseIDsFromBody(t, bound.Body.Bytes()))
+}
+
 func TestCreateWorkspaceRechecksPreferredOrganizationCredentialAccess(t *testing.T) {
 	t.Parallel()
 
@@ -284,6 +318,17 @@ func TestCredentialFilteredReadOperationsDeclareAuthorizationErrors(t *testing.T
 	for operationID := range expected {
 		require.True(t, seen[operationID], "operation %s was not registered", operationID)
 	}
+}
+
+func workspaceResponseIDsFromBody(t *testing.T, body []byte) []string {
+	t.Helper()
+	var workspaces []WorkspaceResponse
+	require.NoError(t, json.Unmarshal(body, &workspaces))
+	ids := make([]string, 0, len(workspaces))
+	for _, workspace := range workspaces {
+		ids = append(ids, workspace.WorkspaceID)
+	}
+	return ids
 }
 
 type workspaceCredentialRequest struct {

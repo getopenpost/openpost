@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-
 	"net/http"
 	"net/http/httptest"
 	"os"

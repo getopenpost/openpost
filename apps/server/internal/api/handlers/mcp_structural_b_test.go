@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/openpost/backend/internal/models"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,7 +28,7 @@ func TestMCPListMediaCursorPagination(t *testing.T) {
 	mcpSeedMedia(t, srv, "media-page-2", base.Add(-1*time.Hour))
 	mcpSeedMedia(t, srv, "media-page-3", base)
 
-	first := mcpStructuredContent(t, mcpCallOperation(t, srv, "media-page-first", mcpToolListMedia, map[string]any{
+	first := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "media-page-first", mcpToolListMedia, map[string]any{
 		"workspace_id": "ws-1", "limit": 2,
 	}))
 	require.Equal(t, float64(3), first["total_count"])
@@ -41,7 +40,7 @@ func TestMCPListMediaCursorPagination(t *testing.T) {
 	require.Equal(t, "media-page-3", items[0].(map[string]any)["id"])
 	require.Equal(t, "media-page-2", items[1].(map[string]any)["id"])
 
-	second := mcpStructuredContent(t, mcpCallOperation(t, srv, "media-page-second", mcpToolListMedia, map[string]any{
+	second := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "media-page-second", mcpToolListMedia, map[string]any{
 		"workspace_id": "ws-1", "limit": 2, "cursor": cursor,
 	}))
 	require.Equal(t, float64(3), second["total_count"])
@@ -51,7 +50,7 @@ func TestMCPListMediaCursorPagination(t *testing.T) {
 	require.Equal(t, "media-page-1", rest[0].(map[string]any)["id"])
 	require.Equal(t, "", second["next_cursor"])
 
-	invalid := mcpCallOperation(t, srv, "media-page-bad", mcpToolListMedia, map[string]any{
+	invalid := mcpCallOperation(t, srv, "web-token", "media-page-bad", mcpToolListMedia, map[string]any{
 		"workspace_id": "ws-1", "cursor": "not-a-cursor",
 	})
 	require.Contains(t, mcpErrorMessage(t, invalid), "cursor")
@@ -98,7 +97,7 @@ func TestMCPGetPostMetricsReadsStoredSnapshots(t *testing.T) {
 	}).Exec(ctx)
 	require.NoError(t, err)
 
-	structured := mcpStructuredContent(t, mcpCallOperation(t, srv, "metrics-stored", mcpToolPostMetrics, map[string]any{
+	structured := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "metrics-stored", mcpToolPostMetrics, map[string]any{
 		"post_id": "publication-metrics",
 	}))
 	require.Equal(t, "publication-metrics", structured["post_id"])
@@ -120,7 +119,7 @@ func TestMCPGetPostMetricsReadsStoredSnapshots(t *testing.T) {
 	require.Equal(t, float64(100), totals["views"])
 	require.Equal(t, float64(10), totals["engagements"])
 
-	missing := mcpCallOperation(t, srv, "metrics-missing", mcpToolPostMetrics, map[string]any{
+	missing := mcpCallOperation(t, srv, "web-token", "metrics-missing", mcpToolPostMetrics, map[string]any{
 		"post_id": "no-such-post",
 	})
 	require.Contains(t, mcpErrorMessage(t, missing), "not found")
@@ -131,7 +130,7 @@ func TestMCPSearchDocsFindsGuides(t *testing.T) {
 
 	srv := newMCPTestServer(t)
 
-	structured := mcpStructuredContent(t, mcpCallOperation(t, srv, "docs-accounts", mcpToolSearchDocs, map[string]any{
+	structured := mcpStructuredContent(t, mcpCallOperation(t, srv, "web-token", "docs-accounts", mcpToolSearchDocs, map[string]any{
 		"query": "connect a social account", "limit": 2,
 	}))
 	results := structured["results"].([]any)
@@ -152,12 +151,12 @@ func TestMCPSearchDocsFindsGuides(t *testing.T) {
 	}
 	require.True(t, foundAccounts, "account-connection search must include the Accounts guide")
 
-	empty := mcpCallOperation(t, srv, "docs-empty", mcpToolSearchDocs, map[string]any{
+	empty := mcpCallOperation(t, srv, "web-token", "docs-empty", mcpToolSearchDocs, map[string]any{
 		"query": "   ",
 	})
 	require.Contains(t, mcpErrorMessage(t, empty), "query is required")
 
-	overLimit := mcpCallOperation(t, srv, "docs-limit", mcpToolSearchDocs, map[string]any{
+	overLimit := mcpCallOperation(t, srv, "web-token", "docs-limit", mcpToolSearchDocs, map[string]any{
 		"query": "schedule", "limit": 11,
 	})
 	require.Contains(t, mcpErrorMessage(t, overLimit), "limit")

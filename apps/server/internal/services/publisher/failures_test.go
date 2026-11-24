@@ -61,6 +61,19 @@ func TestClassifyMetaFailuresPreserveBoundedDiagnostics(t *testing.T) {
 	require.Equal(t, "A1b2C3d4", failure.TraceID)
 }
 
+func TestDiscordAttachmentPermissionFailureExplainsHowToPublish(t *testing.T) {
+	t.Parallel()
+	failure := ClassifyFailure(&platform.HTTPError{
+		StatusCode: http.StatusForbidden,
+		Code:       "discord_attach_files_permission_lost",
+	})
+	require.Equal(t, FailurePermission, failure.Kind)
+	require.False(t, failure.Retryable)
+	require.Equal(t, FailureActionProvider, failure.Action)
+	require.Contains(t, failure.Message, "Attach Files")
+	require.Contains(t, failure.Message, "remove the attachments")
+}
+
 func TestProviderPrerequisiteFailuresGiveProviderGuidance(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {

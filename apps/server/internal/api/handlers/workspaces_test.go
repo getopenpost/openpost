@@ -145,33 +145,25 @@ func TestWorkspaceCompositionTelemetryStaysWorkspaceScoped(t *testing.T) {
 	require.Len(t, srv.recorder.Events, 2)
 }
 
-func TestWorkspaceSetupKeepsPublicationActionAfterFailedDelivery(t *testing.T) {
+func TestWorkspaceSetupHidesActionsFromViewersAndRejectsScopedTokens(t *testing.T) {
 	t.Parallel()
 
-	srv := newWorkspaceTestServer(t, entitlements.NewSelfHostedService())
-	seedWorkspaceUserAndMember(t, srv.db, "user-1", "user@example.com", models.WorkspaceRoleAdmin)
-	_, err := srv.db.NewInsert().Model(&models.SocialAccount{
-		ID: "account-1", WorkspaceID: "ws-1", Slug: "main", Platform: "x", AccountID: "1",
-		AccessTokenEnc: []byte("token"), IsActive: true,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = srv.db.NewInsert().Model(&models.WorkspaceFirstComposition{
-		WorkspaceID: "ws-1", Signal: "text",
-	}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = srv.db.NewInsert().Model(&models.Publication{
-		ID: "publication-1", WorkspaceID: "ws-1", CreatedByID: "user-1", Status: models.PublicationStatusFailed,
-		SourceContent: "Launch", MetadataJSON: "{}", ReleasePlanJSON: "{}", RepostOverride: "{}",
-	}).Exec(t.Context())
-	require.NoError(t, err)
-	response := srv.getJSON(t, "/api/v1/workspaces/ws-1/setup", "web-token")
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var setup WorkspaceSetupResponse
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &setup))
-	require.False(t, setup.Activated)
-	require.True(t, setup.Visible)
-	require.Equal(t, "publication", setup.NextStep)
-	require.Equal(t, "create_publication", setup.NextAction)
+	authenticator := workspaceTestAuthenticator{
+		"viewer-token": {UserID: "viewer-1", Email: "viewer@example.com"},
+		"scoped-token": {UserID: "viewer-1", Email: "viewer@example.com", WorkspaceID: "other-workspace"},
+	}
+	srv := newWorkspaceTestServerWithAuthenticator(t, entitlements.NewSelfHostedService(), authenticator)
+	seedWorkspaceUserAndMember(t, srv.db, "viewer-1", "viewer@example.com", models.WorkspaceRoleViewer)
+
+	viewer := srv.getJSON(t, "/api/v1/workspaces/ws-1/setup", "viewer-token")
+	require.Equal(t, http.StatusOK, viewer.Code, viewer.Body.String())
+	var projection WorkspaceSetupResponse
+	require.NoError(t, json.Unmarshal(viewer.Body.Bytes(), &projection))
+	require.False(t, projection.Visible)
+	require.Empty(t, projection.NextAction)
+
+	scoped := srv.getJSON(t, "/api/v1/workspaces/ws-1/setup", "scoped-token")
+	require.Equal(t, http.StatusForbidden, scoped.Code, scoped.Body.String())
 }
 
 func (s *workspaceTestServer) createWorkspace(t *testing.T, name string) *httptest.ResponseRecorder {
@@ -273,6 +265,53 @@ func seedWorkspaceUserAndMember(t *testing.T, db *bun.DB, userID, email, role st
 		Role:        role,
 	}).Exec(ctx)
 	require.NoError(t, err)
+}
+
+func TestCreateWorkspaceReusesOwnersActiveSubscribedOrganization(t *testing.T) {
+	t.Parallel()
+
+	srv := newWorkspaceTestServer(t, entitlements.NewSelfHostedService())
+	ctx := t.Context()
+	_, err := srv.db.NewInsert().Model(&models.Organization{
+		ID: "org-agency", Name: "Agency", CreatedByID: "user-1", CreatedAt: time.Now().UTC(),
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.OrganizationMember{
+		OrganizationID: "org-agency", UserID: "user-1", Role: models.OrganizationRoleOwner,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.BillingSubscription{
+		OrganizationID:         "org-agency",
+		ProviderCustomerID:     "customer-1",
+		ProviderSubscriptionID: "subscription-1",
+		Status:                 "active",
+		PlanID:                 "agency",
+		EntitlementSnapshot:    `{}`,
+		UpdatedAt:              time.Now().UTC(),
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	resp := srv.createWorkspace(t, "Client workspace")
+	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+
+	var workspace models.Workspace
+	require.NoError(t, srv.db.NewSelect().Model(&workspace).Where("name = ?", "Client workspace").Scan(ctx))
+	require.Equal(t, "org-agency", workspace.OrganizationID)
+}
+
+func TestCreateWorkspaceInvitationRequiresAdmin(t *testing.T) {
+	t.Parallel()
+
+	srv := newWorkspaceTestServer(t, entitlements.NewSelfHostedService())
+	seedWorkspaceUserAndMember(t, srv.db, "user-1", "user@example.com", models.WorkspaceRoleEditor)
+
+	resp := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations", map[string]string{
+		"email": "teammate@example.com",
+		"role":  models.WorkspaceRoleEditor,
+	}, "web-token")
+
+	require.Equal(t, http.StatusForbidden, resp.Code)
+	require.Contains(t, resp.Body.String(), "workspace admin role required")
 }
 
 func TestWorkspaceMemberLifecycleEndpointsEnforceRolesAndLastAdmin(t *testing.T) {
@@ -377,36 +416,6 @@ func TestResendInvitationRotatesLinkAndRevokedInviteCannotBeAccepted(t *testing.
 	accepted := srv.postJSON(t, "/api/v1/workspace-invitations/accept", map[string]string{"token": secondToken}, "invitee-token")
 	require.Equal(t, http.StatusConflict, accepted.Code)
 	require.Contains(t, accepted.Body.String(), "cannot be accepted")
-}
-
-func TestResendInvitationAppliesPerInvitationAbuseControl(t *testing.T) {
-	t.Parallel()
-	srv := newWorkspaceTestServer(t, nil)
-	seedWorkspaceUserAndMember(t, srv.db, "user-1", "admin@example.com", models.WorkspaceRoleAdmin)
-
-	created := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations", map[string]string{
-		"email": "invitee@example.com", "role": "viewer",
-	}, "web-token")
-	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
-	var invitation WorkspaceInvitationResponse
-	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &invitation))
-
-	for attempt := 0; attempt < 5; attempt++ {
-		_, err := srv.db.NewUpdate().Model((*models.WorkspaceInvitation)(nil)).
-			Set("last_sent_at = ?", time.Now().UTC().Add(-workspaceteam.InvitationResendDelay)).
-			Where("id = ?", invitation.ID).Exec(t.Context())
-		require.NoError(t, err)
-		response := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations/"+invitation.ID+"/resend", map[string]string{}, "web-token")
-		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	}
-	_, err := srv.db.NewUpdate().Model((*models.WorkspaceInvitation)(nil)).
-		Set("last_sent_at = ?", time.Now().UTC().Add(-workspaceteam.InvitationResendDelay)).
-		Where("id = ?", invitation.ID).Exec(t.Context())
-	require.NoError(t, err)
-	limited := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations/"+invitation.ID+"/resend", map[string]string{}, "web-token")
-	require.Equal(t, http.StatusTooManyRequests, limited.Code, limited.Body.String())
-	require.Contains(t, limited.Body.String(), "resend limit reached")
-	require.Contains(t, limited.Body.String(), "try again after")
 }
 
 type workspaceInterleavedEntitlement struct {

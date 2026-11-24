@@ -2,7 +2,6 @@ package platform
 
 import (
 	"context"
-
 	"net/http"
 	"strings"
 	"testing"

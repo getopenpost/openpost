@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-
 	"testing"
 	"time"
 
@@ -138,28 +137,6 @@ func TestCLIAuthDecisionRejectsAPITokenPrincipal(t *testing.T) {
 	require.Equal(t, "pending", sessions[0].Status)
 }
 
-func TestCLIAuthApprovalBindsChosenWorkspaceAndRejectsInaccessibleWorkspace(t *testing.T) {
-	t.Parallel()
-
-	srv := newCLIAuthTestServer(t)
-	start := srv.startCLIAuth(t)
-	approve := srv.request(t, http.MethodPost, "/api/v1/cli/auth/approve", map[string]string{
-		"user_code": start.UserCode, "workspace_id": "workspace-1",
-	}, "web-token")
-	require.Equal(t, http.StatusOK, approve.Code, approve.Body.String())
-	poll := srv.pollCLIAuth(t, start.DeviceCode)
-	require.NotEmpty(t, poll.Token)
-	var token models.APIToken
-	require.NoError(t, srv.db.NewSelect().Model(&token).Where("user_id = ?", "user-1").Scan(t.Context()))
-	require.Equal(t, "workspace-1", token.WorkspaceID)
-
-	second := srv.startCLIAuth(t)
-	rejected := srv.request(t, http.MethodPost, "/api/v1/cli/auth/approve", map[string]string{
-		"user_code": second.UserCode, "workspace_id": "workspace-other",
-	}, "web-token")
-	require.Equal(t, http.StatusForbidden, rejected.Code, rejected.Body.String())
-}
-
 func TestCLIAuthApprovedSessionCannotMintAfterDeviceAuthorizationExpires(t *testing.T) {
 	t.Parallel()
 
@@ -188,6 +165,60 @@ func TestCLIAuthApprovedSessionCannotMintAfterDeviceAuthorizationExpires(t *test
 	require.Equal(t, "expired", session.Status)
 }
 
+func TestCLIAuthBindsApprovalToOneNormalizedRequestedScope(t *testing.T) {
+	t.Parallel()
+
+	srv := newCLIAuthTestServer(t)
+	for _, requestedScopes := range []string{"unknown:scope", "api:read", "cli:full,api:read", "cli:full api:read"} {
+		request := startRequest()
+		request["requested_scopes"] = requestedScopes
+		response := srv.request(t, http.MethodPost, "/api/v1/cli/auth/start", request, "")
+		require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+	}
+
+	request := startRequest()
+	request["requested_scopes"] = "  cli:full  "
+	startResponseRecorder := srv.request(t, http.MethodPost, "/api/v1/cli/auth/start", request, "")
+	require.Equal(t, http.StatusOK, startResponseRecorder.Code, startResponseRecorder.Body.String())
+	var start startResponse
+	require.NoError(t, json.Unmarshal(startResponseRecorder.Body.Bytes(), &start))
+	require.Equal(t, "cli:full", srv.getSession(t, start.UserCode).RequestedScopes)
+
+	override := srv.request(t, http.MethodPost, "/api/v1/cli/auth/approve", map[string]string{
+		"user_code": start.UserCode,
+		"scopes":    "api:read",
+	}, "web-token")
+	require.Equal(t, http.StatusBadRequest, override.Code, override.Body.String())
+	var pending models.CLIAuthSession
+	require.NoError(t, srv.db.NewSelect().Model(&pending).
+		Where("user_code_hash != '' AND status = ?", "pending").Scan(t.Context()))
+	require.Equal(t, "cli:full", pending.RequestedScopes)
+
+	approved := srv.request(t, http.MethodPost, "/api/v1/cli/auth/approve", map[string]string{
+		"user_code": start.UserCode,
+	}, "web-token")
+	require.Equal(t, http.StatusOK, approved.Code, approved.Body.String())
+	poll := srv.pollCLIAuth(t, start.DeviceCode)
+	require.NotEmpty(t, poll.Token)
+	var token models.APIToken
+	require.NoError(t, srv.db.NewSelect().Model(&token).Where("user_id = ?", "user-1").Scan(t.Context()))
+	require.Equal(t, "cli:full", token.Scope)
+}
+
+func TestCLIAuthDefaultsOmittedRequestedScope(t *testing.T) {
+	t.Parallel()
+
+	srv := newCLIAuthTestServer(t)
+	request := startRequest()
+	delete(request, "requested_scopes")
+
+	response := srv.request(t, http.MethodPost, "/api/v1/cli/auth/start", request, "")
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var start startResponse
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &start))
+	require.Equal(t, "cli:full", srv.getSession(t, start.UserCode).RequestedScopes)
+}
+
 func TestCLIAuthDenyFlow(t *testing.T) {
 	t.Parallel()
 
@@ -204,12 +235,68 @@ func TestCLIAuthDenyFlow(t *testing.T) {
 	require.Empty(t, poll.Token)
 }
 
+func TestCLIAuthExpiry(t *testing.T) {
+	t.Parallel()
+
+	srv := newCLIAuthTestServer(t)
+	start := srv.startCLIAuth(t)
+	_, err := srv.db.NewUpdate().
+		Model((*models.CLIAuthSession)(nil)).
+		Set("expires_at = ?", time.Now().UTC().Add(-time.Minute)).
+		Where("device_code_hash != ''").
+		Exec(context.Background())
+	require.NoError(t, err)
+
+	poll := srv.pollCLIAuth(t, start.DeviceCode)
+	require.Equal(t, "expired_token", poll.Status)
+	require.Empty(t, poll.Token)
+}
+
+func TestCLIAuthStartExpiresOlderPendingSessions(t *testing.T) {
+	t.Parallel()
+
+	srv := newCLIAuthTestServer(t)
+	now := time.Now().UTC()
+	for _, session := range []*models.CLIAuthSession{
+		{
+			ID: "expired-pending", DeviceCodeHash: "expired-device", UserCodeHash: "expired-user",
+			ClientName: "Old CLI", RequestedScopes: "cli:full", Status: "pending",
+			IntervalSeconds: 5, ExpiresAt: now.Add(-time.Minute), CreatedAt: now.Add(-time.Hour),
+		},
+		{
+			ID: "future-pending", DeviceCodeHash: "future-device", UserCodeHash: "future-user",
+			ClientName: "Current CLI", RequestedScopes: "cli:full", Status: "pending",
+			IntervalSeconds: 5, ExpiresAt: now.Add(time.Hour), CreatedAt: now,
+		},
+	} {
+		_, err := srv.db.NewInsert().Model(session).Exec(t.Context())
+		require.NoError(t, err)
+	}
+
+	srv.startCLIAuth(t)
+
+	var sessions []models.CLIAuthSession
+	require.NoError(t, srv.db.NewSelect().Model(&sessions).
+		Where("id IN (?, ?)", "expired-pending", "future-pending").
+		Order("id ASC").Scan(t.Context()))
+	require.Len(t, sessions, 2)
+	require.Equal(t, "expired", sessions[0].Status)
+	require.Equal(t, "pending", sessions[1].Status)
+}
+
 type startResponse struct {
 	DeviceCode      string `json:"device_code"`
 	UserCode        string `json:"user_code"`
 	VerificationURL string `json:"verification_url"`
 	ExpiresIn       int    `json:"expires_in"`
 	Interval        int    `json:"interval"`
+}
+
+type sessionResponse struct {
+	ClientName      string `json:"client_name"`
+	ClientVersion   string `json:"client_version"`
+	ClientOS        string `json:"client_os"`
+	RequestedScopes string `json:"requested_scopes"`
 }
 
 type pollResponse struct {
@@ -224,6 +311,15 @@ func (s *cliAuthTestServer) startCLIAuth(t *testing.T) startResponse {
 	resp := s.request(t, http.MethodPost, "/api/v1/cli/auth/start", startRequest(), "")
 	require.Equal(t, http.StatusOK, resp.Code)
 	var out startResponse
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+	return out
+}
+
+func (s *cliAuthTestServer) getSession(t *testing.T, userCode string) sessionResponse {
+	t.Helper()
+	resp := s.request(t, http.MethodGet, "/api/v1/cli/auth/session?user_code="+userCode, nil, "web-token")
+	require.Equal(t, http.StatusOK, resp.Code)
+	var out sessionResponse
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	return out
 }

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	posthog "github.com/posthog/posthog-go"
@@ -107,6 +108,15 @@ type validationError struct {
 
 func (e *validationError) Error() string { return e.message }
 
+// validationRejections counts events refused at the recorder boundary.
+// It is a local process counter for operations visibility, reported via
+// the standard logger, never through the failing recorder itself.
+var validationRejections atomic.Uint64
+
+// RejectedEventCount reports how many events validation has refused in
+// this process.
+func RejectedEventCount() uint64 { return validationRejections.Load() }
+
 func recordValidationRejection(event Event, err error) {
 	reason := validationReasonInvalidValue
 	var validationErr *validationError
@@ -117,6 +127,7 @@ func recordValidationRejection(event Event, err error) {
 	if _, known := eventPropertyAllowlists[event.Name]; known {
 		name = event.Name
 	}
+	validationRejections.Add(1)
 	log.Printf("telemetry event rejected event=%q reason=%s", name, reason)
 }
 

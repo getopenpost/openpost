@@ -2,11 +2,9 @@ package publisher
 
 import (
 	"context"
-
 	"testing"
 
 	"github.com/openpost/backend/internal/models"
-
 	"github.com/openpost/backend/internal/services/usage"
 	"github.com/stretchr/testify/require"
 )

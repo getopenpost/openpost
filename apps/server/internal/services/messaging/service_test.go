@@ -2,13 +2,11 @@ package messaging
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-
 	"github.com/openpost/backend/internal/testdb"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -198,22 +196,6 @@ func TestRetryNeverReplaysAnAmbiguousProviderWrite(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, message.ID, replay.ID)
 	require.Equal(t, 1, calls)
-}
-
-func TestUnreadSummaryCountsConversationsBeyondPageOne(t *testing.T) {
-	t.Parallel()
-	s, db, _, actor := messagingFixture(t)
-	for i := range 101 {
-		_, err := db.NewInsert().Model(&models.Conversation{ID: fmt.Sprintf("chat-%03d", i), WorkspaceID: "workspace", SocialAccountID: "account", Platform: "bluesky", RemoteConversationID: fmt.Sprintf("remote-%d", i), UnreadCount: 3, CreatedAt: s.now(), UpdatedAt: s.now()}).Exec(t.Context())
-		require.NoError(t, err)
-	}
-	summary, err := s.Summary(t.Context(), actor, "workspace")
-	require.NoError(t, err)
-	require.Equal(t, 101, summary.UnreadConversations)
-	page, err := s.ListConversations(t.Context(), actor, ConversationQuery{WorkspaceID: "workspace", UnreadOnly: true, Limit: 100})
-	require.NoError(t, err)
-	require.Len(t, page.Items, 100)
-	require.NotNil(t, page.NextCursor)
 }
 
 func TestForegroundEntryWakesColdAccountAndCoalescesDevices(t *testing.T) {

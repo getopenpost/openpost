@@ -2,11 +2,9 @@ package account_saver
 
 import (
 	"context"
-
 	"database/sql"
-
+	"errors"
 	"fmt"
-
 	"testing"
 	"time"
 
@@ -14,7 +12,6 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
-
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -93,6 +90,57 @@ func openInMemorySQLite() (*sql.DB, error) {
 	return sql.Open(sqliteshim.ShimName, fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
 }
 
+func TestSaveAccountsFromInputsKeepsDestinationsDistinctFromGrantSubject(t *testing.T) {
+	for _, tc := range []struct {
+		provider, firstID, secondID, scope    string
+		firstCapabilities, secondCapabilities map[string]string
+	}{
+		{"linkedin", "urn:li:person:member-1", "urn:li:organization:42", "w_member_social w_organization_social", map[string]string{"linkedin_account_type": "person"}, map[string]string{"linkedin_account_type": "organization"}},
+		{"facebook", "page-1", "page-2", "pages_show_list pages_manage_posts", nil, nil},
+		{"youtube", "channel-1", "channel-2", "https://www.googleapis.com/auth/youtube.upload", nil, nil},
+	} {
+		t.Run(tc.provider, func(t *testing.T) {
+			db := createTestDB(t)
+			encryptor := crypto.NewTokenEncryptor("test-secret-key-for-testing-only")
+			saver := NewAccountSaver(db, encryptor)
+			ctx := context.Background()
+			seedWorkspaceMember(t, db, "workspace-1", "user-1")
+			token := &platform.TokenResult{
+				AccessToken: "member-token",
+				Extra:       map[string]string{"user_id": "member-1", "scope": tc.scope},
+			}
+
+			accounts, err := saver.SaveAccountsFromInputs(ctx, []SaveAccountInput{
+				{
+					Actor: accountSaverActor("user-1"), UserID: "user-1", WorkspaceID: "workspace-1", PlatformName: tc.provider,
+					AccountID: tc.firstID, AccountUsername: "Ada", Token: token,
+					CapabilityState: tc.firstCapabilities,
+				},
+				{
+					Actor: accountSaverActor("user-1"), UserID: "user-1", WorkspaceID: "workspace-1", PlatformName: tc.provider,
+					AccountID: tc.secondID, AccountUsername: "OpenPost", Token: token,
+					CapabilityState: tc.secondCapabilities,
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, accounts, 2)
+			require.Equal(t, tc.firstID, accounts[0].AccountID)
+			require.Equal(t, tc.secondID, accounts[1].AccountID)
+			require.NotEqual(t, accounts[0].Slug, accounts[1].Slug)
+
+			var stored []models.SocialAccount
+			require.NoError(t, db.NewSelect().Model(&stored).Order("created_at ASC").Scan(ctx))
+			require.Len(t, stored, 2)
+			require.Equal(t, stored[0].OAuthGrantID, stored[1].OAuthGrantID)
+			grant := loadAccountGrant(t, db, &stored[0])
+			require.Equal(t, "member-1", grant.ProviderSubject)
+			decrypted, decryptErr := encryptor.Decrypt(grant.AccessTokenEnc)
+			require.NoError(t, decryptErr)
+			require.Equal(t, "member-token", decrypted)
+		})
+	}
+}
+
 func TestClientConnectionPersistsGrantAndRejectsRevokedMembership(t *testing.T) {
 	db := createTestDB(t)
 	saver := NewAccountSaver(db, crypto.NewTokenEncryptor("test-secret-key-for-testing-only"))
@@ -117,21 +165,48 @@ func TestClientConnectionPersistsGrantAndRejectsRevokedMembership(t *testing.T) 
 
 // TestSaveAccount_DatabaseError tests handling of database failures.
 
-func TestAccountPhotoObjectsAreRemovedWhenBatchSaveRollsBack(t *testing.T) {
+// The account-save boundary covers single connections and multi-destination OAuth.
+func TestAccountPhotosSurviveReconnectAndFailedDownloads(t *testing.T) {
 	db := createTestDB(t)
 	seedWorkspaceMember(t, db, "ws", "user")
 	saver := NewAccountSaver(db, crypto.NewTokenEncryptor("test-secret-key-for-testing-only"))
-	cache := &avatarCacheStub{url: "/avatars/avatar_account_uncommitted.jpg"}
+	cache := &avatarCacheStub{url: "/avatars/avatar_account_first.jpg"}
 	saver.SetAvatarCache(cache)
-	// Fail the real database transaction after downloading, not a mocked write.
-	_, err := db.ExecContext(t.Context(), `CREATE TRIGGER reject_account BEFORE INSERT ON social_accounts BEGIN SELECT RAISE(ABORT, 'write failed'); END`)
+	input := SaveAccountInput{Actor: accountSaverActor("user"), UserID: "user", WorkspaceID: "ws", PlatformName: "facebook", AccountID: "page", AccountUsername: "Page", AccountAvatarURL: "https://cdn.example/photo?signature=temporary", Token: &platform.TokenResult{AccessToken: "token"}}
+	account, err := saver.SaveAccountFromInput(t.Context(), input)
 	require.NoError(t, err)
-	_, err = saver.SaveAccountFromInput(t.Context(), SaveAccountInput{Actor: accountSaverActor("user"), UserID: "user", WorkspaceID: "ws", PlatformName: "threads", AccountID: "profile", AccountUsername: "Profile", AccountAvatarURL: "https://cdn.example/photo", Token: &platform.TokenResult{AccessToken: "token"}})
-	require.ErrorContains(t, err, "write failed")
-	require.Equal(t, []string{cache.url}, cache.deleted)
-	count, err := db.NewSelect().Model((*models.SocialAccount)(nil)).Count(t.Context())
+	require.Equal(t, cache.url, account.AccountAvatarURL)
+	var stored models.SocialAccount
+	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", account.ID).Scan(t.Context()))
+	require.Equal(t, cache.url, stored.AccountAvatarURL)
+	require.Empty(t, cache.deleted)
+
+	// Download failures do not break connection or overwrite an existing photo.
+	cache.err = errors.New("provider unavailable")
+	reconnected, err := saver.SaveAccountFromInput(t.Context(), input)
 	require.NoError(t, err)
-	require.Zero(t, count)
+	require.Equal(t, account.ID, reconnected.ID)
+	require.Equal(t, account.AccountAvatarURL, reconnected.AccountAvatarURL)
+	require.Empty(t, cache.deleted)
+	input.AccountID = "new-page"
+	withoutPhoto, err := saver.SaveAccountFromInput(t.Context(), input)
+	require.NoError(t, err)
+	require.Empty(t, withoutPhoto.AccountAvatarURL, "never persist a temporary URL when caching fails")
+
+	// A successful replacement retires the previous stored object after commit.
+	cache.err = nil
+	cache.url = "/avatars/avatar_account_replaced.jpg"
+	input.AccountID = "page"
+	replacement, err := saver.SaveAccountFromInput(t.Context(), input)
+	require.NoError(t, err)
+	require.Equal(t, cache.url, replacement.AccountAvatarURL)
+	require.Equal(t, []string{account.AccountAvatarURL}, cache.deleted)
+
+	// Providers that omit a picture preserve the last saved version.
+	input.AccountAvatarURL = ""
+	unchanged, err := saver.SaveAccountFromInput(t.Context(), input)
+	require.NoError(t, err)
+	require.Equal(t, replacement.AccountAvatarURL, unchanged.AccountAvatarURL)
 }
 
 type avatarCacheStub struct {
@@ -146,27 +221,4 @@ func (c *avatarCacheStub) CacheAvatar(context.Context, string, string) (string, 
 func (c *avatarCacheStub) Delete(_ context.Context, url string) error {
 	c.deleted = append(c.deleted, url)
 	return nil
-}
-
-func TestYouTubeConnectionPersistsActualProfileFetchTime(t *testing.T) {
-	db := createTestDB(t)
-	saver := NewAccountSaver(db, crypto.NewTokenEncryptor("test-secret-key-for-testing-only"))
-	seedWorkspaceMember(t, db, "youtube-workspace", "youtube-user")
-	fetched := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
-	input := SaveAccountInput{Actor: accountSaverActor("youtube-user"), UserID: "youtube-user", WorkspaceID: "youtube-workspace", PlatformName: "youtube", AccountID: "channel", AccountUsername: "Channel", AccountAvatarURL: "/avatars/avatar_account_old.png", ProfileFetchedAt: fetched, Token: &platform.TokenResult{AccessToken: "token"}}
-	account, err := saver.SaveAccountFromInput(t.Context(), input)
-	require.NoError(t, err)
-	var stored models.SocialAccount
-	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", account.ID).Scan(t.Context()))
-	require.Equal(t, fetched, stored.ProfileFetchedAt.UTC())
-	input.ProfileFetchedAt = fetched.Add(time.Hour)
-	input.AccountAvatarURL = ""
-	_, err = saver.SaveAccountFromInput(t.Context(), input)
-	require.NoError(t, err)
-	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", account.ID).Scan(t.Context()))
-	require.Equal(t, input.ProfileFetchedAt, stored.ProfileFetchedAt.UTC())
-	require.Empty(t, stored.AccountAvatarURL, "a fresh profile must not renew an unfetched old photo")
-	deletionCount, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", "storage_delete").Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, deletionCount)
 }

@@ -1,10 +1,10 @@
 package botingress
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"path/filepath"
-
 	"testing"
 	"time"
 
@@ -138,4 +138,24 @@ func TestAcceptRejectsExpiredReplayedAndForeignSignedConnectionCredentials(t *te
 	require.Len(t, consumed.NonceHash, 64)
 	require.NotContains(t, fmt.Sprintf("%+v", consumed), issued.Credential)
 	require.NotContains(t, fmt.Sprintf("%+v", consumed), testSigningKey)
+}
+
+type bodyCheckingVerifier struct {
+	expected string
+}
+
+func (verifier bodyCheckingVerifier) Verify(_ http.Header, body []byte) error {
+	if subtle.ConstantTimeCompare(body, []byte(verifier.expected)) != 1 {
+		return ErrInvalidSignature
+	}
+	return nil
+}
+
+func (verifier bodyCheckingVerifier) AuthenticatesBody() bool { return true }
+
+func TestVerifierAuthenticatesBodyIsFailClosed(t *testing.T) {
+	require.False(t, verifierAuthenticatesBody(nil))
+	require.False(t, verifierAuthenticatesBody(SecretHeaderVerifier{}))
+	require.False(t, verifierAuthenticatesBody(&SecretHeaderVerifier{}))
+	require.True(t, verifierAuthenticatesBody(bodyCheckingVerifier{}))
 }

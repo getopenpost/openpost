@@ -3,7 +3,6 @@ package platform
 import (
 	"context"
 	"net/http"
-
 	"testing"
 
 	"github.com/stretchr/testify/require"

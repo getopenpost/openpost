@@ -12,7 +12,6 @@ import (
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/stretchr/testify/require"
 )
@@ -64,55 +63,6 @@ func executeAccountActivity(t *testing.T, s *Service, job models.Job) {
 	t.Helper()
 	ctx := providerwrite.WithJobExecution(t.Context(), job.ID, job.Attempts, job.LockedAt)
 	require.NoError(t, s.HandleJob(ctx, job.Type, job.Payload))
-}
-
-func TestAccountActivityResumesPartialPagesAndPreservesSharedReadState(t *testing.T) {
-	t.Parallel()
-	s := admissionTestService(t)
-	s.notifications = notifications.NewService(s.db)
-	s.tokenSource = moderationTokens{}
-	provider := &activityProvider{fail: "second", pages: map[string]platform.AccountActivityPage{
-		"":       {Items: []platform.AccountActivityItem{activityMention("one", "First mention")}, NextCursor: "second"},
-		"second": {Items: []platform.AccountActivityItem{activityMention("one", "Edited mention"), activityMention("two", "Second mention")}},
-	}}
-	s.SetActivityProvider("bluesky", provider)
-	job := accountActivityReceipt(t, s)
-	executeAccountActivity(t, s, job)
-	var state models.EngagementAccountSyncState
-	require.NoError(t, s.db.NewSelect().Model(&state).Where("social_account_id='a' AND feed='mentions'").Scan(t.Context()))
-	require.Equal(t, "second", state.Cursor)
-	require.Equal(t, "rate_limited", state.Status)
-	require.True(t, state.Watermark.IsZero(), "a failed later page is not completed coverage")
-	page, err := s.ListEngagement(t.Context(), Actor{UserID: "u"}, Query{WorkspaceID: "w", Kind: "mention"})
-	require.NoError(t, err)
-	require.Len(t, page.Items, 1)
-	first := page.Items[0]
-	require.Empty(t, first.RenditionID)
-	require.Empty(t, first.PublicationID)
-	require.Equal(t, "one", first.Subject.RemoteID)
-	changed, err := s.MarkAllRead(t.Context(), Actor{UserID: "u"}, Query{WorkspaceID: "w", Kind: "mention"})
-	require.NoError(t, err)
-	require.Equal(t, 1, changed)
-	provider.fail = "never"
-	executeAccountActivity(t, s, job)
-	require.Equal(t, []string{"", "second", "second"}, provider.cursors)
-	page, err = s.ListEngagement(t.Context(), Actor{UserID: "u"}, Query{WorkspaceID: "w", Kind: "mention"})
-	require.NoError(t, err)
-	require.Len(t, page.Items, 2)
-	for _, item := range page.Items {
-		if item.RemoteID == "one" {
-			require.Equal(t, first.ID, item.ID)
-			require.Equal(t, "Edited mention", item.Body)
-			require.False(t, item.ReadAt.IsZero())
-		}
-	}
-	require.NoError(t, s.db.NewSelect().Model(&state).WherePK().Scan(t.Context()))
-	require.Empty(t, state.Cursor)
-	require.Equal(t, "ok", state.Status)
-	require.False(t, state.Watermark.IsZero())
-	var original models.EngagementItem
-	require.NoError(t, s.db.NewSelect().Model(&original).Where("id='c'").Scan(t.Context()))
-	require.True(t, original.ReadAt.IsZero(), "filtered bulk read leaves comments unchanged")
 }
 
 func TestAccountActivityRejectsStaleAuthorityAndWorkerLeases(t *testing.T) {

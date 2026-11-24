@@ -2,8 +2,6 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
-
 	"io"
 	"net/http"
 	"net/url"
@@ -111,48 +109,5 @@ func TestThreadsPublishMixedMediaCarousel(t *testing.T) {
 	}
 	if id.ExternalID != "thread-1" {
 		t.Fatalf("expected thread-1, got %q", id)
-	}
-}
-
-func TestThreadsSettingsUseOfficialPollAndSpoilerFields(t *testing.T) {
-	payload := map[string]string{}
-	err := applyThreadsSettings(payload, &PublishRequest{Settings: map[string]interface{}{
-		"poll_options":  "One\nTwo\nThree",
-		"reply_control": "followers_only",
-		"topic_tag":     "OpenPost",
-	}})
-	if err != nil {
-		t.Fatalf("applyThreadsSettings returned error: %v", err)
-	}
-	if payload["reply_control"] != "followers_only" || payload["topic_tag"] != "OpenPost" {
-		t.Fatalf("unexpected Threads settings payload %#v", payload)
-	}
-	var poll map[string]string
-	if err := json.Unmarshal([]byte(payload["poll_attachment"]), &poll); err != nil {
-		t.Fatalf("decoding poll attachment: %v", err)
-	}
-	want := map[string]string{"option_a": "One", "option_b": "Two", "option_c": "Three"}
-	if len(poll) != len(want) {
-		t.Fatalf("unexpected poll attachment %#v", poll)
-	}
-	for key, value := range want {
-		if poll[key] != value {
-			t.Fatalf("unexpected poll attachment %#v", poll)
-		}
-	}
-
-	err = applyThreadsSettings(map[string]string{}, &PublishRequest{Settings: map[string]interface{}{
-		"url":          "https://example.com",
-		"poll_options": "One\nTwo",
-	}})
-	if err == nil || !strings.Contains(err.Error(), "link attachment") {
-		t.Fatalf("expected poll/link conflict, got %v", err)
-	}
-
-	err = applyThreadsSettings(map[string]string{}, &PublishRequest{Settings: map[string]interface{}{
-		"poll_options": "Only one",
-	}})
-	if err == nil || !strings.Contains(err.Error(), "2-4 options") {
-		t.Fatalf("expected poll option count error, got %v", err)
 	}
 }

@@ -45,6 +45,27 @@ func TestInstanceAdministratorCanEditAndRestorePostGenerationPrompts(t *testing.
 	require.Equal(t, prompt.DefaultValue, prompt.Value)
 }
 
+func TestInstanceAIPromptsRequireAdministratorBrowserSession(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name          string
+		isAdmin       bool
+		authenticator middleware.Authenticator
+		message       string
+	}{
+		{name: "ordinary user", isAdmin: false, authenticator: browserSessionTestAuthenticator(), message: "instance admin role required"},
+		{name: "API token", isAdmin: true, authenticator: unboundCLIFullTestAuthenticator(), message: "browser session"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			e := newAIPromptTestServer(t, test.isAdmin, test.authenticator)
+			response := requestAIPrompts(t, e, http.MethodGet, "/api/v1/admin/ai-prompts", nil)
+			require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+			require.Contains(t, response.Body.String(), test.message)
+		})
+	}
+}
+
 func newAIPromptTestServer(t *testing.T, isAdmin bool, authenticator middleware.Authenticator) *echo.Echo {
 	t.Helper()
 	db := createHandlerTestDB(t, (*models.User)(nil), (*models.AIPromptOverride)(nil))

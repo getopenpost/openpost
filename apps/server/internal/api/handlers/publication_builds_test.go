@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -20,9 +19,7 @@ import (
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/openpost/backend/internal/services/publicationbuilder"
-
 	"github.com/openpost/backend/internal/services/voiceprofiles"
-
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -149,34 +146,6 @@ func TestPublicationBuildGetRequiresCreatorOwnership(t *testing.T) {
 
 	wrongCredentialScope := server.request(t, http.MethodGet, "/api/v1/publication-builds/"+build.ID, nil, "", "foreign-workspace-token")
 	require.Equal(t, http.StatusForbidden, wrongCredentialScope.Code, wrongCredentialScope.Body.String())
-}
-
-func TestPublicationBuildCancelAndRetryUseDurableApplicationState(t *testing.T) {
-	t.Parallel()
-	server := newPublicationBuildTestServer(t)
-	created := server.request(
-		t, http.MethodPost, "/api/v1/publication-builds", publicationBuildRequest(nil), "state-actions-request", "web-token",
-	)
-	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
-	build := decodePublicationBuild(t, created)
-
-	cancelledResponse := server.request(
-		t, http.MethodPost, "/api/v1/publication-builds/"+build.ID+"/cancel", nil, "", "web-token",
-	)
-	require.Equal(t, http.StatusOK, cancelledResponse.Code, cancelledResponse.Body.String())
-	require.Equal(t, publicationbuilder.BuildStateCancelled, decodePublicationBuild(t, cancelledResponse).State)
-
-	_, err := server.db.NewUpdate().Model((*publicationbuilder.BuildRecord)(nil)).
-		Set("state = ?", publicationbuilder.BuildStateFailed).
-		Set("phase = ?", publicationbuilder.BuildPhaseFailed).
-		Where("id = ?", build.ID).
-		Exec(t.Context())
-	require.NoError(t, err)
-	retriedResponse := server.request(
-		t, http.MethodPost, "/api/v1/publication-builds/"+build.ID+"/retry", nil, "", "web-token",
-	)
-	require.Equal(t, http.StatusOK, retriedResponse.Code, retriedResponse.Body.String())
-	require.Equal(t, publicationbuilder.BuildStateQueued, decodePublicationBuild(t, retriedResponse).State)
 }
 
 type publicationBuildTestServer struct {

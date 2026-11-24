@@ -5,15 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-
 	"net/http/httptest"
 	"net/url"
 	"testing"
 
 	"github.com/labstack/echo/v4"
-
+	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-
+	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -99,6 +98,45 @@ func (a *selectionTestAdapter) SelectAccount(_ context.Context, token *platform.
 			},
 		},
 	}, nil
+}
+
+func TestPendingAccountSelectionPreservesRefreshTokenExpiry(t *testing.T) {
+	t.Parallel()
+	db := createHandlerTestDB(t, (*models.OAuthAccountSelection)(nil))
+	handler := NewOAuthHandler(
+		db,
+		crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"),
+		nil,
+		testAuthenticator{},
+		false,
+		"https://app.openpost.test",
+	)
+
+	pending, err := handler.createPendingAccountSelection(
+		t.Context(),
+		"user-1",
+		"linkedin",
+		"workspace-1",
+		"",
+		"production",
+		&platform.TokenResult{
+			AccessToken:      "access-token",
+			RefreshToken:     "refresh-token",
+			ExpiresIn:        3600,
+			RefreshExpiresIn: 7200,
+			Extra:            map[string]string{"scope": "w_member_social"},
+		},
+		nil,
+	)
+	require.NoError(t, err)
+
+	restored, err := handler.tokenResultFromPendingSelection(pending)
+	require.NoError(t, err)
+	require.Equal(t, "access-token", restored.AccessToken)
+	require.Equal(t, "refresh-token", restored.RefreshToken)
+	require.InDelta(t, 7200, restored.RefreshExpiresIn, 2)
+	require.Equal(t, "w_member_social", restored.Extra["scope"])
+	require.NotContains(t, restored.Extra, pendingSelectionRefreshExpiresAtKey)
 }
 
 func oauthSelectionRequest(t *testing.T, e *echo.Echo, method, path string, body any, authenticated bool) *httptest.ResponseRecorder {

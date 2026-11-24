@@ -2,7 +2,6 @@ package publisher
 
 import (
 	"context"
-
 	"strings"
 
 	"github.com/openpost/backend/internal/services/providerwrite"

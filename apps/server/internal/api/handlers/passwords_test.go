@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,11 +14,11 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
-
+	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/passwordmail"
-
+	"github.com/openpost/backend/internal/services/sessions"
 	"github.com/stretchr/testify/require"
 )
 
@@ -101,6 +100,49 @@ func TestPasswordResetIsNonEnumeratingSingleUseAndRevokesSessions(t *testing.T) 
 		"new_password": "another-password-789",
 	}, "")
 	require.Equal(t, http.StatusBadRequest, replay.Code, replay.Body.String())
+}
+
+func TestChangePasswordPreservesCurrentSessionAndRevokesOthers(t *testing.T) {
+	t.Parallel()
+
+	db := createHandlerTestDB(t, (*models.User)(nil), (*models.UserSession)(nil))
+	authService := auth.NewService("test-secret")
+	passwordHash, err := authService.HashPassword("current-password-123")
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.User{
+		ID:           "user-1",
+		Email:        "person@example.com",
+		PasswordHash: passwordHash,
+		CreatedAt:    time.Now().UTC(),
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	sessionService := sessions.NewService(db)
+	current, err := sessionService.CreateSession(t.Context(), sessions.CreateInput{
+		UserID: "user-1", ExpiresAt: time.Now().UTC().Add(time.Hour),
+	})
+	require.NoError(t, err)
+	other, err := sessionService.CreateSession(t.Context(), sessions.CreateInput{
+		UserID: "user-1", ExpiresAt: time.Now().UTC().Add(time.Hour),
+	})
+	require.NoError(t, err)
+	token, err := authService.GenerateTokenWithSession("user-1", "person@example.com", current.ID, current.ExpiresAt)
+	require.NoError(t, err)
+
+	e := echo.New()
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	handler := NewAuthHandler(db, authService, middleware.NewJWTAuthenticatorWithSessions(authService, sessionService), nil, nil, false)
+	handler.ChangePassword(api)
+
+	response := jsonRequest(t, e, http.MethodPost, "/api/v1/auth/password", map[string]string{
+		"current_password": "current-password-123",
+		"new_password":     "replacement-password-456",
+	}, token)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+
+	_, err = sessionService.ValidateSession(t.Context(), "user-1", current.ID)
+	require.NoError(t, err)
+	_, err = sessionService.ValidateSession(t.Context(), "user-1", other.ID)
+	require.ErrorIs(t, err, sessions.ErrRevokedSession)
 }
 
 func jsonRequest(t *testing.T, e *echo.Echo, method, path string, body any, token string) *httptest.ResponseRecorder {

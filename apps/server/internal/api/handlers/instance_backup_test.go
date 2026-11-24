@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -29,7 +28,7 @@ type instanceBackupTestServer struct {
 	paths    instancebackup.Paths
 }
 
-func newInstanceBackupTestServer(t *testing.T, isAdmin bool, authenticator middleware.Authenticator, mutate func(*InstanceBackupConfig)) *instanceBackupTestServer {
+func newInstanceBackupTestServer(t *testing.T, isAdmin bool, authenticator middleware.Authenticator) *instanceBackupTestServer {
 	t.Helper()
 	db := createHandlerTestDB(t, (*models.User)(nil), (*migrations.SchemaMigration)(nil))
 	_, err := db.NewInsert().Model(&models.User{
@@ -57,9 +56,6 @@ func newInstanceBackupTestServer(t *testing.T, isAdmin bool, authenticator middl
 		ProcessRole:    "all",
 		Restart:        func() { restarts.Add(1) },
 	}
-	if mutate != nil {
-		mutate(&config)
-	}
 	handler := NewInstanceBackupHandler(db, authenticator, config)
 	handler.restartDelay = time.Millisecond
 	e := echo.New()
@@ -79,8 +75,26 @@ func (s *instanceBackupTestServer) do(t *testing.T, method, path string, body []
 	return rec
 }
 
+func TestInstanceBackupRequiresBrowserSessionAdmin(t *testing.T) {
+	t.Run("non-admin session", func(t *testing.T) {
+		server := newInstanceBackupTestServer(t, false, browserSessionTestAuthenticator())
+		for _, path := range []string{"/api/v1/admin/backup", "/api/v1/admin/backup/export"} {
+			response := server.do(t, http.MethodGet, path, nil, "")
+			require.Equal(t, http.StatusForbidden, response.Code, path+": "+response.Body.String())
+		}
+		response := server.do(t, http.MethodPost, "/api/v1/admin/backup/restore/upload", []byte("x"), "application/zip")
+		require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+	})
+
+	t.Run("API token", func(t *testing.T) {
+		server := newInstanceBackupTestServer(t, true, unboundCLIFullTestAuthenticator())
+		response := server.do(t, http.MethodGet, "/api/v1/admin/backup/export", nil, "")
+		require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+	})
+}
+
 func TestInstanceBackupExportAndStagedRestore(t *testing.T) {
-	server := newInstanceBackupTestServer(t, true, browserSessionTestAuthenticator(), nil)
+	server := newInstanceBackupTestServer(t, true, browserSessionTestAuthenticator())
 
 	export := server.do(t, http.MethodGet, "/api/v1/admin/backup/export", nil, "")
 	require.Equal(t, http.StatusOK, export.Code, export.Body.String())
@@ -123,7 +137,7 @@ func TestInstanceBackupExportAndStagedRestore(t *testing.T) {
 }
 
 func TestInstanceBackupRejectsInvalidUploadAndCancelsStagedRestore(t *testing.T) {
-	server := newInstanceBackupTestServer(t, true, browserSessionTestAuthenticator(), nil)
+	server := newInstanceBackupTestServer(t, true, browserSessionTestAuthenticator())
 
 	invalid := server.do(t, http.MethodPost, "/api/v1/admin/backup/restore/upload", []byte("not a backup"), "application/zip")
 	require.Equal(t, http.StatusBadRequest, invalid.Code, invalid.Body.String())

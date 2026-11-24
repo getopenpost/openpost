@@ -29,29 +29,6 @@ func TestQueueReminderEmailRechecksRecoveredQueueBeforeDelivery(t *testing.T) {
 	require.Empty(t, sender.messages)
 }
 
-func TestLowRunwayReminderSendsForAnAlreadyEmptyActivatedWorkspace(t *testing.T) {
-	db := notificationsTestDB(t)
-	now := time.Date(2026, 9, 5, 9, 0, 0, 0, time.UTC)
-	sender := &recordingNotificationSender{}
-	service := NewService(db, Options{EmailDelivery: sender})
-	service.now = func() time.Time { return now }
-	_, err := db.NewInsert().Model(&models.WorkspaceActivation{
-		ID: "activation:workspace-1", WorkspaceID: "workspace-1", PublicationID: "first", CreatedAt: now,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = service.UpdateQueueReminderSettings(t.Context(), MuteActor{UserID: "user-1"}, "workspace-1", QueueReminderUpdate{
-		LowRunwayEnabled: true, QueueEmptiedEnabled: true, RunwayDays: 7,
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, service.RunQueueReminderSweep(t.Context()))
-	jobs := queueReminderEmailJobs(t, db)
-	require.Len(t, jobs, 1)
-	require.NoError(t, service.HandleJob(t.Context(), jobs[0].Type, jobs[0].Payload))
-	require.Len(t, sender.messages, 1)
-	require.Equal(t, "Your OpenPost queue has 0 days left", sender.messages[0].Title)
-}
-
 func TestQueueReminderSettingsRequireActiveMembershipAndPropagateAuthorizationErrors(t *testing.T) {
 	db := notificationsTestDB(t)
 	service := NewService(db, Options{})

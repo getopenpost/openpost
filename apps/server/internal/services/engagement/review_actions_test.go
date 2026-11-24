@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	"testing"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/providerwrite"
-
 	"github.com/stretchr/testify/require"
 )
 

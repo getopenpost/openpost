@@ -81,6 +81,21 @@ func TestPublicProfileReturnsOptInPublishingActivity(t *testing.T) {
 	require.Equal(t, PublicProfileRanking{Key: workspace.ID, Name: "OpenPost", Count: 3}, profile.Body.TopWorkspaces[0])
 }
 
+func TestPublicProfileHidesOptedOutUser(t *testing.T) {
+	t.Parallel()
+
+	db := createHandlerTestDB(t, (*models.User)(nil))
+	_, err := db.NewInsert().Model(&models.User{ID: "user-1", Email: "private@example.com", Username: "private-user"}).Exec(context.Background())
+	require.NoError(t, err)
+	e := echo.New()
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	NewPublicProfileHandler(db).RegisterRoutes(api)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/public/profiles/private-user", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
+}
+
 func insertProfileRows(ctx context.Context, db *bun.DB, rows ...interface{}) error {
 	for _, row := range rows {
 		if _, err := db.NewInsert().Model(row).Exec(ctx); err != nil {

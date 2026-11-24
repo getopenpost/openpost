@@ -3,7 +3,6 @@ package telegram
 import (
 	"encoding/json"
 	"io"
-
 	"net/http"
 	"net/http/httptest"
 	"strings"

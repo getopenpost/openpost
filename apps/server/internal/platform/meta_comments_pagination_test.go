@@ -2,7 +2,8 @@ package platform
 
 import (
 	"context"
-
+	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -10,65 +11,69 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMetaCommentsCollectAllConversationPages(t *testing.T) {
+func TestMetaCommentsRejectsUnsafePagination(t *testing.T) {
 	original := httpClient
 	t.Cleanup(func() { httpClient = original })
-	for _, tc := range []struct {
-		name                  string
-		adapter               CommentAdapter
-		first, second, nested string
+	for _, provider := range []struct {
+		name    string
+		adapter CommentAdapter
+	}{{"threads", NewThreadsAdapter("", "", "")}, {"instagram", NewInstagramAdapter("", "", "")}, {"facebook", NewFacebookAdapter("", "", "")}} {
+		for _, mode := range []string{"foreign host", "repeated page"} {
+			t.Run(provider.name+"/"+mode, func(t *testing.T) {
+				calls := 0
+				httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+					calls++
+					if calls > 1 {
+						t.Fatal("unsafe continuation must not be requested")
+					}
+					next := "https://attacker.example/?access_token=synthetic-token"
+					if mode == "repeated page" {
+						next = req.URL.String()
+					}
+					encoded, err := json.Marshal(next)
+					require.NoError(t, err)
+					return jsonResponse(req, `{"data":[{"id":"first"}],"paging":{"next":`+string(encoded)+`}}`), nil
+				})}
+				comments, err := provider.adapter.ListComments(context.Background(), "synthetic-token", "account", "post")
+				require.Error(t, err)
+				require.Nil(t, comments)
+				require.NotContains(t, err.Error(), "synthetic-token")
+				require.Equal(t, 1, calls)
+			})
+		}
+	}
+}
+
+func TestMetaCommentsRejectsLaterPageRedirect(t *testing.T) {
+	original := httpClient
+	t.Cleanup(func() { httpClient = original })
+	for _, provider := range []struct {
+		name    string
+		adapter CommentAdapter
 	}{
-		{"threads", NewThreadsAdapter("", "", ""), `{"data":[{"id":"first","replied_to":{"id":"post"}}],"paging":{"next":"?after=second"}}`, `{"data":[{"id":"second","is_reply_owned_by_me":true,"replied_to":{"id":"first"}}]}`, ""},
-		{"instagram", NewInstagramAdapter("", "", ""), `{"data":[{"id":"first","from":{"id":"visitor"},"replies":{"data":[{"id":"reply","parent_id":"first"}],"paging":{"next":"?after=nested"}}}],"paging":{"next":"?after=second"}}`, `{"data":[{"id":"second"}]}`, `{"data":[{"id":"nested","parent_id":"reply","from":{"id":"account"}}]}`},
-		{"facebook", NewFacebookAdapter("", "", ""), `{"data":[{"id":"first","from":{"id":"visitor"},"comments":{"data":[{"id":"reply","parent":{"id":"first"}}],"paging":{"next":"?after=nested"}}}],"paging":{"next":"?after=second"}}`, `{"data":[{"id":"second"}]}`, `{"data":[{"id":"nested","parent":{"id":"reply"},"from":{"id":"account"}}]}`},
+		{"threads", NewThreadsAdapter("", "", "")},
+		{"instagram", NewInstagramAdapter("", "", "")},
+		{"facebook", NewFacebookAdapter("", "", "")},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			calls := 0
+		t.Run(provider.name, func(t *testing.T) {
+			calls, foreignCalls := 0, 0
 			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 				calls++
-				require.Empty(t, req.URL.Query().Get(oauthParamAccessToken))
-				require.Equal(t, "Bearer synthetic-token", req.Header.Get(headerAuthorization))
-				if req.URL.Query().Get("after") == "" {
-					if tc.name == "threads" {
-						require.Contains(t, strings.Split(req.URL.Query().Get("fields"), ","), "is_reply_owned_by_me")
-					} else {
-						require.Contains(t, req.URL.Query().Get("fields"), "from", "Graph must return comment author identity")
-					}
+				if req.URL.Host == "attacker.example" {
+					foreignCalls++
+					return jsonResponse(req, `{"data":[]}`), nil
 				}
-				switch req.URL.Query().Get("after") {
-				case "":
-					return jsonResponse(req, tc.first), nil
-				case "second":
-					return jsonResponse(req, tc.second), nil
-				case "nested":
-					return jsonResponse(req, tc.nested), nil
-				default:
-					t.Fatalf("unexpected cursor")
-					return nil, nil
+				if req.URL.Query().Get("after") == "second" {
+					return &http.Response{StatusCode: http.StatusFound, Header: http.Header{"Location": {"https://attacker.example/?access_token=synthetic-token"}}, Body: io.NopCloser(strings.NewReader("")), Request: req}, nil
 				}
+				return jsonResponse(req, `{"data":[{"id":"first"}],"paging":{"next":"?after=second"}}`), nil
 			})}
-			comments, err := tc.adapter.ListComments(context.Background(), "synthetic-token", "account", "post")
-			require.NoError(t, err)
-			byID := map[string]Comment{}
-			for _, item := range comments {
-				byID[item.ID] = item
-			}
-			require.False(t, byID["first"].IsOurs, "a visitor comment is incoming engagement")
-			if tc.name == "threads" {
-				require.Len(t, comments, 2)
-				require.Equal(t, "first", byID["second"].ParentID)
-				require.True(t, byID["second"].IsOurs)
-				require.Equal(t, 2, calls)
-				return
-			}
-			require.Len(t, comments, 4)
-			require.Equal(t, "visitor", byID["first"].AuthorID)
-			require.Contains(t, byID, "second")
-			require.Equal(t, "first", byID["reply"].ParentID)
-			require.Equal(t, "reply", byID["nested"].ParentID)
-			require.True(t, byID["nested"].IsOurs)
-			require.Equal(t, "account", byID["nested"].AuthorID, "own-comment identity must survive the walker")
-			require.Equal(t, 3, calls)
+			comments, err := provider.adapter.ListComments(context.Background(), "synthetic-token", "account", "post")
+			require.Zero(t, foreignCalls, "a continuation redirect must not reach a foreign host")
+			require.Error(t, err)
+			require.Nil(t, comments)
+			require.NotContains(t, err.Error(), "synthetic-token")
+			require.Equal(t, 2, calls)
 		})
 	}
 }

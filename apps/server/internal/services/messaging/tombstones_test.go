@@ -11,7 +11,6 @@ import (
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"

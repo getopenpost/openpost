@@ -2,7 +2,6 @@ package platform
 
 import (
 	"net/http"
-
 	"testing"
 )
 

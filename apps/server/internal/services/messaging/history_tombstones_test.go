@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/openpost/backend/internal/platform"
-
 	"github.com/stretchr/testify/require"
 )
 

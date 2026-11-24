@@ -2,10 +2,8 @@ package handlers
 
 import (
 	"context"
-
 	"io"
 	"net/http"
-
 	"testing"
 	"time"
 
@@ -14,7 +12,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
-
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/mediastore"
 	"github.com/openpost/backend/internal/services/sessions"
@@ -107,6 +104,51 @@ func TestAccountExportOmitsSecretsAndDeletionRemovesPersonalData(t *testing.T) {
 		require.NoError(t, db.NewSelect().ColumnExpr("COUNT(*)").TableExpr(table).Scan(t.Context(), &count), table)
 		require.Zero(t, count, table)
 	}
+}
+
+func TestAccountDeletionPreviewsOwnershipTransferAndBlocksActiveBilling(t *testing.T) {
+	t.Parallel()
+
+	db := newHandlerSchemaTestDB(t)
+	authService := auth.NewService("test-secret")
+	hash, err := authService.HashPassword("current-password-123")
+	require.NoError(t, err)
+	now := time.Now().UTC()
+	users := []models.User{
+		{ID: "user-1", Email: "owner@example.com", PasswordHash: hash, CreatedAt: now},
+		{ID: "user-2", Email: "member@example.com", PasswordHash: hash, CreatedAt: now},
+	}
+	_, err = db.NewInsert().Model(&users).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Organization{ID: "org-1", Name: "Shared", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
+	require.NoError(t, err)
+	members := []models.OrganizationMember{
+		{OrganizationID: "org-1", UserID: "user-1", Role: models.OrganizationRoleOwner, CreatedAt: now},
+		{OrganizationID: "org-1", UserID: "user-2", Role: models.OrganizationRoleMember, CreatedAt: now},
+	}
+	_, err = db.NewInsert().Model(&members).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", OrganizationID: "org-1", Name: "Shared", Timezone: "UTC", CreatedAt: now}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.BillingSubscription{
+		OrganizationID: "org-1", WorkspaceID: "workspace-1", Provider: "paddle", ProviderCustomerID: "customer-1",
+		ProviderSubscriptionID: "subscription-1", Status: "active", CreatedAt: now, UpdatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+
+	principalCtx := context.WithValue(t.Context(), middleware.UserIDKey, "user-1")
+	handler := NewAccountLifecycleHandler(db, authService, nil, nil)
+	impact, err := handler.loadDeletionImpact(principalCtx, "user-1")
+	require.NoError(t, err)
+	codes := make([]string, 0, len(impact.Blockers))
+	for _, blocker := range impact.Blockers {
+		codes = append(codes, blocker.Code)
+	}
+	require.Contains(t, codes, "active_billing")
+	require.Len(t, impact.OwnershipTransfers, 1)
+	require.Equal(t, "member@example.com", impact.OwnershipTransfers[0].SuccessorEmail)
 }
 
 func insertAccountLifecycleFixture(ctx context.Context, db *bun.DB, user *models.User, now time.Time) error {

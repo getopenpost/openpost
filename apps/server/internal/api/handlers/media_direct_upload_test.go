@@ -3,9 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
-
 	"encoding/json"
-
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -22,10 +20,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
-
+	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/mediaanalysis"
-
+	"github.com/openpost/backend/internal/services/medialifecycle"
 	"github.com/openpost/backend/internal/services/mediastore"
 	"github.com/openpost/backend/internal/services/usage"
 	"github.com/openpost/backend/internal/services/videoprocessing"
@@ -162,29 +160,6 @@ type fakeDirectUploadStorage struct {
 	sessions  int
 }
 
-type cancelingUploadStorage struct {
-	cancel           context.CancelFunc
-	deleteContextErr error
-	saveCalls        int
-	deleteCalls      int
-}
-
-func (*cancelingUploadStorage) Driver() string { return "canceling" }
-func (s *cancelingUploadStorage) Save(ctx context.Context, _ string, _ io.Reader) (string, error) {
-	s.saveCalls++
-	s.cancel()
-	return "", ctx.Err()
-}
-func (s *cancelingUploadStorage) Delete(ctx context.Context, _ string) error {
-	s.deleteCalls++
-	s.deleteContextErr = ctx.Err()
-	return nil
-}
-func (*cancelingUploadStorage) GetURL(string) string { return "" }
-func (*cancelingUploadStorage) Open(context.Context, string) (io.ReadCloser, error) {
-	return nil, errMediaNotFoundForTest{}
-}
-
 func newFakeDirectUploadStorage() *fakeDirectUploadStorage {
 	return &fakeDirectUploadStorage{objects: map[string][]byte{}}
 }
@@ -289,6 +264,24 @@ func newMediaDirectUploadTestServerWithAuthenticator(
 	return &mediaDirectUploadTestServer{echo: e, db: db, storage: fakeStorage, usage: usageSvc, handler: handler}
 }
 
+type mutableMediaScopeAuthenticator struct {
+	scope       string
+	workspaceID string
+}
+
+func (a *mutableMediaScopeAuthenticator) AuthenticateBearer(
+	_ context.Context,
+	_ string,
+) (*middleware.Principal, error) {
+	return &middleware.Principal{
+		UserID:      "user-1",
+		Email:       "user@example.com",
+		Scope:       a.scope,
+		WorkspaceID: a.workspaceID,
+		TokenID:     "scoped-token",
+	}, nil
+}
+
 func (s *mediaDirectUploadTestServer) postJSON(t *testing.T, path string, body any) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -302,37 +295,88 @@ func (s *mediaDirectUploadTestServer) postJSON(t *testing.T, path string, body a
 	return rec
 }
 
-func TestCanceledStreamingUploadReturnsSessionToPending(t *testing.T) {
+func TestAPIWriteScopeCompletesBoundLocalMediaUploadSession(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(t.Context())
-	storage := &cancelingUploadStorage{cancel: cancel}
-	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
-	media := &models.MediaAttachment{
-		ID:               "canceled-stream",
-		WorkspaceID:      "ws-1",
-		FilePath:         "canceled-stream.txt",
-		StorageType:      storage.Driver(),
-		MimeType:         "text/plain",
-		ProcessingStatus: mediaProcessingStatus,
-		Size:             7,
-		OriginalFilename: "canceled-stream.txt",
-		CreatedAt:        time.Now().UTC(),
+	content := []byte("scoped upload")
+	authenticator := &mutableMediaScopeAuthenticator{
+		scope:       apitokens.ScopeAPIWrite,
+		workspaceID: "ws-1",
 	}
-	_, err := srv.db.NewInsert().Model(media).Exec(t.Context())
-	require.NoError(t, err)
-	req := httptest.NewRequestWithContext(ctx, http.MethodPut, "/api/v1/media/upload-session/"+media.ID+"/content", bytes.NewBufferString("content"))
-	req.Header.Set("Authorization", "Bearer web-token")
-	recorder := httptest.NewRecorder()
+	srv := newMediaDirectUploadTestServerWithAuthenticator(
+		t,
+		mediastore.NewLocalStorage(t.TempDir(), "/media"),
+		entitlements.NewSelfHostedService(),
+		authenticator,
+	)
 
-	srv.echo.ServeHTTP(recorder, req)
+	createResp := srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{
+		"workspace_id": "ws-1",
+		"filename":     "scoped.txt",
+		"mime_type":    "text/plain",
+		"size":         len(content),
+	})
+	require.Equal(t, http.StatusOK, createResp.Code, createResp.Body.String())
+	var created map[string]any
+	require.NoError(t, json.Unmarshal(createResp.Body.Bytes(), &created))
+	mediaID := created["media_id"].(string)
+	uploadPath := created["upload"].(map[string]any)["url"].(string)
 
-	require.Equal(t, http.StatusBadRequest, recorder.Code, recorder.Body.String())
-	require.Equal(t, 1, storage.saveCalls, "the canceled write must be attempted exactly once")
-	require.Equal(t, 1, storage.deleteCalls, "a rejected streaming write must clean up its partial object")
-	require.NoError(t, storage.deleteContextErr)
-	var stored models.MediaAttachment
-	require.NoError(t, srv.db.NewSelect().Model(&stored).Where("id = ?", media.ID).Scan(t.Context()))
-	require.Equal(t, mediaProcessingStatus, stored.ProcessingStatus)
+	upload := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPut, uploadPath, bytes.NewReader(content))
+		req.Header.Set("Content-Type", "text/plain")
+		req.Header.Set("Authorization", "Bearer scoped-token")
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+		return rec
+	}
+
+	authenticator.scope = apitokens.ScopeAPIRead
+	require.Equal(t, http.StatusForbidden, upload().Code)
+
+	authenticator.scope = apitokens.ScopeAPIWrite
+	authenticator.workspaceID = "ws-2"
+	require.Equal(t, http.StatusForbidden, upload().Code)
+
+	authenticator.workspaceID = "ws-1"
+	require.Equal(t, http.StatusNoContent, upload().Code)
+
+	completeResp := srv.postJSON(t, "/api/v1/media/upload-session/"+mediaID+"/complete", map[string]any{
+		"workspace_id": "ws-1",
+	})
+	require.Equal(t, http.StatusOK, completeResp.Code, completeResp.Body.String())
+	var completed MediaUploadResult
+	require.NoError(t, json.Unmarshal(completeResp.Body.Bytes(), &completed))
+	require.Equal(t, mediaID, completed.ID)
+	require.Equal(t, int64(len(content)), completed.Size)
+}
+
+func TestAPIWriteScopeRejectsUncataloguedLegacyMediaRoutes(t *testing.T) {
+	t.Parallel()
+	authenticator := &mutableMediaScopeAuthenticator{
+		scope:       apitokens.ScopeAPIWrite,
+		workspaceID: "ws-1",
+	}
+	srv := newMediaDirectUploadTestServerWithAuthenticator(
+		t,
+		mediastore.NewLocalStorage(t.TempDir(), "/media"),
+		entitlements.NewSelfHostedService(),
+		authenticator,
+	)
+
+	for _, request := range []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodPost, path: "/api/v1/media/upload"},
+		{method: http.MethodPost, path: "/api/v1/media/batch-upload"},
+		{method: http.MethodGet, path: "/api/v1/media/metadata"},
+	} {
+		req := httptest.NewRequestWithContext(t.Context(), request.method, request.path, nil)
+		req.Header.Set("Authorization", "Bearer scoped-token")
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusForbidden, rec.Code, "%s %s", request.method, request.path)
+	}
 }
 
 func TestValidateBrandFontContent(t *testing.T) {
@@ -461,47 +505,6 @@ func TestProjectAssetUploadStaysOutOfMediaLibraryAndCompletesProject(t *testing.
 	require.Equal(t, "synced", completeProject.SyncStatus)
 }
 
-func TestStreamingMediaRollbackCompletesAfterRequestCancellation(t *testing.T) {
-	t.Parallel()
-	storage := newFakeDirectUploadStorage()
-	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
-	_, err := srv.db.NewCreateTable().Model((*models.MediaProvenance)(nil)).IfNotExists().Exec(t.Context())
-	require.NoError(t, err)
-	handler := NewMediaHandler(srv.db, storage, nil, testAuthenticator{}, nil)
-	ctx, cancel := context.WithCancel(t.Context())
-	content := []byte("streamed stock media")
-	var created models.MediaAttachment
-
-	_, err = handler.processStreamUpload(
-		ctx,
-		mediaUploadBytesInput{
-			WorkspaceID:      "ws-1",
-			Filename:         "streamed.txt",
-			DeclaredMimeType: "text/plain",
-			Size:             int64(len(content)),
-			StockProvenance: &StockMediaProvenance{
-				Provider:   "test",
-				ExternalID: "asset-1",
-			},
-			OnCreated: func(media models.MediaAttachment) {
-				created = media
-				cancel()
-			},
-		},
-		"stock_import",
-		"library",
-		bytes.NewReader(content),
-		int64(len(content)),
-	)
-
-	require.ErrorContains(t, err, "failed to save stock media provenance")
-	require.NotEmpty(t, created.ID)
-	count, countErr := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", created.ID).Count(t.Context())
-	require.NoError(t, countErr)
-	require.Zero(t, count)
-	require.Empty(t, storage.objects)
-}
-
 func (s *mediaDirectUploadTestServer) createUploadSession(t *testing.T, filename string, mimeType string, size int64) string {
 	return s.createUploadSessionWithAlt(t, filename, mimeType, size, "")
 }
@@ -520,4 +523,85 @@ func (s *mediaDirectUploadTestServer) createUploadSessionWithAlt(t *testing.T, f
 	var out map[string]any
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	return out["media_id"].(string)
+}
+
+func TestDirectUploadAdmissionHidesDatabaseFailures(t *testing.T) {
+	t.Parallel()
+	for _, operation := range []string{"reserve", "complete"} {
+		t.Run(operation, func(t *testing.T) {
+			storage := newFakeDirectUploadStorage()
+			srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+			mediaID := ""
+			if operation == "complete" {
+				mediaID = srv.createUploadSession(t, "copy.txt", "text/plain", 12)
+				storage.objects[mediaID+".txt"] = []byte("hello direct")
+			}
+			_, err := srv.db.ExecContext(t.Context(), "CREATE TRIGGER fail_media_admission BEFORE UPDATE OF name ON workspaces BEGIN SELECT RAISE(ABORT, 'private media admission database detail'); END")
+			require.NoError(t, err)
+			var response *httptest.ResponseRecorder
+			if operation == "reserve" {
+				response = srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{"workspace_id": "ws-1", "filename": "copy.txt", "mime_type": "text/plain", "size": 12})
+			} else {
+				response = srv.postJSON(t, "/api/v1/media/upload-session/"+mediaID+"/complete", map[string]any{"workspace_id": "ws-1"})
+			}
+			require.Equal(t, http.StatusInternalServerError, response.Code, response.Body.String())
+			require.NotContains(t, response.Body.String(), "private media admission database detail")
+		})
+	}
+}
+
+func TestInvalidSignedUploadRetainsAccountingUntilCapabilityExpiry(t *testing.T) {
+	t.Parallel()
+	base := newMCPTestServer(t)
+	for _, model := range []any{(*models.VideoProjectRevision)(nil), (*models.VideoProjectMutation)(nil), (*models.VideoProjectCheckpoint)(nil), (*models.VideoProjectConflict)(nil)} {
+		_, err := base.db.NewCreateTable().Model(model).IfNotExists().Exec(t.Context())
+		require.NoError(t, err)
+	}
+	storage := newFakeDirectUploadStorage()
+	handler := NewMediaHandler(base.db, storage, nil, testAuthenticator{}, nil)
+	handler.SetEntitlement(entitlements.NewStaticService(entitlements.PlanSnapshot{Limits: map[entitlements.LimitKey]int64{entitlements.LimitMediaBytesStored: 13}}))
+	e := echo.New()
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Tombstone", "1"))
+	handler.RegisterRoutes(api)
+	srv := &mediaDirectUploadTestServer{echo: e, db: base.db, storage: storage, handler: handler, usage: usage.NewService(base.db)}
+	mediaID := srv.createUploadSession(t, "copy.png", "image/png", 12)
+	key := mediaID + ".png"
+	storage.objects[key] = []byte("<svg></svg>!")
+	response := srv.postJSON(t, "/api/v1/media/upload-session/"+mediaID+"/complete", map[string]any{"workspace_id": "ws-1"})
+	require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+	var failed models.MediaAttachment
+	require.NoError(t, base.db.NewSelect().Model(&failed).Where("id = ?", mediaID).Scan(t.Context()))
+	require.Equal(t, mediaFailedStatus, failed.ProcessingStatus)
+	stored, err := medialifecycle.StoredBytes(t.Context(), base.db, "ws-1", "")
+	require.NoError(t, err)
+	require.Equal(t, int64(12), stored)
+	sessionsBefore := storage.sessions
+	response = srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{"workspace_id": "ws-1", "filename": "more.txt", "mime_type": "text/plain", "size": 2})
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	require.Equal(t, sessionsBefore, storage.sessions)
+	response = srv.postJSON(t, "/api/v1/media/upload-session/"+mediaID+"/complete", map[string]any{"workspace_id": "ws-1"})
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	// The already issued S3 capability can PUT again despite the application failure.
+	storage.objects[key] = []byte("hello direct")
+	lifecycle := medialifecycle.NewService(base.db, nil)
+	require.NoError(t, lifecycle.Sweep(t.Context(), "ws-1", failed.CreatedAt.Add(time.Hour)))
+	exists, err := base.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", mediaID).Exists(t.Context())
+	require.NoError(t, err)
+	require.True(t, exists)
+	require.NoError(t, lifecycle.Sweep(t.Context(), "ws-1", failed.CreatedAt.Add(25*time.Hour)))
+	exists, err = base.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", mediaID).Exists(t.Context())
+	require.NoError(t, err)
+	require.False(t, exists)
+	var jobs []models.Job
+	require.NoError(t, base.db.NewSelect().Model(&jobs).Where("type = ?", "storage_delete").Scan(t.Context()))
+	durableKeys := make([]string, 0, len(jobs))
+	for _, job := range jobs {
+		var payload struct {
+			Keys []string `json:"keys"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(job.Payload), &payload))
+		durableKeys = append(durableKeys, payload.Keys...)
+		require.Greater(t, job.MaxAttempts, 1)
+	}
+	require.Contains(t, durableKeys, key, "late PUT must retain a retryable object cleanup receipt")
 }

@@ -3,12 +3,10 @@ package memegeneration
 import (
 	"context"
 	"encoding/json"
-
 	"testing"
 
 	"github.com/openpost/backend/internal/ai"
 	"github.com/openpost/backend/internal/memes"
-
 	"github.com/stretchr/testify/require"
 )
 

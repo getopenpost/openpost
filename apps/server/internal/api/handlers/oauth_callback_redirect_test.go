@@ -3,9 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-
 	"io"
-
 	"net/http"
 	"net/url"
 	"testing"
@@ -114,6 +112,18 @@ func TestOAuthCallbackReauthorizationOfInactiveDestinationReturnsToAccounts(t *t
 
 	require.Equal(t, http.StatusTemporaryRedirect, result.StatusCode)
 	require.Equal(t, "https://app.openpost.test/settings?tab=accounts", result.Header.Get("Location"))
+}
+
+func TestOAuthCallbackProviderCancellationPreservesWorkspaceScope(t *testing.T) {
+	t.Parallel()
+
+	e, state, _ := newOAuthCallbackRedirectTestServer(t, "threads", &directOAuthTestAdapter{})
+	rec := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/threads/callback?error=access_denied&state="+url.QueryEscape(state), nil, false)
+	result := rec.Result()
+	t.Cleanup(func() { _ = result.Body.Close() })
+
+	require.Equal(t, http.StatusTemporaryRedirect, result.StatusCode)
+	require.Equal(t, "https://app.openpost.test/settings?oauth_status=cancelled&tab=accounts&workspace_id=ws-1", result.Header.Get("Location"))
 }
 
 func TestXOAuthCallbackDenialPreservesWorkspaceScope(t *testing.T) {

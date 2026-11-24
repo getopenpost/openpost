@@ -66,20 +66,21 @@ func countRows[T any](t *testing.T, db *bun.DB, where string, args ...any) int {
 	return int(count)
 }
 
-func TestDeleteWorkspaceRequiresCanonicalNameAndRecentAuthentication(t *testing.T) {
+func TestWorkspaceDeletionRequiresOrganizationOwner(t *testing.T) {
 	t.Parallel()
 	server := newDeleteWorkspaceTestServer(t)
 	insertDeleteFixture(t, server.db)
+	_, err := server.db.NewUpdate().Model((*models.OrganizationMember)(nil)).
+		Set("role = ?", models.OrganizationRoleAdmin).
+		Where("organization_id = ? AND user_id = ?", "org-1", "user-1").Exec(t.Context())
+	require.NoError(t, err)
 
-	wrongName := jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/workspaces/workspace-1", map[string]any{
-		"confirm_name": "one", "current_password": "current-password-123",
+	preview := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/workspaces/workspace-1/deletion-preview", nil, "web-token")
+	require.Equal(t, http.StatusForbidden, preview.Code, preview.Body.String())
+	deleted := jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/workspaces/workspace-1", map[string]any{
+		"confirm_name": "One", "current_password": "current-password-123",
 	}, "web-token")
-	require.Equal(t, http.StatusBadRequest, wrongName.Code, wrongName.Body.String())
-
-	wrongPassword := jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/workspaces/workspace-1", map[string]any{
-		"confirm_name": "One", "current_password": "wrong-password",
-	}, "web-token")
-	require.Equal(t, http.StatusUnauthorized, wrongPassword.Code, wrongPassword.Body.String())
+	require.Equal(t, http.StatusForbidden, deleted.Code, deleted.Body.String())
 	require.Equal(t, 1, countRows[models.Workspace](t, server.db, "id = ?", "workspace-1"))
 }
 

@@ -19,3 +19,8 @@ func TestVisibilityFailsClosedForMalformedOrUnknownPolicies(t *testing.T) {
 		require.Empty(t, Parse(raw).Fields(), raw)
 	}
 }
+
+func TestNormalizeRejectsUnknownFields(t *testing.T) {
+	_, _, err := Normalize([]string{"email"})
+	require.ErrorIs(t, err, ErrUnsupportedField)
+}

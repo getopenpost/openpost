@@ -6,11 +6,9 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
-
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
-
 	"fmt"
 	"io"
 	"net/http"

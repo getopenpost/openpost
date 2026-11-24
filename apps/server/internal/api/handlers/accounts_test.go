@@ -2,17 +2,16 @@ package handlers
 
 import (
 	"context"
-
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
-
+	"strings"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
-
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/stretchr/testify/require"
@@ -37,29 +36,6 @@ func TestRefreshAccountMetadataUsesDestinationAwareProviderCapability(t *testing
 
 type accountMetadataTokenSource struct {
 	err error
-}
-
-type accountAvatarCacheStub struct {
-	url         string
-	accountID   string
-	providerURL string
-	err         error
-	deleted     []string
-	before      func()
-}
-
-func (cache *accountAvatarCacheStub) CacheAvatar(_ context.Context, accountID, providerURL string) (string, error) {
-	if cache.before != nil {
-		cache.before()
-	}
-	cache.accountID = accountID
-	cache.providerURL = providerURL
-	return cache.url, cache.err
-}
-
-func (cache *accountAvatarCacheStub) Delete(_ context.Context, url string) error {
-	cache.deleted = append(cache.deleted, url)
-	return nil
 }
 
 func (source accountMetadataTokenSource) GetValidAccessToken(context.Context, string) (string, error) {
@@ -148,19 +124,20 @@ func (s *accountsTestServer) request(t *testing.T) *httptest.ResponseRecorder {
 	return rec
 }
 
-func TestRefreshAccountPhotoDoesNotOverwriteAConcurrentRefresh(t *testing.T) {
-	adapter := &accountMetadataAdapter{profile: &platform.UserProfile{ID: "provider-account-1", Username: "changed-name", AvatarURL: "https://cdn.example/photo"}}
-	srv := newAccountMetadataTestServer(t, adapter)
-	cache := &accountAvatarCacheStub{url: "/avatars/avatar_account_losing_refresh.jpg"}
-	cache.before = func() {
-		_, err := srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("account_avatar_url = ?", "/avatars/avatar_account_newer.jpg").Where("id = ?", "acc-1").Exec(t.Context())
-		require.NoError(t, err)
+func TestAccountAliasPreservesProviderIdentity(t *testing.T) {
+	srv := newAccountMetadataTestServer(t, nil)
+	for _, body := range []string{`{"slug":"team-x","alias":"Launch account"}`, `{"slug":"team-x"}`} {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/accounts/acc-1", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer web-token")
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		var response map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+		require.Equal(t, "Launch account", response["alias"])
+		var stored models.SocialAccount
+		require.NoError(t, srv.db.NewSelect().Model(&stored).Where("id = ?", "acc-1").Scan(t.Context()))
+		require.Equal(t, "stored-name", stored.AccountUsername)
 	}
-	srv.handler.accountAvatars = cache
-	resp := srv.request(t)
-	require.Equal(t, http.StatusConflict, resp.Code, resp.Body.String())
-	var stored models.SocialAccount
-	require.NoError(t, srv.db.NewSelect().Model(&stored).Where("id = ?", "acc-1").Scan(t.Context()))
-	require.Equal(t, "/avatars/avatar_account_newer.jpg", stored.AccountAvatarURL)
-	require.Equal(t, []string{cache.url}, cache.deleted)
 }

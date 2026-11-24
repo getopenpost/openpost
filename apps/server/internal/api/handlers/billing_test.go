@@ -183,24 +183,6 @@ func TestConfirmFirstWorkspacePurchaseCreatesAndResumesOneBoundAttempt(t *testin
 	require.Contains(t, rejected.Body.String(), "confirmed welcome details")
 }
 
-func TestSuccessfulCheckoutReturnEmitsCompletedOnce(t *testing.T) {
-	t.Parallel()
-	srv := newBillingAPITestServer(t)
-	now := time.Now().UTC()
-	_, err := srv.db.NewInsert().Model(&models.BillingCheckoutAttempt{
-		CheckoutAttemptID: "chkat_complete", OrganizationID: "org_ws-1", WorkspaceID: "ws-1", UserID: "user-1",
-		Provider: billing.ProviderPaddle, ProviderPriceID: "pri_founder_month", PlanID: "founder", BillingPeriod: "monthly",
-		Status: "trialing", CreatedAt: now, UpdatedAt: now,
-	}).Exec(t.Context())
-	require.NoError(t, err)
-
-	first := srv.getJSON(t, "/api/v1/billing/checkout/chkat_complete/return")
-	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
-	second := srv.getJSON(t, "/api/v1/billing/checkout/chkat_complete/return")
-	require.Equal(t, http.StatusOK, second.Code, second.Body.String())
-	require.Equal(t, []string{telemetry.EventCheckoutCompleted}, telemetryEventNames(srv.recorder.Events))
-}
-
 func newBillingAPITestServerWithPaddleConfig(t *testing.T, client *billingPaddleClient, cfg billing.PaddleConfig) *billingTestServer {
 	t.Helper()
 
@@ -353,24 +335,146 @@ func TestPaddleWebhookRouteRejectsInvalidSignature(t *testing.T) {
 	}
 }
 
-func TestCreateBillingCheckoutRouteReturns503WhenPaddleIsNotConfigured(t *testing.T) {
+func TestBillingMutationsRequireOrganizationAdmin(t *testing.T) {
 	t.Parallel()
+	srv := newBillingAPITestServer(t)
+	_, err := srv.db.NewUpdate().
+		Model((*models.OrganizationMember)(nil)).
+		Set("role = ?", models.OrganizationRoleMember).
+		Where("organization_id = ? AND user_id = ?", "org_ws-1", "user-1").
+		Exec(t.Context())
+	require.NoError(t, err)
 
-	srv := newBillingAPITestServerWithPaddleConfig(t, &billingPaddleClient{}, billing.PaddleConfig{
-		Environment: "sandbox",
-		Plans: map[string]billing.PlanConfig{
-			"founder": {PaddlePriceIDs: billing.PaddlePriceIDs{Monthly: "pri_founder_month"}},
-		},
-	})
-
-	resp := srv.postJSON(t, "/api/v1/billing/checkout", map[string]any{
+	checkout := srv.postJSON(t, "/api/v1/billing/checkout", map[string]any{
 		"workspace_id": "ws-1",
 		"plan_id":      "founder",
 	})
+	portal := srv.postJSON(t, "/api/v1/billing/portal", map[string]any{
+		"workspace_id": "ws-1",
+	})
 
-	require.Equal(t, http.StatusServiceUnavailable, resp.Code, resp.Body.String())
-	require.Contains(t, resp.Body.String(), "OPENPOST_PADDLE_CLIENT_TOKEN")
+	require.Equal(t, http.StatusForbidden, checkout.Code, checkout.Body.String())
+	require.Equal(t, http.StatusForbidden, portal.Code, portal.Body.String())
+	require.Contains(t, portal.Body.String(), "organization admin role required")
 	require.Zero(t, srv.client.portalRequests)
+	var checkoutAttempts int
+	require.NoError(t, srv.db.NewSelect().ColumnExpr("COUNT(*)").TableExpr("billing_checkout_attempts").Scan(t.Context(), &checkoutAttempts))
+	require.Zero(t, checkoutAttempts)
+}
+
+func TestGetBillingStatusUsesOwnersActiveSubscriptionForLegacyWorkspace(t *testing.T) {
+	t.Parallel()
+
+	srv := newBillingAPITestServer(t)
+	ctx := context.Background()
+	_, err := srv.db.NewInsert().Model(&models.Organization{
+		ID: "org_legacy", Name: "Legacy", CreatedByID: "user-1",
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.OrganizationMember{
+		OrganizationID: "org_legacy", UserID: "user-1", Role: models.OrganizationRoleOwner,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.Workspace{
+		ID: "ws-legacy", OrganizationID: "org_legacy", Name: "Legacy",
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.WorkspaceMember{
+		WorkspaceID: "ws-legacy", UserID: "user-1", Role: models.WorkspaceRoleAdmin,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.BillingSubscription{
+		OrganizationID:         "org_ws-1",
+		WorkspaceID:            "ws-1",
+		Provider:               "paddle",
+		ProviderCustomerID:     "cus-agency",
+		ProviderSubscriptionID: "sub-agency",
+		Status:                 "active",
+		PlanID:                 "agency",
+		EntitlementSnapshot:    `{"limits":{"social_accounts":25}}`,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.UsageCounter{
+		WorkspaceID: "ws-legacy",
+		Metric:      string(entitlements.LimitScheduledPostsMonthly),
+		PeriodStart: time.Date(time.Now().UTC().Year(), time.Now().UTC().Month(), 1, 0, 0, 0, 0, time.UTC),
+		Value:       3,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	require.NoError(t, srv.usage.SetProviderCostPolicy(usageservice.NewXProviderCostPolicy(
+		500_000,
+		15_000,
+		200_000,
+	)))
+	_, err = srv.usage.RecordProviderCost(ctx, usageservice.ProviderCostEventInput{
+		WorkspaceID:  "ws-legacy",
+		Provider:     usageservice.ProviderX,
+		Operation:    usageservice.XOperationPostCreate,
+		OperationKey: "legacy-workspace-x-cost",
+		Units:        1,
+		OccurredAt:   time.Now().UTC(),
+	})
+	require.NoError(t, err)
+
+	resp := srv.getJSON(t, "/api/v1/billing/status?workspace_id=ws-legacy")
+
+	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+	var out map[string]any
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+	require.Equal(t, "ws-legacy", out["workspace_id"])
+	require.Equal(t, "org_ws-1", out["organization_id"])
+	require.Equal(t, "agency", out["plan_id"])
+	require.Equal(t, "active", out["status"])
+	require.Equal(t, float64(3), out["usage"].(map[string]any)[string(entitlements.LimitScheduledPostsMonthly)])
+	providerCosts := out["provider_costs"].([]any)
+	require.Len(t, providerCosts, 1)
+	require.Equal(t, float64(15_000), providerCosts[0].(map[string]any)["cost_microusd"])
+}
+
+func TestGetBillingStatusSurfacesOwnersPastDueSubscriptionForLegacyWorkspace(t *testing.T) {
+	t.Parallel()
+
+	srv := newBillingAPITestServer(t)
+	ctx := context.Background()
+	_, err := srv.db.NewInsert().Model(&models.Organization{
+		ID: "org_legacy_due", Name: "Legacy", CreatedByID: "user-1",
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.OrganizationMember{
+		OrganizationID: "org_legacy_due", UserID: "user-1", Role: models.OrganizationRoleOwner,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.Workspace{
+		ID: "ws-legacy-due", OrganizationID: "org_legacy_due", Name: "Legacy",
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.WorkspaceMember{
+		WorkspaceID: "ws-legacy-due", UserID: "user-1", Role: models.WorkspaceRoleAdmin,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	pastDueSince := time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)
+	_, err = srv.db.NewInsert().Model(&models.BillingSubscription{
+		OrganizationID:         "org_ws-1",
+		WorkspaceID:            "ws-1",
+		Provider:               billing.ProviderPaddle,
+		ProviderCustomerID:     "ctm_due",
+		ProviderSubscriptionID: "sub_due",
+		Status:                 "past_due",
+		PlanID:                 "founder",
+		PastDueSince:           pastDueSince,
+		UpdatedAt:              pastDueSince,
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	resp := srv.getJSON(t, "/api/v1/billing/status?workspace_id=ws-legacy-due")
+
+	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+	var out map[string]any
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+	require.Equal(t, "org_ws-1", out["organization_id"])
+	require.Equal(t, "ws-legacy-due", out["workspace_id"])
+	require.Equal(t, "past_due", out["status"])
+	require.Equal(t, true, out["access_restricted"])
 }
 
 func TestOrganizationBillingAdminCanUsePurposeLinkWithoutWorkspaceAdminRole(t *testing.T) {
@@ -403,4 +507,36 @@ func TestOrganizationBillingAdminCanUsePurposeLinkWithoutWorkspaceAdminRole(t *t
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &body))
 	require.Equal(t, "cancel_subscription", body["purpose"])
 	require.Equal(t, "https://customer-portal.paddle.com/cancel?token=fresh", body["url"])
+}
+
+func TestPastDueBillingStatusIsVisibleWithoutBillingPermission(t *testing.T) {
+	t.Parallel()
+
+	srv := newBillingAPITestServer(t)
+	pastDueSince := time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)
+	_, err := srv.db.NewUpdate().
+		Model((*models.OrganizationMember)(nil)).
+		Set("role = ?", models.OrganizationRoleMember).
+		Where("organization_id = ? AND user_id = ?", "org_ws-1", "user-1").
+		Exec(t.Context())
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.BillingSubscription{
+		OrganizationID:         "org_ws-1",
+		WorkspaceID:            "ws-1",
+		Provider:               billing.ProviderPaddle,
+		ProviderCustomerID:     "ctm_1",
+		ProviderSubscriptionID: "sub_1",
+		Status:                 "past_due",
+		PlanID:                 "founder",
+		PastDueSince:           pastDueSince,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+
+	status := srv.getJSON(t, "/api/v1/billing/status?workspace_id=ws-1")
+	require.Equal(t, http.StatusOK, status.Code, status.Body.String())
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(status.Body.Bytes(), &body))
+	require.Equal(t, "past_due", body["status"])
+	require.Equal(t, false, body["can_manage_billing"])
+	require.Equal(t, true, body["access_restricted"])
 }

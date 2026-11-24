@@ -8,7 +8,6 @@ import (
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-
 	"github.com/openpost/backend/internal/services/workflows"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/stretchr/testify/require"
@@ -34,7 +33,7 @@ func (p *campaignProvider) ReplyToComment(context.Context, string, string, strin
 	p.public++
 	return "ack-1", nil
 }
-func campaignTest(t *testing.T) (*Service, AutomationReplyRequest) {
+func campaignTest(t *testing.T) (*Service, AutomationReplyRequest, *campaignProvider) {
 	t.Helper()
 	s := admissionTestService(t)
 	s.SetAutomationRunStopper(workflows.NewService(s.db, nil, nil).CancelCommentReplyRuns)
@@ -52,7 +51,7 @@ func campaignTest(t *testing.T) (*Service, AutomationReplyRequest) {
 	provider := &campaignProvider{}
 	s.SetProvider("instagram", provider)
 	s.tokenSource = moderationTokens{}
-	return s, AutomationReplyRequest{Authority: workspaceaccess.StoredAuthority{UserID: "u", WorkspaceID: "w", OrganizationID: "o", AssuredAt: now}, WorkflowID: "wf", RunID: "run", StepID: "send", ItemID: "c", Channel: "private", Body: "Your playbook: https://example.test/book", Delivery: "automatic"}
+	return s, AutomationReplyRequest{Authority: workspaceaccess.StoredAuthority{UserID: "u", WorkspaceID: "w", OrganizationID: "o", AssuredAt: now}, WorkflowID: "wf", RunID: "run", StepID: "send", ItemID: "c", Channel: "private", Body: "Your playbook: https://example.test/book", Delivery: "automatic"}, provider
 }
 func completeCampaignJob(t *testing.T, s *Service, id string) {
 	t.Helper()
@@ -63,6 +62,94 @@ func completeCampaignJob(t *testing.T, s *Service, id string) {
 	require.NoError(t, s.performEngagementAction(t.Context(), input))
 	_, err := s.db.NewUpdate().Model(&job).Set("status='completed'").WherePK().Exec(t.Context())
 	require.NoError(t, err)
+}
+func TestCommentCampaignPrivateSendReceiptDoesNotResend(t *testing.T) {
+	t.Parallel()
+	s, in, p := campaignTest(t)
+	reply, err := s.AdvanceAutomationReply(t.Context(), in)
+	require.NoError(t, err)
+	require.Equal(t, "sending", reply.State)
+	replay, err := s.AdvanceAutomationReply(t.Context(), in)
+	require.NoError(t, err)
+	require.Equal(t, reply.JobID, replay.JobID)
+	completeCampaignJob(t, s, reply.JobID)
+	reply, err = s.AdvanceAutomationReply(t.Context(), in)
+	require.NoError(t, err)
+	require.Equal(t, "sent", reply.State)
+	require.Equal(t, 1, p.private)
+	require.Zero(t, p.public)
+}
+
+func TestCommentCampaignFailedPrivateReplyNeverQueuesAcknowledgement(t *testing.T) {
+	t.Parallel()
+	s, in, p := campaignTest(t)
+	reply, err := s.AdvanceAutomationReply(t.Context(), in)
+	require.NoError(t, err)
+	_, err = s.db.NewUpdate().Model((*models.Job)(nil)).Set("status='failed', last_error='uncertain provider outcome'").Where("id=?", reply.JobID).Exec(t.Context())
+	require.NoError(t, err)
+	reply, err = s.AdvanceAutomationReply(t.Context(), in)
+	require.NoError(t, err)
+	require.Equal(t, "failed", reply.State)
+	require.Zero(t, p.public)
+}
+func TestCommentCampaignSeparatePublicStepWaitsForPrivateAcceptance(t *testing.T) {
+	t.Parallel()
+	s, in, p := campaignTest(t)
+	reply, err := s.AdvanceAutomationReply(t.Context(), in)
+	require.NoError(t, err)
+	completeCampaignJob(t, s, reply.JobID)
+	reply, err = s.AdvanceAutomationReply(t.Context(), in)
+	require.NoError(t, err)
+	require.Equal(t, "sent", reply.State)
+	in.Channel = "public"
+	in.StepID = "acknowledge"
+	in.Body = "Sent!"
+	reply, err = s.AdvanceAutomationReply(t.Context(), in)
+	require.NoError(t, err)
+	require.Equal(t, "sending", reply.State)
+	completeCampaignJob(t, s, reply.JobID)
+	reply, err = s.AdvanceAutomationReply(t.Context(), in)
+	require.NoError(t, err)
+	require.Equal(t, "sent", reply.State)
+	require.Equal(t, 1, p.private)
+	require.Equal(t, 1, p.public)
+}
+
+func TestCommentCampaignPrivateReplyIsOncePerPersonPerPost(t *testing.T) {
+	t.Parallel()
+	s, in, _ := campaignTest(t)
+	_, err := s.db.NewUpdate().Model((*models.EngagementItem)(nil)).Set("author_remote_id='reader'").Where("id='c'").Exec(t.Context())
+	require.NoError(t, err)
+	_, err = s.AdvanceAutomationReply(t.Context(), in)
+	require.NoError(t, err)
+	var item models.EngagementItem
+	require.NoError(t, s.db.NewSelect().Model(&item).Where("id='c'").Scan(t.Context()))
+	item.ID = "second"
+	item.RemoteID = "second"
+	_, err = s.db.NewInsert().Model(&item).Exec(t.Context())
+	require.NoError(t, err)
+	in.ItemID = "second"
+	reply, err := s.AdvanceAutomationReply(t.Context(), in)
+	require.NoError(t, err)
+	require.Equal(t, "skipped", reply.State)
+}
+
+func TestPrivateCommentReplyRequiresStableCommenterAndPost(t *testing.T) {
+	t.Parallel()
+	for _, field := range []string{"author_remote_id", "conversation_remote_id"} {
+		t.Run(field, func(t *testing.T) {
+			s, in, p := campaignTest(t)
+			_, err := s.db.NewUpdate().Model((*models.EngagementItem)(nil)).Set(field + "=''").Where("id='c'").Exec(t.Context())
+			require.NoError(t, err)
+			if field == "conversation_remote_id" {
+				_, err = s.db.NewUpdate().Model((*models.EngagementItem)(nil)).Set("rendition_id=NULL").Where("id='c'").Exec(t.Context())
+				require.NoError(t, err)
+			}
+			_, err = s.AdvanceAutomationReply(t.Context(), in)
+			require.ErrorContains(t, err, "identity is unavailable")
+			require.Zero(t, p.private)
+		})
+	}
 }
 
 type campaignWebhookProvider struct {
@@ -78,7 +165,7 @@ func (p *campaignWebhookProvider) ReadWebhookComment(_ context.Context, _, _, co
 }
 func TestExternalReelCommentUsesCanonicalInboxIdentityAndCurrentGrantFence(t *testing.T) {
 	t.Parallel()
-	s, _ := campaignTest(t)
+	s, _, _ := campaignTest(t)
 	provider := &campaignWebhookProvider{}
 	s.SetProvider("instagram", provider)
 	event := json.RawMessage(`{"field":"comments","value":{"id":"outside-comment","media":{"id":"outside-reel"}}}`)
@@ -101,9 +188,26 @@ func TestExternalReelCommentUsesCanonicalInboxIdentityAndCurrentGrantFence(t *te
 	require.Zero(t, count)
 }
 
+func TestAcceptedPrivateReplyRemainsSentAfterTakeoverDuringProviderCall(t *testing.T) {
+	t.Parallel()
+	s, in, p := campaignTest(t)
+	reply, err := s.AdvanceAutomationReply(t.Context(), in)
+	require.NoError(t, err)
+	p.onPrivate = func() { require.NoError(t, s.StopAutomation(t.Context(), Actor{UserID: "u"}, "w", "c")) }
+	completeCampaignJob(t, s, reply.JobID)
+	receipts, err := s.AutomationReplies(t.Context(), Actor{UserID: "u"}, "w", "c")
+	require.NoError(t, err)
+	require.Len(t, receipts, 1)
+	require.Equal(t, "sent", receipts[0].State)
+	var state string
+	require.NoError(t, s.db.NewSelect().Table("workflow_runs").Column("state").Where("id='run'").Scan(t.Context(), &state))
+	require.Equal(t, "cancelled", state)
+	require.Zero(t, p.public)
+}
+
 func TestTakeoverAfterPrivateAcceptanceCancelsRemainingWorkflow(t *testing.T) {
 	t.Parallel()
-	s, in := campaignTest(t)
+	s, in, _ := campaignTest(t)
 	reply, err := s.AdvanceAutomationReply(t.Context(), in)
 	require.NoError(t, err)
 	completeCampaignJob(t, s, reply.JobID)

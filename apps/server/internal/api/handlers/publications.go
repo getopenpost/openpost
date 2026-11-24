@@ -3810,6 +3810,22 @@ func (h *PublicationHandler) loadRenditionActionOutcomes(
 	return outcomes, nil
 }
 
+func (h *PublicationHandler) requirePublicationReadiness(
+	ctx context.Context,
+	publicationID string,
+	operation providerreadiness.Operation,
+	intent providerreadiness.ExecutionIntent,
+) error {
+	if h == nil || h.readiness == nil {
+		return &providerreadiness.NotReadyError{Decision: providerreadiness.UnavailableDecision(operation)}
+	}
+	var publication models.Publication
+	if err := h.db.NewSelect().Model(&publication).Where("id = ?", publicationID).Scan(ctx); err != nil {
+		return err
+	}
+	return h.requirePublicationReadinessWithDB(ctx, h.db, &publication, operation, intent, false)
+}
+
 func (h *PublicationHandler) requirePublicationReadinessWithDB(
 	ctx context.Context,
 	db bun.IDB,

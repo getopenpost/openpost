@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"database/sql"
-
 	"testing"
 
 	"github.com/stretchr/testify/require"

@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -13,7 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-
+	"slices"
 	"testing"
 	"time"
 
@@ -297,6 +297,39 @@ func TestThemeHTTPSettingsRequireManagementWithoutWorkspaceEnumeration(t *testin
 	require.Equal(t, http.StatusOK, resolved.Code, resolved.Body.String(), "ordinary members still read the resolved theme")
 }
 
+func TestThemeHTTPAssetPagesAreBoundedStableAndComplete(t *testing.T) {
+	t.Parallel()
+	e, db, _ := newThemeTestServer(t)
+	assetIDs := make([]string, 0, 3)
+	for index := range 3 {
+		asset := uploadThemeAsset(t, e, map[string]any{
+			"organization_id": "org-1", "kind": "illustration", "name": fmt.Sprintf("Asset %d", index),
+			"media_type": "image/png", "content_base64": base64.StdEncoding.EncodeToString(handlerPNG(t, 20+index, 20+index)),
+		})
+		assetIDs = append(assetIDs, asset.ID)
+	}
+	equalCreatedAt := time.Date(2026, time.September, 2, 13, 0, 0, 0, time.UTC)
+	_, err := db.NewUpdate().Table("organization_theme_assets").Set("created_at = ?", equalCreatedAt).Where("organization_id = ?", "org-1").Exec(t.Context())
+	require.NoError(t, err)
+	slices.Sort(assetIDs)
+
+	firstResponse := themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets?organization_id=org-1&limit=2", nil)
+	require.Equal(t, http.StatusOK, firstResponse.Code, firstResponse.Body.String())
+	var first themes.ThemeAssetPage
+	require.NoError(t, json.Unmarshal(firstResponse.Body.Bytes(), &first))
+	require.Equal(t, assetIDs[:2], themeAssetIDs(first.Items))
+	require.NotEmpty(t, first.NextCursor)
+
+	secondResponse := themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets?organization_id=org-1&limit=2&cursor="+url.QueryEscape(first.NextCursor), nil)
+	require.Equal(t, http.StatusOK, secondResponse.Code, secondResponse.Body.String())
+	var second themes.ThemeAssetPage
+	require.NoError(t, json.Unmarshal(secondResponse.Body.Bytes(), &second))
+	require.Equal(t, assetIDs[2:], themeAssetIDs(second.Items))
+	require.Empty(t, second.NextCursor)
+	require.Equal(t, http.StatusBadRequest, themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets?organization_id=org-1&cursor=not-a-cursor", nil).Code)
+	require.Equal(t, http.StatusUnprocessableEntity, themeRequest(t, e, http.MethodGet, "/api/v1/theme-assets?organization_id=org-1&limit=101", nil).Code)
+}
+
 func TestThemeHTTPAvailableDetailDoesNotEnumerateStaleOrInaccessibleThemes(t *testing.T) {
 	t.Parallel()
 	e, _, _ := newThemeTestServer(t)
@@ -342,6 +375,14 @@ func TestThemeHTTPAvailableDetailDoesNotEnumerateStaleOrInaccessibleThemes(t *te
 	require.Equal(t, http.StatusForbidden, viewer.Code, viewer.Body.String())
 	require.Equal(t, viewer.Code, missingWorkspace.Code)
 	require.JSONEq(t, viewer.Body.String(), missingWorkspace.Body.String())
+}
+
+func themeAssetIDs(assets []themes.ThemeAssetRecord) []string {
+	ids := make([]string, 0, len(assets))
+	for _, asset := range assets {
+		ids = append(ids, asset.ID)
+	}
+	return ids
 }
 
 func newThemeTestServer(t *testing.T) (*echo.Echo, *bun.DB, huma.API) {

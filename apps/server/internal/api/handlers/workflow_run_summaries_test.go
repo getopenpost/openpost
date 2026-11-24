@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,9 +10,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
-
+	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/jobregistry"
-
+	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/openpost/backend/internal/services/workflows"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/stretchr/testify/require"
@@ -55,4 +56,30 @@ func TestWorkflowRunSummariesKeepPayloadsInAuthorizedDetail(t *testing.T) {
 	require.Equal(t, []workflows.Run{detail}, fullList)
 	get("/workflow-run-summaries?workspace_id=other", http.StatusForbidden)
 	require.JSONEq(t, `[]`, string(get("/workflow-run-summaries?workspace_id=ws&workflow_id=other", http.StatusOK)))
+}
+
+type workflowSummaryScopeSession struct{}
+
+func (workflowSummaryScopeSession) AuthenticateBearer(_ context.Context, scope string) (*middleware.Principal, error) {
+	return &middleware.Principal{UserID: "user", SessionID: "session", Scope: scope}, nil
+}
+func TestWorkflowRunSummariesAllowReadScopes(t *testing.T) {
+	t.Parallel()
+	db := workflowHandlerDB(t)
+	e := echo.New()
+	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1"))
+	NewWorkflowHandler(workflows.NewService(db, nil, nil), workflowSummaryScopeSession{}).RegisterRoutes(api)
+	for _, scope := range []string{apitokens.ScopeAPIRead, apitokens.ScopeAPIWrite, apitokens.ScopeMCP} {
+		for _, path := range []string{"/workflow-runs", "/workflow-run-summaries"} {
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1"+path+"?workspace_id=ws", nil)
+			req.Header.Set("Authorization", "Bearer "+scope)
+			response := httptest.NewRecorder()
+			e.ServeHTTP(response, req)
+			expected := http.StatusOK
+			if scope == apitokens.ScopeMCP {
+				expected = http.StatusForbidden
+			}
+			require.Equal(t, expected, response.Code, "%s %s: %s", scope, path, response.Body.String())
+		}
+	}
 }

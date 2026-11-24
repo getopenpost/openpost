@@ -113,3 +113,24 @@ func TestPublisherWriteFailsClosedWithoutReadinessService(t *testing.T) {
 	require.Contains(t, notReady.Decision.Blockers, providerreadiness.Blocker{Code: providerreadiness.BlockerReadinessUnavailable})
 	require.Zero(t, adapter.publishCalls)
 }
+
+func TestPublisherWriteFailsClosedWhenReadinessRepositoryFails(t *testing.T) {
+	t.Parallel()
+	adapter := &fakePublisherAdapter{externalID: "must-not-publish"}
+	srv := newPublisherUsageTestServer(t, adapter)
+	_, err := srv.db.ExecContext(t.Context(), "DROP TABLE provider_runtime_control_events")
+	require.NoError(t, err)
+	scope := legacyWriteScope(t.Context(), "ws-1", "account-1", "x", "readiness-broken")
+	_, err = srv.service.publishProviderWithUsage(
+		t.Context(), "ws-1", capabilities.ProviderX, "readiness-broken", "publish",
+		scope, adapter, "access-token", "x-account",
+		&platform.PublishRequest{Content: "Readiness", Profile: models.ContentProfileShortText, OutputProfile: "x.post"},
+		nil,
+	)
+	var notReady *providerreadiness.NotReadyError
+	require.ErrorAs(t, err, &notReady)
+	require.Equal(t, providerreadiness.EffectiveStateDegraded, notReady.Decision.State)
+	require.False(t, notReady.Decision.Publishable)
+	require.Contains(t, notReady.Decision.Blockers, providerreadiness.Blocker{Code: providerreadiness.BlockerReadinessUnavailable})
+	require.Zero(t, adapter.publishCalls)
+}

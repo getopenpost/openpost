@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/lifecycle"

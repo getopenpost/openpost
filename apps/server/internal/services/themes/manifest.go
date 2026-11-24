@@ -35,6 +35,10 @@ const (
 	validateStoredManifest
 )
 
+func DecodeManifest(raw []byte) (ThemeManifest, error) {
+	return decodeManifest(raw, validateAuthoredManifest)
+}
+
 func decodeManifest(raw []byte, validation manifestValidation) (ThemeManifest, error) {
 	if len(raw) == 0 || len(raw) > maxManifestBytes {
 		return ThemeManifest{}, fmt.Errorf("%w: manifest must contain at most %d bytes", ErrInvalidManifest, maxManifestBytes)

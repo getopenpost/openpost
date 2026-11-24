@@ -161,6 +161,52 @@ func TestProviderReadinessAdminAppendsSanitizedEvidenceForCurrentContract(t *tes
 	require.Contains(t, staleResponse.Body.String(), "account context was rejected")
 }
 
+func TestProviderReadinessAdminDerivesCertificationFromExactAccountContext(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		mutate func(*providerReadinessAdminTestServer, map[string]any)
+	}{
+		{name: "cross-workspace", mutate: func(_ *providerReadinessAdminTestServer, request map[string]any) {
+			request["workspace_id"] = "workspace-b"
+		}},
+		{name: "nonexistent-account", mutate: func(_ *providerReadinessAdminTestServer, request map[string]any) {
+			request["social_account_id"] = "account-missing"
+		}},
+		{name: "inactive-account", mutate: func(srv *providerReadinessAdminTestServer, _ map[string]any) {
+			_, err := srv.db.NewUpdate().Model((*models.SocialAccount)(nil)).
+				Set("is_active = ?", false).Where("id = ?", "account-x").Exec(t.Context())
+			require.NoError(t, err)
+		}},
+		{name: "wrong-output-profile", mutate: func(_ *providerReadinessAdminTestServer, request map[string]any) {
+			request["output_profile"] = "youtube.video"
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			srv := newProviderReadinessAdminTestServer(t, true, browserSessionTestAuthenticator())
+			reviewResponse := srv.postJSON(
+				t, "/api/v1/admin/provider-readiness/approval-reviews",
+				providerApprovalReviewRequest(srv), "web-token",
+			)
+			require.Equal(t, http.StatusOK, reviewResponse.Code, reviewResponse.Body.String())
+			var review ProviderReadinessLedgerAppendOutput
+			require.NoError(t, json.Unmarshal(reviewResponse.Body.Bytes(), &review.Body))
+			request := providerCertificationRequest(t, srv, review.Body.ID)
+			test.mutate(srv, request)
+
+			response := srv.postJSON(
+				t, "/api/v1/admin/provider-readiness/certifications", request, "web-token",
+			)
+			require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+			var count int64
+			count, err := srv.db.NewSelect().Model((*models.ProviderCertificationRun)(nil)).Count(t.Context())
+			require.NoError(t, err)
+			require.Zero(t, count)
+		})
+	}
+}
+
 func TestProviderReadinessAdminAppendsRuntimeControlWithHashedOperator(t *testing.T) {
 	t.Parallel()
 	srv := newProviderReadinessAdminTestServer(t, true, browserSessionTestAuthenticator())

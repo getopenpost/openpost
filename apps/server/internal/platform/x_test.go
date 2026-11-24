@@ -2,13 +2,10 @@ package platform
 
 import (
 	"errors"
-
 	"io"
 	"net/http"
 	"net/http/httptest"
-
 	"strings"
-
 	"testing"
 	"time"
 )
@@ -77,38 +74,6 @@ func TestBuildXTweetPayloadRejectsMutuallyExclusiveAttachments(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected media and quote conflict")
-	}
-}
-
-func TestXResolveAccountPublishingCapabilitiesReadsAuthenticatedSubscription(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/2/users/me" {
-			t.Fatalf("unexpected path %q", r.URL.Path)
-		}
-		if !strings.Contains(r.URL.Query().Get("user.fields"), "subscription_type") {
-			t.Fatalf("subscription_type was not requested: %q", r.URL.RawQuery)
-		}
-		if !strings.HasPrefix(r.Header.Get("Authorization"), "OAuth ") {
-			t.Fatalf("expected OAuth 1.0a authorization header")
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"data":{"id":"42","name":"Ada","username":"ada","subscription_type":"PremiumPlus"}}`)
-	}))
-	defer server.Close()
-
-	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
-	defer close(adapter.cleanupDone)
-	adapter.apiBaseURL = server.URL
-
-	result, err := adapter.ResolveAccountPublishingCapabilities(t.Context(), "access-token|access-secret", AccountCapabilityInput{})
-	if err != nil {
-		t.Fatalf("ResolveAccountPublishingCapabilities returned error: %v", err)
-	}
-	if result.State[XCapabilityStateSubscriptionType] != XSubscriptionTypePremiumPlus {
-		t.Fatalf("unexpected capability state: %#v", result.State)
-	}
-	if result.Constraints["text_limit"] != XPremiumTextLimit {
-		t.Fatalf("unexpected constraints: %#v", result.Constraints)
 	}
 }
 

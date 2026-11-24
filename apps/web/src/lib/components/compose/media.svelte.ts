@@ -1066,6 +1066,14 @@ export class ComposerMedia {
 		this.host.scheduleAutoSave();
 	};
 
+	/** Forgets type, size, preview, and alt-text metadata when the composer clears its media. */
+	clearMetadata = () => {
+		this.mediaAltTexts = new Map();
+		this.mediaMimeTypes = new Map();
+		this.mediaPreviewMetadata.clear();
+		this.mediaSizes = new Map();
+	};
+
 	/** Cancels image preparation that belongs to an earlier Workspace, request, or view. */
 	invalidateImagePreparation = () => {
 		this.imagePreparationSources.clear();

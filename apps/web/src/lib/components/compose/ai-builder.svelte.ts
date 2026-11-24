@@ -156,6 +156,9 @@ function aiBuildStorageKey(workspaceID: string): string {
 type AIBuilderHost = Pick<
 	ComposerHost,
 	| 'composerDestroyed'
+	| 'validationIssues'
+	| 'handleVariantChange'
+	| 'scheduleCapabilityResolve'
 	| 'selectedWorkspaceId'
 	| 'publicationId'
 	| 'error'
@@ -1237,6 +1240,29 @@ export class ComposerAIBuilder {
 		this.mediaPickerMemeIdea = '';
 		this.mediaPickerMemeCandidate = undefined;
 		this.mediaPickerMemePreview = '';
+	};
+
+	/** Saves the reviewed text for a destination and drops its AI media requirement. */
+	saveRequirementWithoutMedia = () => {
+		if (!this.host.posts[0]) return;
+		const accountId = this.requirementReviewId;
+		this.host.handleVariantChange(accountId, 0, this.requirementReviewText);
+		const next = { ...this.aiAttachmentRequirements };
+		delete next[accountId];
+		this.aiAttachmentRequirements = next;
+		const profiles = { ...this.host.requestedOutputProfiles };
+		delete profiles[accountId];
+		this.host.requestedOutputProfiles = profiles;
+		this.host.formatLockedByAccount = { ...this.host.formatLockedByAccount, [accountId]: false };
+		this.host.validationIssues = [];
+		this.aiAppliedStrategies = this.aiAppliedStrategies.map((strategy) =>
+			strategy.account_id === accountId
+				? { ...strategy, media: { treatment: 'none', role: 'none', brief: '' } }
+				: strategy
+		);
+		this.requirementReviewId = '';
+		this.host.scheduleCapabilityResolve();
+		this.host.scheduleAutoSave();
 	};
 
 	keepCurrentComposerEdits = (): void => {

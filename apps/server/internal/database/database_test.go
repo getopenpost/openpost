@@ -3,13 +3,16 @@ package database
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
@@ -74,6 +77,54 @@ func TestPostgresConnectionsUseUTC(t *testing.T) {
 	var timezone string
 	require.NoError(t, db.NewSelect().ColumnExpr("current_setting('TimeZone')").Scan(t.Context(), &timezone))
 	require.Equal(t, "UTC", timezone)
+}
+
+// The SQLite driver parses stored timestamps itself. A server running outside
+// UTC must still read them as UTC instants, so API JSON never carries the host
+// offset. The child process owns TZ, which Go reads only at startup.
+func TestSQLiteTimestampsSerializeAsUTCOutsideUTC(t *testing.T) {
+	const childEnv = "OPENPOST_SQLITE_UTC_CHILD"
+	if os.Getenv(childEnv) != "1" {
+		cmd := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^"+t.Name()+"$", "-test.count=1", "-test.v")
+		cmd.Env = append(os.Environ(), "TZ=America/New_York", childEnv+"=1")
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err, string(output))
+		require.Contains(t, string(output), "--- PASS: "+t.Name())
+		return
+	}
+	require.Equal(t, "America/New_York", time.Local.String())
+
+	type sqliteUTCRow struct {
+		bun.BaseModel `bun:"table:utc_timestamp_rows"`
+		ID            int64     `bun:"id,pk,autoincrement" json:"-"`
+		WrittenAt     time.Time `bun:"written_at,notnull" json:"written_at"`
+		DefaultedAt   time.Time `bun:"defaulted_at,nullzero,notnull,default:current_timestamp" json:"defaulted_at"`
+	}
+	db, err := InitDBWithDriverAndRole("sqlite", "file:"+filepath.Join(t.TempDir(), "utc.db")+"?mode=rwc", "all")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	ctx := t.Context()
+	_, err = db.NewCreateTable().Model((*sqliteUTCRow)(nil)).Exec(ctx)
+	require.NoError(t, err)
+
+	// 09:30 in New York on a winter date is 14:30 UTC.
+	written := time.Date(2026, time.January, 15, 9, 30, 0, 0, time.Local)
+	before := time.Now().UTC().Add(-time.Minute)
+	row := &sqliteUTCRow{WrittenAt: written}
+	_, err = db.NewInsert().Model(row).Exec(ctx)
+	require.NoError(t, err)
+
+	var stored sqliteUTCRow
+	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", row.ID).Scan(ctx))
+	encoded, err := json.Marshal(stored)
+	require.NoError(t, err)
+	var fields map[string]string
+	require.NoError(t, json.Unmarshal(encoded, &fields))
+	require.Equal(t, "2026-01-15T14:30:00Z", fields["written_at"])
+	defaulted, err := time.Parse(time.RFC3339, fields["defaulted_at"])
+	require.NoError(t, err)
+	require.Regexp(t, `Z$`, fields["defaulted_at"])
+	require.WithinRange(t, defaulted, before, time.Now().UTC().Add(time.Minute))
 }
 
 func TestPoolObserverReportsConnectionPressureOncePerChange(t *testing.T) {

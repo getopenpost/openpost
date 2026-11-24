@@ -292,27 +292,25 @@
 		type PastedImageRejectionReason
 	} from '$lib/composer/media-queue';
 	import { mediaFileSignature } from '$lib/media-input';
+	import { ComposerTextShortening } from './compose/text-shortening.svelte';
+	import type {
+		Capability,
+		ComposerHost,
+		ComposerRenditionSegment,
+		DeliveryOutcome,
+		DestinationOption,
+		ProviderSettings,
+		ProviderSettingValue,
+		Publication,
+		ResolvedAccountCapabilityWithReadiness,
+		SettingDefinition,
+		SocialSet,
+		ValidationIssue
+	} from './compose/composer-host';
 
 	// --------------------------------------------------------------------------
 	// Types
 	// --------------------------------------------------------------------------
-	type Publication = components['schemas']['PublicationResponse'];
-	type SocialSet = components['schemas']['SocialSetResponse'];
-	type Capability = components['schemas']['Capability'];
-	type SettingDefinition = components['schemas']['SettingDefinition'];
-	type ResolvedAccountCapability = components['schemas']['ResolvedAccountCapability'];
-	type ResolvedAccountCapabilityWithReadiness = ResolvedAccountCapability & {
-		immediate_readiness?: ProviderReadinessDecision;
-		scheduled_readiness?: ProviderReadinessDecision;
-	};
-	type DestinationOption = components['schemas']['DestinationOption'];
-	type ValidationIssue = components['schemas']['ValidationIssue'];
-	type DeliveryOutcome = components['schemas']['RenditionActionOutcome'];
-	type ComposerRenditionSegment = NonNullable<
-		NonNullable<ComposerPublicationPayload['renditions']>[number]['segments']
-	>[number];
-	type ProviderSettingValue = SettingDefinition['default'];
-	type ProviderSettings = NonNullable<components['schemas']['RenditionInput']['settings']>;
 	const AI_BUILD_METADATA_KEY = 'ai_publication_build';
 	const AI_OPPORTUNITY_SLOW_DELAY_MS = 8_000;
 	const aiPlatformStrategySchema = z.object({
@@ -398,6 +396,38 @@
 	}: Props = $props();
 	const unsavedChangesKey = $props.id();
 	const unsavedChanges = getOptionalUnsavedChanges();
+	const composer: ComposerHost = {
+		get selectedWorkspaceId() {
+			return selectedWorkspaceId;
+		},
+		get posts() {
+			return posts;
+		},
+		set posts(value) {
+			posts = value;
+		},
+		get variants() {
+			return variants;
+		},
+		set variants(value) {
+			variants = value;
+		},
+		get activeVariantAccountId() {
+			return activeVariantAccountId;
+		},
+		get selectedAccounts() {
+			return selectedAccounts;
+		},
+		get resolvedCapabilities() {
+			return resolvedCapabilities;
+		},
+		getVariantContent,
+		getVariantPost,
+		handleVariantChange,
+		setPostContent,
+		composerIssuePostIndex,
+		scheduleAutoSave
+	};
 	let isEditMode = $derived(Boolean(initialPublication));
 
 	let posts = $state<PostItem[]>([makeEmptyPost()]);
@@ -7151,162 +7181,6 @@
 		setPostContent(index, value, mentions);
 	}
 
-	// --------------------------------------------------------------------------
-	// AI shortening
-	// --------------------------------------------------------------------------
-	interface ShortenUndo {
-		postKey: string;
-		accountId: string | null;
-		after: string;
-		post: PostItem;
-		variant: VariantPost | null;
-		toastId: string | number;
-	}
-
-	let shorteningKey = $state<string | null>(null);
-	let shortenUndo = $state.raw<ShortenUndo | null>(null);
-
-	function shortenTargetText(postKey: string, accountId: string | null): string | null {
-		const post = posts.find((candidate) => candidate.key === postKey);
-		if (!post) return null;
-		return accountId ? (getVariantContent(accountId, postKey) ?? null) : post.content;
-	}
-
-	function clearShortenUndo() {
-		if (!shortenUndo) return;
-		dismissToast(shortenUndo.toastId);
-		shortenUndo = null;
-	}
-
-	function undoShorten() {
-		const undo = shortenUndo;
-		if (!undo) return;
-		shortenUndo = null;
-		dismissToast(undo.toastId);
-		if (shortenTargetText(undo.postKey, undo.accountId) !== undo.after) return;
-		if (undo.accountId && undo.variant) {
-			const next = new SvelteMap(variants);
-			const record = normalizeVariantRecord(next.get(undo.accountId), posts);
-			next.set(undo.accountId, {
-				...record,
-				[undo.postKey]: structuredClone($state.snapshot(undo.variant))
-			});
-			variants = next;
-		} else if (!undo.accountId) {
-			posts = posts.map((post) =>
-				post.key === undo.postKey ? structuredClone($state.snapshot(undo.post)) : post
-			);
-		}
-		scheduleAutoSave();
-	}
-
-	// An edit after shortening makes Undo ambiguous; the editor's own history takes over.
-	$effect(() => {
-		const undo = shortenUndo;
-		if (undo && shortenTargetText(undo.postKey, undo.accountId) !== undo.after) clearShortenUndo();
-	});
-
-	function handleShortenUndoShortcut(event: KeyboardEvent) {
-		if (!shortenUndo || event.shiftKey || event.altKey) return;
-		if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return;
-		event.preventDefault();
-		event.stopPropagation();
-		undoShorten();
-	}
-
-	async function shortenToLimit(options: {
-		busyKey: string;
-		postIndex: number;
-		accountId: string | null;
-		limit: PlatformLimit;
-	}) {
-		if (shorteningKey) return;
-		const post = posts[options.postIndex];
-		if (!post) return;
-		const accountId =
-			options.accountId && getVariantContent(options.accountId, post.key) !== null
-				? options.accountId
-				: null;
-		const text = accountId ? getVariantContent(accountId, post.key) : post.content;
-		if (!text?.trim()) return;
-		clearShortenUndo();
-		shorteningKey = options.busyKey;
-		const workspaceID = selectedWorkspaceId;
-		try {
-			const result = await shortenPostText({
-				workspaceId: workspaceID,
-				text,
-				platform: options.limit.key,
-				maxCharacters: options.limit.limit
-			});
-			if (workspaceID !== selectedWorkspaceId) return;
-			if (shortenTargetText(post.key, accountId) !== text) return;
-			if (!result.text || result.text === text) return;
-			const previousPost = structuredClone($state.snapshot(post));
-			const previousVariant = accountId
-				? structuredClone($state.snapshot(getVariantPost(accountId, post.key) ?? null))
-				: null;
-			const index = posts.findIndex((candidate) => candidate.key === post.key);
-			if (accountId) handleVariantChange(accountId, index, result.text);
-			else setPostContent(index, result.text);
-			const toastId = showToast(
-				result.truncated
-					? m.compose_shortened_truncated_toast()
-					: m.compose_shortened_toast({ limit: options.limit.limit }),
-				result.truncated ? 'warning' : 'success',
-				{ actionLabel: m.compose_shorten_undo(), onAction: undoShorten, duration: 10000 }
-			);
-			shortenUndo = {
-				postKey: post.key,
-				accountId,
-				after: result.text,
-				post: previousPost,
-				variant: previousVariant,
-				toastId
-			};
-		} catch (cause) {
-			showToast(
-				cause instanceof Error && cause.message ? cause.message : m.compose_shorten_failed(),
-				'error'
-			);
-		} finally {
-			shorteningKey = null;
-		}
-	}
-
-	function shortenFromCounter(index: number, limit: PlatformLimit) {
-		void shortenToLimit({
-			busyKey: 'counter',
-			postIndex: index,
-			accountId: activeVariantAccountId,
-			limit
-		});
-	}
-
-	function shortenFromIssue(issue: ComposerIssue) {
-		const account =
-			selectedAccounts.find((candidate) => candidate.id === issue.accountId) ??
-			selectedAccounts.find(
-				(candidate) => getPlatformKey(candidate.platform) === getPlatformKey(issue.provider ?? '')
-			);
-		const limit = account ? uniquePlatformLimits([account], resolvedCapabilities)[0] : undefined;
-		if (!account || !limit) {
-			showToast(m.compose_shorten_failed(), 'error');
-			return;
-		}
-		const resolvedIndex = composerIssuePostIndex(issue);
-		const overflowIndex = posts.findIndex(
-			(candidate) =>
-				platformTextLength(
-					limit.key,
-					(variants.has(account.id) ? getVariantContent(account.id, candidate.key) : null) ??
-						candidate.content
-				) > limit.limit
-		);
-		const postIndex = resolvedIndex >= 0 ? resolvedIndex : Math.max(overflowIndex, 0);
-		void shortenToLimit({ busyKey: issue.id, postIndex, accountId: account.id, limit });
-	}
-
 	function destinationSettingsForAccount(account: SocialAccount): ComposerSettings {
 		const destinationSettings = { ...settingsForAccount(account) };
 		const provider = getPlatformKey(account.platform);
@@ -7427,6 +7301,8 @@
 			account.instance_url
 		).body;
 	}
+	const textShortening = new ComposerTextShortening(composer);
+
 	function setActivePost(index: number) {
 		activePostIndex = index;
 	}
@@ -7703,7 +7579,7 @@
 <!-- ====================================================================== -->
 <!-- Top Bar -->
 <!-- ====================================================================== -->
-<svelte:window onkeydowncapture={handleShortenUndoShortcut} />
+<svelte:window onkeydowncapture={textShortening.handleShortenUndoShortcut} />
 
 <div
 	class="flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -7767,8 +7643,8 @@
 					<ComposerValidationMenu
 						issues={visibleGlobalIssues}
 						onSelect={focusComposerIssue}
-						onShorten={shortenFromIssue}
-						shorteningIssueId={shorteningKey}
+						onShorten={textShortening.shortenFromIssue}
+						shorteningIssueId={textShortening.shorteningKey}
 					/>
 				{/if}
 				<Button
@@ -7890,8 +7766,8 @@
 					<ComposerValidationMenu
 						issues={visibleGlobalIssues}
 						onSelect={focusComposerIssue}
-						onShorten={shortenFromIssue}
-						shorteningIssueId={shorteningKey}
+						onShorten={textShortening.shortenFromIssue}
+						shorteningIssueId={textShortening.shorteningKey}
 					/>
 				{/if}
 				<Tooltip.Root>
@@ -8581,8 +8457,8 @@
 												<ComposerCharCounter
 													content={getEditorContentForPost(post)}
 													limits={editorPlatformLimits}
-													shortening={shorteningKey === 'counter'}
-													onShorten={(limit) => shortenFromCounter(i, limit)}
+													shortening={textShortening.shorteningKey === 'counter'}
+													onShorten={(limit) => textShortening.shortenFromCounter(i, limit)}
 												/>
 
 												<button

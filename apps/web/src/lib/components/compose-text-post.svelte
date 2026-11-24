@@ -219,10 +219,6 @@
 		ValidationIssue
 	} from './compose/composer-host';
 
-	// --------------------------------------------------------------------------
-	// Types
-	// --------------------------------------------------------------------------
-
 	interface Props {
 		initialToolDraft?: PreparedToolDraft | null;
 		initialPublication?: Publication | null;
@@ -265,6 +261,9 @@
 	}: Props = $props();
 	const unsavedChangesKey = $props.id();
 	const unsavedChanges = getOptionalUnsavedChanges();
+
+	// The domain controllers below read and write composer state only through this host. Getters
+	// are lazy, so they may reference state declared later in this script.
 	const composer: ComposerHost = {
 		get isSubmitting() {
 			return isSubmitting;

@@ -82,9 +82,6 @@ function repurposePrivateContext(handoff: RepurposeHandoff): string {
 	].join('\n');
 }
 
-// --------------------------------------------------------------------------
-// AI post builder
-// --------------------------------------------------------------------------
 function aiBuildStorageKey(workspaceID: string): string {
 	return `openpost:publication-build:${workspaceID}`;
 }

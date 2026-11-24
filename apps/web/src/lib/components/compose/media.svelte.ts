@@ -311,9 +311,6 @@ export class ComposerMedia {
 		void this.generateMediaAltText(mediaId, postContext);
 	};
 
-	// --------------------------------------------------------------------------
-	// Media
-	// --------------------------------------------------------------------------
 	pasteMediaTargetForPost = (post: PostItem): PasteMediaUploadTarget | null => {
 		if (!this.host.selectedWorkspaceId) return null;
 		return {

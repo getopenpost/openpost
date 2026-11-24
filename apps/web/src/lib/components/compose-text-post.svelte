@@ -4900,6 +4900,76 @@
 <!-- ====================================================================== -->
 <!-- Top Bar -->
 <!-- ====================================================================== -->
+<!-- Controls shared by the phone and desktop composer toolbars. -->
+{#snippet socialSetControl()}
+	{#if selectedWorkspaceId && accounts.length > 0}
+		<SocialSetControl
+			workspaceId={selectedWorkspaceId}
+			{accounts}
+			{capabilities}
+			{selectedAccountIds}
+			customAccountIds={[...variants.keys()]}
+			{accountIssues}
+			bind:selectedSetId={selectedSocialSetId}
+			disabled={isSaving || isSubmitting}
+			autoApplyDefault={!initialPublication && !publicationId}
+			onApply={applySocialSet}
+			onToggle={(account) => toggleAccount(account.id)}
+			onSelectAll={selectAllAccounts}
+			onClearAll={clearAllAccounts}
+		/>
+	{/if}
+{/snippet}
+
+{#snippet saveIndicator()}
+	{#if autoSavesDraft}
+		<SaveIndicator
+			saving={isSaving}
+			saved={savedIndicatorVisible}
+			savingLabel={m.common_saving()}
+			savedLabel={m.compose_saved_state()}
+			testId="composer-save-indicator"
+		/>
+	{/if}
+{/snippet}
+
+{#snippet validationMenu()}
+	{#if accounts.length > 0}
+		<ComposerValidationMenu
+			issues={visibleGlobalIssues}
+			onSelect={focusComposerIssue}
+			onShorten={textShortening.shortenFromIssue}
+			shorteningIssueId={textShortening.shorteningKey}
+		/>
+	{/if}
+{/snippet}
+
+{#snippet publishActions(className?: string)}
+	<ComposerPublishActions
+		class={className}
+		scheduleLabel={formatScheduledDisplay()}
+		quickScheduleLabel={selectedDate && selectedTime
+			? m.compose_schedule_selected_time({ schedule: formatScheduledDisplay() })
+			: m.compose_queue_next_slot()}
+		publishLabel={m.compose_publish_now()}
+		moreLabel={m.sidebar_more()}
+		deleteLabel={m.common_delete()}
+		busy={isSubmitting || isSaving || deliveryFeedback.length > 0}
+		deleting={isDeleting}
+		quickScheduleBusy={suggestingSlot}
+		canOpenSchedule={selectedWorkspaceSettingsReady}
+		canQuickSchedule={canSchedulePublication && selectedWorkspaceSettingsReady}
+		canPublish={canPublishNow}
+		quickScheduleDisabledReason={scheduleDisabledReason}
+		{scheduleDisabledReason}
+		{publishDisabledReason}
+		onSchedule={openScheduleDialog}
+		onQuickSchedule={quickSchedule}
+		onPublish={() => publish(true)}
+		onDelete={publicationId ? requestDraftDelete : undefined}
+	/>
+{/snippet}
+
 <svelte:window onkeydowncapture={textShortening.handleShortenUndoShortcut} />
 
 <div
@@ -4921,23 +4991,7 @@
 			data-testid="mobile-composer-controls"
 		>
 			<div class="flex min-w-0 flex-wrap items-center gap-1.5">
-				{#if selectedWorkspaceId && accounts.length > 0}
-					<SocialSetControl
-						workspaceId={selectedWorkspaceId}
-						{accounts}
-						{capabilities}
-						{selectedAccountIds}
-						customAccountIds={[...variants.keys()]}
-						{accountIssues}
-						bind:selectedSetId={selectedSocialSetId}
-						disabled={isSaving || isSubmitting}
-						autoApplyDefault={!initialPublication && !publicationId}
-						onApply={applySocialSet}
-						onToggle={(account) => toggleAccount(account.id)}
-						onSelectAll={selectAllAccounts}
-						onClearAll={clearAllAccounts}
-					/>
-				{/if}
+				{@render socialSetControl()}
 				{#if accountControlLoading}
 					<Button
 						type="button"
@@ -4951,23 +5005,8 @@
 						<ProtectedIcon icon="loading" class="size-4 animate-spin motion-reduce:animate-none" />
 					</Button>
 				{/if}
-				{#if autoSavesDraft}
-					<SaveIndicator
-						saving={isSaving}
-						saved={savedIndicatorVisible}
-						savingLabel={m.common_saving()}
-						savedLabel={m.compose_saved_state()}
-						testId="composer-save-indicator"
-					/>
-				{/if}
-				{#if accounts.length > 0}
-					<ComposerValidationMenu
-						issues={visibleGlobalIssues}
-						onSelect={focusComposerIssue}
-						onShorten={textShortening.shortenFromIssue}
-						shorteningIssueId={textShortening.shorteningKey}
-					/>
-				{/if}
+				{@render saveIndicator()}
+				{@render validationMenu()}
 				<Button
 					type="button"
 					variant="ghost"
@@ -5004,29 +5043,7 @@
 						<span>{isSaving ? m.compose_saving_changes() : m.compose_save_changes()}</span>
 					</Button>
 				{:else}
-					<ComposerPublishActions
-						class="w-full"
-						scheduleLabel={formatScheduledDisplay()}
-						quickScheduleLabel={selectedDate && selectedTime
-							? m.compose_schedule_selected_time({ schedule: formatScheduledDisplay() })
-							: m.compose_queue_next_slot()}
-						publishLabel={m.compose_publish_now()}
-						moreLabel={m.sidebar_more()}
-						deleteLabel={m.common_delete()}
-						busy={isSubmitting || isSaving || deliveryFeedback.length > 0}
-						deleting={isDeleting}
-						quickScheduleBusy={suggestingSlot}
-						canOpenSchedule={selectedWorkspaceSettingsReady}
-						canQuickSchedule={canSchedulePublication && selectedWorkspaceSettingsReady}
-						canPublish={canPublishNow}
-						quickScheduleDisabledReason={scheduleDisabledReason}
-						{scheduleDisabledReason}
-						{publishDisabledReason}
-						onSchedule={openScheduleDialog}
-						onQuickSchedule={quickSchedule}
-						onPublish={() => publish(true)}
-						onDelete={publicationId ? requestDraftDelete : undefined}
-					/>
+					{@render publishActions('w-full')}
 				{/if}
 			</div>
 		</div>
@@ -5036,23 +5053,7 @@
 			data-testid="desktop-composer-controls"
 		>
 			<div class="flex flex-wrap items-center gap-2">
-				{#if selectedWorkspaceId && accounts.length > 0}
-					<SocialSetControl
-						workspaceId={selectedWorkspaceId}
-						{accounts}
-						{capabilities}
-						{selectedAccountIds}
-						customAccountIds={[...variants.keys()]}
-						{accountIssues}
-						bind:selectedSetId={selectedSocialSetId}
-						disabled={isSaving || isSubmitting}
-						autoApplyDefault={!initialPublication && !publicationId}
-						onApply={applySocialSet}
-						onToggle={(account) => toggleAccount(account.id)}
-						onSelectAll={selectAllAccounts}
-						onClearAll={clearAllAccounts}
-					/>
-				{/if}
+				{@render socialSetControl()}
 
 				<!-- Account selector -->
 				{#if accountControlLoading}
@@ -5071,26 +5072,11 @@
 						{m.compose_accounts_loading()}
 					</Button>
 				{/if}
-				{#if autoSavesDraft}
-					<SaveIndicator
-						saving={isSaving}
-						saved={savedIndicatorVisible}
-						savingLabel={m.common_saving()}
-						savedLabel={m.compose_saved_state()}
-						testId="composer-save-indicator"
-					/>
-				{/if}
+				{@render saveIndicator()}
 			</div>
 
 			<div class="flex flex-wrap items-center gap-1.5 md:gap-2">
-				{#if accounts.length > 0}
-					<ComposerValidationMenu
-						issues={visibleGlobalIssues}
-						onSelect={focusComposerIssue}
-						onShorten={textShortening.shortenFromIssue}
-						shorteningIssueId={textShortening.shorteningKey}
-					/>
-				{/if}
+				{@render validationMenu()}
 				<Tooltip.Root>
 					<Tooltip.Trigger>
 						{#snippet child({ props })}
@@ -5161,28 +5147,7 @@
 						<span>{isSaving ? m.compose_saving_changes() : m.compose_save_changes()}</span>
 					</Button>
 				{:else}
-					<ComposerPublishActions
-						scheduleLabel={formatScheduledDisplay()}
-						quickScheduleLabel={selectedDate && selectedTime
-							? m.compose_schedule_selected_time({ schedule: formatScheduledDisplay() })
-							: m.compose_queue_next_slot()}
-						publishLabel={m.compose_publish_now()}
-						moreLabel={m.sidebar_more()}
-						deleteLabel={m.common_delete()}
-						busy={isSubmitting || isSaving || deliveryFeedback.length > 0}
-						deleting={isDeleting}
-						quickScheduleBusy={suggestingSlot}
-						canOpenSchedule={selectedWorkspaceSettingsReady}
-						canQuickSchedule={canSchedulePublication && selectedWorkspaceSettingsReady}
-						canPublish={canPublishNow}
-						quickScheduleDisabledReason={scheduleDisabledReason}
-						{scheduleDisabledReason}
-						{publishDisabledReason}
-						onSchedule={openScheduleDialog}
-						onQuickSchedule={quickSchedule}
-						onPublish={() => publish(true)}
-						onDelete={publicationId ? requestDraftDelete : undefined}
-					/>
+					{@render publishActions()}
 				{/if}
 			</div>
 		</div>

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Reuse runner media and browser libraries when already satisfied so CI jobs do
-# not burn minutes or time out on slow Ubuntu apt mirrors.
+# Prepare CI browser and media tools without depending on Ubuntu apt mirrors,
+# whose stalls were the most common cause of failed CI runs. Chromium reuses
+# runner libraries when they are already satisfied. FFmpeg comes from a pinned,
+# checksum-verified static build that the setup action caches between runs.
 set -euo pipefail
 
 mode="${1:-}"
@@ -55,6 +57,46 @@ fi
 fixture_dir="$(mktemp -d)"
 trap 'rm -rf "$fixture_dir"' EXIT
 
+# Monthly BtbN autobuilds are retained long term. Update all three values
+# together; the setup action keys its cache on this file.
+ffmpeg_release=autobuild-2026-10-31-12-59
+ffmpeg_build=n8.1.3-27-g8dca1586f4
+case "$(uname -m)" in
+  x86_64)
+    ffmpeg_target=linux64-gpl-8.1
+    ffmpeg_sha256=41e9c565594c390622cf968d82fa4135d9e9a11d06c1515644288cbc844e3380
+    ;;
+  aarch64|arm64)
+    ffmpeg_target=linuxarm64-gpl-8.1
+    ffmpeg_sha256=a08c0ee6e1c4e02139344b303002dcc7c37cf125d639f1fbd15dabee40fcb525
+    ;;
+  *)
+    echo "No pinned FFmpeg build for $(uname -m)." >&2
+    exit 1
+    ;;
+esac
+ffmpeg_name="ffmpeg-$ffmpeg_build-$ffmpeg_target"
+ffmpeg_dir="${OPENPOST_FFMPEG_CACHE:-$HOME/.cache/openpost-ffmpeg}/$ffmpeg_name"
+
+if [[ ! -x "$ffmpeg_dir/ffmpeg" || ! -x "$ffmpeg_dir/ffprobe" ]]; then
+  echo "Downloading pinned FFmpeg $ffmpeg_name."
+  archive="$fixture_dir/ffmpeg.tar.xz"
+  curl --fail --location --silent --show-error \
+    --retry 5 --retry-all-errors --connect-timeout 20 --max-time 240 \
+    --output "$archive" \
+    "https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/$ffmpeg_release/$ffmpeg_name.tar.xz"
+  echo "$ffmpeg_sha256  $archive" | sha256sum --check --quiet -
+  tar -xJf "$archive" -C "$fixture_dir"
+  rm -rf "$ffmpeg_dir"
+  mkdir -p "$ffmpeg_dir"
+  mv "$fixture_dir/$ffmpeg_name/bin/ffmpeg" "$fixture_dir/$ffmpeg_name/bin/ffprobe" "$ffmpeg_dir/"
+fi
+
+export PATH="$ffmpeg_dir:$PATH"
+if [[ -n "${GITHUB_PATH:-}" ]]; then
+  echo "$ffmpeg_dir" >> "$GITHUB_PATH"
+fi
+
 verify_media() {
   local encoder extension video audio audio_encoder codecs
   for encoder in libx264 libvpx libvpx-vp9; do
@@ -81,54 +123,8 @@ verify_media() {
   done
 }
 
-if verify_media; then
-  echo 'Existing FFmpeg and ffprobe passed fixture encoding and probing.'
-  exit 0
-fi
-
-echo 'Media capability check failed; installing Ubuntu FFmpeg.' >&2
-# Runner mirror+file sources can select a slow Azure mirror. Override sources
-# only for these apt invocations; leave the runner's managed source files intact.
-if [[ "$(lsb_release -is)" != Ubuntu ]]; then
-  echo 'Media tool installation requires an Ubuntu runner.' >&2
-  exit 1
-fi
-codename="$(lsb_release -cs)"
-if [[ ! "$codename" =~ ^[a-z]+$ ]]; then
-  echo 'Invalid Ubuntu release codename.' >&2
-  exit 1
-fi
-archive=https://archive.ubuntu.com/ubuntu
-security=https://security.ubuntu.com/ubuntu
-case "$(dpkg --print-architecture)" in
-  amd64|i386) ;;
-  *) archive=https://ports.ubuntu.com/ubuntu-ports; security="$archive" ;;
-esac
-cat > "$fixture_dir/ubuntu.sources" <<EOF
-Types: deb
-URIs: $archive
-Suites: $codename $codename-updates $codename-backports
-Components: main restricted universe multiverse
-Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-
-Types: deb
-URIs: $security
-Suites: $codename-security
-Components: main restricted universe multiverse
-Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-EOF
-# Do not let repository mirrors or package locks consume the test job budget.
-apt_options=(
-  -o "Dir::Etc::sourcelist=$fixture_dir/ubuntu.sources" -o Dir::Etc::sourceparts=-
-  -o APT::Update::Error-Mode=any
-  -o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20
-  -o DPkg::Lock::Timeout=30
-)
-timeout --kill-after=10s 60s sudo -n apt-get "${apt_options[@]}" update
-timeout --kill-after=10s 180s sudo -n env DEBIAN_FRONTEND=noninteractive \
-  apt-get "${apt_options[@]}" install --yes --no-install-recommends ffmpeg
-
 if ! verify_media; then
-  echo 'Media tools remain unusable after installation.' >&2
+  echo "Pinned FFmpeg $ffmpeg_name failed fixture encoding and probing." >&2
   exit 1
 fi
+echo "Using pinned FFmpeg $ffmpeg_name from $ffmpeg_dir."

@@ -15,7 +15,7 @@ inputs:
     description: "Playwright Chromium build: none, full (channel chromium) or shell (headless shell)"
     default: none
   media:
-    description: Verify or install the FFmpeg fixture tools
+    description: Install the pinned static FFmpeg and ffprobe
     default: "false"
 
 runs:
@@ -56,16 +56,31 @@ runs:
         path: node_modules/@posthog/cli/node_modules/.bin_real
         key: posthog-cli-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}
         restore-keys: posthog-cli-${{ runner.os }}-${{ runner.arch }}-
+    # Key browsers on the installed Playwright version, not the whole lockfile,
+    # so unrelated dependency changes keep reusing the downloaded browser.
+    - if: inputs.chromium != 'none'
+      id: playwright
+      shell: bash
+      run: |
+        version="$(bunx --no-install playwright --version | awk '{print $2}')"
+        [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]
+        echo "version=$version" >> "$GITHUB_OUTPUT"
     - if: inputs.chromium != 'none'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ inputs.chromium }}-${{ hashFiles('bun.lock') }}
+        key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ inputs.chromium }}-${{ steps.playwright.outputs.version }}
     - if: inputs.chromium != 'none'
       shell: bash
       env:
         CHROMIUM: ${{ inputs.chromium }}
       run: timeout 300 bash scripts/ci-setup-tools.sh chromium "$CHROMIUM"
+    # The script pins and verifies a static FFmpeg build; never use apt here.
+    - if: inputs.media == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/openpost-ffmpeg
+        key: ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/ci-setup-tools.sh') }}
     - if: inputs.media == 'true'
       shell: bash
       run: timeout 300 bash scripts/ci-setup-tools.sh media

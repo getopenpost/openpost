@@ -22,8 +22,11 @@ export default defineConfig({
   outputDir: `${repositoryRoot}/test-results`,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  failOnFlakyTests: !!process.env.CI,
-  retries: 0,
+  // CI retries a failed test once so a single timing flake cannot fail the
+  // run; the GitHub reporter still annotates every flaky test. The nightly
+  // qualification run rejects flakes so they keep getting fixed.
+  retries: process.env.CI ? 1 : 0,
+  failOnFlakyTests: process.env.GITHUB_EVENT_NAME === "schedule",
   workers: process.env.CI ? 4 : undefined,
   reporter: process.env.CI
     ? [["github"], ["html", { open: "never", outputFolder: `${repositoryRoot}/playwright-report` }]]

@@ -294,7 +294,7 @@
 						disabled={!range}
 						aria-label={m.video_editor_speed_point_time({ index: index + 1 })}
 						title={formatSourceTime(point, item)}
-						class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-1 text-right text-[10px] text-[var(--video-editor-field-text)] tabular-nums outline-none focus:border-[var(--video-editor-focus-border)]"
+						class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] px-1 text-end text-[10px] text-[var(--video-editor-field-text)] tabular-nums outline-none focus:border-[var(--video-editor-focus-border)]"
 						onchange={(event) => {
 							updatePoint(point.id, { sourceFrame: event.currentTarget.valueAsNumber });
 							event.currentTarget.value = String(
@@ -313,12 +313,12 @@
 							step="0.05"
 							value={point.speed}
 							aria-label={pointLabel(index)}
-							class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] py-1 pr-4 pl-1.5 text-right text-[10px] text-[var(--video-editor-field-text)] tabular-nums outline-none focus:border-[var(--video-editor-focus-border)]"
+							class="h-[var(--editor-22,22px)] w-full rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-field)] py-1 ps-1.5 pe-4 text-end text-[10px] text-[var(--video-editor-field-text)] tabular-nums outline-none focus:border-[var(--video-editor-focus-border)]"
 							onchange={(event) =>
 								updatePoint(point.id, { speed: event.currentTarget.valueAsNumber })}
 						/>
 						<span
-							class="pointer-events-none absolute top-1/2 right-1 -translate-y-1/2 text-[8px] text-[var(--video-editor-muted)]"
+							class="pointer-events-none absolute end-1 top-1/2 -translate-y-1/2 text-[8px] text-[var(--video-editor-muted)]"
 							>×</span
 						>
 					</div>

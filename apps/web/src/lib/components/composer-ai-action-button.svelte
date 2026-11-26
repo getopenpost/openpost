@@ -22,7 +22,7 @@
 	type="button"
 	variant="secondary"
 	size="sm"
-	class="ml-auto min-h-11 md:min-h-8"
+	class="ms-auto min-h-11 md:min-h-8"
 	disabled={disabled || building}
 	{title}
 	onclick={() => void onclick()}

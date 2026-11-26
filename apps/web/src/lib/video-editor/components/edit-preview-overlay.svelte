@@ -181,7 +181,7 @@
 							</div>
 							{#if corner}
 								<div
-									class="absolute -right-1 -bottom-1 w-[42%] overflow-hidden rounded-md border border-white/40 bg-black shadow-lg sm:w-[38%]"
+									class="absolute -end-1 -bottom-1 w-[42%] overflow-hidden rounded-md border border-white/40 bg-black shadow-lg sm:w-[38%]"
 									data-testid="edit-preview-baseline"
 									data-edit-preview-label={corner.label}
 									data-edit-preview-frame={corner.frame ?? 'gap'}

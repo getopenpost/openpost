@@ -68,7 +68,7 @@
 				{#each matching.filter((preset) => (preset.background.kind === 'shader') === shaders) as preset (preset.id)}
 					<button
 						type="button"
-						class="group flex min-h-14 min-w-0 cursor-grab flex-col gap-1 rounded-md p-1 text-left text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
+						class="group flex min-h-14 min-w-0 cursor-grab flex-col gap-1 rounded-md p-1 text-start text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-50"
 						draggable="true"
 						disabled={preset.background.kind === 'shader' &&
 							!shaderBackgroundSupport.isAvailable(preset.background.shader)}

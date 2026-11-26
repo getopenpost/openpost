@@ -290,7 +290,7 @@
 							ariaLabel={m.video_editor_monitor_volume()}
 							onValueChange={(value) => previewPlaybackSettings.setVolume(value)}
 						/>
-						<span class="w-9 text-right text-xs text-muted-foreground tabular-nums">
+						<span class="w-9 text-end text-xs text-muted-foreground tabular-nums">
 							{previewPlaybackSettings.muted
 								? m.video_editor_monitor_mute_short()
 								: `${monitorPercent}%`}
@@ -306,14 +306,14 @@
 		class="voiceover-secondary shrink-0 font-mono text-xs whitespace-nowrap tabular-nums"
 		aria-label={`${timecode} / ${durationTimecode}`}
 	>
-		{#if $timelinePreviewScrub.frame !== null}<span class="mr-1 text-muted-foreground"
+		{#if $timelinePreviewScrub.frame !== null}<span class="me-1 text-muted-foreground"
 				>{m.video_editor_skim_time()}</span
 			>{/if}
 		{timecode}
 		<span class="text-muted-foreground max-[479px]:hidden">/ {durationTimecode}</span>
 	</span>
 
-	<div class="voiceover-secondary ml-auto flex shrink-0 items-center gap-1">
+	<div class="voiceover-secondary ms-auto flex shrink-0 items-center gap-1">
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}

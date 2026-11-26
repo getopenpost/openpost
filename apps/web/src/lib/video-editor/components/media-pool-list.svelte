@@ -1076,13 +1076,13 @@
 				<span class="sr-only">{m.video_editor_media_search()}</span>
 				<ThemeIcon
 					role="search"
-					class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+					class="pointer-events-none absolute start-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
 					type="search"
 					bind:value={query}
 					placeholder={m.video_editor_media_search()}
-					class="h-8 w-full rounded-md border border-field-border bg-field pr-2 pl-7 text-xs text-field-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25"
+					class="h-8 w-full rounded-md border border-field-border bg-field ps-7 pe-2 text-xs text-field-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/25"
 				/>
 			</label>
 			{#if onimport}
@@ -1091,7 +1091,7 @@
 						type="button"
 						variant="outline"
 						size="icon-xs"
-						class="rounded-r-none border-r-0"
+						class="rounded-e-none border-e-0"
 						aria-label={m.video_editor_import_media()}
 						title={m.video_editor_import_media()}
 						onclick={onimport}
@@ -1106,7 +1106,7 @@
 									type="button"
 									variant="outline"
 									size="icon-xs"
-									class="rounded-l-none px-1"
+									class="rounded-s-none px-1"
 									aria-label={m.video_editor_media_add_menu()}
 									title={m.video_editor_media_add_menu()}
 								>
@@ -1280,7 +1280,7 @@
 		{:else if showHealthChip}
 			<button
 				type="button"
-				class="flex w-full items-center gap-1.5 rounded-md border border-warning/25 bg-warning/10 px-1.5 py-1 text-left text-[10px] text-warning-foreground hover:bg-warning/15 focus-visible:outline-2 focus-visible:outline-ring"
+				class="flex w-full items-center gap-1.5 rounded-md border border-warning/25 bg-warning/10 px-1.5 py-1 text-start text-[10px] text-warning-foreground hover:bg-warning/15 focus-visible:outline-2 focus-visible:outline-ring"
 				title={m.video_editor_media_recovery_warning({ count: healthIssueTotal })}
 				aria-label={m.video_editor_media_recovery_warning({ count: healthIssueTotal })}
 				onclick={() => mediaRecovery.show()}
@@ -1446,7 +1446,7 @@
 									{:else}
 										<button
 											type="button"
-											class="min-w-0 flex-1 text-left focus-visible:outline-2 focus-visible:outline-ring"
+											class="min-w-0 flex-1 text-start focus-visible:outline-2 focus-visible:outline-ring"
 											title={m.video_editor_sequence_open()}
 											aria-label={`${m.video_editor_sequence_open()}: ${sequence.name}`}
 											aria-pressed={selectedSequenceIds.has(sequence.id)}
@@ -1590,7 +1590,7 @@
 								>
 									<button
 										type="button"
-										class="min-w-0 rounded p-0.5 text-left focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 {assetViewMode ===
+										class="min-w-0 rounded p-0.5 text-start focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 {assetViewMode ===
 										'grid'
 											? 'col-span-3 grid w-full grid-cols-1 gap-1'
 											: 'flex flex-1 items-center gap-2'}"

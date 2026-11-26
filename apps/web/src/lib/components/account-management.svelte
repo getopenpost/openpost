@@ -2100,7 +2100,7 @@
 		class="w-full! gap-0 overflow-hidden p-0 sm:max-w-lg!"
 		data-testid="account-settings-drawer"
 	>
-		<Sheet.Header class="shrink-0 border-b px-4 py-4 pr-16 text-left sm:px-5">
+		<Sheet.Header class="shrink-0 border-b px-4 py-4 pe-16 text-start sm:px-5">
 			<Sheet.Title>{m.accounts_details()}</Sheet.Title>
 			<Sheet.Description>
 				{m.accounts_details_description()}

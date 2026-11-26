@@ -316,6 +316,7 @@
 </svelte:head>
 
 <div
+	dir="ltr"
 	class="video-editor-theme flex min-h-dvh flex-col bg-[var(--video-editor-canvas)] text-[var(--video-editor-text)]"
 >
 	<header

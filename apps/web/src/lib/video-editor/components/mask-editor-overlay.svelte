@@ -113,7 +113,7 @@
 
 <div class="pointer-events-none absolute inset-0 z-20" data-mask-editor>
 	<div
-		class="pointer-events-auto absolute bottom-2 left-2 z-30 flex min-h-8 items-center gap-0.5 overflow-x-auto rounded-md border border-white/15 bg-black/80 p-0.5 text-white shadow-lg [&_button]:shrink-0 [@media(pointer:coarse)]:[&_button]:min-h-11 [@media(pointer:coarse)]:[&_button]:min-w-11"
+		class="pointer-events-auto absolute start-2 bottom-2 z-30 flex min-h-8 items-center gap-0.5 overflow-x-auto rounded-md border border-white/15 bg-black/80 p-0.5 text-white shadow-lg [&_button]:shrink-0 [@media(pointer:coarse)]:[&_button]:min-h-11 [@media(pointer:coarse)]:[&_button]:min-w-11"
 		style:max-width={penMode ? 'calc(100% - 9rem)' : 'calc(100% - 4.5rem)'}
 		role="toolbar"
 		aria-label={m.video_editor_canvas_tool_mask()}

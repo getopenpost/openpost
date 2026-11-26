@@ -328,7 +328,7 @@
 				<Button
 					type="button"
 					variant={scope === 'page' ? 'secondary' : 'ghost'}
-					class="rounded-none border-l"
+					class="rounded-none border-s"
 					aria-pressed={scope === 'page'}
 					onclick={() => setScope('page')}
 				>

@@ -34,12 +34,12 @@
 	const visibilityClass = $derived(visibleFrom === 'xl' ? 'hidden xl:flex' : 'hidden lg:flex');
 	const positionClass = $derived(
 		edge === 'right'
-			? 'inset-y-0 -right-1 w-2 cursor-col-resize [@media(pointer:coarse)]:top-1/2 [@media(pointer:coarse)]:bottom-auto [@media(pointer:coarse)]:-right-5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:-translate-y-1/2'
+			? 'inset-y-0 -end-1 w-2 cursor-col-resize [@media(pointer:coarse)]:top-1/2 [@media(pointer:coarse)]:bottom-auto [@media(pointer:coarse)]:-end-5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:-translate-y-1/2'
 			: edge === 'left'
-				? 'inset-y-0 -left-1 w-2 cursor-col-resize [@media(pointer:coarse)]:top-1/2 [@media(pointer:coarse)]:bottom-auto [@media(pointer:coarse)]:-left-5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:-translate-y-1/2'
+				? 'inset-y-0 -start-1 w-2 cursor-col-resize [@media(pointer:coarse)]:top-1/2 [@media(pointer:coarse)]:bottom-auto [@media(pointer:coarse)]:-start-5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:-translate-y-1/2'
 				: edge === 'bottom'
-					? 'inset-x-0 -bottom-1 h-2 cursor-row-resize [@media(pointer:coarse)]:right-auto [@media(pointer:coarse)]:left-1/2 [@media(pointer:coarse)]:-bottom-5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:-translate-x-1/2'
-					: 'inset-x-0 -top-1 h-2 cursor-row-resize [@media(pointer:coarse)]:right-auto [@media(pointer:coarse)]:left-1/2 [@media(pointer:coarse)]:-top-5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:-translate-x-1/2'
+					? 'inset-x-0 -bottom-1 h-2 cursor-row-resize [@media(pointer:coarse)]:end-auto [@media(pointer:coarse)]:left-1/2 [@media(pointer:coarse)]:-bottom-5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:-translate-x-1/2'
+					: 'inset-x-0 -top-1 h-2 cursor-row-resize [@media(pointer:coarse)]:end-auto [@media(pointer:coarse)]:left-1/2 [@media(pointer:coarse)]:-top-5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:-translate-x-1/2'
 	);
 
 	function startResize(event: PointerEvent & { currentTarget: HTMLDivElement }): void {

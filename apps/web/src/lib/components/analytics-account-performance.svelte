@@ -36,7 +36,7 @@
 					<Button
 						multiline
 						variant="ghost"
-						class="min-w-0 justify-start text-left"
+						class="min-w-0 justify-start text-start"
 						onclick={() => onselect(item.account_id)}
 					>
 						<SocialAccountIdentity
@@ -66,7 +66,7 @@
 								{item.followers === undefined
 									? '—'
 									: formatValue(item.followers)}{#if item.follower_delta !== undefined}<span
-										class="ml-1 text-xs text-muted-foreground"
+										class="ms-1 text-xs text-muted-foreground"
 										>({item.follower_delta >= 0 ? '+' : ''}{formatValue(item.follower_delta)})</span
 									>{/if}
 							</dd>

@@ -19,7 +19,7 @@
 <PaginationPrimitive.NextButton
 	bind:ref
 	aria-label={ariaLabel}
-	class={cn(buttonVariants({ variant: 'ghost', size: 'default' }), 'pr-2!', className)}
+	class={cn(buttonVariants({ variant: 'ghost', size: 'default' }), 'pe-2!', className)}
 	{...restProps}
 >
 	<span class="cn-pagination-next-text hidden sm:block">{label}</span>

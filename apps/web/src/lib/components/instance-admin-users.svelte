@@ -449,7 +449,7 @@
 			<div class="relative min-w-48 flex-1 sm:max-w-sm">
 				<ThemeIcon
 					role="search"
-					class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+					class="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
 					value={searchInput}
@@ -457,7 +457,7 @@
 					placeholder={m.settings_instance_search_users()}
 					aria-label={m.settings_instance_search_users()}
 					maxlength={200}
-					class="pl-9"
+					class="ps-9"
 					onkeydown={(event) => {
 						if (event.key === 'Enter' && !event.isComposing) {
 							event.preventDefault();
@@ -535,7 +535,7 @@
 									<Table.Head
 										colspan={header.colSpan}
 										class={header.column.id === 'actions'
-											? 'sticky right-0 z-10 border-l bg-muted/95 px-3'
+											? 'sticky end-0 z-10 border-s bg-muted/95 px-3'
 											: 'px-3'}
 									>
 										{#if !header.isPlaceholder}
@@ -555,7 +555,7 @@
 								{#each row.getVisibleCells() as cell (cell.id)}
 									<Table.Cell
 										class={cell.column.id === 'actions'
-											? 'sticky right-0 border-l bg-background px-3 group-hover:bg-muted/50'
+											? 'sticky end-0 border-s bg-background px-3 group-hover:bg-muted/50'
 											: 'px-3 py-3'}
 									>
 										<FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />

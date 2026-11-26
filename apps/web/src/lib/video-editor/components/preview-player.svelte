@@ -1462,7 +1462,7 @@
 						</div>
 					{:else}
 						{#if isPlaying && editorSession.transportMode === 'shuttle'}
-							<div class="absolute top-2 left-2 z-30">
+							<div class="absolute start-2 top-2 z-30">
 								<ShuttleIndicator active={isPlaying} playbackRate={shuttleRate} />
 							</div>
 						{/if}

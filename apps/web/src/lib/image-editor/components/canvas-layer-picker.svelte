@@ -110,7 +110,7 @@
 		{#each picker.layerIDs as id (id)}
 			<button
 				type="button"
-				class="flex min-h-10 w-full items-center rounded-md px-2 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+				class="flex min-h-10 w-full items-center rounded-md px-2 text-start text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
 				role="menuitem"
 				onclick={() => choose(id)}
 			>

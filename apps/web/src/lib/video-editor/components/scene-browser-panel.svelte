@@ -119,12 +119,12 @@
 		<label class="relative block">
 			<ThemeIcon
 				role="search"
-				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[var(--video-editor-muted)]"
+				class="pointer-events-none absolute start-2 top-1/2 size-3.5 -translate-y-1/2 text-[var(--video-editor-muted)]"
 			/>
 			<Input
 				type="search"
 				data-scene-browser-search
-				class="h-8 w-full rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] pr-2 pl-7 text-xs placeholder:text-[var(--video-editor-muted)] focus-visible:border-[var(--video-editor-focus-border)] focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklch,var(--video-editor-focus)_25%,transparent)]"
+				class="h-8 w-full rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] ps-7 pe-2 text-xs placeholder:text-[var(--video-editor-muted)] focus-visible:border-[var(--video-editor-focus-border)] focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklch,var(--video-editor-focus)_25%,transparent)]"
 				placeholder={m.video_editor_scene_search()}
 				aria-label={m.video_editor_scene_search()}
 				bind:value={sceneBrowser.query}
@@ -328,7 +328,7 @@
 									revision={sceneBrowser.analysis(scene.mediaId)?.analyzedAt}
 								/>
 								<span
-									class="absolute right-1 bottom-1 rounded bg-[var(--video-editor-control)] px-1 font-mono text-[9px] text-[var(--video-editor-text)]"
+									class="absolute end-1 bottom-1 rounded bg-[var(--video-editor-control)] px-1 font-mono text-[9px] text-[var(--video-editor-text)]"
 								>
 									{formatMediaDuration(scene.startSec)}
 								</span>
@@ -407,7 +407,7 @@
 									<div class="flex items-center gap-0.5">
 										<button
 											type="button"
-											class="mr-0.5 rounded p-0.5 text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+											class="me-0.5 rounded p-0.5 text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 											aria-label={m.video_editor_scene_palette_similar()}
 											onclick={() => findSimilarPalette(scene)}
 										>

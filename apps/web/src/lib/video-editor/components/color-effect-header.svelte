@@ -69,7 +69,7 @@
 	<h3 class="min-w-0 truncate text-xs font-medium text-[var(--video-editor-text)]">{label}</h3>
 	<div class="flex min-w-0 items-center justify-end gap-0.5">
 		{#if badge}
-			<span class="mr-1 font-mono text-[9px] tracking-wide text-[var(--video-editor-muted)]"
+			<span class="me-1 font-mono text-[9px] tracking-wide text-[var(--video-editor-muted)]"
 				>{badge}</span
 			>
 		{/if}

@@ -88,7 +88,7 @@
 			<Button variant="ghost" size="sm" href="/workflows"
 				><ThemeIcon role="arrow-left" class="size-4" />{m.workflows_back()}</Button
 			><Input
-				class="ml-auto max-w-xs"
+				class="ms-auto max-w-xs"
 				aria-label={m.settings_instance_search()}
 				placeholder={m.settings_instance_search()}
 				bind:value={search}
@@ -144,7 +144,7 @@
 	}}
 >
 	<Dialog.Content
-		class="max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none sm:max-w-lg"
+		class="max-sm:start-0 max-sm:top-auto max-sm:bottom-0 max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none sm:max-w-lg"
 		onOpenAutoFocus={() => {
 			dialogOrigin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 		}}
@@ -156,7 +156,7 @@
 			)?.focus();
 		}}
 	>
-		<Dialog.Header class="pr-10 text-left">
+		<Dialog.Header class="pe-10 text-start">
 			<Dialog.Title
 				>{rotating
 					? `${m.workflows_rotate_secret()}: ${rotating.name}`

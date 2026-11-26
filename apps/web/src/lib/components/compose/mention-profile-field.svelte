@@ -97,7 +97,7 @@
 				<Button
 					multiline
 					variant="ghost"
-					class="h-auto min-h-11 w-full justify-start text-left"
+					class="h-auto min-h-11 w-full justify-start text-start"
 					onclick={() => {
 						const target = nativeMentionTarget(candidate.target);
 						if (!target) return;
@@ -106,7 +106,7 @@
 						matches = [];
 					}}
 					><span class="min-w-0 truncate"
-						>{candidate.label}{#if candidate.detail}<span class="ml-2 text-muted-foreground"
+						>{candidate.label}{#if candidate.detail}<span class="ms-2 text-muted-foreground"
 								>{candidate.detail}</span
 							>{/if}</span
 					></Button

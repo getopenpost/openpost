@@ -266,7 +266,7 @@
 								aria-label={m.repurpose_include({ title: candidate.title })}
 							/><button
 								type="button"
-								class="min-w-0 flex-1 text-left text-sm font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary [@media(pointer:coarse)]:min-h-11"
+								class="min-w-0 flex-1 text-start text-sm font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary [@media(pointer:coarse)]:min-h-11"
 								aria-pressed={candidate.id === active.id}
 								onclick={() => (activeId = candidate.id)}>{candidate.title}</button
 							><span class="shrink-0 text-xs text-muted-foreground"

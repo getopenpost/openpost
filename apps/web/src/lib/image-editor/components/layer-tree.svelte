@@ -394,9 +394,9 @@
 		<h2 class="text-sm font-medium text-foreground">
 			{m.image_editor_layers()}
 		</h2>
-		<div class="ml-auto flex items-center gap-1">
+		<div class="ms-auto flex items-center gap-1">
 			{#if editor.selectedLayerIDs.length > 1}
-				<span class="mr-1 text-xs text-muted-foreground">
+				<span class="me-1 text-xs text-muted-foreground">
 					{m.image_editor_selected_count({ count: editor.selectedLayerIDs.length })}
 				</span>
 			{/if}
@@ -459,7 +459,7 @@
 									})}
 									tabindex={focusedLayerID === layer.id && renamingID !== layer.id ? 0 : -1}
 									draggable={editor.canEdit && !effectivelyLocked && renamingID !== layer.id}
-									class="image-editor-layer-row group flex min-h-8 items-center gap-1 rounded-md pr-1 text-sm {editor.selectedLayerIDs.includes(
+									class="image-editor-layer-row group flex min-h-8 items-center gap-1 rounded-md pe-1 text-sm {editor.selectedLayerIDs.includes(
 										layer.id
 									)
 										? 'bg-primary/10 text-foreground'

@@ -71,7 +71,7 @@
 			{#if showBadge}
 				<span
 					class={cn(
-						'absolute -right-0.5 -bottom-0.5 z-10 flex items-center justify-center rounded-full text-white ring-2 ring-background',
+						'absolute -end-0.5 -bottom-0.5 z-10 flex items-center justify-center rounded-full text-white ring-2 ring-background',
 						getPlatformColor(platform),
 						size === 'sm'
 							? 'size-3 [&_svg]:size-2'

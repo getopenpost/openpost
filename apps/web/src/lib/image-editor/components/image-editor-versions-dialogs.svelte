@@ -341,7 +341,7 @@
 		<div
 			class="grid max-h-[65dvh] min-h-72 gap-4 overflow-hidden sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]"
 		>
-			<div class="space-y-2 overflow-y-auto pr-1">
+			<div class="space-y-2 overflow-y-auto pe-1">
 				{#if historyBusy && revisions.length === 0}
 					<PageLoading layout="list" label={m.image_editor_loading_history()} items={3} />
 				{:else if revisions.length === 0}
@@ -357,7 +357,7 @@
 						<Button
 							multiline
 							variant={revisionPreview?.summary.id === revision.id ? 'secondary' : 'outline'}
-							class="h-auto min-h-16 w-full justify-start p-3 text-left whitespace-normal"
+							class="h-auto min-h-16 w-full justify-start p-3 text-start whitespace-normal"
 							disabled={revisionPreviewBusy}
 							onclick={() => void inspectRevision(revision)}
 						>
@@ -391,7 +391,7 @@
 						>
 							{#if historyPageBusy}<ProtectedIcon
 									icon="loading"
-									class="mr-2 size-4 animate-spin motion-reduce:animate-none"
+									class="me-2 size-4 animate-spin motion-reduce:animate-none"
 								/>{/if}
 							{m.notifications_load_more()}
 						</Button>
@@ -406,7 +406,7 @@
 					<div class="flex min-h-56 items-center justify-center text-sm text-muted-foreground">
 						<ProtectedIcon
 							icon="loading"
-							class="mr-2 size-4 animate-spin motion-reduce:animate-none"
+							class="me-2 size-4 animate-spin motion-reduce:animate-none"
 						/>
 						{m.version_preview_loading()}
 					</div>

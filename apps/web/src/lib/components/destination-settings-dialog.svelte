@@ -419,7 +419,7 @@
 	<Dialog.Content
 		class="flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col gap-0 overflow-clip rounded-none p-0 sm:h-auto sm:max-h-[85vh] sm:max-w-xl sm:rounded-lg"
 	>
-		<Dialog.Header class="shrink-0 border-b px-5 py-4 text-left">
+		<Dialog.Header class="shrink-0 border-b px-5 py-4 text-start">
 			<Dialog.Title>
 				{account
 					? m.compose_account_settings({ platform: getPlatformName(account.platform) })
@@ -638,7 +638,7 @@
 															onclick={() => removeRemoteChoice(setting, selected)}
 														>
 															{selectedLabel}
-															<ThemeIcon role="remove" class="ml-1 size-3" />
+															<ThemeIcon role="remove" class="ms-1 size-3" />
 														</Button>
 													{/each}
 												</div>
@@ -748,7 +748,7 @@
 									{:else if ['media_picker', 'captions_file'].includes(control) && onFileChange}
 										<Input
 											id="destination-setting-{setting.key}"
-											class="mt-1 h-11 file:mr-3"
+											class="mt-1 h-11 file:me-3"
 											type="file"
 											accept={acceptsFor(setting)}
 											disabled={Boolean(uploadingSettingKey)}
@@ -1050,7 +1050,7 @@
 				<Button
 					type="button"
 					variant="destructive"
-					class="h-11 sm:mr-auto sm:h-9"
+					class="h-11 sm:me-auto sm:h-9"
 					onclick={onRemove}
 				>
 					{m.compose_delete_destination()}

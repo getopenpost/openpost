@@ -718,7 +718,7 @@
 
 <section
 	bind:this={monitorElement}
-	class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto border-r border-border bg-card"
+	class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto border-e border-border bg-card"
 	aria-label={m.video_editor_source_monitor()}
 	data-source-monitor
 	onmouseenter={handleSourceMouseEnter}
@@ -750,7 +750,7 @@
 		data-editor-protected="source-media"
 	>
 		{#if playing && sourceShuttleActive}
-			<div class="absolute top-2 left-2 z-10">
+			<div class="absolute start-2 top-2 z-10">
 				<ShuttleIndicator
 					active={playing && sourceShuttleActive}
 					playbackRate={sourcePlaybackRate}
@@ -829,7 +829,7 @@
 			</button>
 			<span class="text-muted-foreground/60">/</span>
 			<span>{displayDuration}</span>
-			<span class="ml-auto">{sourceFps.toFixed(sourceFps % 1 === 0 ? 0 : 2)} fps</span>
+			<span class="ms-auto">{sourceFps.toFixed(sourceFps % 1 === 0 ? 0 : 2)} fps</span>
 		</div>
 
 		<div bind:this={stripElement} class="relative h-5">
@@ -874,7 +874,7 @@
 						marksActive = true;
 					}}
 				/>
-				<span class="w-9 text-right font-mono">{inPoint}f</span>
+				<span class="w-9 text-end font-mono">{inPoint}f</span>
 			</label>
 			<label class="flex items-center gap-1.5 text-muted-foreground">
 				<span class="w-4 font-semibold text-foreground">O</span>
@@ -889,7 +889,7 @@
 						marksActive = true;
 					}}
 				/>
-				<span class="w-9 text-right font-mono">{outPoint}f</span>
+				<span class="w-9 text-end font-mono">{outPoint}f</span>
 			</label>
 		</div>
 

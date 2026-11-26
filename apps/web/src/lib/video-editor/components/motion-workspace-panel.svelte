@@ -114,7 +114,7 @@
 </script>
 
 <aside
-	class="flex size-full min-w-0 shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto border-t border-[var(--video-editor-border)] p-2 lg:border-t-0 lg:border-l"
+	class="flex size-full min-w-0 shrink-0 flex-col gap-2 overflow-x-hidden overflow-y-auto border-t border-[var(--video-editor-border)] p-2 lg:border-s lg:border-t-0"
 	aria-label={m.video_editor_workspace_motion()}
 >
 	<h2 class="px-1 text-xs font-medium tracking-wide text-[var(--video-editor-muted)] uppercase">

@@ -192,7 +192,7 @@
 		/>
 	{/if}
 
-	<div class="max-h-[50dvh] min-h-0 overflow-y-auto pr-1">
+	<div class="max-h-[50dvh] min-h-0 overflow-y-auto pe-1">
 		{#if loading && entries === null}
 			<div
 				class="flex items-center justify-center gap-2 py-6 text-sm text-[var(--video-editor-muted)]"

@@ -90,7 +90,7 @@
 {/if}
 {#if onCreate}
 	<DropdownMenu.Item class={touchSize ? 'min-h-11' : ''} onclick={createWorkspace}>
-		<ThemeIcon role="add" class="mr-2 size-4 text-muted-foreground" />
+		<ThemeIcon role="add" class="me-2 size-4 text-muted-foreground" />
 		{m.workspace_create_submit()}
 	</DropdownMenu.Item>
 {/if}
@@ -102,11 +102,11 @@
 			goto(resolveAppPath('/settings?tab=accounts'));
 		}}
 	>
-		<ThemeIcon role="users" class="mr-2 size-4 text-muted-foreground" />
+		<ThemeIcon role="users" class="me-2 size-4 text-muted-foreground" />
 		{m.navigation_connected_accounts()}
 	</DropdownMenu.Item>
 	<DropdownMenu.Item class={touchSize ? 'min-h-11' : ''} onclick={openWorkspaceSettings}>
-		<ThemeIcon role="settings" class="mr-2 size-4 text-muted-foreground" />
+		<ThemeIcon role="settings" class="me-2 size-4 text-muted-foreground" />
 		{m.sidebar_workspace_settings()}
 	</DropdownMenu.Item>
 {/if}

@@ -116,7 +116,7 @@
 					<p class="text-sm font-medium">
 						{m.workspace_delete_removed_title()}
 					</p>
-					<ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+					<ul class="mt-2 list-disc space-y-1 ps-5 text-sm text-muted-foreground">
 						{#each deletionPreview.removed ?? [] as item (item)}<li>
 								{impactMessage(item)}
 							</li>{/each}
@@ -126,7 +126,7 @@
 					<p class="text-sm font-medium">
 						{m.workspace_delete_retained_title()}
 					</p>
-					<ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+					<ul class="mt-2 list-disc space-y-1 ps-5 text-sm text-muted-foreground">
 						{#each deletionPreview.retained ?? [] as item (item)}<li>
 								{impactMessage(item)}
 							</li>{/each}

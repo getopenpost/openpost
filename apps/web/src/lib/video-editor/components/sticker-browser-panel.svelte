@@ -103,10 +103,10 @@
 			<span class="sr-only">{m.video_editor_stickers_search()}</span>
 			<ThemeIcon
 				role="search"
-				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[var(--video-editor-muted)]"
+				class="pointer-events-none absolute start-2 top-1/2 size-3.5 -translate-y-1/2 text-[var(--video-editor-muted)]"
 			/>
 			<Input
-				class="h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-panel)] pl-7 text-[11px]"
+				class="h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-panel)] ps-7 text-[11px]"
 				placeholder={m.video_editor_stickers_search()}
 				bind:value={query}
 			/>
@@ -175,7 +175,7 @@
 							{:else}
 								<ThemeIcon
 									role="add"
-									class="absolute top-1 right-1 size-3 text-[var(--video-editor-text)] opacity-0 group-hover:opacity-100"
+									class="absolute end-1 top-1 size-3 text-[var(--video-editor-text)] opacity-0 group-hover:opacity-100"
 								/>
 							{/if}
 						</button>

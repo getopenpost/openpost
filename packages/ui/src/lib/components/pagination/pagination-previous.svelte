@@ -19,7 +19,7 @@
 <PaginationPrimitive.PrevButton
 	bind:ref
 	aria-label={ariaLabel}
-	class={cn(buttonVariants({ variant: 'ghost', size: 'default' }), 'pl-2!', className)}
+	class={cn(buttonVariants({ variant: 'ghost', size: 'default' }), 'ps-2!', className)}
 	{...restProps}
 >
 	<ThemeIcon role="chevron-left" data-icon="inline-start" />

@@ -21,7 +21,7 @@
 	type="button"
 	{onclick}
 	{disabled}
-	class="flex min-h-24 min-w-0 items-center gap-3 rounded-xl border bg-card p-3 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
+	class="flex min-h-24 min-w-0 items-center gap-3 rounded-xl border bg-card p-3 text-start transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
 >
 	<span
 		class="flex size-12 shrink-0 items-center justify-center rounded-md bg-muted p-2"
@@ -36,7 +36,7 @@
 	</span>
 	<span class="min-w-0 flex-1"
 		><span class="block text-sm font-medium">{label}</span><span
-			class="mt-1 block text-xs text-muted-foreground">{width} × {height}</span
+			class="mt-1 block text-xs text-muted-foreground"><bdi dir="ltr">{width} × {height}</bdi></span
 		></span
 	>
 	{#if busy}<ProtectedIcon

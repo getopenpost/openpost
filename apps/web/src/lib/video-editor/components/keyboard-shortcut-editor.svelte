@@ -591,7 +591,7 @@
 				>
 					<span>{item.label()}</span>
 					{#if item.id !== 'all'}
-						<span class="ml-1 text-xs tabular-nums">{filterCount(item.id)}</span>
+						<span class="ms-1 text-xs tabular-nums">{filterCount(item.id)}</span>
 					{/if}
 				</button>
 			{/each}
@@ -747,7 +747,7 @@
 		class="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--video-editor-border)] pt-3"
 	>
 		{#if confirmReset}
-			<span class="mr-auto text-xs text-[var(--video-editor-muted)]">
+			<span class="me-auto text-xs text-[var(--video-editor-muted)]">
 				{m.video_editor_shortcuts_reset_confirm()}
 			</span>
 			<Button type="button" variant="ghost" size="sm" onclick={() => (confirmReset = false)}>

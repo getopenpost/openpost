@@ -30,7 +30,7 @@
 		>
 			<Logo width={112} height={33} />
 		</a>
-		<div class="ml-auto flex flex-wrap items-center gap-2">
+		<div class="ms-auto flex flex-wrap items-center gap-2">
 			<LanguageSwitcher compact />
 			{#if utility}{@render utility()}{/if}
 		</div>

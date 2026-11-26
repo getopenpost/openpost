@@ -197,7 +197,7 @@
 		class="video-editor-theme flex max-h-[min(90vh,820px)] w-[calc(100%-1rem)] max-w-[920px] flex-col overflow-hidden border-border bg-popover p-0 text-popover-foreground shadow-2xl sm:max-w-[920px]"
 	>
 		<Dialog.Header
-			class="flex-row items-start justify-between gap-3 border-b border-border px-5 py-4 pr-12"
+			class="flex-row items-start justify-between gap-3 border-b border-border px-5 py-4 pe-12"
 		>
 			<div>
 				<Dialog.Title class="text-base">{m.video_editor_settings_title()}</Dialog.Title>
@@ -215,13 +215,13 @@
 
 		<div class="flex min-h-0 flex-1 flex-col sm:flex-row">
 			<nav
-				class="flex shrink-0 gap-1 overflow-x-auto border-b border-border p-2 sm:w-40 sm:flex-col sm:border-r sm:border-b-0"
+				class="flex shrink-0 gap-1 overflow-x-auto border-b border-border p-2 sm:w-40 sm:flex-col sm:border-e sm:border-b-0"
 				aria-label={m.video_editor_settings_sections()}
 			>
 				{#each sections as item (item.id)}
 					<button
 						type="button"
-						class="flex min-h-8 shrink-0 items-center gap-2 rounded-md px-3 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
+						class="flex min-h-8 shrink-0 items-center gap-2 rounded-md px-3 text-start text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
 						data-active={section === item.id}
 						aria-current={section === item.id ? 'page' : undefined}
 						data-cuelume-toggle="select"
@@ -288,7 +288,7 @@
 									onclick={() => setPeriodicAutosave(editorSettings.autoSaveIntervalMinutes === 0)}
 								>
 									<span
-										class="absolute top-0.5 left-0.5 size-4 rounded-full bg-background transition-transform data-[checked=true]:translate-x-4"
+										class="absolute start-0.5 top-0.5 size-4 rounded-full bg-background transition-transform data-[checked=true]:translate-x-4 rtl:data-[checked=true]:-translate-x-4"
 										data-checked={editorSettings.autoSaveIntervalMinutes > 0}
 									></span>
 								</button>
@@ -337,7 +337,7 @@
 									onclick={() => soundPreferences.setEnabled(!soundPreferences.enabled)}
 								>
 									<span
-										class="absolute top-1 left-1 size-4 rounded-full bg-background transition-transform data-[checked=true]:translate-x-5"
+										class="absolute start-1 top-1 size-4 rounded-full bg-background transition-transform data-[checked=true]:translate-x-5 rtl:data-[checked=true]:-translate-x-5"
 										data-checked={soundPreferences.enabled}
 									></span>
 								</button>
@@ -403,7 +403,7 @@
 									min="10"
 									max="200"
 									step="10"
-									class="h-8 w-20 shrink-0 text-right text-xs"
+									class="h-8 w-20 shrink-0 text-end text-xs"
 									value={editorSettings.maxUndoHistory}
 									onchange={(event) => setUndoDepth(event.currentTarget.valueAsNumber)}
 								/>
@@ -436,7 +436,7 @@
 									onclick={() => setBoolean(setting.key, !setting.value)}
 								>
 									<span
-										class="absolute top-1 left-1 size-4 rounded-full bg-background shadow transition-transform data-[checked=true]:translate-x-5"
+										class="absolute start-1 top-1 size-4 rounded-full bg-background shadow transition-transform data-[checked=true]:translate-x-5 rtl:data-[checked=true]:-translate-x-5"
 										data-checked={setting.value}
 									></span>
 								</button>
@@ -749,7 +749,7 @@
 
 		<Dialog.Footer class="border-t border-border px-5 py-3">
 			{#if working}<span
-					class="mr-auto flex items-center gap-2 text-xs text-[var(--video-editor-muted)]"
+					class="me-auto flex items-center gap-2 text-xs text-[var(--video-editor-muted)]"
 					><ProtectedIcon
 						icon="loading"
 						class="size-3.5 animate-spin motion-reduce:animate-none"

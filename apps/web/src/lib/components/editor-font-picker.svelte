@@ -86,7 +86,7 @@
 			<button
 				{...props}
 				type="button"
-				class="flex h-9 w-full min-w-0 items-center rounded-md border border-input bg-background px-2 text-left text-xs hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [@media(pointer:coarse)]:h-11"
+				class="flex h-9 w-full min-w-0 items-center rounded-md border border-input bg-background px-2 text-start text-xs hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [@media(pointer:coarse)]:h-11"
 				disabled={disabled || pending}
 				aria-busy={pending}
 				aria-label={m.image_editor_font_family()}
@@ -101,11 +101,11 @@
 		<div class="relative mb-2">
 			<ThemeIcon
 				role="search"
-				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+				class="pointer-events-none absolute start-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
 			/>
 			<Input
 				bind:value={search}
-				class="h-8 pl-7 text-xs [@media(pointer:coarse)]:h-11"
+				class="h-8 ps-7 text-xs [@media(pointer:coarse)]:h-11"
 				placeholder={m.image_editor_search_fonts()}
 				aria-label={m.image_editor_search_fonts()}
 			/>
@@ -119,7 +119,7 @@
 					<button
 						type="button"
 						disabled={pending}
-						class="flex min-h-10 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted focus-visible:bg-muted focus-visible:outline-none [@media(pointer:coarse)]:min-h-11"
+						class="flex min-h-10 w-full items-center gap-2 rounded-md px-2 text-start hover:bg-muted focus-visible:bg-muted focus-visible:outline-none [@media(pointer:coarse)]:min-h-11"
 						aria-pressed={brandFontIsSelected(font)}
 						onclick={() =>
 							choose({
@@ -151,7 +151,7 @@
 					<button
 						type="button"
 						disabled={pending}
-						class="flex min-h-10 w-full items-center gap-2 rounded-md px-2 text-left hover:bg-muted focus-visible:bg-muted focus-visible:outline-none [@media(pointer:coarse)]:min-h-11"
+						class="flex min-h-10 w-full items-center gap-2 rounded-md px-2 text-start hover:bg-muted focus-visible:bg-muted focus-visible:outline-none [@media(pointer:coarse)]:min-h-11"
 						onclick={() => choose({ family: font.family })}
 					>
 						<span class="min-w-0 flex-1 truncate text-sm" style:font-family={font.family}>

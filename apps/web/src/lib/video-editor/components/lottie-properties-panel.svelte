@@ -406,7 +406,7 @@
 			{#if namedColors.length > 0 && otherColors.length > 0}
 				<button
 					type="button"
-					class="min-h-7 rounded px-1.5 text-left text-[10px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control)]"
+					class="min-h-7 rounded px-1.5 text-start text-[10px] text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control)]"
 					onclick={() => (showOtherColors = !showOtherColors)}
 				>
 					{showOtherColors

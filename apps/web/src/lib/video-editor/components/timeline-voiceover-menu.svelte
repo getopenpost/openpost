@@ -37,12 +37,12 @@
 		{m.video_editor_voiceover_settings()}
 		<ThemeIcon
 			role="chevron-down"
-			class="ml-auto transition-transform {settingsExpanded ? 'rotate-180' : ''}"
+			class="ms-auto transition-transform {settingsExpanded ? 'rotate-180' : ''}"
 		/>
 	</DropdownMenu.Item>
 	{#if settingsExpanded}
 		<div
-			class="grid gap-0.5 border-l border-border/60 pl-2"
+			class="grid gap-0.5 border-s border-border/60 ps-2"
 			role="group"
 			aria-label={m.video_editor_voiceover_settings()}
 			data-voiceover-menu-settings

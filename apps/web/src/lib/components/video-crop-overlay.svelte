@@ -112,7 +112,7 @@
 		<div class="absolute inset-0 grid grid-cols-3 grid-rows-3 opacity-60">
 			{#each Array(9) as _, index (index)}
 				<div
-					class="border-white/60 {index % 3 !== 2 ? 'border-r' : ''} {index < 6 ? 'border-b' : ''}"
+					class="border-white/60 {index % 3 !== 2 ? 'border-e' : ''} {index < 6 ? 'border-b' : ''}"
 				></div>
 			{/each}
 		</div>

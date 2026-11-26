@@ -571,7 +571,7 @@
 			<Select.Content>
 				{#each apiTokenScopeOptions as option (option.value)}
 					<Select.Item value={option.value}>
-						<div class="flex flex-col gap-0.5 text-left">
+						<div class="flex flex-col gap-0.5 text-start">
 							<span>{option.label}</span>
 							<span class="text-xs text-muted-foreground">{option.description}</span>
 						</div>
@@ -593,7 +593,7 @@
 			<Select.Content>
 				{#each apiTokenWorkspaceOptions as option (option.value)}
 					<Select.Item value={option.value}>
-						<div class="flex flex-col gap-0.5 text-left">
+						<div class="flex flex-col gap-0.5 text-start">
 							<span>{option.label}</span>
 							<span class="text-xs text-muted-foreground">{option.description}</span>
 						</div>
@@ -632,7 +632,7 @@
 			{#if apiTokenBusy}
 				<ProtectedIcon
 					icon="loading"
-					class="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none"
+					class="me-2 h-4 w-4 animate-spin motion-reduce:animate-none"
 				/>
 			{/if}
 			{m.settings_create_token()}
@@ -789,7 +789,7 @@
 			{#if mcpActivityLoading}
 				<ProtectedIcon
 					icon="loading"
-					class="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none"
+					class="me-2 h-4 w-4 animate-spin motion-reduce:animate-none"
 				/>
 			{/if}
 			{m.common_refresh()}

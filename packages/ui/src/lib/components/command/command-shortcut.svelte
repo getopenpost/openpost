@@ -14,7 +14,7 @@
 	bind:this={ref}
 	data-slot="command-shortcut"
 	class={cn(
-		'ml-auto text-[0.625rem] tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground',
+		'ms-auto text-[0.625rem] tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground',
 		className
 	)}
 	{...restProps}

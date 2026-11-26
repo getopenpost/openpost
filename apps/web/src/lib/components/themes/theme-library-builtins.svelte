@@ -72,7 +72,7 @@
 					aria-pressed={sameThemeReference(item.reference, previewReference)}
 					disabled={busy}
 					onclick={() => onPreview(item.reference)}
-					class="block w-full text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default"
+					class="block w-full text-start focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default"
 				>
 					<div class="h-20 p-3" style:background={preview?.colors.canvas ?? 'var(--background)'}>
 						<div

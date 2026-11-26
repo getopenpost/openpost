@@ -561,7 +561,7 @@
 								{m.settings_provider_costs_body()}
 							</p>
 						</div>
-						<div class="shrink-0 text-left sm:text-right">
+						<div class="shrink-0 text-start sm:text-end">
 							<p class="font-medium">
 								{providerCostName(providerCost.provider)}
 							</p>
@@ -612,7 +612,7 @@
 											</p>
 										{/if}
 									</div>
-									<div class="shrink-0 text-right">
+									<div class="shrink-0 text-end">
 										<p class="font-medium">
 											{formatProviderCost(operation.cost_microusd, providerCost.currency)}
 										</p>
@@ -647,7 +647,7 @@
 							class="self-start sm:self-auto"
 						>
 							{m.settings_provider_cost_view_pricing()}
-							<ThemeIcon role="external-link" class="ml-1 h-3.5 w-3.5" />
+							<ThemeIcon role="external-link" class="ms-1 h-3.5 w-3.5" />
 						</Button>
 					</div>
 				</div>
@@ -680,7 +680,7 @@
 						<h3 class="font-semibold">{plan.name}</h3>
 						<p class="text-sm text-muted-foreground">{plan.description}</p>
 					</div>
-					<div class="text-right">
+					<div class="text-end">
 						<div class="text-xl font-semibold">
 							{formatPlanPrice(plan.monthlyPriceUSD)}
 						</div>

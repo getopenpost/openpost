@@ -499,7 +499,7 @@
 				variant="outline"
 				size="sm"
 			>
-				<ThemeIcon role="sparkles" class="mr-2 h-4 w-4" />
+				<ThemeIcon role="sparkles" class="me-2 h-4 w-4" />
 				{m.settings_suggest_pattern()}
 			</Button>
 		{/snippet}
@@ -529,7 +529,7 @@
 			</div>
 			<div class="flex items-end">
 				<Button onclick={addTimeRow} class="w-full lg:w-auto">
-					<ThemeIcon role="add" class="mr-2 h-4 w-4" />
+					<ThemeIcon role="add" class="me-2 h-4 w-4" />
 					{m.settings_add_time()}
 				</Button>
 			</div>

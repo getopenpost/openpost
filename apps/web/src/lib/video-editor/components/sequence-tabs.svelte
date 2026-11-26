@@ -137,7 +137,7 @@
 					{:else}
 						<button
 							type="button"
-							class="py-1 pl-2.5 text-left whitespace-nowrap focus-visible:outline-2 focus-visible:outline-ring {sequenceStore.activeSequenceId ===
+							class="py-1 ps-2.5 text-start whitespace-nowrap focus-visible:outline-2 focus-visible:outline-ring {sequenceStore.activeSequenceId ===
 							tab.id
 								? ''
 								: 'max-w-40 truncate'}"

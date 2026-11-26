@@ -140,7 +140,7 @@
 			step={param.step}
 			precision={param.step < 0.1 ? 2 : param.step < 1 ? 1 : 0}
 			valueWidth="3rem"
-			class="h-[var(--editor-22,22px)] shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-right text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
+			class="h-[var(--editor-22,22px)] shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-end text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
 			onValueChange={(next) => {
 				draftNumber = next;
 			}}

@@ -57,7 +57,7 @@
 		class="w-full! gap-0 overflow-y-auto p-0 sm:max-w-lg!"
 		data-testid="composer-settings-sheet"
 	>
-		<Sheet.Header class="border-b px-5 py-5 pr-16 text-left">
+		<Sheet.Header class="border-b px-5 py-5 pe-16 text-start">
 			<Sheet.Title>{m.compose_post_settings()}</Sheet.Title>
 			<Sheet.Description>{m.compose_post_settings_body()}</Sheet.Description>
 		</Sheet.Header>

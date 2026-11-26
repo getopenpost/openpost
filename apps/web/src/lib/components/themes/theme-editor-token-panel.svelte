@@ -494,7 +494,7 @@
 				<button
 					type="button"
 					aria-pressed={theme.iconPack === pack}
-					class="flex min-h-11 w-full items-center justify-between rounded-[var(--theme-radius-md,var(--radius))] border border-border px-3 text-left text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-pressed:border-ring aria-pressed:bg-accent"
+					class="flex min-h-11 w-full items-center justify-between rounded-[var(--theme-radius-md,var(--radius))] border border-border px-3 text-start text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-pressed:border-ring aria-pressed:bg-accent"
 					onclick={() => onUpdateIconPack(pack)}
 				>
 					<span>{themeEditorIconPackLabel(pack, locale)}</span>

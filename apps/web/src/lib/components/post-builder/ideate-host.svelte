@@ -101,7 +101,7 @@
 	</div>
 {/if}
 {#if !ideate.open && ideate.status !== 'idle' && !onIdeasPage}
-	<div class="fixed right-4 bottom-[calc(var(--mobile-bottom-nav-clearance,0px)+1rem)] z-30">
+	<div class="fixed end-4 bottom-[calc(var(--mobile-bottom-nav-clearance,0px)+1rem)] z-30">
 		<Button variant="secondary" onclick={() => ideate.show()}
 			>{m.compose_ai_ideate()} · {ideate.status === 'working'
 				? m.ideate_generating()

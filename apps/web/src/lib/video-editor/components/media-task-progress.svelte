@@ -164,7 +164,7 @@
 			/>
 			<button
 				type="button"
-				class="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded text-left text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] sm:min-h-7 [@media(pointer:coarse)]:min-h-11"
+				class="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded text-start text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] sm:min-h-7 [@media(pointer:coarse)]:min-h-11"
 				aria-expanded={expanded}
 				onclick={() => (expanded = !expanded)}
 			>

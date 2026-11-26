@@ -386,7 +386,7 @@
 				type="button"
 				data-cuelume-toggle="tap"
 				onclick={openAvatarUploader}
-				class="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:inset-auto [@media(pointer:coarse)]:right-0 [@media(pointer:coarse)]:bottom-0 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:border-2 [@media(pointer:coarse)]:border-background [@media(pointer:coarse)]:opacity-100"
+				class="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:inset-auto [@media(pointer:coarse)]:end-0 [@media(pointer:coarse)]:bottom-0 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:border-2 [@media(pointer:coarse)]:border-background [@media(pointer:coarse)]:opacity-100"
 				aria-label={m.settings_change_profile_picture()}
 			>
 				<ThemeIcon role="camera" class="h-6 w-6" />
@@ -414,7 +414,7 @@
 				{#snippet children({ id, describedBy, invalid })}
 					<div class="relative">
 						<span
-							class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground"
+							class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-sm text-muted-foreground"
 							aria-hidden="true">@</span
 						>
 						<Input
@@ -422,7 +422,7 @@
 							aria-describedby={describedBy}
 							aria-invalid={invalid}
 							bind:value={profileUsername}
-							class="pl-7"
+							class="ps-7"
 							required
 							minlength={3}
 							maxlength={30}
@@ -435,7 +435,7 @@
 			<p class="text-sm text-muted-foreground">{profileEmail}</p>
 			<div class="flex flex-wrap gap-2">
 				<Button type="button" variant="outline" onclick={openAvatarUploader}
-					><ThemeIcon role="camera" class="mr-2 h-4 w-4" />{m.settings_change_picture()}</Button
+					><ThemeIcon role="camera" class="me-2 h-4 w-4" />{m.settings_change_picture()}</Button
 				>
 				{#if profileAvatarURL}<Button
 						type="button"
@@ -443,7 +443,7 @@
 						class="text-destructive hover:text-destructive"
 						onclick={removeAvatar}
 						disabled={profileBusy}
-						><ThemeIcon role="delete" class="mr-2 h-4 w-4" />{m.settings_remove()}</Button
+						><ThemeIcon role="delete" class="me-2 h-4 w-4" />{m.settings_remove()}</Button
 					>{/if}
 			</div>
 		</div>

@@ -13,7 +13,7 @@
 		value = $bindable(),
 		placeholder = $bindable(),
 		class: className,
-		weekdayFormat = 'short',
+		weekdayFormat: weekdayFormatProp,
 		buttonVariant = 'ghost',
 		captionLayout = 'label',
 		locale = 'en-US',
@@ -35,6 +35,9 @@
 		day?: Snippet<[{ day: DateValue; outsideMonth: boolean }]>;
 		captionAction?: Snippet;
 	} = $props();
+
+	const isArabicLocale = $derived(/^ar(?:-|$)/i.test(locale));
+	const weekdayFormat = $derived(weekdayFormatProp ?? (isArabicLocale ? 'narrow' : 'short'));
 
 	const monthFormat = $derived.by(() => {
 		if (monthFormatProp) return monthFormatProp;
@@ -92,7 +95,7 @@ get along, so we shut typescript up by casting `value` to `never`.
 							<CalendarParts.GridRow class="select-none">
 								{#each weekdays as weekday (weekday)}
 									<CalendarParts.HeadCell>
-										{weekday.slice(0, 2)}
+										{isArabicLocale || weekdayFormat === 'narrow' ? weekday : weekday.slice(0, 2)}
 									</CalendarParts.HeadCell>
 								{/each}
 							</CalendarParts.GridRow>

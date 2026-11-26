@@ -32,7 +32,7 @@
 	const needsTextAttribution = $derived(getPlatformKey(platform) === 'youtube');
 </script>
 
-<span class={cn('flex min-w-0 items-center gap-2.5 text-left', className)} data-size={size}>
+<span class={cn('flex min-w-0 items-center gap-2.5 text-start', className)} data-size={size}>
 	<SocialAccountAvatar {name} {platform} {avatarUrl} {handle} {size} />
 	{#if size === 'sm'}
 		<span class="flex min-w-0 items-baseline gap-1.5">

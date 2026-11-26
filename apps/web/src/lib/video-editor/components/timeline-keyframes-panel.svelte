@@ -434,7 +434,7 @@
 				/>
 				{#each BEZIER_KEYS as key (key)}<label
 						>{key}<Input
-							class="ml-0.5 w-14 rounded bg-[var(--video-editor-field)] px-1 py-0.5 text-[var(--video-editor-field-text)]"
+							class="ms-0.5 w-14 rounded bg-[var(--video-editor-field)] px-1 py-0.5 text-[var(--video-editor-field-text)]"
 							type="number"
 							step="0.01"
 							min={key === 'x1' || key === 'x2' ? 0 : -2}
@@ -446,7 +446,7 @@
 			{:else if selectedEasing === 'spring'}
 				{#each SPRING_KEYS as key (key)}<label
 						>{key}<Input
-							class="ml-0.5 w-14 rounded bg-[var(--video-editor-field)] px-1 py-0.5 text-[var(--video-editor-field-text)]"
+							class="ms-0.5 w-14 rounded bg-[var(--video-editor-field)] px-1 py-0.5 text-[var(--video-editor-field-text)]"
 							type="number"
 							step={key === 'tension' || key === 'friction' ? 1 : 0.1}
 							min={key === 'tension' || key === 'friction' ? 1 : 0.1}
@@ -457,7 +457,7 @@
 					>{/each}
 			{/if}
 			{#if selectedEasing === 'cubic-bezier' || selectedEasing === 'spring'}
-				<div class="flex items-center gap-1 border-l border-[var(--video-editor-border)] pl-2">
+				<div class="flex items-center gap-1 border-s border-[var(--video-editor-border)] ps-2">
 					<AppSelect
 						class="h-7 w-32 text-xs"
 						value={selectedCustomPresetName}

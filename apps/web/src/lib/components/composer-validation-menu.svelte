@@ -109,7 +109,7 @@
 						{#if onSelect && hasTarget(issue)}
 							<button
 								type="button"
-								class="flex min-h-11 w-full gap-2 rounded-md px-2 py-2 text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+								class="flex min-h-11 w-full gap-2 rounded-md px-2 py-2 text-start hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 								onclick={() => selectIssue(issue)}
 								aria-label={`${m.common_edit()}: ${issue.targetLabel ? `${issue.targetLabel}: ` : ''}${issue.message}`}
 							>

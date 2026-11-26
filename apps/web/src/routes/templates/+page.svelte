@@ -121,7 +121,7 @@
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 					{#each examples as document (document.template_id)}<button
 							type="button"
-							class="group overflow-hidden rounded-lg border text-left transition-colors hover:border-ring focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-60"
+							class="group overflow-hidden rounded-lg border text-start transition-colors hover:border-ring focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-60"
 							disabled={!canEdit || busy}
 							onclick={() => create(document)}
 						>

@@ -1,4 +1,10 @@
-import { getLocale, isLocale, setLocale, type Locale } from '$lib/paraglide/runtime';
+import {
+	getLocale,
+	getTextDirection,
+	isLocale,
+	setLocale,
+	type Locale
+} from '$lib/paraglide/runtime';
 
 const LOCALE_CHANGED_EVENT = 'openpost:locale-changed';
 
@@ -14,7 +20,8 @@ export const localeLabels = {
 	tr: 'Türkçe',
 	ja: '日本語',
 	ko: '한국어',
-	zh: '简体中文'
+	zh: '简体中文',
+	ar: 'العربية'
 } satisfies Record<Locale, string>;
 
 export function getCurrentLocale(): Locale {
@@ -45,10 +52,16 @@ export function getLocaleTag(locale: Locale = getCurrentLocale()): string {
 			return 'ko-KR';
 		case 'zh':
 			return 'zh-CN';
+		case 'ar':
+			return 'ar-u-nu-latn';
 		case 'en':
 		default:
 			return 'en-US';
 	}
+}
+
+export function getLocaleRegion(locale: Locale = getCurrentLocale()): string {
+	return new Intl.Locale(getLocaleTag(locale)).region ?? 'US';
 }
 
 function announceLocaleChange(locale: Locale) {
@@ -56,7 +69,14 @@ function announceLocaleChange(locale: Locale) {
 	window.dispatchEvent(new CustomEvent<Locale>(LOCALE_CHANGED_EVENT, { detail: locale }));
 }
 
+function applyDocumentLocale(locale: Locale) {
+	if (typeof document === 'undefined') return;
+	document.documentElement.lang = locale;
+	document.documentElement.dir = getTextDirection(locale);
+}
+
 export function switchLocale(locale: Locale, options?: { reload?: boolean }) {
+	applyDocumentLocale(locale);
 	const result = setLocale(locale, options);
 	if (result instanceof Promise) {
 		return result.then(() => announceLocaleChange(locale));

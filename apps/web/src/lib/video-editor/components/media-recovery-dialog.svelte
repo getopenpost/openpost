@@ -378,7 +378,7 @@
 									{/if}
 								</div>
 
-								<ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto pr-1">
+								<ul class="mt-3 max-h-56 space-y-1.5 overflow-y-auto pe-1">
 									{#each directoryPlan.entries as entry (entry.mediaId)}
 										<li class="rounded-md border border-border bg-muted p-2">
 											<div class="flex items-start justify-between gap-3">
@@ -484,7 +484,7 @@
 								</Button>
 							{/if}
 						</div>
-						<ul class="mt-2 max-h-64 space-y-1.5 overflow-y-auto pr-1">
+						<ul class="mt-2 max-h-64 space-y-1.5 overflow-y-auto pe-1">
 							{#each mediaRecovery.orphanedClips as orphan (orphan.itemId)}
 								<li
 									class="flex flex-col gap-2 rounded-md border border-border bg-muted p-2 sm:flex-row sm:items-center"

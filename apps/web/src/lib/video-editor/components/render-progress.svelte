@@ -89,7 +89,7 @@
 			</span>
 		{/if}
 		{#if startedAt !== undefined}
-			<span class="ml-auto">
+			<span class="ms-auto">
 				{m.video_editor_export_progress_elapsed({ time: formatElapsed(elapsedSeconds) })}
 			</span>
 		{/if}

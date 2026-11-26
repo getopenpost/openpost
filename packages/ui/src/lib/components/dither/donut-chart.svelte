@@ -575,7 +575,7 @@
 		overflow: hidden;
 		color: var(--foreground);
 		font-size: 0.875rem;
-		text-align: left;
+		text-align: start;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
@@ -590,7 +590,7 @@
 		color: var(--muted-foreground);
 		font-family: var(--font-mono, ui-monospace, monospace);
 		font-size: 0.75rem;
-		text-align: right;
+		text-align: end;
 		font-variant-numeric: tabular-nums;
 	}
 </style>

@@ -81,14 +81,14 @@
 		{#if issues.length > 0}
 			<ul
 				id={issuesId}
-				class="mt-1 space-y-0.5 pl-10 text-xs leading-snug break-words text-destructive"
+				class="mt-1 space-y-0.5 ps-10 text-xs leading-snug break-words text-destructive"
 			>
 				{#each issues as issue (issue)}
 					<li>{issue}</li>
 				{/each}
 			</ul>
 		{:else if constraint}
-			<p class="mt-1 pl-10 text-xs leading-5 break-words text-muted-foreground">{constraint}</p>
+			<p class="mt-1 ps-10 text-xs leading-5 break-words text-muted-foreground">{constraint}</p>
 		{/if}
 	</div>
 	{#if custom}

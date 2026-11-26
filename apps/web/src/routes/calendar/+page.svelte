@@ -1638,7 +1638,7 @@
 								{#each compactDayItems as item (item.key)}
 									<button
 										type="button"
-										class="flex w-full items-start gap-3 py-4 text-left transition-colors hover:bg-muted/45 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+										class="flex w-full items-start gap-3 py-4 text-start transition-colors hover:bg-muted/45 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
 										onclick={() => openItem(item)}
 									>
 										<time
@@ -1694,7 +1694,7 @@
 									aria-label={formatAgendaDate(day.date)}
 									data-calendar-day={day.key}
 									class={cn(
-										'group/day relative flex min-h-0 flex-col overflow-hidden border-r border-b bg-background/70 p-1.5 transition-colors last:border-r-0',
+										'group/day relative flex min-h-0 flex-col overflow-hidden border-e border-b bg-background/70 p-1.5 transition-colors last:border-e-0',
 										day.outsideMonth && 'bg-muted/25 text-muted-foreground',
 										day.today && 'bg-primary/[0.035]',
 										dropTargetKey === day.key && 'bg-primary/10 ring-2 ring-primary ring-inset'
@@ -1719,7 +1719,7 @@
 										{#if dayItems.length > monthVisibleLimit}
 											<button
 												type="button"
-												class="ml-auto rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+												class="ms-auto rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 												aria-label={m.calendar_view_day_posts({
 													count: dayItems.length,
 													date: formatAgendaDate(day.date)
@@ -1740,7 +1740,7 @@
 												draggable={item.movable}
 												data-calendar-item
 												class={cn(
-													'month-event flex w-full flex-col overflow-hidden rounded-sm border px-1.5 text-left text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+													'month-event flex w-full flex-col overflow-hidden rounded-sm border px-1.5 text-start text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
 													dayItems.length === 1 && monthRowHeight >= 100 ? 'gap-0.5 py-1' : 'py-0',
 													itemTone(item),
 													draggingKey === item.key && 'opacity-50',
@@ -1799,7 +1799,7 @@
 														></span>
 														<span class="min-w-0 truncate">{item.workspaceName}</span>
 													{/if}
-													<span class="ml-auto flex shrink-0 items-center gap-1">
+													<span class="ms-auto flex shrink-0 items-center gap-1">
 														{#if item.status === 'published'}
 															<ThemeIcon role="lock" class="size-3" />
 															<span class="sr-only">{m.calendar_status_published()}</span>
@@ -1831,13 +1831,13 @@
 							<div
 								class="sticky top-0 z-30 grid grid-cols-[4.5rem_repeat(7,minmax(0,1fr))] border-b bg-background/95 backdrop-blur"
 							>
-								<div class="border-r px-1 py-2 text-xs wrap-anywhere text-muted-foreground">
+								<div class="border-e px-1 py-2 text-xs wrap-anywhere text-muted-foreground">
 									{viewerTimeZone}
 								</div>
 								{#each weekDays as day (day.key)}
 									<div
 										class={cn(
-											'border-r px-2 py-2 text-center last:border-r-0',
+											'border-e px-2 py-2 text-center last:border-e-0',
 											day.today && 'bg-primary/[0.045]'
 										)}
 									>
@@ -1864,7 +1864,7 @@
 									<div class="grid grid-cols-[4.5rem_repeat(7,minmax(0,1fr))]">
 										<div
 											data-week-time-gutter={hour === 0 ? '' : undefined}
-											class="border-r border-b px-2 pt-1 text-right text-xs text-muted-foreground tabular-nums"
+											class="border-e border-b px-2 pt-1 text-end text-xs text-muted-foreground tabular-nums"
 										>
 											{String(hour).padStart(2, '0')}:00
 										</div>
@@ -1873,7 +1873,7 @@
 												role="group"
 												aria-label={`${formatAgendaDate(day.date)} ${String(hour).padStart(2, '0')}:00`}
 												class={cn(
-													'week-hour relative h-20 border-r border-b last:border-r-0',
+													'week-hour relative h-20 border-e border-b last:border-e-0',
 													day.today && 'bg-primary/[0.025]'
 												)}
 											>
@@ -1889,7 +1889,7 @@
 														type="button"
 														data-calendar-week-item
 														class={cn(
-															'absolute right-1 left-1 z-10 min-h-9 touch-none rounded-md border px-2 py-1 text-left text-xs shadow-xs transition-[opacity,box-shadow,border-color] hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+															'absolute start-1 end-1 z-10 min-h-9 touch-none rounded-md border px-2 py-1 text-start text-xs shadow-xs transition-[opacity,box-shadow,border-color] hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
 															item.movable && 'cursor-grab active:cursor-grabbing',
 															itemTone(item),
 															draggingKey === item.key && 'border-dashed opacity-30 shadow-none',
@@ -1958,7 +1958,7 @@
 
 <Sheet.Root open={monthDayOpen} onOpenChange={handleMonthDayOpenChange}>
 	<Sheet.Content side="right" class="w-full! p-0 sm:max-w-lg!" data-testid="calendar-day-drawer">
-		<Sheet.Header class="border-b px-4 py-4 pr-14 sm:px-5">
+		<Sheet.Header class="border-b px-4 py-4 pe-14 sm:px-5">
 			<div class="flex items-center justify-between gap-3">
 				<div class="min-w-0">
 					<Sheet.Title class="truncate text-base font-semibold">
@@ -1970,7 +1970,7 @@
 				</div>
 				{#if selectedMonthDay && !isPastDay(selectedMonthDay)}
 					<Button size="sm" onclick={createPostFromMonthDay}>
-						<ThemeIcon role="add" class="mr-1.5 size-4" />
+						<ThemeIcon role="add" class="me-1.5 size-4" />
 						{m.calendar_create_post()}
 					</Button>
 				{/if}
@@ -1982,7 +1982,7 @@
 				{#each selectedMonthDayItems as item (item.key)}
 					<button
 						type="button"
-						class="flex w-full items-start gap-3 py-4 text-left transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+						class="flex w-full items-start gap-3 py-4 text-start transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
 						onclick={() => openItem(item)}
 					>
 						<time

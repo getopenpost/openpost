@@ -253,7 +253,7 @@
 	data-segment-menu
 >
 	<div class="mb-2 flex flex-wrap items-center gap-1">
-		<span class="mr-auto text-[10px] font-medium text-[oklch(0.72_0.02_55)]">
+		<span class="me-auto text-[10px] font-medium text-[oklch(0.72_0.02_55)]">
 			{m.video_editor_keyframe_graph_segment()} · {keyframe.frame} → {endFrame}
 		</span>
 		<Button variant="ghost" size="sm" class="h-6 min-h-6 px-2 text-[10px]" onclick={close}
@@ -285,7 +285,7 @@
 				>
 			{/each}
 			<button
-				class="ml-auto rounded px-1.5 py-1 text-[9px] focus-visible:outline-2 focus-visible:outline-[oklch(0.85_0.15_45)] {showAllEasing
+				class="ms-auto rounded px-1.5 py-1 text-[9px] focus-visible:outline-2 focus-visible:outline-[oklch(0.85_0.15_45)] {showAllEasing
 					? 'bg-[oklch(0.45_0.02_55)] text-white'
 					: 'bg-[oklch(0.22_0.01_50)] text-[oklch(0.78_0.02_55)]'}"
 				onclick={() => (showAllEasing = !showAllEasing)}

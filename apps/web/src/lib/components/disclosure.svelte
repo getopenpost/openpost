@@ -66,7 +66,7 @@
 			{/if}
 		</span>
 		{#if summaryEnd}
-			<span class="ml-auto shrink-0">{@render summaryEnd()}</span>
+			<span class="ms-auto shrink-0">{@render summaryEnd()}</span>
 		{/if}
 	</summary>
 	<div class="pt-2">

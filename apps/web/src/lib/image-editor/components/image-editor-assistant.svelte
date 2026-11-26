@@ -48,7 +48,7 @@
 				<ThemeIcon role="assistant" />
 				{#if status !== 'disconnected'}
 					<span
-						class="absolute right-1.5 bottom-1.5 size-1.5 rounded-full bg-success-foreground {status ===
+						class="absolute end-1.5 bottom-1.5 size-1.5 rounded-full bg-success-foreground {status ===
 						'working'
 							? 'motion-safe:animate-pulse'
 							: ''}"
@@ -74,7 +74,7 @@
 						aria-describedby={undefined}
 						hidden={!open}
 						inert={!open}
-						class="fixed inset-x-0 bottom-0 z-30 h-[60dvh] min-h-64 flex-col border-t border-border bg-background text-foreground outline-none lg:top-20 lg:left-auto lg:h-auto lg:w-80 lg:border-t-0 lg:border-l {open
+						class="fixed inset-x-0 bottom-0 z-30 h-[60dvh] min-h-64 flex-col border-t border-border bg-background text-foreground outline-none lg:start-auto lg:top-20 lg:h-auto lg:w-80 lg:border-s lg:border-t-0 {open
 							? 'flex'
 							: 'hidden'}"
 						onkeydown={(event) => {

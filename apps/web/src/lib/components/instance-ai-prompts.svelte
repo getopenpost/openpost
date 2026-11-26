@@ -315,7 +315,7 @@
 			class="overflow-hidden rounded-xl border bg-card lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]"
 		>
 			<aside
-				class="border-b bg-muted/25 p-3 lg:border-r lg:border-b-0"
+				class="border-b bg-muted/25 p-3 lg:border-e lg:border-b-0"
 				aria-label={m.settings_ai_prompts()}
 			>
 				<div class="lg:hidden">
@@ -331,7 +331,7 @@
 						<button
 							type="button"
 							class={[
-								'flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+								'flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-start text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
 								selectedKey === prompt.key
 									? 'bg-background font-medium text-foreground shadow-xs'
 									: 'text-muted-foreground hover:bg-background/70 hover:text-foreground'

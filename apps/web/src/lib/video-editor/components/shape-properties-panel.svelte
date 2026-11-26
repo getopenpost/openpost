@@ -370,7 +370,7 @@
 						<ThemeIcon role="chevron-down" class="size-3 shrink-0" />
 						<span class="text-[var(--video-editor-muted)]">{m.video_editor_shape_trim_paths()}</span
 						>
-						<span class="ml-auto min-w-0 truncate font-mono text-[10px]"
+						<span class="ms-auto min-w-0 truncate font-mono text-[10px]"
 							>{item.trimPathStart ?? 0}–{item.trimPathEnd ?? 100} · {item.trimPathOffset ??
 								0}</span
 						>
@@ -392,7 +392,7 @@
 					>
 						<ThemeIcon role="chevron-down" class="size-3 shrink-0" />
 						<span class="text-[var(--video-editor-muted)]">{m.video_editor_shape_taper()}</span>
-						<span class="ml-auto min-w-0 truncate font-mono text-[10px]"
+						<span class="ms-auto min-w-0 truncate font-mono text-[10px]"
 							>{item.taperStartWidth ?? 100}/{item.taperStartLength ?? 0} · {item.taperEndWidth ??
 								100}/{item.taperEndLength ?? 0}</span
 						>

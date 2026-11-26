@@ -4881,7 +4881,7 @@
 					</Button>
 					<Button
 						size="sm"
-						class="ml-auto h-11 shrink-0 px-3"
+						class="ms-auto h-11 shrink-0 px-3"
 						onclick={() => saveEditedPost()}
 						disabled={isSaving || isSubmitting || !canSaveEditedPost}
 					>
@@ -5439,15 +5439,15 @@
 									ondrop={(e) => composerMedia.handleDrop(e, i)}
 								>
 									{#if isThread && i < posts.length - 1}
-										<div class="absolute top-0 bottom-0 left-3 w-px bg-border"></div>
+										<div class="absolute start-3 top-0 bottom-0 w-px bg-border"></div>
 									{/if}
 
-									<div class="relative flex gap-3 {isThread ? 'pl-7' : ''}">
+									<div class="relative flex gap-3 {isThread ? 'ps-7' : ''}">
 										{#if isThread}
 											<div class="relative flex flex-col items-center pt-3">
 												<button
 													type="button"
-													class="drag-handle -ml-6 flex size-11 cursor-grab items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing md:-ml-4 md:size-6 md:opacity-0 md:group-hover/post:opacity-60 [@media(pointer:coarse)]:size-11"
+													class="drag-handle -ms-6 flex size-11 cursor-grab items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing md:-ms-4 md:size-6 md:opacity-0 md:group-hover/post:opacity-60 [@media(pointer:coarse)]:size-11"
 													title={m.compose_drag_to_reorder()}
 													aria-label={m.compose_drag_to_reorder()}
 													{...handle}
@@ -5478,8 +5478,8 @@
 																: m.compose_ai_idea_placeholder()
 															: m.compose_add_to_thread()}
 														class="relative z-10 w-full border-0 bg-transparent py-2 {isThread
-															? 'pr-12'
-															: 'pr-3 md:pr-4'} text-base leading-7 text-foreground md:py-3 md:text-lg md:leading-8"
+															? 'pe-12'
+															: 'pe-3 md:pe-4'} text-base leading-7 text-foreground md:py-3 md:text-lg md:leading-8"
 														style="min-height: {i === 0 ? '120px' : '56px'};"
 														disabled={isSubmitting ||
 															ai.buildingPost ||
@@ -5661,7 +5661,7 @@
 											{#if isThread}
 												<button
 													type="button"
-													class="absolute top-1 right-0 z-20 flex size-11 items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted hover:text-destructive focus-visible:opacity-100 md:top-3 md:size-7 md:opacity-0 md:group-hover/post:opacity-100 [@media(pointer:coarse)]:size-11"
+													class="absolute end-0 top-1 z-20 flex size-11 items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted hover:text-destructive focus-visible:opacity-100 md:top-3 md:size-7 md:opacity-0 md:group-hover/post:opacity-100 [@media(pointer:coarse)]:size-11"
 													onclick={() => removePost(i)}
 													title={m.compose_remove_post()}
 													aria-label={m.compose_remove_post()}
@@ -5681,7 +5681,7 @@
 		{#if wideLayout && sidePreviewVisible && sidePreviewAccount}
 			{@const sidePreviewModel = previewForAccount(sidePreviewAccount)}
 			<aside
-				class="flex w-[22rem] shrink-0 flex-col border-l bg-muted/20"
+				class="flex w-[22rem] shrink-0 flex-col border-s bg-muted/20"
 				aria-label={m.compose_preview()}
 				data-testid="composer-side-preview"
 			>

@@ -870,13 +870,13 @@
 			<div class="relative">
 				<ThemeIcon
 					role="search"
-					class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+					class="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
 					id="team-search"
 					data-testid="team-search"
 					bind:value={search}
-					class="pl-9"
+					class="ps-9"
 					placeholder={m.settings_team_search_placeholder()}
 				/>
 			</div>
@@ -963,7 +963,7 @@
 												}
 											}}
 										/>
-										<div class="flex flex-wrap gap-1 sm:ml-auto">
+										<div class="flex flex-wrap gap-1 sm:ms-auto">
 											{#if member.status === 'active'}
 												<Button
 													type="button"

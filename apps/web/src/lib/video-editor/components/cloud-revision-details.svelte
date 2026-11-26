@@ -114,7 +114,7 @@
 				{#each document.timeline.compositions ?? [] as sequence (sequence.id)}
 					<li>
 						{sequence.name}
-						<ul class="pl-3">
+						<ul class="ps-3">
 							{#each sequence.items as item (item.id)}<li>{item.label}</li>{/each}
 						</ul>
 					</li>

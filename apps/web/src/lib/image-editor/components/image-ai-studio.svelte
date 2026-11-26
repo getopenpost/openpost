@@ -226,7 +226,7 @@
 						{...props}
 						aria-modal="false"
 						aria-describedby={undefined}
-						class="fixed inset-x-0 bottom-0 z-40 flex h-[50dvh] flex-col border-t border-border bg-background text-foreground outline-none lg:top-20 lg:left-auto lg:h-auto lg:w-96 lg:border-t-0 lg:border-l"
+						class="fixed inset-x-0 bottom-0 z-40 flex h-[50dvh] flex-col border-t border-border bg-background text-foreground outline-none lg:start-auto lg:top-20 lg:h-auto lg:w-96 lg:border-s lg:border-t-0"
 						onkeydown={(event) => {
 							if (event.key !== 'Escape') event.stopPropagation();
 						}}
@@ -456,7 +456,7 @@
 									<div class="grid grid-cols-3 gap-2">
 										{#each runs as run (run.id)}<button
 												type="button"
-												class="min-w-0 rounded border border-border p-1 text-left text-xs focus-visible:outline-2 focus-visible:outline-ring {selected?.id ===
+												class="min-w-0 rounded border border-border p-1 text-start text-xs focus-visible:outline-2 focus-visible:outline-ring {selected?.id ===
 												run.id
 													? 'bg-navigation-active text-navigation-active-foreground'
 													: 'hover:bg-muted'}"

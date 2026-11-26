@@ -65,7 +65,7 @@
 					}
 				}}
 				onclick={info.onselect}
-				class="flex min-h-[76px] w-[220px] items-center gap-3 rounded-xl border bg-card px-3 py-3 text-left text-card-foreground shadow-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring {info.issues
+				class="flex min-h-[76px] w-[220px] items-center gap-3 rounded-xl border bg-card px-3 py-3 text-start text-card-foreground shadow-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring {info.issues
 					? 'border-destructive'
 					: selected
 						? 'border-ring ring-1 ring-ring'
@@ -135,13 +135,13 @@
 		class="!size-3 !border-2 !border-background !bg-muted-foreground"
 	/>
 	{#if info.branch}<span
-			class="pointer-events-none absolute -right-7 rounded-sm bg-background px-0.5 text-xs text-muted-foreground"
+			class="pointer-events-none absolute -end-7 rounded-sm bg-background px-0.5 text-xs text-muted-foreground"
 			style={`top:${port === 'then' ? 25 : 75}%;transform:translateY(-50%)`}
 			>{port === 'then' ? m.workflows_yes() : m.workflows_no()}</span
 		>{/if}
 	{#if info.onadd}<button
 			type="button"
-			class="nodrag nopan absolute -right-16 flex size-7 items-center justify-center rounded-md border bg-background text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:size-11"
+			class="nodrag nopan absolute -end-16 flex size-7 items-center justify-center rounded-md border bg-background text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:size-11"
 			style={`top:${port === 'then' ? 25 : port === 'else' ? 75 : 50}%;transform:translateY(-50%)`}
 			aria-label={port === 'then'
 				? m.workflows_add_yes()

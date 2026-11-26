@@ -222,14 +222,14 @@
 								step={0.01}
 								precision={2}
 								valueWidth="100%"
-								class="h-[var(--editor-22,22px)] rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+								class="h-[var(--editor-22,22px)] rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 ps-1.5 pe-4 text-end text-[11px] tabular-nums outline-none"
 								onbegin={() => beginGesture('speed')}
 								onValueChange={writeSpeed}
 								onValueCommit={(value) => commitGesture('speed', value)}
 								onValueCancel={cancelGesture}
 							/>
 							<span
-								class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
+								class="pointer-events-none absolute end-1.5 top-1/2 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
 								>×</span
 							>
 						</div>
@@ -284,14 +284,14 @@
 										step={0.05}
 										precision={2}
 										valueWidth="100%"
-										class="h-[var(--editor-22,22px)] rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+										class="h-[var(--editor-22,22px)] rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 ps-1.5 pe-4 text-end text-[11px] tabular-nums outline-none"
 										onbegin={() => beginGesture(field)}
 										onValueChange={(next) => writeFade(field, next)}
 										onValueCommit={(next) => commitGesture(field, next)}
 										onValueCancel={cancelGesture}
 									/>
 									<span
-										class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
+										class="pointer-events-none absolute end-1.5 top-1/2 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
 										>s</span
 									>
 								</div>

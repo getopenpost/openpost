@@ -14,7 +14,7 @@
 	bind:this={ref}
 	data-slot="menubar-shortcut"
 	class={cn(
-		'ml-auto text-[0.625rem] tracking-widest text-muted-foreground group-focus/menubar-item:text-accent-foreground',
+		'ms-auto text-[0.625rem] tracking-widest text-muted-foreground group-focus/menubar-item:text-accent-foreground',
 		className
 	)}
 	{...restProps}

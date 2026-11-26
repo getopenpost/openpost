@@ -32,7 +32,7 @@
 				type="button"
 				role="option"
 				aria-selected={index === state.selected}
-				class="flex min-h-11 w-full flex-col rounded-sm px-3 py-2 text-left text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-accent"
+				class="flex min-h-11 w-full flex-col rounded-sm px-3 py-2 text-start text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-accent"
 				data-active={index === state.selected}
 				onpointerdown={(event) => event.preventDefault()}
 				onclick={() => state.choose(index)}
@@ -46,7 +46,7 @@
 		{#if state.create}
 			<button id={`${id}-${state.items.length}`} type="button" role="option"
 				aria-selected={state.selected === state.items.length}
-				class="flex min-h-11 w-full items-center rounded-sm px-3 py-2 text-left text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-accent"
+				class="flex min-h-11 w-full items-center rounded-sm px-3 py-2 text-start text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:bg-accent"
 				data-active={state.selected === state.items.length}
 				onpointerdown={(event) => event.preventDefault()} onclick={state.create}>{m.editor_add_mention()}</button>
 		{/if}

@@ -538,7 +538,7 @@
 		<aside
 			class:hidden-mobile={mobileView !== 'edit'}
 			inert={mobileView !== 'edit' && viewportIsNarrow}
-			class="fields-panel min-w-0 overflow-y-auto border-r bg-card"
+			class="fields-panel min-w-0 overflow-y-auto border-e bg-card"
 			aria-label={m.templates_content()}
 		>
 			{#if !doc.meme}<div class="sticky top-0 z-10 flex border-b bg-card px-3 py-2">
@@ -675,7 +675,7 @@
 						style:height="{previewHeight * scale}px"
 					>
 						<div
-							class="absolute top-0 left-0 origin-top-left ring-1 ring-border"
+							class="absolute start-0 top-0 origin-top-left ring-1 ring-border"
 							style:transform="scale({scale})"
 						>
 							<Preview

@@ -600,7 +600,7 @@
 							<button
 								{...props}
 								type="button"
-								class="flex min-h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-semibold hover:bg-muted"
+								class="flex min-h-7 w-full items-center gap-2 rounded-md px-2 text-start text-xs font-semibold hover:bg-muted"
 							>
 								<span class="min-w-0 flex-1">{m.image_editor_transform()}</span>
 								{#if selectedTransform}
@@ -776,7 +776,7 @@
 							<button
 								{...props}
 								type="button"
-								class="flex min-h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-semibold hover:bg-muted"
+								class="flex min-h-7 w-full items-center gap-2 rounded-md px-2 text-start text-xs font-semibold hover:bg-muted"
 							>
 								<span class="min-w-0 flex-1">{m.image_editor_layer()}</span>
 								<span class="max-w-32 truncate text-[11px] font-normal text-muted-foreground">
@@ -1062,7 +1062,7 @@
 										<button
 											{...props}
 											type="button"
-											class="flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded px-1.5 text-left text-xs font-medium hover:bg-muted"
+											class="flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded px-1.5 text-start text-xs font-medium hover:bg-muted"
 											title={m.image_editor_crop_percent()}
 										>
 											<ProtectedIcon icon="editor-crop" class="size-3.5" />
@@ -1159,7 +1159,7 @@
 										<button
 											{...props}
 											type="button"
-											class="flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded px-1.5 text-left text-xs font-medium hover:bg-muted"
+											class="flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded px-1.5 text-start text-xs font-medium hover:bg-muted"
 										>
 											<span class="min-w-0 flex-1">{m.image_editor_adjustments()}</span>
 											<ThemeIcon

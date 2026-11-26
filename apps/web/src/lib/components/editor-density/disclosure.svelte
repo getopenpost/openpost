@@ -37,7 +37,7 @@
 		class="flex min-h-[var(--editor-25,25px)] items-center gap-1 [@media(pointer:coarse)]:min-h-11"
 	>
 		<CollapsibleTrigger
-			class="flex min-w-0 flex-1 items-center gap-1.5 rounded-[var(--editor-radius,5px)] px-1 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:h-11"
+			class="flex min-w-0 flex-1 items-center gap-1.5 rounded-[var(--editor-radius,5px)] px-1 text-start focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [@media(pointer:coarse)]:h-11"
 			aria-label={summary ? `${label}: ${summary}` : label}
 		>
 			<ThemeIcon
@@ -47,7 +47,7 @@
 			<span class="truncate text-[11px] font-medium tracking-wide uppercase">{label}</span>
 			{#if !open && summary}
 				<span
-					class="min-w-0 flex-1 truncate text-right font-mono text-[10px] text-muted-foreground tabular-nums"
+					class="min-w-0 flex-1 truncate text-end font-mono text-[10px] text-muted-foreground tabular-nums"
 					>{summary}</span
 				>
 			{/if}

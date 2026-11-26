@@ -29,10 +29,7 @@
 	}: Props = $props();
 </script>
 
-<div
-	class="absolute top-2 right-2 z-10 flex items-center gap-1"
-	data-testid="composer-media-actions"
->
+<div class="absolute end-2 top-2 z-10 flex items-center gap-1" data-testid="composer-media-actions">
 	<button
 		type="button"
 		class={[

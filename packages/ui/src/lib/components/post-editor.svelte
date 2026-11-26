@@ -422,6 +422,10 @@
 	.post-editor :global(p) {
 		margin: 0;
 	}
+	/* An empty dir="auto" editor resolves to LTR; align an RTL UI placeholder to inline-start. */
+	.post-editor:dir(rtl) :global(.is-editor-empty:first-child) {
+		direction: rtl;
+	}
 	.post-editor :global(.is-editor-empty:first-child::before) {
 		color: var(--muted-foreground);
 		content: attr(data-placeholder);

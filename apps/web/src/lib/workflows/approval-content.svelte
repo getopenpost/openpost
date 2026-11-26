@@ -91,14 +91,14 @@
 					>
 				</h5>
 				{#if rendition.segments?.length}
-					{#each rendition.segments as segment (segment.id)}<div class="border-l-2 pl-3">
+					{#each rendition.segments as segment (segment.id)}<div class="border-s-2 ps-3">
 							{@render content(segment)}
 						</div>{/each}
 				{:else}{@render content(rendition)}{/if}
 			</article>
 		{/each}
 	{:else if publication.segments?.length}
-		{#each publication.segments as segment (segment.id)}<div class="border-l-2 pl-3">
+		{#each publication.segments as segment (segment.id)}<div class="border-s-2 ps-3">
 				{@render content(segment)}
 			</div>{/each}
 	{:else}{@render content({

@@ -86,7 +86,7 @@
 				/>
 				<label
 					for={`${uid}-opportunity-${index}`}
-					class={`group relative block min-h-44 cursor-pointer rounded-lg border bg-card p-4 text-left transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:outline-none peer-disabled:pointer-events-none peer-disabled:opacity-50 hover:border-foreground/25 hover:bg-muted/15 ${selected ? 'border-primary bg-primary/3' : ''}`}
+					class={`group relative block min-h-44 cursor-pointer rounded-lg border bg-card p-4 text-start transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:outline-none peer-disabled:pointer-events-none peer-disabled:opacity-50 hover:border-foreground/25 hover:bg-muted/15 ${selected ? 'border-primary bg-primary/3' : ''}`}
 				>
 					<div class="flex items-start gap-3">
 						<div class="min-w-0 flex-1">

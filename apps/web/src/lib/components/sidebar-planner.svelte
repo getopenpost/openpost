@@ -316,7 +316,7 @@
 				</div>
 			{:else if drafts.length > 0}
 				<ul
-					class="sidebar-planner-scrollbar min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain pr-1"
+					class="sidebar-planner-scrollbar min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain pe-1"
 					data-testid="sidebar-draft-list"
 				>
 					{#each drafts as draft (draft.id)}
@@ -329,7 +329,7 @@
 											{...props}
 											href={resolve(draft.href as '/')}
 											class={[
-												'group/draft flex min-h-10 w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
+												'group/draft flex min-h-10 w-full items-center gap-2 rounded-md px-2 py-1 text-start hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
 												activeDraft && 'bg-sidebar-accent/60'
 											]}
 											onpointerenter={() => prefetchDraftComposerData(draft.id, workspaceId)}

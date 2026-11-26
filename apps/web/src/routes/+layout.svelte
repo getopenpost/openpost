@@ -634,7 +634,7 @@
 			</div>
 		{:else if !authState.isAuthenticated}
 			{#if !isPublicProfileRoute && !(currentPath === '/' && isManagedEdition) && currentPath !== '/image-editor' && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
-				<div class="fixed top-4 right-4 z-20">
+				<div class="fixed end-4 top-4 z-20">
 					<LanguageSwitcher compact />
 				</div>
 			{/if}
@@ -663,7 +663,7 @@
 			{/if}
 		{:else if isStandaloneRoute}
 			{#if !isWorkflowEditor && !isPublicProfileRoute && currentPath !== '/image-editor' && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
-				<div class="fixed top-4 right-4 z-20">
+				<div class="fixed end-4 top-4 z-20">
 					<LanguageSwitcher compact />
 				</div>
 			{/if}

@@ -248,7 +248,7 @@
 		class="flex max-h-[calc(100dvh-1rem)] max-w-[calc(100%-0.5rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[44rem]"
 	>
 		<Dialog.Header
-			class="shrink-0 border-b px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-4 text-left"
+			class="shrink-0 border-b px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-4 text-start"
 		>
 			<Dialog.Title>{m.compose_schedule()}</Dialog.Title>
 			<Dialog.Description class="text-sm text-muted-foreground">
@@ -511,7 +511,7 @@
 			>
 				{#if submitting}<ProtectedIcon
 						icon="loading"
-						class="mr-2 size-4 animate-spin motion-reduce:animate-none"
+						class="me-2 size-4 animate-spin motion-reduce:animate-none"
 					/>{/if}
 				{m.compose_schedule()}
 			</Button>

@@ -93,7 +93,7 @@
 	<Dialog.Content
 		class="video-editor-theme flex max-h-[calc(100dvh-2rem)] flex-col gap-0 border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)] sm:max-w-lg"
 	>
-		<Dialog.Header class="pr-8">
+		<Dialog.Header class="pe-8">
 			<Dialog.Title class="text-base text-[var(--video-editor-text)]">
 				{m.video_editor_exports_title()}
 			</Dialog.Title>
@@ -149,7 +149,7 @@
 				{#if $renderQueueStore.isPaused && activeCount > 0}<p class="mt-2 text-xs text-amber-200">
 						{m.video_editor_queue_paused()}
 					</p>{/if}
-				<div class="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+				<div class="mt-3 min-h-0 flex-1 overflow-y-auto pe-1">
 					{#if $renderQueueStore.jobs.length === 0}<p
 							class="py-10 text-center text-sm text-[var(--video-editor-muted)]"
 						>

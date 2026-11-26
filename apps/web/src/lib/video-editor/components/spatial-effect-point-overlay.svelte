@@ -369,8 +369,8 @@
 				class="pointer-events-none relative flex size-6 items-center justify-center rounded-full border border-white bg-black/60 shadow-[0_0_0_1px_rgba(0,0,0,0.7)]"
 				aria-hidden="true"
 			>
-				<span class="absolute top-1 left-1/2 h-4 -translate-x-1/2 border-l border-white"></span>
-				<span class="absolute top-1/2 left-1 w-4 -translate-y-1/2 border-t border-white"></span>
+				<span class="absolute top-1 left-1/2 h-4 -translate-x-1/2 border-s border-white"></span>
+				<span class="absolute start-1 top-1/2 w-4 -translate-y-1/2 border-t border-white"></span>
 				<span class="absolute top-1/2 left-1/2 size-1.5 -translate-1/2 rounded-full bg-white"
 				></span>
 			</span>

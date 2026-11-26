@@ -753,9 +753,9 @@
 					class="z-30 flex h-[25px] shrink-0 items-center gap-1 overflow-x-auto border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_55_/_0.97)] px-1.5 text-[10px] {presentation ===
 					'side'
 						? 'w-full'
-						: 'sticky left-0 w-fit min-w-[720px] border-r'}"
+						: 'sticky start-0 w-fit min-w-[720px] border-e'}"
 				>
-					<span class="mr-1 font-medium tracking-wide text-[oklch(0.72_0.02_55)] uppercase">
+					<span class="me-1 font-medium tracking-wide text-[oklch(0.72_0.02_55)] uppercase">
 						{m.video_editor_keyframe_sheet_title()}
 					</span>
 					<button
@@ -805,7 +805,7 @@
 							{m.video_editor_keyframe_sheet_cut_badge()}
 						</span>
 					{/if}
-					<label class="ml-1 flex items-center gap-1">
+					<label class="ms-1 flex items-center gap-1">
 						{m.video_editor_keyframe_sheet_frame()}
 						<Input
 							type="number"
@@ -841,12 +841,12 @@
 						data-keyframe-side-ruler
 					>
 						<span class="flex items-center px-2">{m.video_editor_keyframe_property()}</span>
-						<div class="relative border-l border-white/8">
-							<span class="absolute top-1 left-2">0</span>
+						<div class="relative border-s border-white/8">
+							<span class="absolute start-2 top-1">0</span>
 							<span class="absolute top-1 left-1/2 -translate-x-1/2"
 								>{Math.round((item.durationInFrames - 1) / 2)}</span
 							>
-							<span class="absolute top-1 right-2">{item.durationInFrames - 1}</span>
+							<span class="absolute end-2 top-1">{item.durationInFrames - 1}</span>
 						</div>
 					</div>
 				{/if}
@@ -915,7 +915,7 @@
 									style="height:{ROW_HEIGHT}px"
 								>
 									<div
-										class="sticky left-0 z-20 flex h-full items-center gap-1 border-r border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_55_/_0.97)] px-1.5"
+										class="sticky start-0 z-20 flex h-full items-center gap-1 border-e border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_55_/_0.97)] px-1.5"
 										style="width:{propertyColumnWidth}px"
 										data-marquee-ignore
 									>
@@ -939,7 +939,7 @@
 										</button>
 										<button
 											type="button"
-											class="min-w-0 flex-1 truncate text-left text-[9px] text-[oklch(0.66_0.015_55)] uppercase hover:text-[oklch(0.85_0.02_55)]"
+											class="min-w-0 flex-1 truncate text-start text-[9px] text-[oklch(0.66_0.015_55)] uppercase hover:text-[oklch(0.85_0.02_55)]"
 											onpointerdown={(event) => event.stopPropagation()}
 											onclick={() => onactiveproperty(property)}>{propertyLabel(property)}</button
 										>

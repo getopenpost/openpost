@@ -58,7 +58,7 @@
 {:else if gate.state === 'pick' || gate.state === 'reconnect'}
 	<div
 		class={variant === 'inline'
-			? 'w-full border-t border-[var(--video-editor-border)] bg-transparent px-0 py-6 text-left'
+			? 'w-full border-t border-[var(--video-editor-border)] bg-transparent px-0 py-6 text-start'
 			: 'w-full max-w-md rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-5 text-center'}
 	>
 		<ThemeIcon
@@ -83,7 +83,7 @@
 				: m.video_editor_gate_reconnect_body({ folder: gate.workspaceName })}
 		</p>
 		{#if gate.error}
-			<InlineNotice tone="error" class="mt-4 text-left">{gate.error}</InlineNotice>
+			<InlineNotice tone="error" class="mt-4 text-start">{gate.error}</InlineNotice>
 		{/if}
 		<div
 			class={variant === 'inline'

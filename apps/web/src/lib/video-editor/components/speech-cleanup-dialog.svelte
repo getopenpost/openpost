@@ -656,7 +656,7 @@
 	<Dialog.Content
 		class="video-editor-theme flex max-h-[min(82vh,760px)] w-[min(94vw,620px)] max-w-[min(94vw,620px)] flex-col gap-0 overflow-hidden border-border bg-popover p-0 text-popover-foreground shadow-2xl sm:max-w-[620px]"
 	>
-		<Dialog.Header class="border-b border-border px-5 pt-5 pr-12 pb-4">
+		<Dialog.Header class="border-b border-border px-5 pe-12 pt-5 pb-4">
 			<Dialog.Title class="flex items-center gap-2 text-base">
 				<ThemeIcon role="sparkles" class="size-4 text-[var(--video-editor-focus)]" />
 				{mode === 'recording' ? m.recording_cleanup_action() : m.video_editor_cleanup_title()}

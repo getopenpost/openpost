@@ -2421,7 +2421,7 @@
 										{...props}
 										variant="ghost"
 										size="sm"
-										class="h-7 border-l border-[var(--editor-border)] px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
+										class="h-7 border-s border-[var(--editor-border)] px-1.5 text-xs text-[var(--editor-text)] hover:text-[var(--editor-text)] [@media(pointer:coarse)]:h-11"
 									>
 										{m.image_editor_selection_refine()}
 									</Button>
@@ -2743,7 +2743,7 @@
 			>
 				{#if editor.showRulers}
 					<div
-						class="absolute -top-6 -left-px z-40 h-6 w-[calc(100%+2px)] cursor-s-resize overflow-hidden border-b border-[var(--editor-border)] bg-[var(--editor-panel)] text-[var(--editor-muted)] shadow-sm"
+						class="absolute -start-px -top-6 z-40 h-6 w-[calc(100%+2px)] cursor-s-resize overflow-hidden border-b border-[var(--editor-border)] bg-[var(--editor-panel)] text-[var(--editor-muted)] shadow-sm"
 						role="button"
 						tabindex="0"
 						aria-label={m.image_editor_add_vertical_guide()}
@@ -2755,13 +2755,13 @@
 					>
 						{#each rulerTicks(editor.activePageDimensions.width) as tick (tick.value)}
 							<span
-								class="absolute bottom-0 border-l border-[var(--editor-muted)]"
+								class="absolute bottom-0 border-s border-[var(--editor-muted)]"
 								class:h-3={tick.major}
 								class:h-1.5={!tick.major}
 								style:left={`${tick.value * editor.zoom}px`}
 							>
 								{#if tick.major}
-									<span class="absolute bottom-2 left-0.5 text-[8px] leading-none"
+									<span class="absolute start-0.5 bottom-2 text-[8px] leading-none"
 										>{tick.value}</span
 									>
 								{/if}
@@ -2769,7 +2769,7 @@
 						{/each}
 					</div>
 					<div
-						class="absolute -top-px -left-6 z-40 h-[calc(100%+2px)] w-6 cursor-e-resize overflow-hidden border-r border-[var(--editor-border)] bg-[var(--editor-panel)] text-[var(--editor-muted)] shadow-sm"
+						class="absolute -start-6 -top-px z-40 h-[calc(100%+2px)] w-6 cursor-e-resize overflow-hidden border-e border-[var(--editor-border)] bg-[var(--editor-panel)] text-[var(--editor-muted)] shadow-sm"
 						role="button"
 						tabindex="0"
 						aria-label={m.image_editor_add_horizontal_guide()}
@@ -2781,7 +2781,7 @@
 					>
 						{#each rulerTicks(editor.activePageDimensions.height) as tick (tick.value)}
 							<span
-								class="absolute right-0 border-t border-[var(--editor-muted)]"
+								class="absolute end-0 border-t border-[var(--editor-muted)]"
 								class:w-3={tick.major}
 								class:w-1.5={!tick.major}
 								style:top={`${tick.value * editor.zoom}px`}
@@ -2823,7 +2823,7 @@
 					{#each editor.activePage?.guides?.horizontal ?? [] as value, index (`horizontal-${index}`)}
 						<button
 							type="button"
-							class="group absolute left-0 z-35 h-3 w-full -translate-y-1/2 cursor-ns-resize touch-none border-0 bg-transparent p-0"
+							class="group absolute start-0 z-35 h-3 w-full -translate-y-1/2 cursor-ns-resize touch-none border-0 bg-transparent p-0"
 							style:top={`${value * editor.zoom}px`}
 							aria-label={m.image_editor_horizontal_guide_at({
 								value: Math.round(value)
@@ -2843,7 +2843,7 @@
 						<div
 							class={guideGesture.axis === 'vertical'
 								? 'pointer-events-none absolute top-0 z-35 h-full w-px bg-cyan-200'
-								: 'pointer-events-none absolute left-0 z-35 h-px w-full bg-cyan-200'}
+								: 'pointer-events-none absolute start-0 z-35 h-px w-full bg-cyan-200'}
 							style:left={guideGesture.axis === 'vertical'
 								? `${guideGesture.value * editor.zoom}px`
 								: undefined}
@@ -2900,7 +2900,7 @@
 					>
 						<button
 							type="button"
-							class="pointer-events-auto absolute -top-14 left-1/2 size-11 -translate-x-1/2 touch-none rounded-full border border-[var(--canvas-pasteboard)] bg-[var(--canvas-handle)] shadow after:absolute after:top-10 after:left-1/2 after:h-4 after:border-l after:border-[var(--canvas-selection)]"
+							class="pointer-events-auto absolute -top-14 left-1/2 size-11 -translate-x-1/2 touch-none rounded-full border border-[var(--canvas-pasteboard)] bg-[var(--canvas-handle)] shadow after:absolute after:top-10 after:left-1/2 after:h-4 after:border-s after:border-[var(--canvas-selection)]"
 							aria-label={m.image_editor_rotate_floating_pixels()}
 							onpointerdown={(event) => startFloatingTransform(event, 'rotate')}
 							onpointermove={moveFloatingTransform}
@@ -2908,7 +2908,7 @@
 							onpointercancel={finishFloatingTransform}
 							onkeydown={(event) => nudgeFloatingTransform(event, 'rotate')}
 						></button>
-						{#each [{ handle: 'nw', class: '-top-[22px] -left-[22px] cursor-nwse-resize' }, { handle: 'n', class: '-top-[22px] left-1/2 -translate-x-1/2 cursor-ns-resize' }, { handle: 'ne', class: '-top-[22px] -right-[22px] cursor-nesw-resize' }, { handle: 'e', class: 'top-1/2 -right-[22px] -translate-y-1/2 cursor-ew-resize' }, { handle: 'se', class: '-right-[22px] -bottom-[22px] cursor-nwse-resize' }, { handle: 's', class: '-bottom-[22px] left-1/2 -translate-x-1/2 cursor-ns-resize' }, { handle: 'sw', class: '-bottom-[22px] -left-[22px] cursor-nesw-resize' }, { handle: 'w', class: 'top-1/2 -left-[22px] -translate-y-1/2 cursor-ew-resize' }] as item (item.handle)}
+						{#each [{ handle: 'nw', class: '-top-[22px] -start-[22px] cursor-nwse-resize' }, { handle: 'n', class: '-top-[22px] left-1/2 -translate-x-1/2 cursor-ns-resize' }, { handle: 'ne', class: '-top-[22px] -end-[22px] cursor-nesw-resize' }, { handle: 'e', class: 'top-1/2 -end-[22px] -translate-y-1/2 cursor-ew-resize' }, { handle: 'se', class: '-end-[22px] -bottom-[22px] cursor-nwse-resize' }, { handle: 's', class: '-bottom-[22px] left-1/2 -translate-x-1/2 cursor-ns-resize' }, { handle: 'sw', class: '-bottom-[22px] -start-[22px] cursor-nesw-resize' }, { handle: 'w', class: 'top-1/2 -start-[22px] -translate-y-1/2 cursor-ew-resize' }] as item (item.handle)}
 							<button
 								type="button"
 								class={`pointer-events-auto absolute size-11 touch-none border-0 bg-transparent ${item.class}`}
@@ -2970,10 +2970,10 @@
 								class="pointer-events-none absolute inset-x-0 top-2/3 border-t border-[color-mix(in_oklch,var(--canvas-handle)_55%,transparent)]"
 							></span>
 							<span
-								class="pointer-events-none absolute inset-y-0 left-1/3 border-l border-[color-mix(in_oklch,var(--canvas-handle)_55%,transparent)]"
+								class="pointer-events-none absolute inset-y-0 start-1/3 border-s border-[color-mix(in_oklch,var(--canvas-handle)_55%,transparent)]"
 							></span>
 							<span
-								class="pointer-events-none absolute inset-y-0 left-2/3 border-l border-[color-mix(in_oklch,var(--canvas-handle)_55%,transparent)]"
+								class="pointer-events-none absolute inset-y-0 start-2/3 border-s border-[color-mix(in_oklch,var(--canvas-handle)_55%,transparent)]"
 							></span>
 							<button
 								type="button"
@@ -2989,7 +2989,7 @@
 									crop.nudge(event, crop.mode === 'content' ? 'content' : 'move')}
 							></button>
 							{#if crop.mode === 'frame'}
-								{#each [{ handle: 'nw', label: m.image_editor_crop_handle_nw(), class: '-top-[22px] -left-[22px] cursor-nwse-resize' }, { handle: 'n', label: m.image_editor_crop_handle_n(), class: '-top-[22px] left-1/2 -translate-x-1/2 cursor-ns-resize' }, { handle: 'ne', label: m.image_editor_crop_handle_ne(), class: '-top-[22px] -right-[22px] cursor-nesw-resize' }, { handle: 'e', label: m.image_editor_crop_handle_e(), class: 'top-1/2 -right-[22px] -translate-y-1/2 cursor-ew-resize' }, { handle: 'se', label: m.image_editor_crop_handle_se(), class: '-right-[22px] -bottom-[22px] cursor-nwse-resize' }, { handle: 's', label: m.image_editor_crop_handle_s(), class: '-bottom-[22px] left-1/2 -translate-x-1/2 cursor-ns-resize' }, { handle: 'sw', label: m.image_editor_crop_handle_sw(), class: '-bottom-[22px] -left-[22px] cursor-nesw-resize' }, { handle: 'w', label: m.image_editor_crop_handle_w(), class: 'top-1/2 -left-[22px] -translate-y-1/2 cursor-ew-resize' }] as handle (handle.handle)}
+								{#each [{ handle: 'nw', label: m.image_editor_crop_handle_nw(), class: '-top-[22px] -start-[22px] cursor-nwse-resize' }, { handle: 'n', label: m.image_editor_crop_handle_n(), class: '-top-[22px] left-1/2 -translate-x-1/2 cursor-ns-resize' }, { handle: 'ne', label: m.image_editor_crop_handle_ne(), class: '-top-[22px] -end-[22px] cursor-nesw-resize' }, { handle: 'e', label: m.image_editor_crop_handle_e(), class: 'top-1/2 -end-[22px] -translate-y-1/2 cursor-ew-resize' }, { handle: 'se', label: m.image_editor_crop_handle_se(), class: '-end-[22px] -bottom-[22px] cursor-nwse-resize' }, { handle: 's', label: m.image_editor_crop_handle_s(), class: '-bottom-[22px] left-1/2 -translate-x-1/2 cursor-ns-resize' }, { handle: 'sw', label: m.image_editor_crop_handle_sw(), class: '-bottom-[22px] -start-[22px] cursor-nesw-resize' }, { handle: 'w', label: m.image_editor_crop_handle_w(), class: 'top-1/2 -start-[22px] -translate-y-1/2 cursor-ew-resize' }] as handle (handle.handle)}
 									<button
 										type="button"
 										class={`image-editor-crop-handle absolute z-10 size-11 border-0 bg-transparent ${handle.class}`}
@@ -3125,7 +3125,7 @@
 		</div>
 		{#if cursorPoint}
 			<div
-				class="pointer-events-none absolute right-3 bottom-3 hidden rounded bg-[color-mix(in_oklch,var(--editor-canvas)_80%,transparent)] px-2 py-1 font-mono text-[10px] whitespace-nowrap text-[var(--editor-muted)] tabular-nums lg:block"
+				class="pointer-events-none absolute end-3 bottom-3 hidden rounded bg-[color-mix(in_oklch,var(--editor-canvas)_80%,transparent)] px-2 py-1 font-mono text-[10px] whitespace-nowrap text-[var(--editor-muted)] tabular-nums lg:block"
 				aria-hidden="true"
 			>
 				{Math.round(cursorPoint.x)}, {Math.round(cursorPoint.y)} px · {Math.round(

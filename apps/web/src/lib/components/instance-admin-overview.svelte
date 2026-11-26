@@ -82,7 +82,7 @@
 				class="grid overflow-hidden rounded-lg border bg-muted/15 sm:grid-cols-2 xl:grid-cols-4"
 				aria-label={m.settings_instance_overview()}
 			>
-				<div class="border-b p-4 sm:border-r xl:border-b-0">
+				<div class="border-b p-4 sm:border-e xl:border-b-0">
 					<dt class="text-sm text-muted-foreground">
 						{m.settings_instance_total_users()}
 					</dt>
@@ -90,7 +90,7 @@
 						{formatNumber(overview.total_users)}
 					</dd>
 				</div>
-				<div class="border-b p-4 xl:border-r xl:border-b-0">
+				<div class="border-b p-4 xl:border-e xl:border-b-0">
 					<dt class="text-sm text-muted-foreground">
 						{m.settings_instance_new_users()}
 					</dt>
@@ -101,7 +101,7 @@
 						{m.settings_instance_last_30_days()}
 					</p>
 				</div>
-				<div class="border-b p-4 sm:border-r sm:border-b-0">
+				<div class="border-b p-4 sm:border-e sm:border-b-0">
 					<dt class="text-sm text-muted-foreground">
 						{m.settings_instance_workspaces()}
 					</dt>
@@ -123,7 +123,7 @@
 			</dl>
 
 			<div class="grid overflow-hidden rounded-lg border lg:grid-cols-2">
-				<div class="min-w-0 border-b p-4 lg:border-r lg:border-b-0">
+				<div class="min-w-0 border-b p-4 lg:border-e lg:border-b-0">
 					<h3 class="text-sm font-semibold">
 						{m.settings_instance_registration_trend()}
 					</h3>

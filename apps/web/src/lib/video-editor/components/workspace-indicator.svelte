@@ -139,7 +139,7 @@
 						{#if !isActive && !isConfirming}
 							<button
 								type="button"
-								class="flex min-w-0 flex-1 items-center gap-2 self-stretch rounded px-1 py-1 text-left hover:bg-accent"
+								class="flex min-w-0 flex-1 items-center gap-2 self-stretch rounded px-1 py-1 text-start hover:bg-accent"
 								onclick={() => void switchWorkspace(workspace.id)}
 								aria-label={m.video_editor_workspace_switch()}
 							>

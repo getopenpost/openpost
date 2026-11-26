@@ -199,7 +199,7 @@
 					: m.analytics_export_description({ days })}</Dialog.Description
 			>
 		</Dialog.Header>
-		<div class="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1" data-testid="analytics-export-form">
+		<div class="min-h-0 flex-1 space-y-5 overflow-y-auto pe-1" data-testid="analytics-export-form">
 			{#if includesYouTube}
 				<InlineNotice tone="info">
 					<p>{m.analytics_export_youtube_retention()}</p>

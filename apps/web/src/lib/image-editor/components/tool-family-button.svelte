@@ -73,7 +73,7 @@
 				{@render icon()}
 				<span
 					aria-hidden="true"
-					class="pointer-events-none absolute right-0.5 bottom-0.5 size-0 border-t-[4px] border-l-[4px] border-t-transparent border-l-muted-foreground/70"
+					class="pointer-events-none absolute end-0.5 bottom-0.5 size-0 border-s-[4px] border-t-[4px] border-s-muted-foreground/70 border-t-transparent"
 				></span>
 			</Button>
 		{/snippet}

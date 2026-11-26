@@ -123,7 +123,7 @@
 				{id}
 				type="button"
 				class={variant === 'field'
-					? `flex h-9 w-full min-w-0 items-stretch overflow-hidden rounded-md border border-input bg-background text-left text-xs transition-colors hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [@media(pointer:coarse)]:min-h-11 ${triggerClass}`
+					? `flex h-9 w-full min-w-0 items-stretch overflow-hidden rounded-md border border-input bg-background text-start text-xs transition-colors hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [@media(pointer:coarse)]:min-h-11 ${triggerClass}`
 					: `relative flex size-8 min-w-8 items-center justify-center overflow-hidden rounded-md border border-input bg-background p-1 transition-colors hover:border-foreground/35 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:min-w-11 ${triggerClass}`}
 				{disabled}
 				aria-label={label}
@@ -131,12 +131,12 @@
 			>
 				{#if variant === 'field'}
 					<span
-						class="w-10 shrink-0 border-r border-input"
+						class="w-10 shrink-0 border-e border-input"
 						style:background-color={swatchColor ?? normalizeHex(value)}
 						style:opacity={opacity / 100}
 					></span>
 					<span class="min-w-0 flex-1 self-center truncate px-2 font-mono uppercase"
-						>{normalizeHex(value)}</span
+						><bdi dir="ltr">{normalizeHex(value)}</bdi></span
 					>
 				{:else}
 					<span
@@ -225,6 +225,7 @@
 		<div class="grid grid-cols-[1fr_auto] gap-2">
 			<Input
 				bind:value={hexInput}
+				dir="ltr"
 				class="h-9 font-mono uppercase [@media(pointer:coarse)]:min-h-11"
 				aria-label={m.color_picker_hex_color()}
 				onchange={commitHex}
@@ -275,7 +276,7 @@
 							type="text"
 							inputmode="numeric"
 							value={Math.round(hsl[key as keyof HSLColor])}
-							class="h-8 px-1.5 text-right text-xs [@media(pointer:coarse)]:h-11"
+							class="h-8 px-1.5 text-end text-xs [@media(pointer:coarse)]:h-11"
 							aria-label={channelLabel as string}
 							onchange={(event) => changeHSL(key as keyof HSLColor, numericValue(event), true)}
 						/>
@@ -300,7 +301,7 @@
 							type="text"
 							inputmode="numeric"
 							value={Math.round(rgb[key as keyof RGBColor])}
-							class="h-8 px-1.5 text-right text-xs [@media(pointer:coarse)]:h-11"
+							class="h-8 px-1.5 text-end text-xs [@media(pointer:coarse)]:h-11"
 							aria-label={channelLabel}
 							onchange={(event) => changeRGB(key as keyof RGBColor, numericValue(event), true)}
 						/>

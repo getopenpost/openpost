@@ -216,7 +216,7 @@
 							/>
 							<div class="relative w-[4.6rem] shrink-0">
 								<span
-									class="pointer-events-none absolute top-1/2 left-1.5 -translate-y-1/2 text-[9px] font-semibold text-[var(--video-editor-muted)]"
+									class="pointer-events-none absolute start-1.5 top-1/2 -translate-y-1/2 text-[9px] font-semibold text-[var(--video-editor-muted)]"
 									>{control.shortLabel}</span
 								>
 								<ScrubField
@@ -228,14 +228,14 @@
 									step={1}
 									precision={0}
 									valueWidth="100%"
-									class="h-[var(--editor-22,22px)] rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-5 pl-4 text-right text-[11px] tabular-nums outline-none"
+									class="h-[var(--editor-22,22px)] rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 ps-4 pe-5 text-end text-[11px] tabular-nums outline-none"
 									onbegin={beginGesture}
 									onValueChange={(next) => writeLive(control.property, next)}
 									onValueCommit={(next) => commitGesture(control.property, next)}
 									onValueCancel={cancelGesture}
 								/>
 								<span
-									class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
+									class="pointer-events-none absolute end-1.5 top-1/2 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
 									>px</span
 								>
 							</div>

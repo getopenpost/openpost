@@ -419,7 +419,7 @@
 			class:top-0={line.type === 'vertical'}
 			class:h-full={line.type === 'vertical'}
 			class:w-px={line.type === 'vertical'}
-			class:left-0={line.type === 'horizontal'}
+			class:start-0={line.type === 'horizontal'}
 			class:h-px={line.type === 'horizontal'}
 			class:w-full={line.type === 'horizontal'}
 			style:left={line.type === 'vertical' ? `${(line.position / canvasWidth) * 100}%` : undefined}

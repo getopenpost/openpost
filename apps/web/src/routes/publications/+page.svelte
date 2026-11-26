@@ -830,7 +830,7 @@
 					<div
 						class="flex flex-wrap items-center justify-between gap-2 border-b border-destructive/10 px-3 py-2"
 					>
-						<div class="ml-auto flex items-center gap-1">
+						<div class="ms-auto flex items-center gap-1">
 							<CopyButton
 								variant="ghost"
 								size="sm"
@@ -1385,7 +1385,7 @@
 									{#if failedJobsInfinite.isFetchingNextPage}
 										<ThemeIcon
 											role="refresh"
-											class="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none"
+											class="me-1.5 size-3.5 animate-spin motion-reduce:animate-none"
 										/>
 									{/if}
 									{m.activity_load_more_jobs({
@@ -1414,7 +1414,7 @@
 						{#if publicationsInfinite.isFetchingNextPage}
 							<ThemeIcon
 								role="refresh"
-								class="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none"
+								class="me-1.5 size-3.5 animate-spin motion-reduce:animate-none"
 							/>
 						{/if}
 						{m.notifications_load_more()}

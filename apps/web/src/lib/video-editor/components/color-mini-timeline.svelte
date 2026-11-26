@@ -441,7 +441,7 @@
 			{@const gradedUrl = gradedThumbnailUrls[item.id]}
 			<button
 				type="button"
-				class="group grid shrink-0 overflow-hidden rounded-[3px] border bg-[var(--timeline-track)] text-left shadow-sm transition-colors {compact
+				class="group grid shrink-0 overflow-hidden rounded-[3px] border bg-[var(--timeline-track)] text-start shadow-sm transition-colors {compact
 					? 'h-12 w-[84px] grid-rows-[14px_1fr_12px]'
 					: 'h-20 w-[118px] grid-rows-[20px_1fr_16px]'} {selectedIds.has(item.id)
 					? 'border-[var(--video-editor-focus-border)] ring-1 ring-[var(--video-editor-focus)]'
@@ -471,7 +471,7 @@
 					<span class="font-mono"
 						>{formatTimelinePreviewTimecode(item.from, timelineStore.fps).slice(0, 8)}</span
 					>
-					<span class="ml-auto truncate text-[9px] text-[var(--video-editor-muted)]"
+					<span class="ms-auto truncate text-[9px] text-[var(--video-editor-muted)]"
 						>{trackNameById.get(item.trackId) || 'V1'}</span
 					>
 				</span>
@@ -498,7 +498,7 @@
 					{/if}
 					{#if grade?.treatment.hasGrade}
 						<span
-							class="pointer-events-none absolute top-1 right-1 flex h-1.5 w-6 overflow-hidden rounded-full border border-black/45 shadow-sm"
+							class="pointer-events-none absolute end-1 top-1 flex h-1.5 w-6 overflow-hidden rounded-full border border-black/45 shadow-sm"
 							aria-hidden="true"
 							data-color-grade-indicator
 						>
@@ -539,11 +539,11 @@
 				class="relative h-[14px] border-b border-[var(--video-editor-border)] bg-[var(--video-editor-control)]"
 			>
 				<div
-					class="absolute inset-y-0 left-0 flex w-11 items-center justify-center border-r border-[var(--video-editor-border)] font-mono text-[9px] text-[var(--video-editor-muted)]"
+					class="absolute inset-y-0 start-0 flex w-11 items-center justify-center border-e border-[var(--video-editor-border)] font-mono text-[9px] text-[var(--video-editor-muted)]"
 				>
 					I/O
 				</div>
-				<div class="absolute inset-y-0 right-0" style={`left:${LABEL_WIDTH}px`}>
+				<div class="absolute inset-y-0 end-0" style={`left:${LABEL_WIDTH}px`}>
 					{#if timelineStore.inPoint !== null || timelineStore.outPoint !== null}
 						{@const rangeStart = timelineStore.inPoint ?? 0}
 						{@const rangeEnd = timelineStore.outPoint ?? maxFrame}
@@ -557,10 +557,10 @@
 			</div>
 
 			<div class="relative h-5 border-b border-[var(--video-editor-border)]">
-				<div class="absolute inset-y-0 right-0" style={`left:${LABEL_WIDTH}px`}>
+				<div class="absolute inset-y-0 end-0" style={`left:${LABEL_WIDTH}px`}>
 					{#each RULER_RATIOS as ratio}
 						<span
-							class="absolute top-0 h-full border-l border-[var(--video-editor-border)] pt-1 pl-1 font-mono text-[8px] text-[var(--video-editor-muted)] first:text-[var(--video-editor-text)]"
+							class="absolute top-0 h-full border-s border-[var(--video-editor-border)] ps-1 pt-1 font-mono text-[8px] text-[var(--video-editor-muted)] first:text-[var(--video-editor-text)]"
 							style={`left:${ratio * 100}%`}
 						>
 							{formatClock(Math.round(ratio * maxFrame))}
@@ -573,19 +573,19 @@
 				<div class="relative h-[86px]">
 					{#each visualTracks as track, index (track.id)}
 						<div
-							class="absolute right-0 left-0 border-b border-[var(--video-editor-border)]"
+							class="absolute start-0 end-0 border-b border-[var(--video-editor-border)]"
 							style={`top:${index * trackRowHeight}px;height:${trackRowHeight}px`}
 						>
 							<span
-								class="absolute inset-y-0 left-0 flex w-8 items-center justify-center truncate border-r border-[var(--video-editor-border)] px-1 text-[9px] font-semibold text-[var(--video-editor-muted)]"
+								class="absolute inset-y-0 start-0 flex w-8 items-center justify-center truncate border-e border-[var(--video-editor-border)] px-1 text-[9px] font-semibold text-[var(--video-editor-muted)]"
 							>
 								{track.name}
 							</span>
-							<div class="absolute inset-y-0 right-0" style={`left:${LABEL_WIDTH}px`}>
+							<div class="absolute inset-y-0 end-0" style={`left:${LABEL_WIDTH}px`}>
 								{#each itemsForTrack(track) as item (item.id)}
 									<button
 										type="button"
-										class="absolute min-w-4 overflow-hidden rounded-[2px] border text-left transition-colors {selectedIds.has(
+										class="absolute min-w-4 overflow-hidden rounded-[2px] border text-start transition-colors {selectedIds.has(
 											item.id
 										)
 											? 'z-10 border-orange-500 bg-orange-500/20 shadow-[0_0_0_1px_rgba(249,115,22,0.45)]'
@@ -605,7 +605,7 @@
 			</div>
 
 			<div
-				class="pointer-events-none absolute top-[14px] right-0 bottom-0"
+				class="pointer-events-none absolute end-0 top-[14px] bottom-0"
 				style={`left:${LABEL_WIDTH}px`}
 			>
 				{#each timelineStore.markers as marker, index (marker.id)}

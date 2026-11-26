@@ -269,7 +269,7 @@
 			>
 				<ThemeIcon role="chevron-down" class="size-3 shrink-0" />
 				<span class="text-[var(--video-editor-muted)]">{m.video_editor_transition_preset()}</span>
-				<span class="ml-auto min-w-0 truncate font-mono text-[10px]"
+				<span class="ms-auto min-w-0 truncate font-mono text-[10px]"
 					>{transitionLabel(definition)}</span
 				>
 			</summary>
@@ -299,7 +299,7 @@
 								{#each matches as candidate (candidate.id)}
 									<button
 										type="button"
-										class="min-h-[25px] rounded px-1.5 py-1 text-left text-[10px] leading-tight hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[selected=true]:bg-[var(--video-editor-selection)] data-[selected=true]:text-[var(--video-editor-selection-text)]"
+										class="min-h-[25px] rounded px-1.5 py-1 text-start text-[10px] leading-tight hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] data-[selected=true]:bg-[var(--video-editor-selection)] data-[selected=true]:text-[var(--video-editor-selection-text)]"
 										data-selected={candidate.id === definition.id}
 										aria-pressed={candidate.id === definition.id}
 										onclick={() => choosePresentation(candidate)}

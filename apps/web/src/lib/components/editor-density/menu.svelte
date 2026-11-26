@@ -44,7 +44,7 @@
 					className
 				)}
 			>
-				<span class="min-w-0 flex-1 truncate text-left">{selectedLabel}</span>
+				<span class="min-w-0 flex-1 truncate text-start">{selectedLabel}</span>
 				<ThemeIcon role="chevron-down" class="size-3 shrink-0" />
 			</button>
 		{/snippet}

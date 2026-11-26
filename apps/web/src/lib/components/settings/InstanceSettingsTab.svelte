@@ -121,7 +121,7 @@
 									size="sm"
 								>
 									{m.settings_instance_view_release()}
-									<ThemeIcon role="external-link" class="ml-1 h-3.5 w-3.5" />
+									<ThemeIcon role="external-link" class="ms-1 h-3.5 w-3.5" />
 								</Button>
 							{/if}
 						</div>

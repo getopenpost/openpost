@@ -155,7 +155,7 @@
 				</div>
 				<div class="flex flex-wrap gap-2">
 					<Button type="button" variant="outline" onclick={() => (imagePickerOpen = true)}>
-						<ThemeIcon role="image" class="mr-2 size-4" />
+						<ThemeIcon role="image" class="me-2 size-4" />
 						{m.settings_change_workspace_image()}
 					</Button>
 					{#if workspaceCtx.settings.avatar_url}
@@ -165,7 +165,7 @@
 							class="text-destructive hover:text-destructive"
 							onclick={() => (workspaceCtx.settings.avatar_url = '')}
 						>
-							<ThemeIcon role="delete" class="mr-2 size-4" />{m.settings_remove()}
+							<ThemeIcon role="delete" class="me-2 size-4" />{m.settings_remove()}
 						</Button>
 					{/if}
 				</div>

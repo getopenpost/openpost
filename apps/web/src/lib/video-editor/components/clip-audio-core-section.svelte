@@ -228,7 +228,7 @@
 					{step}
 					precision={decimals}
 					valueWidth="100%"
-					class="h-[var(--editor-22,22px)] rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-6 pl-1.5 text-right text-[11px] tabular-nums outline-none"
+					class="h-[var(--editor-22,22px)] rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 ps-1.5 pe-6 text-end text-[11px] tabular-nums outline-none"
 					onbegin={() => beginGesture(property)}
 					onValueChange={(next) =>
 						property === 'volume' ? writeGain(next) : writeStatic(property, next)}
@@ -236,7 +236,7 @@
 					onValueCancel={cancelGesture}
 				/>
 				<span
-					class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
+					class="pointer-events-none absolute end-1.5 top-1/2 -translate-y-1/2 text-[9px] text-[var(--video-editor-muted)]"
 					>{unit}</span
 				>
 			</div>

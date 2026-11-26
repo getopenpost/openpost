@@ -51,7 +51,7 @@
 	}: Props = $props();
 
 	const clearShown = $derived(clearVisible ?? value !== '');
-	const fieldClass = $derived(cn('pl-9', onclear && 'pr-10'));
+	const fieldClass = $derived(cn('ps-9', onclear && 'pe-10'));
 
 	function submit() {
 		onsubmit?.();
@@ -61,7 +61,7 @@
 {#snippet field()}
 	<ThemeIcon
 		role="search"
-		class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+		class="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
 	/>
 	<Input
 		type="search"
@@ -82,7 +82,7 @@
 			type="button"
 			variant="ghost"
 			size="icon-sm"
-			class="absolute top-1/2 right-0.5 -translate-y-1/2"
+			class="absolute end-0.5 top-1/2 -translate-y-1/2"
 			aria-label={clearLabel}
 			onclick={() => onclear?.()}
 		>

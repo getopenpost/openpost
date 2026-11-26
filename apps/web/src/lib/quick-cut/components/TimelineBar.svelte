@@ -168,7 +168,7 @@
 			{#each visibleSegments as seg (seg.id)}
 				<button
 					type="button"
-					class="absolute top-0 z-20 h-4 rounded-sm border text-left transition {selectedId ===
+					class="absolute top-0 z-20 h-4 rounded-sm border text-start transition {selectedId ===
 					seg.id
 						? 'border-primary bg-primary/20 shadow'
 						: 'border-primary/30 bg-primary/10 hover:bg-primary/15'}"

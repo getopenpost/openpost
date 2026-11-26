@@ -561,7 +561,7 @@
 				>{saving ? m.workflows_saving() : dirty ? m.workflows_unsaved() : m.workflows_saved()}</span
 			>{/if}
 		<div class="col-span-3 flex flex-wrap items-center justify-between gap-2 sm:contents">
-			<div class="flex items-center gap-1 sm:ml-auto">
+			<div class="flex items-center gap-1 sm:ms-auto">
 				<Tabs.Root
 					value={panel === 'runs' ? 'runs' : 'editor'}
 					onValueChange={(next) => {
@@ -655,7 +655,7 @@
 			{#if panel === 'runs'}
 				<div class="grid h-full min-h-0 grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]">
 					<aside
-						class="min-h-0 overflow-auto border-r bg-card p-3 {selectedRun
+						class="min-h-0 overflow-auto border-e bg-card p-3 {selectedRun
 							? 'hidden md:block'
 							: ''}"
 					>
@@ -675,7 +675,7 @@
 							/>{/if}
 						{#each runsQuery.data ?? [] as run}<button
 								type="button"
-								class="mb-2 w-full rounded-lg border p-3 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring {selectedRun ===
+								class="mb-2 w-full rounded-lg border p-3 text-start hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring {selectedRun ===
 								run.id
 									? 'border-ring'
 									: ''}"
@@ -769,7 +769,7 @@
 					}}
 				/>
 				<div
-					class="absolute top-3 left-3 flex max-w-[calc(100%-76px)] flex-wrap items-center gap-2"
+					class="absolute start-3 top-3 flex max-w-[calc(100%-76px)] flex-wrap items-center gap-2"
 				>
 					<Button variant="outline" size="sm" onclick={() => canvas?.organize()}
 						><ThemeIcon role="repeat" class="size-4" />{m.workflows_organize()}</Button
@@ -794,7 +794,7 @@
 						>{/if}
 				</div>
 				<Button
-					class="absolute top-3 right-3"
+					class="absolute end-3 top-3"
 					variant="outline"
 					size="icon"
 					disabled={!canEdit}
@@ -806,7 +806,7 @@
 					}}><ThemeIcon role="add" class="size-5" /></Button
 				>
 				<div
-					class="absolute right-3 bottom-3 flex items-center gap-2 rounded-lg border bg-card p-2 shadow-sm"
+					class="absolute end-3 bottom-3 flex items-center gap-2 rounded-lg border bg-card p-2 shadow-sm"
 				>
 					<Button
 						variant="ghost"
@@ -849,7 +849,7 @@
 				bind:ref={inspectorElement}
 				data-workflow-inspector
 				showCloseButton={false}
-				class="top-auto bottom-0 left-0 flex h-[calc(100dvh-0.75rem)] max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-t-xl rounded-b-none p-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:h-[min(900px,calc(100dvh-3rem))] sm:w-[calc(100vw-3rem)] sm:max-w-[1600px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
+				class="start-0 top-auto bottom-0 flex h-[calc(100dvh-0.75rem)] max-h-none w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-t-xl rounded-b-none p-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:h-[min(900px,calc(100dvh-3rem))] sm:w-[calc(100vw-3rem)] sm:max-w-[1600px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
 				onOpenAutoFocus={(event) => {
 					// A delayed initial focus can interrupt typing in a field the user already chose.
 					event.preventDefault();

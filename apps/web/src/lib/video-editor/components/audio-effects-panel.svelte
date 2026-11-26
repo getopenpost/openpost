@@ -315,7 +315,7 @@
 											data-reorder-direction="down"
 											onclick={(event) => move(event, index, index + 1)}>↓</Button
 										>
-										<span class="ml-1 self-center text-xs text-[var(--video-editor-muted)]"
+										<span class="ms-1 self-center text-xs text-[var(--video-editor-muted)]"
 											>{m.video_editor_audio_effects_order({
 												position: index + 1,
 												total: effects.length

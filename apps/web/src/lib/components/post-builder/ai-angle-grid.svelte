@@ -84,7 +84,7 @@
 				/>
 				<label
 					for={`${uid}-angle-${index}`}
-					class={`relative block cursor-pointer rounded-lg border bg-card p-4 text-left transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:outline-none peer-disabled:pointer-events-none peer-disabled:opacity-50 hover:border-foreground/25 hover:bg-muted/15 ${selected ? 'border-primary bg-primary/3' : ''} ${angle.preservesCurrentAngle ? 'md:col-span-2' : ''}`}
+					class={`relative block cursor-pointer rounded-lg border bg-card p-4 text-start transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:outline-none peer-disabled:pointer-events-none peer-disabled:opacity-50 hover:border-foreground/25 hover:bg-muted/15 ${selected ? 'border-primary bg-primary/3' : ''} ${angle.preservesCurrentAngle ? 'md:col-span-2' : ''}`}
 				>
 					<div class="flex items-start gap-3">
 						<div class="min-w-0 flex-1">

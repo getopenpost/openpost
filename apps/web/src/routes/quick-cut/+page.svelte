@@ -1896,7 +1896,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="quick-cut-workspace video-editor-theme">
+<div dir="ltr" class="quick-cut-workspace video-editor-theme">
 	{#if sources.length > 0}
 		<EditorHeader>
 			{#snippet identity()}
@@ -2067,7 +2067,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 							<li>
 								<button
 									type="button"
-									class="w-full rounded-lg border bg-card p-4 text-left hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+									class="w-full rounded-lg border bg-card p-4 text-start hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
 									disabled={openingProjectId !== null}
 									onclick={() => void openCloudProject(item)}
 								>
@@ -2084,7 +2084,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 							<li>
 								<button
 									type="button"
-									class="w-full rounded-lg border bg-card p-4 text-left hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+									class="w-full rounded-lg border bg-card p-4 text-start hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
 									disabled={openingProjectId !== null}
 									onclick={() => void openLocalProject(item.id)}
 								>
@@ -2279,7 +2279,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 									onclick={addSegment}>{m.quick_cut_keep_selection()}</Button
 								>
 							</div>
-							<div class="ml-auto flex flex-wrap items-center gap-1">
+							<div class="ms-auto flex flex-wrap items-center gap-1">
 								<Button
 									size="sm"
 									variant="ghost"
@@ -2597,7 +2597,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 							onSeek={seekTo}
 							onSelect={onSelectSegment}
 						/>
-						<ToolbarGroup class="ml-auto h-auto shrink-0 border-0 bg-transparent">
+						<ToolbarGroup class="ms-auto h-auto shrink-0 border-0 bg-transparent">
 							<Button
 								size="icon-sm"
 								variant="ghost"

@@ -4,6 +4,7 @@ import {
 	defaultTransform,
 	imageEditorID
 } from './document';
+import { replaceEqualDeep } from '@tanstack/svelte-query';
 import type { ImageEditorDocument, ImageEditorLayer } from './types';
 import { defaultLayerEffects } from './effects';
 import { imageEditorPageDimensions } from './page-dimensions';
@@ -15,6 +16,8 @@ export type ImageEditorRasterOperation =
 	| 'flatten_page';
 
 export interface ImageEditorRasterPlan {
+	/** The design the plan was prepared for; equal content in another design is never current. */
+	designID?: string;
 	sourceDocument: ImageEditorDocument;
 	pageID: string;
 	kind: ImageEditorRasterOperation;
@@ -37,7 +40,8 @@ export function prepareRasterOperation(
 	document: ImageEditorDocument,
 	pageID: string,
 	selectedIDs: readonly string[],
-	kind: ImageEditorRasterOperation
+	kind: ImageEditorRasterOperation,
+	designID?: string
 ): ImageEditorRasterPlan | null {
 	const page = document.pages.find((page) => page.id === pageID);
 	if (!page || page.layers.length === 0) return null;
@@ -120,6 +124,7 @@ export function prepareRasterOperation(
 					Math.ceil(Math.max(...roots.map((layer) => layer.transform.y + layer.transform.height)))
 				);
 	return {
+		designID,
 		sourceDocument: document,
 		pageID,
 		kind,
@@ -134,6 +139,28 @@ export function prepareRasterOperation(
 			height: Math.max(1, bottom - y)
 		}
 	};
+}
+
+function withoutPagePreviews(document: ImageEditorDocument): ImageEditorDocument {
+	return {
+		...document,
+		pages: document.pages.map(({ preview_media_id: _preview, ...page }) => page)
+	};
+}
+
+/**
+ * A plan stays valid while the authored document is unchanged. Autosave and
+ * cover-preview attachment replace the document object without editing it, so
+ * identity alone would discard a bake that is still rendering or uploading.
+ */
+export function rasterPlanIsCurrent(
+	plan: ImageEditorRasterPlan,
+	document: ImageEditorDocument | null | undefined
+): boolean {
+	if (!document) return false;
+	if (document === plan.sourceDocument) return true;
+	const source = withoutPagePreviews(plan.sourceDocument);
+	return replaceEqualDeep(source, withoutPagePreviews(document)) === source;
 }
 
 export function rasterRenderDocument(plan: ImageEditorRasterPlan): ImageEditorDocument {

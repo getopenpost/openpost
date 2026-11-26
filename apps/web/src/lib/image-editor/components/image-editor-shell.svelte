@@ -14,6 +14,7 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import {
 		prepareRasterOperation,
+		rasterPlanIsCurrent,
 		rasterRenderDocument,
 		type ImageEditorRasterOperation
 	} from '../raster-operations';
@@ -1849,7 +1850,13 @@
 				!editor.floatingPixelSelection &&
 				!editor.colorPreviewActive &&
 				editor.document &&
-				prepareRasterOperation(editor.document, editor.activePageID, editor.selectedLayerIDs, id)
+				prepareRasterOperation(
+					editor.document,
+					editor.activePageID,
+					editor.selectedLayerIDs,
+					id,
+					editor.id
+				)
 			);
 		if (id === 'delete' || id === 'cut') {
 			const targets = editor.pixelSelection?.targetLayerIDs ?? editor.selectedLayerIDs;
@@ -2179,7 +2186,8 @@
 			editor.document,
 			editor.activePageID,
 			editor.selectedLayerIDs,
-			kind
+			kind,
+			editor.id
 		);
 		if (!plan) return;
 		const designID = editor.id;
@@ -2192,7 +2200,11 @@
 			const snapshot = rasterRenderDocument(plan);
 			const rendered = await renderImageEditorPage(snapshot, snapshot.pages[0], 0, abort.signal);
 			const raster = await cropRasterResult(plan, rendered.blob, abort.signal);
-			if (!editorViewActive || editor.id !== designID || editor.document !== plan.sourceDocument)
+			if (
+				!editorViewActive ||
+				editor.id !== designID ||
+				!rasterPlanIsCurrent(plan, editor.document)
+			)
 				throw new Error(m.image_editor_raster_stale());
 			const file = new File([raster.blob], rendered.filename, { type: 'image/png' });
 			const media = guestMode

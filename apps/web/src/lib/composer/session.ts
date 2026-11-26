@@ -53,7 +53,7 @@ export type ComposerClientErrorCategory =
 	| 'not_ready'
 	| 'unavailable';
 
-export const composerErrorCodes = [
+const composerErrorCodes = [
 	'publication_request_failed',
 	'publication_workspace_mismatch',
 	'session_content_missing',
@@ -239,10 +239,6 @@ export class ComposerSession {
 
 	get snapshot(): Readonly<ComposerSessionSnapshot> {
 		return structuredClone(this.#snapshot);
-	}
-
-	get draft(): Readonly<PublicationDraft> | null {
-		return this.#draft ? structuredClone(this.#draft) : null;
 	}
 
 	subscribe(listener: (snapshot: Readonly<ComposerSessionSnapshot>) => void): () => void {

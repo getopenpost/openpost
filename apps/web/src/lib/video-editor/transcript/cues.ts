@@ -103,18 +103,3 @@ export function buildCuesFromWords(
 
 	return cues;
 }
-
-/**
- * Convert word timings into removal ranges (timeline frames, relative to an
- * item's source window start) for filler-word or manual word deletion.
- */
-export function wordRangesToSourceFrames(
-	words: TranscriptWord[],
-	fps: number,
-	offsetSeconds = 0
-): Array<{ startFrame: number; endFrame: number }> {
-	return words.map((word) => ({
-		startFrame: Math.max(0, Math.round((word.startSeconds - offsetSeconds) * fps)),
-		endFrame: Math.round((word.endSeconds - offsetSeconds) * fps)
-	}));
-}

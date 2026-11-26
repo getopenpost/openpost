@@ -36,6 +36,7 @@ import (
 	"github.com/openpost/backend/internal/diagnostics"
 	"github.com/openpost/backend/internal/imageprepare"
 	"github.com/openpost/backend/internal/memes"
+	"github.com/openpost/backend/internal/netguard"
 	operationallogging "github.com/openpost/backend/internal/operational/logging"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/queue"
@@ -236,6 +237,11 @@ func main() {
 	if err := cfg.ValidateRuntime(); err != nil {
 		fatalWithDiagnostics(diagnosticsReporter, err)
 	}
+	allowedPrivateNetworks, err := cfg.AllowedPrivateNetworks()
+	if err != nil {
+		fatalWithDiagnostics(diagnosticsReporter, err)
+	}
+	netguard.AllowPrivateNetworks(allowedPrivateNetworks)
 	telemetryRecorder, err := telemetry.New(telemetry.Config{
 		Enabled:         cfg.TelemetryEnabled,
 		ProjectToken:    cfg.PostHogProjectToken,

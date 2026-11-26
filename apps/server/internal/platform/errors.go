@@ -41,12 +41,16 @@ func (e *HTTPError) Error() string {
 
 func NewHTTPError(statusCode int, headers http.Header, responseBody []byte) error {
 	code, subcode, traceID := providerErrorMetadata(responseBody)
+	retryAfter := parseRetryAfter(headers.Get("Retry-After"), time.Now().UTC())
+	if metaDelay := parseMetaUsageRetryAfter(headers); metaDelay > retryAfter {
+		retryAfter = metaDelay
+	}
 	return &HTTPError{
 		StatusCode: statusCode,
 		Code:       code,
 		Subcode:    subcode,
 		TraceID:    traceID,
-		RetryAfter: parseRetryAfter(headers.Get("Retry-After"), time.Now().UTC()),
+		RetryAfter: retryAfter,
 	}
 }
 
@@ -175,6 +179,9 @@ var metaExactMappings = map[metaCodeKey]metaMapping{
 	// Graph cannot access this object or perform the requested operation.
 	// This can reflect permissions or object availability, not only deletion.
 	{code: "100", subcode: "33"}: {status: http.StatusBadRequest, code: metaUnavailableTargetCode},
+	// Meta timed out fetching the media URL during container creation; retrying
+	// container creation is safe and transient.
+	{code: "-2", subcode: "2207003"}: {status: http.StatusServiceUnavailable, code: "meta:media_download_timeout:2207003"},
 }
 
 // metaCodeMappings classifies by code alone. 2207082/2207085 come from
@@ -189,8 +196,14 @@ var metaCodeMappings = map[string]metaMapping{
 	"200":     {status: http.StatusForbidden, code: "meta:permission:200"},
 	"4":       {status: http.StatusTooManyRequests, code: "meta:rate_limit:4"},
 	"17":      {status: http.StatusTooManyRequests, code: "meta:rate_limit:17"},
+	"32":      {status: http.StatusTooManyRequests, code: "meta:rate_limit:32"},
+	"613":     {status: http.StatusTooManyRequests, code: "meta:rate_limit:613"},
+	"80000":   {status: http.StatusTooManyRequests, code: "meta:rate_limit:80000"},
 	"80001":   {status: http.StatusTooManyRequests, code: "meta:rate_limit:80001"},
 	"80002":   {status: http.StatusTooManyRequests, code: "meta:rate_limit:80002"},
+	"80003":   {status: http.StatusTooManyRequests, code: "meta:rate_limit:80003"},
+	"80004":   {status: http.StatusTooManyRequests, code: "meta:rate_limit:80004"},
+	"80006":   {status: http.StatusTooManyRequests, code: "meta:rate_limit:80006"},
 	"1":       {status: http.StatusBadRequest, code: "meta:rejected:1"},
 	"2":       {status: http.StatusServiceUnavailable, code: "meta:transient:2"},
 }
@@ -264,4 +277,41 @@ func parseRetryAfter(value string, now time.Time) time.Duration {
 		return retryAt.Sub(now)
 	}
 	return 0
+}
+
+const maxMetaUsageRetryAfter = 60 * time.Minute
+
+// parseMetaUsageRetryAfter extracts estimated_time_to_regain_access (in minutes)
+// from Meta's X-Business-Use-Case-Usage response header so rate-limited calls
+// respect Meta's advertised cooldown window.
+func parseMetaUsageRetryAfter(headers http.Header) time.Duration {
+	if headers == nil {
+		return 0
+	}
+	raw := strings.TrimSpace(headers.Get("X-Business-Use-Case-Usage"))
+	if raw == "" || len(raw) > 64*1024 {
+		return 0
+	}
+	var buckets map[string][]struct {
+		EstimatedTimeToRegainAccess int `json:"estimated_time_to_regain_access"`
+	}
+	if json.Unmarshal([]byte(raw), &buckets) != nil {
+		return 0
+	}
+	maxMinutes := 0
+	for _, entries := range buckets {
+		for _, entry := range entries {
+			if entry.EstimatedTimeToRegainAccess > maxMinutes {
+				maxMinutes = entry.EstimatedTimeToRegainAccess
+			}
+		}
+	}
+	if maxMinutes <= 0 {
+		return 0
+	}
+	delay := time.Duration(maxMinutes) * time.Minute
+	if delay > maxMetaUsageRetryAfter {
+		return maxMetaUsageRetryAfter
+	}
+	return delay
 }

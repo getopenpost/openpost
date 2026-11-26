@@ -197,7 +197,7 @@ export async function downloadRenderedPages(
 	downloadBlob(archive, imageEditorArchiveFilename(title));
 }
 
-export async function createRenderedPagesArchive(
+async function createRenderedPagesArchive(
 	pages: ImageEditorRenderedPage[],
 	signal?: AbortSignal
 ): Promise<Blob> {

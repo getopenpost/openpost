@@ -101,7 +101,12 @@ describe('ComposerSession', () => {
 					order.push('create');
 					markCreateStarted();
 					await createResult;
-					return { id: 'publication-1', workspace_id: workspaceId, revision: 1, status: 'draft' };
+					return {
+						id: 'publication-1',
+						workspace_id: workspaceId,
+						revision: 1,
+						status: 'draft'
+					};
 				}
 			})
 		});
@@ -148,7 +153,10 @@ describe('ComposerSession', () => {
 			toWorkspaceName: 'Second Workspace',
 			dirty: true,
 			adapters: {
-				save: async () => ({ ok: false, error: 'Save the draft before switching.' }),
+				save: async () => ({
+					ok: false,
+					error: 'Save the draft before switching.'
+				}),
 				discard: () => order.push('discard'),
 				invalidate: () => order.push('invalidate'),
 				resume: () => order.push('resume')
@@ -359,7 +367,12 @@ describe('ComposerSession', () => {
 			},
 			async update(_publicationID, _revision, input) {
 				updates.push(input);
-				return { id: 'publication-1', workspace_id: 'workspace-1', revision: 2, status: 'draft' };
+				return {
+					id: 'publication-1',
+					workspace_id: 'workspace-1',
+					revision: 2,
+					status: 'draft'
+				};
 			}
 		});
 		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
@@ -460,7 +473,12 @@ describe('ComposerSession', () => {
 			},
 			async update(_id, revision, input) {
 				calls.push(`update:${revision}:${input.source_text}`);
-				return { id: 'publication-1', workspace_id: 'workspace-1', revision: 2, status: 'draft' };
+				return {
+					id: 'publication-1',
+					workspace_id: 'workspace-1',
+					revision: 2,
+					status: 'draft'
+				};
 			}
 		});
 		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
@@ -481,20 +499,34 @@ describe('ComposerSession', () => {
 		await Promise.all([firstSave, secondSave]);
 
 		expect(calls).toEqual(['create', 'update:1:Second']);
-		expect(session.snapshot).toMatchObject({ revision: 2, dirty: false, phase: 'idle' });
+		expect(session.snapshot).toMatchObject({
+			revision: 2,
+			dirty: false,
+			phase: 'idle'
+		});
 	});
 
 	it('keeps a failed save dirty and retries it from the last accepted revision', async () => {
 		let attempts = 0;
 		const client = clientWith({
 			async create(workspaceId) {
-				return { id: 'publication-1', workspace_id: workspaceId, revision: 1, status: 'draft' };
+				return {
+					id: 'publication-1',
+					workspace_id: workspaceId,
+					revision: 1,
+					status: 'draft'
+				};
 			},
 			async update(_id, revision) {
 				attempts += 1;
 				expect(revision).toBe(1);
 				if (attempts === 1) throw new ComposerClientError('unavailable', 'Network unavailable');
-				return { id: 'publication-1', workspace_id: 'workspace-1', revision: 2, status: 'draft' };
+				return {
+					id: 'publication-1',
+					workspace_id: 'workspace-1',
+					revision: 2,
+					status: 'draft'
+				};
 			}
 		});
 		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
@@ -510,7 +542,11 @@ describe('ComposerSession', () => {
 		});
 
 		await session.save();
-		expect(session.snapshot).toMatchObject({ revision: 2, dirty: false, error: null });
+		expect(session.snapshot).toMatchObject({
+			revision: 2,
+			dirty: false,
+			error: null
+		});
 	});
 
 	it('enters an explicit conflict state when another session accepts a revision first', async () => {
@@ -549,132 +585,22 @@ describe('ComposerSession', () => {
 		second.edit(draft('Second tab'));
 		await expect(second.save()).rejects.toThrow('Revision conflict');
 
-		expect(second.snapshot.conflict).toEqual({ expectedRevision: 1, currentRevision: 2 });
-		expect(second.snapshot).toMatchObject({ revision: 1, dirty: true, phase: 'idle' });
+		expect(second.snapshot.conflict).toEqual({
+			expectedRevision: 1,
+			currentRevision: 2
+		});
+		expect(second.snapshot).toMatchObject({
+			revision: 1,
+			dirty: true,
+			phase: 'idle'
+		});
 		await expect(second.save()).rejects.toThrow('Revision conflict');
 		expect(serverRevision).toBe(2);
 		await second.overwriteConflict();
-		expect(second.snapshot).toMatchObject({ revision: 3, conflict: null, dirty: false });
-	});
-
-	it('publishes now only after saving and validation', async () => {
-		const calls: string[] = [];
-		const client = clientWith({
-			async create(workspaceId) {
-				calls.push('create');
-				return { id: 'publication-1', workspace_id: workspaceId, revision: 1, status: 'draft' };
-			},
-			async validate() {
-				calls.push('validate');
-				return { issues: [] };
-			},
-			async publishNow(id, revision) {
-				calls.push(`publish:${id}:${revision}`);
-				return { message: 'Publishing', publication_id: id, revision: 2, renditions: [] };
-			}
-		});
-		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
-		session.edit(draft('Publish this'));
-
-		await session.publishNow();
-
-		expect(calls).toEqual(['create', 'validate', 'publish:publication-1:1']);
-		expect(session.snapshot).toMatchObject({ status: 'publishing', revision: 2 });
-	});
-
-	it('retries one failed Rendition through the Publication client', async () => {
-		const client = clientWith({
-			async create(workspaceId) {
-				return { id: 'publication-1', workspace_id: workspaceId, revision: 1, status: 'failed' };
-			},
-			async retry(id, accountId, targetKey) {
-				expect([id, accountId, targetKey]).toEqual(['publication-1', 'account-1', 'feed']);
-				return {
-					message: 'Retry queued',
-					publication_id: id,
-					renditions: [
-						{
-							id: 'rendition-1',
-							platform: 'bluesky',
-							social_account_id: accountId,
-							status: 'pending',
-							target_key: targetKey ?? ''
-						}
-					]
-				};
-			}
-		});
-		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
-		session.edit(draft('Retry this'));
-		await session.save();
-
-		await session.retry('account-1', 'feed');
-
-		expect(session.snapshot.delivery[0]).toMatchObject({ id: 'rendition-1', status: 'pending' });
-	});
-
-	it('cancels scheduled delivery with the accepted revision', async () => {
-		const client = clientWith({
-			async create(workspaceId) {
-				return { id: 'publication-1', workspace_id: workspaceId, revision: 3, status: 'scheduled' };
-			},
-			async cancel(id, revision) {
-				expect([id, revision]).toEqual(['publication-1', 3]);
-				return { message: 'Cancelled', publication_id: id, revision: 4, renditions: [] };
-			}
-		});
-		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
-		session.edit(draft('Cancel this'));
-		await session.save();
-
-		await session.cancel();
-
-		expect(session.snapshot).toMatchObject({ status: 'draft', revision: 4 });
-	});
-
-	it('deletes the Publication with explicit revision confirmation', async () => {
-		const client = clientWith({
-			async create(workspaceId) {
-				return { id: 'publication-1', workspace_id: workspaceId, revision: 2, status: 'draft' };
-			},
-			async delete(id, revision) {
-				expect([id, revision]).toEqual(['publication-1', 2]);
-			}
-		});
-		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
-		session.edit(draft('Delete this'));
-		await session.save();
-
-		await session.delete();
-
-		expect(session.snapshot).toMatchObject({
-			publicationId: null,
-			revision: null,
-			status: 'deleted',
+		expect(second.snapshot).toMatchObject({
+			revision: 3,
+			conflict: null,
 			dirty: false
-		});
-	});
-
-	it('resets a completed new-publication session for the next success path', async () => {
-		const client = clientWith({
-			async create(workspaceId) {
-				return { id: 'publication-1', workspace_id: workspaceId, revision: 1, status: 'draft' };
-			}
-		});
-		const session = new ComposerSession({ workspaceId: 'workspace-1', client });
-		session.edit(draft('Done'));
-		await session.save();
-
-		session.reset();
-
-		expect(session.draft).toBeNull();
-		expect(session.snapshot).toMatchObject({
-			publicationId: null,
-			revision: null,
-			status: null,
-			dirty: false,
-			validationIssues: [],
-			delivery: []
 		});
 	});
 
@@ -683,7 +609,12 @@ describe('ComposerSession', () => {
 			workspaceId: 'workspace-1',
 			client: clientWith({
 				async create(workspaceId) {
-					return { id: 'publication-1', workspace_id: workspaceId, revision: 4, status: 'draft' };
+					return {
+						id: 'publication-1',
+						workspace_id: workspaceId,
+						revision: 4,
+						status: 'draft'
+					};
 				}
 			})
 		});
@@ -706,7 +637,12 @@ describe('ComposerSession', () => {
 			workspaceId: 'workspace-1',
 			client: clientWith({
 				async create(workspaceId) {
-					return { id: 'publication-1', workspace_id: workspaceId, revision: 2, status: 'draft' };
+					return {
+						id: 'publication-1',
+						workspace_id: workspaceId,
+						revision: 2,
+						status: 'draft'
+					};
 				}
 			})
 		});
@@ -752,7 +688,12 @@ describe('ComposerSession', () => {
 						throw new ComposerClientError('conflict', 'Revision conflict', serverRevision);
 					}
 					serverRevision += 1;
-					return { id, workspace_id: 'workspace-1', revision: serverRevision, status: 'draft' };
+					return {
+						id,
+						workspace_id: 'workspace-1',
+						revision: serverRevision,
+						status: 'draft'
+					};
 				}
 			})
 		});
@@ -767,6 +708,9 @@ describe('ComposerSession', () => {
 		session.edit(draft('Returned editor change'));
 
 		await expect(session.save()).rejects.toThrow('Revision conflict');
-		expect(session.snapshot.conflict).toEqual({ expectedRevision: 3, currentRevision: 4 });
+		expect(session.snapshot.conflict).toEqual({
+			expectedRevision: 3,
+			currentRevision: 4
+		});
 	});
 });

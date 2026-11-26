@@ -88,26 +88,6 @@ export function updateEffect(
 	});
 }
 
-/** Append a new enabled GPU effect with its registry defaults. One undoable step. */
-export function addGpuEffect(itemId: string, effectId: string): boolean {
-	return execute('ADD_GPU_EFFECT', () => {
-		const item = editableEffectItem(itemId);
-		if (!item) return false;
-		if (!getGpuEffect(effectId)) return false;
-		const next: GpuEffect = {
-			id: crypto.randomUUID(),
-			type: 'gpu',
-			effectId,
-			params: defaultGpuParams(getGpuEffect(effectId)?.schema ?? []),
-			enabled: true
-		};
-		timelineStore._updateItems([
-			{ id: itemId, patch: { effects: [...(item.effects ?? []), next] } }
-		]);
-		return true;
-	});
-}
-
 /** Apply one effect template stack to multiple visual clips as one undo step. */
 export function addEffectTemplates(
 	itemIds: readonly string[],

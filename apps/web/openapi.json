@@ -74,7 +74,7 @@
 						"type": "string"
 					},
 					"expires_at": {
-						"description": "Token expiry time",
+						"description": "Token expiry time. Omitted when the token never expires.",
 						"type": "string"
 					},
 					"id": {
@@ -4769,7 +4769,7 @@
 						"type": "string"
 					},
 					"expires_at": {
-						"description": "Expiry time. Omitted or null defaults to 90 days; the maximum lifetime is one year.",
+						"description": "Expiry time. Omitted or null defaults to 90 days; the maximum lifetime is one year. Use never_expires for a token without an expiry.",
 						"format": "date-time",
 						"type": ["string", "null"]
 					},
@@ -4778,6 +4778,10 @@
 						"maxLength": 120,
 						"minLength": 1,
 						"type": "string"
+					},
+					"never_expires": {
+						"description": "Create a token that never expires. It stays valid until it is revoked. Cannot be combined with expires_at. An organization token lifetime policy still applies.",
+						"type": "boolean"
 					},
 					"scope": {
 						"description": "Token scope. Defaults to cli:full.",

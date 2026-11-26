@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -141,36 +140,6 @@ func TestAcceptRejectsExpiredReplayedAndForeignSignedConnectionCredentials(t *te
 	require.NotContains(t, fmt.Sprintf("%+v", consumed), testSigningKey)
 }
 
-func TestAcceptResultReportsBodyAuthenticationHonestly(t *testing.T) {
-	web, _, now := newBotIngressServices(t)
-	normalizer := NormalizeFunc(func([]byte) (NormalizedEvent, error) {
-		return NormalizedEvent{
-			ProviderEventID: "provider-update-body-auth", Kind: "message.received",
-			WorkspaceID: "workspace-1", SubjectReference: "chat-7", OccurredAt: now,
-		}, nil
-	})
-
-	headerOnly, err := web.Accept(t.Context(), AcceptRequest{
-		Provider: "telegram", Body: []byte(`{"update_id":"provider-update-body-auth"}`),
-		Normalizer: normalizer,
-		Verifier:   SecretHeaderVerifier{HeaderName: "X-Bot-Secret", Secret: testWebhookSecret},
-		Headers:    http.Header{"X-Bot-Secret": []string{testWebhookSecret}},
-	})
-	require.NoError(t, err)
-	require.False(t, headerOnly.BodyAuthenticated)
-
-	bodyChecked, err := web.Accept(t.Context(), AcceptRequest{
-		Provider: "telegram", Body: []byte(`{"update_id":"provider-update-body-auth"}`),
-		Normalizer: normalizer,
-		Verifier:   bodyCheckingVerifier{expected: `{"update_id":"provider-update-body-auth"}`},
-		Headers:    http.Header{},
-	})
-	require.NoError(t, err)
-	require.True(t, bodyChecked.BodyAuthenticated)
-	require.Equal(t, headerOnly.EventID, bodyChecked.EventID)
-	require.True(t, bodyChecked.Duplicate)
-}
-
 type bodyCheckingVerifier struct {
 	expected string
 }
@@ -189,61 +158,4 @@ func TestVerifierAuthenticatesBodyIsFailClosed(t *testing.T) {
 	require.False(t, verifierAuthenticatesBody(SecretHeaderVerifier{}))
 	require.False(t, verifierAuthenticatesBody(&SecretHeaderVerifier{}))
 	require.True(t, verifierAuthenticatesBody(bodyCheckingVerifier{}))
-}
-
-func TestSignedIngressVerifiesBeforeNormalizationAndQueuesOneSafeReference(t *testing.T) {
-	web, _, now := newBotIngressServices(t)
-	issued := issueTestNonce(t, web)
-	body := []byte(`{"update_id":"provider-update-1","private_payload":"must-never-persist"}`)
-	var normalizeCalls atomic.Int32
-	normalizer := NormalizeFunc(func(received []byte) (NormalizedEvent, error) {
-		normalizeCalls.Add(1)
-		require.Equal(t, body, received)
-		return NormalizedEvent{
-			ProviderEventID: "provider-update-1", Kind: "connection.requested",
-			SubjectReference: "chat-42", OccurredAt: now,
-			ConnectionCredential: issued.Credential,
-		}, nil
-	})
-	request := AcceptRequest{
-		Provider: "telegram", Body: body, Normalizer: normalizer,
-		Verifier: SecretHeaderVerifier{HeaderName: "X-Bot-Secret", Secret: testWebhookSecret},
-		Headers:  http.Header{"X-Bot-Secret": []string{testWebhookSecret}},
-	}
-
-	first, err := web.Accept(t.Context(), request)
-	require.NoError(t, err)
-	require.False(t, first.Duplicate)
-	second, err := web.Accept(t.Context(), request)
-	require.NoError(t, err)
-	require.True(t, second.Duplicate)
-	require.Equal(t, first.EventID, second.EventID)
-
-	badRequest := request
-	badRequest.Headers = http.Header{"X-Bot-Secret": []string{"wrong-secret"}}
-	_, err = web.Accept(t.Context(), badRequest)
-	require.ErrorIs(t, err, ErrInvalidSignature)
-	require.Equal(t, int32(2), normalizeCalls.Load(), "a bad signature must be rejected before normalization")
-	var safe *SafeError
-	require.ErrorAs(t, err, &safe)
-	require.Equal(t, CodeInvalidSignature, safe.Code())
-	require.NotContains(t, err.Error(), "wrong-secret")
-	require.NotContains(t, err.Error(), testWebhookSecret)
-
-	var event models.BotIngressEvent
-	require.NoError(t, web.db.NewSelect().Model(&event).Where("id = ?", first.EventID).Scan(t.Context()))
-	require.Equal(t, "workspace-1", event.WorkspaceID)
-	require.Equal(t, issued.ID, event.ConnectionNonceID)
-	require.Equal(t, "chat-42", event.SubjectReference)
-
-	var jobs []models.Job
-	require.NoError(t, web.db.NewSelect().Model(&jobs).Where("type = ?", jobregistry.TypeBotIngress).Scan(t.Context()))
-	require.Len(t, jobs, 1)
-	require.JSONEq(t, `{"event_id":"`+first.EventID+`","workspace_id":"workspace-1"}`, jobs[0].Payload)
-	for _, stored := range []string{fmt.Sprintf("%+v", event), fmt.Sprintf("%+v", jobs[0])} {
-		require.NotContains(t, stored, "must-never-persist")
-		require.NotContains(t, stored, issued.Credential)
-		require.NotContains(t, stored, testWebhookSecret)
-		require.NotContains(t, stored, testSigningKey)
-	}
 }

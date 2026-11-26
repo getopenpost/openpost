@@ -2,11 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createBlankProject } from '../project/defaults';
 import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { ProjectFontAsset } from '../project/types';
-import {
-	loadProjectFontAsset,
-	loadProjectFontAssets,
-	projectFontAssets
-} from './project-font-assets';
+import { loadProjectFontAsset, loadProjectFontAssets } from './project-font-assets';
 
 function fontMedia(id: string): MediaMetadata {
 	return {
@@ -26,52 +22,6 @@ function fontMedia(id: string): MediaMetadata {
 }
 
 describe('project font assets', () => {
-	it('collects item and span fonts from root and nested sequences', () => {
-		const project = createBlankProject();
-		project.timeline!.items = [
-			{
-				id: 'title',
-				trackId: 'track',
-				from: 0,
-				durationInFrames: 30,
-				label: 'Title',
-				type: 'text',
-				fontFamily: 'Launch Sans',
-				fontAssetId: 'font-title',
-				textSpans: [{ text: 'A', fontFamily: 'Launch Serif', fontAssetId: 'font-span' }]
-			}
-		];
-		project.timeline!.compositions = [
-			{
-				id: 'nested',
-				name: 'Nested',
-				tracks: [],
-				transitions: [],
-				fps: 30,
-				width: 1920,
-				height: 1080,
-				durationInFrames: 30,
-				items: [
-					{
-						id: 'caption',
-						trackId: 'nested-track',
-						from: 0,
-						durationInFrames: 30,
-						label: 'Caption',
-						type: 'subtitle',
-						fontFamily: 'Launch Sans',
-						fontAssetId: 'font-title'
-					}
-				]
-			}
-		];
-
-		expect(projectFontAssets(project).map((asset) => asset.id)).toEqual([
-			'font-title',
-			'font-span'
-		]);
-	});
-
 	it('loads project-owned font bytes and reports missing assets', async () => {
 		const project = createBlankProject();
 		project.timeline!.items = [

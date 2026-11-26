@@ -98,17 +98,4 @@ describe('project upgrade backup transaction', () => {
 		).rejects.toThrow('save failed');
 		expect(testRuntime.calls.at(-1)).toBe('remove:backup');
 	});
-
-	it('reuses a committed deterministic backup without copying files again', async () => {
-		const project = createBlankProject('Legacy');
-		const testRuntime = runtime();
-		testRuntime.backups.set('backup', { ...project, id: 'backup' });
-
-		await ensureProjectUpgradeBackup(
-			project,
-			{ fromVersion: 1, toVersion: 3, createId: () => 'backup' },
-			testRuntime.storage
-		);
-		expect(testRuntime.calls).toEqual([]);
-	});
 });

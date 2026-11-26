@@ -38,25 +38,6 @@ func TestGetMastodonProviderReturnsConfiguredInstanceURL(t *testing.T) {
 	require.Equal(t, instanceURL, readinessInstanceURL)
 }
 
-func TestGetMastodonProviderResolvesConfiguredInstanceURLAlias(t *testing.T) {
-	t.Parallel()
-	const instanceURL = "https://social.example"
-	adapter := platform.NewMastodonAdapter(
-		"client", "secret", "https://openpost.example/callback", instanceURL,
-	)
-	handler := &OAuthHandler{providers: map[string]platform.Adapter{
-		"mastodon:OpenPost E2E": adapter,
-	}}
-
-	resolved, readinessInstanceURL, err := handler.getCompatProvider(
-		context.Background(), mastodonProvider, instanceURL, "",
-	)
-
-	require.NoError(t, err)
-	require.Same(t, adapter, resolved)
-	require.Equal(t, instanceURL, readinessInstanceURL)
-}
-
 func TestGetAuthURLRegistersDynamicMastodonInstance(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

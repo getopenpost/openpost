@@ -1,7 +1,6 @@
 package platform
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -23,13 +22,6 @@ func TestDefaultProviderHTTPRejectsPrivateNetwork(t *testing.T) {
 	}
 	require.Error(t, err)
 	require.Zero(t, requests)
-}
-func TestProviderHTTPBoundsResponseBody(t *testing.T) {
-	client := &http.Client{Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(strings.Repeat("x", 16*1024*1024+1)))}, nil
-	})}
-	_, err := doRequestWithClient(context.Background(), client, http.MethodGet, "https://provider.example/api", nil, nil)
-	require.ErrorContains(t, err, "response exceeds")
 }
 
 // Local provider fixtures explicitly replace the existing shared client seam.

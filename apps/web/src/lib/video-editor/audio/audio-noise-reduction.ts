@@ -464,10 +464,6 @@ export class StreamingNoiseReduction {
 		this.totalEmitted += want;
 		return result;
 	}
-
-	flush(signal?: AbortSignal): Float32Array[] {
-		return this.process([], true, signal);
-	}
 }
 
 export async function applyNoiseReduction(

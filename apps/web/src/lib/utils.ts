@@ -86,7 +86,7 @@ export function getPlatformName(platform: string): string {
 	}
 }
 
-export function formatAccountHandle(username: string | null | undefined): string {
+function formatAccountHandle(username: string | null | undefined): string {
 	const normalizedUsername = username?.trim().replace(/^@+/, '');
 	return normalizedUsername ? `@${normalizedUsername}` : '';
 }

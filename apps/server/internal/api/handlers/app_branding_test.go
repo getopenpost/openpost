@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -11,9 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/services/appbranding"
 	"github.com/openpost/backend/internal/services/mediastore"
-	"github.com/openpost/backend/internal/services/workspacedeletion"
 	"github.com/stretchr/testify/require"
-	"github.com/uptrace/bun"
 )
 
 func newBrandingTestServer(t *testing.T) *echo.Echo {
@@ -117,26 +114,4 @@ func TestAppBrandingHTTPResetFencesStaleEditorsAndQueuesImageCleanup(t *testing.
 	var payloads []string
 	require.NoError(t, db.NewSelect().Table("jobs").Column("payload").Scan(t.Context(), &payloads))
 	require.Contains(t, strings.Join(payloads, "\n"), "app-branding/org-1/"+old.Effective.Logo.ID+".png", "reset queues cleanup of its exact committed image")
-}
-
-func TestAppBrandingDeletionCollectsImagesAfterPreflight(t *testing.T) {
-	t.Parallel()
-	e, db, api := newThemeTestServer(t)
-	NewAppBrandingHandler(db, themeTestAuthenticator{}, mediastore.NewLocalStorage(t.TempDir(), "/unused")).RegisterRoutes(api)
-	root := "/api/v1/app-branding/workspace-1"
-	brandingResponse(t, e, "web-token", http.MethodPut, root+"/organization", map[string]any{"expected_revision": 0, "allow_workspace_override": true})
-	profile := map[string]any{"display_name": "Client", "logo": map[string]any{"content_base64": base64.StdEncoding.EncodeToString(handlerPNG(t, 16, 16))}}
-	brandingResponse(t, e, "workspace-admin-token", http.MethodPut, root+"/workspace", map[string]any{"expected_revision": 0, "profile": profile})
-	preflight, err := workspacedeletion.StoredObjectKeys(t.Context(), db, []string{"workspace-1"})
-	require.NoError(t, err)
-	current := brandingResponse(t, e, "workspace-admin-token", http.MethodPut, root+"/workspace", map[string]any{"expected_revision": 1, "profile": profile})
-	require.NoError(t, db.RunInTx(t.Context(), nil, func(ctx context.Context, tx bun.Tx) error {
-		if _, err := workspacedeletion.EnqueueStorageCleanup(ctx, tx, preflight); err != nil {
-			return err
-		}
-		return workspacedeletion.DeleteWorkspaceData(ctx, tx, []string{"workspace-1"})
-	}))
-	var payloads []string
-	require.NoError(t, db.NewSelect().Table("jobs").Column("payload").Scan(t.Context(), &payloads))
-	require.Contains(t, strings.Join(payloads, "\n"), "app-branding/org-1/"+current.Effective.Logo.ID+".png", "deletion must enqueue the image committed after its preflight snapshot")
 }

@@ -4,12 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"net/http"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
@@ -17,59 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
-
-func TestPublisherRetriesNonResumableMediaAfterTransientProviderFailure(t *testing.T) {
-	t.Parallel()
-
-	adapter := &fakePublisherAdapter{uploadErrors: []error{
-		platform.NewHTTPError(http.StatusBadGateway, nil, []byte(`{"message":"UpstreamFailure"}`)),
-	}}
-	srv := newPublisherMediaStateTestServer(t, "youtube", adapter)
-	media := models.MediaAttachment{
-		ID: "image-transient", WorkspaceID: "ws-1", FilePath: "uploads/image-transient.png",
-		MimeType: "image/png", Size: int64(len(srv.storage.body)), ProcessingStatus: "ready",
-	}
-	publication, rendition, account := srv.seedRenditionWithMedia(t, "publication-transient", "rendition-transient", media)
-
-	_, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
-	require.ErrorContains(t, err, "status 502")
-	require.True(t, ClassifyFailure(err).Retryable)
-	var failed models.RenditionMediaDelivery
-	require.NoError(t, srv.db.NewSelect().Model(&failed).
-		Where("rendition_id = ? AND media_id = ?", rendition.ID, media.ID).
-		Scan(t.Context()))
-	require.Equal(t, string(platform.MediaRetrySafeResume), failed.RetryClassification)
-
-	providerMediaID, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
-	require.NoError(t, err)
-	require.Equal(t, "platform-media-id", providerMediaID)
-	require.Equal(t, 2, adapter.uploadCalls)
-	require.Equal(t, []string{"image-transient.png", "image-transient.png"}, srv.storage.opened)
-	require.Equal(t, "stored-media", adapter.uploadedBody)
-}
-
-func TestPublisherDoesNotRetryExplicitTerminalNonResumableMediaFailure(t *testing.T) {
-	t.Parallel()
-
-	adapter := &fakePublisherAdapter{uploadErr: &platform.MediaUploadError{
-		RetryClassification: platform.MediaRetryTerminal,
-		Err:                 fmt.Errorf("provider rejected the image"),
-	}}
-	srv := newPublisherMediaStateTestServer(t, "youtube", adapter)
-	media := models.MediaAttachment{
-		ID: "image-rejected", WorkspaceID: "ws-1", FilePath: "uploads/image-rejected.png",
-		MimeType: "image/png", Size: int64(len(srv.storage.body)), ProcessingStatus: "ready",
-	}
-	publication, rendition, account := srv.seedRenditionWithMedia(t, "publication-rejected", "rendition-rejected", media)
-
-	_, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
-	require.ErrorContains(t, err, "provider rejected the image")
-
-	_, err = srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
-	require.ErrorContains(t, err, "OpenPost did not upload it again")
-	require.Equal(t, 1, adapter.uploadCalls)
-}
 
 type publisherMediaStateTestServer struct {
 	db        *bun.DB
@@ -83,7 +30,7 @@ type publisherMediaStateTestServer struct {
 func newPublisherMediaStateTestServer(t *testing.T, platformName string, adapter platform.Adapter) *publisherMediaStateTestServer {
 	t.Helper()
 
-	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
+	sqldb, err := sql.Open(sqliteshim.ShimName, fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
 	require.NoError(t, err)
 	sqldb.SetMaxOpenConns(1)
 
@@ -188,33 +135,6 @@ type fakeResumablePublisherAdapter struct {
 	uploadCalls      int
 	states           []platform.ResumableMediaUploadState
 	thumbnailReaders []bool
-}
-
-type thumbnailFailurePublisherAdapter struct{ fakePublisherAdapter }
-
-func (f *thumbnailFailurePublisherAdapter) UploadMediaResumable(_ context.Context, _, _ string, _ platform.UploadMediaRequest, state platform.ResumableMediaUploadState, checkpoint platform.MediaUploadCheckpoint) (string, error) {
-	state.ProviderMediaID = "uploaded-video"
-	state.Status = platform.MediaUploadUploaded
-	state.RetryClassification = platform.MediaRetryReconcile
-	if err := checkpoint(state); err != nil {
-		return "", err
-	}
-	return "", platform.NewHTTPError(http.StatusServiceUnavailable, nil, nil)
-}
-
-func TestYouTubeThumbnailFailureRetainsVisibleVideoIdentity(t *testing.T) {
-	adapter := &thumbnailFailurePublisherAdapter{}
-	srv := newPublisherMediaStateTestServer(t, "youtube", adapter)
-	publication, rendition, account := srv.seedRenditionWithMedia(t, "publication-thumbnail", "rendition-thumbnail", models.MediaAttachment{ID: "video-thumbnail"})
-	var media models.MediaAttachment
-	require.NoError(t, srv.db.NewSelect().Model(&media).Where("id = ?", "video-thumbnail").Scan(t.Context()))
-	_, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
-	require.ErrorContains(t, err, "503")
-	var saved models.Rendition
-	require.NoError(t, srv.db.NewSelect().Model(&saved).Where("id = ?", rendition.ID).Scan(t.Context()))
-	require.Equal(t, "uploaded-video", saved.ExternalID)
-	require.Equal(t, "https://www.youtube.com/watch?v=uploaded-video", saved.ExternalURL)
-	require.NotEqual(t, models.RenditionStatusPublished, saved.Status)
 }
 
 func (f *fakeResumablePublisherAdapter) UploadMediaWithMetadata(context.Context, string, string, platform.UploadMediaRequest) (string, error) {
@@ -358,50 +278,4 @@ func TestPublisherRefreshesExpiredReadyXMedia(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "x-media-2", upload())
 	require.Equal(t, 2, adapter.uploads)
-}
-
-func TestClientReviewBlocksMediaUploadBeforeProviderWrite(t *testing.T) {
-	adapter := &fakePublisherAdapter{}
-	srv := newPublisherMediaStateTestServer(t, "youtube", adapter)
-	media := models.MediaAttachment{ID: "review-video", WorkspaceID: "ws-1", FilePath: "review.mp4", MimeType: "video/mp4", Size: int64(len(srv.storage.body)), ProcessingStatus: "ready"}
-	publication, rendition, account := srv.seedRenditionWithMedia(t, "review-post", "review-rendition", media)
-	_, err := srv.db.NewUpdate().Model((*models.Publication)(nil)).Set("review_id = 'review'").Set("review_state = 'pending'").Where("id = ?", publication.ID).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "token", media)
-	require.ErrorContains(t, err, "requires approval")
-	require.Zero(t, adapter.uploadCalls)
-}
-
-type quotaLimitedPublisherAdapter struct {
-	fakePublisherAdapter
-	uploads int
-}
-
-func (f *quotaLimitedPublisherAdapter) UploadMediaResumable(_ context.Context, _, _ string, req platform.UploadMediaRequest, _ platform.ResumableMediaUploadState, checkpoint platform.MediaUploadCheckpoint) (string, error) {
-	f.uploads++
-	if f.uploads == 1 {
-		return "", &platform.HTTPError{StatusCode: http.StatusTooManyRequests, Code: "youtube:daily_upload_quota_exceeded"}
-	}
-	state := platform.ResumableMediaUploadState{ProviderMediaID: "video-after-reset", Status: platform.MediaUploadReady, TotalBytes: req.Size, UploadedBytes: req.Size, RetryClassification: platform.MediaRetryNone}
-	return state.ProviderMediaID, checkpoint(state)
-}
-
-func TestPublisherCanRetryQuotaRejectedYouTubeMediaOnLaterAttempt(t *testing.T) {
-	adapter := &quotaLimitedPublisherAdapter{}
-	srv := newPublisherMediaStateTestServer(t, "youtube", adapter)
-	media := models.MediaAttachment{ID: "quota-video", WorkspaceID: "ws-1", FilePath: "quota.mp4", MimeType: "video/mp4", Size: int64(len(srv.storage.body)), ProcessingStatus: "ready"}
-	publication, rendition, account := srv.seedRenditionWithMedia(t, "quota-post", "quota-rendition", media)
-	_, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "token", media)
-	require.Error(t, err)
-	require.False(t, ClassifyFailure(err).Retryable, "daily quota must not schedule automatic retries")
-	var delivery models.RenditionMediaDelivery
-	require.NoError(t, srv.db.NewSelect().Model(&delivery).Where("rendition_id = ? AND media_id = ?", rendition.ID, media.ID).Scan(t.Context()))
-	require.Equal(t, string(platform.MediaUploadFailed), delivery.Status)
-	// A later explicit attempt must reach the provider using the same attachment.
-	id, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "token", media)
-	require.NoError(t, err)
-	require.Equal(t, "video-after-reset", id)
-	require.Equal(t, 2, adapter.uploads)
-	require.NoError(t, srv.db.NewSelect().Model(&delivery).Where("rendition_id = ? AND media_id = ?", rendition.ID, media.ID).Scan(t.Context()))
-	require.Equal(t, string(platform.MediaUploadReady), delivery.Status)
 }

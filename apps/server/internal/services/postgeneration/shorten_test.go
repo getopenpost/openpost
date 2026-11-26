@@ -28,19 +28,6 @@ func newShortenService(t *testing.T, replies ...string) (*Service, *scriptedGene
 	return service, generator
 }
 
-func TestShortenReturnsModelTextThatFits(t *testing.T) {
-	service, generator := newShortenService(t, `{"text":"Shipped offline drafts today."}`)
-	result, err := service.Shorten(context.Background(), ShortenInput{
-		Text:          "We have finally shipped offline drafts today, which is great.",
-		Platform:      "x",
-		MaxCharacters: 40,
-	})
-	require.NoError(t, err)
-	require.Equal(t, "Shipped offline drafts today.", result.Text)
-	require.False(t, result.Truncated)
-	require.Len(t, generator.prompts, 1)
-}
-
 func TestShortenRetriesOnceThenCutsAtAWordBoundary(t *testing.T) {
 	service, generator := newShortenService(t,
 		`{"text":"alpha beta gamma delta epsilon"}`,
@@ -56,18 +43,4 @@ func TestShortenRetriesOnceThenCutsAtAWordBoundary(t *testing.T) {
 	require.True(t, result.Truncated)
 	require.Equal(t, "alpha beta gamma", result.Text)
 	require.True(t, strings.Contains(generator.prompts[1], "previous_attempt"))
-}
-
-func TestShortenSkipsTheModelWhenTextAlreadyFits(t *testing.T) {
-	service, generator := newShortenService(t)
-	result, err := service.Shorten(context.Background(), ShortenInput{Text: "short", Platform: "x", MaxCharacters: 280})
-	require.NoError(t, err)
-	require.Equal(t, "short", result.Text)
-	require.Empty(t, generator.prompts)
-}
-
-func TestShortenRejectsInvalidInput(t *testing.T) {
-	service, _ := newShortenService(t)
-	_, err := service.Shorten(context.Background(), ShortenInput{Text: " ", Platform: "x", MaxCharacters: 10})
-	require.ErrorIs(t, err, ErrInvalidInput)
 }

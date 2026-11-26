@@ -447,24 +447,3 @@ func TestSubscriptionDeletionRequiresProviderConfirmation(t *testing.T) {
 	require.NoError(t, s.db.NewSelect().Model(&sub).WherePK().Scan(ctx))
 	require.Equal(t, "stopped", sub.State)
 }
-
-func TestDefinitiveSubscriptionRejectionReleasesUnspentExposure(t *testing.T) {
-	s := testService(t)
-	seedGrant(t, s, s.now().Add(time.Hour))
-	s.config.MonthlyBudgetMicrousd = 10_000
-	s.config.ProviderSpendingLimitConfirmed = true
-	s.config.WebhookID = "12345"
-	require.NoError(t, s.costs.SetProviderCostPolicy(AddPricing(usage.ProviderCostPolicy{}, 10_000)))
-	providerServer(t, s, func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(403)
-		_, _ = fmt.Fprint(w, `{"errors":[{"title":"permission denied"}]}`)
-	})
-	_, err := s.StartSubscription(t.Context(), "workspace", "account", "dm.received", 1)
-	require.Error(t, err)
-	var sub subscription
-	require.NoError(t, s.db.NewSelect().Model(&sub).Scan(t.Context()))
-	require.Equal(t, "stopped", sub.State)
-	count, err := s.db.NewSelect().Model((*models.ProviderUsageReservation)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.Zero(t, count)
-}

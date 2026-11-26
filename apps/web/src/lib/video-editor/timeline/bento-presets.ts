@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { BentoLayoutConfig, BentoLayoutPreset } from './bento-layout';
 
-export const BENTO_PRESETS_STORAGE_KEY = 'openpost-video-editor-bento-presets-v1';
+const BENTO_PRESETS_STORAGE_KEY = 'openpost-video-editor-bento-presets-v1';
 
 export interface CustomBentoPreset extends BentoLayoutConfig {
 	id: string;

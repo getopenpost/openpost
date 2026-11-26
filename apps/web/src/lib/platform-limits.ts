@@ -11,7 +11,6 @@ import {
 export {
 	DEFAULT_PLATFORM_CHAR_LIMIT,
 	X_STANDARD_CHAR_LIMIT,
-	X_PREMIUM_CHAR_LIMIT,
 	PLATFORM_LIMITS
 } from '@openpost/platform-text';
 export type { PlatformLimitDefinition } from '@openpost/platform-text';
@@ -44,7 +43,7 @@ export function platformTextLength(platform: string, text: string): number {
 	return countPlatformText(getPlatformKey(platform), text);
 }
 
-export function accountHasXPremiumLongPosts(account: AccountLimitTarget): boolean {
+function accountHasXPremiumLongPosts(account: AccountLimitTarget): boolean {
 	return getPlatformKey(account.platform) === 'x' && account.limit_profile === 'x-premium';
 }
 
@@ -65,7 +64,7 @@ export function platformCharacterLimit(
 	);
 }
 
-export function accountCharacterLimit(
+function accountCharacterLimit(
 	account: AccountLimitTarget,
 	resolvedAccounts: ResolvedAccountLimits = {}
 ) {
@@ -76,14 +75,6 @@ export function accountCharacterLimit(
 		}
 	}
 	return platformCharacterLimit(account.platform, accountLimitProfile(account));
-}
-
-export function minimumAccountCharacterLimit(
-	accounts: Array<AccountLimitTarget>,
-	resolvedAccounts: ResolvedAccountLimits = {}
-): number {
-	if (accounts.length === 0) return DEFAULT_PLATFORM_CHAR_LIMIT;
-	return Math.min(...accounts.map((account) => accountCharacterLimit(account, resolvedAccounts)));
 }
 
 export function uniquePlatformLimits(

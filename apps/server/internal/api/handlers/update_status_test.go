@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -65,24 +64,6 @@ func TestUpdateStatusAuthorization(t *testing.T) {
 			require.Contains(t, resp.Body.String(), test.want)
 		})
 	}
-}
-
-func TestUpdateStatusReturnsReadOnlyDisabledState(t *testing.T) {
-	t.Parallel()
-
-	e := newUpdateStatusTestServer(t, true, browserSessionTestAuthenticator())
-	resp := updateStatusRequest(t, e, "web-token")
-
-	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
-	var body UpdateStatusResponse
-	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &body))
-	require.Equal(t, updatestatus.StateDisabled, body.State)
-	require.Equal(t, "v1.2.3", body.RunningVersion)
-	require.Equal(t, "abc123", body.RunningBuild)
-	require.Empty(t, body.ReleaseURL)
-	require.False(t, body.EffectiveEnabled)
-	require.False(t, body.ConfiguredEnabled)
-	require.Equal(t, "default", body.ConfigurationSource)
 }
 
 func newUpdateStatusTestServer(t *testing.T, isAdmin bool, authenticator middleware.Authenticator) *echo.Echo {

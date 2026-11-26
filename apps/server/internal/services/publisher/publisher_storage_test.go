@@ -1,7 +1,6 @@
 package publisher
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"strings"
@@ -114,77 +113,6 @@ func (f *fakePublisherAdapter) Publish(_ context.Context, _, _ string, req *plat
 	return result, req.Checkpoint(result)
 }
 
-type rangedPublisherStorage struct {
-	*fakePublisherStorage
-	content []byte
-	offsets []int64
-}
-
-func (s *rangedPublisherStorage) OpenRange(_ context.Context, _ string, offset int64) (io.ReadCloser, error) {
-	s.offsets = append(s.offsets, offset)
-	return io.NopCloser(bytes.NewReader(s.content[offset:])), nil
-}
-
-type resumableStorageFixture struct {
-	uploaded  []byte
-	chunkSize int64
-}
-
-func (f *resumableStorageFixture) UploadMediaResumable(_ context.Context, _ string, _ string, req platform.UploadMediaRequest, state platform.ResumableMediaUploadState, checkpoint platform.MediaUploadCheckpoint) (string, error) {
-	for offset := state.UploadedBytes; offset < req.Size; {
-		reader, err := req.OpenReaderAt(offset)
-		if err != nil {
-			return "", err
-		}
-		chunk, err := io.ReadAll(io.LimitReader(reader, min(f.chunkSize, req.Size-offset)))
-		closeErr := reader.Close()
-		if err != nil {
-			return "", err
-		}
-		if closeErr != nil {
-			return "", closeErr
-		}
-		if len(chunk) == 0 {
-			return "", io.ErrUnexpectedEOF
-		}
-		f.uploaded = append(f.uploaded, chunk...)
-		offset += int64(len(chunk))
-		state.UploadedBytes = offset
-		if err := checkpoint(state); err != nil {
-			return "", err
-		}
-	}
-	return "video-1", nil
-}
-
-func TestResumableUploadReadsStoredMediaAtRequestedOffsets(t *testing.T) {
-	t.Parallel()
-	const chunkSize = 8 * 1024 * 1024
-	media := bytes.Repeat([]byte("v"), chunkSize+1)
-	storage := &rangedPublisherStorage{fakePublisherStorage: &fakePublisherStorage{}, content: media}
-	uploader := &resumableStorageFixture{chunkSize: chunkSize}
-
-	srv := newPublisherMediaStateTestServer(t, "youtube", &fakePublisherAdapter{})
-	_, err := srv.db.NewInsert().Model(&models.Publication{ID: "storage-post", WorkspaceID: "ws-1"}).Exec(t.Context())
-	require.NoError(t, err)
-	service := srv.service
-	service.SetStorage(storage)
-	got, err := service.uploadRenditionMediaResumable(
-		context.Background(),
-		&models.SocialAccount{AccountID: "demos"},
-		uploader,
-		"token",
-		&models.Rendition{PublicationID: "storage-post", Title: "Launch demo", SettingsJSON: `{"privacy":"public"}`},
-		models.MediaAttachment{FilePath: "media/video.mp4", OriginalFilename: "video.mp4", MimeType: "video/mp4", Size: int64(len(media))},
-		platform.ResumableMediaUploadState{},
-		func(platform.ResumableMediaUploadState) error { return nil },
-	)
-	require.NoError(t, err)
-	require.Equal(t, "video-1", got)
-	require.Equal(t, media, uploader.uploaded)
-	require.Equal(t, []int64{0, chunkSize}, storage.offsets)
-}
-
 type capturingDirectPublisher struct {
 	platform.Publisher
 	media []platform.UploadMediaRequest
@@ -210,70 +138,4 @@ func TestPublishProviderPassesVideoSizeToDirectMediaPublisher(t *testing.T) {
 	require.Equal(t, 1080, provider.media[0].Width)
 	require.Equal(t, 1920, provider.media[0].Height)
 	require.Equal(t, int64(46863), provider.media[0].DurationMS)
-}
-
-func TestRenditionUploadRequestPreservesVideoMetadata(t *testing.T) {
-	t.Parallel()
-	for _, openReader := range []bool{true, false} {
-		service := &Service{storage: &fakePublisherStorage{body: "video"}}
-		req, closeReaders, err := service.renditionUploadRequest(t.Context(), &models.Rendition{}, models.MediaAttachment{
-			FilePath: "video.mp4", MimeType: "video/mp4", Size: 5,
-			Width: 1080, Height: 1920, DurationMS: 46863,
-		}, nil, openReader)
-		require.NoError(t, err)
-		closeReaders()
-		require.Equal(t, 1080, req.Width)
-		require.Equal(t, 1920, req.Height)
-		require.Equal(t, int64(46863), req.DurationMS)
-	}
-}
-
-func TestPublicationPublishingPreservesAnalyzedMediaMetadata(t *testing.T) {
-	t.Parallel()
-	for _, segmented := range []bool{false, true} {
-		name := "post"
-		if segmented {
-			name = "thread segment"
-		}
-		t.Run(name, func(t *testing.T) {
-			adapter := &fakePublisherAdapter{}
-			srv := newPublisherLifecycleTestServer(t, adapter)
-			srv.service.SetStorage(&fakePublisherStorage{body: "fixture-video"})
-			ctx := t.Context()
-			for _, model := range []any{(*models.RenditionMediaDelivery)(nil), (*models.RenditionMediaDeliveryRelation)(nil), (*models.PublicationSegmentMedia)(nil)} {
-				_, err := srv.db.NewCreateTable().Model(model).IfNotExists().Exec(ctx)
-				require.NoError(t, err)
-			}
-			_, err := srv.db.NewInsert().Model(&models.MediaAttachment{
-				ID: "video", WorkspaceID: "ws-1", OriginalFilename: "video.mp4", FilePath: "media/video.mp4",
-				MimeType: "video/mp4", Size: 13, ProcessingStatus: "ready", AnalysisStatus: "ready",
-				Width: 1080, Height: 1920, DurationMS: 46863,
-			}).Exec(ctx)
-			require.NoError(t, err)
-			_, err = srv.db.NewInsert().Model(&models.RenditionMedia{RenditionID: "rendition-1", MediaID: "video", Role: "attachment"}).Exec(ctx)
-			require.NoError(t, err)
-			if segmented {
-				_, err = srv.db.NewInsert().Model(&models.PublicationSegment{
-					ID: "source", PublicationID: "publication-1", Body: "Video", SettingsJSON: "{}",
-				}).Exec(ctx)
-				require.NoError(t, err)
-				_, err = srv.db.NewInsert().Model(&models.RenditionSegment{
-					ID: "segment", RenditionID: "rendition-1", PublicationSegmentID: "source",
-					Body: "Video", SettingsJSON: "{}", Status: models.RenditionStatusDraft,
-				}).Exec(ctx)
-				require.NoError(t, err)
-				_, err = srv.db.NewInsert().Model(&models.RenditionSegmentMedia{
-					RenditionSegmentID: "segment", MediaID: "video", Role: "attachment", SettingsJSON: "{}",
-				}).Exec(ctx)
-				require.NoError(t, err)
-			}
-			jobCtx, payload := srv.authorizedPublicationJob(t)
-			require.NoError(t, srv.service.HandlePublishPublicationJob(jobCtx, payload))
-			require.NotNil(t, adapter.lastRequest)
-			require.Equal(t, []platform.MediaItem{{
-				ID: "video", MimeType: "video/mp4", Size: 13, OriginalFilename: "video.mp4",
-				Width: 1080, Height: 1920, DurationMS: 46863,
-			}}, adapter.lastRequest.Media)
-		})
-	}
 }

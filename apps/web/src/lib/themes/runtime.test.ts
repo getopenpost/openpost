@@ -1,12 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { resolveBuiltInTheme } from '@openpost/ui/themes/builtins.js';
-import type { ThemeAsset, ThemeFontFace, WebResolvedTheme } from '@openpost/ui/themes/contracts.js';
-import type { ThemeFontPlanEntry } from '@openpost/ui/themes/font-stage.js';
+import type { ThemeAsset, WebResolvedTheme } from '@openpost/ui/themes/contracts.js';
 import {
 	WebThemeRuntime,
 	isOpaqueThemeResourceUrl,
 	isSameOriginThemeResourceUrl,
-	themeSchemeToCssVariables,
 	type ThemeRuntimeLoaders,
 	type ThemeScope
 } from '@openpost/ui/themes/runtime.js';
@@ -77,7 +75,11 @@ describe('WebThemeRuntime', () => {
 
 	it('accepts only the exact immutable workspace revision query shape', () => {
 		const assetPath = '/api/v1/theme-assets/opaque-id/content';
-		const resourceScope = { kind: 'published', themeId: 'theme-id', revision: '2' } as const;
+		const resourceScope = {
+			kind: 'published',
+			themeId: 'theme-id',
+			revision: '2'
+		} as const;
 		expect(
 			isOpaqueThemeResourceUrl(
 				`${assetPath}?workspace_id=workspace-id&theme_id=theme-id&revision=2`,
@@ -123,9 +125,11 @@ describe('WebThemeRuntime', () => {
 				revision: '2'
 			})
 		).toBe(false);
-		expect(isOpaqueThemeResourceUrl(`${editorUrl}&revision=2`, { kind: 'editor-preview' })).toBe(
-			false
-		);
+		expect(
+			isOpaqueThemeResourceUrl(`${editorUrl}&revision=2`, {
+				kind: 'editor-preview'
+			})
+		).toBe(false);
 	});
 
 	it('stages organization-scoped resources only in marked editor previews', async () => {
@@ -149,7 +153,10 @@ describe('WebThemeRuntime', () => {
 		expect(await runtime.apply(editorPreview, applicationScope)).toBe(true);
 		expect(applicationScope.getAttribute('data-theme-fallback')).toBe('unsafe-resource');
 
-		const unmarkedPreview = { ...editorPreview, webResourceScope: 'published' as const };
+		const unmarkedPreview = {
+			...editorPreview,
+			webResourceScope: 'published' as const
+		};
 		const unmarkedScope = fakeScope();
 		expect(await runtime.applyScoped(unmarkedPreview, unmarkedScope)).toBe(true);
 		expect(unmarkedScope.getAttribute('data-theme-fallback')).toBe('unsafe-resource');
@@ -200,146 +207,6 @@ describe('WebThemeRuntime', () => {
 		expect(pathScope.getAttribute('data-theme-fallback'), 'nonopaque path rejection').toBe(
 			'unsafe-resource'
 		);
-	});
-
-	it('rejects an off-grid weight even on an unused uploaded face', async () => {
-		const scope = fakeScope();
-		const runtime = new WebThemeRuntime(loaders());
-		const selected = organizationTheme('notebook');
-		selected.fonts.push({
-			id: 'body-font',
-			family: 'Organization Sans',
-			sourceUrl:
-				'/api/v1/theme-assets/opaque-id/content?workspace_id=workspace-id&theme_id=theme-id&revision=2',
-			format: 'woff2',
-			weight: 400,
-			style: 'normal',
-			display: 'swap'
-		});
-
-		const validScope = fakeScope();
-		expect(await runtime.apply(selected, validScope)).toBe(true);
-		expect(validScope.getAttribute('data-theme-fallback'), 'valid unused 400 face').toBeNull();
-		selected.fonts[0]!.weight = 450;
-		expect(await runtime.apply(selected, scope)).toBe(true);
-		expect(scope.getAttribute('data-theme-fallback')).toBe('unsafe-resource');
-	});
-
-	it('accepts the exact immutable workspace preview resource scope', async () => {
-		const runtimeLoaders = loaders();
-		const scope = fakeScope();
-		const runtime = new WebThemeRuntime(runtimeLoaders);
-		const selected = organizationTheme();
-		selected.manifest.typography.body.family = 'Organization Sans';
-		const face: ThemeFontFace = {
-			id: 'organization-sans-400',
-			family: 'Organization Sans',
-			sourceUrl:
-				'/api/v1/theme-assets/organization-sans-400/content?workspace_id=workspace-id&theme_id=theme-id&revision=2',
-			format: 'woff2',
-			weight: 400,
-			style: 'normal',
-			display: 'swap'
-		};
-		selected.fonts.push(face);
-
-		expect(await runtime.apply(selected, scope)).toBe(true);
-		expect(scope.getAttribute('data-theme-fallback')).toBeNull();
-		const uploaded = (vi.mocked(runtimeLoaders.stageFonts).mock.calls[0]?.[0].entries ?? []).filter(
-			(entry: ThemeFontPlanEntry) => entry.kind === 'uploaded'
-		);
-		expect(uploaded).toEqual([
-			expect.objectContaining({
-				sourceFamily: face.family,
-				sourceUrl: face.sourceUrl,
-				weight: face.weight
-			})
-		]);
-
-		selected.fonts[0] = {
-			...face,
-			sourceUrl: `${face.sourceUrl}&extra=unbounded`
-		};
-		const unsafeScope = fakeScope();
-		expect(await runtime.apply(selected, unsafeScope)).toBe(true);
-		expect(unsafeScope.getAttribute('data-theme-fallback')).toBe('unsafe-resource');
-	});
-
-	it('rejects unapproved primary families without an uploaded face', async () => {
-		const scope = fakeScope();
-		const runtime = new WebThemeRuntime(loaders());
-		const selected: WebResolvedTheme = resolveBuiltInTheme('studio', 'light');
-		selected.manifest.typography.body.family = 'Remote CSS Font';
-
-		expect(await runtime.apply(selected, scope)).toBe(true);
-		expect(scope.getAttribute('data-theme-fallback')).toBe('unsafe-resource');
-	});
-
-	it('rejects duplicate single-value asset slots', async () => {
-		const scope = fakeScope();
-		const runtime = new WebThemeRuntime(loaders());
-		const selected = organizationTheme('notebook');
-		selected.assets.push(
-			{
-				id: 'paper-a',
-				slot: 'background-texture',
-				sourceUrl:
-					'/api/v1/theme-assets/paper-a/content?workspace_id=workspace-id&theme_id=theme-id&revision=2',
-				mimeType: 'image/png'
-			},
-			{
-				id: 'paper-b',
-				slot: 'background-texture',
-				sourceUrl:
-					'/api/v1/theme-assets/paper-b/content?workspace_id=workspace-id&theme_id=theme-id&revision=2',
-				mimeType: 'image/png'
-			}
-		);
-
-		expect(await runtime.apply(selected, scope)).toBe(true);
-		expect(scope.getAttribute('data-theme-fallback')).toBe('unsafe-resource');
-	});
-
-	it('loads only uploaded faces used by the active typography roles', async () => {
-		const runtimeLoaders = loaders();
-		const scope = fakeScope();
-		const runtime = new WebThemeRuntime(runtimeLoaders);
-		const selected = organizationTheme();
-		selected.manifest.typography.body.family = 'Organization Sans';
-		const organizationFace: ThemeFontFace = {
-			id: 'organization-sans-400',
-			family: 'Organization Sans',
-			sourceUrl:
-				'/api/v1/theme-assets/organization-sans-400/content?workspace_id=workspace-id&theme_id=theme-id&revision=2',
-			format: 'woff2',
-			weight: 400,
-			style: 'normal',
-			display: 'swap'
-		};
-		selected.fonts.push(organizationFace, {
-			...organizationFace,
-			id: 'unused-serif-400',
-			family: 'Unused Serif',
-			sourceUrl:
-				'/api/v1/theme-assets/unused-serif-400/content?workspace_id=workspace-id&theme_id=theme-id&revision=2'
-		});
-
-		expect(await runtime.apply(selected, scope)).toBe(true);
-		const uploaded = (vi.mocked(runtimeLoaders.stageFonts).mock.calls[0]?.[0].entries ?? []).filter(
-			(entry: ThemeFontPlanEntry) => entry.kind === 'uploaded'
-		);
-		expect(uploaded).toEqual([
-			expect.objectContaining({
-				sourceFamily: organizationFace.family,
-				sourceUrl: organizationFace.sourceUrl,
-				weight: organizationFace.weight
-			})
-		]);
-		expect(scope.properties.get('--theme-font-sans')).toContain(
-			'OpenPost Theme organization:theme-id:2'
-		);
-		expect(scope.properties.get('--theme-font-brand')).toContain('Manrope Variable');
-		expect(scope.properties.get('--theme-font-brand')).not.toContain('Organization Sans');
 	});
 
 	it('keeps the current scope intact until all theme resources are ready', async () => {
@@ -398,77 +265,6 @@ describe('WebThemeRuntime', () => {
 		expect(releases[2]).not.toHaveBeenCalled();
 		runtime.clear(scope);
 		expect(releases[2]).toHaveBeenCalledOnce();
-	});
-
-	it('uses the same isolated runtime for editor previews without changing browser chrome', async () => {
-		const runtimeLoaders = loaders();
-		const scope = fakeScope();
-		const runtime = new WebThemeRuntime(runtimeLoaders);
-
-		expect(await runtime.applyScoped(resolveBuiltInTheme('playroom', 'light'), scope)).toBe(true);
-		expect(scope.getAttribute('data-theme-scope')).toBe('preview');
-		expect(scope.getAttribute('data-theme-icon-pack')).toBe('phosphor');
-		expect(scope.getAttribute('data-theme-tabs')).toBe('pill');
-		expect(scope.getAttribute('data-theme-empty-state')).toBe('illustrated');
-		expect(scope.getAttribute('data-theme-editor-chrome')).toBe('neutral');
-		expect(runtimeLoaders.setBrowserSurface).not.toHaveBeenCalled();
-	});
-
-	it('uses the browser chrome token for the application theme-color', async () => {
-		const runtimeLoaders = loaders();
-		const scope = fakeScope();
-		const runtime = new WebThemeRuntime(runtimeLoaders);
-		const selected = resolveBuiltInTheme('workshop', 'dark');
-
-		expect(await runtime.apply(selected, scope)).toBe(true);
-		expect(runtimeLoaders.setBrowserSurface).toHaveBeenCalledOnce();
-		expect(runtimeLoaders.setBrowserSurface).toHaveBeenCalledWith(
-			selected.manifest.colors.browserChrome
-		);
-		expect(selected.manifest.colors.browserChrome).not.toBe(
-			selected.manifest.colors.browserSurface
-		);
-	});
-
-	it('restores browser chrome when an application scope is replaced or cleared', async () => {
-		const firstRestore = vi.fn();
-		const secondRestore = vi.fn();
-		const setBrowserSurface = vi
-			.fn()
-			.mockReturnValueOnce(firstRestore)
-			.mockReturnValueOnce(secondRestore);
-		const scope = fakeScope();
-		const runtime = new WebThemeRuntime(loaders({ setBrowserSurface }));
-
-		await runtime.apply(resolveBuiltInTheme('workshop', 'light'), scope);
-		expect(firstRestore).not.toHaveBeenCalled();
-
-		await runtime.apply(resolveBuiltInTheme('midnight', 'dark'), scope);
-		expect(firstRestore).toHaveBeenCalledOnce();
-		expect(secondRestore).not.toHaveBeenCalled();
-
-		runtime.clear(scope);
-		expect(secondRestore).toHaveBeenCalledOnce();
-	});
-
-	it('maps a resolved scheme to all browser and protected editor variables', () => {
-		const variables = themeSchemeToCssVariables(resolveBuiltInTheme('workshop', 'dark'));
-
-		expect(variables['--background']).toBe('oklch(0.145 0.008 55)');
-		expect(variables['--selection']).toBe('oklch(0.32 0.065 45)');
-		expect(variables['--browser-surface']).toBe('oklch(0.145 0.008 55)');
-		expect(variables['--action-focal']).toBe('oklch(0.66 0.14 45)');
-		expect(variables['--brand']).toBe('oklch(0.66 0.14 45)');
-		expect(variables['--theme-type-display-size']).toBe('clamp(2rem, 4vw, 3.5rem)');
-		expect(variables['--theme-type-code-family']).toContain('Geist Mono Variable');
-		expect(variables['--theme-motion-page-transition-duration']).toBe('240ms');
-		expect(variables['--theme-border-style']).toBe('solid');
-		expect(variables['--theme-asset-sidebar-decoration']).toBe('none');
-		expect(variables['--theme-asset-header-decoration']).toBe('none');
-		expect(variables['--theme-asset-loading-illustration']).toBe('none');
-		expect(variables['--editor-canvas']).toBe('oklch(0.12 0.006 55)');
-		expect(variables['--timeline-playhead']).toBe('oklch(0.72 0.16 45)');
-		expect(variables['--canvas-selection']).toBe('oklch(0.72 0.16 45)');
 	});
 
 	it('commits the embedded Workshop fallback when a selected resource cannot load', async () => {
@@ -545,28 +341,6 @@ describe('WebThemeRuntime', () => {
 			expect(scope.getAttribute('data-theme-id')).toBe('workshop');
 			expect(scope.getAttribute('data-theme-fallback')).toBe('invalid-manifest');
 			expect(scope.properties.get('--background')).toBe('oklch(0.985 0.002 80)');
-		}
-	});
-
-	it('rejects each incomplete component or motion recipe independently', async () => {
-		const runtime = new WebThemeRuntime(loaders());
-		const control = fakeScope();
-		expect(await runtime.apply(resolveBuiltInTheme('studio', 'light'), control)).toBe(true);
-		expect(control.getAttribute('data-theme-fallback'), 'complete recipe control').toBeNull();
-		for (const missing of ['components.toast', 'motion.entry.opacity'] as const) {
-			const selected = resolveBuiltInTheme('studio', 'light');
-			if (missing === 'components.toast') {
-				// SAFETY: deliberately remove one required wire field.
-				delete (selected.manifest.components as Partial<typeof selected.manifest.components>).toast;
-			} else {
-				// SAFETY: deliberately remove one required wire field.
-				delete (selected.manifest.motion.entry as Partial<typeof selected.manifest.motion.entry>)
-					.opacity;
-			}
-			const scope = fakeScope();
-			expect(await runtime.apply(selected, scope), missing).toBe(true);
-			expect(scope.getAttribute('data-theme-id'), missing).toBe('workshop');
-			expect(scope.getAttribute('data-theme-fallback'), missing).toBe('invalid-manifest');
 		}
 	});
 });

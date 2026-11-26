@@ -532,7 +532,7 @@ class OfflineCompressor {
  * Pan -1 → left 1 right 0, pan 1 → left 0 right 1, pan 0 → 0.707 each (constant power).
  * Stereo → stereo: balance. leftGain = pan<=0?1:1-pan, rightGain = pan>=0?1:1+pan, applied per channel.
  */
-export function applyPanOffline(channels: Float32Array[], pan: number): Float32Array[] {
+function applyPanOffline(channels: Float32Array[], pan: number): Float32Array[] {
 	if (channels.length === 0) return channels;
 	const clamped = Math.max(-1, Math.min(1, pan));
 	if (channels.length === 1) {

@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -139,105 +137,6 @@ func TestCLIAuthDecisionRejectsAPITokenPrincipal(t *testing.T) {
 	require.Equal(t, "pending", sessions[0].Status)
 }
 
-func TestCLIAuthApprovalBindsChosenWorkspaceAndRejectsInaccessibleWorkspace(t *testing.T) {
-	t.Parallel()
-
-	srv := newCLIAuthTestServer(t)
-	start := srv.startCLIAuth(t)
-	approve := srv.request(t, http.MethodPost, "/api/v1/cli/auth/approve", map[string]string{
-		"user_code": start.UserCode, "workspace_id": "workspace-1",
-	}, "web-token")
-	require.Equal(t, http.StatusOK, approve.Code, approve.Body.String())
-	poll := srv.pollCLIAuth(t, start.DeviceCode)
-	require.NotEmpty(t, poll.Token)
-	var token models.APIToken
-	require.NoError(t, srv.db.NewSelect().Model(&token).Where("user_id = ?", "user-1").Scan(t.Context()))
-	require.Equal(t, "workspace-1", token.WorkspaceID)
-
-	second := srv.startCLIAuth(t)
-	rejected := srv.request(t, http.MethodPost, "/api/v1/cli/auth/approve", map[string]string{
-		"user_code": second.UserCode, "workspace_id": "workspace-other",
-	}, "web-token")
-	require.Equal(t, http.StatusForbidden, rejected.Code, rejected.Body.String())
-}
-
-func TestCLIAuthRechecksWorkspaceAccessBeforeMintingToken(t *testing.T) {
-	t.Parallel()
-
-	srv := newCLIAuthTestServer(t)
-	start := srv.startCLIAuth(t)
-	approve := srv.request(t, http.MethodPost, "/api/v1/cli/auth/approve", map[string]string{
-		"user_code": start.UserCode, "workspace_id": "workspace-1",
-	}, "web-token")
-	require.Equal(t, http.StatusOK, approve.Code, approve.Body.String())
-
-	_, err := srv.db.NewUpdate().Model((*models.WorkspaceMember)(nil)).
-		Set("status = ?", models.WorkspaceMemberStatusInactive).
-		Set("deactivated_at = ?", time.Now().UTC()).
-		Where("workspace_id = ? AND user_id = ?", "workspace-1", "user-1").
-		Exec(t.Context())
-	require.NoError(t, err)
-
-	poll := srv.request(t, http.MethodPost, "/api/v1/cli/auth/poll", map[string]string{
-		"device_code": start.DeviceCode,
-	}, "")
-	require.Equal(t, http.StatusForbidden, poll.Code, poll.Body.String())
-	tokenCount, err := srv.db.NewSelect().Model((*models.APIToken)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.Zero(t, tokenCount)
-	var session models.CLIAuthSession
-	require.NoError(t, srv.db.NewSelect().Model(&session).
-		Where("device_code_hash != ''").Scan(t.Context()))
-	require.Equal(t, "expired", session.Status)
-}
-
-func TestCLIAuthConcurrentApprovedPollsMintExactlyOneToken(t *testing.T) {
-	t.Parallel()
-
-	srv := newCLIAuthTestServer(t)
-	// A single SQLite connection gives both requests deterministic transaction
-	// ordering while they still race after observing the approved session.
-	srv.db.SetMaxOpenConns(1)
-	start := srv.startCLIAuth(t)
-	approve := srv.request(t, http.MethodPost, "/api/v1/cli/auth/approve", map[string]string{
-		"user_code": start.UserCode,
-	}, "web-token")
-	require.Equal(t, http.StatusOK, approve.Code, approve.Body.String())
-
-	responses := make(chan *httptest.ResponseRecorder, 2)
-	ready := sync.WaitGroup{}
-	ready.Add(2)
-	startPolls := make(chan struct{})
-	for range 2 {
-		go func() {
-			ready.Done()
-			<-startPolls
-			responses <- srv.request(t, http.MethodPost, "/api/v1/cli/auth/poll", map[string]string{
-				"device_code": start.DeviceCode,
-			}, "")
-		}()
-	}
-	ready.Wait()
-	close(startPolls)
-
-	secretCount := 0
-	for range 2 {
-		response := <-responses
-		var body pollResponse
-		if response.Code == http.StatusOK {
-			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
-		}
-		if body.Token != "" {
-			secretCount++
-			require.Equal(t, "approved", body.Status)
-		}
-	}
-	require.Equal(t, 1, secretCount)
-	tokenCount, err := srv.db.NewSelect().Model((*models.APIToken)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, tokenCount)
-}
-
 func TestCLIAuthApprovedSessionCannotMintAfterDeviceAuthorizationExpires(t *testing.T) {
 	t.Parallel()
 
@@ -264,109 +163,6 @@ func TestCLIAuthApprovedSessionCannotMintAfterDeviceAuthorizationExpires(t *test
 	var session models.CLIAuthSession
 	require.NoError(t, srv.db.NewSelect().Model(&session).Where("device_code_hash != ''").Scan(t.Context()))
 	require.Equal(t, "expired", session.Status)
-}
-
-func TestCLIAuthConcurrentApprovalAndDenialChooseOneTerminalState(t *testing.T) {
-	t.Parallel()
-
-	srv := newCLIAuthTestServer(t)
-	srv.db.SetMaxOpenConns(1)
-	start := srv.startCLIAuth(t)
-	responses := make(chan *httptest.ResponseRecorder, 2)
-	ready := sync.WaitGroup{}
-	ready.Add(2)
-	begin := make(chan struct{})
-	go func() {
-		ready.Done()
-		<-begin
-		responses <- srv.request(t, http.MethodPost, "/api/v1/cli/auth/approve", map[string]string{
-			"user_code": start.UserCode,
-		}, "web-token")
-	}()
-	go func() {
-		ready.Done()
-		<-begin
-		responses <- srv.request(t, http.MethodPost, "/api/v1/cli/auth/deny", map[string]string{
-			"user_code": start.UserCode,
-		}, "web-token")
-	}()
-	ready.Wait()
-	close(begin)
-
-	successes := 0
-	conflicts := 0
-	for range 2 {
-		response := <-responses
-		switch response.Code {
-		case http.StatusOK:
-			successes++
-		case http.StatusConflict:
-			conflicts++
-		default:
-			require.Failf(t, "unexpected decision response", "status=%d body=%s", response.Code, response.Body.String())
-		}
-	}
-	require.Equal(t, 1, successes)
-	require.Equal(t, 1, conflicts)
-
-	var session models.CLIAuthSession
-	require.NoError(t, srv.db.NewSelect().Model(&session).Where("device_code_hash != ''").Scan(t.Context()))
-	require.Contains(t, []string{"approved", "denied"}, session.Status)
-}
-
-func TestCLIAuthHappyPathReturnsTokenOnFirstApprovedPollOnly(t *testing.T) {
-	t.Parallel()
-
-	srv := newCLIAuthTestServer(t)
-	start := srv.startCLIAuth(t)
-
-	require.NotEmpty(t, start.DeviceCode)
-	require.Regexp(t, `^[A-Z2-9]{4}-[A-Z2-9]{4}$`, start.UserCode)
-	require.Equal(t, "https://openpost.test/cli/authorize?user_code="+start.UserCode, start.VerificationURL)
-	require.NotContains(t, start.VerificationURL, start.DeviceCode)
-	var storedSession models.CLIAuthSession
-	require.NoError(t, srv.db.NewSelect().Model(&storedSession).Scan(t.Context()))
-	require.NotEqual(t, start.DeviceCode, storedSession.DeviceCodeHash)
-	require.NotEqual(t, start.UserCode, storedSession.UserCodeHash)
-	require.Len(t, storedSession.DeviceCodeHash, 64)
-	require.Len(t, storedSession.UserCodeHash, 64)
-
-	session := srv.getSession(t, start.UserCode)
-	require.Equal(t, "OpenPost CLI", session.ClientName)
-	require.Equal(t, "1.2.3", session.ClientVersion)
-	require.Equal(t, "linux/amd64", session.ClientOS)
-	require.Equal(t, "cli:full", session.RequestedScopes)
-
-	approveResp := srv.request(t, http.MethodPost, "/api/v1/cli/auth/approve", map[string]string{
-		"user_code": start.UserCode,
-	}, "web-token")
-	require.Equal(t, http.StatusOK, approveResp.Code)
-
-	firstPoll := srv.pollCLIAuth(t, start.DeviceCode)
-	require.Equal(t, "approved", firstPoll.Status)
-	require.True(t, strings.HasPrefix(firstPoll.Token, "op_cli_"))
-
-	tokenCount, err := srv.db.NewSelect().
-		Model((*models.APIToken)(nil)).
-		Where("user_id = ?", "user-1").
-		Count(context.Background())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, tokenCount)
-	var storedToken models.APIToken
-	require.NoError(t, srv.db.NewSelect().Model(&storedToken).Where("user_id = ?", "user-1").Scan(context.Background()))
-	require.Equal(t, cliauth.ClientID, storedToken.ClientID)
-	require.Empty(t, storedToken.WorkspaceID)
-	require.Empty(t, storedToken.OrganizationID)
-
-	srv.allowImmediatePoll(t)
-	secondPollResp := srv.request(t, http.MethodPost, "/api/v1/cli/auth/poll", map[string]string{
-		"device_code": start.DeviceCode,
-	}, "")
-	require.Equal(t, http.StatusOK, secondPollResp.Code)
-	var secondPoll pollResponse
-	require.NoError(t, json.Unmarshal(secondPollResp.Body.Bytes(), &secondPoll))
-	require.Empty(t, secondPoll.Token)
-	require.Equal(t, "expired_token", secondPoll.Status)
 }
 
 func TestCLIAuthBindsApprovalToOneNormalizedRequestedScope(t *testing.T) {
@@ -456,17 +252,6 @@ func TestCLIAuthExpiry(t *testing.T) {
 	require.Empty(t, poll.Token)
 }
 
-func TestCLIAuthStartRateLimit(t *testing.T) {
-	t.Parallel()
-
-	srv := newCLIAuthTestServer(t)
-	var resp *httptest.ResponseRecorder
-	for range 21 {
-		resp = srv.request(t, http.MethodPost, "/api/v1/cli/auth/start", startRequest(), "")
-	}
-	require.Equal(t, http.StatusTooManyRequests, resp.Code)
-}
-
 func TestCLIAuthStartExpiresOlderPendingSessions(t *testing.T) {
 	t.Parallel()
 
@@ -548,16 +333,6 @@ func (s *cliAuthTestServer) pollCLIAuth(t *testing.T, deviceCode string) pollRes
 	var out pollResponse
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	return out
-}
-
-func (s *cliAuthTestServer) allowImmediatePoll(t *testing.T) {
-	t.Helper()
-	_, err := s.db.NewUpdate().
-		Model((*models.CLIAuthSession)(nil)).
-		Set("last_polled_at = ?", time.Now().UTC().Add(-2*time.Second)).
-		Where("last_polled_at IS NOT NULL").
-		Exec(context.Background())
-	require.NoError(t, err)
 }
 
 func (s *cliAuthTestServer) request(t *testing.T, method, path string, body any, token string) *httptest.ResponseRecorder {

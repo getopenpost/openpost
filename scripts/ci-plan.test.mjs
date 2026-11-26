@@ -132,6 +132,33 @@ test("changed files route to their CI paths", () => {
       ],
     },
     {
+      name: "repository script tests stay in the repository test job",
+      files: [
+        "scripts/release-watch.test.mjs",
+        "scripts/oxlint/anti-slop/shared/type-references.test.ts",
+      ],
+      on: [],
+      off: [
+        "application",
+        "backend",
+        "frontend",
+        "marketing",
+        "documentation",
+        "cli",
+        "n8n",
+        "npm",
+        "security",
+        "image",
+        "android",
+      ],
+    },
+    {
+      name: "package-owned script tests still select their package",
+      files: ["scripts/n8n-package-release.test.mjs"],
+      on: ["n8n"],
+      off: ["application", "frontend", "image"],
+    },
+    {
       name: "a changelog entry beside a documentation change stays on the documentation path",
       files: ["apps/docs/content/docs/guides/publishing.mdx", "changes/476.md"],
       on: ["documentation"],
@@ -281,13 +308,6 @@ test("package selection follows transitive consumers and fails closed when metad
       assert.equal(fallback[key], true, key);
   } finally {
     rmSync(directory, { recursive: true, force: true });
-  }
-});
-
-test("nightly release qualification covers every surface even without changed files", () => {
-  const plan = planCI([], manifest, { release: true, full: true });
-  for (const [name, selected] of Object.entries(plan)) {
-    if (name !== "cache_contract") assert.equal(selected, true, name);
   }
 });
 

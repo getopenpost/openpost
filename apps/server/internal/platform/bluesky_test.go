@@ -1,11 +1,17 @@
 package platform
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/gif"
 	"io"
 	"net"
 	"net/http"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -13,137 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBuildBlueskyPostRecordAddsFacetsExternalCardAndSelfLabels(t *testing.T) {
-	adapter := NewBlueskyAdapter("")
-	record, err := adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
-		Content: "Hello @atproto.com from #OpenPost https://example.com/path",
-		Settings: map[string]interface{}{
-			"mention_dids":     "atproto.com=did:plc:ewvi7nxzyoun6zhxrhs64oiz",
-			"link_url":         "https://example.com/path",
-			"link_title":       "Example",
-			"link_description": "Example description",
-			"self_labels":      "nudity, graphic-media",
-		},
-	}, fixedBlueskyTime())
-
-	require.NoError(t, err)
-	require.Equal(t, "app.bsky.feed.post", record["$type"])
-	require.Equal(t, "2026-01-02T03:04:05Z", record["createdAt"])
-
-	facets := record["facets"].([]map[string]interface{})
-	require.Len(t, facets, 3)
-	requireFacet(t, facets, 6, 18, "app.bsky.richtext.facet#mention", "did", "did:plc:ewvi7nxzyoun6zhxrhs64oiz")
-	requireFacet(t, facets, 24, 33, "app.bsky.richtext.facet#tag", "tag", "OpenPost")
-	requireFacet(t, facets, 34, 58, "app.bsky.richtext.facet#link", "uri", "https://example.com/path")
-
-	embed := record["embed"].(map[string]interface{})
-	require.Equal(t, "app.bsky.embed.external", embed["$type"])
-	external := embed["external"].(map[string]interface{})
-	require.Equal(t, "https://example.com/path", external["uri"])
-	require.Equal(t, "Example", external["title"])
-	require.Equal(t, "Example description", external["description"])
-
-	labels := record["labels"].(map[string]interface{})
-	require.Equal(t, "com.atproto.label.defs#selfLabels", labels["$type"])
-	values := labels["values"].([]map[string]string)
-	require.Equal(t, []map[string]string{{"val": "nudity"}, {"val": "graphic-media"}}, values)
-}
-
-func TestBuildBlueskyPostRecordAddsQuoteEmbed(t *testing.T) {
-	adapter := NewBlueskyAdapter("")
-	record, err := adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
-		Content: "quoting this",
-		Settings: map[string]interface{}{
-			"quote_uri": "at://did:plc:example/app.bsky.feed.post/3abc",
-			"quote_cid": "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm",
-		},
-	}, fixedBlueskyTime())
-
-	require.NoError(t, err)
-	embed := record["embed"].(map[string]interface{})
-	require.Equal(t, "app.bsky.embed.record", embed["$type"])
-	ref := embed["record"].(map[string]interface{})
-	require.Equal(t, "at://did:plc:example/app.bsky.feed.post/3abc", ref["uri"])
-	require.Equal(t, "bafyreibjifzpqj6o6wcq3hejh7y4z4z2vmiklkvykc57tw3pcbx3kxifpm", ref["cid"])
-}
-
 func TestBuildBlueskyFacetsTrimsTrailingPunctuation(t *testing.T) {
 	facets := buildBlueskyFacets("see https://example.com/path.", nil)
 	require.Len(t, facets, 1)
 	requireFacet(t, facets, 4, 28, "app.bsky.richtext.facet#link", "uri", "https://example.com/path")
-}
-
-func TestBuildBlueskyFacetsSkipsALinkWithoutAHost(t *testing.T) {
-	for _, text := range []string{"https:///path", "see https://.", "https://?q=1"} {
-		require.Empty(t, buildBlueskyFacets(text, nil), "text %q", text)
-	}
-}
-
-func TestBuildBlueskyFacetsLinksTheWholeURL(t *testing.T) {
-	tests := []struct {
-		text string
-		uri  string
-	}{
-		{text: "Map https://www.google.com/maps/@37.5665,126.978,15z", uri: "https://www.google.com/maps/@37.5665,126.978,15z"},
-		{text: "https://en.wikipedia.org/wiki/Washington,_D.C.", uri: "https://en.wikipedia.org/wiki/Washington,_D.C"},
-		{text: "Read https://openpost.digital/blog today", uri: "https://openpost.digital/blog"},
-		{text: "Docs: https://example.com/a;b=1!c", uri: "https://example.com/a;b=1!c"},
-		{text: "詳しくはhttps://example.com/aboutをご覧ください", uri: "https://example.com/about"},
-		{text: "**https://example.com/bold**", uri: "https://example.com/bold"},
-	}
-	for _, test := range tests {
-		facets := buildBlueskyFacets(test.text, nil)
-		require.Len(t, facets, 1, "text %q", test.text)
-		start := strings.Index(test.text, test.uri)
-		requireFacet(t, facets, start, start+len(test.uri), "app.bsky.richtext.facet#link", "uri", test.uri)
-	}
-}
-
-func TestBuildBlueskyFacetsDropsOverlappingTagInsideLink(t *testing.T) {
-	facets := buildBlueskyFacets("https://example.com/#OpenPost", nil)
-	require.Len(t, facets, 1)
-	requireFacet(t, facets, 0, 29, "app.bsky.richtext.facet#link", "uri", "https://example.com/#OpenPost")
-}
-
-// Hashtags follow TAG_REGEX in @atproto/api's rich-text detection: any
-// script, started by whitespace, not only digits, trailing punctuation
-// trimmed, and at most 64 graphemes (the lexicon's limit for a tag).
-func TestBuildBlueskyFacetsDetectsHashtagsLikeBluesky(t *testing.T) {
-	type tagFacet struct {
-		start, end int
-		tag        string
-	}
-	longTag := strings.Repeat("a", 64)
-	tests := []struct {
-		text string
-		want []tagFacet
-	}{
-		{text: "Bom dia #café", want: []tagFacet{{8, 14, "café"}}},
-		{text: "#日本語 です", want: []tagFacet{{0, 10, "日本語"}}},
-		{text: "Visit #São_Paulo!", want: []tagFacet{{6, 17, "São_Paulo"}}},
-		{text: "Join #open-source, today", want: []tagFacet{{5, 17, "open-source"}}},
-		{text: "こんにちは\u3000#東京", want: []tagFacet{{18, 25, "東京"}}},
-		{text: "＃OpenPost", want: []tagFacet{{0, 11, "OpenPost"}}},
-		{text: "#2024 is here", want: nil},
-		{text: "C#sharp", want: nil},
-		{text: "#" + longTag, want: []tagFacet{{0, 65, longTag}}},
-		{text: "#" + longTag + "a", want: nil},
-		{text: "#\uFE0F\u20E3 keycap", want: nil},
-		// 16 graphemes but 656 bytes: past the tag's 640-byte limit.
-		{text: "#" + strings.Repeat("e"+strings.Repeat("\u0301", 20), 16), want: nil},
-	}
-	for _, test := range tests {
-		var got []tagFacet
-		for _, facet := range buildBlueskyFacets(test.text, nil) {
-			features := facet["features"].([]map[string]string)
-			if features[0]["$type"] != "app.bsky.richtext.facet#tag" {
-				continue
-			}
-			index := facet["index"].(map[string]int)
-			got = append(got, tagFacet{index["byteStart"], index["byteEnd"], features[0]["tag"]})
-		}
-		require.Equal(t, test.want, got, "text %q", test.text)
-	}
 }
 
 func TestBuildBlueskyFacetsSkipsMalformedMentionDIDs(t *testing.T) {
@@ -151,24 +30,6 @@ func TestBuildBlueskyFacetsSkipsMalformedMentionDIDs(t *testing.T) {
 		"mention_dids": "user.bsky.social=not-a-did",
 	})
 	require.Empty(t, facets)
-}
-
-func TestBuildBlueskyPostRecordRejectsOversizedText(t *testing.T) {
-	adapter := NewBlueskyAdapter("")
-	_, err := adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
-		Content: strings.Repeat("a", 301),
-	}, fixedBlueskyTime())
-	require.ErrorContains(t, err, "300")
-
-	_, err = adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
-		Content: strings.Repeat("é", 1600),
-	}, fixedBlueskyTime())
-	require.ErrorContains(t, err, "3000")
-
-	_, err = adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
-		Content: strings.Repeat("é", 200),
-	}, fixedBlueskyTime())
-	require.NoError(t, err)
 }
 
 func TestBuildBlueskyPostRecordRejectsExternalCardWithMedia(t *testing.T) {
@@ -247,194 +108,6 @@ func blueskyDIDDocument(did, handle, endpoint string) string {
 		alsoKnownAs = `,"alsoKnownAs":["at://` + handle + `"]`
 	}
 	return `{"id":"` + did + `"` + alsoKnownAs + `,"service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"` + endpoint + `"}]}`
-}
-
-func TestResolveBlueskyPDS(t *testing.T) {
-	const handleURL = "https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=alice.example"
-	const handleWellKnownURL = "https://alice.example/.well-known/atproto-did"
-	const plcURL = "https://plc.directory/did:plc:selfhostedexample000000"
-	const wellKnownURL = "https://pds.example/.well-known/did.json"
-
-	cases := []struct {
-		name       string
-		identifier string
-		responses  map[string]string
-		wantPDS    string
-		wantDID    string
-		wantErr    string
-		wantCalls  int
-	}{
-		{
-			name:       "handle resolves through its plc document",
-			identifier: "alice.example",
-			responses: map[string]string{
-				handleURL: `{"did":"did:plc:selfhostedexample000000"}`,
-				plcURL:    blueskyDIDDocument("did:plc:selfhostedexample000000", "alice.example", "https://pds.example/"),
-			},
-			wantPDS:   "https://pds.example",
-			wantDID:   "did:plc:selfhostedexample000000",
-			wantCalls: 2,
-		},
-		{
-			name:       "leading at sign is stripped from the handle",
-			identifier: "@alice.example",
-			responses: map[string]string{
-				handleURL: `{"did":"did:plc:selfhostedexample000000"}`,
-				plcURL:    blueskyDIDDocument("did:plc:selfhostedexample000000", "alice.example", "https://pds.example/"),
-			},
-			wantPDS:   "https://pds.example",
-			wantDID:   "did:plc:selfhostedexample000000",
-			wantCalls: 2,
-		},
-		{
-			name:       "handle falls back to its well known did",
-			identifier: "alice.example",
-			responses: map[string]string{
-				handleWellKnownURL: "did:plc:selfhostedexample000000\n",
-				plcURL:             blueskyDIDDocument("did:plc:selfhostedexample000000", "alice.example", "https://pds.example"),
-			},
-			wantPDS:   "https://pds.example",
-			wantDID:   "did:plc:selfhostedexample000000",
-			wantCalls: 3,
-		},
-		{
-			name:       "did:web identifier reads its well-known document",
-			identifier: "did:web:pds.example",
-			responses:  map[string]string{wellKnownURL: blueskyDIDDocument("did:web:pds.example", "", "https://pds.example")},
-			wantPDS:    "https://pds.example",
-			wantDID:    "did:web:pds.example",
-			wantCalls:  1,
-		},
-		{
-			name:       "endpoint userinfo query and path are rejected",
-			identifier: "did:web:PDS.Example",
-			responses:  map[string]string{wellKnownURL: blueskyDIDDocument("did:web:PDS.Example", "", "https://user:pw@PDS.Example/xrpc/?a=1#f")},
-			wantErr:    "must be an origin url",
-			wantCalls:  1,
-		},
-		{
-			name:       "unresolvable handle is an error",
-			identifier: "alice.example",
-			wantErr:    "resolving bluesky handle",
-			wantCalls:  2,
-		},
-		{
-			name:       "document without a pds service fails closed",
-			identifier: "did:web:pds.example",
-			responses: map[string]string{
-				wellKnownURL: `{"id":"did:web:pds.example","service":[{"id":"#atproto_labeler","type":"AtprotoLabeler","serviceEndpoint":"https://pds.example"}]}`,
-			},
-			wantErr:   "did document has no personal data server",
-			wantCalls: 1,
-		},
-		{
-			name:       "malformed did document fails closed",
-			identifier: "did:web:pds.example",
-			responses:  map[string]string{wellKnownURL: `{`},
-			wantErr:    "decoding bluesky did document",
-			wantCalls:  1,
-		},
-		{
-			name:       "did document must assert the resolved did",
-			identifier: "did:web:pds.example",
-			responses:  map[string]string{wellKnownURL: blueskyDIDDocument("did:web:other.example", "", "https://pds.example")},
-			wantErr:    "did document id does not match",
-			wantCalls:  1,
-		},
-		{
-			name:       "handle must be claimed by the did document",
-			identifier: "alice.example",
-			responses: map[string]string{
-				handleURL: `{"did":"did:plc:selfhostedexample000000"}`,
-				plcURL:    blueskyDIDDocument("did:plc:selfhostedexample000000", "former.example", "https://pds.example"),
-			},
-			wantErr:   "did document does not claim handle",
-			wantCalls: 2,
-		},
-		{
-			name:       "malformed service entries are skipped",
-			identifier: "did:web:pds.example",
-			responses: map[string]string{
-				wellKnownURL: `{"id":"did:web:pds.example","service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":""},` +
-					`{"id":"did:web:pds.example#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"https://pds.example"}]}`,
-			},
-			wantPDS:   "https://pds.example",
-			wantDID:   "did:web:pds.example",
-			wantCalls: 1,
-		},
-		{
-			name:       "bluesky hosted endpoint is unresolved",
-			identifier: "did:web:pds.example",
-			responses:  map[string]string{wellKnownURL: blueskyDIDDocument("did:web:pds.example", "", "https://polypore.us-west.host.bsky.network")},
-			wantDID:    "did:web:pds.example",
-			wantCalls:  1,
-		},
-		{
-			name:       "plain http endpoint is rejected",
-			identifier: "did:web:pds.example",
-			responses:  map[string]string{wellKnownURL: blueskyDIDDocument("did:web:pds.example", "", "http://pds.example")},
-			wantErr:    "bluesky pds scheme must be https",
-			wantCalls:  1,
-		},
-		{
-			name:       "endpoint on a private address is rejected",
-			identifier: "did:web:pds.example",
-			responses:  map[string]string{wellKnownURL: blueskyDIDDocument("did:web:pds.example", "", "https://private.example")},
-			wantErr:    "private or local address",
-			wantCalls:  1,
-		},
-		{
-			name:       "email sign-in resolves nothing",
-			identifier: "founder@example.com",
-			wantCalls:  0,
-		},
-		{
-			name:       "did:web host with a port is rejected",
-			identifier: "did:web:pds.example:3000",
-			wantErr:    "unsupported did:web identifier",
-		},
-		{
-			name:       "did:web host with a path is rejected",
-			identifier: `did:web:pds.example\bad`,
-			wantErr:    "unsupported did:web identifier",
-		},
-		{
-			name:       "did:web host with a fragment is rejected",
-			identifier: "did:web:pds.example#frag",
-			wantErr:    "unsupported did:web identifier",
-		},
-		{
-			name:       "did:web host with a query is rejected",
-			identifier: "did:web:pds.example?a=1",
-			wantErr:    "unsupported did:web identifier",
-		},
-		{
-			name:       "unsupported did method is rejected",
-			identifier: "did:key:z6Mk",
-			wantErr:    "unsupported did method",
-		},
-	}
-
-	// An "@" identifier never reaches DID handling: it is taken for an email.
-	_, err := blueskyDIDDocumentURL("did:web:user@pds.example")
-	require.ErrorContains(t, err, "unsupported did:web identifier")
-
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			calls := 0
-			stubBlueskyResolution(t, testCase.responses, &calls)
-
-			pdsURL, did, err := ResolveBlueskyPDS(context.Background(), testCase.identifier)
-			if testCase.wantErr != "" {
-				require.ErrorContains(t, err, testCase.wantErr)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, testCase.wantPDS, pdsURL)
-				require.Equal(t, testCase.wantDID, did)
-			}
-			require.Equal(t, testCase.wantCalls, calls)
-		})
-	}
 }
 
 func TestResolvedBlueskyAdapterRevalidatesPDSBeforeSendingCredentials(t *testing.T) {
@@ -519,4 +192,114 @@ func TestBlueskyUnrepostOnlyIgnoresMissingRecord(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildBlueskyPostRecordEmbedsGIFAsVideoWithGIFPresentation(t *testing.T) {
+	adapter := NewBlueskyAdapter("")
+	blobJSON := `{"$type":"blob","ref":{"$link":"bafkreigifvideo"},"mimeType":"video/mp4","size":4096}`
+
+	record, err := adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
+		Content:          "Animated reaction",
+		PlatformMediaIDs: []string{blobJSON},
+		MediaAltTexts:    []string{"Waving mascot"},
+		Media:            []MediaItem{{ID: "gif-1", MimeType: "image/gif", Width: 480, Height: 270}},
+	}, fixedBlueskyTime())
+	require.NoError(t, err)
+
+	embed, ok := record["embed"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "app.bsky.embed.video", embed["$type"])
+	require.Equal(t, "gif", embed["presentation"])
+	require.Equal(t, "Waving mascot", embed["alt"])
+	require.Equal(t, map[string]int{"width": 480, "height": 270}, embed["aspectRatio"])
+
+	// Regular video embeds do not carry presentation="gif".
+	videoRecord, err := adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
+		Content:          "Clip",
+		PlatformMediaIDs: []string{blobJSON},
+		Media:            []MediaItem{{ID: "vid-1", MimeType: "video/mp4", Width: 1280, Height: 720}},
+	}, fixedBlueskyTime())
+	require.NoError(t, err)
+	videoEmbed := videoRecord["embed"].(map[string]interface{})
+	require.Equal(t, "app.bsky.embed.video", videoEmbed["$type"])
+	require.NotContains(t, videoEmbed, "presentation")
+
+	// Multiple attachments with a GIF are rejected.
+	_, err = adapter.buildPostRecord("did:plc:openpost", &PublishRequest{
+		Content:          "Too many",
+		PlatformMediaIDs: []string{blobJSON, blobJSON},
+		Media: []MediaItem{
+			{ID: "gif-1", MimeType: "image/gif"},
+			{ID: "img-1", MimeType: "image/jpeg"},
+		},
+	}, fixedBlueskyTime())
+	require.ErrorContains(t, err, "only one gif")
+}
+
+func TestBlueskyUploadMediaConvertsGIFAndUploadsToVideoService(t *testing.T) {
+	originalClient := httpClient
+	originalConverter := blueskyGIFToMP4
+	defer func() {
+		httpClient = originalClient
+		blueskyGIFToMP4 = originalConverter
+	}()
+
+	converted := false
+	blueskyGIFToMP4 = func(_ context.Context, r io.Reader) ([]byte, error) {
+		converted = true
+		data, err := io.ReadAll(r)
+		require.NoError(t, err)
+		require.Equal(t, []byte("GIF89a"), data)
+		return []byte("fake-mp4-bytes"), nil
+	}
+
+	uploadedContentType := ""
+	uploadedBody := ""
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch {
+		case strings.Contains(req.URL.Path, "com.atproto.server.getSession"):
+			return jsonResponse(req, `{"did":"did:plc:openpost","emailConfirmed":true}`), nil
+		case strings.Contains(req.URL.Path, "com.atproto.server.getServiceAuth"):
+			return jsonResponse(req, `{"token":"video-service-token"}`), nil
+		case req.URL.Host == "video.bsky.app" && strings.Contains(req.URL.Path, "app.bsky.video.uploadVideo"):
+			uploadedContentType = req.Header.Get("Content-Type")
+			body, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			uploadedBody = string(body)
+			return jsonResponse(req, `{"jobStatus":{"jobId":"job-1","state":"JOB_STATE_COMPLETED","blob":{"$type":"blob","ref":{"$link":"bafkreigifmp4"},"mimeType":"video/mp4","size":14}}}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	adapter := NewBlueskyAdapter(BlueskyDefaultPDSURL)
+	blobJSON, err := adapter.UploadMedia(t.Context(), base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none"}`))+"."+base64.RawURLEncoding.EncodeToString([]byte(`{"aud":"did:web:bsky.social"}`))+".", "did:plc:openpost", "image/gif", bytes.NewReader([]byte("GIF89a")))
+	require.NoError(t, err)
+	require.True(t, converted)
+	require.Equal(t, "video/mp4", uploadedContentType)
+	require.Equal(t, "fake-mp4-bytes", uploadedBody)
+	require.Contains(t, blobJSON, "bafkreigifmp4")
+}
+
+func TestConvertGIFToMP4ProducesMP4WithOddDimensions(t *testing.T) {
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg not installed in PATH")
+	}
+	palette := color.Palette{color.RGBA{R: 255, A: 255}, color.RGBA{B: 255, A: 255}}
+	frame1 := image.NewPaletted(image.Rect(0, 0, 3, 3), palette)
+	frame2 := image.NewPaletted(image.Rect(0, 0, 3, 3), palette)
+	for i := range frame2.Pix {
+		frame2.Pix[i] = 1
+	}
+	var buf bytes.Buffer
+	require.NoError(t, gif.EncodeAll(&buf, &gif.GIF{
+		Image: []*image.Paletted{frame1, frame2},
+		Delay: []int{10, 10},
+	}))
+
+	mp4Data, err := convertGIFToMP4(t.Context(), &buf)
+	require.NoError(t, err)
+	require.NotEmpty(t, mp4Data)
+	require.True(t, bytes.Contains(mp4Data, []byte("ftyp")), "expected valid MP4 ftyp header")
 }

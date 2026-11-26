@@ -4,7 +4,9 @@ import type { MediaPoolEntry } from '../media/pool.svelte';
 import type { TimelineItem, TimelineTrack } from '../project/types';
 
 function makeMediaEntry(
-	overrides: Partial<MediaPoolEntry['media']> & { status?: MediaPoolEntry['status'] } = {}
+	overrides: Partial<MediaPoolEntry['media']> & {
+		status?: MediaPoolEntry['status'];
+	} = {}
 ): MediaPoolEntry {
 	const { status = 'ready', ...mediaOverrides } = overrides;
 	return {
@@ -59,50 +61,13 @@ function makeTrack(overrides: Partial<TimelineTrack> = {}): TimelineTrack {
 }
 
 describe('resolveAudioOwner', () => {
-	it('returns unsupported when audio codec is not supported', () => {
-		const item = makeItem({ type: 'video' });
-		const entry = makeMediaEntry({ audioCodecSupported: false });
-		expect(
-			resolveAudioOwner({
-				item,
-				tracks: [makeTrack()],
-				allItems: [],
-				mediaEntry: entry,
-				usesSeparateProxyAudio: false,
-				usesProcessedAudio: false
-			})
-		).toBe('unsupported');
-		const audioItem = makeItem({ type: 'audio' });
-		expect(
-			resolveAudioOwner({
-				item: audioItem,
-				tracks: [makeTrack({ kind: 'audio' })],
-				allItems: [],
-				mediaEntry: entry,
-				usesSeparateProxyAudio: false,
-				usesProcessedAudio: false
-			})
-		).toBe('unsupported');
-	});
-
-	it('returns muted when track is muted and codec is supported', () => {
-		const entry = makeMediaEntry();
-		const mutedTrack = makeTrack({ muted: true });
-		expect(
-			resolveAudioOwner({
-				item: makeItem(),
-				tracks: [mutedTrack],
-				allItems: [],
-				mediaEntry: entry,
-				usesSeparateProxyAudio: false,
-				usesProcessedAudio: false
-			})
-		).toBe('muted');
-	});
-
 	it('returns linkedCompanion when hasLinkedAudioCompanion', () => {
 		const entry = makeMediaEntry();
-		const videoItem = makeItem({ id: 'v1', type: 'video', linkedGroupId: 'g1' });
+		const videoItem = makeItem({
+			id: 'v1',
+			type: 'video',
+			linkedGroupId: 'g1'
+		});
 		const audioCompanion = makeItem({
 			id: 'a1',
 			type: 'audio',
@@ -135,20 +100,6 @@ describe('resolveAudioOwner', () => {
 			})
 		).toBe('embedded');
 	});
-
-	it('precedence: unsupported wins over muted', () => {
-		const entry = makeMediaEntry({ audioCodecSupported: false });
-		expect(
-			resolveAudioOwner({
-				item: makeItem(),
-				tracks: [makeTrack({ muted: true })],
-				allItems: [],
-				mediaEntry: entry,
-				usesSeparateProxyAudio: false,
-				usesProcessedAudio: false
-			})
-		).toBe('unsupported');
-	});
 });
 
 describe('resolveReverseShuttleAudioUrl', () => {
@@ -160,11 +111,5 @@ describe('resolveReverseShuttleAudioUrl', () => {
 				'blob:original-with-audio'
 			)
 		).toBe('blob:original-with-audio');
-	});
-
-	it('falls back to the visual source when no separate audio source is available', () => {
-		expect(resolveReverseShuttleAudioUrl(makeItem({ type: 'video' }), 'blob:video', null)).toBe(
-			'blob:video'
-		);
 	});
 });

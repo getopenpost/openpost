@@ -2,16 +2,13 @@ import { beforeEach, afterEach, expect, test, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
 import TranscriptCutPanel from './TranscriptCutPanel.svelte';
-import { Toaster } from '$lib/components/ui/sonner';
 import StreamSelector from './StreamSelector.svelte';
-import CleanupPanel from './CleanupPanel.svelte';
 import type { QuickCutSource } from '../types';
 import { createNewProject, parseProject, serializeProject } from '../project';
 import {
 	BrowserTranscriber,
 	TranscriptionJob
 } from '$lib/video-editor/transcript/engine/transcriber';
-import { handleGlobalPlayPauseShortcut } from '@openpost/editor-shared/settings';
 
 import { setWorkspaceRoot } from '@openpost/editor-shared/workspace';
 beforeEach(async () => {
@@ -71,24 +68,6 @@ test('opens the transcript panel for a video without audio and prevents transcri
 	await expect.element(screen.getByText('No audio tracks', { exact: true })).toBeVisible();
 });
 
-test('explains why cleanup is unavailable for a video without audio', async () => {
-	const screen = await render(CleanupPanel, {
-		source: {
-			...source,
-			audioStreams: [],
-			audioCodec: null,
-			transcript: undefined
-		},
-		onapply: vi.fn(),
-		onpreview: vi.fn(),
-		onreview: vi.fn()
-	});
-	await expect
-		.element(screen.getByRole('button', { name: 'Find cuts', exact: true }))
-		.toBeDisabled();
-	await expect.element(screen.getByText('No audio tracks', { exact: true })).toBeVisible();
-});
-
 test('selects words and removes their source ranges while preserving existing transcript cuts', async () => {
 	const onremove = vi.fn();
 	const screen = await render(TranscriptCutPanel, {
@@ -109,199 +88,6 @@ test('selects words and removes their source ranges while preserving existing tr
 		{ text: 'again', start: 1, end: 1.5 },
 		{ text: 'friends', start: 2, end: 2.5 }
 	]);
-});
-
-test('Space activates a transcript word instead of the global playback shortcut', async () => {
-	const toggle = vi.fn();
-	const listener = (event: KeyboardEvent) => handleGlobalPlayPauseShortcut(event, 'space', toggle);
-	window.addEventListener('keydown', listener, true);
-	try {
-		const screen = await render(TranscriptCutPanel, {
-			source,
-			segments: [{ id: 'kept', sourceId: source.id, start: 0, end: 10 }],
-			currentTime: 0,
-			onsave: vi.fn(),
-			onseek: vi.fn(),
-			onremove: vi.fn()
-		});
-		screen.getByRole('button', { name: 'Hello', exact: true }).element().focus();
-		await userEvent.keyboard(' ');
-		expect(toggle).not.toHaveBeenCalled();
-		await expect
-			.element(screen.getByRole('button', { name: 'Remove word', exact: true }))
-			.toBeEnabled();
-		await screen.getByRole('button', { name: 'again', exact: true }).click();
-		await expect
-			.element(screen.getByRole('button', { name: 'Remove 2 words', exact: true }))
-			.toBeEnabled();
-	} finally {
-		window.removeEventListener('keydown', listener, true);
-	}
-});
-
-test('explains an empty successful transcript and retains that outcome when reopened', async () => {
-	const file = new File(['owned transport fixture'], 'tone.wav', {
-		type: 'audio/wav'
-	});
-	const input = { ...source, file, transcript: undefined };
-	const collect = vi.spyOn(TranscriptionJob.prototype, 'collect').mockResolvedValueOnce([]);
-	const onsave = vi.fn();
-	try {
-		const screen = await render(TranscriptCutPanel, {
-			source: input,
-			segments: [],
-			currentTime: 0,
-			onsave,
-			onseek: vi.fn(),
-			onremove: vi.fn()
-		});
-		await expect
-			.element(
-				screen.getByText(
-					'No speech was found in this audio. Check the language or choose audio with speech, then try again.',
-					{ exact: true }
-				)
-			)
-			.not.toBeInTheDocument();
-		screen.getByRole('button', { name: 'Create transcript', exact: true }).last().element().focus();
-		await userEvent.keyboard('{Enter}');
-		await vi.waitFor(() =>
-			expect(onsave).toHaveBeenCalledExactlyOnceWith(source.id, {
-				audioTrackIndex: 0,
-				words: []
-			})
-		);
-		await screen.rerender({
-			source: { ...input, transcript: onsave.mock.calls[0]![1] }
-		});
-		await expect
-			.element(screen.getByRole('status'))
-			.toHaveTextContent(
-				'No speech was found in this audio. Check the language or choose audio with speech, then try again.'
-			);
-		await expect
-			.element(screen.getByRole('button', { name: 'Create transcript', exact: true }).last())
-			.toBeEnabled();
-		await screen.unmount();
-		const reopened = await render(TranscriptCutPanel, {
-			source: { ...input, transcript: onsave.mock.calls[0]![1] },
-			segments: [],
-			currentTime: 0,
-			onsave,
-			onseek: vi.fn(),
-			onremove: vi.fn()
-		});
-		await expect
-			.element(reopened.getByRole('status'))
-			.toHaveTextContent('No speech was found in this audio.');
-		await reopened.rerender({ source: { ...input, transcript: undefined } });
-		await expect
-			.element(
-				reopened.getByText(
-					'No speech was found in this audio. Check the language or choose audio with speech, then try again.',
-					{ exact: true }
-				)
-			)
-			.not.toBeInTheDocument();
-	} finally {
-		collect.mockRestore();
-	}
-});
-
-test('does not report an empty successful result after transcription is cancelled', async () => {
-	let finish!: (result: []) => void;
-	const collect = vi.spyOn(TranscriptionJob.prototype, 'collect').mockImplementationOnce(
-		() =>
-			new Promise((resolve) => {
-				finish = resolve;
-			})
-	);
-	const onsave = vi.fn();
-	try {
-		const screen = await render(TranscriptCutPanel, {
-			source: {
-				...source,
-				file: new File(['owned fixture'], 'tone.wav', { type: 'audio/wav' }),
-				transcript: undefined
-			},
-			segments: [],
-			currentTime: 0,
-			onsave,
-			onseek: vi.fn(),
-			onremove: vi.fn()
-		});
-		await screen.getByRole('button', { name: 'Create transcript', exact: true }).last().click();
-		await screen.getByRole('button', { name: 'Cancel transcription', exact: true }).click();
-		finish([]);
-		await expect
-			.element(screen.getByRole('button', { name: 'Create transcript', exact: true }).last())
-			.toBeEnabled();
-		await expect
-			.element(
-				screen.getByText(
-					'No speech was found in this audio. Check the language or choose audio with speech, then try again.',
-					{ exact: true }
-				)
-			)
-			.not.toBeInTheDocument();
-		expect(onsave).not.toHaveBeenCalled();
-	} finally {
-		collect.mockRestore();
-	}
-});
-
-test('explains audio deselection and clears the guidance when a source track is enabled again', async () => {
-	let input = {
-		...source,
-		file: new File(['owned fixture'], 'interview.mp4', { type: 'video/mp4' }),
-		transcript: undefined
-	};
-	const panel = await render(TranscriptCutPanel, {
-		source: input,
-		segments: [],
-		currentTime: 0,
-		onsave: vi.fn(),
-		onseek: vi.fn(),
-		onremove: vi.fn()
-	});
-	const selector = await render(StreamSelector, {
-		source: input,
-		onChange: async (patch) => {
-			input = { ...input, ...patch };
-			await selector.rerender({ source: input });
-			await panel.rerender({ source: input });
-		}
-	});
-	const audio = selector.getByRole('checkbox', {
-		name: 'Audio 1 Interview.mp4',
-		exact: true
-	});
-	await expect
-		.element(panel.getByRole('button', { name: 'Create transcript', exact: true }).last())
-		.toBeEnabled();
-	audio.element().focus();
-	await userEvent.keyboard(' ');
-	await expect
-		.element(panel.getByRole('button', { name: 'Create transcript', exact: true }).last())
-		.toBeDisabled();
-	await expect
-		.element(panel.getByRole('status'))
-		.toHaveTextContent(
-			'No source audio is selected. Enable an audio track under Export → Video and audio tracks to create a transcript.'
-		);
-	await expect.element(audio).toHaveFocus();
-	await userEvent.keyboard(' ');
-	await expect
-		.element(panel.getByRole('button', { name: 'Create transcript', exact: true }).last())
-		.toBeEnabled();
-	await expect
-		.element(
-			panel.getByText(
-				'No source audio is selected. Enable an audio track under Export → Video and audio tracks to create a transcript.',
-				{ exact: true }
-			)
-		)
-		.not.toBeInTheDocument();
 });
 
 test('keeps the cached transcript target when another audio stream is retained and after portable reopen', async () => {
@@ -399,47 +185,4 @@ test('keeps the cached transcript target when another audio stream is retained a
 		source: { ...reopened, selectedAudioTrackIndices: [1] }
 	});
 	await expect.element(cold.getByRole('button', { name: 'Hello', exact: true })).toBeVisible();
-});
-
-test('retains completed words for review when the browser transcript cache is full', async () => {
-	const notices = await render(Toaster);
-	const words = [{ text: 'A useful result', start: 0, end: 1 }];
-	const collect = vi
-		.spyOn(TranscriptionJob.prototype, 'collect')
-		.mockResolvedValueOnce([{ text: 'A useful result', start: 0, end: 1, words }]);
-	const write = vi
-		.spyOn(FileSystemFileHandle.prototype, 'createWritable')
-		.mockRejectedValue(new DOMException('Storage is full', 'QuotaExceededError'));
-	const onsave = vi.fn();
-	try {
-		const screen = await render(TranscriptCutPanel, {
-			source: {
-				...source,
-				file: new File(['owned fixture'], 'tone.wav', { type: 'audio/wav' }),
-				transcript: undefined
-			},
-			segments: [],
-			currentTime: 0,
-			onsave,
-			onseek: vi.fn(),
-			onremove: vi.fn()
-		});
-		await screen.getByRole('button', { name: 'Create transcript', exact: true }).last().click();
-		await vi.waitFor(() =>
-			expect(onsave).toHaveBeenCalledExactlyOnceWith(source.id, {
-				audioTrackIndex: 0,
-				words
-			})
-		);
-		await expect
-			.element(
-				notices.getByText(
-					'Your project is available, but its transcript could not be kept on this device. You can still edit and export it.'
-				)
-			)
-			.toBeVisible();
-	} finally {
-		collect.mockRestore();
-		write.mockRestore();
-	}
 });

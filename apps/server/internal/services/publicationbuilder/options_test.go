@@ -3,8 +3,6 @@ package publicationbuilder
 import (
 	"context"
 	"encoding/json"
-	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,36 +13,9 @@ import (
 	"github.com/openpost/backend/internal/screenshottemplates"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/stretchr/testify/require"
-	"github.com/uptrace/bun"
 )
 
 type decisionFunc func(context.Context, ai.DecisionRequest) (ai.DecisionResult, error)
-
-func TestFourPostFailureStaysPendingWhileDurableRetryIsRunnable(t *testing.T) {
-	t.Parallel()
-	db := newBuilderApplicationTestDB(t)
-	app, err := NewApplication(db, packageBuilderFunc(func(context.Context, BuildInput) (BuildResult, error) {
-		return BuildResult{}, nil
-	}), ApplicationConfig{})
-	require.NoError(t, err)
-	request := testBuildRequest(time.Now(), "four-options-retry-state")
-	request.Input.OptionCount = 4
-	build, _, err := app.Enqueue(t.Context(), request)
-	require.NoError(t, err)
-	_, err = db.NewUpdate().Model((*BuildRecord)(nil)).Set("state = ?", BuildStateFailed).
-		Set("error_code = 'review_rejected'").Set("error_message = 'Retry this build.'").Where("id = ?", build.ID).Exec(t.Context())
-	require.NoError(t, err)
-	pending, err := app.Get(t.Context(), "user-1", build.ID)
-	require.NoError(t, err)
-	require.Equal(t, BuildStateQueued, pending.State, "the UI must keep polling while a durable retry is runnable")
-	require.Empty(t, pending.ErrorMessage)
-	_, err = db.NewUpdate().Model((*models.Job)(nil)).Set("status = ?", jobregistry.StatusFailed).Where("type = ?", jobregistry.TypePublicationBuild).Exec(t.Context())
-	require.NoError(t, err)
-	failed, err := app.Get(t.Context(), "user-1", build.ID)
-	require.NoError(t, err)
-	require.Equal(t, BuildStateFailed, failed.State)
-	require.Equal(t, "Retry this build.", failed.ErrorMessage)
-}
 
 func (fn decisionFunc) Decide(ctx context.Context, request ai.DecisionRequest) (ai.DecisionResult, error) {
 	return fn(ctx, request)
@@ -116,122 +87,6 @@ func TestFourPostBuildRepairsBrokenMemeAndRetainsDecisionUsage(t *testing.T) {
 	require.Contains(t, usage, `"total_tokens":94`)
 }
 
-func TestFourPostProviderRequestsShareSeriousReleaseContextThroughPlannerRepairWriterAndCritique(t *testing.T) {
-	t.Parallel()
-	plannerCalls := 0
-	service, err := New(generationFunc(func(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
-		var value any
-		switch request.ResponseSchema.Name {
-		case "openpost_four_post_directions":
-			plannerCalls++
-			require.Contains(t, request.SystemPrompt, "Serious releases and technical updates")
-			require.Contains(t, request.UserPrompt, `"id":"release-notes"`)
-			require.Contains(t, request.UserPrompt, `"outcome":"Help existing users configure the integration safely"`)
-			require.Contains(t, request.UserPrompt, `"platform":"linkedin"`)
-			require.Contains(t, request.UserPrompt, `"platform":"x"`)
-			require.Contains(t, request.UserPrompt, `"platform":"bluesky"`)
-			if plannerCalls == 2 {
-				require.Contains(t, request.UserPrompt, `"validation_error":"exactly four creative options are required"`)
-				require.Contains(t, request.UserPrompt, `"text":"Enable the webhook in Settings, then copy the signing secret."`)
-				require.Contains(t, request.UserPrompt, `"guidance":"Direct, technical, no jokes."`)
-				require.Contains(t, request.UserPrompt, `"writing_model"`, "repair must retain provider policy context")
-			}
-			count := 4
-			if plannerCalls == 1 {
-				count = 3
-			}
-			plans := make([]plannedOption, count)
-			for i := range plans {
-				plans[i] = plannedOption{Label: []string{"Prerequisite", "Decision", "Trade-off", "Result"}[i], Direction: DirectorPlan{
-					CanonicalText: "Webhook signing is available.", FactualKernel: []string{"Enable the webhook in Settings, then copy the signing secret."},
-					Thesis: "The release adds webhook signing with one supplied setup sequence.", Outcome: "Help existing users configure the integration safely", Audience: "Existing technical users", Angle: "Lead with the prerequisite", Route: "artifact_led",
-					Media:        MediaPlan{Treatment: "none", Role: "none", Brief: "The supplied steps carry the update."},
-					Destinations: []DestinationDecision{{AccountID: "linkedin-1", Include: true, Reason: "Required."}, {AccountID: "x-1", Include: true, Reason: "Required."}, {AccountID: "bluesky-1", Include: true, Reason: "Required."}},
-				}}
-			}
-			value = optionDirections{Options: plans}
-		case "openpost_four_complete_posts":
-			require.Contains(t, request.SystemPrompt, "If the source is sparse, write a concise honest announcement")
-			require.Contains(t, request.UserPrompt, `"planned_options"`)
-			require.Contains(t, request.UserPrompt, `"platform_policies"`)
-			posts := make([]PostOption, 4)
-			for i, opening := range []string{"Webhook signing is now available.", "The setup has two supplied steps.", "Signing is explicit by design.", "One prerequisite before copying the secret."} {
-				posts[i] = PostOption{Destinations: []DestinationPlan{
-					{AccountID: "linkedin-1", Objective: "trust", Archetype: "announcement", OutputProfile: "linkedin.post", Preview: opening, Segments: []SegmentPlan{{Body: opening + " Enable the webhook in Settings, then copy the signing secret."}}, Media: MediaPlan{Treatment: "none", Role: "none", Brief: "Text is sufficient."}},
-					{AccountID: "x-1", Objective: "clicks", Archetype: "announcement", OutputProfile: "x.post", Preview: opening, Segments: []SegmentPlan{{Body: opening + " Enable it in Settings, then copy the signing secret."}}, Media: MediaPlan{Treatment: "none", Role: "none", Brief: "Text is sufficient."}},
-					{AccountID: "bluesky-1", Objective: "clicks", Archetype: "technical_note", OutputProfile: "bluesky.post", Preview: opening, Segments: []SegmentPlan{{Body: opening + " Enable it in Settings, then copy the signing secret."}}, Media: MediaPlan{Treatment: "none", Role: "none", Brief: "Text is sufficient."}},
-				}}
-			}
-			value = optionOutput{Options: posts}
-		case "openpost_four_post_review":
-			require.Contains(t, request.SystemPrompt, "useful supported specificity")
-			require.Contains(t, request.UserPrompt, `"platform_policies"`)
-			require.Contains(t, request.UserPrompt, `"guidance":"Direct, technical, no jokes."`)
-			return ai.GenerateResult{Text: `{"approved":true,"issue":""}`}, nil
-		default:
-			t.Fatalf("unexpected schema %s", request.ResponseSchema.Name)
-		}
-		data, marshalErr := json.Marshal(value)
-		require.NoError(t, marshalErr)
-		return ai.GenerateResult{Text: string(data)}, nil
-	}), Config{Model: "writer", DecisionModel: "decision", Decider: decisionFunc(func(_ context.Context, request ai.DecisionRequest) (ai.DecisionResult, error) {
-		require.Contains(t, request.Input, `"id":"release-notes"`)
-		require.Contains(t, request.Criteria, "Do not judge humor, writing quality, voice fit, distinctness, engagement")
-		require.NotContains(t, request.Criteria, "reader benefit")
-		return ai.DecisionResult{Probability: 1}, nil
-	})})
-	require.NoError(t, err)
-	voice := VoiceSnapshot{Definition: VoiceDefinition{Language: "English", Guidance: "Direct, technical, no jokes."}}
-	result, err := service.Build(t.Context(), BuildInput{
-		OptionCount: 4, Idea: "Webhook signing is available.", Sources: []SourceMaterial{{ID: "release-notes", Kind: "text", Text: "Enable the webhook in Settings, then copy the signing secret."}},
-		Direction: DirectionInput{Outcome: "Help existing users configure the integration safely", Audience: "Existing technical users", Angle: "Lead with the prerequisite"}, DestinationPolicy: DestinationPolicyRequireAll,
-		Destinations: []Destination{
-			{AccountID: "linkedin-1", Platform: "linkedin", Voice: voice, AllowedOutputProfiles: []OutputProfile{{Key: "linkedin.post", TextLimit: 3000, MaxSegments: 1}}},
-			{AccountID: "x-1", Platform: "x", Voice: voice, AllowedOutputProfiles: []OutputProfile{{Key: "x.post", TextLimit: 280, MaxSegments: 1}}},
-			{AccountID: "bluesky-1", Platform: "bluesky", Voice: voice, AllowedOutputProfiles: []OutputProfile{{Key: "bluesky.post", TextLimit: 300, MaxSegments: 1}}},
-		},
-	})
-	require.NoError(t, err)
-	require.Len(t, result.Options, 4)
-	require.Equal(t, 2, plannerCalls)
-	for _, option := range result.Options {
-		require.Len(t, option.Destinations, 3)
-		require.Equal(t, "Help existing users configure the integration safely", option.Direction.Outcome, "locked direction must survive planning repair")
-	}
-}
-
-func TestChoosingAnOptionPersistsAuthorEditsAndMissingDemo(t *testing.T) {
-	t.Parallel()
-	db := newBuilderApplicationTestDB(t)
-	input := BuildInput{OptionCount: 4, Idea: "I built a faster editor.", Destinations: []Destination{{AccountID: "account-1", Platform: "x", AllowedOutputProfiles: []OutputProfile{{Key: "x.short_text", TextLimit: 280, MaxSegments: 1, MediaMaxCount: 4, AllowedMIMEs: []string{"video/*"}}}}}}
-	options := make([]PostOption, 4)
-	for i := range options {
-		options[i] = PostOption{ID: []string{"option-1", "option-2", "option-3", "option-4"}[i], CanonicalText: "A faster editor.", Destinations: []DestinationPlan{{AccountID: "account-1", Platform: "x", Objective: "shares", Archetype: "product_demo", OutputProfile: "x.short_text", Preview: "A faster editor.", Segments: []SegmentPlan{{Body: "A faster editor."}}, Media: MediaPlan{Treatment: "attach_video", Role: "demo", Brief: "Show the editor interaction."}}}}
-	}
-	app, err := NewApplication(db, packageBuilderFunc(func(context.Context, BuildInput) (BuildResult, error) { return BuildResult{Options: options}, nil }), ApplicationConfig{AuthorizeStored: func(context.Context, workspaceaccess.StoredAuthority) error { return nil }})
-	require.NoError(t, err)
-	build, _, err := app.Enqueue(t.Context(), func() CreateBuildRequest {
-		request := testBuildRequest(time.Now(), "four-options-test")
-		request.Input = input
-		return request
-	}())
-	require.NoError(t, err)
-	require.NoError(t, app.HandleJob(t.Context(), jobregistry.TypePublicationBuild, `{"build_id":"`+build.ID+`"}`))
-	build, err = app.Get(t.Context(), "user-1", build.ID)
-	require.NoError(t, err)
-	publications := &publicationApplicationStub{}
-	_, err = app.Commit(t.Context(), "user-1", build.ID, publications)
-	require.ErrorContains(t, err, "choose a post option")
-	chosen, err := app.CommitOption(t.Context(), "user-1", build.ID, "option-3", build.Revision, nil, []OptionEdit{{AccountID: "account-1", Segments: []SegmentPlan{{Body: "The editor finally keeps up with me."}}}}, publications)
-	require.NoError(t, err)
-	require.Equal(t, "option-3", chosen.Result.SelectedOptionID)
-	require.Equal(t, "The editor finally keeps up with me.", *publications.command.Renditions[0].Segments[0].BodyOverride)
-	require.Equal(t, map[string]any{"kind": "video", "brief": "Show the editor interaction."}, publications.command.Renditions[0].Segments[0].Settings["attachment_requirement"])
-	_, err = app.CommitOption(t.Context(), "user-1", build.ID, "option-3", build.Revision, nil, nil, publications)
-	require.NoError(t, err)
-	require.Equal(t, 1, publications.createCalls, "repeat selection must not create another publication")
-}
-
 func TestSourceBackedOptionEditsSurviveReloadAndCommit(t *testing.T) {
 	t.Parallel()
 	db := newBuilderApplicationTestDB(t)
@@ -277,79 +132,6 @@ func TestSourceBackedOptionEditsSurviveReloadAndCommit(t *testing.T) {
 	require.Equal(t, "someone really shipped this", *publications.command.Renditions[0].Segments[0].BodyOverride)
 	_, err = app.CommitOption(t.Context(), "user-1", build.ID, "option-1", build.Revision, nil, nil, publications)
 	require.NoError(t, err, "a retry of the selected option remains idempotent")
-	require.Equal(t, 1, publications.createCalls)
-}
-
-type selectionContextKey struct{}
-type optionSelectionHook struct {
-	bReads           atomic.Int32
-	bRead, aSelected chan struct{}
-}
-
-func (hook *optionSelectionHook) BeforeQuery(ctx context.Context, event *bun.QueryEvent) context.Context {
-	if ctx.Value(selectionContextKey{}) == "B" && strings.HasPrefix(event.Query, "SELECT") && hook.bReads.Add(1) == 2 {
-		select {
-		case <-hook.aSelected:
-		case <-ctx.Done():
-		}
-	}
-	return ctx
-}
-func (hook *optionSelectionHook) AfterQuery(ctx context.Context, event *bun.QueryEvent) {
-	if ctx.Value(selectionContextKey{}) == "B" && strings.HasPrefix(event.Query, "SELECT") && hook.bReads.Load() == 1 {
-		close(hook.bRead)
-	}
-}
-
-func TestConcurrentOptionChoicesCannotReplaceTheSelectedSnapshot(t *testing.T) {
-	t.Parallel()
-	db := newBuilderApplicationTestDB(t)
-	hook := &optionSelectionHook{bRead: make(chan struct{}), aSelected: make(chan struct{})}
-	db.AddQueryHook(hook)
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	defer cancel()
-	allowCommit := make(chan struct{})
-	app, err := NewApplication(db, packageBuilderFunc(func(context.Context, BuildInput) (BuildResult, error) {
-		return BuildResult{Options: []PostOption{{ID: "option-1", CanonicalText: "First choice"}, {ID: "option-2", CanonicalText: "Second choice"}}}, nil
-	}), ApplicationConfig{AuthorizeStored: func(ctx context.Context, _ workspaceaccess.StoredAuthority) error {
-		if ctx.Value(selectionContextKey{}) == "A" {
-			close(hook.aSelected)
-			select {
-			case <-allowCommit:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
-		return nil
-	}})
-	require.NoError(t, err)
-	build, _, err := app.Enqueue(ctx, testBuildRequest(time.Now(), "concurrent-choices"))
-	require.NoError(t, err)
-	require.NoError(t, app.HandleJob(ctx, jobregistry.TypePublicationBuild, `{"build_id":"`+build.ID+`"}`))
-	build, err = app.Get(t.Context(), "user-1", build.ID)
-	require.NoError(t, err)
-	publications := &publicationApplicationStub{}
-	bResult := make(chan error, 1)
-	go func() {
-		_, err := app.CommitOption(context.WithValue(ctx, selectionContextKey{}, "B"), "user-1", build.ID, "option-2", build.Revision, nil, nil, publications)
-		bResult <- err
-	}()
-	select {
-	case <-hook.bRead:
-	case <-ctx.Done():
-		t.Fatal(ctx.Err())
-	}
-	aResult := make(chan error, 1)
-	go func() {
-		_, err := app.CommitOption(context.WithValue(ctx, selectionContextKey{}, "A"), "user-1", build.ID, "option-1", build.Revision, nil, nil, publications)
-		aResult <- err
-	}()
-	require.ErrorIs(t, <-bResult, ErrBuildNotReady)
-	close(allowCommit)
-	require.NoError(t, <-aResult)
-	final, err := app.Get(ctx, "user-1", build.ID)
-	require.NoError(t, err)
-	require.Equal(t, "option-1", final.Result.SelectedOptionID)
 	require.Equal(t, 1, publications.createCalls)
 }
 

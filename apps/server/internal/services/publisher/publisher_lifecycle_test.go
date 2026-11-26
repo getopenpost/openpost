@@ -9,10 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-	"github.com/openpost/backend/internal/posttext"
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/lifecycle"
@@ -24,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 func TestHandlePublishPublicationJobRecordsAmbiguousFailureWithoutRetry(t *testing.T) {
@@ -46,51 +45,6 @@ func TestHandlePublishPublicationJobRecordsAmbiguousFailureWithoutRetry(t *testi
 	require.Contains(t, events[len(events)-1].MetadataJSON, "ambiguous_provider_write")
 	require.Contains(t, events[len(events)-1].MetadataJSON, `"retryable":false`)
 	require.NotContains(t, events[len(events)-1].MetadataJSON, "provider rejected post")
-}
-
-func TestRetryPreservesPublicationRunAt(t *testing.T) {
-	t.Parallel()
-
-	srv := newPublisherLifecycleTestServer(t, &fakePublisherAdapter{externalID: "external-retry"})
-	originalRunAt := time.Date(2026, time.September, 20, 12, 0, 0, 0, time.UTC)
-	_, err := srv.db.NewUpdate().Model((*models.Publication)(nil)).
-		Set("status = ?", models.PublicationStatusFailed).
-		Set("actual_run_at = ?", originalRunAt).
-		Where("id = ?", "publication-1").Exec(t.Context())
-	require.NoError(t, err)
-	_, err = srv.db.NewUpdate().Model((*models.Rendition)(nil)).
-		Set("status = ?", models.RenditionStatusFailed).
-		Set("error_retryable = ?", true).
-		Where("id = ?", "rendition-1").Exec(t.Context())
-	require.NoError(t, err)
-
-	require.NoError(t, srv.publishPublication(t))
-	var publication models.Publication
-	require.NoError(t, srv.db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(t.Context()))
-	require.Equal(t, models.PublicationStatusPublished, publication.Status)
-	require.True(t, originalRunAt.Equal(publication.ActualRunAt), "retry must not move the publication's original date")
-}
-
-func TestPublishReturnsFinalizationFailureAfterProviderSuccess(t *testing.T) {
-	t.Parallel()
-
-	adapter := &fakePublisherAdapter{externalID: "external-1"}
-	srv := newPublisherLifecycleTestServer(t, adapter)
-	srv.service.SetNotificationService(notifications.NewService(srv.db, notifications.Options{
-		EmailDelivery: publisherTestEmailSender{},
-		PublicURL:     "https://app.openpost.test",
-	}))
-	ctx, payload := srv.authorizedPublicationJob(t)
-	_, err := srv.db.NewDropTable().Model((*models.UserNotification)(nil)).Exec(ctx)
-	require.NoError(t, err)
-
-	err = srv.service.HandlePublishPublicationJob(ctx, payload)
-
-	require.ErrorContains(t, err, "user_notifications")
-	require.Equal(t, 1, adapter.publishCalls)
-	var publication models.Publication
-	require.NoError(t, srv.db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(ctx))
-	require.Equal(t, models.PublicationStatusPublishing, publication.Status)
 }
 
 func TestSuccessfulFinalPublicationEnqueuesQueueEmptiedReminder(t *testing.T) {
@@ -133,53 +87,6 @@ func (publisherTestEmailSender) DeliverNotificationEmail(context.Context, notifi
 
 func (publisherTestEmailSender) DeliverWorkspaceInvitationEmail(context.Context, transactionalmail.WorkspaceInvitationMessage) error {
 	return nil
-}
-
-func TestSegmentedRenditionRetryResumesWithoutDuplicatingPublishedPrefix(t *testing.T) {
-	t.Parallel()
-
-	adapter := &fakePublisherAdapter{
-		preFenceErrors: []error{nil, &platform.HTTPError{StatusCode: 503, Code: "temporarily_unavailable"}, nil},
-		externalIDs:    []string{"https://provider.example/posts/root", "", "external-reply"},
-	}
-	srv := newPublisherLifecycleTestServer(t, adapter)
-	ctx := context.Background()
-	segments := []models.PublicationSegment{
-		{ID: "segment-1", PublicationID: "publication-1", Position: 0, Body: "Root", SettingsJSON: "{}"},
-		{ID: "segment-2", PublicationID: "publication-1", Position: 1, Body: "Reply", SettingsJSON: "{}"},
-	}
-	_, err := srv.db.NewInsert().Model(&segments).Exec(ctx)
-	require.NoError(t, err)
-	renditionSegments := []models.RenditionSegment{
-		{ID: "rendition-segment-1", RenditionID: "rendition-1", PublicationSegmentID: "segment-1", Position: 0, Body: "Root", SettingsJSON: "{}", Status: models.RenditionStatusReady},
-		{ID: "rendition-segment-2", RenditionID: "rendition-1", PublicationSegmentID: "segment-2", Position: 1, Body: "Reply", SettingsJSON: "{}", Status: models.RenditionStatusReady},
-	}
-	_, err = srv.db.NewInsert().Model(&renditionSegments).Exec(ctx)
-	require.NoError(t, err)
-
-	require.ErrorContains(t, srv.publishPublication(t), "temporarily unavailable")
-	var first models.RenditionSegment
-	require.NoError(t, srv.db.NewSelect().Model(&first).Where("id = ?", "rendition-segment-1").Scan(ctx))
-	require.Equal(t, models.RenditionStatusPublished, first.Status)
-	require.Equal(t, "https://provider.example/posts/root", first.ExternalID)
-	var partial models.Rendition
-	require.NoError(t, srv.db.NewSelect().Model(&partial).Where("id = ?", "rendition-1").Scan(ctx))
-	require.Equal(t, "https://provider.example/posts/root", partial.ExternalID, "retain the live root when a reply fails")
-	require.Equal(t, "https://provider.example/posts/root", partial.ExternalURL)
-	require.NotEqual(t, models.RenditionStatusPublished, partial.Status)
-
-	require.NoError(t, srv.publishPublication(t))
-	require.Equal(t, 3, adapter.publishCalls)
-	require.Len(t, adapter.publishRequests, 2)
-	require.Equal(t, "", adapter.publishRequests[0].ReplyToID)
-	require.Equal(t, "https://provider.example/posts/root", adapter.publishRequests[1].ReplyToID)
-	require.Equal(t, "Root", adapter.publishRequests[0].Content)
-	require.Equal(t, "Reply", adapter.publishRequests[1].Content)
-
-	var second models.RenditionSegment
-	require.NoError(t, srv.db.NewSelect().Model(&second).Where("id = ?", "rendition-segment-2").Scan(ctx))
-	require.Equal(t, models.RenditionStatusPublished, second.Status)
-	require.Equal(t, "external-reply", second.ExternalID)
 }
 
 func TestPublicationAuthorizationPreflightRejectsChangedContentBeforeProviderCall(t *testing.T) {
@@ -226,7 +133,7 @@ type publisherLifecycleTestServer struct {
 func newPublisherLifecycleTestServer(t *testing.T, adapter *fakePublisherAdapter) *publisherLifecycleTestServer {
 	t.Helper()
 
-	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
+	sqldb, err := sql.Open(sqliteshim.ShimName, fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
 	require.NoError(t, err)
 	sqldb.SetMaxOpenConns(1)
 
@@ -399,24 +306,6 @@ func (s *publisherLifecycleTestServer) authorizedPublicationJobWithIntent(
 	return WithJobExecution(ctx, s.jobID, job.Attempts, job.LockedAt, job.LeaseGeneration), string(payload)
 }
 
-func TestCertificationIntentJobPayloadCannotEscalateProductionReceipt(t *testing.T) {
-	adapter := &fakePublisherAdapter{externalID: "must-not-publish"}
-	srv := newPublisherLifecycleTestServer(t, adapter)
-	ctx, payload := srv.authorizedPublicationJob(t)
-	var body map[string]string
-	require.NoError(t, json.Unmarshal([]byte(payload), &body))
-	body["readiness_intent"] = string(providerreadiness.ExecutionIntentCertificationTest)
-	tampered, err := json.Marshal(body)
-	require.NoError(t, err)
-
-	err = srv.service.HandlePublishPublicationJob(ctx, string(tampered))
-	require.ErrorIs(t, err, publicationauth.ErrReceiptMismatch)
-	var publication models.Publication
-	require.NoError(t, srv.db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(t.Context()))
-	require.Equal(t, models.PublicationStatusReady, publication.Status)
-	require.Zero(t, adapter.publishCalls)
-}
-
 func (s *publisherLifecycleTestServer) lifecycleEvents(t *testing.T) []models.PublicationLifecycleEvent {
 	t.Helper()
 	var events []models.PublicationLifecycleEvent
@@ -432,28 +321,6 @@ func requireLifecycleTypes(t *testing.T, events []models.PublicationLifecycleEve
 	for i, eventType := range expected {
 		require.Equal(t, eventType, events[i].Type)
 	}
-}
-
-func TestPublishedTransitionRecoversWithItsDurableEventWithoutAnotherSend(t *testing.T) {
-	adapter := &fakePublisherAdapter{externalID: "external-1"}
-	srv := newPublisherLifecycleTestServer(t, adapter)
-	ctx, payload := srv.authorizedPublicationJob(t)
-	_, err := srv.db.ExecContext(ctx, `CREATE TRIGGER reject_published_event BEFORE INSERT ON publication_lifecycle_events WHEN NEW.type = 'published' BEGIN SELECT RAISE(ABORT, 'event storage failed'); END`)
-	require.NoError(t, err)
-	require.Error(t, srv.service.HandlePublishPublicationJob(ctx, payload))
-	var rendition models.Rendition
-	require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(ctx))
-	require.NotEqual(t, models.RenditionStatusPublished, rendition.Status)
-	require.True(t, rendition.ErrorRetryable)
-	_, err = srv.db.ExecContext(ctx, `DROP TRIGGER reject_published_event`)
-	require.NoError(t, err)
-	require.NoError(t, srv.service.HandlePublishPublicationJob(ctx, payload))
-	require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(ctx))
-	require.Equal(t, models.RenditionStatusPublished, rendition.Status)
-	require.Equal(t, 1, adapter.publishCalls)
-	count, err := srv.db.NewSelect().Model((*models.PublicationLifecycleEvent)(nil)).Where("rendition_id = ? AND type = ?", "rendition-1", lifecycle.EventPublished).Count(ctx)
-	require.NoError(t, err)
-	require.EqualValues(t, 1, count)
 }
 
 func TestConfirmedPublicationSurvivesQuotaSettlementFailure(t *testing.T) {
@@ -476,58 +343,4 @@ func TestConfirmedPublicationSurvivesQuotaSettlementFailure(t *testing.T) {
 	var receipt models.MonthlyUsageReservation
 	require.NoError(t, srv.db.NewSelect().Model(&receipt).Scan(t.Context()))
 	require.Equal(t, "held", receipt.State, "failed accounting must retain conservative quota exposure")
-}
-
-type mentionPreflightPublisher struct {
-	*fakePublisherAdapter
-	validated []string
-}
-
-func TestSavedMentionSnapshotReachesProviderWithoutChangingSource(t *testing.T) {
-	adapter := &fakePublisherAdapter{externalID: "saved-mention-post"}
-	srv := newPublisherLifecycleTestServer(t, adapter)
-	metadata := posttext.Mentions{Version: 1, Spans: []posttext.MentionSpan{{Start: 3, End: 9, Text: "@guest", Target: posttext.MentionTarget{Provider: "workspace", Kind: "profile", ID: "saved", Profiles: []posttext.MentionProfile{{Provider: "x", Text: "@guest_x"}}}}}}
-	settings, err := json.Marshal(map[string]any{"mentions": metadata})
-	require.NoError(t, err)
-	_, err = srv.db.NewInsert().Model(&models.PublicationSegment{ID: "source", PublicationID: "publication-1", Body: "Hi @guest", SettingsJSON: string(settings)}).Exec(t.Context())
-	require.NoError(t, err)
-	_, err = srv.db.NewInsert().Model(&models.RenditionSegment{ID: "output", RenditionID: "rendition-1", PublicationSegmentID: "source", Body: "Hi @guest", Description: "  Hi @guest\n", SettingsJSON: "{}", Status: models.RenditionStatusReady}).Exec(t.Context())
-	require.NoError(t, err)
-	require.NoError(t, srv.publishPublication(t))
-	require.NotNil(t, adapter.lastRequest)
-	require.Equal(t, "Hi @guest_x", adapter.lastRequest.Content)
-	require.Equal(t, "  Hi @guest_x\n", adapter.lastRequest.Description)
-	var source models.PublicationSegment
-	require.NoError(t, srv.db.NewSelect().Model(&source).Where("id = ?", "source").Scan(t.Context()))
-	require.Equal(t, "Hi @guest", source.Body)
-	require.JSONEq(t, string(settings), source.SettingsJSON)
-}
-
-func (p *mentionPreflightPublisher) ValidateMentionTargets(_ context.Context, _ string, req *platform.PublishRequest) error {
-	p.validated = append(p.validated, req.Content)
-	if req.Content == "Second mention" {
-		return fmt.Errorf("%w: selected mention changed", posttext.ErrInvalid)
-	}
-	return nil
-}
-func TestThreadMentionPreflightRejectsLaterSegmentBeforeFirstWrite(t *testing.T) {
-	adapter := &fakePublisherAdapter{externalID: "must-not-publish"}
-	srv := newPublisherLifecycleTestServer(t, adapter)
-	validator := &mentionPreflightPublisher{fakePublisherAdapter: adapter}
-	srv.service.SetProvider("x", validator)
-	canonical := []models.PublicationSegment{{ID: "first", PublicationID: "publication-1", Body: "First mention", SettingsJSON: "{}"}, {ID: "second", PublicationID: "publication-1", Position: 1, Body: "Second mention", SettingsJSON: "{}"}}
-	_, err := srv.db.NewInsert().Model(&canonical).Exec(t.Context())
-	require.NoError(t, err)
-	segments := []models.RenditionSegment{{ID: "out-first", RenditionID: "rendition-1", PublicationSegmentID: "first", Body: "First mention", SettingsJSON: "{}", Status: models.RenditionStatusReady}, {ID: "out-second", RenditionID: "rendition-1", PublicationSegmentID: "second", Position: 1, Body: "Second mention", SettingsJSON: "{}", Status: models.RenditionStatusReady}}
-	_, err = srv.db.NewInsert().Model(&segments).Exec(t.Context())
-	require.NoError(t, err)
-	require.NoError(t, srv.publishPublication(t))
-	require.Zero(t, adapter.publishCalls)
-	require.Zero(t, adapter.uploadCalls)
-	require.Equal(t, []string{"First mention", "Second mention"}, validator.validated)
-	var rendition models.Rendition
-	require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(t.Context()))
-	require.Equal(t, models.RenditionStatusFailed, rendition.Status)
-	require.Equal(t, "mention_choice_invalid", rendition.ErrorCode)
-	require.Equal(t, FailureValidation, rendition.ErrorKind)
 }

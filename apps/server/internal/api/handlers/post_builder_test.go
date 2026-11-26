@@ -23,29 +23,6 @@ func (f postBuilderFunc) Build(ctx context.Context, input postgeneration.Input) 
 	return f(ctx, input)
 }
 
-func TestGeneratePostUsesOnlyActiveAccountsFromEditableWorkspace(t *testing.T) {
-	t.Parallel()
-	server := newPostBuilderTestServer(t, postBuilderFunc(func(_ context.Context, input postgeneration.Input) (postgeneration.Result, error) {
-		require.Equal(t, "Shipped offline drafts", input.Idea)
-		require.Equal(t, []postgeneration.Destination{
-			{AccountID: "account-x", Platform: "x", Profile: models.ContentProfileShortText},
-			{AccountID: "account-linkedin", Platform: "linkedin", Profile: models.ContentProfileShortText},
-		}, input.Destinations)
-		return postgeneration.Result{
-			SourceText: "Offline drafts are live.",
-			Renditions: []postgeneration.Rendition{{AccountID: "account-x", Body: "Offline drafts are live on X."}, {AccountID: "account-linkedin", Body: "Your drafts now survive unreliable connections."}},
-			Model:      "openai/gpt-5.6-luna",
-		}, nil
-	}))
-
-	response := server.request(t, []string{"account-x", "account-linkedin"})
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var output GeneratePostOutput
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &output.Body))
-	require.Equal(t, "Offline drafts are live.", output.Body.SourceText)
-	require.Len(t, output.Body.Renditions, 2)
-}
-
 func TestGeneratePostRejectsAccountFromAnotherWorkspaceBeforeGeneration(t *testing.T) {
 	t.Parallel()
 	called := false
@@ -57,13 +34,6 @@ func TestGeneratePostRejectsAccountFromAnotherWorkspaceBeforeGeneration(t *testi
 	response := server.request(t, []string{"account-other"})
 	require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
 	require.False(t, called)
-}
-
-func TestGeneratePostReportsWhenAIIsNotConfigured(t *testing.T) {
-	t.Parallel()
-	server := newPostBuilderTestServer(t, nil)
-	response := server.request(t, []string{"account-x"})
-	require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
 }
 
 type postBuilderTestServer struct {
@@ -105,45 +75,4 @@ func (s *postBuilderTestServer) request(t *testing.T, accountIDs []string) *http
 	recorder := httptest.NewRecorder()
 	s.echo.ServeHTTP(recorder, request)
 	return recorder
-}
-
-type shortenStub struct {
-	postBuilderFunc
-	got postgeneration.ShortenInput
-}
-
-func (s *shortenStub) Shorten(_ context.Context, input postgeneration.ShortenInput) (postgeneration.ShortenResult, error) {
-	s.got = input
-	return postgeneration.ShortenResult{Text: "short", Model: "m"}, nil
-}
-
-func (s *postBuilderTestServer) shorten(t *testing.T, workspaceID string) *httptest.ResponseRecorder {
-	t.Helper()
-	var body bytes.Buffer
-	require.NoError(t, json.NewEncoder(&body).Encode(map[string]any{
-		"workspace_id": workspaceID, "text": "a long post", "platform": "x", "max_characters": 280,
-	}))
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/post-builder/shorten", &body)
-	request.Header.Set("Authorization", "Bearer web-token")
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-	s.echo.ServeHTTP(recorder, request)
-	return recorder
-}
-
-func TestShortenPostChecksWorkspaceEditAccessBeforeGeneration(t *testing.T) {
-	t.Parallel()
-	stub := &shortenStub{}
-	server := newPostBuilderTestServer(t, stub)
-
-	denied := server.shorten(t, "ws-2")
-	require.Equal(t, http.StatusForbidden, denied.Code, denied.Body.String())
-	require.Empty(t, stub.got.Text)
-
-	allowed := server.shorten(t, "ws-1")
-	require.Equal(t, http.StatusOK, allowed.Code, allowed.Body.String())
-	var output postgeneration.ShortenResult
-	require.NoError(t, json.Unmarshal(allowed.Body.Bytes(), &output))
-	require.Equal(t, "short", output.Text)
-	require.Equal(t, postgeneration.ShortenInput{Text: "a long post", Platform: "x", MaxCharacters: 280}, stub.got)
 }

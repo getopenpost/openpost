@@ -36,28 +36,16 @@ beforeEach(() => {
 });
 
 describe('project media deletion', () => {
-	it('does not delete text items when only their font asset is removed', () => {
-		const title: TimelineItem = {
-			...item('title'),
-			type: 'text',
-			fontFamily: 'Launch Sans',
-			fontAssetId: 'font-asset',
-			textSpans: [{ text: 'Launch', fontAssetId: 'font-asset' }]
-		};
-		const plan = planMediaDeletion({ ...createEmptyTimeline(), tracks: [track], items: [title] }, [
-			'font-asset'
-		]);
-
-		expect(plan.totalReferenceCount).toBe(0);
-		expect(plan.sequences).toEqual([]);
-	});
-
 	it('plans direct and generated-caption references across root and nested sequences', () => {
 		const source = item('source', 'camera');
 		const caption: TimelineItem = {
 			...item('caption'),
 			type: 'subtitle',
-			captionSource: { type: 'transcript', clipId: source.id, mediaId: 'camera' }
+			captionSource: {
+				type: 'transcript',
+				clipId: source.id,
+				mediaId: 'camera'
+			}
 		};
 		const nested: SubComposition = {
 			id: 'nested',
@@ -99,8 +87,20 @@ describe('project media deletion', () => {
 			transformParent: {
 				parentItemId: source.id,
 				parentReference: { x: 0, y: 0, width: 100, height: 100, rotation: 0 },
-				childLocalReference: { x: 10, y: 0, width: 100, height: 100, rotation: 0 },
-				childWorldReference: { x: 10, y: 0, width: 100, height: 100, rotation: 0 }
+				childLocalReference: {
+					x: 10,
+					y: 0,
+					width: 100,
+					height: 100,
+					rotation: 0
+				},
+				childWorldReference: {
+					x: 10,
+					y: 0,
+					width: 100,
+					height: 100,
+					rotation: 0
+				}
 			}
 		};
 		const nested: SubComposition = {

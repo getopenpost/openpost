@@ -68,7 +68,7 @@ async function writeLinks(
 	await writeJsonAtomic(root, projectMediaLinksPath(projectId), links);
 }
 
-export function collectProjectTimelineMediaIds(
+function collectProjectTimelineMediaIds(
 	project: Pick<Project, 'fontAssets' | 'timeline'> | null | undefined
 ): string[] {
 	if (!project) return [];

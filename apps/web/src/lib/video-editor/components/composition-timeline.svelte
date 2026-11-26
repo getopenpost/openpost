@@ -31,12 +31,7 @@
 		setTransformParent,
 		detachTransformParent
 	} from '$lib/video-editor/timeline/actions/transform-parenting';
-	import {
-		clampTimelineZoom,
-		timelinePixelsPerFrame,
-		TIMELINE_ZOOM_MAX,
-		TIMELINE_ZOOM_MIN
-	} from '$lib/video-editor/timeline/zoom';
+	import { clampTimelineZoom, timelinePixelsPerFrame } from '$lib/video-editor/timeline/zoom';
 	import {
 		createBrowserPointerGestureSessionHost,
 		type PointerGestureEvent,
@@ -74,12 +69,7 @@
 		getTextMotionTimelineBands,
 		getMaxOffsetFrames
 	} from '$lib/video-editor/timeline/text-motion-timeline';
-	import type { TextMotionPresetId, TextMotionSlot } from '$lib/video-editor/project/types';
-	import {
-		TEXT_MOTION_IN_PRESET_IDS,
-		TEXT_MOTION_LOOP_PRESET_IDS,
-		TEXT_MOTION_OUT_PRESET_IDS
-	} from '$lib/video-editor/project/types';
+	import type { TextMotionSlot } from '$lib/video-editor/project/types';
 	import {
 		beginTextMotionEdit,
 		updateTextMotionLive,
@@ -90,7 +80,6 @@
 		effectiveTrackState
 	} from '$lib/video-editor/timeline/utils/track-groups';
 	import { snapshotTimelineState } from '$lib/video-editor/timeline/utils/state-snapshot.svelte';
-	import { getTextMotionPreset } from '$lib/video-editor/timeline/text-motion-presets';
 	import {
 		textMotionPresetLabel,
 		textMotionSlotLabel
@@ -121,7 +110,6 @@
 	} from '$lib/video-editor/timeline/motion-timeline-rows';
 	import type {
 		CompositionControlDefinition,
-		DirectLinkableProperty,
 		TimelineItem,
 		TimelineTrack
 	} from '$lib/video-editor/project/types';
@@ -132,79 +120,36 @@
 	import { getAnimatablePropertiesForItem } from '$lib/video-editor/timeline/animated-properties';
 	import { removeMotionLayerFromItems } from '$lib/video-editor/timeline/actions/motion-layers';
 	import { removeMotionModifierFromItems } from '$lib/video-editor/timeline/actions/motion-modifiers';
-	import {
-		ALL_BLEND_MODES,
-		BLEND_MODE_GROUPS,
-		type BlendMode
-	} from '$lib/video-editor/effects/gpu/blend-modes';
+	import { BLEND_MODE_GROUPS, type BlendMode } from '$lib/video-editor/effects/gpu/blend-modes';
 	import {
 		removeDirectPropertyLink,
 		setDirectPropertyLink
 	} from '$lib/video-editor/timeline/actions/property-runtime';
-	import { Slider } from '$lib/components/ui/slider';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import ColorPicker from '$lib/components/color-picker.svelte';
 	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import * as Select from '$lib/components/ui/select';
-	import type {
-		MotionTimelineGroupRow,
-		MotionTimelineLayerRow,
-		MotionTimelineRow
-	} from '$lib/video-editor/timeline/motion-timeline-rows';
+	import type { MotionTimelineGroupRow } from '$lib/video-editor/timeline/motion-timeline-rows';
 	import {
 		buildVirtualRowLayout,
 		queryVirtualRowLayout
 	} from '$lib/video-editor/timeline/virtual-row-window';
 	import { ThemeIcon, ProtectedIcon } from '$lib/themes/icons';
+	import {
+		isBlendMode,
+		isDirectLinkableProperty,
+		isEasingType,
+		isLayerRow,
+		isTextMotionPresetId,
+		motionRowKey
+	} from './composition-timeline-guards';
+	import CompositionTimelineHeader from './composition-timeline-header.svelte';
+	import CompositionPicker from './composition-picker.svelte';
+	import CompositionNewDialog from './composition-new-dialog.svelte';
+	import CompositionRuler from './composition-ruler.svelte';
+	import CompositionTimelineFooter from './composition-timeline-footer.svelte';
 
-	function isLayerRow(row: MotionTimelineRow): row is MotionTimelineLayerRow {
-		return row.kind === 'layer';
-	}
-
-	function motionRowKey(row: MotionTimelineRow): string {
-		return row.kind === 'group' ? `group:${row.track.id}` : `layer:${row.item.id}`;
-	}
-
-	function isBlendMode(value: string): value is BlendMode {
-		return ALL_BLEND_MODES.some((mode) => mode === value);
-	}
-
-	function isKeyframeProperty(value: string): value is KeyframeProperty {
-		return (
-			value === 'x' ||
-			value === 'y' ||
-			value === 'width' ||
-			value === 'height' ||
-			value === 'anchorX' ||
-			value === 'anchorY' ||
-			value === 'rotation' ||
-			value === 'opacity' ||
-			value === 'scaleX' ||
-			value === 'scaleY'
-		);
-	}
-	function isEasingType(value: string): value is EasingType {
-		return (
-			value === 'linear' || value === 'ease-in' || value === 'ease-out' || value === 'ease-in-out'
-		);
-	}
-
-	function isDirectLinkableProperty(value: string): value is DirectLinkableProperty {
-		return (
-			isKeyframeProperty(value) ||
-			value === 'cornerRadius' ||
-			value === 'position' ||
-			value === 'scale' ||
-			value === 'anchor'
-		);
-	}
-
-	const TEXT_PRESET_SET = new Set<string>([
-		...TEXT_MOTION_IN_PRESET_IDS,
-		...TEXT_MOTION_OUT_PRESET_IDS,
-		...TEXT_MOTION_LOOP_PRESET_IDS
-	]);
 	const blendModeLabels = $derived<Record<BlendMode, string>>({
 		normal: m.video_editor_blend_normal(),
 		dissolve: m.video_editor_blend_dissolve(),
@@ -240,10 +185,6 @@
 		inversion: m.video_editor_blend_group_inversion(),
 		component: m.video_editor_blend_group_component()
 	});
-
-	function isTextMotionPresetId(value: string): value is TextMotionPresetId {
-		return TEXT_PRESET_SET.has(value);
-	}
 
 	function publishedControls(item: TimelineItem): CompositionControlDefinition[] {
 		if (item.type !== 'composition' || !item.compositionId) return [];
@@ -288,8 +229,6 @@
 		onedit();
 	}
 
-	const componentId = $props.id();
-	const fpsHintId = `${componentId}-fps-hint`;
 	let {
 		onedit,
 		onselectitem,
@@ -316,7 +255,6 @@
 			60
 		)
 	);
-	const compEnd = $derived(durationFrames);
 	const pxPerFrame = $derived(timelinePixelsPerFrame(timelineStore.zoomLevel));
 	const timelineWidth = $derived(Math.max(800, durationFrames * pxPerFrame));
 	let scrollLeft = $state(0);
@@ -353,11 +291,7 @@
 	let pickTarget: string | null = $state(null);
 	let pendingParent: string | null = $state(null);
 	let status = $state('');
-	let zoomSlider = $derived(timelineStore.zoomLevel);
-	let showNewDialog = $state(false);
-	let newName = $state('');
-	let newFps = $state(30);
-	let newDuration = $state(300);
+	let newCompositionDefaults = $state<{ fps: number; durationInFrames: number } | null>(null);
 	let editingNameId: string | null = $state(null);
 	let editingNameValue = $state('');
 	let inlineKeyframeWidth = $state(320);
@@ -657,9 +591,7 @@
 		const hasActive = inP !== null && outP !== null && outP > inP;
 		return { hasActive, inP, outP };
 	}
-	function handleZoomChange(value: number): void {
-		timelineStore._setZoomLevel(value);
-	}
+
 	function handleFit(): void {
 		const span = Math.max(60, durationFrames);
 		const containerWidth = scrollEl ? Math.max(1, scrollEl.clientWidth - 24) : 800;
@@ -1118,10 +1050,14 @@
 		commandHistory.addUndoEntry({ type: 'EDIT_TIMING' }, before);
 		onedit();
 	}
-	function handleCreateComposition(): void {
-		const name = newName.trim() || m.video_editor_motion_composition_title();
-		const fpsVal = Math.max(1, Math.min(120, Math.round(newFps)));
-		const dur = Math.max(1, Math.round(newDuration));
+	function handleCreateComposition(values: {
+		name: string;
+		fps: number;
+		durationInFrames: number;
+	}): void {
+		const name = values.name.trim() || m.video_editor_motion_composition_title();
+		const fpsVal = Math.max(1, Math.min(120, Math.round(values.fps)));
+		const dur = Math.max(1, Math.round(values.durationInFrames));
 		const id = crypto.randomUUID();
 		const comp = {
 			id,
@@ -1160,8 +1096,7 @@
 		};
 		sequenceStore.addComposition(comp, true);
 		switchComposition(id);
-		showNewDialog = false;
-		newName = '';
+		newCompositionDefaults = null;
 		status = m.video_editor_motion_composition_created();
 		onedit();
 	}
@@ -2184,17 +2119,6 @@
 			}
 		});
 	}
-	const rulerTicks = $derived.by(() => {
-		const start = Math.floor(visibleRange.start);
-		const end = Math.ceil(visibleRange.end);
-		const target = Math.ceil(80 / pxPerFrame);
-		const options = [1, 5, 10, 30, 60, 150, 300, 600, 1_800, 3_600];
-		const step = options.find((option) => option >= target) ?? 3_600;
-		const ticks: number[] = [];
-		for (let frame = start - (start % step); frame <= end; frame += step)
-			if (frame >= 0) ticks.push(frame);
-		return ticks.slice(0, 128);
-	});
 	const regions = $derived(motionRegions());
 	const inP = $derived(timelineStore.inPoint);
 	const outP = $derived(timelineStore.outPoint);
@@ -2269,178 +2193,20 @@
 		ondragleave={handleDragLeave}
 		ondrop={handleDrop}
 	>
-		<!-- Header: composition picker, new, generated layers, duration/fps, fit, trim -->
-		<div class="composition-header">
-			<div class="header-left">
-				<label class="header-label" for="composition-picker"
-					>{m.video_editor_composition_timeline_picker()}</label
-				>
-				<Select.Root
-					type="single"
-					value={composition.id}
-					onValueChange={(value) => value && switchComposition(value)}
-				>
-					<Select.Trigger
-						id="composition-picker"
-						class="composition-picker"
-						aria-label={m.video_editor_composition_timeline_picker()}
-						data-testid="composition-picker"
-					>
-						<span class="truncate">{composition.name}</span>
-					</Select.Trigger>
-					<Select.Content>
-						{#each compositions as comp (comp.id)}
-							<Select.Item value={comp.id}>{comp.name}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-				<Button
-					size="sm"
-					variant="ghost"
-					aria-label={m.video_editor_motion_new_composition()}
-					onclick={() => {
-						showNewDialog = true;
-						newName = '';
-						newFps = fps;
-						newDuration = durationFrames;
-					}}
-					data-testid="composition-new"
-				>
-					<ThemeIcon role="add" class="size-4" />
-					{m.video_editor_motion_new_composition()}
-				</Button>
-			</div>
-			<div class="header-center">
-				<span
-					class="composition-meta"
-					role="group"
-					aria-label={m.video_editor_composition_timeline_meta()}
-				>
-					{composition.width}×{composition.height} ·
-					<Input
-						aria-label={m.video_editor_composition_timeline_fps()}
-						aria-describedby={fpsHintId}
-						class="meta-input"
-						type="number"
-						min="1"
-						max="120"
-						value={fps}
-						onchange={(e) => {
-							const v = Math.max(
-								1,
-								Math.min(120, Math.round(Number(e.currentTarget.value) || fps))
-							);
-							updateCompositionTiming({ fps: v }, 'UPDATE_COMPOSITION_FPS');
-						}}
-						data-testid="composition-fps"
-					/>
-					{m.video_editor_composition_timeline_fps_suffix()} ·
-					<Input
-						aria-label={m.video_editor_composition_timeline_duration()}
-						class="meta-input meta-input-duration"
-						type="number"
-						min="1"
-						value={durationFrames}
-						onchange={(e) => {
-							const v = Math.max(1, Math.round(Number(e.currentTarget.value) || durationFrames));
-							updateCompositionTiming({ durationInFrames: v }, 'UPDATE_COMPOSITION_DURATION');
-						}}
-						data-testid="composition-duration"
-					/>
-					{m.video_editor_composition_timeline_frames()}
-				</span>
-			</div>
-			<div class="header-right">
-				<div class="header-zoom">
-					<span class="zoom-label">{m.video_editor_composition_timeline_zoom()}</span>
-					<div class="zoom-slider-wrap">
-						<Slider
-							value={zoomSlider}
-							min={TIMELINE_ZOOM_MIN}
-							max={TIMELINE_ZOOM_MAX}
-							step={0.05}
-							onValueChange={handleZoomChange}
-							ariaLabel={m.video_editor_composition_timeline_zoom()}
-						/>
-					</div>
-					<Button
-						size="sm"
-						variant="ghost"
-						aria-label={m.video_editor_composition_timeline_fit()}
-						onclick={handleFit}
-						data-testid="composition-fit"
-					>
-						{m.video_editor_composition_timeline_fit()}
-					</Button>
-					{#if regions.hasActive}
-						<Button
-							size="sm"
-							variant="ghost"
-							aria-label={m.video_editor_composition_timeline_trim_active()}
-							onclick={handleTrimToActive}
-							data-testid="composition-trim-active"
-						>
-							{m.video_editor_composition_timeline_trim_active()}
-						</Button>
-					{/if}
-				</div>
-			</div>
-		</div>
-		<p
-			id={fpsHintId}
-			class="border-b border-[var(--video-editor-border)] px-2 py-1 text-[11px] leading-4 text-[var(--video-editor-muted)]"
-		>
-			{m.video_editor_composition_timeline_fps_hint()}
-		</p>
-		<!-- Generated layers + media add -->
-		<div
-			class="composition-toolbar"
-			role="toolbar"
-			aria-label={m.video_editor_composition_timeline_toolbar()}
-		>
-			<span class="toolbar-label">{m.video_editor_composition_timeline_add_layer()}</span>
-			<Button
-				size="sm"
-				variant="outline"
-				onclick={() => addGeneratedLayer('text')}
-				data-testid="add-layer-text">{m.video_editor_motion_add_text()}</Button
-			>
-			<Button
-				size="sm"
-				variant="outline"
-				onclick={() => addGeneratedLayer('solid')}
-				data-testid="add-layer-solid">{m.video_editor_motion_add_solid()}</Button
-			>
-			<Button
-				size="sm"
-				variant="outline"
-				onclick={() => addGeneratedLayer('gradient')}
-				data-testid="add-layer-gradient">{m.video_editor_motion_add_gradient()}</Button
-			>
-			<Button
-				size="sm"
-				variant="outline"
-				onclick={() => addGeneratedLayer('shape')}
-				data-testid="add-layer-shape">{m.video_editor_motion_add_shape()}</Button
-			>
-			<Button
-				size="sm"
-				variant="outline"
-				onclick={() => addGeneratedLayer('controller')}
-				data-testid="add-layer-controller">{m.video_editor_motion_add_controller()}</Button
-			>
-			<label class="toolbar-search">
-				<span class="sr-only">{m.video_editor_composition_timeline_filter()}</span>
-				<Input
-					class="filter-input"
-					placeholder={m.video_editor_composition_timeline_filter_placeholder()}
-					value={filterText}
-					oninput={(e) => (filterText = (e.currentTarget as HTMLInputElement).value)}
-					aria-label={m.video_editor_composition_timeline_filter()}
-					data-testid="composition-filter"
-				/>
-			</label>
-		</div>
+		<CompositionTimelineHeader
+			{composition}
+			{compositions}
+			{fps}
+			{durationFrames}
+			hasActiveRegion={regions.hasActive}
+			bind:filterText
+			onswitch={switchComposition}
+			onnewcomposition={() => (newCompositionDefaults = { fps, durationInFrames: durationFrames })}
+			ontimingchange={updateCompositionTiming}
+			onfit={handleFit}
+			ontrimtoactive={handleTrimToActive}
+			onaddlayer={addGeneratedLayer}
+		/>
 		<div
 			class="io-lane"
 			data-testid="composition-io-lane"
@@ -3418,64 +3184,17 @@
 					class="timeline-inner"
 					style="width:{timelineWidth}px; height:{Math.max(240, sidebarLayout.totalSize + 148)}px"
 				>
-					<div
-						class="composition-ruler"
-						role="group"
-						aria-label={m.video_editor_composition_timeline_ruler()}
-						onpointerdown={startScrub}
-						data-testid="composition-ruler"
-					>
-						{#each rulerTicks as tick (tick)}
-							<button
-								type="button"
-								class="ruler-tick"
-								style="left:{timelineX(tick)}px"
-								aria-label={`${tick}`}
-								onclick={() => seekTo(tick)}
-								data-testid={`ruler-tick-${tick}`}
-							>
-								<span class="tick-line"></span>
-								<span class="tick-label">{tick}</span>
-							</button>
-						{/each}
-						<div
-							class="ruler-playhead"
-							style="left:{timelineX(timelineStore.currentFrame)}px"
-							data-testid="composition-playhead"
-							aria-hidden="true"
-						></div>
-						{#if previewFrame !== null}
-							<div
-								class="ruler-playhead ghost"
-								style="left:{timelineX(previewFrame)}px"
-								data-testid="composition-playhead-ghost"
-								aria-hidden="true"
-							></div>
-						{/if}
-						{#if regions.hasActive}
-							<div
-								class="active-region-dim left"
-								style="width:{timelineX(regions.inP ?? 0)}px"
-								data-testid="composition-active-dim-left"
-							></div>
-							<div
-								class="active-region-dim right"
-								style="left:{timelineX(regions.outP ?? durationFrames)}px; width:{Math.max(
-									0,
-									timelineWidth - timelineX(regions.outP ?? durationFrames)
-								)}px"
-								data-testid="composition-active-dim-right"
-							></div>
-						{/if}
-						<div
-							class="comp-end-dim"
-							style="left:{timelineX(compEnd)}px; width:{Math.max(
-								0,
-								timelineWidth - timelineX(compEnd)
-							)}px"
-							data-testid="composition-end-dim"
-						></div>
-					</div>
+					<CompositionRuler
+						{visibleRange}
+						{pxPerFrame}
+						{timelineX}
+						{timelineWidth}
+						{durationFrames}
+						{previewFrame}
+						{regions}
+						onscrub={startScrub}
+						onseek={seekTo}
+					/>
 					<div
 						class="layer-bars"
 						bind:this={layerBarsEl}
@@ -3648,132 +3367,29 @@
 				</div>
 			</div>
 		</div>
-		<div class="composition-footer">
-			<span class="footer-status" aria-live="polite" data-testid="composition-status">{status}</span
-			>
-			<div class="footer-actions">
-				<Button
-					size="sm"
-					variant="ghost"
-					aria-label={m.video_editor_composition_timeline_copy()}
-					disabled={selectedItemIds.size === 0}
-					onclick={copySelected}
-					data-testid="composition-copy"
-					><ThemeIcon
-						role="copy"
-						class="size-3"
-					/>{m.video_editor_composition_timeline_copy()}</Button
-				>
-				<Button
-					size="sm"
-					variant="ghost"
-					aria-label={m.video_editor_composition_timeline_paste()}
-					disabled={!clipboard}
-					onclick={pasteClipboard}
-					data-testid="composition-paste"
-					><ThemeIcon
-						role="copy"
-						class="size-3"
-					/>{m.video_editor_composition_timeline_paste()}</Button
-				>
-				<Button
-					size="sm"
-					variant="ghost"
-					aria-label={m.video_editor_composition_timeline_duplicate()}
-					disabled={selectedItemIds.size === 0}
-					onclick={duplicateSelected}
-					data-testid="composition-duplicate"
-					>{m.video_editor_composition_timeline_duplicate()}</Button
-				>
-				<Button
-					size="sm"
-					variant="ghost"
-					aria-label={m.video_editor_composition_timeline_group()}
-					disabled={!canGroupSelection}
-					onclick={groupSelected}
-					data-testid="composition-group"
-					><ProtectedIcon
-						icon="editor-group"
-						class="size-3"
-					/>{m.video_editor_composition_timeline_group()}</Button
-				>
-				<Button
-					size="sm"
-					variant="ghost"
-					aria-label={m.video_editor_composition_timeline_delete()}
-					disabled={selectedItemIds.size === 0}
-					onclick={removeSelected}
-					data-testid="composition-delete"
-					><ThemeIcon
-						role="delete"
-						class="size-3"
-					/>{m.video_editor_composition_timeline_delete()}</Button
-				>
-				<span class="frame-readout" data-testid="composition-frame-readout"
-					>{m.video_editor_composition_timeline_frame({
-						frame: String(timelineStore.currentFrame),
-						total: String(durationFrames)
-					})}</span
-				>
-			</div>
-		</div>
+		<CompositionTimelineFooter
+			{status}
+			selectionCount={selectedItemIds.size}
+			canPaste={Boolean(clipboard)}
+			canGroup={canGroupSelection}
+			{durationFrames}
+			oncopy={copySelected}
+			onpaste={pasteClipboard}
+			onduplicate={duplicateSelected}
+			ongroup={groupSelected}
+			ondelete={removeSelected}
+		/>
 		{#if pendingParent}
 			<div class="pick-overlay" data-testid="composition-pick-overlay" aria-hidden="true">
 				<p>{m.video_editor_composition_timeline_pick_hint()}</p>
 			</div>
 		{/if}
-		{#if showNewDialog}
-			<div
-				class="dialog-backdrop"
-				role="presentation"
-				onclick={() => (showNewDialog = false)}
-			></div>
-			<div
-				class="dialog"
-				role="dialog"
-				aria-modal="true"
-				aria-label={m.video_editor_motion_new_composition()}
-				data-testid="new-composition-dialog"
-			>
-				<h3>{m.video_editor_motion_new_composition()}</h3>
-				<label
-					>{m.video_editor_composition_timeline_name()}<Input
-						value={newName}
-						oninput={(e) => (newName = (e.currentTarget as HTMLInputElement).value)}
-						data-testid="new-composition-name"
-					/></label
-				>
-				<label
-					>{m.video_editor_composition_timeline_fps()}<Input
-						type="number"
-						min="1"
-						max="120"
-						value={newFps}
-						oninput={(e) => (newFps = Number((e.currentTarget as HTMLInputElement).value))}
-						data-testid="new-composition-fps"
-					/></label
-				>
-				<label
-					>{m.video_editor_composition_timeline_duration()}<Input
-						type="number"
-						min="1"
-						value={newDuration}
-						oninput={(e) => (newDuration = Number((e.currentTarget as HTMLInputElement).value))}
-						data-testid="new-composition-duration"
-					/></label
-				>
-				<div class="dialog-actions">
-					<Button
-						variant="ghost"
-						onclick={() => (showNewDialog = false)}
-						data-testid="new-composition-cancel"
-						>{m.video_editor_composition_timeline_cancel()}</Button
-					>
-					<Button onclick={handleCreateComposition} data-testid="new-composition-create"
-						>{m.video_editor_composition_timeline_create()}</Button
-					>
-				</div>
-			</div>
+		{#if newCompositionDefaults}
+			<CompositionNewDialog
+				{...newCompositionDefaults}
+				oncreate={handleCreateComposition}
+				onclose={() => (newCompositionDefaults = null)}
+			/>
 		{/if}
 	</section>
 {:else}
@@ -3782,78 +3398,27 @@
 		{#if compositions.length > 0}
 			<div class="empty-picker">
 				<label for="empty-picker-select">{m.video_editor_composition_timeline_picker()}</label>
-				<Select.Root
-					type="single"
+				<CompositionPicker
+					{compositions}
 					value=""
-					onValueChange={(value) => value && switchComposition(value)}
-				>
-					<Select.Trigger id="empty-picker-select" data-testid="empty-composition-picker">
-						<span class="truncate">{m.video_editor_composition_timeline_choose()}</span>
-					</Select.Trigger>
-					<Select.Content>
-						{#each compositions as comp (comp.id)}
-							<Select.Item value={comp.id}>{comp.name}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
+					label={m.video_editor_composition_timeline_choose()}
+					triggerId="empty-picker-select"
+					testId="empty-composition-picker"
+					onswitch={switchComposition}
+				/>
 			</div>
 		{/if}
 		<Button
-			onclick={() => {
-				showNewDialog = true;
-				newName = '';
-				newFps = 30;
-				newDuration = 300;
-			}}
+			onclick={() => (newCompositionDefaults = { fps: 30, durationInFrames: 300 })}
 			data-testid="empty-new-composition">{m.video_editor_motion_new_composition()}</Button
 		>
-		{#if showNewDialog}
-			<div
-				class="dialog-backdrop"
-				role="presentation"
-				onclick={() => (showNewDialog = false)}
-			></div>
-			<div
-				class="dialog"
-				role="dialog"
-				aria-modal="true"
-				aria-label={m.video_editor_motion_new_composition()}
-				data-testid="new-composition-dialog-empty"
-			>
-				<h3>{m.video_editor_motion_new_composition()}</h3>
-				<label
-					>{m.video_editor_composition_timeline_name()}<Input
-						value={newName}
-						oninput={(e) => (newName = (e.currentTarget as HTMLInputElement).value)}
-						data-testid="new-composition-name-empty"
-					/></label
-				>
-				<label
-					>{m.video_editor_composition_timeline_fps()}<Input
-						type="number"
-						min="1"
-						max="120"
-						value={newFps}
-						oninput={(e) => (newFps = Number((e.currentTarget as HTMLInputElement).value))}
-					/></label
-				>
-				<label
-					>{m.video_editor_composition_timeline_duration()}<Input
-						type="number"
-						min="1"
-						value={newDuration}
-						oninput={(e) => (newDuration = Number((e.currentTarget as HTMLInputElement).value))}
-					/></label
-				>
-				<div class="dialog-actions">
-					<Button variant="ghost" onclick={() => (showNewDialog = false)}
-						>{m.video_editor_composition_timeline_cancel()}</Button
-					>
-					<Button onclick={handleCreateComposition} data-testid="new-composition-create-empty"
-						>{m.video_editor_composition_timeline_create()}</Button
-					>
-				</div>
-			</div>
+		{#if newCompositionDefaults}
+			<CompositionNewDialog
+				{...newCompositionDefaults}
+				testIdSuffix="-empty"
+				oncreate={handleCreateComposition}
+				onclose={() => (newCompositionDefaults = null)}
+			/>
 		{/if}
 	</div>
 {/if}
@@ -3872,110 +3437,6 @@
 	.composition-timeline:focus-visible {
 		outline: 2px solid var(--video-editor-focus);
 		outline-offset: -2px;
-	}
-	.composition-header {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-		padding: 0.35rem 0.5rem;
-		border-bottom: 1px solid var(--video-editor-border);
-		background: var(--video-editor-panel);
-	}
-	.header-left,
-	.header-center,
-	.header-right {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		flex-wrap: wrap;
-	}
-	.header-label {
-		font-size: 0.62rem;
-		color: var(--video-editor-muted);
-	}
-	.composition-timeline :global(.composition-picker) {
-		min-width: 160px;
-		height: 32px;
-		border-radius: 0.32rem;
-		border: 1px solid var(--video-editor-border);
-		background: var(--video-editor-control);
-		color: inherit;
-		padding: 0 0.4rem;
-		font-size: 0.72rem;
-	}
-	.composition-timeline :global(.composition-picker:focus-visible) {
-		outline: 2px solid var(--video-editor-focus);
-		outline-offset: 2px;
-	}
-	.composition-meta {
-		font-size: 0.62rem;
-		color: var(--video-editor-muted);
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-	}
-	.composition-timeline :global(.meta-input) {
-		width: 56px;
-		height: 24px;
-		border-radius: 0.25rem;
-		border: 1px solid var(--video-editor-border);
-		background: var(--video-editor-control);
-		color: inherit;
-		text-align: center;
-		font-size: 0.62rem;
-	}
-	.composition-timeline :global(.meta-input-duration) {
-		width: 72px;
-	}
-	.composition-timeline :global(.meta-input:focus-visible) {
-		outline: 2px solid var(--video-editor-focus);
-		outline-offset: 2px;
-	}
-	.header-zoom {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-	.zoom-label {
-		font-size: 0.62rem;
-		color: var(--video-editor-muted);
-	}
-	.zoom-slider-wrap {
-		width: 140px;
-	}
-	.composition-toolbar {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.45rem 0.7rem;
-		border-bottom: 1px solid var(--video-editor-border);
-		background: var(--video-editor-panel);
-	}
-	.toolbar-label {
-		font-size: 0.62rem;
-		color: var(--video-editor-muted);
-		margin-right: 0.2rem;
-	}
-	.toolbar-search {
-		margin-left: auto;
-	}
-	.composition-timeline :global(.filter-input) {
-		box-sizing: border-box;
-		width: 180px;
-		height: 32px;
-		border-radius: 0.32rem;
-		border: 1px solid var(--video-editor-border);
-		background: var(--video-editor-control);
-		color: inherit;
-		padding: 0 0.5rem;
-		font-size: 0.72rem;
-	}
-	.composition-timeline :global(.filter-input:focus-visible) {
-		outline: 2px solid var(--video-editor-focus);
-		outline-offset: 2px;
 	}
 	.io-lane {
 		position: relative;
@@ -4044,41 +3505,12 @@
 		}
 	}
 	@media (max-width: 480px) {
-		.composition-header,
-		.composition-toolbar {
-			padding-inline: 0.45rem;
-		}
-		.header-left,
-		.header-center,
-		.header-right,
-		.toolbar-search {
-			width: 100%;
-		}
-		.composition-timeline :global(.composition-picker),
-		.composition-timeline :global(.filter-input) {
-			min-width: 0;
-			width: 100%;
-		}
-		.header-zoom {
-			flex: 1;
-			min-width: 0;
-		}
-		.zoom-slider-wrap {
-			flex: 1;
-			min-width: 96px;
-			width: auto;
-		}
 		.layer-sidebar-header {
 			grid-template-columns: minmax(0, 1fr) 70px 40px 52px;
 		}
 		.layer-meta-row {
 			grid-template-columns: minmax(0, 1fr) 78px 58px 20px;
 			padding-inline: 0.2rem;
-		}
-		.composition-footer,
-		.footer-actions {
-			align-items: stretch;
-			width: 100%;
 		}
 	}
 	.layer-sidebar {
@@ -4537,77 +3969,6 @@
 	.timeline-inner {
 		position: relative;
 	}
-	.composition-ruler {
-		position: sticky;
-		top: 0;
-		z-index: 2;
-		height: 28px;
-		border-bottom: 1px solid var(--video-editor-border);
-		background: var(--video-editor-panel);
-		overflow: hidden;
-		cursor: pointer;
-	}
-	.ruler-tick {
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		width: 48px;
-		margin-left: -24px;
-		border: 0;
-		background: transparent;
-		color: var(--video-editor-muted);
-		cursor: pointer;
-		min-width: 44px;
-		min-height: 28px;
-	}
-	.ruler-tick:focus-visible {
-		outline: 2px solid var(--video-editor-focus);
-		outline-offset: -2px;
-	}
-	.tick-line {
-		position: absolute;
-		left: 50%;
-		top: 16px;
-		width: 1px;
-		bottom: 0;
-		background: var(--video-editor-border);
-	}
-	.tick-label {
-		position: absolute;
-		left: 50%;
-		top: 2px;
-		transform: translateX(-50%);
-		font-size: 0.58rem;
-		font-variant-numeric: tabular-nums;
-	}
-	.ruler-playhead {
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		width: 2px;
-		background: oklch(0.66 0.14 45);
-		pointer-events: none;
-	}
-	.ruler-playhead.ghost {
-		background: oklch(0.66 0.14 45 / 0.45);
-		width: 1px;
-		border-left: 1px dashed oklch(0.66 0.14 45);
-	}
-	.active-region-dim {
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		background: color-mix(in oklch, var(--video-editor-panel) 45%, transparent);
-		pointer-events: none;
-	}
-	.comp-end-dim {
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		border-left: 1px solid var(--video-editor-border);
-		background: color-mix(in oklch, var(--video-editor-panel) 55%, transparent);
-		pointer-events: none;
-	}
 	.layer-bars {
 		position: relative;
 		min-height: 200px;
@@ -4794,38 +4155,6 @@
 		pointer-events: none;
 		border-radius: 0.15rem;
 	}
-	.composition-footer {
-		display: flex;
-		box-sizing: border-box;
-		max-width: 100%;
-		min-width: 0;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.6rem;
-		padding: 0.45rem 0.6rem;
-		border-top: 1px solid var(--video-editor-border);
-		background: var(--video-editor-panel);
-		flex-wrap: wrap;
-	}
-	.footer-status {
-		font-size: 0.62rem;
-		color: var(--video-editor-muted);
-		min-height: 18px;
-	}
-	.footer-actions {
-		display: flex;
-		box-sizing: border-box;
-		max-width: 100%;
-		min-width: 0;
-		align-items: center;
-		gap: 0.35rem;
-		flex-wrap: wrap;
-	}
-	.frame-readout {
-		font-size: 0.62rem;
-		font-variant-numeric: tabular-nums;
-		color: var(--video-editor-muted);
-	}
 	.pick-overlay {
 		position: absolute;
 		inset: 0;
@@ -4835,59 +4164,6 @@
 		color: var(--video-editor-text);
 		font-size: 0.72rem;
 		pointer-events: none;
-	}
-	.dialog-backdrop {
-		position: fixed;
-		inset: 0;
-		background: oklch(0 0 0 / 0.5);
-		z-index: 40;
-	}
-	.dialog {
-		position: fixed;
-		left: 50%;
-		top: 50%;
-		transform: translate(-50%, -50%);
-		background: var(--video-editor-panel);
-		border: 1px solid var(--video-editor-border);
-		border-radius: 0.5rem;
-		padding: 1rem;
-		z-index: 50;
-		box-sizing: border-box;
-		width: min(320px, calc(100vw - 2rem));
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.6rem;
-		color: var(--video-editor-text);
-	}
-	.dialog h3 {
-		margin: 0;
-		font-size: 0.86rem;
-		font-weight: 650;
-	}
-	.dialog label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-		font-size: 0.72rem;
-	}
-	.dialog :global(input) {
-		height: 32px;
-		border-radius: 0.32rem;
-		border: 1px solid var(--video-editor-border);
-		background: var(--video-editor-control);
-		color: inherit;
-		padding: 0 0.5rem;
-	}
-	.dialog :global(input:focus-visible) {
-		outline: 2px solid var(--video-editor-focus);
-		outline-offset: 2px;
-	}
-	.dialog-actions {
-		display: flex;
-		justify-content: flex-end;
-		gap: 0.4rem;
-		margin-top: 0.4rem;
 	}
 	.composition-empty {
 		display: grid;
@@ -4933,7 +4209,6 @@
 	@media (pointer: coarse) {
 		.layer-row,
 		.group-header,
-		.ruler-tick,
 		.layer-bar,
 		.icon-btn {
 			min-height: 44px;

@@ -1,6 +1,6 @@
 import type { VideoFrameRateMetrics } from '@openpost/editor-shared/media';
 
-export const FRAME_RATE_PROBE_PACKET_COUNT = 256;
+const FRAME_RATE_PROBE_PACKET_COUNT = 256;
 
 export interface VideoFrameRateTrack {
 	computeFrameRateMetrics(options?: { targetPacketCount?: number }): Promise<VideoFrameRateMetrics>;
@@ -38,7 +38,7 @@ function assertValidFrameRateMetrics(metrics: VideoFrameRateMetrics): void {
 	}
 }
 
-export async function probeVideoFrameRateMetrics(
+async function probeVideoFrameRateMetrics(
 	track: VideoFrameRateTrack
 ): Promise<{ fps: number; metrics: VideoFrameRateMetrics }> {
 	const metrics = await track.computeFrameRateMetrics({

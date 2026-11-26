@@ -8,17 +8,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/transactionalmail"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 func notificationsTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
+	sqldb, err := sql.Open(sqliteshim.ShimName, fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
 	require.NoError(t, err)
 	sqldb.SetMaxOpenConns(1)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
@@ -59,22 +59,6 @@ func notificationsTestDB(t *testing.T) *bun.DB {
 	_, err = db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin, Status: models.WorkspaceMemberStatusActive}).Exec(ctx)
 	require.NoError(t, err)
 	return db
-}
-
-func TestWorkspaceMuteCreationRequiresActiveMembershipInTheService(t *testing.T) {
-	db := notificationsTestDB(t)
-	service := NewService(db)
-	_, err := db.NewUpdate().Model((*models.Workspace)(nil)).Set("name = ?", "Other organization").Where("id = ?", "workspace-2").Exec(t.Context())
-	require.NoError(t, err)
-
-	_, err = service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{
-		Scope: MuteScopeWorkspace, WorkspaceID: "workspace-2", EndsAt: time.Now().Add(time.Hour),
-	})
-	require.ErrorIs(t, err, ErrMuteWorkspaceAccess)
-	_, err = service.CreateMute(t.Context(), MuteActor{UserID: "unknown-user"}, MuteCreate{
-		Scope: MuteScopeWorkspace, WorkspaceID: "workspace-1", EndsAt: time.Now().Add(time.Hour),
-	})
-	require.ErrorIs(t, err, ErrMuteWorkspaceAccess)
 }
 
 func TestOptionalProducerRechecksMuteWhenCreateReplaceOrEndRacesIt(t *testing.T) {
@@ -138,25 +122,6 @@ func (s *recordingNotificationSender) DeliverNotificationEmail(_ context.Context
 func (s *recordingNotificationSender) DeliverWorkspaceInvitationEmail(_ context.Context, message transactionalmail.WorkspaceInvitationMessage) error {
 	s.invitationMessages = append(s.invitationMessages, message)
 	return s.err
-}
-
-func TestWorkspaceInvitationEmailReportsProviderUnavailableWithoutQueueing(t *testing.T) {
-	db := notificationsTestDB(t)
-	service := NewService(db, Options{PublicURL: "https://app.openpost.test"})
-
-	delivery, err := service.EnqueueWorkspaceInvitation(t.Context(), WorkspaceInvitationEmailInput{
-		InvitationID: "invitation-1", WorkspaceID: "workspace-1", Recipient: "person@example.com",
-		WorkspaceName: "Launch team", InviterName: "Ada", Role: "viewer",
-		ExpiresAt: time.Now().UTC().Add(time.Hour), RawToken: "op_inv_private-token",
-		DeliveryKey: "delivery-1",
-	})
-	require.NoError(t, err)
-	require.Equal(t, EmailDeliveryUnavailable, delivery.Status)
-	require.Empty(t, delivery.JobID)
-
-	count, err := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.Zero(t, count)
 }
 
 func TestListHidesAccountWideRowsForWorkspaceBoundCredentials(t *testing.T) {

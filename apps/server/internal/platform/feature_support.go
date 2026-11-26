@@ -70,9 +70,9 @@ var providerFeatureTable = map[string]providerFeatureSupport{
 	// stays behind provider access and certification. Keep the seed false and
 	// let the runtime readiness gates decide; see the type comment.
 	providerPinterest: {adapterAnalytics: true, seedAnalytics: false, engagement: false},
-	// The GoogleBusiness adapter does not implement AnalyticsAdapter (only the
-	// package-level GoogleBusinessAnalyticsSupport describes the reporting
-	// boundary) and declares no engagement support.
+	// The GoogleBusiness adapter does not implement AnalyticsAdapter: Google
+	// offers no per-post insights for local posts. It declares no engagement
+	// support.
 	providerGoogleBusiness: {adapterAnalytics: false, seedAnalytics: false, engagement: false},
 	providerDevNull:        {adapterAnalytics: true, seedAnalytics: true, engagement: true},
 }

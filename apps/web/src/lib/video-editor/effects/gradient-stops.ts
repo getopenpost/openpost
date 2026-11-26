@@ -11,7 +11,7 @@ import { readString, type GpuParamValues } from './gpu/types';
 
 export const GRADIENT_FALLBACK_STOPS = ['#000000', '#ffffff'] as const;
 
-export function parseGradientStops(value: string): string[] {
+function parseGradientStops(value: string): string[] {
 	const stops = value
 		.split(',')
 		.map((stop) => stop.trim())

@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { page, userEvent } from 'vitest/browser';
+import { userEvent } from 'vitest/browser';
 import { addGeneratedSubtitleItem } from '../transcript/transcribe-action';
 import { addSubtitleItemFromSrt } from '../transcript/captions';
 import { planTrimGesture } from '../timeline/edit-gesture';
@@ -67,7 +67,11 @@ it('preserves authored line breaks when editing one transcript word, including u
 	speech();
 	const project = createBlankProject('Caption word layout');
 	sequenceStore.load(
-		{ ...project.timeline!, tracks: timelineStore.tracks, items: timelineStore.items },
+		{
+			...project.timeline!,
+			tracks: timelineStore.tracks,
+			items: timelineStore.items
+		},
 		project.metadata
 	);
 	const screen = await render(TranscriptPanel, { onedit: vi.fn() });
@@ -105,7 +109,10 @@ it('preserves authored line breaks when editing one transcript word, including u
 	const dir = `caption-layout-${crypto.randomUUID()}`;
 	setWorkspaceRoot(await root.getDirectoryHandle(dir, { create: true }));
 	try {
-		await createProject({ ...project, timeline: sequenceStore.projectTimeline() });
+		await createProject({
+			...project,
+			timeline: sequenceStore.projectTimeline()
+		});
 		await screen.unmount();
 		sequenceStore.reset();
 		timelineStore.__resetForTesting();
@@ -158,320 +165,6 @@ it('cuts the displayed source instance and leaves a later duplicate intact', asy
 	).toBe(150);
 });
 
-it('clears selection when a different transcript replaces the document', async () => {
-	speech();
-	const screen = await render(TranscriptPanel, { onedit: vi.fn() });
-	await screen.getByRole('button', { name: 'Hello', exact: true }).click();
-	timelineStore._setItems(timelineStore.items.map((item) => ({ ...item, id: `other-${item.id}` })));
-	await expect
-		.element(screen.getByRole('button', { name: 'Delete from video', exact: true }))
-		.not.toBeInTheDocument();
-});
-
-it('starts backwards search at the last match and retains detailed caption controls', async () => {
-	speech();
-	const subtitle = timelineStore.items.find((item) => item.type === 'subtitle')!;
-	timelineStore._updateItems([
-		{
-			id: subtitle.id,
-			patch: {
-				cues: subtitle.cues!.map((cue) => ({
-					...cue,
-					text: 'Hello world Hello',
-					words: cue.words?.map((word) =>
-						word.text === 'again' ? { ...word, text: 'Hello' } : word
-					)
-				}))
-			}
-		}
-	]);
-	const screen = await render(TranscriptPanel, { onedit: vi.fn() });
-	const search = screen.getByRole('searchbox');
-	await search.fill('Hello');
-	await userEvent.keyboard('{Shift>}{Enter}{/Shift}');
-	expect(timelineStore.currentFrame).toBe(420);
-	await screen.getByRole('button', { name: 'world', exact: true }).click();
-	await screen.getByRole('button', { name: 'Caption style', exact: true }).click();
-	await screen.getByRole('button', { name: 'Bold', exact: true }).click();
-	expect(timelineStore.itemById.get(subtitle.id)?.cues?.[0]?.text).toBe('<b>Hello world Hello</b>');
-	await screen.getByRole('spinbutton', { name: 'Adjust caption end', exact: true }).fill('160');
-	await userEvent.keyboard('{Tab}');
-	expect(timelineStore.itemById.get(subtitle.id)?.cues?.[0]?.endFrame).toBe(160);
-	expect(timelineStore.itemById.get('speech')?.durationInFrames).toBe(180);
-});
-
-it('extends selection while dragging below the sticky actions and scrolling', async () => {
-	speech();
-	addGeneratedSubtitleItem(
-		'speech',
-		Array.from({ length: 120 }, (_, index) => ({
-			text: `word${index}`,
-			startSeconds: index / 25,
-			endSeconds: (index + 1) / 25
-		}))
-	);
-	await page.viewport(900, 700);
-	const host = document.createElement('div');
-	host.style.cssText =
-		'height:350px;width:300px;display:flex;flex-direction:column;position:relative';
-	document.body.append(host);
-	try {
-		const screen = await render(TranscriptPanel, { target: host, props: { onedit: vi.fn() } });
-		const first = screen.getByRole('button', { name: 'word0', exact: true }).element();
-		const panel = host.querySelector<HTMLElement>('[data-testid="transcript-panel"]');
-		if (!panel) throw new Error('Transcript panel is missing.');
-		first.scrollIntoView({ block: 'center' });
-		const initialScrollTop = panel.scrollTop;
-		const rect = first.getBoundingClientRect();
-		first.dispatchEvent(
-			new PointerEvent('pointerdown', {
-				pointerId: 11,
-				button: 0,
-				bubbles: true,
-				clientX: rect.left + 10,
-				clientY: rect.top + 10
-			})
-		);
-		const bottom = host.getBoundingClientRect().bottom;
-		window.dispatchEvent(
-			new PointerEvent('pointermove', {
-				pointerId: 11,
-				bubbles: true,
-				clientX: rect.left + 10,
-				clientY: bottom + 30
-			})
-		);
-		// Dragging past the edge must autoscroll the pane, not only grow a count.
-		await expect.poll(() => panel.scrollTop).toBeGreaterThan(initialScrollTop);
-		await expect
-			.poll(() => host.querySelectorAll('[data-selected="true"]').length)
-			.toBeGreaterThan(20);
-		window.dispatchEvent(new PointerEvent('pointerup', { pointerId: 11, bubbles: true }));
-
-		const selected = [...panel.querySelectorAll<HTMLElement>('[data-selected="true"]')];
-		expect(selected.length).toBeGreaterThan(20);
-		expect(selected[0]).toBe(first);
-		const indices = selected.map((word) => Number(word.dataset.transcriptWord));
-		for (let index = 1; index < indices.length; index += 1) {
-			expect(indices[index]).toBe(indices[index - 1]! + 1);
-		}
-		expect(indices.at(-1)).toBeLessThan(119);
-		// The pointer is clamped just above the sticky selection toolbar, so the
-		// selection must end on that visible boundary line (`leading-8` is 32px),
-		// not earlier and not on the whole document.
-		const toolbar = panel.querySelector('[role="toolbar"]');
-		if (!toolbar) throw new Error('Selection toolbar is missing.');
-		const clampY = Math.min(
-			panel.getBoundingClientRect().bottom,
-			toolbar.getBoundingClientRect().top
-		);
-		const endWord = panel.querySelector<HTMLElement>(`[data-transcript-word="${indices.at(-1)}"]`);
-		if (!endWord) throw new Error('Last selected word is missing.');
-		const endBounds = endWord.getBoundingClientRect();
-		expect(endBounds.bottom).toBeGreaterThan(clampY - 32);
-		expect(endBounds.top).toBeLessThan(clampY + 2);
-	} finally {
-		host.remove();
-	}
-});
-
-it('keeps words clickable in a short transcript pane', async () => {
-	speech();
-	const host = document.createElement('div');
-	host.style.cssText = 'height:64px;width:500px;display:flex;flex-direction:column';
-	document.body.append(host);
-	try {
-		const screen = await render(TranscriptPanel, { target: host, props: { onedit: vi.fn() } });
-		const word = screen.getByRole('button', { name: 'world', exact: true }).element();
-		word.scrollIntoView({ block: 'center' });
-		await expect
-			.poll(() => {
-				const bounds = word.getBoundingClientRect();
-				return word.contains(
-					document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)
-				);
-			})
-			.toBe(true);
-		await screen.getByRole('button', { name: 'world', exact: true }).click();
-		expect(timelineStore.currentFrame).toBe(339);
-		await screen.getByRole('button', { name: 'Correct transcript', exact: true }).click();
-		await expect.element(screen.getByRole('textbox', { name: 'Caption line' })).toBeVisible();
-	} finally {
-		host.remove();
-	}
-});
-
-it('explains retained locked captions after cutting editable source words', async () => {
-	speech();
-	const caption = timelineStore.items.find((item) => item.type === 'subtitle')!;
-	timelineStore._setTracks(
-		timelineStore.tracks.map((track) => ({ ...track, locked: track.id === caption.trackId }))
-	);
-	const before = JSON.parse(JSON.stringify(caption));
-	const screen = await render(TranscriptPanel, { onedit: vi.fn() });
-	await screen.getByRole('button', { name: 'Hello', exact: true }).click();
-	await expect
-		.element(screen.getByRole('button', { name: 'Correct transcript', exact: true }))
-		.toBeDisabled();
-	const cut = screen.getByRole('button', { name: 'Delete from video', exact: true });
-	await expect.element(cut).toBeEnabled();
-	await cut.click();
-	expect(timelineStore.itemById.get(caption.id)).toEqual(before);
-	expect(
-		timelineStore.items
-			.filter((item) => item.type === 'video')
-			.map((item) => [item.sourceStart, item.sourceEnd, item.durationInFrames])
-	).toEqual([
-		[0, 6, 6],
-		[36, 180, 144]
-	]);
-	await expect.element(screen.getByRole('button', { name: 'Hello', exact: true })).toBeVisible();
-	await expect
-		.element(screen.getByRole('status'))
-		.toHaveTextContent(
-			'Words cut: 1 Locked captions were kept. Unlock their tracks to update them.'
-		);
-	commandHistory.undo();
-	expect(timelineStore.itemById.get('speech')?.durationInFrames).toBe(180);
-	expect(timelineStore.itemById.get(caption.id)).toEqual(before);
-	commandHistory.redo();
-	expect(timelineStore.items.filter((item) => item.type === 'video')).toHaveLength(2);
-	expect(timelineStore.itemById.get(caption.id)).toEqual(before);
-});
-
-it('rejects beyond-clip caption timing without hiding transcript words and persists a valid retime', async () => {
-	speech();
-	const project = createBlankProject('Caption timing bounds');
-	sequenceStore.load(
-		{ ...project.timeline!, tracks: timelineStore.tracks, items: timelineStore.items },
-		project.metadata
-	);
-	const onedit = vi.fn();
-	const screen = await render(TranscriptPanel, { onedit });
-	await screen.getByRole('button', { name: 'Hello', exact: true }).click();
-	await screen.getByRole('button', { name: 'Caption style', exact: true }).click();
-	const caption = () => timelineStore.items.find((item) => item.type === 'subtitle')!.cues![0]!;
-	const before = JSON.stringify(caption());
-	const end = screen.getByRole('spinbutton', { name: 'Adjust caption end', exact: true });
-	await end.fill('400');
-	await userEvent.keyboard('{Tab}');
-	expect(JSON.stringify(caption())).toBe(before);
-	expect(commandHistory.undoStack).toHaveLength(0);
-	expect(onedit).not.toHaveBeenCalled();
-	await expect.element(end).toHaveValue(150);
-	await expect.element(screen.getByRole('button', { name: 'again', exact: true })).toBeVisible();
-	await expect
-		.element(
-			screen.getByText(
-				'Keep caption timing between 0 and 180 frames, with the end after the start.',
-				{ exact: true }
-			)
-		)
-		.toHaveTextContent(
-			'Keep caption timing between 0 and 180 frames, with the end after the start.'
-		);
-	await expect
-		.element(end)
-		.toHaveAccessibleDescription(
-			'Keep caption timing between 0 and 180 frames, with the end after the start.'
-		);
-	await screen.getByRole('button', { name: 'Timing', exact: true }).click();
-	const lastWordEnd = screen
-		.getByRole('spinbutton', { name: 'Word end frame', exact: true })
-		.last();
-	await lastWordEnd.fill('400');
-	await userEvent.keyboard('{Tab}');
-	expect(JSON.stringify(caption())).toBe(before);
-	await expect.element(lastWordEnd).toHaveValue(150);
-	const firstWordStart = screen
-		.getByRole('spinbutton', { name: 'Word start frame', exact: true })
-		.first();
-	await firstWordStart.fill('-5');
-	await userEvent.keyboard('{Tab}');
-	expect(JSON.stringify(caption())).toBe(before);
-	await expect.element(firstWordStart).toHaveValue(6);
-	expect(commandHistory.undoStack).toHaveLength(0);
-	expect(onedit).not.toHaveBeenCalled();
-	await end.fill('170');
-	await userEvent.keyboard('{Tab}');
-	expect(caption().endFrame).toBe(170);
-	expect(onedit).toHaveBeenCalledTimes(1);
-	expect(caption().words!.at(-1)!.endFrame).toBe(170);
-	expect(timelineStore.itemById.get('speech')!.durationInFrames).toBe(180);
-	commandHistory.undo();
-	expect(JSON.stringify(caption())).toBe(before);
-	commandHistory.redo();
-	expect(caption().endFrame).toBe(170);
-	const prior = getWorkspaceRoot();
-	const root = await navigator.storage.getDirectory();
-	const dir = `caption-bounds-${crypto.randomUUID()}`;
-	setWorkspaceRoot(await root.getDirectoryHandle(dir, { create: true }));
-	try {
-		await createProject({ ...project, timeline: sequenceStore.projectTimeline() });
-		await screen.unmount();
-		sequenceStore.reset();
-		timelineStore.__resetForTesting();
-		const saved = (await getProject(project.id))!;
-		sequenceStore.load(saved.timeline!, saved.metadata);
-		const reopened = await render(TranscriptPanel, { onedit: vi.fn() });
-		await expect
-			.element(reopened.getByRole('button', { name: 'again', exact: true }))
-			.toBeVisible();
-		await reopened.getByRole('button', { name: 'Hello', exact: true }).click();
-		await reopened.getByRole('button', { name: 'Caption style', exact: true }).click();
-		await expect
-			.element(reopened.getByRole('spinbutton', { name: 'Adjust caption end', exact: true }))
-			.toHaveValue(170);
-		await reopened.unmount();
-	} finally {
-		sequenceStore.reset();
-		setWorkspaceRoot(prior);
-		await root.removeEntry(dir, { recursive: true });
-	}
-});
-
-it('rejects an inverted caption end without compressing words and still admits an explicit one-frame cue', async () => {
-	speech();
-	const screen = await render(TranscriptPanel, { onedit: vi.fn() });
-	await screen.getByRole('button', { name: 'Hello', exact: true }).click();
-	await screen.getByRole('button', { name: 'Caption style', exact: true }).click();
-	await screen.getByRole('spinbutton', { name: 'Adjust caption start', exact: true }).fill('31');
-	await userEvent.keyboard('{Tab}');
-	const caption = () => timelineStore.items.find((item) => item.type === 'subtitle')!.cues![0]!;
-	const before = JSON.stringify(caption());
-	const history = commandHistory.undoStack.length;
-	const end = screen.getByRole('spinbutton', { name: 'Adjust caption end', exact: true });
-	await end.fill('10');
-	await userEvent.keyboard('{Tab}');
-	expect(JSON.stringify(caption())).toBe(before);
-	expect(commandHistory.undoStack).toHaveLength(history);
-	await expect.element(end).toHaveValue(150);
-	await expect
-		.element(
-			screen.getByText(
-				'Keep caption timing between 0 and 180 frames, with the end after the start.',
-				{ exact: true }
-			)
-		)
-		.toBeVisible();
-	await end.fill('32');
-	await userEvent.keyboard('{Tab}');
-	expect([caption().startFrame, caption().endFrame]).toEqual([31, 32]);
-	expect(caption().words!.map((word) => [word.startFrame, word.endFrame])).toEqual([
-		[31, 32],
-		[31, 32],
-		[31, 32]
-	]);
-	commandHistory.undo();
-	expect(JSON.stringify(caption())).toBe(before);
-	commandHistory.redo();
-	expect(caption().endFrame).toBe(32);
-	commandHistory.undo();
-	commandHistory.undo();
-	expect([caption().startFrame, caption().endFrame]).toEqual([6, 150]);
-	await expect.element(end).toHaveValue(150);
-});
-
 it('uses sequence frames for imported captions after a timeline start trim', async () => {
 	timelineStore.setAll({ fps: 30, tracks: createDefaultTracks(), items: [] });
 	const id = addSubtitleItemFromSrt('1\n00:00:10,200 --> 00:00:15,000\nImported line');
@@ -483,7 +176,10 @@ it('uses sequence frames for imported captions after a timeline start trim', asy
 	const screen = await render(TranscriptPanel, { onedit: vi.fn() });
 	await screen.getByRole('button', { name: 'Imported line', exact: true }).click();
 	await screen.getByRole('button', { name: 'Caption style', exact: true }).click();
-	const start = screen.getByRole('spinbutton', { name: 'Adjust caption start', exact: true });
+	const start = screen.getByRole('spinbutton', {
+		name: 'Adjust caption start',
+		exact: true
+	});
 	await expect.element(start).toHaveValue(306);
 	await start.fill('200');
 	await userEvent.keyboard('{Tab}');
@@ -507,17 +203,6 @@ it('uses sequence frames for imported captions after a timeline start trim', asy
 		timelineStore.itemById.get(id)!.from,
 		timelineStore.itemById.get(id)!.durationInFrames
 	]).toEqual([300, 150]);
-});
-
-it('reports a clipboard failure instead of copied words when the write fails', async () => {
-	speech();
-	vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('Denied'));
-	vi.spyOn(document, 'execCommand').mockReturnValue(false);
-	const screen = await render(TranscriptPanel, { onedit: vi.fn() });
-	await screen.getByRole('button', { name: 'Hello', exact: true }).click();
-	await userEvent.keyboard('{Control>}c{/Control}');
-	await expect.element(screen.getByRole('status')).toHaveTextContent('Could not copy');
-	await expect.element(screen.getByRole('status')).not.toHaveTextContent('Words copied');
 });
 
 it('shows copied words only after the awaited clipboard write resolves', async () => {

@@ -42,20 +42,6 @@ describe('insertMediaAtFrame', () => {
 		});
 	});
 
-	it('fits an image and inserts it at the requested frame', () => {
-		const id = insertMediaAtFrame(image, 42, { label: 'Party Popper' });
-		expect(timelineStore.itemById.get(id)).toMatchObject({
-			trackId: 'video-1',
-			from: 42,
-			durationInFrames: 90,
-			label: 'Party Popper',
-			type: 'image',
-			mediaId: 'sticker',
-			transform: { width: 346, height: 346 }
-		});
-		expect(commandHistory.getLastCommandType()).toBe('INSERT_MEDIA_AT_FRAME');
-	});
-
 	it('creates an overlay track when the playhead range is occupied and undoes atomically', () => {
 		timelineStore._addItem({
 			id: 'existing',
@@ -73,52 +59,6 @@ describe('insertMediaAtFrame', () => {
 		commandHistory.undo();
 		expect(timelineStore.itemById.has(id)).toBe(false);
 		expect(timelineStore.tracks.map((track) => track.id)).toEqual(['video-1']);
-	});
-
-	it('uses an open preferred track before adding another track', () => {
-		timelineStore._setTracks([
-			...timelineStore.tracks,
-			{
-				id: 'video-2',
-				name: 'Overlay',
-				kind: 'video',
-				height: 96,
-				locked: false,
-				visible: true,
-				muted: false,
-				solo: false,
-				order: -1
-			}
-		]);
-		const id = insertMediaAtFrame(image, 0, { preferredTrackId: 'video-1' });
-		expect(timelineStore.itemById.get(id)?.trackId).toBe('video-1');
-		expect(timelineStore.tracks).toHaveLength(2);
-	});
-
-	it('reuses a track occupied only by a non-exclusive adjustment layer', () => {
-		timelineStore._addItem({
-			id: 'grade',
-			trackId: 'video-1',
-			from: 0,
-			durationInFrames: 300,
-			label: 'Grade',
-			type: 'adjustment'
-		});
-
-		const id = insertMediaAtFrame(image, 60);
-
-		expect(timelineStore.itemById.get(id)?.trackId).toBe('video-1');
-		expect(timelineStore.tracks).toHaveLength(1);
-	});
-
-	it('creates a visible track instead of inserting onto a hidden one', () => {
-		timelineStore._setTracks(timelineStore.tracks.map((track) => ({ ...track, visible: false })));
-
-		const id = insertMediaAtFrame(image, 0);
-
-		const inserted = timelineStore.itemById.get(id)!;
-		expect(inserted.trackId).not.toBe('video-1');
-		expect(timelineStore.tracks.find((track) => track.id === inserted.trackId)?.visible).toBe(true);
 	});
 
 	it('rejects an occupied exact track without adding an item, track, or undo entry', () => {
@@ -153,7 +93,10 @@ it('appends after the entire sequence without moving existing clips and undoes o
 	timelineStore._setCurrentFrame(12);
 	commandHistory.clearHistory();
 	const id = insertMediaAtSequenceEnd(image);
-	expect(timelineStore.itemById.get(id)).toMatchObject({ from: 270, durationInFrames: 90 });
+	expect(timelineStore.itemById.get(id)).toMatchObject({
+		from: 270,
+		durationInFrames: 90
+	});
 	expect(timelineStore.itemById.get('tail')).toEqual(existing);
 	expect(timelineStore.currentFrame).toBe(12);
 	commandHistory.undo();

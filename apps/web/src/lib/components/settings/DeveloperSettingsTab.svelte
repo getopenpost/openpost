@@ -29,7 +29,7 @@
 	import {
 		apiTokenCustomExpiryMax,
 		apiTokenCustomExpiryMin,
-		apiTokenExpiresAt,
+		apiTokenExpiryRequest,
 		apiTokenScopeOptions as apiTokenScopes,
 		isAPITokenScope,
 		type APITokenScope,
@@ -152,6 +152,7 @@
 	function apiTokenExpiryLabel() {
 		if (apiTokenExpiryPreset === '30') return m.settings_token_expiry_30_days();
 		if (apiTokenExpiryPreset === '365') return m.settings_token_expiry_one_year();
+		if (apiTokenExpiryPreset === 'never') return m.settings_never();
 		if (apiTokenExpiryPreset === 'custom') return m.settings_token_expiry_custom();
 		return m.settings_token_expiry_90_days();
 	}
@@ -261,8 +262,8 @@
 			return;
 		}
 		const workspaceID = apiTokenWorkspaceScope === 'current' ? selectedWorkspaceID : '';
-		const expiresAt = apiTokenExpiresAt(apiTokenExpiryPreset, apiTokenCustomExpiry);
-		if (!expiresAt) {
+		const expiry = apiTokenExpiryRequest(apiTokenExpiryPreset, apiTokenCustomExpiry);
+		if (!expiry) {
 			apiTokenError = m.settings_token_expiry_description();
 			apiTokenBusy = false;
 			return;
@@ -271,7 +272,7 @@
 			name,
 			scope: apiTokenScope,
 			workspace_id: workspaceID,
-			expires_at: expiresAt
+			...expiry
 		};
 		try {
 			const { data, error: err } = await client.POST('/api-tokens', {
@@ -615,6 +616,7 @@
 				<Select.Item value="30">{m.settings_token_expiry_30_days()}</Select.Item>
 				<Select.Item value="90">{m.settings_token_expiry_90_days()}</Select.Item>
 				<Select.Item value="365">{m.settings_token_expiry_one_year()}</Select.Item>
+				<Select.Item value="never">{m.settings_never()}</Select.Item>
 				<Select.Item value="custom">{m.settings_token_expiry_custom()}</Select.Item>
 			</Select.Content>
 		</Select.Root>
@@ -637,6 +639,11 @@
 		</Button>
 	</div>
 </div>
+{#if apiTokenExpiryPreset === 'never'}
+	<p class="mb-4 max-w-md text-xs leading-5 text-muted-foreground">
+		{m.settings_token_expiry_never_description()}
+	</p>
+{/if}
 {#if apiTokenExpiryPreset === 'custom'}
 	<div class="mb-4 max-w-xs space-y-2">
 		<Label for="api-token-custom-expiry">{m.settings_token_custom_expiry()}</Label>

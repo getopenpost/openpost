@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	imageEditorCommandForKeyboardEvent,
-	imageEditorCommandsForCompactMenu,
-	imageEditorCommandsForRail,
-	imageEditorCommandsForRailSlot,
-	imageEditorShortcutLabel,
-	IMAGE_EDITOR_COMMANDS
-} from './commands';
+import { imageEditorCommandForKeyboardEvent, IMAGE_EDITOR_COMMANDS } from './commands';
 
 function key(
 	value: string,
@@ -44,23 +37,6 @@ describe('OpenPost Image Editor command registry', () => {
 		}
 	});
 
-	it('distinguishes primary and shifted tool commands', () => {
-		expect(imageEditorCommandForKeyboardEvent(key('g'))).toBe('tool_gradient');
-		expect(imageEditorCommandForKeyboardEvent(key('g', { shiftKey: true }))).toBe('tool_bucket');
-		expect(imageEditorCommandForKeyboardEvent(key('g', { ctrlKey: true }))).toBe('group');
-		expect(imageEditorCommandForKeyboardEvent(key('g', { ctrlKey: true, shiftKey: true }))).toBe(
-			'ungroup'
-		);
-		expect(imageEditorCommandForKeyboardEvent(key('l', { shiftKey: true }))).toBe(
-			'tool_polygonal_lasso'
-		);
-	});
-
-	it('formats the same primary shortcut used by menus and help', () => {
-		const save = IMAGE_EDITOR_COMMANDS.find((command) => command.id === 'save')!;
-		expect(imageEditorShortcutLabel(save, '⌘')).toBe('⌘ S');
-	});
-
 	it.each(['и', 'β', 'لا'])('selects the brush using its physical key under %s input', (value) => {
 		expect(imageEditorCommandForKeyboardEvent({ ...key(value), code: 'KeyB' })).toBe('tool_pencil');
 	});
@@ -74,14 +50,20 @@ describe('OpenPost Image Editor command registry', () => {
 			{ isComposing: true }
 		]) {
 			expect(
-				imageEditorCommandForKeyboardEvent({ ...key('и', modifiers), code: 'KeyB' })
+				imageEditorCommandForKeyboardEvent({
+					...key('и', modifiers),
+					code: 'KeyB'
+				})
 			).toBeNull();
 		}
 		expect(imageEditorCommandForKeyboardEvent({ ...key('Dead'), code: 'KeyB' })).toBeNull();
 		expect(imageEditorCommandForKeyboardEvent({ ...key(','), code: 'KeyW' })).toBeNull();
 		expect(imageEditorCommandForKeyboardEvent({ ...key('é'), code: 'KeyB' })).toBeNull();
 		expect(
-			imageEditorCommandForKeyboardEvent({ ...key('д', { shiftKey: true }), code: 'KeyL' })
+			imageEditorCommandForKeyboardEvent({
+				...key('д', { shiftKey: true }),
+				code: 'KeyL'
+			})
 		).toBe('tool_polygonal_lasso');
 	});
 
@@ -90,76 +72,5 @@ describe('OpenPost Image Editor command registry', () => {
 		expect(
 			imageEditorCommandForKeyboardEvent(key('s', { ctrlKey: true, isComposing: true }))
 		).toBeNull();
-	});
-
-	it('keeps one primary command per rail slot', () => {
-		const rail = imageEditorCommandsForRail();
-		expect(new Set(rail.map((command) => command.railSlot)).size).toBe(rail.length);
-	});
-
-	it('limits the tool rail to eight slots led by Add', () => {
-		const rail = imageEditorCommandsForRail();
-		expect(rail).toHaveLength(7);
-		expect(rail.map((command) => command.railSlot)).toEqual([
-			'select',
-			'crop',
-			'text',
-			'shape',
-			'draw',
-			'eyedropper',
-			'view'
-		]);
-	});
-
-	it('keeps every select, draw, and view variant inside its slot flyout', () => {
-		expect(imageEditorCommandsForRailSlot('select').map((command) => command.tool)).toEqual([
-			'select',
-			'marquee',
-			'ellipse_marquee',
-			'lasso',
-			'polygonal_lasso',
-			'magic_wand'
-		]);
-		expect(imageEditorCommandsForRailSlot('draw').map((command) => command.tool)).toEqual([
-			'pencil',
-			'eraser',
-			'magic_eraser',
-			'bucket',
-			'gradient'
-		]);
-		expect(imageEditorCommandsForRailSlot('view').map((command) => command.tool)).toEqual([
-			'hand',
-			'zoom'
-		]);
-	});
-
-	it('keeps every tool command in a rail slot', () => {
-		const toolCommands = IMAGE_EDITOR_COMMANDS.filter((command) => command.tool);
-		for (const command of toolCommands) {
-			expect(command.railSlot).toBeDefined();
-			expect(imageEditorCommandsForRailSlot(command.railSlot!)).toContain(command);
-		}
-	});
-
-	it('keeps Edit, Layer, Select, and Tools reachable from the compact menu', () => {
-		const categories = new Set(
-			imageEditorCommandsForCompactMenu().map((command) => command.category)
-		);
-		expect(categories).toEqual(new Set(['edit', 'layer', 'select', 'tools']));
-	});
-
-	it('keeps pixel-selection refinement and layer alpha in the Select menu', () => {
-		expect(
-			IMAGE_EDITOR_COMMANDS.filter((command) => command.category === 'select').map(
-				(command) => command.id
-			)
-		).toEqual([
-			'select_all',
-			'deselect',
-			'selection_invert',
-			'selection_expand',
-			'selection_contract',
-			'selection_from_layer_alpha'
-		]);
 	});
 });

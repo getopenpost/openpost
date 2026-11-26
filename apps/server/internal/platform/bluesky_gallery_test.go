@@ -93,40 +93,44 @@ func TestBlueskyGalleryFailsClosedOnLimitsAndIncompleteMedia(t *testing.T) {
 			require.ErrorContains(t, err, tc.want)
 		})
 	}
-
 }
 
 func TestBlueskyGalleryAdapterRejectsMixedMediaAndInvalidFormats(t *testing.T) {
 	adapter := NewBlueskyAdapter("")
 	for _, test := range []struct {
-		name string
+		name   string
 		mutate func(*PublishRequest)
-		want string
+		want   string
 	}{
 		{
-			name: "video first followed by image",
+			name:   "video first followed by image",
 			mutate: func(r *PublishRequest) { r.Media[0].MimeType = "video/mp4" },
-			want: "mixing video",
+			want:   "mixing video",
 		},
 		{
-			name: "video second",
+			name:   "video second",
 			mutate: func(r *PublishRequest) { r.Media[1].MimeType = "video/mp4" },
-			want: "mixing video",
+			want:   "mixing video",
 		},
 		{
-			name: "unsupported video format",
+			name:   "unsupported video format",
 			mutate: func(r *PublishRequest) { r.Media[0].MimeType = "video/quicktime" },
-			want: "single MP4",
+			want:   "single MP4",
 		},
 		{
-			name: "invalid gallery image format",
+			name:   "gif mixed into gallery",
 			mutate: func(r *PublishRequest) { r.Media[3].MimeType = "image/gif" },
-			want: "single MP4",
+			want:   "only one gif",
 		},
 		{
-			name: "oversized gallery metadata",
+			name:   "invalid gallery image format",
+			mutate: func(r *PublishRequest) { r.Media[3].MimeType = "image/heic" },
+			want:   "single MP4",
+		},
+		{
+			name:   "oversized gallery metadata",
 			mutate: func(r *PublishRequest) { r.Media[2].Size = 2_000_001 },
-			want: "supported size limit",
+			want:   "supported size limit",
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {

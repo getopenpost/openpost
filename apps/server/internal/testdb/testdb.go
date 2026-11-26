@@ -10,13 +10,12 @@ import (
 	"sync"
 	"testing"
 
-	// Register the sqlite3 driver for test databases.
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 var (
@@ -77,7 +76,7 @@ func loadSQLiteBaseTemplate() ([]byte, error) {
 		defer func() { _ = os.RemoveAll(dir) }()
 
 		templatePath := filepath.Join(dir, "base.db")
-		sqldb, err := sql.Open("sqlite3", "file:"+filepath.ToSlash(templatePath)+"?mode=rwc")
+		sqldb, err := sql.Open(sqliteshim.ShimName, "file:"+filepath.ToSlash(templatePath)+"?mode=rwc")
 		if err != nil {
 			sqliteBaseErr = fmt.Errorf("open base template db: %w", err)
 			return
@@ -206,7 +205,7 @@ func NewSQLiteNoFK(t testing.TB) *bun.DB {
 	return db
 }
 
-// NewSQLiteBase returns an isolated sqlite3 test database cloned from a
+// NewSQLiteBase returns an isolated SQLite test database cloned from a
 // once-per-process unmigrated Bun-table template, creating any extraModels
 // not already present in the base template.
 func NewSQLiteBase(t testing.TB, extraModels ...any) *bun.DB {
@@ -216,7 +215,7 @@ func NewSQLiteBase(t testing.TB, extraModels ...any) *bun.DB {
 	testPath := filepath.Join(t.TempDir(), "base.db")
 	require.NoError(t, os.WriteFile(testPath, template, 0o600))
 
-	sqldb, err := sql.Open("sqlite3", testPath)
+	sqldb, err := sql.Open(sqliteshim.ShimName, testPath)
 	require.NoError(t, err)
 	sqldb.SetMaxOpenConns(1)
 	db := bun.NewDB(sqldb, sqlitedialect.New())

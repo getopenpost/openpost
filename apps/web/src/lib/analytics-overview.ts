@@ -1,6 +1,5 @@
 export {
 	hasEngagementMeasurement,
-	measuredMetricKeys,
 	insightHasRanking,
 	appendAnalyticsContentPage,
 	type AnalyticsSortMode

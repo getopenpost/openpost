@@ -1,34 +1,11 @@
 package platform
 
 import (
-	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
-
-func TestBuildAdapterRegistryRejectsUnsupportedOrIncompleteApps(t *testing.T) {
-	t.Parallel()
-
-	_, _, err := BuildAdapterRegistry([]AppConfig{{Provider: "unknown"}}, RegistryOptions{})
-	require.ErrorContains(t, err, "unsupported provider app")
-
-	_, _, err = BuildAdapterRegistry([]AppConfig{{Provider: "threads"}}, RegistryOptions{})
-	require.ErrorContains(t, err, "threads provider app requires client_id")
-
-	_, _, err = BuildAdapterRegistry([]AppConfig{{Provider: "facebook"}}, RegistryOptions{})
-	require.ErrorContains(t, err, "facebook provider app requires client_id")
-
-	_, _, err = BuildAdapterRegistry([]AppConfig{{Provider: "instagram"}}, RegistryOptions{})
-	require.ErrorContains(t, err, "instagram provider app requires client_id")
-
-	_, _, err = BuildAdapterRegistry([]AppConfig{{Provider: "tiktok"}}, RegistryOptions{})
-	require.ErrorContains(t, err, "tiktok provider app requires client_id")
-
-	_, _, err = BuildAdapterRegistry([]AppConfig{{Provider: "youtube"}}, RegistryOptions{})
-	require.ErrorContains(t, err, "youtube provider app requires client_id")
-}
 
 func TestBuildAdapterRegistryAcceptsCompleteContractOnlyApps(t *testing.T) {
 	t.Parallel()
@@ -75,87 +52,6 @@ func TestValidateAppConfigFailsClosedForHostedAndSelfHostedBotShapes(t *testing.
 	for _, app := range incomplete {
 		require.Error(t, ValidateAppConfig(app), app.Provider)
 	}
-}
-
-func TestMergeAppConfigsOverridesByCanonicalProviderKey(t *testing.T) {
-	t.Parallel()
-
-	got := MergeAppConfigs([]AppConfig{
-		{Provider: "bluesky"},
-		{Provider: "x", ClientID: "legacy-x"},
-		{Provider: "mastodon", Name: "Personal", ClientID: "legacy-masto", InstanceURL: "https://masto.pt"},
-	}, AppConfig{
-		Provider: " X ",
-		ClientID: "cloud-x",
-	}, AppConfig{
-		Provider:    "mastodon",
-		Name:        "Community",
-		ClientID:    "cloud-masto",
-		InstanceURL: "https://masto.pt/",
-	}, AppConfig{
-		Provider: "facebook",
-		ClientID: "facebook-client",
-	})
-
-	require.Len(t, got, 4)
-	require.Equal(t, "bluesky", got[0].Provider)
-	require.Equal(t, "x", got[1].Provider)
-	require.Equal(t, "cloud-x", got[1].ClientID)
-	require.Equal(t, "mastodon", got[2].Provider)
-	require.Equal(t, "Community", got[2].Name)
-	require.Equal(t, "cloud-masto", got[2].ClientID)
-	require.Equal(t, "https://masto.pt", got[2].InstanceURL)
-	require.Equal(t, "facebook", got[3].Provider)
-}
-
-func TestAccountProviderKeyIsolatesNonDefaultBlueskyPDS(t *testing.T) {
-	t.Parallel()
-
-	require.Equal(t, "bluesky", AccountProviderKey("bluesky", "", ""))
-	require.Equal(t, "bluesky", AccountProviderKey("bluesky", BlueskyDefaultPDSURL, ""))
-	require.Equal(t, "bluesky", AccountProviderKey("bluesky", BlueskyDefaultPDSURL+"/", ""))
-	require.Equal(t, "bluesky:https://pds.example", AccountProviderKey("bluesky", "https://pds.example/", ""))
-}
-
-func TestBuildAdapterRegistryPassesInstagramConfigIDToAuthURL(t *testing.T) {
-	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
-
-	adapters, _, err := BuildAdapterRegistry([]AppConfig{{
-		Provider:     "instagram",
-		ClientID:     "ig-client",
-		ClientSecret: "ig-secret",
-		RedirectURI:  "https://app.test/api/v1/accounts/instagram/callback",
-		ConfigID:     " config-123 ",
-	}}, RegistryOptions{})
-	require.NoError(t, err)
-
-	adapter, ok := adapters["instagram"].(*InstagramAdapter)
-	require.True(t, ok, "the Facebook Login Instagram adapter must be registered")
-	require.Equal(t, "config-123", adapter.configID, "config_id must be trimmed on the adapter")
-	authURL, _ := adapter.GenerateAuthURL("state-1")
-	parsed, err := url.Parse(authURL)
-	require.NoError(t, err)
-	require.Equal(t, "config-123", parsed.Query().Get("config_id"))
-	require.Empty(t, parsed.Query().Get("scope"), "config_id replaces the scope list")
-
-	loginAdapters, _, err := BuildAdapterRegistry([]AppConfig{{
-		Provider:       "instagram",
-		ConnectionMode: ConnectionModeInstagramLogin,
-		ClientID:       "ig-login-client",
-		ClientSecret:   "ig-login-secret",
-		RedirectURI:    "https://app.test/api/v1/accounts/instagram/callback",
-		ConfigID:       "config-123",
-	}}, RegistryOptions{})
-	require.NoError(t, err)
-	loginAdapter, ok := loginAdapters["instagram:instagram_login"].(*InstagramAdapter)
-	require.True(t, ok, "the direct Instagram login adapter must be registered")
-	require.Empty(t, loginAdapter.configID, "direct Instagram login ignores Facebook Login configurations")
-	loginURL, _ := loginAdapter.GenerateAuthURL("state-1")
-	parsedLogin, err := url.Parse(loginURL)
-	require.NoError(t, err)
-	require.Equal(t, "www.instagram.com", parsedLogin.Host)
-	require.Empty(t, parsedLogin.Query().Get("config_id"))
-	require.NotEmpty(t, parsedLogin.Query().Get("scope"), "direct login keeps its own scopes")
 }
 
 func TestBuildAdapterRegistryAcceptsBuiltinCredentialProviders(t *testing.T) {

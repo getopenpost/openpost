@@ -10,6 +10,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -269,6 +272,13 @@ func (b *BlueskyAdapter) GetProfile(ctx context.Context, accessToken string) (*U
 }
 
 func (b *BlueskyAdapter) UploadMedia(ctx context.Context, accessToken, accountID, mimeType string, reader io.Reader) (string, error) {
+	if isGIFMime(mimeType) {
+		mp4Data, err := blueskyGIFToMP4(ctx, reader)
+		if err != nil {
+			return "", err
+		}
+		return b.uploadVideo(ctx, accessToken, accountID, videoTypeMP4, bytes.NewReader(mp4Data))
+	}
 	if isVideoMime(mimeType) {
 		return b.uploadVideo(ctx, accessToken, accountID, mimeType, reader)
 	}
@@ -1263,6 +1273,69 @@ func attachBlueskySettingsEmbed(record map[string]interface{}, settings map[stri
 	return nil
 }
 
+var blueskyGIFToMP4 = convertGIFToMP4
+
+func isGIFMime(mimeType string) bool {
+	return strings.EqualFold(strings.TrimSpace(mimeType), "image/gif")
+}
+
+// convertGIFToMP4 transcodes an animated GIF into a silent H.264/yuv420p MP4
+// suitable for Bluesky's video service, which renders animated GIFs via
+// app.bsky.embed.video with presentation="gif" (app.bsky.embed.images flattens
+// GIFs into a static frame).
+func convertGIFToMP4(ctx context.Context, reader io.Reader) ([]byte, error) {
+	const maxGIFBytes = providerlimits.BlueskyVideoMaxBytes
+	data, err := io.ReadAll(io.LimitReader(reader, maxGIFBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("reading bluesky gif: %w", err)
+	}
+	if len(data) == 0 {
+		return nil, fmt.Errorf("bluesky gif upload requires non-empty media")
+	}
+	if int64(len(data)) > maxGIFBytes {
+		return nil, fmt.Errorf("bluesky gif exceeds maximum size of %d bytes", maxGIFBytes)
+	}
+	tmpDir, err := os.MkdirTemp("", "openpost-bluesky-gif-*")
+	if err != nil {
+		return nil, fmt.Errorf("creating temp directory for bluesky gif: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	inputPath := filepath.Join(tmpDir, "input.gif")
+	outputPath := filepath.Join(tmpDir, "output.mp4")
+	if err := os.WriteFile(inputPath, data, 0o600); err != nil {
+		return nil, fmt.Errorf("writing bluesky gif: %w", err)
+	}
+	cmd := exec.CommandContext(
+		ctx,
+		"ffmpeg",
+		"-v", "error",
+		"-y",
+		"-i", inputPath,
+		"-movflags", "+faststart",
+		"-pix_fmt", "yuv420p",
+		"-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+		"-c:v", "libx264",
+		"-an",
+		outputPath,
+	)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		detail := strings.TrimSpace(string(output))
+		if detail != "" {
+			return nil, fmt.Errorf("converting gif for bluesky: %w (%s)", err, detail)
+		}
+		return nil, fmt.Errorf("converting gif for bluesky: %w", err)
+	}
+	mp4Data, err := os.ReadFile(outputPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading converted bluesky mp4: %w", err)
+	}
+	if len(mp4Data) == 0 {
+		return nil, fmt.Errorf("converting gif for bluesky produced empty output")
+	}
+	return mp4Data, nil
+}
+
 func (b *BlueskyAdapter) attachMediaToRecord(record map[string]interface{}, req *PublishRequest) error {
 	if len(req.PlatformMediaIDs) == 0 {
 		return nil
@@ -1271,9 +1344,16 @@ func (b *BlueskyAdapter) attachMediaToRecord(record map[string]interface{}, req 
 		return err
 	}
 
-	isVideo := len(req.Media) > 0 && strings.EqualFold(strings.TrimSpace(strings.SplitN(req.Media[0].MimeType, ";", 2)[0]), "video/mp4")
+	if len(req.Media) > 0 && isGIFMime(req.Media[0].MimeType) {
+		if len(req.PlatformMediaIDs) > 1 || len(req.Media) > 1 {
+			return fmt.Errorf("bluesky supports only one gif per post")
+		}
+		return b.attachVideoToRecord(record, req, "gif")
+	}
+
+	isVideo := len(req.Media) > 0 && isVideoMime(req.Media[0].MimeType)
 	if isVideo {
-		return b.attachVideoToRecord(record, req)
+		return b.attachVideoToRecord(record, req, "")
 	}
 	return b.attachImagesToRecord(record, req)
 }
@@ -1297,25 +1377,41 @@ func validateBlueskyRecordMedia(req *PublishRequest) error {
 	for i, item := range req.Media {
 		mimeType := strings.ToLower(strings.TrimSpace(strings.SplitN(item.MimeType, ";", 2)[0]))
 		switch mimeType {
-		case "video/mp4":
-			if count != 1 {
-				return fmt.Errorf("bluesky does not support mixing video with other attachments")
-			}
-			if item.Size > providerlimits.BlueskyVideoMaxBytes {
-				return fmt.Errorf("bluesky video exceeds the supported size limit")
+		case "video/mp4", "image/gif":
+			if err := validateBlueskyExclusiveMedia(mimeType, item.Size, count); err != nil {
+				return err
 			}
 		case "image/jpeg", "image/png", "image/webp":
 			if count > providerlimits.BlueskyLegacyImageMaxCount && item.Size > providerlimits.BlueskyImageMaxBytes {
 				return fmt.Errorf("bluesky gallery image %d exceeds the supported size limit", i+1)
 			}
 		default:
-			return fmt.Errorf("bluesky attachment %d must be JPEG, PNG, WebP, or a single MP4 video", i+1)
+			return fmt.Errorf("bluesky attachment %d must be JPEG, PNG, WebP, a single GIF, or a single MP4 video", i+1)
 		}
 	}
 	return nil
 }
 
-func (b *BlueskyAdapter) attachVideoToRecord(record map[string]interface{}, req *PublishRequest) error {
+// validateBlueskyExclusiveMedia checks a video or GIF, which Bluesky publishes
+// as one app.bsky.embed.video and never mixes with other attachments.
+func validateBlueskyExclusiveMedia(mimeType string, size int64, count int) error {
+	kind := "video"
+	if mimeType == "image/gif" {
+		kind = "gif"
+		if count != 1 {
+			return fmt.Errorf("bluesky supports only one gif per post and cannot mix it with other attachments")
+		}
+	}
+	if count != 1 {
+		return fmt.Errorf("bluesky does not support mixing video with other attachments")
+	}
+	if size > providerlimits.BlueskyVideoMaxBytes {
+		return fmt.Errorf("bluesky %s exceeds the supported size limit", kind)
+	}
+	return nil
+}
+
+func (b *BlueskyAdapter) attachVideoToRecord(record map[string]interface{}, req *PublishRequest, presentation string) error {
 	var blob map[string]interface{}
 	if err := json.Unmarshal([]byte(req.PlatformMediaIDs[0]), &blob); err != nil {
 		return fmt.Errorf("decoding bluesky video blob: %w", err)
@@ -1328,6 +1424,9 @@ func (b *BlueskyAdapter) attachVideoToRecord(record map[string]interface{}, req 
 		bskyRecordTypeField: "app.bsky.embed.video",
 		jsonFieldVideo:      blob,
 		"alt":               altText,
+	}
+	if presentation != "" {
+		embed["presentation"] = presentation
 	}
 	if ratio := blueskyMediaAspectRatio(req.Media, 0); ratio != nil {
 		embed["aspectRatio"] = ratio

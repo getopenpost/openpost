@@ -138,7 +138,3 @@ func protectedEditorTokens(scheme ColorScheme) ThemeProtectedEditorTokens {
 	}
 	return ThemeProtectedEditorTokens{"oklch(0.965 0.004 80)", "oklch(0.985 0.003 85)", "oklch(0.925 0.006 75)", "oklch(0.89 0.008 70)", "oklch(0.82 0.008 70)", "oklch(0.43 0.015 55)", "oklch(0.2 0.01 50)", "oklch(0.55 0.155 45)", "oklch(0.47 0.11 45)", "oklch(0.93 0.005 75)", "oklch(0.62 0.08 250)", "oklch(0.3 0.05 245)", "oklch(0.55 0.155 45)", "oklch(0.86 0.045 45)", "oklch(0.9 0.006 75)", "oklch(0.72 0.01 65)", "oklch(0.2 0.01 50)", "oklch(0.55 0.155 45)", "oklch(0.43 0.08 245 / 0.72)", "oklch(0.2 0.01 50)"}
 }
-
-func family(id, name, description string, iconPack IconPack, schemes ThemeSchemes) ThemeManifest {
-	return ThemeManifest{SchemaVersion: ManifestSchemaVersion, ID: id, Revision: "builtin-v1", Name: name, Description: description, IconPack: iconPack, SupportedSchemes: supportedSchemes(schemes), Schemes: schemes, Fonts: []ThemeFontFace{}, Assets: []ThemeAsset{}}
-}

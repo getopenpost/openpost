@@ -155,7 +155,7 @@ export async function fetchBadgeData(
   };
 }
 
-export async function fetchNpmDownloads(fetchImpl = fetch) {
+async function fetchNpmDownloads(fetchImpl = fetch) {
   const end = new Date().toISOString().slice(0, 10);
   const bodies = await Promise.all(
     NPM_PACKAGES.map((packageName) => npmJSON(npmDownloadsUrl(packageName, end), fetchImpl)),
@@ -223,7 +223,7 @@ export function renderBadge(kind, value, mode, detail) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(width)}" height="28" viewBox="0 0 ${Math.ceil(width)} 28" role="img" aria-labelledby="title desc" shape-rendering="crispEdges"><title id="title">${escapeXML(label)}: ${escapeXML(titleValue)}</title><desc id="desc">${escapeXML(description)}</desc><defs><clipPath id="badge-clip"><rect width="${Math.ceil(width)}" height="28" rx="6"/></clipPath>${ditherPattern()}</defs><g clip-path="url(#badge-clip)"><rect width="${Math.ceil(width)}" height="28" fill="${labelBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="${valueBackground}"/><rect x="${valueX}" width="${valueWidth}" height="28" fill="url(#dither)"/></g><rect x='0.5' y='0.5' width='${Math.ceil(width) - 1}' height='27' rx='5.5' fill='none' stroke='#000' stroke-opacity='0.12'/><g fill="${labelInk}" font-family="Geist,Arial,sans-serif" font-size="12" font-weight="600" dominant-baseline="middle"><text x="8" y="14">${escapeXML(label)}</text></g>${valueMarkup}</svg>`;
 }
 
-export async function writeBadges(data, outputDir) {
+async function writeBadges(data, outputDir) {
   const destination = resolve(outputDir);
   const files = [];
   const detailFor = (kind) =>

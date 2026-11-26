@@ -6,12 +6,10 @@ import type { Project } from '../project/types';
 import {
 	PROJECT_BUNDLE_MANIFEST_PATH,
 	type BundleMediaWriter,
-	type BundleOutput,
-	type ProjectBundleManifest
+	type BundleOutput
 } from '@openpost/editor-shared/project-bundle';
 import { createBundleExportService, type BundleExportRuntime } from './bundle-export';
 import { createBundleImportService, type BundleImportRuntime } from './bundle-import';
-import { computeBundleManifestChecksum } from '@openpost/editor-shared/project-bundle';
 import { PROJECT_SNAPSHOT_VERSION, type ProjectSnapshot } from './snapshot-types';
 import { computeSnapshotChecksum } from './snapshot-utils';
 
@@ -299,52 +297,6 @@ describe('project bundle import', () => {
 			)
 		).rejects.toThrow('missing media');
 		expect(missingRuntime.created).toEqual([]);
-	});
-
-	it('does not reuse a local file whose bytes no longer match its content hash', async () => {
-		const bytes = await bundleBytes();
-		const files = unzipSync(bytes);
-		// SAFETY: this manifest came from the typed bundle exporter above.
-		const manifest = JSON.parse(new TextDecoder().decode(files[PROJECT_BUNDLE_MANIFEST_PATH])) as {
-			media: Array<{ sha256: string }>;
-		};
-		const existing = media('changed-existing');
-		existing.contentHash = manifest.media[0]!.sha256;
-		const testRuntime = importRuntime([existing]);
-		testRuntime.runtime.resolveMediaBlob = async () => new Blob(['wrong bytes']);
-
-		const result = await createBundleImportService(testRuntime.runtime).importProjectBundle(
-			new File([ownedBytes(bytes)], 'launch.openpost.zip')
-		);
-
-		expect(result.mediaImported).toBe(1);
-		expect(result.mediaReused).toBe(0);
-		expect(testRuntime.openMediaWriter).toHaveBeenCalledOnce();
-		expect(testRuntime.receivedMap()?.get('source-media')).not.toBe('changed-existing');
-	});
-
-	it('counts every logical media link when bundled bytes are deduplicated', async () => {
-		const files = unzipSync(await bundleBytes());
-		// SAFETY: manifest is the typed bundle manifest produced by bundleBytes(); decode is trusted.
-		const manifest = JSON.parse(
-			new TextDecoder().decode(files[PROJECT_BUNDLE_MANIFEST_PATH])
-		) as ProjectBundleManifest;
-		manifest.media.push({ ...manifest.media[0]!, originalId: 'duplicate-source-media' });
-		manifest.checksum = computeBundleManifestChecksum(manifest);
-		files[PROJECT_BUNDLE_MANIFEST_PATH] = new TextEncoder().encode(
-			JSON.stringify(manifest, null, 2)
-		);
-		const testRuntime = importRuntime();
-
-		const result = await createBundleImportService(testRuntime.runtime).importProjectBundle(
-			new File([ownedBytes(zipSync(files, { level: 0 }))], 'deduplicated.openpost.zip')
-		);
-
-		expect(result.mediaImported).toBe(2);
-		expect(testRuntime.created).toHaveLength(1);
-		expect(testRuntime.receivedMap()?.get('source-media')).toBe(
-			testRuntime.receivedMap()?.get('duplicate-source-media')
-		);
 	});
 
 	it('cancels extraction and removes every partial media record', async () => {

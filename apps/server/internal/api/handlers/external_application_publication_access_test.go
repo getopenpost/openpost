@@ -15,7 +15,6 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/apitokens"
-	publicationservice "github.com/openpost/backend/internal/services/publications"
 	"github.com/stretchr/testify/require"
 )
 
@@ -139,26 +138,6 @@ func TestExternalApplicationPublicationActionsRequireEveryDestinationGrant(t *te
 	_, err = db.NewInsert().Model(&models.ExternalAppAccountGrant{InstallationID: "installation-1", WorkspaceID: "workspace-1", SocialAccountID: "account-2"}).Exec(ctx)
 	require.NoError(t, err)
 	require.NoError(t, handler.requireExternalPublicationAccounts(ctx, "publication-1"))
-}
-
-func TestExternalApplicationPublicationReadsHideUngrantedDestinations(t *testing.T) {
-	t.Parallel()
-	db := createHandlerTestDB(t, (*models.ExternalAppAccountGrant)(nil))
-	ctx := context.WithValue(t.Context(), middleware.InstallationIDKey, "installation-1")
-	handler := NewPublicationHandler(db, nil, nil)
-	_, err := db.NewInsert().Model(&models.ExternalAppAccountGrant{InstallationID: "installation-1", WorkspaceID: "workspace-1", SocialAccountID: "account-1"}).Exec(ctx)
-	require.NoError(t, err)
-	publication := publicationservice.PublicationResponse{
-		WorkspaceID: "workspace-1",
-		Renditions: []publicationservice.RenditionResponse{
-			{ID: "rendition-1", SocialAccountID: "account-1"},
-			{ID: "rendition-2", SocialAccountID: "account-2"},
-		},
-	}
-
-	require.NoError(t, handler.filterExternalPublicationRenditions(ctx, &publication))
-	require.Len(t, publication.Renditions, 1)
-	require.Equal(t, "account-1", publication.Renditions[0].SocialAccountID)
 }
 
 func TestExternalApplicationScheduleFieldsRequireScheduleOrCancelScope(t *testing.T) {

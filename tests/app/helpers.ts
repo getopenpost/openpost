@@ -171,17 +171,6 @@ export async function clickComposerDeliveryAction(page: Page, name: string) {
   await action.click();
 }
 
-export async function routeBrowserRegistration(page: Page, seed: string) {
-  await page.route("**/api/v1/auth/register", async (route) => {
-    await route.continue({
-      headers: {
-        ...route.request().headers(),
-        "X-Forwarded-For": registrationClientIP(seed),
-      },
-    });
-  });
-}
-
 export async function openComposerPlatformSettings(page: Page): Promise<void> {
   await page
     .getByTestId("composer-variant-toolbar")

@@ -18,6 +18,8 @@ Use HTTPS for a public instance and make sure your proxy forwards API and media 
 
 When a proxy terminates HTTPS, configure `OPENPOST_TRUSTED_PROXY_CIDRS` for its upstream connection networks. Empty ignores forwarded IP and scheme headers. Follow [reverse proxy setup](/self-hosting/reverse-proxy) before upgrading or exposing the instance.
 
+OpenPost refuses outbound requests to private and local addresses, so a URL entered in OpenPost cannot reach your internal network. When OpenPost must reach a service on your own network, such as a Mastodon instance on the same host or behind a VPN, list only that network in `OPENPOST_ALLOWED_PRIVATE_CIDRS`, for example `10.7.7.0/24`. Every listed network becomes reachable from any URL a user enters, so never list a range that holds services users must not reach, such as `169.254.0.0/16` with cloud metadata.
+
 ## Deployment secrets
 
 Generate each secret separately:

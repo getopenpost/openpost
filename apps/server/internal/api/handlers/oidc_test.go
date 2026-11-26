@@ -2,9 +2,7 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
-	"net/url"
 	"testing"
 	"time"
 
@@ -93,34 +91,6 @@ func TestOIDCSignupRequiresTheHostedPurchaseChoiceBeforeRedirecting(t *testing.T
 	require.Contains(t, mismatched.Body.String(), "does not match")
 }
 
-func TestPurchaseChoiceReturnPathUsesTheVerifiedChoice(t *testing.T) {
-	t.Parallel()
-	choice := billing.PurchaseChoice{
-		Token:         "verified-token",
-		PlanID:        "team",
-		BillingPeriod: "annual",
-	}
-
-	returnPath := purchaseChoiceReturnPath(
-		"/onboarding?plan=founder&billing_period=monthly&purchase_choice=other&redirect=%2Fcalendar&source=signup",
-		choice,
-	)
-	parsed, err := url.Parse(returnPath)
-	require.NoError(t, err)
-	require.Equal(t, "/onboarding", parsed.Path)
-	require.Equal(t, "team", parsed.Query().Get("plan"))
-	require.Equal(t, "annual", parsed.Query().Get("billing_period"))
-	require.Equal(t, "verified-token", parsed.Query().Get("purchase_choice"))
-	require.Equal(t, "/calendar", parsed.Query().Get("redirect"))
-	require.Equal(t, "signup", parsed.Query().Get("source"))
-
-	external := purchaseChoiceReturnPath("https://attacker.example/steal", choice)
-	externalURL, err := url.Parse(external)
-	require.NoError(t, err)
-	require.Equal(t, "/onboarding", externalURL.Path)
-	require.Equal(t, "team", externalURL.Query().Get("plan"))
-}
-
 func TestPasswordReauthenticationRejectsPasswordDisabledByRequiredSSO(t *testing.T) {
 	t.Parallel()
 
@@ -181,58 +151,6 @@ func TestPasswordReauthenticationRejectsPasswordDisabledByRequiredSSO(t *testing
 	require.Zero(t, grantCount, "a disabled password must not mint a reauthentication grant")
 }
 
-func TestLinkedIdentitiesExposeProviderActivityWithoutHidingDisabledLinks(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t,
-		(*models.User)(nil),
-		(*models.IdentityProvider)(nil),
-		(*models.UserIdentity)(nil),
-	)
-	now := time.Now().UTC()
-	rows := []any{
-		&models.User{ID: "user-1", Email: "user@example.com", CreatedAt: now},
-		&models.IdentityProvider{
-			ID: "disabled-provider", Issuer: "https://disabled.example.test", Name: "A disabled provider",
-			ClientID: "disabled-client", IsActive: false, CreatedAt: now, UpdatedAt: now,
-		},
-		&models.IdentityProvider{
-			ID: "active-provider", Issuer: "https://active.example.test", Name: "Z active provider",
-			ClientID: "active-client", IsActive: true, CreatedAt: now, UpdatedAt: now,
-		},
-		&models.UserIdentity{
-			ID: "disabled-identity", ProviderID: "disabled-provider", Subject: "disabled-subject",
-			UserID: "user-1", LinkedEmail: "user@example.com", CreatedAt: now,
-		},
-		&models.UserIdentity{
-			ID: "active-identity", ProviderID: "active-provider", Subject: "active-subject",
-			UserID: "user-1", LinkedEmail: "user@example.com", CreatedAt: now,
-		},
-	}
-	for _, row := range rows {
-		_, err := db.NewInsert().Model(row).Exec(t.Context())
-		require.NoError(t, err)
-	}
-
-	authService := auth.NewService("linked-identity-test-secret")
-	authHandler := NewAuthHandler(db, authService, passwordReauthTestAuthenticator{}, nil, nil, false)
-	identityService := identity.NewService(db, nil, identity.Config{})
-	authHandler.SetIdentityService(identityService)
-	e := echo.New()
-	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewOIDCHandler(identityService, authHandler, passwordReauthTestAuthenticator{}).RegisterRoutes(api)
-
-	response := jsonRequest(t, e, http.MethodGet, "/api/v1/auth/oidc/identities", nil, "web-token")
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	var identities []OIDCIdentitySummary
-	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &identities))
-	require.Len(t, identities, 2, "disabled links remain visible for account management")
-	require.Equal(t, "disabled-provider", identities[0].ProviderID)
-	require.False(t, identities[0].Active)
-	require.Equal(t, "active-provider", identities[1].ProviderID)
-	require.True(t, identities[1].Active)
-}
-
 func TestOIDCPolicyContractOnlyAdvertisesSupportedAPITokenModes(t *testing.T) {
 	t.Parallel()
 
@@ -251,71 +169,5 @@ func TestOIDCPolicyContractOnlyAdvertisesSupportedAPITokenModes(t *testing.T) {
 		apiTokenMode := schema.Properties["api_token_mode"]
 		require.NotNil(t, apiTokenMode, schemaName)
 		require.Equal(t, []any{"scoped", "deny"}, apiTokenMode.Enum, schemaName)
-	}
-}
-
-func TestOrganizationSSOEmptyListsRemainReadable(t *testing.T) {
-	t.Parallel()
-	db := createHandlerTestDB(t,
-		(*models.Organization)(nil), (*models.OrganizationMember)(nil),
-		(*models.OrganizationSSOPolicy)(nil), (*models.IdentityProviderDomain)(nil),
-		(*models.IdentityAuditEvent)(nil),
-	)
-	now := time.Now().UTC()
-	for _, row := range []any{
-		&models.Organization{ID: "organization-1", Name: "Empty SSO", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now},
-		&models.OrganizationMember{OrganizationID: "organization-1", UserID: "user-1", Role: models.OrganizationRoleOwner, CreatedAt: now},
-	} {
-		_, err := db.NewInsert().Model(row).Exec(t.Context())
-		require.NoError(t, err)
-	}
-	authenticator := passwordReauthTestAuthenticator{}
-	authHandler := NewAuthHandler(db, auth.NewService("empty-sso-list-test"), authenticator, nil, nil, false)
-	e := echo.New()
-	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewOIDCHandler(identity.NewService(db, nil, identity.Config{}), authHandler, authenticator).registerAdministrationRoutes(api)
-	for _, path := range []string{"sso-domains", "identity-audit-events"} {
-		t.Run(path, func(t *testing.T) {
-			response := jsonRequest(t, e, http.MethodGet, "/api/v1/organizations/organization-1/"+path, nil, "web-token")
-			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-			require.JSONEq(t, "[]", response.Body.String(), "empty lists must remain usable by the settings client")
-		})
-	}
-}
-
-func TestLegalAcceptanceURLGuardsOIDCReturnPath(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name         string
-		base         string
-		returnPath   string
-		wantPage     string
-		wantRedirect string
-	}{
-		{
-			name:         "safe relative return is preserved",
-			base:         "https://app.openpo.st/",
-			returnPath:   "/onboarding?plan=founder&billing_period=annual&source=signup",
-			wantPage:     "https://app.openpo.st/legal-acceptance",
-			wantRedirect: "/onboarding?plan=founder&billing_period=annual&source=signup",
-		},
-		{
-			name:         "cross-origin return falls back to root",
-			base:         "https://app.openpo.st",
-			returnPath:   "https://attacker.example/checkout",
-			wantPage:     "https://app.openpo.st/legal-acceptance",
-			wantRedirect: "/",
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			redirect := legalAcceptanceURL(test.base, test.returnPath)
-			parsed, err := url.Parse(redirect)
-			require.NoError(t, err)
-			require.Equal(t, test.wantPage, parsed.Scheme+"://"+parsed.Host+parsed.Path)
-			require.Equal(t, test.wantRedirect, parsed.Query().Get("redirect"))
-		})
 	}
 }

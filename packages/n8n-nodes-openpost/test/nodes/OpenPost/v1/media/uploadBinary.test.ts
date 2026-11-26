@@ -80,4 +80,63 @@ describe("OpenPost binary upload", () => {
       expect(completeCall?.options.headers["Idempotency-Key"]).toBeUndefined();
     },
   );
+
+  test("sends a relative local-storage upload target to the OpenPost origin with credentials", async () => {
+    const calls: Array<{ authenticated: boolean; options: Record<string, any> }> = [];
+    const context = {
+      getInputData() {
+        return [{ binary: { data: { fileName: "photo.png", mimeType: "image/png" } } }];
+      },
+      helpers: {
+        async getBinaryDataBuffer() {
+          return Buffer.from("media");
+        },
+        async httpRequest(options: Record<string, any>) {
+          calls.push({ authenticated: false, options });
+          new URL(String(options.url));
+          return { statusCode: 200, body: "" };
+        },
+        httpRequestWithAuthentication: async function (
+          _credentialType: string,
+          options: Record<string, any>,
+        ) {
+          calls.push({ authenticated: true, options });
+          new URL(String(options.url));
+          if (String(options.url).endsWith("/media/upload-session")) {
+            return {
+              body: {
+                media_id: "media-1",
+                complete_url: "/api/v1/media/upload-session/media-1/complete",
+                deduped: false,
+                upload: {
+                  method: "PUT",
+                  url: "/api/v1/media/upload-session/media-1/content",
+                  headers: { "Content-Type": "image/png" },
+                },
+              },
+              headers: {},
+              statusCode: 200,
+            };
+          }
+          return { body: { id: "media-1" }, headers: {}, statusCode: 200 };
+        },
+      },
+    } as any;
+
+    await uploadBinaryMedia(context, {
+      baseUrl: "https://openpost.example",
+      itemIndex: 0,
+      executionId: "exec-1",
+      workspaceId: "ws-1",
+      binaryPropertyName: "data",
+      idempotencyKey: "event-1",
+    });
+
+    const uploadCall = calls.find((call) => call.options.method === "PUT");
+    expect(uploadCall?.options.url).toBe(
+      "https://openpost.example/api/v1/media/upload-session/media-1/content",
+    );
+    expect(uploadCall?.authenticated).toBe(true);
+    expect(uploadCall?.options.headers).toEqual({ "Content-Type": "image/png" });
+  });
 });

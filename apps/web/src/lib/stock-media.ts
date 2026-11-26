@@ -21,7 +21,7 @@ export interface StockMediaProvenance {
 	attribution_text: string;
 }
 
-export const MAX_STOCK_PHOTO_BYTES = 100 * 1024 * 1024;
+const MAX_STOCK_PHOTO_BYTES = 100 * 1024 * 1024;
 export const MAX_STOCK_VIDEO_BYTES = 512 * 1024 * 1024;
 
 export class StockMediaDownloadError extends Error {

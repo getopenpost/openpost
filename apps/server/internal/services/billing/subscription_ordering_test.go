@@ -11,17 +11,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/pgdriver"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 func TestSubscriptionSnapshotOrderingSQLite(t *testing.T) {
-	sqlDB, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
+	sqlDB, err := sql.Open(sqliteshim.ShimName, fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
 	db := bun.NewDB(sqlDB, sqlitedialect.New())

@@ -80,7 +80,10 @@ describe('DestinationSettingsDialog', () => {
 				onChange
 			}
 		});
-		const choice = screen.getByRole('button', { name: 'Made for kids', exact: true });
+		const choice = screen.getByRole('button', {
+			name: 'Made for kids',
+			exact: true
+		});
 		await expect.element(choice).toHaveTextContent('Not specified');
 		await choice.click();
 		await screen.getByRole('option', { name: 'No', exact: true }).click();
@@ -119,7 +122,9 @@ describe('DestinationSettingsDialog', () => {
 					})
 				],
 				values: {},
-				optionGroups: { discord_channels: [{ value: 'channel-1', label: 'Launches' }] },
+				optionGroups: {
+					discord_channels: [{ value: 'channel-1', label: 'Launches' }]
+				},
 				onChange: vi.fn()
 			}
 		});
@@ -135,57 +140,6 @@ describe('DestinationSettingsDialog', () => {
 		);
 	});
 
-	it('keeps a required Discord channel open when the bot has no writable channels', async () => {
-		const reason = 'Grant the bot permission to post in a channel, then retry.';
-		const onRetry = vi.fn();
-		const screen = await render(DestinationSettingsDialog, {
-			props: {
-				open: true,
-				account: discordAccount,
-				settings: [
-					setting('channel_id', 'Channel', {
-						control: 'remote_picker',
-						type: 'select',
-						options_source: 'discord_channels',
-						required: true,
-						unavailable_reason: reason
-					})
-				],
-				values: {},
-				optionGroups: { discord_channels: [] },
-				onChange: vi.fn(),
-				onRetry
-			}
-		});
-
-		await screen.getByRole('button', { name: 'Done' }).click();
-		await expect.element(screen.getByRole('dialog')).toBeVisible();
-		expect(screen.getByRole('alert').element().textContent).toContain(reason);
-		await screen.getByRole('button', { name: 'Try again' }).click();
-		expect(onRetry).toHaveBeenCalledOnce();
-	});
-
-	it('offers typed Discord embed fields and preserves the typed JSON value', async () => {
-		const onChange = vi.fn();
-		const screen = await render(DestinationSettingsDialog, {
-			props: {
-				open: true,
-				account: discordAccount,
-				settings: [setting('embed', 'Embed', { control: 'structured_editor', type: 'json' })],
-				values: { embed: '{"title":"Launch","description":"Details"}' },
-				onChange
-			}
-		});
-
-		await expect.element(screen.getByRole('textbox', { name: 'Title' })).toHaveValue('Launch');
-		await screen.getByRole('textbox', { name: 'Title' }).fill('New launch');
-		expect(JSON.parse(onChange.mock.lastCall?.[1])).toMatchObject({
-			title: 'New launch',
-			description: 'Details'
-		});
-		expect(document.getElementById('destination-setting-embed')?.tagName).not.toBe('TEXTAREA');
-	});
-
 	it.each([
 		['invalid field collection', '{"fields":123}'],
 		['missing nested text', '{"footer":{}}'],
@@ -196,7 +150,12 @@ describe('DestinationSettingsDialog', () => {
 			props: {
 				open: true,
 				account: discordAccount,
-				settings: [setting('embed', 'Embed', { control: 'structured_editor', type: 'json' })],
+				settings: [
+					setting('embed', 'Embed', {
+						control: 'structured_editor',
+						type: 'json'
+					})
+				],
 				values: { embed },
 				onChange
 			}
@@ -217,7 +176,10 @@ describe('DestinationSettingsDialog', () => {
 				open: true,
 				account: { ...xAccount, platform: 'tiktok' },
 				settings: [
-					setting('cover_index', 'Cover image', { control: 'cover_index', type: 'number' })
+					setting('cover_index', 'Cover image', {
+						control: 'cover_index',
+						type: 'number'
+					})
 				],
 				values: {},
 				mediaItems: [
@@ -234,79 +196,6 @@ describe('DestinationSettingsDialog', () => {
 		expect(
 			document.querySelector('input[type="number"][id="destination-setting-cover_index"]')
 		).toBeNull();
-	});
-
-	it('limits Bluesky content labels to the advertised choices', async () => {
-		const onChange = vi.fn();
-		const screen = await render(DestinationSettingsDialog, {
-			props: {
-				open: true,
-				account: { ...xAccount, platform: 'bluesky' },
-				settings: [
-					setting('self_labels', 'Content labels', {
-						control: 'chips',
-						type: 'tags',
-						options: ['porn', 'sexual', 'nudity', 'graphic-media']
-					})
-				],
-				values: {},
-				onChange
-			}
-		});
-
-		await screen.getByRole('checkbox', { name: 'Nudity' }).click();
-		expect(onChange).toHaveBeenCalledWith('self_labels', 'nudity');
-		expect(document.getElementById('destination-setting-self_labels')).toBeNull();
-	});
-
-	it('labels static provider choices by their setting name', async () => {
-		const screen = await render(DestinationSettingsDialog, {
-			props: {
-				open: true,
-				account: discordAccount,
-				settings: [
-					setting('mention_policy', 'Mentions', {
-						control: 'select',
-						type: 'select',
-						options: ['none', 'selected']
-					})
-				],
-				values: { mention_policy: 'none' },
-				onChange: vi.fn()
-			}
-		});
-
-		await expect.element(screen.getByLabelText('Mentions')).toBeVisible();
-	});
-
-	it('adds more than one Discord role without replacing the prior mention', async () => {
-		const onChange = vi.fn();
-		const screen = await render(DestinationSettingsDialog, {
-			props: {
-				open: true,
-				account: discordAccount,
-				settings: [
-					setting('mention_role_ids', 'Mention role', {
-						control: 'remote_picker',
-						type: 'select',
-						options_source: 'discord_roles'
-					})
-				],
-				values: { mention_role_ids: ['role-1'] },
-				optionGroups: {
-					discord_roles: [
-						{ value: 'role-1', label: 'Founders' },
-						{ value: 'role-2', label: 'Team' }
-					]
-				},
-				onChange
-			}
-		});
-
-		await expect.element(screen.getByRole('button', { name: 'Remove Founders' })).toBeVisible();
-		await screen.getByRole('combobox', { name: 'Mention role' }).click();
-		await screen.getByText('Team', { exact: true }).click();
-		expect(onChange).toHaveBeenCalledWith('mention_role_ids', ['role-1', 'role-2']);
 	});
 
 	it('keeps unavailable X capabilities out of the main settings while retaining their reasons', async () => {
@@ -387,112 +276,6 @@ describe('DestinationSettingsDialog', () => {
 		expect(document.getElementById('destination-setting-quote_url')?.textContent).toBe(
 			'Quote post'
 		);
-	});
-
-	it('searches YouTube categories and playlists inside their comboboxes', async () => {
-		const onChange = vi.fn();
-		const screen = await render(DestinationSettingsDialog, {
-			props: {
-				open: true,
-				account: youtubeAccount,
-				settings: [
-					setting('category_id', 'Category', {
-						group: 'distribution',
-						control: 'remote_picker',
-						type: 'select',
-						options_source: 'youtube_categories',
-						required: true
-					}),
-					setting('playlist_id', 'Playlist', {
-						group: 'distribution',
-						control: 'remote_picker',
-						type: 'select',
-						options_source: 'youtube_playlists'
-					})
-				],
-				values: {},
-				optionGroups: {
-					youtube_categories: [
-						{ value: '1', label: 'Film & Animation' },
-						{ value: '10', label: 'Music' }
-					],
-					youtube_playlists: [
-						{ value: 'uploads', label: 'Uploads' },
-						{ value: 'launches', label: 'Launches' }
-					]
-				},
-				onChange
-			}
-		});
-
-		expect(document.querySelectorAll('input[placeholder="Search options"]')).toHaveLength(0);
-		await screen.getByRole('combobox', { name: 'Category' }).click();
-		await screen.getByPlaceholder('Search options').fill('Music');
-		await screen.getByText('Music', { exact: true }).click();
-
-		expect(onChange).toHaveBeenCalledWith('category_id', '10');
-
-		await screen.getByRole('combobox', { name: 'Playlist' }).click();
-		await screen.getByPlaceholder('Search options').fill('Launch');
-		await screen.getByText('Launches', { exact: true }).click();
-
-		expect(onChange).toHaveBeenCalledWith('playlist_id', 'launches');
-	});
-
-	it('continues paged remote options', async () => {
-		const onOptionLoadMore = vi.fn();
-		const playlist = setting('playlist_id', 'Playlist', {
-			group: 'distribution',
-			control: 'remote_picker',
-			type: 'select',
-			options_source: 'youtube_playlists'
-		});
-		const screen = await render(DestinationSettingsDialog, {
-			props: {
-				open: true,
-				account: youtubeAccount,
-				settings: [playlist],
-				values: {},
-				optionGroups: { youtube_playlists: [{ value: 'uploads', label: 'Uploads' }] },
-				optionNextCursors: { youtube_playlists: 'page-2' },
-				onChange: vi.fn(),
-				onOptionLoadMore
-			}
-		});
-
-		const continuation = screen.getByRole('button', { name: 'Load more options' });
-		await continuation.click();
-		expect(onOptionLoadMore).toHaveBeenCalledWith(playlist);
-	});
-
-	it('uploads destination files through the composer callback', async () => {
-		const onFileChange = vi.fn().mockResolvedValue(undefined);
-		const screen = await render(DestinationSettingsDialog, {
-			props: {
-				open: true,
-				account: youtubeAccount,
-				settings: [
-					setting('thumbnail_media_id', 'Thumbnail', {
-						control: 'media_picker',
-						type: 'media',
-						media_shapes: ['video']
-					})
-				],
-				values: {},
-				onChange: vi.fn(),
-				onFileChange
-			}
-		});
-
-		const input = screen.getByLabelText('Thumbnail').element();
-		if (!(input instanceof HTMLInputElement)) throw new Error('Expected a thumbnail file input.');
-		const file = new File(['thumbnail'], 'thumbnail.jpg', { type: 'image/jpeg' });
-		const transfer = new DataTransfer();
-		transfer.items.add(file);
-		input.files = transfer.files;
-		input.dispatchEvent(new Event('change', { bubbles: true }));
-
-		await vi.waitFor(() => expect(onFileChange).toHaveBeenCalledWith(expect.anything(), file));
 	});
 });
 

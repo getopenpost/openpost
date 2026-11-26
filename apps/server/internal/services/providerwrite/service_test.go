@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 func TestAcceptedCheckpointPreventsReplayAfterLocalFailure(t *testing.T) {
@@ -314,7 +314,7 @@ func TestStaleWorkerAttemptBecomesAmbiguousBeforeJobRecovery(t *testing.T) {
 
 func newProviderWriteTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	sqlDB, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared&_busy_timeout=5000", uuid.NewString()))
+	sqlDB, err := sql.Open(sqliteshim.ShimName, fmt.Sprintf("file:%s?mode=memory&cache=shared&_pragma=busy_timeout(5000)", uuid.NewString()))
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(8)
 	db := bun.NewDB(sqlDB, sqlitedialect.New())

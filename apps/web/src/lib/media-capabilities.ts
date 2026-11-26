@@ -19,6 +19,7 @@ const videoTypeMP4 = 'video/mp4';
 const videoTypeQuickTime = 'video/quicktime';
 const blueskyVideoLimitBytes = 100 * 1024 * 1024;
 const blueskyGalleryMaxImages = 10;
+const blueskyGIFLimitBytes = 300_000_000;
 const maxCarouselMedia = 10;
 const maxThreadsCarouselMedia = 20;
 const maxPinterestImages = 5;
@@ -209,6 +210,24 @@ function validateCommunityMedia(
 
 function validateBlueskyMedia(media: MediaCapabilityItem[]): MediaCapabilityIssue[] {
 	if (media.length === 0) return [];
+
+	const gifItem = media.find((item) => normalizeMime(item.mimeType) === 'image/gif');
+	if (gifItem) {
+		if (media.length > 1) {
+			return [
+				issue(
+					'bluesky',
+					'error',
+					'Bluesky supports one GIF per post and cannot mix GIFs with other media.',
+					gifItem.id
+				)
+			];
+		}
+		if (Number.isFinite(gifItem.size) && Number(gifItem.size) > blueskyGIFLimitBytes) {
+			return [issue('bluesky', 'error', 'Bluesky GIF must be 300 MB or less.', gifItem.id)];
+		}
+		return [];
+	}
 
 	let hasVideo = false;
 	for (const item of media) {

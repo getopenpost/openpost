@@ -106,7 +106,7 @@ function requireImageEditorWorkspace<T extends { workspace_id: string }>(
 	return data;
 }
 
-export function createImageEditorQueryAPI(
+function createImageEditorQueryAPI(
 	transport: QueryTransport
 ): ImageEditorQueryAPI<WebImageEditorQueryData> {
 	return {

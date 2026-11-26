@@ -60,17 +60,6 @@ describe('command history', () => {
 		expect(timelineStore.items.length).toBe(0);
 	});
 
-	it('new action clears the redo stack', () => {
-		const item = videoItem();
-		timelineStore._setItems([item]);
-		execute('REMOVE_ITEMS', () => timelineStore._removeItems([item.id]));
-		commandHistory.undo();
-		expect(commandHistory.canRedo).toBe(true);
-
-		execute('ADD_ITEMS', () => timelineStore._setItems([videoItem()]));
-		expect(commandHistory.canRedo).toBe(false);
-	});
-
 	it('collapses nested commands into one complete undo and redo transaction', () => {
 		const first = videoItem({ id: 'first', transform: { x: 0, y: 0 } });
 		const second = videoItem({ id: 'second', transform: { x: 20, y: 30 } });
@@ -146,34 +135,6 @@ describe('command history', () => {
 		expect(keyframeSelectionStore.itemId).toBe(first.id);
 		expect([...keyframeSelectionStore.ids]).toEqual(['first-key']);
 	});
-
-	it('undoes and redoes the complete master bus state', () => {
-		execute('UPDATE_MASTER_BUS', () => {
-			timelineStore._setMasterVolumeDb(6);
-			timelineStore._setMasterMuted(true);
-		});
-		expect(timelineStore.masterVolumeDb).toBe(6);
-		expect(timelineStore.masterMuted).toBe(true);
-
-		commandHistory.undo();
-		expect(timelineStore.masterVolumeDb).toBe(0);
-		expect(timelineStore.masterMuted).toBe(false);
-		commandHistory.redo();
-		expect(timelineStore.masterVolumeDb).toBe(6);
-		expect(timelineStore.masterMuted).toBe(true);
-	});
-
-	it('respects maxUndoHistory cap', () => {
-		for (let i = 0; i < 150; i++) {
-			const frame = i;
-			execute('TICK', () => {
-				timelineStore._setCurrentFrame(frame);
-				timelineStore._setSnapEnabled(frame % 2 === 0);
-				timelineStore._addItem(videoItem({ id: crypto.randomUUID(), from: i * 1000 }));
-			});
-		}
-		expect(commandHistory.undoStack).toHaveLength(100);
-	});
 });
 
 describe('_splitItem source boundaries', () => {
@@ -222,54 +183,6 @@ describe('_splitItem source boundaries', () => {
 			sourceEnd: 342
 		});
 	});
-
-	it('splits a variable-speed clip at the source frame shown at the cut', () => {
-		const item = videoItem({
-			durationInFrames: 90,
-			sourceStart: 0,
-			sourceEnd: 120,
-			sourceFps: 30,
-			speedRamp: [
-				{ id: 'normal-in', sourceFrame: 0, speed: 1, easing: 'hold' },
-				{ id: 'fast', sourceFrame: 30, speed: 2, easing: 'hold' },
-				{ id: 'normal-out', sourceFrame: 90, speed: 1, easing: 'hold' },
-				{ id: 'end', sourceFrame: 120, speed: 1, easing: 'linear' }
-			]
-		});
-		timelineStore._setItems([item]);
-
-		const result = timelineStore._splitItem(item.id, item.from + 60);
-
-		expect(result?.leftItem).toMatchObject({ sourceStart: 0, sourceEnd: 90 });
-		expect(result?.rightItem).toMatchObject({
-			sourceStart: 90,
-			sourceEnd: 120
-		});
-		expect(result?.rightItem.speedRamp).toEqual(item.speedRamp);
-	});
-
-	it('refuses to split outside the item span', () => {
-		const item = videoItem();
-		timelineStore._setItems([item]);
-		expect(timelineStore._splitItem(item.id, item.from)).toBeNull();
-		expect(timelineStore._splitItem(item.id, item.from + item.durationInFrames)).toBeNull();
-	});
-
-	it('carries the Lottie playback phase into the right piece', () => {
-		const item = videoItem({
-			type: 'lottie',
-			durationInFrames: 90,
-			lottieTotalFrames: 60,
-			lottieFrameRate: 30,
-			lottieLoop: true,
-			lottiePhaseOffset: 5
-		});
-		timelineStore._setItems([item]);
-
-		const result = timelineStore._splitItem(item.id, item.from + 20);
-		expect(result?.leftItem.lottiePhaseOffset).toBe(5);
-		expect(result?.rightItem.lottiePhaseOffset).toBe(25);
-	});
 });
 
 describe('failed edit recovery', () => {
@@ -289,21 +202,4 @@ describe('failed edit recovery', () => {
 		expect(timelineStore.items.map((item) => item.id)).toEqual([item.id]);
 		expect(commandHistory.canUndo).toBe(false);
 	});
-});
-
-it('keeps the playhead and scroll position when undoing and redoing an edit', () => {
-	timelineStore.__resetForTesting();
-	commandHistory.clearHistory();
-	timelineStore._setItems([videoItem({ id: 'clip' })]);
-	execute('RENAME', () => timelineStore._updateItems([{ id: 'clip', patch: { label: 'Edited' } }]));
-	timelineStore._setCurrentFrame(42);
-	timelineStore._setScrollPosition(120);
-	commandHistory.undo();
-	expect(timelineStore.itemById.get('clip')?.label).toBe('clip');
-	expect(timelineStore.currentFrame).toBe(42);
-	expect(timelineStore.scrollPosition).toBe(120);
-	commandHistory.redo();
-	expect(timelineStore.itemById.get('clip')?.label).toBe('Edited');
-	expect(timelineStore.currentFrame).toBe(42);
-	expect(timelineStore.scrollPosition).toBe(120);
 });

@@ -17,6 +17,16 @@ func next() {}
   assert.deepEqual(backendProviderCatalog(source), ["x", "mastodon"]);
 });
 
+test("extracts providers when providerCatalog terminates at EOF", () => {
+  const source = `
+var providerCatalog = []ProviderInfo{
+\t{Platform: "x"},
+\t{Platform: "bluesky"},
+}
+`;
+  assert.deepEqual(backendProviderCatalog(source), ["x", "bluesky"]);
+});
+
 test("rejects public total copy that drifts from the catalogue", () => {
   assert.deepEqual(
     providerCountCopyProblems(

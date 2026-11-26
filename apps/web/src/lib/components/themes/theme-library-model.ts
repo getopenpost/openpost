@@ -8,7 +8,7 @@ export const WORKSHOP_REFERENCE: ThemeReference = {
 	version: 1
 };
 
-export function builtInThemeReference(id: string, version = 1): ThemeReference {
+function builtInThemeReference(id: string, version = 1): ThemeReference {
 	if (!Number.isInteger(version) || version < 1) {
 		throw new Error('Built-in theme version must be a positive integer');
 	}

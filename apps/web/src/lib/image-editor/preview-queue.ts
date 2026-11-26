@@ -3,7 +3,7 @@ import { renderImageEditorPreview } from './static-renderer';
 
 const MAX_CONCURRENT_PREVIEWS = 2;
 
-export function createImageEditorPreviewQueue(
+function createImageEditorPreviewQueue(
 	render: (
 		document: ImageEditorDocument,
 		page: ImageEditorPage,

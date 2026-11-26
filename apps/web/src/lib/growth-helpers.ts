@@ -120,10 +120,6 @@ export function isSyncBusy(syncState: SyncStateView | null | undefined): boolean
 	return syncState.status === 'queued' || syncState.status === 'refreshing';
 }
 
-export function isSyncOk(syncState: SyncStateView | null | undefined): boolean {
-	return syncState?.status === 'ok';
-}
-
 export const canonicalSyncStatuses = [
 	'idle',
 	'queued',

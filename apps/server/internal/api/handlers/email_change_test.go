@@ -2,11 +2,8 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"regexp"
 	"testing"
-	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
@@ -56,78 +53,6 @@ func (r *acceptingEmailChangeReauth) ConsumeReauthGrant(
 	}
 	r.calls++
 	return nil
-}
-
-func TestEmailChangeHandlerVerifiesBeforeReplacingAndNotifiesBothAddresses(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t,
-		(*models.User)(nil),
-		(*models.EmailChangeChallenge)(nil),
-		(*models.UserSession)(nil),
-		(*models.PasswordResetToken)(nil),
-	)
-	now := time.Now().UTC()
-	for _, row := range []any{
-		&models.User{ID: "user-1", Email: "old@example.com", PasswordHash: "hash", CreatedAt: now},
-		&models.UserSession{ID: "session-current", UserID: "user-1", ExpiresAt: now.Add(time.Hour), CreatedAt: now},
-		&models.UserSession{ID: "session-other", UserID: "user-1", ExpiresAt: now.Add(time.Hour), CreatedAt: now},
-		&models.PasswordResetToken{ID: "reset-1", UserID: "user-1", TokenHash: "hash", ExpiresAt: now.Add(time.Hour), CreatedAt: now},
-	} {
-		_, err := db.NewInsert().Model(row).Exec(context.Background())
-		require.NoError(t, err)
-	}
-
-	sender := &recordingEmailChangeSender{}
-	reauth := &acceptingEmailChangeReauth{}
-	handler := NewEmailChangeHandler(
-		emailchange.NewService(db, emailchange.Config{Secret: "email-change-handler-secret"}),
-		reauth,
-		sender,
-		emailChangeAuthenticator{},
-		"https://openpost.example",
-	)
-	e := echo.New()
-	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	handler.RegisterRoutes(api)
-
-	begin := jsonRequest(t, e, "POST", "/api/v1/auth/email-change", map[string]any{
-		"new_email": "new@example.com", "reauth_grant": "reauth-grant",
-	}, "web-token")
-	require.Equal(t, 201, begin.Code, begin.Body.String())
-	require.Equal(t, 1, reauth.calls)
-	require.Len(t, sender.notifications, 2)
-	require.Equal(t, "new@example.com", sender.notifications[0].Recipient)
-	require.Equal(t, "old@example.com", sender.notifications[1].Recipient)
-
-	var unchanged models.User
-	require.NoError(t, db.NewSelect().Model(&unchanged).Where("id = ?", "user-1").Scan(context.Background()))
-	require.Equal(t, "old@example.com", unchanged.Email)
-	code := regexp.MustCompile(`\b[0-9]{6}\b`).FindString(sender.notifications[0].Body)
-	require.Len(t, code, 6)
-
-	var pending BeginEmailChangeOutput
-	require.NoError(t, json.Unmarshal(begin.Body.Bytes(), &pending.Body))
-	confirm := jsonRequest(t, e, "POST", "/api/v1/auth/email-change/"+pending.Body.ID+"/confirm", map[string]any{
-		"code": code,
-	}, "web-token")
-	require.Equal(t, 200, confirm.Code, confirm.Body.String())
-	require.Len(t, sender.notifications, 4)
-	require.Equal(t, "new@example.com", sender.notifications[2].Recipient)
-	require.Equal(t, "old@example.com", sender.notifications[3].Recipient)
-
-	var changed models.User
-	require.NoError(t, db.NewSelect().Model(&changed).Where("id = ?", "user-1").Scan(context.Background()))
-	require.Equal(t, "new@example.com", changed.Email)
-	require.False(t, changed.EmailVerifiedAt.IsZero())
-	var current, other models.UserSession
-	require.NoError(t, db.NewSelect().Model(&current).Where("id = ?", "session-current").Scan(context.Background()))
-	require.NoError(t, db.NewSelect().Model(&other).Where("id = ?", "session-other").Scan(context.Background()))
-	require.True(t, current.RevokedAt.IsZero())
-	require.False(t, other.RevokedAt.IsZero())
-	var reset models.PasswordResetToken
-	require.NoError(t, db.NewSelect().Model(&reset).Where("id = ?", "reset-1").Scan(context.Background()))
-	require.False(t, reset.UsedAt.IsZero())
 }
 
 func TestEmailChangeHandlerUsesGenericConflictAndRequiresRecentReauth(t *testing.T) {

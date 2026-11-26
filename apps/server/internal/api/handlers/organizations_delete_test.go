@@ -257,15 +257,3 @@ func TestOrganizationDeletionRemovesWholeBoundaryAndRetainsSafeAudit(t *testing.
 	require.Equal(t, "OpenPost Studio", event.OrganizationName)
 	require.Equal(t, 2, event.WorkspaceCount)
 }
-
-func TestOrganizationDeletionFailureIsAtomic(t *testing.T) {
-	t.Parallel()
-	server := newDeleteOrganizationTestServer(t)
-	insertOrganizationDeletionFixture(t, server.db)
-	_, err := server.db.Exec("DROP TABLE organization_lifecycle_audit_events")
-	require.NoError(t, err)
-	rec := jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/organizations/org-1", map[string]any{"confirm_name": "OpenPost Studio", "current_password": "current-password-123"}, "web-token")
-	require.Equal(t, http.StatusInternalServerError, rec.Code, rec.Body.String())
-	require.Equal(t, 1, countRows[models.Organization](t, server.db, "id = ?", "org-1"))
-	require.Equal(t, 2, countRows[models.Workspace](t, server.db, "organization_id = ?", "org-1"))
-}

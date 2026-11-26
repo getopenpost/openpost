@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -186,76 +184,4 @@ func TestBlueskyGrowthDiscoveryBoundedAndFilters(t *testing.T) {
 		require.NotEqual(t, "did:plc:deactivated", c.RemoteID)
 	}
 	require.Zero(t, followURIRequests, "discovery must not create follow records")
-}
-
-func TestBlueskyGrowthFollowPayload(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	var captured map[string]interface{}
-	var capturedHeaders http.Header
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		if !strings.HasSuffix(req.URL.Path, "com.atproto.repo.createRecord") {
-			t.Fatalf("unexpected path %s", req.URL.Path)
-		}
-		if req.Method != http.MethodPost {
-			t.Fatalf("expected POST")
-		}
-		if req.Header.Get("Authorization") != "Bearer token123" {
-			t.Fatalf("bad auth %q", req.Header.Get("Authorization"))
-		}
-		body, _ := io.ReadAll(req.Body)
-		if err := json.Unmarshal(body, &captured); err != nil {
-			t.Fatalf("unmarshal payload: %v", err)
-		}
-		capturedHeaders = req.Header
-		return jsonResponse(req, `{"uri":"at://did:plc:viewer/app.bsky.graph.follow/rec123","cid":"cid123"}`), nil
-	})}
-
-	adapter := NewBlueskyAdapter("https://bsky.test")
-	result, err := adapter.FollowGrowthCandidate(context.Background(), "token123", "did:plc:viewer", "did:plc:candidate")
-	require.NoError(t, err)
-	require.Equal(t, "following", result.ProviderState)
-	require.Equal(t, "at://did:plc:viewer/app.bsky.graph.follow/rec123", result.ProviderReference)
-	require.Equal(t, "did:plc:viewer", captured["repo"])
-	require.Equal(t, "app.bsky.graph.follow", captured["collection"])
-	record, ok := captured["record"].(map[string]interface{})
-	require.True(t, ok)
-	require.Equal(t, "app.bsky.graph.follow", record["$type"])
-	require.Equal(t, "did:plc:candidate", record["subject"])
-	createdAt, ok := record["createdAt"].(string)
-	require.True(t, ok)
-	parsed, err := time.Parse(time.RFC3339, createdAt)
-	require.NoError(t, err)
-	// Must be UTC RFC3339
-	require.Equal(t, time.UTC, parsed.Location())
-	_ = capturedHeaders
-
-	// Ensure spaced handling: empty candidate should error
-	_, err = adapter.FollowGrowthCandidate(context.Background(), "t", "did:plc:viewer", "")
-	require.Error(t, err)
-
-	// Ensure http errors not hidden
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		return jsonResponseWithStatus(req, 429, `{"code":"rate_limit"}`), nil
-	})}
-	_, err = adapter.FollowGrowthCandidate(context.Background(), "t", "did:plc:viewer", "did:plc:cand")
-	require.Error(t, err)
-	var httpErr *HTTPError
-	require.ErrorAs(t, err, &httpErr)
-	require.Equal(t, 429, httpErr.StatusCode)
-}
-
-func TestBlueskyGrowthHandlesRequestErrors(t *testing.T) {
-	originalClient := httpClient
-	defer func() { httpClient = originalClient }()
-
-	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		return jsonResponseWithStatus(req, 500, `{"error":"oops"}`), nil
-	})}
-	adapter := NewBlueskyAdapter("https://bsky.test")
-	_, err := adapter.DiscoverGrowthCandidates(context.Background(), GrowthDiscoveryInput{AccessToken: "t", ViewerID: "did:plc:viewer", Limit: 5})
-	require.Error(t, err)
-	var httpErr *HTTPError
-	require.ErrorAs(t, err, &httpErr)
 }

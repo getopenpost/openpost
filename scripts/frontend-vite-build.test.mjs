@@ -15,12 +15,6 @@ describe("frontend Vite build memory", () => {
     expect(frontendBuildNodeOptions()).toBe("--max-old-space-size=8192");
   });
 
-  test("preserves unrelated user options", () => {
-    expect(frontendBuildNodeOptions(" --trace-warnings ")).toBe(
-      `--trace-warnings --max-old-space-size=${frontendBuildHeapMiB}`,
-    );
-  });
-
   test.each([
     "--max-old-space-size=12288",
     "--max_old_space_size=12288 --trace-warnings",

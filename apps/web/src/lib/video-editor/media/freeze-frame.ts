@@ -23,7 +23,7 @@ async function canvasToPng(canvas: OffscreenCanvas | HTMLCanvasElement): Promise
 }
 
 /** Decode the exact source frame shown by a clip, at the source's display resolution. */
-export async function extractFreezeFrameFromBlob(
+async function extractFreezeFrameFromBlob(
 	blob: Blob,
 	item: TimelineItem,
 	playheadFrame: number,

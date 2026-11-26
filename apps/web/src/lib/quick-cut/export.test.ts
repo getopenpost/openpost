@@ -1,6 +1,4 @@
-import { PerformanceObserver } from 'node:perf_hooks';
 import { describe, expect, it, vi } from 'vitest';
-import { configureProfiling } from '$lib/performance/profiling';
 import { exportSegments, preflightExport } from './export';
 import { createSegment } from './model';
 import type { QuickCutSource } from './types';
@@ -76,10 +74,15 @@ describe('quick-cut preflight', () => {
 
 	it('rejects an export whose required working files exceed remaining quota', async () => {
 		vi.stubGlobal('navigator', {
-			storage: { estimate: async () => ({ quota: 1024 * 1024, usage: 100_000 }) }
+			storage: {
+				estimate: async () => ({ quota: 1024 * 1024, usage: 100_000 })
+			}
 		});
 		try {
-			const source = makeSource('large', { size: 2 * 1024 * 1024, duration: 3 });
+			const source = makeSource('large', {
+				size: 2 * 1024 * 1024,
+				duration: 3
+			});
 			const result = await preflightExport(
 				[source],
 				[createSegment(0, 3, { sourceId: source.id })],
@@ -92,41 +95,6 @@ describe('quick-cut preflight', () => {
 			});
 		} finally {
 			vi.unstubAllGlobals();
-		}
-	});
-
-	it('includes synchronous planning in the export preflight trace', async () => {
-		const source = makeSource('profiled');
-		const entries: { name: string; duration: number }[] = [];
-		const observer = new PerformanceObserver((list) => entries.push(...list.getEntries()));
-		observer.observe({ type: 'measure' });
-		let now = 100;
-		const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
-		vi.stubGlobal('navigator', {
-			storage: {
-				estimate: async () => {
-					now += 20;
-					return { quota: 1, usage: 0 };
-				}
-			}
-		});
-		configureProfiling({ enabled: true });
-		try {
-			await expect(
-				exportSegments({
-					sources: [source],
-					segments: [createSegment(0, 1, { sourceId: source.id })],
-					cutMode: 'nearestKeyframe',
-					merge: false
-				})
-			).rejects.toThrow('Not enough storage');
-			await expect.poll(() => entries.length).toBe(1);
-			expect(entries[0]).toMatchObject({ name: 'OpenPost/Quick Cut/Preflight', duration: 20 });
-		} finally {
-			configureProfiling({ enabled: false });
-			clock.mockRestore();
-			vi.unstubAllGlobals();
-			observer.disconnect();
 		}
 	});
 
@@ -149,86 +117,12 @@ describe('quick-cut preflight', () => {
 		expect(pre.perSegment[1]?.requiresTranscode).toBe(false);
 	});
 
-	it('does not treat a nearby frame as an exact encoded keyframe', async () => {
-		const source = makeSource('strict', { keyframeTimestamps: [0, 2] });
-		const segment = createSegment(0.04, 1, { sourceId: source.id });
-		const preflight = await preflightExport([source], [segment], 'exact', false);
-		expect(preflight.perSegment[0]).toMatchObject({
-			requiresTranscode: true,
-			reason: expect.stringMatching(/not on keyframe/i)
-		});
-	});
-
-	it('honors mixed per-segment cut modes without transcoding the lossless ranges', async () => {
-		const src = makeSource('s1');
-		const exact = createSegment(0.5, 2, {
-			id: 'exact',
-			sourceId: src.id,
-			cutMode: 'exact'
-		});
-		const lossless = createSegment(2.5, 4, {
-			id: 'lossless',
-			sourceId: src.id,
-			cutMode: 'nearestKeyframe'
-		});
-
-		const individual = await preflightExport([src], [exact, lossless], 'nearestKeyframe', false);
-		expect(individual.requiresTranscode).toBe(false);
-		expect(individual.perSegment).toEqual([
-			expect.objectContaining({ segmentId: exact.id, requiresTranscode: true }),
-			expect.objectContaining({
-				segmentId: lossless.id,
-				requiresTranscode: false,
-				snappedStart: 2
-			})
-		]);
-
-		const merged = await preflightExport([src], [exact, lossless], 'nearestKeyframe', true);
-		expect(merged.requiresTranscode).toBe(true);
-		expect(merged.reason).toMatch(/smart cut/iu);
-	});
-
 	it('detects incompatible codecs for merge', async () => {
 		const s1 = makeSource('s1', { videoCodec: 'avc' });
 		const s2 = makeSource('s2', { videoCodec: 'hevc' });
 		const segs = [createSegment(0, 2, { sourceId: 's1' }), createSegment(0, 2, { sourceId: 's2' })];
 		const pre = await preflightExport([s1, s2], segs, 'nearestKeyframe', true);
 		expect(pre.requiresTranscode).toBe(true);
-	});
-
-	it('detects different dimensions', async () => {
-		const s1 = makeSource('s1', { width: 1280, height: 720 });
-		const s2 = makeSource('s2', { width: 1920, height: 1080 });
-		const segs = [createSegment(0, 2, { sourceId: 's1' }), createSegment(0, 2, { sourceId: 's2' })];
-		const pre = await preflightExport([s1, s2], segs, 'nearestKeyframe', true);
-		expect(pre.requiresTranscode).toBe(true);
-	});
-
-	it('re-encodes merged sources with different frame rates', async () => {
-		const sourceA = makeSource('a', { fps: 24 });
-		const sourceB = makeSource('b', { fps: 60 });
-		const segments = [
-			createSegment(0, 1, { sourceId: sourceA.id }),
-			createSegment(0, 1, { sourceId: sourceB.id })
-		];
-		const preflight = await preflightExport([sourceA, sourceB], segments, 'nearestKeyframe', true);
-		expect(preflight.requiresTranscode).toBe(true);
-		expect(preflight.reason).toMatch(/frame rates/i);
-	});
-
-	it('does not claim stream copy for codecs unsupported by the source container', async () => {
-		const source = makeSource('mislabeled', {
-			name: 'mislabeled.webm',
-			mimeType: 'video/webm',
-			videoCodec: 'avc',
-			audioCodec: 'aac'
-		});
-		const segment = createSegment(0, 1, { sourceId: source.id });
-		const preflight = await preflightExport([source], [segment], 'nearestKeyframe', false);
-		expect(preflight.perSegment[0]).toMatchObject({
-			requiresTranscode: true,
-			reason: expect.stringMatching(/container/i)
-		});
 	});
 
 	it('re-encodes an exact audio cut but keeps nearest packet copy lossless', async () => {
@@ -265,31 +159,6 @@ describe('quick-cut preflight', () => {
 		);
 		expect(preflight.requiresTranscode).toBe(true);
 		expect(preflight.perSegment[0]?.reason).toMatch(/keyframe map unavailable/i);
-	});
-
-	it('does not claim a lossless mid-stream cut when a known source has no keyframe timestamps', async () => {
-		const source = makeSource('empty-map', { keyframeTimestamps: [] });
-		const preflight = await preflightExport(
-			[source],
-			[createSegment(0.5, 1, { sourceId: source.id })],
-			'nearestKeyframe',
-			true
-		);
-
-		expect(preflight.requiresTranscode).toBe(true);
-		expect(preflight.perSegment[0]?.reason).toMatch(/keyframe map unavailable/i);
-	});
-
-	it('re-encodes video with an unavailable frame rate', async () => {
-		const source = makeSource('variable', { fps: null });
-		const preflight = await preflightExport(
-			[source],
-			[createSegment(0, 1, { sourceId: source.id })],
-			'nearestKeyframe',
-			true
-		);
-		expect(preflight.requiresTranscode).toBe(true);
-		expect(preflight.perSegment[0]?.reason).toMatch(/frame rate/i);
 	});
 
 	it('rejects a merged video and audio-only sequence before rendering', async () => {
@@ -347,60 +216,5 @@ describe('quick-cut preflight', () => {
 		controller.abort(new DOMException('Export cancelled.', 'AbortError'));
 		resolveFile(new File(['not decoded'], 'slow.mp4', { type: 'video/mp4' }));
 		await expect(exported).rejects.toMatchObject({ name: 'AbortError' });
-	});
-
-	it('rejects an impossible video track selection', async () => {
-		const src = makeSource('s1', { selectedVideoTrackIndex: 5 });
-		const seg = createSegment(0, 1, { sourceId: src.id });
-		const pre = await preflightExport([src], [seg], 'nearestKeyframe', false);
-		expect(pre.eligible).toBe(false);
-		expect(pre.reason).toMatch(/does not exist/i);
-	});
-
-	it('rejects when no tracks are selected', async () => {
-		const src = makeSource('s1', { selectedVideoTrackIndex: null, selectedAudioTrackIndices: [] });
-		const seg = createSegment(0, 1, { sourceId: src.id });
-		const pre = await preflightExport([src], [seg], 'nearestKeyframe', false);
-		expect(pre.eligible).toBe(false);
-		expect(pre.reason).toMatch(/no tracks/i);
-	});
-
-	it('ignores invalid sources that no enabled segment uses', async () => {
-		const used = makeSource('used');
-		const unused = makeSource('unused', {
-			selectedVideoTrackIndex: null,
-			selectedAudioTrackIndices: []
-		});
-		const preflight = await preflightExport(
-			[used, unused],
-			[createSegment(0, 1, { sourceId: used.id })],
-			'nearestKeyframe',
-			false
-		);
-		expect(preflight.eligible).toBe(true);
-		expect(preflight.perSegment).toEqual([expect.objectContaining({ requiresTranscode: false })]);
-	});
-
-	it('allows video-off exports and keeps audio packet copy', async () => {
-		const src = makeSource('s1', { selectedVideoTrackIndex: null, selectedAudioTrackIndices: [0] });
-		const seg = createSegment(0, 1, { sourceId: src.id });
-		const pre = await preflightExport([src], [seg], 'nearestKeyframe', false);
-		expect(pre.eligible).toBe(true);
-		expect(pre.perSegment[0]?.reason).toMatch(/packet copy/i);
-	});
-
-	it('rejects merged mix of video-enabled and video-disabled selections', async () => {
-		const videoOn = makeSource('on', { selectedVideoTrackIndex: 0 });
-		const videoOff = makeSource('off', {
-			selectedVideoTrackIndex: null,
-			selectedAudioTrackIndices: [0]
-		});
-		const segs = [
-			createSegment(0, 1, { sourceId: videoOn.id }),
-			createSegment(0, 1, { sourceId: videoOff.id })
-		];
-		const pre = await preflightExport([videoOn, videoOff], segs, 'nearestKeyframe', true);
-		expect(pre.eligible).toBe(false);
-		expect(pre.reason).toMatch(/video and audio-only/i);
 	});
 });

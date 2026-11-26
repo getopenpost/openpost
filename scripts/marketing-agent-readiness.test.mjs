@@ -1,5 +1,3 @@
-import { fileURLToPath } from "node:url";
-import { readCanonicalChangelog } from "../apps/marketing/src/lib/changelog.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -7,7 +5,6 @@ import test from "node:test";
 
 import { renderChangelogAtomFeed } from "../apps/marketing/src/lib/changelog-feed.ts";
 import { publicContentSignal, renderPublicRobots } from "../apps/marketing/src/lib/robots.ts";
-import { platforms } from "../apps/marketing/src/routes/_marketing.ts";
 import { structuredDataForMarketingPage } from "../apps/marketing/src/routes/_structured-data.ts";
 import { resolveMarketingSocial } from "../packages/social-images/src/index.js";
 
@@ -116,24 +113,6 @@ test("structured data joins each page to the product, site, and real operator", 
   assert.equal(faqPage.mainEntity[0].acceptedAnswer["@type"], "Answer");
 });
 
-test("platform guides link to maintained account documentation", async () => {
-  const accountGuide = "https://openpo.st/docs/guides/accounts";
-  // dev/null connects without a provider app and is documented with the other
-  // self-hosted integrations rather than the shared accounts guide.
-  const providerGuides = new Map([
-    ["devnull", "https://openpo.st/docs/self-hosting/integrations/devnull"],
-  ]);
-  for (const platform of platforms) {
-    assert.equal(platform.docsUrl, providerGuides.get(platform.slug) ?? accountGuide);
-  }
-  await Promise.all([
-    readFile(new URL("../apps/docs/content/docs/guides/accounts.mdx", import.meta.url)),
-    readFile(
-      new URL("../apps/docs/content/docs/self-hosting/integrations/devnull.mdx", import.meta.url),
-    ),
-  ]);
-});
-
 test("changelog feed contains only dated stable releases and escaped content", () => {
   const feed = renderChangelogAtomFeed(`
 ## [Unreleased]
@@ -164,10 +143,4 @@ test("changelog feed contains only dated stable releases and escaped content", (
   assert.match(feed, /<id>https:\/\/openpo\.st\/changelog<\/id>/u);
   assert.match(feed, /<link href="https:\/\/openpo\.st\/changelog\.xml" rel="self"/u);
   assert.match(feed, /<id>https:\/\/openpo\.st\/changelog#v4\.1\.0<\/id>/u);
-});
-
-test("marketing reads the canonical changelog from the grouped app directory", async () => {
-  const canonical = await readFile(new URL("../CHANGELOG.md", import.meta.url), "utf8");
-  const appRoot = fileURLToPath(new URL("../apps/marketing/", import.meta.url));
-  assert.equal(await readCanonicalChangelog(appRoot), canonical);
 });

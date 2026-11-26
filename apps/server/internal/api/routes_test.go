@@ -13,17 +13,17 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/services/mediastore"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 func newSystemTestServer(t *testing.T, storages ...mediastore.BlobStorage) (*echo.Echo, *bun.DB, *Readiness) {
 	t.Helper()
 
-	sqldb, err := sql.Open("sqlite3", "file:"+t.Name()+"?mode=memory&cache=private")
+	sqldb, err := sql.Open(sqliteshim.ShimName, "file:"+t.Name()+"?mode=memory&cache=private")
 	require.NoError(t, err)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 	e := echo.New()

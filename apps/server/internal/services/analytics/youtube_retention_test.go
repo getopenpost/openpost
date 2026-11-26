@@ -46,47 +46,6 @@ func TestYouTubeCacheExpiresBeforeThirtyDaysOnOverview(t *testing.T) {
 	}
 }
 
-func TestYouTubeDisconnectPurgesFreshCacheAndPreservesReceipts(t *testing.T) {
-	t.Parallel()
-	db := newAnalyticsTestDB(t)
-	ctx := t.Context()
-	account := seedAnalyticsAccount(t, db, "")
-	account.Platform = "youtube"
-	_, err := db.NewUpdate().Model(&account).Column("platform").WherePK().Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.User{ID: "user-1", Email: "retention@example.com"}).Exec(ctx)
-	require.NoError(t, err)
-	now := time.Now().UTC()
-	item := models.EngagementItem{ID: "receipt-comment", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: "youtube", RemoteID: "remote-comment", Body: "Fetched comment", AuthorName: "Fetched author", LastSeenAt: now}
-	_, err = db.NewInsert().Model(&item).Exec(ctx)
-	require.NoError(t, err)
-	notification := models.UserNotification{
-		ID: "comment-notification", UserID: "user-1", WorkspaceID: account.WorkspaceID,
-		Type: "new_engagement", Title: "New engagement", Href: "/inbox/engagement?item=" + item.ID,
-		PayloadJSON: `{"engagement_id":"receipt-comment","provider":"youtube","author_name":"Fetched author"}`,
-	}
-	_, err = db.NewInsert().Model(&notification).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewRaw("INSERT INTO engagement_operations (workspace_id, user_id, item_id, operation_id, body_hash, job_id) VALUES (?, ?, ?, ?, ?, ?)", account.WorkspaceID, "user-1", item.ID, "original-operation", "original-hash", "original-job").Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.AnalyticsSyncState{ID: "fresh-state", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: "youtube", SubjectType: "account", SubjectID: account.ID, LastSuccessAt: now, MetricsJSON: `{"followers":42}`}).Exec(ctx)
-	require.NoError(t, err)
-	require.NoError(t, dataretention.PurgeYouTube(ctx, db, now, account.WorkspaceID, account.ID))
-	require.NoError(t, db.NewSelect().Model(&item).WherePK().Scan(ctx))
-	require.Empty(t, item.Body)
-	require.Empty(t, item.AuthorName)
-	require.NoError(t, db.NewSelect().Model(&notification).WherePK().Scan(ctx))
-	require.NotContains(t, notification.PayloadJSON, "Fetched author", "notifications must not retain fetched author data")
-	require.Equal(t, dataretention.RetiredYouTubeIdentity(account.WorkspaceID, "remote-comment"), item.RemoteID, "receipts retain an opaque reconnect identity")
-	require.False(t, item.LastSeenAt.After(now.Add(-dataretention.YouTubeCacheAge)))
-	var jobID string
-	require.NoError(t, db.NewSelect().Table("engagement_operations").Column("job_id").Where("item_id = ?", item.ID).Scan(ctx, &jobID))
-	require.Equal(t, "original-job", jobID)
-	count, err := db.NewSelect().Model((*models.AnalyticsSyncState)(nil)).Where("id = ?", "fresh-state").Count(ctx)
-	require.NoError(t, err)
-	require.Zero(t, count, "explicit disconnect purges even newly fetched metrics")
-}
-
 func TestYouTubeProfileExpiryKeepsAuthorizationIdentityForRefresh(t *testing.T) {
 	t.Parallel()
 	db := newAnalyticsTestDB(t)

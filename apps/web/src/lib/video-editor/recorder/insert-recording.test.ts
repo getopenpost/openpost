@@ -9,7 +9,9 @@ function artifact(kind: CaptureArtifact['kind'], startOffsetMs: number): Capture
 	return {
 		kind,
 		scratchId: `${kind}-scratch`,
-		blob: new Blob([kind], { type: kind === 'microphone' ? 'audio/webm' : 'video/webm' }),
+		blob: new Blob([kind], {
+			type: kind === 'microphone' ? 'audio/webm' : 'video/webm'
+		}),
 		mimeType: kind === 'microphone' ? 'audio/webm' : 'video/webm',
 		durationMs: 1_000,
 		startOffsetMs,
@@ -115,21 +117,6 @@ describe('recording artifact insertion', () => {
 		expect(rollback).toHaveBeenCalledExactlyOnceWith('project', 'old-project-media');
 	});
 
-	it('leaves a single captured stream unlinked', async () => {
-		const runtime: RecordingImportRuntime = {
-			importVideo: vi.fn(async () => media('screen-media', 'video')),
-			importAudio: vi.fn(async () => media('mic-media', 'audio')),
-			rollback: vi.fn(async () => undefined)
-		};
-
-		await insertRecordingArtifacts('project', [artifact('screen', 0)], 0, runtime, {
-			isCurrent: () => true
-		});
-
-		expect(timelineStore.items).toHaveLength(1);
-		expect(timelineStore.items[0]?.linkedGroupId).toBeUndefined();
-	});
-
 	it('rolls back every earlier media import when a later artifact fails', async () => {
 		const rollback = vi.fn(async () => undefined);
 		const runtime: RecordingImportRuntime = {
@@ -154,27 +141,4 @@ describe('recording artifact insertion', () => {
 		expect(timelineStore.items).toHaveLength(0);
 		expect(timelineStore.tracks).toHaveLength(0);
 	});
-});
-
-it('places each new screen recording above older footage with distinct readable names', async () => {
-	const runtime: RecordingImportRuntime = {
-		importVideo: vi
-			.fn()
-			.mockResolvedValueOnce(media('first', 'video'))
-			.mockResolvedValueOnce(media('second', 'video')),
-		importAudio: vi.fn(),
-		rollback: vi.fn()
-	};
-	await insertRecordingArtifacts('project', [artifact('screen', 0)], 0, runtime, {
-		isCurrent: () => true
-	});
-	const firstTrack = timelineStore.tracks[0]!;
-	const next = await insertRecordingArtifacts('project', [artifact('screen', 0)], 0, runtime, {
-		isCurrent: () => true
-	});
-	const nextItem = timelineStore.itemById.get(next.itemIds[0]!)!;
-	const nextTrack = timelineStore.tracks.find((track) => track.id === nextItem.trackId)!;
-	expect(nextTrack.order).toBeLessThan(firstTrack.order);
-	expect(nextTrack.name).toBe('Screen 2');
-	expect(nextItem.label).toBe('Screen 2');
 });

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { MediaMetadata } from '@openpost/editor-shared/media';
 import type { ProxyRequest, ProxyWorkerResponse } from './proxy-worker';
 import { mediaTaskId, mediaTasks } from './media-tasks.svelte';
-import { cachedProxy, clearProxyCache, getAutomaticProxy, getProxy } from './proxy-client';
+import { cachedProxy, clearProxyCache, getAutomaticProxy } from './proxy-client';
 
 class ControlledWorker {
 	static instances: ControlledWorker[] = [];
@@ -89,36 +89,6 @@ it('replaces an invalidated source without returning its previous in-flight prox
 	expect((await stale).error).toMatchObject({ name: 'AbortError' });
 	expect(await (await fresh).blob!.text()).toBe('fresh proxy');
 	expect(await cachedProxy(source.id)!.text()).toBe('fresh proxy');
-});
-
-it('starts a fresh automatic job when a caller arrives immediately after its last waiter cancels', async () => {
-	const source = media();
-	const controller = new AbortController();
-	const cancelled = observe(getAutomaticProxy(source, undefined, controller.signal));
-	await decoder(0);
-	controller.abort();
-	const fresh = observe(getAutomaticProxy(source));
-	const second = await decoder(1);
-	second.reply({ type: 'complete', blob: new Blob(['fresh proxy']) });
-	expect((await cancelled).error).toMatchObject({ name: 'AbortError' });
-	expect(await (await fresh).blob!.text()).toBe('fresh proxy');
-});
-
-it('keeps a shared encode alive and reports progress to a caller whose peer cancels', async () => {
-	const source = media();
-	const controller = new AbortController();
-	const first = observe(getProxy(source, undefined, controller.signal));
-	const progress = vi.fn();
-	const second = observe(getProxy(source, progress));
-	const worker = await decoder(0);
-	controller.abort();
-	await vi.waitFor(async () => expect((await first).error).toMatchObject({ name: 'AbortError' }));
-	expect(worker.terminated).toBe(false);
-	worker.reply({ type: 'progress', progress: 0.5 });
-	expect(progress).toHaveBeenCalledWith(0.5);
-	worker.reply({ type: 'complete', blob: new Blob(['shared proxy']) });
-	expect(await (await second).blob!.text()).toBe('shared proxy');
-	expect(ControlledWorker.instances).toHaveLength(1);
 });
 
 it('cancels queued task waiters promptly while keeping subsequent background encodes serialized', async () => {

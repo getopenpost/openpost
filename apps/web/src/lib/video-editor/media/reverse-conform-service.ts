@@ -67,7 +67,7 @@ export function fitReverseConformSize(width: number, height: number): ReverseCon
 	};
 }
 
-export function reverseConformKey(media: MediaMetadata): string {
+function reverseConformKey(media: MediaMetadata): string {
 	const size = fitReverseConformSize(media.width, media.height);
 	const fingerprint =
 		media.contentHash ??

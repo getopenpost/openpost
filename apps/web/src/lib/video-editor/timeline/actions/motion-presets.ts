@@ -86,7 +86,7 @@ const VISUAL_ITEM_TYPES = new Set<TimelineItem['type']>([
  * type instead of scaling it, so box-scaling presets and modulators stay gated
  * out for text (ported from FreeCut's `motionPresetScalesBox` (MIT)).
  */
-export function motionPresetScalesBox(preset: { properties: readonly string[] }): boolean {
+function motionPresetScalesBox(preset: { properties: readonly string[] }): boolean {
 	return preset.properties.includes('width') || preset.properties.includes('height');
 }
 

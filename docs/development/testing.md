@@ -11,7 +11,9 @@ bun run test
 bun run build
 ```
 
-`bun run verify` runs the format, check, lint, test, and build gates. Checks validate the current contracts, documentation links, release ownership, and generated artifacts. They also include the cached public production-build regression, so the complete check command costs more than typechecking alone. Repository script regressions run once in the test sweep. Explicit policy selectors retain their focused tests; CI runs the repository sweep after its policy checks.
+`bun run verify` runs the format, check, lint, test, and build gates. Checks validate the current contracts, documentation links, release ownership, and generated artifacts. They also include the cached public production-build regression, so the complete check command costs more than typechecking alone. Repository script regressions run once in the test sweep. Explicit policy selectors retain their focused tests; CI runs the repository sweep in its own job beside the policy checks. `bun run check -- policy` omits Go reachability, which CI runs in the Go quality job; run `bun run check -- go-reachability` locally after Go changes. The full `check` keeps both.
+
+Repository script tests use fixture time, not wall-clock waits. Keep a real delay only when the contract is time-bound, such as the UI build lock outliving proper-lockfile's 10-second stale window, and keep fixture Git repositories independent of the developer's commit signing.
 
 The named commands run independent work in parallel. Turbo restores unchanged
 type-check, frontend lint, test, policy, and build tasks by content; Go reuses its

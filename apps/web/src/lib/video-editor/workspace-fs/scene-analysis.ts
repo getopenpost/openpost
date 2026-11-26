@@ -158,14 +158,3 @@ export async function getSceneThumbnail(relPath: string): Promise<Blob | null> {
 		return null;
 	}
 }
-
-export async function deleteSceneAnalysis(mediaId: string): Promise<void> {
-	const root = await getOpfsCacheRoot('scene-analysis');
-	if (!root) return;
-	await Promise.all([
-		removeEntry(root, sceneAnalysisPath(mediaId)),
-		removeEntry(root, sceneTextEmbeddingsPath(mediaId)),
-		removeEntry(root, sceneImageEmbeddingsPath(mediaId)),
-		removeEntry(root, sceneThumbsDir(mediaId), { recursive: true })
-	]);
-}

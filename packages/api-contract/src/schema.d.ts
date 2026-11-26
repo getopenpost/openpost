@@ -6938,7 +6938,7 @@ export interface components {
         APITokenResponse: {
             /** @description Creation time */
             created_at: string;
-            /** @description Token expiry time */
+            /** @description Token expiry time. Omitted when the token never expires. */
             expires_at?: string;
             /** @description API token ID */
             id: string;
@@ -8824,11 +8824,13 @@ export interface components {
             readonly $schema?: string;
             /**
              * Format: date-time
-             * @description Expiry time. Omitted or null defaults to 90 days; the maximum lifetime is one year.
+             * @description Expiry time. Omitted or null defaults to 90 days; the maximum lifetime is one year. Use never_expires for a token without an expiry.
              */
             expires_at?: string | null;
             /** @description Required user-visible token name */
             name: string;
+            /** @description Create a token that never expires. It stays valid until it is revoked. Cannot be combined with expires_at. An organization token lifetime policy still applies. */
+            never_expires?: boolean;
             /**
              * @description Token scope. Defaults to cli:full.
              * @enum {string}

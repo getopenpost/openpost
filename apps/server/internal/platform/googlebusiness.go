@@ -518,19 +518,6 @@ func (g *GoogleBusinessAdapter) ValidatePublishingTarget(ctx context.Context, ac
 	return fmt.Errorf("google business location is no longer operable for local posts")
 }
 
-// GoogleBusinessAnalyticsSupport declares the reporting boundary: location
-// analytics are useful and planned through the performance surface, but Google
-// offers no per-post insights for local posts, so content analytics stay
-// unsupported. Failed analytics empties must never be cached as measurements.
-func GoogleBusinessAnalyticsSupport() AnalyticsSupport {
-	return AnalyticsSupport{
-		Account:            false,
-		Content:            false,
-		AccountUnavailable: "googlebusiness_location_analytics_pending",
-		ContentUnavailable: "google_no_per_post_insights",
-	}
-}
-
 func (g *GoogleBusinessAdapter) UploadMedia(_ context.Context, _, _, _ string, _ io.Reader) (string, error) {
 	return "", fmt.Errorf("google business media is attached by public URL; upload the image to workspace media first")
 }
@@ -669,18 +656,6 @@ func pendingGoogleBusinessPostResult(postName string) (PublishResult, error) {
 		RetrySafety:       PublishRetryReconcileOnly,
 		ReconcileAfter:    googleBusinessReconcileDelay,
 	}, nil
-}
-
-// settleGoogleBusinessDisabledDestination settles pending reviews when the
-// destination can no longer operate local posts. Disabled destinations never
-// retry; the operator reconnects or duplicates the post elsewhere.
-func settleGoogleBusinessDisabledDestination(reference string) PublishResult {
-	return PublishResult{
-		SubmissionState:   PublishSubmissionRejected,
-		ProviderState:     "destination_disabled",
-		ProviderReference: reference,
-		RetrySafety:       PublishRetryNever,
-	}
 }
 
 func buildGoogleBusinessLocalPost(req *PublishRequest) (googleBusinessLocalPostRequest, error) {

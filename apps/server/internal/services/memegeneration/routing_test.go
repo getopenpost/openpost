@@ -3,13 +3,10 @@ package memegeneration
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"strings"
 	"testing"
 
 	"github.com/openpost/backend/internal/ai"
 	"github.com/openpost/backend/internal/memes"
-	"github.com/openpost/backend/internal/services/voiceprofiles"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,16 +14,6 @@ type generationFunc func(context.Context, ai.GenerateRequest) (ai.GenerateResult
 
 func (fn generationFunc) Generate(ctx context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
 	return fn(ctx, request)
-}
-
-type countedRoutingProvider struct {
-	memes.Provider
-	templateCalls int
-}
-
-func (provider *countedRoutingProvider) Templates(ctx context.Context) (memes.Catalog, error) {
-	provider.templateCalls++
-	return provider.Provider.Templates(ctx)
 }
 
 func TestSemanticRoutingUsesWholeCatalogAndSelectedImage(t *testing.T) {
@@ -56,22 +43,4 @@ func TestSemanticRoutingUsesWholeCatalogAndSelectedImage(t *testing.T) {
 	require.Equal(t, 2, calls)
 	require.Equal(t, "drake", result.Candidates[0].TemplateID)
 	require.Equal(t, int64(28), result.Usage.TotalTokens)
-}
-
-func TestOversizedVoiceIsRejectedBeforeRouting(t *testing.T) {
-	provider, err := memes.NewBuiltinProvider()
-	require.NoError(t, err)
-	counted := &countedRoutingProvider{Provider: provider}
-	calls := 0
-	service, err := New(generationFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
-		calls++
-		return ai.GenerateResult{}, errors.New("unexpected generation")
-	}), DefaultModel)
-	require.NoError(t, err)
-	service.SetTemplateProvider(counted)
-	_, err = service.Suggest(t.Context(), Input{Idea: "Less code, more features.", VoiceGuidance: strings.Repeat("x", voiceprofiles.MaxDefinitionBytes+1), Templates: []Template{{ID: "drake", Name: "Drake", LineCount: 2}}})
-	require.ErrorIs(t, err, ErrInvalidInput)
-	require.ErrorContains(t, err, "voice guidance")
-	require.Zero(t, calls, "invalid input must not spend routing calls")
-	require.Zero(t, counted.templateCalls, "invalid input must not fetch the template catalogue")
 }

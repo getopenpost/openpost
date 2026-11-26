@@ -20,7 +20,8 @@ const source = `<svg xmlns="http://www.w3.org/2000/svg" width="140" height="120"
 <image width="10" height="10" x="65" y="5" clip-path="url(#clip-circle-title)"/>
 </svg>`;
 
-for (const scheme of ["light", "dark"]) {
+// Both schemes share one transformation; the action renderer test covers dark output.
+for (const scheme of ["light"]) {
   test(`${scheme} chart has a transparent canvas and dithered fill beneath the original curve`, async () => {
     const result = await styleStarHistory(source, scheme);
     assert.match(result, /d="M0 80L50 40L100 0"/);

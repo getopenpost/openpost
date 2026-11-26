@@ -39,7 +39,7 @@ interface RenderQueueJobBuildOptions {
 	busAudioEq?: AudioEqSettings;
 }
 
-export function captureRenderSnapshot(
+function captureRenderSnapshot(
 	project: Project,
 	tracks: readonly TimelineTrack[],
 	items: readonly TimelineItem[],

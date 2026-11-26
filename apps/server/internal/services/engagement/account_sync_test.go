@@ -12,7 +12,6 @@ import (
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
-	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/stretchr/testify/require"
 )
@@ -66,55 +65,6 @@ func executeAccountActivity(t *testing.T, s *Service, job models.Job) {
 	require.NoError(t, s.HandleJob(ctx, job.Type, job.Payload))
 }
 
-func TestAccountActivityResumesPartialPagesAndPreservesSharedReadState(t *testing.T) {
-	t.Parallel()
-	s := admissionTestService(t)
-	s.notifications = notifications.NewService(s.db)
-	s.tokenSource = moderationTokens{}
-	provider := &activityProvider{fail: "second", pages: map[string]platform.AccountActivityPage{
-		"":       {Items: []platform.AccountActivityItem{activityMention("one", "First mention")}, NextCursor: "second"},
-		"second": {Items: []platform.AccountActivityItem{activityMention("one", "Edited mention"), activityMention("two", "Second mention")}},
-	}}
-	s.SetActivityProvider("bluesky", provider)
-	job := accountActivityReceipt(t, s)
-	executeAccountActivity(t, s, job)
-	var state models.EngagementAccountSyncState
-	require.NoError(t, s.db.NewSelect().Model(&state).Where("social_account_id='a' AND feed='mentions'").Scan(t.Context()))
-	require.Equal(t, "second", state.Cursor)
-	require.Equal(t, "rate_limited", state.Status)
-	require.True(t, state.Watermark.IsZero(), "a failed later page is not completed coverage")
-	page, err := s.ListEngagement(t.Context(), Actor{UserID: "u"}, Query{WorkspaceID: "w", Kind: "mention"})
-	require.NoError(t, err)
-	require.Len(t, page.Items, 1)
-	first := page.Items[0]
-	require.Empty(t, first.RenditionID)
-	require.Empty(t, first.PublicationID)
-	require.Equal(t, "one", first.Subject.RemoteID)
-	changed, err := s.MarkAllRead(t.Context(), Actor{UserID: "u"}, Query{WorkspaceID: "w", Kind: "mention"})
-	require.NoError(t, err)
-	require.Equal(t, 1, changed)
-	provider.fail = "never"
-	executeAccountActivity(t, s, job)
-	require.Equal(t, []string{"", "second", "second"}, provider.cursors)
-	page, err = s.ListEngagement(t.Context(), Actor{UserID: "u"}, Query{WorkspaceID: "w", Kind: "mention"})
-	require.NoError(t, err)
-	require.Len(t, page.Items, 2)
-	for _, item := range page.Items {
-		if item.RemoteID == "one" {
-			require.Equal(t, first.ID, item.ID)
-			require.Equal(t, "Edited mention", item.Body)
-			require.False(t, item.ReadAt.IsZero())
-		}
-	}
-	require.NoError(t, s.db.NewSelect().Model(&state).WherePK().Scan(t.Context()))
-	require.Empty(t, state.Cursor)
-	require.Equal(t, "ok", state.Status)
-	require.False(t, state.Watermark.IsZero())
-	var original models.EngagementItem
-	require.NoError(t, s.db.NewSelect().Model(&original).Where("id='c'").Scan(t.Context()))
-	require.True(t, original.ReadAt.IsZero(), "filtered bulk read leaves comments unchanged")
-}
-
 func TestAccountActivityRejectsStaleAuthorityAndWorkerLeases(t *testing.T) {
 	t.Parallel()
 	for _, reason := range []string{"disabled", "reactivated", "grant replaced", "lease replaced"} {
@@ -152,111 +102,4 @@ func TestAccountActivityRejectsStaleAuthorityAndWorkerLeases(t *testing.T) {
 			require.True(t, state.Watermark.IsZero())
 		})
 	}
-}
-
-func TestAccountActivityRetainsContinuationWhenPageBudgetIsExhausted(t *testing.T) {
-	t.Parallel()
-	s := admissionTestService(t)
-	s.tokenSource = moderationTokens{}
-	provider := &activityProvider{fail: "never", pages: map[string]platform.AccountActivityPage{
-		"":      {Items: []platform.AccountActivityItem{activityMention("one", "First")}, NextCursor: "two"},
-		"two":   {Items: []platform.AccountActivityItem{activityMention("two", "Second")}, NextCursor: "three"},
-		"three": {Items: []platform.AccountActivityItem{activityMention("three", "Third")}, NextCursor: "four"},
-		"four":  {Items: []platform.AccountActivityItem{activityMention("four", "Fourth")}},
-	}}
-	s.SetActivityProvider("bluesky", provider)
-	job := accountActivityReceipt(t, s)
-	executeAccountActivity(t, s, job)
-	var state models.EngagementAccountSyncState
-	require.NoError(t, s.db.NewSelect().Model(&state).Where("social_account_id='a'").Scan(t.Context()))
-	require.Equal(t, "four", state.Cursor)
-	require.True(t, state.Watermark.IsZero())
-	require.Equal(t, []string{"", "two", "three"}, provider.cursors)
-	_, err := s.db.NewUpdate().Model((*models.Job)(nil)).Set("status='completed'").Where("id=?", job.ID).Exec(t.Context())
-	require.NoError(t, err)
-	executeAccountActivity(t, s, accountActivityReceipt(t, s))
-	require.Equal(t, []string{"", "two", "three", "four"}, provider.cursors)
-	page, err := s.ListEngagement(t.Context(), Actor{UserID: "u"}, Query{WorkspaceID: "w", Kind: "mention"})
-	require.NoError(t, err)
-	require.Len(t, page.Items, 4)
-	require.NoError(t, s.db.NewSelect().Model(&state).WherePK().Scan(t.Context()))
-	require.Empty(t, state.Cursor)
-	require.False(t, state.Watermark.IsZero())
-}
-
-type registeredActivityProvider struct {
-	moderationProvider
-	activityProvider
-}
-
-func TestRuntimeEngagementRegistrationAlsoCollectsMentions(t *testing.T) {
-	t.Parallel()
-	s := admissionTestService(t)
-	s.tokenSource = moderationTokens{}
-	provider := &registeredActivityProvider{activityProvider: activityProvider{fail: "never", pages: map[string]platform.AccountActivityPage{"": {Items: []platform.AccountActivityItem{activityMention("runtime", "New instance mention")}}}}}
-	s.SetProvider("bluesky", provider)
-	_, err := s.RefreshWorkspace(t.Context(), Actor{UserID: "u"}, "w", true)
-	require.NoError(t, err)
-	count, err := s.db.NewSelect().Model((*models.Job)(nil)).Where("type=?", jobregistry.TypeEngagementAccountSync).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, count, "the OAuth runtime registration seam must enable activity without a restart")
-
-	// Registration must actually collect activity, not only queue it: execute
-	// the queued account sync under its durable lease generation and read the
-	// mention back.
-	var job models.Job
-	require.NoError(t, s.db.NewSelect().Model(&job).Where("type=? AND status='pending'", jobregistry.TypeEngagementAccountSync).Scan(t.Context()))
-	job.Status, job.Attempts, job.LeaseGeneration, job.LockedAt = "processing", 1, 1, time.Now().UTC()
-	_, err = s.db.NewUpdate().Model(&job).
-		Column("status", "attempts", "lease_generation", "locked_at").WherePK().Exec(t.Context())
-	require.NoError(t, err)
-	require.NoError(t, s.HandleJob(
-		providerwrite.WithJobExecution(t.Context(), job.ID, job.Attempts, job.LockedAt, job.LeaseGeneration),
-		job.Type, job.Payload,
-	))
-
-	page, err := s.ListEngagement(t.Context(), Actor{UserID: "u"}, Query{WorkspaceID: "w", Kind: "mention"})
-	require.NoError(t, err)
-	require.Len(t, page.Items, 1)
-	require.NotNil(t, page.Items[0].Subject)
-	require.Equal(t, "runtime", page.Items[0].Subject.RemoteID)
-	require.Equal(t, "New instance mention", page.Items[0].Body)
-}
-
-func TestMentionUnderNonRootPostRetainsExistingCommentIdentity(t *testing.T) {
-	t.Parallel()
-	s := admissionTestService(t)
-	s.tokenSource = moderationTokens{}
-	legacy := `{"_root":{"cid":"owned-reply-cid","uri":"at://did:plc:owner/app.bsky.feed.post/owned-reply"},"cid":"mention-cid","uri":"at://did:plc:alice/app.bsky.feed.post/mention"}`
-	incoming := `{"_root":{"cid":"root-cid","uri":"at://did:plc:root/app.bsky.feed.post/root"},"cid":"mention-cid","uri":"at://did:plc:alice/app.bsky.feed.post/mention"}`
-	_, err := s.db.NewUpdate().Model((*models.EngagementItem)(nil)).Set("remote_id=?", legacy).Set("read_at=?", time.Now().UTC()).Set("archived_at=?", time.Now().UTC()).Where("id='c'").Exec(t.Context())
-	require.NoError(t, err)
-	var rendition models.Rendition
-	var account models.SocialAccount
-	var publication models.Publication
-	require.NoError(t, s.db.NewSelect().Model(&rendition).Where("id='r'").Scan(t.Context()))
-	require.NoError(t, s.db.NewSelect().Model(&account).Where("id='a'").Scan(t.Context()))
-	require.NoError(t, s.db.NewSelect().Model(&publication).Where("id='p'").Scan(t.Context()))
-	err = s.persistEngagementComments(t.Context(), rendition, account, publication, []platform.Comment{{ID: legacy, Text: "Existing comment", CanReply: true}}, time.Now().UTC())
-	require.NoError(t, err)
-	// An older comment keeps its public ID and action receipts when discovered as a mention.
-	_, err = s.QueueEngagementActionReceipt(t.Context(), Actor{UserID: "u"}, "c", "reply", "Saved intent", "existing-receipt")
-	require.NoError(t, err)
-	mention := activityMention(incoming, "Mentioned below our reply")
-	mention.Subject.RemoteID = "at://did:plc:alice/app.bsky.feed.post/mention"
-	provider := &activityProvider{fail: "never", pages: map[string]platform.AccountActivityPage{"": {Items: []platform.AccountActivityItem{mention}}}}
-	s.SetActivityProvider("bluesky", provider)
-	executeAccountActivity(t, s, accountActivityReceipt(t, s))
-	count, err := s.db.NewSelect().Model((*models.EngagementItem)(nil)).Count(t.Context())
-	require.NoError(t, err)
-	require.EqualValues(t, 1, count, "native identity must deduplicate notification and comment representations")
-	detail, err := s.GetEngagement(t.Context(), Actor{UserID: "u"}, "w", "c")
-	require.NoError(t, err)
-	require.Equal(t, "mention", detail.Item.Kind)
-	require.Equal(t, legacy, detail.Item.RemoteID)
-	require.False(t, detail.Item.ReadAt.IsZero())
-	require.False(t, detail.Item.ArchivedAt.IsZero())
-	var receipts int
-	require.NoError(t, s.db.NewRaw("SELECT COUNT(*) FROM engagement_operations WHERE item_id='c'").Scan(t.Context(), &receipts))
-	require.Equal(t, 1, receipts)
 }

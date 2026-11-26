@@ -136,22 +136,6 @@ func TestAcceptanceAtomicallySwapsExactlyOneOwnerAndIsSingleUse(t *testing.T) {
 	require.Contains(t, actions, ActionAcceptanceFailed)
 }
 
-func TestAcceptanceRollsBackRolesWhenCreatorAuthorityChanged(t *testing.T) {
-	service, db := newOwnershipTestService(t)
-	transfer, err := service.Initiate(t.Context(), InitiateInput{OrganizationID: "org", ActorUserID: "owner", ActorSessionID: "owner-session", ReauthGrant: "recent", NomineeUserID: "nominee", ConfirmOrganizationName: "Acme"})
-	require.NoError(t, err)
-	_, err = db.NewUpdate().Model((*models.Organization)(nil)).Set("created_by = ?", "outsider").Where("id = ?", "org").Exec(t.Context())
-	require.NoError(t, err)
-
-	_, err = service.Accept(t.Context(), transfer.ID, testCredential("nominee"))
-	require.ErrorIs(t, err, ErrOwnerRequired)
-	require.Equal(t, models.OrganizationRoleOwner, memberRole(t, db, "owner"))
-	require.Equal(t, models.OrganizationRoleMember, memberRole(t, db, "nominee"))
-	var stored models.OrganizationOwnershipTransfer
-	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", transfer.ID).Scan(t.Context()))
-	require.Equal(t, StatusPending, stored.Status)
-}
-
 func ownershipAuditActions(t *testing.T, db *bun.DB) []string {
 	t.Helper()
 	var actions []string

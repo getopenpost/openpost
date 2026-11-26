@@ -123,7 +123,7 @@ func resolvePublicHost(ctx context.Context, host string, policy URLPolicy) ([]ne
 		return nil, fmt.Errorf("%s host did not resolve", label)
 	}
 	for _, addr := range ips {
-		if !IsPublicAddress(addr.IP) {
+		if !IsPublicAddress(addr.IP) && !isAllowedPrivateAddress(addr.IP) {
 			return nil, fmt.Errorf("%s host resolves to a private or local address", label)
 		}
 	}

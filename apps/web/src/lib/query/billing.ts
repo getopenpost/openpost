@@ -6,7 +6,7 @@ import { queryGET } from './transport';
 
 type QueryTransport = Pick<typeof client, 'GET'>;
 
-export function createBillingQueryAPI(transport: QueryTransport): BillingQueryAPI {
+function createBillingQueryAPI(transport: QueryTransport): BillingQueryAPI {
 	return {
 		async getBillingStatus(workspaceId, signal) {
 			const { data } = await queryGET({

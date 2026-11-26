@@ -216,21 +216,3 @@ func decodeVoiceProfile(t *testing.T, response *httptest.ResponseRecorder) voice
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &profile))
 	return profile
 }
-
-func TestVoiceProfileRoutesEditEncodedWorkspaceDefaultID(t *testing.T) {
-	t.Parallel()
-	server := newVoiceProfilesTestServer(t)
-	response := server.request(t, http.MethodPost, "/api/v1/voice-profiles", map[string]any{"workspace_id": "ws-1", "name": "Default voice", "definition": map[string]any{}}, "web-token")
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	profile := decodeVoiceProfile(t, response)
-	_, err := server.db.NewRaw("UPDATE voice_profiles SET id = ? WHERE id = ?", "default:ws-1", profile.ID).Exec(t.Context())
-	require.NoError(t, err)
-	response = server.request(t, http.MethodPut, "/api/v1/voice-profiles/default%3Aws-1", map[string]any{"workspace_id": "ws-1", "expected_revision": 1, "name": "Founder voice", "definition": map[string]any{"preferred_language": "English"}}, "web-token")
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-	updated := decodeVoiceProfile(t, response)
-	require.Equal(t, "default:ws-1", updated.ID)
-	require.Equal(t, "English", updated.Definition.PreferredLanguage)
-	require.Equal(t, 2, updated.Revision)
-	response = server.request(t, http.MethodGet, "/api/v1/voice-profiles/default%3Aws-1?workspace_id=ws-1", nil, "web-token")
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-}

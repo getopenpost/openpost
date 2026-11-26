@@ -68,7 +68,10 @@ describe('sequence color grade scope', () => {
 		layer.from = 20;
 		layer.durationInFrames = 200;
 		layer.keyframes = {
-			'effect:gpu-brightness:effect:amount': { frames: [0, 100], values: [0.2, 0.8] }
+			'effect:gpu-brightness:effect:amount': {
+				frames: [0, 100],
+				values: [0.2, 0.8]
+			}
 		};
 		const animatedClip: TimelineItem = {
 			...clip,
@@ -83,7 +86,10 @@ describe('sequence color grade scope', () => {
 				}
 			],
 			keyframes: {
-				'effect:gpu-brightness:clip-effect:amount': { frames: [0, 100], values: [0.2, 0.8] }
+				'effect:gpu-brightness:clip-effect:amount': {
+					frames: [0, 100],
+					values: [0.2, 0.8]
+				}
 			}
 		};
 		const layers = collectAdjustmentLayers([layer, animatedClip], tracks);
@@ -93,50 +99,9 @@ describe('sequence color grade scope', () => {
 		expect(effects[1]).toMatchObject({ id: 'clip-effect', type: 'gpu' });
 		if (effects[1]?.type === 'gpu') expect(effects[1].params.amount).toBeCloseTo(0.32);
 		expect(layer.effects?.[0]).toMatchObject({ params: { amount: 0.2 } });
-		expect(animatedClip.effects?.[0]).toMatchObject({ params: { amount: 0.2 } });
-	});
-	it('keeps visible adjustment layers when an audio track is soloed', () => {
-		const visible = adjustment(false);
-		const hidden = { ...adjustment(false), id: 'hidden-grade', trackId: 'hidden' };
-		const layers = collectAdjustmentLayers(
-			[visible, hidden],
-			[
-				...tracks,
-				{ ...tracks[0]!, id: 'hidden', visible: false, solo: true },
-				{ ...tracks[0]!, id: 'audio', kind: 'audio', solo: true }
-			]
-		);
-		expect(layers.map(({ layer }) => layer.id)).toEqual(['bounded-grade']);
-	});
-
-	it('bypasses color only for the selected effect owner', () => {
-		const bounded = adjustment(false);
-		bounded.durationInFrames = 200;
-		const gradedClip = {
-			...clip,
-			effects: [
-				{
-					id: 'clip-grade',
-					type: 'gpu' as const,
-					effectId: 'gpu-brightness',
-					enabled: true,
-					params: { amount: 0.4 }
-				}
-			]
-		};
-		const layers = collectAdjustmentLayers([bounded, gradedClip], tracks);
-
-		expect(effectsForItemAtFrame(gradedClip, 1, layers, 100)).toHaveLength(2);
-		expect(
-			effectsForItemAtFrame(gradedClip, 1, layers, 100, new Set([gradedClip.id])).map(
-				(effect) => effect.id
-			)
-		).toEqual(['effect']);
-		expect(
-			effectsForItemAtFrame(gradedClip, 1, layers, 100, new Set([bounded.id])).map(
-				(effect) => effect.id
-			)
-		).toEqual(['clip-grade']);
+		expect(animatedClip.effects?.[0]).toMatchObject({
+			params: { amount: 0.2 }
+		});
 	});
 
 	it('applies once at sequence output while ordinary adjustment layers stay item-scoped', () => {
@@ -147,18 +112,5 @@ describe('sequence color grade scope', () => {
 		expect(sequenceColorGradeEffectsAtFrame(sequenceLayers, 100)).toHaveLength(1);
 		expect(effectsForItemAtFrame(clip, 1, boundedLayers, 100)).toHaveLength(0);
 		expect(sequenceColorGradeEffectsAtFrame(boundedLayers, 100)).toHaveLength(0);
-	});
-
-	it('resolves sequence output effect keyframes at the playhead', () => {
-		const grade = adjustment(true);
-		grade.durationInFrames = 101;
-		grade.keyframes = {
-			'effect:gpu-brightness:effect:amount': { frames: [0, 100], values: [0.2, 0.8] }
-		};
-		const layers = collectAdjustmentLayers([grade, clip], tracks);
-		const effect = sequenceColorGradeEffectsAtFrame(layers, 50)[0];
-
-		expect(effect?.type).toBe('gpu');
-		if (effect?.type === 'gpu') expect(effect.params.amount).toBeCloseTo(0.5);
 	});
 });

@@ -849,7 +849,7 @@ jobs:
           path: ~/.bun/install/cache
           key: mobile-${{ runner.os }}-${{ hashFiles('apps/mobile/bun.lock') }}
           restore-keys: mobile-${{ runner.os }}-
-      - run: sudo apt-get update && sudo apt-get install --no-install-recommends -y ccache
+      - run: timeout 180 bash scripts/ci-setup-tools.sh ccache
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/openpost-ccache

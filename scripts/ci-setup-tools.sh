@@ -13,6 +13,12 @@ case "$mode" in
       exit 2
     fi
     ;;
+  ccache)
+    if [[ $# != 1 ]]; then
+      echo 'Usage: bash scripts/ci-setup-tools.sh ccache' >&2
+      exit 2
+    fi
+    ;;
   chromium)
     if [[ $# != 2 || ( "$2" != full && "$2" != shell ) ]]; then
       echo 'Usage: bash scripts/ci-setup-tools.sh chromium <full|shell>' >&2
@@ -21,7 +27,7 @@ case "$mode" in
     chromium_mode="$2"
     ;;
   *)
-    echo 'Usage: bash scripts/ci-setup-tools.sh <media|chromium <full|shell>>' >&2
+    echo 'Usage: bash scripts/ci-setup-tools.sh <media|ccache|chromium <full|shell>>' >&2
     exit 2
     ;;
 esac
@@ -56,6 +62,30 @@ fi
 
 fixture_dir="$(mktemp -d)"
 trap 'rm -rf "$fixture_dir"' EXIT
+
+if [[ "$mode" == ccache ]]; then
+  ccache_version=4.14.3
+  ccache_sha256=d553fac006ed93a37342cee9228cf4e13dd66690fa1a8075c54c7bace9b72ae6
+  ccache_name="ccache-$ccache_version-linux-x86_64-musl-static"
+  if [[ "$(uname -m)" != x86_64 ]]; then
+    echo "No pinned ccache build for $(uname -m)." >&2
+    exit 1
+  fi
+  curl --fail --location --silent --show-error \
+    --retry 5 --retry-all-errors --connect-timeout 20 --max-time 120 \
+    --output "$fixture_dir/ccache.tar.xz" \
+    "https://github.com/ccache/ccache/releases/download/v$ccache_version/$ccache_name.tar.xz"
+  echo "$ccache_sha256  $fixture_dir/ccache.tar.xz" | sha256sum --check --quiet -
+  tar -xJf "$fixture_dir/ccache.tar.xz" -C "$fixture_dir"
+  ccache_dir="${RUNNER_TEMP:-$HOME/.cache}/openpost-ccache-bin"
+  mkdir -p "$ccache_dir"
+  install -m 0755 "$fixture_dir/$ccache_name/ccache" "$ccache_dir/ccache"
+  "$ccache_dir/ccache" --version | head -1
+  if [[ -n "${GITHUB_PATH:-}" ]]; then
+    echo "$ccache_dir" >> "$GITHUB_PATH"
+  fi
+  exit 0
+fi
 
 # Monthly BtbN autobuilds are retained long term. Update all three values
 # together; the setup action keys its cache on this file.

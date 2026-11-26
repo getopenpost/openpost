@@ -187,20 +187,25 @@ func declaredM4AMediaMimeType(content []byte, sniffed, declared string) string {
 	return ""
 }
 
+// decodeMediaImageConfig reads image dimensions with the decoder admission
+// uses for the declared type. ICO keeps its dedicated seekable driver.
+func decodeMediaImageConfig(mimeType string, content []byte) (image.Config, error) {
+	switch mimeType {
+	case "image/x-icon", "image/vnd.microsoft.icon":
+		return ico.DecodeConfig(content)
+	case "image/avif":
+		return avif.DecodeConfig(bytes.NewReader(content))
+	default:
+		config, _, err := image.DecodeConfig(bytes.NewReader(content))
+		return config, err
+	}
+}
+
 func validateMediaImageContent(mimeType string, content []byte) error {
 	if !strings.HasPrefix(mimeType, "image/") {
 		return nil
 	}
-	var config image.Config
-	var err error
-	switch mimeType {
-	case "image/x-icon", "image/vnd.microsoft.icon":
-		config, err = ico.DecodeConfig(content)
-	case "image/avif":
-		config, err = avif.DecodeConfig(bytes.NewReader(content))
-	default:
-		config, _, err = image.DecodeConfig(bytes.NewReader(content))
-	}
+	config, err := decodeMediaImageConfig(mimeType, content)
 	if err != nil {
 		return errors.New("image file could not be decoded")
 	}

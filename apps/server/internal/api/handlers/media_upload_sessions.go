@@ -549,11 +549,13 @@ func (h *MediaHandler) repairDimensionlessDirectUploadDuplicate(
 	if len(inspectedContent) == 0 {
 		return fmt.Errorf("validated image bytes are unavailable")
 	}
-	width, height := h.getImageDimensions(bytes.NewReader(inspectedContent), existing.MimeType)
-	if width <= 0 || height <= 0 {
+	mimeType := strings.ToLower(strings.TrimSpace(strings.Split(existing.MimeType, ";")[0]))
+	config, err := decodeMediaImageConfig(mimeType, inspectedContent)
+	width, height := config.Width, config.Height
+	if err != nil || width <= 0 || height <= 0 {
 		return fmt.Errorf("duplicate image dimensions are invalid")
 	}
-	_, err := h.db.NewUpdate().Model((*models.MediaAttachment)(nil)).
+	_, err = h.db.NewUpdate().Model((*models.MediaAttachment)(nil)).
 		Set("width = ?", width).
 		Set("height = ?", height).
 		Set("aspect_ratio = ?", mediaAspectRatio(width, height)).

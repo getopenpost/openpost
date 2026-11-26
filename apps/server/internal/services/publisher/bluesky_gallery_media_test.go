@@ -9,8 +9,10 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"net"
 	"os"
 	"testing"
+	"testing/iotest"
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/providerlimits"
@@ -214,6 +216,30 @@ func TestBlueskyGalleryPreflightRespectsCancellation(t *testing.T) {
 	cancel()
 	err := checkBlueskyGalleryMedia(ctx, blueskyGalleryStoredMedia(5), blueskyGalleryFixtureStorage(blueskyGalleryPNG(t), nil))
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestBlueskyGalleryPreflightKeepsTransientStorageFailuresRetryable(t *testing.T) {
+	timeout := &net.OpError{Op: "dial", Net: "tcp", Err: os.ErrDeadlineExceeded}
+	for name, test := range map[string]struct {
+		open    func(context.Context, string) (io.ReadCloser, error)
+		message string
+	}{
+		"open": {func(context.Context, string) (io.ReadCloser, error) { return nil, timeout }, "stored object cannot be opened"},
+		"read": {func(context.Context, string) (io.ReadCloser, error) {
+			return io.NopCloser(iotest.ErrReader(timeout)), nil
+		}, "stored object cannot be read"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := checkBlueskyGalleryMedia(t.Context(), blueskyGalleryStoredMedia(5), test.open)
+			require.ErrorContains(t, err, test.message)
+			require.NotContains(t, err.Error(), "dial tcp")
+			require.Equal(t, FailureNetwork, ClassifyFailure(err).Kind)
+		})
+	}
+
+	missing := func(context.Context, string) (io.ReadCloser, error) { return nil, os.ErrNotExist }
+	err := checkBlueskyGalleryMedia(t.Context(), blueskyGalleryStoredMedia(5), missing)
+	require.NotEqual(t, FailureNetwork, ClassifyFailure(err).Kind)
 }
 
 func TestBlueskyGalleryPreflightFailsWithoutStorage(t *testing.T) {

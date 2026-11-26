@@ -98,14 +98,14 @@ func verifyBlueskyGalleryObject(
 	}
 	reader, err := open(ctx, filepath.Base(media.FilePath))
 	if err != nil {
-		return fmt.Errorf("stored object cannot be opened")
+		return &galleryStorageError{message: "stored object cannot be opened", cause: err}
 	}
 	defer reader.Close()
 
 	const maxBytes = int64(providerlimits.BlueskyImageMaxBytes)
 	content, err := io.ReadAll(io.LimitReader(reader, maxBytes+1))
 	if err != nil {
-		return fmt.Errorf("stored object cannot be read")
+		return &galleryStorageError{message: "stored object cannot be read", cause: err}
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -170,3 +170,13 @@ func decodeStoredBlueskyGalleryImage(content []byte, mimeType string) (image.Con
 	}
 	return config, nil
 }
+
+// galleryStorageError keeps storage details out of the visible message while
+// preserving the cause, so a transient network failure stays retryable.
+type galleryStorageError struct {
+	message string
+	cause   error
+}
+
+func (e *galleryStorageError) Error() string { return e.message }
+func (e *galleryStorageError) Unwrap() error { return e.cause }

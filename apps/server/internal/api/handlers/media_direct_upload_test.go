@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"image"
@@ -639,30 +640,55 @@ func TestStreamingImageUploadPersistsDimensionsBeforeReady(t *testing.T) {
 
 func TestCompleteMediaUploadSessionRepairsLegacyDeduplicatedImageDimensions(t *testing.T) {
 	t.Parallel()
-	storage := newFakeDirectUploadStorage()
-	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
 	var encoded bytes.Buffer
 	require.NoError(t, png.Encode(&encoded, image.NewRGBA(image.Rect(0, 0, 23, 17))))
-	content := encoded.Bytes()
+	// A PNG-compressed ICO: 6-byte header, one 16-byte directory entry, payload.
+	icon := make([]byte, 22, 22+encoded.Len())
+	binary.LittleEndian.PutUint16(icon[2:4], 1)
+	binary.LittleEndian.PutUint16(icon[4:6], 1)
+	icon[6], icon[7] = 23, 17
+	binary.LittleEndian.PutUint16(icon[10:12], 1)
+	binary.LittleEndian.PutUint16(icon[12:14], 32)
+	binary.LittleEndian.PutUint32(icon[14:18], uint32(encoded.Len()))
+	binary.LittleEndian.PutUint32(icon[18:22], 22)
+	icon = append(icon, encoded.Bytes()...)
+	for _, test := range []struct {
+		ext, mimeType string
+		content       []byte
+	}{
+		{"png", "image/png", encoded.Bytes()},
+		{"ico", "image/x-icon", icon},
+	} {
+		t.Run(test.mimeType, func(t *testing.T) {
+			t.Parallel()
+			assertLegacyDuplicateDimensionsRepaired(t, test.ext, test.mimeType, test.content)
+		})
+	}
+}
+
+func assertLegacyDuplicateDimensionsRepaired(t *testing.T, ext, mimeType string, content []byte) {
+	t.Helper()
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
 	hash := sha256.Sum256(content)
 
 	_, err := srv.db.NewInsert().Model(&models.MediaAttachment{
 		ID:               "legacy-gallery-image",
 		WorkspaceID:      "ws-1",
-		FilePath:         "legacy-gallery-image.png",
+		FilePath:         "legacy-gallery-image." + ext,
 		StorageType:      "s3",
-		MimeType:         "image/png",
+		MimeType:         mimeType,
 		ProcessingStatus: mediaReadyStatus,
 		Size:             int64(len(content)),
-		OriginalFilename: "legacy-gallery-image.png",
+		OriginalFilename: "legacy-gallery-image." + ext,
 		FileHash:         hex.EncodeToString(hash[:]),
 		CreatedAt:        time.Now().UTC(),
 	}).Exec(t.Context())
 	require.NoError(t, err)
-	storage.objects["legacy-gallery-image.png"] = content
+	storage.objects["legacy-gallery-image."+ext] = content
 
-	mediaID := srv.createUploadSession(t, "gallery.png", "image/png", int64(len(content)))
-	storage.objects[mediaID+".png"] = content
+	mediaID := srv.createUploadSession(t, "gallery."+ext, mimeType, int64(len(content)))
+	storage.objects[mediaID+"."+ext] = content
 	response := srv.postJSON(t, "/api/v1/media/upload-session/"+mediaID+"/complete", map[string]any{
 		"workspace_id": "ws-1",
 	})
@@ -680,5 +706,5 @@ func TestCompleteMediaUploadSessionRepairsLegacyDeduplicatedImageDimensions(t *t
 	require.Equal(t, 23, stored.Width)
 	require.Equal(t, 17, stored.Height)
 	require.Equal(t, mediaReadyStatus, stored.ProcessingStatus)
-	require.Contains(t, storage.deleted, mediaID+".png")
+	require.Contains(t, storage.deleted, mediaID+"."+ext)
 }

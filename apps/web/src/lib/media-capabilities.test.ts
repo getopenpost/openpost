@@ -61,4 +61,47 @@ describe('media-capabilities', () => {
 		// ...while the composer draft ceiling is authored separately and higher.
 		expect(MAX_COMPOSER_DRAFT_MEDIA).toBeGreaterThan(4);
 	});
+
+	it('allows 5–10 Bluesky images and rejects 11 without splitting the gallery', () => {
+		for (const count of [1, 4, 5, 8, 10]) {
+			const images = Array.from({ length: count }, (_, index) => ({
+				id: 'image-' + index,
+				mimeType: 'image/jpeg'
+			}));
+			expect(validateProviderMedia('bluesky', images)).toEqual([]);
+		}
+		for (const count of [1, 4, 5, 10]) {
+			for (const mimeType of ['application/pdf', '']) {
+				const images = Array.from({ length: count }, (_, index) => ({
+					id: `image-${index}`,
+					mimeType: index === count - 1 ? mimeType : 'image/jpeg'
+				}));
+				expect(validateProviderMedia('bluesky', images)).toContainEqual({
+					provider: 'bluesky',
+					severity: 'error',
+					mediaId: `image-${count - 1}`,
+					message: 'Bluesky images must be JPEG, PNG, or WebP.'
+				});
+			}
+		}
+		for (const count of [4, 5, 10]) {
+			const images = Array.from({ length: count }, (_, index) => ({
+				id: `image-${index}`,
+				mimeType: index === count - 1 ? 'image/gif' : 'image/jpeg'
+			}));
+			expect(validateProviderMedia('bluesky', images)).toContainEqual({
+				provider: 'bluesky',
+				severity: 'error',
+				mediaId: `image-${count - 1}`,
+				message: 'Bluesky supports one GIF per post and cannot mix GIFs with other media.'
+			});
+		}
+		const tooMany = Array.from({ length: 11 }, (_, index) => ({
+			id: 'image-' + index,
+			mimeType: 'image/jpeg'
+		}));
+		expect(providerMediaWarningMessages('bluesky', tooMany)).toContain(
+			'Bluesky supports up to 10 images per post.'
+		);
+	});
 });

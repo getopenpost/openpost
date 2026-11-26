@@ -390,7 +390,7 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 	}
 
 	fileHash := inspection.FileHash
-	if duplicate, found, err := h.deduplicateDirectMediaUpload(ctx, workspaceID, fileHash, media); err != nil {
+	if duplicate, found, err := h.deduplicateDirectMediaUpload(ctx, workspaceID, fileHash, media, inspection.Content); err != nil {
 		return result, err
 	} else if found {
 		return duplicate, nil
@@ -398,12 +398,31 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 
 	media, err = h.finalizeDirectMediaUploadRecord(ctx, media, inspection)
 	if err != nil {
-		if duplicate, deduped := h.resolveDirectUploadDeduplication(ctx, workspaceID, fileHash, media); deduped {
-			return duplicate, nil
-		}
-		return result, err
+		return h.recoverDirectUploadFinalization(ctx, workspaceID, fileHash, media, inspection.Content, err)
 	}
 	return h.completeProjectAssetUpload(ctx, workspaceID, media, fileHash)
+}
+
+// errDirectUploadImageDimensions marks an image whose bytes decode without
+// usable dimensions. Such an upload is discarded instead of becoming ready.
+var errDirectUploadImageDimensions = errors.New("uploaded image dimensions could not be determined")
+
+func (h *MediaHandler) recoverDirectUploadFinalization(
+	ctx context.Context,
+	workspaceID string,
+	fileHash string,
+	media models.MediaAttachment,
+	inspectedContent []byte,
+	err error,
+) (MediaUploadResult, error) {
+	if errors.Is(err, errDirectUploadImageDimensions) {
+		h.discardInvalidDirectUpload(ctx, &media)
+		return MediaUploadResult{}, huma.Error400BadRequest(err.Error())
+	}
+	if duplicate, deduped := h.resolveDirectUploadDeduplication(ctx, workspaceID, fileHash, media, inspectedContent); deduped {
+		return duplicate, nil
+	}
+	return MediaUploadResult{}, err
 }
 
 // Retain the failed reservation until the lifecycle sweep, which runs after
@@ -451,13 +470,16 @@ func (h *MediaHandler) checkDirectUploadQuota(ctx context.Context, workspaceID s
 	return nil
 }
 
-func (h *MediaHandler) deduplicateDirectMediaUpload(ctx context.Context, workspaceID, fileHash string, media models.MediaAttachment) (MediaUploadResult, bool, error) {
+func (h *MediaHandler) deduplicateDirectMediaUpload(ctx context.Context, workspaceID, fileHash string, media models.MediaAttachment, inspectedContent []byte) (MediaUploadResult, bool, error) {
 	if !directMediaUploadSupportsDeduplication(media) {
 		return MediaUploadResult{}, false, nil
 	}
 	existing, found, err := h.findDuplicateMedia(ctx, workspaceID, fileHash, media.ID)
 	if err != nil || !found {
 		return MediaUploadResult{}, false, err
+	}
+	if err := h.repairDimensionlessDirectUploadDuplicate(ctx, &existing, inspectedContent); err != nil {
+		return MediaUploadResult{}, false, huma.Error500InternalServerError("failed to prepare duplicate image metadata")
 	}
 	if err := h.transferMediaTagAssignments(ctx, media.ID, existing.ID); err != nil {
 		return MediaUploadResult{}, false, err
@@ -489,12 +511,16 @@ func (h *MediaHandler) resolveDirectUploadDeduplication(
 	workspaceID string,
 	fileHash string,
 	media models.MediaAttachment,
+	inspectedContent []byte,
 ) (MediaUploadResult, bool) {
 	if !directMediaUploadSupportsDeduplication(media) {
 		return MediaUploadResult{}, false
 	}
 	existing, found, err := h.findDuplicateMedia(ctx, workspaceID, fileHash, media.ID)
 	if err != nil || !found {
+		return MediaUploadResult{}, false
+	}
+	if err := h.repairDimensionlessDirectUploadDuplicate(ctx, &existing, inspectedContent); err != nil {
 		return MediaUploadResult{}, false
 	}
 	if err := h.transferMediaTagAssignments(ctx, media.ID, existing.ID); err != nil {
@@ -505,6 +531,48 @@ func (h *MediaHandler) resolveDirectUploadDeduplication(
 		return MediaUploadResult{}, false
 	}
 	return mediaUploadResultFromAttachment(existing, true), true
+}
+
+// repairDimensionlessDirectUploadDuplicate prevents a newly validated image
+// upload from resolving to a legacy ready row without usable dimensions.
+// The uploaded bytes have already passed validation and are hash-identical to
+// the existing row. Update its metadata before retiring the new reservation.
+func (h *MediaHandler) repairDimensionlessDirectUploadDuplicate(
+	ctx context.Context,
+	existing *models.MediaAttachment,
+	inspectedContent []byte,
+) error {
+	if !strings.HasPrefix(strings.ToLower(existing.MimeType), "image/") ||
+		(existing.Width > 0 && existing.Height > 0) {
+		return nil
+	}
+	if len(inspectedContent) == 0 {
+		return fmt.Errorf("validated image bytes are unavailable")
+	}
+	mimeType := strings.ToLower(strings.TrimSpace(strings.Split(existing.MimeType, ";")[0]))
+	config, err := decodeMediaImageConfig(mimeType, inspectedContent)
+	width, height := config.Width, config.Height
+	if err != nil || width <= 0 || height <= 0 {
+		return fmt.Errorf("duplicate image dimensions are invalid")
+	}
+	_, err = h.db.NewUpdate().Model((*models.MediaAttachment)(nil)).
+		Set("width = ?", width).
+		Set("height = ?", height).
+		Set("aspect_ratio = ?", mediaAspectRatio(width, height)).
+		Where("id = ? AND workspace_id = ? AND file_hash = ? AND processing_status = ?",
+			existing.ID, existing.WorkspaceID, existing.FileHash, mediaReadyStatus).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if err := h.db.NewSelect().Model(existing).
+		Where("id = ? AND workspace_id = ?", existing.ID, existing.WorkspaceID).Scan(ctx); err != nil {
+		return err
+	}
+	if existing.ProcessingStatus != mediaReadyStatus || existing.Width <= 0 || existing.Height <= 0 {
+		return fmt.Errorf("duplicate image is no longer publishable")
+	}
+	return nil
 }
 
 func directMediaUploadSupportsDeduplication(media models.MediaAttachment) bool {
@@ -620,16 +688,28 @@ func (h *MediaHandler) findDuplicateMedia(ctx context.Context, workspaceID, file
 	return existing, false, huma.Error500InternalServerError("failed to check duplicate media")
 }
 
+// directUploadImageMetadata measures an uploaded image. A ready image with
+// zero dimensions cannot be used in a Bluesky gallery, so such an upload is
+// never finalized as publishable.
+func (h *MediaHandler) directUploadImageMetadata(ctx context.Context, mediaID, mimeType string, content []byte) (int, int, Thumbnails, error) {
+	if !strings.HasPrefix(mimeType, "image/") {
+		return 0, 0, Thumbnails{}, nil
+	}
+	width, height, thumbnails, err := h.processImage(ctx, content, mediaID, mimeType)
+	if err != nil {
+		width, height = h.getImageDimensions(bytes.NewReader(content), mimeType)
+	}
+	if width <= 0 || height <= 0 {
+		return 0, 0, thumbnails, errDirectUploadImageDimensions
+	}
+	return width, height, thumbnails, nil
+}
+
 func (h *MediaHandler) finalizeDirectMediaUploadRecord(ctx context.Context, media models.MediaAttachment, inspection mediaUploadInspection) (models.MediaAttachment, error) {
 	mimeType := detectedMediaMimeType(inspection.Prefix, media.MimeType)
-	width, height := 0, 0
-	var thumbnails Thumbnails
-	var err error
-	if strings.HasPrefix(mimeType, "image/") {
-		width, height, thumbnails, err = h.processImage(ctx, inspection.Content, media.ID, mimeType)
-		if err != nil {
-			width, height = h.getImageDimensions(bytes.NewReader(inspection.Content), mimeType)
-		}
+	width, height, thumbnails, err := h.directUploadImageMetadata(ctx, media.ID, mimeType, inspection.Content)
+	if err != nil {
+		return media, err
 	}
 	thumbsJSON := ""
 	if encoded, err := json.Marshal(thumbnails); err == nil {

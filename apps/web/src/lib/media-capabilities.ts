@@ -18,6 +18,7 @@ export interface MediaCapabilityIssue {
 const videoTypeMP4 = 'video/mp4';
 const videoTypeQuickTime = 'video/quicktime';
 const blueskyVideoLimitBytes = 100 * 1024 * 1024;
+const blueskyGalleryMaxImages = 10;
 const blueskyGIFLimitBytes = 300_000_000;
 const maxCarouselMedia = 10;
 const maxThreadsCarouselMedia = 20;
@@ -252,8 +253,14 @@ function validateBlueskyMedia(media: MediaCapabilityItem[]): MediaCapabilityIssu
 		return [];
 	}
 
-	if (media.length > 4) {
-		return [issue('bluesky', 'error', 'Bluesky supports up to 4 images per post.')];
+	if (media.length > blueskyGalleryMaxImages) {
+		return [issue('bluesky', 'error', 'Bluesky supports up to 10 images per post.')];
+	}
+	const unsupported = media.find((item) => !feedImageMimeTypes.has(normalizeMime(item.mimeType)));
+	if (unsupported) {
+		return [
+			issue('bluesky', 'error', 'Bluesky images must be JPEG, PNG, or WebP.', unsupported.id)
+		];
 	}
 	return [];
 }

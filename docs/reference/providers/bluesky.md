@@ -35,6 +35,6 @@ Grow is an optional feature per connected Bluesky account. It starts off for a n
 ## Notes
 
 - No server-side OAuth app is required.
-- OpenPost publishes static images through `app.bsky.embed.images`, videos through `app.bsky.embed.video`, and animated GIFs by transcoding them to silent MP4s uploaded through Bluesky's video service with `presentation: "gif"`.
-- Bluesky video and GIF support is limited to one attachment per post in OpenPost. Video and GIF uploads go through Bluesky's video service rather than the account's own PDS.
+- OpenPost publishes 1–4 static images through `app.bsky.embed.images` and 5–10 static JPEG, PNG, or WebP images through `app.bsky.embed.gallery` (each gallery image includes alt text and aspect ratio). Videos use `app.bsky.embed.video`. Animated GIFs are transcoded to silent MP4s uploaded through Bluesky's video service and published as `app.bsky.embed.video` with `presentation: "gif"`.
+- Bluesky video and GIF support is limited to one attachment per post in OpenPost, never mixed with images. Video and GIF uploads go through Bluesky's video service rather than the account's own PDS.
 - A self-hosted PDS must answer over HTTPS on port 443 at the host root. OpenPost rejects PDS endpoints with credentials, paths, queries, fragments, or custom ports.

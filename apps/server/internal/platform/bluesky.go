@@ -1340,6 +1340,9 @@ func (b *BlueskyAdapter) attachMediaToRecord(record map[string]interface{}, req 
 	if len(req.PlatformMediaIDs) == 0 {
 		return nil
 	}
+	if err := validateBlueskyRecordMedia(req); err != nil {
+		return err
+	}
 
 	if len(req.Media) > 0 && isGIFMime(req.Media[0].MimeType) {
 		if len(req.PlatformMediaIDs) > 1 || len(req.Media) > 1 {
@@ -1352,8 +1355,60 @@ func (b *BlueskyAdapter) attachMediaToRecord(record map[string]interface{}, req 
 	if isVideo {
 		return b.attachVideoToRecord(record, req, "")
 	}
-
 	return b.attachImagesToRecord(record, req)
+}
+
+// validateBlueskyRecordMedia is a provider-adapter invariant, not a
+// resurrection of the removed global media-validator registration system.
+// Publisher preflight enforces these rules earlier, before any blob upload.
+func validateBlueskyRecordMedia(req *PublishRequest) error {
+	count := len(req.PlatformMediaIDs)
+	if count > providerlimits.BlueskyImageMaxCount {
+		return fmt.Errorf("bluesky supports up to %d images per post", providerlimits.BlueskyImageMaxCount)
+	}
+	if len(req.Media) == 0 {
+		// Existing legacy call sites may construct an images record without
+		// attaching dimensions; gallery records still require aspect ratios.
+		return nil
+	}
+	if len(req.Media) != count {
+		return fmt.Errorf("bluesky media metadata count does not match uploaded blobs")
+	}
+	for i, item := range req.Media {
+		mimeType := strings.ToLower(strings.TrimSpace(strings.SplitN(item.MimeType, ";", 2)[0]))
+		switch mimeType {
+		case "video/mp4", "image/gif":
+			if err := validateBlueskyExclusiveMedia(mimeType, item.Size, count); err != nil {
+				return err
+			}
+		case "image/jpeg", "image/png", "image/webp":
+			if count > providerlimits.BlueskyLegacyImageMaxCount && item.Size > providerlimits.BlueskyImageMaxBytes {
+				return fmt.Errorf("bluesky gallery image %d exceeds the supported size limit", i+1)
+			}
+		default:
+			return fmt.Errorf("bluesky attachment %d must be JPEG, PNG, WebP, a single GIF, or a single MP4 video", i+1)
+		}
+	}
+	return nil
+}
+
+// validateBlueskyExclusiveMedia checks a video or GIF, which Bluesky publishes
+// as one app.bsky.embed.video and never mixes with other attachments.
+func validateBlueskyExclusiveMedia(mimeType string, size int64, count int) error {
+	kind := "video"
+	if mimeType == "image/gif" {
+		kind = "gif"
+		if count != 1 {
+			return fmt.Errorf("bluesky supports only one gif per post and cannot mix it with other attachments")
+		}
+	}
+	if count != 1 {
+		return fmt.Errorf("bluesky does not support mixing video with other attachments")
+	}
+	if size > providerlimits.BlueskyVideoMaxBytes {
+		return fmt.Errorf("bluesky %s exceeds the supported size limit", kind)
+	}
+	return nil
 }
 
 func (b *BlueskyAdapter) attachVideoToRecord(record map[string]interface{}, req *PublishRequest, presentation string) error {
@@ -1381,6 +1436,11 @@ func (b *BlueskyAdapter) attachVideoToRecord(record map[string]interface{}, req 
 }
 
 func (b *BlueskyAdapter) attachImagesToRecord(record map[string]interface{}, req *PublishRequest) error {
+	if len(req.PlatformMediaIDs) > providerlimits.BlueskyImageMaxCount {
+		return fmt.Errorf("bluesky supports up to %d images per post", providerlimits.BlueskyImageMaxCount)
+	}
+
+	gallery := len(req.PlatformMediaIDs) > providerlimits.BlueskyLegacyImageMaxCount
 	images := make([]map[string]interface{}, 0, len(req.PlatformMediaIDs))
 	for i, blobJSON := range req.PlatformMediaIDs {
 		var blob map[string]interface{}
@@ -1395,15 +1455,32 @@ func (b *BlueskyAdapter) attachImagesToRecord(record map[string]interface{}, req
 			"alt":   altText,
 			"image": blob,
 		}
-		if ratio := blueskyMediaAspectRatio(req.Media, i); ratio != nil {
+		ratio := blueskyMediaAspectRatio(req.Media, i)
+		if gallery {
+			// The gallery image Lexicon requires an aspect ratio for every item.
+			if ratio == nil {
+				return fmt.Errorf("bluesky gallery image %d requires dimensions", i+1)
+			}
+			image[bskyRecordTypeField] = "app.bsky.embed.gallery#image"
+			image["aspectRatio"] = ratio
+		} else if ratio != nil {
 			image["aspectRatio"] = ratio
 		}
 		images = append(images, image)
 	}
-	if len(images) > 0 {
+
+	if len(images) == 0 {
+		return nil
+	}
+	if gallery {
 		record["embed"] = map[string]interface{}{
-			"$type":  "app.bsky.embed.images",
-			"images": images,
+			bskyRecordTypeField: "app.bsky.embed.gallery",
+			"items":             images,
+		}
+	} else {
+		record["embed"] = map[string]interface{}{
+			bskyRecordTypeField: "app.bsky.embed.images",
+			"images":            images,
 		}
 	}
 	return nil

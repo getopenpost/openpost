@@ -7,8 +7,14 @@ import (
 	"strings"
 )
 
-// compatibleResponseSchema preserves bounds as instructions for gateways that
-// reject those keywords in strict structured output.
+// maxCompatibleEnumValues is the largest enum kept in a compatible endpoint's
+// strict schema. Gateways backed by Gemini reject large enums as too much
+// branching, so larger sets become instructions and callers validate natively.
+const maxCompatibleEnumValues = 32
+
+// compatibleResponseSchema preserves bounds and large enums as instructions for
+// gateways that reject those keywords, or schemas that large, in strict
+// structured output.
 func compatibleResponseSchema(schema map[string]any) map[string]any {
 	result := maps.Clone(schema)
 	moveCompatibleSchemaBounds(result)
@@ -49,12 +55,14 @@ func moveCompatibleSchemaBounds(schema map[string]any) {
 		{"maximum", "Value must be at most %v."},
 		{"minItems", "Use at least %v items."},
 		{"maxItems", "Use at most %v items."},
+		{"minLength", "Use at least %v characters."},
+		{"maxLength", "Use at most %v characters."},
 	} {
 		value, present := schema[bound.key]
 		if !present {
 			continue
 		}
-		if bound.key == "minItems" {
+		if bound.key == "minItems" || bound.key == "minLength" {
 			count, err := strconv.ParseFloat(fmt.Sprint(value), 64)
 			if err == nil && count >= 0 && count <= 1 {
 				continue
@@ -63,7 +71,21 @@ func moveCompatibleSchemaBounds(schema map[string]any) {
 		delete(schema, bound.key)
 		notes = append(notes, fmt.Sprintf(bound.instruction, value))
 	}
+	if enumSize(schema["enum"]) > maxCompatibleEnumValues {
+		delete(schema, "enum")
+		notes = append(notes, "Use only an identifier listed in the instructions.")
+	}
 	if len(notes) > 1 {
 		schema["description"] = strings.TrimSpace(strings.Join(notes, " "))
 	}
+}
+
+func enumSize(value any) int {
+	switch values := value.(type) {
+	case []string:
+		return len(values)
+	case []any:
+		return len(values)
+	}
+	return 0
 }

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -832,6 +833,13 @@ func (application *Application) fail(
 		code = generation.code
 	} else if code == "generation_failed" && errors.Is(cause, context.DeadlineExceeded) {
 		code = "generation_timeout"
+	}
+	var providerFailure *ai.ProviderError
+	if errors.As(cause, &providerFailure) {
+		// Operators need the provider's rejection to diagnose a failed build.
+		// The stored message stays generic and telemetry carries only the status.
+		slog.WarnContext(ctx, "Publication build generation failed",
+			"build_id", record.ID, "error_code", code, "http_status", providerFailure.StatusCode, "provider_detail", providerFailure.Detail)
 	}
 	now := application.now().UTC()
 	model, providerRequestID, usageJSON := trace.encoded()

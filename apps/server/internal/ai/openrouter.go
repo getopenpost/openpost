@@ -31,6 +31,7 @@ const (
 	minWebSearchCharacters       = 1
 	maxWebSearchCharacters       = 100_000
 	maxMultimodalSourceIDBytes   = 256
+	maxProviderDetailRunes       = 300
 )
 
 type HTTPClient interface {
@@ -151,6 +152,22 @@ func (o *OpenRouter) Generate(ctx context.Context, request GenerateRequest) (Gen
 		// The SDK exhausted its retry scope before the feature request budget.
 		// Start one fresh read-only generation while the caller can still wait.
 		response = openRouterChatCompletion{}
+		_, err = o.client.Chat.Completions.New(ctx, chatRequest, requestOptions...)
+	}
+	if err != nil && o.customEndpoint && request.ResponseSchema != nil && rejectsRequestShape(openRouterStatusCode(err)) {
+		// Gateways backed by Anthropic or Gemini cap strict grammar size and
+		// branching. Retry once with the schema as instructions and plain JSON
+		// output; callers still validate the result natively.
+		fallback := request
+		fallback.SystemPrompt = schemaInstructions(request)
+		fallback.ResponseSchema = nil
+		chatRequest, requestOptions, err = buildOpenRouterRequest(fallback, o.provider, o.requireZDR, o.customEndpoint)
+		if err != nil {
+			return GenerateResult{}, err
+		}
+		chatRequest.ResponseFormat.OfJSONObject = &shared.ResponseFormatJSONObjectParam{}
+		response = openRouterChatCompletion{}
+		requestOptions = append(requestOptions, option.WithResponseBodyInto(&response))
 		_, err = o.client.Chat.Completions.New(ctx, chatRequest, requestOptions...)
 	}
 	if err != nil {
@@ -613,7 +630,11 @@ func sanitizeOpenRouterError(err error) error {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return context.DeadlineExceeded
 	}
-	return &ProviderError{Provider: "OpenRouter", StatusCode: openRouterStatusCode(err)}
+	status, detail := openRouterStatusCode(err), ""
+	if rejectsRequestShape(status) {
+		detail = openRouterRejectionDetail(err)
+	}
+	return &ProviderError{Provider: "OpenRouter", StatusCode: status, Detail: detail}
 }
 
 func openRouterStatusCode(err error) int {
@@ -622,6 +643,33 @@ func openRouterStatusCode(err error) int {
 		return apiError.StatusCode
 	}
 	return 0
+}
+
+func schemaInstructions(request GenerateRequest) string {
+	schema, err := json.Marshal(compatibleResponseSchema(request.ResponseSchema.Schema))
+	if err != nil {
+		return request.SystemPrompt
+	}
+	return strings.TrimSpace(request.SystemPrompt + "\n\nReturn only one JSON object that satisfies this JSON Schema, with no other text:\n" + string(schema))
+}
+
+func rejectsRequestShape(status int) bool {
+	return status == http.StatusBadRequest || status == http.StatusUnprocessableEntity
+}
+
+// openRouterRejectionDetail keeps only the provider's own error message,
+// flattened and bounded, so a rejected schema can be diagnosed without
+// retaining response bodies.
+func openRouterRejectionDetail(err error) string {
+	var apiError *openai.Error
+	if !errors.As(err, &apiError) {
+		return ""
+	}
+	message := strings.Join(strings.Fields(apiError.Message), " ")
+	if runes := []rune(message); len(runes) > maxProviderDetailRunes {
+		message = string(runes[:maxProviderDetailRunes]) + "..."
+	}
+	return message
 }
 
 func durationOrDefault(value, fallback time.Duration) time.Duration {

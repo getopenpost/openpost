@@ -130,11 +130,14 @@ type GenerateResult struct {
 
 var ErrEmptyResponse = errors.New("AI generation returned an empty response")
 
-// ProviderError exposes only operationally useful metadata. In particular, it
-// does not retain or expose provider response bodies, prompts, media, or keys.
+// ProviderError exposes only operationally useful metadata. Error never
+// includes provider text. Detail carries a bounded provider rejection message
+// for operator diagnostics, and only for 400 and 422 responses, which describe
+// the request shape (for example an unsupported schema) rather than credentials.
 type ProviderError struct {
 	Provider   string
 	StatusCode int
+	Detail     string
 }
 
 func (e *ProviderError) Error() string {

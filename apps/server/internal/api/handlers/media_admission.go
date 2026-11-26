@@ -582,6 +582,11 @@ func (h *MediaHandler) reusableMediaForClientHash(
 		return nil, huma.Error500InternalServerError("failed to check reusable workspace media")
 	}
 	if strings.HasPrefix(media.MimeType, "image/") {
+		// A legacy row without dimensions cannot feed aspect-ratio embeds.
+		// Decline early reuse so upload completion repairs it before reuse.
+		if media.Width <= 0 || media.Height <= 0 {
+			return nil, nil
+		}
 		stored, openErr := h.storage.Open(ctx, filepath.Base(media.FilePath))
 		if openErr != nil {
 			return nil, nil

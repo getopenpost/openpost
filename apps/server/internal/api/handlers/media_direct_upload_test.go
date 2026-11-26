@@ -708,3 +708,45 @@ func assertLegacyDuplicateDimensionsRepaired(t *testing.T, ext, mimeType string,
 	require.Equal(t, mediaReadyStatus, stored.ProcessingStatus)
 	require.Contains(t, storage.deleted, mediaID+"."+ext)
 }
+
+func TestMediaUploadSessionReusesOnlyImagesWithDimensions(t *testing.T) {
+	t.Parallel()
+	var encoded bytes.Buffer
+	require.NoError(t, png.Encode(&encoded, image.NewRGBA(image.Rect(0, 0, 23, 17))))
+	content := encoded.Bytes()
+	hash := sha256.Sum256(content)
+	for _, test := range []struct {
+		name          string
+		width, height int
+		reused        bool
+	}{
+		{"measured", 23, 17, true},
+		{"dimensionless", 0, 0, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			storage := newFakeDirectUploadStorage()
+			storage.objects["legacy.png"] = content
+			srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+			_, err := srv.db.NewInsert().Model(&models.MediaAttachment{
+				ID: "legacy", WorkspaceID: "ws-1", FilePath: "legacy.png", FileHash: hex.EncodeToString(hash[:]),
+				Size: int64(len(content)), AssetKind: "library", MimeType: "image/png", ProcessingStatus: mediaReadyStatus,
+				Width: test.width, Height: test.height, CreatedAt: time.Now().UTC(),
+			}).Exec(t.Context())
+			require.NoError(t, err)
+
+			response := srv.postJSON(t, "/api/v1/media/upload-session", map[string]any{
+				"workspace_id": "ws-1", "filename": "pixels.png", "mime_type": "image/png",
+				"size": len(content), "client_sha256": hex.EncodeToString(hash[:]),
+			})
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			var result struct {
+				Deduped bool   `json:"deduped"`
+				MediaID string `json:"media_id"`
+			}
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
+			require.Equal(t, test.reused, result.Deduped)
+			require.Equal(t, test.reused, result.MediaID == "legacy")
+		})
+	}
+}

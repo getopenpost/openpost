@@ -32,6 +32,7 @@ import { ImageEditorHistory } from './history';
 import { scaleImageEditorText } from './resize';
 import { editTextWithRuns, styleTextRange, type ImageEditorTextEdit } from './text-runs';
 import {
+	rasterPlanIsCurrent,
 	rasterResultLayer,
 	type ImageEditorRasterPlan,
 	type ImageEditorRasterBounds
@@ -1683,7 +1684,8 @@ export class ImageEditorController {
 		if (
 			!this.canEdit ||
 			!mediaID ||
-			this.document !== plan.sourceDocument ||
+			(plan.designID !== undefined && plan.designID !== this.id) ||
+			!rasterPlanIsCurrent(plan, this.document) ||
 			this.activePageID !== plan.pageID ||
 			this.floatingPixelSelection ||
 			this.colorPreviewActive

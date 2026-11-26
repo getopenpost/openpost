@@ -44,18 +44,14 @@ func checkBlueskyGalleryMedia(
 	for i := range media {
 		mimeType := strings.ToLower(strings.TrimSpace(strings.SplitN(media[i].MimeType, ";", 2)[0]))
 		switch mimeType {
-		case "video/mp4":
-			if len(media) != 1 {
-				return fmt.Errorf("bluesky does not support mixing video with other attachments")
-			}
-			if media[i].Size > providerlimits.BlueskyVideoMaxBytes {
-				return fmt.Errorf("bluesky video exceeds the supported size limit")
-			}
-			return nil
+		case "video/mp4", "image/gif":
+			// The adapter transcodes a GIF to MP4 and publishes it as a video
+			// embed with gif presentation, so both share the video limits.
+			return checkBlueskyExclusiveMedia(mimeType, media[i].Size, len(media))
 		case "image/jpeg", "image/png", "image/webp":
 			media[i].MimeType = mimeType
 		default:
-			return fmt.Errorf("bluesky attachment %d must be JPEG, PNG, WebP, or a single MP4 video", i+1)
+			return fmt.Errorf("bluesky attachment %d must be JPEG, PNG, WebP, a single GIF, or a single MP4 video", i+1)
 		}
 	}
 	if len(media) <= providerlimits.BlueskyLegacyImageMaxCount {
@@ -68,6 +64,23 @@ func checkBlueskyGalleryMedia(
 		if err := verifyBlueskyGalleryObject(ctx, &media[i], open); err != nil {
 			return fmt.Errorf("bluesky gallery image %d: %w", i+1, err)
 		}
+	}
+	return nil
+}
+
+func checkBlueskyExclusiveMedia(mimeType string, size int64, count int) error {
+	kind := "video"
+	if mimeType == "image/gif" {
+		kind = "gif"
+		if count != 1 {
+			return fmt.Errorf("bluesky supports only one gif per post and cannot mix it with other attachments")
+		}
+	}
+	if count != 1 {
+		return fmt.Errorf("bluesky does not support mixing video with other attachments")
+	}
+	if size > providerlimits.BlueskyVideoMaxBytes {
+		return fmt.Errorf("bluesky %s exceeds the supported size limit", kind)
 	}
 	return nil
 }

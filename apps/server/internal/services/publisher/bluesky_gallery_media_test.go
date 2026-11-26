@@ -22,11 +22,11 @@ func blueskyGalleryStoredMedia(count int) []models.MediaAttachment {
 	media := make([]models.MediaAttachment, count)
 	for i := range media {
 		media[i] = models.MediaAttachment{
-			ID: fmt.Sprintf("image-%d", i),
+			ID:       fmt.Sprintf("image-%d", i),
 			MimeType: "image/png",
 			FilePath: fmt.Sprintf("image-%d.png", i),
-			Width: 32,
-			Height: 17,
+			Width:    32,
+			Height:   17,
 		}
 	}
 	return media
@@ -97,11 +97,11 @@ func TestBlueskyGalleryPreflightVerifiesJPEGAndPreservesLegacyImages(t *testing.
 func TestBlueskyGalleryPreflightRejectsMissingCorruptOrInconsistentObjects(t *testing.T) {
 	pngBytes := blueskyGalleryPNG(t)
 	for _, test := range []struct {
-		name string
-		change func([]models.MediaAttachment)
+		name    string
+		change  func([]models.MediaAttachment)
 		payload []byte
 		openErr error
-		want string
+		want    string
 	}{
 		{"missing stored object despite known dimensions", nil, nil, errors.New("private storage detail"), "cannot be opened"},
 		{"corrupt stored object despite known dimensions", nil, []byte("not an image"), nil, "invalid image header"},
@@ -162,14 +162,36 @@ func TestBlueskyGalleryPreflightEnforcesActualByteBoundary(t *testing.T) {
 
 func TestBlueskyGalleryPreflightRejectsUnsupportedMediaBeforeObjectAccess(t *testing.T) {
 	for _, test := range []struct {
-		name string
+		name  string
 		media []models.MediaAttachment
-		want string
+		want  string
 	}{
 		{"too many images", blueskyGalleryStoredMedia(11), "up to 10"},
-		{"gallery with GIF", func() []models.MediaAttachment { m := blueskyGalleryStoredMedia(5); m[2].MimeType = "image/gif"; return m }(), "JPEG, PNG, WebP"},
-		{"video before image", func() []models.MediaAttachment { m := blueskyGalleryStoredMedia(2); m[0].MimeType = "video/mp4"; return m }(), "mixing video"},
-		{"video after image", func() []models.MediaAttachment { m := blueskyGalleryStoredMedia(2); m[1].MimeType = "video/mp4"; return m }(), "mixing video"},
+		{"gallery with GIF", func() []models.MediaAttachment {
+			m := blueskyGalleryStoredMedia(5)
+			m[2].MimeType = "image/gif"
+			return m
+		}(), "only one gif"},
+		{"images with GIF", func() []models.MediaAttachment {
+			m := blueskyGalleryStoredMedia(4)
+			m[0].MimeType = "image/gif"
+			return m
+		}(), "only one gif"},
+		{"unsupported image", func() []models.MediaAttachment {
+			m := blueskyGalleryStoredMedia(5)
+			m[2].MimeType = "image/heic"
+			return m
+		}(), "JPEG, PNG, WebP"},
+		{"video before image", func() []models.MediaAttachment {
+			m := blueskyGalleryStoredMedia(2)
+			m[0].MimeType = "video/mp4"
+			return m
+		}(), "mixing video"},
+		{"video after image", func() []models.MediaAttachment {
+			m := blueskyGalleryStoredMedia(2)
+			m[1].MimeType = "video/mp4"
+			return m
+		}(), "mixing video"},
 		{"multiple videos", []models.MediaAttachment{{MimeType: "video/mp4"}, {MimeType: "video/mp4"}}, "mixing video"},
 		{"unsupported video", []models.MediaAttachment{{MimeType: "video/quicktime"}}, "single MP4"},
 	} {
@@ -184,6 +206,7 @@ func TestBlueskyGalleryPreflightRejectsUnsupportedMediaBeforeObjectAccess(t *tes
 		})
 	}
 	require.NoError(t, checkBlueskyGalleryMedia(t.Context(), []models.MediaAttachment{{MimeType: "video/mp4"}}, nil))
+	require.NoError(t, checkBlueskyGalleryMedia(t.Context(), []models.MediaAttachment{{MimeType: "image/gif", Size: 5_000_000}}, nil))
 }
 
 func TestBlueskyGalleryPreflightRespectsCancellation(t *testing.T) {

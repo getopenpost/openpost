@@ -16,7 +16,7 @@ func TestBlueskyThreadPreflightRejectsInvalidLaterSegmentBeforePublishing(t *tes
 		operations = append(operations, "load:"+segmentID)
 		return blueskyGalleryStoredMedia(5), []string{"alt"}, nil, nil
 	}
-	check := func(_ context.Context, segment *models.RenditionSegment, media []models.MediaAttachment) error {
+	check := func(_ context.Context, segment *models.RenditionSegment, _ []models.MediaAttachment) error {
 		operations = append(operations, "check:"+segment.ID)
 		if segment.ID == "second" {
 			return errors.New("final gallery object missing")

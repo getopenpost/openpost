@@ -90,16 +90,21 @@ export async function uploadBinaryMedia(
     throw new Error("OpenPost returned an invalid upload completion URL.");
   }
 
+  // Local storage returns a path on the OpenPost origin, which needs the API
+  // token; storage presigned URLs are absolute and must not receive it.
+  const uploadUrl = new URL(upload.url, apiOrigin);
+  const uploadsToOpenPost = uploadUrl.origin === apiOrigin;
   const uploadOptions: IHttpRequestOptions = {
     method: (upload.method || "PUT") as IHttpRequestOptions["method"],
-    url: upload.url,
+    url: uploadsToOpenPost ? uploadUrl.href : upload.url,
     headers: upload.headers ?? {},
     body: buffer,
     returnFullResponse: true,
     json: false,
     sendCredentialsOnCrossOriginRedirect: false,
   };
-  await context.helpers.httpRequest(uploadOptions);
+  if (uploadsToOpenPost) await openPostApiRequest(context, uploadOptions);
+  else await context.helpers.httpRequest(uploadOptions);
 
   const complete = (await openPostApiRequest(
     context,

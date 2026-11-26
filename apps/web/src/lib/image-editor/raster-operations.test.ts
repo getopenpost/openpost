@@ -114,19 +114,27 @@ describe('explicit raster operations', () => {
 		const nested = fixture([group, { ...layer('child', 'group'), locked: true }]);
 		expect(prepareRasterOperation(nested.document!, 'page', ['group'], 'rasterize')).toBeNull();
 	});
-	it('commits a bake after autosave or preview attachment replaced the document without editing it', () => {
+	it('commits a bake after a save reply or preview attachment replaced the document without editing it', () => {
 		const editor = fixture();
+		// New text layers hold optional keys set to undefined; a JSON save reply omits them.
+		editor.addText('Title');
 		const plan = prepareRasterOperation(editor.document!, 'page', [], 'flatten_page')!;
-		const document = editor.document!;
+		const saved: ImageEditorDocument = JSON.parse(JSON.stringify(editor.document));
 		editor.document = {
-			...structuredClone(document),
-			pages: document.pages.map((page) => ({
-				...structuredClone(page),
-				preview_media_id: 'preview'
-			}))
+			...saved,
+			pages: saved.pages.map((page) => ({ ...page, preview_media_id: 'preview' }))
 		};
 		expect(editor.commitRasterOperation(plan, 'flat-media', 'Flatten page')).toBe(true);
 		expect(editor.activePage!.layers).toHaveLength(1);
+	});
+	it('rejects a bake after an authored edit replaced the document', () => {
+		const editor = fixture();
+		const plan = prepareRasterOperation(editor.document!, 'page', [], 'flatten_page')!;
+		const edited: ImageEditorDocument = JSON.parse(JSON.stringify(editor.document));
+		edited.pages[0].layers[0].name = 'renamed';
+		editor.document = edited;
+		expect(editor.commitRasterOperation(plan, 'flat-media', 'Flatten page')).toBe(false);
+		expect(editor.activePage!.layers).toHaveLength(3);
 	});
 	it('keeps page grading outside a layer bake but includes it exactly once when flattening', () => {
 		const editor = fixture();

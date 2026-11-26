@@ -141,10 +141,13 @@ export function prepareRasterOperation(
 	};
 }
 
-function withoutPagePreviews(document: ImageEditorDocument): ImageEditorDocument {
+// Compare the persisted JSON form: save replies omit optional keys that local
+// edits hold as undefined, and page previews are not authored content.
+function authoredDocument(document: ImageEditorDocument): ImageEditorDocument {
+	const persisted: ImageEditorDocument = JSON.parse(JSON.stringify(document));
 	return {
-		...document,
-		pages: document.pages.map(({ preview_media_id: _preview, ...page }) => page)
+		...persisted,
+		pages: persisted.pages.map(({ preview_media_id: _preview, ...page }) => page)
 	};
 }
 
@@ -159,8 +162,8 @@ export function rasterPlanIsCurrent(
 ): boolean {
 	if (!document) return false;
 	if (document === plan.sourceDocument) return true;
-	const source = withoutPagePreviews(plan.sourceDocument);
-	return replaceEqualDeep(source, withoutPagePreviews(document)) === source;
+	const source = authoredDocument(plan.sourceDocument);
+	return replaceEqualDeep(source, authoredDocument(document)) === source;
 }
 
 export function rasterRenderDocument(plan: ImageEditorRasterPlan): ImageEditorDocument {

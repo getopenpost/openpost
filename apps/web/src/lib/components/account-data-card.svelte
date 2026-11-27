@@ -249,7 +249,7 @@
 	<div class="divide-y border-t">
 		<Collapsible.Root bind:open={passwordOpen}>
 			<Collapsible.Trigger
-				class="group flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+				class="group flex min-h-16 w-full items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
 			>
 				<ThemeIcon role="key" class="size-4 shrink-0 text-muted-foreground" />
 				<span class="min-w-0 flex-1">
@@ -325,7 +325,7 @@
 
 		<Collapsible.Root bind:open={exportOpen}>
 			<Collapsible.Trigger
-				class="group flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+				class="group flex min-h-16 w-full items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
 			>
 				<ThemeIcon role="download" class="size-4 shrink-0 text-muted-foreground" />
 				<span class="min-w-0 flex-1">

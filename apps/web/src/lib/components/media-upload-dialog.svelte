@@ -79,10 +79,10 @@
 
 <Dialog.Root bind:open onOpenChange={handleOpenChange}>
 	<Dialog.Content
-		class="top-0 left-0 flex h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none p-0 sm:top-1/2 sm:left-1/2 sm:h-[min(760px,calc(100dvh-2rem))] sm:max-w-4xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
+		class="start-0 top-0 flex h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none p-0 sm:top-1/2 sm:left-1/2 sm:h-[min(760px,calc(100dvh-2rem))] sm:max-w-4xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
 	>
 		<div class="contents" {@attach initialize}></div>
-		<Dialog.Header class="shrink-0 border-b px-5 py-4 pr-14">
+		<Dialog.Header class="shrink-0 border-b px-5 py-4 pe-14">
 			<Dialog.Title>{m.media_upload_title()}</Dialog.Title>
 			<Dialog.Description>{m.media_upload_description_custom()}</Dialog.Description>
 		</Dialog.Header>

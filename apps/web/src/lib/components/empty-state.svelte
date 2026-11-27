@@ -64,7 +64,7 @@
 
 <div
 	data-slot="empty-state"
-	class="empty-state flex flex-col items-start gap-4 rounded-lg px-4 text-left {variantClasses[
+	class="empty-state flex flex-col items-start gap-4 rounded-lg px-4 text-start {variantClasses[
 		variant
 	]} {sizeClasses[size]}"
 >

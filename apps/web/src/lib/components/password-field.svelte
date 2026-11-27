@@ -48,13 +48,13 @@
 			{minlength}
 			{maxlength}
 			aria-describedby={describedby}
-			class="pr-12"
+			class="pe-12"
 		/>
 		<Button
 			type="button"
 			variant="ghost"
 			size="icon-sm"
-			class="absolute top-1/2 right-0 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+			class="absolute end-0 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
 			aria-label={visible ? m.auth_password_hide() : m.auth_password_show()}
 			aria-pressed={visible}
 			onclick={() => (visible = !visible)}

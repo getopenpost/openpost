@@ -3257,7 +3257,7 @@
 			});
 		}}
 	>
-		<div class="flex items-center gap-0.5 pl-0.5">
+		<div class="flex items-center gap-0.5 ps-0.5">
 			<Button
 				variant="ghost"
 				size="icon"
@@ -3361,7 +3361,7 @@
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>
 		</div>
-		<div class="ml-auto flex items-center gap-1">
+		<div class="ms-auto flex items-center gap-1">
 			{#if selectedItem}
 				<DropdownMenu.Root>
 					<DropdownMenu.Trigger>
@@ -3738,7 +3738,7 @@
 						<Button
 							variant="ghost"
 							size="icon"
-							class="ml-auto size-7 rounded text-red-300 hover:bg-red-500/15 hover:text-red-200"
+							class="ms-auto size-7 rounded text-red-300 hover:bg-red-500/15 hover:text-red-200"
 							aria-label={m.video_editor_delete_marker()}
 							title={`${m.video_editor_delete_marker()} (Shift+M)`}
 							onclick={() => markers.deleteTimelineMarker(selectedMarker.id)}
@@ -3801,7 +3801,7 @@
 					>
 						{#if mediaPlacement.request || rejectedMove}
 							<div
-								class="pointer-events-none absolute top-1 right-2 left-2 z-[70] w-auto rounded-md border border-[oklch(0.38_0.015_55)] bg-[oklch(0.17_0.01_55_/_0.96)] px-3 py-1.5 text-xs text-white shadow-xl sm:right-auto sm:left-1/2 sm:w-max sm:max-w-[calc(100%-1rem)] sm:-translate-x-1/2"
+								class="pointer-events-none absolute start-2 end-2 top-1 z-[70] w-auto rounded-md border border-[oklch(0.38_0.015_55)] bg-[oklch(0.17_0.01_55_/_0.96)] px-3 py-1.5 text-xs text-white shadow-xl sm:end-auto sm:left-1/2 sm:w-max sm:max-w-[calc(100%-1rem)] sm:-translate-x-1/2"
 								role="status"
 								aria-live="polite"
 								data-media-placement-status
@@ -3811,7 +3811,7 @@
 										mediaPlacement.request?.payload.label ??
 										''}</span
 								>
-								<span class="ml-1 text-[oklch(0.7_0.015_55)]">
+								<span class="ms-1 text-[oklch(0.7_0.015_55)]">
 									{rejectedMove
 										? m.video_editor_media_placement_unavailable()
 										: !drops.mediaDropPreview
@@ -3848,12 +3848,12 @@
 								onpointerdown={startRulerScrub}
 							>
 								<div
-									class="sticky left-0 z-30 h-full border-r border-[var(--video-editor-border)] bg-[var(--timeline-track)]"
+									class="sticky start-0 z-30 h-full border-e border-[var(--video-editor-border)] bg-[var(--timeline-track)]"
 									style="width:{TRACK_HEADER_WIDTH}px"
 								></div>
 								{#each rulerTicks() as tick (tick)}
 									<span
-										class="absolute bottom-0 border-l border-[var(--video-editor-border)] pl-1 font-mono text-xs text-[var(--video-editor-muted)]"
+										class="absolute bottom-0 border-s border-[var(--video-editor-border)] ps-1 font-mono text-xs text-[var(--video-editor-muted)]"
 										style="left:{timelineX(tick)}px"
 									>
 										{tickLabel(tick)}
@@ -3888,7 +3888,7 @@
 										onkeydown={(event) => markers.onMarkerKeydown(event, marker)}
 									>
 										<span
-											class="block h-0 w-0 border-r-[6px] border-l-[6px] border-r-transparent border-l-transparent drop-shadow-sm {timelineStore.selectedMarkerId ===
+											class="block h-0 w-0 border-s-[6px] border-e-[6px] border-s-transparent border-e-transparent drop-shadow-sm {timelineStore.selectedMarkerId ===
 											marker.id
 												? 'drop-shadow-[0_0_2px_white]'
 												: ''}"
@@ -3936,7 +3936,7 @@
 									ondrop={track.isGroup ? undefined : (event) => drops.dropOnTrack(event, track.id)}
 								>
 									<div
-										class="sticky left-0 z-30 h-full"
+										class="sticky start-0 z-30 h-full"
 										style="width:{TRACK_HEADER_WIDTH}px"
 										data-marquee-ignore
 									>
@@ -4037,7 +4037,7 @@
 										{#if !syncLockPreviewById[item.id]?.hidden}
 											<!-- svelte-ignore a11y_no_static_element_interactions -->
 											<div
-												class="group/timeline-item @container absolute top-1 h-[calc(100%-8px)] touch-none rounded-sm border text-left {selectedItemIds.includes(
+												class="group/timeline-item @container absolute top-1 h-[calc(100%-8px)] touch-none rounded-sm border text-start {selectedItemIds.includes(
 													item.id
 												)
 													? 'border-[oklch(0.66_0.14_45)] ring-1 ring-[oklch(0.66_0.14_45)]'
@@ -4055,8 +4055,8 @@
 													<div
 														class="pointer-events-none absolute inset-y-0 z-40 w-1/3 border border-dashed border-[oklch(0.72_0.14_45)] bg-[oklch(0.66_0.14_45_/_0.2)] {drops
 															.transitionDropPreview.edge === 'left'
-															? 'left-0 rounded-l-sm'
-															: 'right-0 rounded-r-sm'}"
+															? 'start-0 rounded-s-sm'
+															: 'end-0 rounded-e-sm'}"
 														data-transition-drop-preview
 														data-transition-edge={drops.transitionDropPreview.edge}
 													></div>
@@ -4075,7 +4075,7 @@
 														{/if}
 														{#if drops.effectDropHoveredItemId === item.id && drops.effectDropTargetIds.length > 1}
 															<span
-																class="absolute top-1 right-1 rounded-full bg-[oklch(0.66_0.14_45)] px-1.5 py-0.5 text-xs font-medium text-[oklch(0.16_0.008_55)]"
+																class="absolute end-1 top-1 rounded-full bg-[oklch(0.66_0.14_45)] px-1.5 py-0.5 text-xs font-medium text-[oklch(0.16_0.008_55)]"
 															>
 																{m.video_editor_effects_drop_count({
 																	count: drops.effectDropTargetIds.length
@@ -4086,7 +4086,7 @@
 												{/if}
 												<button
 													type="button"
-													class="absolute inset-0 flex min-w-0 items-center overflow-hidden text-left {activeEditTool ===
+													class="absolute inset-0 flex min-w-0 items-center overflow-hidden text-start {activeEditTool ===
 													'razor'
 														? 'cursor-crosshair'
 														: activeEditTool === 'track-push'
@@ -4192,7 +4192,7 @@
 													{/if}
 													{#if item.isReversed}
 														<span
-															class="relative z-10 mr-2 rounded bg-black/55 px-1 py-0.5 text-xs font-semibold text-white/85"
+															class="relative z-10 me-2 rounded bg-black/55 px-1 py-0.5 text-xs font-semibold text-white/85"
 															title={m.video_editor_clip_reverse()}
 														>
 															{m.video_editor_clip_reverse_badge()}
@@ -4231,7 +4231,7 @@
 														></span>
 														{#if audio.audioVolumeDrag?.itemId === item.id}
 															<span
-																class="pointer-events-none absolute right-1 bottom-full mb-1 rounded bg-black/90 px-1.5 py-0.5 font-mono text-xs text-white shadow-lg"
+																class="pointer-events-none absolute end-1 bottom-full mb-1 rounded bg-black/90 px-1.5 py-0.5 font-mono text-xs text-white shadow-lg"
 																data-audio-volume-readout
 															>
 																{formatAudioVolumeDb(volumeDb)}
@@ -4241,7 +4241,7 @@
 												{/if}
 												<button
 													type="button"
-													class="absolute inset-y-0 left-0 z-20 w-3 max-w-[25%] min-w-0! cursor-ew-resize opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white @max-[8px]:pointer-events-none [@media(pointer:coarse)]:w-11 {activeEditTool ===
+													class="absolute inset-y-0 start-0 z-20 w-3 max-w-[25%] min-w-0! cursor-ew-resize opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white @max-[8px]:pointer-events-none [@media(pointer:coarse)]:w-11 {activeEditTool ===
 													'track-push'
 														? pushAvailability === 'ready'
 															? 'bg-cyan-400/45 hover:bg-cyan-300/70'
@@ -4282,7 +4282,7 @@
 												></button>
 												<button
 													type="button"
-													class="absolute inset-y-0 right-0 z-20 w-3 max-w-[25%] min-w-0! cursor-ew-resize bg-white/15 opacity-0 group-hover:opacity-100 hover:bg-white/40 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white @max-[8px]:pointer-events-none [@media(pointer:coarse)]:w-11"
+													class="absolute inset-y-0 end-0 z-20 w-3 max-w-[25%] min-w-0! cursor-ew-resize bg-white/15 opacity-0 group-hover:opacity-100 hover:bg-white/40 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white @max-[8px]:pointer-events-none [@media(pointer:coarse)]:w-11"
 													aria-label={activeEditTool === 'rate-stretch'
 														? m.video_editor_rate_stretch()
 														: m.video_editor_trim_end()}
@@ -4350,7 +4350,7 @@
 												</button>
 												<button
 													type="button"
-													class="absolute inset-y-0 -left-3 z-20 w-6 cursor-ew-resize touch-none rounded-l-sm opacity-0 group-hover:opacity-100 hover:bg-white/25 hover:opacity-100 focus-visible:bg-white/25 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:-left-[22px] [@media(pointer:coarse)]:w-11"
+													class="absolute inset-y-0 -start-3 z-20 w-6 cursor-ew-resize touch-none rounded-s-sm opacity-0 group-hover:opacity-100 hover:bg-white/25 hover:opacity-100 focus-visible:bg-white/25 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:-start-[22px] [@media(pointer:coarse)]:w-11"
 													aria-label={m.video_editor_transition_resize_start()}
 													title={m.video_editor_transition_resize_keyboard()}
 													onkeydown={(event) =>
@@ -4360,7 +4360,7 @@
 												></button>
 												<button
 													type="button"
-													class="absolute inset-y-0 -right-3 z-20 w-6 cursor-ew-resize touch-none rounded-r-sm opacity-0 group-hover:opacity-100 hover:bg-white/25 hover:opacity-100 focus-visible:bg-white/25 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:-right-[22px] [@media(pointer:coarse)]:w-11"
+													class="absolute inset-y-0 -end-3 z-20 w-6 cursor-ew-resize touch-none rounded-e-sm opacity-0 group-hover:opacity-100 hover:bg-white/25 hover:opacity-100 focus-visible:bg-white/25 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:-end-[22px] [@media(pointer:coarse)]:w-11"
 													aria-label={m.video_editor_transition_resize_end()}
 													title={m.video_editor_transition_resize_keyboard()}
 													onkeydown={(event) =>
@@ -4419,7 +4419,7 @@
 									data-snap-guideline={activeSnapTarget.type}
 								>
 									<span
-										class="absolute top-6 left-1 rounded border border-[oklch(0.48_0.11_45)] bg-[oklch(0.18_0.015_55)] px-1.5 py-0.5 font-mono text-[9px] whitespace-nowrap text-[oklch(0.88_0.09_65)]"
+										class="absolute start-1 top-6 rounded border border-[oklch(0.48_0.11_45)] bg-[oklch(0.18_0.015_55)] px-1.5 py-0.5 font-mono text-[9px] whitespace-nowrap text-[oklch(0.88_0.09_65)]"
 									>
 										{m.video_editor_snapped_to({
 											time: tickLabel(activeSnapTarget.frame)
@@ -4439,7 +4439,7 @@
 										class="absolute top-1 left-1/2 size-2.5 -translate-x-1/2 rotate-45 rounded-[2px] border border-black/70 bg-white"
 									></span>
 									<span
-										class="absolute top-6 left-1 rounded border border-white/20 bg-black/85 px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap text-white shadow-sm"
+										class="absolute start-1 top-6 rounded border border-white/20 bg-black/85 px-1.5 py-0.5 font-mono text-[10px] whitespace-nowrap text-white shadow-sm"
 										style:transform={`translateX(min(0px, calc(${timelineViewport.scrollLeft + timelineViewport.width - timelineX($timelinePreviewScrub.frame) - 8}px - 100%)))`}
 										data-timeline-preview-timecode
 									>

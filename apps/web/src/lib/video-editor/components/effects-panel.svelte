@@ -848,7 +848,7 @@
 								>
 									<button
 										type="button"
-										class="flex min-w-0 flex-1 items-center gap-1 px-1 text-left text-xs text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)]"
+										class="flex min-w-0 flex-1 items-center gap-1 px-1 text-start text-xs text-[var(--video-editor-muted)] hover:text-[var(--video-editor-text)]"
 										class:opacity-55={!effect.enabled}
 										aria-expanded={!collapsedEffects.has(effect.id)}
 										onclick={() => toggleEffectCollapsed(effect.id)}
@@ -1029,7 +1029,7 @@
 									<div class="mt-1 flex items-center gap-1">
 										<button
 											type="button"
-											class="h-[25px] min-w-0 flex-1 truncate rounded border border-[var(--video-editor-border)] px-2 text-left text-[11px] hover:bg-[var(--video-editor-control-hover)]"
+											class="h-[25px] min-w-0 flex-1 truncate rounded border border-[var(--video-editor-border)] px-2 text-start text-[11px] hover:bg-[var(--video-editor-control-hover)]"
 											title={m.video_editor_effects_lut_size_note()}
 											onclick={() => importLut(effect)}
 											>{typeof effect.params.lutName === 'string' &&

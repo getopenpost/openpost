@@ -236,7 +236,7 @@
 
 		{#if loading && !config}
 			<div class="flex min-h-40 items-center justify-center text-sm text-muted-foreground">
-				<ProtectedIcon icon="loading" class="mr-2 size-4 animate-spin motion-reduce:animate-none" />
+				<ProtectedIcon icon="loading" class="me-2 size-4 animate-spin motion-reduce:animate-none" />
 				{m.feedback_loading()}
 			</div>
 		{:else if !config}
@@ -261,7 +261,7 @@
 				{#if config.support_url}
 					<Button href={config.support_url} target="_blank" rel="noreferrer">
 						{m.feedback_open_support()}
-						<ThemeIcon role="external-link" class="ml-2 size-4" />
+						<ThemeIcon role="external-link" class="ms-2 size-4" />
 					</Button>
 				{/if}
 			</div>
@@ -349,7 +349,7 @@
 						<p class="flex items-center text-xs text-muted-foreground">
 							<ProtectedIcon
 								icon="loading"
-								class="mr-2 size-3.5 animate-spin motion-reduce:animate-none"
+								class="me-2 size-3.5 animate-spin motion-reduce:animate-none"
 							/>
 							{m.feedback_screenshot_capturing()}
 						</p>
@@ -364,13 +364,13 @@
 								type="button"
 								variant="secondary"
 								size="icon-sm"
-								class="absolute top-2 right-2"
+								class="absolute end-2 top-2"
 								aria-label={m.feedback_screenshot_remove()}
 								onclick={() => void toggleScreenshot(false)}
 							>
 								<ThemeIcon role="close" class="size-4" />
 							</Button>
-							<p class="px-2 py-1 text-right text-xs text-muted-foreground">
+							<p class="px-2 py-1 text-end text-xs text-muted-foreground">
 								{Math.ceil(screenshotBytes / 1024)} KB
 							</p>
 						</div>
@@ -396,7 +396,7 @@
 							</span>
 						</span>
 					</label>
-					<ul class="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+					<ul class="list-disc space-y-1 ps-5 text-xs text-muted-foreground">
 						{#each config.diagnostic_categories as diagnostic (diagnostic)}
 							<li>{diagnostic}</li>
 						{/each}
@@ -425,7 +425,7 @@
 					<Button type="submit" disabled={sending || screenshotLoading || !message.trim()}>
 						{#if sending}<ProtectedIcon
 								icon="loading"
-								class="mr-2 size-4 animate-spin motion-reduce:animate-none"
+								class="me-2 size-4 animate-spin motion-reduce:animate-none"
 							/>{/if}
 						{sending ? m.feedback_sending() : m.feedback_send()}
 					</Button>

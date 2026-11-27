@@ -132,7 +132,7 @@
 				<dt class="text-[var(--video-editor-muted)]">{m.video_editor_diagnostics_layers()}</dt>
 				<dd class="font-mono tabular-nums">{snapshot.activeLayers}</dd>
 				<dt class="text-[var(--video-editor-muted)]">{m.video_editor_diagnostics_gpu()}</dt>
-				<dd class="max-w-48 text-right">{gpuLabel}</dd>
+				<dd class="max-w-48 text-end">{gpuLabel}</dd>
 				<dt class="text-[var(--video-editor-muted)]">{m.video_editor_diagnostics_proxies()}</dt>
 				<dd class="font-mono tabular-nums">
 					{snapshot.readyProxies}
@@ -197,7 +197,7 @@
 					type="button"
 					role="switch"
 					aria-checked={previewDiagnostics.performanceOverlay}
-					class="flex min-h-8 w-full items-center justify-between gap-4 rounded-md px-2 text-left text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9 [@media(pointer:coarse)]:min-h-11"
+					class="flex min-h-8 w-full items-center justify-between gap-4 rounded-md px-2 text-start text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9 [@media(pointer:coarse)]:min-h-11"
 					data-cuelume-toggle="toggle"
 					onclick={() =>
 						previewDiagnostics.setPerformanceOverlay(!previewDiagnostics.performanceOverlay)}
@@ -213,7 +213,7 @@
 					type="button"
 					role="switch"
 					aria-checked={previewDiagnostics.clipTimingOverlay}
-					class="flex min-h-8 w-full items-center justify-between gap-4 rounded-md px-2 text-left text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9 [@media(pointer:coarse)]:min-h-11"
+					class="flex min-h-8 w-full items-center justify-between gap-4 rounded-md px-2 text-start text-xs hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] md:min-h-9 [@media(pointer:coarse)]:min-h-11"
 					data-cuelume-toggle="toggle"
 					onclick={() =>
 						previewDiagnostics.setClipTimingOverlay(!previewDiagnostics.clipTimingOverlay)}

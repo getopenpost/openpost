@@ -242,7 +242,7 @@
 		{/if}
 		<Button
 			size="xs"
-			class="ml-auto px-1"
+			class="ms-auto px-1"
 			onclick={() => onUse(option)}
 			disabled={busy || rendering || !!error}>{m.ideate_use_post()}</Button
 		>

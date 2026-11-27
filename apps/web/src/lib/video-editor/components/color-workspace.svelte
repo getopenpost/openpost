@@ -425,7 +425,7 @@
 						{#each EDITOR_COLOR_GRADE_PRESETS as preset (preset.id)}
 							<button
 								type="button"
-								class="flex h-[25px] min-w-20 shrink-0 items-center gap-1.5 rounded-sm border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)] px-2 text-left hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:h-11"
+								class="flex h-[25px] min-w-20 shrink-0 items-center gap-1.5 rounded-sm border border-[var(--video-editor-border)] bg-[var(--video-editor-control-hover)] px-2 text-start hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:h-11"
 								title={editorColorGradePresetLabel(preset.id)}
 								onclick={() => applyBuiltinPreset(preset.id)}
 							>
@@ -444,7 +444,7 @@
 							>
 								<button
 									type="button"
-									class="flex h-[25px] w-full items-center gap-1.5 rounded-sm px-2 text-left hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:h-11"
+									class="flex h-[25px] w-full items-center gap-1.5 rounded-sm px-2 text-start hover:bg-[var(--video-editor-control-hover)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:h-11"
 									title={preset.name}
 									onclick={() => applyPreset(preset)}
 								>
@@ -456,7 +456,7 @@
 								</button>
 								<button
 									type="button"
-									class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-sm bg-[var(--video-editor-control)] text-[var(--video-editor-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--video-editor-text)] focus:opacity-100 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+									class="absolute end-1 top-1 flex size-5 items-center justify-center rounded-sm bg-[var(--video-editor-control)] text-[var(--video-editor-muted)] opacity-0 group-hover:opacity-100 hover:text-[var(--video-editor-text)] focus:opacity-100 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 									title={`${m.video_editor_color_delete_preset()}: ${preset.name}`}
 									aria-label={`${m.video_editor_color_delete_preset()}: ${preset.name}`}
 									onclick={(event) => {

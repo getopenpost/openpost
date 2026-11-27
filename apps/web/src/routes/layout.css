@@ -76,10 +76,22 @@
 @source '../../../../packages/social-preview/src';
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant rtl (&:where(:dir(rtl)));
+@custom-variant ltr (&:where(:dir(ltr)));
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
 @import '@openpost/ui/style.css';
+
+/*
+ * Arabic letters join, so tracking utilities would break words apart. The
+ * interface language sets :lang(ar); authored text keeps its own spacing.
+ */
+@layer utilities {
+	:root:lang(ar) :is(body, body *):not([dir='ltr'], [dir='ltr'] *) {
+		letter-spacing: normal;
+	}
+}
 
 @layer components {
 	/*

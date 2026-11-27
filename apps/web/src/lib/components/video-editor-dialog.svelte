@@ -296,7 +296,7 @@
 		onEscapeKeydown={(event) => rendering && event.preventDefault()}
 	>
 		<div class="contents" {@attach initializeEditor}></div>
-		<Dialog.Header class="border-b px-4 py-4 pr-14 sm:px-5">
+		<Dialog.Header class="border-b px-4 py-4 pe-14 sm:px-5">
 			<Dialog.Title class="flex items-center gap-2">
 				<ProtectedIcon icon="editor-cut" class="size-4" />
 				{m.video_upload_editor_title()}

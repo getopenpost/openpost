@@ -276,7 +276,7 @@
 							{#if workspaceCtx.currentWorkspace?.role === 'admin'}<Button
 									variant="ghost"
 									size="icon-sm"
-									class="mr-3"
+									class="me-3"
 									disabled={workflow.enabled}
 									aria-label={`${m.common_delete()}: ${workflow.name}`}
 									onclick={() => {
@@ -384,7 +384,7 @@
 				{#each runsQuery.data ?? [] as run (run.id)}<button
 						id={`workflow-run-${run.id}`}
 						type="button"
-						class="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+						class="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-start hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
 						onclick={() => {
 							selectedRun = run.id;
 							selectedRunWorkspaceID = workspaceID;

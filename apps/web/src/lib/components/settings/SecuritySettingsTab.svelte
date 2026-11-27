@@ -1337,7 +1337,7 @@
 		>
 			{#each recoveryCodes as code, index (code)}
 				<li class="flex min-w-0 items-center gap-2 font-mono text-sm">
-					<span class="w-5 shrink-0 text-right text-xs text-muted-foreground">{index + 1}.</span>
+					<span class="w-5 shrink-0 text-end text-xs text-muted-foreground">{index + 1}.</span>
 					<code class="break-all">{code}</code>
 				</li>
 			{/each}
@@ -1473,7 +1473,7 @@
 					{#if authSessionsLoading}
 						<ProtectedIcon
 							icon="loading"
-							class="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none"
+							class="me-2 h-4 w-4 animate-spin motion-reduce:animate-none"
 						/>
 					{/if}
 					{m.common_refresh()}
@@ -1528,10 +1528,10 @@
 								{#if authSessionBusyID === session.id}
 									<ProtectedIcon
 										icon="loading"
-										class="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none"
+										class="me-2 h-4 w-4 animate-spin motion-reduce:animate-none"
 									/>
 								{:else}
-									<ThemeIcon role="logout" class="mr-2 h-4 w-4" />
+									<ThemeIcon role="logout" class="me-2 h-4 w-4" />
 								{/if}
 								{session.current ? m.settings_sign_out() : m.settings_revoke()}
 							</Button>
@@ -1646,7 +1646,7 @@
 					>
 						{#if emailChangeBusy}<ProtectedIcon
 								icon="loading"
-								class="mr-2 size-4 animate-spin motion-reduce:animate-none"
+								class="me-2 size-4 animate-spin motion-reduce:animate-none"
 							/>{/if}
 						{m.settings_start_email_change()}
 					</Button>
@@ -1839,7 +1839,7 @@
 							>
 								<div class="px-4 pb-4">
 									<ol
-										class="mt-2 list-decimal space-y-1.5 pl-5 text-sm leading-5 text-muted-foreground marker:font-medium marker:text-foreground"
+										class="mt-2 list-decimal space-y-1.5 ps-5 text-sm leading-5 text-muted-foreground marker:font-medium marker:text-foreground"
 									>
 										<li>{m.settings_totp_setup_step_choose()}</li>
 										<li>{m.settings_totp_setup_step_reauth()}</li>
@@ -1909,7 +1909,7 @@
 											class="shrink-0"
 											onclick={() => void copyTOTPSetupKey()}
 										>
-											<ThemeIcon role="copy" class="mr-2 size-4" />
+											<ThemeIcon role="copy" class="me-2 size-4" />
 											{m.settings_totp_setup_copy_key()}
 										</Button>
 									</div>

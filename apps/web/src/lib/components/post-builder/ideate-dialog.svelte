@@ -726,7 +726,7 @@
 						type="button"
 						variant="ghost"
 						size="sm"
-						class="ml-auto"
+						class="ms-auto"
 						disabled={active || using || discovering || !selectedAccounts.length}
 						title={m.ideate_suggest_description()}
 						onclick={() => void discover()}
@@ -747,7 +747,7 @@
 								multiline
 								type="button"
 								variant="outline"
-								class="h-auto min-h-11 flex-col items-start gap-1 p-3 text-left whitespace-normal"
+								class="h-auto min-h-11 flex-col items-start gap-1 p-3 text-start whitespace-normal"
 								onclick={() => {
 									idea = [opportunity.title, opportunity.hook].filter(Boolean).join('\n\n');
 									opportunities = [];
@@ -1030,7 +1030,7 @@
 			: 'sm:max-w-2xl'}"
 		data-testid="ideate-dialog"
 	>
-		<Dialog.Header class="shrink-0 border-b px-4 py-4 pr-14 sm:px-6">
+		<Dialog.Header class="shrink-0 border-b px-4 py-4 pe-14 sm:px-6">
 			<Dialog.Title>{m.compose_ai_ideate()}</Dialog.Title>
 			<Dialog.Description class="mt-1 text-sm text-muted-foreground"
 				>{seriesMode ? m.series_description() : m.ideate_description()}</Dialog.Description

@@ -264,7 +264,7 @@
 				type="button"
 				variant="outline"
 				size="sm"
-				class="min-h-11 w-full sm:ml-2 sm:w-auto"
+				class="min-h-11 w-full sm:ms-2 sm:w-auto"
 				disabled={applying || editing}
 				onclick={editFrame}
 			>

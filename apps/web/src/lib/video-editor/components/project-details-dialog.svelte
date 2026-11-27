@@ -117,7 +117,7 @@
 					placeholder={m.video_editor_project_description_placeholder()}
 				/>
 				<span
-					class="text-right text-[10px] font-normal text-[var(--video-editor-muted)] tabular-nums"
+					class="text-end text-[10px] font-normal text-[var(--video-editor-muted)] tabular-nums"
 				>
 					{description.length}/{MAX_PROJECT_DESCRIPTION_LENGTH}
 				</span>

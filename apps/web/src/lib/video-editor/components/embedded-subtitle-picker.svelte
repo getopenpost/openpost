@@ -191,7 +191,7 @@
 				<RadioGroup.Root
 					value={selectedTrackNumber}
 					onValueChange={(value) => (selectedTrackNumber = value)}
-					class="max-h-72 space-y-1 overflow-y-auto pr-1"
+					class="max-h-72 space-y-1 overflow-y-auto pe-1"
 					aria-label={m.video_editor_subtitle_choose_track()}
 				>
 					{#each result.tracks as track (track.trackNumber)}

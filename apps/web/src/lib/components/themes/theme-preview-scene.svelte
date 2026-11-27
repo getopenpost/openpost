@@ -50,7 +50,7 @@
 	<div class="relative flex h-full">
 		<aside
 			data-slot="sidebar"
-			class="preview-sidebar flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar bg-[image:var(--theme-asset-sidebar-decoration)] bg-bottom bg-no-repeat p-3 text-sidebar-foreground"
+			class="preview-sidebar flex shrink-0 flex-col border-e border-sidebar-border bg-sidebar bg-[image:var(--theme-asset-sidebar-decoration)] bg-bottom bg-no-repeat p-3 text-sidebar-foreground"
 			style="width: min(var(--theme-sidebar-width, 16rem), 34%);"
 		>
 			<Logo showText width={92} height={20} class="mb-5" />
@@ -96,7 +96,7 @@
 					<span class="size-1.5 rounded-full bg-success"></span>
 					{copy.allSystemsReady}
 				</div>
-				<div class="ml-auto flex items-center gap-2">
+				<div class="ms-auto flex items-center gap-2">
 					<span data-theme-type="metadata" class="hidden text-muted-foreground sm:inline"
 						>{copy.date}</span
 					>
@@ -115,7 +115,7 @@
 					data-protected-editor-chrome={scene}
 				>
 					<div
-						class="flex flex-col items-center gap-2 border-r border-[var(--editor-border)] bg-[var(--editor-panel)] py-3"
+						class="flex flex-col items-center gap-2 border-e border-[var(--editor-border)] bg-[var(--editor-panel)] py-3"
 					>
 						{#each [0, 1, 2, 3, 4] as tool (tool)}
 							<div
@@ -148,7 +148,7 @@
 								<div class="h-5 rounded bg-[var(--timeline-clip)]"></div>
 								<div class="mt-1 h-4 rounded bg-[var(--timeline-waveform)]/30"></div>
 								<div
-									class="absolute top-0 bottom-0 left-1/3 w-px bg-[var(--timeline-playhead)]"
+									class="absolute start-1/3 top-0 bottom-0 w-px bg-[var(--timeline-playhead)]"
 								></div>
 							</div>
 						{/if}
@@ -266,14 +266,13 @@
 						>
 							<table
 								data-theme-type="metadata"
-								class="w-full table-fixed border-collapse text-left"
+								class="w-full table-fixed border-collapse text-start"
 							>
 								<thead class="bg-muted text-muted-foreground">
 									<tr>
 										<th class="w-[46%] px-3 py-2 font-medium">{copy.tableHeaders.publication}</th>
 										<th class="w-[34%] px-3 py-2 font-medium">{copy.tableHeaders.status}</th>
-										<th class="w-[20%] px-3 py-2 text-right font-medium"
-											>{copy.tableHeaders.reach}</th
+										<th class="w-[20%] px-3 py-2 text-end font-medium">{copy.tableHeaders.reach}</th
 										>
 									</tr>
 								</thead>
@@ -282,7 +281,7 @@
 										<tr data-slot="table-row">
 											<td class="px-3 py-2.5 font-medium break-words">{row.publication}</td>
 											<td class="px-3 py-2.5 break-words text-muted-foreground">{row.status}</td>
-											<td data-theme-type="code" class="px-3 py-2.5 text-right tabular-nums"
+											<td data-theme-type="code" class="px-3 py-2.5 text-end tabular-nums"
 												>{row.reach}</td
 											>
 										</tr>
@@ -304,7 +303,7 @@
 										</p>
 									</div>
 									<div class="h-5 w-9 rounded-full bg-[var(--action-primary)] p-0.5">
-										<div class="ml-auto size-4 rounded-full bg-white"></div>
+										<div class="ms-auto size-4 rounded-full bg-white"></div>
 									</div>
 								</div>
 							{/each}

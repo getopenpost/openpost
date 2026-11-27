@@ -429,7 +429,7 @@
 									>{m.video_editor_audio_noise_enable()}</Label
 								>
 							</div>
-							<span class="ml-auto text-[10px] text-muted-foreground" aria-live="polite">
+							<span class="ms-auto text-[10px] text-muted-foreground" aria-live="polite">
 								{noise.enabled
 									? m.video_editor_audio_noise_applied({ amount: String(noise.amount) })
 									: m.video_editor_audio_noise_bypassed()}

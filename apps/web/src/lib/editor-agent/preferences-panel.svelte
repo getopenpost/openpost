@@ -131,10 +131,10 @@
 					/>
 					<span class="min-w-0 break-words">{rule.rule}</span>
 				</label>
-				<p class="pl-6 text-muted-foreground">
+				<p class="ps-6 text-muted-foreground">
 					{rule.project_id ? m.video_editor_transcript_scope_project() : m.settings_personal()}
 				</p>
-				{#if rule.context}<p class="pl-6 text-muted-foreground">{rule.context}</p>{/if}
+				{#if rule.context}<p class="ps-6 text-muted-foreground">{rule.context}</p>{/if}
 				{#if editingId === rule.id}
 					<Textarea
 						bind:value={draft}
@@ -149,7 +149,7 @@
 						>{m.common_cancel()}</Button
 					>
 				{:else}
-					<div class="flex flex-wrap gap-1 pl-6">
+					<div class="flex flex-wrap gap-1 ps-6">
 						<Button
 							size="sm"
 							variant="ghost"

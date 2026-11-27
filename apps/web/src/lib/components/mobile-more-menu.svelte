@@ -116,7 +116,7 @@
 		onSelect={() => openSection('workspace')}
 		><ThemeIcon role="organization" class="size-4" />{m.sidebar_workspace()}<ThemeIcon
 			role="chevron-right"
-			class="ml-auto size-4"
+			class="ms-auto size-4"
 		/></DropdownMenu.Item
 	>
 	<DropdownMenu.Item
@@ -126,7 +126,7 @@
 		onSelect={() => openSection('profile')}
 		><ThemeIcon role="user" class="size-4" />{m.personal_profile()}<ThemeIcon
 			role="chevron-right"
-			class="ml-auto size-4"
+			class="ms-auto size-4"
 		/></DropdownMenu.Item
 	>
 {/if}

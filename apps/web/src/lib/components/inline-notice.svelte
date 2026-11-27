@@ -76,7 +76,7 @@
 		<Button
 			variant="ghost"
 			size="icon-sm"
-			class="-my-1 -mr-1 shrink-0 text-current hover:text-current"
+			class="-my-1 -me-1 shrink-0 text-current hover:text-current"
 			onclick={onDismiss}
 			aria-label={dismissLabel}
 		>

@@ -151,7 +151,7 @@
 				>{m.saved_mentions_description()}</Dialog.Description
 			></Dialog.Header
 		>
-		<div class="min-h-0 space-y-5 overflow-y-auto pr-1">
+		<div class="min-h-0 space-y-5 overflow-y-auto pe-1">
 			{#if loading}<p class="text-sm text-muted-foreground" role="status">
 					{m.editor_searching()}
 				</p>{/if}

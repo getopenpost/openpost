@@ -233,7 +233,7 @@
 					variant="destructive"
 					onclick={removePlan}
 					disabled={saving || success}
-					class="mr-auto"
+					class="me-auto"
 				>
 					{#if saving}
 						<ProtectedIcon icon="loading" class="size-4 animate-spin motion-reduce:animate-none" />

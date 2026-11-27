@@ -70,11 +70,11 @@
 	<div aria-hidden="true" data-scope-overlay={scope} class="pointer-events-none absolute inset-0">
 		{#each LUMA_GUIDES as level (level)}
 			<div
-				class="absolute right-0 left-0 border-t border-slate-400/20"
+				class="absolute start-0 end-0 border-t border-slate-400/20"
 				style:top={level === 0 ? 'calc(100% - 1px)' : `${100 - level}%`}
 			>
 				<span
-					class="absolute left-1 rounded-sm bg-black/50 px-1 font-mono text-[9px] leading-4 text-slate-300/80"
+					class="absolute start-1 rounded-sm bg-black/50 px-1 font-mono text-[9px] leading-4 text-slate-300/80"
 					style:transform={level === 100
 						? 'translateY(0)'
 						: level === 0
@@ -87,13 +87,13 @@
 		{/each}
 
 		{#if scope === 'histogram'}
-			<span class="absolute bottom-1 left-1 font-mono text-[9px] text-slate-400/80">0</span>
-			<span class="absolute right-1 bottom-1 font-mono text-[9px] text-slate-400/80">255</span>
+			<span class="absolute start-1 bottom-1 font-mono text-[9px] text-slate-400/80">0</span>
+			<span class="absolute end-1 bottom-1 font-mono text-[9px] text-slate-400/80">255</span>
 		{/if}
 
 		{#if scope === 'parade'}
-			<div class="absolute top-0 bottom-0 left-1/3 border-l border-slate-400/25"></div>
-			<div class="absolute top-0 right-1/3 bottom-0 border-l border-slate-400/25"></div>
+			<div class="absolute start-1/3 top-0 bottom-0 border-s border-slate-400/25"></div>
+			<div class="absolute end-1/3 top-0 bottom-0 border-s border-slate-400/25"></div>
 			{#each PARADE_CHANNELS as channel (channel.label)}
 				<span
 					class="absolute top-1 -translate-x-1/2 rounded-sm bg-black/50 px-1 font-mono text-[10px] leading-4 {channel.className}"

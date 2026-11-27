@@ -408,7 +408,7 @@
 {#snippet templateCard(template: ImageEditorTemplate)}
 	<button
 		type="button"
-		class="min-w-0 overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+		class="min-w-0 overflow-hidden rounded-xl border bg-card text-start transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
 		onclick={() => startTemplate(template)}
 		aria-label={template.built_in
 			? templateName(template)
@@ -567,7 +567,7 @@
 								<Button
 									variant="ghost"
 									size="icon-sm"
-									class="absolute top-2 right-2 bg-background/90"
+									class="absolute end-2 top-2 bg-background/90"
 									onclick={() => requestDelete(design, workspaceID)}
 									aria-label={m.image_editor_public_delete_design({ title: design.title })}
 								>
@@ -605,7 +605,7 @@
 							<Button
 								variant="ghost"
 								size="icon-sm"
-								class="absolute top-2 right-2 bg-background/90"
+								class="absolute end-2 top-2 bg-background/90"
 								onclick={() => requestDelete(design)}
 								aria-label={m.image_editor_public_delete_design({ title: design.document.title })}
 							>
@@ -643,7 +643,7 @@
 				<Button
 					variant="ghost"
 					size="sm"
-					class="-ml-2"
+					class="-ms-2"
 					aria-expanded={trashOpen}
 					onclick={() => {
 						trashOpen = !trashOpen;

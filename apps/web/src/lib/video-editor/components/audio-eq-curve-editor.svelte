@@ -389,7 +389,7 @@
 	onpointerup={finishDrag}
 	onpointercancel={cancelDrag}
 >
-	<span class="pointer-events-none absolute top-2 right-2 text-xs text-white/60"
+	<span class="pointer-events-none absolute end-2 top-2 text-xs text-white/60"
 		>{m.video_editor_audio_eq_gain()}</span
 	>
 	<svg
@@ -432,7 +432,7 @@
 
 	{#each GRID_LEVELS_DB as level (level)}
 		<span
-			class="pointer-events-none absolute left-1.5 -translate-y-1/2 text-xs leading-none text-white/60 tabular-nums"
+			class="pointer-events-none absolute start-1.5 -translate-y-1/2 text-xs leading-none text-white/60 tabular-nums"
 			style={`top: ${(displayDbToY(level) / HEIGHT) * 100}%`}>{level}</span
 		>
 	{/each}

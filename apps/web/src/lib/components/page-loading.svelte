@@ -220,7 +220,7 @@
 				class="calendar-loading-shell hidden grid-cols-7 grid-rows-6 overflow-hidden rounded-lg border xl:grid"
 			>
 				{#each calendarDayKeys as key (key)}
-					<div class="min-h-0 border-r border-b p-1.5 last:border-r-0">
+					<div class="min-h-0 border-e border-b p-1.5 last:border-e-0">
 						<Skeleton class="size-5" />
 						<div class="mt-1 space-y-1">
 							<Skeleton class="h-6 w-full" />

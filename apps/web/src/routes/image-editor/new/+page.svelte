@@ -560,11 +560,11 @@
 					<div class="relative mt-3 max-w-sm">
 						<ThemeIcon
 							role="search"
-							class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+							class="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
 						/>
 						<Input
 							bind:value={templateSearch}
-							class="pl-9"
+							class="ps-9"
 							placeholder={m.image_editor_search_templates()}
 							aria-label={m.image_editor_search_templates()}
 						/>
@@ -625,7 +625,7 @@
 	<button
 		type="button"
 		aria-label={templateName(template)}
-		class="rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/2 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:outline-none"
+		class="rounded-xl border bg-card p-3 text-start transition-colors hover:border-primary/40 hover:bg-primary/2 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:outline-none"
 		onclick={() => createTemplate(template)}
 		disabled={Boolean(creating)}
 	>

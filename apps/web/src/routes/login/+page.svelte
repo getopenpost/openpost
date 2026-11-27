@@ -434,7 +434,7 @@
 			/>
 
 			{#if authConfiguration?.password_reset_enabled}
-				<div class="-mt-2 text-right">
+				<div class="-mt-2 text-end">
 					<a
 						href={resolveAppPath('/forgot-password')}
 						class="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline"

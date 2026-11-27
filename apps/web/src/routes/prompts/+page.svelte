@@ -439,7 +439,7 @@
 								>
 									<button
 										type="button"
-										class="flex-1 rounded-t-md p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+										class="flex-1 rounded-t-md p-3 text-start outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 										onclick={() => usePrompt(prompt)}
 									>
 										<p
@@ -565,7 +565,7 @@
 							{#if submitting}
 								<ProtectedIcon
 									icon="loading"
-									class="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none"
+									class="me-2 h-4 w-4 animate-spin motion-reduce:animate-none"
 								/>
 							{/if}
 							{editingPrompt ? m.common_save() : m.prompts_add()}

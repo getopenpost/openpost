@@ -1088,7 +1088,7 @@
 				aria-busy={loading || loadingMore}
 			>
 				<section
-					class={['border-r', selectedId ? 'hidden lg:block' : 'block']}
+					class={['border-e', selectedId ? 'hidden lg:block' : 'block']}
 					aria-label={m.messages_heading()}
 				>
 					<div class="h-full divide-y overflow-y-auto">
@@ -1097,7 +1097,7 @@
 								type="button"
 								data-unread={conversation.unread_count > 0}
 								class={[
-									'flex min-h-20 w-full gap-3 p-3 text-left transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset',
+									'flex min-h-20 w-full gap-3 p-3 text-start transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset',
 									selectedId === conversation.id && 'bg-muted/60'
 								]}
 								onclick={() => void selectConversation(conversation)}
@@ -1179,7 +1179,7 @@
 									{/if}
 									{#snippet actions()}
 										<Button variant="outline" size="sm" onclick={() => void messageQuery.refetch()}>
-											<ThemeIcon role="refresh" class="mr-1.5 size-3.5" />
+											<ThemeIcon role="refresh" class="me-1.5 size-3.5" />
 											{m.common_retry()}
 										</Button>
 									{/snippet}
@@ -1248,8 +1248,8 @@
 											class={[
 												'max-w-[85%] rounded-xl px-3 py-2 text-sm shadow-xs sm:max-w-[72%]',
 												message.direction === 'outbound'
-													? 'rounded-br-sm bg-primary text-primary-foreground'
-													: 'rounded-bl-sm border bg-background'
+													? 'rounded-ee-sm bg-primary text-primary-foreground'
+													: 'rounded-es-sm border bg-background'
 											]}
 										>
 											{#if message.deleted_at && !message.deleted_at.startsWith('0001-')}<p

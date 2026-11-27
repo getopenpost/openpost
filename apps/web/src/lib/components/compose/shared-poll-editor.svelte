@@ -133,8 +133,8 @@
 				</div>
 			{/if}
 		</div>
-		<p class="mt-1 pl-8 text-sm break-words">{content.question}</p>
-		<p class="mt-1 line-clamp-2 pl-8 text-xs break-words text-muted-foreground">
+		<p class="mt-1 ps-8 text-sm break-words">{content.question}</p>
+		<p class="mt-1 line-clamp-2 ps-8 text-xs break-words text-muted-foreground">
 			{content.options.map((option) => option.text).join(' · ')}
 		</p>
 		{#if activeDestination}

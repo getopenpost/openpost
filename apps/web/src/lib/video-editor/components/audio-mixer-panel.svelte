@@ -398,10 +398,10 @@
 	data-audio-mixer
 >
 	<div class="flex h-full min-w-0 overflow-x-auto overscroll-x-contain px-2 py-2">
-		<div class="relative mr-1 w-6 shrink-0" aria-hidden="true">
+		<div class="relative me-1 w-6 shrink-0" aria-hidden="true">
 			{#each SCALE_MARKS as mark}
 				<span
-					class="absolute right-0 -translate-y-1/2 font-mono text-[8px] text-[var(--video-editor-muted)] tabular-nums"
+					class="absolute end-0 -translate-y-1/2 font-mono text-[8px] text-[var(--video-editor-muted)] tabular-nums"
 					style:bottom={`${mixerDbToFaderPercent(mark)}%`}>{mark}</span
 				>
 			{/each}
@@ -583,7 +583,7 @@
 		{@const target = eqTarget}
 		<aside
 			id="mixer-eq-panel"
-			class="absolute inset-y-0 right-0 z-20 w-full max-w-xs overflow-y-auto border-l border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2 shadow-2xl"
+			class="absolute inset-y-0 end-0 z-20 w-full max-w-xs overflow-y-auto border-s border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-2 shadow-2xl"
 			aria-label={eqTitle(target)}
 			data-mixer-eq-panel
 		>

@@ -2577,6 +2577,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 />
 
 <div
+	dir="ltr"
 	class="video-editor-theme flex h-dvh flex-col bg-[var(--video-editor-canvas)] text-[var(--video-editor-text)]"
 	data-agent-status={agentConnectionStatus}
 >
@@ -2936,7 +2937,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									? 'lg:row-span-2'
 									: 'lg:row-span-1'} lg:flex lg:h-auto lg:min-h-0 {leftSidebarRail
 									? 'lg:w-11 lg:overflow-hidden'
-									: 'lg:w-auto'} lg:border-r lg:border-b-0 {mobileEditPane === 'assets'
+									: 'lg:w-auto'} lg:border-e lg:border-b-0 {mobileEditPane === 'assets'
 									? 'flex'
 									: 'hidden'}"
 								class:editor-panel-sheet={mobileEditPane === 'assets'}
@@ -2944,7 +2945,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							>
 								<div class="flex min-h-0 flex-1">
 									<nav
-										class="hidden w-11 shrink-0 flex-col border-r border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)] lg:flex"
+										class="hidden w-11 shrink-0 flex-col border-e border-[var(--video-editor-border)] bg-[var(--video-editor-canvas)] lg:flex"
 										aria-label={m.video_editor_assets()}
 									>
 										<div
@@ -3014,7 +3015,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 																	{@render leftPanelIcon(option)}
 																	{#if option.value === 'ai' && agentConnectionStatus !== 'disconnected'}
 																		<span
-																			class="absolute top-1 right-1 size-1.5 rounded-full bg-[var(--video-editor-focus)] {agentConnectionStatus ===
+																			class="absolute end-1 top-1 size-1.5 rounded-full bg-[var(--video-editor-focus)] {agentConnectionStatus ===
 																			'working'
 																				? 'motion-safe:animate-pulse'
 																				: ''}"
@@ -3099,7 +3100,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 													{option.label}
 													{#if option.value === 'ai' && agentConnectionStatus !== 'disconnected'}
 														<span
-															class="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-[var(--video-editor-focus)] {agentConnectionStatus ===
+															class="absolute end-0.5 top-0.5 size-1.5 rounded-full bg-[var(--video-editor-focus)] {agentConnectionStatus ===
 															'working'
 																? 'motion-safe:animate-pulse'
 																: ''}"
@@ -3357,7 +3358,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 								</section>
 								{#if activeWorkspace === 'color' && showColorScopes}
 									<aside
-										class="relative flex min-h-[180px] min-w-0 flex-col border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:min-h-0 lg:w-[var(--scopes-panel-width)] lg:shrink-0 lg:border-t-0 lg:border-l"
+										class="relative flex min-h-[180px] min-w-0 flex-col border-t border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] lg:min-h-0 lg:w-[var(--scopes-panel-width)] lg:shrink-0 lg:border-s lg:border-t-0"
 										style:--scopes-panel-width={`${effectiveScopesPanelWidth}px`}
 										aria-label={m.video_editor_scopes()}
 									>
@@ -3394,7 +3395,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									? 'lg:row-span-2'
 									: 'lg:row-span-1'} lg:flex lg:h-auto {rightSidebarRail
 									? 'lg:w-11 lg:overflow-hidden'
-									: 'lg:w-auto'} lg:border-t-0 lg:border-l {mobileEditPane === 'tools'
+									: 'lg:w-auto'} lg:border-s lg:border-t-0 {mobileEditPane === 'tools'
 									? 'flex'
 									: 'hidden'}"
 								class:editor-panel-sheet={mobileEditPane === 'tools'}

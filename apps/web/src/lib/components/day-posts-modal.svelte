@@ -317,7 +317,7 @@
 
 <Sheet.Root {open} onOpenChange={handleOpenChange}>
 	<Sheet.Content side="right" class="w-full! p-0 sm:max-w-lg!" data-testid="day-posts-drawer">
-		<Sheet.Header class="border-b px-4 py-4 pr-14 sm:px-5">
+		<Sheet.Header class="border-b px-4 py-4 pe-14 sm:px-5">
 			<div class="flex items-center justify-between gap-3">
 				<div bind:this={deleteReturnFocus} tabindex="-1" class="min-w-0 outline-none">
 					<Sheet.Title class="truncate text-base font-semibold">{formattedDate}</Sheet.Title>
@@ -327,7 +327,7 @@
 				</div>
 				{#if isFutureDay}
 					<Button size="sm" onclick={handleNewPost}>
-						<ThemeIcon role="add" class="mr-1.5 size-4" />
+						<ThemeIcon role="add" class="me-1.5 size-4" />
 						{m.day_posts_new_for_day()}
 					</Button>
 				{/if}
@@ -405,7 +405,7 @@
 							</time>
 							<button
 								type="button"
-								class="min-w-0 flex-1 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+								class="min-w-0 flex-1 text-start focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 								onclick={() => handleEdit(post)}
 							>
 								<p class="line-clamp-2 text-sm leading-6">{postExcerpt(post)}</p>
@@ -463,7 +463,7 @@
 							<OverflowMenu label={m.day_posts_actions()}>
 								{#snippet items()}
 									<DropdownMenu.Item onclick={() => handleEdit(post)}
-										><ThemeIcon role="edit" class="mr-2 size-4" />{canDeletePublication(post)
+										><ThemeIcon role="edit" class="me-2 size-4" />{canDeletePublication(post)
 											? m.day_posts_edit_in_composer()
 											: m.activity_view_details()}</DropdownMenu.Item
 									>
@@ -474,7 +474,7 @@
 											onclick={(event) => requestDelete(event, post)}
 											><ThemeIcon
 												role="delete"
-												class="mr-2 size-4"
+												class="me-2 size-4"
 											/>{m.day_posts_delete_action()}</DropdownMenu.Item
 										>
 									{/if}

@@ -59,7 +59,7 @@
 				class="flex items-center justify-center gap-1 [@media(pointer:coarse)]:min-h-11 {compact
 					? 'min-h-[22px] px-1.5 text-[10px]'
 					: 'min-h-9 px-2 text-xs'}"
-				class:border-l={index > 0}
+				class:border-s={index > 0}
 				class:border-[var(--video-editor-border,var(--border))]={index > 0}
 				class:bg-[var(--video-editor-primary,var(--secondary))]={mode === option.id}
 				class:text-[var(--video-editor-primary-text,var(--secondary-foreground))]={mode ===

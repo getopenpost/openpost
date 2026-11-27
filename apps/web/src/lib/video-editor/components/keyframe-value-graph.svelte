@@ -1114,7 +1114,7 @@
 		class="flex h-8 flex-nowrap items-center gap-1 overflow-x-auto border-b border-[oklch(0.22_0.01_50)] px-2"
 	>
 		<span
-			class="mr-auto min-w-0 flex-1 truncate text-[10px] font-medium text-[oklch(0.72_0.02_55)] capitalize"
+			class="me-auto min-w-0 flex-1 truncate text-[10px] font-medium text-[oklch(0.72_0.02_55)] capitalize"
 		>
 			{m.video_editor_keyframe_graph_title({ property: propertyLabel })}
 		</span>

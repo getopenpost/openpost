@@ -554,7 +554,7 @@
 					step={Number(param.step)}
 					precision={sliderDecimals(name)}
 					valueWidth="3rem"
-					class="h-[var(--editor-22,22px)] shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-right text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
+					class="h-[var(--editor-22,22px)] shrink-0 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] px-1 text-end text-[10px] text-[var(--video-editor-muted)] tabular-nums outline-none"
 					onValueChange={(next) => updateParameter(name, next)}
 					onValueCommit={(next) => commitParameter(name, next)}
 					onValueCancel={() => cancelParameter(name)}
@@ -636,7 +636,7 @@
 	<div
 		class="order-3 grid shrink-0 grid-cols-[auto_repeat(5,minmax(0,1fr))] items-center gap-x-1 border-b border-[var(--video-editor-border)] px-2 py-1.5 2xl:gap-x-3 2xl:px-4"
 	>
-		<div class="flex items-center gap-0.5 pr-1">
+		<div class="flex items-center gap-0.5 pe-1">
 			<button
 				type="button"
 				class="parameter-tool"
@@ -671,7 +671,7 @@
 				<span class="relative">
 					<ProtectedIcon icon="editor-eyedropper" class="size-3.5" />
 					<span
-						class="absolute -right-0.5 -bottom-0.5 size-1.5 rounded-full border border-zinc-500 bg-black"
+						class="absolute -end-0.5 -bottom-0.5 size-1.5 rounded-full border border-zinc-500 bg-black"
 					></span>
 				</span>
 			</button>
@@ -686,7 +686,7 @@
 				<span class="relative">
 					<ProtectedIcon icon="editor-eyedropper" class="size-3.5" />
 					<span
-						class="absolute -right-0.5 -bottom-0.5 size-1.5 rounded-full border border-zinc-600 bg-white"
+						class="absolute -end-0.5 -bottom-0.5 size-1.5 rounded-full border border-zinc-600 bg-white"
 					></span>
 				</span>
 			</button>

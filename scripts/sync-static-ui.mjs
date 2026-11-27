@@ -45,6 +45,7 @@ const offline = `<!doctype html>
         const copy = translations[language];
         if (!copy) continue;
         document.documentElement.lang = language;
+        document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
         document.title = copy[0] + ' | OpenPost';
         document.querySelector('h1').textContent = copy[0];
         document.querySelector('.op-recovery-copy').textContent = copy[1];

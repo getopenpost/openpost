@@ -681,8 +681,8 @@
 </div>
 
 <div
-	class="pointer-events-auto absolute right-2 bottom-2 flex max-w-[calc(100%_-_1rem)] flex-col items-center gap-1"
-	class:left-2={toolbarContext === 'path'}
+	class="pointer-events-auto absolute end-2 bottom-2 flex max-w-[calc(100%_-_1rem)] flex-col items-center gap-1"
+	class:start-2={toolbarContext === 'path'}
 >
 	{#if topologyLocked || status}
 		<output

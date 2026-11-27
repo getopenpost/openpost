@@ -116,7 +116,7 @@
 				type="button"
 				variant="ghost"
 				size="icon"
-				class="-mr-1 size-6 min-h-11 min-w-11 rounded-sm text-muted-foreground hover:text-foreground sm:min-h-7 sm:min-w-7"
+				class="-me-1 size-6 min-h-11 min-w-11 rounded-sm text-muted-foreground hover:text-foreground sm:min-h-7 sm:min-w-7"
 				aria-label={m.compose_remove_tag({ tag })}
 				onclick={() => removeTag(index)}
 			>

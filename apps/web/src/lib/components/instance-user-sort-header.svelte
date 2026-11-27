@@ -19,7 +19,7 @@
 <Button
 	variant="ghost"
 	size="xs"
-	class="-ml-2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+	class="-ms-2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
 	onclick={() => column.toggleSorting(sorted === 'asc')}
 	aria-label={sortLabel}
 >

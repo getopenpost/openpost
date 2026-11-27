@@ -755,7 +755,7 @@
 							/>
 						{/each}
 						{#if selectedAccounts.length > 3}
-							<span class="z-10 ml-2 text-xs font-medium text-muted-foreground"
+							<span class="z-10 ms-2 text-xs font-medium text-muted-foreground"
 								>+{selectedAccounts.length - 3}</span
 							>
 						{/if}
@@ -846,7 +846,7 @@
 						{#each visibleSets as set (set.id)}
 							<button
 								type="button"
-								class="flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-accent"
+								class="flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-start text-sm hover:bg-accent"
 								onclick={() => selectSet(set.id)}
 								aria-pressed={selectedSetId === set.id}
 								{disabled}
@@ -868,7 +868,7 @@
 										{/if}
 									{/each}
 									{#if (set.accounts ?? []).length > 4}
-										<span class="z-10 ml-2 text-xs font-medium text-muted-foreground"
+										<span class="z-10 ms-2 text-xs font-medium text-muted-foreground"
 											>+{(set.accounts ?? []).length - 4}</span
 										>
 									{/if}
@@ -914,7 +914,7 @@
 				<button
 					type="button"
 					{disabled}
-					class="flex min-h-11 w-full shrink-0 items-center rounded-md border-t px-2 text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+					class="flex min-h-11 w-full shrink-0 items-center rounded-md border-t px-2 text-start text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
 					onclick={() => {
 						pickerOpen = false;
 						handleManageOpenChange(true);

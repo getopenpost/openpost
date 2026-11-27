@@ -229,7 +229,7 @@
 		border-radius: var(--radius-xl, 0.75rem);
 		background: var(--card);
 		color: var(--card-foreground);
-		text-align: left;
+		text-align: start;
 	}
 	.interactive {
 		cursor: pointer;

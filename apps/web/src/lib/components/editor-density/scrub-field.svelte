@@ -242,7 +242,7 @@
 		style="width: {valueWidth};"
 		title={ariaLabel}
 		class={cn(
-			'h-[var(--editor-22,22px)] shrink-0 cursor-ew-resize touch-none px-1 text-right text-[11px] tabular-nums select-none focus:cursor-text focus:select-auto [@media(pointer:coarse)]:h-11',
+			'h-[var(--editor-22,22px)] shrink-0 cursor-ew-resize touch-none px-1 text-end text-[11px] tabular-nums select-none focus:cursor-text focus:select-auto [@media(pointer:coarse)]:h-11',
 			className
 		)}
 		oninput={handleInput}
@@ -255,7 +255,7 @@
 	{#if suffixVisible}
 		<span
 			id={suffixId}
-			class="shrink-0 pl-0.5 text-[11px] whitespace-nowrap tabular-nums select-none"
+			class="shrink-0 ps-0.5 text-[11px] whitespace-nowrap tabular-nums select-none"
 			class:opacity-60={!disabled}
 			class:opacity-35={disabled}>{suffix}</span
 		>

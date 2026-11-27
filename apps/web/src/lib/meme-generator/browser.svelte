@@ -493,7 +493,7 @@
 											<Button
 												multiline
 												variant="ghost"
-												class="h-auto w-full min-w-0 items-stretch justify-start rounded-none p-2 text-left whitespace-normal md:h-auto"
+												class="h-auto w-full min-w-0 items-stretch justify-start rounded-none p-2 text-start whitespace-normal md:h-auto"
 												disabled={selecting || !rendererConfigured}
 												onclick={() => selectCandidate(candidate)}
 												aria-label={m.meme_generator_candidate_select({
@@ -589,12 +589,12 @@
 							<div class="relative">
 								<ThemeIcon
 									role="search"
-									class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+									class="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
 								/>
 								<Input
 									id={`${uid}-search`}
 									bind:value={templateSearch}
-									class="pl-9"
+									class="ps-9"
 									maxlength={120}
 									placeholder={m.meme_generator_search_placeholder()}
 									disabled={templatesLoading}
@@ -650,7 +650,7 @@
 								<Button
 									multiline
 									variant="ghost"
-									class="template-choice relative h-auto min-w-0 items-stretch justify-start overflow-hidden rounded-lg border border-border bg-card p-2 text-left whitespace-normal hover:border-primary/45 hover:bg-muted/35 md:h-auto"
+									class="template-choice relative h-auto min-w-0 items-stretch justify-start overflow-hidden rounded-lg border border-border bg-card p-2 text-start whitespace-normal hover:border-primary/45 hover:bg-muted/35 md:h-auto"
 									disabled={selecting || !rendererConfigured}
 									onclick={() => selectTemplate(template)}
 									aria-label={m.meme_generator_template_select({

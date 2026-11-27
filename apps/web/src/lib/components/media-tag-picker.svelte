@@ -69,7 +69,7 @@
 			{#each tags as tag (tag.id)}
 				<button
 					type="button"
-					class="flex min-h-10 w-full items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+					class="flex min-h-10 w-full items-center gap-2 rounded-md px-2 text-start text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 					disabled={!canEdit || Boolean(busyTagId)}
 					onclick={() => void toggle(tag.id, !selectedIds.includes(tag.id))}
 				>

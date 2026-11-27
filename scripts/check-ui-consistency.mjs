@@ -45,6 +45,46 @@ export function findNativeFormControlViolations(repoRoot) {
   return violations;
 }
 
+// Physical Tailwind direction utilities do not mirror for Arabic. Centering
+// with left-1/2 plus a translate stays physical because it is symmetric.
+const value = String.raw`(?:\d+(?:\.\d+)?|px|auto|full|\d+/\d+|\[[^\]\s"'\x60]+\]|\([^)\s"'\x60]+\))`;
+const radius = String.raw`(?:none|xs|sm|md|lg|xl|2xl|3xl|4xl|full|\[[^\]\s"'\x60]+\]|\([^)\s"'\x60]+\))`;
+const before = String.raw`(?<=^|[\s"'\x60:!{(,])`;
+const after = String.raw`(?=$|[\s"'\x60}),!=])`;
+const physicalDirectionPattern = new RegExp(
+  [
+    String.raw`-?(?:scroll-)?[mp][lr]-${value}`,
+    String.raw`-?(?:left|right)-(?!1/2${after})${value}`,
+    String.raw`border-[lr](?:-[\w\[\]#%./()-]+)?`,
+    String.raw`rounded-(?:[tb])?[lr](?:-${radius})?`,
+    String.raw`(?:text|float)-(?:left|right)`,
+  ]
+    .map((token) => `${before}${token}${after}`)
+    .join("|"),
+  "gu",
+);
+const directionRoots = ["apps/web/src", "packages/ui/src", "packages/social-preview/src"];
+
+export function findPhysicalDirectionClasses(repoRoot) {
+  const violations = [];
+  for (const sourceRoot of directionRoots) {
+    for (const file of svelteFiles(resolve(repoRoot, sourceRoot))) {
+      if (/\.(?:test|spec)\./u.test(file)) continue;
+      const source = readFileSync(file, "utf8").replace(/<style[\s\S]*?<\/style>/gu, (block) =>
+        block.replace(/[^\n]/gu, " "),
+      );
+      for (const match of source.matchAll(physicalDirectionPattern)) {
+        violations.push({
+          file: relative(repoRoot, file).replaceAll("\\", "/"),
+          line: source.slice(0, match.index).split("\n").length,
+          token: match[0],
+        });
+      }
+    }
+  }
+  return violations;
+}
+
 function main() {
   const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
   const violations = findNativeFormControlViolations(repoRoot);
@@ -60,9 +100,22 @@ function main() {
       }
     }
   }
+  const directionViolations = findPhysicalDirectionClasses(repoRoot);
+  for (const violation of directionViolations) {
+    process.stderr.write(
+      `- ${violation.file}:${violation.line} ${violation.token} does not mirror for right-to-left languages; use the logical utility (ms, me, ps, pe, start, end, text-start, border-s, rounded-s)\n`,
+    );
+  }
+  if (directionViolations.length > 0) process.exitCode = 1;
+  if (
+    directionViolations.length > 0 &&
+    violations.length === 0 &&
+    nativeTextViolations.length === 0
+  )
+    return;
   if (violations.length === 0 && nativeTextViolations.length === 0) {
     process.stdout.write(
-      "ui-consistency: shared form primitives and native text cover page controls\n",
+      "ui-consistency: shared form primitives, native text and logical direction utilities cover page controls\n",
     );
     return;
   }

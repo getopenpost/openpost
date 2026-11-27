@@ -150,17 +150,17 @@
 			<span class="sr-only">{m.video_editor_lottiefiles_search()}</span>
 			<ThemeIcon
 				role="search"
-				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[var(--video-editor-muted)]"
+				class="pointer-events-none absolute start-2 top-1/2 size-3.5 -translate-y-1/2 text-[var(--video-editor-muted)]"
 			/>
 			<Input
-				class="h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-panel)] pr-8 pl-7 text-[11px] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base"
+				class="h-[var(--editor-22,22px)] w-full rounded bg-[var(--video-editor-panel)] ps-7 pe-8 text-[11px] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:text-base"
 				placeholder={m.video_editor_lottiefiles_search()}
 				bind:value={inputValue}
 			/>
 			{#if inputValue}
 				<button
 					type="button"
-					class="absolute top-1/2 right-1.5 rounded p-1 text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+					class="absolute end-1.5 top-1/2 rounded p-1 text-[var(--video-editor-muted)] hover:bg-[var(--video-editor-control-hover)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
 					aria-label={m.video_editor_lottiefiles_clear()}
 					onclick={() => (inputValue = '')}
 				>
@@ -267,7 +267,7 @@
 								</span>
 							{:else if isImported}
 								<span
-									class="absolute top-1 right-1 rounded-full bg-[var(--video-editor-primary)] p-0.5 text-[var(--video-editor-primary-text)]"
+									class="absolute end-1 top-1 rounded-full bg-[var(--video-editor-primary)] p-0.5 text-[var(--video-editor-primary-text)]"
 								>
 									<ProtectedIcon icon="success" class="size-3" />
 								</span>
@@ -324,7 +324,7 @@
 			href="https://lottiefiles.com/page/license"
 			target="_blank"
 			rel="noreferrer"
-			class="ml-1 underline hover:text-[var(--video-editor-text)]"
+			class="ms-1 underline hover:text-[var(--video-editor-text)]"
 			>{m.video_editor_lottiefiles_license_link()}</a
 		>.
 	</p>

@@ -61,7 +61,7 @@
 				<ThemeIcon role="layout" class="size-3.5" />
 				{#if timelineStore.markers.length > 0}
 					<span
-						class="absolute -top-0.5 -right-0.5 min-w-3.5 rounded-full bg-selection px-0.5 text-center text-[8px] leading-3.5 font-semibold text-selection-foreground"
+						class="absolute -end-0.5 -top-0.5 min-w-3.5 rounded-full bg-selection px-0.5 text-center text-[8px] leading-3.5 font-semibold text-selection-foreground"
 						aria-hidden="true"
 					>
 						{timelineStore.markers.length > 99 ? '99+' : timelineStore.markers.length}
@@ -102,7 +102,7 @@
 					>
 						<button
 							type="button"
-							class="flex min-w-0 flex-1 items-center gap-2 rounded-l-md px-2 text-left hover:bg-accent focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
+							class="flex min-w-0 flex-1 items-center gap-2 rounded-s-md px-2 text-start hover:bg-accent focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
 							aria-pressed={timelineStore.selectedMarkerId === marker.id}
 							onclick={() => chooseMarker(marker)}
 						>
@@ -118,7 +118,7 @@
 						</button>
 						<button
 							type="button"
-							class="grid w-8 shrink-0 place-items-center rounded-r-md text-muted-foreground opacity-70 hover:bg-destructive/10 hover:text-destructive focus-visible:z-10 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-destructive [@media(pointer:coarse)]:w-11"
+							class="grid w-8 shrink-0 place-items-center rounded-e-md text-muted-foreground opacity-70 hover:bg-destructive/10 hover:text-destructive focus-visible:z-10 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-destructive [@media(pointer:coarse)]:w-11"
 							aria-label={m.video_editor_marker_list_remove({ name })}
 							onclick={() => deleteMarker(marker.id)}
 						>

@@ -203,13 +203,13 @@
 		{#if error}
 			<InlineNotice tone="error" message={error} class="mb-3" />
 		{/if}
-		<ol class="relative space-y-0 border-l border-border pl-5">
+		<ol class="relative space-y-0 border-s border-border ps-5">
 			{#each timelineItems as item (item.id)}
 				{@const event = item.event}
 				{#if item.kind === 'delivery' && event.destination && event.delivery}
 					<li class="relative pb-5 last:pb-0">
 						<span
-							class="absolute top-0.5 -left-[1.7rem] flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground ring-4 ring-background"
+							class="absolute -start-[1.7rem] top-0.5 flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground ring-4 ring-background"
 							aria-hidden="true"
 						>
 							<ThemeIcon role="time" class="size-3" />
@@ -244,7 +244,7 @@
 					<li class="relative pb-5 last:pb-0">
 						<span
 							class={[
-								'absolute top-0.5 -left-[1.7rem] flex size-5 items-center justify-center rounded-full ring-4 ring-background',
+								'absolute -start-[1.7rem] top-0.5 flex size-5 items-center justify-center rounded-full ring-4 ring-background',
 								statusTone(event.status)
 							]}
 							aria-hidden="true"

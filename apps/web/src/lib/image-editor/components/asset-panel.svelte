@@ -579,12 +579,12 @@
 				<div class="relative min-w-0 flex-1">
 					<ThemeIcon
 						role="search"
-						class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+						class="pointer-events-none absolute start-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
 					/>
 					<Input
 						bind:ref={searchInput}
 						bind:value={search}
-						class="h-7 pl-7 text-xs"
+						class="h-7 ps-7 text-xs"
 						placeholder={m.image_editor_search_media()}
 						aria-label={m.image_editor_search_media()}
 					/>
@@ -663,7 +663,7 @@
 										<button
 											{...props}
 											type="button"
-											class="group overflow-hidden rounded-md border bg-muted text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+											class="group overflow-hidden rounded-md border bg-muted text-start focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 											onclick={() => addMedia(item)}
 											draggable={editor.canEdit}
 											ondragstart={(event) =>

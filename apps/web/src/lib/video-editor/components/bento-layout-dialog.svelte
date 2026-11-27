@@ -196,7 +196,7 @@
 	<Dialog.Content
 		class="video-editor-theme flex max-h-[min(92dvh,820px)] w-[calc(100%-1rem)] max-w-2xl flex-col overflow-hidden border-border bg-popover p-0 text-popover-foreground shadow-2xl sm:max-w-2xl"
 	>
-		<Dialog.Header class="border-b border-border px-3 py-2 pr-10">
+		<Dialog.Header class="border-b border-border px-3 py-2 pe-10">
 			<Dialog.Title class="text-[13px]">{m.video_editor_bento_title()}</Dialog.Title>
 			<Dialog.Description class="mt-0.5 text-xs text-[var(--video-editor-muted)]">
 				{m.video_editor_bento_description({ count: eligibleIds.length })}
@@ -220,7 +220,7 @@
 					<div class="flex items-center rounded-md border border-border">
 						<button
 							type="button"
-							class="h-[25px] rounded-l-md px-2 text-[11px] hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
+							class="h-[25px] rounded-s-md px-2 text-[11px] hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring data-[active=true]:bg-selection data-[active=true]:text-selection-foreground [@media(pointer:coarse)]:min-h-11"
 							data-active={selectedKey === `custom:${preset.id}`}
 							aria-pressed={selectedKey === `custom:${preset.id}`}
 							onclick={() => selectCustom(preset)}
@@ -229,7 +229,7 @@
 						</button>
 						<button
 							type="button"
-							class="flex size-[25px] items-center justify-center rounded-r-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:size-11"
+							class="flex size-[25px] items-center justify-center rounded-e-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:size-11"
 							aria-label={m.video_editor_bento_delete_preset({ name: preset.name })}
 							onclick={() => deletePreset(preset.id)}
 						>
@@ -278,7 +278,7 @@
 					</h3>
 					<div class="mt-2 grid gap-1 sm:grid-cols-2">
 						{#each chainOrder as chain, index (chain[0])}
-							<div class="flex min-w-0 items-center gap-1 rounded bg-muted p-1 pl-2">
+							<div class="flex min-w-0 items-center gap-1 rounded bg-muted p-1 ps-2">
 								<span class="min-w-0 flex-1 truncate text-xs">{index + 1}. {chainName(chain)}</span>
 								<button
 									type="button"

@@ -591,9 +591,10 @@
 						<summary
 							class="flex min-h-8 cursor-pointer items-center justify-between gap-2 rounded-sm py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
 							><span class="flex items-center gap-2"
-								><ThemeIcon role="chevron-right" class="size-3.5 group-open:rotate-90" /><span
-									>{m.video_editor_advanced()}</span
-								></span
+								><ThemeIcon
+									role="chevron-right"
+									class="size-3.5 group-open:rotate-90 rtl:group-open:-rotate-90"
+								/><span>{m.video_editor_advanced()}</span></span
 							><span class="text-xs font-normal text-muted-foreground"
 								>{includeScreen || includeCamera
 									? `${videoResolution} · ${videoFrameRate} fps`

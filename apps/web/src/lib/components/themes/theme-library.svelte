@@ -620,10 +620,10 @@
 						}}
 					>
 						<span
-							class="absolute top-2 left-1 h-7 w-12 rounded-full border border-border bg-muted transition-colors group-aria-checked:bg-[var(--action-primary)]"
+							class="absolute start-1 top-2 h-7 w-12 rounded-full border border-border bg-muted transition-colors group-aria-checked:bg-[var(--action-primary)]"
 						>
 							<span
-								class="absolute top-1/2 left-1 size-5 -translate-y-1/2 rounded-full bg-background shadow-sm transition-transform group-aria-checked:translate-x-5"
+								class="absolute start-1 top-1/2 size-5 -translate-y-1/2 rounded-full bg-background shadow-sm transition-transform group-aria-checked:translate-x-5 rtl:group-aria-checked:-translate-x-5"
 							></span>
 						</span>
 					</button>

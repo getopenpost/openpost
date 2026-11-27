@@ -80,7 +80,7 @@
 
 <Dialog.Root {open} {onOpenChange}>
 	<Dialog.Content class="max-h-[min(860px,calc(100dvh-2rem))] overflow-y-auto sm:max-w-3xl sm:p-6">
-		<Dialog.Header class="border-b pr-10 pb-4">
+		<Dialog.Header class="border-b pe-10 pb-4">
 			<Dialog.Title>{media?.original_filename || m.media_details()}</Dialog.Title>
 			<Dialog.Description>
 				{#if media}

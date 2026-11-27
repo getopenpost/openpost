@@ -31,9 +31,9 @@
 			expanded = !expanded;
 		}}
 	>
-		<ThemeIcon role="language" class="mr-2 size-4 text-muted-foreground" />
+		<ThemeIcon role="language" class="me-2 size-4 text-muted-foreground" />
 		<span>{m.language_label()}</span>
-		<span class="ml-auto text-muted-foreground">{localeLabels[currentLocale]}</span>
+		<span class="ms-auto text-muted-foreground">{localeLabels[currentLocale]}</span>
 		<ThemeIcon
 			role="chevron-down"
 			class={`size-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`}
@@ -41,7 +41,7 @@
 	</DropdownMenu.Item>
 	{#if expanded}
 		<div
-			class="grid gap-0.5 border-l border-border/60 pl-8"
+			class="grid gap-0.5 border-s border-border/60 ps-8"
 			role="group"
 			aria-label={m.language_label()}
 		>
@@ -60,7 +60,7 @@
 {:else if variant === 'menu'}
 	<DropdownMenu.Sub>
 		<DropdownMenu.SubTrigger class={touchSize ? 'min-h-11' : ''}>
-			<ThemeIcon role="language" class="mr-2 size-4 text-muted-foreground" />
+			<ThemeIcon role="language" class="me-2 size-4 text-muted-foreground" />
 			<span>{m.language_label()}</span>
 			<span class="text-muted-foreground">{localeLabels[currentLocale]}</span>
 		</DropdownMenu.SubTrigger>

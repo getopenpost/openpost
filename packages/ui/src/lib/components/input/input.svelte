@@ -16,6 +16,7 @@
 		files = $bindable(),
 		class: className,
 		'data-slot': dataSlot = 'input',
+		dir = type === 'email' || type === 'url' || type === 'tel' ? 'ltr' : undefined,
 		...restProps
 	}: Props = $props();
 </script>
@@ -41,6 +42,7 @@
 			className
 		)}
 		{type}
+		{dir}
 		bind:value
 		{...restProps}
 	/>

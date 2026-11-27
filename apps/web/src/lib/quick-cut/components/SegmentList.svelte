@@ -114,7 +114,7 @@
 							<button
 								type="button"
 								use:rememberSegmentButton={seg.id}
-								class="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded text-left focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
+								class="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded text-start focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
 								aria-pressed={selectedId === seg.id}
 								aria-label={`${m.quick_cut_segment()} ${index + 1}`}
 								onclick={() => onSelect(seg.id)}

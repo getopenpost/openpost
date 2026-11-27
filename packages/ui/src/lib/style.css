@@ -3,6 +3,14 @@
 @import "tw-animate-css";
 @source './components';
 @custom-variant dark (&:is(.dark *));
+/* Follow the nearest dir attribute so left-to-right editor regions stay unmirrored. */
+@custom-variant rtl (&:where(:dir(rtl)));
+@custom-variant ltr (&:where(:dir(ltr)));
+
+/* Arrow-like theme icons point along the reading direction. */
+svg[data-mirror-rtl]:dir(rtl) {
+  transform: scaleX(-1);
+}
 
 @theme inline {
   --text-xs: var(--app-text-xs);

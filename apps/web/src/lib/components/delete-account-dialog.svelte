@@ -108,7 +108,7 @@
 		{#if ownershipTransfers.length > 0}
 			<InlineNotice tone="info">
 				<p class="font-medium">{m.settings_delete_transfers()}</p>
-				<ul class="mt-1 list-disc space-y-1 pl-5">
+				<ul class="mt-1 list-disc space-y-1 ps-5">
 					{#each ownershipTransfers as transfer (transfer.organization_id)}
 						<li>
 							{m.settings_delete_transfer_item({

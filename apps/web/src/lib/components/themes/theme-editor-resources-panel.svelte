@@ -248,7 +248,7 @@
 			placeholder={m.theme_editor_image_alt_placeholder()}
 			aria-label={m.theme_editor_image_alt_label()}
 		/>
-		<p class="text-right text-xs text-muted-foreground tabular-nums">
+		<p class="text-end text-xs text-muted-foreground tabular-nums">
 			{themeCodePointLength(assetAlt)}/240
 		</p>
 		<Input

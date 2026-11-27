@@ -135,11 +135,12 @@
 
 <div
 	bind:this={canvasElement}
+	dir="ltr"
 	class="workflow-canvas relative h-full min-h-0 bg-background"
 	aria-label={m.workflows_canvas()}
 >
 	{#if connectionWarning}
-		<div class="absolute top-16 right-3 left-3 z-10 max-w-xl">
+		<div class="absolute start-3 end-3 top-16 z-10 max-w-xl">
 			<InlineNotice
 				tone="warning"
 				message={m.workflows_connection_loop()}

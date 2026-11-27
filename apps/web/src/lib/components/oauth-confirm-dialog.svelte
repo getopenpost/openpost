@@ -36,7 +36,7 @@
 			<div class="grid gap-3">
 				<Button
 					multiline
-					class="h-auto min-h-11 w-full px-4 py-3 text-left whitespace-normal"
+					class="h-auto min-h-11 w-full px-4 py-3 text-start whitespace-normal"
 					disabled={!instagramModes.includes('instagram_login')}
 					onclick={() => onConfirm('instagram_login')}
 				>
@@ -53,7 +53,7 @@
 				<Button
 					multiline
 					variant="outline"
-					class="h-auto min-h-11 w-full px-4 py-3 text-left whitespace-normal"
+					class="h-auto min-h-11 w-full px-4 py-3 text-start whitespace-normal"
 					disabled={!instagramModes.includes('oauth')}
 					onclick={() => onConfirm('oauth')}
 				>

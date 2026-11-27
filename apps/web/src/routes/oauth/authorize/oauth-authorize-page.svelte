@@ -435,7 +435,7 @@
 							{workspace.name}
 						</Label>
 						{#if selectedWorkspaceIDs.includes(workspace.id)}
-							<div class="mt-3 space-y-2 border-t pt-3 pl-7">
+							<div class="mt-3 space-y-2 border-t ps-7 pt-3">
 								{#if accountLoadingByWorkspace[workspace.id]}
 									<ProtectedIcon
 										icon="loading"
@@ -489,7 +489,7 @@
 					<Select.Content>
 						{#each oauthWorkspaceOptions as option (option.value)}
 							<Select.Item value={option.value}>
-								<div class="flex flex-col gap-0.5 text-left">
+								<div class="flex flex-col gap-0.5 text-start">
 									<span>{option.label}</span>
 									<span class="text-xs text-muted-foreground">{option.description}</span>
 								</div>

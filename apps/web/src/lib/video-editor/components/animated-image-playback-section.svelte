@@ -136,14 +136,14 @@
 							step={0.01}
 							precision={2}
 							valueWidth="100%"
-							class="h-7 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 pr-4 pl-1.5 text-right text-xs tabular-nums outline-none"
+							class="h-7 rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] py-1 ps-1.5 pe-4 text-end text-xs tabular-nums outline-none"
 							onbegin={beginGesture}
 							onValueChange={writeSpeed}
 							onValueCommit={commitSpeed}
 							onValueCancel={cancelGesture}
 						/>
 						<span
-							class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-xs text-[var(--video-editor-muted)]"
+							class="pointer-events-none absolute end-1.5 top-1/2 -translate-y-1/2 text-xs text-[var(--video-editor-muted)]"
 							>×</span
 						>
 					</div>

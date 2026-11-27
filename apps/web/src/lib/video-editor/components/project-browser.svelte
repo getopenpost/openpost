@@ -383,7 +383,7 @@
 							{@const ratio = formatProjectAspectRatio(preset.width, preset.height)}
 							<button
 								type="button"
-								class="group flex min-w-0 flex-col gap-2 rounded-lg border p-2 text-left transition-[border-color,box-shadow,transform] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] active:scale-[0.98] motion-reduce:transition-none"
+								class="group flex min-w-0 flex-col gap-2 rounded-lg border p-2 text-start transition-[border-color,box-shadow,transform] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] active:scale-[0.98] motion-reduce:transition-none"
 								class:border-[var(--video-editor-focus)]={selectedProjectPreset === preset.id}
 								class:bg-[var(--video-editor-control-hover)]={selectedProjectPreset === preset.id}
 								class:border-[var(--video-editor-border)]={selectedProjectPreset !== preset.id}
@@ -424,7 +424,7 @@
 						{/each}
 						<button
 							type="button"
-							class="group flex min-w-0 flex-col gap-2 rounded-lg border p-2 text-left transition-[border-color,box-shadow,transform] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] active:scale-[0.98] motion-reduce:transition-none"
+							class="group flex min-w-0 flex-col gap-2 rounded-lg border p-2 text-start transition-[border-color,box-shadow,transform] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] active:scale-[0.98] motion-reduce:transition-none"
 							class:border-[var(--video-editor-focus)]={selectedProjectPreset === 'custom'}
 							class:bg-[var(--video-editor-control-hover)]={selectedProjectPreset === 'custom'}
 							class:border-[var(--video-editor-border)]={selectedProjectPreset !== 'custom'}
@@ -532,13 +532,13 @@
 			<span class="sr-only">{m.video_editor_project_search()}</span>
 			<ThemeIcon
 				role="search"
-				class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--video-editor-muted)]"
+				class="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-[var(--video-editor-muted)]"
 			/>
 			<Input
 				id="video-editor-project-search"
 				bind:value={searchQuery}
 				placeholder={m.video_editor_project_search()}
-				class="bg-[var(--video-editor-panel)] pl-9 text-[var(--video-editor-text)] placeholder:text-[var(--video-editor-muted)]"
+				class="bg-[var(--video-editor-panel)] ps-9 text-[var(--video-editor-text)] placeholder:text-[var(--video-editor-muted)]"
 			/>
 		</label>
 		<Select.Root
@@ -661,7 +661,7 @@
 							>
 								<button
 									type="button"
-									class="absolute top-2 left-2 z-10 flex size-8 items-center justify-center rounded-full border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)] opacity-70 backdrop-blur-sm transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] data-[selected=true]:border-[var(--video-editor-focus)] data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground data-[selected=true]:opacity-100 [@media(pointer:coarse)]:size-11"
+									class="absolute start-2 top-2 z-10 flex size-8 items-center justify-center rounded-full border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] text-[var(--video-editor-text)] opacity-70 backdrop-blur-sm transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--video-editor-focus)] data-[selected=true]:border-[var(--video-editor-focus)] data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground data-[selected=true]:opacity-100 [@media(pointer:coarse)]:size-11"
 									data-selected={selectedIds.has(project.id)}
 									role="checkbox"
 									aria-checked={selectedIds.has(project.id)}
@@ -679,7 +679,7 @@
 								</button>
 								<button
 									type="button"
-									class="block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--video-editor-focus)]"
+									class="block w-full text-start focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--video-editor-focus)]"
 									onclick={() => onopen(project)}
 								>
 									<span
@@ -702,12 +702,12 @@
 											</span>
 										{/if}
 										<span
-											class="absolute right-2 bottom-2 rounded bg-[var(--video-editor-panel)] px-1.5 py-0.5 text-xs font-medium text-[var(--video-editor-text)]"
+											class="absolute end-2 bottom-2 rounded bg-[var(--video-editor-panel)] px-1.5 py-0.5 text-xs font-medium text-[var(--video-editor-text)]"
 										>
 											{projectAspectRatio(project)}
 										</span>
 									</span>
-									<span class="block p-3 pr-12">
+									<span class="block p-3 pe-12">
 										<span class="block truncate font-medium">{project.name}</span>
 										<ProjectStorageStatus storage="local" />
 										{#if project.description.trim()}
@@ -734,7 +734,7 @@
 									</span>
 								</button>
 								<div
-									class="absolute top-2 right-2 rounded-md bg-[var(--video-editor-panel)] backdrop-blur-sm"
+									class="absolute end-2 top-2 rounded-md bg-[var(--video-editor-panel)] backdrop-blur-sm"
 								>
 									<DropdownMenu.Root>
 										<DropdownMenu.Trigger>

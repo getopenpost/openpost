@@ -173,7 +173,7 @@
 							<div class="min-w-0 overflow-hidden rounded-lg border border-border bg-background">
 								<button
 									type="button"
-									class="block min-h-11 w-full min-w-0 text-left transition-colors outline-none hover:bg-muted/45 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-50"
+									class="block min-h-11 w-full min-w-0 text-start transition-colors outline-none hover:bg-muted/45 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:pointer-events-none disabled:opacity-50"
 									disabled={disabled || busy}
 									onclick={() => choose(candidate)}
 									aria-label={copy.selectAlternative(candidate.suggestion.template.name, index + 1)}

@@ -409,13 +409,13 @@
 							removeDialogOpen = true;
 						}}
 					>
-						<ThemeIcon role="delete" class="mr-1.5 size-4" />
+						<ThemeIcon role="delete" class="me-1.5 size-4" />
 						{m.publication_remove_local()}
 					</Button>
 				{/if}
 				{#if workspaceCtx.currentWorkspace?.can_edit}{@render copyAsDraftButton()}{/if}
 				<Button variant="outline" onclick={() => history.back()}>
-					<ThemeIcon role="arrow-left" class="mr-1.5 size-4" />
+					<ThemeIcon role="arrow-left" class="me-1.5 size-4" />
 					{m.common_back()}
 				</Button>
 			{/if}
@@ -536,7 +536,7 @@
 				class="w-full! gap-0 overflow-hidden p-0 sm:max-w-lg!"
 				data-testid="publication-history-drawer"
 			>
-				<Sheet.Header class="shrink-0 border-b px-4 py-3 pr-14 text-left">
+				<Sheet.Header class="shrink-0 border-b px-4 py-3 pe-14 text-start">
 					<Sheet.Title>{m.image_editor_version_history()}</Sheet.Title>
 				</Sheet.Header>
 				<div

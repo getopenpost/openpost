@@ -153,7 +153,7 @@
 				}}
 			/>
 		</div>
-		<div class="ml-auto flex shrink-0 items-center gap-1">
+		<div class="ms-auto flex shrink-0 items-center gap-1">
 			<button
 				type="button"
 				class="dock-tool editor-tool"
@@ -191,7 +191,7 @@
 				</button>
 				<button
 					type="button"
-					class="scope-button editor-tool border-l border-[var(--video-editor-border)]"
+					class="scope-button editor-tool border-s border-[var(--video-editor-border)]"
 					class:scope-button-active={colorScope === 'sequence'}
 					aria-pressed={colorScope === 'sequence'}
 					onclick={() => setColorScope('sequence')}

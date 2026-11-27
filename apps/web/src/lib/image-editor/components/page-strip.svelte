@@ -269,7 +269,7 @@
 					aria-describedby={hintID}
 					type="button"
 					draggable={editor.canEdit}
-					class="flex h-14 w-20 shrink-0 flex-col overflow-hidden rounded-md border bg-card text-left {page.id ===
+					class="flex h-14 w-20 shrink-0 flex-col overflow-hidden rounded-md border bg-card text-start {page.id ===
 					editor.activePageID
 						? 'ring-2 ring-primary'
 						: ''} {externalDropPageID === page.id ? 'bg-primary/10 ring-2 ring-primary' : ''}"
@@ -373,7 +373,7 @@
 				<Input
 					bind:ref={pageNameInput}
 					bind:value={pageNameDraft}
-					class="ml-1 h-7 min-w-0 flex-1 text-xs sm:max-w-52 sm:min-w-28"
+					class="ms-1 h-7 min-w-0 flex-1 text-xs sm:max-w-52 sm:min-w-28"
 					aria-label={m.image_editor_page_name()}
 					maxlength={120}
 					onblur={() => finishRenamePage(true)}
@@ -392,7 +392,7 @@
 					}}
 				/>
 			{/if}
-			<div class="ml-auto flex gap-1 sm:hidden">
+			<div class="ms-auto flex gap-1 sm:hidden">
 				<Button
 					variant="ghost"
 					size="icon-xs"
@@ -453,7 +453,7 @@
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
 			</div>
-			<div class="ml-auto hidden items-center gap-1 sm:flex">
+			<div class="ms-auto hidden items-center gap-1 sm:flex">
 				<Button
 					variant="ghost"
 					size="icon-xs"

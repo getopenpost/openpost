@@ -138,7 +138,7 @@
 								{#if option.removable && onRemoveOption}
 									<button
 										type="button"
-										class="ml-auto rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-2 focus-visible:outline-primary"
+										class="ms-auto rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-2 focus-visible:outline-primary"
 										aria-label={removeOptionLabel?.(option.label) ?? option.label}
 										data-effect-preset-remove={option.value}
 										onpointerdown={(event) => event.preventDefault()}

@@ -108,7 +108,7 @@
 		)}
 		data-testid="ai-workspace-dialog"
 	>
-		<Dialog.Header class="shrink-0 border-b px-4 py-3 pr-14 text-left sm:px-6 sm:py-4">
+		<Dialog.Header class="shrink-0 border-b px-4 py-3 pe-14 text-start sm:px-6 sm:py-4">
 			<div class="flex items-start gap-3">
 				<span
 					class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"

@@ -197,7 +197,7 @@
 				<p class="text-sm font-medium">
 					{m.organization_delete_workspaces_title()}
 				</p>
-				<ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+				<ul class="mt-2 list-disc space-y-1 ps-5 text-sm text-muted-foreground">
 					{#each deletionPreview.workspaces ?? [] as workspace (workspace.workspace_id)}<li>
 							{workspace.workspace_name}
 						</li>{/each}
@@ -213,7 +213,7 @@
 							state: billingStateLabel(deletionPreview.billing_state)
 						})}
 					</p>
-					<ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+					<ul class="mt-1 list-disc space-y-1 ps-5 text-sm text-muted-foreground">
 						<li>
 							{m.organization_delete_pending_provider_writes({
 								count: deletionPreview.pending_work.pending_provider_writes ?? 0
@@ -235,7 +235,7 @@
 					<p class="text-sm font-medium">
 						{m.organization_delete_access_title()}
 					</p>
-					<ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+					<ul class="mt-2 list-disc space-y-1 ps-5 text-sm text-muted-foreground">
 						{#each deletionPreview.access_effects ?? [] as item (item)}<li>
 								{impactMessage(item)}
 							</li>{/each}
@@ -245,7 +245,7 @@
 					<p class="text-sm font-medium">
 						{m.workspace_delete_removed_title()}
 					</p>
-					<ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+					<ul class="mt-2 list-disc space-y-1 ps-5 text-sm text-muted-foreground">
 						{#each deletionPreview.irreversible_loss ?? [] as item (item)}<li>
 								{impactMessage(item)}
 							</li>{/each}
@@ -255,7 +255,7 @@
 					<p class="text-sm font-medium">
 						{m.workspace_delete_retained_title()}
 					</p>
-					<ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+					<ul class="mt-2 list-disc space-y-1 ps-5 text-sm text-muted-foreground">
 						{#each deletionPreview.retained ?? [] as item (item)}<li>
 								{impactMessage(item)}
 							</li>{/each}

@@ -700,11 +700,11 @@
 				<div class="relative min-w-48 flex-1">
 					<ThemeIcon
 						role="search"
-						class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+						class="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
 					/>
 					<Input
 						bind:value={search}
-						class="pl-9"
+						class="ps-9"
 						placeholder={m.media_picker_search()}
 						aria-label={m.media_picker_search()}
 					/>
@@ -751,7 +751,7 @@
 					{#each media as item (item.id)}
 						<button
 							type="button"
-							class="group relative aspect-square overflow-hidden rounded-lg border bg-muted text-left focus-visible:ring-2 focus-visible:ring-ring {selectedIDs.includes(
+							class="group relative aspect-square overflow-hidden rounded-lg border bg-muted text-start focus-visible:ring-2 focus-visible:ring-ring {selectedIDs.includes(
 								item.id
 							)
 								? 'ring-2 ring-primary'
@@ -784,7 +784,7 @@
 								</MediaThumbnail>
 								{#if item.mime_type.startsWith('video/')}
 									<span
-										class="absolute bottom-2 left-2 flex size-7 items-center justify-center rounded-full bg-background/90 shadow-sm"
+										class="absolute start-2 bottom-2 flex size-7 items-center justify-center rounded-full bg-background/90 shadow-sm"
 										aria-hidden="true"
 									>
 										<ThemeIcon role="video" class="size-3.5" />
@@ -800,12 +800,12 @@
 							{/if}
 							{#if selectedIDs.includes(item.id)}
 								<span
-									class="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow"
+									class="absolute end-2 top-2 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow"
 								>
 									<ThemeIcon role="check" class="size-4" />
 								</span>
 								<span
-									class="absolute right-2 bottom-2 rounded bg-background/90 px-2 py-1 text-xs font-medium"
+									class="absolute end-2 bottom-2 rounded bg-background/90 px-2 py-1 text-xs font-medium"
 								>
 									{selectedIDs.indexOf(item.id) + 1}
 								</span>
@@ -881,7 +881,7 @@
 				: 'sm:max-w-2xl'}"
 		>
 			<div class="media-picker-initializer contents" {@attach initializePicker}></div>
-			<Sheet.Header class="border-b px-4 py-3 pr-14 text-left">
+			<Sheet.Header class="border-b px-4 py-3 pe-14 text-start">
 				<Sheet.Title>{pickerMode === 'meme' ? m.meme_generator_title() : title}</Sheet.Title>
 				<Sheet.Description>
 					{pickerMode === 'meme'
@@ -898,7 +898,7 @@
 {:else}
 	<Dialog.Root bind:open={() => open, (value) => void changeOpen(value)}>
 		<Dialog.Content
-			class="top-0 left-0 flex h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none p-0 sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl {pickerMode ===
+			class="start-0 top-0 flex h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none p-0 sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl {pickerMode ===
 			'meme'
 				? 'meme-picker-workbench overflow-hidden sm:w-[min(96vw,90rem)] sm:max-w-[90rem]'
 				: desktopSize === 'compact'
@@ -906,7 +906,7 @@
 					: 'sm:h-[min(760px,calc(100dvh-2rem))] sm:max-w-5xl'}"
 		>
 			<div class="media-picker-initializer contents" {@attach initializePicker}></div>
-			<Dialog.Header class="border-b px-4 py-3 pr-14">
+			<Dialog.Header class="border-b px-4 py-3 pe-14">
 				<Dialog.Title>{pickerMode === 'meme' ? m.meme_generator_title() : title}</Dialog.Title>
 				<Dialog.Description>
 					{pickerMode === 'meme'

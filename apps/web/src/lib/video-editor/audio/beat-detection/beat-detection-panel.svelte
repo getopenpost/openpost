@@ -162,7 +162,7 @@
 		<h2 id="beat-detection-heading" class="text-xs font-medium text-white">
 			{m.video_editor_beat_panel_title()}
 		</h2>
-		<span class="ml-auto text-xs text-[oklch(0.65_0.01_55)]">
+		<span class="ms-auto text-xs text-[oklch(0.65_0.01_55)]">
 			{m.video_editor_beat_panel_hint()}
 		</span>
 	</div>

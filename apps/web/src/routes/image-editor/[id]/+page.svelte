@@ -231,7 +231,7 @@
 
 {#if loading || migrationBusy}
 	<div class="flex h-dvh items-center justify-center bg-background text-foreground">
-		<ProtectedIcon icon="loading" class="mr-2 size-5 animate-spin motion-reduce:animate-none" />
+		<ProtectedIcon icon="loading" class="me-2 size-5 animate-spin motion-reduce:animate-none" />
 		{m.image_editor_public_importing()}
 	</div>
 {:else if error || !design}
@@ -241,7 +241,7 @@
 			<InlineNotice
 				tone="error"
 				message={error || m.image_editor_open_failed()}
-				class="mt-4 text-left"
+				class="mt-4 text-start"
 			>
 				{#snippet actions()}
 					<Button variant="outline" size="sm" onclick={retryCurrentDesign}>

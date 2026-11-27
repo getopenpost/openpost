@@ -2444,7 +2444,7 @@
 					disabled={!commandEnabled(command.id)}
 				>
 					{@render toolGlyph(CommandIcon)}{commandLabel(command.id)}
-					<span class="ml-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
+					<span class="ms-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
 				</DropdownMenu.Item>
 			{/each}
 		{/snippet}
@@ -2460,6 +2460,7 @@
 />
 
 <div
+	dir="ltr"
 	class="image-editor-theme fixed inset-0 flex min-h-0 flex-col overflow-hidden bg-background text-foreground {imageAIStudioOpen
 		? 'pb-[50dvh] lg:pb-0'
 		: ''}"
@@ -2810,7 +2811,7 @@
 									>
 										{commandMenuLabel(command.id)}
 										{#if commandShortcut(command.id)}<span
-												class="ml-auto text-xs text-muted-foreground"
+												class="ms-auto text-xs text-muted-foreground"
 												>{commandShortcut(command.id)}</span
 											>{/if}
 									</DropdownMenu.Item>
@@ -2856,7 +2857,7 @@
 								>
 									{compactCommandCategoryLabel(category)}<ThemeIcon
 										role="chevron-right"
-										class="ml-auto"
+										class="ms-auto"
 									/>
 								</DropdownMenu.Item>
 							{/each}
@@ -2953,7 +2954,7 @@
 	{#if backgroundBusy}
 		<div class="border-b bg-primary/10 px-3 py-2 text-center text-xs" aria-live="polite">
 			{backgroundProgress || m.image_editor_background_removing()}
-			<Button variant="ghost" size="xs" class="ml-2" onclick={() => backgroundRemoval.cancel()}
+			<Button variant="ghost" size="xs" class="ms-2" onclick={() => backgroundRemoval.cancel()}
 				>{m.common_cancel()}</Button
 			>
 		</div>
@@ -3041,7 +3042,7 @@
 				<summary class="cursor-pointer font-medium"
 					>{m.image_editor_import_failure_details()}</summary
 				>
-				<ul class="mt-1 max-h-24 max-w-[min(32rem,85vw)] space-y-0.5 overflow-auto text-left">
+				<ul class="mt-1 max-h-24 max-w-[min(32rem,85vw)] space-y-0.5 overflow-auto text-start">
 					{#each externalImportItems.filter((item) => item.status === 'failed') as item (item.id)}
 						<li class="truncate" title={`${item.file.name}: ${item.error ?? ''}`}>
 							<span class="font-medium">{item.file.name}</span>: {item.error}
@@ -3085,7 +3086,7 @@
 		style:--image-editor-mobile-pages-height={pagesExpanded ? '8.75rem' : '2.75rem'}
 	>
 		<nav
-			class="no-scrollbar hidden min-h-0 flex-col items-center gap-1 overflow-y-auto border-r bg-card py-2 lg:flex"
+			class="no-scrollbar hidden min-h-0 flex-col items-center gap-1 overflow-y-auto border-e bg-card py-2 lg:flex"
 			aria-label={m.image_editor_tools()}
 		>
 			<Tooltip.Root>
@@ -3136,7 +3137,7 @@
 							<DropdownMenu.Item onclick={() => insertShape('rectangle')}>
 								<ProtectedIcon icon="editor-shape-rectangle" />
 								{m.image_editor_rectangle()}
-								<span class="ml-auto text-xs text-muted-foreground">U</span>
+								<span class="ms-auto text-xs text-muted-foreground">U</span>
 							</DropdownMenu.Item>
 							<DropdownMenu.Item onclick={() => insertShape('rounded_rectangle')}>
 								<ProtectedIcon icon="editor-shape-rounded-rectangle" />
@@ -3185,7 +3186,7 @@
 			style:--image-editor-pages-height={`${pagesPanelHeight}px`}
 		>
 			{#if assetOverlayOpen && !focusedCanvas && activeEditorWorkspace === 'edit'}
-				<div class="absolute top-2 left-2 z-40 hidden lg:block">
+				<div class="absolute start-2 top-2 z-40 hidden lg:block">
 					<AssetPanel {guestMode} mode="overlay" onclose={closeAssetOverlay} />
 				</div>
 			{/if}
@@ -3203,7 +3204,7 @@
 				/>
 			</div>
 			<div
-				class="absolute right-3 {focusedCanvas
+				class="absolute end-3 {focusedCanvas
 					? 'bottom-3'
 					: pagesExpanded
 						? 'bottom-[9.5rem] lg:bottom-[calc(var(--image-editor-pages-height)_+_0.75rem)]'
@@ -3269,7 +3270,7 @@
 		{#if desktopViewport.current && editor.rightPanelVisible && !focusedCanvas}
 			<aside
 				bind:this={inspectorElement}
-				class="image-editor-inspector relative hidden min-h-0 min-w-0 border-l bg-card lg:grid"
+				class="image-editor-inspector relative hidden min-h-0 min-w-0 border-s bg-card lg:grid"
 				style:--image-editor-layers-height={`${effectiveLayersPanelHeight}px`}
 			>
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
@@ -3283,7 +3284,7 @@
 					aria-valuemin="280"
 					aria-valuemax={panelMaximum()}
 					aria-valuenow={Math.round(inspectorPanelWidth)}
-					class="image-editor-resize-handle absolute inset-y-0 left-0 z-20 w-2 cursor-col-resize touch-none border-0 bg-transparent p-0 [@media(pointer:coarse)]:top-1/2 [@media(pointer:coarse)]:bottom-auto [@media(pointer:coarse)]:-left-5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:-translate-y-1/2"
+					class="image-editor-resize-handle absolute inset-y-0 start-0 z-20 w-2 cursor-col-resize touch-none border-0 bg-transparent p-0 [@media(pointer:coarse)]:-start-5 [@media(pointer:coarse)]:top-1/2 [@media(pointer:coarse)]:bottom-auto [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:-translate-y-1/2"
 					onpointerdown={(event) => startPanelResize(event, 'inspector')}
 					onkeydown={(event) => resizePanelWithKeyboard(event, 'inspector')}
 					ondblclick={() => {
@@ -3385,7 +3386,7 @@
 						title={commandDisabledReason(command.id) || undefined}
 					>
 						{@render toolGlyph(Icon)}{commandLabel(command.id)}
-						<span class="ml-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
+						<span class="ms-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
 					</DropdownMenu.Item>
 				{/each}
 			{/snippet}
@@ -3409,7 +3410,7 @@
 						title={commandDisabledReason(command.id) || undefined}
 					>
 						{@render toolGlyph(Icon)}{commandLabel(command.id)}
-						<span class="ml-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
+						<span class="ms-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
 					</DropdownMenu.Item>
 				{/each}
 			{/snippet}
@@ -3434,7 +3435,7 @@
 						title={commandDisabledReason(command.id) || undefined}
 					>
 						{@render toolGlyph(Icon)}{commandLabel(command.id)}
-						<span class="ml-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
+						<span class="ms-auto text-xs text-muted-foreground">{commandShortcut(command.id)}</span>
 					</DropdownMenu.Item>
 				{/each}
 				<DropdownMenu.Item
@@ -3504,7 +3505,7 @@
 						<DropdownMenu.Item onclick={() => insertShape('rectangle')}>
 							<ProtectedIcon icon="editor-shape-rectangle" />
 							{m.image_editor_rectangle()}
-							<span class="ml-auto text-xs text-muted-foreground">U</span>
+							<span class="ms-auto text-xs text-muted-foreground">U</span>
 						</DropdownMenu.Item>
 						<DropdownMenu.Item onclick={() => insertShape('rounded_rectangle')}>
 							<ProtectedIcon icon="editor-shape-rounded-rectangle" />
@@ -3577,7 +3578,7 @@
 						{...props}
 						variant="ghost"
 						size="icon-sm"
-						class="absolute top-0 right-1 z-20 [@media(pointer:coarse)]:size-11"
+						class="absolute end-1 top-0 z-20 [@media(pointer:coarse)]:size-11"
 						aria-label={m.common_close()}
 					>
 						<ThemeIcon role="close" />
@@ -3628,7 +3629,7 @@
 							{...props}
 							variant="ghost"
 							size="icon-sm"
-							class="absolute top-0 right-1 z-20 [@media(pointer:coarse)]:size-11"
+							class="absolute end-1 top-0 z-20 [@media(pointer:coarse)]:size-11"
 							aria-label={m.common_close()}
 						>
 							<ThemeIcon role="close" />
@@ -3727,7 +3728,7 @@
 			<dl class="mt-2 grid max-h-72 grid-cols-[1fr_auto] gap-x-4 gap-y-1 overflow-y-auto">
 				{#each IMAGE_EDITOR_COMMANDS as command (command.id)}
 					<dt class="text-muted-foreground">{commandLabel(command.id)}</dt>
-					<dd class="text-right font-mono text-xs">{commandShortcut(command.id)}</dd>
+					<dd class="text-end font-mono text-xs">{commandShortcut(command.id)}</dd>
 				{/each}
 			</dl>
 		</div>

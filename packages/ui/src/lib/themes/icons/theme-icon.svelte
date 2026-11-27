@@ -20,6 +20,20 @@
 		height = '1em',
 		...restProps
 	}: Props = $props();
+	// Icons that point along the reading direction mirror in right-to-left
+	// text. style.css mirrors them with :dir(rtl), which follows the nearest
+	// dir attribute, so left-to-right regions such as timelines keep them.
+	const MIRRORED_ROLES: ReadonlySet<ThemeIconRole> = new Set([
+		'arrow-left',
+		'arrow-right',
+		'chevron-left',
+		'chevron-right',
+		'logout',
+		'redo',
+		'reply',
+		'send',
+		'undo'
+	]);
 	let element = $state<SVGSVGElement>();
 	let inheritedPack = $state<ThemeIconPackId>('lucide');
 	let loadedIcon = $state<ThemeIconData>();
@@ -84,6 +98,7 @@
 	aria-label={label}
 	aria-hidden={label ? undefined : 'true'}
 	data-theme-icon={role}
+	data-mirror-rtl={MIRRORED_ROLES.has(role) ? '' : undefined}
 	data-icon-pack={selectedPack}
 	{...restProps}
 >

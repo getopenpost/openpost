@@ -37,7 +37,7 @@
 		{disabled}
 		type="button"
 		size="sm"
-		class="h-[25px] rounded-none border-0 border-l border-[var(--video-editor-border)] shadow-none"
+		class="h-[25px] rounded-none border-0 border-s border-[var(--video-editor-border)] shadow-none"
 		variant={isUnderline ? 'secondary' : 'ghost'}
 		aria-pressed={isUnderline}
 		onclick={ontoggleunderline}

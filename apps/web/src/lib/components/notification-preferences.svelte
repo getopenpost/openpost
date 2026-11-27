@@ -326,7 +326,7 @@
 
 		<div class="hidden overflow-hidden rounded-lg border md:block">
 			<table class="w-full table-fixed text-sm">
-				<thead class="border-b bg-muted/35 text-left">
+				<thead class="border-b bg-muted/35 text-start">
 					<tr>
 						<th class="px-4 py-3 font-medium">{m.notifications_event()}</th>
 						<th class="w-28 px-4 py-3 text-center font-medium">
@@ -340,7 +340,7 @@
 				{#each eventGroups as group (group.id)}
 					<tbody class="divide-y border-b last:border-b-0">
 						<tr class="bg-muted/20">
-							<th colspan="3" scope="rowgroup" class="px-4 py-2 text-left text-xs font-semibold">
+							<th colspan="3" scope="rowgroup" class="px-4 py-2 text-start text-xs font-semibold">
 								{group.label}
 							</th>
 						</tr>
@@ -348,7 +348,7 @@
 							{@const eventType = definition.id}
 							{@const preference = preferenceFor(definition)}
 							<tr>
-								<th scope="row" class="px-4 py-3 text-left font-normal">
+								<th scope="row" class="px-4 py-3 text-start font-normal">
 									<span class="block font-medium">{notificationTopicLabel(eventType)}</span>
 									<span class="mt-0.5 block text-xs leading-5 text-muted-foreground">
 										{notificationTopicDescription(eventType)}

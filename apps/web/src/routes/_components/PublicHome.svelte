@@ -98,7 +98,7 @@ FIRST VIEWPORT: Brand and sign-in sit above the offer; entry price and trial ter
 					</div>
 				</div>
 
-				<div class="border-y py-6 lg:border-y-0 lg:border-l lg:py-2 lg:pl-10">
+				<div class="border-y py-6 lg:border-y-0 lg:border-s lg:py-2 lg:ps-10">
 					<p class="text-sm font-medium text-muted-foreground">{m.public_home_plans_from()}</p>
 					<p class="mt-2 text-5xl font-semibold tracking-[-0.035em]">
 						${hostedPlans[0].monthlyPriceUSD}<span
@@ -125,9 +125,9 @@ FIRST VIEWPORT: Brand and sign-in sit above the offer; entry price and trial ter
 						<li
 							class={[
 								'md:px-8',
-								index === 0 && 'md:pl-0',
-								index === features.length - 1 && 'md:pr-0',
-								index > 0 && 'md:border-l'
+								index === 0 && 'md:ps-0',
+								index === features.length - 1 && 'md:pe-0',
+								index > 0 && 'md:border-s'
 							]}
 						>
 							<Icon class="size-5 text-primary" strokeWidth={1.8} aria-hidden="true" />
@@ -167,7 +167,7 @@ FIRST VIEWPORT: Brand and sign-in sit above the offer; entry price and trial ter
 				<div class="mt-7 grid overflow-hidden rounded-xl border bg-border md:grid-cols-3">
 					{#each hostedPlans as plan (plan.id)}
 						<article
-							class="flex min-h-full flex-col bg-card p-5 not-last:border-b md:not-last:border-r md:not-last:border-b-0"
+							class="flex min-h-full flex-col bg-card p-5 not-last:border-b md:not-last:border-e md:not-last:border-b-0"
 						>
 							<h3 class="text-sm font-semibold">{plan.name}</h3>
 							<p class="mt-3 text-2xl font-semibold tracking-tight tabular-nums">

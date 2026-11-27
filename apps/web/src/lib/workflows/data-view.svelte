@@ -106,7 +106,7 @@
 
 {#snippet tableView()}
 	<div class="overflow-auto">
-		<table class="w-full border-collapse text-left text-xs">
+		<table class="w-full border-collapse text-start text-xs">
 			<thead
 				><tr
 					>{#each columns as column}<th class="border bg-muted px-2 py-2 font-medium">{column}</th

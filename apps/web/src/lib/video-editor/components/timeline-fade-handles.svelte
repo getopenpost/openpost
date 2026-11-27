@@ -856,7 +856,7 @@
 				}}
 			>
 				<span
-					class="pointer-events-none h-2.5 w-2.5 rounded-[2px] border border-slate-950/70 bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.25)] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-t-[4px] after:border-r-[3px] after:border-l-[3px] after:border-t-white/90 after:border-r-transparent after:border-l-transparent"
+					class="pointer-events-none h-2.5 w-2.5 rounded-[2px] border border-slate-950/70 bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.25)] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-s-[3px] after:border-e-[3px] after:border-t-[4px] after:border-s-transparent after:border-e-transparent after:border-t-white/90"
 					aria-hidden="true"
 				></span>
 			</button>
@@ -905,7 +905,7 @@
 				}}
 			>
 				<span
-					class="pointer-events-none h-2.5 w-2.5 rounded-[2px] border border-slate-950/70 bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.25)] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-t-[4px] after:border-r-[3px] after:border-l-[3px] after:border-t-white/90 after:border-r-transparent after:border-l-transparent"
+					class="pointer-events-none h-2.5 w-2.5 rounded-[2px] border border-slate-950/70 bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.25)] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-s-[3px] after:border-e-[3px] after:border-t-[4px] after:border-s-transparent after:border-e-transparent after:border-t-white/90"
 					aria-hidden="true"
 				></span>
 			</button>

@@ -808,13 +808,13 @@
 		<div class="grid min-w-0 gap-4 xl:grid-cols-[10.5rem_minmax(17rem,21rem)_minmax(24rem,1fr)]">
 			{#if editorMode === 'guided'}
 				<nav
-					class="flex gap-1 overflow-x-auto border-b border-border pb-2 xl:block xl:space-y-1 xl:overflow-visible xl:border-r xl:border-b-0 xl:pr-3 xl:pb-0"
+					class="flex gap-1 overflow-x-auto border-b border-border pb-2 xl:block xl:space-y-1 xl:overflow-visible xl:border-e xl:border-b-0 xl:pe-3 xl:pb-0"
 					aria-label={m.theme_editor_sections()}
 				>
 					{#each guidedPanels as candidate (candidate)}
 						<button
 							type="button"
-							class="min-h-11 shrink-0 rounded-[var(--theme-radius-sm,var(--radius))] px-3 text-left text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-pressed:bg-accent aria-pressed:text-accent-foreground xl:w-full"
+							class="min-h-11 shrink-0 rounded-[var(--theme-radius-sm,var(--radius))] px-3 text-start text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-pressed:bg-accent aria-pressed:text-accent-foreground xl:w-full"
 							aria-pressed={panel === candidate}
 							onclick={() => (panel = candidate)}
 						>
@@ -852,7 +852,7 @@
 							>
 								{candidate === 'light' ? m.sidebar_appearance_light() : m.sidebar_appearance_dark()}
 								{#if !draft.schemes[candidate as ThemeScheme]}<span
-										class="ml-1 text-xs font-normal opacity-65">{m.theme_editor_fallback()}</span
+										class="ms-1 text-xs font-normal opacity-65">{m.theme_editor_fallback()}</span
 									>{/if}
 							</button>
 						{/each}

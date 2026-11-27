@@ -736,7 +736,7 @@
 			if (rendering) event.preventDefault();
 		}}
 	>
-		<header class="shrink-0 border-b border-[var(--video-editor-border)] px-3 py-3 pr-12">
+		<header class="shrink-0 border-b border-[var(--video-editor-border)] px-3 py-3 pe-12">
 			<Dialog.Title id="export-title" class="text-base font-semibold"
 				>{isAudioFormat ? m.common_export() : m.video_editor_export_title()}</Dialog.Title
 			>

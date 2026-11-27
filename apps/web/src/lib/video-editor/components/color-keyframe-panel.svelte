@@ -182,7 +182,7 @@
 				</button>
 				<button
 					type="button"
-					class="view-button border-l border-[var(--video-editor-border)] {view === 'graph'
+					class="view-button border-s border-[var(--video-editor-border)] {view === 'graph'
 						? 'view-button-active'
 						: ''}"
 					role="tab"

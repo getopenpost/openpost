@@ -351,7 +351,7 @@
 				{#if blockers.length > 0}
 					<InlineNotice tone="warning">
 						<p class="font-medium">{blockerTitle}</p>
-						<ul class="mt-1 list-disc space-y-1 pl-5">
+						<ul class="mt-1 list-disc space-y-1 ps-5">
 							{#each blockers as blocker (blocker.key)}<li>
 									{blocker.message}
 								</li>{/each}

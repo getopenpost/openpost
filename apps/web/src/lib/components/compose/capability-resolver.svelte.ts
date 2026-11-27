@@ -8,7 +8,7 @@ import {
 	capabilityResponseApplies,
 	capabilityResolutionIsFresh
 } from './capability-readiness';
-import { getLocaleTag } from '$lib/i18n';
+import { getLocaleRegion, getLocaleTag } from '$lib/i18n';
 import { client, type SocialAccount } from '$lib/api/client';
 import { m } from '$lib/paraglide/messages';
 import { loadableDestinationOptionSources, mergeDestinationOptions } from './destination-options';
@@ -184,7 +184,7 @@ export class ComposerCapabilityResolver {
 		this.capabilityResolveAbortController = abortController;
 		const requestSequence = ++this.capabilityResolveRequestSequence;
 		this.capabilityResolveLoading = true;
-		const [, region = 'US'] = getLocaleTag().split('-');
+		const region = getLocaleRegion();
 		try {
 			const { data, error: resolveError } = await client.POST('/capabilities/resolve', {
 				signal: abortController.signal,
@@ -379,7 +379,7 @@ export class ComposerCapabilityResolver {
 		}
 		this.markDestinationOptionsLoading(account.id, 1);
 		this.destinationOptionsErrors = { ...this.destinationOptionsErrors, [account.id]: '' };
-		const [, region = 'US'] = getLocaleTag().split('-');
+		const region = getLocaleRegion();
 		const accountSearches = this.destinationOptionSearchByAccount[account.id] ?? {};
 		const effectiveSearch = onlySource && append ? (accountSearches[onlySource] ?? '') : search;
 		if (onlySource && !append) {

@@ -95,7 +95,7 @@
 				<span class={cn('truncate', !selectedLabel && 'text-muted-foreground')}>
 					{selectedLabel || placeholder}
 				</span>
-				<ThemeIcon role="chevron-down" class="ml-2 size-4 shrink-0 opacity-50" />
+				<ThemeIcon role="chevron-down" class="ms-2 size-4 shrink-0 opacity-50" />
 			</Button>
 		{/snippet}
 	</Popover.Trigger>

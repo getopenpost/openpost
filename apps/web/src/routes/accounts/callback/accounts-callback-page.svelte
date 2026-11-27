@@ -271,12 +271,12 @@
 							size="lg"
 						/>
 						{#if option.description}
-							<span class="block pl-[3.25rem] text-sm text-muted-foreground"
+							<span class="block ps-[3.25rem] text-sm text-muted-foreground"
 								>{option.description}</span
 							>
 						{/if}
 						{#if metadataEntries(option).length}
-							<span class="flex flex-wrap gap-2 pt-1 pl-[3.25rem]">
+							<span class="flex flex-wrap gap-2 ps-[3.25rem] pt-1">
 								{#each metadataEntries(option) as [key, value] (key)}
 									<span class="rounded-sm bg-muted px-2 py-1 text-xs text-muted-foreground">
 										{key.replaceAll('_', ' ')}: {value}
@@ -328,7 +328,7 @@
 	{:else}
 		<div class="flex flex-col items-center gap-4 text-center">
 			<ProtectedIcon icon="warning" class="size-10 text-destructive" />
-			<InlineNotice tone="error" message={error} class="w-full text-left" />
+			<InlineNotice tone="error" message={error} class="w-full text-start" />
 			<Button onclick={goToAccounts}>{m.accounts_callback_back()}</Button>
 		</div>
 	{/if}

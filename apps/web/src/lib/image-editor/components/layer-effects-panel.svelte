@@ -297,7 +297,7 @@
 			<button
 				{...props}
 				type="button"
-				class="flex min-h-7 w-full items-center gap-2 rounded-md px-2 text-left text-xs font-semibold hover:bg-muted"
+				class="flex min-h-7 w-full items-center gap-2 rounded-md px-2 text-start text-xs font-semibold hover:bg-muted"
 			>
 				<span class="min-w-0 flex-1">{m.image_editor_effects()}</span>
 				{#if activeEffectCount > 0}

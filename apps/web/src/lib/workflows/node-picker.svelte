@@ -102,7 +102,7 @@
 					{#each recipeEntries as entry}
 						<button
 							type="button"
-							class="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+							class="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-start hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
 							onclick={() => onrecipe(entry.id)}
 						>
 							<ThemeIcon role="repeat" class="mt-1 size-5 shrink-0" /><span
@@ -118,7 +118,7 @@
 						</p>{/if}
 				{:else if group === 'triggers'}{#each sources as kind}<button
 							type="button"
-							class="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+							class="flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-3 text-start text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
 							onclick={() => onsource(kind)}
 							><NodeIcon icon={sourceIcon(kind)} category="triggers" size="sm" />{sourceLabel(
 								kind
@@ -126,7 +126,7 @@
 						>{/each}
 				{:else}{#each entries as entry}<button
 							type="button"
-							class="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+							class="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-start hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
 							onclick={() => onadd(entry.kind)}
 							><NodeIcon icon={entry.icon} category={actionCategory(entry.kind)} size="sm" /><span
 								><span class="block text-sm font-medium">{entry.label}</span><span

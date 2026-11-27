@@ -559,7 +559,7 @@
 						</p>
 					</div>
 					{#if checkoutState === 'error'}
-						<div class="w-full space-y-4 text-left">
+						<div class="w-full space-y-4 text-start">
 							{#if checkoutConfigWarning}
 								<InlineNotice tone="warning" message={checkoutConfigWarning} />
 							{/if}
@@ -570,7 +570,7 @@
 						</div>
 					{:else}
 						{#if checkoutConfigWarning}
-							<div class="w-full space-y-3 text-left">
+							<div class="w-full space-y-3 text-start">
 								<InlineNotice tone="warning" message={checkoutConfigWarning} />
 								<Button
 									class="w-full"

@@ -368,11 +368,11 @@
 				<div class="relative">
 					<ThemeIcon
 						role="search"
-						class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+						class="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
 					/>
 					<Input
 						bind:value={query}
-						class="pl-9"
+						class="ps-9"
 						placeholder={m.stock_media_query_placeholder()}
 						aria-label={m.stock_media_search()}
 					/>
@@ -665,12 +665,12 @@
 							{/if}
 							{#if asset.kind === 'video' && previewing !== `${asset.provider}:${asset.external_id}`}
 								<span
-									class="absolute bottom-2 left-2 flex size-7 items-center justify-center rounded-full bg-black/75 text-white"
+									class="absolute start-2 bottom-2 flex size-7 items-center justify-center rounded-full bg-black/75 text-white"
 								>
 									<ProtectedIcon icon="media-video" class="size-3.5" />
 								</span>
 								<span
-									class="absolute right-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 font-mono text-xs text-white"
+									class="absolute end-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 font-mono text-xs text-white"
 								>
 									{Math.floor((asset.duration_seconds ?? 0) / 60)}:{String(
 										(asset.duration_seconds ?? 0) % 60

@@ -157,7 +157,7 @@
 	/>
 	<button
 		type="button"
-		class="mb-2 flex h-[25px] w-full items-center gap-2 rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-left text-[11px] text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-panel)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
+		class="mb-2 flex h-[25px] w-full items-center gap-2 rounded-md border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-start text-[11px] text-[var(--video-editor-muted)] hover:border-[var(--video-editor-focus-border)] hover:bg-[var(--video-editor-panel)] hover:text-[var(--video-editor-text)] focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] [@media(pointer:coarse)]:min-h-11"
 		onclick={() => createAdjustment(m.video_editor_adjustment_layer())}
 	>
 		<span

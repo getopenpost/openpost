@@ -1560,7 +1560,7 @@
 
 	{#if isSelectionMode}
 		<div
-			class="fixed right-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-3 z-40 rounded-2xl bg-popover p-2 text-popover-foreground shadow-lg ring-1 ring-border md:sticky md:right-auto md:bottom-4 md:left-auto"
+			class="fixed start-3 end-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-40 rounded-2xl bg-popover p-2 text-popover-foreground shadow-lg ring-1 ring-border md:sticky md:start-auto md:end-auto md:bottom-4"
 			role="toolbar"
 			aria-label={m.media_selection_actions()}
 		>
@@ -1799,7 +1799,7 @@
 
 									{#if isSelectionMode}
 										<span
-											class="media-card-control absolute top-2 left-2 z-10 flex items-center justify-center rounded-lg bg-background/95 shadow-sm"
+											class="media-card-control absolute start-2 top-2 z-10 flex items-center justify-center rounded-lg bg-background/95 shadow-sm"
 										>
 											{#if selectedMediaIds.has(media.id)}
 												<ThemeIcon role="check" class="size-4 text-primary" />
@@ -1813,7 +1813,7 @@
 										<Button
 											variant="secondary"
 											size="icon-sm"
-											class="absolute top-2 right-2 z-10 bg-background/90 shadow-sm"
+											class="absolute end-2 top-2 z-10 bg-background/90 shadow-sm"
 											aria-label={media.is_favorite ? m.media_unfavorite() : m.media_favorite()}
 											onclick={(event) => {
 												event.stopPropagation();
@@ -1956,7 +1956,7 @@
 		{#if totalPages > 1}
 			<div class="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-4">
 				<Button variant="outline" size="sm" onclick={prevPage} disabled={currentPage === 0}>
-					<ThemeIcon role="chevron-left" class="mr-1 h-4 w-4" />
+					<ThemeIcon role="chevron-left" class="me-1 h-4 w-4" />
 					{m.media_previous_page()}
 				</Button>
 				<span
@@ -1971,7 +1971,7 @@
 					disabled={currentPage >= totalPages - 1}
 				>
 					{m.media_next_page()}
-					<ThemeIcon role="chevron-right" class="ml-1 h-4 w-4" />
+					<ThemeIcon role="chevron-right" class="ms-1 h-4 w-4" />
 				</Button>
 			</div>
 		{/if}

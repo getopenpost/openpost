@@ -1250,7 +1250,7 @@
 					onkeydown={rotationKeydown}
 				>
 					<span
-						class="pointer-events-none absolute top-1/2 left-1/2 h-[var(--editor-22,22px)] border-l border-dashed border-[oklch(0.72_0.16_45)] shadow-[1px_0_0_black]"
+						class="pointer-events-none absolute top-1/2 left-1/2 h-[var(--editor-22,22px)] border-s border-dashed border-[oklch(0.72_0.16_45)] shadow-[1px_0_0_black]"
 					></span>
 					<span
 						class="z-10 size-2.5 rounded-full border border-black bg-[oklch(0.72_0.16_45)] shadow-[0_0_0_1px_white]"
@@ -1262,8 +1262,8 @@
 					<button
 						type="button"
 						role="slider"
-						class:left-0={edge === 'left'}
-						class:right-0={edge === 'right'}
+						class:start-0={edge === 'left'}
+						class:end-0={edge === 'right'}
 						class:top-0={edge === 'top'}
 						class:bottom-0={edge === 'bottom'}
 						class="absolute z-10 flex items-center justify-center bg-transparent focus-visible:outline-2 focus-visible:outline-white"

@@ -80,17 +80,17 @@
 		<dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[11px]">
 			{#each rows as row (row.label)}
 				<dt class="text-[var(--video-editor-muted)]">{row.label}</dt>
-				<dd class="min-w-0 text-right font-medium break-words">{row.value}</dd>
+				<dd class="min-w-0 text-end font-medium break-words">{row.value}</dd>
 			{/each}
 			{#if media.tags.length > 0}
 				<dt class="text-[var(--video-editor-muted)]">{m.video_editor_media_info_tags()}</dt>
-				<dd class="min-w-0 text-right font-medium break-words">{media.tags.join(', ')}</dd>
+				<dd class="min-w-0 text-end font-medium break-words">{media.tags.join(', ')}</dd>
 			{/if}
 			{#if media.attribution}
 				<dt class="text-[var(--video-editor-muted)]">
 					{m.video_editor_media_info_attribution()}
 				</dt>
-				<dd class="min-w-0 text-right font-medium break-words">
+				<dd class="min-w-0 text-end font-medium break-words">
 					{[media.attribution.author, media.attribution.provider, media.attribution.license]
 						.filter(Boolean)
 						.join(' · ')}

@@ -509,7 +509,7 @@
 				bind:value={searchQuery}
 				placeholder={m.video_editor_motion_search()}
 				aria-label={m.video_editor_motion_search()}
-				class="h-8 min-h-0 border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] pr-8 pl-7 text-xs"
+				class="h-8 min-h-0 border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] ps-7 pe-8 text-xs"
 			/>
 			{#if searchQuery}
 				<button

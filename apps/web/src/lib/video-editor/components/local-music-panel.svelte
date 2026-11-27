@@ -349,7 +349,7 @@
 						aria-label={m.video_editor_local_music_quality()}
 						class="mt-0.5 h-8 w-full min-w-0 justify-between overflow-hidden rounded border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] px-2 text-[11px] text-[var(--video-editor-text)] shadow-none hover:translate-y-0 hover:bg-[var(--video-editor-panel)]"
 					>
-						<span class="min-w-0 truncate pr-1 text-left">
+						<span class="min-w-0 truncate pe-1 text-start">
 							{audioQuality === 'high'
 								? m.video_editor_local_music_high()
 								: m.video_editor_local_music_standard()}
@@ -443,7 +443,7 @@
 					></div>
 				</div>
 				{#if progress.receivedBytes && progress.totalBytes}
-					<p class="mt-0.5 text-right text-[9px] text-[var(--video-editor-muted)]">
+					<p class="mt-0.5 text-end text-[9px] text-[var(--video-editor-muted)]">
 						{formatBytes(progress.receivedBytes)} / {formatBytes(progress.totalBytes)}
 					</p>
 				{/if}

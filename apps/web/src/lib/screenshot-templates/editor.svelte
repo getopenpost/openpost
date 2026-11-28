@@ -17,7 +17,7 @@
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { editorHandoffReturnURL } from '$lib/editor-handoff';
 	import { completeImageEditorReturnToken } from '$lib/image-editor/api';
-	import { uploadMediaFile } from '$lib/media-upload-client';
+	import { LivePreview } from '$lib/live-preview.svelte';
 	import { queryClient } from '$lib/query/client';
 	import {
 		mediaQueryKeys,
@@ -27,12 +27,14 @@
 	import {
 		createScreenshotDesign,
 		saveScreenshotDesign,
-		saveScreenshotExport,
+		exportScreenshotDesign,
+		previewScreenshot,
+		type ScreenshotPreviewImage,
 		ScreenshotSaveError
 	} from './api';
-	import { templateName, TEMPLATE_WIDTH, EXPORT_SCALE, MAX_EXPORT_HEIGHT } from './document';
-	import { renderScreenshot, downloadScreenshot, screenshotFilename } from './export';
-	import Preview from './preview.svelte';
+	import { templateName, TEMPLATE_WIDTH, EXPORT_SCALE } from './document';
+	import { downloadScreenshot, screenshotFilename } from './download';
+	import ServerPreview from './server-preview.svelte';
 	import TextField from './text-field.svelte';
 	import ConversationFields from './conversation-fields.svelte';
 	import ReceiptFields from './receipt-fields.svelte';
@@ -82,26 +84,37 @@
 	const canEdit = $derived(
 		design.can_edit && workspaceCtx.currentWorkspace?.id === design.workspace_id
 	);
-	let previewElement = $state<HTMLDivElement>();
-	let contentElement = $state<HTMLDivElement>();
 	let viewportWidth = $state(600);
-	let previewHeight = $state(0);
-	let contentHeight = $state(0);
+	const preview = new LivePreview<ScreenshotPreviewImage>((key, signal) => {
+		const { document: previewDocument } = JSON.parse(key) as { document: ScreenshotDocument };
+		return previewScreenshot(initial.workspace_id, previewDocument, EXPORT_SCALE, signal);
+	});
 	let savePromise: Promise<void> | undefined;
 	let mounted = true;
 	const exportController = new AbortController();
 	const scale = $derived(Math.min(1, Math.max(0.1, (viewportWidth - 40) / TEMPLATE_WIDTH)));
-	const frameHeight = $derived(doc.frame === 'square' ? 540 : doc.frame === 'portrait' ? 675 : 0);
-	const overflow = $derived(frameHeight > 0 && contentHeight > frameHeight + 1);
-	const tooTall = $derived(previewHeight * EXPORT_SCALE > MAX_EXPORT_HEIGHT);
+	const previewRejected = $derived(preview.error?.status === 422);
+	const previewRejectionMessage = $derived(
+		doc.frame === 'natural' ? m.templates_too_tall() : m.templates_overflow()
+	);
+	const previewHeight = $derived(
+		preview.current ? preview.current.height / preview.current.scale : 0
+	);
 	const backURL = $derived(
 		resolveAppPath(
 			`/templates${returnToken ? `?return_token=${encodeURIComponent(returnToken)}` : ''}`
 		)
 	);
 	let lastExport:
-		| { documentJSON: string; mediaID: string; media: MediaUploadResult; linked: boolean }
+		| { documentJSON: string; revision: number; mediaID: string; media: MediaUploadResult }
 		| undefined;
+	$effect(() => {
+		if (doc.meme) {
+			preview.request(null);
+			return;
+		}
+		preview.request(JSON.stringify({ workspace: initial.workspace_id, document: doc }));
+	});
 	$effect(() => {
 		const meme = doc.meme;
 		void previewRetry;
@@ -200,25 +213,6 @@
 		}, 650);
 		return () => clearTimeout(timer);
 	});
-	$effect(() => {
-		const element = previewElement;
-		const content = contentElement;
-		if (!element || !content) return;
-		let frame = 0;
-		const observer = new ResizeObserver(() => {
-			cancelAnimationFrame(frame);
-			frame = requestAnimationFrame(() => {
-				previewHeight = element.offsetHeight;
-				contentHeight = content.offsetHeight;
-			});
-		});
-		observer.observe(element);
-		observer.observe(content);
-		return () => {
-			observer.disconnect();
-			cancelAnimationFrame(frame);
-		};
-	});
 	onMount(() =>
 		workspaceCtx.registerWorkspaceSwitchGuard(async () => {
 			if (busy) return false;
@@ -232,6 +226,7 @@
 	);
 	onDestroy(() => {
 		mounted = false;
+		preview.dispose();
 		exportController.abort();
 	});
 	beforeNavigate((navigation) => {
@@ -275,7 +270,7 @@
 	}
 	let exportMenuOpen = $state(false);
 	async function exportImage(destination: 'download' | 'media' | 'publication') {
-		if (busy || (!doc.meme && !previewElement) || overflow || tooTall || exportUnavailable) return;
+		if (busy || previewRejected || exportUnavailable) return;
 		exportMenuOpen = false;
 		busy = true;
 		error = '';
@@ -284,17 +279,22 @@
 			await tick();
 			const snapshot = doc;
 			const snapshotJSON = JSON.stringify(snapshot);
-			const blob = snapshot.meme
-				? undefined
-				: await renderScreenshot(previewElement!, { contentElement, frameHeight });
-			if (!mounted) return;
-			if (destination === 'download' && blob) {
-				downloadScreenshot(blob, snapshot.title);
+			if (destination === 'download' && !snapshot.meme) {
+				// Downloads need no saved media, so viewers can download too.
+				const image = await previewScreenshot(
+					initial.workspace_id,
+					snapshot,
+					EXPORT_SCALE,
+					exportController.signal,
+					'png'
+				);
+				if (!mounted) return;
+				downloadScreenshot(await (await fetch(image.url)).blob(), snapshot.title);
 				showToast(m.image_editor_export_downloaded(), 'success');
 				return;
 			}
 			if (!canEdit) throw new Error(m.image_editor_read_only());
-			if (lastExport?.documentJSON !== snapshotJSON) {
+			if (lastExport?.documentJSON !== snapshotJSON || lastExport.revision !== revision) {
 				const media = snapshot.meme
 					? (
 							await memeAPI.render({
@@ -305,24 +305,11 @@
 								)
 							})
 						).media
-					: await uploadMediaFile({
-							workspaceId: initial.workspace_id,
-							file: new File([blob!], screenshotFilename(snapshot.title), { type: 'image/png' }),
-							source: 'screenshot_template',
-							signal: exportController.signal
-						});
-				lastExport = {
-					documentJSON: snapshotJSON,
-					mediaID: media.id,
-					media,
-					linked: !!snapshot.meme
-				};
+					: await exportScreenshotDesign(initial.id, revision);
+				lastExport = { documentJSON: snapshotJSON, revision, mediaID: media.id, media };
 			}
-			if (!lastExport.linked) {
-				await saveScreenshotExport(initial.id, revision, lastExport.mediaID);
-				lastExport.linked = true;
-			}
-			if (!mounted || workspaceCtx.currentWorkspace?.id !== initial.workspace_id) return;
+			if (!mounted || !lastExport || workspaceCtx.currentWorkspace?.id !== initial.workspace_id)
+				return;
 			await queryClient.invalidateQueries({ queryKey: mediaQueryKeys.all(initial.workspace_id) });
 			if (destination === 'download') {
 				const response = await fetch(`/media/${encodeURIComponent(lastExport.mediaID)}`, {
@@ -359,6 +346,24 @@
 		} finally {
 			busy = false;
 		}
+	}
+	// Selectable regions are named by their content, as the bubbles they cover.
+	function regionLabel(id: string): string {
+		const messages = doc.conversation?.messages ?? [];
+		const index = messages.findIndex((message) => message.id === id);
+		if (index >= 0)
+			return messages[index].text.trim() || m.templates_message_photo({ number: index + 1 });
+		const item = doc.receipt?.items?.find((row) => row.id === id);
+		if (item) return item.name.trim() || m.templates_item();
+		const update = doc.status_page?.updates?.find((row) => row.id === id);
+		if (update)
+			return (
+				[update.stage, update.text]
+					.map((part) => part?.trim())
+					.filter(Boolean)
+					.join(' · ') || m.common_edit()
+			);
+		return m.common_edit();
 	}
 	async function focusField(id: string) {
 		mobileView = 'edit';
@@ -458,11 +463,7 @@
 				<Button
 					variant="outline"
 					size="sm"
-					disabled={busy ||
-						exportUnavailable ||
-						overflow ||
-						tooTall ||
-						(!doc.meme && !previewElement)}
+					disabled={busy || exportUnavailable || previewRejected}
 					onclick={() => exportImage('download')}
 					><ThemeIcon role="download" class="size-3.5" />{m.image_editor_download()}</Button
 				>
@@ -471,12 +472,12 @@
 				{#if !viewportIsNarrow}<Button
 						variant="outline"
 						size="sm"
-						disabled={busy || exportUnavailable || overflow || tooTall}
+						disabled={busy || exportUnavailable || previewRejected}
 						onclick={() => exportImage('media')}>{m.templates_save_media()}</Button
 					>{/if}
 				<Button
 					size="sm"
-					disabled={busy || exportUnavailable || overflow || tooTall}
+					disabled={busy || exportUnavailable || previewRejected}
 					onclick={() => exportImage('publication')}
 					>{returnToken ? m.templates_return_publication() : m.templates_add_publication()}</Button
 				>
@@ -491,11 +492,7 @@
 								>{/snippet}</DropdownMenu.Trigger
 						><DropdownMenu.Content align="end">
 							<DropdownMenu.Item
-								disabled={busy ||
-									exportUnavailable ||
-									overflow ||
-									tooTall ||
-									(!doc.meme && !previewElement)}
+								disabled={busy || exportUnavailable || previewRejected}
 								onclick={() => exportImage('download')}
 								><ThemeIcon
 									role="download"
@@ -503,7 +500,7 @@
 								/>{m.image_editor_download()}</DropdownMenu.Item
 							>
 							<DropdownMenu.Item
-								disabled={busy || exportUnavailable || overflow || tooTall}
+								disabled={busy || exportUnavailable || previewRejected}
 								onclick={() => exportImage('media')}
 								><ThemeIcon
 									role="media"
@@ -528,11 +525,14 @@
 			>
 		</div>{/if}
 	{#if !canEdit}<InlineNotice message={m.image_editor_read_only()} />{/if}
-	{#if overflow || tooTall}<div class="px-3 py-2">
-			<InlineNotice
-				tone="warning"
-				message={tooTall ? m.templates_too_tall() : m.templates_overflow()}
-			/>
+	{#if previewRejected}<div class="px-3 py-2">
+			<InlineNotice tone="warning" message={previewRejectionMessage} />
+		</div>{:else if preview.error}<div class="px-3 py-2">
+			<InlineNotice tone="error" message={preview.error.message}
+				>{#snippet actions()}<Button variant="outline" size="sm" onclick={() => preview.retry()}
+						>{m.common_retry()}</Button
+					>{/snippet}</InlineNotice
+			>
 		</div>{/if}
 	<div class="editor-body min-h-0 flex-1">
 		<aside
@@ -666,26 +666,26 @@
 						class="mb-4 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground"
 					>
 						<span>{m.templates_preview()}</span><span>·</span><span
-							>{TEMPLATE_WIDTH * EXPORT_SCALE} × {Math.ceil(previewHeight * EXPORT_SCALE)} px</span
+							>{preview.current
+								? `${preview.current.width} × ${preview.current.height} px`
+								: ''}</span
 						>
 					</div>
-					<div
-						class="relative shrink-0"
-						style:width="{TEMPLATE_WIDTH * scale}px"
-						style:height="{previewHeight * scale}px"
-					>
-						<div
-							class="absolute start-0 top-0 origin-top-left ring-1 ring-border"
-							style:transform="scale({scale})"
+					{#if preview.current}<div
+							class="relative shrink-0"
+							style:width="{TEMPLATE_WIDTH * scale}px"
+							style:height="{previewHeight * scale}px"
 						>
-							<Preview
-								document={doc}
-								onselect={focusField}
-								bind:element={previewElement}
-								bind:contentElement
-							/>
-						</div>
-					</div>
+							<div class="absolute start-0 top-0 origin-top-left" style:transform="scale({scale})">
+								<ServerPreview
+									image={preview.current}
+									alt={doc.title}
+									onselect={focusField}
+									label={regionLabel}
+									pending={preview.pending}
+								/>
+							</div>
+						</div>{/if}
 				</div>
 			{/if}
 		</section>

@@ -84,4 +84,18 @@ describe('LivePreview', () => {
 		expect(preview.pending).toBe(false);
 		preview.dispose();
 	});
+
+	it('waits for a saved result before the first render and can cancel', async () => {
+		const { calls, render } = deferredRenderer();
+		const preview = new LivePreview(render, { initialDelayMs: 50 });
+		preview.request('saved');
+		preview.cancel();
+		await new Promise((resolve) => setTimeout(resolve, 120));
+		expect(calls).toHaveLength(0);
+		expect(preview.pending).toBe(false);
+		preview.request('edited');
+		await waitFor(() => calls.length === 1);
+		expect(calls[0].key).toBe('edited');
+		preview.dispose();
+	});
 });

@@ -34,15 +34,20 @@
 		onResult?: (result: TextCardResult) => void;
 	} = $props();
 	let latest: TextCardRequest | null = null;
-	const preview = new LivePreview<TextCardImage[]>((_, signal) => {
-		if (!latest) throw new LivePreviewError(m.text_card_preview_failed());
-		return renderTextCardPreview(latest, signal).catch((cause) => {
-			if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
-			throw new LivePreviewError(
-				cause instanceof Error ? cause.message : m.text_card_preview_failed()
-			);
-		});
-	});
+	// The grace before the first render lets a saved card arrive without a
+	// request; later edits stream at server speed.
+	const preview = new LivePreview<TextCardImage[]>(
+		(_, signal) => {
+			if (!latest) throw new LivePreviewError(m.text_card_preview_failed());
+			return renderTextCardPreview(latest, signal).catch((cause) => {
+				if (cause instanceof DOMException && cause.name === 'AbortError') throw cause;
+				throw new LivePreviewError(
+					cause instanceof Error ? cause.message : m.text_card_preview_failed()
+				);
+			});
+		},
+		{ initialDelayMs: 350 }
+	);
 	const key = $derived(textCardRequestKey(request, identity, defaults));
 	const saved = $derived(savedPreview && savedPreview.key === key ? savedPreview : null);
 	// Until the first live render lands, the last saved cards stay on screen.
@@ -51,8 +56,10 @@
 		const requestKey = key;
 		const input = request;
 		latest = input;
+		// A saved card for this exact request is shown without rendering.
 		if (!input) preview.request(null);
-		else if (!saved) preview.request(requestKey);
+		else if (saved) preview.cancel();
+		else preview.request(requestKey);
 	});
 	onDestroy(() => preview.dispose());
 	const result = $derived<TextCardResult>(

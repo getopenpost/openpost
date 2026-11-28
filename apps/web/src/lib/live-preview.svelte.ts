@@ -12,6 +12,11 @@ export interface LivePreviewOptions {
 	minIntervalMs?: number;
 	/** Number of recent results kept for instant reuse. */
 	cacheSize?: number;
+	/**
+	 * Wait before the first render while nothing is on screen, so a caller
+	 * that is about to supply a saved result does not trigger a request.
+	 */
+	initialDelayMs?: number;
 }
 
 export class LivePreviewError extends Error {
@@ -37,6 +42,7 @@ export class LivePreview<T> {
 	#debounceMs: number;
 	#minIntervalMs: number;
 	#cacheSize: number;
+	#initialDelayMs: number;
 	#cache = new Map<string, T>();
 	#wanted: string | null = null;
 	#inflight: string | null = null;
@@ -47,12 +53,18 @@ export class LivePreview<T> {
 
 	constructor(
 		render: (key: string, signal: AbortSignal) => Promise<T>,
-		{ debounceMs = 60, minIntervalMs = 100, cacheSize = 24 }: LivePreviewOptions = {}
+		{
+			debounceMs = 60,
+			minIntervalMs = 100,
+			cacheSize = 24,
+			initialDelayMs = 0
+		}: LivePreviewOptions = {}
 	) {
 		this.#render = render;
 		this.#debounceMs = debounceMs;
 		this.#minIntervalMs = minIntervalMs;
 		this.#cacheSize = cacheSize;
+		this.#initialDelayMs = initialDelayMs;
 	}
 
 	/** Ask for the preview of `key`. Pass null when there is nothing to render. */
@@ -90,6 +102,14 @@ export class LivePreview<T> {
 		this.request(key);
 	}
 
+	/** Stop waiting for a render and keep the current result on screen. */
+	cancel(): void {
+		this.#wanted = null;
+		this.#cancel();
+		this.pending = false;
+		this.error = null;
+	}
+
 	/** Forget cached results, for example after referenced media changed. */
 	invalidate(): void {
 		this.#cache.clear();
@@ -106,9 +126,11 @@ export class LivePreview<T> {
 		const sinceLast = performance.now() - this.#lastStart;
 		// The first change after a pause renders at once; bursts coalesce.
 		const delay =
-			this.current === null || sinceLast > this.#minIntervalMs + this.#debounceMs
-				? 0
-				: Math.max(this.#debounceMs, this.#minIntervalMs - sinceLast);
+			this.current === null
+				? this.#initialDelayMs
+				: sinceLast > this.#minIntervalMs + this.#debounceMs
+					? 0
+					: Math.max(this.#debounceMs, this.#minIntervalMs - sinceLast);
 		this.#timer = setTimeout(() => {
 			this.#timer = null;
 			void this.#pump();

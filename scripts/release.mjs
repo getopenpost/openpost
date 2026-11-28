@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 
+import { commitsInRange, releaseCommitsMissingFragments } from "./changelog-coverage.mjs";
+import { changelogFragmentEntries } from "./changelog-fragments.mjs";
 import { mobileReleasePaths } from "./release-distribution-plan.mjs";
 import { checkMCPRegistryOwnership } from "./check-mcp-registry.mjs";
 import { publishedStableReleaseTag } from "./published-release-tag.mjs";
@@ -134,6 +136,30 @@ function checkReleaseContracts() {
   run(["bun", "run", "check", "--", "provider-certification"]);
 }
 
+// Release notes come only from changes/ fragments. Before anything is pushed,
+// stop on feat and fix commits since the last published release that no
+// fragment covers, so their user-visible changes reach the notes.
+function checkFragmentCoverage(publishedTag) {
+  const missing = releaseCommitsMissingFragments(
+    commitsInRange(publishedTag, "HEAD", { cwd: root }),
+    changelogFragmentEntries(path.join(root, "changes")),
+  );
+  if (missing.length === 0) return;
+  const list = missing.map((commit) => `  ${commit.hash.slice(0, 12)} ${commit.subject}`);
+  if (process.env.OPENPOST_RELEASE_ALLOW_UNDOCUMENTED === "1") {
+    console.log(`Releasing without fragments for:\n${list.join("\n")}`);
+    return;
+  }
+  throw new Error(
+    [
+      `${missing.length} feat or fix commit(s) since ${publishedTag} have no changes/ fragment:`,
+      ...list,
+      "Commit fragments for the user-visible ones (see changes/README.md), then rerun.",
+      "If the rest do not affect users, rerun with OPENPOST_RELEASE_ALLOW_UNDOCUMENTED=1.",
+    ].join("\n"),
+  );
+}
+
 async function checkReleaseMobileIdentity(previousReleaseTag) {
   const previousPath =
     git(["ls-tree", "--name-only", previousReleaseTag, "apps/mobile/app.json"]).trim().length > 0
@@ -217,7 +243,9 @@ async function ship() {
     const latestTag = git(["tag", "--list", "v*", "--sort=-v:refname"]).split("\n").find(Boolean);
     if (!latestTag) throw new Error("no v* release tags found");
     checkReleaseContracts();
-    await checkReleaseMobileIdentity(publishedStableReleaseTag());
+    const publishedTag = publishedStableReleaseTag();
+    checkFragmentCoverage(publishedTag);
+    await checkReleaseMobileIdentity(publishedTag);
     tag ??= runCapture(["bun", "scripts/next-release-version.mjs", latestTag]).trim();
     runCapture(["bun", "scripts/release-notes.mjs", tag]);
 

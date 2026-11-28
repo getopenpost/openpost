@@ -32,7 +32,7 @@ func NewScreenshotTemplateHandler(db *bun.DB, auth middleware.Authenticator, ren
 
 // Live previews follow typing. Rendering is bounded by shared slots, so the
 // per-user cap only stops runaway clients.
-const screenshotTemplatePreviewsPerMinute = 240
+const screenshotTemplatePreviewsPerMinute = 600
 
 type PreviewScreenshotTemplateInput struct {
 	Body struct {

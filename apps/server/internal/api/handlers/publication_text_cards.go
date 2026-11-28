@@ -85,7 +85,8 @@ func (h *PublicationHandler) previewTextCardForUser(ctx context.Context, userID 
 	if h.textCards == nil {
 		return nil, huma.Error503ServiceUnavailable("Text card rendering is unavailable")
 	}
-	if !textCardPreviewLimiter.Allow("text-card-preview:"+userID, 30, time.Minute) {
+	// Live previews follow typing; shared render slots bound the CPU cost.
+	if !textCardPreviewLimiter.Allow("text-card-preview:"+userID, 600, time.Minute) {
 		return nil, huma.Error429TooManyRequests("Text card previews are rate limited; try again shortly")
 	}
 	images, err := h.textCards.Preview(ctx, account, input.Body.Text, input.Body.OutputProfile, style, input.Body.AttachmentCount)

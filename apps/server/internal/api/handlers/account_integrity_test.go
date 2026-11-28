@@ -30,6 +30,7 @@ func seedHandlerAccount(t *testing.T, db *bun.DB, id, platform string) {
 	require.NoError(t, err)
 }
 
+//nolint:unparam // Test helper keeps platform explicit at call sites.
 func seedHandlerRendition(t *testing.T, db *bun.DB, id, publicationID, accountID, platform, body, status string) {
 	t.Helper()
 	_, err := db.NewInsert().Model(&models.Rendition{

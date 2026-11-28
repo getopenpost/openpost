@@ -444,9 +444,7 @@ func NewWorker(db *bun.DB, id string, interval time.Duration, pub *publisher.Ser
 		quiesce:   make(chan struct{}),
 	}
 	if pub != nil {
-		if marker, ok := any(pub).(terminalPublishFailureMarker); ok {
-			w.terminalPublishMarker = marker
-		}
+		w.terminalPublishMarker = pub
 	}
 	w.executors[jobregistry.ExecutePublishPublication] = func(ctx context.Context, job *models.Job) error {
 		if w.publisher == nil {

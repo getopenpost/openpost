@@ -10,7 +10,6 @@ import {
   validateChangelog,
 } from "../packages/changelog/src/index.js";
 import { publishedStableReleaseTag } from "./published-release-tag.mjs";
-import { addCommitsMissingFragments } from "./changelog-coverage.mjs";
 import {
   changelogFragmentEntries,
   mergeFragmentGroupsIntoChangelog,
@@ -120,6 +119,7 @@ for (const entry of tagTree) {
 
 const tagChangelog = git(["show", `${tag}:CHANGELOG.md`]);
 
+const merged = mergeFragmentGroupsIntoChangelog(tagChangelog, byGroup);
 let publishedTag = "";
 try {
   publishedTag = publishedStableReleaseTag({ excludeTag: tag });
@@ -128,15 +128,6 @@ try {
     `record-release-changelog: continuing without carry-forward (${error.message})\n`,
   );
 }
-
-addCommitsMissingFragments(byGroup, {
-  publishedTag,
-  release: tag,
-  fragmentNames: tagTree,
-  warn: (message) => process.stderr.write(`record-release-changelog: ${message}\n`),
-});
-
-const merged = mergeFragmentGroupsIntoChangelog(tagChangelog, byGroup);
 
 let prepared;
 try {

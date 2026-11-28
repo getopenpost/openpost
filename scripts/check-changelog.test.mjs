@@ -88,15 +88,18 @@ test("a fragment anywhere in the pull request covers its commits", () => {
   }
 });
 
-test("internal scopes and the opt-out trailer need no fragment", () => {
-  const { root, commit, base } = setupRepo();
+test("internal scopes, the opt-out trailer and fragment removals", () => {
+  const { root, git, commit } = setupRepo();
   try {
+    const base = commit("chore: add a note", { "changes/old.md": "### Fixed\n\n- Old note.\n" });
     commit("fix(ci): pin the scanner download", { "ci.txt": "one\n" });
     commit("fix(server): clear new lint findings\n\nChangelog: none", { "server.txt": "one\n" });
-    // The README is instructions, not a fragment.
-    const head = commit("fix(web): keep locales out of builds", {
+    // Neither the README nor removing a fragment documents a change.
+    commit("fix(web): keep locales out of builds", {
       "changes/README.md": "# Changes fragments\n\nUpdated.\n",
     });
+    git(["rm", "--quiet", "changes/old.md"]);
+    const head = commit("fix(media): drop the stale note");
 
     const result = check(root, {
       OPENPOST_CHANGELOG_BASE: base,
@@ -105,24 +108,27 @@ test("internal scopes and the opt-out trailer need no fragment", () => {
     });
     assert.equal(result.status, 1, result.stdout);
     assert.match(result.stderr, /fix\(web\): keep locales out of builds/u);
+    assert.match(result.stderr, /fix\(media\): drop the stale note/u);
     assert.doesNotMatch(result.stderr, /fix\(ci\)|fix\(server\)/u);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("the range check is skipped without a usable base", () => {
+test("pushes skip an unusable range and pull requests fail closed", () => {
   const { root, commit } = setupRepo();
   try {
     const head = commit("fix(api): keep retries bounded", { "api.txt": "one\n" });
     // A new branch push reports an all-zero before revision.
-    const result = check(root, {
-      OPENPOST_CHANGELOG_BASE: "0".repeat(40),
-      OPENPOST_CHANGELOG_HEAD: head,
-      OPENPOST_CHANGELOG_ENFORCE: "1",
-    });
-    assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /fragments are valid/u);
+    const range = { OPENPOST_CHANGELOG_BASE: "0".repeat(40), OPENPOST_CHANGELOG_HEAD: head };
+
+    const pushed = check(root, { ...range, OPENPOST_CHANGELOG_ENFORCE: "0" });
+    assert.equal(pushed.status, 0, pushed.stderr);
+    assert.match(pushed.stdout, /fragments are valid/u);
+
+    const pullRequest = check(root, { ...range, OPENPOST_CHANGELOG_ENFORCE: "1" });
+    assert.equal(pullRequest.status, 1, pullRequest.stdout);
+    assert.match(pullRequest.stderr, /not in this checkout/u);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

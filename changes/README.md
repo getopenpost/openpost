@@ -15,10 +15,14 @@ Each file should group items under `### Added`, `### Changed`, `### Fixed`, etc.
 the pull request's commits adds one; pushes to `main` only warn. Scopes that
 never reach users (`build`, `ci`, `deps`, `docs`, `e2e`, `marketing`,
 `release`, `tasks`, `test`, `tests`) are exempt, and any other commit can opt
-out with a `Changelog: none` trailer. Release notes list `feat` and `fix`
-commits that still shipped without a fragment under `### Other changes`,
-using the commit subject; a fragment named `<issue>.md` or one added in a
-commit that references the same issue covers them.
+out with a `Changelog: none` trailer.
+
+Before tagging, `bun run release -- ship` stops on `feat` and `fix` commits
+since the last published release that no fragment covers. A commit is covered
+by a fragment it adds or edits, by a fragment named after an issue in its
+subject (`<issue>.md`), or by another commit that adds a fragment and names the
+same issue. Add fragments for the user-visible ones, then rerun with
+`OPENPOST_RELEASE_ALLOW_UNDOCUMENTED=1` if the rest do not affect users.
 
 Tag CI merges fragments with the `CHANGELOG.md` `[Unreleased]` section in
 memory to build the draft release notes, so releases need no changelog

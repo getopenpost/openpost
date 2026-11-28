@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 
 import { prepareReleaseChangelog, releaseNotesForTag } from "../packages/changelog/src/index.js";
 import { publishedStableReleaseTag } from "./published-release-tag.mjs";
-import { addCommitsMissingFragments, resolveCommit } from "./changelog-coverage.mjs";
 import {
   changelogFragmentEntries,
   mergeFragmentGroupsIntoChangelog,
@@ -25,9 +24,8 @@ const changelogPath = resolve("CHANGELOG.md");
 const changesDirectory = resolve("changes");
 const current = readFileSync(changelogPath, "utf8");
 
-const fragmentNames = changelogFragmentEntries(changesDirectory);
 const byGroup = new Map();
-for (const entry of fragmentNames) {
+for (const entry of changelogFragmentEntries(changesDirectory)) {
   const groups = parseChangelogFragment(
     entry,
     readFileSync(resolve(changesDirectory, entry), "utf8"),
@@ -39,6 +37,8 @@ for (const entry of fragmentNames) {
   }
 }
 
+const merged = mergeFragmentGroupsIntoChangelog(current, byGroup);
+const releaseDate = new Date().toISOString().slice(0, 10);
 let publishedTag = "";
 try {
   publishedTag = publishedStableReleaseTag({ excludeTag: tag });
@@ -47,16 +47,5 @@ try {
     `release-notes: could not determine the latest published release (${error.message}); continuing without carry-forward\n`,
   );
 }
-
-// A preview before tagging covers the commits up to HEAD.
-addCommitsMissingFragments(byGroup, {
-  publishedTag,
-  release: resolveCommit(tag) ? tag : "HEAD",
-  fragmentNames,
-  warn: (message) => process.stderr.write(`release-notes: ${message}\n`),
-});
-
-const merged = mergeFragmentGroupsIntoChangelog(current, byGroup);
-const releaseDate = new Date().toISOString().slice(0, 10);
 const prepared = prepareReleaseChangelog(merged, tag, releaseDate, { publishedTag });
 process.stdout.write(`${releaseNotesForTag(prepared, tag)}\n`);

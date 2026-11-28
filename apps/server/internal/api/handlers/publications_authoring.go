@@ -46,6 +46,9 @@ func (h *PublicationHandler) deleteRendition(api huma.API) {
 		if err := drafts.RequireExpectedRevision(input.ExpectedRevision); err != nil {
 			return nil, err
 		}
+		if err := h.requireExternalPublicationAccounts(ctx, input.PathID); err != nil {
+			return nil, err
+		}
 		userID := middleware.GetUserID(ctx)
 		publication, err := h.loadPublicationForEdit(ctx, input.PathID, userID)
 		if err != nil {

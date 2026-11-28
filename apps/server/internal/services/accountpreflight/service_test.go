@@ -189,3 +189,85 @@ func TestTransientChecksDoNotHideOrRepeatCredentialFailureNotifications(t *testi
 		requirePreflightNotifications(t, db, "admin-1", int(step.generation), "one notification per confirmed credential break")
 	}
 }
+
+type flakyNotifications struct {
+	*notifications.Service
+	failures int
+}
+
+func (recorder *flakyNotifications) RecordWithDB(ctx context.Context, db bun.IDB, outcome notifications.Outcome) error {
+	if recorder.failures > 0 {
+		recorder.failures--
+		return fmt.Errorf("notification store unavailable")
+	}
+	return recorder.Service.RecordWithDB(ctx, db, outcome)
+}
+
+// A transient notification failure must not commit the claimed break, or
+// later checks would see an already-failed account and never alert anyone.
+func TestCredentialFailureClaimCommitsWithItsReconnectNotifications(t *testing.T) {
+	db := preflightTestDB(t)
+	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
+	seedPreflightCandidate(t, db, now.Add(time.Hour))
+	seedPreflightReconnectRecipients(t, db, "connector-1")
+	recorder := &flakyNotifications{Service: notifications.NewService(db), failures: 1}
+	service := NewService(db, preflightTokens{}, recorder)
+	service.now = func() time.Time { return now }
+	service.SetProvider("x", &preflightAdapter{err: &platform.HTTPError{StatusCode: 401, Code: "invalid_token"}})
+
+	require.Error(t, service.HandleJob(t.Context(), JobType))
+	requirePreflightAccountState(t, db, 0, "")
+	requirePreflightNotifications(t, db, "connector-1", 0, "the failed transaction records nothing")
+
+	require.NoError(t, service.HandleJob(t.Context(), JobType))
+	requirePreflightAccountState(t, db, 1, "authentication")
+	requirePreflightNotifications(t, db, "connector-1", 1, "the retried check reports the break")
+	requirePreflightNotifications(t, db, "admin-1", 1, "the retried check reports the break")
+}
+
+func TestOneAccountCheckWarnsEveryAtRiskPublication(t *testing.T) {
+	db := preflightTestDB(t)
+	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
+	seedPreflightCandidate(t, db, now.Add(time.Hour))
+	seedPreflightReconnectRecipients(t, db, "connector-1")
+	runAt := now.Add(90 * time.Minute)
+	_, err := db.NewInsert().Model(&models.Publication{
+		ID: "publication-2", WorkspaceID: "workspace-1", CreatedByID: "user-2", Title: "Follow-up",
+		SourceContent: "Follow-up", Status: models.PublicationStatusScheduled, ScheduledAt: runAt,
+		ActualRunAt: runAt, MetadataJSON: "{}", ReleasePlanJSON: "{}", CreatedAt: now, UpdatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Rendition{
+		ID: "rendition-2", PublicationID: "publication-2", SocialAccountID: "account-1",
+		TargetKey: "x", Platform: "x", Profile: "post", Status: models.RenditionStatusScheduled,
+		SettingsJSON: "{}", CreatedAt: now, UpdatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	adapter := &preflightAdapter{err: &platform.HTTPError{StatusCode: 401, Code: "invalid_token"}}
+	service := NewService(db, preflightTokens{}, notifications.NewService(db))
+	service.now = func() time.Time { return now }
+	service.SetProvider("x", adapter)
+
+	require.NoError(t, service.HandleJob(t.Context(), JobType))
+	require.Equal(t, 1, adapter.calls, "one provider check covers the account")
+	requirePreflightNotifications(t, db, "user-1", 1, "the first creator is warned")
+	requirePreflightNotifications(t, db, "user-2", 1, "the sibling creator is warned too")
+}
+
+func TestNormalizedProviderCodesConfirmUserAction(t *testing.T) {
+	for code, want := range map[string]string{
+		"meta:checkpoint:190:459":        "authentication",
+		"meta:checkpoint:instagram":      "authentication",
+		"meta:missing_page_role:190:492": "permission",
+		"google:invalid_rapt":            "authentication",
+		"devnull:signature_rejected":     "authentication",
+		"devnull:key_or_user_unknown":    "authentication",
+	} {
+		// Statuses that would be inconclusive on their own.
+		failure, confirmed := confirmedUserActionFailure(&platform.HTTPError{StatusCode: 404, Code: code})
+		require.True(t, confirmed, code)
+		require.Equal(t, want, failure, code)
+	}
+	_, confirmed := confirmedUserActionFailure(&platform.HTTPError{StatusCode: 404, Code: "devnull:commit_rejected"})
+	require.False(t, confirmed)
+}

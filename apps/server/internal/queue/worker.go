@@ -60,9 +60,24 @@ const (
 	staleProcessingJobAge              = 15 * time.Minute
 	processingHeartbeat                = staleProcessingJobAge / 3
 	publicationBuilderUnavailableRetry = time.Minute
-	jobFinalizationTimeout             = 3 * time.Second
-	postImportSweepInterval            = 15 * time.Minute
+	// jobFinalizationTimeout must outlast SQLite's 5s busy_timeout so a
+	// briefly locked database cannot strand a finished job in processing.
+	jobFinalizationTimeout  = 15 * time.Second
+	postImportSweepInterval = 15 * time.Minute
+	// staleSweepInterval spaces stale-lease recovery. Leases only become
+	// stale after staleProcessingJobAge, so idle polls need not rescan.
+	staleSweepInterval = 30 * time.Second
+	// heartbeatFailureBudget is how long a worker keeps running without a
+	// confirmed heartbeat. Past it, recovery may already treat the lease as
+	// stale, so the worker stops rather than run beside a new owner.
+	heartbeatFailureBudget = staleProcessingJobAge - processingHeartbeat
 )
+
+// terminalPublishFailureMarker clears a publication's retry projection in
+// the same transaction that fences the job's terminal failure.
+type terminalPublishFailureMarker interface {
+	MarkTerminalPublishFailure(ctx context.Context, db bun.IDB, jobType, jobPayload string) error
+}
 
 // BackgroundWorker polls the configured database for pending jobs.
 type BackgroundWorker struct {
@@ -72,6 +87,7 @@ type BackgroundWorker struct {
 	workerID              string
 	interval              time.Duration
 	publisher             *publisher.Service
+	terminalPublishMarker terminalPublishFailureMarker
 	tokens                *tokenmanager.TokenManager
 	storage               mediastore.BlobStorage
 	feedback              *feedback.Service
@@ -97,6 +113,8 @@ type BackgroundWorker struct {
 	done                  chan struct{}
 	quiesce               chan struct{}
 	quiesceOnce           sync.Once
+	heartbeatInterval     time.Duration
+	lastStaleSweep        time.Time
 }
 
 type jobExecutor func(context.Context, *models.Job) error
@@ -425,6 +443,9 @@ func NewWorker(db *bun.DB, id string, interval time.Duration, pub *publisher.Ser
 		done:      make(chan struct{}),
 		quiesce:   make(chan struct{}),
 	}
+	if pub != nil {
+		w.terminalPublishMarker = pub
+	}
 	w.executors[jobregistry.ExecutePublishPublication] = func(ctx context.Context, job *models.Job) error {
 		if w.publisher == nil {
 			return fmt.Errorf("publishing is not configured")
@@ -522,11 +543,13 @@ func (w *BackgroundWorker) processDueJobs(ctx context.Context) {
 	if w.isQuiescing() {
 		return
 	}
-	if len(w.jobTypes) == 0 {
+	if now := time.Now(); now.Sub(w.lastStaleSweep) >= staleSweepInterval {
+		w.lastStaleSweep = now
 		requeuedPublicationJobIDs := w.requeueStaleProcessingJobs(ctx)
+		// Reconciliation isolates each job; a job it could not recover stays
+		// processing for the next sweep without blocking unrelated work.
 		if err := databasemigrations.ReconcileActiveLegacyPublicationJobs(ctx, w.db, requeuedPublicationJobIDs); err != nil {
 			log.Printf("[Worker %s] failed to reconcile requeued publication jobs: %v\n", w.workerID, err)
-			return
 		}
 	}
 	for {
@@ -537,6 +560,50 @@ func (w *BackgroundWorker) processDueJobs(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// inLane reports whether this worker claims jobs of the given type.
+func (w *BackgroundWorker) inLane(jobType string) bool {
+	for _, excluded := range w.excludedJobTypes {
+		if excluded == jobType {
+			return false
+		}
+	}
+	if len(w.jobTypes) == 0 {
+		return true
+	}
+	for _, included := range w.jobTypes {
+		if included == jobType {
+			return true
+		}
+	}
+	return false
+}
+
+func (w *BackgroundWorker) laneTypes(jobTypes []string) []string {
+	scoped := make([]string, 0, len(jobTypes))
+	for _, jobType := range jobTypes {
+		if w.inLane(jobType) {
+			scoped = append(scoped, jobType)
+		}
+	}
+	return scoped
+}
+
+type typeFilteredQuery[Q any] interface {
+	Where(string, ...any) Q
+}
+
+// scopeToLane limits a jobs query to the types this worker claims, so a lane
+// worker recovers its own stale leases and never another lane's.
+func scopeToLane[Q typeFilteredQuery[Q]](w *BackgroundWorker, query Q) Q {
+	if len(w.jobTypes) > 0 {
+		query = query.Where("type IN (?)", bun.List(w.jobTypes))
+	}
+	if len(w.excludedJobTypes) > 0 {
+		query = query.Where("type NOT IN (?)", bun.List(w.excludedJobTypes))
+	}
+	return query
 }
 
 func (w *BackgroundWorker) requeueStaleProcessingJobs(ctx context.Context) []string {
@@ -553,7 +620,7 @@ func (w *BackgroundWorker) requeueStaleProcessingJobs(ctx context.Context) []str
 		log.Printf("[Worker %s] failed to fence ambiguous stale jobs: %v\n", w.workerID, err)
 		return nil
 	}
-	for _, jobType := range jobregistry.TypesByRecovery(jobregistry.RecoverySupersedeSweep) {
+	for _, jobType := range w.laneTypes(jobregistry.TypesByRecovery(jobregistry.RecoverySupersedeSweep)) {
 		definition, _ := jobregistry.Lookup(jobType)
 		result, supersedeErr := w.db.NewUpdate().
 			Model((*models.Job)(nil)).
@@ -575,20 +642,22 @@ func (w *BackgroundWorker) requeueStaleProcessingJobs(ctx context.Context) []str
 	}
 
 	var requeuedPublicationJobIDs []string
-	if err := w.db.NewSelect().Model((*models.Job)(nil)).
-		Column("id").
-		Where("type IN (?)", bun.List(jobregistry.TypesByRecovery(jobregistry.RecoveryReconcilePublication))).
-		Where("status = ?", jobStatusProcessing).
-		Where("locked_at IS NOT NULL").
-		Where("locked_at <= ?", cutoff).
-		Order("id ASC").
-		Scan(ctx, &requeuedPublicationJobIDs); err != nil {
-		log.Printf("[Worker %s] failed to identify stale publication jobs: %v\n", w.workerID, err)
-		return nil
+	if publicationTypes := w.laneTypes(jobregistry.TypesByRecovery(jobregistry.RecoveryReconcilePublication)); len(publicationTypes) > 0 {
+		if err := w.db.NewSelect().Model((*models.Job)(nil)).
+			Column("id").
+			Where("type IN (?)", bun.List(publicationTypes)).
+			Where("status = ?", jobStatusProcessing).
+			Where("locked_at IS NOT NULL").
+			Where("locked_at <= ?", cutoff).
+			Order("id ASC").
+			Scan(ctx, &requeuedPublicationJobIDs); err != nil {
+			log.Printf("[Worker %s] failed to identify stale publication jobs: %v\n", w.workerID, err)
+			return nil
+		}
 	}
 
-	result, err := w.db.NewUpdate().
-		Model((*models.Job)(nil)).
+	result, err := scopeToLane(w, w.db.NewUpdate().
+		Model((*models.Job)(nil))).
 		Set("status = ?", jobStatusPending).
 		Set("locked_at = NULL").
 		Set("locked_by = ''").
@@ -612,7 +681,7 @@ func (w *BackgroundWorker) requeueStaleProcessingJobs(ctx context.Context) []str
 }
 
 func (w *BackgroundWorker) failAmbiguousStaleJobs(ctx context.Context, cutoff time.Time) error {
-	for _, jobType := range jobregistry.TypesByRecovery(jobregistry.RecoveryFailAmbiguous) {
+	for _, jobType := range w.laneTypes(jobregistry.TypesByRecovery(jobregistry.RecoveryFailAmbiguous)) {
 		definition, _ := jobregistry.Lookup(jobType)
 		var jobs []models.Job
 		if err := w.db.NewSelect().Model(&jobs).
@@ -680,7 +749,7 @@ func (w *BackgroundWorker) processNextJobIfAvailable(ctx context.Context) bool {
 	}
 
 	if err != nil {
-		if err.Error() != "sql: no rows in result set" {
+		if !errors.Is(err, sql.ErrNoRows) {
 			log.Printf("[Worker %s] database error polling for jobs: %v\n", w.workerID, err)
 		}
 		return false
@@ -693,13 +762,17 @@ func (w *BackgroundWorker) processNextJobIfAvailable(ctx context.Context) bool {
 func (w *BackgroundWorker) handleLockedJob(ctx context.Context, job *models.Job) {
 	log.Printf("[Worker %s] processing job: %s (Type: %s)\n", w.workerID, job.ID, job.Type)
 
-	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
+	// jobCtx ends when the heartbeat loses the lease, so in-flight work stops
+	// instead of running beside the worker that reclaimed the job.
+	jobCtx, cancelJob := context.WithCancel(ctx)
+	defer cancelJob()
+	heartbeatCtx, cancelHeartbeat := context.WithCancel(jobCtx)
 	heartbeatDone := make(chan struct{})
 	go func() {
 		defer close(heartbeatDone)
-		w.heartbeatJobLock(heartbeatCtx, job)
+		w.heartbeatJobLock(heartbeatCtx, job, cancelJob)
 	}()
-	processErr := w.executeJobGuarded(ctx, job)
+	processErr := w.executeJobGuarded(jobCtx, job)
 	cancelHeartbeat()
 	<-heartbeatDone
 	finalizeCtx, cancelFinalize := workerFinalizationContext(ctx)
@@ -711,7 +784,7 @@ func (w *BackgroundWorker) handleLockedJob(ctx context.Context, job *models.Job)
 	}
 	if definition, ok := jobregistry.Lookup(job.Type); ok && definition.Recurrence > 0 {
 		nextRun := time.Now().UTC().Add(definition.Recurrence)
-		if _, dbErr := w.db.NewUpdate().Model((*models.Job)(nil)).
+		result, dbErr := w.db.NewUpdate().Model((*models.Job)(nil)).
 			Set("status = ?", jobStatusPending).
 			Set("attempts = 0").
 			Set("last_error = ''").
@@ -720,10 +793,16 @@ func (w *BackgroundWorker) handleLockedJob(ctx context.Context, job *models.Job)
 			Set("locked_by = ''").
 			Where("id = ? AND status = ? AND locked_by = ?", job.ID, jobStatusProcessing, w.workerID).
 			Where("lease_generation=?", job.LeaseGeneration).
-			Exec(finalizeCtx); dbErr != nil {
+			Exec(finalizeCtx)
+		if dbErr != nil {
 			log.Printf("[Worker %s] failed to reschedule recurring job %s: %v\n", w.workerID, job.ID, dbErr)
+			return
 		}
-		log.Printf("[Worker %s] recurring job %s scheduled for %s\n", w.workerID, job.ID, nextRun.Format(time.RFC3339))
+		if rows, rowsErr := result.RowsAffected(); rowsErr != nil {
+			log.Printf("[Worker %s] failed to inspect reschedule of recurring job %s: %v\n", w.workerID, job.ID, rowsErr)
+		} else if rows == 1 {
+			log.Printf("[Worker %s] recurring job %s scheduled for %s\n", w.workerID, job.ID, nextRun.Format(time.RFC3339))
+		}
 		return
 	}
 
@@ -761,6 +840,7 @@ func (w *BackgroundWorker) finishFailedJob(ctx context.Context, job *models.Job,
 		job.Attempts++
 	}
 	definition, registered := jobregistry.Lookup(job.Type)
+	alignPublishRetry := false
 	switch {
 	case failure.preserveAttempts:
 		job.Status = jobStatusPending
@@ -776,19 +856,9 @@ func (w *BackgroundWorker) finishFailedJob(ctx context.Context, job *models.Job,
 		jitter := float64((time.Now().UnixNano()%401)-200) / 1000
 		backoff := publisher.RetryDelay(job.Attempts, failure.retryAfter, jitter)
 		job.RunAt = time.Now().Add(backoff).UTC()
-		if registered && definition.Failure == jobregistry.FailurePublish && w.publisher != nil {
-			if retryErr := w.publisher.UpdateJobRetryAt(ctx, job.Type, job.Payload, job.RunAt); retryErr != nil {
-				log.Printf("[Worker %s] failed to align publish retry time for job %s: %v\n", w.workerID, job.ID, retryErr)
-			}
-		}
+		alignPublishRetry = registered && definition.Failure == jobregistry.FailurePublish && w.publisher != nil
 	}
 	job.LastError = failure.message
-
-	// Observe the processing failure before attempting its state write. A lost
-	// row or unavailable database cannot suppress the original terminal failure.
-	if job.Status == jobStatusFailed {
-		w.recordTerminalFailure(ctx, job, processErr, failure)
-	}
 
 	persistFailure := func(db bun.IDB) (int64, error) {
 		result, err := db.NewUpdate().Model((*models.Job)(nil)).
@@ -807,17 +877,32 @@ func (w *BackgroundWorker) finishFailedJob(ctx context.Context, job *models.Job,
 		return result.RowsAffected()
 	}
 
+	// Domain projections of a terminal failure commit with the fenced job
+	// update, so a worker that lost its lease cannot change them.
+	var markTerminalFailure func(context.Context, bun.IDB) error
+	if job.Status == jobStatusFailed {
+		switch {
+		case job.Type == jobregistry.TypePublicationBuild && w.publicationBuilder != nil:
+			markTerminalFailure = func(txCtx context.Context, db bun.IDB) error {
+				return w.publicationBuilder.MarkTerminalJobFailure(txCtx, db, job.Payload)
+			}
+		case job.Type == jobregistry.TypeRepurposeSuggestions && w.repurposeSuggestions != nil:
+			markTerminalFailure = func(txCtx context.Context, db bun.IDB) error {
+				return w.repurposeSuggestions.MarkTerminalJobFailure(txCtx, db, job.Payload)
+			}
+		case job.Type == jobregistry.TypeImageGeneration && w.imageGeneration != nil:
+			markTerminalFailure = func(txCtx context.Context, db bun.IDB) error {
+				return w.imageGeneration.MarkTerminalJobFailure(txCtx, db, job.Payload)
+			}
+		case job.Type == jobregistry.TypePublishPublication && w.terminalPublishMarker != nil:
+			markTerminalFailure = func(txCtx context.Context, db bun.IDB) error {
+				return w.terminalPublishMarker.MarkTerminalPublishFailure(txCtx, db, job.Type, job.Payload)
+			}
+		}
+	}
+
 	var rows int64
 	var dbErr error
-	var markTerminalFailure func(context.Context, bun.IDB, string) error
-	switch {
-	case job.Status == jobStatusFailed && job.Type == jobregistry.TypePublicationBuild && w.publicationBuilder != nil:
-		markTerminalFailure = w.publicationBuilder.MarkTerminalJobFailure
-	case job.Status == jobStatusFailed && job.Type == jobregistry.TypeRepurposeSuggestions && w.repurposeSuggestions != nil:
-		markTerminalFailure = w.repurposeSuggestions.MarkTerminalJobFailure
-	case job.Status == jobStatusFailed && job.Type == jobregistry.TypeImageGeneration && w.imageGeneration != nil:
-		markTerminalFailure = w.imageGeneration.MarkTerminalJobFailure
-	}
 	if markTerminalFailure != nil {
 		dbErr = w.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 			var err error
@@ -825,7 +910,7 @@ func (w *BackgroundWorker) finishFailedJob(ctx context.Context, job *models.Job,
 			if err != nil || rows == 0 {
 				return err
 			}
-			return markTerminalFailure(txCtx, tx, job.Payload)
+			return markTerminalFailure(txCtx, tx)
 		})
 	} else {
 		rows, dbErr = persistFailure(w.db)
@@ -835,7 +920,17 @@ func (w *BackgroundWorker) finishFailedJob(ctx context.Context, job *models.Job,
 		return
 	}
 	if rows == 0 {
+		// Another worker owns this job now; its outcome is not ours to report.
+		log.Printf("[Worker %s] job %s lease was lost before its failure was recorded\n", w.workerID, job.ID)
 		return
+	}
+	if alignPublishRetry {
+		if retryErr := w.publisher.UpdateJobRetryAt(ctx, job.Type, job.Payload, job.RunAt); retryErr != nil {
+			log.Printf("[Worker %s] failed to align publish retry time for job %s: %v\n", w.workerID, job.ID, retryErr)
+		}
+	}
+	if job.Status == jobStatusFailed {
+		w.recordTerminalFailure(ctx, job, processErr, failure)
 	}
 	w.observeCommittedJobFailure(ctx, job)
 }
@@ -1081,22 +1176,63 @@ func (w *BackgroundWorker) hasPendingSuccessor(ctx context.Context, jobType, exc
 	return exists
 }
 
-func (w *BackgroundWorker) heartbeatJobLock(ctx context.Context, job *models.Job) {
-	ticker := time.NewTicker(processingHeartbeat)
+// heartbeatJobLock renews the job's lease until ctx ends. It cancels the job
+// when the lease is gone or has gone unconfirmed long enough that recovery may
+// hand the job to another worker.
+func (w *BackgroundWorker) heartbeatJobLock(ctx context.Context, job *models.Job, cancelJob context.CancelFunc) {
+	interval := w.heartbeatInterval
+	if interval <= 0 {
+		interval = processingHeartbeat
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+	// Enforce the unconfirmed-lease budget independently of heartbeat ticks so
+	// a stalled DB call or tick alignment cannot let execution run past the
+	// stale-recovery cutoff.
+	budget := heartbeatFailureBudget
+	if budget <= 0 || budget >= staleProcessingJobAge {
+		budget = staleProcessingJobAge - interval
+	}
+	deadline := time.AfterFunc(budget, func() {
+		log.Printf("[Worker %s] stopping job %s: lease renewal budget (%s) elapsed\n", w.workerID, job.ID, budget)
+		cancelJob()
+	})
+	defer deadline.Stop()
+	lastRenewed := time.Now()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if _, err := w.db.NewUpdate().
+			result, err := w.db.NewUpdate().
 				Model((*models.Job)(nil)).
 				Set("locked_at = ?", time.Now().UTC()).
 				Where("id = ? AND status = ? AND locked_by = ?", job.ID, jobStatusProcessing, w.workerID).
 				Where("lease_generation=?", job.LeaseGeneration).
-				Exec(ctx); err != nil && ctx.Err() == nil {
-				log.Printf("[Worker %s] failed to heartbeat job %s: %v\n", w.workerID, job.ID, err)
+				Exec(ctx)
+			var affected int64
+			if err == nil {
+				affected, err = result.RowsAffected()
 			}
+			if ctx.Err() != nil {
+				return
+			}
+			if err != nil {
+				log.Printf("[Worker %s] failed to heartbeat job %s: %v\n", w.workerID, job.ID, err)
+				if time.Since(lastRenewed) >= budget {
+					log.Printf("[Worker %s] stopping job %s: its lease has not been renewed for %s\n", w.workerID, job.ID, time.Since(lastRenewed).Round(time.Second))
+					cancelJob()
+					return
+				}
+				continue
+			}
+			if affected == 0 {
+				log.Printf("[Worker %s] lost the lease for job %s; stopping it\n", w.workerID, job.ID)
+				cancelJob()
+				return
+			}
+			lastRenewed = time.Now()
+			deadline.Reset(budget)
 		}
 	}
 }

@@ -37,6 +37,13 @@ func primaryPublishPublicationJobWhere(db *bun.DB) string {
 	return publishPublicationJobPublicationIDWhere(db) + " AND (" + actionExpr + " IS NULL OR " + actionExpr + " = '')"
 }
 
+// aliasedPrimaryPublishPublicationJobWhere qualifies every jobs column so the
+// predicate stays unambiguous when joined with tables sharing column names.
+func aliasedPrimaryPublishPublicationJobWhere(db *bun.DB, alias string) string {
+	actionExpr := aliasedJobPayloadTextExpr(db, alias, "action")
+	return alias + ".type = ? AND " + alias + ".scope_id = ? AND (" + actionExpr + " IS NULL OR " + actionExpr + " = '')"
+}
+
 func replyPublishPublicationJobWhere(db *bun.DB) string {
 	actionExpr := jobPayloadTextExpr(db, "action")
 	return publishPublicationJobPublicationIDWhere(db) + " AND " + actionExpr + " = 'reply'"

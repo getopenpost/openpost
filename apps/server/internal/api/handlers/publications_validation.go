@@ -680,7 +680,8 @@ func loadReadinessAccountsWithDB(
 	query := db.NewSelect().Model(&accounts).
 		Where("workspace_id = ?", workspaceID).
 		Where("is_active = ?", true).
-		Where("id IN (?)", bun.List(uniqueIDs))
+		Where("id IN (?)", bun.List(uniqueIDs)).
+		Order("id ASC")
 	if lock && primaryPublicationQueueUsesRowLock(db.Dialect().Name()) {
 		query = query.For("UPDATE")
 	}

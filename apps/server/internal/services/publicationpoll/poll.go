@@ -154,14 +154,17 @@ func resolveNative(content Content, answers []string, provider, outputProfile, b
 	if err := resolveDuration(content.DurationSeconds, fields, values); err != nil {
 		return body, values, err
 	}
-	for key, enabled := range map[string]bool{"poll_multiple": content.Multiple, "poll_hide_totals": content.HideTotals} {
-		if !enabled {
+	for _, option := range []struct {
+		key     string
+		enabled bool
+	}{{"poll_multiple", content.Multiple}, {"poll_hide_totals", content.HideTotals}} {
+		if !option.enabled {
 			continue
 		}
-		if _, ok := fields[key]; !ok {
-			return body, values, fmt.Errorf("this destination does not support %s. Customize its poll", strings.ReplaceAll(strings.TrimPrefix(key, "poll_"), "_", " "))
+		if _, ok := fields[option.key]; !ok {
+			return body, values, fmt.Errorf("this destination does not support %s. Customize its poll", strings.ReplaceAll(strings.TrimPrefix(option.key, "poll_"), "_", " "))
 		}
-		values[key] = true
+		values[option.key] = true
 	}
 	return body, values, nil
 }

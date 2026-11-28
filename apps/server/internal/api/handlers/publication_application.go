@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -308,19 +309,36 @@ func (commands publicationApplication) Update(
 	userID string,
 	publicationID string,
 	input PublicationUpdateBody,
-) (err error) {
+) error {
+	_, err := commands.updateWithResponse(ctx, userID, publicationID, input)
+	return err
+}
+
+// updateWithResponse returns the response committed by the update, so callers
+// report the revision they wrote rather than one read after the transaction.
+func (commands publicationApplication) updateWithResponse(
+	ctx context.Context,
+	userID string,
+	publicationID string,
+	input PublicationUpdateBody,
+) (response PublicationResponse, err error) {
 	ctx, cleanupTextCards := commands.handler.textCards.Mutation(ctx)
 	defer cleanupTextCards()
 
 	defer categorizePublicationError(&err)
 	prepared, err := commands.prepareUpdate(ctx, userID, publicationID, input)
 	if err != nil {
-		return err
+		return PublicationResponse{}, err
 	}
-	return commands.handler.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		_, err := commands.updateTx(txCtx, tx, userID, prepared)
-		return err
+	err = commands.handler.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		var txErr error
+		response, txErr = commands.updateTx(txCtx, tx, userID, prepared)
+		return txErr
 	})
+	if err != nil {
+		return PublicationResponse{}, err
+	}
+	return response, nil
 }
 
 func (commands publicationApplication) UpdateIdempotent(
@@ -602,7 +620,7 @@ func (commands publicationApplication) Delete(
 		return err
 	}
 	return commands.handler.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		current, err := commands.handler.loadPublicationForMutationTx(txCtx, tx, publication.ID, models.PublicationStatusPublished, models.PublicationStatusFailed)
+		current, err := commands.handler.loadPublicationForDeleteTx(txCtx, tx, publication.ID, models.PublicationStatusPublished, models.PublicationStatusFailed)
 		if err != nil {
 			return err
 		}
@@ -623,7 +641,7 @@ func (commands publicationApplication) Delete(
 			return fmt.Errorf("delete publication: %w", err)
 		}
 		if affected, _ := result.RowsAffected(); affected == 0 {
-			latest, loadErr := commands.handler.loadPublicationForMutationTx(txCtx, tx, current.ID, models.PublicationStatusPublished, models.PublicationStatusFailed)
+			latest, loadErr := commands.handler.loadPublicationForDeleteTx(txCtx, tx, current.ID, models.PublicationStatusPublished, models.PublicationStatusFailed)
 			if loadErr != nil {
 				return loadErr
 			}
@@ -638,16 +656,26 @@ func (commands publicationApplication) Cancel(
 	userID string,
 	publicationID string,
 	expectedRevision int,
-) (err error) {
+) error {
+	_, err := commands.cancelWithResponse(ctx, userID, publicationID, expectedRevision)
+	return err
+}
+
+func (commands publicationApplication) cancelWithResponse(
+	ctx context.Context,
+	userID string,
+	publicationID string,
+	expectedRevision int,
+) (response PublicationResponse, err error) {
 	defer categorizePublicationError(&err)
 	publication, err := commands.handler.loadPublicationForEdit(ctx, publicationID, userID)
 	if err != nil {
-		return err
+		return PublicationResponse{}, err
 	}
 	if publication.Status != models.PublicationStatusScheduled {
-		return errPublicationNotScheduled
+		return PublicationResponse{}, errPublicationNotScheduled
 	}
-	return commands.Update(ctx, userID, publicationID, PublicationUpdateBody{
+	return commands.updateWithResponse(ctx, userID, publicationID, PublicationUpdateBody{
 		ExpectedRevision: expectedRevision,
 		ClearSchedule:    true,
 	})
@@ -715,8 +743,7 @@ func (commands publicationApplication) Schedule(
 	if err := commands.validateForEnqueue(ctx, userID, publication.ID); err != nil {
 		return publicationEnqueueResult{}, err
 	}
-	err = commands.handler.checkScheduledPublicationQuota(ctx, publication.WorkspaceID, publication.ScheduledAt)
-	if err != nil {
+	if err := commands.checkScheduleAdmission(ctx, publication); err != nil {
 		return publicationEnqueueResult{}, err
 	}
 	if err := commands.beforeQueueTransaction(ctx); err != nil {
@@ -754,8 +781,7 @@ func (commands publicationApplication) ScheduleIdempotent(
 	if err := commands.validateForEnqueue(ctx, userID, publication.ID); err != nil {
 		return publicationEnqueueResult{}, false, err
 	}
-	err = commands.handler.checkScheduledPublicationQuota(ctx, publication.WorkspaceID, publication.ScheduledAt)
-	if err != nil {
+	if err := commands.checkScheduleAdmission(ctx, publication); err != nil {
 		return publicationEnqueueResult{}, false, err
 	}
 	if err := commands.beforeQueueTransaction(ctx); err != nil {
@@ -851,6 +877,23 @@ func (commands publicationApplication) PublishNowIdempotent(
 	return result.Value, result.Replayed, nil
 }
 
+// checkScheduleAdmission rejects an unscheduled Publication before reading
+// monthly usage for a zero time, and skips the advisory quota read when the
+// queued schedule already reserved usage. The queue transaction re-checks both.
+func (commands publicationApplication) checkScheduleAdmission(ctx context.Context, publication *models.Publication) error {
+	if publication.ScheduledAt.IsZero() {
+		return errPublicationScheduleRequired
+	}
+	charged, err := commands.handler.publicationScheduleUsageCharged(ctx, commands.handler.db, publication)
+	if err != nil {
+		return err
+	}
+	if charged {
+		return nil
+	}
+	return commands.handler.checkScheduledPublicationQuota(ctx, publication.WorkspaceID, publication.ScheduledAt)
+}
+
 func (commands publicationApplication) beforeQueueTransaction(ctx context.Context) error {
 	if commands.handler.beforeQueueTransaction == nil {
 		return nil
@@ -943,10 +986,7 @@ func (commands publicationApplication) RetryRendition(
 		"authorization_scheduled_at": now.Format(time.RFC3339Nano),
 	})
 	err = commands.handler.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		if delivery != nil && !sameSafeRetryDelivery(txCtx, tx, rendition, *delivery) {
-			return publicationservice.NewError(publicationservice.ErrorInvalidLifecycleState, errors.New("the delivery outcome changed; review it before another send"))
-		}
-		return commands.retryRenditionTx(txCtx, tx, publication, &rendition, jobID, batchID, payload, now)
+		return commands.retryRenditionTx(txCtx, tx, publication, &rendition, delivery, jobID, batchID, payload, now)
 	})
 	return jobID, err
 }
@@ -995,6 +1035,7 @@ func (commands publicationApplication) retryRenditionTx(
 	tx bun.Tx,
 	publication *models.Publication,
 	rendition *models.Rendition,
+	delivery *models.ProviderDelivery,
 	jobID,
 	batchID,
 	payload string,
@@ -1008,6 +1049,11 @@ func (commands publicationApplication) retryRenditionTx(
 	}
 	if err := commands.handler.lockActivePrimaryPublicationJobsTx(ctx, tx, publication.ID); err != nil {
 		return err
+	}
+	// Compare the delivery only after the queue locks exclude a concurrent
+	// worker or retry from changing the outcome this decision relies on.
+	if delivery != nil && !sameSafeRetryDelivery(ctx, tx, *rendition, *delivery) {
+		return publicationservice.NewError(publicationservice.ErrorInvalidLifecycleState, errors.New("the delivery outcome changed; review it before another send"))
 	}
 	if err := commands.handler.rejectProcessingPrimaryPublicationJobTx(ctx, tx, publication.ID); err != nil {
 		return err
@@ -1172,7 +1218,7 @@ func (commands publicationApplication) retryFailedRenditionsTx(
 	if err := commands.handler.rejectUnresolvedPublicationTargetsTx(ctx, tx, publication.ID, retryRenditionIDs); err != nil {
 		return err
 	}
-	if err := commands.handler.deletePendingPrimaryPublicationJobsTx(ctx, tx, publication.ID); err != nil {
+	if err := commands.handler.replacePendingRetryJobsTx(ctx, tx, publication.ID, retryRenditionIDs); err != nil {
 		return err
 	}
 	result, err := tx.NewUpdate().
@@ -1230,4 +1276,151 @@ func (commands publicationApplication) retryFailedRenditionsTx(
 		CreatedAt:      now,
 	})
 	return err
+}
+
+// replacePendingRetryJobsTx removes only pending primary jobs that write
+// nothing but the destinations this retry replaces. Jobs for other
+// destinations, such as their own schedule overrides, stay queued. A pending
+// job that also covers a retried destination cannot be split, and a job with
+// an unresolved provider outcome keeps its operation identity, so both reject.
+func (h *PublicationHandler) replacePendingRetryJobsTx(
+	ctx context.Context,
+	tx bun.Tx,
+	publicationID string,
+	retryRenditionIDs []string,
+) error {
+	var jobs []models.Job
+	if err := tx.NewSelect().Model(&jobs).
+		Where(primaryPublishPublicationJobWhere(h.db), jobTypePublishPublication, publicationID).
+		Where("status = ?", jobStatusPending).
+		Order("id ASC").
+		Scan(ctx); err != nil {
+		return err
+	}
+	if len(jobs) == 0 {
+		return nil
+	}
+	targets, err := h.pendingPrimaryJobTargetsTx(ctx, tx, publicationID, jobs)
+	if err != nil {
+		return err
+	}
+	retrying := make(map[string]bool, len(retryRenditionIDs))
+	for _, id := range retryRenditionIDs {
+		retrying[id] = true
+	}
+	var renditions []models.Rendition
+	if err := tx.NewSelect().Model(&renditions).Column("id", "status").
+		Where("publication_id = ?", publicationID).
+		Scan(ctx); err != nil {
+		return err
+	}
+	published := make(map[string]bool, len(renditions))
+	for _, rendition := range renditions {
+		published[rendition.ID] = rendition.Status == models.RenditionStatusPublished
+	}
+	replaced, err := replaceableRetryJobIDs(jobs, targets, retrying, published)
+	if err != nil {
+		return err
+	}
+	if len(replaced) == 0 {
+		return nil
+	}
+	var attempts []models.ProviderWriteAttempt
+	if err := tx.NewSelect().Model(&attempts).
+		Where("job_id IN (?)", bun.List(replaced)).
+		Where("status IN (?)", bun.List([]string{
+			providerwrite.StatusSending, providerwrite.StatusAmbiguous, providerwrite.StatusAccepted,
+		})).
+		Order("id ASC").
+		Scan(ctx); err != nil {
+		return err
+	}
+	if err := rejectUnpublishedProtectedAttemptsTx(ctx, tx, attempts); err != nil {
+		return err
+	}
+	_, err = tx.NewDelete().Model((*models.Job)(nil)).
+		Where("id IN (?)", bun.List(replaced)).
+		Where("status = ?", jobStatusPending).
+		Exec(ctx)
+	return err
+}
+
+// replaceableRetryJobIDs selects jobs whose remaining writes are all retried
+// destinations. Published destinations never receive another write.
+func replaceableRetryJobIDs(jobs []models.Job, targets map[string][]string, retrying, published map[string]bool) ([]string, error) {
+	replaced := make([]string, 0, len(jobs))
+	for _, job := range jobs {
+		covered, other := 0, 0
+		for _, renditionID := range targets[job.ID] {
+			switch {
+			case retrying[renditionID]:
+				covered++
+			case !published[renditionID]:
+				other++
+			}
+		}
+		if covered == 0 {
+			continue
+		}
+		if other > 0 {
+			return nil, errPublicationAlreadyProcessing
+		}
+		replaced = append(replaced, job.ID)
+	}
+	return replaced, nil
+}
+
+// pendingPrimaryJobTargetsTx resolves the destinations each primary job
+// writes: its payload rendition, otherwise its authorization receipts, and for
+// legacy jobs without receipts every destination of the Publication.
+func (h *PublicationHandler) pendingPrimaryJobTargetsTx(
+	ctx context.Context,
+	tx bun.Tx,
+	publicationID string,
+	jobs []models.Job,
+) (map[string][]string, error) {
+	targets := make(map[string][]string, len(jobs))
+	unresolved := make([]string, 0, len(jobs))
+	for _, job := range jobs {
+		var payload struct {
+			RenditionID string `json:"rendition_id"`
+		}
+		_ = json.Unmarshal([]byte(job.Payload), &payload)
+		if renditionID := strings.TrimSpace(payload.RenditionID); renditionID != "" {
+			targets[job.ID] = []string{renditionID}
+			continue
+		}
+		unresolved = append(unresolved, job.ID)
+	}
+	if len(unresolved) == 0 {
+		return targets, nil
+	}
+	var receipts []models.PublicationAuthorization
+	if err := tx.NewSelect().Model(&receipts).Column("job_id", "rendition_id").
+		Where("publication_id = ?", publicationID).
+		Where("job_id IN (?)", bun.List(unresolved)).
+		Where("action = ?", publicationauth.ActionPublish).
+		Order("job_id ASC", "rendition_id ASC").
+		Scan(ctx); err != nil && !isMissingPublicationSegmentTable(err) {
+		return nil, err
+	}
+	for _, receipt := range receipts {
+		targets[receipt.JobID] = append(targets[receipt.JobID], receipt.RenditionID)
+	}
+	var all []string
+	for _, jobID := range unresolved {
+		if len(targets[jobID]) > 0 {
+			continue
+		}
+		if all == nil {
+			if err := tx.NewSelect().Model((*models.Rendition)(nil)).Column("id").
+				Where("publication_id = ?", publicationID).
+				Order("id ASC").
+				Scan(ctx, &all); err != nil {
+				return nil, err
+			}
+		}
+		targets[jobID] = all
+	}
+	return targets, nil
 }

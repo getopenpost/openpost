@@ -275,8 +275,19 @@ func (h *PublicationHandler) loadEditablePublicationTx(ctx context.Context, tx b
 	return h.loadPublicationForMutationTx(ctx, tx, publicationID)
 }
 
-func (h *PublicationHandler) loadPublicationForMutationTx(ctx context.Context, tx bun.Tx, publicationID string, additionalStatuses ...string) (*models.Publication, error) {
+func (h *PublicationHandler) loadPublicationForMutationTx(ctx context.Context, tx bun.Tx, publicationID string) (*models.Publication, error) {
+	return h.loadPublicationForMutationWithPolicyTx(ctx, tx, publicationID, false)
+}
+
+func (h *PublicationHandler) loadPublicationForDeleteTx(ctx context.Context, tx bun.Tx, publicationID string, additionalStatuses ...string) (*models.Publication, error) {
+	return h.loadPublicationForMutationWithPolicyTx(ctx, tx, publicationID, true, additionalStatuses...)
+}
+
+func (h *PublicationHandler) loadPublicationForMutationWithPolicyTx(ctx context.Context, tx bun.Tx, publicationID string, allowPublishedAccepted bool, additionalStatuses ...string) (*models.Publication, error) {
 	publicationID = publicationPathID(publicationID)
+	if err := lockOrganizationForPublicationMutationTx(ctx, tx, publicationID); err != nil {
+		return nil, err
+	}
 	if err := lockPublicationMutationTx(ctx, tx, publicationID); err != nil {
 		return nil, err
 	}
@@ -296,8 +307,14 @@ func (h *PublicationHandler) loadPublicationForMutationTx(ctx context.Context, t
 	if err := h.rejectProcessingPrimaryPublicationJobTx(ctx, tx, publicationID); err != nil {
 		return nil, err
 	}
-	if err := h.rejectProtectedPrimaryPublicationJobTx(ctx, tx, publicationID); err != nil {
-		return nil, err
+	if allowPublishedAccepted {
+		if err := h.rejectUnpublishedProtectedPrimaryPublicationJobTx(ctx, tx, publicationID); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := h.rejectProtectedPrimaryPublicationJobTx(ctx, tx, publicationID); err != nil {
+			return nil, err
+		}
 	}
 	return &publication, nil
 }
@@ -535,6 +552,7 @@ func (h *PublicationHandler) requireExternalPublicationAccounts(ctx context.Cont
 	if installationID == "" {
 		return nil
 	}
+	publicationID = publicationPathID(publicationID)
 	var accountIDs []string
 	if err := h.db.NewSelect().Model((*models.Rendition)(nil)).
 		ColumnExpr("DISTINCT social_account_id").

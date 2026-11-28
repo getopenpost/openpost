@@ -93,13 +93,17 @@ func CreateBatch(ctx context.Context, db bun.IDB, input BatchInput) (string, []m
 	if err != nil {
 		return "", nil, err
 	}
-	receipts := make([]models.PublicationAuthorization, 0, len(resolved))
+	renditionIDs := make([]string, 0, len(resolved))
 	for _, target := range resolved {
-		snapshot, err := SnapshotForRendition(ctx, db, input.PublicationID, target.RenditionID)
-		if err != nil {
-			return "", nil, err
-		}
-		receipts = append(receipts, receiptFromSnapshot(input, target, snapshot))
+		renditionIDs = append(renditionIDs, target.RenditionID)
+	}
+	snapshots, err := snapshotsForRenditions(ctx, db, input.PublicationID, renditionIDs)
+	if err != nil {
+		return "", nil, err
+	}
+	receipts := make([]models.PublicationAuthorization, 0, len(resolved))
+	for index, target := range resolved {
+		receipts = append(receipts, receiptFromSnapshot(input, target, snapshots[index]))
 	}
 	if len(receipts) == 0 {
 		return "", nil, fmt.Errorf("publication has no destinations to authorize")
@@ -195,6 +199,13 @@ func explicitSnapshot(ctx context.Context, db bun.IDB, publicationID, renditionI
 	if err != nil {
 		return Snapshot{}, err
 	}
+	return withExplicitHashes(snapshot, content, media, settings)
+}
+
+// withExplicitHashes replaces stored authorship hashes with the explicit
+// reply values while keeping the destination identity and provider policy.
+func withExplicitHashes(snapshot Snapshot, content, media, settings any) (Snapshot, error) {
+	var err error
 	if snapshot.ContentHash, err = HashExplicit("publication-explicit-content-v1", content); err != nil {
 		return Snapshot{}, err
 	}
@@ -222,11 +233,16 @@ func ValidateBatch(ctx context.Context, db bun.IDB, input ValidateInput) ([]mode
 	if err != nil {
 		return nil, err
 	}
+	renditionIDs := make([]string, 0, len(receipts))
+	for _, receipt := range receipts {
+		renditionIDs = append(renditionIDs, receipt.RenditionID)
+	}
+	snapshotInputs, snapshotErr := loadSnapshotInputs(ctx, db, input.PublicationID, renditionIDs)
 	for _, receipt := range receipts {
 		if receipt.ExecutionIntent != input.ExecutionIntent {
 			return nil, ErrReceiptMismatch
 		}
-		if err := validateReceipt(ctx, db, input, receipt); err != nil {
+		if err := validateReceipt(ctx, db, input, receipt, snapshotInputs, snapshotErr); err != nil {
 			return nil, err
 		}
 	}
@@ -252,22 +268,23 @@ func loadReceipts(ctx context.Context, db bun.IDB, input ValidateInput) ([]model
 	return receipts, nil
 }
 
-func validateReceipt(ctx context.Context, db bun.IDB, input ValidateInput, receipt models.PublicationAuthorization) error {
+func validateReceipt(
+	ctx context.Context,
+	db bun.IDB,
+	input ValidateInput,
+	receipt models.PublicationAuthorization,
+	inputs *snapshotInputs,
+	loadErr error,
+) error {
 	if input.JobID != "" && receipt.JobID != input.JobID {
 		return ErrReceiptJobMismatch
 	}
 	if !input.ScheduledAt.IsZero() && !normalizeScheduledTime(receipt.ScheduledAt).Equal(input.ScheduledAt) {
 		return ErrReceiptTimeMismatch
 	}
-	current, err := SnapshotForRendition(ctx, db, input.PublicationID, receipt.RenditionID)
+	current, err := currentReceiptSnapshot(ctx, db, input, receipt, inputs, loadErr)
 	if err != nil {
 		return errors.Join(ErrReceiptMismatch, err)
-	}
-	if input.Explicit {
-		current, err = explicitSnapshot(ctx, db, input.PublicationID, receipt.RenditionID, input.Content, input.Media, input.Settings)
-		if err != nil {
-			return errors.Join(ErrReceiptMismatch, err)
-		}
 	}
 	if current.SocialAccountID != receipt.SocialAccountID || current.TargetKey != receipt.TargetKey {
 		return ErrReceiptTargetMismatch
@@ -278,6 +295,27 @@ func validateReceipt(ctx context.Context, db bun.IDB, input ValidateInput, recei
 		return ErrReceiptMismatch
 	}
 	return nil
+}
+
+func currentReceiptSnapshot(
+	ctx context.Context,
+	db bun.IDB,
+	input ValidateInput,
+	receipt models.PublicationAuthorization,
+	inputs *snapshotInputs,
+	loadErr error,
+) (Snapshot, error) {
+	if loadErr != nil {
+		// Attribute a failed batch read to the exact receipt it affects.
+		if inputs, loadErr = loadSnapshotInputs(ctx, db, input.PublicationID, []string{receipt.RenditionID}); loadErr != nil {
+			return Snapshot{}, loadErr
+		}
+	}
+	current, err := inputs.snapshot(receipt.RenditionID)
+	if err != nil || !input.Explicit {
+		return current, err
+	}
+	return withExplicitHashes(current, input.Content, input.Media, input.Settings)
 }
 
 func receiptFromSnapshot(input BatchInput, target JobTarget, snapshot Snapshot) models.PublicationAuthorization {

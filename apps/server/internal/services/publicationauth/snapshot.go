@@ -81,6 +81,7 @@ type mediaItemFingerprint struct {
 }
 
 type renditionMediaRow struct {
+	OwnerID              string `bun:"owner_id"`
 	DisplayOrder         int    `bun:"display_order"`
 	Role                 string `bun:"role"`
 	AltText              string `bun:"alt_text"`
@@ -94,25 +95,189 @@ type renditionMediaRow struct {
 	DefaultAltText       string `bun:"default_alt_text"`
 }
 
+var settingMediaKeys = []string{"caption_media_id", "cover_media_id", "thumbnail_media_id"}
+
+// snapshotInputs holds every row a set of rendition snapshots reads. Loading
+// them per publication keeps locked enqueue transactions to a fixed number of
+// queries instead of one per segment and setting media key.
+type snapshotInputs struct {
+	publication    models.Publication
+	renditions     map[string]models.Rendition
+	accounts       map[string]models.SocialAccount
+	segments       map[string][]models.RenditionSegment
+	segmentMedia   map[string][]renditionMediaRow
+	renditionMedia map[string][]renditionMediaRow
+	settingMedia   map[string]models.MediaAttachment
+}
+
 func SnapshotForRendition(ctx context.Context, db bun.IDB, publicationID, renditionID string) (Snapshot, error) {
-	var publication models.Publication
-	if err := db.NewSelect().Model(&publication).Where("id = ?", publicationID).Scan(ctx); err != nil {
-		return Snapshot{}, fmt.Errorf("load authorization publication: %w", err)
+	inputs, err := loadSnapshotInputs(ctx, db, publicationID, []string{renditionID})
+	if err != nil {
+		return Snapshot{}, err
 	}
-	var rendition models.Rendition
-	if err := db.NewSelect().Model(&rendition).
-		Where("id = ? AND publication_id = ?", renditionID, publication.ID).
-		Scan(ctx); err != nil {
-		return Snapshot{}, fmt.Errorf("load authorization rendition: %w", err)
+	return inputs.snapshot(renditionID)
+}
+
+// snapshotsForRenditions returns snapshots in the requested order from one
+// batched read of the publication's authorship.
+func snapshotsForRenditions(ctx context.Context, db bun.IDB, publicationID string, renditionIDs []string) ([]Snapshot, error) {
+	inputs, err := loadSnapshotInputs(ctx, db, publicationID, renditionIDs)
+	if err != nil {
+		return nil, err
 	}
-	var account models.SocialAccount
-	if err := db.NewSelect().Model(&account).
-		Where("id = ? AND workspace_id = ?", rendition.SocialAccountID, publication.WorkspaceID).
+	snapshots := make([]Snapshot, 0, len(renditionIDs))
+	for _, renditionID := range renditionIDs {
+		snapshot, err := inputs.snapshot(renditionID)
+		if err != nil {
+			return nil, err
+		}
+		snapshots = append(snapshots, snapshot)
+	}
+	return snapshots, nil
+}
+
+//nolint:gocyclo // Each authorship table is read once for the whole rendition set.
+func loadSnapshotInputs(ctx context.Context, db bun.IDB, publicationID string, renditionIDs []string) (*snapshotInputs, error) {
+	inputs := &snapshotInputs{
+		renditions:   map[string]models.Rendition{},
+		accounts:     map[string]models.SocialAccount{},
+		segments:     map[string][]models.RenditionSegment{},
+		settingMedia: map[string]models.MediaAttachment{},
+	}
+	if err := db.NewSelect().Model(&inputs.publication).Where("id = ?", publicationID).Scan(ctx); err != nil {
+		return nil, fmt.Errorf("load authorization publication: %w", err)
+	}
+	ids := uniqueStrings(renditionIDs)
+	if len(ids) == 0 {
+		return inputs, nil
+	}
+	var renditions []models.Rendition
+	if err := db.NewSelect().Model(&renditions).
+		Where("id IN (?) AND publication_id = ?", bun.List(ids), inputs.publication.ID).
 		Scan(ctx); err != nil {
-		return Snapshot{}, fmt.Errorf("load authorization account: %w", err)
+		return nil, fmt.Errorf("load authorization rendition: %w", err)
+	}
+	accountIDs := make([]string, 0, len(renditions))
+	for _, rendition := range renditions {
+		inputs.renditions[rendition.ID] = rendition
+		accountIDs = append(accountIDs, rendition.SocialAccountID)
+	}
+	for _, id := range ids {
+		if _, ok := inputs.renditions[id]; !ok {
+			return nil, fmt.Errorf("load authorization rendition: %w", sql.ErrNoRows)
+		}
+	}
+	var accounts []models.SocialAccount
+	if err := db.NewSelect().Model(&accounts).
+		Where("id IN (?) AND workspace_id = ?", bun.List(uniqueStrings(accountIDs)), inputs.publication.WorkspaceID).
+		Scan(ctx); err != nil {
+		return nil, fmt.Errorf("load authorization account: %w", err)
+	}
+	for _, account := range accounts {
+		inputs.accounts[account.ID] = account
+	}
+	for _, rendition := range renditions {
+		if _, ok := inputs.accounts[rendition.SocialAccountID]; !ok {
+			return nil, fmt.Errorf("load authorization account: %w", sql.ErrNoRows)
+		}
 	}
 
-	content, settings, media, err := renditionFingerprintParts(ctx, db, publication, rendition)
+	var segments []models.RenditionSegment
+	err := db.NewSelect().Model(&segments).
+		Where("rendition_id IN (?)", bun.List(ids)).
+		Order("rendition_id ASC", "position ASC", "id ASC").
+		Scan(ctx)
+	if err != nil && !missingTable(err) {
+		return nil, fmt.Errorf("load authorization segments: %w", err)
+	}
+	segmentIDs := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		inputs.segments[segment.RenditionID] = append(inputs.segments[segment.RenditionID], segment)
+		segmentIDs = append(segmentIDs, segment.ID)
+	}
+	legacyIDs := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if len(inputs.segments[id]) == 0 {
+			legacyIDs = append(legacyIDs, id)
+		}
+	}
+	if inputs.renditionMedia, err = loadMediaRows(ctx, db, mediaRelation{
+		table: "rendition_media", owner: "rendition_id", settings: "'{}'", label: "rendition media",
+	}, legacyIDs); err != nil {
+		return nil, err
+	}
+	if inputs.segmentMedia, err = loadMediaRows(ctx, db, mediaRelation{
+		table: "rendition_segment_media", owner: "rendition_segment_id", settings: "relation.settings_json", label: "segment media",
+	}, segmentIDs); err != nil {
+		return nil, err
+	}
+
+	settingMediaIDs := []string{}
+	for _, rendition := range renditions {
+		settings, err := decodeSettingMedia(rendition.SettingsJSON)
+		if err != nil {
+			// The per-rendition projection reports the decode error in order.
+			continue
+		}
+		for _, key := range settingMediaKeys {
+			if mediaID := settingMediaID(settings, key); mediaID != "" {
+				settingMediaIDs = append(settingMediaIDs, mediaID)
+			}
+		}
+	}
+	if len(settingMediaIDs) > 0 {
+		var media []models.MediaAttachment
+		if err := db.NewSelect().Model(&media).
+			Where("id IN (?) AND workspace_id = ?", bun.List(uniqueStrings(settingMediaIDs)), inputs.publication.WorkspaceID).
+			Scan(ctx); err != nil {
+			return nil, fmt.Errorf("load authorization setting media: %w", err)
+		}
+		for _, item := range media {
+			inputs.settingMedia[item.ID] = item
+		}
+	}
+	return inputs, nil
+}
+
+type mediaRelation struct {
+	table, owner, settings, label string
+}
+
+// loadMediaRows reads one media relation for many owners, ordered per owner
+// exactly as the former single-owner query was.
+func loadMediaRows(ctx context.Context, db bun.IDB, relation mediaRelation, ownerIDs []string) (map[string][]renditionMediaRow, error) {
+	out := map[string][]renditionMediaRow{}
+	if len(ownerIDs) == 0 {
+		return out, nil
+	}
+	var rows []renditionMediaRow
+	err := db.NewSelect().
+		TableExpr(relation.table+" AS relation").
+		ColumnExpr("relation."+relation.owner+" AS owner_id, relation.display_order, relation.role, relation.alt_text, relation.thumbnail_timestamp_ms, "+relation.settings+" AS settings_json").
+		ColumnExpr("media.id AS media_id, media.file_hash, media.mime_type, media.size, media.original_filename, media.alt_text AS default_alt_text").
+		Join("JOIN media_attachments AS media ON media.id = relation.media_id").
+		Where("relation."+relation.owner+" IN (?)", bun.List(ownerIDs)).
+		OrderExpr("relation."+relation.owner+" ASC, relation.display_order ASC, media.id ASC").
+		Scan(ctx, &rows)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("load authorization %s: %w", relation.label, err)
+	}
+	for _, row := range rows {
+		out[row.OwnerID] = append(out[row.OwnerID], row)
+	}
+	return out, nil
+}
+
+func (inputs *snapshotInputs) snapshot(renditionID string) (Snapshot, error) {
+	rendition, ok := inputs.renditions[renditionID]
+	if !ok {
+		return Snapshot{}, fmt.Errorf("load authorization rendition: %w", sql.ErrNoRows)
+	}
+	account, ok := inputs.accounts[rendition.SocialAccountID]
+	if !ok {
+		return Snapshot{}, fmt.Errorf("load authorization account: %w", sql.ErrNoRows)
+	}
+	content, settings, media, err := inputs.fingerprintParts(rendition)
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -142,8 +307,8 @@ func SnapshotForRendition(ctx context.Context, db bun.IDB, publicationID, rendit
 		return Snapshot{}, fmt.Errorf("decode provider policy settings: %w", err)
 	}
 	return Snapshot{
-		WorkspaceID:         publication.WorkspaceID,
-		PublicationRevision: publication.Revision,
+		WorkspaceID:         inputs.publication.WorkspaceID,
+		PublicationRevision: inputs.publication.Revision,
 		SocialAccountID:     rendition.SocialAccountID,
 		TargetKey:           RenditionTargetKey(rendition, account),
 		ContentHash:         contentHash,
@@ -153,12 +318,10 @@ func SnapshotForRendition(ctx context.Context, db bun.IDB, publicationID, rendit
 	}, nil
 }
 
-func renditionFingerprintParts(
-	ctx context.Context,
-	db bun.IDB,
-	publication models.Publication,
+func (inputs *snapshotInputs) fingerprintParts(
 	rendition models.Rendition,
 ) (contentFingerprint, settingsFingerprint, mediaFingerprint, error) {
+	publication := inputs.publication
 	destinationSettings, err := canonicalJSON(rendition.SettingsJSON)
 	if err != nil {
 		return contentFingerprint{}, settingsFingerprint{}, mediaFingerprint{}, fmt.Errorf("canonicalize destination settings: %w", err)
@@ -167,14 +330,7 @@ func renditionFingerprintParts(
 	settings := settingsFingerprint{Version: 1, Destination: destinationSettings, Segments: []segmentSettingsHash{}}
 	media := mediaFingerprint{Version: 1, Items: []mediaItemFingerprint{}}
 
-	var segments []models.RenditionSegment
-	err = db.NewSelect().Model(&segments).
-		Where("rendition_id = ?", rendition.ID).
-		Order("position ASC", "id ASC").
-		Scan(ctx)
-	if err != nil && !missingTable(err) {
-		return content, settings, media, fmt.Errorf("load authorization segments: %w", err)
-	}
+	segments := inputs.segments[rendition.ID]
 	if len(segments) == 0 {
 		content.Segments = append(content.Segments, contentSegmentFingerprint{
 			Position:    0,
@@ -182,11 +338,7 @@ func renditionFingerprintParts(
 			Title:       textutil.FirstNonEmpty(rendition.Title, publication.Title),
 			Description: rendition.Description,
 		})
-		rows, rowErr := loadRenditionMediaRows(ctx, db, rendition.ID)
-		if rowErr != nil {
-			return content, settings, media, rowErr
-		}
-		items, itemErr := mediaItemsFromRows(rows, 0)
+		items, itemErr := mediaItemsFromRows(inputs.renditionMedia[rendition.ID], 0)
 		if itemErr != nil {
 			return content, settings, media, itemErr
 		}
@@ -205,55 +357,19 @@ func renditionFingerprintParts(
 				return content, settings, media, fmt.Errorf("canonicalize segment settings: %w", settingsErr)
 			}
 			settings.Segments = append(settings.Segments, segmentSettingsHash{Position: segment.Position, Settings: segmentSettings})
-			rows, rowErr := loadRenditionSegmentMediaRows(ctx, db, segment.ID)
-			if rowErr != nil {
-				return content, settings, media, rowErr
-			}
-			items, itemErr := mediaItemsFromRows(rows, segment.Position)
+			items, itemErr := mediaItemsFromRows(inputs.segmentMedia[segment.ID], segment.Position)
 			if itemErr != nil {
 				return content, settings, media, itemErr
 			}
 			media.Items = append(media.Items, items...)
 		}
 	}
-	settingItems, err := loadSettingMediaItems(ctx, db, publication.WorkspaceID, rendition.SettingsJSON, media.Items)
+	settingItems, err := inputs.settingMediaItems(rendition.SettingsJSON, media.Items)
 	if err != nil {
 		return content, settings, media, err
 	}
 	media.Items = append(media.Items, settingItems...)
 	return content, settings, media, nil
-}
-
-func loadRenditionMediaRows(ctx context.Context, db bun.IDB, renditionID string) ([]renditionMediaRow, error) {
-	var rows []renditionMediaRow
-	err := db.NewSelect().
-		TableExpr("rendition_media AS relation").
-		ColumnExpr("relation.display_order, relation.role, relation.alt_text, relation.thumbnail_timestamp_ms, '{}' AS settings_json").
-		ColumnExpr("media.id AS media_id, media.file_hash, media.mime_type, media.size, media.original_filename, media.alt_text AS default_alt_text").
-		Join("JOIN media_attachments AS media ON media.id = relation.media_id").
-		Where("relation.rendition_id = ?", renditionID).
-		OrderExpr("relation.display_order ASC, media.id ASC").
-		Scan(ctx, &rows)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("load authorization rendition media: %w", err)
-	}
-	return rows, nil
-}
-
-func loadRenditionSegmentMediaRows(ctx context.Context, db bun.IDB, segmentID string) ([]renditionMediaRow, error) {
-	var rows []renditionMediaRow
-	err := db.NewSelect().
-		TableExpr("rendition_segment_media AS relation").
-		ColumnExpr("relation.display_order, relation.role, relation.alt_text, relation.thumbnail_timestamp_ms, relation.settings_json").
-		ColumnExpr("media.id AS media_id, media.file_hash, media.mime_type, media.size, media.original_filename, media.alt_text AS default_alt_text").
-		Join("JOIN media_attachments AS media ON media.id = relation.media_id").
-		Where("relation.rendition_segment_id = ?", segmentID).
-		OrderExpr("relation.display_order ASC, media.id ASC").
-		Scan(ctx, &rows)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("load authorization segment media: %w", err)
-	}
-	return rows, nil
 }
 
 func mediaItemsFromRows(rows []renditionMediaRow, segmentPosition int) ([]mediaItemFingerprint, error) {
@@ -273,35 +389,43 @@ func mediaItemsFromRows(rows []renditionMediaRow, segmentPosition int) ([]mediaI
 	return items, nil
 }
 
-func loadSettingMediaItems(
-	ctx context.Context,
-	db bun.IDB,
-	workspaceID, settingsJSON string,
-	existing []mediaItemFingerprint,
-) ([]mediaItemFingerprint, error) {
+func decodeSettingMedia(settingsJSON string) (map[string]any, error) {
 	settings := map[string]any{}
 	if strings.TrimSpace(settingsJSON) != "" {
 		if err := json.Unmarshal([]byte(settingsJSON), &settings); err != nil {
 			return nil, fmt.Errorf("decode setting media: %w", err)
 		}
 	}
+	return settings, nil
+}
+
+func settingMediaID(settings map[string]any, key string) string {
+	mediaID, _ := settings[key].(string)
+	mediaID = strings.TrimSpace(mediaID)
+	if strings.HasPrefix(mediaID, "http://") || strings.HasPrefix(mediaID, "https://") {
+		return ""
+	}
+	return mediaID
+}
+
+func (inputs *snapshotInputs) settingMediaItems(settingsJSON string, existing []mediaItemFingerprint) ([]mediaItemFingerprint, error) {
+	settings, err := decodeSettingMedia(settingsJSON)
+	if err != nil {
+		return nil, err
+	}
 	seen := make(map[string]bool, len(existing))
 	for _, item := range existing {
 		seen[item.MediaID] = true
 	}
-	keys := []string{"caption_media_id", "cover_media_id", "thumbnail_media_id"}
-	out := make([]mediaItemFingerprint, 0, len(keys))
-	for order, key := range keys {
-		mediaID, _ := settings[key].(string)
-		mediaID = strings.TrimSpace(mediaID)
-		if mediaID == "" || strings.HasPrefix(mediaID, "http://") || strings.HasPrefix(mediaID, "https://") || seen[mediaID] {
+	out := make([]mediaItemFingerprint, 0, len(settingMediaKeys))
+	for order, key := range settingMediaKeys {
+		mediaID := settingMediaID(settings, key)
+		if mediaID == "" || seen[mediaID] {
 			continue
 		}
-		var media models.MediaAttachment
-		if err := db.NewSelect().Model(&media).
-			Where("id = ? AND workspace_id = ?", mediaID, workspaceID).
-			Scan(ctx); err != nil {
-			return nil, fmt.Errorf("load authorization %s: %w", key, err)
+		media, ok := inputs.settingMedia[mediaID]
+		if !ok {
+			return nil, fmt.Errorf("load authorization %s: %w", key, sql.ErrNoRows)
 		}
 		out = append(out, mediaItemFingerprint{
 			SegmentPosition: -1, DisplayOrder: order, Role: "setting:" + key,
@@ -312,6 +436,19 @@ func loadSettingMediaItems(
 		seen[mediaID] = true
 	}
 	return out, nil
+}
+
+func uniqueStrings(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := make(map[string]bool, len(values))
+	for _, value := range values {
+		if seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	return out
 }
 
 func TargetKey(account models.SocialAccount) string {

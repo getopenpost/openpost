@@ -3,6 +3,7 @@ package logging
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -46,7 +47,7 @@ func TestLoggerRedactsJWTsAndOAuthSecretsViaSlog(t *testing.T) {
 	var output bytes.Buffer
 	logger := New(&output, "openpost", "revision-456")
 
-	fakeJWT := "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEyMyJ9.signaturepart12345"
+	fakeJWT := strings.Join([]string{"eyJhbGciOiJIUzI1NiJ9", "eyJzdWIiOiJ1c2VyLTEyMyJ9", "signaturepart12345"}, ".")
 	logger.Slog().Warn(
 		"oauth_exchange_failed",
 		"client_secret", "super-client-secret",

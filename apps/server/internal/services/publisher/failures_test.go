@@ -3,6 +3,8 @@ package publisher
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -86,4 +88,47 @@ func TestProviderPrerequisiteFailuresGiveProviderGuidance(t *testing.T) {
 		require.False(t, failure.Retryable)
 		require.NotEqual(t, FailureActionBilling, failure.Action)
 	}
+}
+
+func TestCredentialFailuresRequireReconnectOnlyWhenNotTransient(t *testing.T) {
+	t.Parallel()
+	timeout := &net.OpError{Op: "dial", Err: &timeoutError{}}
+	for _, test := range []struct {
+		name      string
+		cause     error
+		kind      string
+		retryable bool
+	}{
+		{"token endpoint timeout", timeout, FailureNetwork, true},
+		{"deadline", context.DeadlineExceeded, FailureNetwork, true},
+		{"token endpoint outage", &platform.HTTPError{StatusCode: 503}, FailureProviderServer, true},
+		{"token endpoint rate limit", &platform.HTTPError{StatusCode: 429}, FailureRateLimited, true},
+		{"revoked refresh token", fmt.Errorf("failed to refresh token: %w", &platform.HTTPError{StatusCode: 400, Code: "invalid_grant"}), FailureReconnectRequired, false},
+		{"missing refresh support", errors.New("token expired for account a and provider does not support refresh"), FailureReconnectRequired, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			failure := ClassifyFailure(fmt.Errorf("media upload failed for m: %w", &credentialError{operation: "auth error", cause: test.cause}))
+			require.Equal(t, test.kind, failure.Kind)
+			require.Equal(t, test.retryable, failure.Retryable)
+			require.Equal(t, !test.retryable, failure.Action == FailureActionReconnect)
+		})
+	}
+}
+
+type timeoutError struct{}
+
+func (*timeoutError) Error() string   { return "i/o timeout" }
+func (*timeoutError) Timeout() bool   { return true }
+func (*timeoutError) Temporary() bool { return true }
+
+func TestTypedProviderRejectionOutranksProcessingWording(t *testing.T) {
+	t.Parallel()
+	rejected := ClassifyFailure(fmt.Errorf("video processing failed: %w", &platform.HTTPError{StatusCode: 400, Code: "invalid_video"}))
+	require.Equal(t, FailureValidation, rejected.Kind)
+	require.False(t, rejected.Retryable)
+	require.Equal(t, "invalid_video", rejected.Code)
+
+	untyped := ClassifyFailure(errors.New("video processing failed"))
+	require.Equal(t, FailureProviderProcessing, untyped.Kind)
+	require.True(t, untyped.Retryable)
 }

@@ -434,6 +434,9 @@ func (h *PublicationHandler) deletePublication(api huma.API) {
 		if err := drafts.RequireExpectedRevision(input.ExpectedRevision); err != nil {
 			return nil, err
 		}
+		if err := h.requireExternalPublicationAccounts(ctx, input.PathID); err != nil {
+			return nil, err
+		}
 		err := h.publicationApplication().Delete(
 			ctx, middleware.GetUserID(ctx), input.PathID, input.ExpectedRevision,
 		)

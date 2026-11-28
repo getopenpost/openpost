@@ -33,6 +33,7 @@ const (
 var (
 	errLegacyPublicationAuthorizationMissing = errors.New("authorization batch binding is missing")
 	errLegacyPublicationAuthorizationInvalid = errors.New("invalid publication job authorization")
+	errLegacyPublicationTargetsMissing       = errors.New("active publication job has no authorization targets to recover")
 )
 
 type legacyPublicationBackfillState struct {
@@ -689,38 +690,86 @@ func lockPendingLegacyPublicationAuthorizationJob(ctx context.Context, tx bun.Tx
 // job remains invisible to polling workers while its scope is repaired, then
 // becomes pending in the same transaction that preserves a protected legacy
 // operation identity or upgrades and authorizes provably unsent work.
+//
+// Each job reconciles in its own transactions. A job that cannot be recovered
+// safely is quarantined as failed; an operational error is returned joined
+// with the others after every remaining job has been attempted, so one job
+// cannot hold unrelated recovery hostage.
 func ReconcileActiveLegacyPublicationJobs(ctx context.Context, db *bun.DB, jobIDs []string) error {
 	jobIDs = uniqueLegacyPublicationJobIDs(jobIDs)
 	cutoff := time.Now().UTC().Add(-legacyPublicationStaleProcessingAge)
+	var failures error
 	// Repair every exact scope first so a same-aggregate processing job cannot
-	// hide from the transaction that translates its sibling.
+	// hide from the transaction that translates its sibling. If any scope
+	// repair fails, defer publish_post migrations until all legacy post scopes
+	// are visible; canonical publish_publication jobs stay independent.
+	type repairedLegacyJob struct {
+		id      string
+		jobType string
+	}
+	repaired := make([]repairedLegacyJob, 0, len(jobIDs))
+	scopeRepairFailed := false
 	for _, jobID := range jobIDs {
+		var jobType string
 		if err := db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 			job, err := lockStaleLegacyPublicationJob(txCtx, tx, jobID, cutoff)
 			if err != nil || job == nil {
 				return err
 			}
+			jobType = job.Type
 			if strings.TrimSpace(job.ScopeID) == "" {
 				if err := repairLegacyPublicationJobScope(txCtx, tx, job); err != nil {
 					return err
 				}
 			}
 			if strings.TrimSpace(job.ScopeID) == "" {
-				return fmt.Errorf("stale legacy publication job %s has no aggregate scope", job.ID)
+				return quarantineUnscopedStaleLegacyPublicationJob(txCtx, tx, job.ID, cutoff)
 			}
 			return nil
 		}); err != nil {
-			return fmt.Errorf("repair stale legacy publication job %s: %w", jobID, err)
+			scopeRepairFailed = true
+			failures = errors.Join(failures, fmt.Errorf("repair stale legacy publication job %s: %w", jobID, err))
+			continue
 		}
+		repaired = append(repaired, repairedLegacyJob{id: jobID, jobType: jobType})
 	}
-	for _, jobID := range jobIDs {
+	for _, item := range repaired {
+		if scopeRepairFailed && item.jobType == jobregistry.TypePublishPost {
+			continue
+		}
 		if err := db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-			return reconcileStaleLegacyPublicationJobTx(txCtx, tx, jobID, cutoff)
+			return reconcileStaleLegacyPublicationJobTx(txCtx, tx, item.id, cutoff)
 		}); err != nil {
-			return fmt.Errorf("reconcile stale legacy publication job %s: %w", jobID, err)
+			failures = errors.Join(failures, fmt.Errorf("reconcile stale legacy publication job %s: %w", item.id, err))
 		}
 	}
-	return nil
+	return failures
+}
+
+// quarantineUnscopedStaleLegacyPublicationJob fails a stale job whose payload
+// names no aggregate. It cannot become pending without a scope, and replaying
+// it could repeat a provider write that already happened.
+func quarantineUnscopedStaleLegacyPublicationJob(ctx context.Context, tx bun.Tx, jobID string, cutoff time.Time) error {
+	const message = "OpenPost could not identify the post for this interrupted job, so it did not retry it. Review the post before publishing again."
+	result, err := tx.NewUpdate().Model((*models.Job)(nil)).
+		Set("status = ?", "failed").
+		Set("last_error = ?", message).
+		Set("locked_at = NULL").
+		Set("locked_by = ''").
+		Where("id = ? AND status = ?", jobID, "processing").
+		Where("locked_at IS NOT NULL AND locked_at <= ?", cutoff).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errors.New("stale legacy publication job lock changed during recovery")
+	}
+	return failQuarantinedPublication(ctx, tx, jobID, message)
 }
 
 func uniqueLegacyPublicationJobIDs(jobIDs []string) []string {
@@ -839,12 +888,23 @@ func reconcileStaleCanonicalPublicationJobTx(
 		if err := verifyPendingLegacyPublicationJobAuthorization(ctx, tx, job.ID); err != nil {
 			return quarantineInvalidLegacyPublicationJob(ctx, tx, job.ID, err)
 		}
-		return resetInterruptedCanonicalPublicationTargets(ctx, tx, job.ID)
+		return resetStaleCanonicalPublicationTargets(ctx, tx, job.ID)
 	}
 	if err := ensurePendingLegacyPublicationJobAuthorization(ctx, tx, job.ID); err != nil {
 		return quarantineInvalidLegacyPublicationJob(ctx, tx, job.ID, err)
 	}
-	return resetInterruptedCanonicalPublicationTargets(ctx, tx, job.ID)
+	return resetStaleCanonicalPublicationTargets(ctx, tx, job.ID)
+}
+
+// resetStaleCanonicalPublicationTargets returns a recovered job's targets to
+// scheduled. A job without authorization targets has nothing it may safely
+// resume, so it is quarantined rather than left to fail recovery forever.
+func resetStaleCanonicalPublicationTargets(ctx context.Context, tx bun.Tx, jobID string) error {
+	err := resetInterruptedCanonicalPublicationTargets(ctx, tx, jobID)
+	if !errors.Is(err, errLegacyPublicationTargetsMissing) {
+		return err
+	}
+	return quarantineLegacyPublicationJob(ctx, tx, jobID, "OpenPost did not resume this interrupted job because it has no authorized destinations. Review the post before publishing again.")
 }
 
 func protectedLegacyPublicationJobUsesCurrentAuthorization(ctx context.Context, db bun.IDB, jobID string) (bool, error) {
@@ -951,7 +1011,7 @@ func resetInterruptedCanonicalPublicationTargets(ctx context.Context, db bun.IDB
 		return err
 	}
 	if len(renditionIDs) == 0 {
-		return errors.New("active publication job has no authorization targets to recover")
+		return errLegacyPublicationTargetsMissing
 	}
 	now := time.Now().UTC()
 	if _, err := db.NewUpdate().Model((*models.Rendition)(nil)).

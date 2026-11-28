@@ -261,7 +261,8 @@ func (p *BuiltinProvider) drawBuiltinCaption(canvas *image.NRGBA, field builtinT
 	if err != nil {
 		return err
 	}
-	layer := image.NewNRGBA(image.Rect(0, 0, width, height))
+	// RGBA keeps glyph and stroke compositing on image/draw's fast paths.
+	layer := image.NewRGBA(image.Rect(0, 0, width, height))
 	fill := parseBuiltinColor(field.Color)
 	strokeWidth, strokeFill := builtinStrokeForField(field.Color, layout.size)
 	isImpact := builtinIsImpactFont(field.Font)
@@ -281,22 +282,22 @@ func (p *BuiltinProvider) drawBuiltinCaption(canvas *image.NRGBA, field builtinT
 			x += strokeWidth
 		}
 		y := -offsetY + metrics.Ascent.Ceil() + row*(builtinPILLineHeight(layout.size)+builtinPILDefaultSpacing+spacing)
-		for dy := -strokeWidth; dy <= strokeWidth; dy++ {
-			for dx := -strokeWidth; dx <= strokeWidth; dx++ {
-				if dx*dx+dy*dy > strokeWidth*strokeWidth {
-					continue
-				}
-				drawBuiltinString(layer, layout.face, line, x+dx, y+dy, strokeFill)
-			}
+		glyphBounds, _ := xfont.BoundString(layout.face, line)
+		bounds := image.Rect(x+glyphBounds.Min.X.Floor()-1, y+glyphBounds.Min.Y.Floor()-1, x+glyphBounds.Max.X.Ceil()+1, y+glyphBounds.Max.Y.Ceil()+1)
+		if bounds.Empty() {
+			continue
 		}
-		drawBuiltinString(layer, layout.face, line, x, y, fill)
+		rasterized := newCaptionLine(bounds)
+		drawBuiltinString(rasterized.glyphs, layout.face, line, x-bounds.Min.X, y-bounds.Min.Y, opaque(fill))
+		rasterized.composite(layer, strokeWidth, strokeFill, fill)
 	}
+	var rendered image.Image = layer
 	if field.Angle != 0 {
-		layer = imaging.Rotate(layer, field.Angle, color.NRGBA{})
+		rendered = imaging.Rotate(layer, field.Angle, color.NRGBA{})
 	}
 	x := int(float64(canvas.Bounds().Dx()) * field.AnchorX)
 	y := int(float64(canvas.Bounds().Dy()) * field.AnchorY)
-	stddraw.Draw(canvas, image.Rect(x, y, x+layer.Bounds().Dx(), y+layer.Bounds().Dy()), layer, layer.Bounds().Min, stddraw.Over)
+	stddraw.Draw(canvas, image.Rect(x, y, x+rendered.Bounds().Dx(), y+rendered.Bounds().Dy()), rendered, rendered.Bounds().Min, stddraw.Over)
 	return nil
 }
 

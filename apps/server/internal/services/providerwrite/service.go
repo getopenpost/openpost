@@ -34,6 +34,9 @@ type Control struct {
 	service *Service
 	attempt *models.ProviderWriteAttempt
 	ctx     context.Context
+	// entered records that this control committed the sending fence. Only
+	// the owner of the fence may persist the attempt's send outcome.
+	entered bool
 }
 
 // BindPublishRequest attaches the persisted logical identity and durable
@@ -101,6 +104,7 @@ func (c *Control) BeginGuarded(result platform.PublishResult, guard func(context
 	if err != nil {
 		return err
 	}
+	c.entered = true
 	c.attempt.Status = StatusSending
 	c.attempt.SubmissionState = string(platform.PublishSubmissionUnknown)
 	c.attempt.ProviderState = result.ProviderState
@@ -334,6 +338,12 @@ func (s *Service) sendPrepared(ctx context.Context, attempt *models.ProviderWrit
 	if current.Status == StatusAccepted {
 		return resultFromAttempt(current), nil
 	}
+	if !control.entered && errors.Is(sendErr, ErrWriteInProgress) {
+		// This caller never owned the fence: its lease was reclaimed or
+		// another caller entered first. The attempt belongs to the live
+		// owner, so leave its durable state untouched.
+		return platform.PublishResult{}, &OutcomeError{Kind: StatusAmbiguous, Err: ErrWriteInProgress}
+	}
 	if current.Status == StatusPrepared {
 		if sendErr == nil {
 			sendErr = ErrFenceNotEntered
@@ -343,10 +353,24 @@ func (s *Service) sendPrepared(ctx context.Context, attempt *models.ProviderWrit
 		}
 		return platform.PublishResult{}, sendErr
 	}
-	if current.Status != StatusSending {
+	adapterClaimedAccepted := sendErr == nil && result.SubmissionState == platform.PublishSubmissionAccepted
+	if current.Status == StatusAmbiguous && control.entered {
+		// Stale-lease recovery marked this in-flight send ambiguous. A
+		// confirmed provider outcome is stronger evidence than the
+		// interruption marker, so record it instead of discarding a live
+		// post id. Any other outcome stays ambiguous.
+		confirmed := sendErr == nil && (result.SubmissionState == platform.PublishSubmissionAccepted ||
+			result.SubmissionState == platform.PublishSubmissionPending)
+		if !confirmed {
+			cause := sendErr
+			if cause == nil {
+				cause = errors.New("provider returned an unconfirmed submission state")
+			}
+			return platform.PublishResult{}, &OutcomeError{Kind: StatusAmbiguous, Err: errors.Join(ErrOutcomeAmbiguous, cause)}
+		}
+	} else if current.Status != StatusSending {
 		return platform.PublishResult{}, fmt.Errorf("provider write attempt changed to %q during send", current.Status)
 	}
-	adapterClaimedAccepted := sendErr == nil && result.SubmissionState == platform.PublishSubmissionAccepted
 	result = mergeResult(resultFromAttempt(current), result)
 	if sendErr == nil && result.SubmissionState == "" {
 		result.SubmissionState = platform.PublishSubmissionAccepted
@@ -610,11 +634,14 @@ func (s *Service) createNextAttempt(ctx context.Context, input Input, number int
 		return s.syncDeliveryTx(txCtx, tx, attempt.ID, false)
 	})
 	if err != nil {
+		// A concurrent caller may have inserted this attempt number first.
+		// Only a row at or beyond the requested number proves that conflict;
+		// an older attempt means the insert failed for another reason.
 		var active models.ProviderWriteAttempt
 		loadErr := s.db.NewSelect().Model(&active).
 			Where("operation_id = ?", input.OperationID).
 			Order("attempt_number DESC").Limit(1).Scan(ctx)
-		if loadErr == nil {
+		if loadErr == nil && active.AttemptNumber >= number {
 			return &active, nil
 		}
 		return nil, fmt.Errorf("create provider write attempt: %w", err)

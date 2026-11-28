@@ -224,10 +224,11 @@ func TestEncoders(t *testing.T) {
 }
 
 func TestWriteRenders(t *testing.T) {
-	if os.Getenv("OPENPOST_WRITE_RENDERS") != "1" {
-		t.Skip("set OPENPOST_WRITE_RENDERS=1")
+	// Visual review aid: OPENPOST_WRITE_RENDERS=/some/dir writes every sample.
+	dir := os.Getenv("OPENPOST_WRITE_RENDERS")
+	if dir == "" {
+		t.Skip("set OPENPOST_WRITE_RENDERS to an output directory")
 	}
-	dir := "/private/tmp/claude-501/-Users-rgo-orca-workspaces-openpost-megamouth/c8c0e75a-b15f-4325-af71-ae9ba4838eb7/scratchpad/screenshot-renders"
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}

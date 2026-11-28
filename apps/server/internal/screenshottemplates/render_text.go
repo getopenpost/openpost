@@ -18,6 +18,7 @@ import (
 	opentype "github.com/go-text/typesetting/font/opentype"
 	"github.com/go-text/typesetting/shaping"
 	fontassets "github.com/openpost/backend/internal/memes/catalog/fonts"
+	"github.com/openpost/backend/internal/textshaping"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -222,6 +223,7 @@ func (rc *renderContext) shapePiece(text []rune, start, end int, st style, dir d
 	runs := make(shaping.Line, 0, len(inputs))
 	for _, in := range inputs {
 		run := shaper.Shape(in)
+		textshaping.NormalizeFallbackSpaces(&run, text, st.fm[0], in.Size)
 		if st.spacing != 0 {
 			extra := fixedSize(st.spacing, rc.scale)
 			for i := range run.Glyphs {

@@ -6,11 +6,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"unicode"
 
 	textfont "github.com/go-text/typesetting/font"
 	"github.com/go-text/typesetting/shaping"
 	fontassets "github.com/openpost/backend/internal/memes/catalog/fonts"
+	"github.com/openpost/backend/internal/textshaping"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -18,7 +18,7 @@ const textWidth = 808
 
 var loadFonts = sync.OnceValues(func() ([]*textfont.Font, error) {
 	var fonts []*textfont.Font
-	for _, name := range []string{"TitilliumWeb-SemiBold.ttf", "NotoSans-Bold.ttf", "NotoSansArabic.ttf", "NotoSansHebrew-Bold.ttf", "HG-Mincho-B.ttc", "NotoEmoji.ttf"} {
+	for _, name := range []string{"TitilliumWeb-SemiBold.ttf", "NotoSans-Bold.ttf", "NotoSansArabic.ttf", "NotoSansHebrew-Bold.ttf", "HG-Mincho-B.ttc", "NotoColorEmoji.ttf"} {
 		data, err := fontassets.Files.ReadFile(name)
 		if err != nil {
 			return nil, err
@@ -143,7 +143,7 @@ func wrapText(value string, faces fontMap, size, width int) []line {
 		runs := make(shaping.Line, len(inputs))
 		for i, input := range inputs {
 			runs[i] = shaper.Shape(input)
-			normalizeFallbackSpaces(&runs[i], text, faces[0], input.Size)
+			textshaping.NormalizeFallbackSpaces(&runs[i], text, faces[0], input.Size)
 		}
 		var wrapper shaping.LineWrapper
 		wrapper.Prepare(shaping.WrapConfig{Direction: runs[0].Direction}, text, shaping.NewSliceIterator(runs))
@@ -162,30 +162,4 @@ func wrapText(value string, faces fontMap, size, width int) []line {
 		}
 	}
 	return lines
-}
-
-// normalizeFallbackSpaces gives spaces carried into an emoji or CJK fallback
-// run the primary font's advance. The segmenter keeps whitespace in the
-// current face, and those fonts draw a full-em space that left wide gaps
-// after every emoji.
-func normalizeFallbackSpaces(run *shaping.Output, text []rune, primary *textfont.Face, size fixed.Int26_6) {
-	if run.Face == primary {
-		return
-	}
-	space, ok := primary.NominalGlyph(' ')
-	if !ok {
-		return
-	}
-	advance := fixed.Int26_6(primary.HorizontalAdvance(space) * float32(size) / float32(primary.Upem()))
-	changed := false
-	for index := range run.Glyphs {
-		glyph := &run.Glyphs[index]
-		if glyph.RuneCount == 1 && glyph.ClusterIndex < len(text) && unicode.Is(unicode.Zs, text[glyph.ClusterIndex]) {
-			glyph.Advance = advance
-			changed = true
-		}
-	}
-	if changed {
-		run.RecomputeAdvance()
-	}
 }

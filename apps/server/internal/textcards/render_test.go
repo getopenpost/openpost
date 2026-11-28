@@ -267,3 +267,19 @@ func TestRenderEllipsizesLongIdentity(t *testing.T) {
 	require.Len(t, explicit, 1)
 	require.Equal(t, explicit[0].JPEG, clipped[0].JPEG, "the renderer must draw the ellipsized identity")
 }
+
+func TestSpaceAfterEmojiUsesTextFontWidth(t *testing.T) {
+	t.Parallel()
+	faces, err := newFaces()
+	require.NoError(t, err)
+	width := func(value string) int {
+		lines := wrapText(value, faces, 64, 4000)
+		require.Len(t, lines, 1)
+		return lines[0].width
+	}
+	gap := width("🚀 b") - width("🚀b")
+	// A Latin space at 64 px is about a quarter em. The emoji font's own
+	// space is a full em and left a visible hole after every emoji.
+	require.Greater(t, gap, 8)
+	require.Less(t, gap, 32)
+}

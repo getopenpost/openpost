@@ -16276,6 +16276,11 @@
 					"document": {
 						"$ref": "#/components/schemas/ScreenshotTemplateDocument"
 					},
+					"format": {
+						"description": "jpeg for live previews (default) or png for a lossless download",
+						"enum": ["jpeg", "png"],
+						"type": "string"
+					},
 					"scale": {
 						"description": "Device pixel ratio of the preview. Defaults to 2.",
 						"enum": [1, 2],
@@ -21229,6 +21234,11 @@
 						],
 						"format": "uri",
 						"readOnly": true,
+						"type": "string"
+					},
+					"alt_text": {
+						"description": "Alt text for a server-rendered export",
+						"maxLength": 1500,
 						"type": "string"
 					},
 					"media_id": {

@@ -13722,6 +13722,11 @@ export interface components {
             readonly $schema?: string;
             document: components["schemas"]["ScreenshotTemplateDocument"];
             /**
+             * @description jpeg for live previews (default) or png for a lossless download
+             * @enum {string}
+             */
+            format?: "jpeg" | "png";
+            /**
              * Format: double
              * @description Device pixel ratio of the preview. Defaults to 2.
              * @enum {number}
@@ -15870,6 +15875,8 @@ export interface components {
              * @example https://example.com/api/v1/schemas/SaveScreenshotTemplateExportInputBody.json
              */
             readonly $schema?: string;
+            /** @description Alt text for a server-rendered export */
+            alt_text?: string;
             /** @description A PNG the client rendered. Omit it to have the server render and save the export. */
             media_id?: string;
             /** Format: int64 */

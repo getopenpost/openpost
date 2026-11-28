@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/openpost/backend/internal/models"
@@ -29,6 +30,7 @@ import (
 const (
 	maxTemplateImageBytes  = 20 << 20
 	maxTemplateImagePixels = 40_000_000
+	maxTemplateAltText     = 1500
 	templateRenderWait     = 10 * time.Second
 )
 
@@ -88,16 +90,23 @@ func (r *ScreenshotTemplateRenderer) Render(ctx context.Context, workspaceID str
 }
 
 // RenderVisual implements publicationbuilder.VisualRenderer.
-func (r *ScreenshotTemplateRenderer) RenderVisual(ctx context.Context, workspaceID, userID string, doc ScreenshotTemplateDocument) (models.MediaAttachment, error) {
-	return r.Export(ctx, workspaceID, userID, doc)
+func (r *ScreenshotTemplateRenderer) RenderVisual(ctx context.Context, workspaceID, userID string, doc ScreenshotTemplateDocument, altText string) (models.MediaAttachment, error) {
+	return r.Export(ctx, workspaceID, userID, doc, altText)
 }
 
 // Export renders a document at publishing size, imports it as Media library
 // media and stores its editable recipe. An identical ready export is reused,
 // so retried build commits and repeated exports do not duplicate media.
-func (r *ScreenshotTemplateRenderer) Export(ctx context.Context, workspaceID, userID string, doc ScreenshotTemplateDocument) (models.MediaAttachment, error) {
+func (r *ScreenshotTemplateRenderer) Export(ctx context.Context, workspaceID, userID string, doc ScreenshotTemplateDocument, altText string) (models.MediaAttachment, error) {
+	altText = strings.TrimSpace(altText)
+	if utf8.RuneCountInString(altText) > maxTemplateAltText || hasMemeControl(altText, false) {
+		return models.MediaAttachment{}, huma.Error400BadRequest("template alt text is invalid")
+	}
 	if doc.Meme != nil {
-		return r.exportMeme(ctx, workspaceID, userID, *doc.Meme)
+		if altText == "" {
+			altText = strings.TrimSpace(doc.Meme.AltText)
+		}
+		return r.exportMeme(ctx, workspaceID, userID, *doc.Meme, altText)
 	}
 	if r.media == nil || r.db == nil {
 		return models.MediaAttachment{}, huma.Error503ServiceUnavailable("template media storage is not configured")
@@ -106,7 +115,7 @@ func (r *ScreenshotTemplateRenderer) Export(ctx context.Context, workspaceID, us
 	if err != nil {
 		return models.MediaAttachment{}, huma.Error400BadRequest("template document is invalid")
 	}
-	if media, ok, err := r.existingExport(ctx, workspaceID, string(documentJSON)); err != nil || ok {
+	if media, ok, err := r.existingExport(ctx, workspaceID, string(documentJSON), altText); err != nil || ok {
 		return media, err
 	}
 	rendered, err := r.Render(ctx, workspaceID, doc, screenshottemplates.ExportScale)
@@ -120,7 +129,7 @@ func (r *ScreenshotTemplateRenderer) Export(ctx context.Context, workspaceID, us
 	var created models.MediaAttachment
 	result, err := r.media.processUploadBytes(ctx, mediaUploadBytesInput{
 		WorkspaceID: workspaceID, Filename: templateExportFilename(doc.Title), DeclaredMimeType: "image/png",
-		Size: int64(len(data)), Content: data, Source: "screenshot_template", AssetKind: "library",
+		Size: int64(len(data)), Content: data, AltText: altText, Source: "screenshot_template", AssetKind: "library",
 		RetentionClass: "library", OnCreated: func(media models.MediaAttachment) { created = media },
 	})
 	if err != nil {
@@ -154,21 +163,22 @@ func (r *ScreenshotTemplateRenderer) rollback(ctx context.Context, media models.
 	}
 }
 
-func (r *ScreenshotTemplateRenderer) exportMeme(ctx context.Context, workspaceID, userID string, meme ScreenshotTemplateMeme) (models.MediaAttachment, error) {
+func (r *ScreenshotTemplateRenderer) exportMeme(ctx context.Context, workspaceID, userID string, meme ScreenshotTemplateMeme, altText string) (models.MediaAttachment, error) {
 	if r.memes == nil || r.memes.provider == nil {
 		return models.MediaAttachment{}, huma.Error503ServiceUnavailable("the meme generator is not enabled")
 	}
 	media, _, _, _, err := r.memes.renderAndSave(ctx, memeSaveInput{
 		WorkspaceID: workspaceID, UserID: userID, TemplateID: meme.TemplateID, Format: meme.Format,
-		RetentionClass: "library", AltText: strings.TrimSpace(meme.AltText), ParentMediaID: meme.ParentMediaID,
+		RetentionClass: "library", AltText: altText, ParentMediaID: meme.ParentMediaID,
 		Captions: meme.Captions, OverlayMediaIDs: meme.OverlayMediaIDs,
 	})
 	return media, err
 }
 
-func (r *ScreenshotTemplateRenderer) existingExport(ctx context.Context, workspaceID, documentJSON string) (models.MediaAttachment, bool, error) {
+func (r *ScreenshotTemplateRenderer) existingExport(ctx context.Context, workspaceID, documentJSON, altText string) (models.MediaAttachment, bool, error) {
 	var media models.MediaAttachment
 	err := r.db.NewSelect().Model(&media).
+		Where("media_attachment.alt_text = ?", altText).
 		Join("JOIN media_generation_recipes AS recipe ON recipe.media_id = media_attachment.id").
 		Where("recipe.workspace_id = ? AND recipe.kind = ? AND recipe.renderer_key = ? AND recipe.recipe_json = ?", workspaceID, "screenshot_template", screenshotTemplateRenderer, documentJSON).
 		Where("media_attachment.processing_status = ? AND media_attachment.trashed_at IS NULL", mediaReadyStatus).

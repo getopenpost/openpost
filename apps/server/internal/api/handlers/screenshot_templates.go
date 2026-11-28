@@ -39,6 +39,7 @@ type PreviewScreenshotTemplateInput struct {
 		WorkspaceID string                     `json:"workspace_id" minLength:"1"`
 		Document    ScreenshotTemplateDocument `json:"document"`
 		Scale       float64                    `json:"scale,omitempty" enum:"1,2" doc:"Device pixel ratio of the preview. Defaults to 2."`
+		Format      string                     `json:"format,omitempty" enum:"jpeg,png" doc:"jpeg for live previews (default) or png for a lossless download"`
 	}
 }
 
@@ -106,6 +107,7 @@ type SaveScreenshotTemplateExportInput struct {
 	Body struct {
 		Revision int    `json:"revision" minimum:"1"`
 		MediaID  string `json:"media_id,omitempty" doc:"A PNG the client rendered. Omit it to have the server render and save the export."`
+		AltText  string `json:"alt_text,omitempty" maxLength:"1500" doc:"Alt text for a server-rendered export"`
 	}
 }
 type ScreenshotTemplateRecipeInput struct {
@@ -307,12 +309,16 @@ func (h *ScreenshotTemplateHandler) preview(ctx context.Context, input *PreviewS
 	if err != nil {
 		return nil, err
 	}
-	data, err := screenshottemplates.EncodeJPEG(rendered.Image)
+	mimeType, encode := "image/jpeg", screenshottemplates.EncodeJPEG
+	if input.Body.Format == "png" {
+		mimeType, encode = "image/png", screenshottemplates.EncodePNG
+	}
+	data, err := encode(rendered.Image)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to encode the template preview")
 	}
 	out := &PreviewScreenshotTemplateOutput{CacheControl: "no-store"}
-	out.Body.MIMEType = "image/jpeg"
+	out.Body.MIMEType = mimeType
 	out.Body.DataBase64 = base64.StdEncoding.EncodeToString(data)
 	out.Body.Width, out.Body.Height = rendered.Image.Rect.Dx(), rendered.Image.Rect.Dy()
 	out.Body.Scale = scale
@@ -339,7 +345,7 @@ func (h *ScreenshotTemplateHandler) saveExport(ctx context.Context, input *SaveS
 		if h.renderer == nil {
 			return nil, huma.Error503ServiceUnavailable("the template renderer is not configured")
 		}
-		media, err := h.renderer.Export(ctx, row.WorkspaceID, middleware.GetUserID(ctx), doc)
+		media, err := h.renderer.Export(ctx, row.WorkspaceID, middleware.GetUserID(ctx), doc, input.Body.AltText)
 		if err != nil {
 			return nil, err
 		}

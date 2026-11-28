@@ -15,7 +15,7 @@ import (
 // meme) into ready workspace media. Rendering is a server capability so
 // headless builds from Workflows and MCP finish with their image.
 type VisualRenderer interface {
-	RenderVisual(ctx context.Context, workspaceID, userID string, document screenshottemplates.ScreenshotTemplateDocument) (models.MediaAttachment, error)
+	RenderVisual(ctx context.Context, workspaceID, userID string, document screenshottemplates.ScreenshotTemplateDocument, altText string) (models.MediaAttachment, error)
 }
 
 // SetVisualRenderer binds the renderer used when a commit still has planned
@@ -37,13 +37,17 @@ func (application *Application) renderPlannedVisuals(ctx context.Context, worksp
 		if document == nil {
 			continue
 		}
-		key, err := json.Marshal(document)
+		altText := result.Destinations[index].Media.AltText
+		key, err := json.Marshal(struct {
+			Document *screenshottemplates.ScreenshotTemplateDocument
+			AltText  string
+		}{document, altText})
 		if err != nil {
 			continue
 		}
 		media, ok := rendered[string(key)]
 		if !ok {
-			media, err = application.visuals.RenderVisual(ctx, workspaceID, userID, *document)
+			media, err = application.visuals.RenderVisual(ctx, workspaceID, userID, *document, altText)
 			if err != nil {
 				if ctx.Err() != nil {
 					return ctx.Err()

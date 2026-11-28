@@ -14,10 +14,10 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type visualRendererFunc func(context.Context, string, string, screenshottemplates.ScreenshotTemplateDocument) (models.MediaAttachment, error)
+type visualRendererFunc func(context.Context, string, string, screenshottemplates.ScreenshotTemplateDocument, string) (models.MediaAttachment, error)
 
-func (fn visualRendererFunc) RenderVisual(ctx context.Context, workspaceID, userID string, document screenshottemplates.ScreenshotTemplateDocument) (models.MediaAttachment, error) {
-	return fn(ctx, workspaceID, userID, document)
+func (fn visualRendererFunc) RenderVisual(ctx context.Context, workspaceID, userID string, document screenshottemplates.ScreenshotTemplateDocument, altText string) (models.MediaAttachment, error) {
+	return fn(ctx, workspaceID, userID, document, altText)
 }
 
 func plannedVisualBuild(t *testing.T, db *bun.DB, renderer VisualRenderer, key string) (*Application, Build) {
@@ -28,7 +28,7 @@ func plannedVisualBuild(t *testing.T, db *bun.DB, renderer VisualRenderer, key s
 	request.Input.Destinations[0].AllowedOutputProfiles[0].AllowedMIMEs = []string{"image/*"}
 	document := &screenshottemplates.ScreenshotTemplateDocument{SchemaVersion: 1, TemplateID: "meme", Title: "Less code", Appearance: "light", Frame: "natural", TextSize: "normal", Meme: &screenshottemplates.ScreenshotTemplateMeme{TemplateID: "drake", Name: "Drake", Captions: []string{"More code", "Fewer lines"}, Format: "png", OverlayMediaIDs: []string{}}}
 	app, err := NewApplication(db, packageBuilderFunc(func(context.Context, BuildInput) (BuildResult, error) {
-		return BuildResult{Options: []PostOption{{ID: "option-1", Destinations: []DestinationPlan{{AccountID: "account-1", Platform: "x", Objective: "shares", Archetype: "artifact_joke", OutputProfile: "x.short_text", Preview: "Less code.", Segments: []SegmentPlan{{Body: "Less code."}}, Media: MediaPlan{Treatment: "meme", Role: "punchline", Brief: "A preference.", TemplateID: "drake", Document: document}}}}}}, nil
+		return BuildResult{Options: []PostOption{{ID: "option-1", Destinations: []DestinationPlan{{AccountID: "account-1", Platform: "x", Objective: "shares", Archetype: "artifact_joke", OutputProfile: "x.short_text", Preview: "Less code.", Segments: []SegmentPlan{{Body: "Less code."}}, Media: MediaPlan{Treatment: "meme", Role: "punchline", Brief: "A preference.", TemplateID: "drake", Document: document, AltText: "A preference chart."}}}}}}, nil
 	}), ApplicationConfig{AuthorizeStored: func(context.Context, workspaceaccess.StoredAuthority) error { return nil }})
 	require.NoError(t, err)
 	app.SetVisualRenderer(renderer)
@@ -44,10 +44,11 @@ func TestCommitRendersPlannedVisualWithoutAClient(t *testing.T) {
 	t.Parallel()
 	db := newBuilderApplicationTestDB(t)
 	renders := 0
-	app, build := plannedVisualBuild(t, db, visualRendererFunc(func(ctx context.Context, workspaceID, userID string, document screenshottemplates.ScreenshotTemplateDocument) (models.MediaAttachment, error) {
+	app, build := plannedVisualBuild(t, db, visualRendererFunc(func(ctx context.Context, workspaceID, userID string, document screenshottemplates.ScreenshotTemplateDocument, altText string) (models.MediaAttachment, error) {
 		renders++
 		require.Equal(t, "user-1", userID)
 		require.Equal(t, "drake", document.Meme.TemplateID)
+		require.Equal(t, "A preference chart.", altText)
 		media := models.MediaAttachment{ID: "rendered-meme", WorkspaceID: workspaceID, MimeType: "image/png", ProcessingStatus: "ready"}
 		_, err := db.NewInsert().Model(&media).Exec(ctx)
 		return media, err
@@ -66,7 +67,7 @@ func TestCommitRendersPlannedVisualWithoutAClient(t *testing.T) {
 func TestCommitKeepsImageRequirementWhenRenderingFails(t *testing.T) {
 	t.Parallel()
 	db := newBuilderApplicationTestDB(t)
-	app, build := plannedVisualBuild(t, db, visualRendererFunc(func(context.Context, string, string, screenshottemplates.ScreenshotTemplateDocument) (models.MediaAttachment, error) {
+	app, build := plannedVisualBuild(t, db, visualRendererFunc(func(context.Context, string, string, screenshottemplates.ScreenshotTemplateDocument, string) (models.MediaAttachment, error) {
 		return models.MediaAttachment{}, errors.New("template image is missing")
 	}), "server-render-failure")
 

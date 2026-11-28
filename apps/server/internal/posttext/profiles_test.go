@@ -30,3 +30,21 @@ func TestSavedMentionProjectsSnapshotPerNetwork(t *testing.T) {
 		})
 	}
 }
+
+func TestSavedMentionPrefersExactAuthorityOverProviderWideProfile(t *testing.T) {
+	profile := MentionTarget{Provider: "workspace", Kind: "profile", ID: "saved", Profiles: []MentionProfile{
+		{Provider: "mastodon", Text: "@alice"},
+		{Provider: "mastodon", Authority: "https://social.example", Text: "@alice@social.example"},
+	}}
+	body := "Hi @alice"
+	projection := &Projection{Mentions: Mentions{Version: 1, Spans: []MentionSpan{{Start: 3, End: 9, Text: "@alice", Target: profile}}}}
+	for authority, want := range map[string]string{
+		"https://social.example": "Hi @alice@social.example",
+		"https://other.example":  "Hi @alice",
+	} {
+		text, _, err := ForDestination(body, "mastodon", authority, projection)
+		if err != nil || text != want {
+			t.Fatalf("authority %s: text=%q err=%v, want %q", authority, text, err, want)
+		}
+	}
+}

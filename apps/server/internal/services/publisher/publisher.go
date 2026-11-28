@@ -214,12 +214,7 @@ func (s *Service) HandlePublishPublicationJob(ctx context.Context, jobPayload st
 		Explicit: payload.Action == "reply", ReadinessIntent: payload.ReadinessIntent,
 	})
 	if err != nil {
-		if failure := ClassifyFailure(err); !failure.Retryable {
-			if stateErr := s.persistTerminalPreflightFailure(ctx, payload.PublicationID, payload.RenditionID, failure); stateErr != nil {
-				log.Printf("[Publisher] Failed to persist terminal preflight failure: %v", stateErr)
-			}
-		}
-		return err
+		return s.handlePreflightError(ctx, payload.PublicationID, payload.RenditionID, err)
 	}
 	readinessIntent := publisherReadinessIntent(receipts[0].ExecutionIntent)
 	if payload.Action == "reply" {
@@ -305,14 +300,18 @@ type publishOutcome struct {
 	terminalWrite, panics, state error
 }
 
-// finalizationErr preserves a pending provider continuation even when
-// finalization fails so the worker keeps polling instead of exhausting retries.
+// finalizationErr preserves a pending provider continuation or typed retry
+// backoff even when finalization fails so the worker honors provider delays
+// instead of falling back to default backoff or exhausting continuation retries.
 func (o *publishOutcome) finalizationErr(finalizeErr error) error {
 	if o.pending != nil {
 		if o.retry != nil && o.retry.Failure.RetryAfter > o.pending.Failure.RetryAfter {
 			o.pending.Failure.RetryAfter = o.retry.Failure.RetryAfter
 		}
 		return errors.Join(finalizeErr, o.pending, o.panics, o.state)
+	}
+	if o.retry != nil {
+		return errors.Join(finalizeErr, o.retry, o.panics, o.state)
 	}
 	return errors.Join(finalizeErr, o.panics, o.state)
 }
@@ -371,10 +370,33 @@ func (s *Service) recordRenditionFailure(ctx context.Context, publication *model
 	s.captureRenditionEvent(ctx, telemetry.EventRenditionFailed, publication, rendition, properties, "", time.Time{})
 }
 
+// handlePreflightError persists terminal authorization preflight failures
+// atomically with publication finalization. If persisting that terminal state
+// fails transiently, the returned error stays retryable so a later worker
+// attempt can finish recording the failure instead of stranding the post.
+func (s *Service) handlePreflightError(ctx context.Context, publicationID, renditionID string, err error) error {
+	if failure := ClassifyFailure(err); !failure.Retryable {
+		if stateErr := s.persistTerminalPreflightFailure(ctx, publicationID, renditionID, failure); stateErr != nil {
+			log.Printf("[Publisher] Failed to persist terminal preflight failure: %v", stateErr)
+			return errors.Join(err, &RetryableError{Failure: Failure{
+				Kind:      FailureUnknown,
+				Code:      "publication_finalization_pending",
+				Retryable: true,
+				Action:    FailureActionRetry,
+				Message:   stateErr.Error(),
+			}})
+		}
+	}
+	return err
+}
+
 // persistTerminalPreflightFailure keeps an authorized queued publication from
 // remaining visibly scheduled after a terminal failure before any provider
 // call. The immutable receipt-to-job link scopes the affected destinations;
 // unauthenticated or tampered payload IDs cannot fail another publication.
+// Rendition failures and publication finalization commit in one fenced
+// transaction so a finalization rollback never leaves a publication stranded
+// as scheduled with already-failed renditions.
 func (s *Service) persistTerminalPreflightFailure(
 	ctx context.Context,
 	publicationID,
@@ -410,21 +432,16 @@ func (s *Service) persistTerminalPreflightFailure(
 		}
 		return err
 	}
-
-	failed := make([]string, 0, len(receipts))
-	if err := s.fencedTx(ctx, func(ctx context.Context, tx bun.Tx) error {
-		for _, receipt := range receipts {
-			result, err := setDeliveryFailure(tx.NewUpdate().Model((*models.Rendition)(nil)), failure, time.Now().UTC()).
-				Where("id = ? AND publication_id = ? AND status = ?", receipt.RenditionID, publication.ID, models.RenditionStatusScheduled).
-				Exec(ctx)
-			if err != nil {
-				return err
-			}
-			if affected, _ := result.RowsAffected(); affected > 0 {
-				failed = append(failed, receipt.RenditionID)
-			}
-		}
+	if len(receipts) == 0 {
 		return nil
+	}
+
+	var failed []string
+	var status string
+	if err := s.fencedTx(ctx, func(ctx context.Context, tx bun.Tx) error {
+		var txErr error
+		failed, status, txErr = s.failScheduledRenditionsTx(ctx, tx, &publication, receipts, failure)
+		return txErr
 	}); err != nil {
 		return err
 	}
@@ -437,7 +454,47 @@ func (s *Service) persistTerminalPreflightFailure(
 			map[string]any{"error_kind": failure.Kind, "error_code": failure.Code, "retryable": false},
 		)
 	}
-	return s.finalizePublication(ctx, &publication)
+	s.cleanupPublishedTemporaryMedia(ctx, publication.ID, status)
+	return nil
+}
+
+func (s *Service) failScheduledRenditionsTx(
+	ctx context.Context,
+	tx bun.Tx,
+	publication *models.Publication,
+	receipts []models.PublicationAuthorization,
+	failure Failure,
+) ([]string, string, error) {
+	now := time.Now().UTC()
+	// Lock the publication row before renditions to keep the canonical
+	// publications -> renditions lock order without modifying updated_at
+	// when this job owns no scheduled renditions.
+	if _, err := tx.NewUpdate().Model((*models.Publication)(nil)).
+		Set("updated_at = updated_at").
+		Where("id = ?", publication.ID).
+		Exec(ctx); err != nil {
+		return nil, "", err
+	}
+	failed := make([]string, 0, len(receipts))
+	for _, receipt := range receipts {
+		result, err := setDeliveryFailure(tx.NewUpdate().Model((*models.Rendition)(nil)), failure, now).
+			Where("id = ? AND publication_id = ? AND status = ?", receipt.RenditionID, publication.ID, models.RenditionStatusScheduled).
+			Exec(ctx)
+		if err != nil {
+			return nil, "", err
+		}
+		if affected, _ := result.RowsAffected(); affected > 0 {
+			failed = append(failed, receipt.RenditionID)
+		}
+	}
+	if len(failed) == 0 {
+		return nil, "", nil
+	}
+	status, err := s.finalizePublicationTx(ctx, tx, publication)
+	if err != nil {
+		return nil, "", err
+	}
+	return failed, status, nil
 }
 
 func (s *Service) captureRenditionEvent(

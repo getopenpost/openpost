@@ -2,6 +2,7 @@ package publisher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -281,4 +282,78 @@ func TestBulkRetryTerminalFailureScopesToAuthorizedBatch(t *testing.T) {
 	require.NoError(t, srv.db.NewSelect().Model(&renditions).Order("id ASC").Scan(ctx))
 	require.False(t, renditions[0].ErrorRetryable, "batch-owned rendition stops advertising retries")
 	require.True(t, renditions[1].ErrorRetryable, "sibling rendition outside the batch keeps its retry state")
+}
+
+func TestFinalizationErrPreservesTypedRetryDelay(t *testing.T) {
+	t.Parallel()
+	outcome := publishOutcome{
+		retry: &RetryableError{
+			Provider:    "x",
+			RenditionID: "rendition-1",
+			Failure: Failure{
+				Kind:       FailureRateLimited,
+				Retryable:  true,
+				RetryAfter: 20 * time.Minute,
+				Message:    "rate limited",
+			},
+		},
+	}
+	err := outcome.finalizationErr(errors.New("finalize db error"))
+	var retryErr *RetryableError
+	require.ErrorAs(t, err, &retryErr)
+	require.Equal(t, 20*time.Minute, retryErr.Failure.RetryAfter)
+}
+
+func TestPersistTerminalPreflightFailureCommitsAtomically(t *testing.T) {
+	t.Parallel()
+	srv := newPublisherLifecycleTestServer(t, &fakePublisherAdapter{})
+	ctx, _ := srv.authorizedPublicationJob(t)
+
+	_, err := srv.db.NewUpdate().Model((*models.Publication)(nil)).
+		Set("status = ?", models.PublicationStatusScheduled).
+		Set("created_by = ?", "creator-1").
+		Where("id = ?", "publication-1").Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewUpdate().Model((*models.Rendition)(nil)).
+		Set("status = ?", models.RenditionStatusScheduled).
+		Where("id = ?", "rendition-1").Exec(ctx)
+	require.NoError(t, err)
+
+	// Fail finalization after the rendition update runs to prove both roll back together.
+	_, err = srv.db.ExecContext(ctx, `
+		CREATE TRIGGER fail_publication_finalize
+		BEFORE UPDATE ON publications
+		WHEN NEW.status = 'failed'
+		BEGIN
+			SELECT RAISE(ABORT, 'finalize unavailable');
+		END
+	`)
+	require.NoError(t, err)
+
+	preflightErr := errors.New("authorization expired")
+	err = srv.service.handlePreflightError(ctx, "publication-1", "rendition-1", preflightErr)
+	require.ErrorIs(t, err, preflightErr)
+	var retryErr *RetryableError
+	require.ErrorAs(t, err, &retryErr, "failed persistence stays retryable so the post is not stranded")
+
+	// The rollback must leave both the rendition and publication scheduled so
+	// the retry can finalize both together.
+	var rendition models.Rendition
+	require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(ctx))
+	require.Equal(t, models.RenditionStatusScheduled, rendition.Status)
+	var publication models.Publication
+	require.NoError(t, srv.db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(ctx))
+	require.Equal(t, models.PublicationStatusScheduled, publication.Status)
+
+	// Once finalization succeeds, both rendition and publication commit as failed.
+	_, err = srv.db.ExecContext(ctx, `DROP TRIGGER fail_publication_finalize`)
+	require.NoError(t, err)
+	err = srv.service.handlePreflightError(ctx, "publication-1", "rendition-1", preflightErr)
+	require.ErrorIs(t, err, preflightErr)
+	require.False(t, errors.As(err, &retryErr))
+
+	require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(ctx))
+	require.Equal(t, models.RenditionStatusFailed, rendition.Status)
+	require.NoError(t, srv.db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(ctx))
+	require.Equal(t, models.PublicationStatusFailed, publication.Status)
 }

@@ -149,3 +149,60 @@ func TestPublicationCredentialFailureAfterTransientCheck(t *testing.T) {
 		})
 	}
 }
+
+func TestReconnectFailureOlderThanPreflightSuccessSkippedAfterInconclusiveCheck(t *testing.T) {
+	server := newReconnectNotificationServer(t)
+	ctx := t.Context()
+	now := time.Now().UTC().Truncate(time.Second)
+	staleFailureAt := now.Add(-10 * time.Minute)
+	confirmedHealthyAt := now.Add(-5 * time.Minute)
+	inconclusiveCheckAt := now.Add(-1 * time.Minute)
+	freshFailureAt := now
+
+	_, err := server.db.NewUpdate().Model((*models.SocialAccount)(nil)).
+		Set("preflight_success_at = ?", confirmedHealthyAt).
+		Set("preflight_checked_at = ?", inconclusiveCheckAt).
+		Set("preflight_failure = ?", "unknown").
+		Where("id = ?", "account-1").
+		Exec(ctx)
+	require.NoError(t, err)
+
+	// Even if the caller holds an older snapshot without PreflightSuccessAt,
+	// the DB claim must reject a failure older than preflight_success_at.
+	publication := &models.Publication{ID: "publication-stale", WorkspaceID: "ws-1", CreatedByID: "creator-1"}
+	result := publicationNotificationResult{
+		accounts: map[string]models.SocialAccount{
+			"account-1": {ID: "account-1", WorkspaceID: "ws-1", Platform: "x", AccountUsername: "Founder", Slug: "x-account"},
+		},
+		reconnectAccountIDs: []string{"account-1"},
+		reconnect:           true,
+	}
+	staleRenditions := []models.Rendition{{
+		ID:              "rendition-stale",
+		SocialAccountID: "account-1",
+		Status:          models.RenditionStatusFailed,
+		ErrorAction:     FailureActionReconnect,
+		ErrorKind:       FailureReconnectRequired,
+		UpdatedAt:       staleFailureAt,
+	}}
+	require.NoError(t, server.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		return server.service.createReconnectNotifications(txCtx, tx, publication, result, staleRenditions)
+	}))
+	require.Empty(t, reconnectNotificationRows(t, server.db, "connector-1"), "stale failure before preflight_success_at must not claim a new generation")
+
+	// A fresh reconnect failure after preflight_success_at must still claim.
+	freshRenditions := []models.Rendition{{
+		ID:              "rendition-fresh",
+		SocialAccountID: "account-1",
+		Status:          models.RenditionStatusFailed,
+		ErrorAction:     FailureActionReconnect,
+		ErrorKind:       FailureReconnectRequired,
+		UpdatedAt:       freshFailureAt,
+	}}
+	freshPublication := &models.Publication{ID: "publication-fresh", WorkspaceID: "ws-1", CreatedByID: "creator-1"}
+	require.NoError(t, server.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		return server.service.createReconnectNotifications(txCtx, tx, freshPublication, result, freshRenditions)
+	}))
+	require.Len(t, reconnectNotificationRows(t, server.db, "connector-1"), 1)
+	require.Len(t, reconnectNotificationRows(t, server.db, "admin-1"), 1)
+}

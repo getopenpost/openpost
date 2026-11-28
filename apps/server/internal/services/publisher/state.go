@@ -184,35 +184,48 @@ func (s *Service) completeSegment(ctx context.Context, renditionID, segmentID, e
 func (s *Service) finalizePublication(ctx context.Context, publication *models.Publication) error {
 	var status string
 	err := s.fencedTx(ctx, func(ctx context.Context, tx bun.Tx) error {
-		now := time.Now().UTC()
-		if _, err := tx.NewUpdate().Model((*models.Publication)(nil)).
-			Set("updated_at = ?", now).
-			Where("id = ?", publication.ID).
-			Exec(ctx); err != nil {
-			return err
-		}
-		var renditions []models.Rendition
-		if err := tx.NewSelect().Model(&renditions).Where("publication_id = ?", publication.ID).Scan(ctx); err != nil {
-			return fmt.Errorf("load renditions for publication %s: %w", publication.ID, err)
-		}
-		status = publicationStatusFor(renditions)
-		if _, err := tx.NewUpdate().Model((*models.Publication)(nil)).
-			Set("status = ?", status).
-			Where("id = ?", publication.ID).
-			Exec(ctx); err != nil {
-			return err
-		}
-		return s.createPublicationResultNotifications(ctx, tx, publication, status, renditions)
+		var txErr error
+		status, txErr = s.finalizePublicationTx(ctx, tx, publication)
+		return txErr
 	})
 	if err != nil {
 		return fmt.Errorf("finalize publication %s: %w", publication.ID, err)
 	}
+	s.cleanupPublishedTemporaryMedia(ctx, publication.ID, status)
+	return nil
+}
+
+func (s *Service) finalizePublicationTx(ctx context.Context, tx bun.Tx, publication *models.Publication) (string, error) {
+	now := time.Now().UTC()
+	if _, err := tx.NewUpdate().Model((*models.Publication)(nil)).
+		Set("updated_at = ?", now).
+		Where("id = ?", publication.ID).
+		Exec(ctx); err != nil {
+		return "", err
+	}
+	var renditions []models.Rendition
+	if err := tx.NewSelect().Model(&renditions).Where("publication_id = ?", publication.ID).Scan(ctx); err != nil {
+		return "", fmt.Errorf("load renditions for publication %s: %w", publication.ID, err)
+	}
+	status := publicationStatusFor(renditions)
+	if _, err := tx.NewUpdate().Model((*models.Publication)(nil)).
+		Set("status = ?", status).
+		Where("id = ?", publication.ID).
+		Exec(ctx); err != nil {
+		return "", err
+	}
+	if err := s.createPublicationResultNotifications(ctx, tx, publication, status, renditions); err != nil {
+		return "", err
+	}
+	return status, nil
+}
+
+func (s *Service) cleanupPublishedTemporaryMedia(ctx context.Context, publicationID, status string) {
 	if status == models.PublicationStatusPublished {
-		if err := medialifecycle.NewService(s.db, s.storage).TrashTemporaryForPublication(ctx, publication.ID); err != nil {
-			log.Printf("[Publisher] Failed to clean temporary media for publication %s: %v", publication.ID, err)
+		if err := medialifecycle.NewService(s.db, s.storage).TrashTemporaryForPublication(ctx, publicationID); err != nil {
+			log.Printf("[Publisher] Failed to clean temporary media for publication %s: %v", publicationID, err)
 		}
 	}
-	return nil
 }
 
 func publicationStatusFor(renditions []models.Rendition) string {
@@ -366,7 +379,7 @@ func (s *Service) createReconnectNotifications(
 			return err
 		}
 		failureKind, failureAt := reconnectFailureDetails(renditions, accountID)
-		if !account.PreflightCheckedAt.IsZero() && strings.TrimSpace(account.PreflightFailure) == "" && !failureAt.IsZero() && failureAt.Before(account.PreflightCheckedAt) {
+		if !account.PreflightSuccessAt.IsZero() && !failureAt.IsZero() && !failureAt.After(account.PreflightSuccessAt) {
 			continue
 		}
 		if err := s.recordCredentialFailureTransition(ctx, db, accountID, failureKind, failureAt); err != nil {
@@ -417,7 +430,7 @@ func (s *Service) recordCredentialFailureTransition(ctx context.Context, db bun.
 		Where("id = ?", accountID).
 		Where("COALESCE(preflight_failure, '') IN ('', 'unknown', 'unsupported')")
 	if !failureAt.IsZero() {
-		claim = claim.Where("(preflight_checked_at IS NULL OR COALESCE(preflight_failure, '') <> '' OR preflight_checked_at <= ?)", failureAt.UTC())
+		claim = claim.Where("(preflight_success_at IS NULL OR preflight_success_at < ?)", failureAt.UTC())
 	}
 	result, err := claim.Exec(ctx)
 	if err != nil {

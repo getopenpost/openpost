@@ -51,6 +51,10 @@ func Resolve(source map[string]any, accountID, provider, body string, settings m
 	if err != nil || draft == nil {
 		return settings, err
 	}
+	return resolveDraft(draft, accountID, provider, body, settings, mediaCount)
+}
+
+func resolveDraft(draft *Draft, accountID, provider, body string, settings map[string]any, mediaCount int) (map[string]any, error) {
 	choice, found := draft.Destinations[accountID]
 	if !found {
 		choice.Mode = ModePost
@@ -140,9 +144,12 @@ func ResolveEffective(source map[string]any, accountID, provider, body string, d
 		effective = map[string]any{}
 	}
 	maps.Copy(effective, segment)
-	resolved, err := Resolve(source, accountID, provider, body, effective, mediaCount)
-	draft, decodeErr := Decode(source)
-	if decodeErr != nil || draft == nil || draft.Destinations[accountID].Mode == ModeLegacy {
+	draft, err := Decode(source)
+	if err != nil || draft == nil {
+		return segment, err
+	}
+	resolved, err := resolveDraft(draft, accountID, provider, body, effective, mediaCount)
+	if draft.Destinations[accountID].Mode == ModeLegacy {
 		return segment, err
 	}
 	values := maps.Clone(segment)

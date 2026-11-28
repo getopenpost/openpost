@@ -277,6 +277,9 @@ func (h *PublicationHandler) loadEditablePublicationTx(ctx context.Context, tx b
 
 func (h *PublicationHandler) loadPublicationForMutationTx(ctx context.Context, tx bun.Tx, publicationID string, additionalStatuses ...string) (*models.Publication, error) {
 	publicationID = publicationPathID(publicationID)
+	if err := lockOrganizationForPublicationMutationTx(ctx, tx, publicationID); err != nil {
+		return nil, err
+	}
 	if err := lockPublicationMutationTx(ctx, tx, publicationID); err != nil {
 		return nil, err
 	}

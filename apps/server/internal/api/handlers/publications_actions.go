@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -37,6 +38,9 @@ func (h *PublicationHandler) failureDismissal(api huma.API) {
 			Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 			Errors:      []int{403, 404, 409},
 		}, func(ctx context.Context, input *FailureDismissalInput) (*FailureDismissalOutput, error) {
+			if err := h.requireExternalPublicationAccounts(ctx, input.PathID); err != nil {
+				return nil, err
+			}
 			publication, err := h.loadPublication(ctx, input.PathID, middleware.GetUserID(ctx))
 			if err != nil {
 				return nil, err
@@ -48,7 +52,11 @@ func (h *PublicationHandler) failureDismissal(api huma.API) {
 				return nil, huma.Error409Conflict("only failed publications can change failure dismissal")
 			}
 
-			query := h.db.NewUpdate().Model((*models.Publication)(nil)).Where("id = ?", publication.ID)
+			// A concurrent retry moves the Publication out of failed; it must
+			// not inherit or lose a dismissal decided against the old state.
+			query := h.db.NewUpdate().Model((*models.Publication)(nil)).
+				Where("id = ?", publication.ID).
+				Where("status = ?", models.PublicationStatusFailed)
 			if dismissed {
 				if publication.FailureDismissedAt.IsZero() {
 					publication.FailureDismissedAt = time.Now().UTC()
@@ -60,8 +68,12 @@ func (h *PublicationHandler) failureDismissal(api huma.API) {
 				publication.FailureDismissedAt = time.Time{}
 				query = query.Set("failure_dismissed_at = NULL")
 			}
-			if _, err := query.Exec(ctx); err != nil {
+			result, err := query.Exec(ctx)
+			if err != nil {
 				return nil, huma.Error500InternalServerError("failed to change failure dismissal")
+			}
+			if affected, _ := result.RowsAffected(); affected == 0 {
+				return nil, huma.Error409Conflict("only failed publications can change failure dismissal")
 			}
 
 			output := &FailureDismissalOutput{}
@@ -235,24 +247,25 @@ func (h *PublicationHandler) cancelPublication(api huma.API) {
 			return nil, err
 		}
 		userID := middleware.GetUserID(ctx)
+		var cancelled PublicationResponse
 		var err error
 		if strings.TrimSpace(input.IdempotencyKey) != "" {
 			request, requestErr := mutationIdempotencyRequest(ctx, "", "cancel-publication", input.IdempotencyKey)
 			if requestErr != nil {
 				return nil, requestErr
 			}
-			_, _, err = h.publicationApplication().CancelIdempotent(
+			cancelled, _, err = h.publicationApplication().CancelIdempotent(
 				ctx, userID, input.PathID, input.Body.ExpectedRevision, request,
 			)
 		} else {
-			err = h.publicationApplication().Cancel(ctx, userID, input.PathID, input.Body.ExpectedRevision)
+			cancelled, err = h.publicationApplication().cancelWithResponse(ctx, userID, input.PathID, input.Body.ExpectedRevision)
 		}
 		if err != nil {
 			return nil, publicationMutationHTTPError(err, "failed to cancel publication")
 		}
 		output := actionMessage("publication cancelled", "")
 		output.Body.PublicationID = input.PathID
-		output.Body.Revision = input.Body.ExpectedRevision + 1
+		output.Body.Revision = cancelled.Revision
 		return output, nil
 	})
 }
@@ -368,6 +381,9 @@ func (h *PublicationHandler) retryRendition(api huma.API) {
 		Middlewares: huma.Middlewares{middleware.RequestMetadataMiddleware(), middleware.AuthMiddleware(api, h.auth)},
 		Errors:      []int{400, 403, 404, 409},
 	}, func(ctx context.Context, input *RetryRenditionInput) (*ActionOutput, error) {
+		if err := h.requireExternalPublicationAccounts(ctx, input.PathID); err != nil {
+			return nil, err
+		}
 		jobID, err := h.publicationApplication().RetryRendition(ctx, middleware.GetUserID(ctx), input.PathID, input.AccountID, input.TargetKey)
 		if err != nil {
 			return nil, publicationMutationHTTPError(err, "failed to queue destination retry")
@@ -387,6 +403,9 @@ func (h *PublicationHandler) retryFailedRenditions(api huma.API) {
 		Middlewares: huma.Middlewares{middleware.RequestMetadataMiddleware(), middleware.AuthMiddleware(api, h.auth)},
 		Errors:      []int{400, 403, 404, 409},
 	}, func(ctx context.Context, input *RetryFailedRenditionsInput) (*ActionOutput, error) {
+		if err := h.requireExternalPublicationAccounts(ctx, input.PathID); err != nil {
+			return nil, err
+		}
 		var jobID string
 		var err error
 		if strings.TrimSpace(input.IdempotencyKey) != "" {
@@ -419,6 +438,9 @@ func (h *PublicationHandler) replyToRendition(api huma.API) {
 	}, func(ctx context.Context, input *ReplyInput) (*ActionOutput, error) {
 		rendition, publication, err := h.loadRenditionWithPublicationForEdit(ctx, input.PathID, middleware.GetUserID(ctx))
 		if err != nil {
+			return nil, err
+		}
+		if err := h.requireExternalPublicationAccounts(ctx, publication.ID); err != nil {
 			return nil, err
 		}
 		runAt := time.Now().UTC()
@@ -458,6 +480,11 @@ func (h *PublicationHandler) queueRenditionReplyCommand(
 	runAt time.Time,
 	request *idempotency.Request,
 ) (string, error) {
+	// Provider replies send text only. Reject media rather than authorize a
+	// reply whose uploads would be silently dropped.
+	if replyMediaPresent(media) {
+		return "", huma.Error400BadRequest("reply media is not supported; send the reply without media")
+	}
 	confirmedAt := time.Now().UTC()
 	runAt = runAt.UTC()
 	if runAt.IsZero() {
@@ -487,22 +514,7 @@ func (h *PublicationHandler) queueRenditionReplyCommand(
 		}
 	}
 	persist := func(txCtx context.Context, tx bun.Tx) error {
-		if err := lockOrganizationForPublicationMutationTx(txCtx, tx, publication.ID); err != nil {
-			return err
-		}
-		if err := lockPublicationMutationTx(txCtx, tx, publication.ID); err != nil {
-			return err
-		}
-		var currentRendition models.Rendition
-		query := tx.NewSelect().Model(&currentRendition).
-			Where("id = ? AND publication_id = ?", rendition.ID, publication.ID)
-		if primaryPublicationQueueUsesRowLock(tx.Dialect().Name()) {
-			query = query.For("UPDATE")
-		}
-		if err := query.Scan(txCtx); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return huma.Error404NotFound("rendition not found")
-			}
+		if err := lockReplyTargetTx(txCtx, tx, publication.ID, rendition.ID, parentID); err != nil {
 			return err
 		}
 		if _, err := tx.NewInsert().Model(job).Exec(txCtx); err != nil {
@@ -542,6 +554,33 @@ func (h *PublicationHandler) queueRenditionReplyCommand(
 		return jobID, nil
 	})
 	return result.Value, err
+}
+
+// lockReplyTargetTx takes the Publication mutation locks and confirms the
+// destination still exists with a provider post to reply to.
+func lockReplyTargetTx(ctx context.Context, tx bun.Tx, publicationID, renditionID, parentID string) error {
+	if err := lockOrganizationForPublicationMutationTx(ctx, tx, publicationID); err != nil {
+		return err
+	}
+	if err := lockPublicationMutationTx(ctx, tx, publicationID); err != nil {
+		return err
+	}
+	var current models.Rendition
+	query := tx.NewSelect().Model(&current).
+		Where("id = ? AND publication_id = ?", renditionID, publicationID)
+	if primaryPublicationQueueUsesRowLock(tx.Dialect().Name()) {
+		query = query.For("UPDATE")
+	}
+	if err := query.Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return huma.Error404NotFound("rendition not found")
+		}
+		return err
+	}
+	if strings.TrimSpace(parentID) == "" && strings.TrimSpace(current.ExternalID) == "" {
+		return huma.Error409Conflict("this destination has no published post to reply to; publish it first or choose a parent_id")
+	}
+	return nil
 }
 
 func (h *PublicationHandler) activePublicationReplyJobsTx(
@@ -658,4 +697,19 @@ func (h *PublicationHandler) rejectReplyJobsForReplacedTargetsTx(
 		return err
 	}
 	return h.rejectUnsafePublicationReplyJobsTx(ctx, tx, jobs, true)
+}
+
+func replyMediaPresent(media any) bool {
+	if media == nil {
+		return false
+	}
+	value := reflect.ValueOf(media)
+	switch value.Kind() {
+	case reflect.Slice, reflect.Array, reflect.Map, reflect.String:
+		return value.Len() > 0
+	case reflect.Pointer, reflect.Interface:
+		return !value.IsNil() && replyMediaPresent(value.Elem().Interface())
+	default:
+		return true
+	}
 }

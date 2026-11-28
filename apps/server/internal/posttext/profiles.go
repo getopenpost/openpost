@@ -47,14 +47,11 @@ func ForDestination(body, provider, authority string, projection *Projection) (s
 			copy := span.Target
 			target = &copy
 		} else {
-			for _, profile := range span.Target.Profiles {
-				if profile.Provider == provider && (profile.Authority == "" || Authority(profile.Authority) == Authority(authority)) {
-					replacement = profile.Text
-					if profile.Target != nil {
-						copy := profile.Target.authored()
-						target = &copy
-					}
-					break
+			if profile, ok := destinationProfile(span.Target.Profiles, provider, authority); ok {
+				replacement = profile.Text
+				if profile.Target != nil {
+					copy := profile.Target.authored()
+					target = &copy
 				}
 			}
 		}
@@ -117,4 +114,26 @@ func validateMentionProfile(profile MentionProfile) error {
 		}
 	}
 	return nil
+}
+
+// destinationProfile prefers a profile bound to the destination's exact
+// authority and falls back to a provider-wide profile, independent of the
+// order the author stored them in.
+func destinationProfile(profiles []MentionProfile, provider, authority string) (MentionProfile, bool) {
+	fallback, found := MentionProfile{}, false
+	for _, profile := range profiles {
+		if profile.Provider != provider {
+			continue
+		}
+		if profile.Authority == "" {
+			if !found {
+				fallback, found = profile, true
+			}
+			continue
+		}
+		if Authority(profile.Authority) == Authority(authority) {
+			return profile, true
+		}
+	}
+	return fallback, found
 }

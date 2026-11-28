@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -177,8 +178,14 @@ func (h *PublicationHandler) queuePublicationWithRunAtTx(
 	}
 	result := publicationEnqueueResult{}
 	if policyMode == publicationauth.PolicyScheduled {
-		if err := h.recordScheduledPublicationUsageWithDB(ctx, tx, publication.WorkspaceID, publication.ScheduledAt); err != nil {
-			return publicationEnqueueResult{}, err
+		charged, chargeErr := h.publicationScheduleUsageCharged(ctx, tx, publication)
+		if chargeErr != nil {
+			return publicationEnqueueResult{}, chargeErr
+		}
+		if !charged {
+			if err := h.recordScheduledPublicationUsageWithDB(ctx, tx, publication.WorkspaceID, publication.ScheduledAt); err != nil {
+				return publicationEnqueueResult{}, err
+			}
 		}
 		result.JobID, err = h.replacePublicationJobWithIntentTx(ctx, tx, publicationID, runAt, intent)
 	} else {
@@ -238,6 +245,28 @@ func (h *PublicationHandler) queuePublicationWithRunAtTx(
 		return publicationEnqueueResult{}, err
 	}
 	return result, nil
+}
+
+// publicationScheduleUsageCharged reports whether the locked Publication is
+// already queued under a scheduled authorization, which reserved its monthly
+// scheduled-post usage. Rescheduling it replaces that job without a new charge;
+// an immediate queue never reserved usage and is charged when scheduled.
+func (h *PublicationHandler) publicationScheduleUsageCharged(ctx context.Context, db bun.IDB, publication *models.Publication) (bool, error) {
+	if publication.Status != models.PublicationStatusScheduled {
+		return false, nil
+	}
+	charged, err := db.NewSelect().TableExpr("jobs AS charged_job").
+		Join("JOIN publication_authorizations AS charged_authorization ON charged_authorization.job_id = charged_job.id").
+		Where(aliasedPrimaryPublishPublicationJobWhere(h.db, "charged_job"), jobTypePublishPublication, publication.ID).
+		Where("charged_job.status = ?", jobStatusPending).
+		Where("charged_authorization.policy_mode IN (?)", bun.List([]string{
+			publicationauth.PolicyScheduled, publicationauth.PolicyLegacyScheduled,
+		})).
+		Exists(ctx)
+	if isMissingPublicationSegmentTable(err) {
+		return false, nil
+	}
+	return charged, err
 }
 
 func (h *PublicationHandler) loadRenditionActionOutcomes(
@@ -340,13 +369,20 @@ func (h *PublicationHandler) replacePublicationJobsTx(
 			Order("position ASC", "id ASC").Scan(ctx); err != nil {
 			return "", err
 		}
+		// Published destinations are complete. Their past overrides neither
+		// block rescheduling nor receive another write.
+		pending := renditions[:0]
 		hasOverride := false
 		for _, rendition := range renditions {
+			if rendition.Status == models.RenditionStatusPublished {
+				continue
+			}
+			pending = append(pending, rendition)
 			hasOverride = hasOverride || !rendition.ScheduleOverride.IsZero()
 		}
 		if hasOverride {
 			firstJobID := ""
-			for _, rendition := range renditions {
+			for _, rendition := range pending {
 				renditionRunAt := runAt
 				if !rendition.ScheduleOverride.IsZero() {
 					renditionRunAt = rendition.ScheduleOverride
@@ -388,10 +424,14 @@ func (h *PublicationHandler) replacePublicationJobsTx(
 	return jobID, nil
 }
 
+// lockOrganizationForPublicationMutationTx is the first lock of every
+// Publication mutation. Lock order is organizations -> publications -> jobs ->
+// renditions -> social_accounts, matching organizationguard job producers.
 func lockOrganizationForPublicationMutationTx(ctx context.Context, tx bun.Tx, publicationID string) error {
 	var organizationID string
 	if err := tx.NewSelect().TableExpr("publications AS publication").ColumnExpr("workspace.organization_id").Join("JOIN workspaces AS workspace ON workspace.id = publication.workspace_id").Where("publication.id = ?", publicationID).Scan(ctx, &organizationID); err != nil {
-		if missingOrganizationBoundaryFixture(err) {
+		// A missing Publication is reported by the Publication lock that follows.
+		if missingOrganizationBoundaryFixture(err) || errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
 		return err
@@ -422,9 +462,7 @@ func insertPublicationJobTx(
 	runAt time.Time,
 	intent providerreadiness.ExecutionIntent,
 ) (string, error) {
-	if err := lockOrganizationForPublicationMutationTx(ctx, tx, publicationID); err != nil {
-		return "", err
-	}
+	// Callers hold the Organization, Publication and primary job locks.
 	payload := map[string]string{
 		"publication_id":             publicationID,
 		"authorization_batch_id":     authorizationBatchID,
@@ -475,6 +513,7 @@ func (h *PublicationHandler) lockActivePrimaryPublicationJobsTx(ctx context.Cont
 		Column("id").
 		Where(primaryPublishPublicationJobWhere(h.db), jobTypePublishPublication, publicationID).
 		Where("status IN (?)", bun.List([]string{jobStatusPending, jobStatusProcessing, "failed"})).
+		Order("id ASC").
 		For("UPDATE").
 		Scan(ctx, &jobIDs)
 }
@@ -619,22 +658,68 @@ func acceptedPublicationAttemptSubjectPublished(
 	return false
 }
 
+// rejectProtectedPrimaryPublicationJobTx keeps a pending or failed primary job
+// whose provider outcome is in flight or uncertain. An accepted write protects
+// its job only until the exact rendition or segment it published is persisted
+// as published, so a partially published failure can still be deleted or
+// rescheduled without replaying the accepted subject.
 func (h *PublicationHandler) rejectProtectedPrimaryPublicationJobTx(ctx context.Context, tx bun.Tx, publicationID string) error {
-	count, err := tx.NewSelect().TableExpr("jobs AS protected_job").
+	var attempts []models.ProviderWriteAttempt
+	if err := tx.NewSelect().TableExpr("jobs AS protected_job").
+		ColumnExpr("protected_attempt.*").
 		Join("JOIN provider_write_attempts AS protected_attempt ON protected_attempt.job_id = protected_job.id").
-		Where(primaryPublishPublicationJobWhere(h.db), jobTypePublishPublication, publicationID).
+		Where(aliasedPrimaryPublishPublicationJobWhere(h.db, "protected_job"), jobTypePublishPublication, publicationID).
 		Where("protected_job.status IN (?)", bun.List([]string{jobStatusPending, "failed"})).
 		Where("protected_attempt.status IN (?)", bun.List([]string{
 			providerwrite.StatusSending,
 			providerwrite.StatusAmbiguous,
 			providerwrite.StatusAccepted,
 		})).
-		Count(ctx)
-	if err != nil {
+		OrderExpr("protected_attempt.id ASC").
+		Scan(ctx, &attempts); err != nil {
 		return err
 	}
-	if count > 0 {
-		return errPublicationAlreadyProcessing
+	return rejectUnpublishedProtectedAttemptsTx(ctx, tx, attempts)
+}
+
+// rejectUnpublishedProtectedAttemptsTx rejects any in-flight or uncertain
+// attempt, and any accepted attempt whose exact subject is not yet persisted
+// as published.
+func rejectUnpublishedProtectedAttemptsTx(ctx context.Context, tx bun.Tx, attempts []models.ProviderWriteAttempt) error {
+	renditionIDs := make([]string, 0, len(attempts))
+	for _, attempt := range attempts {
+		if attempt.Status != providerwrite.StatusAccepted {
+			return errPublicationAlreadyProcessing
+		}
+		renditionIDs = append(renditionIDs, attempt.RenditionID)
+	}
+	renditionIDs = uniqueNonEmpty(renditionIDs)
+	renditionStatus := map[string]string{}
+	segmentsByRendition := map[string][]models.RenditionSegment{}
+	if len(renditionIDs) > 0 {
+		var renditions []models.Rendition
+		if err := tx.NewSelect().Model(&renditions).Column("id", "status").
+			Where("id IN (?)", bun.List(renditionIDs)).
+			Scan(ctx); err != nil {
+			return err
+		}
+		for _, rendition := range renditions {
+			renditionStatus[rendition.ID] = rendition.Status
+		}
+		var segments []models.RenditionSegment
+		if err := tx.NewSelect().Model(&segments).Column("id", "rendition_id", "status").
+			Where("rendition_id IN (?)", bun.List(renditionIDs)).
+			Scan(ctx); err != nil && !isMissingPublicationSegmentTable(err) {
+			return err
+		}
+		for _, segment := range segments {
+			segmentsByRendition[segment.RenditionID] = append(segmentsByRendition[segment.RenditionID], segment)
+		}
+	}
+	for _, attempt := range attempts {
+		if !acceptedPublicationAttemptSubjectPublished(attempt, renditionStatus, segmentsByRendition) {
+			return errPublicationAlreadyProcessing
+		}
 	}
 	return nil
 }

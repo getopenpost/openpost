@@ -373,25 +373,41 @@ func (h *PublicationHandler) confirmBatchScheduleItem(ctx context.Context, works
 		return err
 	}
 	_, err = idempotency.ExecuteWithIdentity(ctx, h.db, request, func(ctx context.Context, tx bun.Tx) (publicationEnqueueResult, error) {
-		// Serialize batch placement in a workspace so concurrent confirmations cannot
-		// both reserve an otherwise free authored date.
-		if _, err := tx.NewUpdate().Model((*models.Workspace)(nil)).Set("id = id").Where("id = ?", workspaceID).Exec(ctx); err != nil {
-			return publicationEnqueueResult{}, err
-		}
-		conflict, err := h.batchScheduleConflict(ctx, tx, workspaceID, post.ID, at)
-		if err != nil {
-			return publicationEnqueueResult{}, err
-		}
-		if conflict {
-			return publicationEnqueueResult{}, huma.Error409Conflict("another post now uses this date; preview again")
-		}
-		updated, err := commands.updateTx(ctx, tx, userID, prepared)
-		if err != nil {
-			return publicationEnqueueResult{}, err
-		}
-		return h.queueScheduledPublicationTx(ctx, tx, post.ID, updated.Revision, providerreadiness.ExecutionIntentProduction)
+		return h.confirmBatchScheduleItemTx(ctx, tx, commands, prepared, workspaceID, post.ID, userID, at)
 	}, func(value publicationEnqueueResult) (string, string) { return post.ID, value.JobID })
 	return err
+}
+
+func (h *PublicationHandler) confirmBatchScheduleItemTx(
+	ctx context.Context,
+	tx bun.Tx,
+	commands publicationApplication,
+	prepared preparedPublicationUpdate,
+	workspaceID, publicationID, userID string,
+	at time.Time,
+) (publicationEnqueueResult, error) {
+	// Take the Organization lock before the Workspace row so this follows
+	// the Publication mutation lock order.
+	if err := lockOrganizationForPublicationMutationTx(ctx, tx, publicationID); err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	// Serialize batch placement in a workspace so concurrent confirmations cannot
+	// both reserve an otherwise free authored date.
+	if _, err := tx.NewUpdate().Model((*models.Workspace)(nil)).Set("id = id").Where("id = ?", workspaceID).Exec(ctx); err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	conflict, err := h.batchScheduleConflict(ctx, tx, workspaceID, publicationID, at)
+	if err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	if conflict {
+		return publicationEnqueueResult{}, huma.Error409Conflict("another post now uses this date; preview again")
+	}
+	updated, err := commands.updateTx(ctx, tx, userID, prepared)
+	if err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	return h.queueScheduledPublicationTx(ctx, tx, publicationID, updated.Revision, providerreadiness.ExecutionIntentProduction)
 }
 
 func (h *PublicationHandler) validateBatchScheduleConfirmation(ctx context.Context, post *models.Publication, userID string, item BatchScheduleItem) (time.Time, error) {

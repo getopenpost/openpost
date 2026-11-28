@@ -37,7 +37,12 @@ func ResolveMentions(canonical []models.PublicationSegment, sourceID, overridesJ
 		}
 		return singleMentionProjection(value)
 	}
+	// A destination-only segment has no canonical source; like AuthoredBody,
+	// its whole-output override is the complete authored text.
 	mentions, err := posttext.Read(settings)
+	if err == nil && wholeOverride != nil {
+		return singleMentionProjection(posttext.Value{Body: *wholeOverride, Mentions: mentions})
+	}
 	if err != nil || mentions != nil {
 		return "", nil, posttext.ErrInvalid
 	}

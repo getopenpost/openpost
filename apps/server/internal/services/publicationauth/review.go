@@ -71,14 +71,16 @@ func ReviewFingerprints(ctx context.Context, db bun.IDB, publicationID string) (
 	}
 	// Replacement row IDs are not authorship. Preserve the authored destination
 	// order, with stable account and target identities inside each snapshot.
-	snapshots := make([]Snapshot, 0, len(renditions))
+	renditionIDs := make([]string, 0, len(renditions))
 	for _, rendition := range renditions {
-		snapshot, err := SnapshotForRendition(ctx, db, publicationID, rendition.ID)
-		if err != nil {
-			return "", err
-		}
-		snapshot.PublicationRevision = 0
-		snapshots = append(snapshots, snapshot)
+		renditionIDs = append(renditionIDs, rendition.ID)
+	}
+	snapshots, err := snapshotsForRenditions(ctx, db, publicationID, renditionIDs)
+	if err != nil {
+		return "", err
+	}
+	for index := range snapshots {
+		snapshots[index].PublicationRevision = 0
 	}
 	encoded, err := json.Marshal(snapshots)
 	return string(encoded), err

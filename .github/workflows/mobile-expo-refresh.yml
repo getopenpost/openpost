@@ -1,0 +1,90 @@
+name: Mobile Expo SDK refresh
+
+on:
+  schedule:
+    # Weekly SDK alignment, after Dependabot's Monday run; a human merges the resulting PR after review.
+    - cron: "41 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-expo-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    # The refresh PR targets main, so only main may serve as its baseline.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Create openpost-bot token
+        id: app-token
+        # Bot writes require the configured OpenPost GitHub App, and its pushes start CI on the PR.
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          app-id: ${{ vars.OPENPOST_BOT_APP_ID }}
+          private-key: ${{ secrets.OPENPOST_BOT_PRIVATE_KEY }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          token: ${{ steps.app-token.outputs.token }}
+      - uses: ./.github/actions/setup
+        with:
+          install: "false"
+      - run: bun install --frozen-lockfile
+        working-directory: apps/mobile
+      # Dependabot is not SDK-aware; Expo picks the versions the installed SDK expects.
+      - name: Align Expo packages with the installed SDK
+        working-directory: apps/mobile
+        run: |
+          bunx expo install --fix
+          bunx expo install --check
+          bun install --frozen-lockfile
+          bun ../../scripts/check-mobile-install.mjs
+      - name: Open or update the review PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BOT_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          branch="chore/mobile-expo-sdk"
+          existing_pr="$(gh pr list --head "$branch" --base main --state open --json url --jq '.[0].url // empty')"
+          if ! git status --porcelain -- apps/mobile/package.json apps/mobile/bun.lock | grep -q .; then
+            echo "Mobile Expo packages match the installed SDK; nothing to do."
+            if [ -n "$existing_pr" ]; then
+              gh pr close "$existing_pr" --delete-branch --comment "main already matches the Expo SDK; closing."
+            fi
+            exit 0
+          fi
+          [[ "$BOT_SLUG" == "openpost-bot" ]] || { echo "::error::OpenPost bot credentials are required"; exit 1; }
+          bot_id="$(gh api "users/${BOT_SLUG}[bot]" --jq .id)"
+          [[ "$bot_id" =~ ^[0-9]+$ ]] || exit 1
+          git config user.name "${BOT_SLUG}[bot]"
+          git config user.email "${bot_id}+${BOT_SLUG}[bot]@users.noreply.github.com"
+          gh auth setup-git
+          sdk="$(jq -r '.version | split(".")[0]' apps/mobile/node_modules/expo/package.json)"
+          changes="$(git diff -U0 -- apps/mobile/package.json | grep -E '^[-+] ' || true)"
+          git checkout -B "$branch"
+          git add apps/mobile/package.json apps/mobile/bun.lock
+          git commit -m "chore(deps): align mobile Expo packages with SDK ${sdk}" -m "$changes"
+          # Checkout fetches only main, so an implicit lease cannot see an earlier attempt.
+          remote_head="$(git ls-remote --heads origin "refs/heads/$branch" | cut -f1)"
+          git push --force-with-lease="refs/heads/$branch:$remote_head" origin "$branch"
+          # \140 is a backtick: literal markdown fences without tripping SC2016 (no expansion in single quotes).
+          body="$(printf 'Scheduled \140expo install --fix\140 moved mobile packages to the versions Expo SDK %s expects.\n\nThe nightly \140expo-doctor\140 check fails until these land. Review native changes before merging.\n\n\140\140\140diff\n%s\n\140\140\140' "$sdk" "$changes")"
+          body_file="$(mktemp)"
+          trap 'rm -f "$body_file"' EXIT
+          printf '%s\n' "$body" > "$body_file"
+          if [ -n "$existing_pr" ]; then
+            gh pr edit "$existing_pr" --title "chore(deps): align mobile Expo packages with SDK ${sdk}" --body-file "$body_file"
+          else
+            gh pr create \
+              --base main \
+              --head "$branch" \
+              --title "chore(deps): align mobile Expo packages with SDK ${sdk}" \
+              --body-file "$body_file"
+          fi

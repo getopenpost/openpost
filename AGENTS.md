@@ -59,6 +59,8 @@ Comparison metadata owns the product name, local official mark, category, and op
 Install marketing module-download recovery in the client `init` hook, before hydration imports run. A layout mount callback cannot recover failures that precede its own mount.
 App module-download recovery clears its persisted retry budget only after a successful SvelteKit navigation. Keep failed routes bounded across reloads.
 
+Recipe visuals (text cards, memes and screenshot templates) have one renderer: the Go server (`apps/server/internal/textcards`, `memes`, `screenshottemplates`). Web and mobile show its previews and never draw their own copy; web live previews go through `apps/web/src/lib/live-preview.svelte.ts`. Publication build commits render planned visuals server-side so headless builds finish. Server renderers draw on opaque `*image.RGBA` and rasterize text through small line buffers; NRGBA destinations and page-sized rasterizers put `image/draw` and `x/image/vector` on their slow generic paths. Check render changes with the package benchmarks.
+
 Public OG images use the shared renderer in `scripts/social-images/render.mjs`. Keep generated homepage artwork and its prompt in `assets/brand/social/`, topic icons from Lucide, full titles, stable image URLs, and matching launch-kit PNGs. Verify the full catalogue and inspect cards at 320px preview width.
 
 Browser extension listings use `packages/social-images/src/extensions.js` for their descriptions, install links, screenshots and privacy summaries. Keep unlisted store URLs out of public CTAs; use GitHub installation instructions until publication is verified. Extension screenshot assets belong in `assets/marketing/extensions/` and the marketing asset manifest. Label sample-data captures.

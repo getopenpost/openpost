@@ -11,6 +11,15 @@ Each file should group items under `### Added`, `### Changed`, `### Fixed`, etc.
 - Describe the user-visible fix.
 ```
 
+`feat` and `fix` commits need a fragment. Pull request CI fails when none of
+the pull request's commits adds one; pushes to `main` only warn. Scopes that
+never reach users (`build`, `ci`, `deps`, `docs`, `e2e`, `marketing`,
+`release`, `tasks`, `test`, `tests`) are exempt, and any other commit can opt
+out with a `Changelog: none` trailer. Release notes list `feat` and `fix`
+commits that still shipped without a fragment under `### Other changes`,
+using the commit subject; a fragment named `<issue>.md` or one added in a
+commit that references the same issue covers them.
+
 Tag CI merges fragments with the `CHANGELOG.md` `[Unreleased]` section in
 memory to build the draft release notes, so releases need no changelog
 commit. After the release publishes, the release workflow records the

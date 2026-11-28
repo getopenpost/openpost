@@ -201,3 +201,57 @@ test("recording rejects unknown tags and empty releases", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("recording keeps feat and fix commits without a fragment, like the release notes", () => {
+  const { root, env, git } = setupRepo();
+  try {
+    writeFileSync(
+      path.join(root, "CHANGELOG.md"),
+      "# Changelog\n\n## [Unreleased]\n\n## [1.0.0] - 2026-01-01\n\n### Fixed\n\n- Old fix.\n",
+    );
+    git(["add", "."]);
+    git(["commit", "-m", "chore: base"]);
+    git(["tag", "v1.0.0"]);
+    writeFileSync(path.join(root, "changes", "a.md"), "### Fixed\n\n- Tagged fix.\n");
+    git(["add", "."]);
+    git(["commit", "-m", "fix: tagged work"]);
+    writeFileSync(path.join(root, "platform.txt"), "1\n");
+    git(["add", "."]);
+    git(["commit", "-m", "fix(platform): skip refused portfolio edges (#524)"]);
+    git(["tag", "v1.0.1"]);
+    // Work after the tag belongs to the next release.
+    writeFileSync(path.join(root, "later.txt"), "1\n");
+    git(["add", "."]);
+    git(["commit", "-m", "feat: post-tag work"]);
+
+    const result = record(root, env, ["v1.0.1", "2026-02-02"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(
+      readFileSync(path.join(root, "CHANGELOG.md"), "utf8"),
+      [
+        "# Changelog",
+        "",
+        "## [Unreleased]",
+        "",
+        "## [1.0.1] - 2026-02-02",
+        "",
+        "### Fixed",
+        "",
+        "- Tagged fix.",
+        "",
+        "### Other changes",
+        "",
+        "- **platform:** skip refused portfolio edges (#524)",
+        "",
+        "## [1.0.0] - 2026-01-01",
+        "",
+        "### Fixed",
+        "",
+        "- Old fix.",
+        "",
+      ].join("\n"),
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

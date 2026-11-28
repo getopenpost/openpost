@@ -309,6 +309,9 @@ type publishOutcome struct {
 // finalization fails so the worker keeps polling instead of exhausting retries.
 func (o *publishOutcome) finalizationErr(finalizeErr error) error {
 	if o.pending != nil {
+		if o.retry != nil && o.retry.Failure.RetryAfter > o.pending.Failure.RetryAfter {
+			o.pending.Failure.RetryAfter = o.retry.Failure.RetryAfter
+		}
 		return errors.Join(finalizeErr, o.pending, o.panics, o.state)
 	}
 	return errors.Join(finalizeErr, o.panics, o.state)

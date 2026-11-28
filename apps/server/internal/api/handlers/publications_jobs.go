@@ -166,6 +166,7 @@ func (h *PublicationHandler) queuePublicationWithRunAtTx(
 	if err != nil {
 		return publicationEnqueueResult{}, err
 	}
+	previousRandomDelayMinutes := publication.RandomDelayMinutes
 	if policyMode == publicationauth.PolicyScheduled && !publication.ScheduledAt.IsZero() && runAt.Equal(publication.ScheduledAt) {
 		var randomDelayMinutes int
 		runAt, randomDelayMinutes, err = h.resolveScheduledPublicationRunAtTx(ctx, tx, publication, now)
@@ -178,7 +179,7 @@ func (h *PublicationHandler) queuePublicationWithRunAtTx(
 	}
 	result := publicationEnqueueResult{}
 	if policyMode == publicationauth.PolicyScheduled {
-		charged, chargeErr := h.publicationScheduleUsageCharged(ctx, tx, publication)
+		charged, chargeErr := h.publicationScheduleUsageChargedForOffset(ctx, tx, publication, previousRandomDelayMinutes)
 		if chargeErr != nil {
 			return publicationEnqueueResult{}, chargeErr
 		}
@@ -253,25 +254,39 @@ func (h *PublicationHandler) queuePublicationWithRunAtTx(
 // replace that job without a new charge; cross-month reschedules and immediate
 // queues check and charge the destination month.
 func (h *PublicationHandler) publicationScheduleUsageCharged(ctx context.Context, db bun.IDB, publication *models.Publication) (bool, error) {
+	return h.publicationScheduleUsageChargedForOffset(ctx, db, publication, publication.RandomDelayMinutes)
+}
+
+func (h *PublicationHandler) publicationScheduleUsageChargedForOffset(ctx context.Context, db bun.IDB, publication *models.Publication, randomDelayMinutes int) (bool, error) {
 	if publication.Status != models.PublicationStatusScheduled || publication.ScheduledAt.IsZero() {
 		return false, nil
 	}
-	target := publication.ScheduledAt.UTC()
-	monthStart := time.Date(target.Year(), target.Month(), 1, 0, 0, 0, 0, time.UTC)
-	monthEnd := monthStart.AddDate(0, 1, 0)
-	charged, err := db.NewSelect().TableExpr("jobs AS charged_job").
+	var authorizedTimes []time.Time
+	err := db.NewSelect().TableExpr("jobs AS charged_job").
+		ColumnExpr("charged_authorization.scheduled_at").
 		Join("JOIN publication_authorizations AS charged_authorization ON charged_authorization.job_id = charged_job.id").
 		Where(aliasedPrimaryPublishPublicationJobWhere(h.db, "charged_job"), jobTypePublishPublication, publication.ID).
 		Where("charged_job.status = ?", jobStatusPending).
 		Where("charged_authorization.policy_mode IN (?)", bun.List([]string{
 			publicationauth.PolicyScheduled, publicationauth.PolicyLegacyScheduled,
 		})).
-		Where("charged_authorization.scheduled_at >= ? AND charged_authorization.scheduled_at < ?", monthStart, monthEnd).
-		Exists(ctx)
+		Scan(ctx, &authorizedTimes)
 	if isMissingPublicationSegmentTable(err) {
 		return false, nil
 	}
-	return charged, err
+	if err != nil {
+		return false, err
+	}
+	target := publication.ScheduledAt.UTC()
+	offset := time.Duration(randomDelayMinutes) * time.Minute
+	for _, authorizedAt := range authorizedTimes {
+		// Reconstruct the nominal scheduled month from the randomized run time.
+		nominal := authorizedAt.UTC().Add(-offset)
+		if nominal.Year() == target.Year() && nominal.Month() == target.Month() {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (h *PublicationHandler) loadRenditionActionOutcomes(

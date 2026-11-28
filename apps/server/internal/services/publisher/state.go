@@ -369,7 +369,7 @@ func (s *Service) createReconnectNotifications(
 		if !account.PreflightCheckedAt.IsZero() && strings.TrimSpace(account.PreflightFailure) == "" && !failureAt.IsZero() && failureAt.Before(account.PreflightCheckedAt) {
 			continue
 		}
-		if err := s.recordCredentialFailureTransition(ctx, db, accountID, failureKind); err != nil {
+		if err := s.recordCredentialFailureTransition(ctx, db, accountID, failureKind, failureAt); err != nil {
 			return err
 		}
 	}
@@ -411,12 +411,15 @@ func reconnectFailureDetails(renditions []models.Rendition, accountID string) (s
 // result, so concurrent publications cannot double-notify one break. The
 // existing per-publication creator notification is recorded separately and
 // stays unchanged.
-func (s *Service) recordCredentialFailureTransition(ctx context.Context, db bun.IDB, accountID, failureKind string) error {
-	result, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).
+func (s *Service) recordCredentialFailureTransition(ctx context.Context, db bun.IDB, accountID, failureKind string, failureAt time.Time) error {
+	claim := db.NewUpdate().Model((*models.SocialAccount)(nil)).
 		Set("credential_failure_generation = credential_failure_generation + 1").
 		Where("id = ?", accountID).
-		Where("COALESCE(preflight_failure, '') IN ('', 'unknown', 'unsupported')").
-		Exec(ctx)
+		Where("COALESCE(preflight_failure, '') IN ('', 'unknown', 'unsupported')")
+	if !failureAt.IsZero() {
+		claim = claim.Where("(preflight_checked_at IS NULL OR COALESCE(preflight_failure, '') <> '' OR preflight_checked_at <= ?)", failureAt.UTC())
+	}
+	result, err := claim.Exec(ctx)
 	if err != nil {
 		return err
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/services/notifications"
 )
 
 const (
@@ -38,6 +39,7 @@ func IsObsoleteRefreshTarget(err error) bool {
 type TokenManager struct {
 	db            *bun.DB
 	crypto        *crypto.TokenEncryptor
+	notifications *notifications.Service
 	providerMu    sync.RWMutex
 	providers     map[string]platform.Adapter
 	leaseDuration time.Duration
@@ -52,6 +54,10 @@ func NewTokenManager(db *bun.DB, encryptor *crypto.TokenEncryptor) *TokenManager
 		leaseDuration: defaultRefreshLeaseDuration,
 		waitInterval:  defaultRefreshWaitInterval,
 	}
+}
+
+func (tm *TokenManager) SetNotifications(service *notifications.Service) {
+	tm.notifications = service
 }
 
 func (tm *TokenManager) SetProvider(platformName string, adapter platform.Adapter) {
@@ -372,6 +378,7 @@ func (tm *TokenManager) persistRefreshedGrant(ctx context.Context, account *mode
 		_, err = tx.NewUpdate().Model((*models.SocialAccount)(nil)).
 			Set("granted_scopes = ?", scopes).
 			Set("error_message = ''").
+			Set("preflight_failure = ''").
 			Where("oauth_grant_id = ? AND workspace_id = ?", grant.ID, grant.WorkspaceID).
 			Exec(txCtx)
 		return err
@@ -388,7 +395,8 @@ func (tm *TokenManager) persistRefreshedGrant(ctx context.Context, account *mode
 
 func (tm *TokenManager) releaseRefreshLease(ctx context.Context, grantID, workspaceID, owner, errorClass string) {
 	now := time.Now().UTC()
-	_ = tm.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+	var claimedAccounts []models.SocialAccount
+	err := tm.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 		if _, err := tx.NewUpdate().Model((*models.OAuthGrant)(nil)).
 			Set("refresh_lease_owner = ''").
 			Set("refresh_lease_expires_at = NULL").
@@ -400,12 +408,85 @@ func (tm *TokenManager) releaseRefreshLease(ctx context.Context, grantID, worksp
 			Exec(txCtx); err != nil {
 			return err
 		}
-		_, err := tx.NewUpdate().Model((*models.SocialAccount)(nil)).
+		if _, err := tx.NewUpdate().Model((*models.SocialAccount)(nil)).
 			Set("error_message = ?", "OAuth credential refresh failed. Reconnect this provider grant if the problem continues.").
 			Where("oauth_grant_id = ? AND workspace_id = ?", grantID, workspaceID).
-			Exec(txCtx)
-		return err
+			Exec(txCtx); err != nil {
+			return err
+		}
+		if tm.notifications == nil {
+			return nil
+		}
+		var claimErr error
+		claimedAccounts, claimErr = claimRefreshFailureAccounts(txCtx, tx, grantID, workspaceID)
+		return claimErr
 	})
+	if err != nil || tm.notifications == nil {
+		return
+	}
+	tm.notifyRefreshFailureAccounts(ctx, claimedAccounts)
+}
+
+func claimRefreshFailureAccounts(ctx context.Context, tx bun.Tx, grantID, workspaceID string) ([]models.SocialAccount, error) {
+	var activeAccounts []models.SocialAccount
+	if err := tx.NewSelect().Model(&activeAccounts).
+		Where("oauth_grant_id = ? AND workspace_id = ? AND is_active = ?", grantID, workspaceID, true).
+		Where("COALESCE(preflight_failure, '') IN ('', 'unknown', 'unsupported')").
+		Order("created_at ASC", "id ASC").
+		Scan(ctx); err != nil {
+		return nil, err
+	}
+	claimed := make([]models.SocialAccount, 0, len(activeAccounts))
+	for _, account := range activeAccounts {
+		result, err := tx.NewUpdate().Model((*models.SocialAccount)(nil)).
+			Set("credential_failure_generation = credential_failure_generation + 1").
+			Set("preflight_failure = ?", "auth_expired").
+			Where("id = ? AND workspace_id = ?", account.ID, workspaceID).
+			Where("COALESCE(preflight_failure, '') IN ('', 'unknown', 'unsupported')").
+			Exec(ctx)
+		if err != nil {
+			return nil, err
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return nil, err
+		}
+		if affected == 1 {
+			account.CredentialFailureGeneration++
+			account.PreflightFailure = "auth_expired"
+			claimed = append(claimed, account)
+		}
+	}
+	return claimed, nil
+}
+
+func (tm *TokenManager) notifyRefreshFailureAccounts(ctx context.Context, accounts []models.SocialAccount) {
+	for i := range accounts {
+		account := &accounts[i]
+		recipients, err := notifications.AccountCredentialFailureRecipients(ctx, tm.db, account)
+		if err != nil {
+			log.Printf("[TokenManager] Failed to resolve credential failure recipients for account %s: %v", account.ID, err)
+			continue
+		}
+		label := textutil.FirstNonEmpty(account.AccountUsername, account.AccountID, account.Platform)
+		for _, recipientID := range recipients {
+			outcome, err := notifications.NewAccountCredentialFailureOutcome(notifications.AccountCredentialFailureFacts{
+				RecipientUserID: recipientID,
+				WorkspaceID:     account.WorkspaceID,
+				AccountID:       account.ID,
+				Generation:      account.CredentialFailureGeneration,
+				Provider:        account.Platform,
+				AccountLabel:    label,
+			})
+			if err != nil {
+				log.Printf("[TokenManager] Failed to build credential failure notification for account %s: %v", account.ID, err)
+				continue
+			}
+			if err := tm.notifications.Record(ctx, outcome); err != nil {
+				log.Printf("[TokenManager] Failed to record credential failure notification for account %s: %v", account.ID, err)
+			}
+		}
+	}
 }
 
 func (tm *TokenManager) releaseTransientRefreshLease(ctx context.Context, grantID, workspaceID, owner string) {

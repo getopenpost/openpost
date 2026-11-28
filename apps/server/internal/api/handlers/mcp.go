@@ -24,6 +24,7 @@ import (
 	"github.com/openpost/backend/internal/services/mediastore"
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/publicurl"
+	"github.com/openpost/backend/internal/services/ratelimit"
 	"github.com/openpost/backend/internal/services/usage"
 	"github.com/uptrace/bun"
 )
@@ -254,11 +255,19 @@ func mcpIdempotencyError(err error, fallback string) *mcpError {
 	return &mcpError{Code: -32603, Message: fallback}
 }
 
+const (
+	defaultMCPToolCallsPerMinute = 120
+	defaultMCPToolCallsPerHour   = 2000
+)
+
 type MCPHandler struct {
 	db                *bun.DB
 	auth              middleware.Authenticator
 	entitlement       entitlements.Service
 	usage             *usage.Service
+	limiter           *ratelimit.Limiter
+	toolLimitPerMin   int
+	toolLimitPerHour  int
 	mediaStorage      mediastore.BlobStorage
 	mediaHandler      *MediaHandler
 	publicMedia       *publicurl.MediaVerifier
@@ -284,12 +293,48 @@ func NewMCPHandler(db *bun.DB, authenticator middleware.Authenticator, entitleme
 		entitlementService = entitlement[0]
 	}
 	return &MCPHandler{
-		db:            db,
-		auth:          authenticator,
-		entitlement:   entitlementService,
-		usage:         usage.NewService(db),
-		serverVersion: "dev",
+		db:               db,
+		auth:             authenticator,
+		entitlement:      entitlementService,
+		usage:            usage.NewService(db),
+		limiter:          ratelimit.New(),
+		toolLimitPerMin:  defaultMCPToolCallsPerMinute,
+		toolLimitPerHour: defaultMCPToolCallsPerHour,
+		serverVersion:    "dev",
 	}
+}
+
+func (h *MCPHandler) SetRateLimiter(limiter *ratelimit.Limiter, perMinute, perHour int) {
+	h.limiter = limiter
+	if perMinute > 0 {
+		h.toolLimitPerMin = perMinute
+	}
+	if perHour > 0 {
+		h.toolLimitPerHour = perHour
+	}
+}
+
+func (h *MCPHandler) checkToolRateLimit(principal *middleware.Principal) *mcpError {
+	if h.limiter == nil || principal == nil {
+		return nil
+	}
+	subject := strings.TrimSpace(principal.TokenID)
+	if subject == "" {
+		subject = strings.TrimSpace(principal.SessionID)
+	}
+	if subject == "" {
+		subject = strings.TrimSpace(principal.UserID)
+	}
+	if subject == "" {
+		return nil
+	}
+	if h.toolLimitPerMin > 0 && !h.limiter.Allow("mcp:tool:min:"+subject, h.toolLimitPerMin, time.Minute) {
+		return &mcpError{Code: -32000, Message: "MCP per-minute operation limit exceeded for this token; wait a moment and try again"}
+	}
+	if h.toolLimitPerHour > 0 && !h.limiter.Allow("mcp:tool:hour:"+subject, h.toolLimitPerHour, time.Hour) {
+		return &mcpError{Code: -32000, Message: "MCP hourly operation limit exceeded for this token; wait before retrying"}
+	}
+	return nil
 }
 
 func (h *MCPHandler) SetServerVersion(version string) {

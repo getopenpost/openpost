@@ -67,10 +67,20 @@ func NewInstagramAdapter(clientID, clientSecret, redirectURI string) *InstagramA
 }
 
 func (i *InstagramAdapter) AuthorizationGrantDescriptor() AuthorizationGrantDescriptor {
+	executionMode := "oauth2"
+	evidence := map[string]string{
+		"protocol":      "oauth2",
+		"exchange":      "authorization_code",
+		"graph_version": i.graphVersion,
+	}
+	if i.instagramLogin {
+		executionMode = "oauth2:instagram_login"
+		evidence["connection_type"] = "instagram_login"
+	}
 	return AuthorizationGrantDescriptor{
 		ProjectID:     i.clientID,
-		ExecutionMode: "oauth2",
-		Evidence:      map[string]string{"protocol": "oauth2", "exchange": "authorization_code", "graph_version": i.graphVersion},
+		ExecutionMode: executionMode,
+		Evidence:      evidence,
 	}
 }
 
@@ -512,9 +522,11 @@ func instagramMediaTags(raw, valueKey string, maximum int, coordinatesRequired b
 	return string(encoded), nil
 }
 
+const instagramCarouselMaxItems = 20
+
 func (i *InstagramAdapter) publishCarousel(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest) (string, error) {
-	if len(req.PlatformMediaIDs) < 2 || len(req.PlatformMediaIDs) > 10 {
-		return "", fmt.Errorf("instagram carousel requires 2-10 media items")
+	if len(req.PlatformMediaIDs) < 2 || len(req.PlatformMediaIDs) > instagramCarouselMaxItems {
+		return "", fmt.Errorf("instagram carousel requires 2-%d media items", instagramCarouselMaxItems)
 	}
 	childIDs := make([]string, 0, len(req.PlatformMediaIDs))
 	for index, mediaURL := range req.PlatformMediaIDs {
@@ -1027,7 +1039,7 @@ func parseInstagramCarouselCheckpoint(kind, payload string) (instagramPublishChe
 	if payload != instagramCheckpointMissingValue {
 		references, err = parseInstagramCheckpointIDs(payload)
 	}
-	if err != nil || (kind == instagramCheckpointCarouselKind && len(references) == 0) || len(references) > 10 {
+	if err != nil || (kind == instagramCheckpointCarouselKind && len(references) == 0) || len(references) > instagramCarouselMaxItems {
 		return instagramPublishCheckpoint{}, fmt.Errorf("instagram carousel checkpoint is invalid")
 	}
 	return instagramPublishCheckpoint{kind: kind, references: references}, nil
@@ -1075,10 +1087,25 @@ func parseInstagramCheckpointIDs(value string) ([]string, error) {
 
 func validateInstagramCheckpointID(value string) error {
 	rawValue := strings.TrimPrefix(value, instagramUnknownPublishedIDPrefix)
-	if rawValue == "" || len(rawValue) > instagramCheckpointIDMaxLength || strings.ContainsAny(rawValue, ":,/?#\r\n\t") {
+	if rawValue == "" || len(rawValue) > instagramCheckpointIDMaxLength || strings.ContainsAny(rawValue, ":,/?#\r\n\t") || isAllZeroDigits(rawValue) {
 		return fmt.Errorf("instagram publish checkpoint contains an invalid provider id")
 	}
 	return nil
+}
+
+// isAllZeroDigits rejects Meta's sentinel {"id":"0"} responses (for example on
+// premature carousel parent creation) so they are never checkpointed as valid
+// container or media IDs.
+func isAllZeroDigits(value string) bool {
+	if value == "" {
+		return false
+	}
+	for i := 0; i < len(value); i++ {
+		if value[i] != '0' {
+			return false
+		}
+	}
+	return true
 }
 
 func (i *InstagramAdapter) ResumePublish(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest, providerReference string) (PublishResult, error) {
@@ -1265,7 +1292,7 @@ func pendingInstagramCarouselCheckpoint(checkpoint instagramPublishCheckpoint) P
 }
 
 func validateInstagramCarouselCheckpoint(req *PublishRequest, checkpoint instagramPublishCheckpoint) error {
-	if req == nil || instagramIsStory(req) || len(req.PlatformMediaIDs) < 2 || len(req.PlatformMediaIDs) > 10 || len(req.Media) != len(req.PlatformMediaIDs) || len(checkpoint.references) > len(req.PlatformMediaIDs) {
+	if req == nil || instagramIsStory(req) || len(req.PlatformMediaIDs) < 2 || len(req.PlatformMediaIDs) > instagramCarouselMaxItems || len(req.Media) != len(req.PlatformMediaIDs) || len(checkpoint.references) > len(req.PlatformMediaIDs) {
 		return fmt.Errorf("instagram carousel checkpoint does not match the publish request")
 	}
 	if checkpoint.kind == instagramCheckpointChildPostKind && len(checkpoint.references) >= len(req.PlatformMediaIDs) {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/openpost/backend/internal/textutil"
 )
@@ -81,6 +82,16 @@ func fetchGoogleUserProfile(ctx context.Context, accessToken, label string) (*Us
 		DisplayName: textutil.FirstNonEmpty(profile.Name, profile.Email, profile.ID),
 		AvatarURL:   profile.Picture,
 	}, nil
+}
+
+func revokeGoogleOAuthToken(ctx context.Context, accessToken, label string) error {
+	if strings.TrimSpace(accessToken) == "" {
+		return fmt.Errorf("%s revocation requires an access token", label)
+	}
+	if _, err := DoFormURLEncoded(ctx, http.MethodPost, googleOAuthRevokeURL, map[string]string{"token": accessToken}, nil); err != nil {
+		return fmt.Errorf("%s token revocation: %w", label, err)
+	}
+	return nil
 }
 
 func normalizeGoogleOAuthError(err error) error {

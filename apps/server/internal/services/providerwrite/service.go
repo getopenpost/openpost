@@ -980,6 +980,9 @@ func definitelyRejected(err error) bool {
 	if !errors.As(err, &providerErr) {
 		return false
 	}
+	if providerErr.Code == "pinterest:create_timeout:21" {
+		return false
+	}
 	return providerErr.StatusCode >= 400 && providerErr.StatusCode < 500 && providerErr.StatusCode != http.StatusRequestTimeout
 }
 
@@ -993,7 +996,7 @@ func safeError(err error) (string, string, int) {
 	var providerErr *platform.HTTPError
 	if errors.As(err, &providerErr) {
 		class := "provider_rejected"
-		if providerErr.StatusCode >= 500 || providerErr.StatusCode == http.StatusRequestTimeout {
+		if providerErr.StatusCode >= 500 || providerErr.StatusCode == http.StatusRequestTimeout || providerErr.Code == "pinterest:create_timeout:21" {
 			class = "provider_unknown"
 		}
 		code := providerErr.Code

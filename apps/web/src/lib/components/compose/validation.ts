@@ -30,9 +30,14 @@ export interface TargetedComposerIssue {
 	id: string;
 	message: string;
 	severity?: 'error' | 'warning';
+	code?: string;
 	accountId: string;
 	targetLabel: string;
 	provider?: string;
+	field?: string;
+	segmentId?: string;
+	scopeId?: string;
+	mediaId?: string;
 }
 
 const sharedComposerIssueCodes = new Set(['media_required']);

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -88,6 +89,7 @@ import (
 	"github.com/openpost/backend/internal/services/publicationdiscovery"
 	"github.com/openpost/backend/internal/services/publicurl"
 	"github.com/openpost/backend/internal/services/publisher"
+	"github.com/openpost/backend/internal/services/ratelimit"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/repurpose"
 	"github.com/openpost/backend/internal/services/sessions"
@@ -135,6 +137,7 @@ func main() {
 	}
 
 	runtimeLogger := operationallogging.New(os.Stdout, "openpost", runningBuildRevision())
+	slog.SetDefault(runtimeLogger.Slog())
 	log.SetFlags(0)
 	log.SetOutput(runtimeLogger.LegacyWriter())
 
@@ -615,6 +618,7 @@ func main() {
 	notificationService := notifications.NewService(db, notifications.Options{
 		EmailDelivery: authMailSender, Encryptor: tokenEncryptor, PublicURL: cfg.PublicURL,
 	})
+	tokenManager.SetNotifications(notificationService)
 	accountPreflightService := accountpreflightservice.NewService(db, tokenManager, notificationService)
 	publishSvc.SetNotificationService(notificationService)
 	publishSvc.SetRepostScheduler(repostService)
@@ -960,6 +964,7 @@ func main() {
 	handlers.NewPublicDiscoveryHandler(cfg.PublicURL, version).RegisterRoutes(e)
 
 	mcpHandler := handlers.NewMCPHandler(db, authenticator, entitlementService)
+	mcpHandler.SetRateLimiter(ratelimit.NewShared(db), 0, 0)
 	configureMCPToolMode(mcpHandler, cfg)
 	mcpHandler.SetServerVersion(version)
 	mcpHandler.SetMediaStorage(storage)

@@ -8,6 +8,7 @@
 		mediaIds: string[];
 		mediaCount: number;
 		altTexts: Map<string, string>;
+		altTextMaxLength?: number;
 		captioningIds: Set<string>;
 		failedCaptionIds: Set<string>;
 		editingAltMediaId?: string | null;
@@ -23,6 +24,7 @@
 		mediaIds,
 		mediaCount,
 		altTexts,
+		altTextMaxLength,
 		captioningIds,
 		failedCaptionIds,
 		editingAltMediaId = $bindable(null),
@@ -44,6 +46,7 @@
 				{mediaCount}
 				isFirstOfThree={mediaCount === 3 && mi === 0}
 				{altTexts}
+				{altTextMaxLength}
 				{captioningIds}
 				{failedCaptionIds}
 				editing={editingAltMediaId === mediaId}

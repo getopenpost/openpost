@@ -216,6 +216,30 @@ func classifyProviderSpecificFailure(providerErr *platform.HTTPError) (Failure, 
 		failure.Message = "The Discord bot token configured for this server was rejected. An administrator must update the Discord bot token in the server settings, then try publishing again."
 		return failure, true
 	}
+	if providerErr.Code == "pinterest:create_timeout:21" {
+		// Pinterest timed out creating the Pin without confirming whether it
+		// succeeded. Never auto-retry because replaying POST /v5/pins can
+		// create a duplicate Pin.
+		failure := failureForKind(FailureProviderProcessing, providerErr.Code, providerErr.StatusCode, 0)
+		failure.Retryable = false
+		failure.Action = FailureActionProvider
+		failure.Message = "Pinterest timed out while creating the Pin, so the Pin may already have been published. Check Pinterest before trying again."
+		return failure, true
+	}
+	if providerErr.Code == "pinterest:temporarily_refused:1" {
+		failure := failureForKind(FailureProviderServer, providerErr.Code, providerErr.StatusCode, 0)
+		failure.Retryable = true
+		failure.Action = FailureActionRetry
+		failure.Message = "Pinterest temporarily refused this Pin. OpenPost will retry later."
+		return failure, true
+	}
+	if providerErr.Code == "linkedin:duplicate_content" {
+		failure := failureForKind(FailureDuplicateContent, providerErr.Code, providerErr.StatusCode, 0)
+		failure.Retryable = false
+		failure.Action = FailureActionEdit
+		failure.Message = "LinkedIn reported this post as a duplicate of an existing post. Check LinkedIn before editing or republishing."
+		return failure, true
+	}
 	return classifyMetaFailure(providerErr)
 }
 
@@ -242,37 +266,42 @@ func providerFailureKindByStatus(status int, code string) string {
 	}
 }
 
+type metaFailureSpec struct {
+	kind      string
+	retryable bool
+}
+
+var metaFailureSpecs = map[string]metaFailureSpec{
+	"meta:checkpoint:190:459":                {kind: FailureReconnectRequired},
+	"meta:checkpoint:instagram":              {kind: FailureReconnectRequired},
+	"meta:missing_page_role:190:492":         {kind: FailurePermission},
+	"meta:nonexistent:100:33":                {kind: FailureValidation},
+	"meta:rate_limit:368:1390008":            {kind: FailureRateLimited, retryable: true},
+	"meta:trial_reel_limit:2207078":          {kind: FailureRateLimited, retryable: true},
+	"meta:media_silent_audio:2207082":        {kind: FailureProviderProcessing, retryable: true},
+	"meta:media_not_ready:9004:2207052":      {kind: FailureProviderProcessing},
+	"meta:invalid_collaborator:110:2207018":  {kind: FailureValidation},
+	"meta:first_comment_rejected:20:1772107": {kind: FailureValidation},
+	"meta:invalid_link_attachment:4279047":   {kind: FailureValidation},
+	"meta:media_url_blocked_by_robots":       {kind: FailureValidation},
+	"meta:media_format:2207085":              {kind: FailureValidation},
+}
+
 // classifyMetaFailure maps normalized Meta error codes to failure kinds with
 // distinct recovery actions: checkpoint and expired credentials reconnect,
 // a lost Page role reconnects after an admin grants it back, terminal media
 // or missing objects ask for an edit, and transient outages retry.
 func classifyMetaFailure(providerErr *platform.HTTPError) (Failure, bool) {
-	var kind string
-	var retryable bool
-	switch code := providerErr.Code; {
-	case code == "meta:checkpoint:190:459" || code == "meta:checkpoint:instagram":
-		kind = FailureReconnectRequired
-	case code == "meta:missing_page_role:190:492":
-		kind = FailurePermission
-	case code == "meta:nonexistent:100:33":
-		kind = FailureValidation
-	case code == "meta:rate_limit:368:1390008" || code == "meta:trial_reel_limit:2207078":
-		kind = FailureRateLimited
-		retryable = true
-	case code == "meta:media_silent_audio:2207082":
-		kind = FailureProviderProcessing
-		retryable = true
-	case code == "meta:media_not_ready:9004:2207052":
-		kind = FailureProviderProcessing
-	case code == "meta:invalid_collaborator:110:2207018" || code == "meta:first_comment_rejected:20:1772107":
-		kind = FailureValidation
-	case code == "meta:media_format:2207085" || strings.HasPrefix(code, "meta:media_rejected:"):
-		kind = FailureValidation
-	default:
+	spec, ok := metaFailureSpecs[providerErr.Code]
+	if !ok && strings.HasPrefix(providerErr.Code, "meta:media_rejected:") {
+		spec = metaFailureSpec{kind: FailureValidation}
+		ok = true
+	}
+	if !ok {
 		return Failure{}, false
 	}
-	failure := failureForKind(kind, providerErr.Code, providerErr.StatusCode, providerErr.RetryAfter)
-	failure.Retryable = retryable
+	failure := failureForKind(spec.kind, providerErr.Code, providerErr.StatusCode, providerErr.RetryAfter)
+	failure.Retryable = spec.retryable
 	if message := platform.MetaFailureMessage(providerErr.Code); message != "" {
 		failure.Message = message
 	}

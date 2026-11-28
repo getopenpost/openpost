@@ -90,3 +90,19 @@ func TestTransportDoesNotUseEnvironmentProxy(t *testing.T) {
 	transport := NewTransport(URLPolicy{AllowedSchemes: []string{"https"}})
 	require.Nil(t, transport.Proxy)
 }
+
+func TestIsPublicAddressRejectsNAT64AndSIITTranslatedRanges(t *testing.T) {
+	t.Parallel()
+
+	for _, rawIP := range []string{
+		"::ffff:0:127.0.0.1",
+		"64:ff9b::127.0.0.1",
+		"64:ff9b:1::10.0.0.1",
+		"::ffff:127.0.0.1",
+	} {
+		ip := net.ParseIP(rawIP)
+		require.NotNil(t, ip, "parse %s", rawIP)
+		require.False(t, IsPublicAddress(ip), "expected %s to be blocked", rawIP)
+	}
+	require.True(t, IsPublicAddress(net.ParseIP("93.184.216.34")))
+}

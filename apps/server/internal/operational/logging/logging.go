@@ -12,10 +12,11 @@ import (
 const redactedValue = "[REDACTED]"
 
 var (
-	credentialAssignmentPattern = regexp.MustCompile(`(?i)\b(?:[a-z0-9.-]+[_-])?(?:password|passwd|passphrase|secret|token|credential|api[_-]?key|access[_-]?key|private[_-]?key|encryption[_-]?key|database[_-]?url|dsn)\b\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)`)
+	credentialAssignmentPattern = regexp.MustCompile(`(?i)\b(?:[a-z0-9._-]+[_-])?(?:password|passwd|passphrase|secret|token|credential|api[_-]?key|access[_-]?key|private[_-]?key|encryption[_-]?key|database[_-]?url|dsn|access[_-]?jwt|refresh[_-]?jwt|jwt)\b\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,;]+)`)
 	authorizationPattern        = regexp.MustCompile(`(?i)\b(?:authorization|proxy-authorization)\s*[:=]\s*[^\s,;]+(?:\s+[^\s,;]+)?`)
 	cookiePattern               = regexp.MustCompile(`(?i)\b(?:cookie|set-cookie)\s*[:=]\s*[^\r\n]+`)
 	uriPattern                  = regexp.MustCompile(`[A-Za-z][A-Za-z0-9+.-]*://[^\s"'<>\[\]{}]+`)
+	jwtPattern                  = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b`)
 )
 
 type Logger struct {
@@ -28,6 +29,10 @@ func New(output io.Writer, service, revision string) *Logger {
 		"service", strings.TrimSpace(service),
 		"revision", normalizedRevision(revision),
 	)}
+}
+
+func (l *Logger) Slog() *slog.Logger {
+	return l.logger
 }
 
 func (l *Logger) Info(event string, args ...any) {
@@ -93,6 +98,9 @@ func sensitiveKey(key string) bool {
 		"encryption_key",
 		"database_url",
 		"dsn",
+		"jwt",
+		"accessjwt",
+		"refreshjwt",
 	} {
 		if normalized == suffix || strings.HasSuffix(normalized, "_"+suffix) {
 			return true
@@ -105,6 +113,7 @@ func Redact(value string) string {
 	redacted := uriPattern.ReplaceAllStringFunc(value, redactURI)
 	redacted = cookiePattern.ReplaceAllString(redacted, "cookie="+redactedValue)
 	redacted = authorizationPattern.ReplaceAllString(redacted, "authorization="+redactedValue)
+	redacted = jwtPattern.ReplaceAllString(redacted, redactedValue)
 	return credentialAssignmentPattern.ReplaceAllStringFunc(redacted, func(match string) string {
 		separator := strings.IndexAny(match, ":=")
 		if separator < 0 {

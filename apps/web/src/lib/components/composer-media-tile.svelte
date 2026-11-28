@@ -9,6 +9,7 @@
 		mediaCount: number;
 		isFirstOfThree: boolean;
 		altTexts: Map<string, string>;
+		altTextMaxLength?: number;
 		captioningIds: Set<string>;
 		failedCaptionIds: Set<string>;
 		editing: boolean;
@@ -26,6 +27,7 @@
 		mediaCount,
 		isFirstOfThree,
 		altTexts,
+		altTextMaxLength,
 		captioningIds,
 		failedCaptionIds,
 		editing,
@@ -91,6 +93,7 @@
 	<ComposerMediaActions
 		{mediaId}
 		{altTexts}
+		{altTextMaxLength}
 		{captioningIds}
 		{failedCaptionIds}
 		{editing}

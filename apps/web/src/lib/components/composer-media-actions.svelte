@@ -6,6 +6,7 @@
 	interface Props {
 		mediaId: string;
 		altTexts: Map<string, string>;
+		altTextMaxLength?: number;
 		captioningIds: Set<string>;
 		failedCaptionIds: Set<string>;
 		editing: boolean;
@@ -18,6 +19,7 @@
 	let {
 		mediaId,
 		altTexts,
+		altTextMaxLength,
 		captioningIds,
 		failedCaptionIds,
 		editing,
@@ -77,6 +79,7 @@
 	open={editing}
 	{mediaId}
 	value={altTexts.get(mediaId) ?? ''}
+	maxLength={altTextMaxLength}
 	captioning={captioningIds.has(mediaId)}
 	captionFailed={failedCaptionIds.has(mediaId)}
 	variant="inline"

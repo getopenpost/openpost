@@ -809,6 +809,18 @@
 			selectedAccounts.map((account) => [account.id, dialogSettingsForAccount(account)])
 		)
 	);
+	const activeAltTextMaxLength = $derived.by(() => {
+		const scopeAccounts = activeVariantAccount ? [activeVariantAccount] : selectedAccounts;
+		let tightest: number | undefined;
+		for (const account of scopeAccounts) {
+			const field = visibleSettings(account).find((item) => item.key === 'alt_text');
+			const limit = field?.constraints?.max_length;
+			if (limit !== undefined && limit > 0) {
+				tightest = tightest === undefined ? limit : Math.min(tightest, limit);
+			}
+		}
+		return tightest;
+	});
 	const editorMediaAltTexts = $derived.by(() => {
 		const values = new SvelteMap(composerMedia.mediaAltTexts);
 		if (activeVariantAccountId) {
@@ -840,18 +852,36 @@
 		}))
 	);
 	const targetedRuntimeIssues = $derived.by(() =>
-		selectedAccounts.flatMap<TargetedComposerIssue>((account) =>
-			uniqueIssueMessages([
+		selectedAccounts.flatMap<TargetedComposerIssue>((account) => {
+			const provider = getPlatformKey(account.platform);
+			const targetLabel = accountContextLabel(account);
+			const runtimeMessages = uniqueIssueMessages([
 				configuredPollErrorForAccount(account),
 				...accountReadinessMessages(account)
-			]).map((message, index) => ({
+			]).map<TargetedComposerIssue>((message, index) => ({
 				id: `account-${account.id}-${index}-${message}`,
 				message,
 				accountId: account.id,
-				targetLabel: accountContextLabel(account),
-				provider: getPlatformKey(account.platform)
-			}))
-		)
+				targetLabel,
+				provider
+			}));
+			const capabilityErrors = (capabilityResolver.resolvedCapabilities[account.id]?.issues ?? [])
+				.filter((issue) => issue.severity === 'error')
+				.map<TargetedComposerIssue>((issue, index) => ({
+					id: `capability-${account.id}-${index}-${issue.code}-${issue.message}`,
+					message: issue.message,
+					severity: 'error',
+					code: issue.code,
+					accountId: account.id,
+					targetLabel,
+					provider,
+					field: issue.field || undefined,
+					segmentId: issue.segment_id || undefined,
+					scopeId: issue.scope_id || undefined,
+					mediaId: issue.media_id || undefined
+				}));
+			return [...runtimeMessages, ...capabilityErrors];
+		})
 	);
 	const globalIssues = $derived(
 		composerIssues(localBlockers, validationIssues, validationDestinations, targetedRuntimeIssues)
@@ -4608,6 +4638,7 @@
 			<ComposerMediaActions
 				mediaId={media.id}
 				altTexts={editorMediaAltTexts}
+				altTextMaxLength={activeAltTextMaxLength}
 				captioningIds={composerMedia.captioningMediaIds}
 				failedCaptionIds={composerMedia.failedCaptionMediaIds}
 				editing={composerMedia.editingAltMediaId === media.id}
@@ -5367,6 +5398,7 @@
 													mediaCount={getEditorMediaIdsForPost(source).length +
 														composerMedia.visiblePasteMediaUploads(source).length}
 													altTexts={editorMediaAltTexts}
+													altTextMaxLength={activeAltTextMaxLength}
 													captioningIds={composerMedia.captioningMediaIds}
 													failedCaptionIds={composerMedia.failedCaptionMediaIds}
 													bind:editingAltMediaId={composerMedia.editingAltMediaId}
@@ -5515,6 +5547,7 @@
 												mediaIds={editorMediaIds}
 												mediaCount={editorMediaCount}
 												altTexts={editorMediaAltTexts}
+												altTextMaxLength={activeAltTextMaxLength}
 												captioningIds={composerMedia.captioningMediaIds}
 												failedCaptionIds={composerMedia.failedCaptionMediaIds}
 												bind:editingAltMediaId={composerMedia.editingAltMediaId}

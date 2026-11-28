@@ -158,13 +158,7 @@ func (g *GoogleBusinessAdapter) exchangeToken(ctx context.Context, values map[st
 // RevokeAuthorization invalidates the provider credential before OpenPost
 // clears the encrypted local grant.
 func (g *GoogleBusinessAdapter) RevokeAuthorization(ctx context.Context, accessToken string) error {
-	if strings.TrimSpace(accessToken) == "" {
-		return fmt.Errorf("google business revocation requires an access token")
-	}
-	if _, err := DoFormURLEncoded(ctx, http.MethodPost, googleOAuthRevokeURL, map[string]string{"token": accessToken}, nil); err != nil {
-		return fmt.Errorf("google business token revocation: %w", err)
-	}
-	return nil
+	return revokeGoogleOAuthToken(ctx, accessToken, "google business")
 }
 
 func (g *GoogleBusinessAdapter) GetProfile(ctx context.Context, accessToken string) (*UserProfile, error) {
@@ -822,6 +816,9 @@ func googleBusinessSchedulePayload(settings map[string]interface{}) (*googleBusi
 	if err != nil {
 		return nil, err
 	}
+	if endDate != nil && googleBusinessDateBefore(endDate, startDate) {
+		return nil, fmt.Errorf("google business event_end_date must be on or after event_start_date")
+	}
 	schedule.EndDate = endDate
 	endTime, err := googleBusinessTimeValue(settingString(settings, "event_end_time"), "event_end_time")
 	if err != nil {
@@ -829,6 +826,19 @@ func googleBusinessSchedulePayload(settings map[string]interface{}) (*googleBusi
 	}
 	schedule.EndTime = endTime
 	return schedule, nil
+}
+
+func googleBusinessDateBefore(a, b *googleBusinessDate) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	if a.Year != b.Year {
+		return a.Year < b.Year
+	}
+	if a.Month != b.Month {
+		return a.Month < b.Month
+	}
+	return a.Day < b.Day
 }
 
 func googleBusinessDateValue(raw, field string) (*googleBusinessDate, error) {

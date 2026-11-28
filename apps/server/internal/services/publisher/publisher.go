@@ -2345,16 +2345,18 @@ func (s *Service) renditionUploadRequest(ctx context.Context, rendition *models.
 			}
 			return nil
 		},
-		MimeType:    media.MimeType,
-		Filename:    textutil.FirstNonEmptyRaw(media.OriginalFilename, storageKey),
-		Size:        media.Size,
-		Width:       media.Width,
-		Height:      media.Height,
-		DurationMS:  media.DurationMS,
-		Title:       textutil.FirstNonEmptyRaw(rendition.Title, firstContentLine(rendition.Body)),
-		Description: strings.TrimSpace(textutil.FirstNonEmptyRaw(rendition.Description, rendition.Body)),
-		Settings:    settings,
-		Reader:      data,
+		Profile:       rendition.Profile,
+		OutputProfile: rendition.OutputProfile,
+		MimeType:      media.MimeType,
+		Filename:      textutil.FirstNonEmptyRaw(media.OriginalFilename, storageKey),
+		Size:          media.Size,
+		Width:         media.Width,
+		Height:        media.Height,
+		DurationMS:    media.DurationMS,
+		Title:         textutil.FirstNonEmptyRaw(rendition.Title, firstContentLine(rendition.Body)),
+		Description:   strings.TrimSpace(textutil.FirstNonEmptyRaw(rendition.Description, rendition.Body)),
+		Settings:      settings,
+		Reader:        data,
 		OpenReaderAt: func(offset int64) (io.ReadCloser, error) {
 			return s.openMediaReaderAt(ctx, storageKey, offset)
 		},

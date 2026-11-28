@@ -8,6 +8,7 @@
 		open?: boolean;
 		value: string;
 		mediaId: string;
+		maxLength?: number;
 		captioning?: boolean;
 		captionFailed?: boolean;
 		canEdit?: boolean;
@@ -24,6 +25,7 @@
 		open = true,
 		value,
 		mediaId,
+		maxLength,
 		captioning = false,
 		captionFailed = false,
 		canEdit = true,
@@ -38,6 +40,11 @@
 
 	const dirty = $derived(value.trim() !== (savedValue ?? ''));
 	const fieldId = $derived(`alt-text-${mediaId}`);
+	const charCount = $derived(Array.from(value).length);
+	const hasMaxLength = $derived(maxLength !== undefined && maxLength > 0);
+	const exceedsMaxLength = $derived(
+		hasMaxLength && maxLength !== undefined && charCount > maxLength
+	);
 </script>
 
 {#if variant === 'inline' && open}
@@ -68,13 +75,27 @@
 				>
 			</div>
 		{/if}
-		{#if onDone}
-			<div class="mt-1 flex justify-end gap-1">
-				<button
-					type="button"
-					class="min-h-11 px-3 text-sm text-white/80 hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none md:min-h-7 md:text-xs [@media(pointer:coarse)]:min-h-11"
-					onclick={onDone}>{m.common_done()}</button
-				>
+		{#if onDone || hasMaxLength}
+			<div class="mt-1 flex items-center justify-between gap-2">
+				{#if hasMaxLength}
+					<span
+						class="text-xs tabular-nums {exceedsMaxLength
+							? 'font-medium text-red-300'
+							: 'text-white/75'}"
+						aria-live="polite"
+					>
+						{charCount} / {maxLength}
+					</span>
+				{:else}
+					<span></span>
+				{/if}
+				{#if onDone}
+					<button
+						type="button"
+						class="min-h-11 px-3 text-sm text-white/80 hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none md:min-h-7 md:text-xs [@media(pointer:coarse)]:min-h-11"
+						onclick={onDone}>{m.common_done()}</button
+					>
+				{/if}
 			</div>
 		{/if}
 	</div>

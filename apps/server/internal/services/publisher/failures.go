@@ -69,6 +69,16 @@ func (e *renditionCompletionError) Error() string {
 }
 func (e *renditionCompletionError) Unwrap() error { return e.cause }
 
+// credentialError marks a failure to obtain or refresh the account credential.
+// It keeps the cause for transient classification.
+type credentialError struct {
+	operation string
+	cause     error
+}
+
+func (e *credentialError) Error() string { return e.operation + ": " + e.cause.Error() }
+func (e *credentialError) Unwrap() error { return e.cause }
+
 func ClassifyFailure(err error) Failure {
 	if err == nil {
 		return Failure{}
@@ -91,29 +101,52 @@ func ClassifyFailure(err error) Failure {
 	if retryClass, ok := platform.MediaRetryClassificationForError(err); ok {
 		return classifyMediaUploadFailure(err, retryClass)
 	}
+	// A typed provider response outranks message heuristics: a rejected
+	// request that mentions processing is still a definite rejection.
+	if failure, ok := classifyProviderHTTPFailure(err); ok {
+		return failure
+	}
 	lower := strings.ToLower(err.Error())
 	if strings.Contains(lower, "processing") &&
 		(strings.Contains(lower, "failed") || strings.Contains(lower, "timeout")) {
 		return failureForKind(FailureProviderProcessing, "", 0, 0)
-	}
-	if failure, ok := classifyProviderHTTPFailure(err); ok {
-		return failure
 	}
 
 	var statusErr huma.StatusError
 	if errors.As(err, &statusErr) && statusErr.GetStatus() == http.StatusPaymentRequired {
 		return failureForKind(FailureBillingRequired, "", http.StatusPaymentRequired, 0)
 	}
-	var networkErr net.Error
-	if errors.As(err, &networkErr) || errors.Is(err, context.DeadlineExceeded) {
+	if isNetworkFailure(err) {
 		return failureForKind(FailureNetwork, "", 0, 0)
 	}
 	return classifyFailureMessage(lower)
 }
 
+func isNetworkFailure(err error) bool {
+	var networkErr net.Error
+	return errors.As(err, &networkErr) || errors.Is(err, context.DeadlineExceeded)
+}
+
+// classifyCredentialFailure keeps a transient token-endpoint failure retryable.
+// Every other failure to obtain a credential requires reconnecting the account.
+func classifyCredentialFailure(credential *credentialError) Failure {
+	if isNetworkFailure(credential.cause) || errors.Is(credential.cause, context.Canceled) {
+		return failureForKind(FailureNetwork, "", 0, 0)
+	}
+	if failure, ok := classifyProviderHTTPFailure(credential.cause); ok &&
+		(failure.Retryable || failure.Action == FailureActionReconnect) {
+		return failure
+	}
+	return failureForKind(FailureReconnectRequired, "", 0, 0)
+}
+
 func classifyLocalPublicationFailure(err error) (Failure, bool) {
 	if errors.Is(err, posttext.ErrInvalid) || errors.Is(err, posttext.ErrMetadataRequired) {
 		return failureForKind(FailureValidation, "mention_choice_invalid", 0, 0), true
+	}
+	var credential *credentialError
+	if errors.As(err, &credential) {
+		return classifyCredentialFailure(credential), true
 	}
 	var recovery *renditionRecoveryError
 	if errors.As(err, &recovery) {
@@ -157,47 +190,66 @@ func classifyProviderHTTPFailure(err error) (Failure, bool) {
 		return Failure{}, false
 	}
 	failure := failureForKind(kind, providerErr.Code, providerErr.StatusCode, providerErr.RetryAfter)
-	if code == "x:credits_depleted" {
-		failure.Message = "The X developer account has run out of API credits. Add credits in the X developer console, then try again."
-		failure.Action = FailureActionProvider
-	}
-	if code == "bluesky:unconfirmed_email" {
-		failure.Message = "Verify your email in Bluesky before publishing videos. Text and image posts remain available."
-		failure.Action = FailureActionProvider
-	}
-	if code == "devnull:signature_rejected" {
-		failure.Message = "dev/null rejected the commit signature. Reconnect with the SSH key on your GitHub account."
-		failure.Action = FailureActionReconnect
-	}
-	if code == "devnull:key_or_user_unknown" {
-		failure.Message = "dev/null did not recognize this SSH key or user. Add the key to GitHub, sign in at dev-null.sh, then reconnect."
-		failure.Action = FailureActionReconnect
-	}
-	if code == "devnull:commit_rejected" {
-		failure.Message = "dev/null rejected the commit. It may exceed 4000 characters, 3 images, or 10 MB per image."
-		failure.Action = FailureActionEdit
-	}
-	if code == "devnull:rate_limited" {
-		failure.Message = "dev/null allows 10 commits a minute. OpenPost will retry."
-	}
-	if code == "google:invalid_rapt" {
-		failure.Message = "Google requires a new sign-in or approval from your Workspace administrator. Ask the administrator to trust OpenPost, then reconnect this account."
-		failure.Action = FailureActionReconnect
-	}
-	if code == "pinterest:board_permission:29" {
-		failure.Message = "This Pinterest account cannot publish to the selected board. Choose another board or reconnect the account if its access changed."
-		failure.Action = FailureActionEdit
-	}
-	if code == "youtube:thumbnail_channel_verification_required" {
-		failure.Message = "YouTube published the video but requires channel phone verification before it accepts a custom thumbnail. Verify the channel at youtube.com/verify, then set the thumbnail manually or retry it."
-		failure.Action = FailureActionProvider
-	}
-	if kind == FailurePermission && code == "discord_attach_files_permission_lost" {
-		failure.Message = "Allow Attach Files for the bot in this Discord channel, or remove the attachments."
+	if override, ok := providerFailureOverrides[code]; ok && (override.kind == "" || override.kind == kind) {
+		failure.Message = override.message
+		if override.action != "" {
+			failure.Action = override.action
+		}
 	}
 	failure.Subcode = providerErr.Subcode
 	failure.TraceID = providerErr.TraceID
 	return failure, true
+}
+
+// providerFailureOverride replaces the generic guidance for a provider code.
+// An empty action keeps the action of the classified kind; a kind limits the
+// override to that classification.
+type providerFailureOverride struct {
+	message string
+	action  string
+	kind    string
+}
+
+var providerFailureOverrides = map[string]providerFailureOverride{
+	"x:credits_depleted": {
+		message: "The X developer account has run out of API credits. Add credits in the X developer console, then try again.",
+		action:  FailureActionProvider,
+	},
+	"bluesky:unconfirmed_email": {
+		message: "Verify your email in Bluesky before publishing videos. Text and image posts remain available.",
+		action:  FailureActionProvider,
+	},
+	"devnull:signature_rejected": {
+		message: "dev/null rejected the commit signature. Reconnect with the SSH key on your GitHub account.",
+		action:  FailureActionReconnect,
+	},
+	"devnull:key_or_user_unknown": {
+		message: "dev/null did not recognize this SSH key or user. Add the key to GitHub, sign in at dev-null.sh, then reconnect.",
+		action:  FailureActionReconnect,
+	},
+	"devnull:commit_rejected": {
+		message: "dev/null rejected the commit. It may exceed 4000 characters, 3 images, or 10 MB per image.",
+		action:  FailureActionEdit,
+	},
+	"devnull:rate_limited": {
+		message: "dev/null allows 10 commits a minute. OpenPost will retry.",
+	},
+	"google:invalid_rapt": {
+		message: "Google requires a new sign-in or approval from your Workspace administrator. Ask the administrator to trust OpenPost, then reconnect this account.",
+		action:  FailureActionReconnect,
+	},
+	"pinterest:board_permission:29": {
+		message: "This Pinterest account cannot publish to the selected board. Choose another board or reconnect the account if its access changed.",
+		action:  FailureActionEdit,
+	},
+	"youtube:thumbnail_channel_verification_required": {
+		message: "YouTube published the video but requires channel phone verification before it accepts a custom thumbnail. Verify the channel at youtube.com/verify, then set the thumbnail manually or retry it.",
+		action:  FailureActionProvider,
+	},
+	"discord_attach_files_permission_lost": {
+		message: "Allow Attach Files for the bot in this Discord channel, or remove the attachments.",
+		kind:    FailurePermission,
+	},
 }
 
 func classifyProviderSpecificFailure(providerErr *platform.HTTPError) (Failure, bool) {

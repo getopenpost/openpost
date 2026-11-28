@@ -42,6 +42,8 @@ func newPublisherMediaStateTestServer(t *testing.T, platformName string, adapter
 		(*models.Publication)(nil),
 		(*models.Rendition)(nil),
 		(*models.RenditionMedia)(nil),
+		(*models.RenditionSegment)(nil),
+		(*models.RenditionSegmentMedia)(nil),
 		(*models.RenditionMediaDelivery)(nil),
 		(*models.RenditionMediaDeliveryRelation)(nil),
 		(*models.ProviderWriteAttempt)(nil),
@@ -185,7 +187,7 @@ func TestPublisherPersistsEncryptedRenditionUploadStateAndResumesAfterInterrupti
 	media := models.MediaAttachment{ID: "video-resume", WorkspaceID: "ws-1", FilePath: "uploads/video-resume.mp4", MimeType: "video/mp4", Size: int64(len(srv.storage.body)), ProcessingStatus: "ready"}
 	publication, rendition, account := srv.seedRenditionWithMedia(t, "publication-resume", "rendition-resume", media)
 
-	_, err := srv.service.platformMediaIDForRendition(context.Background(), &publication, &rendition, &account, adapter, "access-token", media)
+	_, err := srv.service.platformMediaID(context.Background(), &mediaUploadTarget{publication: &publication, rendition: &rendition, account: &account, provider: adapter, token: "access-token"}, media)
 	require.ErrorContains(t, err, "simulated worker interruption")
 	require.Equal(t, 1, adapter.uploadCalls)
 
@@ -201,7 +203,7 @@ func TestPublisherPersistsEncryptedRenditionUploadStateAndResumesAfterInterrupti
 	require.NoError(t, err)
 	require.Contains(t, decrypted, "session-secret")
 
-	providerMediaID, err := srv.service.platformMediaIDForRendition(context.Background(), &publication, &rendition, &account, adapter, "access-token", media)
+	providerMediaID, err := srv.service.platformMediaID(context.Background(), &mediaUploadTarget{publication: &publication, rendition: &rendition, account: &account, provider: adapter, token: "access-token"}, media)
 	require.NoError(t, err)
 	require.Equal(t, "resumed-provider-media", providerMediaID)
 	require.Equal(t, 2, adapter.uploadCalls)
@@ -228,7 +230,7 @@ func TestPublisherPersistsEncryptedRenditionUploadStateAndResumesAfterInterrupti
 		Exec(context.Background())
 	require.NoError(t, err)
 
-	providerMediaID, err = srv.service.platformMediaIDForRendition(context.Background(), &publication, &rendition, &account, adapter, "access-token", media)
+	providerMediaID, err = srv.service.platformMediaID(context.Background(), &mediaUploadTarget{publication: &publication, rendition: &rendition, account: &account, provider: adapter, token: "access-token"}, media)
 	require.NoError(t, err)
 	require.Equal(t, "resumed-provider-media", providerMediaID)
 	require.Equal(t, 3, adapter.uploadCalls, "changed related media must invalidate the ready cache")
@@ -264,7 +266,7 @@ func TestPublisherRefreshesExpiredReadyXMedia(t *testing.T) {
 	_, updateErr := srv.db.NewUpdate().Model(&rendition).WherePK().Exec(t.Context())
 	require.NoError(t, updateErr)
 	upload := func() string {
-		id, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
+		id, err := srv.service.platformMediaID(t.Context(), &mediaUploadTarget{publication: &publication, rendition: &rendition, account: &account, provider: adapter, token: "access-token"}, media)
 		require.NoError(t, err)
 		return id
 	}

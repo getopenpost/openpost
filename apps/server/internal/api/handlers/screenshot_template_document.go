@@ -2,7 +2,12 @@ package handlers
 
 import "github.com/openpost/backend/internal/screenshottemplates"
 
-const screenshotTemplateRenderer = screenshottemplates.Renderer
+// Server exports carry the Go renderer key; uploads from older clients keep
+// the HTML renderer key that produced their pixels.
+const (
+	screenshotTemplateRenderer       = screenshottemplates.Renderer
+	screenshotTemplateClientRenderer = "openpost-screenshot-html-v1"
+)
 
 type ScreenshotTemplatePerson = screenshottemplates.ScreenshotTemplatePerson
 type ScreenshotTemplateMessage = screenshottemplates.ScreenshotTemplateMessage

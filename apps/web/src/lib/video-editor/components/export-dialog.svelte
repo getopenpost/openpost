@@ -121,9 +121,11 @@
 	let exportableSequences = $state<ExportableSequence[]>([]);
 	let selectedSequenceId = $state<string | null>(null);
 	let rendering = $state(false);
-	let format = $state<ExportFormat>('webm');
+	// MP4/H.264 is what social platforms accept and it uses the hardware
+	// encoder where one exists; VP9 encodes in software in most browsers.
+	let format = $state<ExportFormat>('mp4');
 	let quality = $state<NonNullable<RenderExportOptions['quality']>>('standard');
-	let codec = $state<VideoCodec>('vp9');
+	let codec = $state<VideoCodec>('avc');
 	let codecSupport = $state<Partial<Record<VideoCodec, boolean>>>({});
 	let codecFallback = $state<{ from: VideoCodec; to: VideoCodec } | null>(null);
 	let resolution = $state('source');

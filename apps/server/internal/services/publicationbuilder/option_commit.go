@@ -26,8 +26,8 @@ type OptionEdit struct {
 	Document  *screenshottemplates.ScreenshotTemplateDocument `json:"document,omitempty"`
 }
 
-// CommitOption explicitly chooses one alternative. Rendering is a client
-// capability; missing renders remain typed image requirements in a saved draft.
+// CommitOption explicitly chooses one alternative. Clients may pass media they
+// rendered; Commit renders any visual still planned on the server.
 func (application *Application) CommitOption(ctx context.Context, userID, buildID, optionID string, expectedRevision int, media []OptionMedia, edits []OptionEdit, publications PublicationApplication) (Build, error) {
 	build, err := application.Get(ctx, userID, buildID)
 	if err != nil {
@@ -223,15 +223,7 @@ func (application *Application) applyRenderedOptionMedia(ctx context.Context, wo
 		if !strings.HasPrefix(asset.MimeType, "image/") {
 			return ErrBuildSourceUnavailable
 		}
-		plan := &selected.Destinations[destination].Media
-		plan.Treatment, plan.SourceRef, plan.TemplateID, plan.Document = "use_source", "media:"+item.MediaID, "", nil
-		if index := slices.IndexFunc(request.Assets, func(existing BuildAsset) bool { return existing.MediaID == item.MediaID }); index >= 0 {
-			request.Assets[index].Role = "artifact"
-			request.Assets[index].MayPublish = true
-		} else {
-			request.Assets = append(request.Assets, BuildAsset{MediaID: item.MediaID, Role: "artifact", MayPublish: true})
-		}
-		selected.Sources = append(selected.Sources, ResolvedSource{ID: plan.SourceRef, Kind: "image", Label: "Generated visual", Publishable: true, MIMEType: asset.MimeType})
+		useRenderedVisual(request, selected, destination, asset)
 	}
 	return nil
 }

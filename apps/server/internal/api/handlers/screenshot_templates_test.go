@@ -3,7 +3,10 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"image/jpeg"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -33,7 +36,9 @@ func newScreenshotTestServer(t *testing.T) screenshotTestServer {
 	require.NoError(t, err)
 	e := echo.New()
 	api := humaecho.NewV4WithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewScreenshotTemplateHandler(db, testAuthenticator{}).RegisterRoutes(api)
+	storage := &memeMemoryStorage{objects: make(map[string][]byte)}
+	media := NewMediaHandler(db, storage, nil, testAuthenticator{}, nil)
+	NewScreenshotTemplateHandler(db, testAuthenticator{}, NewScreenshotTemplateRenderer(db, storage, media)).RegisterRoutes(api)
 	return screenshotTestServer{e, db}
 }
 func (srv screenshotTestServer) request(t *testing.T, method, path string, body any) *httptest.ResponseRecorder {
@@ -107,4 +112,82 @@ func TestScreenshotTemplateAuthorization(t *testing.T) {
 	require.NoError(t, err)
 	denied := srv.request(t, http.MethodGet, path, nil)
 	require.Equal(t, 403, denied.Code)
+}
+
+func TestScreenshotTemplatePreviewUsesServerRenderer(t *testing.T) {
+	t.Parallel()
+	srv := newScreenshotTestServer(t)
+	res := srv.request(t, http.MethodPost, "/screenshot-templates/previews", map[string]any{"workspace_id": "workspace-1", "document": screenshotDocumentFixture(), "scale": 1})
+	require.Equal(t, 200, res.Code, res.Body.String())
+	var preview struct {
+		MIMEType   string `json:"mime_type"`
+		DataBase64 string `json:"data_base64"`
+		Width      int    `json:"width"`
+		Height     int    `json:"height"`
+		Regions    []struct {
+			ID    string  `json:"id"`
+			Width float64 `json:"width"`
+		} `json:"regions"`
+	}
+	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &preview))
+	require.Equal(t, "image/jpeg", preview.MIMEType)
+	require.Equal(t, 540, preview.Width)
+	data, err := base64.StdEncoding.DecodeString(preview.DataBase64)
+	require.NoError(t, err)
+	decoded, err := jpeg.Decode(bytes.NewReader(data))
+	require.NoError(t, err)
+	require.Equal(t, preview.Height, decoded.Bounds().Dy())
+	require.Len(t, preview.Regions, 1)
+	require.Equal(t, "first", preview.Regions[0].ID)
+	require.Positive(t, preview.Regions[0].Width)
+
+	square := screenshotDocumentFixture()
+	square.Frame = "square"
+	for range 30 {
+		square.Conversation.Messages = append(square.Conversation.Messages, ScreenshotTemplateMessage{ID: fmt.Sprintf("m%d", len(square.Conversation.Messages)), SenderID: "me", Text: "One more line that will not fit"})
+	}
+	overflow := srv.request(t, http.MethodPost, "/screenshot-templates/previews", map[string]any{"workspace_id": "workspace-1", "document": square})
+	require.Equal(t, 422, overflow.Code, overflow.Body.String())
+}
+
+func TestScreenshotTemplateExportRendersOnServerAndReusesIdenticalExport(t *testing.T) {
+	t.Parallel()
+	srv := newScreenshotTestServer(t)
+	design := srv.create(t)
+	path := "/screenshot-templates/designs/" + design.ID + "/exports"
+	first := srv.request(t, http.MethodPost, path, map[string]any{"revision": 1})
+	require.Equal(t, 200, first.Code, first.Body.String())
+	var exported struct {
+		Media *struct {
+			ID     string `json:"id"`
+			Width  int    `json:"width"`
+			Height int    `json:"height"`
+		} `json:"media"`
+		Document ScreenshotTemplateDocument `json:"document"`
+	}
+	require.NoError(t, json.Unmarshal(first.Body.Bytes(), &exported))
+	require.NotNil(t, exported.Media)
+	require.Equal(t, design.Document, exported.Document)
+	var media models.MediaAttachment
+	require.NoError(t, srv.db.NewSelect().Model(&media).Where("id = ?", exported.Media.ID).Scan(t.Context()))
+	require.Equal(t, "image/png", media.MimeType)
+	require.Equal(t, "screenshot_template", media.Source)
+	require.Equal(t, 1080, media.Width)
+	var recipe models.MediaGenerationRecipe
+	require.NoError(t, srv.db.NewSelect().Model(&recipe).Where("media_id = ?", media.ID).Scan(t.Context()))
+	require.Equal(t, screenshotTemplateRenderer, recipe.RendererKey)
+	require.Equal(t, "user-1", recipe.CreatedByID)
+
+	again := srv.request(t, http.MethodPost, path, map[string]any{"revision": 1})
+	require.Equal(t, 200, again.Code, again.Body.String())
+	var reused struct {
+		Media struct {
+			ID string `json:"id"`
+		} `json:"media"`
+	}
+	require.NoError(t, json.Unmarshal(again.Body.Bytes(), &reused))
+	require.Equal(t, exported.Media.ID, reused.Media.ID, "an unchanged design reuses its export")
+	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("source = ?", "screenshot_template").Count(t.Context())
+	require.NoError(t, err)
+	require.EqualValues(t, 1, count)
 }

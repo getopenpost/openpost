@@ -33,6 +33,10 @@ func (h *MCPHandler) callTool(ctx context.Context, principal *middleware.Princip
 	}
 	auditToolName, auditArgs := mcpToolAuditTarget(canonicalName, params.Arguments)
 	start := time.Now()
+	if rpcErr := h.checkToolRateLimit(principal); rpcErr != nil {
+		h.recordToolCall(ctx, principal, auditToolName, workspaceIDFromMCPArguments(auditArgs), time.Since(start), rpcErr)
+		return nil, rpcErr
+	}
 	if mcpScopeIsReadOnly(principal.Scope) && mcpToolCallChangesState(canonicalName) {
 		rpcErr := &mcpError{Code: -32602, Message: "this token has mcp:read scope and cannot run state-changing operations; authorize mcp:full access to make changes"}
 		h.recordToolCall(ctx, principal, auditToolName, workspaceIDFromMCPArguments(auditArgs), time.Since(start), rpcErr)

@@ -115,6 +115,12 @@ func normalizeMetaPublishError(err error) error {
 		applyMetaMapping(providerErr, mapping)
 		return err
 	}
+	if subcode != "" {
+		if mapping, ok := metaSubcodeMappings[subcode]; ok {
+			applyMetaMapping(providerErr, mapping)
+			return err
+		}
+	}
 	if mapping, ok := metaCodeMappings[code]; ok {
 		applyMetaMapping(providerErr, mapping)
 		return err
@@ -184,6 +190,12 @@ var metaExactMappings = map[metaCodeKey]metaMapping{
 	{code: "-2", subcode: "2207003"}: {status: http.StatusServiceUnavailable, code: "meta:media_download_timeout:2207003"},
 }
 
+var metaSubcodeMappings = map[string]metaMapping{
+	// Threads rejects some text posts with an invalid link attachment under
+	// subcode 4279047 (is_transient: false). Terminal: the link must change.
+	"4279047": {status: http.StatusBadRequest, code: "meta:invalid_link_attachment:4279047"},
+}
+
 // metaCodeMappings classifies by code alone. 2207082/2207085 come from
 // Postiz #2137/#2152: silent-audio processing failures may succeed on
 // retry, while format failures need new media.
@@ -249,6 +261,8 @@ var metaFailureMessages = map[string]string{
 	"meta:media_not_ready:9004:2207052":      "Instagram did not finish preparing the media container. OpenPost retried the safe creation step. You can try again later.",
 	"meta:invalid_collaborator:110:2207018":  "Instagram rejected a collaborator. Check that each collaborator is eligible and accepts collaboration invites, then edit the post.",
 	"meta:first_comment_rejected:20:1772107": "Instagram published the post but rejected its first comment. Review the comment and add it manually.",
+	"meta:invalid_link_attachment:4279047":   "Threads rejected the link in this post as an invalid link attachment. Check the link and try again.",
+	"meta:media_url_blocked_by_robots":       "Meta's media crawler was blocked by robots.txt when fetching your media URL. Allow meta-externalfetcher on your public media host (for example, disable Cloudflare managed AI crawler blocking on the media path), then try again.",
 }
 
 var metaMediaRejectedMessages = map[string]string{

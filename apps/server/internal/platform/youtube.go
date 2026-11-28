@@ -567,6 +567,47 @@ func (y *YouTubeAdapter) ensureYouTubeVideoUploaded(
 	return videoID, nil
 }
 
+var (
+	youtubeShortsThumbnailPollInterval = 5 * time.Second
+	youtubeShortsThumbnailMaxPolls     = 6
+)
+
+func isYouTubeShortUpload(req UploadMediaRequest) bool {
+	return req.Profile == "short_video" || req.OutputProfile == "youtube.short"
+}
+
+func (y *YouTubeAdapter) RevokeAuthorization(ctx context.Context, accessToken string) error {
+	return revokeGoogleOAuthToken(ctx, accessToken, "youtube")
+}
+
+func (y *YouTubeAdapter) waitForYouTubeShortProcessing(ctx context.Context, accessToken, videoID string) error {
+	for attempt := range youtubeShortsThumbnailMaxPolls {
+		ready, err := y.checkYouTubeProcessingStatus(ctx, accessToken, videoID)
+		if err != nil {
+			return err
+		}
+		if ready {
+			return nil
+		}
+		if attempt == youtubeShortsThumbnailMaxPolls-1 {
+			break
+		}
+		if youtubeShortsThumbnailPollInterval > 0 {
+			timer := time.NewTimer(youtubeShortsThumbnailPollInterval)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			case <-timer.C:
+			}
+		}
+	}
+	return &MediaUploadError{
+		RetryClassification: MediaRetrySafeResume,
+		Err:                 fmt.Errorf("youtube short video %s is still processing before thumbnail application", videoID),
+	}
+}
+
 func (y *YouTubeAdapter) finalizeYouTubeUpload(
 	ctx context.Context,
 	accessToken string,
@@ -578,6 +619,11 @@ func (y *YouTubeAdapter) finalizeYouTubeUpload(
 	checkpoint MediaUploadCheckpoint,
 ) error {
 	if req.ThumbnailReader != nil && !providerState.ThumbnailApplied {
+		if isYouTubeShortUpload(req) {
+			if err := y.waitForYouTubeShortProcessing(ctx, accessToken, videoID); err != nil {
+				return err
+			}
+		}
 		if err := y.setYouTubeThumbnail(ctx, accessToken, videoID, req); err != nil {
 			return err
 		}

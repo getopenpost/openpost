@@ -20,19 +20,23 @@ import (
 )
 
 const (
-	tiktokAuthURL           = "https://www.tiktok.com/v2/auth/authorize/"
-	tiktokTokenURL          = "https://open.tiktokapis.com/v2/oauth/token/"
-	tiktokUserInfoURL       = "https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name,username"
-	tiktokUserInfoBasicURL  = "https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name"
-	tiktokCreatorInfoURL    = "https://open.tiktokapis.com/v2/post/publish/creator_info/query/"
-	tiktokVideoInitURL      = "https://open.tiktokapis.com/v2/post/publish/video/init/"
-	tiktokVideoInboxInitURL = "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/"
-	tiktokContentInitURL    = "https://open.tiktokapis.com/v2/post/publish/content/init/"
-	tiktokPublishStatusURL  = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
-	tiktokTitleMaxUnits     = 2200
-	tiktokVideoListURL      = "https://open.tiktokapis.com/v2/video/list/?fields=id,create_time,title,video_description,share_url,like_count,comment_count,share_count,view_count"
-	tiktokMaxChunkSize      = 64 * 1024 * 1024
+	tiktokAuthURL                = "https://www.tiktok.com/v2/auth/authorize/"
+	tiktokTokenURL               = "https://open.tiktokapis.com/v2/oauth/token/"
+	tiktokUserInfoURL            = "https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name,username"
+	tiktokUserInfoBasicURL       = "https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name"
+	tiktokCreatorInfoURL         = "https://open.tiktokapis.com/v2/post/publish/creator_info/query/"
+	tiktokVideoInitURL           = "https://open.tiktokapis.com/v2/post/publish/video/init/"
+	tiktokVideoInboxInitURL      = "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/"
+	tiktokContentInitURL         = "https://open.tiktokapis.com/v2/post/publish/content/init/"
+	tiktokPublishStatusURL       = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
+	tiktokTitleMaxUnits          = 2200
+	tiktokVideoListURL           = "https://open.tiktokapis.com/v2/video/list/?fields=id,create_time,title,video_description,share_url,like_count,comment_count,share_count,view_count"
+	tiktokMaxChunkSize           = 64 * 1024 * 1024
+	tiktokChunkUploadMaxAttempts = 4
+	tiktokChunkMaxRetryAfter     = 30 * time.Second
 )
+
+var tiktokChunkRetryDelay = 2 * time.Second
 
 type TikTokAdapter struct {
 	clientKey    string
@@ -437,7 +441,7 @@ func (t *TikTokAdapter) uploadVideoFileToInbox(ctx context.Context, accessToken,
 			"Content-Length":  strconv.FormatInt(int64(len(chunk)), 10),
 			"Content-Range":   fmt.Sprintf("bytes %d-%d/%d", start, end-1, videoSize),
 		}
-		if _, err := DoRequest(ctx, http.MethodPut, uploadURL, bytes.NewReader(chunk), headers); err != nil {
+		if err := uploadTikTokChunk(ctx, uploadURL, chunk, headers); err != nil {
 			return "", fmt.Errorf("tiktok video chunk upload: %w", err)
 		}
 	}
@@ -451,6 +455,63 @@ func (t *TikTokAdapter) uploadVideoFileToInbox(ctx context.Context, accessToken,
 	// return the original publishID (never a resolved public post ID) so
 	// Publish checkpoints publishID and resolves the final outcome cleanly.
 	return publishID, nil
+}
+
+// uploadTikTokChunk uploads one video byte range and retries transient 429,
+// 5xx, and transport failures using a fresh reader and identical Content-Range.
+// It never retries non-429 4xx responses or re-initializes the upload.
+func uploadTikTokChunk(ctx context.Context, uploadURL string, chunk []byte, headers map[string]string) error {
+	var lastErr error
+	for attempt := range tiktokChunkUploadMaxAttempts {
+		_, err := DoRequest(ctx, http.MethodPut, uploadURL, bytes.NewReader(chunk), headers)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		if !isRetryableTikTokChunkError(ctx, err) || attempt == tiktokChunkUploadMaxAttempts-1 {
+			return err
+		}
+		delay := tiktokChunkRetryWait(err, attempt)
+		if delay > 0 {
+			timer := time.NewTimer(delay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			case <-timer.C:
+			}
+		}
+	}
+	return lastErr
+}
+
+func isRetryableTikTokChunkError(ctx context.Context, err error) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	var providerErr *HTTPError
+	if errors.As(err, &providerErr) {
+		return providerErr.StatusCode == http.StatusTooManyRequests || providerErr.StatusCode >= http.StatusInternalServerError
+	}
+	return !isResponseTooLarge(err)
+}
+
+func tiktokChunkRetryWait(err error, attempt int) time.Duration {
+	var providerErr *HTTPError
+	if errors.As(err, &providerErr) && providerErr.RetryAfter > 0 {
+		if providerErr.RetryAfter > tiktokChunkMaxRetryAfter {
+			return tiktokChunkMaxRetryAfter
+		}
+		return providerErr.RetryAfter
+	}
+	if tiktokChunkRetryDelay <= 0 {
+		return 0
+	}
+	delay := tiktokChunkRetryDelay * time.Duration(1<<attempt)
+	if delay > tiktokChunkMaxRetryAfter {
+		return tiktokChunkMaxRetryAfter
+	}
+	return delay
 }
 
 // tiktokUploadChunks splits a FILE_UPLOAD the way TikTok's Media Transfer

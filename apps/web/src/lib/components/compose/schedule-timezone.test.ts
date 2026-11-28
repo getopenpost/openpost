@@ -28,6 +28,30 @@ describe('workspaceScheduleToISO', () => {
 		);
 	});
 
+	it('handles legacy IANA timezone aliases consistently', () => {
+		expect(workspaceScheduleToISO(new CalendarDate(2026, 7, 20), '12:00', 'Europe/Kiev')).toBe(
+			'2026-07-20T09:00:00.000Z'
+		);
+		expect(workspaceScheduleFromISO('2026-07-20T09:00:00.000Z', 'Europe/Kiev')).toEqual({
+			date: new CalendarDate(2026, 7, 20),
+			time: '12:00'
+		});
+		expect(workspaceScheduleToISO(new CalendarDate(2026, 7, 20), '14:30', 'Asia/Calcutta')).toBe(
+			'2026-07-20T09:00:00.000Z'
+		);
+		expect(workspaceScheduleFromISO('2026-07-20T09:00:00.000Z', 'Asia/Calcutta')).toEqual({
+			date: new CalendarDate(2026, 7, 20),
+			time: '14:30'
+		});
+		expect(
+			workspaceScheduleMoveToDate(
+				'2026-07-20T09:00:00.000Z',
+				new CalendarDate(2026, 7, 22),
+				'Asia/Calcutta'
+			)
+		).toBe('2026-07-22T09:00:00.000Z');
+	});
+
 	it('fails safely when persisted workspace timezone data is invalid', () => {
 		expect(
 			workspaceScheduleToISO(new CalendarDate(2026, 7, 20), '09:00', 'Bad/Zone')

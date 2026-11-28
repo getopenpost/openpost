@@ -227,17 +227,20 @@ test.describe("screenshot templates", () => {
     await page.getByRole("textbox", { name: "Message 1", exact: true }).fill("");
     await page.getByText("Conversation details", { exact: true }).click();
     for (const name of ["You", "Alex", "Sam"]) await choose(`Photo for ${name}`);
-    const preview = page.locator("[data-template-preview]");
-    await expect(preview.locator(".message-image")).toHaveCount(1);
-    await expect(preview.locator(".group-avatars img")).toHaveCount(3);
+    // The server renders the preview; an unchanged document returns the cached image.
+    const previewFrame = page.locator("[data-template-preview]");
+    const preview = previewFrame.locator("img");
+    await expect(previewFrame).toHaveAttribute("aria-busy", "false");
+    const withPhoto = (await preview.getAttribute("src"))!;
     await page.getByRole("button", { name: "Remove: Image for message 1", exact: true }).click();
-    await expect(preview.locator(".message-image")).toHaveCount(0);
+    await expect(preview).not.toHaveAttribute("src", withPhoto);
     await page.getByRole("button", { name: "Undo", exact: true }).click();
-    await expect(preview.locator(".message-image")).toHaveCount(1);
+    await expect(preview).toHaveAttribute("src", withPhoto);
     await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
     await page.getByRole("button", { name: "Duplicate", exact: true }).first().click();
-    await expect(preview.locator(".message-image")).toHaveCount(2);
+    await expect(preview).not.toHaveAttribute("src", withPhoto);
     await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(preview).toHaveAttribute("src", withPhoto);
     const handle = page.locator('[data-reorder-key="a"]');
     await handle.focus();
     await handle.press("Space");
@@ -253,8 +256,8 @@ test.describe("screenshot templates", () => {
     await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
     const designID = page.url().split("/").at(-1)!;
     await page.reload();
-    await expect(preview.locator(".message-image")).toHaveCount(1, { timeout: 30000 });
-    await expect(preview.locator(".group-avatars img")).toHaveCount(3);
+    await expect(preview).toBeVisible({ timeout: 30000 });
+    await expect(previewFrame).toHaveAttribute("aria-busy", "false");
     const exported = await downloadPNG(page);
     const greenPixels = await page.evaluate(async (data) => {
       const image = new Image();
@@ -287,7 +290,7 @@ test.describe("screenshot templates", () => {
     await page.getByRole("button", { name: "Save to Media", exact: true }).click();
     const response = await recipeResponse;
     expect(response.ok()).toBeTruthy();
-    const request = response.request().postDataJSON();
+    const exportedMedia = (await response.json()).media as { id: string };
     const deleted = await page.request.delete(`/api/v1/screenshot-templates/designs/${designID}`, {
       headers,
     });
@@ -299,7 +302,7 @@ test.describe("screenshot templates", () => {
     expect(stillBlocked.status()).toBe(400);
     expect(await stillBlocked.text()).toContain("cannot delete media while it is used");
     const recipe = await page.request.get(
-      `/api/v1/screenshot-templates/recipes/${request.media_id}`,
+      `/api/v1/screenshot-templates/recipes/${exportedMedia.id}`,
       { headers },
     );
     expect(recipe.ok()).toBeTruthy();

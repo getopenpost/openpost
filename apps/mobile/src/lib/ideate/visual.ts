@@ -1,9 +1,8 @@
 import type { ScreenshotDocument } from "@openpost/query-catalog";
-import * as FileSystem from "expo-file-system/legacy";
 import { api, errorMessage } from "../api/client";
-import { uploadAttachment } from "../media";
 
-export type RenderedVisual = { base64: string; document: ScreenshotDocument };
+export type RenderedVisual = { document: ScreenshotDocument };
+export type TemplatePreview = { base64: string; width: number; height: number };
 export type ExportVisual = () => Promise<RenderedVisual>;
 
 export async function previewMeme(
@@ -29,6 +28,26 @@ export async function previewMeme(
   return result.data.data_base64;
 }
 
+export async function previewTemplate(
+  workspaceId: string,
+  document: ScreenshotDocument,
+  signal: AbortSignal,
+): Promise<TemplatePreview> {
+  const result = await api().POST("/screenshot-templates/previews", {
+    signal,
+    body: { workspace_id: workspaceId, document, scale: 2 },
+  });
+  if (result.error || !result.data)
+    throw new Error(
+      await errorMessage(result.response, "Could not render this visual", result.error),
+    );
+  return {
+    base64: result.data.data_base64,
+    width: result.data.width,
+    height: result.data.height,
+  };
+}
+
 export async function saveIdeateVisual(
   workspaceId: string,
   visual: RenderedVisual,
@@ -48,38 +67,19 @@ export async function saveIdeateVisual(
     throw new Error(
       await errorMessage(recipe.response, "Could not save the editable visual", recipe.error),
     );
-  const file = `${FileSystem.cacheDirectory}ideate-${recipe.data.id}.png`;
-  try {
-    await FileSystem.writeAsStringAsync(file, visual.base64, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    check();
-    const mediaId = await uploadAttachment(
-      {
-        localId: `template:${recipe.data.id}`,
-        uri: file,
-        mimeType: "image/png",
-        filename: `${visual.document.title || "Post"}.png`,
-        size: null,
-      },
-      { workspaceId, client, source: "screenshot_template", altText },
+  // The server renders and saves every visual, memes included, at publishing size.
+  const exported = await client.POST("/screenshot-templates/designs/{id}/exports", {
+    params: { path: { id: recipe.data.id } },
+    body: altText.trim()
+      ? { revision: recipe.data.revision, alt_text: altText.trim() }
+      : { revision: recipe.data.revision },
+  });
+  check();
+  if (exported.error || !exported.data)
+    throw new Error(
+      await errorMessage(exported.response, "Could not save this visual", exported.error),
     );
-    check();
-    const exported = await client.POST("/screenshot-templates/designs/{id}/exports", {
-      params: { path: { id: recipe.data.id } },
-      body: { revision: recipe.data.revision, media_id: mediaId },
-    });
-    check();
-    if (exported.error)
-      throw new Error(
-        await errorMessage(
-          exported.response,
-          "Could not keep this visual editable",
-          exported.error,
-        ),
-      );
-    return mediaId;
-  } finally {
-    await FileSystem.deleteAsync(file, { idempotent: true });
-  }
+  const mediaId = exported.data.media?.id;
+  if (!mediaId) throw new Error("Could not save this visual");
+  return mediaId;
 }

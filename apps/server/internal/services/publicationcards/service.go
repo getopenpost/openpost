@@ -16,7 +16,9 @@ import (
 	_ "image/png"
 	"io"
 	"path"
+	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,8 +34,30 @@ import (
 
 // Rendering includes avatar I/O and image buffers. Share slots across REST,
 // MCP and publication mutation owners so new handlers cannot bypass the bound.
-var renderSlots = make(chan struct{}, 2)
+// A render takes tens of milliseconds, so callers wait briefly for a slot
+// instead of failing a live preview.
+var renderSlots = make(chan struct{}, max(2, runtime.GOMAXPROCS(0)))
+
+const renderSlotWait = 5 * time.Second
+
 var ErrRenderBusy = errors.New("text card rendering is busy")
+
+// avatarCacheTTL keeps provider avatars across preview keystrokes. Profile
+// photos change rarely; a refresh or new URL fetches again.
+const (
+	avatarCacheTTL     = 10 * time.Minute
+	avatarCacheEntries = 128
+)
+
+type cachedAvatar struct {
+	photo   image.Image
+	expires time.Time
+}
+
+var avatarCache = struct {
+	sync.Mutex
+	entries map[string]cachedAvatar
+}{entries: map[string]cachedAvatar{}}
 
 type Service struct {
 	db      *bun.DB
@@ -103,10 +127,14 @@ func (s *Service) render(ctx context.Context, account models.SocialAccount, body
 	if err := ctx.Err(); err != nil {
 		return nil, avatarFailed, err
 	}
+	wait := time.NewTimer(renderSlotWait)
+	defer wait.Stop()
 	select {
 	case renderSlots <- struct{}{}:
 		defer func() { <-renderSlots }()
-	default:
+	case <-ctx.Done():
+		return nil, avatarFailed, ctx.Err()
+	case <-wait.C:
 		return nil, avatarFailed, ErrRenderBusy
 	}
 
@@ -122,6 +150,13 @@ func (s *Service) avatar(ctx context.Context, raw string) (image.Image, string) 
 	if raw == "" {
 		return nil, avatarMissing
 	}
+	now := time.Now()
+	avatarCache.Lock()
+	cached, ok := avatarCache.entries[raw]
+	avatarCache.Unlock()
+	if ok && now.Before(cached.expires) {
+		return cached.photo, avatarOK
+	}
 	data, ok := s.avatarBytes(ctx, raw)
 	if !ok {
 		return nil, avatarFailed
@@ -130,6 +165,17 @@ func (s *Service) avatar(ctx context.Context, raw string) (image.Image, string) 
 	if err != nil {
 		return nil, avatarFailed
 	}
+	// Only successful decodes are cached, so a failed fetch retries next time.
+	avatarCache.Lock()
+	if len(avatarCache.entries) >= avatarCacheEntries {
+		for key, entry := range avatarCache.entries {
+			if !now.Before(entry.expires) || len(avatarCache.entries) >= avatarCacheEntries {
+				delete(avatarCache.entries, key)
+			}
+		}
+	}
+	avatarCache.entries[raw] = cachedAvatar{photo: photo, expires: now.Add(avatarCacheTTL)}
+	avatarCache.Unlock()
 	return photo, avatarOK
 }
 

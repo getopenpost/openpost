@@ -923,7 +923,7 @@ func (l *LinkedInAdapter) createPost(ctx context.Context, accessToken, authorURN
 		}
 	}
 
-	respHeaders, err := DoJSONWithHeaders(ctx, "POST", "https://api.linkedin.com/rest/posts", payload, linkedinHeaders(accessToken, apiVersion))
+	respHeaders, err := doLinkedInCreatePost(ctx, payload, linkedinHeaders(accessToken, apiVersion))
 	if err != nil {
 		return "", fmt.Errorf("posting to linkedin: %w", err)
 	}
@@ -939,6 +939,62 @@ func (l *LinkedInAdapter) createPost(ctx context.Context, accessToken, authorURN
 	}
 
 	return postID, nil
+}
+
+func doLinkedInCreatePost(ctx context.Context, payload map[string]interface{}, headers map[string]string) (http.Header, error) {
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling JSON: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.linkedin.com/rest/posts", bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set(headerContentType, contentTypeJSON)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, sanitizeTransportError(err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := readProviderBody(resp)
+	if err != nil {
+		if isResponseTooLarge(err) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		httpErr := NewHTTPError(resp.StatusCode, resp.Header, respBody)
+		if resp.StatusCode == http.StatusUnprocessableEntity && isLinkedInDuplicateContentResponse(respBody) {
+			if providerErr, ok := httpErr.(*HTTPError); ok {
+				providerErr.Code = "linkedin:duplicate_content"
+				return nil, providerErr
+			}
+		}
+		return nil, httpErr
+	}
+	return resp.Header, nil
+}
+
+// isLinkedInDuplicateContentResponse detects LinkedIn's HTTP 422 duplicate
+// rejection (which names a share/ugcPost URN in the message without a code
+// field) without retaining raw response text or blindly adopting the URN.
+func isLinkedInDuplicateContentResponse(body []byte) bool {
+	if len(body) == 0 || len(body) > 256*1024 {
+		return false
+	}
+	var payload struct {
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(body, &payload) != nil {
+		return false
+	}
+	lower := strings.ToLower(payload.Message)
+	return strings.Contains(lower, "duplicate") && strings.Contains(lower, "urn:li:")
 }
 
 var linkedInPostIDPattern = regexp.MustCompile(`^(urn:li:(share|ugcPost):[A-Za-z0-9_-]+|[0-9]+)$`)

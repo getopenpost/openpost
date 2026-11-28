@@ -90,4 +90,37 @@ describe('composer validation placement', () => {
 			expect.objectContaining({ message: 'Add a video.', severity: 'error' })
 		]);
 	});
+
+	it('deduplicates targeted capability blockers against matching server validation issues', () => {
+		const capabilityBlocker = {
+			id: 'capability-ig-1-0-media_count-too-many',
+			message: 'Instagram carousel supports at most 20 media items.',
+			severity: 'error' as const,
+			code: 'media_count',
+			accountId: 'ig-1',
+			targetLabel: '@openpost · Instagram',
+			provider: 'instagram'
+		};
+		const serverIssue = issue({
+			code: 'media_count',
+			provider: 'instagram',
+			message: 'Instagram carousel supports at most 20 media items.'
+		});
+
+		const merged = composerIssues(
+			[],
+			[serverIssue],
+			[{ accountId: 'ig-1', provider: 'instagram', label: '@openpost · Instagram' }],
+			[capabilityBlocker]
+		);
+		expect(merged).toHaveLength(1);
+		expect(merged[0]).toEqual(
+			expect.objectContaining({
+				code: 'media_count',
+				accountId: 'ig-1',
+				targetLabel: '@openpost · Instagram',
+				message: 'Instagram carousel supports at most 20 media items.'
+			})
+		);
+	});
 });

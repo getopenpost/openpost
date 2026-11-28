@@ -109,7 +109,7 @@ export const PLATFORM_LIMITS = {
     key: "instagram",
     name: "Instagram Professional",
     charLimit: 2200,
-    media: "One image/video or a 2-10 item carousel",
+    media: "One image/video or a 2-20 item carousel",
     note: "Business or Creator accounts linked to Facebook Pages.",
   },
   tiktok: {

@@ -135,7 +135,7 @@ func (d *DiscordBotAdapter) RefreshAccountMetadata(ctx context.Context, _ string
 	}
 	var guild discordGuild
 	if err := d.discordGetJSON(ctx, "/guilds/"+url.PathEscape(guildID)+"?with_counts=true", "Bot "+d.botToken, &guild); err != nil {
-		return nil, fmt.Errorf("loading discord guild profile: %w", err)
+		return nil, fmt.Errorf("loading discord guild profile: %w", normalizeDiscordBotTokenError(err))
 	}
 	if guild.ID != guildID {
 		return nil, fmt.Errorf("discord guild profile returned a different id")
@@ -389,7 +389,7 @@ func (d *DiscordBotAdapter) FetchAccountAnalyticsMeasurements(ctx context.Contex
 		ApproximateMemberCount *int64 `json:"approximate_member_count"`
 	}
 	if err := d.discordGetJSON(ctx, "/guilds/"+url.PathEscape(guildID)+"?with_counts=true", "Bot "+d.botToken, &guild); err != nil {
-		return nil, fmt.Errorf("loading discord guild analytics: %w", err)
+		return nil, fmt.Errorf("loading discord guild analytics: %w", normalizeDiscordBotTokenError(err))
 	}
 	if guild.ID != guildID || guild.ApproximateMemberCount == nil {
 		return nil, NewAnalyticsError(AnalyticsStatusNotFound, "discord_member_count_unavailable")
@@ -419,7 +419,7 @@ func (d *DiscordBotAdapter) FetchContentAnalyticsMeasurements(ctx context.Contex
 		var message discordMessage
 		path := "/channels/" + url.PathEscape(identity.channelID) + "/messages/" + url.PathEscape(identity.messageID)
 		if err := d.discordGetJSON(ctx, path, "Bot "+d.botToken, &message); err != nil {
-			return nil, fmt.Errorf("loading discord message analytics: %w", err)
+			return nil, fmt.Errorf("loading discord message analytics: %w", normalizeDiscordBotTokenError(err))
 		}
 		if message.ID != identity.messageID || (message.ChannelID != "" && message.ChannelID != identity.channelID) {
 			return nil, NewAnalyticsError(AnalyticsStatusNotFound, "discord_message_identity_mismatch")
@@ -625,7 +625,7 @@ func (d *DiscordBotAdapter) ReconcilePublish(ctx context.Context, _ string, guil
 		return PublishResult{SubmissionState: PublishSubmissionRejected, ProviderState: "discord_message_missing", ProviderReference: providerReference, RetrySafety: PublishRetryNever}, &HTTPError{StatusCode: http.StatusNotFound, Code: "discord_message_not_found"}
 	}
 	if err != nil {
-		return PublishResult{SubmissionState: PublishSubmissionPending, ProviderState: "discord_message_reconcile", ProviderReference: providerReference, RetrySafety: PublishRetryReconcileOnly}, err
+		return PublishResult{SubmissionState: PublishSubmissionPending, ProviderState: "discord_message_reconcile", ProviderReference: providerReference, RetrySafety: PublishRetryReconcileOnly}, normalizeDiscordBotTokenError(err)
 	}
 	if message.ID != messageID || (message.ChannelID != "" && message.ChannelID != channelID) {
 		return PublishResult{SubmissionState: PublishSubmissionPending, ProviderState: "discord_message_reconcile", ProviderReference: providerReference, RetrySafety: PublishRetryReconcileOnly}, fmt.Errorf("discord message reconciliation returned an unexpected identity")
@@ -769,7 +769,7 @@ func (d *DiscordBotAdapter) botInstalledInGuild(ctx context.Context, guildID str
 	if status := discordHTTPStatus(err); status == http.StatusForbidden || status == http.StatusNotFound {
 		return false, nil
 	}
-	return false, fmt.Errorf("verifying discord bot installation: %w", err)
+	return false, fmt.Errorf("verifying discord bot installation: %w", normalizeDiscordBotTokenError(err))
 }
 
 type discordPermissionContext struct {

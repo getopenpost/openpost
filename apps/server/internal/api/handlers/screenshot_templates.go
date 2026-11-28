@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -12,17 +13,46 @@ import (
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/screenshottemplates"
+	"github.com/openpost/backend/internal/services/ratelimit"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/uptrace/bun"
 )
 
 type ScreenshotTemplateHandler struct {
-	db   *bun.DB
-	auth middleware.Authenticator
+	db       *bun.DB
+	auth     middleware.Authenticator
+	renderer *ScreenshotTemplateRenderer
+	limiter  *ratelimit.Limiter
 }
 
-func NewScreenshotTemplateHandler(db *bun.DB, auth middleware.Authenticator) *ScreenshotTemplateHandler {
-	return &ScreenshotTemplateHandler{db: db, auth: auth}
+func NewScreenshotTemplateHandler(db *bun.DB, auth middleware.Authenticator, renderer *ScreenshotTemplateRenderer) *ScreenshotTemplateHandler {
+	return &ScreenshotTemplateHandler{db: db, auth: auth, renderer: renderer, limiter: ratelimit.New()}
+}
+
+// Live previews follow typing. Rendering is bounded by shared slots, so the
+// per-user cap only stops runaway clients.
+const screenshotTemplatePreviewsPerMinute = 600
+
+type PreviewScreenshotTemplateInput struct {
+	Body struct {
+		WorkspaceID string                     `json:"workspace_id" minLength:"1"`
+		Document    ScreenshotTemplateDocument `json:"document"`
+		Scale       float64                    `json:"scale,omitempty" enum:"1,2" doc:"Device pixel ratio of the preview. Defaults to 2."`
+		Format      string                     `json:"format,omitempty" enum:"jpeg,png" doc:"jpeg for live previews (default) or png for a lossless download"`
+	}
+}
+
+type PreviewScreenshotTemplateOutput struct {
+	CacheControl string `header:"Cache-Control"`
+	Body         struct {
+		MIMEType   string                       `json:"mime_type"`
+		DataBase64 string                       `json:"data_base64" doc:"Base64-encoded JPEG preview from the publishing renderer"`
+		Width      int                          `json:"width" doc:"Pixel width of the preview image"`
+		Height     int                          `json:"height" doc:"Pixel height of the preview image"`
+		Scale      float64                      `json:"scale"`
+		Regions    []screenshottemplates.Region `json:"regions" nullable:"false" doc:"Selectable content boxes in CSS pixels at the 540 px template width"`
+	}
 }
 
 type ScreenshotTemplateDesignSummary struct {
@@ -76,7 +106,8 @@ type SaveScreenshotTemplateExportInput struct {
 	ID   string `path:"id"`
 	Body struct {
 		Revision int    `json:"revision" minimum:"1"`
-		MediaID  string `json:"media_id" minLength:"1"`
+		MediaID  string `json:"media_id,omitempty" doc:"A PNG the client rendered. Omit it to have the server render and save the export."`
+		AltText  string `json:"alt_text,omitempty" maxLength:"1500" doc:"Alt text for a server-rendered export"`
 	}
 }
 type ScreenshotTemplateRecipeInput struct {
@@ -86,6 +117,7 @@ type ScreenshotTemplateRecipeOutput struct {
 	Body struct {
 		WorkspaceID string                     `json:"workspace_id"`
 		Document    ScreenshotTemplateDocument `json:"document"`
+		Media       *MediaUploadResult         `json:"media,omitempty" doc:"The exported image when the server rendered it"`
 	}
 }
 
@@ -101,7 +133,10 @@ func (h *ScreenshotTemplateHandler) RegisterRoutes(api huma.API) {
 	huma.Register(api, operation("get-screenshot-template-design", http.MethodGet, "/screenshot-templates/designs/{id}", "Get a screenshot template design"), h.get)
 	huma.Register(api, operation("update-screenshot-template-design", http.MethodPut, "/screenshot-templates/designs/{id}", "Save a screenshot template design"), h.update)
 	huma.Register(api, operation("delete-screenshot-template-design", http.MethodDelete, "/screenshot-templates/designs/{id}", "Delete a screenshot template design"), h.delete)
-	huma.Register(api, operation("save-screenshot-template-export", http.MethodPost, "/screenshot-templates/designs/{id}/exports", "Save the editable recipe for a screenshot export"), h.saveExport)
+	huma.Register(api, operation("save-screenshot-template-export", http.MethodPost, "/screenshot-templates/designs/{id}/exports", "Export a screenshot template design"), h.saveExport)
+	preview := operation("preview-screenshot-template", http.MethodPost, "/screenshot-templates/previews", "Preview a screenshot template with the publishing renderer")
+	preview.Errors = append(preview.Errors, 422, 429, 503)
+	huma.Register(api, preview, h.preview)
 	huma.Register(api, operation("get-screenshot-template-recipe", http.MethodGet, "/screenshot-templates/recipes/{media_id}", "Get the editable recipe for a screenshot export"), h.recipe)
 }
 
@@ -256,6 +291,44 @@ func (h *ScreenshotTemplateHandler) delete(ctx context.Context, input *GetScreen
 	return &DeleteScreenshotTemplateDesignOutput{Status: http.StatusNoContent}, nil
 }
 
+func (h *ScreenshotTemplateHandler) preview(ctx context.Context, input *PreviewScreenshotTemplateInput) (*PreviewScreenshotTemplateOutput, error) {
+	if _, err := h.access(ctx, input.Body.WorkspaceID, workspaceaccess.LevelRead); err != nil {
+		return nil, err
+	}
+	if h.renderer == nil {
+		return nil, huma.Error503ServiceUnavailable("the template renderer is not configured")
+	}
+	if !h.limiter.Allow("screenshot-template-preview:"+middleware.GetUserID(ctx), screenshotTemplatePreviewsPerMinute, time.Minute) {
+		return nil, huma.Error429TooManyRequests("template previews are rate limited; try again shortly")
+	}
+	scale := input.Body.Scale
+	if scale == 0 {
+		scale = screenshottemplates.ExportScale
+	}
+	rendered, err := h.renderer.Render(ctx, input.Body.WorkspaceID, input.Body.Document, scale)
+	if err != nil {
+		return nil, err
+	}
+	mimeType, encode := "image/jpeg", screenshottemplates.EncodeJPEG
+	if input.Body.Format == "png" {
+		mimeType, encode = "image/png", screenshottemplates.EncodePNG
+	}
+	data, err := encode(rendered.Image)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to encode the template preview")
+	}
+	out := &PreviewScreenshotTemplateOutput{CacheControl: "no-store"}
+	out.Body.MIMEType = mimeType
+	out.Body.DataBase64 = base64.StdEncoding.EncodeToString(data)
+	out.Body.Width, out.Body.Height = rendered.Image.Rect.Dx(), rendered.Image.Rect.Dy()
+	out.Body.Scale = scale
+	out.Body.Regions = rendered.Regions
+	if out.Body.Regions == nil {
+		out.Body.Regions = []screenshottemplates.Region{}
+	}
+	return out, nil
+}
+
 func (h *ScreenshotTemplateHandler) saveExport(ctx context.Context, input *SaveScreenshotTemplateExportInput) (*ScreenshotTemplateRecipeOutput, error) {
 	row, _, err := h.load(ctx, input.ID, workspaceaccess.LevelEdit)
 	if err != nil {
@@ -264,6 +337,27 @@ func (h *ScreenshotTemplateHandler) saveExport(ctx context.Context, input *SaveS
 	if row.Revision != input.Body.Revision {
 		return nil, huma.Error409Conflict("the design changed while exporting; export it again")
 	}
+	var doc ScreenshotTemplateDocument
+	if err := json.Unmarshal([]byte(row.DocumentJSON), &doc); err != nil {
+		return nil, huma.Error500InternalServerError("failed to read template document")
+	}
+	if input.Body.MediaID == "" {
+		if h.renderer == nil {
+			return nil, huma.Error503ServiceUnavailable("the template renderer is not configured")
+		}
+		media, err := h.renderer.Export(ctx, row.WorkspaceID, middleware.GetUserID(ctx), doc, input.Body.AltText)
+		if err != nil {
+			return nil, err
+		}
+		out, err := h.recipe(ctx, &ScreenshotTemplateRecipeInput{MediaID: media.ID})
+		if err != nil {
+			return nil, err
+		}
+		result := mediaUploadResultFromAttachment(media, false)
+		out.Body.Media = &result
+		return out, nil
+	}
+	// Clients released before server rendering upload their own PNG.
 	var media models.MediaAttachment
 	err = h.db.NewSelect().Model(&media).Where("id = ? AND workspace_id = ? AND processing_status = ? AND trashed_at IS NULL", input.Body.MediaID, row.WorkspaceID, mediaReadyStatus).Scan(ctx)
 	if err != nil {
@@ -272,47 +366,17 @@ func (h *ScreenshotTemplateHandler) saveExport(ctx context.Context, input *SaveS
 	if media.MimeType != "image/png" || media.Source != "screenshot_template" {
 		return nil, huma.Error400BadRequest("the export must be a screenshot template PNG")
 	}
-	recipe := models.MediaGenerationRecipe{MediaID: media.ID, WorkspaceID: row.WorkspaceID, CreatedByID: middleware.GetUserID(ctx), Kind: "screenshot_template", RendererKey: screenshotTemplateRenderer, TemplateID: row.TemplateID, TemplateName: row.Title, CatalogRevision: "1", RecipeJSON: row.DocumentJSON, CreatedAt: time.Now().UTC()}
-	var doc ScreenshotTemplateDocument
-	if err := json.Unmarshal([]byte(row.DocumentJSON), &doc); err != nil {
-		return nil, huma.Error500InternalServerError("failed to read template document")
-	}
 	ids := screenshotTemplateMediaIDs(doc)
 	for _, id := range ids {
 		if id == media.ID {
 			return nil, huma.Error400BadRequest("an export cannot be its own source image")
 		}
 	}
-	if err := h.saveExportRecipe(ctx, row, media.ID, doc, ids, recipe); err != nil {
+	recipe := models.MediaGenerationRecipe{MediaID: media.ID, WorkspaceID: row.WorkspaceID, CreatedByID: middleware.GetUserID(ctx), Kind: "screenshot_template", RendererKey: screenshotTemplateClientRenderer, TemplateID: row.TemplateID, TemplateName: row.Title, CatalogRevision: "1", RecipeJSON: row.DocumentJSON, CreatedAt: time.Now().UTC()}
+	if err := saveScreenshotTemplateRecipe(ctx, h.db, row.WorkspaceID, media.ID, doc, recipe); err != nil {
 		return nil, err
 	}
 	return h.recipe(ctx, &ScreenshotTemplateRecipeInput{MediaID: media.ID})
-}
-
-func (h *ScreenshotTemplateHandler) saveExportRecipe(ctx context.Context, row models.ScreenshotTemplateDesign, mediaID string, doc ScreenshotTemplateDocument, ids []string, recipe models.MediaGenerationRecipe) error {
-	return h.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		if err := validateScreenshotTemplateMedia(ctx, tx, row.WorkspaceID, doc); err != nil {
-			return err
-		}
-		if _, err := tx.NewInsert().Model(&recipe).On("CONFLICT (media_id) DO NOTHING").Exec(ctx); err != nil {
-			return huma.Error500InternalServerError("failed to save template recipe")
-		}
-		// Exports are immutable. A retry may only reuse the identical recipe.
-		var saved models.MediaGenerationRecipe
-		if err := tx.NewSelect().Model(&saved).Where("media_id = ?", mediaID).Scan(ctx); err != nil {
-			return huma.Error500InternalServerError("failed to read template recipe")
-		}
-		if saved.RecipeJSON != row.DocumentJSON || saved.Kind != "screenshot_template" {
-			return huma.Error409Conflict("this media already has a different recipe")
-		}
-		for _, id := range ids {
-			ref := models.ScreenshotTemplateRecipeMediaReference{ExportMediaID: mediaID, MediaID: id}
-			if _, err := tx.NewInsert().Model(&ref).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
-				return huma.Error500InternalServerError("failed to retain template images")
-			}
-		}
-		return nil
-	})
 }
 
 func (h *ScreenshotTemplateHandler) recipe(ctx context.Context, input *ScreenshotTemplateRecipeInput) (*ScreenshotTemplateRecipeOutput, error) {

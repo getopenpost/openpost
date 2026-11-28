@@ -2,6 +2,8 @@
 	import { appBranding } from '$lib/app-branding.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { untrack } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { createQuery } from '@tanstack/svelte-query';
 	import {
 		screenshotTemplateListOptions,
@@ -23,7 +25,8 @@
 	import MemeBrowser from '$lib/meme-generator/browser.svelte';
 	import { memeDocument } from '$lib/screenshot-templates/meme';
 	import { getLocaleTag } from '$lib/i18n';
-	import Preview from '$lib/screenshot-templates/preview.svelte';
+	import ServerPreview from '$lib/screenshot-templates/server-preview.svelte';
+	import { previewScreenshot, type ScreenshotPreviewImage } from '$lib/screenshot-templates/api';
 	const workspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const returnToken = $derived(page.url.searchParams.get('return_token') ?? '');
 	const mediaID = $derived(page.url.searchParams.get('media') ?? '');
@@ -40,6 +43,20 @@
 		screenshotTemplateRecipeOptions(screenshotTemplateAPI, workspaceId, mediaID)
 	);
 	const examples = $derived(TEMPLATE_IDS.map((id) => newDocument(id)));
+	const thumbnails = new SvelteMap<string, ScreenshotPreviewImage>();
+	$effect(() => {
+		const workspace = workspaceId;
+		if (!workspace) return;
+		const controller = new AbortController();
+		for (const example of examples) {
+			const key = `${workspace}:${example.template_id}`;
+			if (untrack(() => thumbnails.has(key))) continue;
+			previewScreenshot(workspace, example, 1, controller.signal)
+				.then((image) => thumbnails.set(key, image))
+				.catch(() => {});
+		}
+		return () => controller.abort();
+	});
 	const canEdit = $derived(designs.data?.can_edit ?? false);
 	function editorURL(id: string) {
 		return resolveAppPath(
@@ -129,7 +146,11 @@
 								<div
 									class="absolute top-4 left-1/2 origin-top -translate-x-1/2 scale-[.44] ring-1 ring-border"
 								>
-									<Preview {document} />
+									{#if thumbnails.get(`${workspaceId}:${document.template_id}`)}<ServerPreview
+											image={thumbnails.get(`${workspaceId}:${document.template_id}`)!}
+										/>{:else}<div
+											class="h-[675px] w-[540px] bg-muted motion-safe:animate-pulse"
+										></div>{/if}
 								</div>
 							</div>
 							<div class="flex items-center justify-between border-t bg-card px-4 py-3">

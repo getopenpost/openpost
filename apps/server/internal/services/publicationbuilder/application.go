@@ -111,6 +111,7 @@ type Application struct {
 	assetLoader     AssetLoader
 	authorizeStored StoredAuthorityFunc
 	leaseDuration   time.Duration
+	visuals         VisualRenderer
 }
 
 type CreateBuildRequest struct {

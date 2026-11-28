@@ -155,6 +155,8 @@ type UploadMediaRequest struct {
 	// BeforeWrite revalidates the owning publication immediately before upload
 	// mutations. Resumable adapters must leave read-only reconciliation available.
 	BeforeWrite       func(context.Context) error
+	Profile           string
+	OutputProfile     string
 	MimeType          string
 	Filename          string
 	Size              int64

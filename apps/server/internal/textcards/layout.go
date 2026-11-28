@@ -10,6 +10,7 @@ import (
 	textfont "github.com/go-text/typesetting/font"
 	"github.com/go-text/typesetting/shaping"
 	fontassets "github.com/openpost/backend/internal/memes/catalog/fonts"
+	"github.com/openpost/backend/internal/textshaping"
 	"golang.org/x/image/math/fixed"
 )
 
@@ -17,7 +18,7 @@ const textWidth = 808
 
 var loadFonts = sync.OnceValues(func() ([]*textfont.Font, error) {
 	var fonts []*textfont.Font
-	for _, name := range []string{"TitilliumWeb-SemiBold.ttf", "NotoSans-Bold.ttf", "NotoSansArabic.ttf", "NotoSansHebrew-Bold.ttf", "HG-Mincho-B.ttc", "NotoEmoji.ttf"} {
+	for _, name := range []string{"TitilliumWeb-SemiBold.ttf", "NotoSans-Bold.ttf", "NotoSansArabic.ttf", "NotoSansHebrew-Bold.ttf", "HG-Mincho-B.ttc", "NotoColorEmoji.ttf"} {
 		data, err := fontassets.Files.ReadFile(name)
 		if err != nil {
 			return nil, err
@@ -40,6 +41,26 @@ func (fonts fontMap) ResolveFace(r rune) *textfont.Face {
 		}
 	}
 	return fonts[0]
+}
+
+// rebind copies shaped lines onto these faces. Shaping caches live on faces,
+// so concurrently drawn pages must not share the faces Layout shaped with.
+func (fonts fontMap) rebind(lines []line) []line {
+	byFont := make(map[*textfont.Font]*textfont.Face, len(fonts))
+	for _, face := range fonts {
+		byFont[face.Font] = face
+	}
+	result := make([]line, len(lines))
+	for index, item := range lines {
+		result[index] = item
+		result[index].runs = append(shaping.Line(nil), item.runs...)
+		for run := range result[index].runs {
+			if face, ok := byFont[result[index].runs[run].Face.Font]; ok {
+				result[index].runs[run].Face = face
+			}
+		}
+	}
+	return result
 }
 
 func newFaces() (fontMap, error) {
@@ -122,6 +143,7 @@ func wrapText(value string, faces fontMap, size, width int) []line {
 		runs := make(shaping.Line, len(inputs))
 		for i, input := range inputs {
 			runs[i] = shaper.Shape(input)
+			textshaping.NormalizeFallbackSpaces(&runs[i], text, faces[0], input.Size)
 		}
 		var wrapper shaping.LineWrapper
 		wrapper.Prepare(shaping.WrapConfig{Direction: runs[0].Direction}, text, shaping.NewSliceIterator(runs))

@@ -129,6 +129,11 @@ jobs:
         env:
           OPENPOST_SECRET_SCAN_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           OPENPOST_SECRET_SCAN_HEAD: ${{ github.sha }}
+          # Pull requests must add changes/ fragments for feat and fix
+          # commits; main pushes only warn (see scripts/check-changelog.mjs).
+          OPENPOST_CHANGELOG_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          OPENPOST_CHANGELOG_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          OPENPOST_CHANGELOG_ENFORCE: ${{ github.event_name == 'pull_request' && '1' || '0' }}
         run: bun run check -- policy
       - if: needs.plan.outputs.security == 'true'
         run: scripts/security-check.sh

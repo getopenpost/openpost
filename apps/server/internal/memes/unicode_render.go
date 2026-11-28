@@ -176,9 +176,12 @@ func (p *BuiltinProvider) drawShapedCaption(canvas *image.NRGBA, field builtinTe
 	if err != nil {
 		return err
 	}
-	layer := image.NewNRGBA(image.Rect(0, 0, width, height))
+	// RGBA keeps rasterization and compositing on their fast paths; each line
+	// is shaped and rasterized once and stroked from its coverage.
+	layer := image.NewRGBA(image.Rect(0, 0, width, height))
 	stroke, strokeColor := builtinStrokeForField(field.Color, layout.size)
-	renderer := textrender.Renderer{FontSize: float32(layout.size)}
+	fill := parseBuiltinColor(field.Color)
+	renderer := textrender.Renderer{FontSize: float32(layout.size), Color: opaque(fill)}
 	y := (height - layout.height) / 2
 	for _, line := range layout.lines {
 		x := builtinAlignX(width, line.width, field.Align)
@@ -186,28 +189,24 @@ func (p *BuiltinProvider) drawShapedCaption(canvas *image.NRGBA, field builtinTe
 			x += stroke
 		}
 		y += line.ascent + stroke
-		drawLine := func(dx, dy int, fill color.Color) {
-			renderer.Color = fill
-			runX := x + dx
+		pad := max(2, layout.size/2)
+		bounds := image.Rect(x-pad, y-line.ascent-pad, x+line.width+pad, y+line.descent+pad)
+		if len(line.runs) > 0 && !bounds.Empty() {
+			rasterized := newCaptionLine(bounds)
+			runX := x - bounds.Min.X
 			for _, run := range line.runs {
-				runX = renderer.DrawShapedRunAt(run, layer, runX, y+dy)
+				runX = renderer.DrawShapedRunAt(run, rasterized.glyphs, runX, y-bounds.Min.Y)
 			}
+			rasterized.composite(layer, stroke, strokeColor, fill)
 		}
-		for dy := -stroke; dy <= stroke; dy++ {
-			for dx := -stroke; dx <= stroke; dx++ {
-				if dx*dx+dy*dy <= stroke*stroke {
-					drawLine(dx, dy, strokeColor)
-				}
-			}
-		}
-		drawLine(0, 0, parseBuiltinColor(field.Color))
 		y += line.descent + stroke + builtinPILDefaultSpacing
 	}
+	var rendered image.Image = layer
 	if field.Angle != 0 {
-		layer = imaging.Rotate(layer, field.Angle, color.NRGBA{})
+		rendered = imaging.Rotate(layer, field.Angle, color.NRGBA{})
 	}
 	x := int(float64(canvas.Bounds().Dx()) * field.AnchorX)
 	y = int(float64(canvas.Bounds().Dy()) * field.AnchorY)
-	draw.Draw(canvas, image.Rect(x, y, x+layer.Bounds().Dx(), y+layer.Bounds().Dy()), layer, layer.Bounds().Min, draw.Over)
+	draw.Draw(canvas, image.Rect(x, y, x+rendered.Bounds().Dx(), y+rendered.Bounds().Dy()), rendered, rendered.Bounds().Min, draw.Over)
 	return nil
 }

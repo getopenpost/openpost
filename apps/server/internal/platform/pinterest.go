@@ -1462,9 +1462,24 @@ func paginatePinterestOptions(options []DestinationOption, search, cursor string
 
 func normalizePinterestPinCreateError(err error) error {
 	var providerErr *HTTPError
-	if errors.As(err, &providerErr) && providerErr.Code == "29" {
+	if !errors.As(err, &providerErr) {
+		return err
+	}
+	switch {
+	case providerErr.Code == "29":
 		providerErr.StatusCode = http.StatusForbidden
 		providerErr.Code = "pinterest:board_permission:29"
+	case providerErr.Code == "21":
+		// Pinterest error code 21 ("/v5/pins didn't finish after 7 seconds")
+		// means the creation request timed out server-side without confirming
+		// whether the Pin was created. Preserve as ambiguous, never auto-retry.
+		providerErr.Code = "pinterest:create_timeout:21"
+	case providerErr.StatusCode == http.StatusBadRequest && providerErr.Code == "1":
+		// Pinterest intermittently refuses valid Pins with HTTP 400 code 1
+		// ("Sorry! This site doesn't allow you to save Pins.") and accepts an
+		// identical request minutes later. Because this is an explicit 400
+		// refusal rather than an ambiguous timeout, a later retry is safe.
+		providerErr.Code = "pinterest:temporarily_refused:1"
 	}
 	return err
 }

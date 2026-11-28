@@ -178,8 +178,7 @@ test.describe("video editor", () => {
 
     await openHeaderMoreMenu(page);
     await page.getByRole("menuitem", { name: "Export", exact: true }).click();
-    await page.getByRole("dialog").getByText("WebM", { exact: true }).click();
-    await page.getByRole("option", { name: "MP4", exact: true }).click();
+    await expect(page.getByRole("dialog").getByText("MP4", { exact: true })).toBeVisible();
     await page.getByRole("dialog").getByRole("button", { name: "Render now", exact: true }).click();
     await expect(page.getByText(`Saved ${projectName}.mp4.`)).toBeVisible({
       timeout: 60_000,
@@ -451,8 +450,6 @@ test.describe("video editor repair", () => {
     await expect(page.getByText("Save failed", { exact: false })).toHaveCount(0);
     await page.locator("header").getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Export", exact: true }).click();
-    await page.getByRole("dialog").getByText("WebM", { exact: true }).click();
-    await page.getByRole("option", { name: "MP4", exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Render now", exact: true }).click();
     await expect(
       page.getByText("Saved Text proof.mp4.", {
@@ -700,8 +697,6 @@ test.describe("video editor shaders", () => {
     ).toHaveText("Dark areas");
     await page.locator("header").getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Export", exact: true }).click();
-    await page.getByRole("dialog").getByText("WebM", { exact: true }).click();
-    await page.getByRole("option", { name: "MP4", exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Render now", exact: true }).click();
     await expect(page.getByText("Saved Shader proof.mp4.", { exact: true })).toBeVisible({
       timeout: 60_000,

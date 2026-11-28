@@ -7,7 +7,6 @@ export type StatusPage = NonNullable<ScreenshotDocument['status_page']>;
 export const TEMPLATE_IDS: TemplateID[] = ['messages', 'group-chat', 'receipt', 'status-page'];
 export const TEMPLATE_WIDTH = 540;
 export const EXPORT_SCALE = 2;
-export const MAX_EXPORT_HEIGHT = 8192;
 export function templateName(id: string): string {
 	switch (id) {
 		case 'meme':
@@ -136,17 +135,6 @@ export function newDocument(templateID: TemplateID): ScreenshotDocument {
 				}
 			};
 	}
-}
-export function receiptTotals(receipt: Receipt) {
-	const subtotal = (receipt.items ?? []).reduce(
-		(sum, item) => sum + item.quantity * item.amount_cents,
-		0
-	);
-	const tax = Math.round((subtotal * receipt.tax_percent) / 100);
-	return { subtotal, tax, total: subtotal + tax };
-}
-export function receiptMoney(amount: number, currency: Receipt['currency']) {
-	return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount / 100);
 }
 export function moveRow<T>(rows: T[], index: number, direction: -1 | 1): T[] {
 	const next = index + direction;

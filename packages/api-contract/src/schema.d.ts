@@ -5491,8 +5491,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Save the editable recipe for a screenshot export */
+        /** Export a screenshot template design */
         post: operations["save-screenshot-template-export"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/screenshot-templates/previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview a screenshot template with the publishing renderer */
+        post: operations["preview-screenshot-template"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13696,6 +13713,52 @@ export interface components {
             mime_type: string;
             template_id: string;
         };
+        PreviewScreenshotTemplateInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/PreviewScreenshotTemplateInputBody.json
+             */
+            readonly $schema?: string;
+            document: components["schemas"]["ScreenshotTemplateDocument"];
+            /**
+             * @description jpeg for live previews (default) or png for a lossless download
+             * @enum {string}
+             */
+            format?: "jpeg" | "png";
+            /**
+             * Format: double
+             * @description Device pixel ratio of the preview. Defaults to 2.
+             * @enum {number}
+             */
+            scale?: 1 | 2;
+            workspace_id: string;
+        };
+        PreviewScreenshotTemplateOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/api/v1/schemas/PreviewScreenshotTemplateOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Base64-encoded JPEG preview from the publishing renderer */
+            data_base64: string;
+            /**
+             * Format: int64
+             * @description Pixel height of the preview image
+             */
+            height: number;
+            mime_type: string;
+            /** @description Selectable content boxes in CSS pixels at the 540 px template width */
+            regions: components["schemas"]["Region"][];
+            /** Format: double */
+            scale: number;
+            /**
+             * Format: int64
+             * @description Pixel width of the preview image
+             */
+            width: number;
+        };
         PreviewTextCardInputBody: {
             /**
              * Format: uri
@@ -14734,6 +14797,17 @@ export interface components {
             message: string;
             /** @description Queued status */
             status: string;
+        };
+        Region: {
+            /** Format: double */
+            height: number;
+            id: string;
+            /** Format: double */
+            width: number;
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
         };
         RegisterInputBody: {
             /**
@@ -15801,7 +15875,10 @@ export interface components {
              * @example https://example.com/api/v1/schemas/SaveScreenshotTemplateExportInputBody.json
              */
             readonly $schema?: string;
-            media_id: string;
+            /** @description Alt text for a server-rendered export */
+            alt_text?: string;
+            /** @description A PNG the client rendered. Omit it to have the server render and save the export. */
+            media_id?: string;
             /** Format: int64 */
             revision: number;
         };
@@ -15940,6 +16017,8 @@ export interface components {
              */
             readonly $schema?: string;
             document: components["schemas"]["ScreenshotTemplateDocument"];
+            /** @description The exported image when the server rendered it */
+            media?: components["schemas"]["MediaUploadResult"];
             workspace_id: string;
         };
         ScreenshotTemplateStatus: {
@@ -40343,6 +40422,112 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "preview-screenshot-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewScreenshotTemplateInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewScreenshotTemplateOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

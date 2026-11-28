@@ -108,7 +108,7 @@ func exchangeMetaAuthCode(ctx context.Context, graphURL func(string) string, cli
 
 	longLived, err := exchangeMetaLongLivedToken(ctx, graphURL, clientID, clientSecret, providerName, tokenResp.AccessToken)
 	if err != nil {
-		return tokenResp, nil
+		return nil, err
 	}
 	return longLived, nil
 }
@@ -404,10 +404,7 @@ func (f *FacebookAdapter) publishHostedVideo(
 	if err := req.Checkpoint(pendingFacebookVideo("transfer", start.VideoID)); err != nil {
 		return "", err
 	}
-	uploadResponse, err := DoRequestNoRedirect(ctx, http.MethodPost, start.UploadURL, nil, map[string]string{
-		headerAuthorization: "OAuth " + accessToken,
-		"file_url":          mediaURL,
-	})
+	uploadResponse, err := doFacebookRupload(ctx, start.UploadURL, accessToken, mediaURL)
 	if err != nil {
 		return "", facebookVideoOutcomeError("transfer", start.VideoID, fmt.Errorf("%s transfer: %w", label, err))
 	}
@@ -427,6 +424,67 @@ func (f *FacebookAdapter) publishHostedVideo(
 		return "", facebookVideoOutcomeError("processing", start.VideoID, fmt.Errorf("%s processing: %w", label, err))
 	}
 	return f.finishHostedVideo(ctx, accessToken, pageID, edge, label, start.VideoID, finishValues, req)
+}
+
+func doFacebookRupload(ctx context.Context, uploadURL, accessToken, mediaURL string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set(headerAuthorization, "OAuth "+accessToken)
+	req.Header.Set("file_url", mediaURL)
+
+	client := *httpClient
+	client.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, sanitizeTransportError(err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := readProviderBody(resp)
+	if err != nil {
+		if isResponseTooLarge(err) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		httpErr := NewHTTPError(resp.StatusCode, resp.Header, respBody)
+		if isMetaRobotsBlockedMediaError(respBody) {
+			if providerErr, ok := httpErr.(*HTTPError); ok {
+				providerErr.Code = "meta:media_url_blocked_by_robots"
+				return nil, providerErr
+			}
+		}
+		return nil, normalizeMetaPublishError(httpErr)
+	}
+	return respBody, nil
+}
+
+// isMetaRobotsBlockedMediaError inspects bounded rupload JSON diagnostics for
+// Meta's FileUrlProcessingError / robots.txt block without retaining response text.
+func isMetaRobotsBlockedMediaError(body []byte) bool {
+	if len(body) == 0 || len(body) > 256*1024 {
+		return false
+	}
+	var payload struct {
+		DebugInfo struct {
+			Type    string `json:"type"`
+			Message string `json:"message"`
+		} `json:"debug_info"`
+		Error struct {
+			Type    string `json:"type"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &payload) != nil {
+		return false
+	}
+	combined := strings.ToLower(payload.DebugInfo.Type + " " + payload.DebugInfo.Message + " " + payload.Error.Type + " " + payload.Error.Message)
+	return strings.Contains(combined, "fileurlprocessingerror") && strings.Contains(combined, "robots.txt")
 }
 
 func (f *FacebookAdapter) finishHostedVideo(ctx context.Context, accessToken, pageID, edge, label, videoID string, finishValues map[string]string, req *PublishRequest) (string, error) {

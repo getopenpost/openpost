@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/openpost/backend/internal/textutil"
 
@@ -330,6 +331,8 @@ func buildCatalog() []Capability {
 	}
 	publicMediaCarousel := publicMedia
 	publicMediaCarousel.MinCount = 2
+	instagramCarousel := publicMediaCarousel
+	instagramCarousel.MaxCount = 20
 	threadsThreadMedia := publicMedia
 	threadsThreadMedia.MinCount = 0
 	threadsCarousel := MediaConstraint{
@@ -481,7 +484,7 @@ func buildCatalog() []Capability {
 		defaultQueued(Capability{Provider: ProviderFacebook, Profile: models.ContentProfileLongVideo, Label: "Facebook video", TextLimit: 63206, Media: longVideo, RequiresPublicMedia: true, Settings: facebookSettings()}),
 
 		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileImagePost, Label: "Instagram feed", TextLimit: 2200, Media: publicImage, RequiresPublicMedia: true, Settings: instagramSettings(models.ContentProfileImagePost), Content: instagramAltTextConstraint()}),
-		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileCarousel, Label: "Instagram carousel", TextLimit: 2200, Media: publicMediaCarousel, RequiresPublicMedia: true, Settings: instagramSettings(models.ContentProfileCarousel), Content: instagramAltTextConstraint()}),
+		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileCarousel, Label: "Instagram carousel", TextLimit: 2200, Media: instagramCarousel, RequiresPublicMedia: true, Settings: instagramSettings(models.ContentProfileCarousel), Content: instagramAltTextConstraint()}),
 		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileStory, Label: "Instagram Story", Media: publicStory, RequiresPublicMedia: true, RequiresAppReview: true, Settings: instagramSettings(models.ContentProfileStory)}),
 		defaultQueued(Capability{Provider: ProviderInstagram, Profile: models.ContentProfileShortVideo, Label: "Instagram Reel", TextLimit: 2200, Media: publicShortVideo, RequiresPublicMedia: true, Settings: instagramSettings(models.ContentProfileShortVideo)}),
 
@@ -2255,9 +2258,121 @@ func validateProviderSettings(provider, profile string, mediaCount int, settings
 		return validateTikTokSettings(profile, mediaCount, settings)
 	case ProviderInstagram:
 		return validateInstagramSettings(profile, settings)
+	case ProviderGoogleBusiness:
+		return validateGoogleBusinessSettings(settings)
 	default:
 		return nil
 	}
+}
+
+func validateGoogleBusinessSettings(settings map[string]any) []ValidationIssue {
+	topic := strings.ToLower(strings.TrimSpace(settingx.String(settings, "topic_type")))
+	if topic == "" {
+		topic = "standard"
+	}
+	issues := []ValidationIssue{}
+	if topic == "event" || topic == "offer" {
+		issues = append(issues, validateGoogleBusinessEventSettings(settings)...)
+	}
+	if topic == "offer" {
+		issues = append(issues, validateGoogleBusinessOfferSettings(settings)...)
+	}
+	return issues
+}
+
+func validateGoogleBusinessEventSettings(settings map[string]any) []ValidationIssue {
+	issues := []ValidationIssue{}
+	title := strings.TrimSpace(settingx.String(settings, "event_title"))
+	if title == "" {
+		issues = append(issues, ValidationIssue{
+			Severity: "error", Code: "googlebusiness_event_title_required", Field: "event_title",
+			Message: "Google Business Event and Offer posts require an event name.",
+		})
+	} else if utf8.RuneCountInString(title) > 58 {
+		issues = append(issues, ValidationIssue{
+			Severity: "error", Code: "googlebusiness_event_title_too_long", Field: "event_title",
+			Message: "Google Business event names support at most 58 characters.",
+		})
+	}
+	issues = append(issues, validateGoogleBusinessScheduleDates(settings)...)
+	for _, timeField := range []struct{ key, label string }{
+		{"event_start_time", "Start time"},
+		{"event_end_time", "End time"},
+	} {
+		if raw := strings.TrimSpace(settingx.String(settings, timeField.key)); raw != "" {
+			if _, err := time.Parse("15:04", raw); err != nil {
+				issues = append(issues, ValidationIssue{
+					Severity: "error", Code: "googlebusiness_" + timeField.key + "_invalid", Field: timeField.key,
+					Message: timeField.label + " must use HH:MM format.",
+				})
+			}
+		}
+	}
+	return issues
+}
+
+func validateGoogleBusinessScheduleDates(settings map[string]any) []ValidationIssue {
+	issues := []ValidationIssue{}
+	startRaw := strings.TrimSpace(settingx.String(settings, "event_start_date"))
+	var startDate time.Time
+	var hasStart bool
+	if startRaw == "" {
+		issues = append(issues, ValidationIssue{
+			Severity: "error", Code: "googlebusiness_event_start_date_required", Field: "event_start_date",
+			Message: "Google Business Event and Offer posts require a start date.",
+		})
+	} else if parsed, err := time.Parse("2006-01-02", startRaw); err != nil {
+		issues = append(issues, ValidationIssue{
+			Severity: "error", Code: "googlebusiness_event_start_date_invalid", Field: "event_start_date",
+			Message: "Start date must use YYYY-MM-DD format.",
+		})
+	} else {
+		startDate = parsed
+		hasStart = true
+	}
+	if endRaw := strings.TrimSpace(settingx.String(settings, "event_end_date")); endRaw != "" {
+		if parsedEnd, err := time.Parse("2006-01-02", endRaw); err != nil {
+			issues = append(issues, ValidationIssue{
+				Severity: "error", Code: "googlebusiness_event_end_date_invalid", Field: "event_end_date",
+				Message: "End date must use YYYY-MM-DD format.",
+			})
+		} else if hasStart && parsedEnd.Before(startDate) {
+			issues = append(issues, ValidationIssue{
+				Severity: "error", Code: "googlebusiness_event_end_before_start", Field: "event_end_date",
+				Message: "End date must be on or after the start date.",
+			})
+		}
+	}
+	return issues
+}
+
+func validateGoogleBusinessOfferSettings(settings map[string]any) []ValidationIssue {
+	issues := []ValidationIssue{}
+	cta := strings.ToLower(strings.TrimSpace(settingx.String(settings, "call_to_action")))
+	if cta != "" && cta != "none" {
+		issues = append(issues, ValidationIssue{
+			Severity: "error", Code: "googlebusiness_offer_cta_unsupported", Field: "call_to_action",
+			Message: "Google Business Offer posts cannot include a call-to-action button.",
+		})
+	}
+	coupon := strings.TrimSpace(settingx.String(settings, "offer_coupon_code"))
+	redeemURL := strings.TrimSpace(settingx.String(settings, "offer_redeem_url"))
+	if coupon == "" && redeemURL == "" {
+		issues = append(issues, ValidationIssue{
+			Severity: "error", Code: "googlebusiness_offer_redemption_required", Field: "offer_coupon_code",
+			Message: "Google Business Offer posts require a coupon code or redemption link.",
+		})
+	}
+	if redeemURL != "" {
+		parsed, err := url.Parse(redeemURL)
+		if err != nil || (!strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https")) || parsed.Hostname() == "" || parsed.User != nil {
+			issues = append(issues, ValidationIssue{
+				Severity: "error", Code: "googlebusiness_offer_redeem_url_invalid", Field: "offer_redeem_url",
+				Message: "Redemption link must be an absolute HTTP or HTTPS URL.",
+			})
+		}
+	}
+	return issues
 }
 
 func validateInstagramSettings(profile string, settings map[string]any) []ValidationIssue {

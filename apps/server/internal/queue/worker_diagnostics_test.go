@@ -89,7 +89,7 @@ func TestWorkerDiagnosticsReportedWhenPersistenceFails(t *testing.T) {
 	require.NoError(t, err)
 	worker.finishFailedJob(t.Context(), job, errors.New("nil pointer dereference in publish renderer"))
 
-	require.Len(t, recorder.Exceptions, 1, "terminal processing failure remains observable when its job row vanished")
+	require.Empty(t, recorder.Exceptions, "terminal telemetry belongs to the worker that commits the failure")
 	reporter.Flush()
 	reports := sink.all()
 	require.Len(t, reports, 1)

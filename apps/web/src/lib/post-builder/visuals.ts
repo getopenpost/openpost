@@ -1,17 +1,17 @@
-import { mount, tick, unmount } from 'svelte';
 import type { ScreenshotDocument } from '@openpost/query-catalog';
-import ScreenshotPreview from '$lib/screenshot-templates/preview.svelte';
-import { renderScreenshot, screenshotFilename } from '$lib/screenshot-templates/export';
-import { createScreenshotDesign, saveScreenshotExport } from '$lib/screenshot-templates/api';
+import {
+	createScreenshotDesign,
+	exportScreenshotDesign,
+	previewScreenshot
+} from '$lib/screenshot-templates/api';
 import { memeInput } from '$lib/screenshot-templates/meme';
 import { memeGeneratorAPI, memePreviewDataURL } from '$lib/meme-generator/api';
-import { uploadMediaFile, type MediaUploadResult } from '$lib/media-upload-client';
+import type { MediaUploadResult } from '$lib/media-upload-client';
 import { workspaceCtx } from '$lib/stores/workspace.svelte';
 import { m } from '$lib/paraglide/messages';
 
 export interface PostVisual {
 	url: string;
-	blob: Blob;
 	aspectRatio?: number;
 	document: ScreenshotDocument;
 }
@@ -25,69 +25,34 @@ export async function renderPostVisual(
 	if (recipe.meme) {
 		const image = await memeGeneratorAPI.preview(memeInput(workspaceId, recipe.meme, signal));
 		const url = memePreviewDataURL(image);
-		const blob = await (await fetch(url)).blob();
-		return postVisual(blob, recipe, url);
+		return { url, document: recipe, aspectRatio: await dataURLAspectRatio(url) };
 	}
-	const target = document.createElement('div');
-	target.setAttribute('aria-hidden', 'true');
-	target.inert = true;
-	target.style.cssText = 'position:fixed;left:-10000px;top:0;pointer-events:none;width:540px';
-	document.body.appendChild(target);
-	const preview = mount(ScreenshotPreview, {
-		target,
-		props: { document: recipe }
-	});
-	try {
-		await tick();
-		const element = target.firstElementChild;
-		if (!(element instanceof HTMLElement)) throw new Error(m.image_editor_export_failed());
-		const blob = await renderScreenshot(element, {
-			frameHeight: recipe.frame === 'square' ? 540 : recipe.frame === 'portrait' ? 675 : 0
-		});
-		if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-		return postVisual(blob, recipe);
-	} finally {
-		await unmount(preview);
-		target.remove();
-	}
+	const image = await previewScreenshot(workspaceId, recipe, 2, signal);
+	return { url: image.url, document: recipe, aspectRatio: image.width / image.height };
 }
 
-async function postVisual(
-	blob: Blob,
-	document: ScreenshotDocument,
-	url?: string
-): Promise<PostVisual> {
-	const bitmap = await createImageBitmap(blob);
-	const aspectRatio = bitmap.width / bitmap.height;
+async function dataURLAspectRatio(url: string): Promise<number | undefined> {
+	const bitmap = await createImageBitmap(await (await fetch(url)).blob());
+	const ratio = bitmap.width / bitmap.height;
 	bitmap.close();
-	return { url: url ?? URL.createObjectURL(blob), blob, document, aspectRatio };
+	return ratio;
 }
 
 export function releasePostVisual(visual: PostVisual): void {
 	if (visual.url.startsWith('blob:')) URL.revokeObjectURL(visual.url);
 }
 
+// The server renders and saves every visual at publishing size, memes
+// included, and keeps the editable design linked to the saved media.
 export async function savePostVisual(
 	workspaceId: string,
-	visual: PostVisual,
-	altText: string,
-	signal?: AbortSignal
+	visual: Pick<PostVisual, 'document'>,
+	altText: string
 ): Promise<MediaUploadResult> {
 	if (workspaceCtx.currentWorkspace?.id !== workspaceId)
 		throw new Error(m.templates_workspace_changed());
-	const recipe = visual.document;
-	const design = await createScreenshotDesign(workspaceId, recipe);
-	const media = await uploadMediaFile({
-		workspaceId,
-		file: new File([visual.blob], screenshotFilename(recipe.title), {
-			type: 'image/png'
-		}),
-		source: 'screenshot_template',
-		altText,
-		signal
-	});
-	await saveScreenshotExport(design.id, design.revision, media.id);
-	return media;
+	const design = await createScreenshotDesign(workspaceId, visual.document);
+	return exportScreenshotDesign(design.id, design.revision, altText);
 }
 
 export async function renderOptionMedia(
@@ -103,13 +68,10 @@ export async function renderOptionMedia(
 		const key = JSON.stringify(recipe);
 		let id = saved.get(key);
 		if (!id) {
-			const visual = await renderPostVisual(workspaceId, recipe, signal);
-			try {
-				id = (await savePostVisual(workspaceId, visual, destination.media.alt_text ?? '', signal))
-					.id;
-			} finally {
-				releasePostVisual(visual);
-			}
+			signal?.throwIfAborted();
+			id = (
+				await savePostVisual(workspaceId, { document: recipe }, destination.media.alt_text ?? '')
+			).id;
 			saved.set(key, id);
 		}
 		rendered.push({ account_id: destination.account_id, media_id: id });

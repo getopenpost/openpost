@@ -34,7 +34,7 @@ import { getPlatformKey, getPlatformName } from '$lib/utils';
 import { queryVoiceProfiles } from '$lib/query/voice-profiles';
 import { ideate } from '$lib/post-builder/ideate.svelte';
 import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
-import { renderPostVisual, savePostVisual, releasePostVisual } from '$lib/post-builder/visuals';
+import { savePostVisual } from '$lib/post-builder/visuals';
 import { SvelteMap } from 'svelte/reactivity';
 import { applyPublicationBuildResult } from '$lib/post-builder/apply';
 import { firstComposerURL } from './composer-links';
@@ -802,12 +802,13 @@ export class ComposerAIBuilder {
 				const key = JSON.stringify(recipe);
 				let id = saved.get(key);
 				if (!id) {
-					const visual = await renderPostVisual(workspaceID, recipe);
-					try {
-						id = (await savePostVisual(workspaceID, visual, destination.media.alt_text ?? '')).id;
-					} finally {
-						releasePostVisual(visual);
-					}
+					id = (
+						await savePostVisual(
+							workspaceID,
+							{ document: recipe },
+							destination.media.alt_text ?? ''
+						)
+					).id;
 					saved.set(key, id);
 				}
 				if (

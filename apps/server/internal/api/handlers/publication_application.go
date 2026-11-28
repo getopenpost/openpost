@@ -620,7 +620,7 @@ func (commands publicationApplication) Delete(
 		return err
 	}
 	return commands.handler.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		current, err := commands.handler.loadPublicationForMutationTx(txCtx, tx, publication.ID, models.PublicationStatusPublished, models.PublicationStatusFailed)
+		current, err := commands.handler.loadPublicationForDeleteTx(txCtx, tx, publication.ID, models.PublicationStatusPublished, models.PublicationStatusFailed)
 		if err != nil {
 			return err
 		}
@@ -641,7 +641,7 @@ func (commands publicationApplication) Delete(
 			return fmt.Errorf("delete publication: %w", err)
 		}
 		if affected, _ := result.RowsAffected(); affected == 0 {
-			latest, loadErr := commands.handler.loadPublicationForMutationTx(txCtx, tx, current.ID, models.PublicationStatusPublished, models.PublicationStatusFailed)
+			latest, loadErr := commands.handler.loadPublicationForDeleteTx(txCtx, tx, current.ID, models.PublicationStatusPublished, models.PublicationStatusFailed)
 			if loadErr != nil {
 				return loadErr
 			}

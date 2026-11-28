@@ -365,27 +365,43 @@ func (s *Service) createReconnectNotifications(
 		if err := s.notifications.RecordWithDB(ctx, db, outcome); err != nil {
 			return err
 		}
-		if err := s.recordCredentialFailureTransition(ctx, db, accountID, reconnectFailureKind(renditions, accountID)); err != nil {
+		failureKind, failureAt := reconnectFailureDetails(renditions, accountID)
+		if !account.PreflightCheckedAt.IsZero() && strings.TrimSpace(account.PreflightFailure) == "" && !failureAt.IsZero() && failureAt.Before(account.PreflightCheckedAt) {
+			continue
+		}
+		if err := s.recordCredentialFailureTransition(ctx, db, accountID, failureKind); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// reconnectFailureKind returns the stored error kind of a failed destination
-// that requires reconnecting the account, or the reconnect-required default
-// when the persisted kind is missing.
-func reconnectFailureKind(renditions []models.Rendition, accountID string) string {
+// reconnectFailureDetails returns the stored error kind and most recent update
+// timestamp of a failed destination that requires reconnecting the account, or
+// the reconnect-required default when the persisted kind is missing.
+func reconnectFailureDetails(renditions []models.Rendition, accountID string) (string, time.Time) {
+	kind := ""
+	var latest time.Time
 	for _, rendition := range renditions {
 		if rendition.SocialAccountID == accountID &&
 			rendition.Status == models.RenditionStatusFailed &&
 			rendition.ErrorAction == FailureActionReconnect {
-			if kind := strings.TrimSpace(rendition.ErrorKind); kind != "" {
-				return kind
+			if rendition.UpdatedAt.After(latest) {
+				latest = rendition.UpdatedAt
+				if trimmed := strings.TrimSpace(rendition.ErrorKind); trimmed != "" {
+					kind = trimmed
+				}
+			} else if kind == "" {
+				if trimmed := strings.TrimSpace(rendition.ErrorKind); trimmed != "" {
+					kind = trimmed
+				}
 			}
 		}
 	}
-	return FailureReconnectRequired
+	if kind == "" {
+		kind = FailureReconnectRequired
+	}
+	return kind, latest
 }
 
 // recordCredentialFailureTransition claims the account's credential failure

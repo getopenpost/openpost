@@ -1,6 +1,8 @@
 package publisher
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -242,4 +244,41 @@ func TestStaleWorkerCannotOverwriteDeliveryState(t *testing.T) {
 	require.Equal(t, models.PublicationStatusReady, stored.Status)
 	require.NoError(t, srv.db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(ctx))
 	require.Equal(t, models.RenditionStatusPublished, rendition.Status)
+}
+
+func TestRedactResumableMediaErrorPreservesDeadlineRetryability(t *testing.T) {
+	t.Parallel()
+	secretURL := "https://upload.example.com/session?upload_id=secret-token-123"
+	raw := fmt.Errorf("uploading to %s: %w", secretURL, context.DeadlineExceeded)
+
+	redacted := redactResumableMediaStateFromError(raw, secretURL)
+	require.NotContains(t, redacted.Error(), "secret-token-123")
+	require.ErrorIs(t, redacted, context.DeadlineExceeded)
+	classified := ClassifyFailure(redacted)
+	require.Equal(t, FailureNetwork, classified.Kind)
+	require.True(t, classified.Retryable)
+}
+
+func TestBulkRetryTerminalFailureScopesToAuthorizedBatch(t *testing.T) {
+	t.Parallel()
+	srv := newPublisherLifecycleTestServer(t, &fakePublisherAdapter{})
+	ctx := t.Context()
+	seedFailedRetryableRenditions(t, srv)
+	// Authorize only rendition-1 in batch-1; rendition-2 belongs to another job.
+	_, err := srv.db.NewInsert().Model(&models.PublicationAuthorization{
+		ID: "auth-batch-1", BatchID: "batch-1", WorkspaceID: "ws-1",
+		PublicationID: "publication-1", RenditionID: "rendition-1",
+		SocialAccountID: "account-1", TargetKey: "x:account-1",
+		JobID: "job-batch-1", Action: "publish", PolicyMode: "immediate",
+		ScheduledAt: time.Now().UTC(),
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	payload := `{"publication_id":"publication-1","authorization_batch_id":"batch-1"}`
+	require.NoError(t, srv.service.MarkTerminalPublishFailure(ctx, srv.db, "publish_publication", payload))
+
+	var renditions []models.Rendition
+	require.NoError(t, srv.db.NewSelect().Model(&renditions).Order("id ASC").Scan(ctx))
+	require.False(t, renditions[0].ErrorRetryable, "batch-owned rendition stops advertising retries")
+	require.True(t, renditions[1].ErrorRetryable, "sibling rendition outside the batch keeps its retry state")
 }

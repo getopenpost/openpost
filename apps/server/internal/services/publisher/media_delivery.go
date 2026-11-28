@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -207,10 +208,10 @@ func (s *Service) resumablePlatformMediaID(
 	}
 	req, closeReaders, err := s.renditionUploadRequest(ctx, publication.WorkspaceID, rendition, media, uploadSettings(rendition), false)
 	if err != nil {
-		return "", s.recordRenditionMediaUploadFailure(ctx, target, media.ID, relations, state, err)
+		return "", err
 	}
+	defer closeReaders()
 	providerMediaID, uploadErr := uploader.UploadMediaResumable(ctx, target.token, account.AccountID, req, state, checkpoint)
-	closeReaders()
 	if uploadErr != nil {
 		return "", s.recordRenditionMediaUploadFailure(ctx, target, media.ID, relations, state, uploadErr)
 	}
@@ -264,6 +265,23 @@ func (s *Service) recordRenditionMediaUploadFailure(
 	return uploadErr
 }
 
+type redactedMediaError struct {
+	message string
+	cause   error
+}
+
+func (e *redactedMediaError) Error() string { return e.message }
+func (e *redactedMediaError) Unwrap() error { return e.cause }
+
+type redactedNetError struct {
+	message string
+	timeout bool
+}
+
+func (e *redactedNetError) Error() string   { return e.message }
+func (e *redactedNetError) Timeout() bool   { return e.timeout }
+func (e *redactedNetError) Temporary() bool { return false }
+
 func redactResumableMediaStateFromError(err error, opaqueState string) error {
 	if err == nil || opaqueState == "" {
 		return err
@@ -282,7 +300,22 @@ func redactResumableMediaStateFromError(err error, opaqueState string) error {
 	if message == err.Error() {
 		return err
 	}
+	var cause error
+	var httpErr *platform.HTTPError
+	var netErr net.Error
+	switch {
+	case errors.As(err, &httpErr):
+		cloned := *httpErr
+		cause = &cloned
+	case errors.Is(err, context.DeadlineExceeded):
+		cause = context.DeadlineExceeded
+	case errors.As(err, &netErr):
+		cause = &redactedNetError{message: message, timeout: netErr.Timeout()}
+	}
 	redacted := errors.New(message)
+	if cause != nil {
+		redacted = &redactedMediaError{message: message, cause: cause}
+	}
 	if classification, ok := platform.MediaRetryClassificationForError(err); ok {
 		return &platform.MediaUploadError{RetryClassification: classification, Err: redacted}
 	}
@@ -423,7 +456,7 @@ func (s *Service) saveRenditionMediaDelivery(
 		CreatedAt:           now,
 		UpdatedAt:           now,
 	}
-	return s.db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
+	return s.fencedTx(ctx, func(ctx context.Context, tx bun.Tx) error {
 		// YouTube creates the video during upload, before thumbnail/caption
 		// finalization. Other providers' upload IDs are not publication IDs.
 		if account.Platform == "youtube" && state.ProviderMediaID != "" {

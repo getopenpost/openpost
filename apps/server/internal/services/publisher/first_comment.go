@@ -8,6 +8,7 @@ import (
 
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/lifecycle"
+	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/publicationauth"
 )
 
@@ -55,14 +56,17 @@ func (s *Service) publishFirstCommentBestEffort(
 		"parent_external_id": externalID,
 	})
 	var commentID string
-	err := publicationauth.RequireReview(ctx, s.db, publication.ID)
-	if err == nil {
-		err = s.withFreshToken(ctx, target, func(token string, _ bool) error {
-			var postErr error
-			commentID, postErr = poster.PostFirstComment(ctx, token, target.account.AccountID, externalID, message)
-			return postErr
-		})
-	}
+	err := s.withFreshToken(ctx, target, func(token string, _ bool) error {
+		if reviewErr := publicationauth.RequireReview(ctx, s.db, publication.ID); reviewErr != nil {
+			return reviewErr
+		}
+		if leaseErr := providerwrite.RequireCurrentJobExecution(ctx, s.db, ""); leaseErr != nil {
+			return leaseErr
+		}
+		var postErr error
+		commentID, postErr = poster.PostFirstComment(ctx, token, target.account.AccountID, externalID, message)
+		return postErr
+	})
 	if err != nil {
 		log.Printf("[Publisher] first comment for rendition %s failed: %v", rendition.ID, err)
 		s.recordPublicationLifecycleEvent(ctx, publication.WorkspaceID, publication.ID, rendition.ID, lifecycle.EventModerationActionFailed, lifecycle.StatusFailed, "first comment publish failed", map[string]any{

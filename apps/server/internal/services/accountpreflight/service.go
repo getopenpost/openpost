@@ -221,59 +221,52 @@ func (s *Service) handleFailure(ctx context.Context, group []upcomingCandidate, 
 	if !confirmed {
 		return s.recordCheck(ctx, candidate.SocialAccountID, now, "unknown", false)
 	}
-	if err := s.recordConfirmedFailure(ctx, candidate, now, failure); err != nil {
-		return err
-	}
-	if s.notifications == nil ||
-		(!candidate.PreflightWarnedAt.IsZero() && candidate.PreflightWarnedAt.After(now.Add(-warningCooldown))) {
-		return nil
-	}
-	return s.warnScheduledCreators(ctx, group, now)
+	warnCreators := s.notifications != nil &&
+		(candidate.PreflightWarnedAt.IsZero() || !candidate.PreflightWarnedAt.After(now.Add(-warningCooldown)))
+	return s.recordConfirmedFailure(ctx, group, now, failure, warnCreators)
 }
 
-// warnScheduledCreators tells the creator of every at-risk publication in the
-// group. Each warning deduplicates by account, publication and schedule
-// occurrence; the account cooldown then suppresses repeats for the group.
-func (s *Service) warnScheduledCreators(ctx context.Context, group []upcomingCandidate, now time.Time) error {
+// warnScheduledCreatorsWithDB tells the creator of every at-risk publication in
+// the group inside the caller's transaction so a transient persistence error
+// rolls back preflight_checked_at and keeps the warnings immediately retryable.
+func (s *Service) warnScheduledCreatorsWithDB(ctx context.Context, tx bun.Tx, group []upcomingCandidate, now time.Time) error {
 	candidate := group[0]
-	return s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		warned := make(map[string]struct{}, len(group))
-		for _, destination := range group {
-			if strings.TrimSpace(destination.RecipientUserID) == "" {
-				continue
-			}
-			occurrence := fmt.Sprintf("%d:%s", destination.PublicationRevision, destination.RunAt.UTC().Format(time.RFC3339Nano))
-			key := destination.PublicationID + "\x00" + occurrence
-			if _, ok := warned[key]; ok {
-				continue
-			}
-			warned[key] = struct{}{}
-			outcome, err := notifications.NewAccountNeedsAttentionOutcome(notifications.AccountAttentionFacts{
-				RecipientUserID:    destination.RecipientUserID,
-				WorkspaceID:        destination.WorkspaceID,
-				AccountID:          destination.SocialAccountID,
-				PublicationID:      destination.PublicationID,
-				Provider:           destination.Platform,
-				AccountLabel:       firstPreflightValue(destination.AccountUsername, destination.ProviderAccountID, destination.Platform),
-				ScheduledAtRisk:    true,
-				ScheduleOccurrence: occurrence,
-			})
-			if err != nil {
-				return err
-			}
-			if err := s.notifications.RecordWithDB(ctx, tx, outcome); err != nil {
-				return err
-			}
+	warned := make(map[string]struct{}, len(group))
+	for _, destination := range group {
+		if strings.TrimSpace(destination.RecipientUserID) == "" {
+			continue
 		}
-		if len(warned) == 0 {
-			return nil
+		occurrence := fmt.Sprintf("%d:%s", destination.PublicationRevision, destination.RunAt.UTC().Format(time.RFC3339Nano))
+		key := destination.PublicationID + "\x00" + occurrence
+		if _, ok := warned[key]; ok {
+			continue
 		}
-		_, err := tx.NewUpdate().Model((*models.SocialAccount)(nil)).
-			Set("preflight_warned_at = ?", now).
-			Where("id = ? AND workspace_id = ?", candidate.SocialAccountID, candidate.WorkspaceID).
-			Exec(ctx)
-		return err
-	})
+		warned[key] = struct{}{}
+		outcome, err := notifications.NewAccountNeedsAttentionOutcome(notifications.AccountAttentionFacts{
+			RecipientUserID:    destination.RecipientUserID,
+			WorkspaceID:        destination.WorkspaceID,
+			AccountID:          destination.SocialAccountID,
+			PublicationID:      destination.PublicationID,
+			Provider:           destination.Platform,
+			AccountLabel:       firstPreflightValue(destination.AccountUsername, destination.ProviderAccountID, destination.Platform),
+			ScheduledAtRisk:    true,
+			ScheduleOccurrence: occurrence,
+		})
+		if err != nil {
+			return err
+		}
+		if err := s.notifications.RecordWithDB(ctx, tx, outcome); err != nil {
+			return err
+		}
+	}
+	if len(warned) == 0 {
+		return nil
+	}
+	_, err := tx.NewUpdate().Model((*models.SocialAccount)(nil)).
+		Set("preflight_warned_at = ?", now).
+		Where("id = ? AND workspace_id = ?", candidate.SocialAccountID, candidate.WorkspaceID).
+		Exec(ctx)
+	return err
 }
 
 func firstPreflightValue(values ...string) string {
@@ -285,16 +278,12 @@ func firstPreflightValue(values ...string) string {
 	return "Connected account"
 }
 
-// recordConfirmedFailure stores a confirmed credential failure and claims the
-// account's credential failure generation when this check transitions the
-// account from healthy or unconfirmed to a confirmed failure. The claim, the
-// stored failure state and the reconnect notifications commit in one
-// transaction, so a concurrent producer cannot notify the same break twice
-// and a failed notification cannot leave a claimed break unreported. A losing
-// caller still records the failure state; only the claim winner reports the
-// transition. A later successful recordCheck resets preflight_failure, so the
-// next failure claims a fresh generation.
-func (s *Service) recordConfirmedFailure(ctx context.Context, candidate upcomingCandidate, now time.Time, failure string) error {
+// recordConfirmedFailure stores a confirmed credential failure, claims the
+// account's credential failure generation on healthy-to-failing transitions,
+// and records both transition and creator warnings in one transaction so a
+// transient DB failure never drops alerts or locks out retries for 15 minutes.
+func (s *Service) recordConfirmedFailure(ctx context.Context, group []upcomingCandidate, now time.Time, failure string, warnCreators bool) error {
+	candidate := group[0]
 	return s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		result, err := tx.NewUpdate().Model((*models.SocialAccount)(nil)).
 			Set("credential_failure_generation = credential_failure_generation + 1").
@@ -311,10 +300,15 @@ func (s *Service) recordConfirmedFailure(ctx context.Context, candidate upcoming
 		if err := recordCheckWithDB(ctx, tx, candidate.SocialAccountID, now, failure, false); err != nil {
 			return err
 		}
-		if affected != 1 {
-			return nil
+		if affected == 1 {
+			if err := s.recordCredentialFailureTransitions(ctx, tx, candidate); err != nil {
+				return err
+			}
 		}
-		return s.recordCredentialFailureTransitions(ctx, tx, candidate)
+		if warnCreators {
+			return s.warnScheduledCreatorsWithDB(ctx, tx, group, now)
+		}
+		return nil
 	})
 }
 

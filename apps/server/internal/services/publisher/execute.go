@@ -116,7 +116,7 @@ func (s *Service) publishPreparedSegment(
 		return platform.PublishResult{}, err
 	}
 	upload := *rendition
-	upload.Body, upload.Description, upload.SettingsJSON = segment.body, segment.description, mustPublisherJSON(settings)
+	upload.Title, upload.Body, upload.Description, upload.SettingsJSON = segment.title, segment.body, segment.description, mustPublisherJSON(settings)
 	target := mediaUploadTarget{publication: publication, rendition: &upload, account: account, provider: plan.provider}
 	_, publishesMediaDirectly := plan.provider.(platform.DirectMediaPublisher)
 	platformMediaIDs := make([]string, 0, len(segment.media))

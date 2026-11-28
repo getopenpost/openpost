@@ -492,3 +492,19 @@ func TestCreateNextAttemptReportsNonConflictInsertFailure(t *testing.T) {
 	require.ErrorContains(t, err, "storage unavailable")
 	require.Nil(t, next)
 }
+
+func TestPreSendFailureWithoutFenceLeavesOwnersInFlightAttemptUntouched(t *testing.T) {
+	db := newProviderWriteTestDB(t)
+	service := New(db)
+	input := providerWriteTestInput(t, "pre-send-failure-owner-sending")
+	_, err := service.Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		owner := &Control{service: service, attempt: &models.ProviderWriteAttempt{ID: control.attempt.ID, JobID: control.attempt.JobID}, ctx: t.Context()}
+		require.NoError(t, owner.Begin(platform.PublishResult{ProviderState: "create_post", RetrySafety: platform.PublishRetrySafe}))
+		// Non-owner fails readiness before calling Begin.
+		return platform.PublishResult{}, fmt.Errorf("account readiness check failed")
+	}, nil)
+	require.ErrorContains(t, err, "account readiness check failed")
+	stored := latestProviderWriteAttempt(t, db, input.OperationID)
+	require.Equal(t, StatusSending, stored.Status, "non-owner pre-send failure must not overwrite owner's sending attempt")
+	require.Equal(t, string(platform.PublishRetrySafe), stored.RetrySafety)
+}

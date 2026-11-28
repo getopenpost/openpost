@@ -338,11 +338,14 @@ func (s *Service) sendPrepared(ctx context.Context, attempt *models.ProviderWrit
 	if current.Status == StatusAccepted {
 		return resultFromAttempt(current), nil
 	}
-	if !control.entered && errors.Is(sendErr, ErrWriteInProgress) {
-		// This caller never owned the fence: its lease was reclaimed or
-		// another caller entered first. The attempt belongs to the live
-		// owner, so leave its durable state untouched.
-		return platform.PublishResult{}, &OutcomeError{Kind: StatusAmbiguous, Err: ErrWriteInProgress}
+	if !control.entered && (errors.Is(sendErr, ErrWriteInProgress) || current.Status == StatusSending || current.Status == StatusAmbiguous) {
+		// This caller never owned the fence: its lease was reclaimed, another
+		// caller entered first, or a pre-send check failed while an active
+		// owner holds the attempt. Leave the owner's durable state untouched.
+		if sendErr == nil || errors.Is(sendErr, ErrWriteInProgress) {
+			return platform.PublishResult{}, &OutcomeError{Kind: StatusAmbiguous, Err: ErrWriteInProgress}
+		}
+		return platform.PublishResult{}, sendErr
 	}
 	if current.Status == StatusPrepared {
 		if sendErr == nil {

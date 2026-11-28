@@ -195,6 +195,7 @@ func TestExternalApplicationLifecycleActionsRequireEveryDestinationGrant(t *test
 		{"retry failed destinations", http.MethodPost, "/publications/publication-1/retry-failed", ""},
 		{"reply through granted destination", http.MethodPost, "/renditions/rendition-2/reply", `{"body":"Thanks","parent_id":"external-1"}`},
 		{"delete publication", http.MethodDelete, "/publications/publication-1?confirm=true&expected_revision=1", ""},
+		{"delete percent-encoded publication", http.MethodDelete, "/publications/publication%2D1?confirm=true&expected_revision=1", ""},
 		{"delete destination", http.MethodDelete, "/publications/publication-1/renditions/account-2?confirm=true&expected_revision=1", ""},
 		{"dismiss failure", http.MethodPost, "/publications/publication-1/failure-dismissal", ""},
 		{"restore failure", http.MethodDelete, "/publications/publication-1/failure-dismissal", ""},
@@ -326,4 +327,44 @@ func TestReplyRejectsDroppedMediaAndMissingParent(t *testing.T) {
 	count, err := srv.db.NewSelect().Model((*models.Job)(nil)).Where("scope_id = ?", pipelinePublicationID).Count(t.Context())
 	require.NoError(t, err)
 	require.Zero(t, count)
+}
+
+func TestAcceptedPublishedAttemptBlocksEditButAllowsDelete(t *testing.T) {
+	t.Parallel()
+	srv := newMCPTestServer(t)
+	ctx := t.Context()
+	seedPipelinePublication(t, srv.db, models.PublicationStatusScheduled)
+	seedPipelineRendition(t, srv.db, "rendition-published", "x", models.RenditionStatusPublished, 0, time.Time{})
+	seedPipelineRendition(t, srv.db, "rendition-pending", "x", models.RenditionStatusScheduled, 1, time.Time{})
+	_, err := srv.db.NewInsert().Model(&models.Job{
+		ID: "job-partial", Type: jobTypePublishPublication, ScopeID: pipelinePublicationID,
+		Payload: `{"publication_id":"` + pipelinePublicationID + `"}`, Status: jobStatusPending, RunAt: time.Now().UTC().Add(time.Hour),
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.ProviderWriteAttempt{
+		ID: "attempt-accepted", OperationID: "authorization:auth-1:rendition-published:publish",
+		AuthorizationID: "auth-1", JobID: "job-partial", WorkspaceID: "ws-1",
+		PublicationID: pipelinePublicationID, RenditionID: "rendition-published",
+		SocialAccountID: "account-1", TargetKey: "x:account-1", Provider: "x", Operation: "publish",
+		AttemptNumber: 1, Status: providerwrite.StatusAccepted, PayloadFingerprint: "fp",
+		ExternalID: "ext-1", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	handler := srv.handler.publicationHandler()
+	// Editing a scheduled publication with an accepted write must stay blocked
+	// so replaceAllPublicationRenditions cannot wipe the published rendition.
+	err = srv.db.RunInTx(ctx, nil, func(txCtx context.Context, tx bun.Tx) error {
+		_, loadErr := handler.loadPublicationForMutationTx(txCtx, tx, pipelinePublicationID)
+		return loadErr
+	})
+	require.ErrorIs(t, err, errPublicationAlreadyProcessing)
+
+	// Deleting a partially published publication remains allowed once the
+	// accepted rendition is persisted as published.
+	err = srv.db.RunInTx(ctx, nil, func(txCtx context.Context, tx bun.Tx) error {
+		_, loadErr := handler.loadPublicationForDeleteTx(txCtx, tx, pipelinePublicationID, models.PublicationStatusFailed)
+		return loadErr
+	})
+	require.NoError(t, err)
 }

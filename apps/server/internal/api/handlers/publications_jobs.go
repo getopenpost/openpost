@@ -248,13 +248,17 @@ func (h *PublicationHandler) queuePublicationWithRunAtTx(
 }
 
 // publicationScheduleUsageCharged reports whether the locked Publication is
-// already queued under a scheduled authorization, which reserved its monthly
-// scheduled-post usage. Rescheduling it replaces that job without a new charge;
-// an immediate queue never reserved usage and is charged when scheduled.
+// already queued under a scheduled authorization for the same UTC month, which
+// already reserved its monthly scheduled-post usage. Same-month reschedules
+// replace that job without a new charge; cross-month reschedules and immediate
+// queues check and charge the destination month.
 func (h *PublicationHandler) publicationScheduleUsageCharged(ctx context.Context, db bun.IDB, publication *models.Publication) (bool, error) {
-	if publication.Status != models.PublicationStatusScheduled {
+	if publication.Status != models.PublicationStatusScheduled || publication.ScheduledAt.IsZero() {
 		return false, nil
 	}
+	target := publication.ScheduledAt.UTC()
+	monthStart := time.Date(target.Year(), target.Month(), 1, 0, 0, 0, 0, time.UTC)
+	monthEnd := monthStart.AddDate(0, 1, 0)
 	charged, err := db.NewSelect().TableExpr("jobs AS charged_job").
 		Join("JOIN publication_authorizations AS charged_authorization ON charged_authorization.job_id = charged_job.id").
 		Where(aliasedPrimaryPublishPublicationJobWhere(h.db, "charged_job"), jobTypePublishPublication, publication.ID).
@@ -262,6 +266,7 @@ func (h *PublicationHandler) publicationScheduleUsageCharged(ctx context.Context
 		Where("charged_authorization.policy_mode IN (?)", bun.List([]string{
 			publicationauth.PolicyScheduled, publicationauth.PolicyLegacyScheduled,
 		})).
+		Where("charged_authorization.scheduled_at >= ? AND charged_authorization.scheduled_at < ?", monthStart, monthEnd).
 		Exists(ctx)
 	if isMissingPublicationSegmentTable(err) {
 		return false, nil
@@ -658,12 +663,33 @@ func acceptedPublicationAttemptSubjectPublished(
 	return false
 }
 
-// rejectProtectedPrimaryPublicationJobTx keeps a pending or failed primary job
-// whose provider outcome is in flight or uncertain. An accepted write protects
-// its job only until the exact rendition or segment it published is persisted
-// as published, so a partially published failure can still be deleted or
-// rescheduled without replaying the accepted subject.
+// rejectProtectedPrimaryPublicationJobTx keeps edits and reschedules from
+// deleting or rebuilding renditions whenever a pending or failed primary job
+// holds any in-flight, uncertain, or accepted provider write attempt.
 func (h *PublicationHandler) rejectProtectedPrimaryPublicationJobTx(ctx context.Context, tx bun.Tx, publicationID string) error {
+	attempts, err := h.loadProtectedPrimaryPublicationAttemptsTx(ctx, tx, publicationID)
+	if err != nil {
+		return err
+	}
+	if len(attempts) > 0 {
+		return errPublicationAlreadyProcessing
+	}
+	return nil
+}
+
+// rejectUnpublishedProtectedPrimaryPublicationJobTx blocks deletion only while
+// a pending or failed primary job has an in-flight/uncertain attempt or an
+// accepted write whose exact rendition or segment is not yet persisted as
+// published. Partially published failed posts remain deletable.
+func (h *PublicationHandler) rejectUnpublishedProtectedPrimaryPublicationJobTx(ctx context.Context, tx bun.Tx, publicationID string) error {
+	attempts, err := h.loadProtectedPrimaryPublicationAttemptsTx(ctx, tx, publicationID)
+	if err != nil {
+		return err
+	}
+	return rejectUnpublishedProtectedAttemptsTx(ctx, tx, attempts)
+}
+
+func (h *PublicationHandler) loadProtectedPrimaryPublicationAttemptsTx(ctx context.Context, tx bun.Tx, publicationID string) ([]models.ProviderWriteAttempt, error) {
 	var attempts []models.ProviderWriteAttempt
 	if err := tx.NewSelect().TableExpr("jobs AS protected_job").
 		ColumnExpr("protected_attempt.*").
@@ -677,9 +703,9 @@ func (h *PublicationHandler) rejectProtectedPrimaryPublicationJobTx(ctx context.
 		})).
 		OrderExpr("protected_attempt.id ASC").
 		Scan(ctx, &attempts); err != nil {
-		return err
+		return nil, err
 	}
-	return rejectUnpublishedProtectedAttemptsTx(ctx, tx, attempts)
+	return attempts, nil
 }
 
 // rejectUnpublishedProtectedAttemptsTx rejects any in-flight or uncertain

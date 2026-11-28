@@ -1186,6 +1186,18 @@ func (w *BackgroundWorker) heartbeatJobLock(ctx context.Context, job *models.Job
 	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+	// Enforce the unconfirmed-lease budget independently of heartbeat ticks so
+	// a stalled DB call or tick alignment cannot let execution run past the
+	// stale-recovery cutoff.
+	budget := heartbeatFailureBudget
+	if budget <= 0 || budget >= staleProcessingJobAge {
+		budget = staleProcessingJobAge - interval
+	}
+	deadline := time.AfterFunc(budget, func() {
+		log.Printf("[Worker %s] stopping job %s: lease renewal budget (%s) elapsed\n", w.workerID, job.ID, budget)
+		cancelJob()
+	})
+	defer deadline.Stop()
 	lastRenewed := time.Now()
 	for {
 		select {
@@ -1207,7 +1219,7 @@ func (w *BackgroundWorker) heartbeatJobLock(ctx context.Context, job *models.Job
 			}
 			if err != nil {
 				log.Printf("[Worker %s] failed to heartbeat job %s: %v\n", w.workerID, job.ID, err)
-				if time.Since(lastRenewed) >= heartbeatFailureBudget {
+				if time.Since(lastRenewed) >= budget {
 					log.Printf("[Worker %s] stopping job %s: its lease has not been renewed for %s\n", w.workerID, job.ID, time.Since(lastRenewed).Round(time.Second))
 					cancelJob()
 					return
@@ -1220,6 +1232,7 @@ func (w *BackgroundWorker) heartbeatJobLock(ctx context.Context, job *models.Job
 				return
 			}
 			lastRenewed = time.Now()
+			deadline.Reset(budget)
 		}
 	}
 }

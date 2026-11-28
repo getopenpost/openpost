@@ -700,14 +700,23 @@ func ReconcileActiveLegacyPublicationJobs(ctx context.Context, db *bun.DB, jobID
 	cutoff := time.Now().UTC().Add(-legacyPublicationStaleProcessingAge)
 	var failures error
 	// Repair every exact scope first so a same-aggregate processing job cannot
-	// hide from the transaction that translates its sibling.
-	repaired := make([]string, 0, len(jobIDs))
+	// hide from the transaction that translates its sibling. If any scope
+	// repair fails, defer publish_post migrations until all legacy post scopes
+	// are visible; canonical publish_publication jobs stay independent.
+	type repairedLegacyJob struct {
+		id      string
+		jobType string
+	}
+	repaired := make([]repairedLegacyJob, 0, len(jobIDs))
+	scopeRepairFailed := false
 	for _, jobID := range jobIDs {
+		var jobType string
 		if err := db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 			job, err := lockStaleLegacyPublicationJob(txCtx, tx, jobID, cutoff)
 			if err != nil || job == nil {
 				return err
 			}
+			jobType = job.Type
 			if strings.TrimSpace(job.ScopeID) == "" {
 				if err := repairLegacyPublicationJobScope(txCtx, tx, job); err != nil {
 					return err
@@ -718,16 +727,20 @@ func ReconcileActiveLegacyPublicationJobs(ctx context.Context, db *bun.DB, jobID
 			}
 			return nil
 		}); err != nil {
+			scopeRepairFailed = true
 			failures = errors.Join(failures, fmt.Errorf("repair stale legacy publication job %s: %w", jobID, err))
 			continue
 		}
-		repaired = append(repaired, jobID)
+		repaired = append(repaired, repairedLegacyJob{id: jobID, jobType: jobType})
 	}
-	for _, jobID := range repaired {
+	for _, item := range repaired {
+		if scopeRepairFailed && item.jobType == jobregistry.TypePublishPost {
+			continue
+		}
 		if err := db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-			return reconcileStaleLegacyPublicationJobTx(txCtx, tx, jobID, cutoff)
+			return reconcileStaleLegacyPublicationJobTx(txCtx, tx, item.id, cutoff)
 		}); err != nil {
-			failures = errors.Join(failures, fmt.Errorf("reconcile stale legacy publication job %s: %w", jobID, err))
+			failures = errors.Join(failures, fmt.Errorf("reconcile stale legacy publication job %s: %w", item.id, err))
 		}
 	}
 	return failures

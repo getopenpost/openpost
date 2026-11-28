@@ -128,9 +128,10 @@ func (s *Service) SetConnectorRegistry(registry *connectors.Registry, store *con
 
 // publishJobTargets are the destinations a publish job owns.
 type publishJobTargets struct {
-	PublicationID string `json:"publication_id"`
-	RenditionID   string `json:"rendition_id"`
-	Action        string `json:"action"`
+	PublicationID        string `json:"publication_id"`
+	RenditionID          string `json:"rendition_id"`
+	Action               string `json:"action"`
+	AuthorizationBatchID string `json:"authorization_batch_id"`
 }
 
 // updateRetryableFailures applies a change to the retryable failed outputs a
@@ -147,8 +148,15 @@ func updateRetryableFailures(ctx context.Context, db bun.IDB, jobType, jobPayloa
 		return nil
 	}
 	renditions := db.NewSelect().Model((*models.Rendition)(nil)).Column("id").Where("publication_id = ?", targets.PublicationID)
-	if targets.RenditionID != "" {
+	switch {
+	case targets.RenditionID != "":
 		renditions = renditions.Where("id = ?", targets.RenditionID)
+	case strings.TrimSpace(targets.AuthorizationBatchID) != "":
+		authorized := db.NewSelect().
+			Model((*models.PublicationAuthorization)(nil)).
+			Column("rendition_id").
+			Where("batch_id = ? AND publication_id = ?", strings.TrimSpace(targets.AuthorizationBatchID), targets.PublicationID)
+		renditions = renditions.Where("id IN (?)", authorized)
 	}
 	for _, model := range []any{(*models.Rendition)(nil), (*models.RenditionSegment)(nil)} {
 		query := change(db.NewUpdate().Model(model)).
@@ -255,7 +263,7 @@ func (s *Service) HandlePublishPublicationJob(ctx context.Context, jobPayload st
 		}
 	}
 	if err := s.finalizePublication(ctx, publication); err != nil {
-		return errors.Join(err, outcome.panics, outcome.state)
+		return outcome.finalizationErr(err)
 	}
 	return outcome.err()
 }
@@ -295,6 +303,15 @@ func (s *Service) loadAuthorizedRenditions(ctx context.Context, publicationID, r
 type publishOutcome struct {
 	retry, pending               *RetryableError
 	terminalWrite, panics, state error
+}
+
+// finalizationErr preserves a pending provider continuation even when
+// finalization fails so the worker keeps polling instead of exhausting retries.
+func (o *publishOutcome) finalizationErr(finalizeErr error) error {
+	if o.pending != nil {
+		return errors.Join(finalizeErr, o.pending, o.panics, o.state)
+	}
+	return errors.Join(finalizeErr, o.panics, o.state)
 }
 
 // err reports the job result. A pending provider receipt still needs

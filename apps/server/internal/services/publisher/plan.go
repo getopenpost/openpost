@@ -336,7 +336,7 @@ func (s *Service) prepareSegments(ctx context.Context, plan *deliveryPlan, rows 
 		loaded := media[row.ID]
 		segment.media, segment.altTexts, segment.mediaSettings = loaded.attachments, loaded.altTexts, loaded.settings
 		if err := s.resolveSegmentText(plan, segment, canonical, sources, sourceSettings, hasPoll, joinedSingle); err != nil {
-			return err
+			return s.persistRenditionSegmentOutcome(ctx, segment.row, err)
 		}
 	}
 	return nil

@@ -19,10 +19,12 @@ out with a `Changelog: none` trailer.
 
 Before tagging, `bun run release -- ship` stops on `feat` and `fix` commits
 since the last published release that no fragment covers. A commit is covered
-by a fragment it adds or edits, by a fragment named after an issue in its
-subject (`<issue>.md`), or by another commit that adds a fragment and names the
-same issue. Add fragments for the user-visible ones, then rerun with
-`OPENPOST_RELEASE_ALLOW_UNDOCUMENTED=1` if the rest do not affect users.
+by a fragment it adds or edits, by a fragment from the same merged pull request,
+by a fragment named after an issue in its subject (`<issue>.md`), or by a commit
+that adds a fragment and names the same issue or the commit's hash. To document
+earlier commits, add their fragments in one commit whose message names those
+commits' hashes, then rerun. Rerun with `OPENPOST_RELEASE_ALLOW_UNDOCUMENTED=1`
+if the rest do not affect users.
 
 Tag CI merges fragments with the `CHANGELOG.md` `[Unreleased]` section in
 memory to build the draft release notes, so releases need no changelog

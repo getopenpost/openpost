@@ -56,6 +56,21 @@ test("release coverage lists feat and fix commits that no fragment covers", () =
     // Removing a released fragment covers nothing.
     git(["rm", "--quiet", "changes/shipped.md"]);
     commit("fix(web): drop the shipped note");
+    // Commits merged with one pull request share its fragment.
+    const main = git(["branch", "--show-current"]);
+    git(["checkout", "--quiet", "-b", "gallery"]);
+    commit("feat(gallery): add galleries", {
+      "changes/gallery.md": "### Added\n\n- Galleries.\n",
+    });
+    commit("fix(gallery): preflight sizes", { "gallery.txt": "1\n" });
+    git(["checkout", "--quiet", main]);
+    git(["merge", "--quiet", "--no-ff", "--no-edit", "gallery"]);
+    // Covered by a later fragment commit that names its hash.
+    commit("fix(editor): keep bakes valid", { "editor.txt": "1\n" });
+    const editorFix = git(["rev-parse", "--short=9", "HEAD"]);
+    commit(`docs: add the editor fragment\n\nCovers ${editorFix}.`, {
+      "changes/editor.md": "### Fixed\n\n- Bakes stay valid.\n",
+    });
     // Exempt scope and opt-out trailer.
     commit("fix(ci): pin the scanner", { "ci.txt": "1\n" });
     commit("fix(server): clear lint\n\nChangelog: none", { "server.txt": "1\n" });

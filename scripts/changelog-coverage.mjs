@@ -21,6 +21,7 @@ const optOutTrailerPattern = /^changelog:\s*none\s*$/imu;
 const fragmentPathPattern = /^changes\/(?!README\.md$)[^/]+\.md$/u;
 const issueFragmentPattern = /^(\d+)\.md$/u;
 const issueReferencePattern = /#(\d+)\b/gu;
+const commitReferencePattern = /\b[0-9a-f]{7,40}\b/gu;
 const zeroRevisionPattern = /^0+$/u;
 
 const recordSeparator = "\u001e";
@@ -54,11 +55,32 @@ export function resolveCommit(revision, { cwd } = {}) {
   return result.status === 0 ? result.stdout.trim() : null;
 }
 
+function git(args, cwd) {
+  const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+  if (result.status !== 0) {
+    throw new Error(`git ${args.join(" ")} failed: ${result.stderr.trim()}`);
+  }
+  return result.stdout;
+}
+
+// Maps each commit that a merge on the first-parent line brought in to that
+// merge, so the commits of one merged pull request share its fragments.
+function mergedChanges(base, head, cwd) {
+  const changes = new Map();
+  const merges = git(["rev-list", "--first-parent", "--merges", `${base}..${head}`], cwd);
+  for (const merge of merges.split("\n").filter(Boolean)) {
+    const commits = git(["rev-list", "--no-merges", `${merge}^1..${merge}`], cwd);
+    for (const commit of commits.split("\n").filter(Boolean)) changes.set(commit, merge);
+  }
+  return changes;
+}
+
 // Lists the non-merge commits in base..head with the paths each one added or
-// modified. Deleted paths are left out: removing a fragment documents nothing.
+// modified, and the change (a direct commit, or the merge that brought it in)
+// it belongs to. Deleted paths are left out: removing a fragment documents
+// nothing.
 export function commitsInRange(base, head, { cwd } = {}) {
-  const result = spawnSync(
-    "git",
+  const output = git(
     [
       "log",
       "--no-merges",
@@ -67,12 +89,10 @@ export function commitsInRange(base, head, { cwd } = {}) {
       `--format=${recordSeparator}%H${fieldSeparator}%s${fieldSeparator}%b${fieldSeparator}`,
       `${base}..${head}`,
     ],
-    { cwd, encoding: "utf8" },
+    cwd,
   );
-  if (result.status !== 0) {
-    throw new Error(`could not list commits in ${base}..${head}: ${result.stderr.trim()}`);
-  }
-  return result.stdout
+  const merged = mergedChanges(base, head, cwd);
+  return output
     .split(recordSeparator)
     .filter((record) => record.trim())
     .map((record) => {
@@ -81,7 +101,7 @@ export function commitsInRange(base, head, { cwd } = {}) {
         const [status, file] = line.trim().split("\t");
         return file && status !== "D" ? [file] : [];
       });
-      return { hash, subject, body, files };
+      return { hash, subject, body, files, change: merged.get(hash) ?? hash };
     });
 }
 
@@ -92,20 +112,26 @@ export function pullRequestCommitsMissingFragments(commits) {
   return commits.filter(requiresFragment);
 }
 
-// Commits on main stand alone. A commit is covered by a fragment it wrote, by a
-// fragment named after an issue in its subject (`<issue>.md`), or by another
-// commit in the range that wrote a fragment and names the same issue.
+// A commit on main is covered by a fragment written in its change (the commit
+// itself or the pull request merged with it), by a fragment named after an
+// issue in its subject (`<issue>.md`), or by a commit that writes a fragment
+// and names the same issue or the commit's hash.
 export function releaseCommitsMissingFragments(commits, fragmentNames) {
   const coveredIssues = new Set(
     fragmentNames.map((name) => issueFragmentPattern.exec(name)?.[1]).filter(Boolean),
   );
+  const coveredChanges = new Set();
+  const commitReferences = [];
   for (const commit of commits.filter(writesFragment)) {
+    coveredChanges.add(commit.change);
     for (const issue of issueReferences(commit)) coveredIssues.add(issue);
+    commitReferences.push(...`${commit.subject}\n${commit.body}`.matchAll(commitReferencePattern));
   }
   return commits.filter(
     (commit) =>
       requiresFragment(commit) &&
-      !writesFragment(commit) &&
-      !issueReferences(commit).some((issue) => coveredIssues.has(issue)),
+      !coveredChanges.has(commit.change) &&
+      !issueReferences(commit).some((issue) => coveredIssues.has(issue)) &&
+      !commitReferences.some(([reference]) => commit.hash.startsWith(reference)),
   );
 }

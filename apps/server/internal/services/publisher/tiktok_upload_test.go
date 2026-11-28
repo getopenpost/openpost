@@ -43,14 +43,14 @@ func TestPublisherCachesTikTokVideoFileUploadAcrossRetriesAndReconciliation(t *t
 	_, err := srv.db.NewUpdate().Model(&rendition).Column("platform", "profile", "settings_json").WherePK().Exec(t.Context())
 	require.NoError(t, err)
 
-	firstID, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
+	firstID, err := srv.service.platformMediaID(t.Context(), &mediaUploadTarget{publication: &publication, rendition: &rendition, account: &account, provider: adapter, token: "access-token"}, media)
 	require.NoError(t, err)
 	require.Equal(t, "v_inbox_file~v2.42", firstID)
 	require.Equal(t, 1, adapter.metadataCalls)
 
 	// Subsequent retry or reconciliation wake-up must reuse the persisted
 	// publish_id instead of uploading the video to TikTok inbox again.
-	secondID, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
+	secondID, err := srv.service.platformMediaID(t.Context(), &mediaUploadTarget{publication: &publication, rendition: &rendition, account: &account, provider: adapter, token: "access-token"}, media)
 	require.NoError(t, err)
 	require.Equal(t, "v_inbox_file~v2.42", secondID)
 	require.Equal(t, 1, adapter.metadataCalls)
@@ -75,7 +75,7 @@ func TestPublisherUsesPublicMediaURLForTikTokPhotoUploadMode(t *testing.T) {
 	_, err := srv.db.NewUpdate().Model(&rendition).Column("platform", "profile", "settings_json").WherePK().Exec(t.Context())
 	require.NoError(t, err)
 
-	mediaURL, err := srv.service.platformMediaIDForRendition(t.Context(), &publication, &rendition, &account, adapter, "access-token", media)
+	mediaURL, err := srv.service.platformMediaID(t.Context(), &mediaUploadTarget{publication: &publication, rendition: &rendition, account: &account, provider: adapter, token: "access-token"}, media)
 	require.NoError(t, err)
 	require.True(t, strings.HasPrefix(mediaURL, "https://media.example/media/photo-1.jpg"), "expected public media URL, got %q", mediaURL)
 	require.Equal(t, 0, adapter.metadataCalls, "TikTok photo UPLOAD mode uses PULL_FROM_URL and must not call FILE_UPLOAD")

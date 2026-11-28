@@ -16,24 +16,28 @@ import (
 func (s *Service) providerUsagePolicy(ctx context.Context, db bun.IDB, workspaceID string, metric entitlements.LimitKey) (entitlements.Decision, error) {
 	return entitlements.CheckWithDB(ctx, s.quota, db, entitlements.Request{WorkspaceID: workspaceID, Limit: metric, Amount: 1})
 }
+
 func (s *Service) admitProviderUsage(ctx context.Context, workspaceID string, scope providerWriteScope) error {
 	if s.quota == nil || s.usage == nil || workspaceID == "" {
 		return nil
 	}
-	calls, err := s.providerUsagePolicy(ctx, s.db, workspaceID, entitlements.LimitProviderWriteCallsMonthly)
-	if err != nil {
-		return err
-	}
-	posts := entitlements.Decision{Allowed: true, Unlimited: true}
-	if scope.operation == "publish" {
-		posts, err = s.providerUsagePolicy(ctx, s.db, workspaceID, entitlements.LimitPublishedPostsMonthly)
+	// Stored subscriptions always admit inside the locked transaction below, so
+	// only the self-hosted shortcut evaluates the policies up front.
+	if _, stored := s.quota.(*entitlements.SubscriptionService); !stored {
+		calls, err := s.providerUsagePolicy(ctx, s.db, workspaceID, entitlements.LimitProviderWriteCallsMonthly)
 		if err != nil {
 			return err
 		}
-	}
-	if _, stored := s.quota.(*entitlements.SubscriptionService); !stored && calls.Unlimited && posts.Unlimited {
-		s.recordProviderWriteCall(ctx, workspaceID)
-		return nil
+		posts := entitlements.Decision{Allowed: true, Unlimited: true}
+		if scope.operation == "publish" {
+			if posts, err = s.providerUsagePolicy(ctx, s.db, workspaceID, entitlements.LimitPublishedPostsMonthly); err != nil {
+				return err
+			}
+		}
+		if calls.Unlimited && posts.Unlimited {
+			s.recordUsage(ctx, workspaceID, entitlements.LimitProviderWriteCallsMonthly)
+			return nil
+		}
 	}
 	return s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if err := organizationguard.LockWorkspace(ctx, tx, workspaceID); err != nil {
@@ -73,12 +77,12 @@ func (s *Service) settleProviderUsage(ctx context.Context, workspaceID string, s
 	if s.quota == nil || s.usage == nil || scope.operation != "publish" {
 		return nil
 	}
-	policy, err := s.providerUsagePolicy(ctx, s.db, workspaceID, entitlements.LimitPublishedPostsMonthly)
-	if err != nil {
-		return err
-	}
-	if policy.Unlimited {
-		if _, stored := s.quota.(*entitlements.SubscriptionService); !stored {
+	if _, stored := s.quota.(*entitlements.SubscriptionService); !stored {
+		policy, err := s.providerUsagePolicy(ctx, s.db, workspaceID, entitlements.LimitPublishedPostsMonthly)
+		if err != nil {
+			return err
+		}
+		if policy.Unlimited {
 			return nil
 		}
 	}

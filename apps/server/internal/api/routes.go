@@ -186,10 +186,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 		deps.MemeProvider,
 		deps.MemeSuggester,
 	)
-	templateRenderer := deps.TemplateRenderer
-	if templateRenderer == nil {
-		templateRenderer = handlers.NewScreenshotTemplateRenderer(deps.DB, deps.MediaStorage, mediaHandler)
-	}
+	templateRenderer := templateRendererFor(deps, mediaHandler)
 	templateRenderer.SetMemes(memeHandler)
 	handlers.NewScreenshotTemplateHandler(deps.DB, deps.Authenticator, templateRenderer).RegisterRoutes(api)
 	memeHandler.RegisterRoutes(api)
@@ -687,4 +684,13 @@ func registerWorkflowRoutes(api huma.API, deps RouteDeps, publicationHandler *ha
 		deps.EngagementService.SetAutomationRunStopper(workflowService.CancelCommentReplyRuns)
 	}
 	handlers.NewWorkflowHandler(workflowService, deps.Authenticator).RegisterRoutes(api)
+}
+
+// templateRendererFor shares the publication builder's renderer when one is
+// configured, so editor and headless builds use the same instance.
+func templateRendererFor(deps RouteDeps, mediaHandler *handlers.MediaHandler) *handlers.ScreenshotTemplateRenderer {
+	if deps.TemplateRenderer != nil {
+		return deps.TemplateRenderer
+	}
+	return handlers.NewScreenshotTemplateRenderer(deps.DB, deps.MediaStorage, mediaHandler)
 }

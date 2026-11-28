@@ -118,27 +118,9 @@ func (r *ScreenshotTemplateRenderer) Export(ctx context.Context, workspaceID, us
 	if media, ok, err := r.existingExport(ctx, workspaceID, string(documentJSON), altText); err != nil || ok {
 		return media, err
 	}
-	rendered, err := r.Render(ctx, workspaceID, doc, screenshottemplates.ExportScale)
+	media, created, err := r.importExport(ctx, workspaceID, doc, altText)
 	if err != nil {
 		return models.MediaAttachment{}, err
-	}
-	data, err := screenshottemplates.EncodePNG(rendered.Image)
-	if err != nil {
-		return models.MediaAttachment{}, huma.Error500InternalServerError("failed to encode the template image")
-	}
-	var created models.MediaAttachment
-	result, err := r.media.processUploadBytes(ctx, mediaUploadBytesInput{
-		WorkspaceID: workspaceID, Filename: templateExportFilename(doc.Title), DeclaredMimeType: "image/png",
-		Size: int64(len(data)), Content: data, AltText: altText, Source: "screenshot_template", AssetKind: "library",
-		RetentionClass: "library", OnCreated: func(media models.MediaAttachment) { created = media },
-	})
-	if err != nil {
-		return models.MediaAttachment{}, err
-	}
-	mediaID, _ := result["id"].(string)
-	var media models.MediaAttachment
-	if err := r.db.NewSelect().Model(&media).Where("id = ? AND workspace_id = ?", mediaID, workspaceID).Scan(ctx); err != nil {
-		return models.MediaAttachment{}, huma.Error500InternalServerError("failed to read the template image")
 	}
 	recipe := models.MediaGenerationRecipe{
 		MediaID: media.ID, WorkspaceID: workspaceID, CreatedByID: userID, Kind: "screenshot_template",
@@ -154,6 +136,35 @@ func (r *ScreenshotTemplateRenderer) Export(ctx context.Context, workspaceID, us
 	return media, nil
 }
 
+// importExport renders at publishing size and imports the PNG as Media
+// library media. created is set only when this call inserted the media.
+func (r *ScreenshotTemplateRenderer) importExport(ctx context.Context, workspaceID string, doc ScreenshotTemplateDocument, altText string) (media, created models.MediaAttachment, err error) {
+	rendered, err := r.Render(ctx, workspaceID, doc, screenshottemplates.ExportScale)
+	if err != nil {
+		return media, created, err
+	}
+	data, err := screenshottemplates.EncodePNG(rendered.Image)
+	if err != nil {
+		return media, created, huma.Error500InternalServerError("failed to encode the template image")
+	}
+	result, err := r.media.processUploadBytes(ctx, mediaUploadBytesInput{
+		WorkspaceID: workspaceID, Filename: templateExportFilename(doc.Title), DeclaredMimeType: "image/png",
+		Size: int64(len(data)), Content: data, AltText: altText, Source: "screenshot_template", AssetKind: "library",
+		RetentionClass: "library", OnCreated: func(inserted models.MediaAttachment) { created = inserted },
+	})
+	if err != nil {
+		return media, created, err
+	}
+	mediaID, _ := result["id"].(string)
+	if err := r.db.NewSelect().Model(&media).Where("id = ? AND workspace_id = ?", mediaID, workspaceID).Scan(ctx); err != nil {
+		if created.ID != "" {
+			r.rollback(ctx, created)
+		}
+		return media, models.MediaAttachment{}, huma.Error500InternalServerError("failed to read the template image")
+	}
+	return media, created, nil
+}
+
 // rollback removes media created by a failed export so no orphan remains.
 func (r *ScreenshotTemplateRenderer) rollback(ctx context.Context, media models.MediaAttachment) {
 	cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), memeCleanupTimeout)
@@ -167,12 +178,12 @@ func (r *ScreenshotTemplateRenderer) exportMeme(ctx context.Context, workspaceID
 	if r.memes == nil || r.memes.provider == nil {
 		return models.MediaAttachment{}, huma.Error503ServiceUnavailable("the meme generator is not enabled")
 	}
-	media, _, _, _, err := r.memes.renderAndSave(ctx, memeSaveInput{
+	saved, err := r.memes.renderAndSave(ctx, memeSaveInput{
 		WorkspaceID: workspaceID, UserID: userID, TemplateID: meme.TemplateID, Format: meme.Format,
 		RetentionClass: "library", AltText: altText, ParentMediaID: meme.ParentMediaID,
 		Captions: meme.Captions, OverlayMediaIDs: meme.OverlayMediaIDs,
 	})
-	return media, err
+	return saved.Media, err
 }
 
 func (r *ScreenshotTemplateRenderer) existingExport(ctx context.Context, workspaceID, documentJSON, altText string) (models.MediaAttachment, bool, error) {
@@ -243,24 +254,9 @@ func (r *ScreenshotTemplateRenderer) loadImage(ctx context.Context, workspaceID,
 	if r.db == nil || r.storage == nil {
 		return nil, huma.Error503ServiceUnavailable("template media storage is not configured")
 	}
-	var media models.MediaAttachment
-	err := r.db.NewSelect().Model(&media).Where("id = ? AND workspace_id = ?", mediaID, workspaceID).Scan(ctx)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, huma.Error400BadRequest("template images must belong to this workspace")
-	}
+	media, err := r.templateImageRecord(ctx, workspaceID, mediaID)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("failed to load template image")
-	}
-	if !media.TrashedAt.IsZero() || media.ProcessingStatus != mediaReadyStatus {
-		return nil, huma.Error400BadRequest("template images must be ready and outside Trash")
-	}
-	switch strings.ToLower(strings.TrimSpace(media.MimeType)) {
-	case "image/png", "image/jpeg", "image/webp":
-	default:
-		return nil, huma.Error400BadRequest("template images must be PNG, JPEG or WebP")
-	}
-	if media.Size > maxTemplateImageBytes || int64(media.Width)*int64(media.Height) > maxTemplateImagePixels {
-		return nil, huma.Error400BadRequest("a template image is too large; use one under 20 MB and 40 megapixels")
+		return nil, err
 	}
 	reader, err := r.storage.Open(ctx, filepath.Base(media.FilePath))
 	if err != nil {
@@ -280,6 +276,31 @@ func (r *ScreenshotTemplateRenderer) loadImage(ctx context.Context, workspaceID,
 		return nil, huma.Error400BadRequest("a template image could not be decoded")
 	}
 	return img, nil
+}
+
+// templateImageRecord admits only ready, bounded PNG, JPEG or WebP media
+// from the same workspace.
+func (r *ScreenshotTemplateRenderer) templateImageRecord(ctx context.Context, workspaceID, mediaID string) (models.MediaAttachment, error) {
+	var media models.MediaAttachment
+	err := r.db.NewSelect().Model(&media).Where("id = ? AND workspace_id = ?", mediaID, workspaceID).Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return media, huma.Error400BadRequest("template images must belong to this workspace")
+	}
+	if err != nil {
+		return media, huma.Error500InternalServerError("failed to load template image")
+	}
+	if !media.TrashedAt.IsZero() || media.ProcessingStatus != mediaReadyStatus {
+		return media, huma.Error400BadRequest("template images must be ready and outside Trash")
+	}
+	switch strings.ToLower(strings.TrimSpace(media.MimeType)) {
+	case "image/png", "image/jpeg", "image/webp":
+	default:
+		return media, huma.Error400BadRequest("template images must be PNG, JPEG or WebP")
+	}
+	if media.Size > maxTemplateImageBytes || int64(media.Width)*int64(media.Height) > maxTemplateImagePixels {
+		return media, huma.Error400BadRequest("a template image is too large; use one under 20 MB and 40 megapixels")
+	}
+	return media, nil
 }
 
 func templateRenderError(err error) error {

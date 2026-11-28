@@ -116,14 +116,8 @@ func (rc *renderContext) image(id string) (image.Image, error) {
 
 // Render validates doc and rasterizes it at scale (1 or 2).
 func Render(ctx context.Context, doc ScreenshotTemplateDocument, images ImageSource, scale float64) (Rendered, error) {
-	if scale != 1 && scale != 2 {
-		return Rendered{}, errors.New("scale must be 1 or 2")
-	}
-	if err := Validate(doc); err != nil {
+	if err := checkRenderable(doc, scale); err != nil {
 		return Rendered{}, err
-	}
-	if doc.TemplateID == "meme" {
-		return Rendered{}, ErrUnsupported
 	}
 	faces, err := newFaceSet()
 	if err != nil {
@@ -134,28 +128,13 @@ func Render(ctx context.Context, doc ScreenshotTemplateDocument, images ImageSou
 		rc.pal = darkPalette
 	}
 	rc.size = map[string]float64{"small": 19, "normal": 23, "large": 27}[doc.TextSize]
-	var height float64
-	switch doc.TemplateID {
-	case "messages", "group-chat":
-		height, err = rc.layoutChat(doc)
-	case "receipt":
-		height, err = rc.layoutReceipt(doc.Receipt)
-	case "status-page":
-		height, err = rc.layoutStatus(doc.StatusPage)
-	default:
-		err = ErrUnsupported
-	}
+	height, err := rc.layout(doc)
 	if err != nil {
 		return Rendered{}, err
 	}
-	frame := map[string]float64{"natural": 0, "square": 540, "portrait": 675}[doc.Frame]
-	if frame > 0 && height > frame+1 {
-		return Rendered{}, ErrOverflow
-	}
-	height = math.Max(height, frame)
-	pixels := int(math.Ceil(height*scale - 1e-6))
-	if pixels > MaxRenderHeight {
-		return Rendered{}, ErrTooTall
+	pixels, err := outputHeight(doc.Frame, height, scale)
+	if err != nil {
+		return Rendered{}, err
 	}
 	canvas := image.NewRGBA(image.Rect(0, 0, int(TemplateWidth*scale), pixels))
 	fill(canvas, rc.pal.bg)
@@ -166,6 +145,46 @@ func Render(ctx context.Context, doc ScreenshotTemplateDocument, images ImageSou
 		return Rendered{}, err
 	}
 	return Rendered{Image: canvas, Regions: rc.regions}, nil
+}
+
+func checkRenderable(doc ScreenshotTemplateDocument, scale float64) error {
+	if scale != 1 && scale != 2 {
+		return errors.New("scale must be 1 or 2")
+	}
+	if err := Validate(doc); err != nil {
+		return err
+	}
+	if doc.TemplateID == "meme" {
+		return ErrUnsupported
+	}
+	return nil
+}
+
+// layout records the drawing operations and returns the content height in CSS px.
+func (rc *renderContext) layout(doc ScreenshotTemplateDocument) (float64, error) {
+	switch doc.TemplateID {
+	case "messages", "group-chat":
+		return rc.layoutChat(doc)
+	case "receipt":
+		return rc.layoutReceipt(doc.Receipt)
+	case "status-page":
+		return rc.layoutStatus(doc.StatusPage)
+	default:
+		return 0, ErrUnsupported
+	}
+}
+
+// outputHeight applies the frame's minimum height and the export bounds.
+func outputHeight(frame string, content, scale float64) (int, error) {
+	minimum := map[string]float64{"natural": 0, "square": 540, "portrait": 675}[frame]
+	if minimum > 0 && content > minimum+1 {
+		return 0, ErrOverflow
+	}
+	pixels := int(math.Ceil(math.Max(content, minimum)*scale - 1e-6))
+	if pixels > MaxRenderHeight {
+		return 0, ErrTooTall
+	}
+	return pixels, nil
 }
 
 func fill(canvas *image.RGBA, col color.RGBA) {

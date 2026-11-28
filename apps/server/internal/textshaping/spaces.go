@@ -26,7 +26,7 @@ func NormalizeFallbackSpaces(run *shaping.Output, text []rune, primary *textfont
 	changed := false
 	for index := range run.Glyphs {
 		glyph := &run.Glyphs[index]
-		if glyph.RuneCount == 1 && glyph.ClusterIndex >= 0 && glyph.ClusterIndex < len(text) && unicode.Is(unicode.Zs, text[glyph.ClusterIndex]) {
+		if glyph.RunesCount() == 1 && glyph.TextIndex() >= 0 && glyph.TextIndex() < len(text) && unicode.Is(unicode.Zs, text[glyph.TextIndex()]) {
 			glyph.Advance = advance
 			changed = true
 		}

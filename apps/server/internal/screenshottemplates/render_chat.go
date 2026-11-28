@@ -2,6 +2,7 @@ package screenshottemplates
 
 import (
 	"image"
+	"image/color"
 	"strings"
 	"unicode"
 )
@@ -61,10 +62,16 @@ func (rc *renderContext) layoutChat(doc ScreenshotTemplateDocument) (float64, er
 	return y + 26, nil
 }
 
+// chatBubble is a message bubble's measured content.
+type chatBubble struct {
+	width, height, imageHeight float64
+	photo                      image.Image
+	block                      *textBlock
+}
+
 func (rc *renderContext) chatMessage(message ScreenshotTemplateMessage, sender ScreenshotTemplatePerson, outgoing, grouped, last, group bool, top float64) (float64, error) {
-	hasAvatar := sender.AvatarMediaID != ""
 	pad := 0.0
-	if hasAvatar {
+	if sender.AvatarMediaID != "" {
 		pad = 44
 	}
 	available := 496 - pad
@@ -74,77 +81,90 @@ func (rc *renderContext) chatMessage(message ScreenshotTemplateMessage, sender S
 		rc.text(block, 22+pad+15, y, available-30, alignStart)
 		y += block.height() + 4
 	}
-	body := message.Text
-	if body == "" && message.ImageMediaID == "" {
-		body = " "
-	}
 	textColor, bubbleColor := rc.pal.text, rc.pal.bubble
 	if outgoing {
 		textColor, bubbleColor = hex(0xffffff), accentBlue
 	}
-	bodyStyle := rc.style(false, 400, rc.size, textColor, 1.24)
-	var width, height, imageHeight float64
-	var photo image.Image
-	var shaped *shapedText
-	var block *textBlock
-	if message.ImageMediaID != "" {
-		img, err := rc.image(message.ImageMediaID)
-		if err != nil {
-			return 0, err
-		}
-		photo = img
-		bounds := img.Bounds()
-		imageHeight = min(380, 300*float64(bounds.Dy())/float64(bounds.Dx()))
-		width, height = 300, imageHeight
-		if body != "" {
-			block = rc.layoutText([]span{{body, bodyStyle}}, 266, true)
-			height += 22 + block.height()
-		}
-	} else {
-		shaped = rc.shape([]span{{body, bodyStyle}}, true)
-		width = max(32, min(shaped.maxContent()+34, 0.82*available))
-		block = shaped.wrap(width - 34)
-		height = 22 + block.height()
+	bubble, err := rc.measureBubble(message, rc.style(false, 400, rc.size, textColor, 1.24), available)
+	if err != nil {
+		return 0, err
 	}
 	x := 22 + pad
 	if outgoing {
-		x = 540 - 22 - pad - width
+		x = 540 - 22 - pad - bubble.width
 	}
-	bottom := y + height
-	if hasAvatar && last {
-		img, err := rc.image(sender.AvatarMediaID)
-		if err != nil {
+	bottom := y + bubble.height
+	if sender.AvatarMediaID != "" && last {
+		if err := rc.messageAvatar(sender.AvatarMediaID, outgoing, bottom); err != nil {
 			return 0, err
 		}
-		ax := 22.0
-		if outgoing {
-			ax = 540 - 22 - 29
-		}
-		rc.picture(img, ax, bottom-29, 29, 29, uniformRadius(14.5), fitCover)
 	}
-	rc.fillRR(x, y, width, height, uniformRadius(24), bubbleColor, 1)
-	if last && photo == nil {
-		// iMessage tail: a square-cornered base plus a background cut-out.
-		if outgoing {
-			rc.fillRR(x+width-22+7, bottom-21, 22, 21, [4]float64{0, 0, 0, 18}, bubbleColor, 1)
-			rc.fillRR(x+width, bottom-23, 13, 23, [4]float64{0, 0, 0, 13}, rc.pal.bg, 1)
-		} else {
-			rc.fillRR(x-7, bottom-21, 22, 21, [4]float64{0, 0, 18, 0}, bubbleColor, 1)
-			rc.fillRR(x-13, bottom-23, 13, 23, [4]float64{0, 0, 13, 0}, rc.pal.bg, 1)
-		}
+	rc.fillRR(x, y, bubble.width, bubble.height, uniformRadius(24), bubbleColor, 1)
+	if last && bubble.photo == nil {
+		rc.bubbleTail(x, bubble.width, bottom, outgoing, bubbleColor)
 	}
-	if photo != nil {
-		rc.picture(photo, x, y, width, imageHeight, [4]float64{24, 24, 0, 0}, fitContain)
+	textTop := y + 11
+	if bubble.photo != nil {
+		rc.picture(bubble.photo, x, y, bubble.width, bubble.imageHeight, [4]float64{24, 24, 0, 0}, fitContain)
+		textTop = y + bubble.imageHeight + 11
 	}
-	if block != nil {
-		textTop := y + 11
-		if photo != nil {
-			textTop = y + imageHeight + 11
-		}
-		rc.text(block, x+17, textTop, width-34, alignStart)
+	if bubble.block != nil {
+		rc.text(bubble.block, x+17, textTop, bubble.width-34, alignStart)
 	}
-	rc.region(message.ID, x, y, width, height)
+	rc.region(message.ID, x, y, bubble.width, bubble.height)
 	return bottom, nil
+}
+
+// measureBubble sizes a text bubble to its content, or a photo bubble to
+// 300 px wide with an optional caption.
+func (rc *renderContext) measureBubble(message ScreenshotTemplateMessage, bodyStyle style, available float64) (chatBubble, error) {
+	body := message.Text
+	if message.ImageMediaID == "" {
+		if body == "" {
+			body = " "
+		}
+		shaped := rc.shape([]span{{body, bodyStyle}}, true)
+		width := max(32, min(shaped.maxContent()+34, 0.82*available))
+		block := shaped.wrap(width - 34)
+		return chatBubble{width: width, height: 22 + block.height(), block: block}, nil
+	}
+	img, err := rc.image(message.ImageMediaID)
+	if err != nil {
+		return chatBubble{}, err
+	}
+	bounds := img.Bounds()
+	imageHeight := min(380, 300*float64(bounds.Dy())/float64(bounds.Dx()))
+	bubble := chatBubble{width: 300, height: imageHeight, imageHeight: imageHeight, photo: img}
+	if body != "" {
+		bubble.block = rc.layoutText([]span{{body, bodyStyle}}, 266, true)
+		bubble.height += 22 + bubble.block.height()
+	}
+	return bubble, nil
+}
+
+func (rc *renderContext) messageAvatar(mediaID string, outgoing bool, bottom float64) error {
+	img, err := rc.image(mediaID)
+	if err != nil {
+		return err
+	}
+	x := 22.0
+	if outgoing {
+		x = 540 - 22 - 29
+	}
+	rc.picture(img, x, bottom-29, 29, 29, uniformRadius(14.5), fitCover)
+	return nil
+}
+
+// bubbleTail draws the iMessage tail: a square-cornered base plus a
+// background cut-out.
+func (rc *renderContext) bubbleTail(x, width, bottom float64, outgoing bool, color color.RGBA) {
+	if outgoing {
+		rc.fillRR(x+width-22+7, bottom-21, 22, 21, [4]float64{0, 0, 0, 18}, color, 1)
+		rc.fillRR(x+width, bottom-23, 13, 23, [4]float64{0, 0, 0, 13}, rc.pal.bg, 1)
+		return
+	}
+	rc.fillRR(x-7, bottom-21, 22, 21, [4]float64{0, 0, 18, 0}, color, 1)
+	rc.fillRR(x-13, bottom-23, 13, 23, [4]float64{0, 0, 13, 0}, rc.pal.bg, 1)
 }
 
 func (rc *renderContext) chatHeader(chat *ScreenshotTemplateConversation, group bool) (float64, error) {

@@ -20,7 +20,7 @@ func conversation(template string, texts ...string) ScreenshotTemplateDocument {
 			people = append(people, ScreenshotTemplatePerson{ID: strings.ToLower(name), Name: name})
 		}
 	}
-	var messages []ScreenshotTemplateMessage
+	messages := make([]ScreenshotTemplateMessage, 0, len(texts))
 	for i, text := range texts {
 		sender := "ana"
 		if i%3 == 1 {
@@ -166,7 +166,7 @@ func TestImagesRender(t *testing.T) {
 	doc := sixMessages()
 	doc.Conversation.People[1].AvatarMediaID = "avatar"
 	doc.Conversation.Messages[0].ImageMediaID = "photo"
-	source := func(_ context.Context, id string) (image.Image, error) {
+	source := func(context.Context, string) (image.Image, error) {
 		img := image.NewRGBA(image.Rect(0, 0, 400, 300))
 		for i := 0; i < len(img.Pix); i += 4 {
 			img.Pix[i], img.Pix[i+1], img.Pix[i+2], img.Pix[i+3] = 220, 40, 40, 255
@@ -232,7 +232,7 @@ func TestWriteRenders(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	avatar := func(_ context.Context, id string) (image.Image, error) {
+	avatar := func(context.Context, string) (image.Image, error) {
 		img := image.NewRGBA(image.Rect(0, 0, 600, 400))
 		for y := 0; y < 400; y++ {
 			for x := 0; x < 600; x++ {

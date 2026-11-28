@@ -19,6 +19,6 @@
     "vitest": "4.1.11"
   },
   "peerDependencies": {
-    "@tanstack/query-core": "5.102.8"
+    "@tanstack/query-core": "5.105.3"
   }
 }

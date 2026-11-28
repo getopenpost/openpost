@@ -30,8 +30,8 @@
     "@openpost/video-project": "file:../../packages/video-project",
     "@react-native-community/datetimepicker": "9.1.0",
     "@swmansion/react-native-bottom-sheet": "0.16.2",
-    "@tanstack/query-core": "5.102.8",
-    "@tanstack/react-query": "5.102.8",
+    "@tanstack/query-core": "5.105.3",
+    "@tanstack/react-query": "5.105.3",
     "expo": "~57.0.33",
     "expo-application": "~57.0.3",
     "expo-camera": "~57.0.6",
@@ -82,6 +82,7 @@
     "typescript": "~6.0.3"
   },
   "overrides": {
+    "@openpost/api-contract": "$@openpost/api-contract",
     "expo-constants": "$expo-constants",
     "expo-linking": "$expo-linking",
     "source-map-js": "1.2.2"

@@ -807,6 +807,11 @@ func main() {
 	if publicationBuilderService != nil {
 		publicationBuilderService.SetMemeProvider(memeProvider)
 	}
+	// One renderer serves editor previews, exports and headless build commits.
+	templateRenderer := handlers.NewScreenshotTemplateRenderer(db, storage, mediaHandler)
+	if publicationBuilderApplication != nil {
+		publicationBuilderApplication.SetVisualRenderer(templateRenderer)
+	}
 
 	var feedbackDestination feedback.Destination
 	if cfg.FeedbackEnabled {
@@ -1102,6 +1107,7 @@ func main() {
 		DiagnosticsReporter:          diagnosticsReporter,
 		DiagnosticsIngester:          newDiagnosticsIngester(cfg),
 		MediaHandler:                 mediaHandler,
+		TemplateRenderer:             templateRenderer,
 		PublicMediaVerifier:          publicMediaVerifier,
 		ProfileHandler:               profileHandler,
 		BillingHandler:               billingHandler,

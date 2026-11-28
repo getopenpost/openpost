@@ -11,7 +11,9 @@ import (
 )
 
 const SchemaVersion = 1
-const Renderer = "openpost-screenshot-html-v1"
+
+// Renderer identifies the server renderer on saved export recipes.
+const Renderer = "openpost-screenshot-go-v1"
 
 type ScreenshotTemplatePerson struct {
 	ID            string `json:"id" minLength:"1" maxLength:"80"`

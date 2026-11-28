@@ -152,11 +152,14 @@ type RouteDeps struct {
 	// in server configuration and never reaches API responses.
 	DiagnosticsIngester *diagnostics.Ingester
 
-	MediaHandler    *handlers.MediaHandler
-	BillingHandler  *handlers.BillingHandler
-	MCPOAuthHandler *handlers.MCPOAuthHandler
-	MCPHandler      *handlers.MCPHandler
-	ProfileHandler  *handlers.ProfileHandler
+	MediaHandler *handlers.MediaHandler
+	// TemplateRenderer is shared with the publication builder so headless
+	// commits render visuals with the same renderer as the editor.
+	TemplateRenderer *handlers.ScreenshotTemplateRenderer
+	BillingHandler   *handlers.BillingHandler
+	MCPOAuthHandler  *handlers.MCPOAuthHandler
+	MCPHandler       *handlers.MCPHandler
+	ProfileHandler   *handlers.ProfileHandler
 }
 
 func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
@@ -175,15 +178,21 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	mediaHandler.SetPublicMediaVerifier(deps.PublicMediaVerifier)
 	mediaHandler.RegisterRoutes(api)
 	mediaHandler.RegisterImageCaptionRoutes(api, deps.ImageCaptioner)
-	handlers.NewScreenshotTemplateHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
-	handlers.NewMemeHandler(
+	memeHandler := handlers.NewMemeHandler(
 		deps.DB,
 		deps.Authenticator,
 		mediaHandler,
 		deps.PublicMediaVerifier,
 		deps.MemeProvider,
 		deps.MemeSuggester,
-	).RegisterRoutes(api)
+	)
+	templateRenderer := deps.TemplateRenderer
+	if templateRenderer == nil {
+		templateRenderer = handlers.NewScreenshotTemplateRenderer(deps.DB, deps.MediaStorage, mediaHandler)
+	}
+	templateRenderer.SetMemes(memeHandler)
+	handlers.NewScreenshotTemplateHandler(deps.DB, deps.Authenticator, templateRenderer).RegisterRoutes(api)
+	memeHandler.RegisterRoutes(api)
 	handlers.NewImageEditorHandler(
 		deps.DB,
 		deps.Authenticator,

@@ -730,32 +730,60 @@ func (h *MemeHandler) renderMeme(ctx context.Context, input *RenderMemeInput) (*
 		return nil, err
 	}
 
-	rendered, template, catalog, err := h.render(ctx, memeRenderParameters{
-		WorkspaceID: input.Body.WorkspaceID, TemplateID: input.Body.TemplateID,
+	media, deduped, recipe, document, err := h.renderAndSave(ctx, memeSaveInput{
+		WorkspaceID: input.Body.WorkspaceID, UserID: middleware.GetUserID(ctx), TemplateID: input.Body.TemplateID,
 		Captions: input.Body.Captions, OverlayMediaIDs: input.Body.OverlayMediaIDs, Format: input.Body.Format,
-		Height: memePublishHeight(input.Body.Format),
+		RetentionClass: input.Body.RetentionClass, Filename: filename, AltText: altText,
+		ParentMediaID: input.Body.ParentMediaID,
 	})
 	if err != nil {
 		return nil, err
 	}
-	if altText == "" {
-		altText = defaultMemeAltText(template, input.Body.Captions)
+	output := &RenderMemeOutput{}
+	output.Body.Media = mediaUploadResultFromAttachment(media, deduped)
+	output.Body.Recipe = memeRecipeResponse(recipe, document)
+	return output, nil
+}
+
+// memeSaveInput is a validated meme render request with an explicit actor, so
+// headless build commits save memes exactly like the editor does.
+type memeSaveInput struct {
+	WorkspaceID, UserID, TemplateID, Format string
+	RetentionClass, Filename, AltText       string
+	ParentMediaID                           string
+	Captions, OverlayMediaIDs               []string
+}
+
+// renderAndSave renders at publishing size, imports the media and stores its
+// editable recipe, compensating the import when the recipe cannot be saved.
+func (h *MemeHandler) renderAndSave(ctx context.Context, input memeSaveInput) (models.MediaAttachment, bool, models.MediaGenerationRecipe, MemeRecipeDocument, error) {
+	rendered, template, catalog, err := h.render(ctx, memeRenderParameters{
+		WorkspaceID: input.WorkspaceID, TemplateID: input.TemplateID,
+		Captions: input.Captions, OverlayMediaIDs: input.OverlayMediaIDs, Format: input.Format,
+		Height: memePublishHeight(input.Format),
+	})
+	if err != nil {
+		return models.MediaAttachment{}, false, models.MediaGenerationRecipe{}, MemeRecipeDocument{}, err
 	}
-	releaseImport, acquired := h.imports.acquire(middleware.GetUserID(ctx))
+	altText := input.AltText
+	if altText == "" {
+		altText = defaultMemeAltText(template, input.Captions)
+	}
+	releaseImport, acquired := h.imports.acquire(input.UserID)
 	if !acquired {
-		return nil, huma.Error429TooManyRequests("another generated image is still being saved; try again shortly")
+		return models.MediaAttachment{}, false, models.MediaGenerationRecipe{}, MemeRecipeDocument{}, huma.Error429TooManyRequests("another generated image is still being saved; try again shortly")
 	}
 	media, deduped, err := h.importer.ImportMeme(ctx, MemeMediaImport{
-		WorkspaceID: input.Body.WorkspaceID, TemplateID: template.ID, RetentionClass: input.Body.RetentionClass, Filename: filename,
+		WorkspaceID: input.WorkspaceID, TemplateID: template.ID, RetentionClass: input.RetentionClass, Filename: input.Filename,
 		Extension: rendered.Extension, MIMEType: rendered.MIMEType, Data: rendered.Data,
-		AltText: altText, ParentMediaID: strings.TrimSpace(input.Body.ParentMediaID),
+		AltText: altText, ParentMediaID: strings.TrimSpace(input.ParentMediaID),
 	})
 	releaseImport()
 	if err != nil {
 		if media.ID != "" && !deduped {
 			h.rollbackImportedMeme(ctx, media)
 		}
-		return nil, memeImportError(err)
+		return models.MediaAttachment{}, false, models.MediaGenerationRecipe{}, MemeRecipeDocument{}, memeImportError(err)
 	}
 
 	revision := memeCatalogRevision(catalog)
@@ -766,28 +794,28 @@ func (h *MemeHandler) renderMeme(ctx context.Context, input *RenderMemeInput) (*
 			ID: template.ID, Name: template.Name, Lines: template.Lines,
 			Overlays: template.Overlays, SourceURL: sourceURL,
 		},
-		Captions:        append([]string(nil), input.Body.Captions...),
-		OverlayMediaIDs: append([]string(nil), input.Body.OverlayMediaIDs...),
+		Captions:        append([]string(nil), input.Captions...),
+		OverlayMediaIDs: append([]string(nil), input.OverlayMediaIDs...),
 		Format:          rendered.Extension, RenderedMIMEType: rendered.MIMEType,
-		AltText: altText, ParentMediaID: strings.TrimSpace(input.Body.ParentMediaID),
+		AltText: altText, ParentMediaID: strings.TrimSpace(input.ParentMediaID),
 	}
 	recipeJSON, err := json.Marshal(document)
 	if err != nil {
 		if !deduped {
 			h.rollbackImportedMeme(ctx, media)
 		}
-		return nil, huma.Error500InternalServerError("failed to save meme recipe")
+		return models.MediaAttachment{}, false, models.MediaGenerationRecipe{}, MemeRecipeDocument{}, huma.Error500InternalServerError("failed to save meme recipe")
 	}
 	recipe := models.MediaGenerationRecipe{
-		MediaID: media.ID, WorkspaceID: input.Body.WorkspaceID,
-		CreatedByID: middleware.GetUserID(ctx), Kind: "meme", RendererKey: h.provider.Key(),
+		MediaID: media.ID, WorkspaceID: input.WorkspaceID,
+		CreatedByID: input.UserID, Kind: "meme", RendererKey: h.provider.Key(),
 		TemplateID: template.ID, TemplateName: template.Name, TemplateSourceURL: sourceURL,
 		CatalogRevision: revision, RecipeJSON: string(recipeJSON), CreatedAt: h.now().UTC(),
 	}
 	if err := h.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		sourceDocument := ScreenshotTemplateDocument{Meme: &ScreenshotTemplateMeme{OverlayMediaIDs: document.OverlayMediaIDs, ParentMediaID: document.ParentMediaID}}
 		ids := screenshotTemplateMediaIDs(sourceDocument)
-		if err := validateScreenshotTemplateMedia(ctx, tx, input.Body.WorkspaceID, sourceDocument); err != nil {
+		if err := validateScreenshotTemplateMedia(ctx, tx, input.WorkspaceID, sourceDocument); err != nil {
 			return err
 		}
 		if _, err := tx.NewInsert().Model(&recipe).Exec(ctx); err != nil {
@@ -806,13 +834,9 @@ func (h *MemeHandler) renderMeme(ctx context.Context, input *RenderMemeInput) (*
 		if !deduped {
 			h.rollbackImportedMeme(ctx, media)
 		}
-		return nil, huma.Error500InternalServerError("failed to save meme recipe")
+		return models.MediaAttachment{}, false, models.MediaGenerationRecipe{}, MemeRecipeDocument{}, huma.Error500InternalServerError("failed to save meme recipe")
 	}
-
-	output := &RenderMemeOutput{}
-	output.Body.Media = mediaUploadResultFromAttachment(media, deduped)
-	output.Body.Recipe = memeRecipeResponse(recipe, document)
-	return output, nil
+	return media, deduped, recipe, document, nil
 }
 
 func (h *MemeHandler) getRecipe(ctx context.Context, input *GetMemeRecipeInput) (*GetMemeRecipeOutput, error) {

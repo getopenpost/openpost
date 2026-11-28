@@ -87,6 +87,9 @@ func (application *Application) Commit(
 	if len(result.Options) > 0 && result.SelectedOptionID == "" {
 		return Build{}, errors.New("choose a post option before creating the draft")
 	}
+	if err := application.renderPlannedVisuals(ctx, record.WorkspaceID, userID, &request, &result); err != nil {
+		return Build{}, err
+	}
 	selectedMediaIDs := selectedSourceMediaIDs(request.Assets, result)
 	if err := application.validateCommitSourceMedia(ctx, record.WorkspaceID, selectedMediaIDs); err != nil {
 		return Build{}, err

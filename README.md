@@ -139,7 +139,6 @@ Run OpenPost with Docker Compose. The default setup uses one container with SQLi
 [Configure integrations](https://openpo.st/docs/self-hosting/integrations) · [Backups and upgrades](https://openpo.st/docs/self-hosting/maintenance)
 
 <p>
-  <a href="https://app.openpo.st/register"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/brand/logo-dark.svg"><img src="./assets/brand/logo.svg" alt="OpenPost Hosted" title="OpenPost Hosted" width="32" height="32" align="middle"></picture></a>
   <a href="https://openpo.st/docs/self-hosting/"><img src="./assets/logos/docker.svg" alt="Docker Compose" title="Docker Compose" width="32" height="32" align="middle"></a>
   <a href="https://openpo.st/docs/self-hosting/coolify"><img src="./assets/logos/coolify.svg" alt="Coolify" title="Coolify" width="32" height="32" align="middle"></a>
   <a href="https://openpo.st/docs/self-hosting/dokploy"><picture><source media="(prefers-color-scheme: dark)" srcset="./assets/logos/dokploy-white.svg"><img src="./assets/logos/dokploy.svg" alt="Dokploy" title="Dokploy" width="32" height="32" align="middle"></picture></a>

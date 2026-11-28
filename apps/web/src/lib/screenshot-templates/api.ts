@@ -116,10 +116,7 @@ export async function previewScreenshot(
 		signal
 	});
 	if (!response.ok || !data)
-		throw new LivePreviewError(
-			(error as { detail?: string } | undefined)?.detail || m.preview_load_failed(),
-			response.status
-		);
+		throw new LivePreviewError(error?.detail || m.preview_load_failed(), response.status);
 	return {
 		url: `data:${data.mime_type};base64,${data.data_base64}`,
 		width: data.width,

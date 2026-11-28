@@ -1,3 +1,4 @@
+/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-known-value-widening -- Benchmark fixtures build partial timeline items for synthetic projects and wrap renderer prototypes for timing; they never ship. */
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	BufferTarget,

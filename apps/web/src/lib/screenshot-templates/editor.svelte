@@ -85,9 +85,12 @@
 		design.can_edit && workspaceCtx.currentWorkspace?.id === design.workspace_id
 	);
 	let viewportWidth = $state(600);
+	// LivePreview always renders the newest requested key, so the document
+	// recorded with that key is the one to send.
+	let requested: { key: string; document: ScreenshotDocument } | null = null;
 	const preview = new LivePreview<ScreenshotPreviewImage>((key, signal) => {
-		const { document: previewDocument } = JSON.parse(key) as { document: ScreenshotDocument };
-		return previewScreenshot(initial.workspace_id, previewDocument, EXPORT_SCALE, signal);
+		if (!requested || requested.key !== key) throw new Error(m.preview_load_failed());
+		return previewScreenshot(initial.workspace_id, requested.document, EXPORT_SCALE, signal);
 	});
 	let savePromise: Promise<void> | undefined;
 	let mounted = true;
@@ -113,7 +116,9 @@
 			preview.request(null);
 			return;
 		}
-		preview.request(JSON.stringify({ workspace: initial.workspace_id, document: doc }));
+		const key = JSON.stringify({ workspace: initial.workspace_id, document: doc });
+		requested = { key, document: doc };
+		preview.request(key);
 	});
 	$effect(() => {
 		const meme = doc.meme;

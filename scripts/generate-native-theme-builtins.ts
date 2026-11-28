@@ -1,4 +1,6 @@
 import { BUILT_IN_THEMES } from "../packages/ui/src/lib/themes/builtins";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
 import {
@@ -72,14 +74,24 @@ const unformatted = `// Generated from packages/ui/src/lib/themes/builtins.ts. D
   null,
   2,
 )} as const satisfies Readonly<Record<string, NativeThemeFamily>>;\n`;
-const formatter = Bun.spawn(["bunx", "oxfmt", `--stdin-filepath=${outputPath}`], {
-  cwd: projectRoot,
-  stdin: new Blob([unformatted]),
-  stdout: "pipe",
-  stderr: "inherit",
-});
-const generated = await new Response(formatter.stdout).text();
-if ((await formatter.exited) !== 0) throw new Error("Could not format native built-in themes");
+// oxfmt can exit before a pipe drains, which cuts its output off at the pipe
+// buffer size; the generated file is far larger. Writing stdout to a file
+// keeps the whole output.
+const scratch = await mkdtemp(resolve(tmpdir(), "openpost-native-themes-"));
+let generated: string;
+try {
+  const formattedPath = resolve(scratch, "builtins.generated.ts");
+  const formatter = Bun.spawn(["bunx", "oxfmt", `--stdin-filepath=${outputPath}`], {
+    cwd: projectRoot,
+    stdin: new Blob([unformatted]),
+    stdout: Bun.file(formattedPath),
+    stderr: "inherit",
+  });
+  if ((await formatter.exited) !== 0) throw new Error("Could not format native built-in themes");
+  generated = await Bun.file(formattedPath).text();
+} finally {
+  await rm(scratch, { recursive: true, force: true });
+}
 
 if (process.argv.includes("--check")) {
   const current = await Bun.file(outputPath).text();
